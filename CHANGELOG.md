@@ -2,6 +2,16 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.66] — 2026-07-22
+
+### Ajouté
+
+- **Recherche TMDB automatique au clic sur Récupérer** : dans `/search`, cliquer sur « Récupérer » pré-remplit maintenant la recherche TMDb avec le titre parsé du release, au lieu de laisser l'utilisateur taper manuellement.
+
+### Modifié
+
+- **Version** passée à 1.1.66.
+
 ## [1.1.65] — 2026-07-22
 
 ### Modifié
