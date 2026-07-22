@@ -250,7 +250,7 @@ The search page lets you directly query your configured indexers.
 - **Peers** — Seed count (colored)
 - **Action** — Grab button to download manually
 
-**Quality score:** Each release is scored based on your release profiles and custom formats. Higher scores indicate better matches for your preferences.
+**Quality score:** Each release is scored based on your configuration in Settings > Download > Quality (release profiles + custom formats). Higher scores indicate better matches for your preferences.
 
 **Grab button** — Manually download a specific release. The button turns into a checkmark once grabbed.
 
@@ -386,7 +386,7 @@ You can add titles to your watchlist from any title detail page using the bookma
 
 ## 14. Settings (/settings)
 
-Settings are organized into groups with a collapsible sidebar on desktop and bottom navigation on mobile. All Settings tabs (except Info) are admin-only.
+Settings are organized into 5 groups with a collapsible sidebar on desktop and bottom navigation on mobile. All Settings tabs (except About) are admin-only.
 
 ### 14.1. Download
 
@@ -435,21 +435,12 @@ Each indexer shows:
 
 **Resolver URL:** Configure the FlareSolverr URL (default: `http://localhost:9830`) used by the Cloudflare resolver.
 
-**Release profiles (Profiles):** Scoring and filtering rules for releases.
+**Quality:** Scoring and filtering rules for releases, combining release profiles and custom formats in a single tab.
 
 - **Blocked words** — A list of words that, if present in a release title, cause it to be rejected. Add words individually; remove with the X button.
 - **Maximum sizes** — Maximum allowed sizes for movies (GB), episodes (GB), and seasons (GB). Releases exceeding these are rejected.
 - **Codec scores** — Scores for video codecs: x264, x265, and AV1. Higher scores make releases with that codec more likely to be chosen.
-
-**Custom formats:** Regex-based scoring rules applied to release titles.
-
-Each custom format has:
-- **Name** — Display name
-- **Score** — Positive or negative score to apply
-- **Terms** — Comma-separated regex patterns matched against release titles
-- **Enable/disable toggle**
-
-Create custom formats to prioritize or deprioritize releases matching specific patterns (e.g., "HDR", "Dolby Vision", "Remux", etc.).
+- **Custom formats** — Regex-based scoring rules applied to release titles. Each format has a name, score (positive or negative), and regex terms. Create them to prioritize or deprioritize patterns like "HDR", "Dolby Vision", "Remux", etc.
 
 ### 14.2. Library
 
@@ -479,9 +470,62 @@ Create custom formats to prioritize or deprioritize releases matching specific p
 - **Plex profiles (User mapping):**
   - Map each Movviz user to a specific Plex Managed User (profile) so that play state reflects that profile's history
 
-### 14.3. Files
+**Naming:** Templates for file and folder naming with interactive token insertion.
 
-**Movie/Series Indexing:** Scan root library folders for orphan files — media files on disk that are not tracked in the Movviz library.
+Templates for:
+- **Movie folder** — e.g., `{title} ({year})`
+- **Movie file** — e.g., `{title} ({year}) [{quality}]`
+- **Series folder** — e.g., `{title} ({year})`
+- **Season folder** — e.g., `Season {season:00}`
+- **Episode file** — e.g., `{series} - S{season:00}E{episode:00} - {title}`
+
+**Interactive tokens:** Click a field, then click a token button to insert it at the cursor position. Available tokens include: `{title}`, `{year}`, `{quality}`, `{season}`, `{episode}`, `{series}` and more.
+
+**Dots or spaces:** Choose whether separators use dots or spaces.
+
+**Live preview:** As you edit templates, a preview shows what the resulting file paths will look like for a sample movie and episode.
+
+**Imports:** External watchlists that can be synced and automatically added to the library (under the "Imports" section).
+
+Supported sources:
+- **Trakt** — Trakt user lists
+- **IMDb** — IMDb lists
+- **Letterboxd** — Letterboxd watchlist
+
+For each list configure:
+- **Name** — A descriptive label
+- **Type** — Trakt, IMDb, or Letterboxd
+- **URL** — The list URL
+- **Auto-approve** — When enabled, items from this list are automatically approved (no manual approval needed)
+- **Sync button** — Manually trigger a sync
+
+Each list shows its last sync time.
+
+**Seerr import:** Import requests from an existing Overseerr instance.
+
+- **URL** — Your Seerr server URL
+- **API Key** — API key for authentication
+- **Test** — Verify the connection
+- **Import now** — Start the import process
+
+After import, a summary shows:
+- Users and requests scanned
+- Imported (approved and pending counts)
+- Skipped (already in library, already requested, rejected, blocked)
+- Failed imports
+- Unmatched users (Seerr users not found in Movviz)
+
+**Blocklist:** Titles that should never be added to the library.
+
+- **Add blocked title** — Search TMDb for a title, select it, optionally add a reason, and confirm
+- **Blocklist** — Shows all blocked titles with type, title, year, reason, who blocked it, and when
+- **Unblock** — Remove a title from the blocklist
+
+When a blocked title is encountered (via request or import), it is silently rejected with a "Blocked" message.
+
+### 14.3. Disk
+
+**Indexing:** Scan root library folders for orphan files — media files on disk that are not tracked in the Movviz library. A single tab with a Movie/Series toggle.
 
 - Select the root folder to scan
 - Matches are presented with an integrated TMDb search for manual matching if needed
@@ -500,20 +544,7 @@ Settings:
 - **"Remove empty folders"** — After rename, automatically remove now-empty directories
 - **Real-time progress + log** — Track the operation in real time
 
-**Naming:** Templates for file and folder naming with interactive token insertion.
-
-Templates for:
-- **Movie folder** — e.g., `{title} ({year})`
-- **Movie file** — e.g., `{title} ({year}) [{quality}]`
-- **Series folder** — e.g., `{title} ({year})`
-- **Season folder** — e.g., `Season {season:00}`
-- **Episode file** — e.g., `{series} - S{season:00}E{episode:00} - {title}`
-
-**Interactive tokens:** Click a field, then click a token button to insert it at the cursor position. Available tokens include: `{title}`, `{year}`, `{quality}`, `{season}`, `{episode}`, `{series}` and more.
-
-**Dots or spaces:** Choose whether separators use dots or spaces.
-
-**Live preview:** As you edit templates, a preview shows what the resulting file paths will look like for a sample movie and episode.
+**Maintenance:** Groups disk maintenance operations into a single tab.
 
 **Repair paths:** Detect library entries whose files have been moved or are missing.
 
@@ -545,53 +576,11 @@ When a movie or series is removed from Movviz with its files, the files can be m
 - **Retention** — Days before trash files are permanently deleted (configurable)
 - **Item count** — Shows how many items are currently in the trash
 
-A background task runs daily to clear expired trash.
+### 14.4. Notifications
 
-### 14.4. Imports
+Configure push notifications for media events (grabbed, imported, failed, etc.). This single tab groups transports, webhook, and activity options.
 
-**Import lists:** External watchlists that can be synced and automatically added to the library.
-
-Supported sources:
-- **Trakt** — Trakt user lists
-- **IMDb** — IMDb lists
-- **Letterboxd** — Letterboxd watchlist
-
-For each list configure:
-- **Name** — A descriptive label
-- **Type** — Trakt, IMDb, or Letterboxd
-- **URL** — The list URL
-- **Auto-approve** — When enabled, items from this list are automatically approved (no manual approval needed)
-- **Sync button** — Manually trigger a sync
-
-Each list shows its last sync time.
-
-**Import from Seerr:** Import requests from an existing Overseerr instance.
-
-- **URL** — Your Seerr server URL
-- **API Key** — API key for authentication
-- **Test** — Verify the connection
-- **Import now** — Start the import process
-
-After import, a summary shows:
-- Users and requests scanned
-- Imported (approved and pending counts)
-- Skipped (already in library, already requested, rejected, blocked)
-- Failed imports
-- Unmatched users (Seerr users not found in Movviz)
-
-**Blocklist:** Titles that should never be added to the library.
-
-- **Add blocked title** — Search TMDb for a title, select it, optionally add a reason, and confirm
-- **Blocklist** — Shows all blocked titles with type, title, year, reason, who blocked it, and when
-- **Unblock** — Remove a title from the blocklist
-
-When a blocked title is encountered (via request or import), it is silently rejected with a "Blocked" message.
-
-### 14.5. Notifications
-
-**Notifications:** Configure push notifications for media events (grabbed, imported, failed, etc.).
-
-Supported transports:
+**Transports:**
 - **Discord** — Webhook URL
 - **Telegram** — Bot token + Chat ID
 - **Gotify** — Server URL + App token
@@ -609,7 +598,9 @@ Each transport:
 - **URL** — The webhook endpoint
 - **Test button** — Sends a test payload
 
-### 14.6. System
+**Quality upgrades:** Toggle automatic searching and downloading of higher-quality versions of already-available content.
+
+### 14.5. System
 
 **Diagnostics:** Real-time system health overview.
 
@@ -659,11 +650,7 @@ Actions:
 - **Export** — Download all settings, library metadata, and configuration as a JSON file
 - **Import** — Upload a previously exported JSON file to restore configuration
 
-**Activities:** Quality upgrade behavior.
-
-- **Quality upgrades toggle** — When enabled, Movviz automatically searches for and downloads higher-quality versions of already-available content when a better release is found
-
-### 14.7. Info
+**About:** Application information.
 
 - **Version** — Current Movviz version number
 - **License** — GNU General Public License v3.0
@@ -673,11 +660,9 @@ Actions:
   - On **Windows**: One-click install button that downloads and applies the update automatically
   - On **Docker/other platforms**: Shows a link to the GitHub releases page with instructions
 
-### 14.8. Danger Zone
+**Danger Zone:** Irreversible actions at the bottom of the group, visually separated.
 
-Irreversible actions that should be used with extreme caution. Each action requires typing a confirmation word before it can be executed.
-
-Available actions:
+Each action requires typing a confirmation word before it can be executed:
 - **Clear all movies** — Remove all movies from the library
 - **Clear all series** — Remove all series from the library
 - **Clear activity history** — Delete all activity history
@@ -685,11 +670,6 @@ Available actions:
 - **Clear requests** — Delete all user requests
 - **Clear reported issues** — Remove all reported issues
 - **Reset Plex sync state** — Reset Plex sync tracking
-
-Each action shows:
-- Title and description of what will happen
-- An "Execute" button that reveals a confirmation input
-- Type the confirmation word and click the confirm button to execute
 
 ---
 
@@ -783,7 +763,7 @@ Opens the indexer search page (`/search`) in a modal/dialog context, pre-filled 
 - Verify the engine process is running (`npm run engine` or the Windows service)
 - Check that port 9820 is not blocked by a firewall
 - In Settings > Download > Clients, click "Restart engine"
-- Check engine logs in Settings > System > Diagnostics > Engine logs
+- Check engine logs in Settings > System > Diagnostics
 - Verify the engine state file is not corrupted
 
 ### Indexer errors
@@ -793,8 +773,8 @@ Opens the indexer search page (`/search`) in a modal/dialog context, pre-filled 
 **Solutions:**
 - Check each indexer's test result in Settings > Download > Indexers
 - Verify your API keys are still valid
-- For Cloudflare-protected indexers, enable the "Cloudflare resolver" and ensure FlareSolverr is running
-- Check min/max size and maximum age filters — they might be too restrictive
+- For Cloudflare-protected indexers, enable the "Cloudflare solver" and ensure FlareSolverr is running
+- Check min/max size and max age filters in Settings > Download > Quality — they may be too restrictive
 - Look for per-indexer error messages in the search page warning banner
 
 ### Broken paths (Docker bind mounts)
@@ -802,8 +782,8 @@ Opens the indexer search page (`/search`) in a modal/dialog context, pre-filled 
 **Symptoms:** Files exist on disk but the library shows "missing" status. Repair paths scan shows candidates with wrong paths.
 
 **Solutions:**
-- Run a Repair paths scan in Settings > Files > Repair paths
-- For Docker bind mounts, Movviz attempts silent auto-relinking — check if it worked
+- Run a scan in Settings > Disk > Maintenance > Repair paths
+- For Docker bind mounts, Movviz attempts silent auto-relinking — check that it worked
 - If auto-relinking did not work, use the manual file browser to correct paths
 - Ensure your Docker volume mounts are consistent across restarts
 

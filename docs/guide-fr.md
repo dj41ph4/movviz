@@ -250,7 +250,7 @@ La page de recherche vous permet d'interroger directement vos indexeurs configur
 - **Pairs** — Comptage des seeders (coloré)
 - **Action** — Bouton de récupération pour télécharger manuellement
 
-**Score de qualité :** Chaque release est évaluée selon vos profils de release et formats personnalisés. Des scores plus élevés indiquent de meilleures correspondances avec vos préférences.
+**Score de qualité :** Chaque release est évaluée selon votre configuration dans Réglages > Téléchargement > Qualité (profils de release + formats personnalisés). Des scores plus élevés indiquent de meilleures correspondances avec vos préférences.
 
 **Bouton Récupérer** — Télécharge manuellement une release spécifique. Le bouton se transforme en coche une fois récupérée.
 
@@ -386,11 +386,11 @@ Vous pouvez ajouter des titres à votre watchlist depuis n'importe quelle page d
 
 ## 14. Réglages (/settings)
 
-Les Réglages sont organisés en groupes avec une barre latérale escamotable sur desktop et une navigation en bas de page sur mobile. Tous les onglets des Réglages (sauf Info) sont accessibles uniquement aux administrateurs.
+Les Réglages sont organisés en 5 groupes avec une barre latérale escamotable sur desktop et une navigation en bas de page sur mobile. Tous les onglets des Réglages (sauf À propos) sont accessibles uniquement aux administrateurs.
 
 ### 14.1. Téléchargement
 
-**Client :** Deux instances intégrées du moteur BitTorrent — une pour les films, une pour les séries. Chaque instance affiche :
+**Clients :** Deux instances intégrées du moteur BitTorrent — une pour les films, une pour les séries. Chaque instance affiche :
 - Indicateur de statut (en ligne/hors ligne)
 - Protocole (Torrent)
 - Association de catégorie (Film/Série)
@@ -412,7 +412,7 @@ Lors de la modification, vous pouvez configurer :
 
 **Bouton Redémarrer le moteur** — Si le moteur est hors ligne, un bouton de redémarrage apparaît.
 
-**Indexeur :** Configurez les indexeurs Torznab/Newznab pour la recherche de releases.
+**Indexeurs :** Configurez les indexeurs Torznab/Newznab pour la recherche de releases.
 
 Chaque indexeur affiche :
 - Protocole (Torrent/Usenet) avec icône
@@ -435,21 +435,12 @@ Chaque indexeur affiche :
 
 **URL du résolveur :** Configurez l'URL de FlareSolverr (par défaut : `http://localhost:9830`) utilisé par le résolveur Cloudflare.
 
-**Profils de release (Profils) :** Règles de score et de filtrage pour les releases.
+**Qualité :** Règles de score et de filtrage pour les releases, combinant les profils de release et les formats personnalisés en un seul onglet.
 
 - **Mots bloqués** — Une liste de mots qui, s'ils sont présents dans le titre d'une release, la font rejeter. Ajoutez des mots individuellement ; supprimez avec le bouton X.
 - **Tailles maximales** — Tailles maximales autorisées pour les films (Go), les épisodes (Go) et les saisons (Go). Les releases qui les dépassent sont rejetées.
 - **Scores de codec** — Scores pour les codecs vidéo : x264, x265 et AV1. Des scores plus élevés rendent les releases avec ce codec plus susceptibles d'être choisies.
-
-**Formats personnalisés :** Règles de score basées sur des regex appliquées aux titres des releases.
-
-Chaque format personnalisé possède :
-- **Nom** — Nom affiché
-- **Score** — Score positif ou négatif à appliquer
-- **Termes** — Motifs regex séparés par des virgules comparés aux titres des releases
-- **Activation/désactivation**
-
-Créez des formats personnalisés pour prioritiser ou déprioritiser les releases qui correspondent à des motifs spécifiques (ex. « HDR », « Dolby Vision », « Remux », etc.).
+- **Formats personnalisés** — Règles de score basées sur des regex appliquées aux titres des releases. Chaque format possède un nom, un score (positif ou négatif) et des termes regex. Créez-en pour prioritiser ou déprioritiser des motifs spécifiques (ex. « HDR », « Dolby Vision », « Remux », etc.).
 
 ### 14.2. Bibliothèque
 
@@ -479,28 +470,7 @@ Créez des formats personnalisés pour prioritiser ou déprioritiser les release
 - **Profils Plex (Mappage utilisateurs) :**
   - Mappez chaque utilisateur Movviz à un Plex Managed User (profil) spécifique pour que l'état de visionnage reflète l'historique de ce profil
 
-### 14.3. Fichier
-
-**Indexation Film/Série :** Scanne les dossiers racine de la bibliothèque pour les fichiers orphelins — fichiers multimédia sur le disque qui ne sont pas suivis dans la bibliothèque Movviz.
-
-- Sélectionnez le dossier racine à scanner
-- Les correspondances sont présentées avec une recherche TMDb intégrée pour l'appariement manuel si nécessaire
-- Importation en un clic pour ajouter les fichiers appariés à votre bibliothèque
-
-**Renommer :** Renomme les dossiers et fichiers selon vos modèles de nomenclature.
-
-Flux :
-1. **Analyser** — Scanne votre bibliothèque et génère une liste de candidats au renommage avec les chemins actuels vs. prévus
-2. **Sélectionner** — Choisissez quels éléments renommer (Tous, Films uniquement, Séries uniquement ou sélection individuelle)
-3. **Aperçu** — Révisez les modifications
-4. **Exécuter** — Applique les renommages avec progression en temps réel et journal
-
-Paramètres :
-- **Langue** — Choisissez la langue TMDb pour les titres traduits (affecte les noms de dossiers/fichiers)
-- **« Supprimer les dossiers vides »** — Après le renommage, supprime automatiquement les répertoires désormais vides
-- **Progression + journal en temps réel** — Suivez l'opération en temps réel
-
-**Nomenclature :** Modèles de nommage pour fichiers et dossiers avec insertion interactive de tokens.
+**Nommage :** Modèles de nommage pour fichiers et dossiers avec insertion interactive de tokens.
 
 Modèles pour :
 - **Dossier film** — ex. `{title} ({year})`
@@ -514,6 +484,67 @@ Modèles pour :
 **Points ou espaces :** Choisissez si les séparateurs utilisent des points ou des espaces.
 
 **Aperçu en temps réel :** Pendant que vous modifiez les modèles, un aperçu montre à quoi ressembleront les chemins de fichiers résultants pour un film et un épisode d'exemple.
+
+**Importations :** Watchlists externes qui peuvent être synchronisées et ajoutées automatiquement à la bibliothèque (accessible via l'onglet « Importations »).
+
+Sources prises en charge :
+- **Trakt** — Listes utilisateur Trakt
+- **IMDb** — Listes IMDb
+- **Letterboxd** — Watchlist Letterboxd
+
+Pour chaque liste, configurez :
+- **Nom** — Une étiquette descriptive
+- **Type** — Trakt, IMDb ou Letterboxd
+- **URL** — L'URL de la liste
+- **Approbation automatique** — Lorsqu'activée, les éléments de cette liste sont approuvés automatiquement (aucune approbation manuelle nécessaire)
+- **Bouton Synchroniser** — Déclenche manuellement une synchronisation
+
+Chaque liste affiche sa dernière synchronisation.
+
+**Importation Seerr :** Importe les requêtes depuis une instance Overseerr existante.
+
+- **URL** — L'URL de votre serveur Seerr
+- **Clé API** — Clé API pour l'authentification
+- **Test** — Vérifie la connexion
+- **Importer maintenant** — Lance le processus d'importation
+
+Après l'importation, un résumé montre :
+- Utilisateurs et requêtes scannés
+- Importés (comptages approuvés et en attente)
+- Sautés (déjà en bibliothèque, déjà demandés, refusés, bloqués)
+- Importations échouées
+- Utilisateurs non correspondants (utilisateurs Seerr non trouvés dans Movviz)
+
+**Blocages :** Titres qui ne devraient jamais être ajoutés à la bibliothèque.
+
+- **Ajouter un titre bloqué** — Cherchez un titre sur TMDb, sélectionnez-le, ajoutez optionnellement un motif et confirmez
+- **Liste des bloqués** — Affiche tous les titres bloqués avec type, titre, année, motif, qui l'a bloqué et quand
+- **Débloquer** — Retire un titre de la blocklist
+
+Lorsqu'un titre bloqué est rencontré (via requête ou importation), il est silencieusement refusé avec un message « Bloqué ».
+
+### 14.3. Disque
+
+**Indexation :** Scanne les dossiers racine de la bibliothèque pour les fichiers orphelins — fichiers multimédia sur le disque qui ne sont pas suivis dans la bibliothèque Movviz. Un seul onglet avec un sélecteur Film/Série.
+
+- Sélectionnez le dossier racine à scanner
+- Les correspondances sont présentées avec une recherche TMDb intégrée pour l'appariement manuel si nécessaire
+- Importation en un clic pour ajouter les fichiers appariés à votre bibliothèque
+
+**Renommage :** Renomme les dossiers et fichiers selon vos modèles de nomenclature.
+
+Flux :
+1. **Analyser** — Scanne votre bibliothèque et génère une liste de candidats au renommage avec les chemins actuels vs. prévus
+2. **Sélectionner** — Choisissez quels éléments renommer (Tous, Films uniquement, Séries uniquement ou sélection individuelle)
+3. **Aperçu** — Révisez les modifications
+4. **Exécuter** — Applique les renommages avec progression en temps réel et journal
+
+Paramètres :
+- **Langue** — Choisissez la langue TMDb pour les titres traduits (affecte les noms de dossiers/fichiers)
+- **« Supprimer les dossiers vides »** — Après le renommage, supprime automatiquement les répertoires désormais vides
+- **Progression + journal en temps réel** — Suivez l'opération en temps réel
+
+**Maintenance :** Regroupe les opérations de maintenance du disque en un seul onglet.
 
 **Réparer les chemins :** Détecte les entrées de bibliothèque dont les fichiers ont été déplacés ou sont manquants.
 
@@ -545,53 +576,11 @@ Lorsqu'un film ou une série est retiré de Movviz avec ses fichiers, les fichie
 - **Conservation** — Jours avant que les fichiers dans la corbeille soient définitivement supprimés (configurable)
 - **Comptage d'éléments** — Montre combien d'éléments sont actuellement dans la corbeille
 
-Une tâche en arrière-plan s'exécute quotidiennement pour supprimer la corbeille expirée.
+### 14.4. Notifications
 
-### 14.4. Importations
+Configurez les notifications push pour les événements multimédia (récupéré, importé, échoué, etc.). Cet onglet unique regroupe les transports, le webhook et les options d'activité.
 
-**Listes d'importation :** Watchlists externes qui peuvent être synchronisées et ajoutées automatiquement à la bibliothèque.
-
-Sources prises en charge :
-- **Trakt** — Listes utilisateur Trakt
-- **IMDb** — Listes IMDb
-- **Letterboxd** — Watchlist Letterboxd
-
-Pour chaque liste, configurez :
-- **Nom** — Une étiquette descriptive
-- **Type** — Trakt, IMDb ou Letterboxd
-- **URL** — L'URL de la liste
-- **Approbation automatique** — Lorsqu'activée, les éléments de cette liste sont approuvés automatiquement (aucune approbation manuelle nécessaire)
-- **Bouton Synchroniser** — Déclenche manuellement une synchronisation
-
-Chaque liste affiche sa dernière synchronisation.
-
-**Importer depuis Seerr :** Importe les requêtes depuis une instance Overseerr existante.
-
-- **URL** — L'URL de votre serveur Seerr
-- **Clé API** — Clé API pour l'authentification
-- **Test** — Vérifie la connexion
-- **Importer maintenant** — Lance le processus d'importation
-
-Après l'importation, un résumé montre :
-- Utilisateurs et requêtes scannés
-- Importés (comptages approuvés et en attente)
-- Sautés (déjà en bibliothèque, déjà demandés, refusés, bloqués)
-- Importations échouées
-- Utilisateurs non correspondants (utilisateurs Seerr non trouvés dans Movviz)
-
-**Blocklist :** Titres qui ne devraient jamais être ajoutés à la bibliothèque.
-
-- **Ajouter un titre bloqué** — Cherchez un titre sur TMDb, sélectionnez-le, ajoutez optionnellement un motif et confirmez
-- **Liste des bloqués** — Affiche tous les titres bloqués avec type, titre, année, motif, qui l'a bloqué et quand
-- **Débloquer** — Retire un titre de la blocklist
-
-Lorsqu'un titre bloqué est rencontré (via requête ou importation), il est silencieusement refusé avec un message « Bloqué ».
-
-### 14.5. Notifications
-
-**Notifications :** Configurez les notifications push pour les événements multimédia (récupéré, importé, échoué, etc.).
-
-Transports pris en charge :
+**Transports :**
 - **Discord** — URL Webhook
 - **Telegram** — Token du bot + Chat ID
 - **Gotify** — URL du serveur + Token d'application
@@ -609,7 +598,9 @@ Chaque transport :
 - **URL** — L'endpoint du webhook
 - **Bouton Test** — Envoie un payload de test
 
-### 14.6. Système
+**Mises à jour qualité :** Active ou désactive la recherche et le téléchargement automatiques de versions de qualité supérieure des contenus déjà disponibles.
+
+### 14.5. Système
 
 **Diagnostic :** Aperçu de l'état du système en temps réel.
 
@@ -659,11 +650,7 @@ Actions :
 - **Exporter** — Télécharge tous les réglages, métadonnées de la bibliothèque et configuration sous forme de fichier JSON
 - **Importer** — Charge un fichier JSON précédemment exporté pour restaurer la configuration
 
-**Tâches :** Comportement des mises à jour de qualité.
-
-- **Activation des mises à jour qualité** — Lorsqu'activée, Movviz cherche et télécharge automatiquement des versions de qualité supérieure des contenus déjà disponibles lorsqu'une meilleure release est trouvée
-
-### 14.7. Info
+**À propos :** Informations sur l'application.
 
 - **Version** — Numéro de version actuel de Movviz
 - **Licence** — GNU General Public License v3.0
@@ -673,11 +660,9 @@ Actions :
   - Sur **Windows** : Bouton d'installation en un clic qui télécharge et applique la mise à jour automatiquement
   - Sur **Docker/autres plateformes** : Affiche un lien vers la page de release GitHub avec les instructions
 
-### 14.8. Zone dangereuse
+**Zone dangereuse :** Actions irréversibles séparées visuellement en bas du groupe.
 
-Actions irréversibles qui doivent être utilisées avec une extrême prudence. Chaque action nécessite de taper un mot de confirmation avant de pouvoir être exécutée.
-
-Actions disponibles :
+Chaque action nécessite de taper un mot de confirmation avant d'être exécutée :
 - **Effacer tous les films** — Supprime tous les films de la bibliothèque
 - **Effacer toutes les séries** — Supprime toutes les séries de la bibliothèque
 - **Effacer l'historique d'activité** — Supprime tout l'historique d'activité
@@ -685,11 +670,6 @@ Actions disponibles :
 - **Effacer les requêtes** — Supprime toutes les requêtes utilisateurs
 - **Effacer les problèmes signalés** — Supprime tous les problèmes signalés
 - **Réinitialiser l'état de synchronisation Plex** — Réinitialise le suivi de synchronisation Plex
-
-Chaque action affiche :
-- Titre et description de ce qui va se passer
-- Un bouton « Exécuter » qui révèle un champ de confirmation
-- Tapez le mot de confirmation et cliquez sur le bouton de confirmation pour exécuter
 
 ---
 
@@ -777,13 +757,13 @@ Ouvre la page de recherche indexeur (`/search`) dans un contexte modal/dialogue,
 
 ### Moteur hors ligne
 
-**Symptômes :** Les téléchargements ne démarrent pas, l'activité n'affiche pas de files, indicateur rouge « hors ligne » dans Réglages > Téléchargement > Client.
+**Symptômes :** Les téléchargements ne démarrent pas, l'activité n'affiche pas de files, indicateur rouge « hors ligne » dans Réglages > Téléchargement > Clients.
 
 **Solutions :**
 - Vérifiez que le processus du moteur est en cours d'exécution (`npm run engine` ou le service Windows)
 - Vérifiez que le port 9820 n'est pas bloqué par un pare-feu
-- Dans Réglages > Téléchargement > Client, cliquez sur « Redémarrer le moteur »
-- Consultez les journaux du moteur dans Réglages > Système > Diagnostic > Journal du moteur
+- Dans Réglages > Téléchargement > Clients, cliquez sur « Redémarrer le moteur »
+- Consultez les journaux du moteur dans Réglages > Système > Diagnostic
 - Vérifiez que le fichier d'état du moteur n'est pas corrompu
 
 ### Erreurs d'indexeur
@@ -791,10 +771,10 @@ Ouvre la page de recherche indexeur (`/search`) dans un contexte modal/dialogue,
 **Symptômes :** Les résultats de recherche sont vides, ou des indexeurs spécifiques affichent un statut « échec ».
 
 **Solutions :**
-- Vérifiez le résultat du test de chaque indexeur dans Réglages > Téléchargement > Indexeur
+- Vérifiez le résultat du test de chaque indexeur dans Réglages > Téléchargement > Indexeurs
 - Vérifiez que vos clés API sont toujours valides
 - Pour les indexeurs protégés par Cloudflare, activez le « Résolveur Cloudflare » et assurez-vous que FlareSolverr est en cours d'exécution
-- Vérifiez les filtres de taille min/max et d'âge maximum — ils pourraient être trop restrictifs
+- Vérifiez les filtres de taille min/max et d'âge maximum dans Réglages > Téléchargement > Qualité — ils pourraient être trop restrictifs
 - Cherchez les messages d'erreur par indexeur dans la bannière d'avertissement de la page de recherche
 
 ### Chemins brisés (bind mount Docker)
@@ -802,7 +782,7 @@ Ouvre la page de recherche indexeur (`/search`) dans un contexte modal/dialogue,
 **Symptômes :** Les fichiers existent sur le disque mais la bibliothèque affiche un statut « manquant ». Le scan Réparer les chemins montre des candidats avec des chemins incorrects.
 
 **Solutions :**
-- Lancez un scan Réparer les chemins dans Réglages > Fichier > Réparer les chemins
+- Lancez un scan dans Réglages > Disque > Maintenance > Réparer les chemins
 - Pour les bind mounts Docker, Movviz tente l'auto-reconnexion silencieuse — vérifiez que cela a fonctionné
 - Si l'auto-reconnexion n'a pas fonctionné, utilisez le navigateur de fichiers manuel pour corriger les chemins
 - Assurez-vous que vos montages de volume Docker sont cohérents entre les redémarrages
