@@ -1,0 +1,38 @@
+{
+  "name": "movviz",
+  "version": "1.1.67",
+  "private": true,
+  "description": "Movviz — centre de commande média unifié. Découvrez, demandez, indexez et gérez films et séries depuis une interface unique et cinématographique.",
+  "scripts": {
+    "dev": "next dev -p 9810",
+    "build": "next build",
+    "start": "next start -p 9810",
+    "engine": "node engine/src/index.mjs",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit",
+    "service:install": "node packaging/windows/service.js install",
+    "service:uninstall": "node packaging/windows/service.js uninstall"
+  },
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.42.2",
+    "lucide-react": "^1.25.0",
+    "next": "^16.2.11",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "swr": "^2.4.2",
+    "tailwind-merge": "^3.6.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "postcss": "^8.5.22",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3"
+  },
+  "optionalDependencies": {
+    "node-windows": "^1.0.0-beta.8"
+  }
+}

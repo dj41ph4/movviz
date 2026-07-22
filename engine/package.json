@@ -1,0 +1,14 @@
+{
+  "name": "movviz-engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Movviz download engine — an embedded, fully automatable BitTorrent engine driven by Movviz over an internal API.",
+  "main": "src/index.mjs",
+  "scripts": {
+    "start": "node src/index.mjs"
+  },
+  "dependencies": {
+    "webtorrent": "^2.6.19"
+  }
+}

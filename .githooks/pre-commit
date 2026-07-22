@@ -1,0 +1,16 @@
+#!/bin/sh
+
+if git rev-parse --git-dir > /dev/null 2>&1; then
+  if git diff --cached --name-only --diff-filter=A | grep -qx 'AGENTS.md'; then
+    echo "ERROR: AGENTS.md ne doit pas être commité."
+    exit 1
+  fi
+
+  for f in $(git diff --cached --name-only --diff-filter=ACM | grep -i '\.md$'); do
+    content=$(git show ":$f")
+    if echo "$content" | grep -Eqi "(intelligence.?artificielle|assistant.*ia|ia.*assistant)"; then
+      echo "ERROR: $f contient une référence interdite."
+      exit 1
+    fi
+  done
+fi

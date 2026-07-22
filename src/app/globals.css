@@ -1,0 +1,327 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Movviz design system — cinematic, dark-first, neon-glass
+   ============================================================ */
+
+@theme {
+  /* Core surfaces */
+  --color-void: #05060b;
+  --color-abyss: #080a14;
+  --color-surface: #0d1020;
+  --color-surface-2: #12162a;
+  --color-line: #1e2440;
+
+  /* Text */
+  --color-ink: #eef1ff;
+  --color-ink-soft: #aeb4d6;
+  --color-ink-dim: #6b7099;
+
+  /* Brand — electric violet → magenta → cyan */
+  --color-brand: #7c5cff;
+  --color-brand-2: #c04bff;
+  --color-brand-glow: #a06bff;
+  --color-cyan: #34e2ff;
+  --color-magenta: #ff4bd0;
+  --color-lime: #9dff5b;
+  --color-amber: #ffb84b;
+
+  /* Status */
+  --color-ok: #43e6a0;
+  --color-warn: #ffb84b;
+  --color-down: #ff5b78;
+
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+
+  --font-sans: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont,
+    system-ui, "Helvetica Neue", Arial, sans-serif;
+
+  --animate-shimmer: shimmer 2.5s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-aurora: aurora 18s ease-in-out infinite;
+  --animate-pulse-glow: pulseGlow 3s ease-in-out infinite;
+}
+
+/* AuroraBackground's fixed cinematic backdrop — themed separately from the
+   @theme colors above since it needs a from/to pair (the wash) and per-blob
+   opacities tuned differently in light mode, not just a single swapped hue. */
+:root {
+  --aurora-wash-from: #0b1030;
+  --aurora-wash-to: #05060b;
+  --aurora-blob-1-opacity: 0.6;
+  --aurora-blob-2-opacity: 0.5;
+  --aurora-blob-3-opacity: 0.4;
+  --aurora-grid-line: rgba(255, 255, 255, 0.6);
+}
+:root[data-theme="light"] {
+  --aurora-wash-from: #eef0fb;
+  --aurora-wash-to: #f3f4fa;
+  --aurora-blob-1-opacity: 0.35;
+  --aurora-blob-2-opacity: 0.3;
+  --aurora-blob-3-opacity: 0.25;
+  --aurora-grid-line: rgba(20, 24, 50, 0.35);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes aurora {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  33% { transform: translate(6%, -4%) rotate(8deg) scale(1.1); }
+  66% { transform: translate(-5%, 5%) rotate(-6deg) scale(0.95); }
+}
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes logoSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes logoPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 45%, transparent),
+      0 0 18px -2px color-mix(in oklab, var(--color-brand) 70%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-magenta) 55%, transparent),
+      0 0 34px 6px color-mix(in oklab, var(--color-magenta) 80%, transparent);
+  }
+}
+@keyframes textFlow {
+  from { background-position: 100% 50%; }
+  to { background-position: 0% 50%; }
+}
+@keyframes logoRipple {
+  0% { transform: scale(0.75); opacity: 0.55; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+/*
+ * Light theme — overrides the same custom properties every utility class
+ * already reads via var(--color-*), so components never need their own
+ * light/dark branches. <html data-theme> is always resolved to "light" or
+ * "dark" by src/lib/theme (never left unset), "auto" included — see
+ * THEME_INIT_SCRIPT for the pre-hydration value that avoids a flash.
+ */
+:root[data-theme="light"] {
+  --color-void: #f3f4fa;
+  --color-abyss: #e9ebf7;
+  --color-surface: #ffffff;
+  --color-surface-2: #f2f3fb;
+  --color-line: #e0e3f2;
+
+  --color-ink: #171a2c;
+  --color-ink-soft: #4d5170;
+  --color-ink-dim: #8388a8;
+
+  --color-brand: #6a3df5;
+  --color-brand-2: #a83bef;
+  --color-brand-glow: #8a5cf0;
+  --color-cyan: #0aa8c9;
+  --color-magenta: #d62bb0;
+  --color-lime: #4f9e1f;
+  --color-amber: #c97a12;
+
+  --color-ok: #0f9d67;
+  --color-warn: #b56a08;
+  --color-down: #d63753;
+}
+
+:root[data-theme="light"] .glass,
+:root[data-theme="light"] .glass-strong {
+  border-color: color-mix(in oklab, #000 8%, transparent);
+}
+
+:root[data-theme="light"] ::selection {
+  color: var(--color-ink);
+}
+
+/*
+ * Dozens of components use raw bg-black/N, bg-white/N, border-white/N
+ * utilities for page-content surfaces (inputs, dividers, hover fills, toggle
+ * tracks) — written once, assuming the dark theme's near-black page. Those
+ * read as flat, muddy gray boxes with invisible borders on a light page
+ * (confirmed live: password inputs on Profile, chip borders throughout
+ * Settings). Only the values confirmed to never appear over a poster/backdrop
+ * image are remapped here — media badges and card hover-darken overlays
+ * (bg-white/15+, bg-black/40+, from-black/90, via-black/*) are deliberately
+ * left alone since they sit on photos, not page background, in both themes.
+ */
+:root[data-theme="light"] {
+  --hairline-a: color-mix(in oklab, #000 7%, transparent);
+  --hairline-b: color-mix(in oklab, #000 10%, transparent);
+  --hairline-c: color-mix(in oklab, #000 12%, transparent);
+  --hairline-d: color-mix(in oklab, #000 14%, transparent);
+  --hairline-e: color-mix(in oklab, #000 16%, transparent);
+  --hairline-f: color-mix(in oklab, #000 20%, transparent);
+  --recess-a: color-mix(in oklab, #000 3%, transparent);
+  --recess-b: color-mix(in oklab, #000 5%, transparent);
+  --fill-a: color-mix(in oklab, #000 4%, transparent);
+  --fill-b: color-mix(in oklab, #000 6%, transparent);
+  --fill-c: color-mix(in oklab, #000 8%, transparent);
+}
+:root[data-theme="light"] .border-white\/5 { border-color: var(--hairline-a); }
+:root[data-theme="light"] .border-white\/8 { border-color: var(--hairline-b); }
+:root[data-theme="light"] .border-white\/10 { border-color: var(--hairline-c); }
+:root[data-theme="light"] .border-white\/12 { border-color: var(--hairline-d); }
+:root[data-theme="light"] .border-white\/15 { border-color: var(--hairline-e); }
+:root[data-theme="light"] .border-white\/20 { border-color: var(--hairline-f); }
+:root[data-theme="light"] .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: var(--hairline-a); }
+:root[data-theme="light"] .bg-black\/20 { background-color: var(--recess-a); }
+:root[data-theme="light"] .bg-black\/30 { background-color: var(--recess-b); }
+:root[data-theme="light"] .bg-white\/5 { background-color: var(--fill-a); }
+:root[data-theme="light"] .bg-white\/8 { background-color: var(--fill-b); }
+:root[data-theme="light"] .bg-white\/10 { background-color: var(--fill-c); }
+:root[data-theme="light"] .hover\:bg-white\/5:hover { background-color: var(--fill-a); }
+
+* {
+  border-color: var(--color-line);
+}
+
+html, body {
+  background: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--color-brand), var(--color-brand-2));
+  border-radius: 99px;
+  border: 2px solid var(--color-void);
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-brand) 40%, transparent);
+  color: #fff;
+}
+
+/* ---------- Reusable utilities ---------- */
+
+.glass {
+  background: color-mix(in oklab, var(--color-surface) 62%, transparent);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid color-mix(in oklab, #fff 8%, transparent);
+}
+
+.glass-strong {
+  background: color-mix(in oklab, var(--color-surface-2) 80%, transparent);
+  backdrop-filter: blur(28px) saturate(160%);
+  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid color-mix(in oklab, #fff 10%, transparent);
+}
+
+.text-gradient {
+  background: linear-gradient(110deg, var(--color-ink) 10%, var(--color-brand-glow) 45%, var(--color-cyan) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-gradient {
+  background: linear-gradient(120deg, var(--color-brand), var(--color-brand-2), var(--color-magenta));
+}
+
+.glow-brand {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 40%, transparent),
+    0 8px 40px -8px color-mix(in oklab, var(--color-brand) 60%, transparent);
+}
+
+.ring-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-void), 0 0 0 4px var(--color-brand);
+}
+
+/* Grain + vignette overlay for cinematic depth */
+.cinema-grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: radial-gradient(circle at 50% -20%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  mix-blend-mode: multiply;
+}
+
+.shimmer {
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, #fff 12%, transparent) 40%,
+    color-mix(in oklab, #fff 12%, transparent) 55%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Animated brand logo mark — spinning aurora halo + breathing glow behind the icon. */
+.logo-halo {
+  background: conic-gradient(
+    from 0deg,
+    var(--color-brand),
+    var(--color-magenta),
+    var(--color-cyan),
+    var(--color-brand-2),
+    var(--color-brand)
+  );
+  filter: blur(16px);
+  animation: logoSpin 5s linear infinite;
+}
+
+.logo-glow-pulse {
+  animation: logoPulse 3s ease-in-out infinite;
+}
+
+/*
+ * Animated brand logo wordmark — a slow flowing rainbow shimmer through the
+ * letters, left to right. The stop sequence repeats twice (0-50% mirrors
+ * 50-100%, both starting/ending on ink) and background-size is exactly
+ * double the element width, so animating exactly one period (background-
+ * position 100% -> 0%) lands back on a pixel-identical frame — the loop has
+ * no visible seam.
+ */
+.text-logo-flow {
+  background: linear-gradient(
+    110deg,
+    var(--color-ink) 0%,
+    var(--color-brand-glow) 12.5%,
+    var(--color-magenta) 25%,
+    var(--color-cyan) 37.5%,
+    var(--color-ink) 50%,
+    var(--color-brand-glow) 62.5%,
+    var(--color-magenta) 75%,
+    var(--color-cyan) 87.5%,
+    var(--color-ink) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: textFlow 5s linear infinite;
+}
+
+/* One-time expanding rings behind the login logo, staggered for depth. */
+.logo-ripple {
+  animation: logoRipple 2.8s ease-out infinite;
+}
