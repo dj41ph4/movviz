@@ -73,14 +73,17 @@ export async function GET(req: NextRequest) {
       // When the movie/series is known (tmdbId from the detail page), use
       // ID-based search (t=movie&tmdbid=XXX) — far more accurate than a
       // text-only query, especially for titles with accents or special chars
-      // like "Team Démolition" where text search returns nothing.
+      // like "Team Démolition" where text search returns nothing. If the
+      // ID search returns empty (the indexer might not have that tmdbId),
+      // fall back to a plain text search so we still surface what's out there.
       const directResults = await Promise.all(
-        indexers.map((ix) =>
-          (category === "movie" && tmdbId
-            ? searchMovie(ix, { title: refTitle || qRaw, year, tmdbId, imdbId: imdbIdParam }, scope)
-            : searchIndexer(ix, q, scope)
-          ).catch(() => [] as IndexerRelease[])
-        )
+        indexers.map(async (ix) => {
+          if (category === "movie" && tmdbId) {
+            const movieResults = await searchMovie(ix, { title: refTitle || qRaw, year, tmdbId, imdbId: imdbIdParam }, scope).catch(() => [] as IndexerRelease[]);
+            if (movieResults.length > 0) return movieResults;
+          }
+          return searchIndexer(ix, q, scope).catch(() => [] as IndexerRelease[]);
+        })
       );
       const newlyLimited = countNewlyRateLimited(indexers);
       const direct = directResults.flat().filter((r) => r.score >= 10);
