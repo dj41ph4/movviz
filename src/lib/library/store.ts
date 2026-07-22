@@ -40,6 +40,8 @@ export function getMovieByTmdbId(tmdbId: number): LibraryMovie | null {
 }
 export function addMovie(movie: LibraryMovie): LibraryMovie {
   const list = loadMovies();
+  const existing = list.find((m) => m.tmdbId === movie.tmdbId);
+  if (existing) return existing;
   list.push(movie);
   saveMovies(list);
   return movie;
@@ -105,6 +107,8 @@ export function getSeriesByTmdbId(tmdbId: number): LibrarySeries | null {
 }
 export function addSeries(series: LibrarySeries): LibrarySeries {
   const list = loadSeries();
+  const existing = list.find((s) => s.tmdbId === series.tmdbId);
+  if (existing) return existing;
   list.push(series);
   saveSeries(list);
   return series;
