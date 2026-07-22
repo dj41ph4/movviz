@@ -14,7 +14,7 @@ Movviz ist eine vereinheitlichte Multimedia-Kommandozentrale. Es vereint Entdeck
 
 **Technischer Stack:** Next.js 15, TypeScript, Tailwind CSS v4, Framer Motion, SWR und eine dedizierte ESM-BitTorrent-Engine auf einem separaten Port.
 
-**Ports (Standard):** Weboberfläche auf 9810, BitTorrent-Engine auf 9820, Peer-to-Peer auf 51413/51414.
+**Ports (Standard):** Weboberfläche auf 9810, BitTorrent-Engine auf 9820, Cloudflare-Löser auf 9830, Peer-to-Peer auf 51413/51414.
 
 ---
 

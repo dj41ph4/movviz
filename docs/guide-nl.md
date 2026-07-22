@@ -14,7 +14,7 @@ Movviz is een verenigd multimediaal commandocentrum. Het brengt ontdekking (TMDb
 
 **Technische stack:** Next.js 15, TypeScript, Tailwind CSS v4, Framer Motion, SWR en een speciale ESM BitTorrent-engine op een aparte poort.
 
-**Poorten (standaard):** Webinterface op 9810, BitTorrent-engine op 9820, peer-to-peer op 51413/51414.
+**Poorten (standaard):** Webinterface op 9810, BitTorrent-engine op 9820, Cloudflare-oplosser op 9830, peer-to-peer op 51413/51414.
 
 ---
 

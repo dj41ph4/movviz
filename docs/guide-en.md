@@ -14,7 +14,7 @@ Movviz is a unified media command center. It brings together discovery (TMDb), T
 
 **Tech stack:** Next.js 15, TypeScript, Tailwind CSS v4, Framer Motion, SWR, and a dedicated ESM BitTorrent engine running on a separate port.
 
-**Ports (default):** Web UI on 9810, BitTorrent engine on 9820, peer-to-peer on 51413/51414.
+**Ports (default):** Web UI on 9810, BitTorrent engine on 9820, Cloudflare resolver on 9830, peer-to-peer on 51413/51414.
 
 ---
 

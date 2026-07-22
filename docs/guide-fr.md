@@ -14,7 +14,7 @@ Movviz est un centre de commande multimédia unifié. Il réunit la découverte 
 
 **Stack technique :** Next.js 15, TypeScript, Tailwind CSS v4, Framer Motion, SWR et un moteur BitTorrent ESM dédié tournant sur un port séparé.
 
-**Ports (par défaut) :** Interface web sur le 9810, Moteur BitTorrent sur le 9820, pair-à-pair sur le 51413/51414.
+**Ports (par défaut) :** Interface web sur le 9810, Moteur BitTorrent sur le 9820, Résolveur Cloudflare sur le 9830, pair-à-pair sur le 51413/51414.
 
 ---
 
