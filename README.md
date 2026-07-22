@@ -2,26 +2,26 @@
 
 # Movviz
 
-### Le centre de commande unifié pour tes films et séries
+### Le centre de commande unifié pour films et séries
 
 **Découvrir, organiser, suivre et gérer — tout depuis une seule interface, self-hosted et open-source.**
 
 [![Licence](https://img.shields.io/badge/licence-GPL--3.0-blue.svg?style=flat-square)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg?style=flat-square&logo=next.js)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-strict-3178c6.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?style=flat-square&logo=docker)](https://www.docker.com)
-[![Plex](https://img.shields.io/badge/Plex-intégré-E5A00D.svg?style=flat-square&logo=plex)](https://www.plex.tv)
-[![i18n](https://img.shields.io/badge/5_langues-🌍-green.svg?style=flat-square)](#guides-dutilisation)
-
----
+[![Plex](https://img.shields.io/badge/Plex-int%C3%A9gr%C3%A9-E5A00D.svg?style=flat-square&logo=plex)](https://www.plex.tv)
+[![i18n](https://img.shields.io/badge/5_langues-vert.svg?style=flat-square)](#guides-dutilisation)
 
 </div>
 
+---
+
 ## Le problème
 
-Gérer une médiathèque personnelle demande normalement d'empiler plusieurs outils : un pour découvrir, un pour chercher, un pour organiser, un pour gérer les demandes, un pour synchroniser. Chacun avec sa propre interface, son propre login, sa propre config.
+Gérer une médiathèque personnelle demande normalement d'empiler plusieurs outils : un pour découvrir, un pour chercher, un pour organiser, un pour gérer les demandes, un pour synchroniser. Chacun avec sa propre interface, son propre identifiant, sa propre configuration.
 
-**Movviz réunit tout ça dans une seule application**, avec une interface cinématographique cohérente du début à la fin.
+**Movviz réunit tout dans une seule application**, avec une interface cohérente du début à la fin.
 
 ---
 
@@ -31,26 +31,26 @@ Gérer une médiathèque personnelle demande normalement d'empiler plusieurs out
 <tr>
 <td width="50%" valign="top">
 
-### 🔍 Découverte
+### Découverte
 Parcourt les tendances, nouveautés, box-offices et classements allociné.fr — filtrable par genre, année, studio, plateforme ou continent d'origine. Un clic ajoute le titre et lance automatiquement la recherche.
 
-### 🎬 Recherche & organisation
-Interroge tous tes indexeurs Torznab/Newznab en une seule requête. Chaque résultat est noté selon la qualité, la fraîcheur et la santé des seeds. Le moteur BitTorrent intégré gère le reste.
+### Recherche & organisation
+Interroge tous vos indexeurs Torznab/Newznab en une seule requête. Chaque résultat est noté selon la qualité, la fraîcheur et la santé des seeds. Le moteur BitTorrent intégré gère le reste.
 
-### 📚 Bibliothèque unifiée
-Films et séries dans une seule vue. Suivi des épisodes manquants, renommage automatique des fichiers selon tes modèles, réconciliation disque, intégration Plex.
+### Bibliothèque unifiée
+Films et séries dans une seule vue. Suivi des épisodes manquants, renommage automatique des fichiers selon vos modèles, réconciliation disque, intégration Plex.
 
 </td>
 <td width="50%" valign="top">
 
-### 👥 Demandes multi-utilisateurs
+### Demandes multi-utilisateurs
 Chaque membre du foyer peut demander un titre. Un administrateur approuve — avec quotas par utilisateur et délégation d'approbation possible.
 
-### ⚙️ Automatisation
+### Automatisation
 Scan RSS quotidien, upgrade automatique de qualité, synchronisation Plex incrémentale, notifications push (Discord, Telegram, Slack, Gotify, Pushbullet).
 
-### 🌍 5 langues d'interface
-Français, anglais, italien, néerlandais, allemand — choisies dès la première configuration ou changeables à tout moment.
+### 5 langues d'interface
+Français, anglais, italien, néerlandais, allemand — choisies dès la première configuration ou modifiables à tout moment.
 
 </td>
 </tr>
@@ -157,14 +157,16 @@ L'interface est découplée des données : chaque écran lit des modèles typés
 
 Movviz est un logiciel libre distribué sous licence [GPL-3.0](LICENSE) : librement modifiable et redistribuable, à condition que les versions dérivées restent elles aussi open-source.
 
+---
+
 ## Soutenir le projet
 
-Movviz est gratuit et le restera. Si l'application te rend service, un don via [GitHub Sponsors](https://github.com/sponsors/dj41ph4) est toujours apprécié.
+Movviz est gratuit et le restera. Si l'application vous rend service, un don via [GitHub Sponsors](https://github.com/sponsors/dj41ph4) est toujours apprécié.
 
 ---
 
 <div align="center">
 
-**Movviz** — *Un seul endroit pour tout gérer.*
+**Movviz** — Un seul endroit pour tout gérer.
 
 </div>

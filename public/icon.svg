@@ -5,13 +5,19 @@
       <stop offset="100%" stop-color="#ec4899"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="112" fill="#05060b"/>
-  <rect x="24" y="24" width="464" height="464" rx="96" fill="url(#g)"/>
-  <g fill="#fff">
-    <rect x="140" y="176" width="232" height="176" rx="16"/>
-    <path d="M140 176h34l-34 56h-34z" fill="#05060b" opacity="0.15"/>
-    <path d="M208 176h34l-34 56h-34z" fill="#05060b" opacity="0.15"/>
-    <path d="M276 176h34l-34 56h-34z" fill="#05060b" opacity="0.15"/>
-    <path d="M344 176h28l-28 56h-34z" fill="#05060b" opacity="0.15"/>
+  <rect width="512" height="512" rx="112" fill="url(#g)"/>
+  <g fill="none" stroke="#fff" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="108" y="152" width="296" height="240" rx="20" fill="#fff" fill-opacity="0.15"/>
+    <line x1="188" y1="152" x2="148" y2="216" stroke-width="0" fill="#fff" fill-opacity="0.3"/>
+    <line x1="268" y1="152" x2="228" y2="216" stroke-width="0" fill="#fff" fill-opacity="0.3"/>
+    <line x1="348" y1="152" x2="308" y2="216" stroke-width="0" fill="#fff" fill-opacity="0.3"/>
+    <path d="M108 216h296" stroke-width="0"/>
+    <rect x="108" y="108" width="296" height="108" rx="20" fill="#fff" fill-opacity="0.9"/>
+    <line x1="188" y1="108" x2="156" y2="216" stroke="#7c3aed" stroke-width="8" opacity="0.4"/>
+    <line x1="268" y1="108" x2="236" y2="216" stroke="#7c3aed" stroke-width="8" opacity="0.4"/>
+    <line x1="348" y1="108" x2="316" y2="216" stroke="#7c3aed" stroke-width="8" opacity="0.4"/>
+    <circle cx="168" cy="300" r="24" fill="#fff" fill-opacity="0.9" stroke="none"/>
+    <circle cx="344" cy="300" r="24" fill="#fff" fill-opacity="0.9" stroke="none"/>
+    <path d="M140 280h232" stroke="#7c3aed" stroke-width="8" opacity="0.4"/>
   </g>
 </svg>

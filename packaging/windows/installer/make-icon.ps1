@@ -1,6 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$OutFile)
 
-# Generates the Movviz app icon (256x256, brand gradient + "M") as a PNG-backed
+# Generates the Movviz app icon (256x256, brand gradient + clapperboard) as a PNG-backed
 # .ico. Windows renders it crisply at every shell size.
 
 $ErrorActionPreference = "Stop"
@@ -14,9 +14,9 @@ $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAliasGridFit
 
 $rect = New-Object System.Drawing.Rectangle(0, 0, $size, $size)
 
-# Rounded background with a violet -> magenta diagonal gradient.
-$c1 = [System.Drawing.Color]::FromArgb(124, 92, 255)
-$c2 = [System.Drawing.Color]::FromArgb(192, 75, 255)
+# Rounded background with violet -> magenta diagonal gradient.
+$c1 = [System.Drawing.Color]::FromArgb(124, 58, 237)
+$c2 = [System.Drawing.Color]::FromArgb(236, 72, 153)
 $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, $c1, $c2, 45)
 
 $radius = 56
@@ -28,13 +28,49 @@ $path.AddArc(0, $size - $radius, $radius, $radius, 90, 90)
 $path.CloseFigure()
 $g.FillPath($brush, $path)
 
-# Centered bold "M".
-$font = New-Object System.Drawing.Font("Segoe UI", 148, [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-$sf = New-Object System.Drawing.StringFormat
-$sf.Alignment = [System.Drawing.StringAlignment]::Center
-$sf.LineAlignment = [System.Drawing.StringAlignment]::Center
-$layout = New-Object System.Drawing.RectangleF(0, -6, $size, $size)
-$g.DrawString("M", $font, [System.Drawing.Brushes]::White, $layout, $sf)
+# Clapperboard body (white with slight opacity)
+$boardBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(40, 255, 255, 255))
+$boardRect = New-Object System.Drawing.Rectangle(108, 152, 296, 240)
+$boardPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+$bRad = 20
+$boardPath.AddArc($boardRect.X, $boardRect.Y, $bRad, $bRad, 180, 90)
+$boardPath.AddArc($boardRect.Right - $bRad, $boardRect.Y, $bRad, $bRad, 270, 90)
+$boardPath.AddArc($boardRect.Right - $bRad, $boardRect.Bottom - $bRad, $bRad, $bRad, 0, 90)
+$boardPath.AddArc($boardRect.X, $boardRect.Bottom - $bRad, $bRad, $bRad, 90, 90)
+$boardPath.CloseFigure()
+$g.FillPath($boardBrush, $boardPath)
+
+# Clapper top (white, more opaque)
+$clapperBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(230, 255, 255, 255))
+$clapperRect = New-Object System.Drawing.Rectangle(108, 108, 296, 108)
+$clapperPath = New-Object System.Drawing.Drawing2D.GraphicsPath
+$cRad = 20
+$clapperPath.AddArc($clapperRect.X, $clapperRect.Y, $cRad, $cRad, 180, 90)
+$clapperPath.AddArc($clapperRect.Right - $cRad, $clapperRect.Y, $cRad, $cRad, 270, 90)
+$clapperPath.AddArc($clapperRect.Right - $cRad, $clapperRect.Bottom - $cRad, $cRad, $cRad, 0, 90)
+$clapperPath.AddArc($clapperRect.X, $clapperRect.Bottom - $cRad, $cRad, $cRad, 90, 90)
+$clapperPath.CloseFigure()
+$g.FillPath($clapperBrush, $clapperPath)
+
+# Clapper stripes (diagonal lines in brand color)
+$stripePen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(100, 124, 58, 237), 8)
+$stripePen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+$stripePen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+for ($x = 188; $x -le 348; $x += 80) {
+    $g.DrawLine($stripePen, $x, 108, $x - 32, 216)
+}
+
+# Hinge circles
+$hingeBrush = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(230, 255, 255, 255))
+$g.FillEllipse($hingeBrush, 144, 276, 48, 48)
+$g.FillEllipse($hingeBrush, 320, 276, 48, 48)
+
+# Center line on clapper
+$centerPen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(100, 124, 58, 237), 8)
+$centerPen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+$centerPen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+$g.DrawLine($centerPen, 140, 280, 372, 280)
+
 $g.Dispose()
 
 # Encode PNG.

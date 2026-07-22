@@ -25,15 +25,6 @@ packaging/windows/installer/movviz.ico
 # local reference material — never shipped, never committed
 /_refs/
 
-# assistant / tooling artifacts — excluded from Git and builds
-/.claude/
-.git-rewrite/
-AGENTS.md
-CLAUDE.md
-**/*.ai.md
-.aider*
-.cursor/
-
 # misc
 .DS_Store
 *.pem
@@ -51,7 +42,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
-# logs de debug ponctuels
+# debug logs
 build-debug*.txt
 build-errors.txt
 build-output*.txt
