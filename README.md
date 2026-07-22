@@ -71,6 +71,8 @@ Service Windows automatique · Installeur multilingue · Démarrage au boot
 docker pull dj41ph4/movviz:latest
 ```
 
+amd64 · arm64
+
 </td>
 </tr>
 </table>
