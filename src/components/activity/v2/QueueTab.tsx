@@ -30,7 +30,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const router = useRouter();
   const user = useCurrentUser();
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    "/api/activity/v2?tab=queue", { refreshInterval: active ? 3000 : 0, dedupingInterval: 2000 }
+    "/api/activity/v2?tab=queue", { refreshInterval: 3000, dedupingInterval: 2000 }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
