@@ -1,102 +1,159 @@
 <div align="center">
 
+<img src="public/icon.svg" width="100" alt="Movviz">
+
 # Movviz
 
-**Le centre de commande unique pour tes films et séries — découverte, organisation, suivi et bibliothèque, sans jongler entre dix outils différents.**
+### Le centre de commande unifié pour tes films et séries
 
-[![Licence](https://img.shields.io/badge/licence-GPL--3.0-blue.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg)](https://www.typescriptlang.org)
+**Découvrir, organiser, suivre et gérer — tout depuis une seule interface, self-hosted et open-source.**
 
-</div>
+[![Licence](https://img.shields.io/badge/licence-GPL--3.0-blue.svg?style=flat-square)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black.svg?style=flat-square&logo=next.js)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-strict-3178c6.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
+[![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?style=flat-square&logo=docker)](https://www.docker.com)
+[![Plex](https://img.shields.io/badge/Plex-intégré-E5A00D.svg?style=flat-square&logo=plex)](https://www.plex.tv)
+[![i18n](https://img.shields.io/badge/5_langues-🌍-green.svg?style=flat-square)](#guides-dutilisation)
 
 ---
 
-## Le problème que Movviz résout
+</div>
 
-Gérer une médiathèque personnelle demande normalement d'empiler plusieurs outils : un pour découvrir les nouveautés, un pour chercher les releases, un pour piloter les téléchargements, un pour organiser la bibliothèque, un pour gérer les demandes de la famille, un pour synchroniser avec le lecteur média. Chacun avec sa propre interface, son propre login, sa propre config.
+## Le problème
 
-**Movviz réunit tout ça dans une seule application**, avec une interface cinématographique cohérente du début à la fin. Un seul endroit où découvrir un film, l'ajouter, suivre son téléchargement, et le retrouver dans la bibliothèque — sans changer d'onglet.
+Gérer une médiathèque personnelle demande normalement d'empiler plusieurs outils : un pour découvrir, un pour chercher, un pour organiser, un pour gérer les demandes, un pour synchroniser. Chacun avec sa propre interface, son propre login, sa propre config.
 
-Auto-hébergé, sans dépendance à un service tiers payant, et développé en code 100 % original.
+**Movviz réunit tout ça dans une seule application**, avec une interface cinématographique cohérente du début à la fin.
 
-## Ce que Movviz fait concrètement
+---
 
-**Découverte** — Parcourt les tendances, les nouveautés, les box-offices et les classements réels d'allociné.fr (pas juste les API génériques), filtrable par genre, année, studio, plateforme de diffusion ou continent d'origine. Un clic ajoute le titre et lance automatiquement la recherche de la meilleure release.
+## Fonctionnalités principales
 
-**Recherche & téléchargement** — Interroge tous tes indexeurs torrent/usenet (protocole Torznab/Newznab) en une seule requête, note chaque résultat selon la qualité, la fraîcheur et la santé des seeds, et pilote le téléchargement via un moteur BitTorrent maison intégré — pas de client externe à configurer.
+<table>
+<tr>
+<td width="50%" valign="top">
 
-**Bibliothèque unifiée** — Films et séries dans une seule vue, avec suivi des épisodes manquants, renommage automatique des fichiers selon tes propres modèles, réconciliation avec le disque, et intégration Plex (statut de lecture, lien "Lire sur Plex" direct).
+### 🔍 Découverte
+Parcourt les tendances, nouveautés, box-offices et classements allociné.fr — filtrable par genre, année, studio, plateforme ou continent d'origine. Un clic ajoute le titre et lance automatiquement la recherche.
 
-**Demandes multi-utilisateurs** — Chaque membre du foyer peut demander un titre ; un administrateur approuve (ou l'auto-approbation s'en charge), avec quotas par utilisateur et délégation d'approbation possible sans donner les pleins droits admin.
+### 🎬 Recherche & organisation
+Interroge tous tes indexeurs Torznab/Newznab en une seule requête. Chaque résultat est noté selon la qualité, la fraîcheur et la santé des seeds. Le moteur BitTorrent intégré gère le reste.
 
-**Automatisation** — Scan quotidien des flux RSS des indexeurs, upgrade automatique de qualité quand une meilleure release apparaît, synchronisation Plex incrémentale, notifications (Discord, Telegram, Slack, Gotify, Pushbullet).
+### 📚 Bibliothèque unifiée
+Films et séries dans une seule vue. Suivi des épisodes manquants, renommage automatique des fichiers selon tes modèles, réconciliation disque, intégration Plex.
 
-**5 langues d'interface** — Français, anglais, italien, néerlandais, allemand, choisies dès la première configuration ou changeables à tout moment.
+</td>
+<td width="50%" valign="top">
 
-## Aperçu des modules
+### 👥 Demandes multi-utilisateurs
+Chaque membre du foyer peut demander un titre. Un administrateur approuve — avec quotas par utilisateur et délégation d'approbation possible.
 
-| Module | Rôle |
-| --- | --- |
+### ⚙️ Automatisation
+Scan RSS quotidien, upgrade automatique de qualité, synchronisation Plex incrémentale, notifications push (Discord, Telegram, Slack, Gotify, Pushbullet).
+
+### 🌍 5 langues d'interface
+Français, anglais, italien, néerlandais, allemand — choisies dès la première configuration ou changeables à tout moment.
+
+</td>
+</tr>
+</table>
+
+---
+
+## Architecture
+
+<div align="center">
+
+| Module | Description |
+| :---: | --- |
 | **Tableau de bord** | Vue d'ensemble : statistiques, file de téléchargement, activité en direct |
 | **Découverte** | Parcourir, filtrer et ajouter des titres |
 | **Recherche** | Recherche interactive sur tous les indexeurs, releases notées |
 | **Bibliothèque** | Films & séries unifiés, épisodes manquants, renommage auto |
 | **Demandes** | File d'approbation multi-utilisateurs avec quotas |
-| **Réglages** | Indexeurs, clients de téléchargement, profils de qualité, notifications — tout centralisé |
+| **Réglages** | Indexeurs, moteur, profils de qualité, notifications — tout centralisé |
+
+</div>
+
+---
 
 ## Stack technique
 
-- **Next.js 15** (App Router, composants serveur + routes API)
+<div align="center">
+
+![Next.js](https://img.shields.io/badge/Next.js-15-000000.svg?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg?style=for-the-badge&logo=typescript)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4.svg?style=for-the-badge&logo=tailwindcss)
+![Framer Motion](https://img.shields.io/badge/Framer_Motion-animation-F45F42.svg?style=for-the-badge)
+![Node.js](https://img.shields.io/badge/Node.js-moteur-339933.svg?style=for-the-badge&logo=node.js)
+
+</div>
+
+- **Next.js 15** — App Router, composants serveur + routes API
 - **TypeScript** strict de bout en bout
-- **Tailwind CSS v4** (design tokens `@theme`)
-- **Framer Motion** pour la couche d'animation
-- **Moteur de téléchargement maison** (service Node.js dédié, isolé de l'app web)
+- **Tailwind CSS v4** — design tokens `@theme`
+- **Framer Motion** — animations fluides
+- **Moteur BitTorrent maison** — service Node.js dédié, isolé de l'app web
 - **i18n maison** — aucune chaîne en dur, 5 langues, ajouter une langue = ajouter un fichier
+
+---
 
 ## Déploiement
 
-Movviz tourne à partir du même code sur trois cibles :
+<div align="center">
+
+![Windows](https://img.shields.io/badge/Windows-x64-0078D4.svg?style=for-the-badge&logo=windows)
+![Linux](https://img.shields.io/badge/Linux-x64-FCC624.svg?style=for-the-badge&logo=linux)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?style=for-the-badge&logo=docker)
+
+</div>
 
 | Cible | Dossier | Démarrage |
-| --- | --- | --- |
-| Windows x64 | `packaging/windows/` | Service Windows (installeur multilingue, démarrage auto au boot) |
-| Linux x64 | `packaging/linux/` | Unité systemd (démarrage auto au boot) |
-| NAS / Docker | `packaging/docker/` | Conteneur (`restart: unless-stopped`) |
-
-Voir [`packaging/README.md`](packaging/README.md) pour les instructions détaillées de chaque cible.
+| :---: | --- | --- |
+| **Windows** | `packaging/windows/` | Service Windows (installeur multilingue, démarrage auto) |
+| **Linux** | `packaging/linux/` | Unité systemd (démarrage auto) |
+| **Docker** | `packaging/docker/` | Conteneur (`restart: unless-stopped`) |
 
 ### Démarrage rapide (développement)
 
 ```bash
+git clone https://github.com/dj41ph4/movviz.git
+cd movviz
 npm install
 npm run dev
 # http://localhost:9810
 ```
 
-## Architecture
+---
+
+## Structure du projet
 
 ```
 src/
-  app/            # routes (tableau de bord + sections) + /api
-  components/     # UI par domaine (layout, media, settings, discover…)
-  i18n/           # dictionnaires (5 langues) + provider + hook de traduction
-  lib/            # logique métier : indexeurs, bibliothèque, moteur, Plex…
-engine/           # moteur de téléchargement BitTorrent, service Node.js isolé
-packaging/        # installeurs Windows / Linux / Docker
+  app/            routes (tableau de bord + sections) + /api
+  components/     UI par domaine (layout, media, settings, discover)
+  i18n/           dictionnaires (5 langues) + provider + hook de traduction
+  lib/            logique métier : indexeurs, bibliothèque, moteur, Plex
+engine/           moteur de téléchargement BitTorrent, service Node.js isolé
+resolver/         résolveur Cloudflare (port 9830), service indépendant
+packaging/        installeurs Windows / Linux / Docker
 ```
 
 L'interface est découplée des données : chaque écran lit des modèles typés depuis `src/lib`, ce qui garde la logique métier indépendante de la présentation.
 
+---
+
 ## Guides d'utilisation
 
 | Langue | Guide |
-| --- | --- |
-| Français | [`docs/guide-fr.md`](docs/guide-fr.md) |
-| English | [`docs/guide-en.md`](docs/guide-en.md) |
-| Deutsch | [`docs/guide-de.md`](docs/guide-de.md) |
-| Italiano | [`docs/guide-it.md`](docs/guide-it.md) |
-| Nederlands | [`docs/guide-nl.md`](docs/guide-nl.md) |
+| :---: | --- |
+| 🇫🇷 Français | [`docs/guide-fr.md`](docs/guide-fr.md) |
+| 🇬🇧 English | [`docs/guide-en.md`](docs/guide-en.md) |
+| 🇩🇪 Deutsch | [`docs/guide-de.md`](docs/guide-de.md) |
+| 🇮🇹 Italiano | [`docs/guide-it.md`](docs/guide-it.md) |
+| 🇳🇱 Nederlands | [`docs/guide-nl.md`](docs/guide-nl.md) |
+
+---
 
 ## Licence
 
@@ -105,3 +162,11 @@ Movviz est un logiciel libre distribué sous licence [GPL-3.0](LICENSE) : librem
 ## Soutenir le projet
 
 Movviz est gratuit et le restera. Si l'application te rend service, un don via [GitHub Sponsors](https://github.com/sponsors/dj41ph4) est toujours apprécié.
+
+---
+
+<div align="center">
+
+**Movviz** — *Un seul endroit pour tout gérer.*
+
+</div>
