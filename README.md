@@ -170,6 +170,12 @@ Français, anglais, allemand, italien, néerlandais. Configurable à l'installat
 
 <br><br>
 
+<a href="https://github.com/sponsors/dj41ph4">
+  <img src="https://img.shields.io/badge/Sponsoriser_sur_GitHub-30363D?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e" alt="GitHub Sponsors"/>
+</a>
+
+<br><br>
+
 <sub>Un seul endroit pour tout gérer. · GPL-3.0 · 2026</sub>
 
 </div>
