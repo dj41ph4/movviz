@@ -2,18 +2,58 @@
 
 # Movviz
 
-### Centre de commande unifié pour médiathèques personnelles
+<img src="https://img.shields.io/badge/Movviz-v1.1.61-7c3aed?style=for-the-badge&labelColor=1a1a2e" alt="Version"/>
 
-**Découvrir, organiser, suivre et gérer — depuis une interface unique, self-hostée et open-source.**
+### Le centre de commande unifié pour films et séries
+
+Découvrir, organiser, suivre et gérer — depuis une interface unique, self-hostée et open-source.
+
+[![Windows Installer](https://img.shields.io/badge/T%C3%A9l%C3%A9charger_pour_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/dj41ph4/movviz/releases/latest)
+[![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/dj41ph4/movviz/pkgs/container/movviz)
+[![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)](packaging/linux/)
+
+<br>
 
 [![Licence](https://img.shields.io/badge/Licence-GPL--3.0-3da639.svg?style=flat-square)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-15-000000.svg?style=flat-square&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
-[![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?style=flat-square&logo=docker)](https://www.docker.com)
 [![Plex](https://img.shields.io/badge/Plex-int%C3%A9gr%C3%A9-E5A00D.svg?style=flat-square&logo=plex)](https://www.plex.tv)
 [![i18n](https://img.shields.io/badge/langues-5-43b02a.svg?style=flat-square)](#guides-dutilisation)
 
 </div>
+
+---
+
+## Installation rapide
+
+<table>
+<tr>
+<td width="50%" align="center">
+
+### Windows
+
+**`Movviz-Setup-1.1.61.exe`**
+
+[![Download](https://img.shields.io/badge/T%C3%A9l%C3%A9charger_l'installeur-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/dj41ph4/movviz/releases/latest)
+
+Service Windows automatique. Installeur multilingue.
+
+</td>
+<td width="50%" align="center">
+
+### Docker
+
+```bash
+docker pull ghcr.io/dj41ph4/movviz:latest
+```
+
+[![Docker](https://img.shields.io/badge/Voir_sur_GitHub_Container_Registry-2496ED?style=for-the-badge&logo=docker&logoColor=white)](https://github.com/dj41ph4/movviz/pkgs/container/movviz)
+
+</td>
+</tr>
+</table>
+
+**Développement :** `git clone https://github.com/dj41ph4/movviz.git && cd movviz && npm install && npm run dev`
 
 ---
 
@@ -57,7 +97,7 @@
 
 ---
 
-## Stack
+## Stack technique
 
 | Technologie | Utilisation |
 | :--- | --- |
@@ -67,39 +107,6 @@
 | **Framer Motion** | Animations d'interface |
 | **Node.js** | Moteur BitTorrent dédié, isolé de l'application |
 | **i18n custom** | 5 langues, aucune chaîne en dur |
-
----
-
-## Déploiement
-
-| Cible | Emplacement | Démarrage |
-| :---: | --- | --- |
-| **Windows** | `packaging/windows/` | Service Windows, installeur multilingue |
-| **Linux** | `packaging/linux/` | Unité systemd |
-| **Docker** | `packaging/docker/` | Conteneur `restart: unless-stopped` |
-
-```bash
-git clone https://github.com/dj41ph4/movviz.git
-cd movviz
-npm install
-npm run dev
-# http://localhost:9810
-```
-
----
-
-## Structure
-
-```
-src/
-  app/          routes et API
-  components/   UI par domaine
-  i18n/         dictionnaires et hook de traduction
-  lib/          logique métier : indexeurs, bibliothèque, moteur, Plex
-engine/         moteur BitTorrent (service Node.js isolé)
-resolver/       résolveur Cloudflare (port 9830)
-packaging/      installeurs Windows, Linux, Docker
-```
 
 ---
 
@@ -121,6 +128,11 @@ packaging/      installeurs Windows, Linux, Docker
 
 <div align="center">
 
-Movviz — Un seul endroit pour tout gérer.
+<br>
+<a href="https://github.com/dj41ph4/movviz/releases/latest">
+  <img src="https://img.shields.io/badge/Movviz_1.1.61-7c3aed?style=for-the-badge&logo=github" alt="Télécharger"/>
+</a>
+<br><br>
+<sub>Un seul endroit pour tout gérer.</sub>
 
 </div>
