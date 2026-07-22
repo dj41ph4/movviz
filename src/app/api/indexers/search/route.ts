@@ -84,9 +84,9 @@ export async function GET(req: NextRequest) {
       );
       const newlyLimited = countNewlyRateLimited(indexers);
       const direct = directResults.flat().filter((r) => r.score >= 10);
-      const lower = q.toLowerCase();
+      const seen = new Set<string>();
       filtered = direct
-        .filter((r) => sanitizeQuery(r.title).toLowerCase().includes(lower))
+        .filter((r) => { if (seen.has(r.guid)) return false; seen.add(r.guid); return true; })
         .sort((a, b) => b.score - a.score);
       if (filtered.length === 0) {
         if (newlyLimited > 0) {

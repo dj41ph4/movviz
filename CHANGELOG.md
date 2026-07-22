@@ -2,6 +2,11 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.60] — 2026-07-22
+
+### Corrigé
+- **Recherche manuelle (Queue, Choix manuel, Wanted)** : le filtre `includes` sur les résultats directs de l'indexeur était trop strict — il exigeait que le titre complet normalisé (ex. `the.amazing.spider-man.le.destin.dun.heros`) soit un sous-texte du titre de release, ce qui échouait quand l'indexeur retournait un titre tronqué (ex. `Spider-Man.Le.Destin.dun.heros.2014...`). Suppression du filtre `includes` pour les résultats de recherche directe (l'indexeur a déjà filtré par requête) et dédoublonnage par GUID.
+
 ## [1.1.59] — 2026-07-22
 
 ### Corrigé

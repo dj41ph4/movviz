@@ -1,0 +1,22 @@
+#!/bin/sh
+# Pre-commit hook: bloque les fichiers .md contenant des références interdites
+# (IA/assistants, *arr, Jackett) et empêche le suivi d'AGENTS.md.
+
+if git rev-parse --git-dir > /dev/null 2>&1; then
+  # Bloquer AGENTS.md s'il est stagé
+  if git diff --cached --name-only --diff-filter=A | grep -qx 'AGENTS.md'; then
+    echo "ERROR: AGENTS.md ne doit pas être commité. Ajoute-le à .gitignore."
+    exit 1
+  fi
+
+  # Vérifier les .md stagés pour motifs interdits
+  forbidden='\*arr|sonarr|radarr|lidarr|readarr|bazarr|jackett|prowlarr|nzbget|sabnzbd'
+  forbidden="$forbidden|co.?authored.?.?by|intelligence artificielle|assistant.*ia|ia.*assistant"
+
+  for f in $(git diff --cached --name-only --diff-filter=ACM | grep -i '\.md$'); do
+    if git show ":$f" | grep -Eqi "$forbidden"; then
+      echo "ERROR: $f contient une référence interdite (*arr, Jackett, IA, etc.)"
+      exit 1
+    fi
+  done
+fi
