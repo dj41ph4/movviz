@@ -170,8 +170,14 @@ Français, anglais, allemand, italien, néerlandais. Configurable à l'installat
 
 <br><br>
 
+---
+
+## Soutenir le projet
+
+Movviz est gratuit et le restera. S'il te rend service, un don est toujours apprécié.
+
 <a href="https://github.com/sponsors/dj41ph4">
-  <img src="https://img.shields.io/badge/Sponsoriser_sur_GitHub-30363D?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e" alt="GitHub Sponsors"/>
+  <img src="https://img.shields.io/badge/GitHub_Sponsors-30363D?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e" alt="GitHub Sponsors"/>
 </a>
 
 <br><br>
