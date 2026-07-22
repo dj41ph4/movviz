@@ -2,6 +2,11 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.59] — 2026-07-22
+
+### Corrigé
+- **Filtrage des résultats de recherche** : le post-filtrage comparait le titre normalisé (avec points) au titre brut de l'indexeur (avec espaces/ponctuation) — ne matchait jamais. Les deux côtés sont maintenant normalisés via `sanitizeQuery` avant comparaison.
+
 ## [1.1.58] — 2026-07-22
 
 ### Corrigé

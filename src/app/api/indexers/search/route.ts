@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 
   if (q) {
     const lower = q.toLowerCase();
-    filtered = filtered.filter((r) => r.title.toLowerCase().includes(lower));
+    filtered = filtered.filter((r) => sanitizeQuery(r.title).toLowerCase().includes(lower));
   }
   filtered.sort((a, b) => b.score - a.score);
 
@@ -86,7 +86,7 @@ export async function GET(req: NextRequest) {
       const direct = directResults.flat().filter((r) => r.score >= 10);
       const lower = q.toLowerCase();
       filtered = direct
-        .filter((r) => r.title.toLowerCase().includes(lower))
+        .filter((r) => sanitizeQuery(r.title).toLowerCase().includes(lower))
         .sort((a, b) => b.score - a.score);
       if (filtered.length === 0) {
         if (newlyLimited > 0) {
