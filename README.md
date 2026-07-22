@@ -88,6 +88,16 @@ packaging/        # installeurs Windows / Linux / Docker
 
 L'interface est découplée des données : chaque écran lit des modèles typés depuis `src/lib`, ce qui garde la logique métier indépendante de la présentation.
 
+## Guides d'utilisation
+
+| Langue | Guide |
+| --- | --- |
+| Français | [`docs/guide-fr.md`](docs/guide-fr.md) |
+| English | [`docs/guide-en.md`](docs/guide-en.md) |
+| Deutsch | [`docs/guide-de.md`](docs/guide-de.md) |
+| Italiano | [`docs/guide-it.md`](docs/guide-it.md) |
+| Nederlands | [`docs/guide-nl.md`](docs/guide-nl.md) |
+
 ## Licence
 
 Movviz est un logiciel libre distribué sous licence [GPL-3.0](LICENSE) : librement modifiable et redistribuable, à condition que les versions dérivées restent elles aussi open-source.
