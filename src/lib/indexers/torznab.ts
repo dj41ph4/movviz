@@ -513,7 +513,12 @@ export async function searchMovie(
     const params: Record<string, string> = { t: "movie" };
     if (criteria.imdbId && caps.movieSearchImdb) params.imdbid = criteria.imdbId.replace(/^tt/, "");
     if (criteria.tmdbId && caps.movieSearchTmdb) params.tmdbid = String(criteria.tmdbId);
-    if (Object.keys(params).length > 1) return runSearch(ix, params, scopeCategories, matchQuery);
+    if (Object.keys(params).length > 1) {
+      const results = await runSearch(ix, params, scopeCategories, matchQuery);
+      if (results.length > 0) return results;
+      // ID search returned nothing — fall back to text search so a title
+      // with accents or special chars still finds releases.
+    }
   }
   return runSearch(ix, { t: "search", q: searchQuery }, scopeCategories, matchQuery);
 }
@@ -550,7 +555,10 @@ export async function searchTv(
     if (criteria.episode && caps.tvSearchEp) params.ep = String(criteria.episode);
     if (criteria.imdbId && caps.tvSearchImdb) params.imdbid = criteria.imdbId.replace(/^tt/, "");
     if (criteria.tmdbId && caps.tvSearchTmdb) params.tmdbid = String(criteria.tmdbId);
-    if (Object.keys(params).length > 2) return runSearch(ix, params, scopeCategories, matchQuery);
+    if (Object.keys(params).length > 2) {
+      const results = await runSearch(ix, params, scopeCategories, matchQuery);
+      if (results.length > 0) return results;
+    }
   }
   return runSearch(ix, { t: "search", q: searchQuery }, scopeCategories, matchQuery);
 }
