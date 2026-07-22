@@ -16,6 +16,14 @@ import path from "node:path";
 interface Entry<T> {
   value: T;
   expiresAt: number;
+  /**
+   * JSON size of `value`, computed once at set(). stats() used to
+   * re-serialize every cached value on each call — with the TMDb cache full
+   * (2000 entries, ~12 MB of JSON) that meant megabytes of stringify work
+   * per poll of the cache panel, on the main thread. Absent on entries
+   * loaded from a persist file written before this field existed.
+   */
+  sizeBytes?: number;
 }
 
 // Unbounded before this — a bulk operation touching thousands of distinct
@@ -27,12 +35,23 @@ interface Entry<T> {
 // response cache.
 const MAX_ENTRIES = 2000;
 
+// The persist file is only a warm-start optimization: losing its tail on a
+// crash costs one extra upstream fetch per lost entry, nothing more. It was
+// 2 s before, which during any metadata-heavy stretch (Discover browsing, a
+// library scan) meant re-writing the whole ~12 MB file every couple of
+// seconds — and synchronously, which froze the entire process for as long
+// as the NAS disk (often busy seeding/downloading at the same time) took to
+// swallow it: app unresponsive, CPU idle, API calls timing out.
+const SAVE_DEBOUNCE_MS = 30_000;
+
 class NamedCache {
   private store = new Map<string, Entry<unknown>>();
   hits = 0;
   misses = 0;
   private saveTimer: NodeJS.Timeout | null = null;
   private lastDiagAt = 0;
+  /** Serializes background writes to the persist file so they never interleave. */
+  private writeChain: Promise<void> = Promise.resolve();
 
   constructor(public readonly name: string, private ttlMs: number, private persistFile?: string) {
     if (persistFile) this.loadFromDisk();
@@ -49,21 +68,36 @@ class NamedCache {
     }
   }
 
-  private saveToDiskNow() {
-    if (!this.persistFile) return;
-    try {
-      fs.mkdirSync(path.dirname(this.persistFile), { recursive: true });
-      fs.writeFileSync(this.persistFile, JSON.stringify(Object.fromEntries(this.store)), "utf8");
-    } catch {
-      // Best-effort — losing the persisted cache just means a cold start next time.
-    }
+  /**
+   * Async + atomic (temp file, then rename) — this was a synchronous
+   * writeFileSync straight onto the final file before, which both blocked
+   * the whole event loop for the duration of a multi-MB write (the "app
+   * frozen with an idle CPU, every API call timing out" symptom on the NAS)
+   * and could leave a truncated file behind on a crash mid-write. Only the
+   * JSON.stringify still runs on the main thread (~40 ms for a full TMDb
+   * cache), once per SAVE_DEBOUNCE_MS at most.
+   */
+  private saveToDisk() {
+    const file = this.persistFile;
+    if (!file) return;
+    const json = JSON.stringify(Object.fromEntries(this.store));
+    const tmp = `${file}.tmp`;
+    this.writeChain = this.writeChain
+      .then(async () => {
+        await fs.promises.mkdir(path.dirname(file), { recursive: true });
+        await fs.promises.writeFile(tmp, json, "utf8");
+        await fs.promises.rename(tmp, file);
+      })
+      .catch(() => {
+        // Best-effort — losing the persisted cache just means a cold start next time.
+      });
   }
 
   /** Debounced so a burst of writes (e.g. a cache-warm pass) doesn't re-serialize the whole map every call. */
   private scheduleSave() {
     if (!this.persistFile) return;
     if (this.saveTimer) clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => this.saveToDiskNow(), 2000);
+    this.saveTimer = setTimeout(() => this.saveToDisk(), SAVE_DEBOUNCE_MS);
   }
 
   get<T>(key: string): T | undefined {
@@ -95,7 +129,13 @@ class NamedCache {
 
   set<T>(key: string, value: T) {
     this.store.delete(key); // re-insert at the end so it counts as freshest for eviction order
-    this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs });
+    let sizeBytes = 0;
+    try {
+      sizeBytes = JSON.stringify(value)?.length ?? 0;
+    } catch {
+      // Unserializable values can't be persisted anyway; 0 keeps stats honest enough.
+    }
+    this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs, sizeBytes });
     while (this.store.size > MAX_ENTRIES) {
       const oldest = this.store.keys().next().value;
       if (oldest === undefined) break;
@@ -120,7 +160,7 @@ class NamedCache {
     this.store.clear();
     this.hits = 0;
     this.misses = 0;
-    this.saveToDiskNow();
+    this.saveToDisk();
   }
 
   stats() {
@@ -128,7 +168,7 @@ class NamedCache {
     let valueSize = 0;
     for (const [k, v] of this.store) {
       keySize += k.length;
-      valueSize += JSON.stringify(v.value).length;
+      valueSize += v.sizeBytes ?? 0;
     }
     return {
       name: this.name,

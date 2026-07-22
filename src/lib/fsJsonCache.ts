@@ -39,6 +39,17 @@ const pendingWrites: Map<string, { value: unknown; timer: ReturnType<typeof setT
 /** How long a burst of writes to the same file gets to settle before the coalesced write actually fires. */
 const WRITE_COALESCE_MS = 300;
 
+/**
+ * Above this compact-JSON size, skip pretty-printing. Indentation on the
+ * library files was pure waste at scale: library-series.json measured
+ * 22.4 MB indented vs 13.8 MB compact, and ~52 ms vs ~29 ms to stringify
+ * (dev machine — several times that on the NAS CPU) — paid on the main
+ * thread at every coalesced write during a bulk search. Small config files
+ * (users, indexers…) stay indented since they're the ones a human actually
+ * opens, and re-stringifying a few KB costs nothing.
+ */
+const PRETTY_MAX_BYTES = 256 * 1024;
+
 export function readJsonCached<T>(file: string, fallback: T): T {
   const hit = cache.get(file);
   if (hit?.pending) return hit.value as T;
@@ -106,7 +117,8 @@ export function writeJsonCached(file: string, value: unknown): void {
     pendingWrites.delete(file);
     const finalValue = pending ? pending.value : value;
 
-    const json = JSON.stringify(finalValue, null, 2);
+    const compact = JSON.stringify(finalValue);
+    const json = compact.length <= PRETTY_MAX_BYTES ? JSON.stringify(finalValue, null, 2) : compact;
     const tmp = `${file}.tmp`;
     const prior = writeQueues.get(file) ?? Promise.resolve();
     const queued = prior

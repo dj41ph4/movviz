@@ -2,6 +2,13 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.52] — 2026-07-22
+
+### Corrigé
+- **L'application pouvait se figer complètement (pages qui ne répondent plus, requêtes en timeout) pendant les périodes d'activité** : la sauvegarde du cache de métadonnées (~12 Mo) était écrite de façon bloquante toutes les 2 secondes en pleine navigation — sur le disque du NAS, déjà occupé par les téléchargements, chaque écriture gelait tout le serveur le temps qu'elle passe. Elle est maintenant asynchrone, atomique (plus aucun risque de fichier corrompu en cas de coupure), et espacée de 30 secondes.
+- **Les gros fichiers de la bibliothèque étaient ~40 % plus lourds que nécessaire** : le fichier des séries (22 Mo) était écrit avec une mise en forme indentée que personne ne lit, payée en CPU et en disque à chaque changement de statut d'épisode. Les gros fichiers sont désormais écrits en compact (13,8 Mo pour le même contenu) ; les petits fichiers de configuration restent lisibles.
+- Le panneau des caches ne re-sérialise plus l'intégralité du cache (~12 Mo de travail) à chaque affichage — la taille des entrées est mémorisée au fil de l'eau.
+
 ## [1.1.51] — 2026-07-22
 
 ### Corrigé
