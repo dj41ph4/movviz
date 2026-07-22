@@ -2,6 +2,20 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.65] — 2026-07-22
+
+### Modifié
+
+- **Mise à jour majeure des dépendances** : Next.js 15→16, TypeScript 5→6, framer-motion 11→12, lucide-react 0→1, tailwind-merge 2→3, @types/node 22→26. React, Tailwind, PostCSS montés à leurs dernières versions mineures. Le fichier `middleware.ts` a été renommé en `proxy.ts` (convention Next.js 16) avec `export function proxy`. Le script d'initialisation du thème passe par une balise `<script>` synchrone directe au lieu de `next/script beforeInteractive`, qui ne s'exécutait plus avant le premier rendu dans Next.js 16 — corrige l'affichage « texte sur fond blanc » au chargement.
+- **Build Windows : version.json** synchronisé avec le numéro de version du projet.
+
+## [1.1.64] — 2026-07-22
+
+### Corrigé
+
+- **Plantage du wizard de démarrage à la dernière étape** : `router.push("/")` + `router.refresh()` créait un race condition sur certains clients. Remplacé par `window.location.href = "/"` (équivalent à F5, qui fonctionnait déjà).
+- **Dédoublonnage des ajouts en bibliothèque** : `addMovie()` et `addSeries()` vérifient maintenant si le `tmdbId` existe déjà avant d'insérer (commité après coup dans la release 1.1.63).
+
 ## [1.1.63] — 2026-07-22
 
 ### Corrigé — Merci à [TheGeeKing](https://github.com/TheGeeKing) pour le debug

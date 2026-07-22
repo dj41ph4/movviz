@@ -30,7 +30,7 @@ function isPublicApi(pathname: string) {
   return PUBLIC_API_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isStaticAsset = pathname.startsWith("/_next") || /\.[a-z0-9]+$/i.test(pathname);
   const cookie = req.cookies.get(SESSION_COOKIE)?.value;

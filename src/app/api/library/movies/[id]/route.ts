@@ -49,7 +49,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
     } else {
       try { fs.unlinkSync(movie.file.path); } catch { /* already gone */ }
       const dir = movie.file.path.split(/[/\\]/).slice(0, -1).join("/");
-      try { fs.rmdirSync(dir, { recursive: true }); } catch { /* ignore */ }
+      try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
     }
   }
   removeMovie(id);

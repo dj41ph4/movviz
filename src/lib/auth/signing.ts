@@ -1,6 +1,6 @@
 /**
  * HMAC-SHA256 signing for session tokens.
- * Uses Web Crypto API — works in both Edge (middleware) and Node.js runtimes.
+ * Uses Web Crypto API — works in both Edge (proxy) and Node.js runtimes.
  *
  * The signing key comes from:
  *   1. MOVVIZ_SESSION_SECRET env var (recommended, works in both runtimes)

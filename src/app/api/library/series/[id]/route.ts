@@ -70,7 +70,7 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
         s.episodes.forEach((ep) => {
           if (ep.file?.path) {
             const dir = ep.file.path.split(/[/\\]/).slice(0, -1).join("/");
-            try { fs.rmdirSync(dir, { recursive: true }); } catch { /* ignore */ }
+            try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
           }
         });
       });

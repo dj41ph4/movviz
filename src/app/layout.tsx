@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { ServiceWorkerRegistration } from "@/components/layout/ServiceWorkerRegistration";
@@ -42,9 +41,7 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className="cinema-grain antialiased">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {THEME_INIT_SCRIPT}
-        </Script>
+        <script id="theme-init" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <ServiceWorkerRegistration />
         <PerfReporter />
         <AppShell version={getAppVersion()}>{children}</AppShell>

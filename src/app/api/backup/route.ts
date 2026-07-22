@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
   process.env.MOVVIZ_DATA_DIR ??
-  path.join(process.cwd(), ".movviz-data");
+  path.join(/*@turbopackIgnore: true*/ process.cwd(), ".movviz-data");
 
 /** Every JSON store Movviz owns — the full configuration, in one exportable snapshot. */
 const FILES = [
