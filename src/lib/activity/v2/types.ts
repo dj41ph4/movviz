@@ -117,7 +117,7 @@ export interface QueueItem {
   media: ActivityMedia;
   release: ActivityRelease;
   download: ActivityDownload;
-  status: "queued" | "downloading" | "paused" | "importing" | "completed" | "failed" | "stalled";
+  status: "queued" | "downloading" | "paused" | "importing" | "seeding" | "completed" | "failed" | "stalled";
   addedAt: number;
   estimatedCompletion?: number;
 }

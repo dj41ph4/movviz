@@ -79,6 +79,7 @@ export const nl: Dictionary = {
     filter: {
       all: "Alle",
       downloading: "Bezig",
+      seeding: "Aan het seeden",
       completed: "Voltooid",
       stalled: "Vastgelopen",
     },
@@ -504,6 +505,8 @@ export const nl: Dictionary = {
       importing: "Importeren",
       paused: "Gepauzeerd",
       queued: "In wachtrij",
+      seeding: "Aan het seeden",
+      completed: "Voltooid",
       missing: "Ontbreekt",
       cutoffUnmet: "Drempel niet bereikt",
     },

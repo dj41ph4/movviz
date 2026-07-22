@@ -191,9 +191,7 @@ async function getQueue(): Promise<NextResponse<{ items: QueueItem[] }>> {
   const hashIndex = buildHashIndex();
   const { byHash: releaseByHash, byLibraryRef: releaseByLibraryRef } = buildReleaseLookup();
 
-  const items: QueueItem[] = torrents
-    .filter(t => t.state !== "seeding" && t.state !== "completed")
-    .map(t => {
+  const items: QueueItem[] = torrents.map(t => {
       const { movie, seriesMatch } = hashIndex.get(t.infoHash) ?? {};
 
       const media: ActivityMedia = movie
@@ -245,7 +243,7 @@ async function getQueue(): Promise<NextResponse<{ items: QueueItem[] }>> {
           peers: t.numPeers,
           state: (t.state === "metadata" ? "downloading" : t.state) as "downloading" | "paused" | "queued" | "completed" | "seeding" | "stalled"
         },
-        status: t.state === "paused" ? "paused" : t.state === "stalled" ? "stalled" : t.state === "queued" ? "queued" : "downloading",
+        status: t.state === "paused" ? "paused" : t.state === "stalled" ? "stalled" : t.state === "queued" ? "queued" : t.state === "seeding" ? "seeding" : t.state === "completed" ? "completed" : "downloading",
         addedAt
       };
     });

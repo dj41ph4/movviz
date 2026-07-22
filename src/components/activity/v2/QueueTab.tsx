@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, memo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n, useT } from "@/i18n/provider";
-import { cn, formatBytes, formatSpeed, formatEta, formatDateTime } from "@/lib/utils";
+import { cn, formatBytes, formatSpeed, formatEta, formatClockTime, formatDateTime } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { QueueItem } from "@/lib/activity/v2/types";
 import {
@@ -21,7 +21,7 @@ async function api(path: string, opts?: RequestInit) {
   return res.json();
 }
 
-const FILTERS = ["all", "downloading", "stalled", "completed"] as const;
+const FILTERS = ["all", "downloading", "seeding", "stalled", "completed"] as const;
 type Filter = (typeof FILTERS)[number];
 
 export function QueueTab({ active = true }: { active?: boolean }) {
@@ -30,7 +30,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const router = useRouter();
   const user = useCurrentUser();
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    "/api/activity/v2?tab=queue", { refreshInterval: active ? 3000 : 0 }
+    "/api/activity/v2?tab=queue", { refreshInterval: active ? 3000 : 0, dedupingInterval: 2000 }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -44,6 +44,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
 
   const filtered = useMemo(() => items.filter((item) => {
     if (filter === "downloading") return item.status === "downloading" || item.status === "importing";
+    if (filter === "seeding") return item.status === "seeding";
     if (filter === "stalled") return item.status === "stalled";
     if (filter === "completed") return item.status === "completed";
     return true;
@@ -215,210 +216,17 @@ export function QueueTab({ active = true }: { active?: boolean }) {
 
       <div className="space-y-3">
         {filtered.map((item) => (
-          <div key={item.id} className="rounded-2xl glass overflow-hidden">
-            <div
-              className="p-4 cursor-pointer hover:bg-white/5"
-              onClick={() => toggleExpand(item.id)}
-            >
-              <div className="flex items-start gap-3">
-                <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                  item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}>
-                  {item.media.type === "movie" ? <Film className="h-5 w-5" /> : <Tv className="h-5 w-5" />}
-                </span>
-
-                {/* min-w-0 is load-bearing: without it a flex item can't shrink
-                    below its content's natural width, so on a narrow screen the
-                    title would never truncate — it would just get pushed off
-                    entirely by the shrink-0 badge next to it. */}
-                <div className="min-w-0 flex-1">
-                  <Link href={item.media.href} className="block truncate font-semibold text-ink hover:text-brand-glow">
-                    {item.media.title}
-                    {item.media.packEpisodeCount ? (
-                      <span className="text-ink-dim">
-                        {" — "}
-                        {item.media.season === 0
-                          ? t("library.searchCompleteSeries")
-                          : t("activity.seasonPack", { season: item.media.season ?? 0, count: item.media.packEpisodeCount ?? 0 })}
-                      </span>
-                    ) : item.media.season && item.media.episode ? (
-                      <span className="text-ink-dim">
-                        {" — "}
-                        {`S${item.media.season}E${String(item.media.episode).padStart(2, "0")}`}
-                      </span>
-                    ) : null}
-                  </Link>
-
-                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-dim">
-                    <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold",
-                      item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" :
-                      item.status === "importing" ? "border-brand/30 bg-brand/12 text-brand-glow" :
-                      item.status === "paused" ? "border-amber/30 bg-amber/12 text-amber" :
-                      item.status === "stalled" ? "border-down/30 bg-down/12 text-down" :
-                      "border-white/10 bg-white/5 text-ink-dim")}>
-                      {item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Download className="h-3 w-3" /> {item.release.indexer}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Check className="h-3 w-3" /> {item.release.quality}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="h-3 w-3" /> {item.release.seeders}↑ {item.release.leechers}↓
-                    </span>
-                    <span>{t("search.score")}: {item.release.score}</span>
-                  </div>
-
-                  {(item.status === "downloading" || item.status === "importing") && (
-                    <div className="mt-2" onClick={(e) => e.stopPropagation()}>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
-                        <div
-                          className="h-full rounded-full brand-gradient transition-[width]"
-                          style={{ width: `${Math.round(item.download.progress * 100)}%` }}
-                        />
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-dim">
-                        <span className="font-mono text-ink-soft">{Math.round(item.download.progress * 100)}%</span>
-                        <span>
-                          {formatBytes(item.download.progress * item.release.size)} / {formatBytes(item.release.size)}
-                        </span>
-                        {item.status === "downloading" && item.download.eta > 0 && (
-                          <span>{t("downloads.eta")}: {formatEta(Math.round(item.download.eta / 60))}</span>
-                        )}
-                        {item.status === "downloading" && item.download.downloadSpeed > 0 && (
-                          <span>{formatSpeed(item.download.downloadSpeed)}</span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="mt-3 flex shrink-0 justify-end gap-2" onClick={(e) => e.stopPropagation()}>
-                {item.status === "downloading" && (
-                  <>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleAction(item.id, "pause"); }}
-                      disabled={actionLoading !== null}
-                      title={t("downloads.pause")}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
-                    >
-                      {actionLoading === `pause_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleAction(item.id, "search"); }}
-                      disabled={actionLoading !== null}
-                      title={t("downloads.manual")}
-                      className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
-                    >
-                      <Search className="h-4 w-4" />
-                    </button>
-                  </>
-                )}
-                {item.status === "paused" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleAction(item.id, "resume"); }}
-                    disabled={actionLoading !== null}
-                    title={t("downloads.resume")}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
-                  >
-                    {actionLoading === `resume_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                  </button>
-                )}
-                {item.status === "stalled" && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleAction(item.id, "restart"); }}
-                    disabled={actionLoading !== null}
-                    title={t("downloads.restart")}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
-                  >
-                    {actionLoading === `restart_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-                  </button>
-                )}
-                <button
-                  onClick={(e) => { e.stopPropagation(); remove(item.id, false); }}
-                  disabled={actionLoading !== null}
-                  title={t("downloads.remove")}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
-                >
-                  {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); remove(item.id, true); }}
-                  disabled={actionLoading !== null}
-                  title={t("downloads.removeData")}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
-                >
-                  {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4" /> <X className="h-3 w-3 -ml-1" /></>}
-                </button>
-              </div>
-            </div>
-
-            {expandedItem === item.id && (
-              <div className="border-t border-white/10 bg-surface/30 p-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <h4 className="mb-2 font-semibold text-ink">{t("downloads.title")}</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("common.loading")}</span>
-                        <span className="font-mono">{Math.round(item.download.progress * 100)}%</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-black/40">
-                        <div className="h-full rounded-full brand-gradient" style={{ width: `${item.download.progress * 100}%` }} />
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("downloads.down")}</span>
-                        <span>{formatSpeed(item.download.downloadSpeed)} ↓ / {formatSpeed(item.download.uploadSpeed)} ↑</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("downloads.eta")}</span>
-                        <span>{item.download.eta > 0 ? formatEta(Math.round(item.download.eta / 60)) : "—"}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("downloads.ratio")}</span>
-                        <span>{item.download.ratio.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("downloads.peers")}</span>
-                        <span>{item.download.peers}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("activity.addedAt")}</span>
-                        <span>{formatDateTime(item.addedAt, locale)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="mb-2 font-semibold text-ink">{t("search.release")}</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("search.release")}</span>
-                        <span className="font-mono text-xs">{item.release.releaseTitle}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("search.size")}</span>
-                        <span>{formatBytes(item.release.size)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("filters.quality")}</span>
-                        <span>{item.release.quality}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("search.indexer")}</span>
-                        <span>{item.release.indexer}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-ink-dim">{t("customFormats.title")}</span>
-                        <span>{item.release.customFormats.join(", ") || "—"}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <QueueItemRow
+            key={item.id}
+            item={item}
+            isExpanded={expandedItem === item.id}
+            actionLoading={actionLoading}
+            t={t}
+            locale={locale}
+            onToggleExpand={toggleExpand}
+            onAction={handleAction}
+            onRemove={remove}
+          />
         ))}
       </div>
 
@@ -432,3 +240,262 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     </div>
   );
 }
+
+/** Compares only the data fields that actually change on every 3s poll so
+ *  React.memo can skip re-render for items whose progress/speed/status are
+ *  identical to the previous poll. Without this every item re-renders every
+ *  3s — ~300 lines of JSX per item × 20+ items adds up to real CPU time. */
+const areItemEqual = (prev: QueueItemRowProps, next: QueueItemRowProps) => {
+  if (prev.item.id !== next.item.id) return false;
+  if (prev.isExpanded !== next.isExpanded) return false;
+  if (prev.actionLoading !== next.actionLoading) return false;
+  const a = prev.item;
+  const b = next.item;
+  if (a.status !== b.status) return false;
+  if (a.download.progress !== b.download.progress) return false;
+  if (a.download.downloadSpeed !== b.download.downloadSpeed) return false;
+  if (a.download.uploadSpeed !== b.download.uploadSpeed) return false;
+  if (a.download.eta !== b.download.eta) return false;
+  if (a.download.ratio !== b.download.ratio) return false;
+  if (a.download.peers !== b.download.peers) return false;
+  if (a.release.seeders !== b.release.seeders) return false;
+  return true;
+};
+
+interface QueueItemRowProps {
+  item: QueueItem;
+  isExpanded: boolean;
+  actionLoading: string | null;
+  t: (k: string, params?: Record<string, string | number>) => string;
+  locale: string;
+  onToggleExpand: (id: string) => void;
+  onAction: (id: string, action: "pause" | "resume" | "restart" | "retry" | "search" | "block") => void;
+  onRemove: (id: string, withData: boolean) => void;
+}
+
+const QueueItemRow = memo(function QueueItemRow({
+  item, isExpanded, actionLoading, t, locale,
+  onToggleExpand, onAction, onRemove,
+}: QueueItemRowProps) {
+  return (
+    <div className="rounded-2xl glass overflow-hidden">
+      <div
+        className="p-4 cursor-pointer hover:bg-white/5"
+        onClick={() => onToggleExpand(item.id)}
+      >
+        <div className="flex items-start gap-3">
+          <span className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+            item.media.type === "movie" ? "bg-brand/12 text-brand-glow" : "bg-cyan/12 text-cyan")}>
+            {item.media.type === "movie" ? <Film className="h-5 w-5" /> : <Tv className="h-5 w-5" />}
+          </span>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-2">
+              <Link href={item.media.href} className="truncate font-semibold text-ink hover:text-brand-glow">
+                {item.media.title}
+                {item.media.packEpisodeCount ? (
+                  <span className="text-ink-dim">
+                    {" — "}
+                    {item.media.season === 0
+                      ? t("library.searchCompleteSeries")
+                      : t("activity.seasonPack", { season: item.media.season ?? 0, count: item.media.packEpisodeCount ?? 0 })}
+                  </span>
+                ) : item.media.season && item.media.episode ? (
+                  <span className="text-ink-dim">
+                    {" — "}
+                    {`S${item.media.season}E${String(item.media.episode).padStart(2, "0")}`}
+                  </span>
+                ) : null}
+              </Link>
+              <span className="shrink-0 font-mono text-[11px] text-ink-dim" title={formatDateTime(item.addedAt, locale)}>
+                {formatClockTime(item.addedAt, locale)}
+              </span>
+            </div>
+
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-dim">
+              <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" :
+                item.status === "importing" ? "border-brand/30 bg-brand/12 text-brand-glow" :
+                item.status === "paused" ? "border-amber/30 bg-amber/12 text-amber" :
+                item.status === "stalled" ? "border-down/30 bg-down/12 text-down" :
+                item.status === "seeding" ? "border-ok/30 bg-ok/12 text-ok" :
+                item.status === "completed" ? "border-ok/30 bg-ok/12 text-ok" :
+                "border-white/10 bg-white/5 text-ink-dim")}>
+                {item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}
+              </span>
+              <span className="flex items-center gap-1">
+                <Download className="h-3 w-3" /> {item.release.indexer}
+              </span>
+              <span className="flex items-center gap-1">
+                <Check className="h-3 w-3" /> {item.release.quality}
+              </span>
+              <span className="flex items-center gap-1">
+                <Users className="h-3 w-3" /> {item.release.seeders}↑ {item.release.leechers}↓
+              </span>
+              <span>{t("search.score")}: {item.release.score}</span>
+              <span className="flex items-center gap-1">
+                <ArrowUpFromLine className="h-3 w-3" /> Ratio: {item.download.ratio.toFixed(2)}
+              </span>
+            </div>
+
+            {(item.status === "downloading" || item.status === "importing") && (
+              <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
+                  <div
+                    className="h-full rounded-full brand-gradient transition-[width]"
+                    style={{ width: `${Math.round(item.download.progress * 100)}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-dim">
+                  <span className="font-mono text-ink-soft">{Math.round(item.download.progress * 100)}%</span>
+                  <span>
+                    {formatBytes(item.download.progress * item.release.size)} / {formatBytes(item.release.size)}
+                  </span>
+                  {item.download.eta > 0 && (
+                    <span>{t("downloads.eta")}: {formatEta(Math.round(item.download.eta / 60))}</span>
+                  )}
+                  {item.download.downloadSpeed > 0 && (
+                    <span>↓{formatSpeed(item.download.downloadSpeed)}</span>
+                  )}
+                  {item.download.uploadSpeed > 0 && (
+                    <span>↑{formatSpeed(item.download.uploadSpeed)}</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {item.status === "seeding" && item.download.uploadSpeed > 0 && (
+              <div className="mt-2 text-[11px] text-ink-dim">
+                <span>↑{formatSpeed(item.download.uploadSpeed)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-3 flex shrink-0 justify-end gap-2" onClick={(e) => e.stopPropagation()}>
+          {item.status === "downloading" && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); onAction(item.id, "pause"); }}
+                disabled={actionLoading !== null}
+                title={t("downloads.pause")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+              >
+                {actionLoading === `pause_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); onAction(item.id, "search"); }}
+                disabled={actionLoading !== null}
+                title={t("downloads.manual")}
+                className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+              >
+                <Search className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          {item.status === "paused" && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(item.id, "resume"); }}
+              disabled={actionLoading !== null}
+              title={t("downloads.resume")}
+              className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+            >
+              {actionLoading === `resume_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            </button>
+          )}
+          {item.status === "stalled" && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onAction(item.id, "restart"); }}
+              disabled={actionLoading !== null}
+              title={t("downloads.restart")}
+              className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+            >
+              {actionLoading === `restart_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(item.id, false); }}
+            disabled={actionLoading !== null}
+            title={t("downloads.remove")}
+            className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
+          >
+            {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(item.id, true); }}
+            disabled={actionLoading !== null}
+            title={t("downloads.removeData")}
+            className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
+          >
+            {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4" /> <X className="h-3 w-3 -ml-1" /></>}
+          </button>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="border-t border-white/10 bg-surface/30 p-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <h4 className="mb-2 font-semibold text-ink">{t("downloads.title")}</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("common.loading")}</span>
+                  <span className="font-mono">{Math.round(item.download.progress * 100)}%</span>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-black/40">
+                  <div className="h-full rounded-full brand-gradient" style={{ width: `${item.download.progress * 100}%` }} />
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("downloads.down")}</span>
+                  <span>{formatSpeed(item.download.downloadSpeed)} ↓ / {formatSpeed(item.download.uploadSpeed)} ↑</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("downloads.eta")}</span>
+                  <span>{item.download.eta > 0 ? formatEta(Math.round(item.download.eta / 60)) : "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("downloads.ratio")}</span>
+                  <span>{item.download.ratio.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("downloads.peers")}</span>
+                  <span>{item.download.peers}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("activity.addedAt")}</span>
+                  <span>{formatDateTime(item.addedAt, locale)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <h4 className="mb-2 font-semibold text-ink">{t("search.release")}</h4>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("search.release")}</span>
+                  <span className="font-mono text-xs">{item.release.releaseTitle}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("search.size")}</span>
+                  <span>{formatBytes(item.release.size)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("filters.quality")}</span>
+                  <span>{item.release.quality}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("search.indexer")}</span>
+                  <span>{item.release.indexer}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-ink-dim">{t("customFormats.title")}</span>
+                  <span>{item.release.customFormats.join(", ") || "—"}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}, areItemEqual);

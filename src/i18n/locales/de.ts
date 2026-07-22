@@ -79,6 +79,7 @@ export const de: Dictionary = {
     filter: {
       all: "Alle",
       downloading: "Lädt",
+      seeding: "Seede",
       completed: "Abgeschlossen",
       stalled: "Blockiert",
     },
@@ -504,6 +505,8 @@ export const de: Dictionary = {
       importing: "Wird importiert",
       paused: "Pausiert",
       queued: "In Warteschlange",
+      seeding: "Seede",
+      completed: "Abgeschlossen",
       missing: "Fehlt",
       cutoffUnmet: "Schwelle nicht erreicht",
     },

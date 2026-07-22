@@ -30,9 +30,11 @@ export function formatDate(dateStr: string | null | undefined, locale: string = 
   return d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
-/** Wall-clock time of a timestamp, e.g. "07:49" (fr) / "7:49 AM" (en). */
+/** Wall-clock time of a timestamp, e.g. "07:49" — force 24h (hourCycle: "h23")
+ *  so the column width is stable across locales (en-US's "7:49 AM" is wider
+ *  than fr's "07:49" and would cause layout shifts in timestamp columns). */
 export function formatClockTime(ts: number, locale: string = "en") {
-  return new Date(ts).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  return new Date(ts).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 
 /** Full date + time, e.g. "22 juil. 2026, 07:49" — for tooltips and detail rows. */

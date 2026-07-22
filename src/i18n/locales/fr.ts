@@ -77,6 +77,7 @@ export const fr = {
     filter: {
       all: "Tous",
       downloading: "En cours",
+      seeding: "En seed",
       completed: "Terminés",
       stalled: "Bloqués",
     },
@@ -502,6 +503,8 @@ export const fr = {
       importing: "Import",
       paused: "En pause",
       queued: "En attente",
+      seeding: "En seed",
+      completed: "Terminé",
       missing: "Manquant",
       cutoffUnmet: "Qualité insuffisante",
     },

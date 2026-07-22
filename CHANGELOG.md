@@ -2,6 +2,19 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.54] — 2026-07-22
+
+### Ajouté
+- **Filtre "En seed" dans la file d'attente** : les torrents en cours de seed (terminés mais encore actifs) sont maintenant visibles dans l'onglet Activité, avec leur ratio, vitesse de partage et temps écoulé — directement dans la ligne compacte, comme sur un vrai client torrent.
+- **Heure d'ajout dans la ligne compacte** : chaque téléchargement affiche maintenant l'heure exacte à laquelle il a été ajouté, sans avoir besoin de déplier la carte.
+
+### Optimisé
+- **File d'attente encore plus réactive** : chaque ligne est maintenant un composant `React.memo` avec une comparaison champ par champ (progression, vitesse, ratio, statut…). Les 40+ lignes ne se re-rendent plus à chaque rafraîchissement 3 secondes — seules celles dont les données changent se mettent à jour.
+
+### Corrigé
+- **Torrents en seed invisibles** : l'API filtrait les torrents dont le statut était "seeding" ou "completed" — ils n'apparaissaient jamais dans la file. Désormais tous les torrents sont transmis, et le client applique ses propres filtres.
+- **Erreur TypeScript bloquante** : le type `QueueItem.status` n'incluait pas `"seeding"`, ce qui empêchait la compilation avec les nouveaux filtres.
+
 ## [1.1.53] — 2026-07-22
 
 ### Ajouté
