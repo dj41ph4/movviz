@@ -1,0 +1,34 @@
+<service>
+  <id>Movviz</id>
+  <name>Movviz</name>
+  <description>Movviz media platform - web interface, API and download engine.</description>
+
+  <!-- Run the bundled Node against the standalone server. %BASE% is the folder
+       holding this service exe (…\Movviz\service). -->
+  <executable>%BASE%\..\runtime\node.exe</executable>
+  <arguments>"%BASE%\..\app\server.js"</arguments>
+  <workingdirectory>%BASE%\..\app</workingdirectory>
+
+  <!-- Start automatically at boot, restart automatically on failure. -->
+  <startmode>Automatic</startmode>
+  <onfailure action="restart" delay="5 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <env name="NODE_ENV" value="production"/>
+  <env name="PORT" value="9810"/>
+  <env name="HOSTNAME" value="0.0.0.0"/>
+  <env name="MOVVIZ_WEB_PORT" value="9810"/>
+  <env name="MOVVIZ_ENGINE_PORT" value="9820"/>
+  <!-- App config & state live outside Program Files. -->
+  <env name="MOVVIZ_CONFIG_DIR" value="%ProgramData%\Movviz"/>
+  <!-- Media root: torrents download here and the library is built here (same
+       volume = instant imports). Point this at a data drive if you prefer,
+       e.g. value="D:\Media". -->
+  <env name="MOVVIZ_DATA_DIR" value="%ProgramData%\Movviz\data"/>
+
+  <log mode="roll-by-size">
+    <logpath>%ProgramData%\Movviz\logs</logpath>
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+</service>

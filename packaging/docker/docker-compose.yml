@@ -1,0 +1,40 @@
+services:
+  movviz:
+    container_name: movviz
+    image: dj41ph4/movviz:latest
+    # Build locally instead, if you'd rather not pull from Docker Hub:
+    # build:
+    #   context: ../..
+    #   dockerfile: packaging/docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "9810:9810" # web interface + API
+      # BitTorrent peer ports — one per download instance (movies, series).
+      # These must ALSO be forwarded on your router/NAS firewall to the host,
+      # or every download only ever gets outbound peer connections, which is
+      # much slower and prone to stalls/timeouts on less-seeded releases.
+      - "51413-51414:51413-51414/tcp"
+      - "51413-51414:51413-51414/udp"
+    environment:
+      MOVVIZ_WEB_PORT: "9810"
+      MOVVIZ_ENGINE_PORT: "9820"
+      MOVVIZ_TORRENT_PORT: "51413"
+      # Match these to the host user that owns your NAS shares (id / gid).
+      PUID: "1000"
+      PGID: "1000"
+      TZ: "Europe/Paris"
+    volumes:
+      # App config, database and engine state. Replace with your own path,
+      # or map this folder from Container Manager's Volume tab instead.
+      - ./config:/config
+      # ONE media root. Torrents download to /data/torrents/{movies,tv} and the
+      # finished library lands in /data/media/{movies,tv} — same volume, so
+      # imports are instant moves, not slow copies. Point this at wherever
+      # Plex's library already watches so new titles show up automatically.
+      - /volume1/data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9810/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s

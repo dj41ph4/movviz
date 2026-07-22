@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+_refs
+.claude
+packaging/docker/README.md
+npm-debug.log*
+*.tsbuildinfo
+.env*.local
+Dockerfile
+README.md

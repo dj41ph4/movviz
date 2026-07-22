@@ -1,0 +1,13 @@
+{
+  "name": "Movviz",
+  "short_name": "Movviz",
+  "description": "Le centre de commande intelligent de vos films et séries — découverte, demandes et bibliothèque, orchestrés en un seul endroit.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05060b",
+  "theme_color": "#05060b",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

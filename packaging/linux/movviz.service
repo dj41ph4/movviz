@@ -1,0 +1,32 @@
+[Unit]
+Description=Movviz media platform
+Documentation=https://movviz.local
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=movviz
+Group=movviz
+WorkingDirectory=/opt/movviz/.next/standalone
+Environment=NODE_ENV=production
+Environment=MOVVIZ_WEB_PORT=9810
+Environment=MOVVIZ_ENGINE_PORT=9820
+Environment=PORT=9810
+Environment=HOSTNAME=0.0.0.0
+# App config & state.
+Environment=MOVVIZ_CONFIG_DIR=/var/lib/movviz
+# Media root: torrents + library on one volume (instant imports). Point this at
+# your media disk/mount if you prefer, e.g. /mnt/media.
+Environment=MOVVIZ_DATA_DIR=/var/lib/movviz/data
+ExecStart=/usr/bin/node /opt/movviz/.next/standalone/server.js
+Restart=on-failure
+RestartSec=5
+# Restart automatically after errors, indefinitely.
+StartLimitIntervalSec=0
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=movviz
+
+[Install]
+WantedBy=multi-user.target

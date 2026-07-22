@@ -1,0 +1,331 @@
+"use client";
+
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { SortableColumnHeader } from "@/components/ui/SortableColumnHeader";
+import { cn, formatBytes, relativeTime } from "@/lib/utils";
+import { useT } from "@/i18n/provider";
+import type { IndexerRelease } from "@/lib/indexers/types";
+import type { MediaType } from "@/lib/types";
+import { TitleTargetPicker } from "@/components/activity/v2/TitleTargetPicker";
+import {
+  Search, Zap, Magnet, Server, Download, Loader2, Settings, Film, Tv, Check, ListFilter, X, AlertTriangle,
+} from "lucide-react";
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={null}>
+      <SearchPageInner />
+    </Suspense>
+  );
+}
+
+function SearchPageInner() {
+  const t = useT();
+  const params = useSearchParams();
+  const libraryRef = params.get("libraryRef");
+  const manualTitle = params.get("title");
+  const [q, setQ] = useState(params.get("q") ?? "");
+  const [category, setCategory] = useState<MediaType>(params.get("category") === "series" ? "series" : "movie");
+  const [releases, setReleases] = useState<IndexerRelease[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [configured, setConfigured] = useState<boolean | null>(null);
+  const [searched, setSearched] = useState(false);
+  const [grabbing, setGrabbing] = useState<string | null>(null);
+  const [grabbed, setGrabbed] = useState<Set<string>>(new Set());
+  const [recentLoading, setRecentLoading] = useState(false);
+  const [sortKey, setSortKey] = useState<string>("score");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [indexerErrors, setIndexerErrors] = useState<{ indexer: string; detail: string }[]>([]);
+  const [pendingTarget, setPendingTarget] = useState<IndexerRelease | null>(null);
+
+  const sorted = useMemo(() => {
+    const arr = [...releases];
+    arr.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "title": cmp = a.title.localeCompare(b.title); break;
+        case "indexer": cmp = a.indexer.localeCompare(b.indexer); break;
+        case "size": cmp = a.size - b.size; break;
+        case "peers": cmp = (a.seeders ?? 0) - (b.seeders ?? 0); break;
+        case "age": cmp = (a.publishDate ? new Date(a.publishDate).getTime() : 0) - (b.publishDate ? new Date(b.publishDate).getTime() : 0); break;
+        case "score": cmp = a.score - b.score; break;
+      }
+      return sortDir === "desc" ? -cmp : cmp;
+    });
+    return arr;
+  }, [releases, sortKey, sortDir]);
+
+  const toggleSort = (key: string) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "title" || key === "indexer" ? "asc" : "desc");
+    }
+  };
+
+  // Manual pick from a library card lands here pre-filled — launch the search right away.
+  useEffect(() => {
+    if (libraryRef && q.trim()) run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // No query → load recent releases automatically, scoped to the active
+  // Films/Séries toggle, and reload whenever that toggle changes.
+  useEffect(() => {
+    if (libraryRef || searched) return; // manual pick or an active search — leave it alone
+    loadRecent(category);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
+
+  const loadRecent = async (cat: MediaType) => {
+    if (recentLoading) return;
+    setRecentLoading(true);
+    try {
+      const res = await fetch(`/api/indexers/search?recent=1&category=${cat}`, { cache: "no-store" });
+      const data = await res.json();
+      if (data.configured) {
+        setConfigured(true);
+        setReleases(data.releases ?? []);
+      } else {
+        setConfigured(false);
+      }
+    } catch {
+      // silent — indexers might just not support empty queries
+    } finally {
+      setRecentLoading(false);
+    }
+  };
+
+  const run = async () => {
+    if (!q.trim()) return;
+    setLoading(true);
+    setSearched(true);
+    try {
+      const paramsQ = new URLSearchParams({ q: q.trim() });
+      const refTitle = params.get("refTitle");
+      const year = params.get("year");
+      if (refTitle) paramsQ.set("refTitle", refTitle);
+      if (year) paramsQ.set("year", year);
+      if (category) paramsQ.set("category", category);
+      const res = await fetch(`/api/indexers/search?${paramsQ.toString()}`, { cache: "no-store" });
+      const data = await res.json();
+      setConfigured(data.configured);
+      setReleases(data.releases ?? []);
+      setIndexerErrors(data.errors ?? []);
+    } catch {
+      setConfigured(false);
+      setReleases([]);
+      setIndexerErrors([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const grab = async (r: IndexerRelease, resolvedLibraryRef: string | null = libraryRef) => {
+    setGrabbing(r.guid);
+    const quality = (r.title.match(/\b(4320p|2160p|1080p|720p|480p)\b/i)?.[0]?.toLowerCase() ?? "Inconnue");
+    try {
+      const res = await fetch("/api/indexers/grab", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          magnetUrl: r.magnetUrl,
+          downloadUrl: r.downloadUrl,
+          indexerId: r.indexerId,
+          category,
+          libraryRef: resolvedLibraryRef,
+          title: params.get("refTitle"),
+          year: params.get("year") ? Number(params.get("year")) : null,
+          indexerName: r.indexer,
+          quality,
+          score: r.score,
+          size: r.size,
+          protocol: r.protocol,
+          seeders: r.seeders,
+          leechers: r.leechers,
+        }),
+      });
+      if (res.ok) setGrabbed((s) => new Set(s).add(r.guid));
+    } finally {
+      setGrabbing(null);
+    }
+  };
+
+  // A blind search (no libraryRef — reached directly, not "Sélection
+  // manuelle" from a title page) used to grab straight into an untracked
+  // torrent with no way to ever mark a library item available from it.
+  // Asking which title/season/episode it belongs to BEFORE grabbing lets the
+  // normal import pipeline (already able to fan a multi-file pack out across
+  // the right episodes) place it correctly once it lands.
+  const onGrabClick = (r: IndexerRelease) => {
+    if (libraryRef) {
+      grab(r);
+      return;
+    }
+    setPendingTarget(r);
+  };
+
+  return (
+    <div className="mx-auto max-w-[1500px]">
+      <PageHeader title={t("search.title")} description={t("search.description")} />
+
+      {libraryRef && manualTitle && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-brand/25 bg-brand/10 px-4 py-2.5 text-sm font-semibold text-brand-glow">
+          <ListFilter className="h-4 w-4 shrink-0" />
+          <span className="flex-1">{t("search.manualFor", { title: manualTitle })}</span>
+          <Link href="/search" className="flex h-6 w-6 items-center justify-center rounded-lg text-ink-dim hover:text-ink">
+            <X className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      )}
+
+      {/* Search bar */}
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+        <div className="flex flex-1 items-center gap-3 rounded-2xl glass px-5 focus-within:border-brand/40">
+          <Search className="h-5 w-5 text-ink-dim" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && run()}
+            placeholder={t("search.placeholder")}
+            className="h-14 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink-dim"
+          />
+        </div>
+        <div className="flex items-center gap-1 rounded-2xl glass p-1">
+          {(["movie", "series"] as const).map((c) => (
+            <button key={c} onClick={() => setCategory(c)} className={cn("flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors", category === c ? "brand-gradient text-white" : "text-ink-soft hover:text-ink")}>
+              {c === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
+              {c === "movie" ? t("common.movies") : t("common.series")}
+            </button>
+          ))}
+        </div>
+        <button onClick={run} disabled={loading || !q.trim()} className="flex h-14 items-center justify-center gap-2 rounded-2xl brand-gradient px-8 text-sm font-bold text-white shadow-xl transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-40">
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />} {t("search.launch")}
+        </button>
+      </div>
+
+      {/* Per-indexer errors — an indexer rejecting the request (bad key, rate
+          limit, malformed query) otherwise looks identical to "found
+          nothing", so surface it instead of leaving the user guessing. */}
+      {indexerErrors.length > 0 && (
+        <div className="mb-4 flex flex-col gap-1.5 rounded-xl border border-down/25 bg-down/10 px-4 py-2.5 text-sm text-down">
+          {indexerErrors.map((e) => (
+            <div key={e.indexer} className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              <span><strong>{e.indexer}</strong> — {e.detail}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Not configured */}
+      {configured === false && (
+        <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
+          <Settings className="h-8 w-8 text-brand-glow" />
+          <p className="font-semibold text-ink">{t("search.noIndexers")}</p>
+          <p className="max-w-md text-sm text-ink-dim">{t("search.noIndexersHint")}</p>
+          <Link href="/settings" className="mt-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white">
+            {t("search.goToSettings")}
+          </Link>
+        </div>
+      )}
+
+      {/* Loading recent */}
+      {recentLoading && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl glass py-16 text-ink-dim">
+          <Loader2 className="h-5 w-5 animate-spin" /> {t("search.searching")}
+        </div>
+      )}
+
+      {/* Loading search */}
+      {loading && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl glass py-16 text-ink-dim">
+          <Loader2 className="h-5 w-5 animate-spin" /> {t("search.searching")}
+        </div>
+      )}
+
+      {/* Results */}
+      {!loading && !recentLoading && configured !== false && releases.length > 0 && (
+        <>
+          {!searched && !q.trim() && (
+            <p className="mb-3 text-sm font-semibold text-ink-soft">{t("search.recentReleases")}</p>
+          )}
+          <div className="overflow-hidden rounded-2xl glass">
+          <div className="hidden grid-cols-[1fr_110px_60px_70px_60px_100px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
+            <SortableColumnHeader label={t("search.release")} column="title" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
+            <SortableColumnHeader label={t("search.indexer")} column="indexer" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
+            <SortableColumnHeader label={t("search.age")} column="age" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
+            <SortableColumnHeader label={t("search.size")} column="size" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
+            <SortableColumnHeader label={t("search.peers")} column="peers" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
+            <span className="text-right text-ink-dim">{t("search.action")}</span>
+          </div>
+          {sorted.map((r) => (
+            <div key={r.guid} className="grid grid-cols-1 gap-2 border-b border-white/5 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.03] md:grid-cols-[1fr_110px_60px_70px_60px_100px] md:items-center md:gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", r.protocol === "torrent" ? "bg-cyan/12 text-cyan" : "bg-brand/12 text-brand-glow")}>
+                  {r.protocol === "torrent" ? <Magnet className="h-4 w-4" /> : <Server className="h-4 w-4" />}
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-mono text-sm text-ink">{r.title}</p>
+                  <p className="text-[11px] text-ink-dim">
+                    {t("search.score").toLowerCase()}{" "}
+                    <span className={cn("font-bold", r.score >= 90 ? "text-ok" : r.score >= 75 ? "text-amber" : "text-ink-soft")}>{r.score}</span>
+                  </p>
+                </div>
+              </div>
+              <span className="truncate text-sm text-ink-soft">{r.indexer}</span>
+              <span className="text-sm text-ink-soft">{r.publishDate ? relativeTime(r.publishDate) : "—"}</span>
+              <span className="text-sm text-ink-soft">{formatBytes(r.size)}</span>
+              <span className={cn("text-sm font-semibold", r.seeders == null ? "text-ink-dim" : r.seeders > 20 ? "text-ok" : "text-amber")}>
+                {r.seeders == null ? "—" : `${r.seeders} ↑`}
+              </span>
+              <div className="md:text-right">
+                <button
+                  onClick={() => onGrabClick(r)}
+                  disabled={grabbing === r.guid || grabbed.has(r.guid)}
+                  className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-transform hover:scale-105 disabled:opacity-60", grabbed.has(r.guid) ? "bg-ok/15 text-ok" : "brand-gradient text-white")}
+                >
+                  {grabbing === r.guid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : grabbed.has(r.guid) ? <Check className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
+                  {grabbed.has(r.guid) ? t("search.grabbed") : t("common.grab")}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
+      )}
+
+      {/* No results */}
+      {!loading && configured && searched && releases.length === 0 && (
+        <div className="rounded-2xl glass py-16 text-center text-sm text-ink-dim">{t("search.noResults")}</div>
+      )}
+
+      {pendingTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setPendingTarget(null)}>
+          <div className="w-full max-w-lg rounded-2xl glass-strong p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-lg font-bold text-ink">{t("activity.linkBeforeGrab")}</h2>
+                <p className="mt-1 truncate text-xs font-mono text-ink-dim">{pendingTarget.title}</p>
+              </div>
+              <button onClick={() => setPendingTarget(null)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg glass text-ink-dim hover:text-ink">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <TitleTargetPicker
+              onPick={(resolvedRef) => {
+                const r = pendingTarget;
+                setPendingTarget(null);
+                grab(r, resolvedRef);
+              }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

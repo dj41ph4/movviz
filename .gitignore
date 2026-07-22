@@ -1,0 +1,56 @@
+# dependencies
+/node_modules
+/engine/node_modules
+/resolver/node_modules
+/resolver/dist
+/.pnp
+.pnp.*
+
+# engine runtime data
+/.movviz-data
+/engine/.movviz-data
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+
+# production / installers
+/build
+/dist
+packaging/windows/installer/stage/
+packaging/windows/installer/.tools/
+packaging/windows/installer/movviz.ico
+
+# local reference material — never shipped, never committed
+/_refs/
+
+# assistant / tooling artifacts — excluded from Git and builds
+/.claude/
+.git-rewrite/
+CLAUDE.md
+**/*.ai.md
+.aider*
+.cursor/
+
+# misc
+.DS_Store
+*.pem
+Thumbs.db
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# env
+.env
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# logs de debug ponctuels
+build-debug*.txt
+build-errors.txt
+build-output*.txt
