@@ -1,3 +1,4 @@
+import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { loadActivityV2 } from "@/lib/activity/v2/store";
 import { loadActivity } from "@/lib/activity/store";
@@ -8,6 +9,18 @@ import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import type { ActivityEntry, QueueItem, WantedItem, ActivityMedia } from "@/lib/activity/v2/types";
 import type { EngineTorrent } from "@/lib/types";
+import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
+
+const CONFIG_DIR =
+  process.env.MOVVIZ_CONFIG_DIR ??
+  process.env.MOVVIZ_DATA_DIR ??
+  path.join(process.cwd(), ".movviz-data");
+/** Source files behind buildReleaseLookup — it only needs recomputing when one of them changes. */
+const RELEASE_LOOKUP_FILES = [
+  path.join(CONFIG_DIR, "activity.json"),
+  path.join(CONFIG_DIR, "activity-v2.json"),
+  path.join(CONFIG_DIR, "indexers.json"),
+];
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +90,10 @@ interface ResolvedRelease {
  * isn't derived from the torrent at all, so it isn't affected by that.
  */
 function buildReleaseLookup(): { byHash: Map<string, ResolvedRelease>; byLibraryRef: Map<string, ResolvedRelease> } {
+  return memoizeByFileMtimes("activity-v2-release-lookup", RELEASE_LOOKUP_FILES, buildReleaseLookupImpl);
+}
+
+function buildReleaseLookupImpl(): { byHash: Map<string, ResolvedRelease>; byLibraryRef: Map<string, ResolvedRelease> } {
   const byHash = new Map<string, ResolvedRelease>();
   const byLibraryRef = new Map<string, ResolvedRelease>();
 
@@ -113,38 +130,71 @@ function buildReleaseLookup(): { byHash: Map<string, ResolvedRelease>; byLibrary
   return { byHash, byLibraryRef };
 }
 
+interface HashIndexEntry {
+  movie?: LibraryMovie;
+  seriesMatch?: { series: LibrarySeries; season: number; episode: number; count: number };
+}
+
+/**
+ * infoHash → owning library item, built in ONE pass over the whole library
+ * and memoized until a library file actually changes. getQueue() used to
+ * re-scan every episode of every series PER TORRENT on every 3 s poll —
+ * with ~640 series (~42 000 episodes) and a handful of active torrents,
+ * that was hundreds of thousands of episode iterations per poll, a real
+ * chunk of the latency the queue tab showed on the NAS.
+ *
+ * A season pack shares one activeInfoHash across several episodes — every
+ * one of them is collected so the queue can say "season pack, N episodes"
+ * instead of silently picking the first and looking stuck on one episode.
+ */
+function buildHashIndex(): Map<string, HashIndexEntry> {
+  return memoizeByFileMtimes("activity-v2-hash-index", libraryFilePaths(), () => {
+    const index = new Map<string, HashIndexEntry>();
+    for (const movie of loadMovies()) {
+      if (movie.activeInfoHash) index.set(movie.activeInfoHash, { movie });
+    }
+    for (const s of loadSeries()) {
+      const matchesByHash = new Map<string, { season: number; episode: number }[]>();
+      let totalMonitored = 0;
+      for (const season of s.seasons) {
+        for (const ep of season.episodes) {
+          if (ep.monitored) totalMonitored++;
+          if (ep.activeInfoHash) {
+            const list = matchesByHash.get(ep.activeInfoHash) ?? [];
+            list.push({ season: season.seasonNumber, episode: ep.episodeNumber });
+            matchesByHash.set(ep.activeInfoHash, list);
+          }
+        }
+      }
+      for (const [hash, matches] of matchesByHash) {
+        // A movie owning the same hash keeps priority — same precedence as
+        // the old sequential scan (movie checked first).
+        if (index.has(hash)) continue;
+        const isComplete = totalMonitored > 0 && matches.length >= totalMonitored;
+        index.set(hash, {
+          seriesMatch: {
+            series: s,
+            season: isComplete ? 0 : matches[0].season,
+            episode: isComplete ? 0 : matches[0].episode,
+            count: matches.length,
+          },
+        });
+      }
+    }
+    return index;
+  });
+}
+
 async function getQueue(): Promise<NextResponse<{ items: QueueItem[] }>> {
   const engineData = await fetchEngine("torrents") as { torrents?: EngineTorrent[] } | null;
   const torrents = engineData?.torrents ?? [];
-  const movies = loadMovies();
-  const series = loadSeries();
+  const hashIndex = buildHashIndex();
   const { byHash: releaseByHash, byLibraryRef: releaseByLibraryRef } = buildReleaseLookup();
 
   const items: QueueItem[] = torrents
     .filter(t => t.state !== "seeding" && t.state !== "completed")
     .map(t => {
-      // Find matching library item
-      const movie = movies.find(m => m.activeInfoHash === t.infoHash);
-      // A season pack shares one activeInfoHash across several episodes — collect
-      // every one of them so the queue can say "season pack, N episodes" instead
-      // of silently picking the first one and looking stuck on a single episode.
-      const seriesMatch = (() => {
-        for (const s of series) {
-          const matches: { season: number; episode: number }[] = [];
-          let totalMonitored = 0;
-          for (const season of s.seasons) {
-            for (const ep of season.episodes) {
-              if (ep.monitored) totalMonitored++;
-              if (ep.activeInfoHash === t.infoHash) matches.push({ season: season.seasonNumber, episode: ep.episodeNumber });
-            }
-          }
-          if (matches.length > 0) {
-            const isComplete = totalMonitored > 0 && matches.length >= totalMonitored;
-            return { series: s, season: isComplete ? 0 : matches[0].season, episode: isComplete ? 0 : matches[0].episode, count: matches.length };
-          }
-        }
-        return null;
-      })();
+      const { movie, seriesMatch } = hashIndex.get(t.infoHash) ?? {};
 
       const media: ActivityMedia = movie
         ? { id: movie.id, title: movie.title, type: "movie", href: `/title/movie/${movie.tmdbId}` }
@@ -160,7 +210,9 @@ async function getQueue(): Promise<NextResponse<{ items: QueueItem[] }>> {
       // t.timeRemaining is milliseconds (engine's summary()); QueueItem.download.eta
       // is documented/consumed as seconds everywhere downstream, so convert here.
       const eta = t.timeRemaining != null ? Math.round(t.timeRemaining / 1000) : 0;
-      const addedAt = Date.now() - (eta > 0 ? eta * 1000 : 3600000);
+      // The engine records the real add time of every torrent — use it. The
+      // ETA-based guess only remains for a torrent predating that field.
+      const addedAt = t.addedAt ?? Date.now() - (eta > 0 ? eta * 1000 : 3600000);
       // infoHash first (most direct); libraryRef as a fallback for the rare
       // case where the engine's reported hash doesn't match what got logged
       // at grab time — libraryRef isn't derived from the torrent, so it's

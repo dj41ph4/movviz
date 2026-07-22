@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useT } from "@/i18n/provider";
-import { cn, formatBytes, formatSpeed, formatEta } from "@/lib/utils";
+import { useI18n, useT } from "@/i18n/provider";
+import { cn, formatBytes, formatSpeed, formatEta, formatDateTime } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { QueueItem } from "@/lib/activity/v2/types";
 import {
@@ -26,6 +26,7 @@ type Filter = (typeof FILTERS)[number];
 
 export function QueueTab({ active = true }: { active?: boolean }) {
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
   const user = useCurrentUser();
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
@@ -37,16 +38,16 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const [filter, setFilter] = useState<Filter>("all");
 
   const items = data?.items ?? [];
-  const activeItems = items.filter(item => item.status === "downloading" || item.status === "importing");
-  const stalledItems = items.filter(item => item.status === "stalled");
-  const pausedItems = items.filter(item => item.status === "paused");
+  const activeItems = useMemo(() => items.filter(item => item.status === "downloading" || item.status === "importing"), [items]);
+  const stalledItems = useMemo(() => items.filter(item => item.status === "stalled"), [items]);
+  const pausedItems = useMemo(() => items.filter(item => item.status === "paused"), [items]);
 
-  const filtered = items.filter((item) => {
+  const filtered = useMemo(() => items.filter((item) => {
     if (filter === "downloading") return item.status === "downloading" || item.status === "importing";
     if (filter === "stalled") return item.status === "stalled";
     if (filter === "completed") return item.status === "completed";
     return true;
-  });
+  }), [items, filter]);
 
   const toggleExpand = (id: string) => {
     setExpandedItem(expandedItem === id ? null : id);
@@ -381,6 +382,10 @@ export function QueueTab({ active = true }: { active?: boolean }) {
                       <div className="flex justify-between">
                         <span className="text-ink-dim">{t("downloads.peers")}</span>
                         <span>{item.download.peers}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-ink-dim">{t("activity.addedAt")}</span>
+                        <span>{formatDateTime(item.addedAt, locale)}</span>
                       </div>
                     </div>
                   </div>

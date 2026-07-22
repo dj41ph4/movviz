@@ -3,13 +3,14 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { Link2, FileQuestion } from "lucide-react";
-import { useT } from "@/i18n/provider";
-import { formatBytes, relativeTime } from "@/lib/utils";
+import { useI18n, useT } from "@/i18n/provider";
+import { formatBytes, formatDateTime } from "@/lib/utils";
 import type { ActivityEntry } from "@/lib/activity/v2/types";
 import { LinkDownloadModal } from "./LinkDownloadModal";
 
 export function UnlinkedTab() {
   const t = useT();
+  const { locale } = useI18n();
   const { data, mutate } = useSWR<{ items: ActivityEntry[] }>("/api/activity/v2?tab=unlinked", { refreshInterval: 15000 });
   const [target, setTarget] = useState<ActivityEntry | null>(null);
   const items = data?.items ?? [];
@@ -32,7 +33,7 @@ export function UnlinkedTab() {
             <p className="truncate text-sm font-semibold text-ink">{entry.import?.fileName}</p>
             <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-ink-dim">
               {entry.import?.fileSize ? formatBytes(entry.import.fileSize) : null}
-              <span>{relativeTime(new Date(entry.timestamp).toISOString())}</span>
+              <span>{formatDateTime(entry.timestamp, locale)}</span>
             </p>
           </div>
           <button

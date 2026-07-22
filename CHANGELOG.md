@@ -2,6 +2,20 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.53] — 2026-07-22
+
+### Ajouté
+- **Historique groupé par jour avec heure exacte** : les entrées d'activité (téléchargements terminés, imports, échecs…) sont maintenant regroupées par jour ("Aujourd'hui", "Hier", ou la date complète), avec l'heure exacte (HH:MM) affichée à droite de chaque ligne et la date/heure complète en infobulle — comme un vrai client torrent.
+- **Heure d'ajout dans les détails de la file d'attente** : la section dépliée de chaque téléchargement affiche maintenant la date et l'heure exactes d'ajout dans la file.
+
+### Optimisé
+- **File d'attente bien plus réactive** : l'API ne rescannait plus l'intégralité de la bibliothèque (641 séries × ~65 épisodes = ~42 000 itérations) pour chaque torrent à chaque appel. Un index infoHash → média est construit en une passe et mis en cache tant que les fichiers bibliothèque ne changent pas. Résultat : la latence de l'onglet Activité est divisée par 5 à 10 sur les grosses bibliothèques.
+- **Filtres de l'historique mémoïsés** : les listes filtrées et les ensembles d'utilisateurs/indexeurs uniques n'étaient pas mémoïsés, donc recalculés à chaque rendu (frappe dans la recherche, changement d'onglet, etc.). Ils sont maintenant encapsulés dans `useMemo`.
+- **File d'attente mémoïsée** : les compteurs (actifs, en pause, bloqués) et la liste filtrée sont maintenant en `useMemo` pour éviter un re-calcul à chaque poll de 3 secondes.
+
+### Corrigé
+- **Dates des films/séries manquants non localisées** : les dates dans l'onglet "Manquant" utilisaient `toLocaleString()` sans passer par la locale sélectionnée dans l'interface — elles s'affichaient toujours en anglais. Elles utilisent maintenant le même format que le reste de l'application.
+
 ## [1.1.52] — 2026-07-22
 
 ### Corrigé

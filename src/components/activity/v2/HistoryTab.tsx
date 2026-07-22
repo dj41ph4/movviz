@@ -1,12 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { useT } from "@/i18n/provider";
-import { cn, relativeTime } from "@/lib/utils";
+import { useI18n, useT } from "@/i18n/provider";
+import { cn, formatClockTime, formatDateTime } from "@/lib/utils";
 import type { ActivityEntry } from "@/lib/activity/v2/types";
-import { Film, Tv, Download, Check, PackageCheck, X, AlertCircle, Search, Filter, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { Download, Check, PackageCheck, X, AlertCircle, Search, Filter, ChevronDown, ChevronUp, Users } from "lucide-react";
+
+/** Calendar-day bucket of a timestamp, in local time. */
+function dayKey(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+/** "Aujourd'hui" / "Hier" / "lundi 20 juillet 2026" section header. */
+function dayLabel(ts: number, locale: string, t: (k: string) => string): string {
+  const key = dayKey(ts);
+  if (key === dayKey(Date.now())) return t("activity.today");
+  if (key === dayKey(Date.now() - 86_400_000)) return t("activity.yesterday");
+  return new Date(ts).toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
 
 const KIND_ICONS = {
   requested: <Download className="h-4 w-4" />,
@@ -49,6 +63,7 @@ const STATUS_TABS = [
 
 export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } = {}) {
   const t = useT();
+  const { locale } = useI18n();
   const { data, error } = useSWR<{ items: ActivityEntry[]; total: number }>(
     failuresOnly ? "/api/activity/v2?tab=failures" : "/api/activity/v2?tab=history"
   );
@@ -68,32 +83,34 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
 
-  const uniqueUsers = [...new Set(items.map(item => item.actor))];
-  const uniqueIndexers = [...new Set(items.flatMap(item => item.release ? [item.release.indexer] : []))];
+  const uniqueUsers = useMemo(() => [...new Set(items.map(item => item.actor))], [items]);
+  const uniqueIndexers = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of items) {
+      if (item.release) set.add(item.release.indexer);
+    }
+    return [...set];
+  }, [items]);
 
-  const filteredItems = items.filter(item => {
-    // Filtre par type
+  const filteredItems = useMemo(() => items.filter(item => {
     if (selectedTypes.length > 0 && !selectedTypes.includes("all") && !selectedTypes.includes(item.kind)) {
       return false;
     }
 
-    // Filtre par utilisateur
     if (selectedUsers.length > 0 && !selectedUsers.includes(item.actor)) {
       return false;
     }
 
-    // Filtre par indexeur
     if (selectedIndexers.length > 0 && item.release && !selectedIndexers.includes(item.release.indexer)) {
       return false;
     }
 
-    // Filtre par recherche
     if (searchQuery && !item.media.title.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
 
     return true;
-  });
+  }), [items, selectedTypes, selectedUsers, selectedIndexers, searchQuery]);
 
   const toggleType = (type: string) => {
     if (type === "all") {
@@ -245,15 +262,22 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
         )}
       </div>
 
-      {/* Résultats */}
+      {/* Résultats — groupés par jour (les entrées arrivent déjà triées de la plus récente à la plus ancienne) */}
       <div className="space-y-1.5">
-        {filteredItems.map((item) => {
+        {filteredItems.map((item, idx) => {
           const Icon = KIND_ICONS[item.kind];
           const tone = KIND_TONES[item.kind];
           const label = t("activity.kinds." + item.kind);
+          const newDay = idx === 0 || dayKey(item.timestamp) !== dayKey(filteredItems[idx - 1].timestamp);
 
           return (
-            <div key={item.id} className="flex items-center gap-3 rounded-xl glass px-4 py-3 transition-colors hover:bg-white/5">
+            <div key={item.id}>
+            {newDay && (
+              <p className={cn("mb-1.5 px-1 text-[11px] font-bold uppercase tracking-[0.14em] text-ink-dim", idx > 0 && "mt-5")}>
+                {dayLabel(item.timestamp, locale, t)}
+              </p>
+            )}
+            <div className="flex items-center gap-3 rounded-xl glass px-4 py-3 transition-colors hover:bg-white/5">
               <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", tone)}>
                 {Icon}
               </span>
@@ -291,9 +315,10 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
                 )}
               </div>
 
-              <span className="shrink-0 text-xs text-ink-dim">
-                {relativeTime(new Date(item.timestamp).toISOString())}
+              <span className="shrink-0 font-mono text-xs text-ink-dim" title={formatDateTime(item.timestamp, locale)}>
+                {formatClockTime(item.timestamp, locale)}
               </span>
+            </div>
             </div>
           );
         })}

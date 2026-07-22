@@ -30,6 +30,18 @@ export function formatDate(dateStr: string | null | undefined, locale: string = 
   return d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
 }
 
+/** Wall-clock time of a timestamp, e.g. "07:49" (fr) / "7:49 AM" (en). */
+export function formatClockTime(ts: number, locale: string = "en") {
+  return new Date(ts).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Full date + time, e.g. "22 juil. 2026, 07:49" — for tooltips and detail rows. */
+export function formatDateTime(ts: number, locale: string = "en") {
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}, ${d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}`;
+}
+
 // A torrent that just started can report an almost-zero (but nonzero) speed
 // for its very first tick — mathematically consistent (remaining bytes /
 // tiny speed), but the result ("795652389m") is noise, not information.

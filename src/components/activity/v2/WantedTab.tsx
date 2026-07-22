@@ -4,8 +4,8 @@ import { useState, useEffect } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useT } from "@/i18n/provider";
-import { cn, formatDate } from "@/lib/utils";
+import { useI18n, useT } from "@/i18n/provider";
+import { cn, formatDateTime } from "@/lib/utils";
 import { useQualityUpgradesEnabled } from "@/lib/settings/useQualityUpgradesEnabled";
 import { isOnCooldown, markSearched, getRemainingCooldown } from "@/lib/activity/v2/searchCache";
 import { useJobRunning } from "@/lib/jobs/useJobRunning";
@@ -23,6 +23,7 @@ async function api(path: string, opts?: RequestInit) {
 
 export function WantedTab({ active = true }: { active?: boolean }) {
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
   const { enabled: upgradesEnabled } = useQualityUpgradesEnabled();
   const { data, error, mutate } = useSWR<{ missing: WantedItem[]; cutoffUnmet: WantedItem[] }>(
@@ -245,6 +246,7 @@ export function WantedTab({ active = true }: { active?: boolean }) {
             showUpgrade={item.status === "cutoff_unmet"}
             actionLoading={actionLoading}
             active={active}
+            locale={locale}
           />
         ))}
       </div>
@@ -268,6 +270,7 @@ function WantedItemRow({
   showUpgrade = false,
   actionLoading = null,
   active = true,
+  locale = "fr",
 }: {
   item: WantedItem;
   isSelected: boolean;
@@ -276,6 +279,7 @@ function WantedItemRow({
   showUpgrade?: boolean;
   actionLoading?: string | null;
   active?: boolean;
+  locale?: string;
 }) {
   const t = useT();
   const onCooldown = isOnCooldown(item.media.id);
@@ -314,7 +318,7 @@ function WantedItemRow({
               <span className="text-ink-dim"> — S{item.media.season}E{String(item.media.episode).padStart(2, "0")}</span>
             )}
             {item.releaseDate && (
-              <span className="ml-2 text-[11px] text-ink-dim">{new Date(item.releaseDate).toLocaleDateString()}</span>
+              <span className="ml-2 text-[11px] text-ink-dim">{formatDateTime(new Date(item.releaseDate).getTime(), locale)}</span>
             )}
           </Link>
 
@@ -335,12 +339,12 @@ function WantedItemRow({
           )}
           {item.lastSearch && (
             <span className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> {t("activity.lastSearch")}: {new Date(item.lastSearch).toLocaleString()}
+              <Calendar className="h-3 w-3" /> {t("activity.lastSearch")}: {formatDateTime(new Date(item.lastSearch).getTime(), locale)}
             </span>
           )}
           {item.nextSearch && (
             <span className="flex items-center gap-1">
-              <Calendar className="h-3 w-3" /> {t("activity.nextSearch")}: {new Date(item.nextSearch).toLocaleString()}
+              <Calendar className="h-3 w-3" /> {t("activity.nextSearch")}: {formatDateTime(new Date(item.nextSearch).getTime(), locale)}
             </span>
           )}
         </div>
