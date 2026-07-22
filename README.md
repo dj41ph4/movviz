@@ -13,7 +13,7 @@
 <a href="https://github.com/dj41ph4/movviz/releases/latest">
   <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_pour_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1a2e" alt="Télécharger pour Windows"/>
 </a>
-<a href="https://github.com/dj41ph4/movviz/pkgs/container/movviz">
+<a href="https://hub.docker.com/r/dj41ph4/movviz">
   <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white&labelColor=1a1a2e" alt="Docker"/>
 </a>
 <a href="packaging/linux/">
@@ -61,14 +61,14 @@ Service Windows automatique · Installeur multilingue · Démarrage au boot
 
 ### Docker
 
-<a href="https://github.com/dj41ph4/movviz/pkgs/container/movviz">
-  <img src="https://img.shields.io/badge/GitHub_Container_Registry-2496ED?style=for-the-badge&logo=docker&logoColor=white&labelColor=1a1a2e" alt="Docker"/>
+<a href="https://hub.docker.com/r/dj41ph4/movviz">
+  <img src="https://img.shields.io/badge/Docker_Hub-2496ED?style=for-the-badge&logo=docker&logoColor=white&labelColor=1a1a2e" alt="Docker"/>
 </a>
 
 <br>
 
 ```dockerfile
-docker pull ghcr.io/dj41ph4/movviz:latest
+docker pull dj41ph4/movviz:latest
 ```
 
 </td>
