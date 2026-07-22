@@ -103,6 +103,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "no_installer" }, { status: 404 });
   }
 
+  const SAFE_NAME_RE = /^Movviz-Setup-\d+\.\d+\.\d+\.exe$/;
+  if (!SAFE_NAME_RE.test(installerAsset.name)) {
+    return NextResponse.json({ error: "invalid_installer_name" }, { status: 400 });
+  }
+
   const downloadUrl = installerAsset.browser_download_url;
   const tempDir = path.join(process.env.TEMP ?? process.cwd(), "movviz-update");
   const installerPath = path.join(tempDir, installerAsset.name);

@@ -106,9 +106,8 @@ export async function syncImportList(listId: string): Promise<number> {
   const lists = loadImportLists();
   const list = lists.find((l) => l.id === listId);
   if (!list || !list.enabled) return 0;
-  const fetcher = FETCHERS[list.kind];
-  if (!fetcher) return 0;
-  const entries = await fetcher(list.url);
+  if (!(list.kind in FETCHERS)) return 0;
+  const entries = await FETCHERS[list.kind](list.url);
   const results = await mapWithConcurrency(entries, 4, async (entry) => {
     try {
       await addMediaSilent(entry.tmdbId, entry.type);

@@ -29,6 +29,10 @@ const SEASON_ONLY_RE = /\bS(\d{1,2})\b/i;
 const YEAR_RE = /\b(19|20)\d{2}\b/;
 const VIDEO_EXT_RE = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function firstMatchIndex(source: string, patterns: (RegExp | null)[]): number {
   let min = source.length;
   for (const re of patterns) {
@@ -103,8 +107,8 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
     SEASON_EPISODE_RE,
     ALT_SEASON_EPISODE_RE,
     SEASON_ONLY_RE,
-    year ? new RegExp(year) : null,
-    resolution ? new RegExp(resolution, "i") : null,
+    year ? new RegExp(escapeRegex(year)) : null,
+    resolution ? new RegExp(escapeRegex(resolution), "i") : null,
   ]);
 
   const title = s

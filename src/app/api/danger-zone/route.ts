@@ -29,10 +29,11 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const { action } = await req.json();
-  const run = ACTIONS[action];
-  if (!run) return NextResponse.json({ error: "unknown action" }, { status: 400 });
+  if (typeof action !== "string" || !(action in ACTIONS)) {
+    return NextResponse.json({ error: "unknown action" }, { status: 400 });
+  }
 
-  run();
+  ACTIONS[action]();
   logActivity("removed", user.username, `Danger zone: ${action}`, null);
   return NextResponse.json({ ok: true });
 }
