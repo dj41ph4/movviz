@@ -319,6 +319,7 @@ function SearchPageInner() {
               </button>
             </div>
             <TitleTargetPicker
+              initialQuery={pendingTarget.title}
               onPick={(resolvedRef) => {
                 const r = pendingTarget;
                 setPendingTarget(null);
