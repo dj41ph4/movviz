@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT, useI18n } from "@/i18n/provider";
 import { LOCALES, LOCALE_META } from "@/i18n/config";
@@ -30,7 +29,6 @@ const STEP_ICON: Record<Step, React.ElementType> = {
 
 export default function SetupWizardPage() {
   const t = useT();
-  const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
   const step = STEPS[stepIndex];
 
@@ -100,7 +98,7 @@ export default function SetupWizardPage() {
               <h2 className="text-xl font-black text-ink">{t("setup.doneTitle")}</h2>
               <p className="max-w-sm text-sm text-ink-dim">{t("setup.doneHint")}</p>
               <button
-                onClick={() => { router.push("/"); router.refresh(); }}
+                onClick={() => { window.location.href = "/"; }}
                 className="mt-2 flex h-11 items-center gap-2 rounded-xl brand-gradient px-6 text-sm font-bold text-white"
               >
                 {t("setup.goToDashboard")} <ArrowRight className="h-4 w-4" />
