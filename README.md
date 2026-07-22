@@ -2,55 +2,41 @@
 
 # Movviz
 
-### Le centre de commande unifié pour films et séries
+### Centre de commande unifié pour médiathèques personnelles
 
-**Découvrir, organiser, suivre et gérer — tout depuis une seule interface, self-hosted et open-source.**
+**Découvrir, organiser, suivre et gérer — depuis une interface unique, self-hostée et open-source.**
 
-[![Licence](https://img.shields.io/badge/licence-GPL--3.0-blue.svg?style=flat-square)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-15-black.svg?style=flat-square&logo=next.js)](https://nextjs.org)
+[![Licence](https://img.shields.io/badge/Licence-GPL--3.0-3da639.svg?style=flat-square)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-15-000000.svg?style=flat-square&logo=next.js)](https://nextjs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
 [![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?style=flat-square&logo=docker)](https://www.docker.com)
 [![Plex](https://img.shields.io/badge/Plex-int%C3%A9gr%C3%A9-E5A00D.svg?style=flat-square&logo=plex)](https://www.plex.tv)
-[![i18n](https://img.shields.io/badge/5_langues-vert.svg?style=flat-square)](#guides-dutilisation)
+[![i18n](https://img.shields.io/badge/langues-5-43b02a.svg?style=flat-square)](#guides-dutilisation)
 
 </div>
 
 ---
 
-## Le problème
-
-Gérer une médiathèque personnelle demande normalement d'empiler plusieurs outils : un pour découvrir, un pour chercher, un pour organiser, un pour gérer les demandes, un pour synchroniser. Chacun avec sa propre interface, son propre identifiant, sa propre configuration.
-
-**Movviz réunit tout dans une seule application**, avec une interface cohérente du début à la fin.
-
----
-
-## Fonctionnalités principales
+## Fonctionnalités
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### Découverte
-Parcourt les tendances, nouveautés, box-offices et classements allociné.fr — filtrable par genre, année, studio, plateforme ou continent d'origine. Un clic ajoute le titre et lance automatiquement la recherche.
+**Découverte** — Parcourir les tendances, nouveautés et classements. Filtres par genre, année, studio, plateforme. Ajout en un clic.
 
-### Recherche & organisation
-Interroge tous vos indexeurs Torznab/Newznab en une seule requête. Chaque résultat est noté selon la qualité, la fraîcheur et la santé des seeds. Le moteur BitTorrent intégré gère le reste.
+**Recherche unifiée** — Interroger tous les indexeurs Torznab en une requête. Résultats notés par qualité, fraîcheur et santé des seeds. Moteur BitTorrent intégré.
 
-### Bibliothèque unifiée
-Films et séries dans une seule vue. Suivi des épisodes manquants, renommage automatique des fichiers selon vos modèles, réconciliation disque, intégration Plex.
+**Bibliothèque** — Films et séries dans une vue unifiée. Suivi des épisodes manquants, renommage automatique, réconciliation disque, intégration Plex.
 
 </td>
 <td width="50%" valign="top">
 
-### Demandes multi-utilisateurs
-Chaque membre du foyer peut demander un titre. Un administrateur approuve — avec quotas par utilisateur et délégation d'approbation possible.
+**Demandes multi-utilisateurs** — Chaque membre peut soumettre un titre. Approbation par un administrateur, quotas et délégation configurables.
 
-### Automatisation
-Scan RSS quotidien, upgrade automatique de qualité, synchronisation Plex incrémentale, notifications push (Discord, Telegram, Slack, Gotify, Pushbullet).
+**Automatisation** — Scan RSS quotidien, upgrade automatique de qualité, synchronisation Plex incrémentale, notifications (Discord, Telegram, Slack, Gotify, Pushbullet).
 
-### 5 langues d'interface
-Français, anglais, italien, néerlandais, allemand — choisies dès la première configuration ou modifiables à tout moment.
+**Multilingue** — Français, anglais, allemand, italien, néerlandais. Configurable à l'installation et modifiable à tout moment.
 
 </td>
 </tr>
@@ -60,59 +46,37 @@ Français, anglais, italien, néerlandais, allemand — choisies dès la premiè
 
 ## Architecture
 
-<div align="center">
-
-| Module | Description |
-| :---: | --- |
-| **Tableau de bord** | Vue d'ensemble : statistiques, file de téléchargement, activité en direct |
-| **Découverte** | Parcourir, filtrer et ajouter des titres |
-| **Recherche** | Recherche interactive sur tous les indexeurs, releases notées |
-| **Bibliothèque** | Films & séries unifiés, épisodes manquants, renommage auto |
-| **Demandes** | File d'approbation multi-utilisateurs avec quotas |
-| **Réglages** | Indexeurs, moteur, profils de qualité, notifications — tout centralisé |
-
-</div>
+| Module | Rôle |
+| :--- | --- |
+| **Tableau de bord** | Statistiques, téléchargements en cours, activité en direct |
+| **Découverte** | Parcourir, filtrer, ajouter des titres |
+| **Recherche** | Interrogation multi-indexeur avec notation des releases |
+| **Bibliothèque** | Films, séries, épisodes manquants, renommage |
+| **Demandes** | Approbation multi-utilisateurs avec quotas |
+| **Réglages** | Indexeurs, moteur, profils de qualité, notifications |
 
 ---
 
-## Stack technique
+## Stack
 
-<div align="center">
-
-![Next.js](https://img.shields.io/badge/Next.js-15-000000.svg?style=for-the-badge&logo=next.js)
-![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg?style=for-the-badge&logo=typescript)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4.svg?style=for-the-badge&logo=tailwindcss)
-![Framer Motion](https://img.shields.io/badge/Framer_Motion-animation-F45F42.svg?style=for-the-badge)
-![Node.js](https://img.shields.io/badge/Node.js-moteur-339933.svg?style=for-the-badge&logo=node.js)
-
-</div>
-
-- **Next.js 15** — App Router, composants serveur + routes API
-- **TypeScript** strict de bout en bout
-- **Tailwind CSS v4** — design tokens `@theme`
-- **Framer Motion** — animations fluides
-- **Moteur BitTorrent maison** — service Node.js dédié, isolé de l'app web
-- **i18n maison** — aucune chaîne en dur, 5 langues, ajouter une langue = ajouter un fichier
+| Technologie | Utilisation |
+| :--- | --- |
+| **Next.js 15** | App Router, composants serveur, routes API |
+| **TypeScript** | Typage strict de bout en bout |
+| **Tailwind CSS v4** | Design tokens via `@theme` |
+| **Framer Motion** | Animations d'interface |
+| **Node.js** | Moteur BitTorrent dédié, isolé de l'application |
+| **i18n custom** | 5 langues, aucune chaîne en dur |
 
 ---
 
 ## Déploiement
 
-<div align="center">
-
-![Windows](https://img.shields.io/badge/Windows-x64-0078D4.svg?style=for-the-badge&logo=windows)
-![Linux](https://img.shields.io/badge/Linux-x64-FCC624.svg?style=for-the-badge&logo=linux)
-![Docker](https://img.shields.io/badge/Docker-ready-2496ED.svg?style=for-the-badge&logo=docker)
-
-</div>
-
-| Cible | Dossier | Démarrage |
+| Cible | Emplacement | Démarrage |
 | :---: | --- | --- |
-| **Windows** | `packaging/windows/` | Service Windows (installeur multilingue, démarrage auto) |
-| **Linux** | `packaging/linux/` | Unité systemd (démarrage auto) |
-| **Docker** | `packaging/docker/` | Conteneur (`restart: unless-stopped`) |
-
-### Démarrage rapide (développement)
+| **Windows** | `packaging/windows/` | Service Windows, installeur multilingue |
+| **Linux** | `packaging/linux/` | Unité systemd |
+| **Docker** | `packaging/docker/` | Conteneur `restart: unless-stopped` |
 
 ```bash
 git clone https://github.com/dj41ph4/movviz.git
@@ -124,49 +88,39 @@ npm run dev
 
 ---
 
-## Structure du projet
+## Structure
 
 ```
 src/
-  app/            routes (tableau de bord + sections) + /api
-  components/     UI par domaine (layout, media, settings, discover)
-  i18n/           dictionnaires (5 langues) + provider + hook de traduction
-  lib/            logique métier : indexeurs, bibliothèque, moteur, Plex
-engine/           moteur de téléchargement BitTorrent, service Node.js isolé
-resolver/         résolveur Cloudflare (port 9830), service indépendant
-packaging/        installeurs Windows / Linux / Docker
+  app/          routes et API
+  components/   UI par domaine
+  i18n/         dictionnaires et hook de traduction
+  lib/          logique métier : indexeurs, bibliothèque, moteur, Plex
+engine/         moteur BitTorrent (service Node.js isolé)
+resolver/       résolveur Cloudflare (port 9830)
+packaging/      installeurs Windows, Linux, Docker
 ```
-
-L'interface est découplée des données : chaque écran lit des modèles typés depuis `src/lib`, ce qui garde la logique métier indépendante de la présentation.
 
 ---
 
-## Guides d'utilisation
+## Guides
 
-| Langue | Guide |
+| Langue | Document |
 | :---: | --- |
-| 🇫🇷 Français | [`docs/guide-fr.md`](docs/guide-fr.md) |
-| 🇬🇧 English | [`docs/guide-en.md`](docs/guide-en.md) |
-| 🇩🇪 Deutsch | [`docs/guide-de.md`](docs/guide-de.md) |
-| 🇮🇹 Italiano | [`docs/guide-it.md`](docs/guide-it.md) |
-| 🇳🇱 Nederlands | [`docs/guide-nl.md`](docs/guide-nl.md) |
+| Français | [`docs/guide-fr.md`](docs/guide-fr.md) |
+| English | [`docs/guide-en.md`](docs/guide-en.md) |
+| Deutsch | [`docs/guide-de.md`](docs/guide-de.md) |
+| Italiano | [`docs/guide-it.md`](docs/guide-it.md) |
+| Nederlands | [`docs/guide-nl.md`](docs/guide-nl.md) |
 
 ---
 
 ## Licence
 
-Movviz est un logiciel libre distribué sous licence [GPL-3.0](LICENSE) : librement modifiable et redistribuable, à condition que les versions dérivées restent elles aussi open-source.
-
----
-
-## Soutenir le projet
-
-Movviz est gratuit et le restera. Si l'application vous rend service, un don via [GitHub Sponsors](https://github.com/sponsors/dj41ph4) est toujours apprécié.
-
----
+[GPL-3.0](LICENSE) — Librement modifiable et redistribuable, sous condition que les versions dérivées restent open-source.
 
 <div align="center">
 
-**Movviz** — Un seul endroit pour tout gérer.
+Movviz — Un seul endroit pour tout gérer.
 
 </div>
