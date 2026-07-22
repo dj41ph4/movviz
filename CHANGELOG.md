@@ -2,6 +2,11 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.51] — 2026-07-22
+
+### Corrigé
+- **Les badges de qualité (codec, source…) étaient illisibles en mode clair sur la fiche d'un film et dans la liste des épisodes** : ces pastilles blanches translucides sont pensées pour se lire par-dessus une affiche (où elles restent inchangées), mais sur ces deux écrans elles s'affichent directement sur le fond de page — devenues quasi invisibles en clair. Elles utilisent maintenant des couleurs adaptées au thème à ces deux endroits précis.
+
 ## [1.1.50] — 2026-07-22
 
 ### Corrigé

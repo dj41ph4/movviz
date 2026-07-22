@@ -387,7 +387,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
           {detail.tagline && <p className="mt-2 max-w-2xl text-sm italic text-ink-dim">{detail.tagline}</p>}
           <p className="mt-3 max-w-2xl text-sm text-ink-soft">{detail.overview || t("title.noSynopsis")}</p>
 
-          {type === "movie" && <MediaBadges file={libraryMatch?.file} className="relative static mt-3" />}
+          {type === "movie" && <MediaBadges file={libraryMatch?.file} className="relative static mt-3" variant="surface" />}
 
           <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
             {!inLibrary ? (

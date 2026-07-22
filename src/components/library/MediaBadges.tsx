@@ -55,11 +55,22 @@ function TextPill({ text, cls }: { text: string; cls: string }) {
 export function MediaBadges({
   file,
   className,
+  variant = "overlay",
 }: {
   file: LibraryFile | null | undefined;
   className?: string;
+  /**
+   * "overlay" (default) is for badges sitting directly on a poster image —
+   * translucent white-on-photo reads fine there regardless of site theme, so
+   * it stays hardcoded. "surface" is for badges on the page's own background
+   * (title page, episode rows) — those need theme-aware colors instead, or
+   * they read as a near-invisible pale chip in light mode.
+   */
+  variant?: "overlay" | "surface";
 }) {
   const { resolution, videoCodec, audioCodec, hdr, source } = extractBadges(file);
+  const genericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "bg-white/15 text-white/90";
+  const audioGenericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "bg-white/10 text-white/80";
 
   const items: React.ReactNode[] = [];
 
@@ -71,7 +82,7 @@ export function MediaBadges({
   } else if (resolution) {
     const resCls = resolution.startsWith("1080")
       ? "bg-blue-500/80 text-white"
-      : "bg-white/20 text-white/90";
+      : variant === "surface" ? genericCls : "bg-white/20 text-white/90";
     items.push(<TextPill key="res" text={resolution} cls={resCls} />);
   }
 
@@ -98,19 +109,19 @@ export function MediaBadges({
       items.push(<LogoTrueHD key="audio" />);
     } else {
       items.push(
-        <TextPill key="audio" text={audioCodec.replace(/\./g, "")} cls="bg-white/10 text-white/80" />,
+        <TextPill key="audio" text={audioCodec.replace(/\./g, "")} cls={audioGenericCls} />,
       );
     }
   }
 
   // Video codec
   if (videoCodec) {
-    items.push(<TextPill key="video" text={videoCodec} cls="bg-white/15 text-white/90" />);
+    items.push(<TextPill key="video" text={videoCodec} cls={genericCls} />);
   }
 
   // Source
   if (source) {
-    items.push(<TextPill key="source" text={source} cls="bg-white/15 text-white/90" />);
+    items.push(<TextPill key="source" text={source} cls={genericCls} />);
   }
 
   if (items.length === 0) return null;

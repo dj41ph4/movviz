@@ -222,7 +222,7 @@ export function SeasonAccordion({
                         <>
       <span className="w-8 text-center text-xs font-bold text-ink-dim">{epNumber}</span>
       <span className="min-w-0 flex-1 truncate text-sm text-ink">{ep.title ?? `${t("title.episode")} ${epNumber}`}</span>
-      {(ep.status === "available" || ep.status === "downloading") && <MediaBadges file={ep.file} className="relative static" />}
+      {(ep.status === "available" || ep.status === "downloading") && <MediaBadges file={ep.file} className="relative static" variant="surface" />}
       {watched && (
                             <span title={t("watch.watched")} className="flex shrink-0 items-center gap-1 rounded-full border border-ok/25 bg-ok/12 px-2 py-0.5 text-[10px] font-semibold text-ok">
                               <Eye className="h-2.5 w-2.5" />
