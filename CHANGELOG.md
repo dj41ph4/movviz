@@ -2,6 +2,13 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.67] — 2026-07-22
+
+### Modifié
+
+- **Réorganisation des réglages** : les 8 groupes de la page Réglages sont fusionnés en 5 — Téléchargement, Bibliothèque (intègre Nommage, Importations, Seerr, Blocages), Disque, Notifications, Système (intègre À propos et Zone dangereuse).
+- **Section « Soutenir le projet »** ajoutée dans le README avec lien GitHub Sponsors.
+
 ## [1.1.66] — 2026-07-22
 
 ### Ajouté
