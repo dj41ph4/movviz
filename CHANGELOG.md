@@ -2,6 +2,11 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.55] — 2026-07-22
+
+### Corrigé
+- **Changement d'onglet lent dans l'activité V2** : les 4 onglets (File d'attente, Historique, Manquant, Échecs) restaient montés simultanément avec chacun son poll SWR 3s → charge réseau et CPU constante. Passage au montage conditionnel (seul l'onglet visible est rendu) — l'onglet cliqué hydrate ses données instantanément depuis le cache SWR sans attendre le prochain poll.
+
 ## [1.1.54] — 2026-07-22
 
 ### Ajouté
