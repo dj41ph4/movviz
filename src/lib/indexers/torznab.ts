@@ -430,8 +430,21 @@ export function sanitizeQuery(q: string): string {
   // become a space or get dropped entirely) — confirmed live: "Resident
   // Evil : Chapitre Final" returns 0, "Resident Evil Chapitre Final" (no
   // colon) returns 4.
+  // "…" (ellipsis) and "..." appear in titles like "What If...?" — they
+  // are never part of a scene release name, and leaving them produces a
+  // query like "What.If..." that indexers can't match. Strip them before
+  // the space-to-dot pass so the result is clean ("What.If").
+  // "?" and "¿" are similarly absent from release names — confirmed on
+  // both configured indexers.
+  // Accented chars ("é", "è", "ç", "ñ"…) are never used in scene release
+  // names either — a search for "Team.Démolition" returns 0 while
+  // "Team.Demolition" returns the expected results. Normalize to ASCII so
+  // titles like "Team Démolition" or "What If...?" actually find releases.
   return q
-    .replace(/[!"()+|:‘’“”–—]/g, "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[!"()+|:‘’"“”–—¿?…]/g, "")
+    .replace(/\.{2,}/g, "")
     .trim()
     .replace(/\s+/g, ".");
 }

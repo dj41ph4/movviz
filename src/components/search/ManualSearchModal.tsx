@@ -10,7 +10,7 @@ import {
 import Link from "next/link";
 
 export function ManualSearchModal({
-  open, onClose, libraryRef, query, category, refTitle, year, title,
+  open, onClose, libraryRef, query, category, refTitle, year, title, tmdbId, imdbId,
 }: {
   open: boolean;
   onClose: () => void;
@@ -20,6 +20,8 @@ export function ManualSearchModal({
   refTitle: string;
   year?: string;
   title: string;
+  tmdbId?: number;
+  imdbId?: string;
 }) {
   const t = useT();
   const [releases, setReleases] = useState<IndexerRelease[]>([]);
@@ -47,6 +49,8 @@ export function ManualSearchModal({
       const p = new URLSearchParams({ q: query.trim(), category });
       if (refTitle) p.set("refTitle", refTitle);
       if (year) p.set("year", year);
+      if (tmdbId) p.set("tmdbId", String(tmdbId));
+      if (imdbId) p.set("imdbId", imdbId);
       const res = await fetch(`/api/indexers/search?${p.toString()}`, { cache: "no-store" });
       const data = await res.json();
       setConfigured(data.configured);

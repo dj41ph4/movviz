@@ -3,7 +3,7 @@ import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS, TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
-import { searchIndexer, sanitizeQuery } from "@/lib/indexers/torznab";
+import { searchIndexer, searchMovie, sanitizeQuery } from "@/lib/indexers/torznab";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import type { MediaType } from "@/lib/types";
@@ -35,6 +35,12 @@ export async function GET(req: NextRequest) {
   const category = req.nextUrl.searchParams.get("category") as MediaType | null;
   const recent = req.nextUrl.searchParams.get("recent") === "1";
   const enabled = loadIndexers().filter((i) => i.enabled);
+  // ID-based search params (from a known movie/series detail page)
+  const tmdbIdParam = req.nextUrl.searchParams.get("tmdbId");
+  const imdbIdParam = req.nextUrl.searchParams.get("imdbId");
+  const tmdbId = tmdbIdParam ? Number(tmdbIdParam) : null;
+  const yearParam = req.nextUrl.searchParams.get("year");
+  const year = yearParam ? Number(yearParam) : null;
 
   if (enabled.length === 0) {
     return NextResponse.json({ configured: false, releases: [], queried: 0, errors: [] });
@@ -64,8 +70,17 @@ export async function GET(req: NextRequest) {
     const indexers = withoutRateLimited(configuredIndexers);
     const alreadyLimited = configuredIndexers.length - indexers.length;
     if (indexers.length > 0) {
+      // When the movie/series is known (tmdbId from the detail page), use
+      // ID-based search (t=movie&tmdbid=XXX) — far more accurate than a
+      // text-only query, especially for titles with accents or special chars
+      // like "Team Démolition" where text search returns nothing.
       const directResults = await Promise.all(
-        indexers.map((ix) => searchIndexer(ix, q, scope).catch(() => [] as IndexerRelease[]))
+        indexers.map((ix) =>
+          (category === "movie" && tmdbId
+            ? searchMovie(ix, { title: refTitle || qRaw, year, tmdbId, imdbId: imdbIdParam }, scope)
+            : searchIndexer(ix, q, scope)
+          ).catch(() => [] as IndexerRelease[])
+        )
       );
       const newlyLimited = countNewlyRateLimited(indexers);
       const direct = directResults.flat().filter((r) => r.score >= 10);

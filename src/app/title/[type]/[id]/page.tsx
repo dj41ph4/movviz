@@ -56,7 +56,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
   const [searchingSeason, setSearchingSeason] = useState<number | null>(null);
   const [searchingEpisode, setSearchingEpisode] = useState<string | null>(null);
   const [searchingComplete, setSearchingComplete] = useState(false);
-  const [manualSearch, setManualSearch] = useState<{ libraryRef: string; query: string; title: string } | null>(null);
+  const [manualSearch, setManualSearch] = useState<{ libraryRef: string; query: string; title: string; tmdbId?: number; imdbId?: string } | null>(null);
   const [showFullCrew, setShowFullCrew] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [tagsOverride, setTagsOverride] = useState<string[] | null>(null);
@@ -272,7 +272,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
   const openManualSearch = () => {
     if (!libraryMatch?.id) return;
     if (type === "movie") {
-      setManualSearch({ libraryRef: encodeLibraryRef({ kind: "movie", movieId: libraryMatch.id }), query: detail.title, title: detail.title });
+      setManualSearch({ libraryRef: encodeLibraryRef({ kind: "movie", movieId: libraryMatch.id }), query: detail.title, title: detail.title, tmdbId: detail.tmdbId, imdbId: detail.imdbId ?? undefined });
       return;
     }
     // Not scoped to any one season the user is looking at, so default to
@@ -798,6 +798,8 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
           refTitle={detail.title}
           year={detail.year ? String(detail.year) : undefined}
           title={manualSearch.title}
+          tmdbId={manualSearch.tmdbId}
+          imdbId={manualSearch.imdbId}
         />
       )}
     </div>

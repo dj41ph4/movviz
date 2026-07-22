@@ -2,6 +2,12 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.56] — 2026-07-22
+
+### Corrigé
+- **Recherche manuelle (choix manuel) ne trouvait rien sur les titres avec accents** : la recherche texte envoyait "Team.Démolition" aux indexeurs, qui ne retournaient rien car les noms de release n'ont jamais d'accents ("Demolition.Man.1993…"). Désormais les accents sont normalisés en ASCII (é→e, è→e, ç→c…) avant d'être envoyés.
+- **Recherche manuelle moins précise que la recherche automatique** : l'auto-grab utilisait `t=movie&tmdbid=XXX` (recherche par ID TMDb), bien plus fiable que le texte seul, mais la recherche manuelle n'avait pas l'ID. Ajout de `tmdbId`/`imdbId` à l'API de recherche manuelle — quand le film est connu (depuis sa fiche), la recherche utilise `searchMovie` avec l'ID TMDb, exactement comme l'auto-grab.
+
 ## [1.1.55] — 2026-07-22
 
 ### Corrigé
