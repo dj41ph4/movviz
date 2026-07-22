@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="public/icon.svg" width="100" alt="Movviz">
-
 # Movviz
 
 ### Le centre de commande unifié pour tes films et séries
