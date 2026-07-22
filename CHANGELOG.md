@@ -2,6 +2,11 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.58] — 2026-07-22
+
+### Corrigé
+- **Recherche depuis la file d'attente** : le bouton 🔍 dans la file d'attente naviguait vers `/search?q=...` (texte seul, sans `tmdbId`). Désormais l'ID TMDb est transmis via `ActivityMedia.tmdbId` jusqu'à l'API, qui utilise `searchMovie` (`t=movie&tmdbid=XXX`) comme pour les autres chemins.
+
 ## [1.1.57] — 2026-07-22
 
 ### Corrigé

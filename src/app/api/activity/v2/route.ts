@@ -195,13 +195,14 @@ async function getQueue(): Promise<NextResponse<{ items: QueueItem[] }>> {
       const { movie, seriesMatch } = hashIndex.get(t.infoHash) ?? {};
 
       const media: ActivityMedia = movie
-        ? { id: movie.id, title: movie.title, type: "movie", href: `/title/movie/${movie.tmdbId}` }
+        ? { id: movie.id, title: movie.title, type: "movie", href: `/title/movie/${movie.tmdbId}`, tmdbId: movie.tmdbId }
         : seriesMatch
           ? {
               id: seriesMatch.series.id, title: seriesMatch.series.title, type: "series",
               season: seriesMatch.season, episode: seriesMatch.episode,
               packEpisodeCount: seriesMatch.count > 1 ? seriesMatch.count : undefined,
               href: `/title/series/${seriesMatch.series.tmdbId}`,
+              tmdbId: seriesMatch.series.tmdbId,
             }
           : { id: t.infoHash, title: t.name, type: "movie", href: "#" };
 

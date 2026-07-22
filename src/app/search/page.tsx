@@ -108,9 +108,11 @@ function SearchPageInner() {
       const paramsQ = new URLSearchParams({ q: q.trim() });
       const refTitle = params.get("refTitle");
       const year = params.get("year");
+      const tmdbId = params.get("tmdbId");
       if (refTitle) paramsQ.set("refTitle", refTitle);
       if (year) paramsQ.set("year", year);
       if (category) paramsQ.set("category", category);
+      if (tmdbId) paramsQ.set("tmdbId", tmdbId);
       const res = await fetch(`/api/indexers/search?${paramsQ.toString()}`, { cache: "no-store" });
       const data = await res.json();
       setConfigured(data.configured);

@@ -22,6 +22,7 @@ export interface ActivityMedia {
   packEpisodeCount?: number;
   posterPath?: string | null;
   href: string;
+  tmdbId?: number;
 }
 
 export interface ActivityRelease {

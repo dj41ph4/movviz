@@ -86,14 +86,20 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           await api(`${BASE}/torrents/${itemId}`, { method: "DELETE" });
           const item = items.find(i => i.id === itemId);
           if (item && item.media.href && item.media.href !== "#") {
-            router.push(`/search?q=${encodeURIComponent(item.media.title)}`);
+            const p = new URLSearchParams({ q: item.media.title });
+            if (item.media.tmdbId) p.set("tmdbId", String(item.media.tmdbId));
+            if (item.media.type) p.set("category", item.media.type);
+            router.push(`/search?${p.toString()}`);
           }
           break;
         }
         case "search": {
           const item = items.find(i => i.id === itemId);
           if (item) {
-            router.push(`/search?q=${encodeURIComponent(item.media.title)}`);
+            const p = new URLSearchParams({ q: item.media.title });
+            if (item.media.tmdbId) p.set("tmdbId", String(item.media.tmdbId));
+            if (item.media.type) p.set("category", item.media.type);
+            router.push(`/search?${p.toString()}`);
           }
           break;
         }
