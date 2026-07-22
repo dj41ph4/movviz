@@ -443,10 +443,11 @@ export function sanitizeQuery(q: string): string {
   return q
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[!"()+|:‘’"“”–—¿?…]/g, "")
-    .replace(/\.{2,}/g, "")
+    .replace(/[!"'()+|:‘’"“”–—¿?…]/g, "")
     .trim()
-    .replace(/\s+/g, ".");
+    .replace(/\s+/g, ".")
+    .replace(/\.{2,}/g, ".")
+    .replace(/^\.|\.$/g, "");
 }
 
 async function runSearch(

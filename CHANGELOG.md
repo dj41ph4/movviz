@@ -2,6 +2,12 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.57] — 2026-07-22
+
+### Corrigé
+- **Sanitize des requêtes de recherche** : meilleur nettoyage des titres (apostrophes, doubles espaces après suppression des deux-points, points consécutifs) pour que les indexeurs reçoivent une requête propre.
+- **searchMovie/searchTv : fallback texte si l'ID TMDb ne trouve rien** : la recherche par `t=movie&tmdbid=XXX` peut retourner vide si l'indexeur ne connaît pas ce film. Maintenant, si aucun résultat, on refait une recherche par texte normal.
+
 ## [1.1.56] — 2026-07-22
 
 ### Corrigé
