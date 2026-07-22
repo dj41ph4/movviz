@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHmac } from "node:crypto";
 import type { User } from "./types";
+import { getRawSigningKey } from "./signing";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -10,8 +11,22 @@ const CONFIG_DIR =
   path.join(process.cwd(), ".movviz-data");
 const USERS_FILE = path.join(CONFIG_DIR, "users.json");
 const SESSIONS_FILE = path.join(CONFIG_DIR, "sessions.json");
+const SIGNING_KEY_FILE = path.join(CONFIG_DIR, ".session-secret");
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+function hmacSign(token: string): string {
+  const raw = getRawSigningKey();
+  if (raw) return createHmac("sha256", raw).update(token).digest("hex");
+  try {
+    const key = fs.readFileSync(SIGNING_KEY_FILE, "utf-8").trim();
+    if (key) return createHmac("sha256", key).update(token).digest("hex");
+  } catch { /* fall through */ }
+  const newKey = randomBytes(32).toString("hex");
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  fs.writeFileSync(SIGNING_KEY_FILE, newKey, "utf-8");
+  return createHmac("sha256", newKey).update(token).digest("hex");
+}
 
 function readJson<T>(file: string, fallback: T): T {
   return readJsonCached(file, fallback);
@@ -81,18 +96,42 @@ function saveSessions(list: SessionRecord[]) {
 }
 
 export function createSession(userId: string): { token: string; expiresAt: number } {
-  const token = randomBytes(32).toString("hex");
+  const raw = randomBytes(32).toString("hex");
+  const token = raw + "." + hmacSign(raw);
   const expiresAt = Date.now() + SESSION_TTL_MS;
   const list = loadSessions().filter((s) => s.expiresAt > Date.now());
-  list.push({ token, userId, expiresAt });
+  list.push({ token: raw, userId, expiresAt });
   saveSessions(list);
   return { token, expiresAt };
 }
 
-export function resolveSession(token: string | undefined | null): User | null {
-  if (!token) return null;
-  const session = loadSessions().find((s) => s.token === token);
+const HEX64 = /^[0-9a-f]{64}$/;
+
+function isLegacyToken(s: string): boolean {
+  return s.length === 64 && HEX64.test(s);
+}
+
+export function resolveSession(cookie: string | undefined | null): User | null {
+  if (!cookie) return null;
+
+  let raw: string | null = null;
+  let sig: string | null = null;
+
+  const dot = cookie.indexOf(".");
+  if (dot > 0) {
+    raw = cookie.slice(0, dot);
+    sig = cookie.slice(dot + 1);
+    if (!HEX64.test(raw) || !(sig.length === 64 && HEX64.test(sig))) raw = null;
+  } else if (isLegacyToken(cookie)) {
+    raw = cookie;
+  }
+
+  if (!raw) return null;
+
+  const sessions = loadSessions();
+  const session = sessions.find((s) => s.token === raw);
   if (!session || session.expiresAt < Date.now()) return null;
+  if (sig && sig !== hmacSign(raw)) return null;
   return getUserById(session.userId);
 }
 

@@ -2,6 +2,14 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.63] — 2026-07-22
+
+### Corrigé — Merci à [TheGeeKing](https://github.com/TheGeeKing) pour le debug
+
+- **Sécurité : n'importe quelle valeur dans le cookie `movviz_session` permettait de contourner la page de connexion et d'accéder à l'application.** Le middleware vérifiait uniquement la présence du cookie (vraie pour n'importe quelle chaîne non vide comme `"foobar"`), sans jamais valider son contenu. Les tokens de session sont maintenant signés avec HMAC-SHA256 via une clé secrète générée automatiquement à l'installation (ou via la variable d'environnement `MOVVIZ_SESSION_SECRET`). Le middleware exige que la valeur du cookie corresponde au format attendu (64 caractères hexadécimaux en format legacy, ou `64.64` en format signé) — toute valeur arbitraire est immédiatement rejetée.
+- **Dédoublonnage des imports Plex et des ajouts en bibliothèque** : `addMovie()` et `addSeries()` dans le store ne font désormais plus confiance aux seuls appels pour vérifier l'absence de doublon. Si un `tmdbId` existe déjà, l'appel est un no-op et retourne l'entrée existante, ce qui protège contre les doubles-clics et les appels concurrents.
+- **Build Docker multi-architecture** : l'image Docker est maintenant publiée pour `linux/amd64` ET `linux/arm64` (Raspberry Pi, Apple Silicon, NAS Synology/QNAP). Les outils de compilation natifs (`cmake`, `build-base`) ont été ajoutés à l'étape de build pour que les modules natifs optionnels se compilent sans échec sur ARM64.
+
 ## [1.1.60] — 2026-07-22
 
 ### Corrigé
