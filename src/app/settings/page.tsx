@@ -43,32 +43,24 @@ const TABS = [
   // Téléchargement
   { id: "clients", labelKey: "settings.tabClients", icon: HardDrive, group: "download" },
   { id: "indexers", labelKey: "settings.tabIndexers", icon: Magnet, group: "download" },
-  { id: "profiles", labelKey: "settings.tabProfiles", icon: Gauge, group: "download" },
-  { id: "formats", labelKey: "customFormats.title", icon: SlidersHorizontal, group: "download" },
+  { id: "qualite", labelKey: "settings.tabQualite", icon: Gauge, group: "download" },
   // Bibliothèque
   { id: "metadata", labelKey: "metadata.title", icon: BookOpen, group: "library", adminOnly: true },
   { id: "plex", labelKey: "plex.title", icon: Play, group: "library", adminOnly: true },
   { id: "naming", labelKey: "naming.tab", icon: Tag, group: "library", adminOnly: true },
-  { id: "import-lists", labelKey: "settings.tabImportLists", icon: ExternalLink, group: "library", adminOnly: true },
-  { id: "seerr", labelKey: "settings.tabSeerr", icon: Download, group: "library", adminOnly: true },
-  { id: "blocklist", labelKey: "blocklist.title", icon: Ban, group: "library", adminOnly: true },
+  { id: "imports", labelKey: "settings.tabImports", icon: ExternalLink, group: "library", adminOnly: true },
   // Disque
-  { id: "index-movies", labelKey: "settings.tabIndexMovies", icon: Film, group: "disk", adminOnly: true },
-  { id: "index-series", labelKey: "settings.tabIndexSeries", icon: Tv, group: "disk", adminOnly: true },
+  { id: "indexation", labelKey: "settings.tabIndexation", icon: Film, group: "disk", adminOnly: true },
   { id: "rename", labelKey: "rename.tab", icon: RefreshCw, group: "disk", adminOnly: true },
-  { id: "repair-paths", labelKey: "repairPaths.tab", icon: Wrench, group: "disk", adminOnly: true },
-  { id: "clean-dirs", labelKey: "cleanDirs.tab", icon: FolderOpen, group: "disk", adminOnly: true },
-  { id: "trash", labelKey: "trash.tab", icon: Trash2, group: "disk", adminOnly: true },
+  { id: "maintenance", labelKey: "settings.tabMaintenance", icon: Wrench, group: "disk", adminOnly: true },
   // Notifications
   { id: "notifications", labelKey: "settings.tabNotifications", icon: BellRing, group: "notifications", adminOnly: true },
-  { id: "webhooks", labelKey: "webhooks.title", icon: Bell, group: "notifications", adminOnly: true },
   // Système
   { id: "health", labelKey: "health.title", icon: Activity, group: "system", adminOnly: true },
   { id: "tasks", labelKey: "tasks.title", icon: ListTodo, group: "system", adminOnly: true },
   { id: "jobs", labelKey: "jobs.title", icon: ListOrdered, group: "system", adminOnly: true },
   { id: "cache", labelKey: "cache.title", icon: Database, group: "system", adminOnly: true },
   { id: "backup", labelKey: "backup.title", icon: DatabaseBackup, group: "system", adminOnly: true },
-  { id: "activity", labelKey: "activity.settings", icon: Settings2, group: "system", adminOnly: true },
   { id: "about", labelKey: "settings.tabAbout", icon: Info, group: "system" },
   { id: "danger", labelKey: "dangerZone.title", icon: Skull, group: "system", adminOnly: true, dangerous: true },
 ] as const;
@@ -229,37 +221,51 @@ function SettingsPageInner() {
 
           {tab === "indexers" && <IndexerManager />}
 
-          {tab === "naming" && <NamingEditor />}
-
-          {tab === "formats" && <CustomFormatsPanel />}
-
-          {tab === "profiles" && <ReleaseRulesPanel />}
+          {tab === "qualite" && user?.role === "admin" && (
+            <div className="space-y-6">
+              <ReleaseRulesPanel />
+              <CustomFormatsPanel />
+            </div>
+          )}
 
           {tab === "metadata" && user?.role === "admin" && <MetadataSettings />}
 
           {tab === "plex" && user?.role === "admin" && <PlexSettings />}
 
-          {tab === "blocklist" && user?.role === "admin" && <BlocklistPanel />}
+          {tab === "naming" && user?.role === "admin" && <NamingEditor />}
 
-          {tab === "notifications" && user?.role === "admin" && <NotificationSettings />}
+          {tab === "imports" && user?.role === "admin" && (
+            <div className="space-y-6">
+              <ImportListsSettings />
+              <SeerrSettings />
+              <BlocklistPanel />
+            </div>
+          )}
 
-          {tab === "import-lists" && user?.role === "admin" && <ImportListsSettings />}
-
-          {tab === "seerr" && user?.role === "admin" && <SeerrSettings />}
-
-          {tab === "index-movies" && user?.role === "admin" && <IndexationPanel type="movie" />}
-
-          {tab === "index-series" && user?.role === "admin" && <IndexationPanel type="series" />}
-
-          {tab === "trash" && user?.role === "admin" && <TrashPanel />}
+          {tab === "indexation" && user?.role === "admin" && (
+            <div className="space-y-6">
+              <IndexationPanel type="movie" />
+              <IndexationPanel type="series" />
+            </div>
+          )}
 
           {tab === "rename" && user?.role === "admin" && <RenamePanel />}
 
-          {tab === "repair-paths" && user?.role === "admin" && <RepairPathsPanel />}
+          {tab === "maintenance" && user?.role === "admin" && (
+            <div className="space-y-6">
+              <RepairPathsPanel />
+              <CleanDirsPanel />
+              <TrashPanel />
+            </div>
+          )}
 
-          {tab === "clean-dirs" && user?.role === "admin" && <CleanDirsPanel />}
-
-          {tab === "webhooks" && user?.role === "admin" && <WebhookSettings />}
+          {tab === "notifications" && user?.role === "admin" && (
+            <div className="space-y-6">
+              <NotificationSettings />
+              <WebhookSettings />
+              <ActivitySettings />
+            </div>
+          )}
 
           {tab === "health" && user?.role === "admin" && (
             <div className="space-y-6">
@@ -279,8 +285,6 @@ function SettingsPageInner() {
           {tab === "cache" && user?.role === "admin" && <CachePanel />}
 
           {tab === "backup" && user?.role === "admin" && <BackupSettings />}
-
-          {tab === "activity" && user?.role === "admin" && <ActivitySettings />}
 
           {tab === "about" && user?.role === "admin" && <AboutPanel />}
 

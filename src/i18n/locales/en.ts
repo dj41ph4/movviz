@@ -802,7 +802,11 @@ export const en: Dictionary = {
       "Indexers, download clients and quality profiles — each module owns its own settings, administered from a single place.",
     tabIndexers: "Indexers",
     tabClients: "Download clients",
-    tabProfiles: "Quality profiles",
+    tabQualite: "Quality",
+    tabImports: "Imports",
+    tabIndexation: "Indexing",
+    tabMaintenance: "Maintenance",
+
     tabNotifications: "Notifications",
     tabImportLists: "Import Lists",
     tabSeerr: "Seerr Import",

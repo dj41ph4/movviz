@@ -802,7 +802,11 @@ export const nl: Dictionary = {
       "Indexers, downloadclients en kwaliteitsprofielen — elke module heeft zijn eigen instellingen, beheerd vanaf één plek.",
     tabIndexers: "Indexers",
     tabClients: "Downloadclients",
-    tabProfiles: "Kwaliteitsprofielen",
+    tabQualite: "Kwaliteit",
+    tabImports: "Importeren",
+    tabIndexation: "Indexering",
+    tabMaintenance: "Onderhoud",
+
     tabNotifications: "Meldingen",
     tabImportLists: "Importlijsten",
     tabSeerr: "Seerr-import",
