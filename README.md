@@ -2,7 +2,7 @@
 
 # Movviz
 
-**Le centre de commande unique pour tes films et séries — découverte, recherche, téléchargement et bibliothèque, sans jongler entre dix outils différents.**
+**Le centre de commande unique pour tes films et séries — découverte, organisation, suivi et bibliothèque, sans jongler entre dix outils différents.**
 
 [![Licence](https://img.shields.io/badge/licence-GPL--3.0-blue.svg)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org)
