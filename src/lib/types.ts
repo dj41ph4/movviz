@@ -138,7 +138,7 @@ export interface DownloadItem {
   id: string;
   title: string;
   mediaType: MediaType;
-  client: string; // qBittorrent, SABnzbd...
+  client: string; // nom du client externe (ex. qBittorrent)
   protocol: Protocol;
   progress: number; // 0..100
   sizeGb: number;

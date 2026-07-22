@@ -28,6 +28,7 @@ packaging/windows/installer/movviz.ico
 # assistant / tooling artifacts — excluded from Git and builds
 /.claude/
 .git-rewrite/
+AGENTS.md
 CLAUDE.md
 **/*.ai.md
 .aider*
