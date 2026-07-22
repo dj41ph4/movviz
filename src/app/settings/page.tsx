@@ -40,50 +40,46 @@ import { JobQueuePanel } from "@/components/settings/JobQueuePanel";
 import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
 
 const TABS = [
-  // Acquiring content from indexers and how releases are scored.
+  // Téléchargement
   { id: "clients", labelKey: "settings.tabClients", icon: HardDrive, group: "download" },
   { id: "indexers", labelKey: "settings.tabIndexers", icon: Magnet, group: "download" },
   { id: "profiles", labelKey: "settings.tabProfiles", icon: Gauge, group: "download" },
   { id: "formats", labelKey: "customFormats.title", icon: SlidersHorizontal, group: "download" },
-  // External data sources powering the library.
+  // Bibliothèque
   { id: "metadata", labelKey: "metadata.title", icon: BookOpen, group: "library", adminOnly: true },
   { id: "plex", labelKey: "plex.title", icon: Play, group: "library", adminOnly: true },
-  // On-disk library management: indexing, renaming, repairing, trash.
-  { id: "index-movies", labelKey: "settings.tabIndexMovies", icon: Film, group: "files", adminOnly: true },
-  { id: "index-series", labelKey: "settings.tabIndexSeries", icon: Tv, group: "files", adminOnly: true },
-  { id: "rename", labelKey: "rename.tab", icon: RefreshCw, group: "files", adminOnly: true },
-  { id: "naming", labelKey: "naming.tab", icon: Tag, group: "files", adminOnly: true },
-  { id: "repair-paths", labelKey: "repairPaths.tab", icon: Wrench, group: "files", adminOnly: true },
-  { id: "clean-dirs", labelKey: "cleanDirs.tab", icon: FolderOpen, group: "files", adminOnly: true },
-  { id: "trash", labelKey: "trash.tab", icon: Trash2, group: "files", adminOnly: true },
-  // Importing external watchlists, requests, and blocking titles.
-  { id: "import-lists", labelKey: "settings.tabImportLists", icon: ExternalLink, group: "imports", adminOnly: true },
-  { id: "seerr", labelKey: "settings.tabSeerr", icon: Download, group: "imports", adminOnly: true },
-  { id: "blocklist", labelKey: "blocklist.title", icon: Ban, group: "imports", adminOnly: true },
-  // Outgoing alerts.
+  { id: "naming", labelKey: "naming.tab", icon: Tag, group: "library", adminOnly: true },
+  { id: "import-lists", labelKey: "settings.tabImportLists", icon: ExternalLink, group: "library", adminOnly: true },
+  { id: "seerr", labelKey: "settings.tabSeerr", icon: Download, group: "library", adminOnly: true },
+  { id: "blocklist", labelKey: "blocklist.title", icon: Ban, group: "library", adminOnly: true },
+  // Disque
+  { id: "index-movies", labelKey: "settings.tabIndexMovies", icon: Film, group: "disk", adminOnly: true },
+  { id: "index-series", labelKey: "settings.tabIndexSeries", icon: Tv, group: "disk", adminOnly: true },
+  { id: "rename", labelKey: "rename.tab", icon: RefreshCw, group: "disk", adminOnly: true },
+  { id: "repair-paths", labelKey: "repairPaths.tab", icon: Wrench, group: "disk", adminOnly: true },
+  { id: "clean-dirs", labelKey: "cleanDirs.tab", icon: FolderOpen, group: "disk", adminOnly: true },
+  { id: "trash", labelKey: "trash.tab", icon: Trash2, group: "disk", adminOnly: true },
+  // Notifications
   { id: "notifications", labelKey: "settings.tabNotifications", icon: BellRing, group: "notifications", adminOnly: true },
   { id: "webhooks", labelKey: "webhooks.title", icon: Bell, group: "notifications", adminOnly: true },
-  // Operational health and maintenance.
+  // Système
   { id: "health", labelKey: "health.title", icon: Activity, group: "system", adminOnly: true },
   { id: "tasks", labelKey: "tasks.title", icon: ListTodo, group: "system", adminOnly: true },
   { id: "jobs", labelKey: "jobs.title", icon: ListOrdered, group: "system", adminOnly: true },
   { id: "cache", labelKey: "cache.title", icon: Database, group: "system", adminOnly: true },
   { id: "backup", labelKey: "backup.title", icon: DatabaseBackup, group: "system", adminOnly: true },
   { id: "activity", labelKey: "activity.settings", icon: Settings2, group: "system", adminOnly: true },
-  { id: "about", labelKey: "settings.tabAbout", icon: Info, group: "about" },
-  { id: "danger", labelKey: "dangerZone.title", icon: Skull, group: "danger", adminOnly: true },
+  { id: "about", labelKey: "settings.tabAbout", icon: Info, group: "system" },
+  { id: "danger", labelKey: "dangerZone.title", icon: Skull, group: "system", adminOnly: true, dangerous: true },
 ] as const;
 
-const GROUP_ORDER = ["download", "library", "files", "imports", "notifications", "system", "about", "danger"] as const;
+const GROUP_ORDER = ["download", "library", "disk", "notifications", "system"] as const;
 const GROUP_LABEL_KEY: Record<(typeof GROUP_ORDER)[number], string | null> = {
   download: "settings.groupDownload",
   library: "settings.groupLibrary",
-  files: "settings.groupFiles",
-  imports: "settings.groupImports",
+  disk: "settings.groupDisk",
   notifications: "settings.groupNotifications",
   system: "settings.groupSystem",
-  about: null,
-  danger: null,
 };
 
 export default function SettingsPage() {
@@ -130,35 +126,37 @@ function SettingsPageInner() {
               {t(g.labelKey)}
             </p>
           )}
-          <div className={cn("flex flex-col gap-0.5", g.id === "danger" && "border-t border-white/8 pt-3")}>
-            {g.items.map((tb) => {
+          <div className="flex flex-col gap-0.5">
+            {g.items.map((tb, idx) => {
               const Icon = tb.icon;
               const active = tab === tb.id;
-              const dangerous = tb.group === "danger";
+              const dangerous = "dangerous" in tb && tb.dangerous === true;
               return (
-                <button
-                  key={tb.id}
-                  onClick={() => onPick(tb.id)}
-                  className={cn(
-                    "group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ring-focus",
-                    active
-                      ? dangerous ? "text-down" : "text-brand-glow"
-                      : dangerous ? "text-down/70 hover:text-down" : "text-ink-soft hover:text-ink"
-                  )}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId={layoutId}
-                      className={cn(
-                        "absolute inset-0 -z-10 rounded-xl",
-                        dangerous ? "border border-down/30 bg-down/12" : "border border-brand/30 bg-brand/12"
-                      )}
-                      transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                    />
-                  )}
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span className="truncate">{t(tb.labelKey)}</span>
-                </button>
+                <div key={tb.id}>
+                  {dangerous && idx > 0 && <div className="mb-1.5 border-t border-white/8 pt-3" />}
+                  <button
+                    onClick={() => onPick(tb.id)}
+                    className={cn(
+                      "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ring-focus",
+                      active
+                        ? dangerous ? "text-down" : "text-brand-glow"
+                        : dangerous ? "text-down/70 hover:text-down" : "text-ink-soft hover:text-ink"
+                    )}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId={layoutId}
+                        className={cn(
+                          "absolute inset-0 -z-10 rounded-xl",
+                          dangerous ? "border border-down/30 bg-down/12" : "border border-brand/30 bg-brand/12"
+                        )}
+                        transition={{ type: "spring", stiffness: 380, damping: 32 }}
+                      />
+                    )}
+                    <Icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{t(tb.labelKey)}</span>
+                  </button>
+                </div>
               );
             })}
           </div>
