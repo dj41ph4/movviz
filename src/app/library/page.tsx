@@ -262,11 +262,11 @@ function LibraryTab() {
             <span className="text-sm font-semibold">{total} {t("common.titles")}</span>
           </div>
           {user?.role === "admin" && (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={searchMissing}
                 disabled={searchingMissing}
-                className="flex h-9 items-center gap-2 rounded-lg glass-strong px-3.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+                className="flex h-9 items-center gap-2 rounded-lg glass-strong px-3.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50 whitespace-nowrap"
               >
                 {searchingMissing ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchCheck className="h-4 w-4" />}
                 {searchMissingJob?.status === "queued"
@@ -278,7 +278,7 @@ function LibraryTab() {
               <button
                 onClick={rescan}
                 disabled={rescanning}
-                className="flex h-9 items-center gap-2 rounded-lg glass-strong px-3.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+                className="flex h-9 items-center gap-2 rounded-lg glass-strong px-3.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50 whitespace-nowrap"
               >
                 {rescanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
                 {t("library.rescan")}
@@ -323,7 +323,7 @@ function LibraryTab() {
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-1 rounded-xl glass-strong p-1">
+          <div className="flex flex-wrap items-center gap-1 rounded-xl glass-strong p-1">
             {SORTS.map((s) => (
               <button
                 key={s.id}

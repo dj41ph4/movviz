@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Check, X, Loader2 } from "lucide-react";
+import { Check, X, Loader2, Activity } from "lucide-react";
 
 interface ProcStats {
   rssBytes: number | null;
@@ -77,12 +77,35 @@ export function HealthPanel() {
   useEffect(() => { load(); }, []);
 
   if (loading && !data) {
-    return <div className="flex items-center justify-center gap-2 rounded-2xl glass py-16 text-ink-dim"><Loader2 className="h-5 w-5 animate-spin" /> {t("health.checking")}</div>;
+    return (
+      <div>
+        <div className="mb-5 flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+            <Activity className="h-5 w-5" />
+          </span>
+          <div>
+            <h3 className="font-bold text-ink">{t("health.title")}</h3>
+            <p className="mt-0.5 text-xs text-ink-dim">{t("health.checking")}</p>
+          </div>
+        </div>
+        <div className="flex items-center justify-center gap-2 rounded-2xl glass py-16 text-ink-dim"><Loader2 className="h-5 w-5 animate-spin" /> {t("health.checking")}</div>
+      </div>
+    );
   }
   if (!data) return null;
 
   return (
-    <div className="space-y-3 rounded-2xl glass p-5">
+    <div>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Activity className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("health.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("health.engine")}</p>
+        </div>
+      </div>
+      <div className="space-y-3 rounded-2xl glass p-5">
       <Row label={t("health.engine")} ok={data.engine} />
       <Row label={t("health.tmdb")} ok={data.tmdb} />
       {data.indexers.map((ix) => (
@@ -105,6 +128,7 @@ export function HealthPanel() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

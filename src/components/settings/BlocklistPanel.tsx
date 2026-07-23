@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Ban, Trash2, Loader2, Search, Plus, X, Film, Tv } from "lucide-react";
+import { Ban, Trash2, Loader2, Search, Plus, X, Film, Tv, ShieldAlert } from "lucide-react";
 
 interface BlockedTitle {
   id: string;
@@ -55,7 +55,15 @@ export function BlocklistPanel() {
 
   return (
     <div>
-      <p className="mb-5 max-w-3xl text-sm text-ink-soft">{t("blocklist.intro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <ShieldAlert className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("blocklist.title") || "Blocklist"}</h3>
+          <p className="mt-0.5 max-w-3xl text-xs text-ink-dim">{t("blocklist.intro")}</p>
+        </div>
+      </div>
 
       {!showAdd && (
         <button

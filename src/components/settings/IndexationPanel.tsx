@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Loader2, RefreshCw, Search, Check, X, FolderOpen, Film, Tv } from "lucide-react";
+import { Loader2, RefreshCw, Search, Check, X, FolderOpen, Film, Tv, ShieldAlert } from "lucide-react";
 
 interface IndexMatch {
   tmdbId: number;
@@ -123,8 +123,16 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
   const selectedCount = candidates?.filter((c) => selected.has(c.id) && matchFor(c)).length ?? 0;
 
   return (
-    <div>
-      <div className="mb-5 flex items-start justify-between gap-4">
+    <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
+        <div>
+          <p className="text-sm font-bold text-down">{t("settings.diskWarningTitle")}</p>
+          <p className="mt-1 text-xs text-ink-dim">{t("settings.diskWarningHint")}</p>
+        </div>
+      </div>
+
+      <div className="flex items-start justify-between gap-4">
         <p className="max-w-2xl text-sm text-ink-soft">
           {type === "movie" ? t("indexation.movieIntro") : t("indexation.seriesIntro")}
         </p>

@@ -6,6 +6,7 @@ import { emitNotification } from "@/lib/notifications/store";
 import { refreshPlexLibraryFor } from "@/lib/plex/librarySync";
 import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createReleaseRef, createImportRef } from "@/lib/activity/v2/store";
+import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,7 @@ export async function POST(req: NextRequest) {
       import: createImportRef(best.path, best.size, movie.title, best.quality ?? "—"),
     });
     void refreshPlexLibraryFor("movie").catch(() => {});
+    void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});
     return NextResponse.json({ ok: true, updated: "movie", id: movie.id });
   }
 
@@ -157,6 +159,7 @@ export async function POST(req: NextRequest) {
       release: files[0]?.quality ? createReleaseRef("", "Importé", "torrent", files[0].size, files[0].quality, 0) : undefined,
     });
     void refreshPlexLibraryFor("tv").catch(() => {});
+    void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
     return NextResponse.json({ ok: true, updated: "season", id: series.id });
   }
 
@@ -203,6 +206,7 @@ export async function POST(req: NextRequest) {
       release: files[0]?.quality ? createReleaseRef("", "Importé", "torrent", files[0].size, files[0].quality, 0) : undefined,
     });
     void refreshPlexLibraryFor("tv").catch(() => {});
+    void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
     return NextResponse.json({ ok: true, updated: "series", id: series.id, imported: importedCount });
   }
 
@@ -286,5 +290,6 @@ export async function POST(req: NextRequest) {
     release: files[0]?.quality ? createReleaseRef("", "Importé", "torrent", files[0].size, files[0].quality, 0) : undefined,
   });
   void refreshPlexLibraryFor("tv").catch(() => {});
+  void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
   return NextResponse.json({ ok: true, updated: "episode", id: series.id });
 }

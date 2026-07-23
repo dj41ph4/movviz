@@ -827,6 +827,8 @@ export const nl: Dictionary = {
     groupDownload: "Download",
     groupLibrary: "Bibliotheek",
     groupDisk: "Schijf",
+    diskWarningTitle: "Bestandsbewerkingen",
+    diskWarningHint: "Deze acties wijzigen bestanden op de schijf. Controleer je instellingen en back-ups voordat je doorgaat.",
     groupNotifications: "Meldingen",
     notificationsHint: "Discord, Telegram, Gotify, Slack, Pushbullet — configureer welke kanalen pushmeldingen ontvangen.",
     groupSystem: "Systeem",
@@ -925,6 +927,9 @@ export const nl: Dictionary = {
     maxAge: "Max. leeftijd (dagen)",
     flareResolver: "Cloudflare-resolver (poort 9830)",
     resolverUrl: "Resolver-URL",
+    priority: "Prioriteit",
+    priorityUp: "Prioriteit verhogen",
+    priorityDown: "Prioriteit verlagen",
   },
 
   blocklist: {
@@ -1223,6 +1228,7 @@ export const nl: Dictionary = {
     testNetworkError: "Netwerkfout — kan TMDb niet bereiken",
     useTvdbForAnime: "TVDB gebruiken voor anime",
     useTvdbForAnimeHint: "Automatisch gedetecteerd (Japanse oorsprong + genre Animatie). De rest van de metadata (poster, samenvatting) komt nog steeds van TMDb.",
+    syncAllAnime: "Alle anime synchroniseren met TVDB",
     omdbTitle: "OMDb — Rotten Tomatoes-, Metacritic-, IMDb-scores",
     omdbHint: "TMDb levert deze scores niet. Voeg je eigen (gratis) sleutel toe om ze te tonen op film-/seriepagina's — zonder sleutel verschijnen deze iconen gewoon niet.",
     omdbConfigured: "OMDb geconfigureerd",
@@ -1369,6 +1375,7 @@ export const nl: Dictionary = {
       "anime-vf-calendar-refresh": "Anime VF calendar refresh",
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Opnieuw missende films",
+      "seerr-import": "Seerr/Overseerr aanvragen importeren",
     },
   },
 
@@ -1388,6 +1395,19 @@ export const nl: Dictionary = {
     whatsNewVersion: "Versie {version}",
     whatsNewVersionRange: "Van {from} tot {to}",
     whatsNewClose: "Begrepen!",
+  },
+
+  player: {
+    betaToggle: "Bèta-speler",
+    betaToggleHint: "Vervangt « Bekijken op Plex » door een ingebouwde videospeler (bèta — sommige codecs werken mogelijk niet in de browser).",
+    betaError: "Kan deze video niet afspelen in de browser. Open hem in Plex.",
+    betaLoading: "Bufferen…",
+    betaWebcodecs: "WebCodecs HEVC gedetecteerd — direct afspelen",
+    betaTranscoded: "Getranscodeerd",
+    betaAudio: "Audio",
+    betaSubtitle: "Ondertiteling",
+    betaOff: "Uit",
+    betaQuality: "Kwaliteit",
   },
 
   language: { label: "Taal" },

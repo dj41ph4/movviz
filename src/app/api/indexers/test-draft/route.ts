@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/guard";
 import { testIndexer } from "@/lib/indexers/torznab";
 import type { ConfiguredIndexer } from "@/lib/indexers/types";
 
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
  * only after the first save+auto-test round trip.
  */
 export async function POST(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await req.json();
   const baseUrl = String(body.baseUrl ?? "").trim();
   if (!baseUrl) return NextResponse.json({ error: "baseUrl required" }, { status: 400 });

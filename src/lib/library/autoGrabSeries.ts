@@ -19,6 +19,7 @@ import { getTvdbEpisodesFor, groupTvdbEpisodesBySeason, tvdbConfigured, type Tvd
 import { loadTvdbConfig } from "@/lib/metadata/tvdbStore";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { searchTv, searchCompleteSeriesPack, COMPLETE_SERIES_TERMS } from "@/lib/indexers/torznab";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
@@ -54,7 +55,7 @@ async function buildAnimeSeasonsFromTvdb(
     episodes: s.episodes.map((e) => ({
       seasonNumber: e.seasonNumber,
       episodeNumber: e.episodeNumber,
-      title: e.title,
+      title: e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`,
       airDate: e.airDate,
       monitored: true,
       status: "missing",
@@ -71,7 +72,7 @@ function applyTvdbTitleOverrides(tvdbEpisodes: TvdbEpisode[], seasons: LibrarySe
     for (const ep of season.episodes) {
       const match = bySeasonEpisode.get(`${season.seasonNumber}-${ep.episodeNumber}`);
       if (match) {
-        if (match.title) ep.title = match.title;
+        if (match.title && !hasCjkText(match.title)) ep.title = match.title;
         if (match.airDate) ep.airDate = match.airDate;
       }
     }
@@ -194,6 +195,13 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
     tvdbByKey.set(`${e.seasonNumber}-${e.episodeNumber}`, e);
   }
 
+  // Build a lookup of existing titles before TVDB overwrites them — used to
+  // preserve French/Latin titles when TVDB only has Japanese (CJK) for an ep.
+  const existingTitleByKey = new Map<string, string>();
+  for (const ep of oldFlat) {
+    existingTitleByKey.set(`${ep.seasonNumber}-${ep.episodeNumber}`, ep.title);
+  }
+
   // ---- 4. Disk-driven path — build seasons from what exists on disk ----
   if (diskSeasons.length > 0) {
     const newSeasons: LibrarySeason[] = [];
@@ -231,10 +239,21 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
             addedAt: Date.now(),
           };
         }
+        const existingTitle = existingTitleByKey.get(`${ds.seasonNumber}-${epN}`);
         return {
           seasonNumber: ds.seasonNumber,
           episodeNumber: epN,
-          title: tvdb?.title ?? `Épisode ${epN}`,
+          // CJK handling:
+          //  - existing French/Latin title (not CJK) → keep it, ignore TVDB
+          //  - existing CJK title + TVDB has a non-CJK (French) title → replace
+          //  - existing CJK title + TVDB is also CJK (or null) → fall back to
+          //    the generic "Épisode N" rather than propagating another CJK
+          //    string — this is the v1.3.1/v1.3.2 bug: the old condition still
+          //    picked tvdb.title when it was CJK, so a Japanese title just got
+          //    replaced with another Japanese title.
+          title: !existingTitle || hasCjkText(existingTitle)
+            ? (tvdb?.title && !hasCjkText(tvdb.title) ? tvdb.title : `Épisode ${epN}`)
+            : existingTitle,
           airDate: tvdb?.airDate ?? null,
           monitored: true,
           status,
@@ -270,7 +289,9 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
       return {
         seasonNumber: e.seasonNumber,
         episodeNumber: e.episodeNumber,
-        title: e.title,
+        title: !carried || hasCjkText(carried.title)
+          ? (e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`)
+          : carried.title,
         airDate: e.airDate,
         monitored: carried?.monitored ?? true,
         status: carried?.status ?? "missing",
@@ -327,7 +348,7 @@ export async function addSeriesToLibrary(
     seasons.push({ seasonNumber: s.seasonNumber, name: s.name, monitored: true, episodes });
   }
 
-  const finalSeasons = meta.isAnime && tvdbConfigured() && loadTvdbConfig().useForAnime && !seasonNumbers?.length
+  const finalSeasons = meta.isAnime && tvdbConfigured() && !seasonNumbers?.length
     ? await buildAnimeSeasonsFromTvdb(meta.title, meta.year, meta.tvdbId, seasons)
     : seasons;
 
@@ -353,10 +374,7 @@ export async function addSeriesToLibrary(
   };
   addSeries(series);
 
-  const firstSeason = finalSeasons.find((s) => s.episodes.some((e) => e.monitored));
-  const searchResult = options?.skipSearch || !firstSeason
-    ? null
-    : await searchAndGrabSeason(series.id, firstSeason.seasonNumber);
+  const searchResult = options?.skipSearch ? null : await searchAndGrabCompleteSeries(series.id);
   return { series, searchResult };
 }
 
@@ -393,18 +411,17 @@ async function grabRelease(
   recordSearchLog("debug", "grab_release.cache_read", `${label} — cache RSS donne ${releases.length} release(s) (${cacheMs}ms)`, cacheMs);
 
   const tS = performance.now();
-  const candidates = releases
-    .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-    .filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber))
-    .filter(({ parsed }) => (filterPack ? parsed.episode == null : true))
-    .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
-    .filter(({ release }) => release.score >= profile.minScore)
-    .filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"))
-    .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-    .sort((a, b) => b.release.score - a.release.score);
+  const step1 = releases.map((r) => ({ release: r, parsed: parseRelease(r.title) }));
+  const step2 = step1.filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title));
+  const step3 = step2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber));
+  const step4 = step3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true));
+  const step5 = step4.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
+  const step6 = step5.filter(({ release }) => release.score >= profile.minScore);
+  const step7 = step6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
+  const step8 = step7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
+  const candidates = step8.sort((a, b) => b.release.score - a.release.score);
   const scoreMs = Math.round(performance.now() - tS);
-  recordSearchLog("debug", "grab_release.scoring", `${label} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms)`, scoreMs);
+  recordSearchLog("debug", "grab_release.scoring", `${label} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms), titre:${step2.length}, saison:${step3.length}, pack:${step4.length}, résolution:${step5.length}, score:${step6.length}, taille:${step7.length}, échec:${step8.length}`, scoreMs);
 
   if (candidates.length > 0) {
     const top = candidates[0];
@@ -442,23 +459,22 @@ async function grabRelease(
   const newlyLimited = countNewlyRateLimited(indexers);
   recordSearchLog("info", "grab_release.fallback_result", `${label} — recherche directe: ${directReleases.length} release(s) (${directMs}ms)`, directMs);
 
-  const directCandidates = directReleases
-    .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-    .filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber))
-    .filter(({ parsed }) => (filterPack ? parsed.episode == null : true))
-    .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
-    .filter(({ release }) => release.score >= profile.minScore)
-    .filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"))
-    .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-    .sort((a, b) => b.release.score - a.release.score);
+  const dStep1 = directReleases.map((r) => ({ release: r, parsed: parseRelease(r.title) }));
+  const dStep2 = dStep1.filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title));
+  const dStep3 = dStep2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber));
+  const dStep4 = dStep3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true));
+  const dStep5 = dStep4.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
+  const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
+  const dStep7 = dStep6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
+  const dStep8 = dStep7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
+  const directCandidates = dStep8.sort((a, b) => b.release.score - a.release.score);
 
   const topDirect = directCandidates[0];
   if (!topDirect) {
     if (newlyLimited > 0) {
       recordSearchLog("warn", "grab_release.fallback_rate_limited", `${label} — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
     } else {
-      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat (cache + recherche directe: ${releases.length + directReleases.length} bruts)`);
+      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat sur ${directReleases.length} directs (titre:${dStep2.length}, saison:${dStep3.length}, pack:${dStep4.length}, résolution:${dStep5.length}, score:${dStep6.length}, taille:${dStep7.length}, échec:${dStep8.length})`);
     }
     return { ok: false, error: "no_match", totalReleases: releases.length + directReleases.length };
   }
@@ -607,6 +623,7 @@ export async function searchAndGrabEpisode(
       return sent;
     }
     setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "downloading", activeInfoHash: sent.torrent.infoHash });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — ${seasonNumber}x${String(episodeNumber).padStart(2, "0")}`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
       releaseTitle: single.release.title,
@@ -656,6 +673,7 @@ export async function searchAndGrabEpisode(
   const pack = await tryGrabSeasonPack(series, seasonNumber, profile, missingEpisodeNumbers);
   if (pack) {
     setEpisodesStatus(series, seasonNumber, missingEpisodeNumbers, { status: "downloading", activeInfoHash: pack.torrent.infoHash });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (${missingEpisodeNumbers.length} ép., via ${seasonNumber}x${String(episodeNumber).padStart(2, "0")})`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
       releaseTitle: pack.release.title,
@@ -672,6 +690,7 @@ export async function searchAndGrabEpisode(
   const seriesPack = await tryGrabSeriesPack(series, profile);
   if (seriesPack) {
     setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — ${seasonNumber}x${String(episodeNumber).padStart(2, "0")} (via intégrale)`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
       releaseTitle: seriesPack.release.title,
@@ -781,6 +800,7 @@ export async function searchAndGrabSeason(
       status: "downloading",
       activeInfoHash: pack.torrent.infoHash,
     });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber}`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
       releaseTitle: pack.release.title,
@@ -813,6 +833,7 @@ export async function searchAndGrabSeason(
         status: "downloading",
         activeInfoHash: seriesPack.torrent.infoHash,
       });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
       logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (via intégrale)`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
         releaseTitle: seriesPack.release.title,
@@ -861,7 +882,20 @@ const COMPLETE_SERIES_TERMS_RE = new RegExp(
   `\\b(${COMPLETE_SERIES_TERMS.map((t) => t.replace(/\s+/g, "[.\\s]+")).join("|")})\\b`,
   "i"
 );
-const SEASON_RANGE_RE = /\bS(?:easons?)?\.?\s?0?(\d{1,3})\s*[-–to]+\s*S?0?(\d{1,3})\b/i;
+const SEASON_RANGE_RE = /\bS(?:easons?|aison)?\.?\s?0?(\d{1,3})\s*[-–toà]+\s*S?(?:aison)?\.?\s?0?(\d{1,3})\b/i;
+
+/**
+ * Extract the season range from a release title (e.g. "S01 à S28" → {lo: 1, hi: 28}).
+ * Returns null if no season range is found.
+ */
+function extractSeasonRange(rawTitle: string): { lo: number; hi: number } | null {
+  const range = rawTitle.match(SEASON_RANGE_RE);
+  if (!range) return null;
+  const lo = parseInt(range[1], 10);
+  const hi = parseInt(range[2], 10);
+  if (hi <= lo) return null;
+  return { lo, hi };
+}
 
 /**
  * A release found by title alone can be anything matching that title — a
@@ -871,17 +905,37 @@ const SEASON_RANGE_RE = /\bS(?:easons?)?\.?\s?0?(\d{1,3})\s*[-–to]+\s*S?0?(\d{
  * season 6 episode can win as "the complete series pack" and get grabbed to
  * cover a completely different season's missing episode — confirmed live:
  * American Horror Story's S13E01 target got matched to, and downloaded as,
- * a plain "American.Horror.Story.S06...” release. Requires either an
+ * a plain "American.Horror.Story.S06..." release. Requires either an
  * explicit pack marker ("Complete", "Intégrale"...) or a season range
  * ("S01-S13") covering essentially the whole show.
+ *
+ * When targetSeasons is provided, the pack must also cover at least one of
+ * the requested seasons — prevents "Intégrale S01-S28" from being grabbed
+ * for a Season 29 search (the range doesn't include S29).
  */
-function isCompleteSeriesPackTitle(rawTitle: string, seasonCount: number): boolean {
-  if (COMPLETE_SERIES_TERMS_RE.test(rawTitle)) return true;
-  const range = rawTitle.match(SEASON_RANGE_RE);
-  if (!range) return false;
-  const lo = parseInt(range[1], 10);
-  const hi = parseInt(range[2], 10);
-  return hi > lo && hi - lo + 1 >= Math.max(2, seasonCount - 1);
+function isCompleteSeriesPackTitle(rawTitle: string, seasonCount: number, targetSeasons?: number[]): boolean {
+  const range = extractSeasonRange(rawTitle);
+  const hasTerm = COMPLETE_SERIES_TERMS_RE.test(rawTitle);
+
+  if (!hasTerm && !range) return false;
+
+  // If there's a season range, it must cover most of the show
+  if (range) {
+    const coversShow = range.hi > range.lo && range.hi - range.lo + 1 >= Math.max(2, seasonCount - 1);
+    if (!coversShow) return false;
+  }
+
+  // If target seasons are specified, the pack must cover at least one of them
+  if (targetSeasons && targetSeasons.length > 0) {
+    if (!range) {
+      // Pack detected by term only (e.g. "Intégrale") with no season range —
+      // can't verify coverage, so allow it (the term implies completeness)
+      return true;
+    }
+    return targetSeasons.some((s) => s >= range.lo && s <= range.hi);
+  }
+
+  return true;
 }
 
 /**
@@ -893,6 +947,7 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
   const seasonCount = series.seasons.filter((s) => s.seasonNumber > 0 && s.monitored).length;
   const targets = collectMissingTargets(series);
   if (targets.length === 0) return null;
+  const targetSeasons = [...new Set(targets.map((t) => t.season))];
 
   const t0 = performance.now();
   const releases = searchFromCache(TV_CATEGORY_IDS);
@@ -903,7 +958,7 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
   const candidates = releases
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-    .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount))
+    .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons))
     .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
     .filter(({ release }) => release.score >= profile.minScore)
     .filter(({ release }) => withinSizeLimit(release.size, "series"))
@@ -941,7 +996,7 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
     const directCandidates = directReleases
       .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
       .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-      .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount))
+      .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons))
       .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
       .filter(({ release }) => release.score >= profile.minScore)
       .filter(({ release }) => withinSizeLimit(release.size, "series"))
@@ -994,6 +1049,7 @@ export async function searchAndGrabCompleteSeries(seriesId: string) {
   const seriesPack = await tryGrabSeriesPack(series, profile);
   if (seriesPack) {
     setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
       releaseTitle: seriesPack.release.title,
@@ -1032,6 +1088,7 @@ export async function searchAndGrabSeries(seriesId: string) {
     const seriesPack = await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
       logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
         releaseTitle: seriesPack.release.title,
@@ -1105,6 +1162,7 @@ export async function searchReleasedMissingEpisodes() {
         status: "downloading",
         activeInfoHash: pack.torrent.infoHash,
       });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
       for (const episodeNumber of episodeNumbers) searched.push(`${series.id}.${seasonNumber}.${episodeNumber}`);
       continue;
     }
@@ -1116,6 +1174,11 @@ export async function searchReleasedMissingEpisodes() {
   }
 
   return { searched };
+}
+
+/** True if `text` contains CJK characters (Japanese/Chinese kanji, hiragana, katakana). Used to detect when TVDB fell back to Japanese because no French title exists. */
+export function hasCjkText(text: string): boolean {
+  return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(text);
 }
 
 /**
@@ -1151,6 +1214,7 @@ export async function searchMissingEpisodes(maxSeasons = 30) {
         status: "downloading",
         activeInfoHash: pack.torrent.infoHash,
       });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
       for (const episodeNumber of episodeNumbers) searched.push(`${series.id}.${seasonNumber}.${episodeNumber}`);
       continue;
     }

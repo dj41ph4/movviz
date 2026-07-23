@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useT } from "@/i18n/provider";
-import { Download, Upload, Loader2 } from "lucide-react";
+import { Download, Upload, Loader2, DatabaseBackup } from "lucide-react";
 
 export function BackupSettings() {
   const t = useT();
@@ -35,7 +35,15 @@ export function BackupSettings() {
 
   return (
     <div className="rounded-2xl glass p-5">
-      <p className="mb-4 text-sm text-ink-dim">{t("backup.intro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <DatabaseBackup className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("backup.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("backup.intro")}</p>
+        </div>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <button
@@ -60,7 +68,7 @@ export function BackupSettings() {
           onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
         />
       </div>
-      <p className="mt-3 text-xs text-amber">{t("backup.restoreWarning")}</p>
+      <p className="mt-3 text-xs text-ink-dim border-l-2 border-amber/40 pl-2.5">{t("backup.restoreWarning")}</p>
       {message && <p className="mt-2 text-sm text-ink-soft">{message}</p>}
     </div>
   );

@@ -826,6 +826,8 @@ export const it: Dictionary = {
     groupDownload: "Download",
     groupLibrary: "Libreria",
     groupDisk: "Disco",
+    diskWarningTitle: "Operazioni sui file",
+    diskWarningHint: "Queste azioni modificano i file sul disco. Controlla le impostazioni e i backup prima di procedere.",
     groupNotifications: "Notifiche",
     notificationsHint: "Discord, Telegram, Gotify, Slack, Pushbullet — configura quali canali ricevono le notifiche push.",
     groupSystem: "Sistema",
@@ -924,6 +926,9 @@ export const it: Dictionary = {
     maxAge: "Età massima (giorni)",
     flareResolver: "Risolutore Cloudflare (porta 9830)",
     resolverUrl: "URL risolutore",
+    priority: "Priorità",
+    priorityUp: "Aumenta priorità",
+    priorityDown: "Diminuisci priorità",
   },
 
   blocklist: {
@@ -1222,6 +1227,7 @@ export const it: Dictionary = {
     testNetworkError: "Errore di rete — impossibile raggiungere TMDb",
     useTvdbForAnime: "Usa TVDB per gli anime",
     useTvdbForAnimeHint: "Rilevato automaticamente (origine giapponese + genere Animazione). Il resto dei metadati (poster, trama) proviene comunque da TMDb.",
+    syncAllAnime: "Sincronizza tutti gli anime con TVDB",
     omdbTitle: "OMDb — valutazioni Rotten Tomatoes, Metacritic, IMDb",
     omdbHint: "TMDb non fornisce queste valutazioni. Inserisci la tua chiave (gratuita) per mostrarle nelle schede film/serie — senza chiave, queste icone semplicemente non appaiono.",
     omdbConfigured: "OMDb configurato",
@@ -1368,6 +1374,7 @@ export const it: Dictionary = {
       "anime-vf-calendar-refresh": "Anime VF calendar refresh",
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Riprova film mancanti",
+      "seerr-import": "Importa richieste Seerr/Overseerr",
     },
   },
 
@@ -1387,6 +1394,19 @@ export const it: Dictionary = {
     whatsNewVersion: "Versione {version}",
     whatsNewVersionRange: "Dalla {from} alla {to}",
     whatsNewClose: "Capito!",
+  },
+
+  player: {
+    betaToggle: "Lettore beta",
+    betaToggleHint: "Sostituisce « Guida su Plex » con un lettore video integrato (beta — alcuni codec potrebbero non funzionare nel browser).",
+    betaError: "Impossibile riprodurre questo video nel browser. Aprilo su Plex.",
+    betaLoading: "Buffering…",
+    betaWebcodecs: "WebCodecs HEVC rilevato — riproduzione diretta",
+    betaTranscoded: "Transcodificato",
+    betaAudio: "Audio",
+    betaSubtitle: "Sottotitoli",
+    betaOff: "Off",
+    betaQuality: "Qualità",
   },
 
   language: { label: "Lingua" },

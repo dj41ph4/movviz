@@ -7,7 +7,9 @@ import { buildPlexWebUrl } from "@/lib/plex/client";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const cfg = loadPlexConfig();
   const movies = loadMovies().map((m) => ({
     ...m,

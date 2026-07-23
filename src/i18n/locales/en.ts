@@ -827,6 +827,8 @@ export const en: Dictionary = {
     groupDownload: "Download",
     groupLibrary: "Library",
     groupDisk: "Disk",
+    diskWarningTitle: "File operations",
+    diskWarningHint: "These actions modify files on disk. Double-check your settings and backups before proceeding.",
     groupNotifications: "Notifications",
     notificationsHint: "Discord, Telegram, Gotify, Slack, Pushbullet — configure which transports receive push notifications.",
     groupSystem: "System",
@@ -925,6 +927,9 @@ export const en: Dictionary = {
     maxAge: "Max age (days)",
     flareResolver: "Cloudflare resolver (port 9830)",
     resolverUrl: "Resolver URL",
+    priority: "Priority",
+    priorityUp: "Increase priority",
+    priorityDown: "Decrease priority",
   },
 
   blocklist: {
@@ -1223,6 +1228,7 @@ export const en: Dictionary = {
     testNetworkError: "Network error — cannot reach TMDb",
     useTvdbForAnime: "Use TVDB for anime",
     useTvdbForAnimeHint: "Auto-detected (Japanese origin + Animation genre). The rest of the metadata (poster, overview) still comes from TMDb.",
+    syncAllAnime: "Sync all anime with TVDB",
     omdbTitle: "OMDb — Rotten Tomatoes, Metacritic, IMDb ratings",
     omdbHint: "TMDb doesn't provide these ratings. Add your own (free) key to show them on movie/series pages — without a key, those icons simply don't appear.",
     omdbConfigured: "OMDb configured",
@@ -1369,6 +1375,7 @@ export const en: Dictionary = {
       "anime-vf-calendar-refresh": "Anime VF calendar refresh",
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Retry missing movies",
+      "seerr-import": "Seerr/Overseerr request import",
     },
   },
 
@@ -1388,6 +1395,19 @@ export const en: Dictionary = {
     whatsNewVersion: "Version {version}",
     whatsNewVersionRange: "From {from} to {to}",
     whatsNewClose: "Got it!",
+  },
+
+  player: {
+    betaToggle: "Beta player",
+    betaToggleHint: "Replaces « Open in Plex » with an embedded video player (beta — some codecs may not play in the browser).",
+    betaError: "Cannot play this video in the browser. Open it in Plex instead.",
+    betaLoading: "Buffering…",
+    betaWebcodecs: "WebCodecs HEVC detected — direct play",
+    betaTranscoded: "Transcoded",
+    betaAudio: "Audio",
+    betaSubtitle: "Subtitles",
+    betaOff: "Off",
+    betaQuality: "Quality",
   },
 
   language: { label: "Language" },

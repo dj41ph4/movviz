@@ -1,13 +1,16 @@
 # syntax=docker/dockerfile:1
 
 # ---- Dependencies ----------------------------------------------------------
-FROM node:22-alpine AS deps
+# Pinning node:22-alpine3.20 — Alpine 3.21+ génère des instructions CPU que QEMU
+# n'émule pas (SIGILL pendant next build). Revenir à 22-alpine (ou 22-alpine3.21)
+# quand https://gitlab.com/qemu-project/qemu/-/issues sera résolu.
+FROM node:22-alpine3.20 AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
 # ---- Build -----------------------------------------------------------------
-FROM node:22-alpine AS builder
+FROM node:22-alpine3.20 AS builder
 WORKDIR /app
 RUN apk add --no-cache cmake build-base python3
 COPY --from=deps /app/node_modules ./node_modules
@@ -18,7 +21,7 @@ RUN npm run build
 RUN cd engine && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund)
 
 # ---- Runtime ---------------------------------------------------------------
-FROM node:22-alpine AS runner
+FROM node:22-alpine3.20 AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

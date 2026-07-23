@@ -28,6 +28,7 @@ const ALT_SEASON_EPISODE_RE = /\b(\d{1,2})x(\d{1,3})\b/;
 const SEASON_ONLY_RE = /\bS(\d{1,2})\b/i;
 const YEAR_RE = /\b(19|20)\d{2}\b/;
 const VIDEO_EXT_RE = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
+const PACK_DESC_RE = /\b(Complete[.\s]+Series|Complete|Intégrale|Saisons?[.\s]+complètes?|Complet|Serie[.\s]+Completa|Completa|Complete[.\s]+Serie|Compleet|Komplette[.\s]+Serie|Komplett)\b/i;
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -108,6 +109,7 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
     ALT_SEASON_EPISODE_RE,
     SEASON_ONLY_RE,
     year ? new RegExp(escapeRegex(year)) : null,
+    PACK_DESC_RE,
     resolution ? new RegExp(escapeRegex(resolution), "i") : null,
   ]);
 

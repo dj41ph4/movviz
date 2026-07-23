@@ -844,6 +844,8 @@ export const de: Dictionary = {
     groupDownload: "Download",
     groupLibrary: "Bibliothek",
     groupDisk: "Datenträger",
+    diskWarningTitle: "Dateioperationen",
+    diskWarningHint: "Diese Aktionen ändern Dateien auf der Festplatte. Überprüfe deine Einstellungen und Backups, bevor du fortfährst.",
     groupNotifications: "Benachrichtigungen",
     notificationsHint: "Discord, Telegram, Gotify, Slack, Pushbullet — lege fest, welche Kanäle Push-Benachrichtigungen erhalten.",
     groupSystem: "System",
@@ -942,6 +944,9 @@ export const de: Dictionary = {
     maxAge: "Max. Alter (Tage)",
     flareResolver: "Cloudflare-Resolve (Port 9830)",
     resolverUrl: "Resolver-URL",
+    priority: "Priorität",
+    priorityUp: "Priorität erhöhen",
+    priorityDown: "Priorität verringern",
   },
 
   blocklist: {
@@ -1240,6 +1245,7 @@ export const de: Dictionary = {
     testNetworkError: "Netzwerkfehler — TMDb kann nicht erreicht werden",
     useTvdbForAnime: "TVDB für Anime verwenden",
     useTvdbForAnimeHint: "Automatisch erkannt (japanische Herkunft + Genre Animation). Der Rest der Metadaten (Poster, Beschreibung) stammt weiterhin von TMDb.",
+    syncAllAnime: "Alle Animes mit TVDB synchronisieren",
     omdbTitle: "OMDb — Rotten-Tomatoes-, Metacritic-, IMDb-Bewertungen",
     omdbHint: "TMDb liefert diese Bewertungen nicht. Trage deinen eigenen (kostenlosen) Schlüssel ein, um sie auf Film-/Serienseiten anzuzeigen — ohne Schlüssel erscheinen diese Symbole einfach nicht.",
     omdbConfigured: "OMDb konfiguriert",
@@ -1386,7 +1392,21 @@ export const de: Dictionary = {
       "anime-vf-calendar-refresh": "Anime VF calendar refresh",
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Fehlende Filme erneut versuchen",
+      "seerr-import": "Seerr/Overseerr Anfragen importieren",
     },
+  },
+
+  player: {
+    betaToggle: "Beta-Player",
+    betaToggleHint: "Ersetzt « Auf Plex ansehen » durch einen eingebetteten Videoplayer (Beta — einige Codecs funktionieren möglicherweise nicht im Browser).",
+    betaError: "Dieses Video kann nicht im Browser abgespielt werden. Stattdessen in Plex öffnen.",
+    betaLoading: "Zwischenspeichern…",
+    betaWebcodecs: "WebCodecs HEVC erkannt — Direct Play",
+    betaTranscoded: "Transcodiert",
+    betaAudio: "Audio",
+    betaSubtitle: "Untertitel",
+    betaOff: "Aus",
+    betaQuality: "Qualität",
   },
 
   language: { label: "Sprache" },

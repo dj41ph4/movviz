@@ -1,3 +1,5 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { eventBus } from "@/lib/events/EventBus";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +10,9 @@ export const runtime = "nodejs";
  * (useLibrarySSE) connects here and revalidates SWR keys on each event so
  * status badges update in real time without polling.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const encoder = new TextEncoder();
   let cleanup: (() => void) | undefined;
   let keepAlive: ReturnType<typeof setInterval> | undefined;

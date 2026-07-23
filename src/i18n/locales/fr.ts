@@ -824,6 +824,8 @@ export const fr = {
     groupDownload: "Téléchargement",
     groupLibrary: "Bibliothèque",
     groupDisk: "Disque",
+    diskWarningTitle: "Opérations sur les fichiers",
+    diskWarningHint: "Ces actions modifient les fichiers sur le disque. Vérifie tes réglages et tes sauvegardes avant de continuer.",
     groupNotifications: "Notifications",
     notificationsHint: "Discord, Telegram, Gotify, Slack, Pushbullet — configure les transports qui recevront les notifications push.",
     groupSystem: "Système",
@@ -923,6 +925,9 @@ export const fr = {
     maxAge: "Âge max (jours)",
     flareResolver: "Résolveur Cloudflare (port 9830)",
     resolverUrl: "URL du résolveur",
+    priority: "Priorité",
+    priorityUp: "Augmenter la priorité",
+    priorityDown: "Diminuer la priorité",
   },
 
   blocklist: {
@@ -1221,6 +1226,7 @@ export const fr = {
     testNetworkError: "Erreur réseau — impossible de joindre TMDb",
     useTvdbForAnime: "Utiliser TVDB pour les animes",
     useTvdbForAnimeHint: "Détecté automatiquement (origine japonaise + genre Animation). Le reste des métadonnées (affiche, résumé) continue de venir de TMDb.",
+    syncAllAnime: "Synchroniser tous les animes avec TVDB",
     omdbTitle: "OMDb — notes Rotten Tomatoes, Metacritic, IMDb",
     omdbHint: "TMDb ne fournit pas ces notes. Renseigne ta propre clé (gratuite) pour les afficher sur les fiches films/séries — sans clé, ces icônes n'apparaissent tout simplement pas.",
     omdbConfigured: "OMDb configuré",
@@ -1367,6 +1373,7 @@ export const fr = {
       "anime-vf-calendar-refresh": "Rafraîchissement du calendrier VF anime",
       "trash-purge": "Purge de la corbeille",
       "retry-missing-movies": "Relance des films manquants",
+      "seerr-import": "Import des demandes Overseerr/Seerr",
     },
   },
 
@@ -1386,6 +1393,19 @@ export const fr = {
     whatsNewVersion: "Version {version}",
     whatsNewVersionRange: "De la {from} à la {to}",
     whatsNewClose: "Compris !",
+  },
+
+  player: {
+    betaToggle: "Lecteur bêta",
+    betaToggleHint: "Remplace « Ouvrir dans Plex » par un lecteur vidéo intégré (bêta — certains codecs peuvent ne pas fonctionner dans le navigateur).",
+    betaError: "Impossible de lire cette vidéo dans le navigateur. Ouvrez-la dans Plex à la place.",
+    betaLoading: "Mise en mémoire tampon…",
+    betaWebcodecs: "WebCodecs HEVC détecté — lecture directe",
+    betaTranscoded: "Transcodé",
+    betaAudio: "Audio",
+    betaSubtitle: "Sous-titres",
+    betaOff: "Off",
+    betaQuality: "Qualité",
   },
 
   language: { label: "Langue" },

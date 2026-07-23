@@ -56,7 +56,7 @@ export function UpdateAvailableBanner() {
   };
 
   return (
-    <div className="fixed bottom-20 left-4 z-40 flex items-center gap-3 rounded-xl glass-strong px-4 py-3 shadow-2xl lg:bottom-4 lg:left-[264px]">
+    <div className="fixed bottom-20 left-4 right-4 z-40 flex flex-wrap items-center gap-3 rounded-xl glass-strong px-4 py-3 shadow-2xl lg:bottom-4 lg:left-[264px] lg:right-auto">
       {phase === "idle" ? (
         <>
           <Download className="h-4 w-4 shrink-0 text-brand-glow" />

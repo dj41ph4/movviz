@@ -153,7 +153,7 @@ export default function RequestsPage() {
                     </span>
 
                     {isAdmin && r.status === "pending" ? (
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <button
                           onClick={() => decide(r.id, "decline")}
                           disabled={busy === r.id}

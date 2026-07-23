@@ -386,7 +386,7 @@ Je kunt titels aan je watchlist toevoegen vanaf elke titeldetailpagina via de bl
 
 ## 14. Instellingen (/settings)
 
-De Instellingen zijn georganiseerd in groepen met een inklapbare zijbalk op desktop en onderaan-navigatie op mobiel. Alle instellingentabbladen (behalve Info) zijn alleen toegankelijk voor beheerders.
+De Instellingen zijn georganiseerd in 5 groepen met een inklapbare zijbalk op desktop en onderaan-navigatie op mobiel. Alle instellingentabbladen (behalve Info) zijn alleen toegankelijk voor beheerders.
 
 ### 14.1. Downloaden
 
@@ -435,21 +435,12 @@ Elke indexer toont:
 
 **Oplosser-URL:** Configureer de FlareSolverr-URL (standaard: `http://localhost:9830`) die door de Cloudflare-oplosser wordt gebruikt.
 
-**Releaseprofielen (Profielen):** Score- en filterregels voor releases.
+**Kwaliteit:** Score- en filterregels voor releases, die release-profielen en aangepaste formaten combineren in één tabblad.
 
-- **Geblokkeerde woorden** — Een lijst met woorden die, indien aanwezig in een releasetitel, ervoor zorgen dat de release wordt geweigerd. Voeg woorden afzonderlijk toe; verwijder met de X-knop.
-- **Maximale grootte** — Maximaal toegestane grootte voor films (GB), afleveringen (GB) en seizoenen (GB). Releases die dit overschrijden worden geweigerd.
-- **Codec-scores** — Scores voor videocodecs: x264, x265 en AV1. Hogere scores maken releases met die codec waarschijnlijker om te worden gekozen.
-
-**Aangepaste formats:** Op regex gebaseerde scoreregels toegepast op releasetitels.
-
-Elk aangepast format heeft:
-- **Naam** — Weergavenaam
-- **Score** — Positieve of negatieve score om toe te passen
-- **Termen** — Door komma's gescheiden regex-patronen die worden vergeleken met releasetitels
-- **Aan/uit-schakelaar**
-
-Maak aangepaste formats om releases die overeenkomen met specifieke patronen te prioriteren of deprioriteren (bijv. "HDR", "Dolby Vision", "Remux", enz.).
+- **Geblokkeerde woorden** — Een lijst met woorden die, indien aanwezig in een releasetitel, ervoor zorgen dat deze wordt afgewezen. Voeg woorden afzonderlijk toe; verwijder ze met de X-knop.
+- **Maximale grootten** — Maximaal toegestane groottes voor films (GB), afleveringen (GB) en seizoenen (GB). Releases die deze overschrijden worden afgewezen.
+- **Codec-scores** — Scores voor videocodecs: x264, x265 en AV1. Hogere scores maken releases met die codec waarschijnlijker om gekozen te worden.
+- **Aangepaste formaten** — Op regex gebaseerde scoreregels toegepast op releasetitels. Elk formaat heeft een naam, een score (positief of negatief) en regex-termen. Maak ze aan om patronen zoals "HDR", "Dolby Vision", "Remux" enz. te prioriteren of te degraderen.
 
 ### 14.2. Bibliotheek
 
@@ -479,13 +470,55 @@ Maak aangepaste formats om releases die overeenkomen met specifieke patronen te 
 - **Plex-profielen (Gebruikerstoewijzing):**
   - Wijs elke Movviz-gebruiker toe aan een specifieke Plex Managed User (profiel), zodat de kijkstatus de geschiedenis van dat profiel weerspiegelt
 
-### 14.3. Bestanden
+**Naamgeving:** Sjablonen voor bestands- en mapnamen met interactieve token-invoeging.
 
-**Film/Serie-indexering:** Scan de hoofdbibliotheekmappen op verweesde bestanden — mediabestanden op schijf die niet worden bijgehouden in de Movviz-bibliotheek.
+Sjablonen voor:
+- **Filmmap** — bijv. `{title} ({year})`
+- **Filmbestand** — bijv. `{title} ({year}) [{quality}]`
+- **Seriemap** — bijv. `{title} ({year})`
+- **Seizoensmap** — bijv. `Seizoen {season:00}`
+- **Afleveringsbestand** — bijv. `{series} - S{season:00}E{episode:00} - {title}`
+
+**Interactieve tokens:** Klik op een veld en vervolgens op een token-knop om het op de cursorpositie in te voegen. Beschikbare tokens: `{title}`, `{year}`, `{quality}`, `{season}`, `{episode}`, `{series}` en meer.
+
+**Punten of spaties:** Kies of scheidingstekens punten of spaties gebruiken.
+
+**Live voorbeeld:** Terwijl je sjablonen bewerkt, toont een voorbeeld hoe de resulterende bestandspaden eruitzien voor een voorbeeldfilm en -aflevering.
+
+**Importeren:** Externe watchlists die gesynchroniseerd en automatisch aan de bibliotheek kunnen worden toegevoegd (in het tabblad "Importeren").
+
+Ondersteunde bronnen:
+- **Trakt** — Trakt-gebruikerslijsten
+- **IMDb** — IMDb-lijsten
+- **Letterboxd** — Letterboxd-watchlist
+
+Voor elke lijst configureer:
+- **Naam** — Een beschrijvend label
+- **Type** — Trakt, IMDb of Letterboxd
+- **URL** — De lijst-URL
+- **Automatisch goedkeuren** — Indien ingeschakeld, worden items uit deze lijst automatisch goedgekeurd
+- **Sync-knop** — Handmatig een synchronisatie starten
+
+**Seerr-import:** Importeer aanvragen van een bestaande Overseerr-instantie.
+
+- **URL** — Je Seerr-server-URL
+- **API-sleutel** — API-sleutel voor authenticatie
+- **Test** — Verbinding controleren
+- **Nu importeren** — Importproces starten
+
+**Blokkering:** Titels die nooit aan de bibliotheek mogen worden toegevoegd.
+
+- **Geblokkeerde titel toevoegen** — Zoek een titel op TMDb, selecteer deze, voeg optioneel een reden toe en bevestig
+- **Blokkering** — Toont alle geblokkeerde titels met type, titel, jaar, reden, wie ze heeft geblokkeerd en wanneer
+- **Deblokkeren** — Verwijder een titel uit de blokkering
+
+### 14.3. Schijf
+
+**Indexering:** Scan de hoofdmap van de bibliotheek op verweesde bestanden — mediabestanden op de schijf die niet worden bijgehouden in de Movviz-bibliotheek. Eén tabblad met een Film/Serie-schakelaar.
 
 - Selecteer de hoofdmap om te scannen
-- Overeenkomsten worden gepresenteerd met een ingebouwde TMDb-zoekopdracht voor handmatig matchen indien nodig
-- Importeren met één klik om de gematchte bestanden aan je bibliotheek toe te voegen
+- Overeenkomsten worden gepresenteerd met een geïntegreerde TMDb-zoekopdracht voor handmatig matchen
+- Importeer met één klik om gematchte bestanden aan je bibliotheek toe te voegen
 
 **Hernoemen:** Mappen en bestanden hernoemen volgens je naamgevingssjablonen.
 
@@ -500,98 +533,39 @@ Instellingen:
 - **"Verwijder lege mappen"** — Na hernoemen, automatisch nu lege mappen verwijderen
 - **Voortgang + realtime logboek** — Houd de bewerking in realtime bij
 
-**Nomenclatuur:** Naamgevingssjablonen voor bestanden en mappen met interactieve token-invoeging.
+**Onderhoud:** Groepeert schijfonderhoudsoperaties in één tabblad.
 
-Sjablonen voor:
-- **Filmmap** — bijv. `{title} ({year})`
-- **Filmbestand** — bijv. `{title} ({year}) [{quality}]`
-- **Seriemap** — bijv. `{title} ({year})`
-- **Seizoensmap** — bijv. `Season {season:00}`
-- **Afleveringsbestand** — bijv. `{series} - S{season:00}E{episode:00} - {title}`
+**Paden repareren:** Detecteert bibliotheekitems waarvan de bestanden zijn verplaatst of ontbreken.
 
-**Interactieve tokens:** Klik op een veld en klik vervolgens op een token-knop om het op de cursorpositie in te voegen. Beschikbare tokens zijn onder andere: `{title}`, `{year}`, `{quality}`, `{season}`, `{episode}`, `{series}` en andere.
-
-**Punten of spaties:** Kies of scheidingstekens punten of spaties gebruiken.
-
-**Realtime voorbeeld:** Terwijl je sjablonen bewerkt, toont een voorbeeld hoe de resulterende bestandspaden eruitzien voor een voorbeeldfilm en -aflevering.
-
-**Paden repareren:** Detecteer bibliotheekitems waarvan de bestanden zijn verplaatst of ontbreken.
-
-1. **Analyseren** — Vergelijk bibliotheekregisters met het daadwerkelijke bestandssysteem
+1. **Analyseren** — Vergelijk bibliotheekgegevens met het daadwerkelijke bestandssysteem
 2. Resultaten worden gecategoriseerd:
-   - **Zeker** — Unieke overeenkomst (automatisch geselecteerd)
-   - **Dubbelzinnig** — Mogelijke meerdere overeenkomsten (vereist menselijke keuze)
+   - **Zeker** — Een unieke overeenkomst (automatisch geselecteerd)
+   - **Dubbelzinnig** — Meerdere mogelijke overeenkomsten (vereist menselijke keuze)
    - **Conflict** — Een bestand dat overeenkomt met meerdere bibliotheekitems
-3. **Bestandsverkenner** — Voor handmatige correctie, open een bestandsverkenner om te navigeren en het juiste pad te selecteren
-4. **Toepassen** — Geselecteerde items opnieuw koppelen
+3. **Bestandsbrowser** — Voor handmatige correctie open je een bestandsbrowser om het juiste pad te vinden
+4. **Toepassen** — Koppel de geselecteerde items opnieuw
 
-Opties:
-- **Stille automatische herkoppeling** — Voor Docker-bindmounts detecteert en corrigeert Movviz padwijzigingen automatisch en stil
-- **"Verwijder lege mappen na koppeling"** — Verweesde mappen opschonen na reparatie
-
-**Lege mappen:** Scan geconfigureerde hoofdmap(pen) op lege mappen.
+**Lege mappen:** Scan geconfigureerde hoofdmap op lege mappen.
 
 - Scan recursief alle geconfigureerde bibliotheekhoofdmappen
-- Negeer veelvoorkomende systeembestanden (`.DS_Store`, `Thumbs.db`, `Desktop.ini`, enz.)
-- **Verwijderen** — Verwijdert geselecteerde lege mappen
-- **Recursieve opschoning van bovenliggende mappen** — Na verwijdering worden ook nu lege bovenliggende mappen recursief verwijderd
+- Negeert veelvoorkomende systeembestanden (`.DS_Store`, `Thumbs.db`, `Desktop.ini`, enz.)
+- **Verwijderen** — Verwijder geselecteerde lege mappen
+- **Recursieve bovenliggende opschoning** — Na verwijdering worden nu lege bovenliggende mappen ook recursief verwijderd
 
-**Prullenbak:** Vangnet voor verwijderde content.
+**Prullenbak:** Vangnet voor verwijderde inhoud.
 
-Wanneer een film of serie uit Movviz wordt verwijderd met zijn bestanden, kunnen de bestanden naar een prullenbakmap worden verplaatst in plaats van definitief te worden verwijderd.
+Wanneer een film of serie samen met zijn bestanden uit Movviz wordt verwijderd, kunnen de bestanden naar een prullenbakmap worden verplaatst in plaats van permanent te worden verwijderd.
 
 - **Filmmap** — Pad waar verwijderde filmbestanden naartoe gaan
 - **Seriemap** — Pad waar verwijderde seriebestanden naartoe gaan
-- **Bewaring** — Dagen voordat bestanden in de prullenbak definitief worden verwijderd (instelbaar)
+- **Bewaring** — Dagen voordat prullenbakbestanden permanent worden verwijderd (configureerbaar)
 - **Aantal items** — Toont hoeveel items zich momenteel in de prullenbak bevinden
 
-Een achtergrondtaak wordt dagelijks uitgevoerd om verlopen prullenbakitems te verwijderen.
+### 14.4. Meldingen
 
-### 14.4. Imports
+Configureer pushmeldingen voor media-evenementen (opgehaald, geïmporteerd, mislukt, enz.). Dit ene tabblad groepeert transporten, webhook en activiteitsopties.
 
-**Importlijsten:** Externe watchlists die kunnen worden gesynchroniseerd en automatisch aan de bibliotheek kunnen worden toegevoegd.
-
-Ondersteunde bronnen:
-- **Trakt** — Trakt-gebruikerslijsten
-- **IMDb** — IMDb-lijsten
-- **Letterboxd** — Letterboxd-watchlists
-
-Configureer voor elke lijst:
-- **Naam** — Een beschrijvend label
-- **Type** — Trakt, IMDb of Letterboxd
-- **URL** — De URL van de lijst
-- **Automatische goedkeuring** — Wanneer ingeschakeld, worden items uit deze lijst automatisch goedgekeurd (geen handmatige goedkeuring nodig)
-- **Synchronisatieknop** — Start handmatig een synchronisatie
-
-Elke lijst toont zijn laatste synchronisatie.
-
-**Importeren vanuit Seerr:** Importeer verzoeken van een bestaande Overseerr-instantie.
-
-- **URL** — De URL van je Seerr-server
-- **API-sleutel** — API-sleutel voor authenticatie
-- **Test** — Verifieer de verbinding
-- **Nu importeren** — Start het importproces
-
-Na import toont een samenvatting:
-- Gescande gebruikers en verzoeken
-- Geïmporteerd (tellingen goedgekeurd en in afwachting)
-- Overgeslagen (al in bibliotheek, al aangevraagd, geweigerd, geblokkeerd)
-- Mislukte imports
-- Niet-overeenkomende gebruikers (Seerr-gebruikers niet gevonden in Movviz)
-
-**Blokkeerlijst:** Titels die nooit aan de bibliotheek mogen worden toegevoegd.
-
-- **Geblokkeerde titel toevoegen** — Zoek een titel op TMDb, selecteer deze, voeg optioneel een reden toe en bevestig
-- **Geblokkeerde lijst** — Toont alle geblokkeerde titels met type, titel, jaar, reden, wie het heeft geblokkeerd en wanneer
-- **Deblokkeren** — Verwijder een titel uit de blokkeerlijst
-
-Wanneer een geblokkeerde titel wordt tegengekomen (via verzoek of import), wordt deze stil geweigerd met een bericht "Geblokkeerd".
-
-### 14.5. Meldingen
-
-**Meldingen:** Configureer pushmeldingen voor mediagebeurtenissen (opgehaald, geïmporteerd, mislukt, enz.).
-
-Ondersteunde transporten:
+**Transporten:**
 - **Discord** — Webhook-URL
 - **Telegram** — Bot-token + Chat-ID
 - **Gotify** — Server-URL + App-token
@@ -599,17 +573,19 @@ Ondersteunde transporten:
 - **Pushbullet** — API-token
 
 Elk transport:
-- Aan/uit-schakelaar
+- In-/uitschakelen
 - Configuratievelden (wachtwoorden worden gemaskeerd)
-- **Testknop** — Stuur een testmelding om de configuratie te verifiëren
+- **Testknop** — Stuurt een testmelding om de configuratie te verifiëren
 
-**Webhook:** Stuur HTTP POST-meldingen naar een aangepaste URL.
+**Webhook:** Stuur HTTP-POST-meldingen naar een aangepaste URL.
 
-- **Inschakelen**-schakelaar
+- **Inschakelen** schakelaar
 - **URL** — Het webhook-eindpunt
-- **Testknop** — Stuur een testpayload
+- **Testknop** — Stuurt een testpayload
 
-### 14.6. Systeem
+**Kwaliteitsupgrades:** Schakel het automatisch zoeken en downloaden van hogere kwaliteitsversies van reeds beschikbare inhoud in of uit.
+
+### 14.5. Systeem
 
 **Diagnostiek:** Realtime systeemstatusoverzicht.
 
@@ -659,37 +635,26 @@ Acties:
 - **Exporteren** — Download alle instellingen, bibliotheekmetadata en configuratie als JSON-bestand
 - **Importeren** — Upload een eerder geëxporteerd JSON-bestand om de configuratie te herstellen
 
-**Activiteit:** Gedrag van kwaliteitsupdates.
+**Info:** Applicatie-informatie.
 
-- **Kwaliteitsupdates inschakelen** — Wanneer ingeschakeld, zoekt en downloadt Movviz automatisch versies van hogere kwaliteit van reeds beschikbare content wanneer een betere release wordt gevonden
-
-### 14.7. Info
-
-- **Versie** — Huidig versienummer van Movviz
+- **Versie** — Huidige Movviz-versienummer
 - **Licentie** — GNU General Public License v3.0
-- **Steun het project** — Link om de ontwikkeling te ondersteunen
+- **Project ondersteunen** — Link om de ontwikkeling te ondersteunen
 - **Updates:**
-  - **Knop Controleren op updates**
-  - Op **Windows**: Installatieknop met één klik die de update automatisch downloadt en toepast
-  - Op **Docker/andere platforms**: Toont een link naar de GitHub-releasespagina met instructies
+  - **Controleer op updates** knop
+  - Op **Windows**: One-click installatieknop die de update automatisch downloadt en toepast
+  - Op **Docker/andere platformen**: Toont een link naar de GitHub-releasespagina met instructies
 
-### 14.8. Gevarenzone
+**Gevarenzone:** Onomkeerbare acties onderaan de groep, visueel gescheiden.
 
-Onomkeerbare acties die met uiterste voorzichtigheid moeten worden gebruikt. Elke actie vereist het typen van een bevestigingswoord voordat deze kan worden uitgevoerd.
-
-Beschikbare acties:
+Elke actie vereist het typen van een bevestigingswoord voordat deze kan worden uitgevoerd:
 - **Alle films wissen** — Verwijdert alle films uit de bibliotheek
 - **Alle series wissen** — Verwijdert alle series uit de bibliotheek
-- **Activiteitengeschiedenis wissen** — Verwijdert alle activiteitengeschiedenis
-- **Meldingen wissen** — Wist alle meldingsconfiguraties
-- **Verzoeken wissen** — Verwijdert alle gebruikersverzoeken
+- **Activiteitsgeschiedenis wissen** — Verwijdert alle activiteitsgeschiedenis
+- **Meldingen wissen** — Verwijdert alle meldingsconfiguraties
+- **Aanvragen wissen** — Verwijdert alle gebruikersaanvragen
 - **Gemelde problemen wissen** — Verwijdert alle gemelde problemen
-- **Plex-synchronisatiestatus resetten** — Reset het bijhouden van Plex-synchronisatie
-
-Elke actie toont:
-- Titel en beschrijving van wat er zal gebeuren
-- Een "Uitvoeren"-knop die een bevestigingsinvoerveld onthult
-- Typ het bevestigingswoord en klik op de bevestigingsknop om uit te voeren
+- **Plex-synchronisatiestatus resetten** — Reset de Plex-synchronisatie tracking
 
 ---
 
@@ -802,9 +767,9 @@ Opent de indexerzoekpagina (`/search`) in een modaal/dialoogcontext, vooringevul
 **Symptomen:** Bestanden bestaan op schijf maar de bibliotheek toont status "ontbrekend". De scan Paden repareren toont kandidaten met onjuiste paden.
 
 **Oplossingen:**
-- Voer een scan Paden repareren uit in Instellingen > Bestanden > Paden repareren
+- Voer een scan Paden repareren uit in Instellingen > Schijf > Onderhoud > Paden repareren
 - Voor Docker-bindmounts probeert Movviz stille automatische herkoppeling — controleer of dit is gelukt
-- Als automatische herkoppeling niet heeft gewerkt, gebruik dan de handmatige bestandsverkenner om paden te corrigeren
+- Als automatische herkoppeling niet heeft gewerkt, gebruik dan de handmatige bestandsbrowser om paden te corrigeren
 - Zorg ervoor dat je Docker-volumemounts consistent zijn tussen herstarts
 
 ### Verlopen sessies

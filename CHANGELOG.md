@@ -2,6 +2,184 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.4.4] — 2026-07-23
+
+### Corrigé
+
+- **Sécurité — 5 alertes CodeQL corrigées dans `seerr/mediaMap.ts`** :
+  - **SSRF (#44, #46, #47)** : validation de l'URL Seerr via `safeBase()` — schéma http/https seulement, blocage localhost/loopback/private/link-local, construction des URLs via `new URL()`
+  - **Format string (#48)** : `console.warn` utilise concaténation de chaînes au lieu d'argument format injecté
+  - **Regex polynomial (#45)** : `replace(/[/]+$/,"")` au lieu de `replace(/\/+$/,"")`
+
+## [1.4.3] — 2026-07-23
+
+### Corrigé
+
+- **Cartes film/série — vues desktop et mobile totalement不同es** : l'overlay hover (boutons sur le poster) s'affiche UNIQUEMENT sur desktop (`hidden lg:flex`), la barre d'actions en dessous s'affiche UNIQUEMENT sur mobile (`lg:hidden`). Fini les doublons.
+- **Boutons mobiles opaques** : remplacement de `glass-strong` (semi-transparent, invisible) par `bg-white/10 border border-white/10` (opaque, clairement cliquable). Taille tactile 44px (`h-10`).
+- **CollectionCard** : même traitement — hover desktop uniquement, barre mobile opaque en dessous.
+
+## [1.4.2] — 2026-07-23
+
+### Corrigé
+
+- **Workflow CI doublon** : suppression de `windows-installer.yml` qui doublonnait `build-installer.yml` et créait deux releases concurrentes sur chaque tag.
+
+## [1.4.1] — 2026-07-23
+
+### Corrigé
+
+- **Actions hover visibles sur mobile** : les boutons d'action qui apparaissaient uniquement au survol (`group-hover:opacity-100`) sur desktop étaient invisibles/inaccessibles sur smartphone. Ajout d'une barre d'actions permanente entre l'affiche et le titre sur `LibraryMovieCard` (recherche, tags, suppression...) et `CollectionCard` (édition, suppression).
+- **CI installer** : le workflow `build-installer.yml` ne force plus une version spécifique d'InnoSetup, évitant l'échec quand une version plus récente est déjà installée sur le runner GitHub.
+
+## [1.4.0] — 2026-07-23
+
+### Ajouté
+
+- **Séparation des profils utilisateurs** : isolation complète entre comptes.
+  - Collections privées par défaut (créateur + admin uniquement), filtrage `createdBy` dans l'API
+  - Activity v2 filtrée par les requêtes de l'utilisateur pour les non-admins (queue, history, failures, wanted)
+  - Paramètres accessibles aux non-admins avec onglets limités à leur périmètre
+  - 14+ endpoints API sécurisés avec `requireUser` ou `requireAdmin` (fuite de données colmatée)
+- **Agents de contrôle qualité** : 5 agents créés (.opencode/agents/) — profile-separation-expert, responsive-expert, code-expert, test-agent, orchestrateur anti-régression
+- **Diagnostic erreurs cliquable** : dans "Temps de réponse", le nombre d'erreurs ouvre une modale détaillée (code HTTP, durée, horodatage)
+- **API `/api/perf?errors=1`** : renvoie les entrées d'erreur brutes
+
+### Corrigé
+
+- **Responsive smartphone (~15 fichiers)** : boutons en wrap sur mobile, `overflow-x-hidden` remplacé par de vrais correctifs, touch targets ≥44px, dropdowns limités à `100vw-2rem`
+- **Settings page** : les non-admins n'étaient pas bloqués mais l'onglet "About" était visible et vide — corrigé
+- **Imports inutilisés** : nettoyage des icônes non utilisées dans settings/page.tsx
+- **Notification Seerr films déjà en bibliothèque** (v1.3.5)
+- **Pack intégrale Trigun introuvable** : `seasonEpisodeMatches` accepte `season === null` pour les packs (v1.3.4)
+- **Perf TMDb** : recommandations limitées à 5 appels concurrents (v1.3.4)
+- **Logs de scoring** : détail par étape de filtrage dans grab_release (v1.3.3)
+
+## [1.3.5] — 2026-07-23
+
+### Corrigé
+
+- **Notification Seerr absente pour les films déjà en bibliothèque** : quand un film était importé du disque AVANT la demande Seerr, l'import Seerr le voyait déjà présent (`alreadyInLibrary`) et ne notifiait jamais Seerr — le statut restait bloqué sur "requested". Désormais, si le film est "available" dans Movviz, `notifySeerrStatus("available")` est appelé.
+- **Diagnostic — clic sur le nombre d'erreurs** : dans le tableau "Temps de réponse", le nombre d'erreurs est maintenant cliquable et ouvre une modale listant chaque erreur (code HTTP, temps, horodatage).
+
+### Ajouté
+
+- **API `/api/perf?errors=1`** : renvoie les entrées d'erreur brutes (status ≥ 400) pour une vue détaillée.
+
+## [1.3.4] — 2026-07-23
+
+### Corrigé
+
+- **Pack intégrale toujours pas trouvé (Trigun)** : `seasonEpisodeMatches` rejetait les releases sans numéro de saison (ex. "Trigun Complete Series") — `parsed.season === null` n'est plus bloquant quand on cherche un pack. Le pack intégrale passe désormais le filtre et peut être grabbé.
+- **Performance recommandations TMDb** : les 25 appels parallèles à l'API TMDb pour les recommandations sont maintenant limités à 5 concurrents, évitant la saturation du rate-limit du plan gratuit qui ralentissait `/api/metadata/rows` (~4s).
+
+## [1.3.3] — 2026-07-23
+
+### Corrigé
+
+- **Notification Seerr absente pour films importés du disque** : l'ajout direct d'un film depuis le scan disque (import) ne déclenchait jamais `notifySeerrStatus("available")` — le statut restait bloqué sur "requested" dans Overseerr.
+- **Per-filter logging pour le débogage de recherche** : `grab_release.scoring` et `grab_release.no_match` détaillent désormais le nombre de releases passant chaque étape de filtrage (titre, saison, pack, résolution, score, taille, liste d'échec).
+
+## [1.3.2] — 2026-07-23
+
+### Ajouté
+
+- **Build automatisé de l'installateur Windows via GitHub Actions** : le workflow `.github/workflows/build-installer.yml` compile l'installateur Inno Setup sur chaque push vers `main` et crée une Release avec l'artefact `.exe` attaché quand un tag `v*` est poussé.
+
+## [1.3.1] — 2026-07-23
+
+### Corrigé
+
+- **Pack intégrale introuvable pour les séries à 1 mot (Trigun)** : le parseur ne reconnaissait pas "Complete Series", "Intégrale" etc. comme délimiteurs de titre → le titre parsé incluait ces mots, et `titleSimilarity` rejetait le résultat pour les séries à 1 mot. Ajout de `PACK_DESC_RE` dans `parseRelease` pour tronquer ces descripteurs.
+- **Sync TVDB anime — titres en japonais persistants** : même avec `Accept-Language: fr`, TVDB n'a pas de traduction française pour certains épisodes d'anime et retombe en japonais. `resyncAnimeSeasonsFromTvdb`, `buildAnimeSeasonsFromTvdb` et `applyTvdbTitleOverrides` préservent désormais les titres français existants quand TVDB retourne du texte CJK (japonais/chinois).
+- **Agents vérificateurs** : 3 agents de review + 1 agent expert TVDB/manga/animé créés dans `.opencode/agents/`.
+
+## [1.3.0] — 2026-07-23
+
+### Ajouté
+
+- **Migration du format des tâches planifiées** : détection et migration automatique de l'ancien format plat vers `{runs, configs}`.
+- **Nettoyage des dossiers vides** : scan récursif sécurisé (boucle anti-root Windows).
+- **Requêtes triées** : les demandes Seerr sont triées par `createdAt` descendant.
+- **Saisons spécifiques Seerr** : une demande peut cibler des saisons précises (pas seulement l'intégrale).
+
+### Corrigé
+
+- **Import Seerr — crash silencieux** : `SeerrImportResult` retourne les champs attendus par l'UI (`seerrUsers`, `seerrRequests`, `unmatchedUsers`).
+- **Notification API Overseerr** : utilisation des codes numériques (`5` = disponible) au lieu de strings, `findSeerrMediaId` avec recherche ciblée par TMDb.
+- **Recherche intégrale complète** : `addSeriesToLibrary` utilise `searchAndGrabCompleteSeries` au lieu de ne chercher que la première saison.
+
+## [1.2.7] — 2026-07-23
+
+### Ajouté
+
+- **Import automatique depuis Overseerr/Seerr** : nouvelle tâche planifiée toutes les 1 min qui importe les demandes sans doublon
+- **Intervalles des tâches configurables** : chaque tâche peut être réglée en jours/heures/minutes depuis l'UI
+- **Cache vidéo configurable** : durée de cache des segments vidéo réglable dans les réglages Plex (0 = pas de cache, défaut 300s)
+
+### Corrigé
+
+- **Son absent en lecture directe** : quand le codec audio n'est pas supporté par le navigateur, le lecteur bascule automatiquement sur le flux transcodé (h264+aac) qui fonctionne partout
+- **Sync-all bloqué** : le endpoint sync-all n'avait pas de timeout → bloquait le frontend indéfiniment
+- **Stream sans range requests** : les proxys vidéo ne transmettaient pas l'en-tête `Range` → impossible de seek, téléchargement complet avant lecture
+- **TVDB anime — titres en japonais** : le client TVDB ne passait pas de langue à l'API → les titres revenaient en japonais pour les anime. Ajout du header `Accept-Language` avec la langue configurée (fr par défaut).
+
+## [1.2.6] — 2026-07-23
+
+### Corrigé
+
+- **TVDB anime — titres en japonais** : le client TVDB ne passait pas de langue à l'API → les titres revenaient en japonais pour les anime. Ajout du header `Accept-Language` avec la langue configurée (fr par défaut).
+- **Sync-all bloqué** : le endpoint sync-all n'avait pas de timeout → bloquait le frontend indéfiniment.
+- **Stream sans range requests** : les proxys vidéo ne transmettaient pas l'en-tête `Range` → impossible de seek, téléchargement complet avant lecture.
+
+## [1.2.2] — 2026-07-23
+
+### Ajouté
+
+- **Lecteur vidéo — fallback transcodage** : tentative de lecture directe en priorité ; si le codec/container n'est pas supporté par le navigateur (x265, MKV...), fallback automatique vers le transcodage HLS de Plex (h264+aac). Badge « transcodé » visible dans l'interface.
+
+### Modifié
+
+- **Mode clair** : blobs aurora désactivés, fond uni propre sans dégradé.
+
+## [1.2.1] — 2026-07-23
+
+### Modifié
+
+- **Mode clair — contraste sidebar** : `--color-abyss` rapproché de `--color-void` pour éliminer la coupure nette entre la sidebar et le contenu principal.
+- **Thème par défaut** : le mode sombre est désormais le thème par défaut (au lieu de suivre les préférences OS). Les changements utilisateur restent persistés.
+
+### Corrigé
+
+- **Build Docker arm64** : pin Alpine 3.20 (`node:22-alpine3.20`) pour éviter le crash QEMU (SIGILL) pendant la génération des pages statiques Next.js — le tag roulant `22-alpine` est passé à Alpine 3.21 dont les binaires ne sont pas entièrement émulables par QEMU.
+
+## [1.2.0] — 2026-07-23
+
+### Ajouté
+
+- **Lecteur bêta (Paramètres → Plex)** : remplace l'ouverture de Plex Web par un lecteur vidéo intégré. Active le proxy de streaming direct depuis Plex. Désactivé par défaut — certains codecs peuvent ne pas fonctionner dans le navigateur. (Bêta)
+- **Indexeurs — priorité** : boutons `−`/`+` dans chaque ligne d'indexeur pour monter/descendre la priorité de traitement, avec `savePriority()` PATCH vers l'API.
+- **Queue — fluidité** : polling SWR réduit à 2000ms. Barres de progression animées (`transition-all duration-1000 ease-linear`) et interpolation locale `displayProgress` via `setInterval(120ms)` basée sur la vitesse de download — l'affichage bouge en continu entre les mises à jour serveur.
+
+## [1.1.68] — 2026-07-23
+
+### Ajouté
+
+- **Avertissements zone à risque pour les onglets Disque** : Indexation, Renommage et Maintenance ont désormais le même style rouge (`dangerous`) que la Zone dangereuse dans la barre latérale, plus un bandeau d'avertissement en haut de chaque panneau.
+
+### Modifié
+
+- **Activity V1 supprimée** : la V2 devient l'interface d'activité permanente (route `/activity`). L'ancienne route `/activity/v2` redirige vers `/activity`.
+- **Queue — actualisation 500ms** : le rafraîchissement passe de 3s à 500ms pour plus de réactivité.
+- **Queue — tri amélioré** : les téléchargements en cours sont toujours au-dessus des terminés, avec date décroissante à l'intérieur de chaque groupe.
+- **Queue — affichage date** : format compact `"23 Jul 2026"` au lieu de l'horloge + tooltip.
+- **Recherche — mise en évidence des saisons** : les références de saison dans les titres de release sont colorées (vert si correspond, ambre si non).
+
+### Corrigé
+
+- **Série — pack intégrale hors cible** : `isCompleteSeriesPackTitle()` vérifie maintenant que le pack couvre au moins une saison manquante. Exemple : une "Intégrale S01-S28" ne sera plus prise pour une recherche Saison 29.
+- **Parsing de plage de saisons** : le pattern `SEASON_RANGE_RE` accepte désormais le séparateur français `"à"` (ex. `"S01 à S28"`).
+
 ## [1.1.67] — 2026-07-22
 
 ### Modifié

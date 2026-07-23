@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
-import { Wrench, Loader2, Film, Tv, Check, AlertTriangle, FolderSearch } from "lucide-react";
+import { Wrench, Loader2, Film, Tv, Check, AlertTriangle, FolderSearch, ShieldAlert } from "lucide-react";
 import { RepairFileBrowserModal } from "./RepairFileBrowserModal";
 
 interface RepairCandidate {
@@ -136,6 +136,14 @@ export function RepairPathsPanel() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
+        <div>
+          <p className="text-sm font-bold text-down">{t("settings.diskWarningTitle")}</p>
+          <p className="mt-1 text-xs text-ink-dim">{t("settings.diskWarningHint")}</p>
+        </div>
+      </div>
+
       <div className="flex items-start gap-3 rounded-2xl border border-brand/25 bg-brand/8 p-4">
         <Wrench className="mt-0.5 h-5 w-5 shrink-0 text-brand-glow" />
         <div className="flex-1">

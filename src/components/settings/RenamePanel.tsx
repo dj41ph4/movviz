@@ -5,7 +5,7 @@ import { useI18n } from "@/i18n/provider";
 import { LOCALES, type Locale } from "@/i18n/config";
 import {
   Film, Tv, Loader2, Check, X, ArrowRight, AlertTriangle,
-  RefreshCw, Search, Bug,
+  RefreshCw, Search, Bug, ShieldAlert,
 } from "lucide-react";
 
 interface RenameCandidate {
@@ -301,6 +301,14 @@ export function RenamePanel() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
+        <div>
+          <p className="text-sm font-bold text-down">{t("settings.diskWarningTitle")}</p>
+          <p className="mt-1 text-xs text-ink-dim">{t("settings.diskWarningHint")}</p>
+        </div>
+      </div>
+
       <div className="flex items-start gap-3 rounded-2xl border border-brand/25 bg-brand/8 p-4">
         <RefreshCw className="mt-0.5 h-5 w-5 shrink-0 text-brand-glow" />
         <div className="flex-1">

@@ -51,7 +51,7 @@ export function UserMenu() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="absolute right-0 top-12 z-50 w-56 overflow-hidden rounded-xl glass-strong p-1.5 shadow-2xl"
+            className="absolute right-0 top-12 z-50 w-48 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl glass-strong p-1.5 shadow-2xl sm:w-56"
           >
             <div className="flex items-center gap-2 px-3 py-2 text-xs text-ink-dim">
               <ShieldCheck className="h-3.5 w-3.5 text-brand-glow" />

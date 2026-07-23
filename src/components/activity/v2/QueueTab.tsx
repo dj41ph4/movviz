@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, memo, useEffect, useRef } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n, useT } from "@/i18n/provider";
-import { cn, formatBytes, formatSpeed, formatEta, formatClockTime, formatDateTime } from "@/lib/utils";
+import { cn, formatBytes, formatSpeed, formatEta, formatDateTime } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { QueueItem } from "@/lib/activity/v2/types";
 import {
@@ -30,7 +30,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const router = useRouter();
   const user = useCurrentUser();
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    "/api/activity/v2?tab=queue", { refreshInterval: 3000, dedupingInterval: 2000 }
+    "/api/activity/v2?tab=queue", { refreshInterval: 5000, dedupingInterval: 4000 }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -42,13 +42,29 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const stalledItems = useMemo(() => items.filter(item => item.status === "stalled"), [items]);
   const pausedItems = useMemo(() => items.filter(item => item.status === "paused"), [items]);
 
-  const filtered = useMemo(() => items.filter((item) => {
-    if (filter === "downloading") return item.status === "downloading" || item.status === "importing";
-    if (filter === "seeding") return item.status === "seeding";
-    if (filter === "stalled") return item.status === "stalled";
-    if (filter === "completed") return item.status === "completed";
-    return true;
-  }), [items, filter]);
+  const statusPriority = (s: string): number => {
+    if (s === "downloading" || s === "importing") return 0;
+    if (s === "stalled") return 1;
+    if (s === "paused") return 2;
+    if (s === "seeding") return 3;
+    if (s === "completed") return 4;
+    return 5;
+  };
+
+  const filtered = useMemo(() => items
+    .filter((item) => {
+      if (filter === "downloading") return item.status === "downloading" || item.status === "importing";
+      if (filter === "seeding") return item.status === "seeding";
+      if (filter === "stalled") return item.status === "stalled";
+      if (filter === "completed") return item.status === "completed";
+      return true;
+    })
+    .sort((a, b) => {
+      const pa = statusPriority(a.status);
+      const pb = statusPriority(b.status);
+      if (pa !== pb) return pa - pb;
+      return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+    }), [items, filter]);
 
   const toggleExpand = (id: string) => {
     setExpandedItem(expandedItem === id ? null : id);
@@ -283,6 +299,32 @@ const QueueItemRow = memo(function QueueItemRow({
   item, isExpanded, actionLoading, t, locale,
   onToggleExpand, onAction, onRemove,
 }: QueueItemRowProps) {
+  const [smoothProgress, setSmoothProgress] = useState(item.download.progress);
+  const speedRef = useRef(item.download.downloadSpeed);
+  const sizeRef = useRef(item.release.size);
+
+  useEffect(() => {
+    speedRef.current = item.download.downloadSpeed;
+    sizeRef.current = item.release.size;
+  }, [item.download.downloadSpeed, item.release.size]);
+
+  useEffect(() => {
+    setSmoothProgress(item.download.progress);
+  }, [item.download.progress]);
+
+  useEffect(() => {
+    if (item.status !== "downloading" && item.status !== "importing") return;
+    if (item.download.downloadSpeed <= 0) return;
+    const rate = item.download.downloadSpeed / item.release.size;
+    const id = setInterval(() => {
+      setSmoothProgress((prev) => Math.min(0.999, prev + rate * 0.12));
+    }, 120);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.status, item.download.downloadSpeed, item.release.size]);
+
+  const displayProgress = smoothProgress;
+
   return (
     <div className="rounded-2xl glass overflow-hidden">
       <div
@@ -313,9 +355,7 @@ const QueueItemRow = memo(function QueueItemRow({
                   </span>
                 ) : null}
               </Link>
-              <span className="shrink-0 font-mono text-[11px] text-ink-dim" title={formatDateTime(item.addedAt, locale)}>
-                {formatClockTime(item.addedAt, locale)}
-              </span>
+              <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-ink-dim">{formatDateTime(item.addedAt, locale)}</span>
             </div>
 
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-dim">
@@ -348,14 +388,14 @@ const QueueItemRow = memo(function QueueItemRow({
               <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                 <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
                   <div
-                    className="h-full rounded-full brand-gradient transition-[width]"
-                    style={{ width: `${Math.round(item.download.progress * 100)}%` }}
+                    className="h-full rounded-full brand-gradient transition-all duration-1000 ease-linear"
+                    style={{ width: `${Math.round(displayProgress * 100)}%` }}
                   />
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-dim">
-                  <span className="font-mono text-ink-soft">{Math.round(item.download.progress * 100)}%</span>
+                  <span className="font-mono text-ink-soft">{Math.round(displayProgress * 100)}%</span>
                   <span>
-                    {formatBytes(item.download.progress * item.release.size)} / {formatBytes(item.release.size)}
+                    {formatBytes(displayProgress * item.release.size)} / {formatBytes(item.release.size)}
                   </span>
                   {item.download.eta > 0 && (
                     <span>{t("downloads.eta")}: {formatEta(Math.round(item.download.eta / 60))}</span>
@@ -385,7 +425,7 @@ const QueueItemRow = memo(function QueueItemRow({
                 onClick={(e) => { e.stopPropagation(); onAction(item.id, "pause"); }}
                 disabled={actionLoading !== null}
                 title={t("downloads.pause")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+                className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
               >
                 {actionLoading === `pause_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
               </button>
@@ -393,7 +433,7 @@ const QueueItemRow = memo(function QueueItemRow({
                 onClick={(e) => { e.stopPropagation(); onAction(item.id, "search"); }}
                 disabled={actionLoading !== null}
                 title={t("downloads.manual")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+                className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
               >
                 <Search className="h-4 w-4" />
               </button>
@@ -404,7 +444,7 @@ const QueueItemRow = memo(function QueueItemRow({
               onClick={(e) => { e.stopPropagation(); onAction(item.id, "resume"); }}
               disabled={actionLoading !== null}
               title={t("downloads.resume")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
             >
               {actionLoading === `resume_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             </button>
@@ -414,7 +454,7 @@ const QueueItemRow = memo(function QueueItemRow({
               onClick={(e) => { e.stopPropagation(); onAction(item.id, "restart"); }}
               disabled={actionLoading !== null}
               title={t("downloads.restart")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
             >
               {actionLoading === `restart_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </button>
@@ -423,7 +463,7 @@ const QueueItemRow = memo(function QueueItemRow({
             onClick={(e) => { e.stopPropagation(); onRemove(item.id, false); }}
             disabled={actionLoading !== null}
             title={t("downloads.remove")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
           >
             {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </button>
@@ -431,7 +471,7 @@ const QueueItemRow = memo(function QueueItemRow({
             onClick={(e) => { e.stopPropagation(); onRemove(item.id, true); }}
             disabled={actionLoading !== null}
             title={t("downloads.removeData")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
           >
             {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4" /> <X className="h-3 w-3 -ml-1" /></>}
           </button>
@@ -446,11 +486,11 @@ const QueueItemRow = memo(function QueueItemRow({
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-ink-dim">{t("common.loading")}</span>
-                  <span className="font-mono">{Math.round(item.download.progress * 100)}%</span>
+                  <span className="font-mono">{Math.round(displayProgress * 100)}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-black/40">
-                  <div className="h-full rounded-full brand-gradient" style={{ width: `${item.download.progress * 100}%` }} />
-                </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-black/40">
+                    <div className="h-full rounded-full brand-gradient transition-all duration-1000 ease-linear" style={{ width: `${displayProgress * 100}%` }} />
+                  </div>
                 <div className="flex justify-between">
                   <span className="text-ink-dim">{t("downloads.down")}</span>
                   <span>{formatSpeed(item.download.downloadSpeed)} ↓ / {formatSpeed(item.download.uploadSpeed)} ↑</span>

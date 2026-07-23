@@ -7,6 +7,7 @@ import {
   updateSeries,
 } from "@/lib/library/store";
 import type { LibrarySeries, LibraryEpisode, LibraryFile, LibraryStatus } from "@/lib/library/types";
+import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 
 /**
  * Keeps library "downloading" badges honest. A movie/episode flips to
@@ -41,27 +42,39 @@ export function releaseAllDownloadClaims(infoHash: string) {
   // Release movie
   const movie = getMovieByActiveHash(infoHash);
   if (movie && movie.status !== "available") {
-    updateMovie(movie.id, { ...releasedStatus(movie.file), activeInfoHash: null });
+    const newStatus = movie.file ? "available" : "missing";
+    updateMovie(movie.id, { status: newStatus, activeInfoHash: null });
+    if (newStatus === "available") {
+      void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});
+    }
   }
 
   // Release ALL series episodes with this hash in a single pass per series
   // (avoids N disk writes for a season pack with N episodes)
   for (const series of loadSeries()) {
+    let seriesChanged = false;
     const newSeasons = series.seasons.map((s) => ({
       ...s,
-      episodes: s.episodes.map((ep) =>
-        ep.activeInfoHash === infoHash && ep.status !== "available"
-          ? { ...ep, ...releasedStatus(ep.file), activeInfoHash: null }
-          : ep
-      ),
+      episodes: s.episodes.map((ep) => {
+        if (ep.activeInfoHash === infoHash && ep.status !== "available") {
+          const ns = releasedStatus(ep.file);
+          if (ns.status === "available") {
+            seriesChanged = true;
+          }
+          return { ...ep, ...ns, activeInfoHash: null };
+        }
+        return ep;
+      }),
     }));
-    // Only write back if something actually changed
     const changed = newSeasons.some((s, i) => {
       const orig = series.seasons[i];
       return s.episodes.some((ep, j) => ep !== orig.episodes[j]);
     });
     if (changed) {
       updateSeries(series.id, { seasons: newSeasons });
+    }
+    if (seriesChanged) {
+      void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
     }
   }
 }
@@ -88,7 +101,11 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
     if (movie.status === "downloading" && movie.activeInfoHash) {
       const active = isActivelyDownloading.get(movie.activeInfoHash);
       if (active === false || active === undefined) {
-        updateMovie(movie.id, { status: movie.file ? "available" : "missing", activeInfoHash: null });
+        const newStatus = movie.file ? "available" : "missing";
+        updateMovie(movie.id, { status: newStatus, activeInfoHash: null });
+        if (newStatus === "available") {
+          void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});
+        }
         released++;
       }
     }

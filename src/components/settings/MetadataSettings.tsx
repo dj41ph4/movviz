@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Check, X, ExternalLink, Loader2, RotateCcw } from "lucide-react";
+import { Check, X, ExternalLink, Loader2, RotateCcw, RefreshCw, BookOpen } from "lucide-react";
 
 export function MetadataSettings() {
   const t = useT();
@@ -14,6 +14,8 @@ export function MetadataSettings() {
   const [tvdbSaving, setTvdbSaving] = useState(false);
   const [tvdbTesting, setTvdbTesting] = useState(false);
   const [tvdbTestResult, setTvdbTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
+  const [tvdbSyncing, setTvdbSyncing] = useState(false);
+  const [tvdbSyncResult, setTvdbSyncResult] = useState<{ total: number; animeFound: number; synced: number; skipped: number } | null>(null);
   const [tmdbConfigured, setTmdbConfigured] = useState(false);
   const [tmdbIsDefault, setTmdbIsDefault] = useState(true);
   const [tmdbApiKey, setTmdbApiKey] = useState("");
@@ -182,7 +184,15 @@ export function MetadataSettings() {
 
   return (
     <div className="rounded-2xl glass p-5">
-      <p className="mb-4 text-sm text-ink-dim">{t("metadata.intro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <BookOpen className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("metadata.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("metadata.intro")}</p>
+        </div>
+      </div>
 
       <div className="mb-4 flex items-center gap-2">
         <span className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold", tvdbConfigured ? "border-ok/25 bg-ok/12 text-ok" : "border-amber/25 bg-amber/12 text-amber")}>
@@ -222,6 +232,35 @@ export function MetadataSettings() {
         <span className="text-sm font-semibold text-ink">{t("metadata.useTvdbForAnime")}</span>
       </label>
       <p className="mt-1 text-xs text-ink-dim">{t("metadata.useTvdbForAnimeHint")}</p>
+
+      <button
+        onClick={async () => {
+          setTvdbSyncing(true);
+          setTvdbSyncResult(null);
+          try {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 120000);
+            const r = await fetch("/api/metadata/tvdb/sync-all", { method: "POST", signal: controller.signal });
+            clearTimeout(id);
+            if (r.ok) setTvdbSyncResult(await r.json());
+          } catch {
+            setTvdbSyncResult(null);
+          } finally {
+            setTvdbSyncing(false);
+          }
+        }}
+        disabled={tvdbSyncing || !tvdbConfigured}
+        className="mt-3 flex h-9 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft hover:text-ink disabled:opacity-40"
+      >
+        {tvdbSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+        {t("metadata.syncAllAnime")}
+      </button>
+      {tvdbSyncResult && (
+        <p className="mt-1.5 text-xs text-ink-dim">
+          {tvdbSyncResult.synced}/{tvdbSyncResult.animeFound} anime synchronisé{tvdbSyncResult.synced > 1 ? "s" : ""}
+          {tvdbSyncResult.skipped > 0 && ` · ${tvdbSyncResult.skipped} ignoré${tvdbSyncResult.skipped > 1 ? "s" : ""}`}
+        </p>
+      )}
 
       <div className="mt-6 border-t border-white/5 pt-5">
         <div className="mb-4 flex flex-wrap items-center gap-2">

@@ -17,6 +17,8 @@ import { refreshLibraryMetadata } from "@/lib/library/metadataRefresh";
 import { allAnimeVfLaunches } from "@/lib/metadata/animeVfCalendar";
 import { purgeExpiredTrash } from "@/lib/library/trashPurge";
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { importSeerrRequests } from "@/lib/seerr/importRequests";
+import { seerrConfigured } from "@/lib/seerr/store";
 
 export interface ScheduledTask {
   id: string;
@@ -204,6 +206,15 @@ export const TASKS: ScheduledTask[] = [
     // calendar page never has to eat the scrape's latency itself.
     run: async () => {
       await allAnimeVfLaunches();
+    },
+  },
+  {
+    id: "seerr-import",
+    name: "Import des demandes Overseerr/Seerr",
+    intervalMs: 60 * 1000, // every minute
+    run: async () => {
+      if (!seerrConfigured()) return;
+      await importSeerrRequests();
     },
   },
   {

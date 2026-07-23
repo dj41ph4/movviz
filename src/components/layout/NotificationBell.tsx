@@ -63,7 +63,7 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-40 w-80 rounded-2xl glass-strong p-2 shadow-2xl">
+        <div className="absolute right-0 top-12 z-40 w-72 max-w-[calc(100vw-2rem)] rounded-2xl glass-strong p-2 shadow-2xl sm:w-80">
           <div className="max-h-96 overflow-y-auto">
             {items.length === 0 && <p className="p-4 text-center text-sm text-ink-dim">{t("notifications.empty")}</p>}
             {items.slice(0, 20).map((n) => (

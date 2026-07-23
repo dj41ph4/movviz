@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { findAnimeVfLaunch } from "@/lib/metadata/animeVfCalendar";
 
@@ -21,7 +22,9 @@ export interface CalendarEntry {
 }
 
 /** Every future date attached to something currently monitored. */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const entries: CalendarEntry[] = [];
 
   for (const movie of loadMovies()) {

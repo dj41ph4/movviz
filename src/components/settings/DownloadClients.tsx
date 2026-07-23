@@ -9,7 +9,7 @@ import { FolderPicker } from "./FolderPicker";
 import {
   Film, Tv, Circle, FolderDown, FolderCheck, Layers, Zap, ArrowUpFromLine,
   Repeat, Power, WifiOff, Settings2, Check, X, Loader2, RefreshCw, Users,
-  Upload,
+  Upload, HardDrive,
 } from "lucide-react";
 
 /**
@@ -64,10 +64,18 @@ export function DownloadClients() {
 
   return (
     <div>
-      <p className="mb-5 max-w-3xl text-sm text-ink-soft">{t("settings.clientsIntro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <HardDrive className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("settings.tabClients")}</h3>
+          <p className="mt-0.5 max-w-3xl text-xs text-ink-dim">{t("settings.clientsIntro")}</p>
+        </div>
+      </div>
 
       {offline && (
-        <div className="mb-5 flex flex-col items-start gap-3 rounded-2xl border border-down/25 bg-down/10 p-4 sm:flex-row sm:items-center">
+        <div className="mb-5 flex flex-col items-start gap-3 rounded-2xl border border-down/20 bg-white/[0.02] p-4 sm:flex-row sm:items-center">
           <WifiOff className="h-5 w-5 shrink-0 text-down" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-ink">{t("downloads.engineOffline")}</p>
@@ -76,7 +84,7 @@ export function DownloadClients() {
           <button
             onClick={restart}
             disabled={restarting}
-            className="flex h-9 shrink-0 items-center gap-2 rounded-xl brand-gradient px-4 text-xs font-bold text-white disabled:opacity-50"
+            className="flex h-9 shrink-0 items-center gap-2 rounded-xl brand-gradient px-3.5 text-xs font-bold text-white disabled:opacity-50"
           >
             {restarting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             {t("settings.restartEngine")}

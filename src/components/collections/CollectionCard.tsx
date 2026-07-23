@@ -38,7 +38,7 @@ export function CollectionCard({ collection, onEdit, onDelete }: CollectionCardP
         }}
       >
         <div className="absolute inset-0 bg-black/50 group-hover:bg-black/60 transition" />
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition">
+        <div className="absolute inset-0 hidden lg:flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition">
           {onEdit && (
             <button
               onClick={() => onEdit(collection)}
@@ -62,6 +62,20 @@ export function CollectionCard({ collection, onEdit, onDelete }: CollectionCardP
           <p className="text-xs text-white/70">{collection.items.length} {t("collections.items")}</p>
         </div>
       </div>
+      {(onEdit || onDelete) && (
+        <div className="mt-1.5 flex gap-1.5 lg:hidden">
+          {onEdit && (
+            <button onClick={() => onEdit(collection)} className="flex-1 h-10 flex items-center justify-center rounded-xl bg-white/10 border border-white/10 text-ink-soft active:bg-white/20">
+              <Edit2 className="h-4 w-4" />
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={handleDelete} disabled={deleting} className="flex-1 h-10 flex items-center justify-center rounded-xl bg-down/15 border border-down/20 text-down active:bg-down/25 disabled:opacity-50">
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

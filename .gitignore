@@ -42,6 +42,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
+# opencode agents (local only)
+.opencode/agents/*.md
+
 # debug logs
 build-debug*.txt
 build-errors.txt

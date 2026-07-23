@@ -21,8 +21,11 @@ export interface SeerrRequest {
   createdAt: string;
   requestedBy: SeerrUser;
   media: {
+    id: number;
     tmdbId: number;
     mediaType: "movie" | "tv";
     status: SeerrMediaStatus;
+    /** Specific seasons requested, e.g. [1, 3, 5]; undefined = all seasons. */
+    seasons?: number[];
   };
 }

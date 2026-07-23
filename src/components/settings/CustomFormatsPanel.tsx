@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { CustomFormat } from "@/lib/customFormats/types";
-import { SlidersHorizontal, Plus, Trash2, X, Check, Loader2 } from "lucide-react";
+import { SlidersHorizontal, Plus, Trash2, X, Check, Loader2, Gauge } from "lucide-react";
 
 export function CustomFormatsPanel() {
   const t = useT();
@@ -36,7 +36,15 @@ export function CustomFormatsPanel() {
 
   return (
     <div>
-      <p className="mb-5 max-w-3xl text-sm text-ink-soft">{t("customFormats.intro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Gauge className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("settings.tabQualite")}</h3>
+          <p className="mt-0.5 max-w-3xl text-xs text-ink-dim">{t("customFormats.intro")}</p>
+        </div>
+      </div>
 
       <div className="space-y-2">
         {formats.map((cf) => (

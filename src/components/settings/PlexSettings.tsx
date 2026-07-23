@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Check, X, Loader2, LinkIcon, RefreshCw, User } from "lucide-react";
+import { Check, X, Loader2, LinkIcon, RefreshCw, User, Play } from "lucide-react";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 
 interface PlexConfig {
   hostname: string;
@@ -16,6 +17,7 @@ interface PlexConfig {
 
 export function PlexSettings() {
   const t = useT();
+  const { enabled: betaPlayer, streamCacheTtl, setEnabled: setBetaPlayer, setStreamCacheTtl } = useBetaPlayer();
   const [cfg, setCfg] = useState<PlexConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -112,7 +114,15 @@ export function PlexSettings() {
 
   return (
     <div className="rounded-2xl glass p-5">
-      <p className="mb-4 text-sm text-ink-dim">{t("plex.intro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Play className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("plex.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("plex.intro")}</p>
+        </div>
+      </div>
 
       <div className="mb-4 flex items-center gap-2">
         <span className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold", cfg.connected ? "border-ok/25 bg-ok/12 text-ok" : "border-amber/25 bg-amber/12 text-amber")}>
@@ -221,6 +231,30 @@ export function PlexSettings() {
       )}
 
       {cfg.connected && <ProfilePicker />}
+
+      <div className="mt-5 border-t border-white/8 pt-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">{t("player.betaToggle")}</p>
+            <p className="text-xs text-ink-dim">{t("player.betaToggleHint")}</p>
+          </div>
+          <Toggle on={betaPlayer} onChange={() => setBetaPlayer(!betaPlayer)} disabled={!cfg.connected} />
+        </div>
+        {betaPlayer && (
+          <div className="mt-3 flex items-center gap-2">
+            <label className="text-xs text-ink-dim">Cache segment :</label>
+            <input
+              type="number"
+              min={0}
+              max={86400}
+              value={streamCacheTtl}
+              onChange={(e) => setStreamCacheTtl(parseInt(e.target.value) || 0)}
+              className="h-8 w-20 rounded-lg border border-white/8 bg-black/30 px-2 text-xs text-ink outline-none focus:border-brand/40"
+            />
+            <span className="text-xs text-ink-dim">secondes (0 = pas de cache)</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -311,9 +345,9 @@ function ProfilePicker() {
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void; disabled?: boolean }) {
   return (
-    <button onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
+    <button onClick={onChange} disabled={disabled} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on && !disabled ? "brand-gradient" : "bg-white/10", disabled && "cursor-not-allowed opacity-40")}>
       <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
     </button>
   );
