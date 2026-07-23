@@ -2,6 +2,29 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.4.5] — 2026-07-23
+
+### Ajouté
+
+- **Player beta — optimisation complète** (19 recommandations) :
+  - Config hls.js ABR + recovery automatique (réseau/média)
+  - Détection codec client via WebCodecs API (`pickStrategy` : direct/webcodecs/transcode)
+  - SessionId transcode stable (par user+ratingKey), quota 3 sessions/user
+  - Menu sélection piste audio + sous-titres
+  - Reprise de lecture (localStorage + forward à Plex)
+  - Cache LRU segments (TTL 300s, 200 entrées) pour seeks arrière
+  - Cap bitrate adaptatif par résolution (4K→15Mbps, 1080p→8Mbps, 720p→4Mbps)
+  - Smart directPlay (Plex décide au lieu de forcer transcodage)
+  - CORS strict (origin referer, plus de `*`)
+  - Buffering/loading UI, indicateur qualité
+  - Nouveaux endpoints : `/api/stream/[ratingKey]/progress`, `/stop`, `/info`
+- **WebCodecs HEVC/AV1/AC3** : détection du support codec natif du navigateur, même quand `<video>` ne supporte pas le conteneur
+
+### Corrigé
+
+- **TVDB titres japonais persistants** : la resync échouait quand l'épisode existant ET le titre TVDB étaient tous les deux en japonais → fallback "Épisode N" maintenant activé. Nouvel endpoint debug `/api/library/series/[id]/tvdb-debug`.
+- **Build installer Windows** : ne se déclenche plus en doublon (push main + push tag), uniquement sur tags
+
 ## [1.4.4] — 2026-07-23
 
 ### Corrigé
