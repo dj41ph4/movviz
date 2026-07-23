@@ -22,13 +22,17 @@ export async function GET(req: NextRequest, context: Ctx) {
   const plexUrl = `${base}/${path.join("/")}?${qs.toString()}`;
 
   try {
+    const plexHeaders: Record<string, string> = { "x-plex-token": token };
+    const range = req.headers.get("range");
+    if (range) plexHeaders["range"] = range;
+
     const plexRes = await fetch(plexUrl, {
-      headers: { "x-plex-token": token },
+      headers: plexHeaders,
       cache: "no-store",
       signal: AbortSignal.timeout(30000),
     });
 
-    if (!plexRes.ok) {
+    if (!plexRes.ok && plexRes.status !== 206) {
       return NextResponse.json({ error: "proxy_fetch_failed" }, { status: plexRes.status });
     }
 
@@ -51,13 +55,20 @@ export async function GET(req: NextRequest, context: Ctx) {
       });
     }
 
+    const resHeaders: Record<string, string> = {
+      "content-type": contentType,
+      "cache-control": "private, no-store",
+      "access-control-allow-origin": "*",
+    };
+    for (const h of ["content-length", "content-range", "accept-ranges"] as const) {
+      const v = plexRes.headers.get(h);
+      if (v) resHeaders[h] = v;
+    }
+
     return new NextResponse(plexRes.body, {
-      headers: {
-        "content-type": contentType,
-        "content-length": plexRes.headers.get("content-length") || "",
-        "cache-control": "private, no-store",
-        "access-control-allow-origin": "*",
-      },
+      status: plexRes.status,
+      statusText: plexRes.statusText,
+      headers: resHeaders,
     });
   } catch {
     return NextResponse.json({ error: "proxy_error" }, { status: 500 });

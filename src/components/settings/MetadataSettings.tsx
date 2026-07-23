@@ -230,8 +230,13 @@ export function MetadataSettings() {
           setTvdbSyncing(true);
           setTvdbSyncResult(null);
           try {
-            const r = await fetch("/api/metadata/tvdb/sync-all", { method: "POST" });
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), 120000);
+            const r = await fetch("/api/metadata/tvdb/sync-all", { method: "POST", signal: controller.signal });
+            clearTimeout(id);
             if (r.ok) setTvdbSyncResult(await r.json());
+          } catch {
+            setTvdbSyncResult(null);
           } finally {
             setTvdbSyncing(false);
           }

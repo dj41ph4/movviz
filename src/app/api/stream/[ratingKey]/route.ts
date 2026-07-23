@@ -45,25 +45,33 @@ export async function GET(req: NextRequest, context: Ctx) {
     const container = media.container || "mp4";
     const streamUrl = `${base}/library/parts/${part.id}/file.${container}?X-Plex-Token=${token}`;
 
+    const plexHeaders: Record<string, string> = { "x-plex-token": token };
+    const range = req.headers.get("range");
+    if (range) plexHeaders["range"] = range;
+
     const streamRes = await fetch(streamUrl, {
-      headers: { "x-plex-token": token },
+      headers: plexHeaders,
       cache: "no-store",
       signal: AbortSignal.timeout(300000),
     });
 
-    if (!streamRes.ok) {
+    if (!streamRes.ok && streamRes.status !== 206) {
       return NextResponse.json({ error: "stream_fetch_failed" }, { status: 502 });
+    }
+
+    const resHeaders: Record<string, string> = {
+      "content-type": streamRes.headers.get("content-type") || "video/mp4",
+      "cache-control": "private, no-store",
+    };
+    for (const h of ["content-length", "content-range", "accept-ranges"] as const) {
+      const v = streamRes.headers.get(h);
+      if (v) resHeaders[h] = v;
     }
 
     return new NextResponse(streamRes.body, {
       status: streamRes.status,
       statusText: streamRes.statusText,
-      headers: {
-        "content-type": streamRes.headers.get("content-type") || "video/mp4",
-        "content-length": streamRes.headers.get("content-length") || "",
-        "accept-ranges": streamRes.headers.get("accept-ranges") || "bytes",
-        "cache-control": "private, no-store",
-      },
+      headers: resHeaders,
     });
   } catch (e) {
     return NextResponse.json({ error: "stream_error" }, { status: 500 });

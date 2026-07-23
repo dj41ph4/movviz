@@ -19,10 +19,11 @@ export async function POST(req: NextRequest) {
   const results: { seriesId: string; title: string; ok: boolean; error?: string; oldSeasonCount?: number; newSeasonCount?: number }[] = [];
 
   for (const series of all) {
-    const meta = await fetchTmdbSeries(series.tmdbId);
+    const meta = await fetchTmdbSeries(series.tmdbId).catch(() => null);
     if (!meta?.isAnime) continue;
 
-    const r = await resyncAnimeSeasonsFromTvdb(series.id);
+    const r = await resyncAnimeSeasonsFromTvdb(series.id).catch(() => null);
+    if (!r) { results.push({ seriesId: series.id, title: series.title, ok: false, error: "sync_error" }); continue; }
     results.push({
       seriesId: series.id,
       title: series.title,

@@ -7,6 +7,8 @@ Toutes les nouveautés et corrections notables de Movviz, expliquées simplement
 ### Corrigé
 
 - **TVDB anime — titres en japonais** : le client TVDB ne passait pas de langue à l'API → les titres revenaient en japonais pour les anime. Ajout du header `Accept-Language` avec la langue configurée (fr par défaut).
+- **Sync-all bloqué** : le endpoint sync-all n'avait pas de timeout → bloquait le frontend indéfiniment.
+- **Stream sans range requests** : les proxys vidéo ne transmettaient pas l'en-tête `Range` → impossible de seek, téléchargement complet avant lecture.
 
 ## [1.2.2] — 2026-07-23
 
