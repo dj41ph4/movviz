@@ -17,7 +17,7 @@ interface PlexConfig {
 
 export function PlexSettings() {
   const t = useT();
-  const { enabled: betaPlayer, setEnabled: setBetaPlayer } = useBetaPlayer();
+  const { enabled: betaPlayer, streamCacheTtl, setEnabled: setBetaPlayer, setStreamCacheTtl } = useBetaPlayer();
   const [cfg, setCfg] = useState<PlexConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -232,6 +232,20 @@ export function PlexSettings() {
           </div>
           <Toggle on={betaPlayer} onChange={() => setBetaPlayer(!betaPlayer)} disabled={!cfg.connected} />
         </div>
+        {betaPlayer && (
+          <div className="mt-3 flex items-center gap-2">
+            <label className="text-xs text-ink-dim">Cache segment :</label>
+            <input
+              type="number"
+              min={0}
+              max={86400}
+              value={streamCacheTtl}
+              onChange={(e) => setStreamCacheTtl(parseInt(e.target.value) || 0)}
+              className="h-8 w-20 rounded-lg border border-white/8 bg-black/30 px-2 text-xs text-ink outline-none focus:border-brand/40"
+            />
+            <span className="text-xs text-ink-dim">secondes (0 = pas de cache)</span>
+          </div>
+        )}
       </div>
     </div>
   );

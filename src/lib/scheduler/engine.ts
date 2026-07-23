@@ -1,7 +1,13 @@
 import { TASKS } from "./tasks";
-import { getTaskRun, recordTaskRun } from "./state";
+import { getTaskRun, recordTaskRun, getTaskConfig } from "./state";
 import { enqueueJob, isSourceActive } from "@/lib/jobs/queue";
 import type { JobType } from "@/lib/jobs/types";
+
+/** Effective interval for a task — persisted override or hardcoded default. */
+export function getEffectiveInterval(id: string, defaultMs: number): number {
+  const cfg = getTaskConfig(id);
+  return cfg.intervalMs ?? defaultMs;
+}
 
 export interface TaskStatus {
   id: string;
@@ -15,13 +21,14 @@ export interface TaskStatus {
 export function listTaskStatus(): TaskStatus[] {
   return TASKS.map((t) => {
     const run = getTaskRun(t.id);
+    const intervalMs = getEffectiveInterval(t.id, t.intervalMs);
     return {
       id: t.id,
       name: t.name,
-      intervalMs: t.intervalMs,
+      intervalMs,
       lastRunAt: run.lastRunAt,
       lastDurationMs: run.lastDurationMs,
-      nextRunAt: run.lastRunAt != null ? run.lastRunAt + t.intervalMs : null,
+      nextRunAt: run.lastRunAt != null ? run.lastRunAt + intervalMs : null,
     };
   });
 }
@@ -58,6 +65,7 @@ const TASK_JOB_TYPE: Record<string, JobType> = {
   "rss-indexer-scan": "rssScan",
   "download-state-reconcile": "reconcile",
   "anime-vf-calendar-refresh": "metadataRefresh",
+  "seerr-import": "seerrImport",
 };
 
 const TICK_MS = 30_000;
@@ -78,7 +86,8 @@ function tick() {
   for (const task of TASKS) {
     if (isSourceActive(task.id)) continue;
     const run = getTaskRun(task.id);
-    const dueAt = run.lastRunAt == null ? 0 : run.lastRunAt + task.intervalMs;
+    const intervalMs = getEffectiveInterval(task.id, task.intervalMs);
+    const dueAt = run.lastRunAt == null ? 0 : run.lastRunAt + intervalMs;
     if (now < dueAt) continue;
     const type = TASK_JOB_TYPE[task.id] ?? "maintenance";
     enqueueJob(type, task.name, 1, async (setProgress) => {

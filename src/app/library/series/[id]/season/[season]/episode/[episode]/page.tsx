@@ -122,6 +122,7 @@ export default function EpisodeDetailPage({
           plexUrl={ep.plexUrl}
           title={ep.title}
           onClose={() => setPlayRatingKey(null)}
+          useTranscode={betaPlayer}
         />
       )}
     </div>

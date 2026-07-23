@@ -227,6 +227,7 @@ export function LibraryMovieCard({
           plexUrl={movie.plexUrl}
           title={movie.title}
           onClose={() => setPlayRatingKey(null)}
+          useTranscode={betaPlayer}
         />
       )}
     </article>

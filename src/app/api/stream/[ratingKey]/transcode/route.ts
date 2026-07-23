@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
+import { getStreamCacheTtl } from "@/lib/settings/betaPlayer";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +57,8 @@ export async function GET(req: NextRequest, context: Ctx) {
 
     const raw = await m3u8Res.text();
     const proxyBase = `/api/stream/plex-proxy`;
+    const cacheTtl = getStreamCacheTtl();
+
     const rewritten = raw.replace(
       /(https?:\/\/[^\/]+)?(\/playlists\/[^\s"']*)/g,
       (_match, _host, path) => `${proxyBase}${path}`
@@ -64,7 +67,7 @@ export async function GET(req: NextRequest, context: Ctx) {
     return new NextResponse(rewritten, {
       headers: {
         "content-type": "application/vnd.apple.mpegurl",
-        "cache-control": "private, no-store",
+        "cache-control": cacheTtl > 0 ? `public, max-age=${cacheTtl}` : "private, no-store",
         "access-control-allow-origin": "*",
       },
     });

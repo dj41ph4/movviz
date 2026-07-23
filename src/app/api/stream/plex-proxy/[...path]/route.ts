@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { loadPlexConfig } from "@/lib/plex/store";
+import { getStreamCacheTtl } from "@/lib/settings/betaPlayer";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -26,6 +27,9 @@ export async function GET(req: NextRequest, context: Ctx) {
     const range = req.headers.get("range");
     if (range) plexHeaders["range"] = range;
 
+    const cacheTtl = getStreamCacheTtl();
+    const cacheControl = cacheTtl > 0 ? `private, max-age=${cacheTtl}` : "private, no-store";
+
     const plexRes = await fetch(plexUrl, {
       headers: plexHeaders,
       cache: "no-store",
@@ -49,7 +53,7 @@ export async function GET(req: NextRequest, context: Ctx) {
       return new NextResponse(rewritten, {
         headers: {
           "content-type": contentType,
-          "cache-control": "private, no-store",
+          "cache-control": cacheControl,
           "access-control-allow-origin": "*",
         },
       });
@@ -57,7 +61,7 @@ export async function GET(req: NextRequest, context: Ctx) {
 
     const resHeaders: Record<string, string> = {
       "content-type": contentType,
-      "cache-control": "private, no-store",
+      "cache-control": cacheControl,
       "access-control-allow-origin": "*",
     };
     for (const h of ["content-length", "content-range", "accept-ranges"] as const) {

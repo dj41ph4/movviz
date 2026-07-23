@@ -829,6 +829,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
           plexUrl={libraryMatch.plexUrl}
           title={detail?.title ?? ""}
           onClose={() => setPlayRatingKey(null)}
+          useTranscode={betaPlayer}
         />
       )}
     </div>

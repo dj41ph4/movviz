@@ -2,6 +2,21 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.2.7] — 2026-07-23
+
+### Ajouté
+
+- **Import automatique depuis Overseerr/Seerr** : nouvelle tâche planifiée toutes les 1 min qui importe les demandes sans doublon
+- **Intervalles des tâches configurables** : chaque tâche peut être réglée en jours/heures/minutes depuis l'UI
+- **Cache vidéo configurable** : durée de cache des segments vidéo réglable dans les réglages Plex (0 = pas de cache, défaut 300s)
+
+### Corrigé
+
+- **Son absent en lecture directe** : quand le codec audio n'est pas supporté par le navigateur, le lecteur bascule automatiquement sur le flux transcodé (h264+aac) qui fonctionne partout
+- **Sync-all bloqué** : le endpoint sync-all n'avait pas de timeout → bloquait le frontend indéfiniment
+- **Stream sans range requests** : les proxys vidéo ne transmettaient pas l'en-tête `Range` → impossible de seek, téléchargement complet avant lecture
+- **TVDB anime — titres en japonais** : le client TVDB ne passait pas de langue à l'API → les titres revenaient en japonais pour les anime. Ajout du header `Accept-Language` avec la langue configurée (fr par défaut).
+
 ## [1.2.6] — 2026-07-23
 
 ### Corrigé

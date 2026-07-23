@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
+import { getStreamCacheTtl } from "@/lib/settings/betaPlayer";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,8 @@ export async function GET(req: NextRequest, context: Ctx) {
     const range = req.headers.get("range");
     if (range) plexHeaders["range"] = range;
 
+    const cacheTtl = getStreamCacheTtl();
+
     const streamRes = await fetch(streamUrl, {
       headers: plexHeaders,
       cache: "no-store",
@@ -61,7 +64,7 @@ export async function GET(req: NextRequest, context: Ctx) {
 
     const resHeaders: Record<string, string> = {
       "content-type": streamRes.headers.get("content-type") || "video/mp4",
-      "cache-control": "private, no-store",
+      "cache-control": cacheTtl > 0 ? `private, max-age=${cacheTtl}` : "private, no-store",
     };
     for (const h of ["content-length", "content-range", "accept-ranges"] as const) {
       const v = streamRes.headers.get(h);

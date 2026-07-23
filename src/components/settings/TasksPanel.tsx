@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useT } from "@/i18n/provider";
 import { relativeTime } from "@/lib/utils";
 import { useJobRunning } from "@/lib/jobs/useJobRunning";
-import { RotateCw, Loader2 } from "lucide-react";
+import { RotateCw, Loader2, Pencil, Check, X } from "lucide-react";
 
 interface TaskStatus {
   id: string;
@@ -16,10 +16,26 @@ interface TaskStatus {
 }
 
 function formatInterval(ms: number) {
-  const hours = ms / 3_600_000;
-  if (hours >= 24 && hours % 24 === 0) return `${hours / 24} j`;
-  if (hours >= 1) return `${hours} h`;
-  return `${Math.round(ms / 60_000)} min`;
+  const d = Math.floor(ms / 86400000);
+  const h = Math.floor((ms % 86400000) / 3600000);
+  const m = Math.round((ms % 3600000) / 60000);
+  const parts: string[] = [];
+  if (d > 0) parts.push(`${d}j`);
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0 || parts.length === 0) parts.push(`${m}min`);
+  return parts.join(" ");
+}
+
+function parseInterval(d: number, h: number, m: number): number {
+  return (d * 86400000) + (h * 3600000) + (m * 60000);
+}
+
+function splitInterval(ms: number) {
+  return {
+    days: Math.floor(ms / 86400000),
+    hours: Math.floor((ms % 86400000) / 3600000),
+    minutes: Math.round((ms % 3600000) / 60000),
+  };
 }
 
 function formatDuration(ms: number | null) {
@@ -28,11 +44,10 @@ function formatDuration(ms: number | null) {
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
-/** relativeTime() only speaks "ago" — nextRunAt is in the future, so it needs its own "in X" phrasing. */
 function formatFuture(ts: number): string | null {
   const diff = ts - Date.now();
   const min = Math.round(diff / 60000);
-  if (min < 1) return null; // due now
+  if (min < 1) return null;
   if (min < 60) return `${min}m`;
   const hr = Math.round(min / 60);
   if (hr < 24) return `${hr}h`;
@@ -43,29 +58,38 @@ export function TasksPanel() {
   const t = useT();
   const [tasks, setTasks] = useState<TaskStatus[]>([]);
   const [running, setRunning] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
 
-  const load = () =>
+  const load = useCallback(() =>
     fetch("/api/tasks", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setTasks(d.tasks ?? []));
+      .then((d) => d && setTasks(d.tasks ?? [])),
+  []);
 
   useEffect(() => {
     load();
     const id = setInterval(load, 15000);
     return () => clearInterval(id);
-  }, []);
+  }, [load]);
 
   const run = async (id: string) => {
     setRunning(id);
     try {
-      // Just enqueues and returns — the task runs as a background job, so
-      // there's nothing to await beyond that. TaskRow's own job-queue-backed
-      // spinner (see useJobRunning) is what actually reflects it running.
       await fetch(`/api/tasks/${id}/run`, { method: "POST" });
       await load();
     } finally {
       setRunning(null);
     }
+  };
+
+  const saveInterval = async (id: string, intervalMs: number | null) => {
+    await fetch("/api/tasks", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tasks: [{ id, intervalMs }] }),
+    });
+    setEditing(null);
+    await load();
   };
 
   return (
@@ -83,7 +107,22 @@ export function TasksPanel() {
         </thead>
         <tbody>
           {tasks.map((task) => (
-            <TaskRow key={task.id} task={task} localRunning={running === task.id} onRun={() => run(task.id)} />
+            editing === task.id ? (
+              <EditRow
+                key={task.id}
+                task={task}
+                onSave={(ms) => saveInterval(task.id, ms)}
+                onCancel={() => setEditing(null)}
+              />
+            ) : (
+              <TaskRow
+                key={task.id}
+                task={task}
+                localRunning={running === task.id}
+                onRun={() => run(task.id)}
+                onEdit={() => setEditing(task.id)}
+              />
+            )
           ))}
         </tbody>
       </table>
@@ -91,12 +130,46 @@ export function TasksPanel() {
   );
 }
 
-function TaskRow({ task, localRunning, onRun }: { task: TaskStatus; localRunning: boolean; onRun: () => void }) {
+function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: number | null) => void; onCancel: () => void }) {
   const t = useT();
-  // The click already sets localRunning instantly, but that resets the
-  // moment this panel unmounts — useJobRunning reflects the real job-queue
-  // state instead, so the spinner still shows correctly if you leave
-  // Réglages and come back while the task is still running.
+  const split = splitInterval(task.intervalMs);
+  const [d, setD] = useState(split.days);
+  const [h, setH] = useState(split.hours);
+  const [m, setM] = useState(split.minutes);
+
+  return (
+    <tr className="border-b border-white/5 last:border-0">
+      <td className="px-4 py-3 font-semibold text-ink">{t("scheduler.task." + task.id)}</td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-1.5">
+          <input value={d} onChange={(e) => setD(Math.max(0, parseInt(e.target.value) || 0))} className="h-7 w-12 rounded-lg border border-white/8 bg-black/30 px-1.5 text-center text-xs text-ink outline-none" />
+          <span className="text-xs text-ink-dim">j</span>
+          <input value={h} onChange={(e) => setH(Math.max(0, Math.min(23, parseInt(e.target.value) || 0)))} className="h-7 w-12 rounded-lg border border-white/8 bg-black/30 px-1.5 text-center text-xs text-ink outline-none" />
+          <span className="text-xs text-ink-dim">h</span>
+          <input value={m} onChange={(e) => setM(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))} className="h-7 w-12 rounded-lg border border-white/8 bg-black/30 px-1.5 text-center text-xs text-ink outline-none" />
+          <span className="text-xs text-ink-dim">min</span>
+        </div>
+      </td>
+      <td className="px-4 py-3 text-ink-dim" colSpan={2}>
+        <p className="text-xs text-ink-dim">{formatInterval(parseInterval(d, h, m))}</p>
+      </td>
+      <td className="px-4 py-3 text-ink-dim" />
+      <td className="px-4 py-3 text-right">
+        <div className="flex items-center justify-end gap-1">
+          <button onClick={() => onSave(parseInterval(d, h, m))} className="flex h-7 w-7 items-center justify-center rounded-lg text-ok hover:bg-white/10">
+            <Check className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={onCancel} className="flex h-7 w-7 items-center justify-center rounded-lg text-red hover:bg-white/10">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function TaskRow({ task, localRunning, onRun, onEdit }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onEdit: () => void }) {
+  const t = useT();
   const jobRunning = useJobRunning(task.id);
   const running = localRunning || jobRunning;
   return (
@@ -116,13 +189,21 @@ function TaskRow({ task, localRunning, onRun }: { task: TaskStatus; localRunning
           : "—"}
       </td>
       <td className="px-4 py-3 text-right">
-        <button
-          onClick={onRun}
-          disabled={running}
-          className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-brand-glow disabled:opacity-50"
-        >
-          {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
-        </button>
+        <div className="flex items-center justify-end gap-1">
+          <button
+            onClick={onEdit}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:bg-white/10 hover:text-ink"
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={onRun}
+            disabled={running}
+            className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-brand-glow disabled:opacity-50"
+          >
+            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+          </button>
+        </div>
       </td>
     </tr>
   );

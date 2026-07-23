@@ -11,9 +11,11 @@ interface VideoPlayerProps {
   plexUrl: string;
   title: string;
   onClose: () => void;
+  /** Utiliser le flux transcodé HLS dès le départ (contourne les problèmes de codec audio/vidéo). */
+  useTranscode?: boolean;
 }
 
-export function VideoPlayer({ ratingKey, plexUrl, title, onClose }: VideoPlayerProps) {
+export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }: VideoPlayerProps) {
   const t = useT();
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -25,10 +27,9 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose }: VideoPlayerP
     const el = videoRef.current;
     if (!el) return;
 
-    const directUrl = `/api/stream/${ratingKey}`;
     const hlsUrl = `/api/stream/${ratingKey}/transcode`;
 
-    const fallbackHls = () => {
+    const startHls = () => {
       setUsingFallback(true);
       if (Hls.isSupported()) {
         const hls = new Hls();
@@ -45,21 +46,24 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose }: VideoPlayerP
       }
     };
 
-    const onError = () => {
-      if (!hlsRef.current) fallbackHls();
-    };
-
-    el.addEventListener("error", onError);
-    el.src = directUrl;
+    if (useTranscode) {
+      startHls();
+    } else {
+      const directUrl = `/api/stream/${ratingKey}`;
+      const onError = () => {
+        if (!hlsRef.current) startHls();
+      };
+      el.addEventListener("error", onError);
+      el.src = directUrl;
+    }
 
     return () => {
-      el.removeEventListener("error", onError);
       if (hlsRef.current) {
         hlsRef.current.destroy();
         hlsRef.current = null;
       }
     };
-  }, [ratingKey, t]);
+  }, [ratingKey, t, useTranscode]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
