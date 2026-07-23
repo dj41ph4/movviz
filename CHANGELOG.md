@@ -2,6 +2,12 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.2.5] — 2026-07-23
+
+### Corrigé
+
+- **TVDB anime — titres en japonais** : le client TVDB ne passait pas de langue à l'API → les titres revenaient en japonais pour les anime. Ajout du header `Accept-Language` avec la langue configurée (fr par défaut).
+
 ## [1.2.2] — 2026-07-23
 
 ### Ajouté

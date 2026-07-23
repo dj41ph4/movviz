@@ -45,9 +45,10 @@ async function getToken(): Promise<string | null> {
 async function tvdbGet<T>(path: string): Promise<T | null> {
   const token = await getToken();
   if (!token) return null;
+  const lang = loadTvdbConfig().language || "fr";
   try {
     const res = await fetch(`${BASE}${path}`, {
-      headers: { authorization: `Bearer ${token}`, accept: "application/json" },
+      headers: { authorization: `Bearer ${token}`, accept: "application/json", "accept-language": lang },
       cache: "no-store",
     });
     if (!res.ok) return null;

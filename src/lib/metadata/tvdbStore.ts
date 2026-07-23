@@ -11,9 +11,11 @@ const FILE = path.join(CONFIG_DIR, "tvdb.json");
 interface TvdbConfig {
   apiKey: string | null;
   useForAnime: boolean;
+  /** Langue des titres retournés par TVDB (code ISO 639-1, ex: "fr", "en", "ja"). */
+  language: string;
 }
 
-const DEFAULT: TvdbConfig = { apiKey: null, useForAnime: true };
+const DEFAULT: TvdbConfig = { apiKey: null, useForAnime: true, language: "fr" };
 
 export function loadTvdbConfig(): TvdbConfig {
   return { ...DEFAULT, ...readJsonCached<Partial<TvdbConfig>>(FILE, {}) };

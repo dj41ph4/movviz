@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   const admin = requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const cfg = loadTvdbConfig();
-  return NextResponse.json({ configured: tvdbConfigured(), hasStoredKey: !!cfg.apiKey, useForAnime: cfg.useForAnime });
+  return NextResponse.json({ configured: tvdbConfigured(), hasStoredKey: !!cfg.apiKey, useForAnime: cfg.useForAnime, language: cfg.language });
 }
 
 export async function PUT(req: NextRequest) {
@@ -18,6 +18,7 @@ export async function PUT(req: NextRequest) {
   const body = await req.json();
   const cfg = loadTvdbConfig();
   saveTvdbConfig({
+    ...cfg,
     apiKey: "apiKey" in body ? String(body.apiKey || "").trim() || null : cfg.apiKey,
     useForAnime: "useForAnime" in body ? !!body.useForAnime : cfg.useForAnime,
   });
