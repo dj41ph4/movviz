@@ -55,12 +55,12 @@
   --aurora-grid-line: rgba(255, 255, 255, 0.6);
 }
 :root[data-theme="light"] {
-  --aurora-wash-from: #eef0fb;
-  --aurora-wash-to: #f3f4fa;
-  --aurora-blob-1-opacity: 0.35;
-  --aurora-blob-2-opacity: 0.3;
-  --aurora-blob-3-opacity: 0.25;
-  --aurora-grid-line: rgba(20, 24, 50, 0.35);
+  --aurora-wash-from: #e0e3f0;
+  --aurora-wash-to: #e8eaf2;
+  --aurora-blob-1-opacity: 0.25;
+  --aurora-blob-2-opacity: 0.2;
+  --aurora-blob-3-opacity: 0.15;
+  --aurora-grid-line: rgba(20, 24, 50, 0.4);
 }
 
 @keyframes shimmer {
@@ -110,32 +110,33 @@
  * THEME_INIT_SCRIPT for the pre-hydration value that avoids a flash.
  */
 :root[data-theme="light"] {
-  --color-void: #f3f4fa;
-  --color-abyss: #e9ebf7;
+  --color-void: #e8eaf2;
+  --color-abyss: #d8dce8;
   --color-surface: #ffffff;
-  --color-surface-2: #f2f3fb;
-  --color-line: #e0e3f2;
+  --color-surface-2: #f0f2f8;
+  --color-line: #c5c9d8;
 
-  --color-ink: #171a2c;
-  --color-ink-soft: #4d5170;
-  --color-ink-dim: #8388a8;
+  --color-ink: #111827;
+  --color-ink-soft: #374151;
+  --color-ink-dim: #6b7280;
 
-  --color-brand: #6a3df5;
-  --color-brand-2: #a83bef;
-  --color-brand-glow: #8a5cf0;
-  --color-cyan: #0aa8c9;
-  --color-magenta: #d62bb0;
-  --color-lime: #4f9e1f;
-  --color-amber: #c97a12;
+  --color-brand: #5b21b6;
+  --color-brand-2: #9333ea;
+  --color-brand-glow: #7c3aed;
+  --color-cyan: #0891b2;
+  --color-magenta: #be185d;
+  --color-lime: #3f6212;
+  --color-amber: #b45309;
 
-  --color-ok: #0f9d67;
-  --color-warn: #b56a08;
-  --color-down: #d63753;
+  --color-ok: #047857;
+  --color-warn: #b45309;
+  --color-down: #be123c;
 }
 
 :root[data-theme="light"] .glass,
 :root[data-theme="light"] .glass-strong {
-  border-color: color-mix(in oklab, #000 8%, transparent);
+  border-color: color-mix(in oklab, #000 12%, transparent);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.06);
 }
 
 :root[data-theme="light"] ::selection {
@@ -154,17 +155,17 @@
  * left alone since they sit on photos, not page background, in both themes.
  */
 :root[data-theme="light"] {
-  --hairline-a: color-mix(in oklab, #000 7%, transparent);
-  --hairline-b: color-mix(in oklab, #000 10%, transparent);
-  --hairline-c: color-mix(in oklab, #000 12%, transparent);
-  --hairline-d: color-mix(in oklab, #000 14%, transparent);
-  --hairline-e: color-mix(in oklab, #000 16%, transparent);
-  --hairline-f: color-mix(in oklab, #000 20%, transparent);
-  --recess-a: color-mix(in oklab, #000 3%, transparent);
-  --recess-b: color-mix(in oklab, #000 5%, transparent);
-  --fill-a: color-mix(in oklab, #000 4%, transparent);
-  --fill-b: color-mix(in oklab, #000 6%, transparent);
-  --fill-c: color-mix(in oklab, #000 8%, transparent);
+  --hairline-a: color-mix(in oklab, #000 10%, transparent);
+  --hairline-b: color-mix(in oklab, #000 14%, transparent);
+  --hairline-c: color-mix(in oklab, #000 18%, transparent);
+  --hairline-d: color-mix(in oklab, #000 22%, transparent);
+  --hairline-e: color-mix(in oklab, #000 26%, transparent);
+  --hairline-f: color-mix(in oklab, #000 32%, transparent);
+  --recess-a: color-mix(in oklab, #000 5%, transparent);
+  --recess-b: color-mix(in oklab, #000 8%, transparent);
+  --fill-a: color-mix(in oklab, #000 6%, transparent);
+  --fill-b: color-mix(in oklab, #000 10%, transparent);
+  --fill-c: color-mix(in oklab, #000 14%, transparent);
 }
 :root[data-theme="light"] .border-white\/5 { border-color: var(--hairline-a); }
 :root[data-theme="light"] .border-white\/8 { border-color: var(--hairline-b); }
