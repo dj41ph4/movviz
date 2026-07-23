@@ -23,7 +23,11 @@ jobs:
 
       - name: Install Inno Setup 6
         run: |
-          choco install innosetup --no-progress --version=6.3.3
+          if (Get-Command "ISCC.exe" -ErrorAction SilentlyContinue) {
+            Write-Host "Inno Setup déjà installé"
+          } else {
+            choco install innosetup --no-progress --allow-downgrade
+          }
           echo "ISCC_DIR=C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Install dependencies
