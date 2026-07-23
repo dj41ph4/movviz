@@ -1,24 +1,15 @@
 name: Publication de l'image Docker
 
+# Construit packaging/docker/Dockerfile et la publie sur Docker Hub à chaque
+# mise à jour de main - l'image récupérée par le NAS reste synchronisée
+# avec le dépôt automatiquement, sans étape manuelle.
 on:
   push:
     branches: [main]
 
-env:
-  REGISTRY_IMAGE: ${{ secrets.DOCKERHUB_USERNAME }}/movviz
-
 jobs:
-  build:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux/amd64
-            runner: ubuntu-latest
-          - platform: linux/arm64
-            runner: ubuntu-24.04-arm
-
-    runs-on: ${{ matrix.runner }}
+  build-and-push:
+    runs-on: ubuntu-latest
     steps:
       - name: Récupération du dépôt
         uses: actions/checkout@v4
@@ -29,6 +20,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Configuration de QEMU pour multi-arch
+        uses: docker/setup-qemu-action@v3
+
       - name: Configuration de Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -36,46 +30,20 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY_IMAGE }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/movviz
           tags: |
-            type=sha,format=short,prefix=,suffix=${{ matrix.platform == 'linux/amd64' && '-amd64' || '-arm64' }}
-            type=raw,value=latest${{ matrix.platform == 'linux/amd64' && '-amd64' || '-arm64' }}
+            type=raw,value=latest
+            type=sha,format=short
 
-      - name: Construction et publication
+      - name: Construction et publication (multi-arch)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: packaging/docker/Dockerfile
-          platforms: ${{ matrix.platform }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: false
-
-  merge:
-    needs: [build]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Connexion à Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Récupération du SHA court
-        id: sha
-        run: echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-
-      - name: Création du manifest multi-arch (latest)
-        run: |
-          docker buildx imagetools create -t ${{ env.REGISTRY_IMAGE }}:latest \
-            ${{ env.REGISTRY_IMAGE }}:latest-amd64 \
-            ${{ env.REGISTRY_IMAGE }}:latest-arm64
-
-      - name: Création du manifest multi-arch (sha)
-        run: |
-          docker buildx imagetools create -t ${{ env.REGISTRY_IMAGE }}:${{ steps.sha.outputs.short_sha }} \
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.sha.outputs.short_sha }}-amd64 \
-            ${{ env.REGISTRY_IMAGE }}:${{ steps.sha.outputs.short_sha }}-arm64
