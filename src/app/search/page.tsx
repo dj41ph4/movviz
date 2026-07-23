@@ -14,6 +14,53 @@ import {
   Search, Zap, Magnet, Server, Download, Loader2, Settings, Film, Tv, Check, ListFilter, X, AlertTriangle,
 } from "lucide-react";
 
+/** Extract the season number from a search query (e.g. "South Park S29" → 29, "South Park Season 29" → 29). */
+function extractSearchSeason(query: string): number | null {
+  const m = query.match(/\bS(?:eason)?\.?\s*(\d{1,3})\b/i);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+/** Regex matching season references in release titles: S01, S01-S13, Saison 1, Seasons 1-13, etc. */
+const SEASON_REF_RE = /\bS(?:easons?|aison)?\.?\s?0?(\d{1,3})(?:\s*[-–toà]+\s*S?(?:aison)?\.?\s?0?(\d{1,3}))?\b/gi;
+
+/**
+ * Render a release title with season references highlighted.
+ * - Matching season → green highlight
+ * - Non-matching season → amber highlight
+ * - No season in query → no highlighting
+ */
+function HighlightSeasonTitle({ title, targetSeason }: { title: string; targetSeason: number | null }) {
+  if (targetSeason == null) {
+    return <>{title}</>;
+  }
+
+  const parts: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+
+  SEASON_REF_RE.lastIndex = 0;
+  while ((m = SEASON_REF_RE.exec(title)) !== null) {
+    if (m.index > lastIndex) {
+      parts.push(<span key={`t-${lastIndex}`}>{title.slice(lastIndex, m.index)}</span>);
+    }
+    const lo = parseInt(m[1], 10);
+    const hi = m[2] ? parseInt(m[2], 10) : lo;
+    const covers = targetSeason >= lo && targetSeason <= hi;
+    const isExact = lo === hi && lo === targetSeason;
+    const cls = isExact
+      ? "font-bold text-ok bg-ok/15 rounded px-0.5"
+      : covers
+        ? "font-bold text-ok/80 bg-ok/10 rounded px-0.5"
+        : "font-bold text-amber bg-amber/15 rounded px-0.5";
+    parts.push(<span key={`s-${m.index}`} className={cls}>{m[0]}</span>);
+    lastIndex = m.index + m[0].length;
+  }
+  if (lastIndex < title.length) {
+    parts.push(<span key={`e-${lastIndex}`}>{title.slice(lastIndex)}</span>);
+  }
+  return <>{parts}</>;
+}
+
 export default function SearchPage() {
   return (
     <Suspense fallback={null}>
@@ -272,7 +319,7 @@ function SearchPageInner() {
                   {r.protocol === "torrent" ? <Magnet className="h-4 w-4" /> : <Server className="h-4 w-4" />}
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate font-mono text-sm text-ink">{r.title}</p>
+                  <p className="truncate font-mono text-sm text-ink"><HighlightSeasonTitle title={r.title} targetSeason={extractSearchSeason(q)} /></p>
                   <p className="text-[11px] text-ink-dim">
                     {t("search.score").toLowerCase()}{" "}
                     <span className={cn("font-bold", r.score >= 90 ? "text-ok" : r.score >= 75 ? "text-amber" : "text-ink-soft")}>{r.score}</span>

@@ -861,7 +861,20 @@ const COMPLETE_SERIES_TERMS_RE = new RegExp(
   `\\b(${COMPLETE_SERIES_TERMS.map((t) => t.replace(/\s+/g, "[.\\s]+")).join("|")})\\b`,
   "i"
 );
-const SEASON_RANGE_RE = /\bS(?:easons?)?\.?\s?0?(\d{1,3})\s*[-–to]+\s*S?0?(\d{1,3})\b/i;
+const SEASON_RANGE_RE = /\bS(?:easons?|aison)?\.?\s?0?(\d{1,3})\s*[-–toà]+\s*S?(?:aison)?\.?\s?0?(\d{1,3})\b/i;
+
+/**
+ * Extract the season range from a release title (e.g. "S01 à S28" → {lo: 1, hi: 28}).
+ * Returns null if no season range is found.
+ */
+function extractSeasonRange(rawTitle: string): { lo: number; hi: number } | null {
+  const range = rawTitle.match(SEASON_RANGE_RE);
+  if (!range) return null;
+  const lo = parseInt(range[1], 10);
+  const hi = parseInt(range[2], 10);
+  if (hi <= lo) return null;
+  return { lo, hi };
+}
 
 /**
  * A release found by title alone can be anything matching that title — a
@@ -871,17 +884,37 @@ const SEASON_RANGE_RE = /\bS(?:easons?)?\.?\s?0?(\d{1,3})\s*[-–to]+\s*S?0?(\d{
  * season 6 episode can win as "the complete series pack" and get grabbed to
  * cover a completely different season's missing episode — confirmed live:
  * American Horror Story's S13E01 target got matched to, and downloaded as,
- * a plain "American.Horror.Story.S06...” release. Requires either an
+ * a plain "American.Horror.Story.S06..." release. Requires either an
  * explicit pack marker ("Complete", "Intégrale"...) or a season range
  * ("S01-S13") covering essentially the whole show.
+ *
+ * When targetSeasons is provided, the pack must also cover at least one of
+ * the requested seasons — prevents "Intégrale S01-S28" from being grabbed
+ * for a Season 29 search (the range doesn't include S29).
  */
-function isCompleteSeriesPackTitle(rawTitle: string, seasonCount: number): boolean {
-  if (COMPLETE_SERIES_TERMS_RE.test(rawTitle)) return true;
-  const range = rawTitle.match(SEASON_RANGE_RE);
-  if (!range) return false;
-  const lo = parseInt(range[1], 10);
-  const hi = parseInt(range[2], 10);
-  return hi > lo && hi - lo + 1 >= Math.max(2, seasonCount - 1);
+function isCompleteSeriesPackTitle(rawTitle: string, seasonCount: number, targetSeasons?: number[]): boolean {
+  const range = extractSeasonRange(rawTitle);
+  const hasTerm = COMPLETE_SERIES_TERMS_RE.test(rawTitle);
+
+  if (!hasTerm && !range) return false;
+
+  // If there's a season range, it must cover most of the show
+  if (range) {
+    const coversShow = range.hi > range.lo && range.hi - range.lo + 1 >= Math.max(2, seasonCount - 1);
+    if (!coversShow) return false;
+  }
+
+  // If target seasons are specified, the pack must cover at least one of them
+  if (targetSeasons && targetSeasons.length > 0) {
+    if (!range) {
+      // Pack detected by term only (e.g. "Intégrale") with no season range —
+      // can't verify coverage, so allow it (the term implies completeness)
+      return true;
+    }
+    return targetSeasons.some((s) => s >= range.lo && s <= range.hi);
+  }
+
+  return true;
 }
 
 /**
@@ -893,6 +926,7 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
   const seasonCount = series.seasons.filter((s) => s.seasonNumber > 0 && s.monitored).length;
   const targets = collectMissingTargets(series);
   if (targets.length === 0) return null;
+  const targetSeasons = [...new Set(targets.map((t) => t.season))];
 
   const t0 = performance.now();
   const releases = searchFromCache(TV_CATEGORY_IDS);
@@ -903,7 +937,7 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
   const candidates = releases
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-    .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount))
+    .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons))
     .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
     .filter(({ release }) => release.score >= profile.minScore)
     .filter(({ release }) => withinSizeLimit(release.size, "series"))
@@ -941,7 +975,7 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
     const directCandidates = directReleases
       .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
       .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-      .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount))
+      .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons))
       .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
       .filter(({ release }) => release.score >= profile.minScore)
       .filter(({ release }) => withinSizeLimit(release.size, "series"))

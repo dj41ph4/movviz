@@ -824,6 +824,8 @@ export const fr = {
     groupDownload: "Téléchargement",
     groupLibrary: "Bibliothèque",
     groupDisk: "Disque",
+    diskWarningTitle: "Opérations sur les fichiers",
+    diskWarningHint: "Ces actions modifient les fichiers sur le disque. Vérifie tes réglages et tes sauvegardes avant de continuer.",
     groupNotifications: "Notifications",
     notificationsHint: "Discord, Telegram, Gotify, Slack, Pushbullet — configure les transports qui recevront les notifications push.",
     groupSystem: "Système",

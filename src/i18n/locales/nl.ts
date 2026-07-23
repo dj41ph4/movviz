@@ -827,6 +827,8 @@ export const nl: Dictionary = {
     groupDownload: "Download",
     groupLibrary: "Bibliotheek",
     groupDisk: "Schijf",
+    diskWarningTitle: "Bestandsbewerkingen",
+    diskWarningHint: "Deze acties wijzigen bestanden op de schijf. Controleer je instellingen en back-ups voordat je doorgaat.",
     groupNotifications: "Meldingen",
     notificationsHint: "Discord, Telegram, Gotify, Slack, Pushbullet — configureer welke kanalen pushmeldingen ontvangen.",
     groupSystem: "Systeem",

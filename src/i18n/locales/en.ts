@@ -827,6 +827,8 @@ export const en: Dictionary = {
     groupDownload: "Download",
     groupLibrary: "Library",
     groupDisk: "Disk",
+    diskWarningTitle: "File operations",
+    diskWarningHint: "These actions modify files on disk. Double-check your settings and backups before proceeding.",
     groupNotifications: "Notifications",
     notificationsHint: "Discord, Telegram, Gotify, Slack, Pushbullet — configure which transports receive push notifications.",
     groupSystem: "System",

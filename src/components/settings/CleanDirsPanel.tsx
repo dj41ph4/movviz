@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { useT } from "@/i18n/provider";
-import { FolderOpen, Loader2, Check, AlertTriangle, Trash2 } from "lucide-react";
+import { FolderOpen, Loader2, Check, AlertTriangle, Trash2, ShieldAlert } from "lucide-react";
 
 export function CleanDirsPanel() {
   const t = useT();
@@ -76,6 +76,14 @@ export function CleanDirsPanel() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
+        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
+        <div>
+          <p className="text-sm font-bold text-down">{t("settings.diskWarningTitle")}</p>
+          <p className="mt-1 text-xs text-ink-dim">{t("settings.diskWarningHint")}</p>
+        </div>
+      </div>
+
       <div className="flex items-start gap-3 rounded-2xl border border-brand/25 bg-brand/8 p-4">
         <FolderOpen className="mt-0.5 h-5 w-5 shrink-0 text-brand-glow" />
         <div className="flex-1">

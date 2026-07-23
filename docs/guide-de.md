@@ -386,7 +386,7 @@ Du kannst Titel von jeder Titeldetailseite über den Lesezeichen-Button zu deine
 
 ## 14. Einstellungen (/settings)
 
-Die Einstellungen sind in Gruppen organisiert mit einer einklappbaren Seitenleiste auf dem Desktop und einer unteren Navigation auf Mobilgeräten. Alle Einstellungs-Tabs (außer Info) sind nur für Administratoren zugänglich.
+Die Einstellungen sind in 5 Gruppen organisiert mit einer einklappbaren Seitenleiste auf dem Desktop und einer unteren Navigation auf Mobilgeräten. Alle Einstellungs-Tabs (außer Info) sind nur für Administratoren zugänglich.
 
 ### 14.1. Download
 
@@ -435,21 +435,12 @@ Jeder Indexer zeigt:
 
 **Löser-URL:** Konfiguriere die FlareSolverr-URL (Standard: `http://localhost:9830`), die vom Cloudflare-Löser verwendet wird.
 
-**Release-Profile (Profile):** Bewertungs- und Filterregeln für Releases.
+**Qualität:** Bewertungs- und Filterregeln für Releases, die Release-Profile und benutzerdefinierte Formate in einem Tab vereint.
 
-- **Blockierte Wörter** — Eine Liste von Wörtern, die, wenn sie in einem Release-Titel vorkommen, zur Ablehnung der Release führen. Füge Wörter einzeln hinzu; entferne sie mit der X-Taste.
-- **Maximale Größe** — Maximal zulässige Größe für Filme (GB), Episoden (GB) und Staffeln (GB). Releases, die diese überschreiten, werden abgelehnt.
-- **Codec-Bewertungen** — Bewertungen für Video-Codecs: x264, x265 und AV1. Höhere Bewertungen machen Releases mit diesem Codec wahrscheinlicher.
-
-**Benutzerdefinierte Formate:** Auf Regex basierende Bewertungsregeln, die auf Release-Titel angewendet werden.
-
-Jedes benutzerdefinierte Format hat:
-- **Name** — Anzeigename
-- **Punktzahl** — Positive oder negative Punktzahl
-- **Begriffe** — Durch Kommas getrennte Regex-Muster, die mit Release-Titeln abgeglichen werden
-- **Ein-/Ausschalter**
-
-Erstelle benutzerdefinierte Formate, um Releases, die bestimmten Mustern entsprechen (z. B. "HDR", "Dolby Vision", "Remux" usw.), zu priorisieren oder herabzustufen.
+- **Blockierte Wörter** — Eine Liste von Wörtern, die bei Vorhandensein im Release-Titel zur Ablehnung führen. Füge Wörter einzeln hinzu; entferne sie mit der X-Taste.
+- **Maximale Größen** — Maximal zulässige Größen für Filme (GB), Episoden (GB) und Staffeln (GB). Releases, die diese überschreiten, werden abgelehnt.
+- **Codec-Bewertungen** — Bewertungen für Video-Codecs: x264, x265 und AV1. Höhere Bewertungen erhöhen die Wahrscheinlichkeit, dass Releases mit diesem Codec ausgewählt werden.
+- **Benutzerdefinierte Formate** — Regex-basierte Bewertungsregeln, die auf Release-Titel angewendet werden. Jedes Format hat einen Namen, eine Bewertung (positiv oder negativ) und Regex-Begriffe. Erstelle sie, um Muster wie "HDR", "Dolby Vision", "Remux" usw. zu priorisieren oder zu degradieren.
 
 ### 14.2. Bibliothek
 
@@ -479,13 +470,55 @@ Erstelle benutzerdefinierte Formate, um Releases, die bestimmten Mustern entspre
 - **Plex-Profile (Benutzerzuordnung):**
   - Ordne jeden Movviz-Benutzer einem bestimmten Plex Managed User (Profil) zu, sodass der Ansehstatus den Verlauf dieses Profils widerspiegelt
 
-### 14.3. Dateien
+**Namensgebung:** Vorlagen für Datei- und Ordnernamen mit interaktivem Token-Einsatz.
 
-**Film/Serien-Indizierung:** Scanne die Hauptbibliotheksordner nach verwaisten Dateien — Multimedia-Dateien auf der Festplatte, die nicht in der Movviz-Bibliothek erfasst sind.
+Vorlagen für:
+- **Filmordner** — z.B. `{title} ({year})`
+- **Filmdatei** — z.B. `{title} ({year}) [{quality}]`
+- **Serienordner** — z.B. `{title} ({year})`
+- **Staffelordner** — z.B. `Staffel {season:00}`
+- **Episodendatei** — z.B. `{series} - S{season:00}E{episode:00} - {title}`
 
-- Wähle den zu durchsuchenden Hauptordner aus
-- Übereinstimmungen werden mit einer integrierten TMDb-Suche zum manuellen Abgleich (falls erforderlich) präsentiert
-- Import mit einem Klick, um die zugeordneten Dateien zu deiner Bibliothek hinzuzufügen
+**Interaktive Tokens:** Klicke auf ein Feld und dann auf einen Token-Button, um es an der Cursorposition einzufügen. Verfügbare Tokens: `{title}`, `{year}`, `{quality}`, `{season}`, `{episode}`, `{series}` und mehr.
+
+**Punkte oder Leerzeichen:** Wähle, ob Trennzeichen Punkte oder Leerzeichen verwenden.
+
+**Live-Vorschau:** Während du Vorlagen bearbeitest, zeigt eine Vorschau, wie die resultierenden Dateipfade für einen Beispiel-Film und eine Beispiel-Episode aussehen.
+
+**Importe:** Externe Watchlists, die synchronisiert und automatisch zur Bibliothek hinzugefügt werden können (im Tab "Importe").
+
+Unterstützte Quellen:
+- **Trakt** — Trakt-Benutzerlisten
+- **IMDb** — IMDb-Listen
+- **Letterboxd** — Letterboxd-Watchlist
+
+Für jede Liste konfigurierbar:
+- **Name** — Eine beschreibende Bezeichnung
+- **Typ** — Trakt, IMDb oder Letterboxd
+- **URL** — Die Listen-URL
+- **Automatisch genehmigen** — Wenn aktiviert, werden Elemente aus dieser Liste automatisch genehmigt
+- **Sync-Button** — Manuelles Auslösen einer Synchronisierung
+
+**Seerr-Import:** Importiere Anfragen von einer bestehenden Overseerr-Instanz.
+
+- **URL** — Deine Seerr-Server-URL
+- **API-Schlüssel** — API-Schlüssel für die Authentifizierung
+- **Test** — Verbindung überprüfen
+- **Jetzt importieren** — Importvorgang starten
+
+**Blocklist:** Titel, die niemals zur Bibliothek hinzugefügt werden sollten.
+
+- **Gesperrten Titel hinzufügen** — Suche einen Titel auf TMDb, wähle ihn aus, füge optional einen Grund hinzu und bestätige
+- **Blocklist** — Zeigt alle gesperrten Titel mit Typ, Titel, Jahr, Grund und wer sie wann gesperrt hat
+- **Entsperren** — Entferne einen Titel aus der Blocklist
+
+### 14.3. Datenträger
+
+**Indizierung:** Durchsuche die Stammordner der Bibliothek nach verwaisten Dateien — Mediendateien auf der Festplatte, die nicht in der Movviz-Bibliothek verfolgt werden. Ein einzelner Tab mit einem Film/Serien-Umschalter.
+
+- Wähle den zu durchsuchenden Stammordner aus
+- Übereinstimmungen werden mit einer integrierten TMDb-Suche für manuelles Matching angezeigt
+- Import mit einem Klick, um zugeordnete Dateien zur Bibliothek hinzuzufügen
 
 **Umbenennen:** Benenne Ordner und Dateien gemäß deinen Namensvorlagen um.
 
@@ -500,98 +533,43 @@ Einstellungen:
 - **"Leere Ordner löschen"** — Nach dem Umbenennen automatisch jetzt leere Verzeichnisse entfernen
 - **Fortschritt + Echtzeit-Protokoll** — Verfolge den Vorgang in Echtzeit
 
-**Nomenklatur:** Namensvorlagen für Dateien und Ordner mit interaktivem Token-Einfügen.
+**Wartung:** Fasst Festplattenwartungsoperationen in einem Tab zusammen.
 
-Vorlagen für:
-- **Film-Ordner** — z. B. `{title} ({year})`
-- **Film-Datei** — z. B. `{title} ({year}) [{quality}]`
-- **Serien-Ordner** — z. B. `{title} ({year})`
-- **Staffel-Ordner** — z. B. `Season {season:00}`
-- **Episoden-Datei** — z. B. `{series} - S{season:00}E{episode:00} - {title}`
+**Pfade reparieren:** Erkennt Bibliothekseinträge, deren Dateien verschoben wurden oder fehlen.
 
-**Interaktive Tokens:** Klicke auf ein Feld und dann auf einen Token-Button, um es an der Cursorposition einzufügen. Verfügbare Tokens umfassen: `{title}`, `{year}`, `{quality}`, `{season}`, `{episode}`, `{series}` und andere.
-
-**Punkte oder Leerzeichen:** Wähle, ob Trennzeichen Punkte oder Leerzeichen verwenden.
-
-**Echtzeit-Vorschau:** Während du Vorlagen bearbeitest, zeigt eine Vorschau, wie die resultierenden Dateipfade für einen Beispiel-Film und eine Beispiel-Episode aussehen werden.
-
-**Pfade reparieren:** Erkenne Bibliothekseinträge, deren Dateien verschoben wurden oder fehlen.
-
-1. **Analysieren** — Vergleiche Bibliotheksregister mit dem tatsächlichen Dateisystem
+1. **Analysieren** — Vergleiche Bibliotheksaufzeichnungen mit dem tatsächlichen Dateisystem
 2. Ergebnisse werden kategorisiert:
-   - **Sicher** — Einzigartige Übereinstimmung (automatisch ausgewählt)
-   - **Mehrdeutig** — Mögliche mehrere Übereinstimmungen (erfordert menschliche Entscheidung)
-   - **Konflikt** — Eine Datei, die mit mehreren Bibliothekseinträgen übereinstimmt
-3. **Dateibrowser** — Zur manuellen Korrektur öffne einen Dateibrowser, um zum richtigen Pfad zu navigieren und ihn auszuwählen
-4. **Anwenden** — Ausgewählte Einträge neu verknüpfen
+   - **Sicher** — Eine eindeutige Übereinstimmung (automatisch ausgewählt)
+   - **Mehrdeutig** — Mehrere mögliche Übereinstimmungen (erfordert menschliche Entscheidung)
+   - **Konflikt** — Eine Datei, die mehreren Bibliothekseinträgen entspricht
+3. **Dateibrowser** — Für manuelle Korrektur öffne einen Dateibrowser, um den richtigen Pfad zu finden
+4. **Anwenden** — Verknüpfe die ausgewählten Einträge neu
 
 Optionen:
-- **Stille automatische Neuverknüpfung** — Für Docker-Bindmounts erkennt und korrigiert Movviz Pfadänderungen automatisch und still
-- **"Leere Ordner nach Verknüpfung löschen"** — Verwaiste Verzeichnisse nach der Reparatur bereinigen
+- **Stilles automatisches Neulinken** — Für Docker-Bind-Mounts erkennt und korrigiert Movviz Pfadänderungen automatisch
+- **"Leere Ordner nach dem Neulinken entfernen"** — Bereinige verwaiste Verzeichnisse nach der Reparatur
 
-**Leere Ordner:** Scanne kon figurierte Hauptordner auf leere Verzeichnisse.
+**Leere Ordner:** Durchsuche konfigurierte Stammordner nach leeren Verzeichnissen.
 
-- Scanne rekursiv alle konfigurierten Bibliotheks-Hauptordner
-- Ignoriere häufige Systemdateien (`.DS_Store`, `Thumbs.db`, `Desktop.ini`, usw.)
-- **Löschen** — Entfernt ausgewählte leere Verzeichnisse
-- **Rekursive Bereinigung von übergeordneten Ordnern** — Nach dem Löschen werden nun ebenfalls leere übergeordnete Ordner rekursiv entfernt
+- Durchsuche rekursiv alle konfigurierten Bibliotheksstammordner
+- Ignoriert gängige Systemdateien (`.DS_Store`, `Thumbs.db`, `Desktop.ini`, usw.)
+- **Löschen** — Entferne ausgewählte leere Verzeichnisse
+- **Rekursive Elternbereinigung** — Nach dem Löschen werden jetzt leere Elternordner ebenfalls rekursiv entfernt
 
-**Papierkorb:** Auffangnetz für gelöschte Inhalte.
+**Papierkorb:** Sicherheitsnetz für gelöschte Inhalte.
 
-Wenn ein Film oder eine Serie mit seinen Dateien aus Movviz entfernt wird, können die Dateien in einen Papierkorb-Ordner verschoben werden, anstatt endgültig gelöscht zu werden.
+Wenn ein Film oder eine Serie mit seinen Dateien aus Movviz entfernt wird, können die Dateien in einen Papierkorbordner verschoben werden, anstatt endgültig gelöscht zu werden.
 
-- **Film-Ordner** — Pfad, wohin gelöschte Filmdateien gehen
-- **Serien-Ordner** — Pfad, wohin gelöschte Seriendateien gehen
-- **Aufbewahrung** — Tage, bevor Dateien im Papierkorb endgültig gelöscht werden (konfigurierbar)
-- **Anzahl der Elemente** — Zeigt, wie viele Elemente sich derzeit im Papierkorb befinden
+- **Filmordner** — Pfad, wohin gelöschte Filmdateien gehen
+- **Serienordner** — Pfad, wohin gelöschte Seriendateien gehen
+- **Aufbewahrung** — Tage, bis Papierkorbdateien endgültig gelöscht werden (konfigurierbar)
+- **Elementanzahl** — Zeigt, wie viele Elemente sich derzeit im Papierkorb befinden
 
-Eine Hintergrundaufgabe wird täglich ausgeführt, um abgelaufene Papierkorbeinträge zu löschen.
+### 14.4. Benachrichtigungen
 
-### 14.4. Importe
+Konfiguriere Push-Benachrichtigungen für Medienereignisse (abgerufen, importiert, fehlgeschlagen usw.). Dieser einzelne Tab gruppiert Transporte, Webhook und Aktivitätsoptionen.
 
-**Importlisten:** Externe Watchlists, die synchronisiert und automatisch zur Bibliothek hinzugefügt werden können.
-
-Unterstützte Quellen:
-- **Trakt** — Trakt-Benutzerlisten
-- **IMDb** — IMDb-Listen
-- **Letterboxd** — Letterboxd-Watchlists
-
-Konfiguriere für jede Liste:
-- **Name** — Ein beschreibendes Label
-- **Typ** — Trakt, IMDb oder Letterboxd
-- **URL** — Die URL der Liste
-- **Automatische Genehmigung** — Wenn aktiviert, werden Elemente aus dieser Liste automatisch genehmigt (keine manuelle Genehmigung erforderlich)
-- **Synchronisieren-Button** — Starte manuell eine Synchronisation
-
-Jede Liste zeigt ihre letzte Synchronisation.
-
-**Aus Seerr importieren:** Importiere Anfragen von einer bestehenden Overseerr-Instanz.
-
-- **URL** — Die URL deines Seerr-Servers
-- **API-Schlüssel** — API-Schlüssel für die Authentifizierung
-- **Test** — Überprüfe die Verbindung
-- **Jetzt importieren** — Starte den Importvorgang
-
-Nach dem Import zeigt eine Zusammenfassung:
-- Gescannte Benutzer und Anfragen
-- Importiert (Anzahl genehmigt und wartend)
-- Übersprungen (bereits in Bibliothek, bereits angefragt, abgelehnt, blockiert)
-- Fehlgeschlagene Importe
-- Nicht zugeordnete Benutzer (Seerr-Benutzer nicht in Movviz gefunden)
-
-**Blocklist:** Titel, die niemals zur Bibliothek hinzugefügt werden sollen.
-
-- **Blockierten Titel hinzufügen** — Suche einen Titel auf TMDb, wähle ihn aus, füge optional einen Grund hinzu und bestätige
-- **Blockierte Liste** — Zeigt alle blockierten Titel mit Typ, Titel, Jahr, Grund, wer sie blockiert hat und wann
-- **Entblocken** — Entferne einen Titel aus der Blocklist
-
-Wenn ein blockierter Titel gefunden wird (per Anfrage oder Import), wird er still mit der Meldung "Blockiert" abgelehnt.
-
-### 14.5. Benachrichtigungen
-
-**Benachrichtigungen:** Konfiguriere Push-Benachrichtigungen für Medienereignisse (abgerufen, importiert, fehlgeschlagen usw.).
-
-Unterstützte Transporte:
+**Transporte:**
 - **Discord** — Webhook-URL
 - **Telegram** — Bot-Token + Chat-ID
 - **Gotify** — Server-URL + App-Token
@@ -599,17 +577,19 @@ Unterstützte Transporte:
 - **Pushbullet** — API-Token
 
 Jeder Transport:
-- Ein-/Ausschalter
+- Ein-/Ausschalten
 - Konfigurationsfelder (Passwörter werden maskiert)
-- **Test-Button** — Sende eine Testbenachrichtigung zur Überprüfung der Konfiguration
+- **Test-Button** — Sendet eine Testbenachrichtigung zur Überprüfung der Einrichtung
 
 **Webhook:** Sende HTTP-POST-Benachrichtigungen an eine benutzerdefinierte URL.
 
-- **Aktivieren**-Schalter
+- **Aktivieren** Umschalter
 - **URL** — Der Webhook-Endpunkt
-- **Test-Button** — Sende eine Test-Payload
+- **Test-Button** — Sendet eine Test-Payload
 
-### 14.6. System
+**Qualitätsupgrades:** Automatische Suche und Herunterladen von höherwertigen Versionen bereits verfügbarer Inhalte ein-/ausschalten.
+
+### 14.5. System
 
 **Diagnose:** Echtzeit-Systemstatus-Übersicht.
 
@@ -659,25 +639,19 @@ Aktionen:
 - **Exportieren** — Lade alle Einstellungen, Bibliotheksmetadaten und Konfiguration als JSON-Datei herunter
 - **Importieren** — Lade eine zuvor exportierte JSON-Datei hoch, um die Konfiguration wiederherzustellen
 
-**Aktivität:** Verhalten von Qualitätsaktualisierungen.
+**Info:** Anwendungsinformationen.
 
-- **Qualitätsaktualisierungen aktivieren** — Wenn aktiviert, sucht und lädt Movviz automatisch Versionen höherer Qualität von bereits verfügbaren Inhalten herunter, wenn eine bessere Release gefunden wird
-
-### 14.7. Info
-
-- **Version** — Aktuelle Versionsnummer von Movviz
+- **Version** — Aktuelle Movviz-Versionsnummer
 - **Lizenz** — GNU General Public License v3.0
 - **Projekt unterstützen** — Link zur Unterstützung der Entwicklung
 - **Updates:**
-  - **Button "Nach Updates suchen"**
-  - Unter **Windows**: Ein-Klick-Installations-Button, der das Update automatisch herunterlädt und anwendet
-  - Unter **Docker/anderen Plattformen**: Zeigt einen Link zur GitHub-Releases-Seite mit Anweisungen
+  - **Auf Updates prüfen** Button
+  - Auf **Windows**: Ein-Klick-Installationsbutton, der das Update automatisch herunterlädt und installiert
+  - Auf **Docker/anderen Plattformen**: Zeigt einen Link zur GitHub-Releases-Seite mit Anweisungen
 
-### 14.8. Gefahrenzone
+**Gefahrenzone:** Irreversible Aktionen am unteren Ende der Gruppe, visuell getrennt.
 
-Unumkehrbare Aktionen, die mit äußerster Vorsicht verwendet werden sollten. Jede Aktion erfordert die Eingabe eines Bestätigungsworts, bevor sie ausgeführt werden kann.
-
-Verfügbare Aktionen:
+Jede Aktion erfordert die Eingabe eines Bestätigungsworts, bevor sie ausgeführt werden kann:
 - **Alle Filme löschen** — Entfernt alle Filme aus der Bibliothek
 - **Alle Serien löschen** — Entfernt alle Serien aus der Bibliothek
 - **Aktivitätsverlauf löschen** — Löscht den gesamten Aktivitätsverlauf
@@ -685,11 +659,6 @@ Verfügbare Aktionen:
 - **Anfragen löschen** — Löscht alle Benutzeranfragen
 - **Gemeldete Probleme löschen** — Entfernt alle gemeldeten Probleme
 - **Plex-Synchronisationsstatus zurücksetzen** — Setzt die Plex-Synchronisationsverfolgung zurück
-
-Jede Aktion zeigt:
-- Titel und Beschreibung dessen, was passieren wird
-- Einen "Ausführen"-Button, der ein Bestätigungseingabefeld enthüllt
-- Gib das Bestätigungswort ein und klicke auf den Bestätigungs-Button, um auszuführen
 
 ---
 
@@ -802,7 +771,7 @@ Wenn der Titel noch nicht in der Bibliothek ist, öffnet das Klicken auf "Zur Bi
 **Symptome:** Dateien existieren auf der Festplatte, aber die Bibliothek zeigt Status "fehlt". Der Scan "Pfade reparieren" zeigt Kandidaten mit falschen Pfaden.
 
 **Lösungen:**
-- Führe einen Scan "Pfade reparieren" in Einstellungen > Dateien > Pfade reparieren durch
+- Führe einen Scan "Pfade reparieren" in Einstellungen > Datenträger > Wartung durch
 - Für Docker-Bindmounts versucht Movviz eine stille automatische Neuverknüpfung — überprüfe, ob dies funktioniert hat
 - Wenn die automatische Neuverknüpfung nicht funktioniert hat, verwende den manuellen Dateibrowser, um Pfade zu korrigieren
 - Stelle sicher, dass deine Docker-Volume-Mounts zwischen Neustarts konsistent sind

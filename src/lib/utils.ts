@@ -37,11 +37,13 @@ export function formatClockTime(ts: number, locale: string = "en") {
   return new Date(ts).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 }
 
-/** Full date + time, e.g. "22 juil. 2026, 07:49" — for tooltips and detail rows. */
-export function formatDateTime(ts: number, locale: string = "en") {
+const MONTH_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Date format "23 Jul 2026" — compact, locale-independent. */
+export function formatDateTime(ts: number, _locale: string = "en") {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return "—";
-  return `${d.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}, ${d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}`;
+  return `${String(d.getDate()).padStart(2, "0")} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
 }
 
 // A torrent that just started can report an almost-zero (but nonzero) speed

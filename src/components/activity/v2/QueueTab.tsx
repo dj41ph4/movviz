@@ -5,7 +5,7 @@ import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n, useT } from "@/i18n/provider";
-import { cn, formatBytes, formatSpeed, formatEta, formatClockTime, formatDateTime } from "@/lib/utils";
+import { cn, formatBytes, formatSpeed, formatEta, formatDateTime } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { QueueItem } from "@/lib/activity/v2/types";
 import {
@@ -30,7 +30,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const router = useRouter();
   const user = useCurrentUser();
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    "/api/activity/v2?tab=queue", { refreshInterval: 3000, dedupingInterval: 2000 }
+    "/api/activity/v2?tab=queue", { refreshInterval: 500, dedupingInterval: 400 }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -42,13 +42,29 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const stalledItems = useMemo(() => items.filter(item => item.status === "stalled"), [items]);
   const pausedItems = useMemo(() => items.filter(item => item.status === "paused"), [items]);
 
-  const filtered = useMemo(() => items.filter((item) => {
-    if (filter === "downloading") return item.status === "downloading" || item.status === "importing";
-    if (filter === "seeding") return item.status === "seeding";
-    if (filter === "stalled") return item.status === "stalled";
-    if (filter === "completed") return item.status === "completed";
-    return true;
-  }), [items, filter]);
+  const statusPriority = (s: string): number => {
+    if (s === "downloading" || s === "importing") return 0;
+    if (s === "stalled") return 1;
+    if (s === "paused") return 2;
+    if (s === "seeding") return 3;
+    if (s === "completed") return 4;
+    return 5;
+  };
+
+  const filtered = useMemo(() => items
+    .filter((item) => {
+      if (filter === "downloading") return item.status === "downloading" || item.status === "importing";
+      if (filter === "seeding") return item.status === "seeding";
+      if (filter === "stalled") return item.status === "stalled";
+      if (filter === "completed") return item.status === "completed";
+      return true;
+    })
+    .sort((a, b) => {
+      const pa = statusPriority(a.status);
+      const pb = statusPriority(b.status);
+      if (pa !== pb) return pa - pb;
+      return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
+    }), [items, filter]);
 
   const toggleExpand = (id: string) => {
     setExpandedItem(expandedItem === id ? null : id);
@@ -313,9 +329,7 @@ const QueueItemRow = memo(function QueueItemRow({
                   </span>
                 ) : null}
               </Link>
-              <span className="shrink-0 font-mono text-[11px] text-ink-dim" title={formatDateTime(item.addedAt, locale)}>
-                {formatClockTime(item.addedAt, locale)}
-              </span>
+              <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-ink-dim">{formatDateTime(item.addedAt, locale)}</span>
             </div>
 
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-dim">

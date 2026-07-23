@@ -2,6 +2,25 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.1.68] — 2026-07-23
+
+### Ajouté
+
+- **Avertissements zone à risque pour les onglets Disque** : Indexation, Renommage et Maintenance ont désormais le même style rouge (`dangerous`) que la Zone dangereuse dans la barre latérale, plus un bandeau d'avertissement en haut de chaque panneau.
+
+### Modifié
+
+- **Activity V1 supprimée** : la V2 devient l'interface d'activité permanente (route `/activity`). L'ancienne route `/activity/v2` redirige vers `/activity`.
+- **Queue — actualisation 500ms** : le rafraîchissement passe de 3s à 500ms pour plus de réactivité.
+- **Queue — tri amélioré** : les téléchargements en cours sont toujours au-dessus des terminés, avec date décroissante à l'intérieur de chaque groupe.
+- **Queue — affichage date** : format compact `"23 Jul 2026"` au lieu de l'horloge + tooltip.
+- **Recherche — mise en évidence des saisons** : les références de saison dans les titres de release sont colorées (vert si correspond, ambre si non).
+
+### Corrigé
+
+- **Série — pack intégrale hors cible** : `isCompleteSeriesPackTitle()` vérifie maintenant que le pack couvre au moins une saison manquante. Exemple : une "Intégrale S01-S28" ne sera plus prise pour une recherche Saison 29.
+- **Parsing de plage de saisons** : le pattern `SEASON_RANGE_RE` accepte désormais le séparateur français `"à"` (ex. `"S01 à S28"`).
+
 ## [1.1.67] — 2026-07-22
 
 ### Modifié

@@ -844,6 +844,8 @@ export const de: Dictionary = {
     groupDownload: "Download",
     groupLibrary: "Bibliothek",
     groupDisk: "Datenträger",
+    diskWarningTitle: "Dateioperationen",
+    diskWarningHint: "Diese Aktionen ändern Dateien auf der Festplatte. Überprüfe deine Einstellungen und Backups, bevor du fortfährst.",
     groupNotifications: "Benachrichtigungen",
     notificationsHint: "Discord, Telegram, Gotify, Slack, Pushbullet — lege fest, welche Kanäle Push-Benachrichtigungen erhalten.",
     groupSystem: "System",

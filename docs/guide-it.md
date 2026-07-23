@@ -386,7 +386,7 @@ Puoi aggiungere titoli alla tua watchlist da qualsiasi pagina dei dettagli del t
 
 ## 14. Impostazioni (/settings)
 
-Le Impostazioni sono organizzate in gruppi con una barra laterale comprimibile su desktop e una navigazione a fondo pagina su mobile. Tutte le schede delle Impostazioni (tranne Info) sono accessibili solo agli admin.
+Le Impostazioni sono organizzate in 5 gruppi con una barra laterale comprimibile su desktop e una navigazione a fondo pagina su mobile. Tutte le schede delle Impostazioni (tranne Info) sono accessibili solo agli admin.
 
 ### 14.1. Download
 
@@ -435,21 +435,12 @@ Ogni indexer mostra:
 
 **URL risolutore:** Configura l'URL di FlareSolverr (predefinito: `http://localhost:9830`) usato dal risolutore Cloudflare.
 
-**Profili di rilascio (Profili):** Regole di punteggio e filtraggio per le release.
+**Qualità:** Regole di punteggio e filtro per le release, che combinano profili di release e formati personalizzati in un'unica scheda.
 
 - **Parole bloccate** — Un elenco di parole che, se presenti nel titolo di una release, la fanno rifiutare. Aggiungi parole singolarmente; rimuovi con il pulsante X.
 - **Dimensioni massime** — Dimensioni massime consentite per film (GB), episodi (GB) e stagioni (GB). Le release che le superano vengono rifiutate.
 - **Punteggi codec** — Punteggi per i codec video: x264, x265 e AV1. Punteggi più alti rendono le release con quel codec più probabili da scegliere.
-
-**Formati personalizzati:** Regole di punteggio basate su regex applicate ai titoli delle release.
-
-Ogni formato personalizzato ha:
-- **Nome** — Nome visualizzato
-- **Punteggio** — Punteggio positivo o negativo da applicare
-- **Termini** — Pattern regex separati da virgola confrontati con i titoli delle release
-- **Attivazione/disattivazione**
-
-Crea formati personalizzati per prioritizzare o deprioritizzare le release che corrispondono a pattern specifici (es. "HDR", "Dolby Vision", "Remux", ecc.).
+- **Formati personalizzati** — Regole di punteggio basate su regex applicate ai titoli delle release. Ogni formato ha un nome, un punteggio (positivo o negativo) e termini regex. Creane per prioritizzare o deprioritizzare pattern come "HDR", "Dolby Vision", "Remux", ecc.
 
 ### 14.2. Libreria
 
@@ -477,15 +468,57 @@ Crea formati personalizzati per prioritizzare o deprioritizzare le release che c
   - Attiva per abilitare la sincronizzazione globale della watchlist Plex
   - Quando attivata, gli utenti che accedono con Plex possono vedere la loro watchlist Plex trasformata automaticamente in richieste
 - **Profili Plex (Mappatura utenti):**
-  - Mappa ogni utente Movviz a un Plex Managed User (profilo) specifico in modo che lo stato di visione rifletta la cronologia di quel profilo
+   - Mappa ogni utente Movviz a un Plex Managed User (profilo) specifico in modo che lo stato di visione rifletta la cronologia di quel profilo
 
-### 14.3. File
+**Denominazione:** Modelli per la denominazione di file e cartelle con inserimento interattivo di token.
 
-**Indicizzazione Film/Serie:** Scansiona le cartelle principali della libreria per file orfani — file multimediali sul disco che non sono tracciati nella libreria di Movviz.
+Modelli per:
+- **Cartella film** — es. `{title} ({year})`
+- **File film** — es. `{title} ({year}) [{quality}]`
+- **Cartella serie** — es. `{title} ({year})`
+- **Cartella stagione** — es. `Stagione {season:00}`
+- **File episodio** — es. `{series} - S{season:00}E{episode:00} - {title}`
+
+**Token interattivi:** Clicca su un campo, poi clicca su un pulsante token per inserirlo alla posizione del cursore. Token disponibili: `{title}`, `{year}`, `{quality}`, `{season}`, `{episode}`, `{series}` e altri.
+
+**Punti o spazi:** Scegli se i separatori usano punti o spazi.
+
+**Anteprima live:** Mentre modifichi i modelli, un'anteprima mostra come appariranno i percorsi dei file risultanti per un film e un episodio di esempio.
+
+**Importazioni:** Watchlist esterne che possono essere sincronizzate e aggiunte automaticamente alla libreria (nella scheda "Importazioni").
+
+Fonti supportate:
+- **Trakt** — Liste utente Trakt
+- **IMDb** — Liste IMDb
+- **Letterboxd** — Watchlist Letterboxd
+
+Per ogni lista configura:
+- **Nome** — Un'etichetta descrittiva
+- **Tipo** — Trakt, IMDb o Letterboxd
+- **URL** — L'URL della lista
+- **Approvazione automatica** — Se abilitato, gli elementi di questa lista vengono approvati automaticamente
+- **Pulsante Sincronizza** — Avvia manualmente una sincronizzazione
+
+**Importazione Seerr:** Importa richieste da un'istanza Overseerr esistente.
+
+- **URL** — L'URL del tuo server Seerr
+- **Chiave API** — Chiave API per l'autenticazione
+- **Test** — Verifica la connessione
+- **Importa ora** — Avvia il processo di importazione
+
+**Blocchi:** Titoli che non dovrebbero mai essere aggiunti alla libreria.
+
+- **Aggiungi titolo bloccato** — Cerca un titolo su TMDb, selezionalo, aggiungi opzionalmente un motivo e conferma
+- **Blocchi** — Mostra tutti i titoli bloccati con tipo, titolo, anno, motivo, chi lo ha bloccato e quando
+- **Sblocca** — Rimuovi un titolo dai blocchi
+
+### 14.3. Disco
+
+**Indicizzazione:** Scansiona le cartelle principali della libreria per file orfani — file multimediali sul disco che non sono tracciati nella libreria Movviz. Una singola scheda con un selettore Film/Serie.
 
 - Seleziona la cartella principale da scansionare
-- Le corrispondenze vengono presentate con una ricerca TMDb integrata per l'abbinamento manuale se necessario
-- Importazione con un clic per aggiungere i file abbinati alla tua libreria
+- Le corrispondenze vengono presentate con una ricerca TMDb integrata per l'abbinamento manuale
+- Importazione con un clic per aggiungere i file abbinati alla libreria
 
 **Rinomina:** Rinomina cartelle e file secondo i tuoi modelli di nomenclatura.
 
@@ -500,41 +533,24 @@ Impostazioni:
 - **"Elimina cartelle vuote"** — Dopo la rinomina, rimuovi automaticamente le directory ora vuote
 - **Progresso + log in tempo reale** — Tieni traccia dell'operazione in tempo reale
 
-**Nomenclatura:** Modelli di naming per file e cartelle con inserimento interattivo di token.
+**Manutenzione:** Raggruppa le operazioni di manutenzione del disco in una singola scheda.
 
-Modelli per:
-- **Cartella film** — es. `{title} ({year})`
-- **File film** — es. `{title} ({year}) [{quality}]`
-- **Cartella serie** — es. `{title} ({year})`
-- **Cartella stagione** — es. `Season {season:00}`
-- **File episodio** — es. `{series} - S{season:00}E{episode:00} - {title}`
+**Ripara percorsi:** Rileva le voci della libreria i cui file sono stati spostati o mancano.
 
-**Token interattivi:** Clicca un campo, poi clicca un pulsante token per inserirlo nella posizione del cursore. I token disponibili includono: `{title}`, `{year}`, `{quality}`, `{season}`, `{episode}`, `{series}` e altri.
-
-**Punti o spazi:** Scegli se i separatori usano punti o spazi.
-
-**Anteprima in tempo reale:** Mentre modifichi i modelli, un'anteprima mostra come appariranno i percorsi dei file risultanti per un film e un episodio di esempio.
-
-**Ripara percorsi:** Rileva le voci della libreria i cui file sono stati spostati o sono mancanti.
-
-1. **Analizza** — Confronta i registri della libreria con il filesystem effettivo
+1. **Analizza** — Confronta i record della libreria con il filesystem effettivo
 2. I risultati sono categorizzati:
-   - **Certe** — Una corrispondenza univoca (auto-selezionata)
+   - **Certe** — Una corrispondenza univoca (autoselezionata)
    - **Ambigue** — Possibili corrispondenze multiple (richiede scelta umana)
    - **Conflitto** — Un file che corrisponde a più voci della libreria
-3. **Browser file** — Per la correzione manuale, apri un browser di file per navigare e selezionare il percorso corretto
+3. **Browser file** — Per la correzione manuale, apri un browser file per navigare e selezionare il percorso corretto
 4. **Applica** — Ricollega le voci selezionate
-
-Opzioni:
-- **Auto-ricollegamento silenzioso** — Per i bind mount Docker, Movviz rileva e corregge automaticamente le modifiche di percorso in modo silenzioso
-- **"Elimina cartelle vuote dopo il collegamento"** — Pulisci le directory orfane dopo la riparazione
 
 **Cartelle vuote:** Scansiona le cartelle principali configurate per directory vuote.
 
 - Scansiona ricorsivamente tutte le cartelle principali della libreria configurate
 - Ignora i file di sistema comuni (`.DS_Store`, `Thumbs.db`, `Desktop.ini`, ecc.)
-- **Elimina** — Rimuove le directory vuote selezionate
-- **Pulizia ricorsiva dei genitori** — Dopo l'eliminazione, le cartelle principali ora anch'esse vuote vengono rimosse ricorsivamente
+- **Elimina** — Rimuovi le directory vuote selezionate
+- **Pulizia ricorsiva dei genitori** — Dopo l'eliminazione, le directory genitore ora vuote vengono anch'esse rimosse ricorsivamente
 
 **Cestino:** Rete di sicurezza per i contenuti eliminati.
 
@@ -545,58 +561,16 @@ Quando un film o una serie viene rimosso da Movviz con i suoi file, i file posso
 - **Conservazione** — Giorni prima che i file nel cestino vengano eliminati definitivamente (configurabile)
 - **Conteggio elementi** — Mostra quanti elementi sono attualmente nel cestino
 
-Un'attività in background viene eseguita quotidianamente per eliminare il cestino scaduto.
+### 14.4. Notifiche
 
-### 14.4. Importazioni
+Configura le notifiche push per gli eventi multimediali (recuperato, importato, fallito, ecc.). Questa singola scheda raggruppa trasporti, webhook e opzioni di attività.
 
-**Liste di importazione:** Watchlist esterne che possono essere sincronizzate e aggiunte automaticamente alla libreria.
-
-Fonti supportate:
-- **Trakt** — Liste utente Trakt
-- **IMDb** — Liste IMDb
-- **Letterboxd** — Watchlist Letterboxd
-
-Per ogni lista configura:
-- **Nome** — Un'etichetta descrittiva
-- **Tipo** — Trakt, IMDb o Letterboxd
-- **URL** — L'URL della lista
-- **Approvazione automatica** — Quando attivata, gli elementi di questa lista vengono approvati automaticamente (nessuna approvazione manuale necessaria)
-- **Pulsante Sincronizza** — Attiva manualmente una sincronizzazione
-
-Ogni lista mostra la sua ultima sincronizzazione.
-
-**Importa da Seerr:** Importa richieste da un'istanza Overseerr esistente.
-
-- **URL** — L'URL del tuo server Seerr
-- **Chiave API** — Chiave API per l'autenticazione
-- **Test** — Verifica la connessione
-- **Importa ora** — Avvia il processo di importazione
-
-Dopo l'importazione, un riepilogo mostra:
-- Utenti e richieste scansionati
-- Importati (conteggi approvati e in attesa)
-- Saltati (già in libreria, già richiesti, rifiutati, bloccati)
-- Importazioni fallite
-- Utenti non corrispondenti (utenti Seerr non trovati in Movviz)
-
-**Blocklist:** Titoli che non dovrebbero mai essere aggiunti alla libreria.
-
-- **Aggiungi titolo bloccato** — Cerca un titolo su TMDb, selezionalo, aggiungi facoltativamente un motivo e conferma
-- **Elenco bloccati** — Mostra tutti i titoli bloccati con tipo, titolo, anno, motivo, chi lo ha bloccato e quando
-- **Sblocca** — Rimuovi un titolo dalla blocklist
-
-Quando un titolo bloccato viene incontrato (tramite richiesta o importazione), viene silenziosamente rifiutato con un messaggio "Bloccato".
-
-### 14.5. Notifiche
-
-**Notifiche:** Configura le notifiche push per eventi multimediali (recuperato, importato, fallito, ecc.).
-
-Trasporti supportati:
+**Trasporti:**
 - **Discord** — URL Webhook
-- **Telegram** — Bot token + Chat ID
-- **Gotify** — Server URL + App token
+- **Telegram** — Token del bot + Chat ID
+- **Gotify** — URL del server + App token
 - **Slack** — URL Webhook
-- **Pushbullet** — API token
+- **Pushbullet** — Token API
 
 Ogni trasporto:
 - Attivazione/disattivazione
@@ -609,7 +583,9 @@ Ogni trasporto:
 - **URL** — L'endpoint del webhook
 - **Pulsante Test** — Invia un payload di prova
 
-### 14.6. Sistema
+**Aggiornamenti qualità:** Attiva/disattiva la ricerca e il download automatici di versioni di qualità superiore dei contenuti già disponibili.
+
+### 14.5. Sistema
 
 **Diagnostica:** Panoramica dello stato del sistema in tempo reale.
 
@@ -659,37 +635,26 @@ Azioni:
 - **Esporta** — Scarica tutte le impostazioni, i metadati della libreria e la configurazione come file JSON
 - **Importa** — Carica un file JSON esportato in precedenza per ripristinare la configurazione
 
-**Attività:** Comportamento degli aggiornamenti di qualità.
+**Informazioni:** Informazioni sull'applicazione.
 
-- **Attivazione aggiornamenti qualità** — Quando attivata, Movviz cerca e scarica automaticamente versioni di qualità superiore dei contenuti già disponibili quando viene trovata una release migliore
-
-### 14.7. Info
-
-- **Versione** — Numero versione corrente di Movviz
+- **Versione** — Numero di versione corrente di Movviz
 - **Licenza** — GNU General Public License v3.0
-- **Sostieni il progetto** — Collegamento per supportare lo sviluppo
+- **Supporta il progetto** — Link per supportare lo sviluppo
 - **Aggiornamenti:**
   - **Pulsante Verifica aggiornamenti**
   - Su **Windows**: Pulsante di installazione con un clic che scarica e applica l'aggiornamento automaticamente
-  - Su **Docker/altre piattaforme**: Mostra un collegamento alla pagina di release GitHub con le istruzioni
+  - Su **Docker/altre piattaforme**: Mostra un link alla pagina delle release GitHub con le istruzioni
 
-### 14.8. Zona pericolosa
+**Zona Pericolo:** Azioni irreversibili in fondo al gruppo, visivamente separate.
 
-Azioni irreversibili che dovrebbero essere usate con estrema cautela. Ogni azione richiede di digitare una parola di conferma prima di poter essere eseguita.
-
-Azioni disponibili:
+Ogni azione richiede di digitare una parola di conferma prima di poter essere eseguita:
 - **Cancella tutti i film** — Rimuove tutti i film dalla libreria
 - **Cancella tutte le serie** — Rimuove tutte le serie dalla libreria
 - **Cancella cronologia attività** — Elimina tutta la cronologia delle attività
-- **Cancella notifiche** — Cancella tutte le configurazioni di notifica
+- **Cancella notifiche** — Elimina tutte le configurazioni delle notifiche
 - **Cancella richieste** — Elimina tutte le richieste degli utenti
 - **Cancella problemi segnalati** — Rimuove tutti i problemi segnalati
-- **Reimposta stato sincronizzazione Plex** — Resetta il tracciamento della sincronizzazione Plex
-
-Ogni azione mostra:
-- Titolo e descrizione di ciò che accadrà
-- Un pulsante "Esegui" che rivela un input di conferma
-- Digita la parola di conferma e clicca il pulsante di conferma per eseguire
+- **Reimposta stato sincronizzazione Plex** — Reimposta il tracciamento della sincronizzazione Plex
 
 ---
 
@@ -802,7 +767,7 @@ Apre la pagina di ricerca indexer (`/search`) in un contesto modale/dialogo, pre
 **Sintomi:** I file esistono sul disco ma la libreria mostra stato "mancante". La scansione Ripara percorsi mostra candidati con percorsi errati.
 
 **Soluzioni:**
-- Esegui una scansione Ripara percorsi in Impostazioni > File > Ripara percorsi
+- Esegui una scansione Ripara percorsi in Impostazioni > Disco > Manutenzione > Ripara percorsi
 - Per i bind mount Docker, Movviz tenta l'auto-ricollegamento silenzioso — verifica che abbia funzionato
 - Se l'auto-ricollegamento non ha funzionato, usa il browser di file manuale per correggere i percorsi
 - Assicurati che i tuoi mount volume Docker siano coerenti tra i riavvii
