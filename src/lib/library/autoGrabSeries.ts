@@ -327,7 +327,7 @@ export async function addSeriesToLibrary(
     seasons.push({ seasonNumber: s.seasonNumber, name: s.name, monitored: true, episodes });
   }
 
-  const finalSeasons = meta.isAnime && tvdbConfigured() && loadTvdbConfig().useForAnime && !seasonNumbers?.length
+  const finalSeasons = meta.isAnime && tvdbConfigured() && !seasonNumbers?.length
     ? await buildAnimeSeasonsFromTvdb(meta.title, meta.year, meta.tvdbId, seasons)
     : seasons;
 

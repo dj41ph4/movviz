@@ -1226,6 +1226,7 @@ export const fr = {
     testNetworkError: "Erreur réseau — impossible de joindre TMDb",
     useTvdbForAnime: "Utiliser TVDB pour les animes",
     useTvdbForAnimeHint: "Détecté automatiquement (origine japonaise + genre Animation). Le reste des métadonnées (affiche, résumé) continue de venir de TMDb.",
+    syncAllAnime: "Synchroniser tous les animes avec TVDB",
     omdbTitle: "OMDb — notes Rotten Tomatoes, Metacritic, IMDb",
     omdbHint: "TMDb ne fournit pas ces notes. Renseigne ta propre clé (gratuite) pour les afficher sur les fiches films/séries — sans clé, ces icônes n'apparaissent tout simplement pas.",
     omdbConfigured: "OMDb configuré",

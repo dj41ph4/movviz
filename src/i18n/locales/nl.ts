@@ -1228,6 +1228,7 @@ export const nl: Dictionary = {
     testNetworkError: "Netwerkfout — kan TMDb niet bereiken",
     useTvdbForAnime: "TVDB gebruiken voor anime",
     useTvdbForAnimeHint: "Automatisch gedetecteerd (Japanse oorsprong + genre Animatie). De rest van de metadata (poster, samenvatting) komt nog steeds van TMDb.",
+    syncAllAnime: "Alle anime synchroniseren met TVDB",
     omdbTitle: "OMDb — Rotten Tomatoes-, Metacritic-, IMDb-scores",
     omdbHint: "TMDb levert deze scores niet. Voeg je eigen (gratis) sleutel toe om ze te tonen op film-/seriepagina's — zonder sleutel verschijnen deze iconen gewoon niet.",
     omdbConfigured: "OMDb geconfigureerd",

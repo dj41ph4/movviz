@@ -13,7 +13,7 @@ interface TvdbConfig {
   useForAnime: boolean;
 }
 
-const DEFAULT: TvdbConfig = { apiKey: null, useForAnime: false };
+const DEFAULT: TvdbConfig = { apiKey: null, useForAnime: true };
 
 export function loadTvdbConfig(): TvdbConfig {
   return { ...DEFAULT, ...readJsonCached<Partial<TvdbConfig>>(FILE, {}) };

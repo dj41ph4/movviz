@@ -1227,6 +1227,7 @@ export const it: Dictionary = {
     testNetworkError: "Errore di rete — impossibile raggiungere TMDb",
     useTvdbForAnime: "Usa TVDB per gli anime",
     useTvdbForAnimeHint: "Rilevato automaticamente (origine giapponese + genere Animazione). Il resto dei metadati (poster, trama) proviene comunque da TMDb.",
+    syncAllAnime: "Sincronizza tutti gli anime con TVDB",
     omdbTitle: "OMDb — valutazioni Rotten Tomatoes, Metacritic, IMDb",
     omdbHint: "TMDb non fornisce queste valutazioni. Inserisci la tua chiave (gratuita) per mostrarle nelle schede film/serie — senza chiave, queste icone semplicemente non appaiono.",
     omdbConfigured: "OMDb configurato",
