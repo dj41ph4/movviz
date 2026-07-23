@@ -230,7 +230,7 @@ export function PlexSettings() {
             <p className="text-sm font-semibold text-ink">{t("player.betaToggle")}</p>
             <p className="text-xs text-ink-dim">{t("player.betaToggleHint")}</p>
           </div>
-          <Toggle on={betaPlayer} onChange={() => setBetaPlayer(!betaPlayer)} />
+          <Toggle on={betaPlayer} onChange={() => setBetaPlayer(!betaPlayer)} disabled={!cfg.connected} />
         </div>
       </div>
     </div>
@@ -323,9 +323,9 @@ function ProfilePicker() {
   );
 }
 
-function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void; disabled?: boolean }) {
   return (
-    <button onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
+    <button onClick={onChange} disabled={disabled} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on && !disabled ? "brand-gradient" : "bg-white/10", disabled && "cursor-not-allowed opacity-40")}>
       <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
     </button>
   );
