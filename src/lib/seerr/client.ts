@@ -71,7 +71,11 @@ function mapRequest(raw: Record<string, unknown>): SeerrRequest | null {
   const requestedBy = raw.requestedBy as Record<string, unknown> | undefined;
   if (!media || !requestedBy || media.tmdbId == null) return null;
 
-  const seasonsRaw = media.seasons;
+  // raw.seasons is the request-level SeasonRequest[] — only the specific
+  // seasons the user actually checked. raw.media.seasons is the Sonarr-level
+  // season config (ALL known seasons for the series), which is wrong here.
+  const requestSeasons = raw.seasons;
+  const seasonsRaw = Array.isArray(requestSeasons) ? requestSeasons : media.seasons;
   const seasons = Array.isArray(seasonsRaw)
     ? seasonsRaw.map((s: unknown) => Number((s as Record<string, unknown>)?.seasonNumber)).filter((n: number) => !isNaN(n))
     : undefined;
