@@ -96,7 +96,10 @@ export function SearchLogsPanel() {
     <div className="rounded-2xl glass p-5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="font-bold text-ink">Diagnostic — Recherche des manquants</h3>
+          <h3 className="flex items-center gap-2 font-bold text-ink">
+            <Bug className="h-4 w-4 text-brand-glow" />
+            Diagnostic — Recherche des manquants
+          </h3>
           <p className="mt-1 max-w-xl text-xs text-ink-dim">
             Journal détaillé de la recherche de tout ce qui est manquant. Chaque étape (lecture cache RSS,
             scoring, filtrage, envoi au moteur) est chronométrée. Utile pour comprendre pourquoi un titre

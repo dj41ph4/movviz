@@ -110,10 +110,18 @@ export function IndexerManager() {
   };
 
   return (
-    <div>
-      <p className="mb-5 max-w-3xl text-sm text-ink-soft">{t("indexerMgr.intro")}</p>
+    <div className="rounded-2xl glass p-5">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Magnet className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("settings.tabIndexers")}</h3>
+          <p className="mt-0.5 max-w-3xl text-xs text-ink-dim">{t("indexerMgr.intro")}</p>
+        </div>
+      </div>
 
-      <div className="mb-5 flex items-center gap-3 rounded-xl glass-strong px-4 py-3">
+      <div className="mb-4 flex items-center gap-3 rounded-xl glass-strong px-4 py-3">
         <label className="shrink-0 text-xs font-semibold text-ink-soft">{t("indexerMgr.resolverUrl")}</label>
         <input
           value={resolverUrl}

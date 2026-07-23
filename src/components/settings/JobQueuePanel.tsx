@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Loader2, Clock, CheckCircle2, XCircle, ListChecks } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, XCircle, ListChecks, ListOrdered } from "lucide-react";
 
 type JobStatus = "queued" | "running" | "completed" | "failed";
 type JobType =
@@ -109,6 +109,16 @@ export function JobQueuePanel() {
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <ListOrdered className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("jobs.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("jobs.queueTitle")}</p>
+        </div>
+      </div>
+
       <div>
         <h3 className="mb-1 text-sm font-bold text-ink">{t("jobs.queueTitle")}</h3>
         <p className="mb-3 text-xs text-ink-dim">{t("jobs.queueHint")}</p>

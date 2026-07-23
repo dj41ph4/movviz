@@ -2,6 +2,14 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.4.3] — 2026-07-23
+
+### Corrigé
+
+- **Cartes film/série — vues desktop et mobile totalement不同es** : l'overlay hover (boutons sur le poster) s'affiche UNIQUEMENT sur desktop (`hidden lg:flex`), la barre d'actions en dessous s'affiche UNIQUEMENT sur mobile (`lg:hidden`). Fini les doublons.
+- **Boutons mobiles opaques** : remplacement de `glass-strong` (semi-transparent, invisible) par `bg-white/10 border border-white/10` (opaque, clairement cliquable). Taille tactile 44px (`h-10`).
+- **CollectionCard** : même traitement — hover desktop uniquement, barre mobile opaque en dessous.
+
 ## [1.4.2] — 2026-07-23
 
 ### Corrigé

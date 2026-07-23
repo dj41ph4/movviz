@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useT } from "@/i18n/provider";
 import { relativeTime } from "@/lib/utils";
 import { useJobRunning } from "@/lib/jobs/useJobRunning";
-import { RotateCw, Loader2, Pencil, Check, X } from "lucide-react";
+import { RotateCw, Loader2, Pencil, Check, X, ListTodo } from "lucide-react";
 
 interface TaskStatus {
   id: string;
@@ -93,7 +93,17 @@ export function TasksPanel() {
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl glass">
+    <div>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <ListTodo className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("tasks.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("tasks.name")}</p>
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-2xl glass">
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
@@ -127,6 +137,7 @@ export function TasksPanel() {
           ))}
         </tbody>
       </table>
+      </div>
       </div>
     </div>
   );

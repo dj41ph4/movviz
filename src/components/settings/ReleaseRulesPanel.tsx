@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { X, Plus, Loader2 } from "lucide-react";
+import { X, Plus, Loader2, SlidersHorizontal } from "lucide-react";
 
 interface ReleaseRules {
   blockedWords: string[];
@@ -70,7 +70,15 @@ export function ReleaseRulesPanel() {
 
   return (
     <div className="space-y-6">
-      <p className="max-w-3xl text-sm text-ink-soft">{t("releaseRules.intro")}</p>
+      <div className="flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <SlidersHorizontal className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("settings.tabQualite")}</h3>
+          <p className="mt-0.5 max-w-3xl text-xs text-ink-dim">{t("releaseRules.intro")}</p>
+        </div>
+      </div>
 
       {/* Blocked words */}
       <div className="rounded-2xl glass p-5">

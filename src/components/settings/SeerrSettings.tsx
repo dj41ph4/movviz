@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Check, X, Loader2, Download } from "lucide-react";
+import { Check, X, Loader2, Download, ExternalLink } from "lucide-react";
 
 interface SeerrConfig {
   baseUrl: string;
@@ -88,7 +88,15 @@ export function SeerrSettings() {
 
   return (
     <div className="rounded-2xl glass p-5">
-      <p className="mb-4 text-sm text-ink-dim">{t("seerr.intro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <ExternalLink className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("settings.tabImports")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("seerr.intro")}</p>
+        </div>
+      </div>
 
       <div className="mb-3 flex items-center gap-2">
         <span

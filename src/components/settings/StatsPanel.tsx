@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { useT } from "@/i18n/provider";
-import { Film, Tv, PackageCheck, Inbox } from "lucide-react";
+import { Film, Tv, PackageCheck, Inbox, BarChart3 } from "lucide-react";
 
 interface Stats {
   totalMovies: number;
@@ -37,7 +37,15 @@ export function StatsPanel() {
 
   return (
     <div>
-      <h3 className="mb-4 text-sm font-bold text-ink-soft">{t("stats.title")}</h3>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <BarChart3 className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("stats.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("stats.title")}</p>
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Tile label={t("stats.totalMovies")} value={stats.totalMovies} icon={Film} />

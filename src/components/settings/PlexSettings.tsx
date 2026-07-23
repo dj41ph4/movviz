@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Check, X, Loader2, LinkIcon, RefreshCw, User } from "lucide-react";
+import { Check, X, Loader2, LinkIcon, RefreshCw, User, Play } from "lucide-react";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 
 interface PlexConfig {
@@ -114,7 +114,15 @@ export function PlexSettings() {
 
   return (
     <div className="rounded-2xl glass p-5">
-      <p className="mb-4 text-sm text-ink-dim">{t("plex.intro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Play className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("plex.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("plex.intro")}</p>
+        </div>
+      </div>
 
       <div className="mb-4 flex items-center gap-2">
         <span className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold", cfg.connected ? "border-ok/25 bg-ok/12 text-ok" : "border-amber/25 bg-amber/12 text-amber")}>
