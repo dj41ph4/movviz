@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { renderSegment } from "@/lib/naming/render";
 import { SAMPLE_MOVIE, SAMPLE_EPISODE } from "@/lib/naming/defaults";
 import path from "node:path";
@@ -7,6 +8,8 @@ export const dynamic = "force-dynamic";
 
 /** Render a live preview of the current (unsaved) template edits. */
 export async function POST(req: NextRequest) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const body = await req.json();
   const dots = !!body.useDotsInsteadOfSpaces;
 

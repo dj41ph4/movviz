@@ -12,7 +12,9 @@ import { addTrashEntry } from "@/lib/library/trashStore";
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_req: NextRequest, { params }: Ctx) {
+export async function GET(req: NextRequest, { params }: Ctx) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const series = getSeries((await params).id);
   if (!series) return NextResponse.json({ error: "not found" }, { status: 404 });
   const cfg = loadPlexConfig();

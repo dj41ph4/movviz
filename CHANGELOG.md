@@ -2,6 +2,29 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.4.0] — 2026-07-23
+
+### Ajouté
+
+- **Séparation des profils utilisateurs** : isolation complète entre comptes.
+  - Collections privées par défaut (créateur + admin uniquement), filtrage `createdBy` dans l'API
+  - Activity v2 filtrée par les requêtes de l'utilisateur pour les non-admins (queue, history, failures, wanted)
+  - Paramètres accessibles aux non-admins avec onglets limités à leur périmètre
+  - 14+ endpoints API sécurisés avec `requireUser` ou `requireAdmin` (fuite de données colmatée)
+- **Agents de contrôle qualité** : 5 agents créés (.opencode/agents/) — profile-separation-expert, responsive-expert, code-expert, test-agent, orchestrateur anti-régression
+- **Diagnostic erreurs cliquable** : dans "Temps de réponse", le nombre d'erreurs ouvre une modale détaillée (code HTTP, durée, horodatage)
+- **API `/api/perf?errors=1`** : renvoie les entrées d'erreur brutes
+
+### Corrigé
+
+- **Responsive smartphone (~15 fichiers)** : boutons en wrap sur mobile, `overflow-x-hidden` remplacé par de vrais correctifs, touch targets ≥44px, dropdowns limités à `100vw-2rem`
+- **Settings page** : les non-admins n'étaient pas bloqués mais l'onglet "About" était visible et vide — corrigé
+- **Imports inutilisés** : nettoyage des icônes non utilisées dans settings/page.tsx
+- **Notification Seerr films déjà en bibliothèque** (v1.3.5)
+- **Pack intégrale Trigun introuvable** : `seasonEpisodeMatches` accepte `season === null` pour les packs (v1.3.4)
+- **Perf TMDb** : recommandations limitées à 5 appels concurrents (v1.3.4)
+- **Logs de scoring** : détail par étape de filtrage dans grab_release (v1.3.3)
+
 ## [1.3.5] — 2026-07-23
 
 ### Corrigé

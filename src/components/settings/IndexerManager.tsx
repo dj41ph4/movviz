@@ -142,7 +142,7 @@ export function IndexerManager() {
           const dot = status === "ok" ? "text-ok" : status === "fail" ? "text-down" : "text-ink-dim";
           return (
             <div key={r.id} className="rounded-2xl glass p-4">
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                 <span className={cn("flex h-11 w-11 items-center justify-center rounded-xl", r.protocol === "torrent" ? "bg-cyan/12 text-cyan" : "bg-brand/12 text-brand-glow")}>
                   {r.protocol === "torrent" ? <Magnet className="h-5 w-5" /> : <Server className="h-5 w-5" />}
                 </span>
@@ -166,9 +166,9 @@ export function IndexerManager() {
                 </div>
                 <button
                   onClick={() => setEditingCats(editingCats === r.id ? null : r.id)}
-                  className={cn("flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-colors", editingCats === r.id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
+                  className={cn("flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-sm font-semibold transition-colors", editingCats === r.id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
                 >
-                  <Tags className="h-4 w-4" />
+                  <Tags className="h-4 w-4 shrink-0" />
                   {t("indexerMgr.categories")}
                 </button>
                   <div className="flex items-center gap-1">
@@ -186,12 +186,12 @@ export function IndexerManager() {
                   </div>
                   <button
                     onClick={() => setEditingFilters(editingFilters === r.id ? null : r.id)}
-                    className={cn("flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-colors", editingFilters === r.id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
+                    className={cn("flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-sm font-semibold transition-colors", editingFilters === r.id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
                   >
-                    <SlidersHorizontal className="h-4 w-4" />
+                    <SlidersHorizontal className="h-4 w-4 shrink-0" />
                     {t("indexerMgr.filters")}
                   </button>
-                <button onClick={() => test(r.id)} disabled={testing === r.id} className="flex h-9 items-center gap-1.5 rounded-xl glass px-3 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50">
+                <button onClick={() => test(r.id)} disabled={testing === r.id} className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl glass px-3 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50">
                   {testing === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
                   {testing === r.id ? t("indexerMgr.testing") : t("indexerMgr.test")}
                 </button>
@@ -208,7 +208,7 @@ export function IndexerManager() {
                       setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, useFlareResolver: r.useFlareResolver } : x)));
                     }
                   }}
-                  className={cn("flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-semibold transition-colors", r.useFlareResolver ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
+                  className={cn("flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-xs font-semibold transition-colors", r.useFlareResolver ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
                   title={t("indexerMgr.flareResolver")}
                 >
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
@@ -486,7 +486,7 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
         <CategoryPicker value={categories} onChange={setCategories} indexerCategories={realCategories ?? undefined} />
       </div>
 
-      <div className="flex justify-end gap-2 sm:col-span-2">
+      <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:col-span-2">
         <button onClick={onCancel} className="rounded-xl glass px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">{t("indexerMgr.cancel")}</button>
         <button onClick={save} disabled={saving || !baseUrl.trim()} className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2 text-sm font-bold text-white disabled:opacity-40">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {t("indexerMgr.save")}

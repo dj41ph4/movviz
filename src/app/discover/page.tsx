@@ -553,7 +553,7 @@ function TmdbSetup({ onSaved }: { onSaved: () => void }) {
       <KeyRound className="h-8 w-8 text-brand-glow" />
       <p className="font-semibold text-ink">{t("discover.tmdbSetupTitle")}</p>
       <p className="max-w-md text-sm text-ink-dim">{t("discover.tmdbSetupHint")}</p>
-      <div className="flex w-full max-w-sm gap-2">
+      <div className="flex flex-col sm:flex-row w-full max-w-sm gap-2">
         <input
           value={key}
           onChange={(e) => setKey(e.target.value)}
@@ -564,7 +564,7 @@ function TmdbSetup({ onSaved }: { onSaved: () => void }) {
         <button
           onClick={save}
           disabled={saving || !key.trim()}
-          className="flex items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white disabled:opacity-40"
+          className="flex h-11 items-center justify-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white disabled:opacity-40 whitespace-nowrap"
         >
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : t("discover.saveKey")}
         </button>

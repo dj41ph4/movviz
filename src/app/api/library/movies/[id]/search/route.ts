@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { getMovie } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
@@ -14,7 +15,9 @@ type Ctx = { params: Promise<{ id: string }> };
  * gets an immediate response, and the movie's status flips to "searching"
  * (already visible via the library poll) the moment the job actually starts.
  */
-export async function POST(_req: NextRequest, { params }: Ctx) {
+export async function POST(req: NextRequest, { params }: Ctx) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
   const movie = getMovie(id);
   if (!movie) return NextResponse.json({ error: "movie not found" }, { status: 404 });

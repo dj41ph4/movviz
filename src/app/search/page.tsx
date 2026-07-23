@@ -319,7 +319,7 @@ function SearchPageInner() {
                   {r.protocol === "torrent" ? <Magnet className="h-4 w-4" /> : <Server className="h-4 w-4" />}
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate font-mono text-sm text-ink"><HighlightSeasonTitle title={r.title} targetSeason={extractSearchSeason(q)} /></p>
+                  <p className="font-mono text-sm text-ink sm:truncate"><HighlightSeasonTitle title={r.title} targetSeason={extractSearchSeason(q)} /></p>
                   <p className="text-[11px] text-ink-dim">
                     {t("search.score").toLowerCase()}{" "}
                     <span className={cn("font-bold", r.score >= 90 ? "text-ok" : r.score >= 75 ? "text-amber" : "text-ink-soft")}>{r.score}</span>

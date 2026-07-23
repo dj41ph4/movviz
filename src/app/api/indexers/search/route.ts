@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS, TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { loadIndexers } from "@/lib/indexers/store";
@@ -20,6 +21,8 @@ export const dynamic = "force-dynamic";
  * code path that reads the cache on its own.
  */
 export async function GET(req: NextRequest) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const qRaw = req.nextUrl.searchParams.get("q")?.trim() ?? "";
   // When search is launched from a specific title (its own card/detail page,
   // not the free-text /search box), refTitle is the clean title alone —

@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { loadActivityV2 } from "@/lib/activity/v2/store";
 import type { ActivityEntry } from "@/lib/activity/v2/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const user = requireUser(request);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type") as "movie" | "series" | null;
   const indexer = searchParams.get("indexer");

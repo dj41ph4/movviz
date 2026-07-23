@@ -33,7 +33,7 @@ import { RenamePanel } from "@/components/settings/RenamePanel";
 import { RepairPathsPanel } from "@/components/settings/RepairPathsPanel";
 import { CleanDirsPanel } from "@/components/settings/CleanDirsPanel";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Magnet, HardDrive, Gauge, Tag, ShieldAlert, Bell, BellRing, Activity, DatabaseBackup, ListTodo, ListOrdered, Database, Play, BookOpen, Ban, SlidersHorizontal, Skull, ChevronDown, X, Info, ExternalLink, Download, Film, Tv, Trash2, RefreshCw, Wrench, Settings2, FolderOpen } from "lucide-react";
+import { Magnet, HardDrive, Gauge, Tag, Activity, DatabaseBackup, ListTodo, ListOrdered, Database, Play, BookOpen, ChevronDown, X, Info, ExternalLink, Film, RefreshCw, Wrench, BellRing, Skull } from "lucide-react";
 import { ActivitySettings } from "@/components/settings/ActivitySettings";
 import { AboutPanel } from "@/components/settings/AboutPanel";
 import { JobQueuePanel } from "@/components/settings/JobQueuePanel";
@@ -43,7 +43,7 @@ const TABS = [
   // Téléchargement
   { id: "clients", labelKey: "settings.tabClients", icon: HardDrive, group: "download" },
   { id: "indexers", labelKey: "settings.tabIndexers", icon: Magnet, group: "download" },
-  { id: "qualite", labelKey: "settings.tabQualite", icon: Gauge, group: "download" },
+  { id: "qualite", labelKey: "settings.tabQualite", icon: Gauge, group: "download", adminOnly: true },
   // Bibliothèque
   { id: "metadata", labelKey: "metadata.title", icon: BookOpen, group: "library", adminOnly: true },
   { id: "plex", labelKey: "plex.title", icon: Play, group: "library", adminOnly: true },
@@ -61,7 +61,7 @@ const TABS = [
   { id: "jobs", labelKey: "jobs.title", icon: ListOrdered, group: "system", adminOnly: true },
   { id: "cache", labelKey: "cache.title", icon: Database, group: "system", adminOnly: true },
   { id: "backup", labelKey: "backup.title", icon: DatabaseBackup, group: "system", adminOnly: true },
-  { id: "about", labelKey: "settings.tabAbout", icon: Info, group: "system" },
+  { id: "about", labelKey: "settings.tabAbout", icon: Info, group: "system", adminOnly: true },
   { id: "danger", labelKey: "dangerZone.title", icon: Skull, group: "system", adminOnly: true, dangerous: true },
 ] as const;
 
@@ -92,16 +92,7 @@ function SettingsPageInner() {
   const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
   const activeTab = visibleTabs.find((tb) => tb.id === tab) ?? visibleTabs[0];
 
-  // Settings holds indexer credentials and system config — admins only.
-  if (user && user.role !== "admin") {
-    return (
-      <div className="mx-auto flex max-w-[1100px] flex-col items-center gap-3 rounded-2xl glass py-24 text-center">
-        <ShieldAlert className="h-8 w-8 text-down" />
-        <p className="font-semibold text-ink">{t("auth.restricted")}</p>
-        <p className="text-sm text-ink-dim">{t("auth.restrictedHint")}</p>
-      </div>
-    );
-  }
+
 
   const groups = GROUP_ORDER.map((g) => ({
     id: g,

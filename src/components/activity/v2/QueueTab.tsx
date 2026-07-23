@@ -425,7 +425,7 @@ const QueueItemRow = memo(function QueueItemRow({
                 onClick={(e) => { e.stopPropagation(); onAction(item.id, "pause"); }}
                 disabled={actionLoading !== null}
                 title={t("downloads.pause")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+                className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
               >
                 {actionLoading === `pause_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
               </button>
@@ -433,7 +433,7 @@ const QueueItemRow = memo(function QueueItemRow({
                 onClick={(e) => { e.stopPropagation(); onAction(item.id, "search"); }}
                 disabled={actionLoading !== null}
                 title={t("downloads.manual")}
-                className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+                className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
               >
                 <Search className="h-4 w-4" />
               </button>
@@ -444,7 +444,7 @@ const QueueItemRow = memo(function QueueItemRow({
               onClick={(e) => { e.stopPropagation(); onAction(item.id, "resume"); }}
               disabled={actionLoading !== null}
               title={t("downloads.resume")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
             >
               {actionLoading === `resume_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
             </button>
@@ -454,7 +454,7 @@ const QueueItemRow = memo(function QueueItemRow({
               onClick={(e) => { e.stopPropagation(); onAction(item.id, "restart"); }}
               disabled={actionLoading !== null}
               title={t("downloads.restart")}
-              className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
             >
               {actionLoading === `restart_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </button>
@@ -463,7 +463,7 @@ const QueueItemRow = memo(function QueueItemRow({
             onClick={(e) => { e.stopPropagation(); onRemove(item.id, false); }}
             disabled={actionLoading !== null}
             title={t("downloads.remove")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
           >
             {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
           </button>
@@ -471,7 +471,7 @@ const QueueItemRow = memo(function QueueItemRow({
             onClick={(e) => { e.stopPropagation(); onRemove(item.id, true); }}
             disabled={actionLoading !== null}
             title={t("downloads.removeData")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
           >
             {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4" /> <X className="h-3 w-3 -ml-1" /></>}
           </button>

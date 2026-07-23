@@ -35,5 +35,5 @@ export const NAV: NavItem[] = [
   { href: "/history", labelKey: "nav.history", hintKey: "nav.historyHint", icon: Clock },
   { href: "/issues", labelKey: "nav.issues", hintKey: "nav.issuesHint", icon: AlertTriangle },
   { href: "/users", labelKey: "nav.users", hintKey: "nav.usersHint", icon: Users, adminOnly: true, liveBadge: "pendingUsers" },
-  { href: "/settings", labelKey: "nav.settings", hintKey: "nav.settingsHint", icon: Settings, adminOnly: true },
+  { href: "/settings", labelKey: "nav.settings", hintKey: "nav.settingsHint", icon: Settings },
 ];

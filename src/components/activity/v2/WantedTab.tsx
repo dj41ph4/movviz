@@ -373,7 +373,7 @@ function WantedItemRow({
           onClick={(e) => { e.stopPropagation(); onAction(item, "search"); }}
           disabled={actionLoading !== null || onCooldown}
           title={onCooldown ? `${t("activity.searchCooldown")} (${Math.ceil(remaining / 1000)}s)` : t("activity.searchNow")}
-          className={cn("flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors disabled:opacity-40",
+          className={cn("flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors disabled:opacity-40",
             onCooldown ? "text-ink-dim" : "hover:bg-brand/15 hover:text-brand-glow")}
         >
           {actionLoading === `search_${item.media.id}` || jobSearching ? <Loader className="h-4 w-4 animate-spin" /> : onCooldown ? <Clock className="h-4 w-4" /> : <Search className="h-4 w-4" />}
@@ -383,7 +383,7 @@ function WantedItemRow({
             onClick={(e) => { e.stopPropagation(); onAction(item, "unmonitor"); }}
             disabled={actionLoading !== null}
             title={t("activity.unmonitor")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
           >
             {actionLoading === `unmonitor_${item.media.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
           </button>
@@ -392,7 +392,7 @@ function WantedItemRow({
             onClick={(e) => { e.stopPropagation(); onAction(item, "monitor"); }}
             disabled={actionLoading !== null}
             title={t("activity.monitor")}
-            className="flex h-8 w-8 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+            className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
           >
             {actionLoading === `monitor_${item.media.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
           </button>

@@ -104,7 +104,7 @@ export function WhatsNewModal() {
               </div>
               <button
                 onClick={close}
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-dim ring-focus hover:text-ink"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-dim ring-focus hover:text-ink"
               >
                 <X className="h-4 w-4" />
               </button>

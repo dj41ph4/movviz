@@ -110,6 +110,7 @@ export function CachePanel() {
     <div>
       {warmSection}
       <div className="overflow-hidden rounded-2xl glass">
+      <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-white/8 text-left text-xs font-bold uppercase tracking-wide text-ink-dim">
@@ -143,6 +144,7 @@ export function CachePanel() {
           ))}
         </tbody>
       </table>
+      </div>
       </div>
     </div>
   );

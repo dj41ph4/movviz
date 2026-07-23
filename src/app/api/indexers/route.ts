@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth/guard";
 import { loadIndexers, addIndexer, updateIndexer, redact } from "@/lib/indexers/store";
 import { catalogEntry } from "@/lib/indexers/catalog";
 import { testIndexer } from "@/lib/indexers/torznab";
@@ -6,11 +7,13 @@ import type { ConfiguredIndexer } from "@/lib/indexers/types";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   return NextResponse.json({ indexers: loadIndexers().map(redact) });
 }
 
 export async function POST(req: NextRequest) {
+  if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await req.json();
   const entry = body.key ? catalogEntry(body.key) : null;
 

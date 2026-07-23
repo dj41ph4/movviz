@@ -1,7 +1,9 @@
 import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { loadActivityV2 } from "@/lib/activity/v2/store";
 import { loadActivity } from "@/lib/activity/store";
+import { loadRequests } from "@/lib/requests/store";
 import { getIndexer } from "@/lib/indexers/store";
 import { loadMovies, loadSeries, libraryFilePaths } from "@/lib/library/store";
 import { memoizeByFileMtimes } from "@/lib/fsJsonCache";
@@ -10,6 +12,7 @@ import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import type { ActivityEntry, QueueItem, WantedItem, ActivityMedia } from "@/lib/activity/v2/types";
 import type { EngineTorrent } from "@/lib/types";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
+import type { User } from "@/lib/auth/types";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -23,6 +26,10 @@ const RELEASE_LOOKUP_FILES = [
 ];
 
 export const dynamic = "force-dynamic";
+
+function getUserTmdbIds(user: User): Set<number> {
+  return new Set(loadRequests().filter((r) => r.userId === user.id).map((r) => r.tmdbId));
+}
 
 async function fetchEngine(path: string): Promise<unknown> {
   try {
@@ -39,21 +46,23 @@ async function fetchEngine(path: string): Promise<unknown> {
 }
 
 export async function GET(request: NextRequest) {
+  const user = requireUser(request);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { searchParams } = new URL(request.url);
   const tab = searchParams.get("tab") as "queue" | "history" | "failures" | "wanted" | "unlinked" | null;
 
   try {
     switch (tab) {
       case "queue":
-        return await getQueue();
+        return await getQueue(user);
       case "history":
-        return await getHistory();
+        return await getHistory(user);
       case "failures":
-        return await getFailures();
+        return await getFailures(user);
       case "wanted":
-        return await getWanted();
+        return await getWanted(user);
       case "unlinked":
-        return await getUnlinked();
+        return await getUnlinked(user);
       default:
         return NextResponse.json({ error: "Invalid tab" }, { status: 400 });
     }
@@ -185,13 +194,13 @@ function buildHashIndex(): Map<string, HashIndexEntry> {
   });
 }
 
-async function getQueue(): Promise<NextResponse<{ items: QueueItem[] }>> {
+async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }>> {
   const engineData = await fetchEngine("torrents") as { torrents?: EngineTorrent[] } | null;
   const torrents = engineData?.torrents ?? [];
   const hashIndex = buildHashIndex();
   const { byHash: releaseByHash, byLibraryRef: releaseByLibraryRef } = buildReleaseLookup();
 
-  const items: QueueItem[] = torrents.map(t => {
+  let items: QueueItem[] = torrents.map(t => {
       const { movie, seriesMatch } = hashIndex.get(t.infoHash) ?? {};
 
       const media: ActivityMedia = movie
@@ -249,16 +258,29 @@ async function getQueue(): Promise<NextResponse<{ items: QueueItem[] }>> {
       };
     });
 
+  if (user.role !== "admin") {
+    const userTmdbIds = getUserTmdbIds(user);
+    items = items.filter((item) => item.media.tmdbId != null && userTmdbIds.has(item.media.tmdbId));
+  }
+
   return NextResponse.json({ items });
 }
 
-async function getHistory(): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
-  const entries = loadActivityV2();
+async function getHistory(user: User): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
+  let entries = loadActivityV2();
+  if (user.role !== "admin") {
+    const userTmdbIds = getUserTmdbIds(user);
+    entries = entries.filter((e) => e.media.tmdbId != null && userTmdbIds.has(e.media.tmdbId));
+  }
   return NextResponse.json({ items: entries, total: entries.length });
 }
 
-async function getFailures(): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
-  const entries = loadActivityV2().filter(e => e.kind === "failed");
+async function getFailures(user: User): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
+  let entries = loadActivityV2().filter(e => e.kind === "failed");
+  if (user.role !== "admin") {
+    const userTmdbIds = getUserTmdbIds(user);
+    entries = entries.filter((e) => e.media.tmdbId != null && userTmdbIds.has(e.media.tmdbId));
+  }
   return NextResponse.json({ items: entries, total: entries.length });
 }
 
@@ -269,7 +291,8 @@ async function getFailures(): Promise<NextResponse<{ items: ActivityEntry[]; tot
  * libraryRef. See src/app/api/library/manual-link/route.ts for how these get
  * resolved from here.
  */
-async function getUnlinked(): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
+async function getUnlinked(user: User): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
+  if (user.role !== "admin") return NextResponse.json({ items: [], total: 0 });
   const entries = loadActivityV2().filter(e => e.kind === "imported" && e.import && e.media.href === "#");
   return NextResponse.json({ items: entries, total: entries.length });
 }
@@ -297,8 +320,15 @@ function extractResolution(qualityStr: string): string | null {
   return m ? m[0].toLowerCase() : null;
 }
 
-async function getWanted(): Promise<NextResponse<{ missing: WantedItem[]; cutoffUnmet: WantedItem[] }>> {
-  const result = memoizeByFileMtimes("activity-v2-wanted", libraryFilePaths(), computeWanted);
+async function getWanted(user: User): Promise<NextResponse<{ missing: WantedItem[]; cutoffUnmet: WantedItem[] }>> {
+  let result = memoizeByFileMtimes("activity-v2-wanted", libraryFilePaths(), computeWanted);
+  if (user.role !== "admin") {
+    const userTmdbIds = getUserTmdbIds(user);
+    result = {
+      missing: result.missing.filter((item) => item.media.tmdbId != null && userTmdbIds.has(item.media.tmdbId)),
+      cutoffUnmet: result.cutoffUnmet.filter((item) => item.media.tmdbId != null && userTmdbIds.has(item.media.tmdbId)),
+    };
+  }
   return NextResponse.json(result);
 }
 
@@ -321,6 +351,7 @@ function computeWanted(): { missing: WantedItem[]; cutoffUnmet: WantedItem[] } {
           id: movie.id,
           title: movie.title,
           type: "movie",
+          tmdbId: movie.tmdbId,
           href: `/title/movie/${movie.tmdbId}`
         },
         monitored: true,
@@ -337,6 +368,7 @@ function computeWanted(): { missing: WantedItem[]; cutoffUnmet: WantedItem[] } {
             id: movie.id,
             title: movie.title,
             type: "movie",
+            tmdbId: movie.tmdbId,
             href: `/title/movie/${movie.tmdbId}`
           },
           monitored: true,
@@ -365,6 +397,7 @@ function computeWanted(): { missing: WantedItem[]; cutoffUnmet: WantedItem[] } {
               id: s.id,
               title: s.title,
               type: "series",
+              tmdbId: s.tmdbId,
               season: season.seasonNumber,
               episode: ep.episodeNumber,
               href: `/title/series/${s.tmdbId}`
@@ -382,6 +415,7 @@ function computeWanted(): { missing: WantedItem[]; cutoffUnmet: WantedItem[] } {
                 id: s.id,
                 title: s.title,
                 type: "series",
+                tmdbId: s.tmdbId,
                 season: season.seasonNumber,
                 episode: ep.episodeNumber,
                 href: `/title/series/${s.tmdbId}`
