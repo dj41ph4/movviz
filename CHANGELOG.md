@@ -2,6 +2,17 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.2.1] — 2026-07-23
+
+### Modifié
+
+- **Mode clair — contraste sidebar** : `--color-abyss` rapproché de `--color-void` pour éliminer la coupure nette entre la sidebar et le contenu principal.
+- **Thème par défaut** : le mode sombre est désormais le thème par défaut (au lieu de suivre les préférences OS). Les changements utilisateur restent persistés.
+
+### Corrigé
+
+- **Build Docker arm64** : pin Alpine 3.20 (`node:22-alpine3.20`) pour éviter le crash QEMU (SIGILL) pendant la génération des pages statiques Next.js — le tag roulant `22-alpine` est passé à Alpine 3.21 dont les binaires ne sont pas entièrement émulables par QEMU.
+
 ## [1.2.0] — 2026-07-23
 
 ### Ajouté

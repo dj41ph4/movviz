@@ -3,9 +3,9 @@ export type ThemeMode = "light" | "dark" | "auto";
 const STORAGE_KEY = "movviz-theme";
 
 export function getStoredThemeMode(): ThemeMode {
-  if (typeof window === "undefined") return "auto";
+  if (typeof window === "undefined") return "dark";
   const v = window.localStorage.getItem(STORAGE_KEY);
-  return v === "light" || v === "dark" || v === "auto" ? v : "auto";
+  return v === "light" || v === "dark" || v === "auto" ? v : "dark";
 }
 
 export function setStoredThemeMode(mode: ThemeMode) {
@@ -35,7 +35,7 @@ export const THEME_INIT_SCRIPT = `
 (function () {
   try {
     var stored = window.localStorage.getItem("${STORAGE_KEY}");
-    var mode = stored === "light" || stored === "dark" || stored === "auto" ? stored : "auto";
+    var mode = stored === "light" || stored === "dark" || stored === "auto" ? stored : "dark";
     var resolved = mode === "auto"
       ? (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark")
       : mode;

@@ -5,7 +5,7 @@ import { applyTheme, getStoredThemeMode, setStoredThemeMode, type ThemeMode } fr
 
 /** Reads/writes the persisted theme choice and keeps <html data-theme> in sync, including live OS changes while on "auto". */
 export function useTheme() {
-  const [mode, setMode] = useState<ThemeMode>("auto");
+  const [mode, setMode] = useState<ThemeMode>("dark");
 
   useEffect(() => {
     setMode(getStoredThemeMode());
