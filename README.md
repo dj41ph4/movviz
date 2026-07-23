@@ -3,7 +3,7 @@
 <br>
 
 <!-- Hero badge - version + brand -->
-<img src="https://img.shields.io/badge/Movviz-1.1.67-7c3aed?style=for-the-badge&labelColor=1a1a2e&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTEyIiBmaWxsPSIjN2MzYWVkIi8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjEwOCIgeT0iMTUyIiB3aWR0aD0iMjk2IiBoZWlnaHQ9IjI0MCIgcng9IjIwIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTUiLz48cGF0aCBkPSJNMCAwaDEyOHYxMDhIMHoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwOCwxMDgpIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIvPjxjaXJjbGUgY3g9IjE2OCIgY3k9IjMwMCIgcj0iMjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC45IiBzdHJva2U9Im5vbmUiLz48Y2lyY2xlIGN4PSIzNDQiIGN5PSIzMDAiIHI9IjI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIgc3Ryb2tlPSJub25lIi8+PC9nPjwvc3ZnPg==" alt="Movviz"/>
+<img src="https://img.shields.io/badge/Movviz-1.2.1-7c3aed?style=for-the-badge&labelColor=1a1a2e&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTEyIiBmaWxsPSIjN2MzYWVkIi8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjEwOCIgeT0iMTUyIiB3aWR0aD0iMjk2IiBoZWlnaHQ9IjI0MCIgcng9IjIwIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTUiLz48cGF0aCBkPSJNMCAwaDEyOHYxMDhIMHoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwOCwxMDgpIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIvPjxjaXJjbGUgY3g9IjE2OCIgY3k9IjMwMCIgcj0iMjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC45IiBzdHJva2U9Im5vbmUiLz48Y2lyY2xlIGN4PSIzNDQiIGN5PSIzMDAiIHI9IjI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIgc3Ryb2tlPSJub25lIi8+PC9nPjwvc3ZnPg==" alt="Movviz"/>
 
 <!-- Primary tagline -->
 <h1>Centre de commande unifié pour films et séries</h1>
@@ -24,7 +24,7 @@
 
 <!-- Badges bar -->
 <img src="https://img.shields.io/badge/Licence-GPL--3.0-3da639?style=flat-square&labelColor=1a1a2e" alt="Licence"/>
-<img src="https://img.shields.io/badge/Next.js-15-000000?style=flat-square&logo=next.js&labelColor=1a1a2e" alt="Next.js"/>
+<img src="https://img.shields.io/badge/Next.js-16-000000?style=flat-square&logo=next.js&labelColor=1a1a2e" alt="Next.js"/>
 <img src="https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&labelColor=1a1a2e" alt="TypeScript"/>
 <img src="https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?style=flat-square&logo=tailwindcss&labelColor=1a1a2e" alt="Tailwind CSS"/>
 <img src="https://img.shields.io/badge/Plex-int%C3%A9gr%C3%A9-E5A00D?style=flat-square&logo=plex&labelColor=1a1a2e" alt="Plex"/>
@@ -46,7 +46,7 @@
 
 ### Windows
 
-**`Movviz-Setup-1.1.67.exe`**
+**`Movviz-Setup-1.2.1.exe`**
 
 <a href="https://github.com/dj41ph4/movviz/releases/latest">
   <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_l'installeur-0078D4?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1a2e" alt="Télécharger"/>
@@ -165,7 +165,7 @@ Français, anglais, allemand, italien, néerlandais. Configurable à l'installat
 <div align="center">
 
 <a href="https://github.com/dj41ph4/movviz/releases/latest">
-  <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_Movviz_1.1.67-7c3aed?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e" alt="Télécharger"/>
+  <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_Movviz_1.2.1-7c3aed?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e" alt="Télécharger"/>
 </a>
 
 <br><br>
