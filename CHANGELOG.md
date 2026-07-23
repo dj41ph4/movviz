@@ -2,6 +2,12 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.4.2] — 2026-07-23
+
+### Corrigé
+
+- **Workflow CI doublon** : suppression de `windows-installer.yml` qui doublonnait `build-installer.yml` et créait deux releases concurrentes sur chaque tag.
+
 ## [1.4.1] — 2026-07-23
 
 ### Corrigé
