@@ -2,6 +2,12 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.3.2] — 2026-07-23
+
+### Ajouté
+
+- **Build automatisé de l'installateur Windows via GitHub Actions** : le workflow `.github/workflows/build-installer.yml` compile l'installateur Inno Setup sur chaque push vers `main` et crée une Release avec l'artefact `.exe` attaché quand un tag `v*` est poussé.
+
 ## [1.3.1] — 2026-07-23
 
 ### Corrigé

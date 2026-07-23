@@ -1,0 +1,59 @@
+name: Build Windows Installer
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install Inno Setup 6
+        run: |
+          choco install innosetup --no-progress --version=6.3.3
+          echo "ISCC_DIR=C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install engine dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: engine
+
+      - name: Install resolver dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: resolver
+
+      - name: Build resolver TypeScript
+        run: npm run build
+        working-directory: resolver
+
+      - name: Build installer
+        run: packaging\windows\installer\build.ps1
+        shell: powershell
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Movviz-Setup
+          path: dist\Movviz-Setup-*.exe
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist\Movviz-Setup-*.exe
+          generate_release_notes: true
