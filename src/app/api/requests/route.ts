@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const canManage = user.role === "admin" || user.canManageRequests;
-  const all = loadRequests();
+  const all = loadRequests().sort((a, b) => b.createdAt - a.createdAt);
   const visible = canManage ? all : all.filter((r) => r.userId === user.id);
   const requests = visible.map((r) => {
     if (r.status !== "approved") return r;

@@ -16,7 +16,8 @@ import type { SeerrUser, SeerrRequest } from "@/lib/seerr/types";
 const IMPORT_CONCURRENCY = 4;
 
 export interface SeerrImportResult {
-  total: number;
+  seerrUsers: number;
+  seerrRequests: number;
   importedApproved: number;
   importedPending: number;
   alreadyInLibrary: number;
@@ -24,6 +25,7 @@ export interface SeerrImportResult {
   skippedDeclined: number;
   skippedBlocked: number;
   failed: number;
+  unmatchedUsers: string[];
 }
 
 type ItemOutcome =
@@ -51,13 +53,13 @@ function matchUser(seerrUser: SeerrUser, fallback: User): User {
 }
 
 export async function importSeerrRequests(): Promise<SeerrImportResult> {
-  if (!seerrConfigured()) return { total: 0, importedApproved: 0, importedPending: 0, alreadyInLibrary: 0, alreadyRequested: 0, skippedDeclined: 0, skippedBlocked: 0, failed: 0 };
+  if (!seerrConfigured()) return { seerrUsers: 0, seerrRequests: 0, importedApproved: 0, importedPending: 0, alreadyInLibrary: 0, alreadyRequested: 0, skippedDeclined: 0, skippedBlocked: 0, failed: 0, unmatchedUsers: [] };
 
   const cfg = loadSeerrConfig();
   const [seerrUsers, seerrRequests] = await Promise.all([getSeerrUsers(cfg), getSeerrRequests(cfg)]);
 
   const found = loadUsers().find((u) => u.role === "admin");
-  if (!found) return { total: seerrRequests.length, importedApproved: 0, importedPending: 0, alreadyInLibrary: 0, alreadyRequested: 0, skippedDeclined: 0, skippedBlocked: 0, failed: 0 };
+  if (!found) return { seerrUsers: seerrUsers.length, seerrRequests: seerrRequests.length, importedApproved: 0, importedPending: 0, alreadyInLibrary: 0, alreadyRequested: 0, skippedDeclined: 0, skippedBlocked: 0, failed: 0, unmatchedUsers: [] };
   const admin = found;
 
   for (const sr of seerrRequests) {
@@ -142,7 +144,8 @@ export async function importSeerrRequests(): Promise<SeerrImportResult> {
   await reconcileLibrary();
 
   return {
-    total: seerrRequests.length,
+    seerrUsers: seerrUsers.length,
+    seerrRequests: seerrRequests.length,
     importedApproved,
     importedPending,
     alreadyInLibrary,
@@ -150,5 +153,6 @@ export async function importSeerrRequests(): Promise<SeerrImportResult> {
     skippedDeclined,
     skippedBlocked,
     failed,
+    unmatchedUsers: [] as string[],
   };
 }
