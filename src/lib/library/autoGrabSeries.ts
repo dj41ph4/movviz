@@ -19,6 +19,7 @@ import { getTvdbEpisodesFor, groupTvdbEpisodesBySeason, tvdbConfigured, type Tvd
 import { loadTvdbConfig } from "@/lib/metadata/tvdbStore";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { searchTv, searchCompleteSeriesPack, COMPLETE_SERIES_TERMS } from "@/lib/indexers/torznab";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
@@ -607,6 +608,7 @@ export async function searchAndGrabEpisode(
       return sent;
     }
     setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "downloading", activeInfoHash: sent.torrent.infoHash });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — ${seasonNumber}x${String(episodeNumber).padStart(2, "0")}`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
       releaseTitle: single.release.title,
@@ -656,6 +658,7 @@ export async function searchAndGrabEpisode(
   const pack = await tryGrabSeasonPack(series, seasonNumber, profile, missingEpisodeNumbers);
   if (pack) {
     setEpisodesStatus(series, seasonNumber, missingEpisodeNumbers, { status: "downloading", activeInfoHash: pack.torrent.infoHash });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (${missingEpisodeNumbers.length} ép., via ${seasonNumber}x${String(episodeNumber).padStart(2, "0")})`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
       releaseTitle: pack.release.title,
@@ -672,6 +675,7 @@ export async function searchAndGrabEpisode(
   const seriesPack = await tryGrabSeriesPack(series, profile);
   if (seriesPack) {
     setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — ${seasonNumber}x${String(episodeNumber).padStart(2, "0")} (via intégrale)`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
       releaseTitle: seriesPack.release.title,
@@ -781,6 +785,7 @@ export async function searchAndGrabSeason(
       status: "downloading",
       activeInfoHash: pack.torrent.infoHash,
     });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber}`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
       releaseTitle: pack.release.title,
@@ -813,6 +818,7 @@ export async function searchAndGrabSeason(
         status: "downloading",
         activeInfoHash: seriesPack.torrent.infoHash,
       });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
       logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (via intégrale)`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
         releaseTitle: seriesPack.release.title,
@@ -1028,6 +1034,7 @@ export async function searchAndGrabCompleteSeries(seriesId: string) {
   const seriesPack = await tryGrabSeriesPack(series, profile);
   if (seriesPack) {
     setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
     logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
       releaseTitle: seriesPack.release.title,
@@ -1066,6 +1073,7 @@ export async function searchAndGrabSeries(seriesId: string) {
     const seriesPack = await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
       logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
         releaseTitle: seriesPack.release.title,
@@ -1139,6 +1147,7 @@ export async function searchReleasedMissingEpisodes() {
         status: "downloading",
         activeInfoHash: pack.torrent.infoHash,
       });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
       for (const episodeNumber of episodeNumbers) searched.push(`${series.id}.${seasonNumber}.${episodeNumber}`);
       continue;
     }
@@ -1185,6 +1194,7 @@ export async function searchMissingEpisodes(maxSeasons = 30) {
         status: "downloading",
         activeInfoHash: pack.torrent.infoHash,
       });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
       for (const episodeNumber of episodeNumbers) searched.push(`${series.id}.${seasonNumber}.${episodeNumber}`);
       continue;
     }

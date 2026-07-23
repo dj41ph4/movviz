@@ -15,6 +15,7 @@ import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createFailureRef } from "@/lib/activity/v2/store";
 import { isQualityUpgradesEnabled } from "@/lib/settings/qualityUpgrades";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
+import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { searchMovie, searchIndexer } from "@/lib/indexers/torznab";
 import { loadIndexers } from "@/lib/indexers/store";
@@ -214,6 +215,7 @@ export async function searchAndGrabMovie(movieId: string) {
       return { error: "engine_rejected" as const, detail: torrent };
     }
     updateMovie(movie.id, { status: "downloading", activeInfoHash: torrent.infoHash });
+    void notifySeerrStatus("movie", movie.tmdbId, "processing").catch(() => {});
     recordSearchLog("info", "search_movie.grabbed", `${movie.title} — ${best.title} (score:${best.score}, indexeur:${best.indexerId}, infoHash:${torrent.infoHash})`);
     logActivity("grabbed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, releaseTitle: best.title, indexer: best.indexerId, infoHash: torrent.infoHash });
     emitNotification("grab_movie", `${movie.title} — release récupérée, import en cours`, "/library", { title: movie.title });

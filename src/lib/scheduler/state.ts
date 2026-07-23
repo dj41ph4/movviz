@@ -32,7 +32,16 @@ function writeJson(file: string, data: unknown) {
 }
 
 function loadData(): SchedulerData {
-  return readJson<SchedulerData>(FILE, { runs: {}, configs: {} });
+  const raw = readJson<Record<string, unknown> | null>(FILE, null);
+  if (raw == null) return { runs: {}, configs: {} };
+  // Migrate from the old flat format (v1.1.x) where the file was
+  // { taskId: TaskRun, ... } instead of { runs: { ... }, configs: { ... } }.
+  if (!("runs" in raw)) {
+    const migrated: SchedulerData = { runs: raw as Record<string, TaskRun>, configs: {} };
+    saveData(migrated);
+    return migrated;
+  }
+  return raw as unknown as SchedulerData;
 }
 
 function saveData(data: SchedulerData) {

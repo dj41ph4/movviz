@@ -21,6 +21,7 @@ export interface SeerrRequest {
   createdAt: string;
   requestedBy: SeerrUser;
   media: {
+    id: number;
     tmdbId: number;
     mediaType: "movie" | "tv";
     status: SeerrMediaStatus;

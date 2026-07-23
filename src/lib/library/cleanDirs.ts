@@ -33,12 +33,15 @@ export function scanEmptyDirs(roots: string[]): string[] {
       return true;
     }
 
-    const subdirs = nonSystem.filter((e) => e.isDirectory());
-    for (const d of subdirs) {
-      const full = path.join(dir, d.name);
-      walk(full);
-    }
+    const files = nonSystem.filter((e) => !e.isDirectory());
+    if (files.length > 0) return false;
 
+    const subdirs = nonSystem.filter((e) => e.isDirectory());
+    const allEmpty = subdirs.every((d) => walk(path.join(dir, d.name)));
+    if (allEmpty) {
+      empty.push(dir);
+      return true;
+    }
     return false;
   }
 
@@ -66,12 +69,13 @@ export function deleteEmptyDirs(paths: string[]): { deleted: number } {
       deleted++;
 
       let parent = path.dirname(dir);
-      const roots = sorted; // already known paths
-      while (parent && parent !== dir) {
+      let prevParent: string | null = null;
+      while (parent && parent !== prevParent) {
         const remaining = realEntries(parent);
         if (remaining.length === 0) {
           fs.rmdirSync(parent);
           deleted++;
+          prevParent = parent;
           parent = path.dirname(parent);
         } else {
           break;

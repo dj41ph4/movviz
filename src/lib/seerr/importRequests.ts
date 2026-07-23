@@ -9,6 +9,7 @@ import { isBlocked } from "@/lib/blocklist/store";
 import { reconcileLibrary } from "@/lib/library/reconcile";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries } from "@/lib/metadata/tmdb";
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { setMediaMapEntry } from "@/lib/seerr/mediaMap";
 import type { User } from "@/lib/auth/types";
 import type { SeerrUser, SeerrRequest } from "@/lib/seerr/types";
 
@@ -58,6 +59,10 @@ export async function importSeerrRequests(): Promise<SeerrImportResult> {
   const found = loadUsers().find((u) => u.role === "admin");
   if (!found) return { total: seerrRequests.length, importedApproved: 0, importedPending: 0, alreadyInLibrary: 0, alreadyRequested: 0, skippedDeclined: 0, skippedBlocked: 0, failed: 0 };
   const admin = found;
+
+  for (const sr of seerrRequests) {
+    setMediaMapEntry(sr.media.mediaType === "tv" ? "series" : "movie", sr.media.tmdbId, sr.media.id);
+  }
 
   const reserved = new Set<string>();
 

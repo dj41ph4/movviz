@@ -76,6 +76,7 @@ function mapRequest(raw: Record<string, unknown>): SeerrRequest | null {
     createdAt: String(raw.createdAt ?? ""),
     requestedBy: mapUser(requestedBy),
     media: {
+      id: Number(media.id),
       tmdbId: Number(media.tmdbId),
       mediaType: media.mediaType === "tv" ? "tv" : "movie",
       status: Number(media.status) as SeerrRequest["media"]["status"],
