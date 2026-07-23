@@ -2,7 +2,7 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
-## [1.2.5] — 2026-07-23
+## [1.2.6] — 2026-07-23
 
 ### Corrigé
 
