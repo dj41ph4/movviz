@@ -4,8 +4,11 @@ import { loadPlexConfig } from "@/lib/plex/store";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: NextRequest, { params }: { params: { ratingKey: string } }) {
+type Ctx = { params: Promise<{ ratingKey: string }> };
+
+export async function GET(req: NextRequest, context: Ctx) {
   if (!requireUser(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const { ratingKey } = await context.params;
 
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) {
@@ -16,7 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: { ratingKey: s
   const token = cfg.adminToken;
 
   try {
-    const metaUrl = `${base}/library/metadata/${params.ratingKey}?X-Plex-Token=${token}`;
+    const metaUrl = `${base}/library/metadata/${ratingKey}?X-Plex-Token=${token}`;
     const metaRes = await fetch(metaUrl, {
       headers: { accept: "application/json", "x-plex-token": token },
       cache: "no-store",
