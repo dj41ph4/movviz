@@ -2,6 +2,13 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.3.3] — 2026-07-23
+
+### Corrigé
+
+- **Notification Seerr absente pour films importés du disque** : l'ajout direct d'un film depuis le scan disque (import) ne déclenchait jamais `notifySeerrStatus("available")` — le statut restait bloqué sur "requested" dans Overseerr.
+- **Per-filter logging pour le débogage de recherche** : `grab_release.scoring` et `grab_release.no_match` détaillent désormais le nombre de releases passant chaque étape de filtrage (titre, saison, pack, résolution, score, taille, liste d'échec).
+
 ## [1.3.2] — 2026-07-23
 
 ### Ajouté

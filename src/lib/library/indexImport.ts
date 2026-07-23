@@ -12,6 +12,7 @@ import { decodeCandidateId } from "@/lib/library/indexScan";
 import { enqueueJob, getJobsByType, isSourceActive } from "@/lib/jobs/queue";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import type { Job } from "@/lib/jobs/types";
+import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 
 const VIDEO_EXT = /\.(mkv|mp4|avi|ts|m2ts)$/i;
 
@@ -65,6 +66,7 @@ export async function importMovieCandidate(
   const existing = getMovieByTmdbId(tmdbId);
   if (existing) {
     updateMovie(existing.id, { status: "available", file, monitored });
+    void notifySeerrStatus("movie", tmdbId, "available").catch(() => {});
     return { ok: true, kind: "movie", id: existing.id };
   }
 
@@ -97,6 +99,7 @@ export async function importMovieCandidate(
     tmdbCollectionId: meta.collectionId,
   };
   addMovie(movie);
+  void notifySeerrStatus("movie", tmdbId, "available").catch(() => {});
   return { ok: true, kind: "movie", id: movie.id };
 }
 

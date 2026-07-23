@@ -403,18 +403,17 @@ async function grabRelease(
   recordSearchLog("debug", "grab_release.cache_read", `${label} — cache RSS donne ${releases.length} release(s) (${cacheMs}ms)`, cacheMs);
 
   const tS = performance.now();
-  const candidates = releases
-    .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-    .filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber))
-    .filter(({ parsed }) => (filterPack ? parsed.episode == null : true))
-    .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
-    .filter(({ release }) => release.score >= profile.minScore)
-    .filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"))
-    .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-    .sort((a, b) => b.release.score - a.release.score);
+  const step1 = releases.map((r) => ({ release: r, parsed: parseRelease(r.title) }));
+  const step2 = step1.filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title));
+  const step3 = step2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber));
+  const step4 = step3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true));
+  const step5 = step4.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
+  const step6 = step5.filter(({ release }) => release.score >= profile.minScore);
+  const step7 = step6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
+  const step8 = step7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
+  const candidates = step8.sort((a, b) => b.release.score - a.release.score);
   const scoreMs = Math.round(performance.now() - tS);
-  recordSearchLog("debug", "grab_release.scoring", `${label} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms)`, scoreMs);
+  recordSearchLog("debug", "grab_release.scoring", `${label} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms), titre:${step2.length}, saison:${step3.length}, pack:${step4.length}, résolution:${step5.length}, score:${step6.length}, taille:${step7.length}, échec:${step8.length}`, scoreMs);
 
   if (candidates.length > 0) {
     const top = candidates[0];
@@ -452,23 +451,22 @@ async function grabRelease(
   const newlyLimited = countNewlyRateLimited(indexers);
   recordSearchLog("info", "grab_release.fallback_result", `${label} — recherche directe: ${directReleases.length} release(s) (${directMs}ms)`, directMs);
 
-  const directCandidates = directReleases
-    .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-    .filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber))
-    .filter(({ parsed }) => (filterPack ? parsed.episode == null : true))
-    .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
-    .filter(({ release }) => release.score >= profile.minScore)
-    .filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"))
-    .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-    .sort((a, b) => b.release.score - a.release.score);
+  const dStep1 = directReleases.map((r) => ({ release: r, parsed: parseRelease(r.title) }));
+  const dStep2 = dStep1.filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title));
+  const dStep3 = dStep2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber));
+  const dStep4 = dStep3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true));
+  const dStep5 = dStep4.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
+  const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
+  const dStep7 = dStep6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
+  const dStep8 = dStep7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
+  const directCandidates = dStep8.sort((a, b) => b.release.score - a.release.score);
 
   const topDirect = directCandidates[0];
   if (!topDirect) {
     if (newlyLimited > 0) {
       recordSearchLog("warn", "grab_release.fallback_rate_limited", `${label} — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
     } else {
-      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat (cache + recherche directe: ${releases.length + directReleases.length} bruts)`);
+      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat sur ${directReleases.length} directs (titre:${dStep2.length}, saison:${dStep3.length}, pack:${dStep4.length}, résolution:${dStep5.length}, score:${dStep6.length}, taille:${dStep7.length}, échec:${dStep8.length})`);
     }
     return { ok: false, error: "no_match", totalReleases: releases.length + directReleases.length };
   }
