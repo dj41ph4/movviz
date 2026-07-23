@@ -180,6 +180,46 @@ export function LibraryMovieCard({
         </div>
       </div>
 
+      {/* Actions mobiles — visibles en permanence */}
+      {movie.status === "available" && movie.plexUrl && (
+        <div className="mt-1">
+          {betaPlayer && movie.plexRatingKey ? (
+            <button onClick={() => setPlayRatingKey(movie.plexRatingKey!)} className="flex w-full h-8 items-center justify-center gap-1.5 rounded-lg bg-amber text-xs font-bold text-black">
+              <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
+            </button>
+          ) : (
+            <a href={movie.plexUrl} target="_blank" rel="noopener noreferrer" className="flex w-full h-8 items-center justify-center gap-1.5 rounded-lg bg-amber text-xs font-bold text-black">
+              <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
+            </a>
+          )}
+        </div>
+      )}
+      {canGrab && (
+        <div className="mt-1.5 flex gap-1">
+          <button onClick={search} disabled={busy} className="flex-1 h-8 flex items-center justify-center rounded-lg glass-strong text-ink-soft">
+            {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+          </button>
+          <button onClick={() => setShowManualSearch(true)} className="flex-1 h-8 flex items-center justify-center rounded-lg glass-strong text-ink-soft">
+            <ListFilter className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={() => setEditingTags((v) => !v)} className="flex-1 h-8 flex items-center justify-center rounded-lg glass-strong text-ink-soft">
+            <Tag className="h-3.5 w-3.5" />
+          </button>
+          {movie.status === "available" && <ReportIssueButton libraryType="movie" libraryId={movie.id} />}
+          {!confirmDelete ? (
+            <button onClick={() => setConfirmDelete(true)} className="flex-1 h-8 flex items-center justify-center rounded-lg glass-strong text-down">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <div className="flex gap-1">
+              <button onClick={() => { remove(true); setConfirmDelete(false); }} className="h-8 flex items-center gap-1 rounded-lg bg-down px-2 text-[10px] font-bold text-white">{t("downloads.removeData")}</button>
+              <button onClick={() => { remove(false); setConfirmDelete(false); }} className="h-8 flex items-center gap-1 rounded-lg glass-strong px-2 text-[10px] font-bold text-ink-soft">{t("common.remove")}</button>
+              <button onClick={() => setConfirmDelete(false)} className="h-8 w-8 flex items-center justify-center rounded-lg glass-strong text-ink-dim"><X className="h-3 w-3" /></button>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="mt-2.5 px-0.5">
         <Link href={`/title/movie/${movie.tmdbId}`} className="block truncate text-sm font-semibold text-ink hover:text-brand-glow">{movie.title}</Link>
         <div className="mt-1 flex items-center gap-2">

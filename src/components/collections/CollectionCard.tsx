@@ -62,6 +62,20 @@ export function CollectionCard({ collection, onEdit, onDelete }: CollectionCardP
           <p className="text-xs text-white/70">{collection.items.length} {t("collections.items")}</p>
         </div>
       </div>
+      {(onEdit || onDelete) && (
+        <div className="mt-1.5 flex gap-1">
+          {onEdit && (
+            <button onClick={() => onEdit(collection)} className="flex-1 h-8 flex items-center justify-center rounded-lg glass-strong text-ink-soft">
+              <Edit2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+          {onDelete && (
+            <button onClick={handleDelete} disabled={deleting} className="flex-1 h-8 flex items-center justify-center rounded-lg glass-strong text-down disabled:opacity-50">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

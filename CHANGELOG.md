@@ -2,6 +2,13 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.4.1] — 2026-07-23
+
+### Corrigé
+
+- **Actions hover visibles sur mobile** : les boutons d'action qui apparaissaient uniquement au survol (`group-hover:opacity-100`) sur desktop étaient invisibles/inaccessibles sur smartphone. Ajout d'une barre d'actions permanente entre l'affiche et le titre sur `LibraryMovieCard` (recherche, tags, suppression...) et `CollectionCard` (édition, suppression).
+- **CI installer** : le workflow `build-installer.yml` ne force plus une version spécifique d'InnoSetup, évitant l'échec quand une version plus récente est déjà installée sur le runner GitHub.
+
 ## [1.4.0] — 2026-07-23
 
 ### Ajouté
