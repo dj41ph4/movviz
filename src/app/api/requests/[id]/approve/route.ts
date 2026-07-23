@@ -20,7 +20,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (request.status !== "pending") return NextResponse.json({ error: "already_decided" }, { status: 400 });
 
   const result =
-    request.type === "series" ? await addSeriesToLibrary(request.tmdbId) : await addMovieToLibrary(request.tmdbId);
+    request.type === "series" ? await addSeriesToLibrary(request.tmdbId, undefined, request.seasonNumbers) : await addMovieToLibrary(request.tmdbId);
   updateRequest(request.id, { status: "approved", decidedAt: Date.now(), decidedBy: admin.username });
 
   if ("error" in result) return NextResponse.json(result, { status: 502 });

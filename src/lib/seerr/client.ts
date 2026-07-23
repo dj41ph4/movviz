@@ -70,6 +70,12 @@ function mapRequest(raw: Record<string, unknown>): SeerrRequest | null {
   const media = raw.media as Record<string, unknown> | undefined;
   const requestedBy = raw.requestedBy as Record<string, unknown> | undefined;
   if (!media || !requestedBy || media.tmdbId == null) return null;
+
+  const seasonsRaw = media.seasons;
+  const seasons = Array.isArray(seasonsRaw)
+    ? seasonsRaw.map((s: unknown) => Number((s as Record<string, unknown>)?.seasonNumber)).filter((n: number) => !isNaN(n))
+    : undefined;
+
   return {
     id: Number(raw.id),
     status: Number(raw.status) as SeerrRequest["status"],
@@ -80,6 +86,7 @@ function mapRequest(raw: Record<string, unknown>): SeerrRequest | null {
       tmdbId: Number(media.tmdbId),
       mediaType: media.mediaType === "tv" ? "tv" : "movie",
       status: Number(media.status) as SeerrRequest["media"]["status"],
+      seasons: seasons && seasons.length > 0 ? seasons : undefined,
     },
   };
 }

@@ -101,11 +101,12 @@ export async function importSeerrRequests(): Promise<SeerrImportResult> {
         createdAt: Date.now(),
         decidedAt: null,
         decidedBy: null,
+        seasonNumbers: sr.media.seasons,
       });
       return { kind: "pending" };
     }
 
-    const result = type === "movie" ? await addMovieToLibrary(tmdbId) : await addSeriesToLibrary(tmdbId);
+    const result = type === "movie" ? await addMovieToLibrary(tmdbId) : await addSeriesToLibrary(tmdbId, undefined, sr.media.seasons);
     if ("error" in result) return { kind: "failed" };
     const item = "movie" in result ? result.movie : result.series;
     addRequest({
@@ -123,6 +124,7 @@ export async function importSeerrRequests(): Promise<SeerrImportResult> {
       createdAt: Date.now(),
       decidedAt: Date.now(),
       decidedBy: admin.username,
+      seasonNumbers: sr.media.seasons,
     });
     return { kind: "approved" };
   }

@@ -15,4 +15,6 @@ export interface MediaRequest {
   createdAt: number;
   decidedAt: number | null;
   decidedBy: string | null; // admin username
+  /** Specific seasons requested; undefined = all seasons. */
+  seasonNumbers?: number[];
 }

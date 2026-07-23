@@ -63,6 +63,7 @@ export async function requestMedia(
       createdAt: Date.now(),
       decidedAt: Date.now(),
       decidedBy: user.username,
+      seasonNumbers,
     });
     return { added: item, searchResult: result.searchResult };
   }
@@ -97,6 +98,7 @@ export async function requestMedia(
     createdAt: Date.now(),
     decidedAt: null,
     decidedBy: null,
+    seasonNumbers,
   });
 
   return { pendingRequest: request };
