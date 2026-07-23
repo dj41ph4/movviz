@@ -55,7 +55,7 @@ async function buildAnimeSeasonsFromTvdb(
     episodes: s.episodes.map((e) => ({
       seasonNumber: e.seasonNumber,
       episodeNumber: e.episodeNumber,
-      title: e.title,
+      title: e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`,
       airDate: e.airDate,
       monitored: true,
       status: "missing",
@@ -72,7 +72,7 @@ function applyTvdbTitleOverrides(tvdbEpisodes: TvdbEpisode[], seasons: LibrarySe
     for (const ep of season.episodes) {
       const match = bySeasonEpisode.get(`${season.seasonNumber}-${ep.episodeNumber}`);
       if (match) {
-        if (match.title) ep.title = match.title;
+        if (match.title && !hasCjkText(match.title)) ep.title = match.title;
         if (match.airDate) ep.airDate = match.airDate;
       }
     }
@@ -195,6 +195,13 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
     tvdbByKey.set(`${e.seasonNumber}-${e.episodeNumber}`, e);
   }
 
+  // Build a lookup of existing titles before TVDB overwrites them — used to
+  // preserve French/Latin titles when TVDB only has Japanese (CJK) for an ep.
+  const existingTitleByKey = new Map<string, string>();
+  for (const ep of oldFlat) {
+    existingTitleByKey.set(`${ep.seasonNumber}-${ep.episodeNumber}`, ep.title);
+  }
+
   // ---- 4. Disk-driven path — build seasons from what exists on disk ----
   if (diskSeasons.length > 0) {
     const newSeasons: LibrarySeason[] = [];
@@ -232,10 +239,13 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
             addedAt: Date.now(),
           };
         }
+        const existingTitle = existingTitleByKey.get(`${ds.seasonNumber}-${epN}`);
         return {
           seasonNumber: ds.seasonNumber,
           episodeNumber: epN,
-          title: tvdb?.title ?? `Épisode ${epN}`,
+          title: (tvdb?.title && !hasCjkText(tvdb.title)) || !existingTitle || hasCjkText(existingTitle)
+            ? (tvdb?.title ?? `Épisode ${epN}`)
+            : existingTitle,
           airDate: tvdb?.airDate ?? null,
           monitored: true,
           status,
@@ -271,7 +281,9 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
       return {
         seasonNumber: e.seasonNumber,
         episodeNumber: e.episodeNumber,
-        title: e.title,
+        title: (e.title && !hasCjkText(e.title)) || !carried || hasCjkText(carried.title)
+          ? e.title
+          : carried.title,
         airDate: e.airDate,
         monitored: carried?.monitored ?? true,
         status: carried?.status ?? "missing",
@@ -354,10 +366,7 @@ export async function addSeriesToLibrary(
   };
   addSeries(series);
 
-  const firstSeason = finalSeasons.find((s) => s.episodes.some((e) => e.monitored));
-  const searchResult = options?.skipSearch || !firstSeason
-    ? null
-    : await searchAndGrabSeason(series.id, firstSeason.seasonNumber);
+  const searchResult = options?.skipSearch ? null : await searchAndGrabCompleteSeries(series.id);
   return { series, searchResult };
 }
 
@@ -1159,6 +1168,11 @@ export async function searchReleasedMissingEpisodes() {
   }
 
   return { searched };
+}
+
+/** True if `text` contains CJK characters (Japanese/Chinese kanji, hiragana, katakana). Used to detect when TVDB fell back to Japanese because no French title exists. */
+function hasCjkText(text: string): boolean {
+  return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(text);
 }
 
 /**

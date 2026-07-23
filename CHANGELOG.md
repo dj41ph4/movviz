@@ -2,6 +2,29 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.3.1] — 2026-07-23
+
+### Corrigé
+
+- **Pack intégrale introuvable pour les séries à 1 mot (Trigun)** : le parseur ne reconnaissait pas "Complete Series", "Intégrale" etc. comme délimiteurs de titre → le titre parsé incluait ces mots, et `titleSimilarity` rejetait le résultat pour les séries à 1 mot. Ajout de `PACK_DESC_RE` dans `parseRelease` pour tronquer ces descripteurs.
+- **Sync TVDB anime — titres en japonais persistants** : même avec `Accept-Language: fr`, TVDB n'a pas de traduction française pour certains épisodes d'anime et retombe en japonais. `resyncAnimeSeasonsFromTvdb`, `buildAnimeSeasonsFromTvdb` et `applyTvdbTitleOverrides` préservent désormais les titres français existants quand TVDB retourne du texte CJK (japonais/chinois).
+- **Agents vérificateurs** : 3 agents de review + 1 agent expert TVDB/manga/animé créés dans `.opencode/agents/`.
+
+## [1.3.0] — 2026-07-23
+
+### Ajouté
+
+- **Migration du format des tâches planifiées** : détection et migration automatique de l'ancien format plat vers `{runs, configs}`.
+- **Nettoyage des dossiers vides** : scan récursif sécurisé (boucle anti-root Windows).
+- **Requêtes triées** : les demandes Seerr sont triées par `createdAt` descendant.
+- **Saisons spécifiques Seerr** : une demande peut cibler des saisons précises (pas seulement l'intégrale).
+
+### Corrigé
+
+- **Import Seerr — crash silencieux** : `SeerrImportResult` retourne les champs attendus par l'UI (`seerrUsers`, `seerrRequests`, `unmatchedUsers`).
+- **Notification API Overseerr** : utilisation des codes numériques (`5` = disponible) au lieu de strings, `findSeerrMediaId` avec recherche ciblée par TMDb.
+- **Recherche intégrale complète** : `addSeriesToLibrary` utilise `searchAndGrabCompleteSeries` au lieu de ne chercher que la première saison.
+
 ## [1.2.7] — 2026-07-23
 
 ### Ajouté
