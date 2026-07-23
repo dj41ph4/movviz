@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Check, X, Loader2, LinkIcon, RefreshCw, User } from "lucide-react";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 
 interface PlexConfig {
   hostname: string;
@@ -16,6 +17,7 @@ interface PlexConfig {
 
 export function PlexSettings() {
   const t = useT();
+  const { enabled: betaPlayer, setEnabled: setBetaPlayer } = useBetaPlayer();
   const [cfg, setCfg] = useState<PlexConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -221,6 +223,16 @@ export function PlexSettings() {
       )}
 
       {cfg.connected && <ProfilePicker />}
+
+      <div className="mt-5 border-t border-white/8 pt-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-ink">{t("player.betaToggle")}</p>
+            <p className="text-xs text-ink-dim">{t("player.betaToggleHint")}</p>
+          </div>
+          <Toggle on={betaPlayer} onChange={() => setBetaPlayer(!betaPlayer)} />
+        </div>
+      </div>
     </div>
   );
 }

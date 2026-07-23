@@ -925,6 +925,9 @@ export const fr = {
     maxAge: "Âge max (jours)",
     flareResolver: "Résolveur Cloudflare (port 9830)",
     resolverUrl: "URL du résolveur",
+    priority: "Priorité",
+    priorityUp: "Augmenter la priorité",
+    priorityDown: "Diminuer la priorité",
   },
 
   blocklist: {
@@ -1388,6 +1391,12 @@ export const fr = {
     whatsNewVersion: "Version {version}",
     whatsNewVersionRange: "De la {from} à la {to}",
     whatsNewClose: "Compris !",
+  },
+
+  player: {
+    betaToggle: "Lecteur bêta",
+    betaToggleHint: "Remplace « Ouvrir dans Plex » par un lecteur vidéo intégré (bêta — certains codecs peuvent ne pas fonctionner dans le navigateur).",
+    betaError: "Impossible de lire cette vidéo dans le navigateur. Ouvrez-la dans Plex à la place.",
   },
 
   language: { label: "Langue" },

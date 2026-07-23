@@ -927,6 +927,9 @@ export const en: Dictionary = {
     maxAge: "Max age (days)",
     flareResolver: "Cloudflare resolver (port 9830)",
     resolverUrl: "Resolver URL",
+    priority: "Priority",
+    priorityUp: "Increase priority",
+    priorityDown: "Decrease priority",
   },
 
   blocklist: {
@@ -1390,6 +1393,12 @@ export const en: Dictionary = {
     whatsNewVersion: "Version {version}",
     whatsNewVersionRange: "From {from} to {to}",
     whatsNewClose: "Got it!",
+  },
+
+  player: {
+    betaToggle: "Beta player",
+    betaToggleHint: "Replaces « Open in Plex » with an embedded video player (beta — some codecs may not play in the browser).",
+    betaError: "Cannot play this video in the browser. Open it in Plex instead.",
   },
 
   language: { label: "Language" },

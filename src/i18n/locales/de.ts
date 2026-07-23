@@ -944,6 +944,9 @@ export const de: Dictionary = {
     maxAge: "Max. Alter (Tage)",
     flareResolver: "Cloudflare-Resolve (Port 9830)",
     resolverUrl: "Resolver-URL",
+    priority: "Priorität",
+    priorityUp: "Priorität erhöhen",
+    priorityDown: "Priorität verringern",
   },
 
   blocklist: {
@@ -1389,6 +1392,12 @@ export const de: Dictionary = {
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Fehlende Filme erneut versuchen",
     },
+  },
+
+  player: {
+    betaToggle: "Beta-Player",
+    betaToggleHint: "Ersetzt « Auf Plex ansehen » durch einen eingebetteten Videoplayer (Beta — einige Codecs funktionieren möglicherweise nicht im Browser).",
+    betaError: "Dieses Video kann nicht im Browser abgespielt werden. Stattdessen in Plex öffnen.",
   },
 
   language: { label: "Sprache" },

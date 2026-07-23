@@ -2,6 +2,14 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.2.0] — 2026-07-23
+
+### Ajouté
+
+- **Lecteur bêta (Paramètres → Plex)** : remplace l'ouverture de Plex Web par un lecteur vidéo intégré. Active le proxy de streaming direct depuis Plex. Désactivé par défaut — certains codecs peuvent ne pas fonctionner dans le navigateur. (Bêta)
+- **Indexeurs — priorité** : boutons `−`/`+` dans chaque ligne d'indexeur pour monter/descendre la priorité de traitement, avec `savePriority()` PATCH vers l'API.
+- **Queue — fluidité** : polling SWR réduit à 2000ms. Barres de progression animées (`transition-all duration-1000 ease-linear`) et interpolation locale `displayProgress` via `setInterval(120ms)` basée sur la vitesse de download — l'affichage bouge en continu entre les mises à jour serveur.
+
 ## [1.1.68] — 2026-07-23
 
 ### Ajouté

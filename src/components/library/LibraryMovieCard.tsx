@@ -11,6 +11,8 @@ import { TagEditor } from "./TagEditor";
 import { MediaBadges } from "./MediaBadges";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
+import { VideoPlayer } from "@/components/player/VideoPlayer";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { Star, Trash2, RotateCw, Loader2, Film, Check, Search, Clock, HardDriveDownload, Tag, Eye, Play, Calendar, ListFilter, CalendarCheck, X } from "lucide-react";
 
 const STATUS_TONE: Record<LibraryStatus, string> = {
@@ -35,6 +37,8 @@ export function LibraryMovieCard({
   onChange: () => void;
 }) {
   const { t, locale } = useI18n();
+  const { enabled: betaPlayer } = useBetaPlayer();
+  const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editingTags, setEditingTags] = useState(false);
   const [showManualSearch, setShowManualSearch] = useState(false);
@@ -120,14 +124,23 @@ export function LibraryMovieCard({
 
         <div className="pointer-events-none absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           {movie.status === "available" && movie.plexUrl && (
-            <a
-              href={movie.plexUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="pointer-events-auto mb-2 flex h-9 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black"
-            >
-              <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
-            </a>
+            betaPlayer && movie.plexRatingKey ? (
+              <button
+                onClick={() => setPlayRatingKey(movie.plexRatingKey!)}
+                className="pointer-events-auto mb-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black"
+              >
+                <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
+              </button>
+            ) : (
+              <a
+                href={movie.plexUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pointer-events-auto mb-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black"
+              >
+                <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
+              </a>
+            )
           )}
           <div className="pointer-events-auto flex gap-2">
             {canGrab && (
@@ -206,6 +219,14 @@ export function LibraryMovieCard({
           refTitle={movie.title}
           year={movie.year ? String(movie.year) : undefined}
           title={movie.title}
+        />
+      )}
+      {playRatingKey && movie.plexUrl && movie.plexRatingKey && (
+        <VideoPlayer
+          ratingKey={playRatingKey}
+          plexUrl={movie.plexUrl}
+          title={movie.title}
+          onClose={() => setPlayRatingKey(null)}
         />
       )}
     </article>

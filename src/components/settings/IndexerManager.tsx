@@ -100,6 +100,14 @@ export function IndexerManager() {
       body: JSON.stringify(patch),
     });
   };
+  const savePriority = async (id: string, priority: number) => {
+    setRows((rs) => rs.map((r) => (r.id === id ? { ...r, priority } : r)));
+    await fetch(`/api/indexers/${id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ priority }),
+    });
+  };
 
   return (
     <div>
@@ -163,13 +171,26 @@ export function IndexerManager() {
                   <Tags className="h-4 w-4" />
                   {t("indexerMgr.categories")}
                 </button>
-                <button
-                  onClick={() => setEditingFilters(editingFilters === r.id ? null : r.id)}
-                  className={cn("flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-colors", editingFilters === r.id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  {t("indexerMgr.filters")}
-                </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => savePriority(r.id, Math.max(0, r.priority - 1))}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg glass text-xs text-ink-dim hover:text-ink"
+                      title={t("indexerMgr.priorityDown")}
+                    >−</button>
+                    <span className="min-w-[1.5rem] text-center text-xs font-bold text-ink" title={`${t("indexerMgr.priority")}: ${r.priority}`}>{r.priority}</span>
+                    <button
+                      onClick={() => savePriority(r.id, r.priority + 1)}
+                      className="flex h-7 w-7 items-center justify-center rounded-lg glass text-xs text-ink-dim hover:text-ink"
+                      title={t("indexerMgr.priorityUp")}
+                    >+</button>
+                  </div>
+                  <button
+                    onClick={() => setEditingFilters(editingFilters === r.id ? null : r.id)}
+                    className={cn("flex h-9 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-colors", editingFilters === r.id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    {t("indexerMgr.filters")}
+                  </button>
                 <button onClick={() => test(r.id)} disabled={testing === r.id} className="flex h-9 items-center gap-1.5 rounded-xl glass px-3 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50">
                   {testing === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
                   {testing === r.id ? t("indexerMgr.testing") : t("indexerMgr.test")}

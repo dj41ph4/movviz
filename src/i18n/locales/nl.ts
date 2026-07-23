@@ -927,6 +927,9 @@ export const nl: Dictionary = {
     maxAge: "Max. leeftijd (dagen)",
     flareResolver: "Cloudflare-resolver (poort 9830)",
     resolverUrl: "Resolver-URL",
+    priority: "Prioriteit",
+    priorityUp: "Prioriteit verhogen",
+    priorityDown: "Prioriteit verlagen",
   },
 
   blocklist: {
@@ -1390,6 +1393,12 @@ export const nl: Dictionary = {
     whatsNewVersion: "Versie {version}",
     whatsNewVersionRange: "Van {from} tot {to}",
     whatsNewClose: "Begrepen!",
+  },
+
+  player: {
+    betaToggle: "Bèta-speler",
+    betaToggleHint: "Vervangt « Bekijken op Plex » door een ingebouwde videospeler (bèta — sommige codecs werken mogelijk niet in de browser).",
+    betaError: "Kan deze video niet afspelen in de browser. Open hem in Plex.",
   },
 
   language: { label: "Taal" },

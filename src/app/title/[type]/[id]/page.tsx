@@ -17,8 +17,10 @@ import { BrandIcon } from "@/components/ui/BrandIcon";
 import { TagEditor } from "@/components/library/TagEditor";
 import { MediaBadges } from "@/components/library/MediaBadges";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
+import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { Star, Plus, Check, Loader2, Bookmark, Film, Tv, Clock, HardDriveDownload, Search, SearchCheck, Hash, Play, ListFilter, Layers, ChevronDown, Calendar, X, Trash2, RefreshCw, type LucideIcon } from "lucide-react";
 
 const STATUS_TONE: Record<LibraryStatus, string> = {
@@ -60,6 +62,8 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
   const [showFullCrew, setShowFullCrew] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
   const [tagsOverride, setTagsOverride] = useState<string[] | null>(null);
+  const { enabled: betaPlayer } = useBetaPlayer();
+  const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
 
   // All reads go through SWR: the detail comes back instantly when
   // revisiting a title, and the library/watchlist keys are shared with the
@@ -77,6 +81,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
     file?: LibraryFile | null;
     monitored?: boolean;
     plexUrl?: string | null;
+    plexRatingKey?: string | null;
     tags?: string[];
     plexMediaInfo?: {
       container: string | null;
@@ -401,15 +406,25 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
             ) : (
               <>
                 {libraryStatus === "available" && libraryMatch?.plexUrl && (
-                  <a
-                    href={libraryMatch.plexUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex h-10 items-center gap-2 rounded-xl bg-amber px-5 text-sm font-bold text-black transition-transform hover:scale-105"
-                  >
-                    <Play className="h-4 w-4 fill-black" />
-                    {t("library.watchOnPlex")}
-                  </a>
+                  betaPlayer && libraryMatch?.plexRatingKey ? (
+                    <button
+                      onClick={() => setPlayRatingKey(libraryMatch.plexRatingKey!)}
+                      className="flex h-10 items-center gap-2 rounded-xl bg-amber px-5 text-sm font-bold text-black transition-transform hover:scale-105"
+                    >
+                      <Play className="h-4 w-4 fill-black" />
+                      {t("library.watchOnPlex")}
+                    </button>
+                  ) : (
+                    <a
+                      href={libraryMatch.plexUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex h-10 items-center gap-2 rounded-xl bg-amber px-5 text-sm font-bold text-black transition-transform hover:scale-105"
+                    >
+                      <Play className="h-4 w-4 fill-black" />
+                      {t("library.watchOnPlex")}
+                    </a>
+                  )
                 )}
                 {canSearch && (
                   <button
@@ -713,9 +728,15 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
 
           <div className="flex flex-wrap items-center gap-2 border-t border-white/5 pt-4">
             {libraryStatus === "available" && libraryMatch?.plexUrl && (
-              <a href={libraryMatch.plexUrl} target="_blank" rel="noreferrer" title="Plex" className="h-8 w-8 shrink-0 overflow-hidden rounded-lg transition-transform hover:scale-110">
-                <BrandIcon name="plex" className="h-full w-full" />
-              </a>
+              betaPlayer && libraryMatch?.plexRatingKey ? (
+                <button onClick={() => setPlayRatingKey(libraryMatch.plexRatingKey!)} title="Plex" className="h-8 w-8 shrink-0 overflow-hidden rounded-lg transition-transform hover:scale-110">
+                  <BrandIcon name="plex" className="h-full w-full" />
+                </button>
+              ) : (
+                <a href={libraryMatch.plexUrl} target="_blank" rel="noreferrer" title="Plex" className="h-8 w-8 shrink-0 overflow-hidden rounded-lg transition-transform hover:scale-110">
+                  <BrandIcon name="plex" className="h-full w-full" />
+                </a>
+              )
             )}
             <a
               href={`https://www.themoviedb.org/${type === "movie" ? "movie" : "tv"}/${detail.tmdbId}`}
@@ -800,6 +821,14 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
           title={manualSearch.title}
           tmdbId={manualSearch.tmdbId}
           imdbId={manualSearch.imdbId}
+        />
+      )}
+      {playRatingKey && libraryMatch?.plexUrl && libraryMatch?.plexRatingKey && (
+        <VideoPlayer
+          ratingKey={playRatingKey}
+          plexUrl={libraryMatch.plexUrl}
+          title={detail?.title ?? ""}
+          onClose={() => setPlayRatingKey(null)}
         />
       )}
     </div>

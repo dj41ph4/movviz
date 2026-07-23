@@ -1,12 +1,14 @@
 "use client";
 
-import { use as usePromise } from "react";
+import { useState, use as usePromise } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { LibrarySeries, LibraryEpisode, LibraryStatus } from "@/lib/library/types";
 import type { MetaEpisode } from "@/lib/metadata/types";
+import { VideoPlayer } from "@/components/player/VideoPlayer";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { Play, Check, Search, Clock, HardDriveDownload, ArrowLeft, Tv } from "lucide-react";
 
 type EpisodeWithPlexUrl = LibraryEpisode & { plexUrl?: string | null };
@@ -33,6 +35,8 @@ export default function EpisodeDetailPage({
   const seasonNumber = Number(season);
   const episodeNumber = Number(episode);
   const t = useT();
+  const { enabled: betaPlayer } = useBetaPlayer();
+  const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
   // Same SWR key as the series detail page: navigating from there paints
   // this page instantly instead of waiting for a fresh fetch.
   const { data: seriesData } = useSWR<LibrarySeries & { plexUrl?: string | null; id?: string }>(
@@ -89,20 +93,37 @@ export default function EpisodeDetailPage({
           <Icon className="h-3 w-3" /> {t(`status.${ep.status}`)}
         </span>
         {ep.plexUrl && (
-          <a
-            href={ep.plexUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-9 items-center gap-2 rounded-xl bg-amber px-4 text-sm font-bold text-black"
-          >
-            <Play className="h-4 w-4 fill-black" /> {t("library.watchOnPlex")}
-          </a>
+          betaPlayer && ep.plexRatingKey ? (
+            <button
+              onClick={() => setPlayRatingKey(ep.plexRatingKey!)}
+              className="flex h-9 items-center gap-2 rounded-xl bg-amber px-4 text-sm font-bold text-black"
+            >
+              <Play className="h-4 w-4 fill-black" /> {t("library.watchOnPlex")}
+            </button>
+          ) : (
+            <a
+              href={ep.plexUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-9 items-center gap-2 rounded-xl bg-amber px-4 text-sm font-bold text-black"
+            >
+              <Play className="h-4 w-4 fill-black" /> {t("library.watchOnPlex")}
+            </a>
+          )
         )}
       </div>
 
       <h1 className="mt-3 text-2xl font-black text-ink">{ep.title}</h1>
       {ep.airDate && <p className="mt-1 text-sm text-ink-dim">{ep.airDate}</p>}
       <p className="mt-4 max-w-2xl text-sm text-ink-soft">{meta?.overview || t("title.noSynopsis")}</p>
+      {playRatingKey && ep.plexUrl && ep.plexRatingKey && (
+        <VideoPlayer
+          ratingKey={playRatingKey}
+          plexUrl={ep.plexUrl}
+          title={ep.title}
+          onClose={() => setPlayRatingKey(null)}
+        />
+      )}
     </div>
   );
 }

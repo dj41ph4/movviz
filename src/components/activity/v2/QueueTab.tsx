@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, memo, useEffect, useRef } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,7 +30,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const router = useRouter();
   const user = useCurrentUser();
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    "/api/activity/v2?tab=queue", { refreshInterval: 500, dedupingInterval: 400 }
+    "/api/activity/v2?tab=queue", { refreshInterval: 2000, dedupingInterval: 1500 }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -299,6 +299,32 @@ const QueueItemRow = memo(function QueueItemRow({
   item, isExpanded, actionLoading, t, locale,
   onToggleExpand, onAction, onRemove,
 }: QueueItemRowProps) {
+  const [smoothProgress, setSmoothProgress] = useState(item.download.progress);
+  const speedRef = useRef(item.download.downloadSpeed);
+  const sizeRef = useRef(item.release.size);
+
+  useEffect(() => {
+    speedRef.current = item.download.downloadSpeed;
+    sizeRef.current = item.release.size;
+  }, [item.download.downloadSpeed, item.release.size]);
+
+  useEffect(() => {
+    setSmoothProgress(item.download.progress);
+  }, [item.download.progress]);
+
+  useEffect(() => {
+    if (item.status !== "downloading" && item.status !== "importing") return;
+    if (item.download.downloadSpeed <= 0) return;
+    const rate = item.download.downloadSpeed / item.release.size;
+    const id = setInterval(() => {
+      setSmoothProgress((prev) => Math.min(0.999, prev + rate * 0.12));
+    }, 120);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.status, item.download.downloadSpeed, item.release.size]);
+
+  const displayProgress = smoothProgress;
+
   return (
     <div className="rounded-2xl glass overflow-hidden">
       <div
@@ -362,14 +388,14 @@ const QueueItemRow = memo(function QueueItemRow({
               <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                 <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
                   <div
-                    className="h-full rounded-full brand-gradient transition-[width]"
-                    style={{ width: `${Math.round(item.download.progress * 100)}%` }}
+                    className="h-full rounded-full brand-gradient transition-all duration-1000 ease-linear"
+                    style={{ width: `${Math.round(displayProgress * 100)}%` }}
                   />
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-dim">
-                  <span className="font-mono text-ink-soft">{Math.round(item.download.progress * 100)}%</span>
+                  <span className="font-mono text-ink-soft">{Math.round(displayProgress * 100)}%</span>
                   <span>
-                    {formatBytes(item.download.progress * item.release.size)} / {formatBytes(item.release.size)}
+                    {formatBytes(displayProgress * item.release.size)} / {formatBytes(item.release.size)}
                   </span>
                   {item.download.eta > 0 && (
                     <span>{t("downloads.eta")}: {formatEta(Math.round(item.download.eta / 60))}</span>
@@ -460,11 +486,11 @@ const QueueItemRow = memo(function QueueItemRow({
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-ink-dim">{t("common.loading")}</span>
-                  <span className="font-mono">{Math.round(item.download.progress * 100)}%</span>
+                  <span className="font-mono">{Math.round(displayProgress * 100)}%</span>
                 </div>
-                <div className="h-2 overflow-hidden rounded-full bg-black/40">
-                  <div className="h-full rounded-full brand-gradient" style={{ width: `${item.download.progress * 100}%` }} />
-                </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-black/40">
+                    <div className="h-full rounded-full brand-gradient transition-all duration-1000 ease-linear" style={{ width: `${displayProgress * 100}%` }} />
+                  </div>
                 <div className="flex justify-between">
                   <span className="text-ink-dim">{t("downloads.down")}</span>
                   <span>{formatSpeed(item.download.downloadSpeed)} ↓ / {formatSpeed(item.download.uploadSpeed)} ↑</span>

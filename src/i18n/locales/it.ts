@@ -926,6 +926,9 @@ export const it: Dictionary = {
     maxAge: "Età massima (giorni)",
     flareResolver: "Risolutore Cloudflare (porta 9830)",
     resolverUrl: "URL risolutore",
+    priority: "Priorità",
+    priorityUp: "Aumenta priorità",
+    priorityDown: "Diminuisci priorità",
   },
 
   blocklist: {
@@ -1389,6 +1392,12 @@ export const it: Dictionary = {
     whatsNewVersion: "Versione {version}",
     whatsNewVersionRange: "Dalla {from} alla {to}",
     whatsNewClose: "Capito!",
+  },
+
+  player: {
+    betaToggle: "Lettore beta",
+    betaToggleHint: "Sostituisce « Guida su Plex » con un lettore video integrato (beta — alcuni codec potrebbero non funzionare nel browser).",
+    betaError: "Impossibile riprodurre questo video nel browser. Aprilo su Plex.",
   },
 
   language: { label: "Lingua" },
