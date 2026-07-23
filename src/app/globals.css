@@ -57,9 +57,9 @@
 :root[data-theme="light"] {
   --aurora-wash-from: #e0e3f0;
   --aurora-wash-to: #e8eaf2;
-  --aurora-blob-1-opacity: 0.25;
-  --aurora-blob-2-opacity: 0.2;
-  --aurora-blob-3-opacity: 0.15;
+  --aurora-blob-1-opacity: 0;
+  --aurora-blob-2-opacity: 0;
+  --aurora-blob-3-opacity: 0;
   --aurora-grid-line: rgba(20, 24, 50, 0.4);
 }
 

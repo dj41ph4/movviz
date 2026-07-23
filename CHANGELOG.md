@@ -2,6 +2,16 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.2.2] — 2026-07-23
+
+### Ajouté
+
+- **Lecteur vidéo — fallback transcodage** : tentative de lecture directe en priorité ; si le codec/container n'est pas supporté par le navigateur (x265, MKV...), fallback automatique vers le transcodage HLS de Plex (h264+aac). Badge « transcodé » visible dans l'interface.
+
+### Modifié
+
+- **Mode clair** : blobs aurora désactivés, fond uni propre sans dégradé.
+
 ## [1.2.1] — 2026-07-23
 
 ### Modifié
