@@ -243,8 +243,16 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
         return {
           seasonNumber: ds.seasonNumber,
           episodeNumber: epN,
-          title: (tvdb?.title && !hasCjkText(tvdb.title)) || !existingTitle || hasCjkText(existingTitle)
-            ? (tvdb?.title ?? `Épisode ${epN}`)
+          // CJK handling:
+          //  - existing French/Latin title (not CJK) → keep it, ignore TVDB
+          //  - existing CJK title + TVDB has a non-CJK (French) title → replace
+          //  - existing CJK title + TVDB is also CJK (or null) → fall back to
+          //    the generic "Épisode N" rather than propagating another CJK
+          //    string — this is the v1.3.1/v1.3.2 bug: the old condition still
+          //    picked tvdb.title when it was CJK, so a Japanese title just got
+          //    replaced with another Japanese title.
+          title: !existingTitle || hasCjkText(existingTitle)
+            ? (tvdb?.title && !hasCjkText(tvdb.title) ? tvdb.title : `Épisode ${epN}`)
             : existingTitle,
           airDate: tvdb?.airDate ?? null,
           monitored: true,
@@ -281,8 +289,8 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
       return {
         seasonNumber: e.seasonNumber,
         episodeNumber: e.episodeNumber,
-        title: (e.title && !hasCjkText(e.title)) || !carried || hasCjkText(carried.title)
-          ? e.title
+        title: !carried || hasCjkText(carried.title)
+          ? (e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`)
           : carried.title,
         airDate: e.airDate,
         monitored: carried?.monitored ?? true,
@@ -1169,7 +1177,7 @@ export async function searchReleasedMissingEpisodes() {
 }
 
 /** True if `text` contains CJK characters (Japanese/Chinese kanji, hiragana, katakana). Used to detect when TVDB fell back to Japanese because no French title exists. */
-function hasCjkText(text: string): boolean {
+export function hasCjkText(text: string): boolean {
   return /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff]/.test(text);
 }
 

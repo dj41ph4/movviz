@@ -1399,6 +1399,13 @@ export const fr = {
     betaToggle: "Lecteur bêta",
     betaToggleHint: "Remplace « Ouvrir dans Plex » par un lecteur vidéo intégré (bêta — certains codecs peuvent ne pas fonctionner dans le navigateur).",
     betaError: "Impossible de lire cette vidéo dans le navigateur. Ouvrez-la dans Plex à la place.",
+    betaLoading: "Mise en mémoire tampon…",
+    betaWebcodecs: "WebCodecs HEVC détecté — lecture directe",
+    betaTranscoded: "Transcodé",
+    betaAudio: "Audio",
+    betaSubtitle: "Sous-titres",
+    betaOff: "Off",
+    betaQuality: "Qualité",
   },
 
   language: { label: "Langue" },

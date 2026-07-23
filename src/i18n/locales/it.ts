@@ -1400,6 +1400,13 @@ export const it: Dictionary = {
     betaToggle: "Lettore beta",
     betaToggleHint: "Sostituisce « Guida su Plex » con un lettore video integrato (beta — alcuni codec potrebbero non funzionare nel browser).",
     betaError: "Impossibile riprodurre questo video nel browser. Aprilo su Plex.",
+    betaLoading: "Buffering…",
+    betaWebcodecs: "WebCodecs HEVC rilevato — riproduzione diretta",
+    betaTranscoded: "Transcodificato",
+    betaAudio: "Audio",
+    betaSubtitle: "Sottotitoli",
+    betaOff: "Off",
+    betaQuality: "Qualità",
   },
 
   language: { label: "Lingua" },

@@ -1401,6 +1401,13 @@ export const en: Dictionary = {
     betaToggle: "Beta player",
     betaToggleHint: "Replaces « Open in Plex » with an embedded video player (beta — some codecs may not play in the browser).",
     betaError: "Cannot play this video in the browser. Open it in Plex instead.",
+    betaLoading: "Buffering…",
+    betaWebcodecs: "WebCodecs HEVC detected — direct play",
+    betaTranscoded: "Transcoded",
+    betaAudio: "Audio",
+    betaSubtitle: "Subtitles",
+    betaOff: "Off",
+    betaQuality: "Quality",
   },
 
   language: { label: "Language" },
