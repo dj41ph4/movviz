@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireUser } from "@/lib/auth/guard";
-import { aggregatePerf, recordPerf, perfLabel } from "@/lib/perf";
+import { aggregatePerf, recordPerf, perfLabel, getPerfEntries } from "@/lib/perf";
 
 export const dynamic = "force-dynamic";
 
@@ -8,6 +8,18 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const admin = requireAdmin(req);
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const { searchParams } = new URL(req.url);
+  if (searchParams.has("errors")) {
+    const label = searchParams.get("label") || undefined;
+    const kind = searchParams.get("kind") as "client" | "outbound" | undefined;
+    const entries = getPerfEntries().filter((e) => {
+      if (e.status === null || e.status < 400) return false;
+      if (kind && e.kind !== kind) return false;
+      if (label && e.label !== label) return false;
+      return true;
+    });
+    return NextResponse.json({ entries });
+  }
   return NextResponse.json({ aggregates: aggregatePerf() });
 }
 

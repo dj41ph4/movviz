@@ -2,6 +2,17 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.3.5] — 2026-07-23
+
+### Corrigé
+
+- **Notification Seerr absente pour les films déjà en bibliothèque** : quand un film était importé du disque AVANT la demande Seerr, l'import Seerr le voyait déjà présent (`alreadyInLibrary`) et ne notifiait jamais Seerr — le statut restait bloqué sur "requested". Désormais, si le film est "available" dans Movviz, `notifySeerrStatus("available")` est appelé.
+- **Diagnostic — clic sur le nombre d'erreurs** : dans le tableau "Temps de réponse", le nombre d'erreurs est maintenant cliquable et ouvre une modale listant chaque erreur (code HTTP, temps, horodatage).
+
+### Ajouté
+
+- **API `/api/perf?errors=1`** : renvoie les entrées d'erreur brutes (status ≥ 400) pour une vue détaillée.
+
 ## [1.3.4] — 2026-07-23
 
 ### Corrigé

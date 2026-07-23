@@ -9,7 +9,7 @@ import { isBlocked } from "@/lib/blocklist/store";
 import { reconcileLibrary } from "@/lib/library/reconcile";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries } from "@/lib/metadata/tmdb";
 import { mapWithConcurrency } from "@/lib/concurrency";
-import { setMediaMapEntry } from "@/lib/seerr/mediaMap";
+import { setMediaMapEntry, notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import type { User } from "@/lib/auth/types";
 import type { SeerrUser, SeerrRequest } from "@/lib/seerr/types";
 
@@ -74,7 +74,17 @@ export async function importSeerrRequests(): Promise<SeerrImportResult> {
     const tmdbId = sr.media.tmdbId;
     const key = `${type}:${tmdbId}`;
     if (isBlocked(type, tmdbId)) return { kind: "blocked" };
-    if ((type === "movie" ? getMovieByTmdbId(tmdbId) : getSeriesByTmdbId(tmdbId))) return { kind: "alreadyInLibrary" };
+    if (type === "movie") {
+      const libMovie = getMovieByTmdbId(tmdbId);
+      if (libMovie) {
+        if (libMovie.status === "available") {
+          void notifySeerrStatus("movie", tmdbId, "available").catch(() => {});
+        }
+        return { kind: "alreadyInLibrary" };
+      }
+    } else {
+      if (getSeriesByTmdbId(tmdbId)) return { kind: "alreadyInLibrary" };
+    }
     const existingRequest = loadRequests().find(
       (r) => r.type === type && r.tmdbId === tmdbId && (r.status === "pending" || r.status === "approved")
     );
