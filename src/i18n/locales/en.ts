@@ -1375,6 +1375,7 @@ export const en: Dictionary = {
       "anime-vf-calendar-refresh": "Anime VF calendar refresh",
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Retry missing movies",
+      "seerr-import": "Seerr/Overseerr request import",
     },
   },
 

@@ -1373,6 +1373,7 @@ export const fr = {
       "anime-vf-calendar-refresh": "Rafraîchissement du calendrier VF anime",
       "trash-purge": "Purge de la corbeille",
       "retry-missing-movies": "Relance des films manquants",
+      "seerr-import": "Import des demandes Overseerr/Seerr",
     },
   },
 

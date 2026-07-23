@@ -1,6 +1,7 @@
 import { getMovieRecommendations, getTvRecommendations } from "@/lib/metadata/tmdb";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadMovies, loadSeries } from "@/lib/library/store";
+import { mapWithConcurrency } from "@/lib/concurrency";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
 /**
@@ -44,12 +45,14 @@ export async function getRecommendations(
   }
 
   const fetchFn = type === "movie" ? getMovieRecommendations : getTvRecommendations;
-  const results = await Promise.allSettled(seeds.map((id) => fetchFn(id)));
+  const results = await mapWithConcurrency(seeds, 5, async (id) => {
+    try { return await fetchFn(id); } catch { return null; }
+  });
 
   const score = new Map<number, { item: MetaSearchResult; count: number }>();
   for (const r of results) {
-    if (r.status !== "fulfilled" || !r.value) continue;
-    for (const item of r.value.results) {
+    if (!r) continue;
+    for (const item of r.results) {
       if (watched.has(item.tmdbId) || owned.has(item.tmdbId)) continue;
       const existing = score.get(item.tmdbId);
       if (existing) {

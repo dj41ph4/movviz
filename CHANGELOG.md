@@ -2,6 +2,13 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.3.4] — 2026-07-23
+
+### Corrigé
+
+- **Pack intégrale toujours pas trouvé (Trigun)** : `seasonEpisodeMatches` rejetait les releases sans numéro de saison (ex. "Trigun Complete Series") — `parsed.season === null` n'est plus bloquant quand on cherche un pack. Le pack intégrale passe désormais le filtre et peut être grabbé.
+- **Performance recommandations TMDb** : les 25 appels parallèles à l'API TMDb pour les recommandations sont maintenant limités à 5 concurrents, évitant la saturation du rate-limit du plan gratuit qui ralentissait `/api/metadata/rows` (~4s).
+
 ## [1.3.3] — 2026-07-23
 
 ### Corrigé

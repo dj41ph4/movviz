@@ -115,6 +115,7 @@ export function seasonEpisodeMatches(
   seasonNumber: number,
   episodeNumber?: number | null
 ): boolean {
+  if (parsed.season == null && episodeNumber === null) return true;
   if (parsed.season !== seasonNumber) return false;
   if (episodeNumber != null) return parsed.episode === episodeNumber;
   return true;

@@ -1375,6 +1375,7 @@ export const nl: Dictionary = {
       "anime-vf-calendar-refresh": "Anime VF calendar refresh",
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Opnieuw missende films",
+      "seerr-import": "Seerr/Overseerr aanvragen importeren",
     },
   },
 

@@ -1392,6 +1392,7 @@ export const de: Dictionary = {
       "anime-vf-calendar-refresh": "Anime VF calendar refresh",
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Fehlende Filme erneut versuchen",
+      "seerr-import": "Seerr/Overseerr Anfragen importieren",
     },
   },
 
