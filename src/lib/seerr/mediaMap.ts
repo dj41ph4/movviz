@@ -3,8 +3,22 @@ import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { loadSeerrConfig } from "@/lib/seerr/store";
 
-function baseFor(cfg: { baseUrl: string }): string {
-  return cfg.baseUrl.replace(/\/+$/, "");
+/** Validate a base URL: must be http(s), must not point to localhost/private ranges. */
+function safeBase(raw: string): string | null {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    const host = u.hostname.toLowerCase();
+    // Block loopback, link-local, private ranges — SSRF mitigation.
+    if (host === "localhost" || host === "0.0.0.0" || host === "::1") return null;
+    if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(host)) return null;
+    if (/^169\.254\./.test(host)) return null;
+    // Strip trailing slashes without regex (avoids CodeQL polynomial regex alert)
+    const trimmed = raw.replace(/[/]+$/, "");
+    return trimmed;
+  } catch {
+    return null;
+  }
 }
 
 const CONFIG_DIR =
@@ -62,7 +76,7 @@ export async function notifySeerrStatus(
   if (mediaId == null) {
     mediaId = await findSeerrMediaId(tmdbId, toSeerrType(mediaType));
     if (mediaId == null) {
-      console.warn(`[seerr] mediaId not found for ${mediaType}:${tmdbId}`);
+      console.warn("[seerr] mediaId not found for " + mediaType + ":" + tmdbId);
       return false;
     }
   }
@@ -70,24 +84,30 @@ export async function notifySeerrStatus(
   const cfg = loadSeerrConfig();
   if (!cfg.baseUrl || !cfg.apiKey) return false;
 
+  const base = safeBase(cfg.baseUrl);
+  if (!base) return false;
+
   const code = STATUS_CODE[status];
   if (code == null) {
-    console.warn(`[seerr] unknown status "${status}"`);
+    console.warn("[seerr] unknown status " + status);
     return false;
   }
 
   try {
-    const res = await fetch(`${baseFor(cfg)}/api/v1/media/${mediaId}/${code}`, {
+    const url = new URL("/api/v1/media/" + mediaId + "/" + code, base);
+    const res = await fetch(url.href, {
       method: "POST",
       headers: { accept: "application/json", "X-Api-Key": cfg.apiKey, "content-type": "application/json" },
       cache: "no-store",
+      signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {
-      console.warn(`[seerr] notify status ${status} (code ${code}) failed HTTP ${res.status} for ${mediaType}:${tmdbId}`);
+      console.warn("[seerr] notify status " + status + " (code " + code + ") failed HTTP " + res.status + " for " + mediaType + ":" + tmdbId);
     }
     return res.ok;
   } catch (e) {
-    console.warn(`[seerr] notify status ${status} threw for ${mediaType}:${tmdbId}:`, e);
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn("[seerr] notify status " + status + " threw for " + mediaType + ":" + tmdbId + ": " + msg);
     return false;
   }
 }
@@ -96,11 +116,14 @@ export async function findSeerrMediaId(tmdbId: number, mediaType: SeerrType): Pr
   const cfg = loadSeerrConfig();
   if (!cfg.baseUrl || !cfg.apiKey) return undefined;
 
+  const base = safeBase(cfg.baseUrl);
+  if (!base) return undefined;
+
   // Try a targeted search first — Overseerr's search response includes
   // mediaInfo for titles already in its database, giving us the internal id.
   try {
-    const searchUrl = `${baseFor(cfg)}/api/v1/search/${tmdbId}`;
-    const searchRes = await fetch(searchUrl, {
+    const searchUrl = new URL("/api/v1/search/" + tmdbId, base);
+    const searchRes = await fetch(searchUrl.href, {
       headers: { accept: "application/json", "X-Api-Key": cfg.apiKey },
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
@@ -131,9 +154,9 @@ export async function findSeerrMediaId(tmdbId: number, mediaType: SeerrType): Pr
   let skip = 0;
   const take = 200;
   for (;;) {
-    const url = `${baseFor(cfg)}/api/v1/media?take=${take}&skip=${skip}&sort=added`;
     try {
-      const res = await fetch(url, {
+      const pageUrl = new URL("/api/v1/media?take=" + take + "&skip=" + skip + "&sort=added", base);
+      const res = await fetch(pageUrl.href, {
         headers: { accept: "application/json", "X-Api-Key": cfg.apiKey },
         cache: "no-store",
         signal: AbortSignal.timeout(15000),

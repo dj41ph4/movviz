@@ -2,6 +2,15 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.4.4] — 2026-07-23
+
+### Corrigé
+
+- **Sécurité — 5 alertes CodeQL corrigées dans `seerr/mediaMap.ts`** :
+  - **SSRF (#44, #46, #47)** : validation de l'URL Seerr via `safeBase()` — schéma http/https seulement, blocage localhost/loopback/private/link-local, construction des URLs via `new URL()`
+  - **Format string (#48)** : `console.warn` utilise concaténation de chaînes au lieu d'argument format injecté
+  - **Regex polynomial (#45)** : `replace(/[/]+$/,"")` au lieu de `replace(/\/+$/,"")`
+
 ## [1.4.3] — 2026-07-23
 
 ### Corrigé
