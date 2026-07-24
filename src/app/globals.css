@@ -38,6 +38,7 @@
     system-ui, "Helvetica Neue", Arial, sans-serif;
 
   --animate-shimmer: shimmer 2.5s linear infinite;
+  --animate-heartbeat: heartbeat 1.2s ease-in-out infinite;
   --animate-float: float 7s ease-in-out infinite;
   --animate-aurora: aurora 18s ease-in-out infinite;
   --animate-pulse-glow: pulseGlow 3s ease-in-out infinite;
@@ -134,6 +135,19 @@
   transform-origin: center;
 }
 
+@keyframes heartbeat {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.3); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.3); }
+  56% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+
+.animate-heartbeat {
+  animation: heartbeat 1.2s ease-in-out infinite;
+}
+
 .reduce-motion .eeg-bar,
 .reduce-motion .animate-spin,
 .reduce-motion .animate-pulse,
@@ -143,6 +157,7 @@
 .reduce-motion .animate-badge-pulse,
 .reduce-motion .animate-badge-pop,
 .reduce-motion .animate-shimmer,
+.reduce-motion .animate-heartbeat,
 .reduce-motion .logo-ripple {
   animation: none !important;
 }

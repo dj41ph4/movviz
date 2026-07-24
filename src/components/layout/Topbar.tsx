@@ -38,7 +38,7 @@ export function Topbar() {
           aria-label={t("settings.aboutSupportTitle")}
           className="flex h-10 w-10 items-center justify-center rounded-xl glass text-ink-soft transition-colors hover:border-magenta/30 hover:text-magenta"
         >
-          <Heart className="h-4 w-4" />
+          <Heart className="h-4 w-4 animate-heartbeat fill-down text-down" />
         </a>
         {user?.role === "admin" && <ActivityMonitor />}
         <ThemeSwitcher />
