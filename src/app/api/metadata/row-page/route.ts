@@ -4,15 +4,17 @@ import { getAllocineNewVod } from "@/lib/metadata/allocineVod";
 import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
+import type { MetaSearchResult } from "@/lib/metadata/types";
 
 export const dynamic = "force-dynamic";
 
-/**
- * Paginated "see all" for a single Discover home row — every row on the
- * homepage (trending/box office/kids/...) is backed by one of these same
- * functions with page 1 hardcoded; this just re-runs the same query at
- * whatever page the "Voir tout" grid has scrolled to.
- */
+const PER_PAGE = 20;
+const REC_CACHE_TTL = 10 * 60 * 1000;
+
+function getRecCache(): Map<string, { data: MetaSearchResult[]; ts: number }> {
+  return (globalThis as any).__movvizRecCache ??= new Map();
+}
+
 export async function GET(req: NextRequest) {
   if (!tmdbConfigured()) return NextResponse.json({ error: "not configured" }, { status: 400 });
 
@@ -36,11 +38,19 @@ export async function GET(req: NextRequest) {
       case "newVod": return getAllocineNewVod(page);
       case "renewed": return browseCategory("series", "on_the_air", page, originCountries);
       case "recommended": {
-        // Not backed by TMDb pagination — it's a scored aggregate, so the
-        // whole list is already page 1; later pages are simply empty.
-        if (page > 1) return { results: [], page, totalPages: 1 };
-        const results = await getRecommendations(user?.id ?? "", type);
-        return { results, page: 1, totalPages: 1 };
+        const cache = getRecCache();
+        const cacheKey = `${user?.id ?? ""}:${type}`;
+        const cached = cache.get(cacheKey);
+        let all: MetaSearchResult[];
+        if (cached && Date.now() - cached.ts < REC_CACHE_TTL) {
+          all = cached.data;
+        } else {
+          all = await getRecommendations(user?.id ?? "", type);
+          cache.set(cacheKey, { data: all, ts: Date.now() });
+        }
+        const totalPages = Math.max(1, Math.ceil(all.length / PER_PAGE));
+        const results = all.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+        return { results, page, totalPages };
       }
       default: return null;
     }

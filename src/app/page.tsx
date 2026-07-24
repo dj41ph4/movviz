@@ -130,7 +130,7 @@ export default function DashboardPage() {
             <button
               onClick={() => setAddOpen((v) => !v)}
               disabled={hidden.length === 0}
-              className="flex items-center gap-1.5 rounded-xl glass px-3.5 py-2 text-sm font-semibold text-ink-soft hover:text-ink disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-xl glass px-3.5 py-2 text-sm font-semibold text-ink-soft hover:text-ink disabled:opacity-40 transition-transform hover:scale-105"
             >
               <Plus className="h-4 w-4" /> {t("dashboard.addWidget")}
             </button>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => removeWidget(id)}
                 aria-label={t("dashboard.removeWidget")}
-                className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-down text-white shadow-lg transition-transform hover:scale-110"
+                className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-down/12 text-down shadow-lg backdrop-blur transition-transform hover:scale-110"
               >
                 <X className="h-3.5 w-3.5" />
               </button>

@@ -287,7 +287,7 @@ function LibraryTab() {
 
   return (
     <div>
-      <div className="mb-6 space-y-4 rounded-2xl glass p-4">
+      <div className="mb-6 space-y-4 rounded-2xl glass p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-ink">
             <Film className="h-4 w-4 text-brand-glow" />

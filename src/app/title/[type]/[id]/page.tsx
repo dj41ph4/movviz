@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use as usePromise } from "react";
+import { useState, useEffect, use as usePromise } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -64,6 +64,8 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
   const [tagsOverride, setTagsOverride] = useState<string[] | null>(null);
   const { enabled: betaPlayer } = useBetaPlayer();
   const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
+
+  useEffect(() => { window.scrollTo(0, 0); }, [type, id]);
 
   // All reads go through SWR: the detail comes back instantly when
   // revisiting a title, and the library/watchlist keys are shared with the
@@ -479,7 +481,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
                   <button
                     onClick={openManualSearch}
                     title={t("library.manualSearch")}
-                    className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink"
+                    className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink transition-transform hover:scale-105"
                   >
                     <ListFilter className="h-4 w-4" />
                     {t("search.manualPick")}
@@ -491,7 +493,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
               onClick={toggleWatchlist}
               disabled={watching}
               className={cn(
-                "flex h-10 items-center gap-2 rounded-xl px-5 text-sm font-bold glass",
+                "flex h-10 items-center gap-2 rounded-xl px-5 text-sm font-bold glass transition-transform hover:scale-105",
                 onWatchlist ? "text-brand-glow" : "text-ink-soft"
               )}
             >
@@ -501,7 +503,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
             {detail.trailerKey && (
               <button
                 onClick={() => setShowTrailer(true)}
-                className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink"
+                className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink transition-transform hover:scale-105"
               >
                 <Play className="h-4 w-4" />
                 {t("title.trailer")}
@@ -510,7 +512,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
             {type === "movie" && detail.collection && (
               <Link
                 href={`/collection/${detail.collection.id}`}
-                className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink"
+                className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink transition-transform hover:scale-105"
               >
                 <Layers className="h-4 w-4" />
                 {t("title.saga")}
@@ -677,8 +679,8 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
             </div>
           )}
           {libraryMatch?.plexMediaInfo && type === "movie" && (
-            <div className="rounded-2xl glass p-4 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-dim">{t("title.technicalInfo")}</h3>
+            <div className="rounded-2xl glass p-5">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-dim">{t("title.technicalInfo")}</h3>
               <div className="space-y-2 text-xs text-ink">
                 {libraryMatch.plexMediaInfo.container && (
                   <div className="flex items-center justify-between">
@@ -807,7 +809,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
 
       {showTrailer && detail.trailerKey && (
         <div
-          className="fixed inset-0 z-[100] flex items-start justify-center bg-black/80 p-4 pt-[10vh] backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 p-4 pt-[12vh] backdrop-blur-sm"
           onClick={() => setShowTrailer(false)}
         >
           <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>

@@ -270,7 +270,7 @@ function SearchPageInner() {
             </button>
           ))}
         </div>
-        <motion.button {...btnSpring} onClick={run} disabled={loading || !q.trim()} className="flex h-14 items-center justify-center gap-2 rounded-2xl brand-gradient px-8 text-sm font-bold text-white shadow-xl transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-40">
+        <motion.button {...btnSpring} onClick={run} disabled={loading || !q.trim()} className="flex h-14 items-center justify-center gap-2 rounded-2xl brand-gradient px-8 text-sm font-bold text-white shadow-xl transition-transform hover:scale-105 active:scale-95 disabled:opacity-40">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />} {t("search.launch")}
         </motion.button>
       </div>
@@ -279,7 +279,7 @@ function SearchPageInner() {
           limit, malformed query) otherwise looks identical to "found
           nothing", so surface it instead of leaving the user guessing. */}
       {indexerErrors.length > 0 && (
-        <div className="mb-4 flex flex-col gap-1.5 rounded-xl border border-down/25 bg-down/10 px-4 py-2.5 text-sm text-down">
+        <div className="mb-4 flex flex-col gap-1.5 rounded-xl border border-down/20 bg-down/8 px-4 py-2.5 text-sm text-down">
           {indexerErrors.map((e) => (
             <div key={e.indexer} className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -435,7 +435,7 @@ function SearchPageInner() {
       )}
 
       {pendingTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setPendingTarget(null)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[12vh] backdrop-blur-sm p-4" onClick={() => setPendingTarget(null)}>
           <div className="w-full max-w-lg rounded-2xl glass-strong p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="min-w-0">

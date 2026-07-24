@@ -2,6 +2,19 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.7.8] — 2026-07-24
+
+### Ajouté
+
+- **Suggestions infinies** : les recommandations films/séries passent de 40 à 200 résultats, chargement par 20 avec infinite scroll
+- **Tri mixte suggestions** : les recommandations sont maintenant triées par un score composite (30% pertinence, 35% note, 35% récence) pour un meilleur équilibre entre qualité et nouveauté
+- **Cache suggestions** : cache de 10 min pour éviter de re-fetcher TMDb à chaque page
+
+### Corrigé
+
+- **Scroll titre** : quand on clique sur un film similaire ou un lien dans la fiche détail, la page remonte maintenant en haut (`window.scrollTo(0,0)` au changement de route)
+- **UX pages** : harmonisation des classes Tailwind (hover:scale-105, boutons, espacements, modales backdrop-blur)
+
 ## [1.7.7] — 2026-07-24
 
 ### Corrigé
