@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { cn } from "@/lib/utils";
@@ -86,11 +86,21 @@ function SettingsPageInner() {
   const t = useT();
   const user = useCurrentUser();
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const initialTab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "clients";
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
   const activeTab = visibleTabs.find((tb) => tb.id === tab) ?? visibleTabs[0];
+
+  const pushTab = (id: (typeof TABS)[number]["id"]) => {
+    setTab(id);
+    const p = new URLSearchParams(params.toString());
+    if (id === "clients") p.delete("tab");
+    else p.set("tab", id);
+    router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
+  };
 
 
 
@@ -195,7 +205,7 @@ function SettingsPageInner() {
                 </button>
               </div>
               <div className="flex flex-col gap-6 pb-2">
-                {renderGroups((id) => { setTab(id); setMobileNavOpen(false); }, "settings-tab-active-mobile")}
+                {renderGroups((id) => { pushTab(id); setMobileNavOpen(false); }, "settings-tab-active-mobile")}
               </div>
             </motion.div>
           </motion.div>
@@ -204,7 +214,7 @@ function SettingsPageInner() {
 
       <div className="md:grid md:grid-cols-[224px_1fr] md:items-start md:gap-8">
         <nav className="hidden flex-col gap-6 md:sticky md:top-24 md:flex">
-          {renderGroups(setTab, "settings-tab-active")}
+          {renderGroups(pushTab, "settings-tab-active")}
         </nav>
 
         <div className="min-w-0">

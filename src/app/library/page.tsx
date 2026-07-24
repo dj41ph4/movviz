@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { LibrarySeriesCard } from "@/components/library/LibrarySeriesCard";
@@ -67,8 +67,18 @@ export default function LibraryPage() {
 function LibraryPageInner() {
   const t = useT();
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const initialTab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "library";
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
+
+  const pushTab = (id: (typeof TABS)[number]["id"]) => {
+    setTab(id);
+    const p = new URLSearchParams(params.toString());
+    if (id === "library") p.delete("tab");
+    else p.set("tab", id);
+    router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
+  };
 
   return (
     <div className="mx-auto max-w-[1500px]">
@@ -78,7 +88,7 @@ function LibraryPageInner() {
         {TABS.map((tb) => (
           <button
             key={tb.id}
-            onClick={() => setTab(tb.id)}
+            onClick={() => pushTab(tb.id)}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
               tab === tb.id ? "brand-gradient text-white shadow-lg" : "glass text-ink-soft hover:text-ink"
@@ -100,13 +110,35 @@ function LibraryPageInner() {
 function LibraryTab() {
   const t = useT();
   const user = useCurrentUser();
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
-  const [type, setType] = useState<(typeof TYPES)[number]["id"]>("all");
-  const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("title");
-  const [tagFilter, setTagFilter] = useState("");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>(
+    () => (FILTERS.find((f) => f.id === searchParams.get("filter"))?.id ?? "all") as (typeof FILTERS)[number]["id"]
+  );
+  const [type, setType] = useState<(typeof TYPES)[number]["id"]>(
+    () => (TYPES.find((tp) => tp.id === searchParams.get("type"))?.id ?? "all") as (typeof TYPES)[number]["id"]
+  );
+  const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>(
+    () => (SORTS.find((s) => s.id === searchParams.get("sort"))?.id ?? "title") as (typeof SORTS)[number]["id"]
+  );
+  const [tagFilter, setTagFilter] = useState(() => searchParams.get("tag") ?? "");
   const [rescanning, setRescanning] = useState(false);
   const [issues, setIssues] = useState<RescanIssue[] | null>(null);
   const [starting, setStarting] = useState(false);
+
+  // Sync library filters to URL for back-button support.
+  useEffect(() => {
+    const p = new URLSearchParams(searchParams.toString());
+    if (filter !== "all") p.set("filter", filter); else p.delete("filter");
+    if (type !== "all") p.set("type", type); else p.delete("type");
+    if (sort !== "title") p.set("sort", sort); else p.delete("sort");
+    if (tagFilter) p.set("tag", tagFilter); else p.delete("tag");
+    const qs = p.toString();
+    if (qs !== searchParams.toString()) {
+      router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
+    }
+  }, [filter, type, sort, tagFilter, searchParams, router, pathname]);
   const { data: tagsData } = useSWR<{ tags: string[] }>("/api/tags");
   const allTags = tagsData?.tags ?? [];
 

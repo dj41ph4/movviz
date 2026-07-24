@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import useSWR from "swr";
 import { motion, AnimatePresence } from "framer-motion";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useT } from "@/i18n/provider";
 import { relativeTime, cn } from "@/lib/utils";
@@ -48,9 +49,29 @@ function RequestBadge({ r, t }: { r: RequestWithMedia; t: (k: string) => string 
 }
 
 export default function RequestsPage() {
+  return (
+    <Suspense fallback={null}>
+      <RequestsPageInner />
+    </Suspense>
+  );
+}
+
+function RequestsPageInner() {
   const t = useT();
-  const [tab, setTab] = useState<"pending" | "all">("pending");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const initialTab = (searchParams.get("tab") as "pending" | "all") ?? "pending";
+  const [tab, setTab] = useState<"pending" | "all">(initialTab);
   const [busy, setBusy] = useState<string | null>(null);
+
+  const pushTab = (tb: "pending" | "all") => {
+    setTab(tb);
+    const p = new URLSearchParams(searchParams.toString());
+    if (tb === "pending") p.delete("tab");
+    else p.set("tab", tb);
+    router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
+  };
 
   const { data, mutate, isLoading, error } = useSWR<{ requests: RequestWithMedia[]; isAdmin: boolean }>(
     "/api/requests"
@@ -123,7 +144,7 @@ export default function RequestsPage() {
             {(["pending", "all"] as const).map((tb) => (
               <button
                 key={tb}
-                onClick={() => setTab(tb)}
+                onClick={() => pushTab(tb)}
                 className={cn(
                   "rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
                   tab === tb ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"

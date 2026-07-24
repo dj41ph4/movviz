@@ -36,12 +36,20 @@ function DiscoverPageInner() {
   const router = useRouter();
   const pathname = usePathname();
   const [q, setQ] = useState(() => searchParams.get("q") ?? "");
-  const [mediaType, setMediaType] = useState<"movie" | "series">("movie");
-  const [genre, setGenre] = useState("");
-  const [year, setYear] = useState("");
-  const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]>("popularity.desc");
-  const [company, setCompany] = useState<{ id: string; name: string } | null>(null);
-  const [network, setNetwork] = useState<{ id: string; name: string } | null>(null);
+  const [mediaType, setMediaType] = useState<"movie" | "series">(() => (searchParams.get("type") as "series" | null) ?? "movie");
+  const [genre, setGenre] = useState(() => searchParams.get("genre") ?? "");
+  const [year, setYear] = useState(() => searchParams.get("year") ?? "");
+  const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]>(() => (searchParams.get("sort") as (typeof SORT_OPTIONS)[number] | null) ?? "popularity.desc");
+  const [company, setCompany] = useState<{ id: string; name: string } | null>(() => {
+    const id = searchParams.get("company");
+    const name = searchParams.get("companyName");
+    return id && name ? { id, name } : null;
+  });
+  const [network, setNetwork] = useState<{ id: string; name: string } | null>(() => {
+    const id = searchParams.get("network");
+    const name = searchParams.get("networkName");
+    return id && name ? { id, name } : null;
+  });
   const [rowCategory, setRowCategory] = useState<string | null>(() => searchParams.get("row") ?? null);
 
   // Browse view — paginated grid, used for search and any active filter/tile selection.
@@ -53,6 +61,24 @@ function DiscoverPageInner() {
 
   const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!network || !!rowCategory;
   const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Sync filter states to URL for back-button support (immediate for non-q filters, q cleanup).
+  useEffect(() => {
+    const p = new URLSearchParams(searchParams.toString());
+    if (!q.trim()) p.delete("q");
+    if (mediaType !== "movie") p.set("type", mediaType); else p.delete("type");
+    if (genre) p.set("genre", genre); else p.delete("genre");
+    if (year) p.set("year", year); else p.delete("year");
+    if (sort !== "popularity.desc") p.set("sort", sort); else p.delete("sort");
+    if (company) { p.set("company", company.id); p.set("companyName", company.name); } else { p.delete("company"); p.delete("companyName"); }
+    if (network) { p.set("network", network.id); p.set("networkName", network.name); } else { p.delete("network"); p.delete("networkName"); }
+    if (rowCategory) p.set("row", rowCategory); else p.delete("row");
+    const qs = p.toString();
+    if (qs !== searchParams.toString()) {
+      router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, mediaType, genre, year, sort, company, network, rowCategory, router, pathname]);
 
   // Every fetch below is SWR-cached by URL — instant render from whatever was
   // last seen for that key (even by another page, e.g. Bibliothèque already
@@ -116,7 +142,6 @@ function DiscoverPageInner() {
     setCompany(null);
     setNetwork(null);
     setRowCategory(key);
-    router.push(pathname + "?row=" + key, { scroll: false });
   };
 
   // Genres are media-type-specific and reload on every Films/Séries switch.
@@ -134,7 +159,13 @@ function DiscoverPageInner() {
 
   // Manual Films/Séries switch — start browsing that type from a clean filter state.
   const switchMediaType = (mt: "movie" | "series") => {
-    clearFilters();
+    setQ("");
+    setGenre("");
+    setYear("");
+    setSort("popularity.desc");
+    setCompany(null);
+    setNetwork(null);
+    setRowCategory(null);
     setMediaType(mt);
   };
 
@@ -147,7 +178,16 @@ function DiscoverPageInner() {
   // Browse grid — search (debounced) or any filter/tile/row selection, page 1.
   useEffect(() => {
     if (!configured || !isBrowsing) return;
-    const id = setTimeout(() => loadPage(1), q.trim() ? 350 : 0);
+    const id = setTimeout(() => {
+      loadPage(1);
+      // Sync q to URL after debounce.
+      const p = new URLSearchParams(searchParams.toString());
+      if (q.trim()) p.set("q", q.trim()); else p.delete("q");
+      const qs = p.toString();
+      if (qs !== searchParams.toString()) {
+        router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
+      }
+    }, q.trim() ? 350 : 0);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, network, rowCategory]);

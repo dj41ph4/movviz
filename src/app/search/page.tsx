@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SortableColumnHeader } from "@/components/ui/SortableColumnHeader";
 import { cn, formatBytes, relativeTime } from "@/lib/utils";
@@ -72,6 +72,8 @@ export default function SearchPage() {
 function SearchPageInner() {
   const t = useT();
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const libraryRef = params.get("libraryRef");
   const manualTitle = params.get("title");
   const [q, setQ] = useState(params.get("q") ?? "");
@@ -117,7 +119,7 @@ function SearchPageInner() {
 
   // Manual pick from a library card lands here pre-filled — launch the search right away.
   useEffect(() => {
-    if (libraryRef && q.trim()) run();
+    if (q.trim() && !searched) run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -151,6 +153,10 @@ function SearchPageInner() {
 
   const run = async () => {
     if (!q.trim()) return;
+    const p = new URLSearchParams(params.toString());
+    p.set("q", q.trim());
+    p.set("category", category);
+    router.push(pathname + "?" + p.toString(), { scroll: false });
     setLoading(true);
     setSearched(true);
     setFetchError(false);
@@ -250,7 +256,7 @@ function SearchPageInner() {
         </div>
         <div className="flex items-center gap-1 rounded-2xl glass p-1">
           {(["movie", "series"] as const).map((c) => (
-            <button key={c} onClick={() => setCategory(c)} className={cn("flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors", category === c ? "brand-gradient text-white" : "text-ink-soft hover:text-ink")}>
+            <button key={c} onClick={() => { setCategory(c); const p = new URLSearchParams(params.toString()); p.set("category", c); if (q.trim()) p.set("q", q.trim()); router.push(pathname + "?" + p.toString(), { scroll: false }); }} className={cn("flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors", category === c ? "brand-gradient text-white" : "text-ink-soft hover:text-ink")}>
               {c === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
               {c === "movie" ? t("common.movies") : t("common.series")}
             </button>

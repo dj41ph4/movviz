@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -32,9 +32,19 @@ function ActivityPageInner() {
   const t = useT();
   const user = useCurrentUser();
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
   const initialTab = visibleTabs.find((tb) => tb.id === params.get("tab"))?.id ?? "queue";
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
+
+  const pushTab = (id: (typeof TABS)[number]["id"]) => {
+    setTab(id);
+    const p = new URLSearchParams(params.toString());
+    if (id === "queue") p.delete("tab");
+    else p.set("tab", id);
+    router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
+  };
 
   return (
     <div className="mx-auto max-w-[1500px]">
@@ -48,7 +58,7 @@ function ActivityPageInner() {
         {visibleTabs.map((tb) => (
           <button
             key={tb.id}
-            onClick={() => setTab(tb.id)}
+            onClick={() => pushTab(tb.id)}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
               tab === tb.id ? "brand-gradient text-white shadow-lg" : "glass text-ink-soft hover:text-ink"
