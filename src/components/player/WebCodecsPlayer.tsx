@@ -37,7 +37,7 @@ export function WebCodecsPlayer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
-  const [internalPaused, setInternalPaused] = useState(true);
+  const [internalPaused, setInternalPaused] = useState(false);
   const paused = externalPaused ?? internalPaused;
   const [buffering, setBuffering] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -246,6 +246,9 @@ export function WebCodecsPlayer({
       gain.connect(audioCtx.destination);
       audioCtxRef.current = audioCtx;
       gainNodeRef.current = gain;
+      // Reset sync clock so the render loop picks up the real audio time
+      playStartTimeRef.current = audioCtx.currentTime;
+      mediaStartTimeRef.current = currentTime;
     } catch {
       // Audio context may fail, continue without audio
     }
