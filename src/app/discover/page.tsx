@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
@@ -33,6 +33,8 @@ export default function DiscoverPage() {
 function DiscoverPageInner() {
   const t = useT();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [q, setQ] = useState(() => searchParams.get("q") ?? "");
   const [mediaType, setMediaType] = useState<"movie" | "series">("movie");
   const [genre, setGenre] = useState("");
@@ -40,7 +42,7 @@ function DiscoverPageInner() {
   const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]>("popularity.desc");
   const [company, setCompany] = useState<{ id: string; name: string } | null>(null);
   const [network, setNetwork] = useState<{ id: string; name: string } | null>(null);
-  const [rowCategory, setRowCategory] = useState<string | null>(null);
+  const [rowCategory, setRowCategory] = useState<string | null>(() => searchParams.get("row") ?? null);
 
   // Browse view — paginated grid, used for search and any active filter/tile selection.
   const [results, setResults] = useState<MetaSearchResult[]>([]);
@@ -107,8 +109,14 @@ function DiscoverPageInner() {
   };
 
   const seeAllRow = (key: string) => {
-    clearFilters();
+    setQ("");
+    setGenre("");
+    setYear("");
+    setSort("popularity.desc");
+    setCompany(null);
+    setNetwork(null);
     setRowCategory(key);
+    router.push(pathname + "?row=" + key, { scroll: false });
   };
 
   // Genres are media-type-specific and reload on every Films/Séries switch.
