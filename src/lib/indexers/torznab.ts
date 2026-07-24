@@ -37,7 +37,7 @@ function authHeaders(ix: ConfiguredIndexer): Record<string, string> {
     return { authorization: `Basic ${token}` };
   }
   if (ix.authType === "x-api-key" && ix.apiKey) {
-    return { "x-api-key": ix.apiKey };
+    return { "X-Api-Key": ix.apiKey };
   }
   return {};
 }
