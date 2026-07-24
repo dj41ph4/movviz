@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
+import path from "node:path";
 import { getSeries, updateSeries, removeSeries } from "@/lib/library/store";
 import { requireUser } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity/store";
@@ -68,14 +69,23 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
       });
     } else if (paths.size > 0) {
       for (const p of paths) { try { fs.unlinkSync(p); } catch { /* already gone */ } }
+      const cleanedDirs = new Set<string>();
       series?.seasons.forEach((s) => {
         s.episodes.forEach((ep) => {
           if (ep.file?.path) {
-            const dir = ep.file.path.split(/[/\\]/).slice(0, -1).join("/");
-            try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
+            const dir = path.resolve(path.dirname(ep.file.path));
+            // Safety: only delete directories that are at least 3 levels deep
+            // (e.g. /data/tv/ShowName/Season01) to prevent accidental root wipes.
+            const depth = dir.split(path.sep).filter(Boolean).length;
+            if (depth >= 3) {
+              cleanedDirs.add(dir);
+            }
           }
         });
       });
+      for (const dir of cleanedDirs) {
+        try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
+      }
     }
   }
   removeSeries(id);
