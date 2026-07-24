@@ -421,6 +421,7 @@ export const de: Dictionary = {
   stats: {
     title: "Statistiken",
     description: "Ein Live-Überblick über Bibliothek, Abrufe und Indexer.",
+    intro: "Eine Live-Übersicht über Bibliothek, Abrufe und Indexer.",
     totalMovies: "Filme",
     totalSeries: "Serien",
     totalEpisodes: "Verfügbare Folgen",
@@ -435,6 +436,7 @@ export const de: Dictionary = {
   activity: {
     title: "Aktivität",
     description: "Download-Warteschlange, Vorgangsverlauf und gesuchte Inhalte.",
+    intro: "Konfiguriere, was im Aktivitätszentrum erscheint, und überprüfe die Upgrade-Erkennungseinstellungen.",
     empty: "Noch keine Aktivität.",
     seasonPack: "Staffel {season} — Paket ({count} Episoden)",
     settings: "Aktivität",
@@ -651,6 +653,10 @@ export const de: Dictionary = {
     logsCopied: "Protokolle kopiert",
     resolverLogsTitle: "Resolver-Protokoll",
     resolverLogsHint: "Die letzten 500 Zeilen des Cloudflare-Resolvers — nützlich zur Diagnose von Challenge-Fehlern.",
+    searchLogsTitle: "Suchprotokolle",
+    searchLogsHint: "Diagnoseprotokoll jeder von Movviz gesendeten Indexer-Anfrage — nützlich, um zu verstehen, warum bestimmte Suchen nichts zurückgeben.",
+    logsFilterAll: "Alle",
+    logsLines: "Zeilen",
   },
 
   tasks: {
@@ -694,6 +700,7 @@ export const de: Dictionary = {
 
   cache: {
     title: "Cache",
+    intro: "Überwacht den speicherinternen und auf der Festplatte gespeicherten TMDb-Cache — Treffer, Fehltreffer, Gesamteinträge und Größe.",
     name: "Cache-Name",
     hits: "Treffer",
     misses: "Fehltreffer",
@@ -869,6 +876,8 @@ export const de: Dictionary = {
     groupSystem: "System",
     groupAdvanced: "Erweitert",
     importListsHint: "Synchronisiert automatisch Titel aus deinen Trakt-, IMDb- oder Letterboxd-Listen in die Bibliothek.",
+    importLists: "Importlisten",
+    noImportLists: "Keine Importlisten",
     addImportList: "Liste hinzufügen",
     autoApproveImports: "Automatisch ohne Genehmigung freigeben",
     lastSync: "Letzte Synchronisierung:",
@@ -890,6 +899,7 @@ export const de: Dictionary = {
     instanceMovies: "Instanz Filme",
     instanceSeries: "Instanz Serien",
     unlimited: "unbegrenzt",
+    noInstances: "Kein Download-Client konfiguriert",
     protocolTorrent: "Torrent",
     editInstance: "Konfigurieren",
     engineOfflineEditHint: "Du kannst die Ordner und Einstellungen unten weiterhin bearbeiten — sie werden beim nächsten Start der Engine wirksam.",
@@ -987,6 +997,8 @@ export const de: Dictionary = {
   indexation: {
     movieIntro: "Erkennt Filme, die bereits auf der Festplatte liegen, aber nie mit einem Bibliothekseintrag verknüpft wurden — manuell abgelegt, aus einem anderen Tool migriert oder vor Movviz hinzugefügt.",
     seriesIntro: "Erkennt Episoden, die bereits auf der Festplatte liegen, aber nie mit einem Bibliothekseintrag verknüpft wurden — manuell abgelegt, aus einem anderen Tool migriert oder vor Movviz hinzugefügt.",
+    movieTitle: "Film-Indizierung",
+    seriesTitle: "Serien-Indizierung",
     scan: "Scannen",
     scanning: "Scan läuft…",
     empty: "Nichts zu indizieren",
@@ -1019,6 +1031,8 @@ export const de: Dictionary = {
     tab: "Umbenennen",
     title: "Bibliotheksdateien umbenennen",
     intro: "Scannt deine Bibliothek und benennt Film- und Serienordner mit dem offiziellen Titel in der gewählten Sprache um. Jeder umbenannte Eintrag erhält seinen neuen Titel von TMDb und folgt deinen Namensvorlagen.",
+    scanLabel: "Bereit, deine Bibliothek zu scannen",
+    scanIntro: "Klicke auf den Button unten, um die gesamte Bibliothek zu scannen und Film- und Serienordner zu erkennen, deren Namen nicht mit deinen Vorlagen übereinstimmen.",
     languageLabel: "Sprache",
     cleanEmptyDirs: "Leere Ordner nach Umbenennung löschen",
     scan: "Analysieren",
@@ -1049,6 +1063,8 @@ export const de: Dictionary = {
     tab: "Pfade reparieren",
     title: "Dateipfade reparieren",
     intro: "Sucht für jeden Eintrag, dessen gespeicherte Datei nicht gefunden werden kann, nach einer Datei mit exakt demselben Namen an anderer Stelle in der Bibliothek. Verschiebt oder löscht nichts — aktualisiert nur den gespeicherten Pfad, sobald die Übereinstimmung bestätigt ist.",
+    scanLabel: "Bereit, deine Bibliothek zu scannen",
+    scanIntro: "Klicke auf den Button unten, um alle Bibliothekseinträge zu finden, deren gespeicherte Datei nicht auf der Festplatte gefunden werden kann, und die echte Datei zu lokalisieren.",
     cleanEmptyDirs: "Leere Ordner nach Verknüpfung löschen",
     scan: "Analysieren",
     scanning: "Analyse läuft...",
@@ -1214,6 +1230,7 @@ export const de: Dictionary = {
     link: "Plex verbinden",
     relink: "Erneut verbinden",
     hostname: "Hostname oder IP-Adresse",
+    port: "Port",
     importUsers: "Plex-Benutzer importieren",
     importedCount: "{n} Benutzer importiert",
     notConnected: "Verbinde zuerst Plex oben",
@@ -1285,6 +1302,7 @@ export const de: Dictionary = {
 
   naming: {
     tab: "Benennung",
+    title: "Dateibenennung",
     intro:
       "Movviz analysiert jeden abgeschlossenen Download (Titel, Jahr, Qualität, Codec, Gruppe, Staffel/Folge) und wendet deine eigenen Vorlagen an, um Dateien automatisch umzubenennen und zu organisieren.",
     enable: "Automatische Umbenennung",

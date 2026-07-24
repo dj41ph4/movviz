@@ -421,6 +421,7 @@ export const en: Dictionary = {
   stats: {
     title: "Statistics",
     description: "A live overview of the library, grabs and indexers.",
+    intro: "A live overview of the library, grabs and indexers.",
     totalMovies: "Movies",
     totalSeries: "Series",
     totalEpisodes: "Available episodes",
@@ -435,6 +436,7 @@ export const en: Dictionary = {
   activity: {
     title: "Activity",
     description: "Download queue, operation history and wanted content.",
+    intro: "Configure what appears in the activity center and review the upgrade detection settings.",
     empty: "No activity yet.",
     seasonPack: "Season {season} — pack ({count} episodes)",
     settings: "Activity",
@@ -651,6 +653,10 @@ export const en: Dictionary = {
     logsCopied: "Logs copied",
     resolverLogsTitle: "Resolver log",
     resolverLogsHint: "The last 500 lines of the Cloudflare resolver — useful for diagnosing challenge failures.",
+    searchLogsTitle: "Search logs",
+    searchLogsHint: "Diagnostic log of every indexer request sent by Movviz — useful for troubleshooting why certain searches return nothing.",
+    logsFilterAll: "All",
+    logsLines: "lines",
   },
 
   tasks: {
@@ -694,6 +700,7 @@ export const en: Dictionary = {
 
   cache: {
     title: "Cache",
+    intro: "Monitors the in-memory and disk-persisted TMDb cache — hits, misses, total entries and size.",
     name: "Cache name",
     hits: "Hits",
     misses: "Misses",
@@ -852,6 +859,8 @@ export const en: Dictionary = {
     groupSystem: "System",
     groupAdvanced: "Advanced",
     importListsHint: "Automatically sync titles from your Trakt, IMDb or Letterboxd lists into the library.",
+    importLists: "Import lists",
+    noImportLists: "No import lists",
     addImportList: "Add list",
     autoApproveImports: "Auto-approve without approval",
     lastSync: "Last sync:",
@@ -873,6 +882,7 @@ export const en: Dictionary = {
     instanceMovies: "Movies instance",
     instanceSeries: "Series instance",
     unlimited: "unlimited",
+    noInstances: "No download client configured",
     protocolTorrent: "Torrent",
     editInstance: "Configure",
     engineOfflineEditHint: "You can still edit the folders and settings below — they'll take effect the next time the engine starts.",
@@ -970,6 +980,8 @@ export const en: Dictionary = {
   indexation: {
     movieIntro: "Detects movies already on disk that were never linked to a library entry — placed manually, migrated from another tool, or added before Movviz.",
     seriesIntro: "Detects episodes already on disk that were never linked to a library entry — placed manually, migrated from another tool, or added before Movviz.",
+    movieTitle: "Movie indexing",
+    seriesTitle: "Series indexing",
     scan: "Scan",
     scanning: "Scanning…",
     empty: "Nothing to index",
@@ -1002,6 +1014,8 @@ export const en: Dictionary = {
     tab: "Rename",
     title: "Rename library files",
     intro: "Scan your library and rename movie folders and series folders using the official title in your chosen language. Each renamed item gets its new title from TMDb and follows your naming templates.",
+    scanLabel: "Ready to scan your library",
+    scanIntro: "Click the button below to scan the entire library and detect movie and series folders whose names don't match your naming templates.",
     languageLabel: "Language",
     cleanEmptyDirs: "Delete empty folders after rename",
     scan: "Analyse",
@@ -1032,6 +1046,8 @@ export const en: Dictionary = {
     tab: "Repair paths",
     title: "Repair file paths",
     intro: "For every entry whose recorded file can't be found, looks for a file with the exact same name elsewhere in the library. Never moves or deletes anything — only updates the stored path once you've confirmed the match.",
+    scanLabel: "Ready to scan your library",
+    scanIntro: "Click the button below to find every library entry whose recorded file can't be found on disk, and locate the real file.",
     cleanEmptyDirs: "Delete empty folders after relink",
     scan: "Scan",
     scanning: "Scanning...",
@@ -1197,6 +1213,7 @@ export const en: Dictionary = {
     link: "Connect Plex",
     relink: "Reconnect",
     hostname: "Hostname or IP address",
+    port: "Port",
     importUsers: "Import Plex users",
     importedCount: "{n} user(s) imported",
     notConnected: "Connect Plex above first",
@@ -1268,6 +1285,7 @@ export const en: Dictionary = {
 
   naming: {
     tab: "Naming",
+    title: "File naming",
     intro:
       "Movviz analyzes every completed download (title, year, quality, codec, group, season/episode) and applies your own templates to rename and organize files automatically.",
     enable: "Automatic renaming",

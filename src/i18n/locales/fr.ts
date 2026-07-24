@@ -419,6 +419,7 @@ export const fr = {
   stats: {
     title: "Statistiques",
     description: "Vue d'ensemble en direct de la bibliothèque, des récupérations et des indexeurs.",
+    intro: "Un aperçu en direct de la bibliothèque, des récupérations et des indexeurs.",
     totalMovies: "Films",
     totalSeries: "Séries",
     totalEpisodes: "Épisodes disponibles",
@@ -433,6 +434,7 @@ export const fr = {
   activity: {
     title: "Activité",
     description: "File de téléchargement, historique des opérations et contenu recherché.",
+    intro: "Configurez ce qui apparaît dans le centre d'activité et examinez les paramètres de détection de mise à niveau.",
     empty: "Aucune activité pour l'instant.",
     seasonPack: "Saison {season} — pack ({count} épisodes)",
     settings: "Activité",
@@ -649,6 +651,10 @@ export const fr = {
     logsCopied: "Logs copiés",
     resolverLogsTitle: "Journal du résolveur Cloudflare",
     resolverLogsHint: "Les 500 dernières lignes du résolveur — utile pour diagnostiquer des échecs de résolution Cloudflare.",
+    searchLogsTitle: "Journaux de recherche",
+    searchLogsHint: "Journal de diagnostic de chaque requête envoyée aux indexeurs par Movviz — utile pour comprendre pourquoi certaines recherches ne retournent rien.",
+    logsFilterAll: "Tout",
+    logsLines: "lignes",
   },
 
   tasks: {
@@ -692,6 +698,7 @@ export const fr = {
 
   cache: {
     title: "Cache",
+    intro: "Surveille le cache TMDb en mémoire et persisté sur disque — hits, misses, total d'entrées et taille.",
     name: "Nom du cache",
     hits: "Abouties",
     misses: "Manquées",
@@ -849,6 +856,8 @@ export const fr = {
     groupSystem: "Système",
     groupAdvanced: "Avancé",
     importListsHint: "Synchronise automatiquement les titres de tes listes Trakt, IMDb ou Letterboxd dans la bibliothèque.",
+    importLists: "Listes d'importation",
+    noImportLists: "Aucune liste d'importation",
     addImportList: "Ajouter une liste",
     autoApproveImports: "Ajouter automatiquement sans approbation",
     lastSync: "Dernière synchro :",
@@ -871,6 +880,7 @@ export const fr = {
     instanceMovies: "Instance Films",
     instanceSeries: "Instance Séries",
     unlimited: "illimité",
+    noInstances: "Aucun client de téléchargement configuré",
     protocolTorrent: "Torrent",
     editInstance: "Configurer",
     engineOfflineEditHint: "Tu peux quand même modifier les dossiers et paramètres ci-dessous — ils seront pris en compte au prochain démarrage du moteur.",
@@ -968,6 +978,8 @@ export const fr = {
   indexation: {
     movieIntro: "Détecte les films déjà présents sur le disque mais jamais liés à un élément de la bibliothèque — placés à la main, migrés depuis un autre outil, ou ajoutés avant Movviz.",
     seriesIntro: "Détecte les épisodes déjà présents sur le disque mais jamais liés à un élément de la bibliothèque — placés à la main, migrés depuis un autre outil, ou ajoutés avant Movviz.",
+    movieTitle: "Indexation des films",
+    seriesTitle: "Indexation des séries",
     scan: "Scanner",
     scanning: "Analyse en cours…",
     empty: "Rien à indexer",
@@ -1000,6 +1012,8 @@ export const fr = {
     tab: "Renommage",
     title: "Renommer les fichiers de la bibliothèque",
     intro: "Analyse ta bibliothèque et renomme les dossiers de films et séries avec le titre officiel dans la langue choisie. Chaque élément renommé récupère son nouveau titre depuis TMDb et suit tes modèles de nommage.",
+    scanLabel: "Prêt à analyser votre bibliothèque",
+    scanIntro: "Cliquez sur le bouton ci-dessous pour analyser toute la bibliothèque et détecter les dossiers de films et séries dont les noms ne correspondent pas à vos modèles.",
     languageLabel: "Langue",
     cleanEmptyDirs: "Supprimer les dossiers vides après renommage",
     scan: "Analyser",
@@ -1030,6 +1044,8 @@ export const fr = {
     tab: "Réparer les chemins",
     title: "Réparer les chemins de fichiers",
     intro: "Cherche, pour chaque fiche dont le fichier enregistré est introuvable, un fichier portant exactement le même nom ailleurs dans la bibliothèque. Ne déplace ni ne supprime rien — met uniquement à jour le chemin en base une fois que tu as confirmé la correspondance.",
+    scanLabel: "Prêt à analyser votre bibliothèque",
+    scanIntro: "Cliquez sur le bouton ci-dessous pour trouver chaque entrée de la bibliothèque dont le fichier enregistré est introuvable sur le disque, et localiser le vrai fichier.",
     cleanEmptyDirs: "Supprimer les dossiers vides après reliaison",
     scan: "Analyser",
     scanning: "Analyse en cours...",
@@ -1195,6 +1211,7 @@ export const fr = {
     link: "Connecter Plex",
     relink: "Reconnecter",
     hostname: "Hôte ou adresse IP",
+    port: "Port",
     importUsers: "Importer les utilisateurs Plex",
     importedCount: "{n} utilisateur(s) importé(s)",
     notConnected: "Connecte d'abord Plex ci-dessus",
@@ -1266,6 +1283,7 @@ export const fr = {
 
   naming: {
     tab: "Nommage",
+    title: "Nommage des fichiers",
     intro:
       "Movviz analyse chaque téléchargement terminé (titre, année, qualité, codec, groupe, saison/épisode) et applique tes propres modèles pour renommer et ranger les fichiers automatiquement.",
     enable: "Renommage automatique",

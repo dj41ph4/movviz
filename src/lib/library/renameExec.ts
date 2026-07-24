@@ -344,8 +344,13 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
   // NEVER allow the series root to be at the same level as the rename target's parent —
   // that would mean sweeping an entire library folder into a single show.
   const base = p.dirname(seriesRoot);
-  if (seriesRoot === base) {
-    throw new Error(`Séries — le dossier source (${seriesRoot}) est au même niveau que le dossier cible. Structure de dossiers invalide ? Vérifiez que chaque série a bien son propre dossier.`);
+  // SAFETY: if the common ancestor is at the filesystem root level,
+  // we cannot safely determine the series folder — sweepResidualFolder
+  // would risk moving the entire parent directory. Skip sweeping but
+  // allow the actual episode rename to proceed.
+  const depth = seriesRoot.split(p.sep).filter(Boolean).length;
+  if (depth <= 1 || seriesRoot === base) {
+    log(`[WARN] seriesRoot computed as ${seriesRoot} (depth ${depth}) — skipping folder sweep for safety`);
   }
   const newSeriesDir = p.join(base, expectedFolder);
 
@@ -434,8 +439,13 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
         await sweepResidualFolder(dir, newSeriesDir, log);
       }
     }
-    // After moving season subfolders, clean up the series root if empty
-    await sweepResidualFolder(seriesRoot, newSeriesDir, log);
+    // After moving season subfolders, clean up the series root if empty.
+    // Skip when depth <= 1 to avoid sweeping an entire drive root.
+    if (seriesRoot.split(p.sep).filter(Boolean).length > 1) {
+      await sweepResidualFolder(seriesRoot, newSeriesDir, log);
+    } else {
+      log(`[WARN] skipping series root sweep — ${seriesRoot} too close to filesystem root`);
+    }
 
     // 4. Update library records — only for episodes actually confirmed moved,
     // so the library never claims a file lives somewhere it doesn't.

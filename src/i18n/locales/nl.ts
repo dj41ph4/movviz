@@ -421,6 +421,7 @@ export const nl: Dictionary = {
   stats: {
     title: "Statistieken",
     description: "Een live overzicht van de bibliotheek, ophaalacties en indexers.",
+    intro: "Een live overzicht van de bibliotheek, ophaalacties en indexers.",
     totalMovies: "Films",
     totalSeries: "Series",
     totalEpisodes: "Beschikbare afleveringen",
@@ -435,6 +436,7 @@ export const nl: Dictionary = {
   activity: {
     title: "Activiteit",
     description: "Downloadwachtrij, bewerkingsgeschiedenis en gezochte content.",
+    intro: "Configureer wat er in het activiteitencentrum verschijnt en bekijk de upgrade-detectie-instellingen.",
     empty: "Nog geen activiteit.",
     seasonPack: "Seizoen {season} — pakket ({count} afleveringen)",
     settings: "Activiteit",
@@ -651,6 +653,10 @@ export const nl: Dictionary = {
     logsCopied: "Logs gekopieerd",
     resolverLogsTitle: "Resolver-log",
     resolverLogsHint: "De laatste 500 regels van de Cloudflare-resolver — handig voor het diagnosticeren van challenge-fouten.",
+    searchLogsTitle: "Zoeklogboeken",
+    searchLogsHint: "Diagnostisch logboek van elk indexerverzoek dat door Movviz is verzonden — handig om te begrijpen waarom bepaalde zoekopdrachten niets opleveren.",
+    logsFilterAll: "Alle",
+    logsLines: "regels",
   },
 
   tasks: {
@@ -694,6 +700,7 @@ export const nl: Dictionary = {
 
   cache: {
     title: "Cache",
+    intro: "Bewaakt de in-memory en op schijf opgeslagen TMDb-cache — hits, misses, totaal aantal items en grootte.",
     name: "Cachenaam",
     hits: "Hits",
     misses: "Missers",
@@ -852,6 +859,8 @@ export const nl: Dictionary = {
     groupSystem: "Systeem",
     groupAdvanced: "Geavanceerd",
     importListsHint: "Synchroniseer automatisch titels van je Trakt-, IMDb- of Letterboxd-lijsten naar de bibliotheek.",
+    importLists: "Importlijsten",
+    noImportLists: "Geen importlijsten",
     addImportList: "Lijst toevoegen",
     autoApproveImports: "Automatisch goedkeuren zonder toestemming",
     lastSync: "Laatste synchronisatie:",
@@ -873,6 +882,7 @@ export const nl: Dictionary = {
     instanceMovies: "Instantie films",
     instanceSeries: "Instantie series",
     unlimited: "onbeperkt",
+    noInstances: "Geen downloadclient geconfigureerd",
     protocolTorrent: "Torrent",
     editInstance: "Configureren",
     engineOfflineEditHint: "Je kunt de mappen en instellingen hieronder nog steeds bewerken — ze worden van kracht bij de volgende start van de engine.",
@@ -970,6 +980,8 @@ export const nl: Dictionary = {
   indexation: {
     movieIntro: "Detecteert films die al op de schijf staan maar nooit aan een bibliotheekitem zijn gekoppeld — handmatig geplaatst, gemigreerd vanuit een andere tool, of toegevoegd vóór Movviz.",
     seriesIntro: "Detecteert afleveringen die al op de schijf staan maar nooit aan een bibliotheekitem zijn gekoppeld — handmatig geplaatst, gemigreerd vanuit een andere tool, of toegevoegd vóór Movviz.",
+    movieTitle: "Filmindexering",
+    seriesTitle: "Serie-indexering",
     scan: "Scannen",
     scanning: "Bezig met scannen…",
     empty: "Niets te indexeren",
@@ -1002,6 +1014,8 @@ export const nl: Dictionary = {
     tab: "Hernoemen",
     title: "Bibliotheekbestanden hernoemen",
     intro: "Doorzoekt je bibliotheek en hernoemt film- en seriemappen met de officiële titel in de gekozen taal. Elk hernoemd item krijgt zijn nieuwe titel van TMDb en volgt je naamgevingssjablonen.",
+    scanLabel: "Klaar om je bibliotheek te scannen",
+    scanIntro: "Klik op de knop hieronder om de hele bibliotheek te scannen en film- en seriemappen te detecteren waarvan de namen niet overeenkomen met je sjablonen.",
     languageLabel: "Taal",
     cleanEmptyDirs: "Lege mappen verwijderen na hernoemen",
     scan: "Analyseren",
@@ -1032,6 +1046,8 @@ export const nl: Dictionary = {
     tab: "Paden herstellen",
     title: "Bestandspaden herstellen",
     intro: "Zoekt voor elk item waarvan het opgeslagen bestand niet gevonden kan worden naar een bestand met exact dezelfde naam elders in de bibliotheek. Verplaatst of verwijdert nooit iets — werkt alleen het opgeslagen pad bij zodra je de match hebt bevestigd.",
+    scanLabel: "Klaar om je bibliotheek te scannen",
+    scanIntro: "Klik op de knop hieronder om elk bibliotheekitem te vinden waarvan het opgeslagen bestand niet op schijf gevonden kan worden, en het echte bestand te lokaliseren.",
     cleanEmptyDirs: "Lege mappen verwijderen na koppeling",
     scan: "Analyseren",
     scanning: "Bezig met analyseren...",
@@ -1197,6 +1213,7 @@ export const nl: Dictionary = {
     link: "Plex koppelen",
     relink: "Opnieuw koppelen",
     hostname: "Hostnaam of IP-adres",
+    port: "Poort",
     importUsers: "Plex-gebruikers importeren",
     importedCount: "{n} gebruiker(s) geïmporteerd",
     notConnected: "Koppel eerst Plex hierboven",
@@ -1268,6 +1285,7 @@ export const nl: Dictionary = {
 
   naming: {
     tab: "Naamgeving",
+    title: "Bestandsnaamgeving",
     intro:
       "Movviz analyseert elke voltooide download (titel, jaar, kwaliteit, codec, groep, seizoen/aflevering) en past je eigen sjablonen toe om bestanden automatisch te hernoemen en te organiseren.",
     enable: "Automatisch hernoemen",
