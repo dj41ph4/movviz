@@ -27,7 +27,7 @@ export function WantedTab({ active = true }: { active?: boolean }) {
   const router = useRouter();
   const { enabled: upgradesEnabled } = useQualityUpgradesEnabled();
   const { data, error, mutate } = useSWR<{ missing: WantedItem[]; cutoffUnmet: WantedItem[] }>(
-    "/api/activity/v2?tab=wanted", { refreshInterval: 10000, dedupingInterval: 5000 }
+    "/api/activity/v2?tab=wanted"
   );
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);

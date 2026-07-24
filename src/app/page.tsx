@@ -45,13 +45,13 @@ const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[cal
 export default function DashboardPage() {
   const t = useT();
   const { data: moviesData, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
-    "/api/library/movies", { refreshInterval: 3000 }
+    "/api/library/movies"
   );
   const { data: seriesData } = useSWR<{ series: LibrarySeries[] }>(
-    "/api/library/series", { refreshInterval: 3000 }
+    "/api/library/series"
   );
   const { data: torrentsData } = useSWR<{ torrents: EngineTorrent[] }>(
-    "/api/engine/torrents", { refreshInterval: 3000 }
+    "/api/engine/torrents"
   );
   const { data: layoutData, mutate: mutateLayout } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
 

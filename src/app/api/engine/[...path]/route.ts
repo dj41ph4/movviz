@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/server";
 import { releaseAllDownloadClaims } from "@/lib/library/downloadState";
 import { requireUser, requireAdmin } from "@/lib/auth/guard";
+import { eventBus } from "@/lib/events/EventBus";
 
 /**
  * Same-origin proxy to the download engine. The browser calls /api/engine/*,
@@ -57,19 +58,27 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   return forward(req, (await params).path);
 }
 export async function POST(req: NextRequest, { params }: Ctx) {
-  return forward(req, (await params).path);
+  const path = (await params).path;
+  const res = await forward(req, path);
+  if (res.ok && path[0] === "torrents") {
+    eventBus.emit({ type: "download_changed" });
+  }
+  return res;
 }
 export async function DELETE(req: NextRequest, { params }: Ctx) {
   const path = (await params).path;
   const res = await forward(req, path);
-  // Removing a torrent orphans whatever library item was waiting on it —
-  // release the claim right away so its badge goes back to "missing" instead
-  // of showing a download that no longer exists.
   if (res.ok && path[0] === "torrents" && path[1]) {
     releaseAllDownloadClaims(path[1]);
+    eventBus.emit({ type: "download_changed" });
   }
   return res;
 }
 export async function PATCH(req: NextRequest, { params }: Ctx) {
-  return forward(req, (await params).path);
+  const path = (await params).path;
+  const res = await forward(req, path);
+  if (res.ok && path[0] === "torrents") {
+    eventBus.emit({ type: "download_changed" });
+  }
+  return res;
 }

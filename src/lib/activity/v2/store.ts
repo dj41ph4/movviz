@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import type { ActivityEntry, ActivityMedia, ActivityRelease, ActivityDownload, ActivityImport, ActivityFailureReason } from "./types";
+import { eventBus } from "@/lib/events/EventBus";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -35,6 +36,7 @@ export function logActivityV2(entry: Omit<ActivityEntry, "id" | "timestamp">): A
   };
   list.unshift(fullEntry);
   writeJson(FILE, list.slice(0, MAX_KEEP));
+  eventBus.emit({ type: "activity_updated" });
   return fullEntry;
 }
 

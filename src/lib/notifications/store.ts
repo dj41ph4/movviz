@@ -3,6 +3,7 @@ import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import type { NotificationItem, NotificationKind } from "./types";
 import { dispatchNotification } from "./router";
+import { eventBus } from "@/lib/events/EventBus";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "notifications.json");
@@ -36,5 +37,6 @@ export function emitNotification(
   list.unshift(item);
   writeJson(FILE, list.slice(0, MAX_KEEP));
   dispatchNotification(message).catch(() => {});
+  eventBus.emit({ type: "notification_added" });
   return item;
 }

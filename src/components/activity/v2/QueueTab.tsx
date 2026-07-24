@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, memo, useEffect, useRef } from "react";
+import { useState, useMemo, memo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,7 +30,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const router = useRouter();
   const user = useCurrentUser();
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    "/api/activity/v2?tab=queue", { refreshInterval: 5000, dedupingInterval: 4000 }
+    "/api/activity/v2?tab=queue", { refreshInterval: 3000, dedupingInterval: 2000 }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -299,31 +299,7 @@ const QueueItemRow = memo(function QueueItemRow({
   item, isExpanded, actionLoading, t, locale,
   onToggleExpand, onAction, onRemove,
 }: QueueItemRowProps) {
-  const [smoothProgress, setSmoothProgress] = useState(item.download.progress);
-  const speedRef = useRef(item.download.downloadSpeed);
-  const sizeRef = useRef(item.release.size);
-
-  useEffect(() => {
-    speedRef.current = item.download.downloadSpeed;
-    sizeRef.current = item.release.size;
-  }, [item.download.downloadSpeed, item.release.size]);
-
-  useEffect(() => {
-    setSmoothProgress(item.download.progress);
-  }, [item.download.progress]);
-
-  useEffect(() => {
-    if (item.status !== "downloading" && item.status !== "importing") return;
-    if (item.download.downloadSpeed <= 0) return;
-    const rate = item.download.downloadSpeed / item.release.size;
-    const id = setInterval(() => {
-      setSmoothProgress((prev) => Math.min(0.999, prev + rate * 0.12));
-    }, 120);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.status, item.download.downloadSpeed, item.release.size]);
-
-  const displayProgress = smoothProgress;
+  const displayProgress = item.download.progress;
 
   return (
     <div className="rounded-2xl glass overflow-hidden">
@@ -388,7 +364,7 @@ const QueueItemRow = memo(function QueueItemRow({
               <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                 <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
                   <div
-                    className="h-full rounded-full brand-gradient transition-all duration-1000 ease-linear"
+                    className="h-full rounded-full brand-gradient transition-[width] duration-300 ease-out"
                     style={{ width: `${Math.round(displayProgress * 100)}%` }}
                   />
                 </div>
@@ -489,7 +465,7 @@ const QueueItemRow = memo(function QueueItemRow({
                   <span className="font-mono">{Math.round(displayProgress * 100)}%</span>
                 </div>
                   <div className="h-2 overflow-hidden rounded-full bg-black/40">
-                    <div className="h-full rounded-full brand-gradient transition-all duration-1000 ease-linear" style={{ width: `${displayProgress * 100}%` }} />
+                    <div className="h-full rounded-full brand-gradient transition-[width] duration-300 ease-out" style={{ width: `${displayProgress * 100}%` }} />
                   </div>
                 <div className="flex justify-between">
                   <span className="text-ink-dim">{t("downloads.down")}</span>

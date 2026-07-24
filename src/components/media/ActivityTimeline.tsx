@@ -42,7 +42,7 @@ const LABEL_KEYS: Record<ActivityEntry["kind"], string> = {
 
 export function ActivityTimeline({ entries: suppliedEntries, compact = false }: { entries?: ActivityEntry[]; compact?: boolean }) {
   const t = useT();
-  const { data, error } = useSWR<{ entries: ActivityEntry[] }>(suppliedEntries ? null : "/api/activity", { refreshInterval: 5000 });
+  const { data, error } = useSWR<{ entries: ActivityEntry[] }>(suppliedEntries ? null : "/api/activity");
   const entries = suppliedEntries ?? data?.entries ?? [];
   const visible = compact ? entries.slice(0, 6) : entries;
 

@@ -102,6 +102,25 @@
   100% { transform: scale(2.1); opacity: 0; }
 }
 
+@keyframes badgePop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brand) 60%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-brand) 0%, transparent); }
+}
+
+.animate-badge-pop {
+  animation: badgePop 0.35s ease-out;
+}
+
+.animate-badge-pulse {
+  animation: badgePulse 1.8s ease-in-out infinite;
+}
+
 /*
  * Light theme — overrides the same custom properties every utility class
  * already reads via var(--color-*), so components never need their own

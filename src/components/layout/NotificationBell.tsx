@@ -29,7 +29,7 @@ export function NotificationBell() {
 
   // Cached by SWR so the bell state survives navigations without refetching.
   const { data, mutate } = useSWR<{ items: NotificationItem[] }>(
-    "/api/notifications", { refreshInterval: 8000 }
+    "/api/notifications"
   );
   const items = data?.items ?? [];
   const load = () => mutate();

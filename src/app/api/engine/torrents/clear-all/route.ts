@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/server";
 import { releaseAllDownloadClaims } from "@/lib/library/downloadState";
+import { eventBus } from "@/lib/events/EventBus";
 
 export const dynamic = "force-dynamic";
 
@@ -45,5 +46,6 @@ export async function POST(req: NextRequest) {
       // Keep going — one stuck torrent shouldn't stop the rest from clearing.
     }
   }
+  if (removed > 0) eventBus.emit({ type: "download_changed" });
   return NextResponse.json({ removed });
 }

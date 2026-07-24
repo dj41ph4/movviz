@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import useSWR from "swr";
 import { NAV } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -37,6 +37,24 @@ export function Sidebar({ version }: { version: string }) {
   const pendingRequests = usePendingRequests();
   const pendingUsers = usePendingUsers();
   const activeDownloads = useActiveDownloads();
+
+  const prevCounts = useRef({ pendingRequests, pendingUsers, activeDownloads });
+  const [pulseBadge, setPulseBadge] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeDownloads > prevCounts.current.activeDownloads && activeDownloads > 0) {
+      setPulseBadge("activeDownloads");
+    }
+    prevCounts.current = { pendingRequests, pendingUsers, activeDownloads };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDownloads]);
+
+  useEffect(() => {
+    if (!pulseBadge) return;
+    const t = setTimeout(() => setPulseBadge(null), 2000);
+    return () => clearTimeout(t);
+  }, [pulseBadge]);
+
   const items = NAV.filter((item) => !item.adminOnly || user?.role === "admin");
 
   const { data: updateInfo, isLoading } = useSWR<UpdateInfo>(
@@ -134,7 +152,13 @@ export function Sidebar({ version }: { version: string }) {
               />
               <span className="flex-1">{t(item.labelKey)}</span>
               {liveCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full brand-gradient px-1.5 text-[10px] font-bold text-white">
+                <span
+                  key={`${item.liveBadge}-${liveCount}`}
+                  className={cn(
+                    "flex h-5 min-w-5 items-center justify-center rounded-full brand-gradient px-1.5 text-[10px] font-bold text-white animate-badge-pop",
+                    pulseBadge === item.liveBadge && "animate-badge-pulse"
+                  )}
+                >
                   {liveCount}
                 </span>
               )}

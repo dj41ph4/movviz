@@ -52,10 +52,8 @@ export default function RequestsPage() {
   const [tab, setTab] = useState<"pending" | "all">("pending");
   const [busy, setBusy] = useState<string | null>(null);
 
-  // SWR paints the cached list instantly on remount, then keeps the same 3s
-  // polling cadence in the background.
   const { data, mutate } = useSWR<{ requests: RequestWithMedia[]; isAdmin: boolean }>(
-    "/api/requests", { refreshInterval: 3000 }
+    "/api/requests"
   );
   const requests = data?.requests ?? [];
   const isAdmin = !!data?.isAdmin;

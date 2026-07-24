@@ -152,13 +152,13 @@ function LibraryTab() {
   // it) instead of the grid going blank on every visit, then revalidates
   // in the background on the same 3s cadence the old polling used.
   const { data: moviesData, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
-    "/api/library/movies", { refreshInterval: 3000 }
+    "/api/library/movies"
   );
   const { data: seriesData, mutate: mutateSeries } = useSWR<{ series: LibrarySeries[] }>(
-    "/api/library/series", { refreshInterval: 3000 }
+    "/api/library/series"
   );
   const { data: torrentsData } = useSWR<{ torrents: EngineTorrent[] }>(
-    "/api/engine/torrents", { refreshInterval: 3000 }
+    "/api/engine/torrents"
   );
   const movies = moviesData?.movies ?? [];
   const series = seriesData?.series ?? [];
@@ -480,14 +480,12 @@ function WantedTab() {
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [allProgress, setAllProgress] = useState<{ current: number; total: number } | null>(null);
 
-  // Same SWR keys and cadence as the library tab/dashboard — matching the
-  // interval means SWR's request dedupe actually kicks in instead of two
-  // components polling the same endpoint on two different clocks.
+  // Same SWR keys as the library tab/dashboard — SSE-driven revalidation.
   const { data: moviesData, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
-    "/api/library/movies", { refreshInterval: 3000 }
+    "/api/library/movies"
   );
   const { data: seriesData, mutate: mutateSeries } = useSWR<{ series: LibrarySeries[] }>(
-    "/api/library/series", { refreshInterval: 3000 }
+    "/api/library/series"
   );
   const movies = useMemo(
     () => (moviesData?.movies ?? []).filter((x) => x.monitored && x.status === "missing"),
