@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
 import { useVersion } from "@/lib/version/VersionContext";
+import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
 
 interface UpdateCheck {
   currentVersion: string;
@@ -28,6 +29,7 @@ export function AboutPanel() {
   const { data, mutate, isLoading } = useSWR<UpdateCheck>("/api/system/update", fetcher);
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const autoUpdate = useAutoUpdate();
 
   const checkNow = async () => {
     setChecking(true);
@@ -100,6 +102,16 @@ export function AboutPanel() {
         <p className="mb-4 text-sm text-ink-dim">
           {!data || data.platform === "win32" ? t("settings.aboutUpdateHint") : t("settings.aboutUpdateNotWindows")}
         </p>
+
+        <label className="mb-4 flex items-center gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoUpdate.enabled}
+            onChange={(e) => autoUpdate.setEnabled(e.target.checked)}
+            className="h-5 w-5 rounded accent-brand"
+          />
+          <span className="text-sm text-ink-soft">{t("settings.autoUpdateLabel")}</span>
+        </label>
 
         <div className="flex items-center gap-3">
           <button

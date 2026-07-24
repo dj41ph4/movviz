@@ -821,6 +821,7 @@ export const nl: Dictionary = {
     aboutSupportHint: "Movviz is gratis en blijft dat ook. Als het je van dienst is, wordt een donatie altijd gewaardeerd.",
     aboutUpdateTitle: "Updates",
     aboutUpdateHint: "Controleer op een nieuwere versie en werk deze Windows-installatie bij met één klik.",
+    autoUpdateLabel: "Updates automatisch installeren wanneer gedetecteerd",
     aboutUpdateNotWindows: "Bijwerken met één klik is alleen beschikbaar op Windows-installaties — trek op Docker/NAS opnieuw de image binnen.",
     aboutCheckUpdate: "Controleren op updates",
     aboutUpToDate: "Movviz is up-to-date",

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { NAV } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,7 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
+import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
 import { Download, Loader2, X } from "lucide-react";
 
 interface UpdateInfo {
@@ -46,6 +47,8 @@ export function Sidebar({ version }: { version: string }) {
 
   const [installing, setInstalling] = useState(false);
   const [showNasInfo, setShowNasInfo] = useState(false);
+  const autoUpdate = useAutoUpdate();
+  const autoUpdateTriggered = useRef(false);
 
   const triggerUpdate = async () => {
     setInstalling(true);
@@ -61,6 +64,20 @@ export function Sidebar({ version }: { version: string }) {
       setInstalling(false);
     }
   };
+
+  // Auto-update: trigger silently when update is detected and auto-update is enabled
+  useEffect(() => {
+    if (
+      updateInfo?.updateAvailable &&
+      updateInfo.platform === "win32" &&
+      autoUpdate.enabled &&
+      !autoUpdateTriggered.current
+    ) {
+      autoUpdateTriggered.current = true;
+      triggerUpdate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateInfo?.updateAvailable, autoUpdate.enabled]);
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col gap-2 border-r border-white/5 bg-abyss/60 px-4 py-6 backdrop-blur-xl lg:flex">

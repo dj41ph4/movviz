@@ -818,6 +818,7 @@ export const fr = {
     aboutSupportHint: "Movviz est gratuit et le restera. S'il te rend service, un don est toujours apprécié.",
     aboutUpdateTitle: "Mises à jour",
     aboutUpdateHint: "Vérifie s'il existe une nouvelle version et mets à jour cette installation Windows en un clic.",
+    autoUpdateLabel: "Installer les mises à jour automatiquement dès qu'elles sont détectées",
     aboutUpdateNotWindows: "La mise à jour en un clic n'est disponible que sur les installations Windows — sur Docker/NAS, repasse par un re-pull de l'image.",
     aboutCheckUpdate: "Rechercher une mise à jour",
     aboutUpToDate: "Movviz est à jour",

@@ -821,6 +821,7 @@ export const en: Dictionary = {
     aboutSupportHint: "Movviz is free and will stay free. If it's useful to you, a donation is always appreciated.",
     aboutUpdateTitle: "Updates",
     aboutUpdateHint: "Check for a newer release and update this Windows install in one click.",
+    autoUpdateLabel: "Install updates automatically when detected",
     aboutUpdateNotWindows: "One-click update is only available on Windows installs — on Docker/NAS, re-pull the image instead.",
     aboutCheckUpdate: "Check for updates",
     aboutUpToDate: "Movviz is up to date",
