@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
-import { getUserById, updateUser, deleteUser } from "@/lib/auth/store";
+import { getUserById, updateUser, deleteUser, loadUsers } from "@/lib/auth/store";
 import { toPublicUser } from "@/lib/auth/types";
 import { emitNotification } from "@/lib/notifications/store";
 
@@ -36,6 +36,16 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   for (const k of allowed) if (k in body) clean[k] = body[k];
 
   const { id } = await params;
+  // Never demote the last admin — the system would have no administrator left.
+  if (clean.role === "user") {
+    const target = getUserById(id);
+    if (target?.role === "admin") {
+      const adminCount = loadUsers().filter((u) => u.role === "admin").length;
+      if (adminCount <= 1) {
+        return NextResponse.json({ error: "last_admin" }, { status: 400 });
+      }
+    }
+  }
   // An admin can't demote themselves — avoids ever locking everyone out.
   if (id === admin.id && clean.role === "user") {
     return NextResponse.json({ error: "cannot_demote_self" }, { status: 400 });
