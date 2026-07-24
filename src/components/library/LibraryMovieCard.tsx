@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, memo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
@@ -28,7 +28,7 @@ const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
   missing: Clock,
 };
 
-export function LibraryMovieCard({
+export const LibraryMovieCard = memo(function LibraryMovieCard({
   movie, torrent, watched, onChange,
 }: {
   movie: LibraryMovie & { plexUrl?: string | null };
@@ -44,7 +44,10 @@ export function LibraryMovieCard({
   const [showManualSearch, setShowManualSearch] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
-  const poster = movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : null;
+  const poster = useMemo(
+    () => movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : null,
+    [movie.posterPath]
+  );
   const Icon = STATUS_ICON[movie.status];
 
   const setTags = async (tags: string[]) => {
@@ -72,17 +75,23 @@ export function LibraryMovieCard({
 
   const canGrab = movie.status !== "downloading" && movie.status !== "searching";
 
-  const isUpcoming = movie.vfReleaseDate && new Date(movie.vfReleaseDate) > new Date();
+  const isUpcoming = useMemo(
+    () => !!(movie.vfReleaseDate && new Date(movie.vfReleaseDate) > new Date()),
+    [movie.vfReleaseDate]
+  );
   const isDownloading = movie.status === "downloading" || movie.status === "searching";
-  const statusBadge = movie.status === "available"
-    ? { icon: Check, cls: "bg-ok/90 text-white", label: t("status.available") }
-    : isDownloading
-      ? { icon: Loader2, cls: "bg-purple-500/90 text-white", label: t("status.downloading") }
-      : movie.status === "missing" && isUpcoming
-        ? { icon: CalendarCheck, cls: "bg-cyan/80 text-white", label: t("status.wanted") }
-        : movie.status === "missing"
-          ? { icon: Clock, cls: "bg-amber/80 text-white", label: t("status.missing") }
-          : null;
+  const statusBadge = useMemo(() =>
+    movie.status === "available"
+      ? { icon: Check, cls: "bg-ok/90 text-white", label: t("status.available") }
+      : isDownloading
+        ? { icon: Loader2, cls: "bg-purple-500/90 text-white", label: t("status.downloading") }
+        : movie.status === "missing" && isUpcoming
+          ? { icon: CalendarCheck, cls: "bg-cyan/80 text-white", label: t("status.wanted") }
+          : movie.status === "missing"
+            ? { icon: Clock, cls: "bg-amber/80 text-white", label: t("status.missing") }
+            : null,
+    [movie.status, isUpcoming, isDownloading, t]
+  );
 
   return (
     <article className="group w-full">
@@ -274,4 +283,4 @@ export function LibraryMovieCard({
       )}
     </article>
   );
-}
+});

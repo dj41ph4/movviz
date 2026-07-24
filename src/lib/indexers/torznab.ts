@@ -256,10 +256,10 @@ function bareTitle(query: string): string {
  * genuine match. The cap makes a severe/moderate mismatch structurally
  * unable to outrank a real match no matter how good its other numbers are.
  */
-function titleRelevance(query: string, releaseTitle: string): { delta: number; cap: number | null } {
+function titleRelevance(query: string, releaseTitle: string, preParsed?: ReturnType<typeof parseRelease>): { delta: number; cap: number | null } {
   if (!query) return { delta: 0, cap: null };
   const bareQuery = bareTitle(query) || query;
-  const parsedTitle = parseRelease(releaseTitle).title;
+  const parsedTitle = preParsed?.title ?? parseRelease(releaseTitle).title;
   const sim = Math.max(titleSimilarity(bareQuery, releaseTitle), titleSimilarity(bareQuery, parsedTitle));
   if (sim >= 0.85) return { delta: 35, cap: null };
   if (sim >= 0.7) return { delta: 15, cap: null };
@@ -285,18 +285,18 @@ function titleYearMatch(query: string, releaseTitle: string): boolean {
  * comparing the raw SxxExx text, so it isn't fooled by formatting
  * differences either.
  */
-function seasonEpisodeRelevance(query: string, releaseTitle: string): { delta: number; cap: number | null } {
+function seasonEpisodeRelevance(query: string, releaseTitle: string, preParsed?: ReturnType<typeof parseRelease>): { delta: number; cap: number | null } {
   const qm = query.match(/\bS(\d{1,2})(?:E(\d{1,3}))?\b/i);
-  if (!qm) return { delta: 0, cap: null }; // not a series query (e.g. a movie search) — nothing to check
+  if (!qm) return { delta: 0, cap: null };
   const qSeason = parseInt(qm[1], 10);
   const qEpisode = qm[2] ? parseInt(qm[2], 10) : null;
 
-  const r = parseRelease(releaseTitle);
-  if (r.season == null) return { delta: 0, cap: null }; // release didn't parse a season — don't guess either way
-  if (r.season !== qSeason) return { delta: -60, cap: 20 }; // wrong season entirely
-  if (qEpisode == null) return { delta: 0, cap: null }; // season-only search — any episode in the right season is fine
-  if (r.episode == null) return { delta: 15, cap: null }; // season pack covering the wanted episode — good
-  return r.episode === qEpisode ? { delta: 30, cap: null } : { delta: -50, cap: 40 }; // right season, different episode
+  const r = preParsed ?? parseRelease(releaseTitle);
+  if (r.season == null) return { delta: 0, cap: null };
+  if (r.season !== qSeason) return { delta: -60, cap: 20 };
+  if (qEpisode == null) return { delta: 0, cap: null };
+  if (r.episode == null) return { delta: 15, cap: null };
+  return r.episode === qEpisode ? { delta: 30, cap: null } : { delta: -50, cap: 40 };
 }
 
 function score(r: Omit<IndexerRelease, "score">, rules: ReleaseRules, query?: string) {
@@ -323,10 +323,11 @@ function score(r: Omit<IndexerRelease, "score">, rules: ReleaseRules, query?: st
   s += applyCustomFormats(r.title);
   let cap = 100;
   if (query) {
-    const titleRel = titleRelevance(query, r.title);
+    const parsed = parseRelease(r.title);
+    const titleRel = titleRelevance(query, r.title, parsed);
     s += titleRel.delta;
     if (titleRel.cap != null) cap = Math.min(cap, titleRel.cap);
-    const seRel = seasonEpisodeRelevance(query, r.title);
+    const seRel = seasonEpisodeRelevance(query, r.title, parsed);
     s += seRel.delta;
     if (seRel.cap != null) cap = Math.min(cap, seRel.cap);
     if (!titleYearMatch(query, r.title)) s -= 15;
