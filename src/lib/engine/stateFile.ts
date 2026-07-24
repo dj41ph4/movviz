@@ -70,15 +70,15 @@ export function patchInstanceConfigOffline(id: string, patch: Record<string, unk
 const DEFAULT_INSTANCE_SHAPES: Record<string, Partial<EngineInstance>> = {
   movies: {
     id: "movies", category: "movie", name: "Movies",
-    downloadPath: path.join(resolveConfigDir(), "..", "data", "torrents", "movies"),
-    completedPath: path.join(resolveConfigDir(), "..", "data", "media", "movies"),
+    downloadPath: path.resolve(resolveConfigDir(), "..", "data", "torrents", "movies"),
+    completedPath: path.resolve(resolveConfigDir(), "..", "data", "media", "movies"),
     maxActive: 4, downloadLimitKbps: 0, uploadLimitKbps: 0, seedRatio: 2.0,
     sequential: false, autoStart: true, autoMoveOnComplete: true, dht: true, pex: true,
   },
   series: {
     id: "series", category: "series", name: "Series",
-    downloadPath: path.join(resolveConfigDir(), "..", "data", "torrents", "tv"),
-    completedPath: path.join(resolveConfigDir(), "..", "data", "media", "tv"),
+    downloadPath: path.resolve(resolveConfigDir(), "..", "data", "torrents", "tv"),
+    completedPath: path.resolve(resolveConfigDir(), "..", "data", "media", "tv"),
     maxActive: 6, downloadLimitKbps: 0, uploadLimitKbps: 0, seedRatio: 1.5,
     sequential: false, autoStart: true, autoMoveOnComplete: true, dht: true, pex: true,
   },

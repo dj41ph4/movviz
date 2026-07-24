@@ -41,11 +41,8 @@ export function loadMovies(): LibraryMovie[] {
   }
   return list;
 }
-function saveMovies(list: LibraryMovie[]) {
-  // Refuse to overwrite a large file with a near-empty list — this protects
-  // against a NAS-down scenario where loadMovies() returned [] as fallback
-  // and the caller then writes that truncated list back to disk.
-  if (list.length === 0) {
+function saveMovies(list: LibraryMovie[], isExplicitClear = false) {
+  if (list.length === 0 && !isExplicitClear) {
     try {
       const old = JSON.parse(fs.readFileSync(MOVIES_FILE, "utf8"));
       if (Array.isArray(old) && old.length > 10) {
@@ -108,7 +105,7 @@ export function removeMovie(id: string) {
 }
 /** Danger zone: wipe every movie from Movviz's own database. Never touches Plex or files on disk. */
 export function clearMovies() {
-  saveMovies([]);
+  saveMovies([] as LibraryMovie[], true);
 }
 /** Find the movie awaiting import for a given in-flight torrent. */
 export function getMovieByActiveHash(infoHash: string): LibraryMovie | null {
@@ -129,8 +126,8 @@ export function loadSeries(): LibrarySeries[] {
   }
   return list;
 }
-function saveSeries(list: LibrarySeries[]) {
-  if (list.length === 0) {
+function saveSeries(list: LibrarySeries[], isExplicitClear = false) {
+  if (list.length === 0 && !isExplicitClear) {
     try {
       const old = JSON.parse(fs.readFileSync(SERIES_FILE, "utf8"));
       if (Array.isArray(old) && old.length > 10) {
@@ -183,7 +180,7 @@ export function removeSeries(id: string) {
 }
 /** Danger zone: wipe every series from Movviz's own database. Never touches Plex or files on disk. */
 export function clearSeries() {
-  saveSeries([]);
+  saveSeries([] as LibrarySeries[], true);
 }
 export function getSeriesByActiveHash(
   infoHash: string
