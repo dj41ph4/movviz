@@ -8,6 +8,13 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# File d'attente — un seul build Docker à la fois. Les pushes rapprochés
+# (commit + tag) ne lancent pas deux builds parallèles qui se collisionnent
+# sur Docker Hub. Le build en cours s'achève avant que le suivant commence.
+concurrency:
+  group: docker-publish
+  cancel-in-progress: false
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
