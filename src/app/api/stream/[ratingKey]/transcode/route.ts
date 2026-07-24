@@ -105,6 +105,16 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   const media = metadata?.Media?.[0];
   const height = Number(media?.videoResolution ?? media?.height ?? 0);
+  const videoCodec = (media?.videoCodec as string)?.toLowerCase() ?? "";
+  const audioCodec = (media?.audioCodec as string)?.toLowerCase() ?? "";
+
+  // Smart transcode: only re-encode what the browser can't play natively.
+  // H.264 is universally supported → direct stream (copy), save massive CPU.
+  // AC3/DTS/TrueHD → transcode audio only. HEVC → transcode video too.
+  const isH264 = videoCodec === "h264" || videoCodec === "h.264" || videoCodec.includes("avc");
+  const isAac = audioCodec === "aac" || audioCodec.includes("mp4a");
+  const transcodeVideoCodec = isH264 ? "copy" : "h264";
+  const transcodeAudioCodec = isAac ? "copy" : "aac";
 
   const clientWidth = resolveClientMaxWidth(req);
   const maxVideoBitrate = selectBitrate(height, clientWidth);
@@ -118,7 +128,8 @@ export async function GET(req: NextRequest, context: Ctx) {
     `${base}/video/:/transcode/universal/start.m3u8` +
     `?path=${transcodePath}` +
     `&mediaIndex=0&partIndex=0` +
-    `&protocol=hls&videoCodec=h264&audioCodec=aac` +
+    `&protocol=hls` +
+    `&videoCodec=${transcodeVideoCodec}&audioCodec=${transcodeAudioCodec}` +
     `&fastSeek=1&directPlay=1&directStream=1` +
     `&maxVideoBitrate=${maxVideoBitrate}` +
     `&subtitleSize=100&session=${encodeURIComponent(sessionId)}` +
