@@ -2,9 +2,11 @@
 
 import { useState, useMemo, memo } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { LibraryMovie, LibraryStatus } from "@/lib/library/types";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
@@ -36,15 +38,17 @@ const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
 };
 
 export const LibraryMovieCard = memo(function LibraryMovieCard({
-  movie, torrent, watched, onChange,
+  movie, torrent, watched, onChange, index = 0,
 }: {
   movie: LibraryMovie & { plexUrl?: string | null };
   torrent?: EngineTorrent | null;
   watched?: boolean;
   onChange: () => void;
+  index?: number;
 }) {
   const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
+  const reduceMotion = useShouldReduceMotion();
   const user = useCurrentUser();
   const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -52,6 +56,8 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
   const [showManualSearch, setShowManualSearch] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleteFiles, setDeleteFiles] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
   const poster = useMemo(
     () => movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : null,
     [movie.posterPath]
@@ -77,7 +83,9 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
     }
   };
   const remove = async (withFiles: boolean) => {
+    setDeleting(true);
     await fetch(`/api/library/movies/${movie.id}?deleteFiles=${withFiles}`, { method: "DELETE" });
+    await new Promise((r) => setTimeout(r, 300));
     onChange();
   };
 
@@ -101,13 +109,34 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
     [movie.status, isUpcoming, isDownloading, t]
   );
 
+  const cascadeAnim = reduceMotion ? {} : {
+    initial: { opacity: 0, y: 20, scale: 0.95 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
+    whileHover: { scale: 1.03, y: -2, boxShadow: "0 0 25px rgba(168, 130, 255, 0.15)" },
+    whileTap: { scale: 0.98 },
+    style: { willChange: "transform" } as React.CSSProperties,
+  };
+  const btnSpring = reduceMotion ? {} : {
+    whileTap: { scale: 0.95 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 17 },
+  };
+
   return (
-    <article className="group w-full">
+    <motion.article className="group w-full" {...cascadeAnim}>
       <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
         <Link href={`/title/movie/${movie.tmdbId}`} className="absolute inset-0 block">
           {poster ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={poster} alt={movie.title} loading="lazy" className="h-full w-full object-cover" />
+            <motion.img
+              src={poster}
+              alt={movie.title}
+              loading="lazy"
+              className="h-full w-full object-cover"
+              initial={reduceMotion ? undefined : { opacity: 0 }}
+              animate={reduceMotion ? undefined : { opacity: imgLoaded ? 1 : 0 }}
+              transition={{ duration: 0.4 }}
+              onLoad={() => setImgLoaded(true)}
+            />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-surface-2 via-surface to-abyss p-4 text-center">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/12">
@@ -145,12 +174,13 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
         <div className="pointer-events-none absolute inset-0 hidden lg:flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           {movie.status === "available" && movie.plexUrl && (
             betaPlayer && movie.plexRatingKey ? (
-              <button
+              <motion.button
+                {...btnSpring}
                 onClick={() => setPlayRatingKey(movie.plexRatingKey!)}
                 className="pointer-events-auto mb-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black"
               >
                 <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
-              </button>
+              </motion.button>
             ) : (
               <a
                 href={movie.plexUrl}
@@ -164,36 +194,36 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
           )}
           <div className="pointer-events-auto flex gap-2">
             {canGrab && (
-              <button onClick={search} disabled={busy} title={t("library.autoSearch")} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl brand-gradient text-xs font-bold text-white">
+              <motion.button {...btnSpring} onClick={search} disabled={busy} title={t("library.autoSearch")} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl brand-gradient text-xs font-bold text-white">
                 {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
-              </button>
+              </motion.button>
             )}
             {canGrab && (
-              <button onClick={() => setShowManualSearch(true)} title={t("library.manualSearch")} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-bold text-ink-soft hover:text-ink">
+              <motion.button {...btnSpring} onClick={() => setShowManualSearch(true)} title={t("library.manualSearch")} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-bold text-ink-soft hover:text-ink">
                 <ListFilter className="h-3.5 w-3.5" />
-              </button>
+              </motion.button>
             )}
-            <button onClick={() => setEditingTags((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-ink-soft">
+            <motion.button {...btnSpring} onClick={() => setEditingTags((v) => !v)} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-ink-soft">
               <Tag className="h-3.5 w-3.5" />
-            </button>
+            </motion.button>
             {movie.status === "available" && (
               <ReportIssueButton libraryType="movie" libraryId={movie.id} />
             )}
             {!confirmDelete ? (
-              <button onClick={() => setConfirmDelete(true)} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-down">
+              <motion.button {...btnSpring} onClick={() => setConfirmDelete(true)} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-down">
                 <Trash2 className="h-3.5 w-3.5" />
-              </button>
+              </motion.button>
             ) : (
               <div className="flex gap-1">
-                <button onClick={() => { remove(true); setConfirmDelete(false); }} className="flex h-9 items-center gap-1 rounded-xl bg-down px-2.5 text-[10px] font-bold text-white">
+                <motion.button {...btnSpring} onClick={() => { remove(true); setConfirmDelete(false); }} className="flex h-9 items-center gap-1 rounded-xl bg-down px-2.5 text-[10px] font-bold text-white">
                   {t("downloads.removeData")}
-                </button>
-                <button onClick={() => { remove(false); setConfirmDelete(false); }} className="flex h-9 items-center gap-1 rounded-xl glass-strong px-2 text-[10px] font-bold text-ink-soft">
+                </motion.button>
+                <motion.button {...btnSpring} onClick={() => { remove(false); setConfirmDelete(false); }} className="flex h-9 items-center gap-1 rounded-xl glass-strong px-2 text-[10px] font-bold text-ink-soft">
                   {t("common.remove")}
-                </button>
-                <button onClick={() => setConfirmDelete(false)} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-ink-dim">
+                </motion.button>
+                <motion.button {...btnSpring} onClick={() => setConfirmDelete(false)} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-ink-dim">
                   <X className="h-3 w-3" />
-                </button>
+                </motion.button>
               </div>
             )}
           </div>
@@ -205,9 +235,9 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
         {movie.status === "available" && movie.plexUrl && (
           <div className="mt-1.5">
             {betaPlayer && movie.plexRatingKey ? (
-              <button onClick={() => setPlayRatingKey(movie.plexRatingKey!)} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
+              <motion.button {...btnSpring} onClick={() => setPlayRatingKey(movie.plexRatingKey!)} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
                 <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
-              </button>
+              </motion.button>
             ) : (
               <a href={movie.plexUrl} target="_blank" rel="noopener noreferrer" className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
                 <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
@@ -217,26 +247,26 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
         )}
         {canGrab && (
           <div className="mt-1.5 flex gap-1.5">
-            <button onClick={search} disabled={busy} title={t("library.autoSearch")} className="flex-1 h-11 flex items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-bold text-ink-soft active:bg-white/10">
+            <motion.button {...btnSpring} onClick={search} disabled={busy} title={t("library.autoSearch")} className="flex-1 h-11 flex items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-bold text-ink-soft active:bg-white/10">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
               <span className="hidden sm:inline">{t("library.autoSearch")}</span>
-            </button>
-            <button onClick={() => setShowManualSearch(true)} title={t("library.manualSearch")} className="flex-1 h-11 flex items-center justify-center rounded-xl glass-strong text-xs font-bold text-ink-soft active:bg-white/10">
+            </motion.button>
+            <motion.button {...btnSpring} onClick={() => setShowManualSearch(true)} title={t("library.manualSearch")} className="flex-1 h-11 flex items-center justify-center rounded-xl glass-strong text-xs font-bold text-ink-soft active:bg-white/10">
               <ListFilter className="h-4 w-4" />
-            </button>
-            <button onClick={() => setEditingTags((v) => !v)} className="h-11 w-11 flex items-center justify-center rounded-xl glass-strong text-ink-soft active:bg-white/10">
+            </motion.button>
+            <motion.button {...btnSpring} onClick={() => setEditingTags((v) => !v)} className="h-11 w-11 flex items-center justify-center rounded-xl glass-strong text-ink-soft active:bg-white/10">
               <Tag className="h-4 w-4" />
-            </button>
+            </motion.button>
             {movie.status === "available" && <ReportIssueButton libraryType="movie" libraryId={movie.id} />}
             {!confirmDelete ? (
-              <button onClick={() => setConfirmDelete(true)} className="h-11 w-11 flex items-center justify-center rounded-xl bg-down/15 border border-down/20 text-down active:bg-down/25">
+              <motion.button {...btnSpring} onClick={() => setConfirmDelete(true)} className="h-11 w-11 flex items-center justify-center rounded-xl bg-down/15 border border-down/20 text-down active:bg-down/25">
                 <Trash2 className="h-4 w-4" />
-              </button>
+              </motion.button>
             ) : (
               <div className="flex flex-1 gap-1">
-                <button onClick={() => { remove(true); setConfirmDelete(false); }} className="h-11 flex-1 flex items-center justify-center gap-1 rounded-xl bg-down px-2 text-[10px] font-bold text-white active:bg-down/80">{t("downloads.removeData")}</button>
-                <button onClick={() => { remove(false); setConfirmDelete(false); }} className="h-11 flex-1 flex items-center justify-center gap-1 rounded-xl glass-strong px-2 text-[10px] font-bold text-ink-soft active:bg-white/10">{t("common.remove")}</button>
-                <button onClick={() => setConfirmDelete(false)} className="h-11 w-11 flex items-center justify-center rounded-xl glass-strong text-ink-dim active:bg-white/10"><X className="h-4 w-4" /></button>
+                <motion.button {...btnSpring} onClick={() => { remove(true); setConfirmDelete(false); }} className="h-11 flex-1 flex items-center justify-center gap-1 rounded-xl bg-down px-2 text-[10px] font-bold text-white active:bg-down/80">{t("downloads.removeData")}</motion.button>
+                <motion.button {...btnSpring} onClick={() => { remove(false); setConfirmDelete(false); }} className="h-11 flex-1 flex items-center justify-center gap-1 rounded-xl glass-strong px-2 text-[10px] font-bold text-ink-soft active:bg-white/10">{t("common.remove")}</motion.button>
+                <motion.button {...btnSpring} onClick={() => setConfirmDelete(false)} className="h-11 w-11 flex items-center justify-center rounded-xl glass-strong text-ink-dim active:bg-white/10"><X className="h-4 w-4" /></motion.button>
               </div>
             )}
           </div>
@@ -244,7 +274,7 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
       </div>
 
       <div className="mt-2.5 px-0.5">
-        <Link href={`/title/movie/${movie.tmdbId}`} className="block truncate text-sm font-semibold text-ink hover:text-brand-glow">{movie.title}</Link>
+        <Link href={`/title/movie/${movie.tmdbId}`} className="block truncate text-sm font-semibold text-ink transition-all duration-200 hover:text-brand-glow hover:scale-[1.02] hover:origin-left">{movie.title}</Link>
         <div className="mt-1 flex items-center gap-2">
           <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold", STATUS_TONE[movie.status])}>
             <Icon className="h-2.5 w-2.5" />
@@ -293,6 +323,6 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
           useTranscode={betaPlayer}
         />
       )}
-    </article>
+    </motion.article>
   );
 });

@@ -109,12 +109,18 @@ export async function GET(req: NextRequest, context: Ctx) {
   const audioCodec = (media?.audioCodec as string)?.toLowerCase() ?? "";
 
   // Smart transcode: only re-encode what the browser can't play natively.
-  // H.264 is universally supported → direct stream (copy), save massive CPU.
-  // AC3/DTS/TrueHD → transcode audio only. HEVC → transcode video too.
+  // H.264 + AAC → direct stream everywhere. AV1/VP9 → direct on Chrome/FF.
+  // AC3/DTS → transcode audio only. HEVC/VC-1/MPEG-2 → transcode video.
   const isH264 = videoCodec === "h264" || videoCodec === "h.264" || videoCodec.includes("avc");
+  const isAv1 = videoCodec === "av1" || videoCodec.includes("av01");
+  const isVp9 = videoCodec === "vp9" || videoCodec.includes("vp09");
   const isAac = audioCodec === "aac" || audioCodec.includes("mp4a");
-  const transcodeVideoCodec = isH264 ? "copy" : "h264";
-  const transcodeAudioCodec = isAac ? "copy" : "aac";
+  const isMp3 = audioCodec === "mp3" || audioCodec.includes("mp3");
+  const isOpus = audioCodec === "opus";
+  const videoDirect = isH264 || isAv1 || isVp9;
+  const audioDirect = isAac || isMp3 || isOpus;
+  const transcodeVideoCodec = videoDirect ? "copy" : "h264";
+  const transcodeAudioCodec = audioDirect ? "copy" : "aac";
 
   const clientWidth = resolveClientMaxWidth(req);
   const maxVideoBitrate = selectBitrate(height, clientWidth);

@@ -50,9 +50,9 @@ const TABS = [
   { id: "naming", labelKey: "naming.tab", icon: Tag, group: "library", adminOnly: true },
   { id: "imports", labelKey: "settings.tabImports", icon: ExternalLink, group: "library", adminOnly: true },
   // Disque
-  { id: "indexation", labelKey: "settings.tabIndexation", icon: Film, group: "disk", adminOnly: true, dangerous: true },
-  { id: "rename", labelKey: "rename.tab", icon: RefreshCw, group: "disk", adminOnly: true, dangerous: true },
-  { id: "maintenance", labelKey: "settings.tabMaintenance", icon: Wrench, group: "disk", adminOnly: true, dangerous: true },
+  { id: "indexation", labelKey: "settings.tabIndexation", icon: Film, group: "disk", adminOnly: true },
+  { id: "rename", labelKey: "rename.tab", icon: RefreshCw, group: "disk", adminOnly: true },
+  { id: "maintenance", labelKey: "settings.tabMaintenance", icon: Wrench, group: "disk", adminOnly: true },
   // Notifications
   { id: "notifications", labelKey: "settings.tabNotifications", icon: BellRing, group: "notifications", adminOnly: true },
   // Système

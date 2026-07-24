@@ -102,8 +102,26 @@ function RequestsPageInner() {
     return (
       <div className="mx-auto max-w-[1100px]">
         <PageHeader title={t("requests.title")} />
-        <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
-          <Loader2 className="h-5 w-5 animate-spin" /> {t("common.loading")}
+        <div className="space-y-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="flex gap-4 rounded-2xl glass p-4">
+              <div className="h-28 w-20 shrink-0 animate-pulse rounded-xl bg-white/6" />
+              <div className="flex min-w-0 flex-1 flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="h-6 w-2/3 animate-pulse rounded bg-white/8" />
+                  <div className="h-4 w-1/3 animate-pulse rounded bg-white/6" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="h-3.5 w-full animate-pulse rounded bg-white/6" />
+                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/6" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="h-3 w-24 animate-pulse rounded bg-white/6" />
+                  <div className="h-8 w-20 animate-pulse rounded-xl bg-white/8" />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );

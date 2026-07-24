@@ -4,9 +4,11 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { GENRE_GRADIENTS } from "@/lib/metadata/curated";
@@ -386,9 +388,10 @@ function DiscoverPageInner() {
               {results.length > 0 && (
                 <>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                    {results.map((r) => (
+                    {results.map((r, i) => (
                       <DiscoverCard
                         key={`${r.type}:${r.tmdbId}`}
+                        index={i}
                         result={r}
                         status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
                         libLoaded={libLoaded}
@@ -580,9 +583,10 @@ function PosterRow({
         </button>
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2">
-        {results.map((r) => (
+        {results.map((r, i) => (
           <div key={`${r.type}:${r.tmdbId}`} className="w-[150px] shrink-0 sm:w-[170px]">
             <DiscoverCard
+              index={i}
               result={r}
               status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
               libLoaded={libLoaded}
@@ -737,17 +741,20 @@ function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank
 }
 
 function DiscoverCard({
-  result, status, libLoaded, watched, onAdded,
+  result, status, libLoaded, watched, onAdded, index = 0,
 }: {
   result: MetaSearchResult;
   status: string | null;
   libLoaded: boolean;
   watched: boolean;
   onAdded: () => void;
+  index?: number;
 }) {
   const { t, locale } = useI18n();
+  const reduceMotion = useShouldReduceMotion();
   const [adding, setAdding] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   const add = async () => {
     setAdding(true);
@@ -773,12 +780,33 @@ function DiscoverCard({
 
   const poster = result.posterPath ? `https://image.tmdb.org/t/p/w500${result.posterPath}` : null;
 
+  const cascadeAnim = reduceMotion ? {} : {
+    initial: { opacity: 0, y: 20, scale: 0.95 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
+    whileHover: { scale: 1.03, y: -2, boxShadow: "0 0 25px rgba(168, 130, 255, 0.15)" },
+    whileTap: { scale: 0.98 },
+    style: { willChange: "transform" } as React.CSSProperties,
+  };
+  const btnSpring = reduceMotion ? {} : {
+    whileTap: { scale: 0.95 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 17 },
+  };
+
   return (
-    <article className="group w-full">
+    <motion.article className="group w-full" {...cascadeAnim}>
       <Link href={`/title/${result.type}/${result.tmdbId}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
         {poster ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={poster} alt={result.title} loading="lazy" className="h-full w-full object-cover" />
+          <motion.img
+            src={poster}
+            alt={result.title}
+            loading="lazy"
+            className="h-full w-full object-cover"
+            initial={reduceMotion ? undefined : { opacity: 0 }}
+            animate={reduceMotion ? undefined : { opacity: imgLoaded ? 1 : 0 }}
+            transition={{ duration: 0.4 }}
+            onLoad={() => setImgLoaded(true)}
+          />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
             {result.type === "movie" ? <Film className="h-7 w-7 text-ink-soft/70" /> : <Tv className="h-7 w-7 text-ink-soft/70" />}
@@ -805,21 +833,22 @@ function DiscoverCard({
           </div>
         )}
         <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <button
+          <motion.button
+            {...btnSpring}
             onClick={(e) => { e.preventDefault(); add(); }}
             disabled={adding || !!status}
             className={cn(
-              "flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-transform hover:scale-105 disabled:hover:scale-100",
+              "flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-bold",
               status ? "bg-ok/20 text-ok" : "brand-gradient text-white"
             )}
           >
             {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : status ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             {status ? t("discover.added") : adding ? t("discover.adding") : t("discover.addToLibrary")}
-          </button>
+          </motion.button>
         </div>
       </Link>
       <div className="mt-2.5 px-0.5">
-        <Link href={`/title/${result.type}/${result.tmdbId}`} className="block truncate text-sm font-semibold text-ink hover:text-brand-glow">{result.title}</Link>
+        <Link href={`/title/${result.type}/${result.tmdbId}`} className="block truncate text-sm font-semibold text-ink transition-all duration-200 hover:text-brand-glow">{result.title}</Link>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-dim">
           {formatDate(result.releaseDate, locale) ? (
             <span className="flex items-center gap-1">
@@ -831,6 +860,6 @@ function DiscoverCard({
           {feedback && <span className="truncate text-amber">{feedback}</span>}
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }

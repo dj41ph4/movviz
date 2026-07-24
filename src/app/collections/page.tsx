@@ -254,8 +254,20 @@ export default function CollectionsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      <div>
+        <SagasSection />
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="h-8 w-48 animate-pulse rounded-lg bg-white/8" />
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-24 animate-pulse rounded-xl bg-white/8" />
+            <div className="h-10 w-32 animate-pulse rounded-xl bg-white/10" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="aspect-square animate-pulse rounded-2xl bg-white/6" />
+          ))}
+        </div>
       </div>
     );
   }

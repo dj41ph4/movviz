@@ -232,8 +232,8 @@ export default function DashboardPage() {
           <section>
             <h2 className="mb-3 text-lg font-bold tracking-tight text-ink">{t("dashboard.recentlyAdded")}</h2>
             <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {recentlyAdded.map((movie) => (
-                <LibraryMovieCard key={movie.id} movie={movie} torrent={progressFor(movie)} onChange={load} />
+              {recentlyAdded.map((movie, i) => (
+                <LibraryMovieCard key={movie.id} index={i} movie={movie} torrent={progressFor(movie)} onChange={load} />
               ))}
             </div>
           </section>

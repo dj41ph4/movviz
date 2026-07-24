@@ -137,14 +137,49 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
 
   if (!detail) return (
     <div className="mx-auto max-w-[1200px] animate-pulse">
-      <div className="h-[320px] rounded-2xl bg-white/5" />
-      <div className="mt-6 flex gap-6">
-        <div className="h-64 w-44 shrink-0 rounded-2xl bg-white/10" />
-        <div className="flex-1 space-y-3 pt-8">
-          <div className="h-8 w-3/4 rounded bg-white/10" />
-          <div className="h-4 w-1/2 rounded bg-white/5" />
-          <div className="h-4 w-full rounded bg-white/5" />
-          <div className="h-4 w-2/3 rounded bg-white/5" />
+      <div className="h-[180px] rounded-2xl bg-white/5 sm:h-[320px]" />
+      <div className="relative z-10 -mt-14 flex flex-col items-center gap-4 text-center sm:-mt-40 sm:flex-row sm:items-start sm:gap-6 sm:text-left">
+        <div className="h-44 w-32 shrink-0 rounded-2xl bg-white/10 shadow-2xl sm:h-64 sm:w-44" />
+        <div className="flex flex-1 flex-col items-center sm:items-start">
+          <div className="mb-2 h-5 w-20 rounded-full bg-white/10" />
+          <div className="h-7 w-64 rounded bg-white/10 sm:h-8 sm:w-80" />
+          <div className="mt-2 flex flex-wrap gap-3">
+            <div className="h-4 w-14 rounded bg-white/6" />
+            <div className="h-4 w-12 rounded bg-white/6" />
+            <div className="h-4 w-16 rounded bg-white/6" />
+            <div className="h-4 w-20 rounded bg-white/6" />
+          </div>
+          <div className="mt-3 h-3.5 w-full max-w-lg rounded bg-white/6" />
+          <div className="mt-1.5 h-3.5 w-3/4 max-w-lg rounded bg-white/6" />
+          <div className="mt-4 flex flex-wrap gap-2">
+            <div className="h-10 w-32 rounded-xl bg-white/10" />
+            <div className="h-10 w-28 rounded-xl bg-white/8" />
+            <div className="h-10 w-28 rounded-xl bg-white/8" />
+            <div className="h-10 w-24 rounded-xl bg-white/8" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_260px]">
+        <div className="space-y-6">
+          <div className="h-5 w-32 rounded bg-white/8" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i}>
+                <div className="h-3 w-16 rounded bg-white/6" />
+                <div className="mt-1 h-3.5 w-24 rounded bg-white/8" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-4 lg:border-l lg:border-white/5 lg:pl-8">
+          <div className="rounded-2xl glass p-4 space-y-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div className="h-3 w-20 rounded bg-white/6" />
+                <div className="h-3 w-24 rounded bg-white/8" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>

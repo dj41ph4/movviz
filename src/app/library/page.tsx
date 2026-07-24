@@ -408,19 +408,27 @@ function LibraryTab() {
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {visibleMovies.map((movie) => (
-          <LibraryMovieCard key={movie.id} movie={movie} torrent={progressFor(movie)} watched={watchedMovies.has(movie.tmdbId)} onChange={refresh} />
+        {visibleMovies.map((movie, i) => (
+          <LibraryMovieCard key={movie.id} index={i} movie={movie} torrent={progressFor(movie)} watched={watchedMovies.has(movie.tmdbId)} onChange={refresh} />
         ))}
-        {visibleSeries.map((s) => (
-          <LibrarySeriesCard key={s.id} series={s} />
+        {visibleSeries.map((s, i) => (
+          <LibrarySeriesCard key={s.id} index={visibleMovies.length + i} series={s} />
         ))}
       </div>
 
       {visibleCount < total && <div ref={sentinelRef} className="h-1" />}
 
       {loading && total === 0 && (
-        <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
-          <Loader2 className="h-5 w-5 animate-spin" /> {t("common.loading")}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {[...Array(12)].map((_, i) => (
+            <div key={i}>
+              <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/6" />
+              <div className="mt-2.5 space-y-1.5 px-0.5">
+                <div className="h-3 w-3/4 animate-pulse rounded bg-white/8" />
+                <div className="h-2.5 w-1/2 animate-pulse rounded bg-white/6" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {!loading && total === 0 && (

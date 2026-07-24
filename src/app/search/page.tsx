@@ -3,10 +3,12 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SortableColumnHeader } from "@/components/ui/SortableColumnHeader";
 import { cn, formatBytes, relativeTime } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import type { MediaType } from "@/lib/types";
 import { TitleTargetPicker } from "@/components/activity/v2/TitleTargetPicker";
@@ -74,6 +76,7 @@ function SearchPageInner() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const reduceMotion = useShouldReduceMotion();
   const libraryRef = params.get("libraryRef");
   const manualTitle = params.get("title");
   const [q, setQ] = useState(params.get("q") ?? "");
@@ -90,6 +93,11 @@ function SearchPageInner() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [indexerErrors, setIndexerErrors] = useState<{ indexer: string; detail: string }[]>([]);
   const [pendingTarget, setPendingTarget] = useState<IndexerRelease | null>(null);
+
+  const btnSpring = reduceMotion ? {} : {
+    whileTap: { scale: 0.95 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 17 },
+  };
 
   const sorted = useMemo(() => {
     const arr = [...releases];
@@ -262,9 +270,9 @@ function SearchPageInner() {
             </button>
           ))}
         </div>
-        <button onClick={run} disabled={loading || !q.trim()} className="flex h-14 items-center justify-center gap-2 rounded-2xl brand-gradient px-8 text-sm font-bold text-white shadow-xl transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-40">
+        <motion.button {...btnSpring} onClick={run} disabled={loading || !q.trim()} className="flex h-14 items-center justify-center gap-2 rounded-2xl brand-gradient px-8 text-sm font-bold text-white shadow-xl transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-40">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />} {t("search.launch")}
-        </button>
+        </motion.button>
       </div>
 
       {/* Per-indexer errors — an indexer rejecting the request (bad key, rate
@@ -287,12 +295,13 @@ function SearchPageInner() {
           <AlertTriangle className="h-8 w-8 text-down" />
           <p className="font-semibold text-ink">{t("error.title")}</p>
           <p className="max-w-md text-sm text-ink-dim">{t("error.description")}</p>
-          <button
+          <motion.button
+            {...btnSpring}
             onClick={() => (searched ? run() : loadRecent(category))}
             className="mt-2 inline-flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white"
           >
             <RotateCw className="h-4 w-4" /> {t("common.retry")}
-          </button>
+          </motion.button>
         </div>
       )}
 
@@ -310,15 +319,61 @@ function SearchPageInner() {
 
       {/* Loading recent */}
       {recentLoading && (
-        <div className="flex items-center justify-center gap-2 rounded-2xl glass py-16 text-ink-dim">
-          <Loader2 className="h-5 w-5 animate-spin" /> {t("search.searching")}
+        <div className="overflow-hidden rounded-2xl glass">
+          <div className="hidden grid-cols-[1fr_110px_65px_75px_65px_100px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
+            <span className="h-3 w-24 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-16 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-10 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-12 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-10 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-14 animate-pulse rounded bg-white/8" />
+          </div>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="grid grid-cols-1 gap-2 border-b border-white/5 px-5 py-4 last:border-0 md:grid-cols-[1fr_110px_65px_75px_65px_100px] md:items-center md:gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 shrink-0 animate-pulse rounded-lg bg-white/8" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/8" />
+                  <div className="h-2.5 w-1/4 animate-pulse rounded bg-white/6" />
+                </div>
+              </div>
+              <div className="h-3 w-20 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-12 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-14 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-10 animate-pulse rounded bg-white/8" />
+              <div className="h-7 w-16 animate-pulse rounded-lg bg-white/8 md:ml-auto" />
+            </div>
+          ))}
         </div>
       )}
 
       {/* Loading search */}
       {loading && (
-        <div className="flex items-center justify-center gap-2 rounded-2xl glass py-16 text-ink-dim">
-          <Loader2 className="h-5 w-5 animate-spin" /> {t("search.searching")}
+        <div className="overflow-hidden rounded-2xl glass">
+          <div className="hidden grid-cols-[1fr_110px_65px_75px_65px_100px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
+            <span className="h-3 w-24 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-16 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-10 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-12 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-10 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-14 animate-pulse rounded bg-white/8" />
+          </div>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="grid grid-cols-1 gap-2 border-b border-white/5 px-5 py-4 last:border-0 md:grid-cols-[1fr_110px_65px_75px_65px_100px] md:items-center md:gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 shrink-0 animate-pulse rounded-lg bg-white/8" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/8" />
+                  <div className="h-2.5 w-1/4 animate-pulse rounded bg-white/6" />
+                </div>
+              </div>
+              <div className="h-3 w-20 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-12 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-14 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-10 animate-pulse rounded bg-white/8" />
+              <div className="h-7 w-16 animate-pulse rounded-lg bg-white/8 md:ml-auto" />
+            </div>
+          ))}
         </div>
       )}
 
@@ -358,14 +413,15 @@ function SearchPageInner() {
                 {r.seeders == null ? "—" : `${r.seeders} ↑`}
               </span>
               <div className="md:text-right">
-                <button
+                <motion.button
+                  {...btnSpring}
                   onClick={() => onGrabClick(r)}
                   disabled={grabbing === r.guid || grabbed.has(r.guid)}
-                  className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-transform hover:scale-105 disabled:opacity-60", grabbed.has(r.guid) ? "bg-ok/15 text-ok" : "brand-gradient text-white")}
+                  className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-60", grabbed.has(r.guid) ? "bg-ok/15 text-ok" : "brand-gradient text-white")}
                 >
                   {grabbing === r.guid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : grabbed.has(r.guid) ? <Check className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
                   {grabbed.has(r.guid) ? t("search.grabbed") : t("common.grab")}
-                </button>
+                </motion.button>
               </div>
             </div>
           ))}

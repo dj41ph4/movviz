@@ -1,7 +1,9 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { Suspense } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { SWRConfig } from "swr";
 import { useLibrarySSE } from "@/lib/events/useLibrarySSE";
 import { Hourglass, LogOut } from "lucide-react";
@@ -12,6 +14,7 @@ import { BottomNav } from "./BottomNav";
 import { CommandPaletteProvider } from "./CommandPalette";
 import { WhatsNewModal } from "./WhatsNewModal";
 import { ToastContainer } from "@/components/ui/Toast";
+import { PageLoaderProvider } from "@/components/ui/PageLoader";
 import { I18nProvider, useT } from "@/i18n/provider";
 import { VersionProvider } from "@/lib/version/VersionContext";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -100,35 +103,47 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
   // Mounted once here — subscribes to /api/events and revalidates SWR
   // library keys on every status change. The hook itself has no UI output.
   useLibrarySSE();
+  const reduceMotion = useShouldReduceMotion();
+
+  const pageAnim = reduceMotion ? {} : {
+    initial: { opacity: 0, filter: "blur(4px)" },
+    animate: { opacity: 1, filter: "blur(0px)" },
+    exit: { opacity: 0, filter: "blur(4px)" },
+  };
 
   return (
       <SWRConfig value={swrConfig}>
         <I18nProvider>
           <VersionProvider version={version}>
             <CommandPaletteProvider>
-              <AuroraBackground />
-              <div className="relative z-10 flex min-h-screen">
-                <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[9999] focus:rounded-xl focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:outline-none">
-                  Skip to main content
-                </a>
-                <Sidebar version={version} />
-                <div className="flex min-w-0 flex-1 flex-col">
-                  <Topbar />
-                  <main id="main-content" className="flex-1 px-4 pt-5 pb-24 sm:px-5 sm:pt-6 md:px-8 md:pt-8 lg:pb-8">
-                    <motion.div
-                      key={pathname}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, ease: "easeOut" }}
-                    >
-                      {children}
-                    </motion.div>
-                  </main>
-                </div>
-                <BottomNav />
-              </div>
-              <WhatsNewModal />
-              <ToastContainer />
+              <Suspense fallback={null}>
+                <PageLoaderProvider>
+                  <AuroraBackground />
+                  <div className="relative z-10 flex min-h-screen">
+                    <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[9999] focus:rounded-xl focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:outline-none">
+                      Skip to main content
+                    </a>
+                    <Sidebar version={version} />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <Topbar />
+                      <main id="main-content" className="flex-1 px-4 pt-5 pb-24 sm:px-5 sm:pt-6 md:px-8 md:pt-8 lg:pb-8">
+                        <AnimatePresence mode="wait">
+                          <motion.div
+                            key={pathname}
+                            {...pageAnim}
+                            transition={{ duration: 0.3, ease: "easeOut" }}
+                          >
+                            {children}
+                          </motion.div>
+                        </AnimatePresence>
+                      </main>
+                    </div>
+                    <BottomNav />
+                  </div>
+                  <WhatsNewModal />
+                  <ToastContainer />
+                </PageLoaderProvider>
+              </Suspense>
             </CommandPaletteProvider>
           </VersionProvider>
         </I18nProvider>

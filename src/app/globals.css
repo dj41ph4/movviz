@@ -171,6 +171,16 @@
   transition-delay: 0s !important;
 }
 
+@keyframes shimmer-progress {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.animate-shimmer-progress {
+  background-size: 200% 100%;
+  animation: shimmer-progress 1.8s ease-in-out infinite;
+}
+
 /*
  * Light theme — overrides the same custom properties every utility class
  * already reads via var(--color-*), so components never need their own
