@@ -113,8 +113,9 @@ export const INDEXER_CATALOG: CatalogEntry[] = [
     kind: "torznab",
     protocol: "torrent",
     authType: "x-api-key",
-    siteUrl: "https://tr4ker.com",
-    description: "Tracker français — ajoutez l'en-tête X-Api-Key à chaque requête.",
+    siteUrl: "https://tr4ker.net",
+    baseUrl: "https://tr4ker.net/api/torznab",
+    description: "Tracker français P2P — auth par en-tête X-Api-Key.",
     categories: [2000, 5000],
   },
 ];
