@@ -108,6 +108,14 @@ export interface PlexChapter {
   startTimeOffset: number; // milliseconds
 }
 
+export interface PlexCollectionSummary {
+  ratingKey: string;
+  title: string;
+  thumb: string | null;
+  childCount: number;
+  sectionKey: string;
+}
+
 export interface PlexMediaInfo {
   container: string | null;
   bitrate: number | null; // kbps

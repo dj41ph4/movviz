@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
 import { getSeries, updateSeries, removeSeries } from "@/lib/library/store";
-import { requireUser } from "@/lib/auth/guard";
+import { requireUser, requireAdmin } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity/store";
 import { emitNotification } from "@/lib/notifications/store";
 import { loadPlexConfig } from "@/lib/plex/store";
@@ -39,8 +39,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const user = requireUser(req);
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const user = requireAdmin(req);
+  if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const id = (await params).id;
   const series = getSeries(id);
   const deleteFiles = req.nextUrl.searchParams.get("deleteFiles") === "true";

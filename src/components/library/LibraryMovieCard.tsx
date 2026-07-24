@@ -4,6 +4,7 @@ import { useState, useMemo, memo } from "react";
 import Link from "next/link";
 import { useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { LibraryMovie, LibraryStatus } from "@/lib/library/types";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
@@ -44,6 +45,7 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
 }) {
   const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
+  const user = useCurrentUser();
   const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editingTags, setEditingTags] = useState(false);
