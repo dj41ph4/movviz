@@ -8,18 +8,56 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ ratingKey: string }> };
 
-/** Resolve CORS origin from the referer (preferred) then the Origin header, else "null". */
+const DEFAULT_MAX_BITRATE = 8000;
+const TRANSCODE_CACHE_TTL = 3600;
+
 function corsOrigin(req: NextRequest): string {
   const referer = req.headers.get("referer");
   if (referer) {
     try {
       const u = new URL(referer);
       return `${u.protocol}//${u.host}`;
-    } catch {
-      /* fallthrough */
-    }
+    } catch { /* fallthrough */ }
   }
   return req.headers.get("origin") || "null";
+}
+
+function resolveClientMaxWidth(req: NextRequest): number {
+  const qWidth = Number(req.nextUrl.searchParams.get("maxWidth"));
+  if (qWidth > 0 && Number.isFinite(qWidth)) return qWidth;
+  const hint = req.headers.get("x-movviz-client-width");
+  if (hint) {
+    const w = Number(hint);
+    if (w > 0 && Number.isFinite(w)) return w;
+  }
+  return 1920;
+}
+
+function selectBitrate(sourceHeight: number, clientWidth: number): number {
+  let cap = DEFAULT_MAX_BITRATE;
+  if (sourceHeight >= 2000) cap = 15000;
+  else if (sourceHeight >= 1440) cap = 10000;
+  else if (sourceHeight >= 1000) cap = 8000;
+  else if (sourceHeight >= 700) cap = 4000;
+  else cap = 2000;
+
+  if (clientWidth < 1920) {
+    if (clientWidth <= 720) cap = Math.min(cap, 1500);
+    else if (clientWidth <= 1080) cap = Math.min(cap, 3000);
+    else if (clientWidth <= 1440) cap = Math.min(cap, 6000);
+  }
+
+  return cap;
+}
+
+function buildEtag(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const chr = input.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0;
+  }
+  return `"${Math.abs(hash).toString(36)}"`;
 }
 
 export async function GET(req: NextRequest, context: Ctx) {
@@ -63,17 +101,12 @@ export async function GET(req: NextRequest, context: Ctx) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  // Derive a sensible transcode bitrate cap from the source resolution.
   const media = metadata?.Media?.[0];
   const height = Number(media?.videoResolution ?? media?.height ?? 0);
-  let maxVideoBitrate = 8000;
-  if (height >= 2000) maxVideoBitrate = 15000;
-  else if (height >= 1440) maxVideoBitrate = 10000;
-  else if (height >= 1000) maxVideoBitrate = 8000;
-  else if (height >= 700) maxVideoBitrate = 4000;
-  else maxVideoBitrate = 2000;
 
-  // Optional audio/subtitle stream selection from query params (#5)
+  const clientWidth = resolveClientMaxWidth(req);
+  const maxVideoBitrate = selectBitrate(height, clientWidth);
+
   const sp = req.nextUrl.searchParams;
   const audioStreamID = sp.get("audioStreamID");
   const subtitleStreamID = sp.get("subtitleStreamID");
@@ -117,10 +150,27 @@ export async function GET(req: NextRequest, context: Ctx) {
       (_match, _host, path) => `${proxyBase}${path}`
     );
 
+    const etag = buildEtag(rewritten);
+
+    if (req.headers.get("if-none-match") === etag) {
+      return new NextResponse(null, {
+        status: 304,
+        headers: {
+          "cache-control": `public, max-age=${TRANSCODE_CACHE_TTL}`,
+          etag,
+          "access-control-allow-origin": corsOrigin(req),
+          "access-control-allow-credentials": "true",
+        },
+      });
+    }
+
     return new NextResponse(rewritten, {
       headers: {
         "content-type": "application/vnd.apple.mpegurl",
-        "cache-control": cacheTtl > 0 ? `public, max-age=${cacheTtl}` : "private, no-store",
+        "cache-control": cacheTtl > 0
+          ? `public, max-age=${Math.max(cacheTtl, TRANSCODE_CACHE_TTL)}`
+          : `public, max-age=${TRANSCODE_CACHE_TTL}`,
+        etag,
         "access-control-allow-origin": corsOrigin(req),
         "access-control-allow-credentials": "true",
       },

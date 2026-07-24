@@ -7,31 +7,39 @@ export const runtime = "nodejs";
 
 type Ctx = { params: Promise<{ path: string[] }> };
 
-/** Resolve CORS origin from the referer (preferred) then the Origin header, else "null". */
 function corsOrigin(req: NextRequest): string {
   const referer = req.headers.get("referer");
   if (referer) {
     try {
       const u = new URL(referer);
       return `${u.protocol}//${u.host}`;
-    } catch {
-      /* fallthrough */
-    }
+    } catch { /* fallthrough */ }
   }
   return req.headers.get("origin") || "null";
 }
 
-// --- In-memory LRU cache for small segments/playlist responses (#13) ---
+function buildEtag(input: string | Buffer): string {
+  const str = typeof input === "string" ? input : input.toString("base64");
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const chr = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + chr;
+    hash |= 0;
+  }
+  return `"${Math.abs(hash).toString(36)}"`;
+}
+
 interface CacheEntry {
   body: Buffer;
   contentType: string;
   status: number;
+  etag: string;
   expires: number;
 }
 
 type SegmentCache = Map<string, CacheEntry>;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 300s
-const CACHE_MAX_ENTRIES = 200;
+const CACHE_TTL_MS = 5 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 300;
 
 function getCache(): SegmentCache {
   const g = globalThis as unknown as { __movvizPlexProxyCache?: SegmentCache };
@@ -47,7 +55,6 @@ function cacheGet(key: string): CacheEntry | null {
     cache.delete(key);
     return null;
   }
-  // Refresh recency (LRU)
   cache.delete(key);
   cache.set(key, entry);
   return entry;
@@ -62,8 +69,7 @@ function cacheSet(key: string, entry: CacheEntry): void {
   cache.set(key, entry);
 }
 
-// Only cache small payloads (segments + playlists), never whole movies.
-const MAX_CACHEABLE_SIZE = 8 * 1024 * 1024; // 8MB
+const MAX_CACHEABLE_SIZE = 8 * 1024 * 1024;
 
 export async function GET(req: NextRequest, context: Ctx) {
   const { path } = await context.params;
@@ -96,16 +102,27 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   const isPlaylistPath = path.some((p) => p.endsWith(".m3u8"));
 
-  // Try in-memory LRU cache (segments/playlist only, no range hit unless exact match)
   const cacheKey = `${plexUrl}|${range ?? ""}`;
+
   if (isPlaylistPath || !range) {
     const cached = cacheGet(cacheKey);
     if (cached) {
+      if (req.headers.get("if-none-match") === cached.etag) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: {
+            etag: cached.etag,
+            "cache-control": cacheControl,
+            ...corsHeaders,
+          },
+        });
+      }
       return new NextResponse(new Uint8Array(cached.body), {
         status: cached.status,
         headers: {
           "content-type": cached.contentType,
           "cache-control": cacheControl,
+          etag: cached.etag,
           "x-movviz-cache": "HIT",
           ...corsHeaders,
         },
@@ -124,7 +141,6 @@ export async function GET(req: NextRequest, context: Ctx) {
     let plexRes: Response;
     try {
       plexRes = await fetchPlex(AbortSignal.timeout(30000));
-      // Retry backoff for transient gateway errors (#6)
       if (plexRes.status === 502 || plexRes.status === 504) {
         await new Promise((r) => setTimeout(r, 200));
         plexRes = await fetchPlex(AbortSignal.timeout(30000));
@@ -154,12 +170,30 @@ export async function GET(req: NextRequest, context: Ctx) {
         /(https?:\/\/[^\/]+)?(\/playlists\/[^\s"']*)/g,
         (_match, _host, p) => `${proxyBase}${p}`
       );
+      const etag = buildEtag(rewritten);
+
+      if (req.headers.get("if-none-match") === etag) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: { etag, "cache-control": cacheControl, ...corsHeaders },
+        });
+      }
+
       const body = new Uint8Array(Buffer.from(rewritten));
-      if (body.byteLength <= MAX_CACHEABLE_SIZE) cacheSet(cacheKey, { body: Buffer.from(rewritten), contentType, status: 200, expires: Date.now() + CACHE_TTL_MS });
+      if (body.byteLength <= MAX_CACHEABLE_SIZE) {
+        cacheSet(cacheKey, {
+          body: Buffer.from(rewritten),
+          contentType,
+          status: 200,
+          etag,
+          expires: Date.now() + CACHE_TTL_MS,
+        });
+      }
       return new NextResponse(body, {
         headers: {
           "content-type": contentType,
           "cache-control": cacheControl,
+          etag,
           "x-movviz-cache": "MISS",
           ...corsHeaders,
         },
@@ -176,15 +210,29 @@ export async function GET(req: NextRequest, context: Ctx) {
       if (v) resHeaders[h] = v;
     }
 
-    // Buffer small segments into LRU; stream large ones directly.
     const contentLength = Number(plexRes.headers.get("content-length") ?? "0");
     if (contentLength > 0 && contentLength <= MAX_CACHEABLE_SIZE && !range) {
       const buf = Buffer.from(await plexRes.arrayBuffer());
-      cacheSet(cacheKey, { body: buf, contentType, status: plexRes.status, expires: Date.now() + CACHE_TTL_MS });
+      const etag = buildEtag(buf);
+
+      if (req.headers.get("if-none-match") === etag) {
+        return new NextResponse(null, {
+          status: 304,
+          headers: { etag, "cache-control": cacheControl, ...corsHeaders },
+        });
+      }
+
+      cacheSet(cacheKey, {
+        body: buf,
+        contentType,
+        status: plexRes.status,
+        etag,
+        expires: Date.now() + CACHE_TTL_MS,
+      });
       return new NextResponse(new Uint8Array(buf), {
         status: plexRes.status,
         statusText: plexRes.statusText,
-        headers: { ...resHeaders, "x-movviz-cache": "MISS" },
+        headers: { ...resHeaders, etag, "x-movviz-cache": "MISS" },
       });
     }
 
