@@ -1427,5 +1427,13 @@ export const nl: Dictionary = {
     betaStartOver: "Vanaf begin",
   },
 
+  plexActivity: {
+    title: "Plex Monitor",
+    popoverTitle: "Actieve sessies",
+    empty: "Geen actieve sessies.",
+    activeCount: "{count} actieve stream{plural}",
+    noActivity: "Geen activiteit",
+  },
+
   language: { label: "Taal" },
 };

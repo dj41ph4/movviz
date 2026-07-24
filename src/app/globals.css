@@ -121,6 +121,19 @@
   animation: badgePulse 1.8s ease-in-out infinite;
 }
 
+@keyframes eeg {
+  0% { transform: scaleY(0.3); }
+  25% { transform: scaleY(1); }
+  50% { transform: scaleY(0.2); }
+  75% { transform: scaleY(0.8); }
+  100% { transform: scaleY(0.3); }
+}
+
+.eeg-bar {
+  animation: eeg 1.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
 /*
  * Light theme — overrides the same custom properties every utility class
  * already reads via var(--color-*), so components never need their own

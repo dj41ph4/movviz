@@ -2,6 +2,74 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.6.0] — 2026-07-25
+
+### Ajouté
+
+- **Moniteur Plex en direct** : icône dans la TopBar (admin only) avec animation EEG, affiche qui regarde quoi, débit, progression, état (▶/⏸), résolution et codecs
+- **Détection GPU** : tier automatique (high/medium/low), animations réduites sur GPU faible, toggle manuel
+- **Badges dynamiques animés** : pop/pulse sur changement, mise à jour en temps réel via SSE
+- **Barre de progression fluide** : transition CSS GPU-accelerated, plus de JS polling par frame
+- **Trailers multilingues** : YouTube adapté à la langue (fr→VF, en→VO, es→ES), fallback officiel
+- **X-Api-Key auth** : nouveau mode d'authentification indexeur (header HTTP)
+- **Indexeur tr4ker** : ajouté au catalogue
+- **Auto-update Windows** : installation automatique des mises à jour, activé par défaut
+- **Player beta pro** : contrôles overlay custom, PiP, reprise, shortcuts, vitesse 0.5x-2x, menu audio/ST, bitrate adaptatif
+
+### Optimisé
+
+- **Store Maps O(1)** : `getMovie`/`getSeries` 500x plus rapide avec 2000+ films
+- **SSE temps réel** : 7 composants passent du polling au push (wanted, timeline, notifications, queue...)
+- **UX** : toggle animé, skeleton loading, 28 settings polis, `loading="lazy"` partout
+- **Player** : cache ETag + 304, LRU 300 entrées, WebCodecs detection
+
+## [1.5.4] — 2026-07-24
+
+### Corrigé
+
+- trashPurge : refuse suppression si trashRoots non configuré
+- Sidebar auto-update : globalThis anchor + délai 2s (flush JSON avant kill)
+
+## [1.5.3] — 2026-07-24
+
+### Ajouté
+
+- Auto-update Windows automatique (activé par défaut, désactivable dans À propos)
+
+## [1.5.2] — 2026-07-24
+
+### Ajouté
+
+- Support auth X-Api-Key + indexeur tr4ker
+
+## [1.5.1] — 2026-07-24
+
+### Corrigé
+
+- clearMovies/clearSeries : paramètre isExplicitClear pour bypass le guard NAS-down
+- stateFile : path.resolve pour Windows (.. dans les chemins)
+
+## [1.5.0] — 2026-07-24
+
+### Corrigé
+
+- **Bug racine perte 20 TB trouvé** : `linkOrCopy` supprimait le fichier existant avant de vérifier la source → temp file + rename atomique
+- Routes DELETE : `path.dirname()` + depth check + déduplication dossiers
+- Engine `finishTorrent` : path traversal par nom torrent bloqué
+- Engine `remove(deleteData)` : vérification `startsWith(completedPath)`
+
+## [1.4.8] — 2026-07-24
+
+### Corrigé
+
+- **linkOrCopy atomique** : temp file + rename au lieu de delete-then-copy (bug racine 20TB)
+
+## [1.4.7] — 2026-07-24
+
+### Corrigé
+
+- 6 gardes de sécurité supplémentaires (store, renameExec, depth checks)
+
 ## [1.4.6] — 2026-07-23
 
 ### Corrigé

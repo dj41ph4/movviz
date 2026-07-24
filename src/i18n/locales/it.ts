@@ -1426,5 +1426,13 @@ export const it: Dictionary = {
     betaStartOver: "Dall'inizio",
   },
 
+  plexActivity: {
+    title: "Monitor Plex",
+    popoverTitle: "Sessioni attive",
+    empty: "Nessuna sessione attiva.",
+    activeCount: "{count} stream{plural} attivi{plural}",
+    noActivity: "Nessuna attività",
+  },
+
   language: { label: "Lingua" },
 };

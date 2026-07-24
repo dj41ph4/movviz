@@ -1425,5 +1425,13 @@ export const fr = {
     betaStartOver: "Depuis le début",
   },
 
+  plexActivity: {
+    title: "Moniteur Plex",
+    popoverTitle: "Sessions actives",
+    empty: "Aucune session en cours.",
+    activeCount: "{count} stream{plural} actif{plural}",
+    noActivity: "Aucune activité",
+  },
+
   language: { label: "Langue" },
 } as const;

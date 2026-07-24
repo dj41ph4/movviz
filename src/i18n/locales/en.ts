@@ -1427,5 +1427,13 @@ export const en: Dictionary = {
     betaStartOver: "Start from beginning",
   },
 
+  plexActivity: {
+    title: "Plex Monitor",
+    popoverTitle: "Active sessions",
+    empty: "No active sessions.",
+    activeCount: "{count} active stream{plural}",
+    noActivity: "No activity",
+  },
+
   language: { label: "Language" },
 };

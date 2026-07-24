@@ -6,10 +6,13 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "./NotificationBell";
+import { ActivityMonitor } from "@/components/plex/ActivityMonitor";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useT } from "@/i18n/provider";
 
 export function Topbar() {
   const { open } = useCommandPalette();
+  const user = useCurrentUser();
   const t = useT();
 
   return (
@@ -37,6 +40,7 @@ export function Topbar() {
         >
           <Heart className="h-4 w-4" />
         </a>
+        {user?.role === "admin" && <ActivityMonitor />}
         <ThemeSwitcher />
         <LanguageSwitcher />
         <NotificationBell />
