@@ -2,6 +2,56 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.7.5] — 2026-07-24
+
+### Ajouté
+
+- **WebCodecs Player beta** : décodeur HEVC/H.264/AV1 natif via WebCodecs API, évite la transcode Plex
+- **mp4box.js** : demuxage MP4 progressif (range requests) pour alimenter VideoDecoder/AudioDecoder
+- **Sync A/V** : horloge audio avec compensation pause, frame dropping intelligent
+- **Fallback automatique** : si WebCodecs échoue → transcode HLS Plex
+
+## [1.7.4] — 2026-07-24
+
+### Ajouté
+
+- **WOW animations** : framer-motion cascade, hover lift, spring tap sur toute l'interface
+- **Smart transcode** : AV1/VP9/H.264 → direct stream, HEVC → full transcode Plex
+- **Skeleton loading** : shimmer placeholders partout pendant le chargement
+- **PageLoader NProgress** : barre de progression en haut pendant les navigations
+
+### Optimisé
+
+- **Settings** : tabs plus rouges, navigation mobile bottom-sheet
+- **Delete animation** : 300ms avant suppression pour confirmer visuellement
+
+## [1.7.3] — 2026-07-24
+
+### Ajouté
+
+- **Protection dernier admin** : PATCH users/[id] refuse de révoquer le dernier admin
+- **Concurrency CI Docker** : file d'attente, max 1 build, annule les builds parallèles
+
+## [1.7.2] — 2026-07-24
+
+### Ajouté
+
+- **URL state sync** : back button fonctionne sur toutes les pages (discover, search, library, activity, settings, requests)
+- **ScrollRestoration** : skip sur popstate pour éviter les sauts
+
+## [1.7.1] — 2026-07-24
+
+### Corrigé
+
+- **safePlexUrl** : autorise les IP privées pour Plex LAN, bloque localhost/loopback/link-local
+
+## [1.7.0] — 2026-07-24
+
+### Ajouté
+
+- **Scan disque local** : `file.diskPath` séparé de `file.path`, tâche planifiée incrémentale
+- **Rename priorise diskPath** : utilise `file.diskPath` pour les renommages
+
 ## [1.6.0] — 2026-07-25
 
 ### Ajouté

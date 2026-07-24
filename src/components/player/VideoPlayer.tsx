@@ -9,7 +9,8 @@ import {
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
   SkipBack, SkipForward, PictureInPicture2,
 } from "lucide-react";
-import { pickStrategy, type PlaybackStrategy } from "@/lib/player/webcodecs";
+import { pickStrategy, detectCodecs, type PlaybackStrategy, type CodecCapabilities } from "@/lib/player/webcodecs";
+import { WebCodecsPlayer } from "./WebCodecsPlayer";
 
 interface VideoPlayerProps {
   ratingKey: string;
@@ -55,6 +56,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const fallbackGuardRef = useRef(false);
+  const startHlsRef = useRef<((extraParams?: string) => void) | null>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const infoRef = useRef<StreamInfo>({ videoCodec: null, audioCodec: null });
   const progressRef = useRef<HTMLDivElement>(null);
@@ -68,6 +70,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
   const [fullscreen, setFullscreen] = useState(false);
   const [buffering, setBuffering] = useState(false);
   const [webcodecsNotice, setWebcodecsNotice] = useState(false);
+  const [useWebcodecs, setUseWebcodecs] = useState(false);
+  const [codecCaps, setCodecCaps] = useState<CodecCapabilities | null>(null);
   const [audioStreams, setAudioStreams] = useState<StreamTrack[]>([]);
   const [subtitleStreams, setSubtitleStreams] = useState<StreamTrack[]>([]);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
@@ -112,13 +116,19 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
   };
 
   useEffect(() => {
-    const el = videoRef.current;
-    if (!el) return;
+    if (!videoRef.current) return;
 
     const hlsUrl = `/api/stream/${ratingKey}/transcode`;
     const directUrl = `/api/stream/${ratingKey}`;
 
     const startHls = (extraParams?: string) => {
+      startHlsRef.current = startHls;
+      const el = videoRef.current;
+      if (!el) {
+        // Element not mounted yet — schedule retry
+        requestAnimationFrame(() => startHls(extraParams));
+        return;
+      }
       if (fallbackGuardRef.current) return;
       fallbackGuardRef.current = true;
       setUsingFallback(true);
@@ -217,7 +227,19 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
         return;
       }
 
-      if (strategy === "webcodecs") setWebcodecsNotice(true);
+      if (strategy === "webcodecs") {
+        setWebcodecsNotice(true);
+        setUseWebcodecs(true);
+        try {
+          const caps = await detectCodecs();
+          setCodecCaps(caps);
+        } catch { /* ignore */ }
+        if (seekTo && seekTo > 0) {
+          // WebCodecsPlayer will be remounted and start fresh due to key change
+          setShowResume(false);
+        }
+        return;
+      }
       startDirect(seekTo);
     };
 
@@ -231,6 +253,9 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
       void begin();
     }
 
+    const el = videoRef.current;
+    if (!el) return;
+
     const onWaiting = () => setBuffering(true);
     const onPlaying = () => setBuffering(false);
     const onCanPlay = () => setBuffering(false);
@@ -239,9 +264,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
     el.addEventListener("canplay", onCanPlay);
 
     const saveProgress = () => {
-      if (!el.duration || Number.isNaN(el.duration)) return;
-      const offset = Math.floor(el.currentTime * 1000);
-      localStorage.setItem(PROGRESS_KEY(ratingKey), String(el.currentTime));
+      const ve = videoRef.current;
+      if (!ve || !ve.duration || Number.isNaN(ve.duration)) return;
+      const offset = Math.floor(ve.currentTime * 1000);
+      localStorage.setItem(PROGRESS_KEY(ratingKey), String(ve.currentTime));
       void fetch(`/api/stream/${ratingKey}/progress`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -527,6 +553,19 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
     setMenuOpen((prev) => (prev === menu ? null : menu));
   };
 
+  const handleWebcodecsFallback = useCallback(() => {
+    setUseWebcodecs(false);
+    setWebcodecsNotice(false);
+    setBuffering(true);
+    // start HLS transcoding via the stored ref
+    if (startHlsRef.current) {
+      startHlsRef.current();
+    } else {
+      // If startHls hasn't been initialized yet, set a flag to use transcode
+      setError("WebCodecs unsupported — useTranscode required");
+    }
+  }, []);
+
   const handleResume = () => {
     setShowResume(false);
     void beginRef.current?.(savedPos);
@@ -597,15 +636,25 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
             </div>
           ) : (
             <>
-              <video
-                ref={videoRef}
-                className="h-full w-full cursor-pointer"
-                autoPlay
-                playsInline
-                onClick={togglePlay}
-              />
+              {useWebcodecs && codecCaps ? (
+                <WebCodecsPlayer
+                  src={`/api/stream/${ratingKey}`}
+                  capabilities={codecCaps}
+                  onError={(msg) => setError(msg)}
+                  onTimeUpdate={(t) => setCurrentTime(t)}
+                  onFallback={handleWebcodecsFallback}
+                />
+              ) : (
+                <video
+                  ref={videoRef}
+                  className="h-full w-full cursor-pointer"
+                  autoPlay
+                  playsInline
+                  onClick={togglePlay}
+                />
+              )}
 
-              {buffering && (
+              {buffering && !useWebcodecs && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-white/80" />
                 </div>
@@ -636,7 +685,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
                 </div>
               )}
 
-              {!error && (
+              {!error && !useWebcodecs && (
                 <div
                   className={cn(
                     "absolute bottom-0 left-0 right-0 transition-opacity duration-300",
