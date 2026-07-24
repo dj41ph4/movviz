@@ -65,7 +65,14 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
   const { enabled: betaPlayer } = useBetaPlayer();
   const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
 
-  useEffect(() => { window.scrollTo(0, 0); }, [type, id]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const fromPage = sessionStorage.getItem("movviz_from");
+    if (fromPage !== "discover") {
+      window.scrollTo(0, 0);
+    }
+    sessionStorage.removeItem("movviz_from");
+  }, [type, id]);
 
   // All reads go through SWR: the detail comes back instantly when
   // revisiting a title, and the library/watchlist keys are shared with the

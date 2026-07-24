@@ -63,6 +63,72 @@ function DiscoverPageInner() {
 
   const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!network || !!rowCategory;
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const restoredRef = useRef(false);
+
+  const saveBrowseState = () => {
+    if (!isBrowsing || results.length === 0) return;
+    sessionStorage.setItem("movviz_browse", JSON.stringify({
+      results, page, totalPages, rowCategory, mediaType,
+      q, genre, year, sort, company, network,
+      scrollY: window.scrollY,
+    }));
+  };
+
+  // Restore scroll state on mount (back from a title page).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem("movviz_browse");
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.mediaType !== mediaType) return;
+      // Restore filters first so isBrowsing is true and the load trigger fires
+      if (saved.q) setQ(saved.q);
+      if (saved.genre) setGenre(saved.genre);
+      if (saved.year) setYear(saved.year);
+      if (saved.sort) setSort(saved.sort);
+      if (saved.company?.id) setCompany(saved.company);
+      if (saved.network?.id) setNetwork(saved.network);
+      if (saved.rowCategory) setRowCategory(saved.rowCategory);
+      if (saved.results) setResults(saved.results);
+      if (saved.page) setPage(saved.page);
+      if (saved.totalPages) setTotalPages(saved.totalPages);
+      restoredRef.current = true;
+      // Scroll and clear after state settles
+      requestAnimationFrame(() => {
+        window.scrollTo(0, saved.scrollY ?? 0);
+        sessionStorage.removeItem("movviz_browse");
+      });
+    } catch { /* ignore corrupt state */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save state on unmount (SPA navigation away) and on popstate (back button).
+  useEffect(() => {
+    saveBrowseState();
+    const onPop = () => saveBrowseState();
+    window.addEventListener("popstate", onPop);
+    return () => {
+      saveBrowseState();
+      window.removeEventListener("popstate", onPop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, page, totalPages, rowCategory, mediaType, q, genre, year, sort, company, network, isBrowsing]);
+
+  // Save scroll state + set flag before any navigation to a title page
+  const saveRef = useRef(saveBrowseState);
+  saveRef.current = saveBrowseState;
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const link = (e.target as HTMLElement).closest("a");
+      if (link?.getAttribute("href")?.startsWith("/title/")) {
+        saveRef.current();
+        sessionStorage.setItem("movviz_from", "discover");
+      }
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
 
   // Sync filter states to URL for back-button support (immediate for non-q filters, q cleanup).
   useEffect(() => {

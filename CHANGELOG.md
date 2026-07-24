@@ -2,6 +2,17 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.7.9] — 2026-07-24
+
+### Ajouté
+
+- **Retour arrière suggestions** : le scroll et les résultats chargés sont sauvegardés dans sessionStorage avant navigation, restitués au retour depuis une fiche film/série
+- **Navigation fluide** : le flag `movviz_from` évite le `scrollTo(0,0)` agressif quand on revient de la page titre, mais scroll en haut pour les accès directs
+
+### Corrigé
+
+- **Scroll titre** : remplacé `scrollTo(0,0)` systématique par une détection d'origine (back vs navigation directe)
+
 ## [1.7.8] — 2026-07-24
 
 ### Ajouté
@@ -12,7 +23,6 @@ Toutes les nouveautés et corrections notables de Movviz, expliquées simplement
 
 ### Corrigé
 
-- **Scroll titre** : quand on clique sur un film similaire ou un lien dans la fiche détail, la page remonte maintenant en haut (`window.scrollTo(0,0)` au changement de route)
 - **UX pages** : harmonisation des classes Tailwind (hover:scale-105, boutons, espacements, modales backdrop-blur)
 
 ## [1.7.7] — 2026-07-24
