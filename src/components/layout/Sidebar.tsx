@@ -147,31 +147,37 @@ export function Sidebar({ version }: { version: string }) {
       <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
         <Link
           href="/settings?tab=about"
-          className="flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-ink-dim/60 transition-colors hover:text-ink-dim"
+          className="group flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[11px] font-semibold text-ink-dim/80 transition-all hover:text-ink-soft hover:bg-white/5"
         >
-          <span className="h-1 w-1 rounded-full bg-current" />
+          <span className="h-2 w-2 rounded-full bg-ok/70 group-hover:bg-ok transition-colors" />
           Movviz v{version}
         </Link>
 
         {updateInfo?.updateAvailable && !isLoading && updateInfo.platform === "win32" && (
-          <button
+          <motion.button
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
             onClick={triggerUpdate}
             disabled={installing}
-            className="flex w-full items-center justify-center gap-2 rounded-xl brand-gradient px-3 py-2 text-xs font-bold text-white disabled:opacity-70"
+            className="flex w-full items-center justify-center gap-2 rounded-xl brand-gradient px-3 py-2 text-xs font-bold text-white disabled:opacity-70 animate-pulse-glow"
           >
             {installing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             {installing ? t("update.inProgress") : t("update.installNow", { version: updateInfo.latestVersion ?? "..." })}
-          </button>
+          </motion.button>
         )}
 
         {updateInfo?.updateAvailable && !isLoading && updateInfo.platform !== "win32" && (
-          <button
+          <motion.button
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
             onClick={() => setShowNasInfo(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl glass-strong px-3 py-2 text-xs font-bold text-brand-glow"
+            className="flex w-full items-center justify-center gap-2 rounded-xl glass-strong px-3 py-2 text-xs font-bold text-brand-glow hover:border-brand/30"
           >
             <Download className="h-4 w-4" />
             {t("update.available", { version: updateInfo.latestVersion ?? "..." })}
-          </button>
+          </motion.button>
         )}
 
         {updateInfo && !updateInfo.updateAvailable && !isLoading && (

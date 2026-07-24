@@ -21,6 +21,12 @@ const STATUS_TONE: Record<LibraryStatus, string> = {
   searching: "text-brand-glow bg-brand/12 border-brand/25",
   missing: "text-amber bg-amber/12 border-amber/25",
 };
+const STATUS_BG: Record<LibraryStatus, string> = {
+  available: "bg-ok/90 text-white",
+  downloading: "bg-cyan/90 text-white",
+  searching: "bg-brand/90 text-white",
+  missing: "bg-amber/90 text-white",
+};
 const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
   available: Check,
   downloading: HardDriveDownload,
@@ -101,9 +107,11 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={poster} alt={movie.title} loading="lazy" className="h-full w-full object-cover" />
           ) : (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
-              <Film className="h-7 w-7 text-ink-soft/70" />
-              <span className="line-clamp-3 text-sm font-semibold text-ink/90">{movie.title}</span>
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-surface-2 via-surface to-abyss p-4 text-center">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/12">
+                <Film className="h-6 w-6 text-brand-glow" />
+              </div>
+              <span className="line-clamp-3 text-sm font-semibold text-ink/80">{movie.title}</span>
             </div>
           )}
         </Link>
@@ -114,18 +122,19 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
           </div>
         )}
 
-        <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold backdrop-blur">
-          <Star className="h-3 w-3 fill-amber text-amber" /> {movie.rating.toFixed(1)}
+        <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-bold text-amber backdrop-blur">
+          <Star className="h-3 w-3 fill-amber" /> {movie.rating.toFixed(1)}
         </div>
         {statusBadge && (
-          <div className={cn("pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold backdrop-blur", statusBadge.cls)} title={statusBadge.label}>
+          <div className={cn("pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur", statusBadge.cls)} title={statusBadge.label}>
             <statusBadge.icon className={cn("h-3 w-3", isDownloading && "animate-spin")} />
+            <span className="hidden sm:inline">{statusBadge.label}</span>
             {watched && movie.status === "available" && <Eye className="h-2.5 w-2.5 ml-0.5" />}
           </div>
         )}
         {watched && !statusBadge && (
-          <div title={t("watch.watched")} className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full bg-ok/80 px-2 py-1 text-[11px] font-bold text-white backdrop-blur">
-            <Eye className="h-3 w-3" />
+          <div title={t("watch.watched")} className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full bg-ok/90 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur">
+            <Eye className="h-3 w-3" /> <span className="hidden sm:inline">{t("watch.watched")}</span>
           </div>
         )}
 
@@ -194,37 +203,38 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
         {movie.status === "available" && movie.plexUrl && (
           <div className="mt-1.5">
             {betaPlayer && movie.plexRatingKey ? (
-              <button onClick={() => setPlayRatingKey(movie.plexRatingKey!)} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black">
-                <Play className="h-4 w-4 fill-black" /> {t("library.watchOnPlex")}
+              <button onClick={() => setPlayRatingKey(movie.plexRatingKey!)} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
+                <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
               </button>
             ) : (
-              <a href={movie.plexUrl} target="_blank" rel="noopener noreferrer" className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black">
-                <Play className="h-4 w-4 fill-black" /> {t("library.watchOnPlex")}
+              <a href={movie.plexUrl} target="_blank" rel="noopener noreferrer" className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
+                <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
               </a>
             )}
           </div>
         )}
         {canGrab && (
           <div className="mt-1.5 flex gap-1.5">
-            <button onClick={search} disabled={busy} className="flex-1 h-10 flex items-center justify-center rounded-xl bg-white/10 border border-white/10 text-ink-soft active:bg-white/20">
+            <button onClick={search} disabled={busy} title={t("library.autoSearch")} className="flex-1 h-11 flex items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-bold text-ink-soft active:bg-white/10">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+              <span className="hidden sm:inline">{t("library.autoSearch")}</span>
             </button>
-            <button onClick={() => setShowManualSearch(true)} className="flex-1 h-10 flex items-center justify-center rounded-xl bg-white/10 border border-white/10 text-ink-soft active:bg-white/20">
+            <button onClick={() => setShowManualSearch(true)} title={t("library.manualSearch")} className="flex-1 h-11 flex items-center justify-center rounded-xl glass-strong text-xs font-bold text-ink-soft active:bg-white/10">
               <ListFilter className="h-4 w-4" />
             </button>
-            <button onClick={() => setEditingTags((v) => !v)} className="flex-1 h-10 flex items-center justify-center rounded-xl bg-white/10 border border-white/10 text-ink-soft active:bg-white/20">
+            <button onClick={() => setEditingTags((v) => !v)} className="h-11 w-11 flex items-center justify-center rounded-xl glass-strong text-ink-soft active:bg-white/10">
               <Tag className="h-4 w-4" />
             </button>
             {movie.status === "available" && <ReportIssueButton libraryType="movie" libraryId={movie.id} />}
             {!confirmDelete ? (
-              <button onClick={() => setConfirmDelete(true)} className="flex-1 h-10 flex items-center justify-center rounded-xl bg-down/15 border border-down/20 text-down active:bg-down/25">
+              <button onClick={() => setConfirmDelete(true)} className="h-11 w-11 flex items-center justify-center rounded-xl bg-down/15 border border-down/20 text-down active:bg-down/25">
                 <Trash2 className="h-4 w-4" />
               </button>
             ) : (
               <div className="flex flex-1 gap-1">
-                <button onClick={() => { remove(true); setConfirmDelete(false); }} className="h-10 flex-1 flex items-center justify-center gap-1 rounded-xl bg-down px-2 text-[10px] font-bold text-white">{t("downloads.removeData")}</button>
-                <button onClick={() => { remove(false); setConfirmDelete(false); }} className="h-10 flex-1 flex items-center justify-center gap-1 rounded-xl bg-white/10 border border-white/10 px-2 text-[10px] font-bold text-ink-soft">{t("common.remove")}</button>
-                <button onClick={() => setConfirmDelete(false)} className="h-10 w-10 flex items-center justify-center rounded-xl bg-white/10 border border-white/10 text-ink-dim"><X className="h-4 w-4" /></button>
+                <button onClick={() => { remove(true); setConfirmDelete(false); }} className="h-11 flex-1 flex items-center justify-center gap-1 rounded-xl bg-down px-2 text-[10px] font-bold text-white active:bg-down/80">{t("downloads.removeData")}</button>
+                <button onClick={() => { remove(false); setConfirmDelete(false); }} className="h-11 flex-1 flex items-center justify-center gap-1 rounded-xl glass-strong px-2 text-[10px] font-bold text-ink-soft active:bg-white/10">{t("common.remove")}</button>
+                <button onClick={() => setConfirmDelete(false)} className="h-11 w-11 flex items-center justify-center rounded-xl glass-strong text-ink-dim active:bg-white/10"><X className="h-4 w-4" /></button>
               </div>
             )}
           </div>

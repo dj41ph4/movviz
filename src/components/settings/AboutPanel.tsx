@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
@@ -103,57 +104,80 @@ export function AboutPanel() {
           {!data || data.platform === "win32" ? t("settings.aboutUpdateHint") : t("settings.aboutUpdateNotWindows")}
         </p>
 
-        <label className="mb-4 flex items-center gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={autoUpdate.enabled}
-            onChange={(e) => autoUpdate.setEnabled(e.target.checked)}
-            className="h-5 w-5 rounded accent-brand"
-          />
+        <label className="mb-4 flex items-center justify-between gap-3 cursor-pointer">
           <span className="text-sm text-ink-soft">{t("settings.autoUpdateLabel")}</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoUpdate.enabled}
+            onClick={() => autoUpdate.setEnabled(!autoUpdate.enabled)}
+            className={cn(
+              "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200",
+              autoUpdate.enabled ? "bg-brand" : "bg-white/15"
+            )}
+          >
+            <motion.span
+              className="inline-block h-5 w-5 rounded-full bg-white shadow-sm"
+              animate={{ x: autoUpdate.enabled ? 22 : 4 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            />
+          </button>
         </label>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={checkNow}
             disabled={checking || isLoading}
-            className="flex h-10 items-center gap-2 rounded-xl glass-strong px-4 text-sm font-semibold text-ink-soft disabled:opacity-50"
+            className="flex h-10 items-center gap-2 rounded-xl glass-strong px-4 text-sm font-semibold text-ink-soft disabled:opacity-50 hover:text-ink transition-colors"
           >
             {checking || isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             {t("settings.aboutCheckUpdate")}
           </button>
 
           {data && !data.updateAvailable && (
-            <span className="flex items-center gap-1.5 text-sm text-ok">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-ok">
               <CheckCircle2 className="h-4 w-4" /> {t("settings.aboutUpToDate")}
             </span>
           )}
 
-          {data?.updateAvailable && data.platform === "win32" && (
-            <button
-              onClick={installNow}
-              disabled={installing}
-              className={cn(
-                "flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white",
-                "disabled:opacity-70"
-              )}
-            >
-              {installing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              {installing ? t("update.inProgress") : t("update.installNow", { version: data.latestVersion ?? "" })}
-            </button>
-          )}
+          <AnimatePresence>
+            {data?.updateAvailable && data.platform === "win32" && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9, y: -8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                onClick={installNow}
+                disabled={installing}
+                className={cn(
+                  "flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white",
+                  "disabled:opacity-70",
+                  "animate-pulse-glow"
+                )}
+              >
+                {installing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {installing ? t("update.inProgress") : t("update.installNow", { version: data.latestVersion ?? "" })}
+              </motion.button>
+            )}
+          </AnimatePresence>
 
-          {data?.updateAvailable && data.platform !== "win32" && (
-            <a
-              href={data.releaseUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white hover:opacity-90 transition-opacity"
-            >
-              <ExternalLink className="h-4 w-4" />
-              {t("update.available", { version: data.latestVersion ?? "" })}
-            </a>
-          )}
+          <AnimatePresence>
+            {data?.updateAvailable && data.platform !== "win32" && (
+              <motion.a
+                initial={{ opacity: 0, scale: 0.9, y: -8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                href={data.releaseUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white hover:opacity-90 transition-opacity"
+              >
+                <ExternalLink className="h-4 w-4" />
+                {t("update.available", { version: data.latestVersion ?? "" })}
+              </motion.a>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

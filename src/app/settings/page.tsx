@@ -181,7 +181,7 @@ function SettingsPageInner() {
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 380, damping: 34 }}
               onClick={(e) => e.stopPropagation()}
-              className="max-h-[80vh] w-full overflow-y-auto rounded-t-2xl glass-strong px-3 pb-2 pt-3 shadow-2xl"
+              className="max-h-[70vh] w-full overflow-y-auto rounded-t-2xl glass-strong px-4 pb-2 pt-3 shadow-2xl"
               style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
             >
               <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
@@ -194,7 +194,7 @@ function SettingsPageInner() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="flex flex-col gap-5 pb-2">
+              <div className="flex flex-col gap-6 pb-2">
                 {renderGroups((id) => { setTab(id); setMobileNavOpen(false); }, "settings-tab-active-mobile")}
               </div>
             </motion.div>
@@ -203,7 +203,7 @@ function SettingsPageInner() {
       </AnimatePresence>
 
       <div className="md:grid md:grid-cols-[224px_1fr] md:items-start md:gap-8">
-        <nav className="hidden flex-col gap-5 md:sticky md:top-24 md:flex">
+        <nav className="hidden flex-col gap-6 md:sticky md:top-24 md:flex">
           {renderGroups(setTab, "settings-tab-active")}
         </nav>
 

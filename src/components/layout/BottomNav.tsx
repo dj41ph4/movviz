@@ -53,12 +53,15 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors ring-focus",
+                "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ring-focus",
                 active ? "text-brand-glow" : "text-ink-dim"
               )}
             >
+              {active && (
+                <span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-brand-glow" />
+              )}
               <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
-              <span>{t(item.labelKey)}</span>
+              <span className="leading-none">{t(item.labelKey)}</span>
               {liveCount > 0 && (
                 <span className="absolute right-[22%] top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full brand-gradient px-1 text-[9px] font-bold text-white">
                   {liveCount}
@@ -70,12 +73,15 @@ export function BottomNav() {
         <button
           onClick={() => setMoreOpen(true)}
           className={cn(
-            "relative flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[10px] font-semibold transition-colors ring-focus",
+            "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ring-focus",
             moreOpen || rest.some((i) => isActive(i.href)) ? "text-brand-glow" : "text-ink-dim"
           )}
         >
+          {(moreOpen || rest.some((i) => isActive(i.href))) && (
+            <span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-brand-glow" />
+          )}
           <Menu className="h-5 w-5" />
-          <span>{t("nav.more")}</span>
+          <span className="leading-none">{t("nav.more")}</span>
           {pendingUsers > 0 && (
             <span className="absolute right-[22%] top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full brand-gradient px-1 text-[9px] font-bold text-white">
               {pendingUsers}

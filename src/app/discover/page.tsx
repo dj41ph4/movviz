@@ -318,8 +318,16 @@ function DiscoverPageInner() {
           {isBrowsing && (
             <>
               {loading && page === 1 && (
-                <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {[...Array(12)].map((_, i) => (
+                    <div key={i}>
+                      <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/6" />
+                      <div className="mt-2.5 space-y-1.5 px-0.5">
+                        <div className="h-3 w-3/4 animate-pulse rounded bg-white/8" />
+                        <div className="h-2.5 w-1/2 animate-pulse rounded bg-white/6" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -395,8 +403,20 @@ function HomeRows({
 
   if (loading && rows.length === 0) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      <div className="space-y-9">
+        {[...Array(4)].map((_, i) => (
+          <section key={i} className="space-y-3">
+            <div className="h-6 w-48 animate-pulse rounded-lg bg-white/8" />
+            <div className="flex gap-4 overflow-hidden">
+              {[...Array(6)].map((_, j) => (
+                <div key={j} className="w-[150px] shrink-0 sm:w-[170px]">
+                  <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/6" />
+                  <div className="mt-2.5 h-3 w-24 animate-pulse rounded bg-white/8" />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
     );
   }
@@ -431,7 +451,7 @@ function HomeRows({
 
       {genres.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-bold text-ink">{t("discover.genres")}</h2>
+          <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{t("discover.genres")}</h2>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {genres.map((g, i) => (
               <button
@@ -463,7 +483,7 @@ function HomeRows({
 function LogoRow({ title, tiles, onClick }: { title: string; tiles: LogoTile[]; onClick: (tile: LogoTile) => void }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold text-ink">{title}</h2>
+      <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {tiles.map((tile) => (
           <button
@@ -506,8 +526,8 @@ function PosterRow({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-ink">{title}</h2>
-        <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-ink hover:text-brand-glow">
+        <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
+        <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-brand-glow hover:text-brand-2 transition-colors">
           {t("discover.seeAll")} <ChevronRight className="h-4 w-4" />
         </button>
       </div>
@@ -590,8 +610,8 @@ function RankedList({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-ink">{title}</h2>
-        <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-ink hover:text-brand-glow">
+        <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
+        <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-brand-glow hover:text-brand-2 transition-colors">
           {t("discover.seeAll")} <ChevronRight className="h-4 w-4" />
         </button>
       </div>
