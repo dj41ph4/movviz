@@ -53,7 +53,15 @@ export function WebhookSettings() {
 
   return (
     <div className="rounded-2xl glass p-5">
-      <p className="mb-4 text-sm text-ink-dim">{t("webhooks.intro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Send className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("webhooks.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("webhooks.intro")}</p>
+        </div>
+      </div>
 
       <label className="mb-4 flex items-center gap-3">
         <button
@@ -65,9 +73,11 @@ export function WebhookSettings() {
         <span className="text-sm font-semibold text-ink">{t("webhooks.enable")}</span>
       </label>
 
-      <div className="flex gap-2">
-        <input
-          value={url}
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("webhooks.url")}</label>
+        <div className="flex gap-2">
+          <input
+            value={url}
           onChange={(e) => setUrl(e.target.value)}
           onBlur={() => save({ url })}
           placeholder="https://discord.com/api/webhooks/…"
@@ -81,6 +91,7 @@ export function WebhookSettings() {
           {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           {t("webhooks.test")}
         </button>
+      </div>
       </div>
       {testMsg && <p className="mt-2 text-xs text-ink-dim">{testMsg}</p>}
       {saving && <p className="mt-2 text-xs text-ink-dim">{t("settings.saved")}</p>}

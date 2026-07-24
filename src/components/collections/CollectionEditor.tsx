@@ -15,10 +15,12 @@ export function CollectionEditor({ collection, onSave, onCancel }: CollectionEdi
   const [name, setName] = useState(collection?.name ?? "");
   const [description, setDescription] = useState(collection?.description ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
+    setError(null);
     try {
       const data = {
         id: collection?.id ?? `col_${Date.now().toString(36)}`,
@@ -37,7 +39,12 @@ export function CollectionEditor({ collection, onSave, onCancel }: CollectionEdi
 
       if (response.ok && onSave) {
         onSave(data);
+      } else {
+        const err = await response.json().catch(() => ({}));
+        setError(err.error ?? t("common.error"));
       }
+    } catch {
+      setError(t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -66,6 +73,8 @@ export function CollectionEditor({ collection, onSave, onCancel }: CollectionEdi
           className="w-full rounded-xl bg-white/8 px-4 py-2.5 text-ink outline-none transition focus:ring-2 focus:ring-brand-glow/50"
         />
       </div>
+
+      {error && <p className="text-xs font-semibold text-down">{error}</p>}
 
       <div className="flex gap-2">
         <button

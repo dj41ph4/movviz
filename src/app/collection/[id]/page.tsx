@@ -77,7 +77,7 @@ export default function CollectionPage() {
       </div>
       {data.overview && <p className="mb-6 max-w-3xl text-sm text-ink-soft">{data.overview}</p>}
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {data.parts.map((part) => {
           const status = libStatus.get(part.tmdbId);
           const poster = part.posterPath ? `https://image.tmdb.org/t/p/w500${part.posterPath}` : null;

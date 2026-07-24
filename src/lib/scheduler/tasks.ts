@@ -19,6 +19,7 @@ import { purgeExpiredTrash } from "@/lib/library/trashPurge";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { importSeerrRequests } from "@/lib/seerr/importRequests";
 import { seerrConfigured } from "@/lib/seerr/store";
+import { incrementalDiskScan } from "@/lib/library/diskScan";
 
 export interface ScheduledTask {
   id: string;
@@ -215,6 +216,14 @@ export const TASKS: ScheduledTask[] = [
     run: async () => {
       if (!seerrConfigured()) return;
       await importSeerrRequests();
+    },
+  },
+  {
+    id: "disk-scan",
+    name: "Scan disque local",
+    intervalMs: 60 * 60 * 1000, // hourly
+    run: async () => {
+      await incrementalDiskScan();
     },
   },
   {

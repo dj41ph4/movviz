@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import type { MediaRequest } from "./types";
+import { eventBus } from "@/lib/events/EventBus";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -30,6 +31,7 @@ export function addRequest(request: MediaRequest): MediaRequest {
   const list = loadRequests();
   list.push(request);
   saveRequests(list);
+  eventBus.emit({ type: "request_updated" });
   return request;
 }
 export function updateRequest(id: string, patch: Partial<MediaRequest>): MediaRequest | null {
@@ -38,6 +40,7 @@ export function updateRequest(id: string, patch: Partial<MediaRequest>): MediaRe
   if (i < 0) return null;
   list[i] = { ...list[i], ...patch };
   saveRequests(list);
+  eventBus.emit({ type: "request_updated" });
   return list[i];
 }
 /** Danger zone: wipe every request. */

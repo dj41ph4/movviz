@@ -13,8 +13,8 @@ function safeBase(raw: string): string | null {
     if (host === "localhost" || host === "0.0.0.0" || host === "::1") return null;
     if (/^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.)/.test(host)) return null;
     if (/^169\.254\./.test(host)) return null;
-    // Strip trailing slashes without regex (avoids CodeQL polynomial regex alert)
-    const trimmed = raw.replace(/[/]+$/, "");
+    let trimmed = raw;
+    while (trimmed.endsWith("/")) trimmed = trimmed.slice(0, -1);
     return trimmed;
   } catch {
     return null;

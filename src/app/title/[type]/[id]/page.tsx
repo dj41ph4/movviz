@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use as usePromise } from "react";
+import { useState, useEffect, use as usePromise } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -65,10 +65,19 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
   const { enabled: betaPlayer } = useBetaPlayer();
   const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const fromPage = sessionStorage.getItem("movviz_from");
+    if (fromPage !== "discover") {
+      window.scrollTo(0, 0);
+    }
+    sessionStorage.removeItem("movviz_from");
+  }, [type, id]);
+
   // All reads go through SWR: the detail comes back instantly when
   // revisiting a title, and the library/watchlist keys are shared with the
   // pages that already poll them — no duplicate fetch, no status pop-in.
-  const { data: detailData } = useSWR<MetaDetail>(`/api/metadata/detail?type=${type}&tmdbId=${id}`);
+  const { data: detailData } = useSWR<MetaDetail>(`/api/metadata/detail?type=${type}&tmdbId=${id}&lang=${locale}`);
   const detail = detailData?.tmdbId ? detailData : null;
   const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{ items: { tmdbId: number; type: string }[] }>("/api/watchlist");
   const onWatchlist = (watchlistData?.items ?? []).some((x) => x.tmdbId === Number(id) && x.type === type);
@@ -137,14 +146,49 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
 
   if (!detail) return (
     <div className="mx-auto max-w-[1200px] animate-pulse">
-      <div className="h-[320px] rounded-2xl bg-white/5" />
-      <div className="mt-6 flex gap-6">
-        <div className="h-64 w-44 shrink-0 rounded-2xl bg-white/10" />
-        <div className="flex-1 space-y-3 pt-8">
-          <div className="h-8 w-3/4 rounded bg-white/10" />
-          <div className="h-4 w-1/2 rounded bg-white/5" />
-          <div className="h-4 w-full rounded bg-white/5" />
-          <div className="h-4 w-2/3 rounded bg-white/5" />
+      <div className="h-[180px] rounded-2xl bg-white/5 sm:h-[320px]" />
+      <div className="relative z-10 -mt-14 flex flex-col items-center gap-4 text-center sm:-mt-40 sm:flex-row sm:items-start sm:gap-6 sm:text-left">
+        <div className="h-44 w-32 shrink-0 rounded-2xl bg-white/10 shadow-2xl sm:h-64 sm:w-44" />
+        <div className="flex flex-1 flex-col items-center sm:items-start">
+          <div className="mb-2 h-5 w-20 rounded-full bg-white/10" />
+          <div className="h-7 w-64 rounded bg-white/10 sm:h-8 sm:w-80" />
+          <div className="mt-2 flex flex-wrap gap-3">
+            <div className="h-4 w-14 rounded bg-white/6" />
+            <div className="h-4 w-12 rounded bg-white/6" />
+            <div className="h-4 w-16 rounded bg-white/6" />
+            <div className="h-4 w-20 rounded bg-white/6" />
+          </div>
+          <div className="mt-3 h-3.5 w-full max-w-lg rounded bg-white/6" />
+          <div className="mt-1.5 h-3.5 w-3/4 max-w-lg rounded bg-white/6" />
+          <div className="mt-4 flex flex-wrap gap-2">
+            <div className="h-10 w-32 rounded-xl bg-white/10" />
+            <div className="h-10 w-28 rounded-xl bg-white/8" />
+            <div className="h-10 w-28 rounded-xl bg-white/8" />
+            <div className="h-10 w-24 rounded-xl bg-white/8" />
+          </div>
+        </div>
+      </div>
+      <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_260px]">
+        <div className="space-y-6">
+          <div className="h-5 w-32 rounded bg-white/8" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i}>
+                <div className="h-3 w-16 rounded bg-white/6" />
+                <div className="mt-1 h-3.5 w-24 rounded bg-white/8" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-4 lg:border-l lg:border-white/5 lg:pl-8">
+          <div className="rounded-2xl glass p-4 space-y-3">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <div className="h-3 w-20 rounded bg-white/6" />
+                <div className="h-3 w-24 rounded bg-white/8" />
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -330,7 +374,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
       <div className="relative -mx-6 -mt-6 mb-8 h-[180px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:h-[320px]">
         {backdrop && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={backdrop} alt="" className="h-full w-full object-cover" />
+          <img src={backdrop} alt="" className="h-full w-full object-cover" loading="lazy" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-void via-void/60 to-transparent" />
         {libraryMatch?.id && (
@@ -350,7 +394,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
         <div className="h-44 w-32 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl sm:h-64 sm:w-44">
           {poster ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={poster} alt={detail.title} className="h-full w-full object-cover" />
+            <img src={poster} alt={detail.title} className="h-full w-full object-cover" loading="lazy" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               {type === "movie" ? <Film className="h-8 w-8 text-ink-soft/50" /> : <Tv className="h-8 w-8 text-ink-soft/50" />}
@@ -444,7 +488,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
                   <button
                     onClick={openManualSearch}
                     title={t("library.manualSearch")}
-                    className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink"
+                    className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink transition-transform hover:scale-105"
                   >
                     <ListFilter className="h-4 w-4" />
                     {t("search.manualPick")}
@@ -456,7 +500,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
               onClick={toggleWatchlist}
               disabled={watching}
               className={cn(
-                "flex h-10 items-center gap-2 rounded-xl px-5 text-sm font-bold glass",
+                "flex h-10 items-center gap-2 rounded-xl px-5 text-sm font-bold glass transition-transform hover:scale-105",
                 onWatchlist ? "text-brand-glow" : "text-ink-soft"
               )}
             >
@@ -466,7 +510,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
             {detail.trailerKey && (
               <button
                 onClick={() => setShowTrailer(true)}
-                className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink"
+                className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink transition-transform hover:scale-105"
               >
                 <Play className="h-4 w-4" />
                 {t("title.trailer")}
@@ -475,7 +519,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
             {type === "movie" && detail.collection && (
               <Link
                 href={`/collection/${detail.collection.id}`}
-                className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink"
+                className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink transition-transform hover:scale-105"
               >
                 <Layers className="h-4 w-4" />
                 {t("title.saga")}
@@ -588,7 +632,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
                     <div className="mx-auto h-24 w-24 overflow-hidden rounded-full bg-surface transition-transform group-hover:scale-105">
                       {c.profilePath ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={`https://image.tmdb.org/t/p/w185${c.profilePath}`} alt={c.name} className="h-full w-full object-cover" />
+                        <img src={`https://image.tmdb.org/t/p/w185${c.profilePath}`} alt={c.name} className="h-full w-full object-cover" loading="lazy" />
                       ) : null}
                     </div>
                     <p className="mt-1.5 truncate text-xs font-semibold text-ink group-hover:text-brand-glow">{c.name}</p>
@@ -615,7 +659,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
                         <div className="aspect-[2/3] overflow-hidden rounded-xl border border-white/5 bg-surface">
                           {s.posterPath ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={`https://image.tmdb.org/t/p/w342${s.posterPath}`} alt={s.title} className="h-full w-full object-cover" />
+                            <img src={`https://image.tmdb.org/t/p/w342${s.posterPath}`} alt={s.title} className="h-full w-full object-cover" loading="lazy" />
                           ) : null}
                           {owned && (
                             <div className="absolute right-1.5 top-1.5 flex items-center gap-1 rounded-md bg-ok px-1.5 py-0.5 text-[10px] font-bold text-black shadow">
@@ -642,8 +686,8 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
             </div>
           )}
           {libraryMatch?.plexMediaInfo && type === "movie" && (
-            <div className="rounded-2xl glass p-4 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wide text-ink-dim">{t("title.technicalInfo")}</h3>
+            <div className="rounded-2xl glass p-5">
+              <h3 className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-dim">{t("title.technicalInfo")}</h3>
               <div className="space-y-2 text-xs text-ink">
                 {libraryMatch.plexMediaInfo.container && (
                   <div className="flex items-center justify-between">
@@ -718,7 +762,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
                   <div key={p.providerId} title={p.name} className="h-8 w-8 overflow-hidden rounded-lg border border-white/10 bg-surface">
                     {p.logoPath ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={`https://image.tmdb.org/t/p/w92${p.logoPath}`} alt={p.name} className="h-full w-full object-cover" />
+                      <img src={`https://image.tmdb.org/t/p/w92${p.logoPath}`} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
                     ) : null}
                   </div>
                 ))}
@@ -772,7 +816,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
 
       {showTrailer && detail.trailerKey && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 p-4 pt-[12vh] backdrop-blur-sm"
           onClick={() => setShowTrailer(false)}
         >
           <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>

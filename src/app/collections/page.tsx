@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useT } from "@/i18n/provider";
-import { Loader2, Plus, Trash2, Layers, RefreshCw, Grid2x2, Grid3x3, List, Check } from "lucide-react";
+import { Loader2, Plus, Trash2, Layers, RefreshCw, Grid2x2, Grid3x3, List, Check, RotateCw, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { Collection } from "@/lib/collections/types";
@@ -114,7 +114,7 @@ function SagasSection() {
             <div className="mt-2 h-3.5 w-64 rounded bg-white/5" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="aspect-[2/3] rounded-2xl bg-white/5" />
           ))}
@@ -125,7 +125,7 @@ function SagasSection() {
 
   return (
     <div className="mb-10">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-ink">{t("collections.sagasTitle")}</h2>
           <p className="text-sm text-ink-dim">{t("collections.sagasHint")}</p>
@@ -177,7 +177,7 @@ function SagasSection() {
           })}
         </div>
       ) : (
-        <div className={cn("grid gap-4", view === "small" ? "grid-cols-3 md:grid-cols-5 lg:grid-cols-7" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-5")}>
+        <div className={cn("grid gap-4", view === "small" ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6")}>
           {sagas.map((s) => {
             const pct = Math.min(100, Math.round((s.ownedCount / s.totalCount) * 100));
             return (
@@ -216,22 +216,58 @@ export default function CollectionsPage() {
   const t = useT();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [view, setView] = useViewMode("movviz-collections-view");
 
-  useEffect(() => {
+  const load = () => {
+    setError(false);
+    setLoading(true);
     fetch("/api/collections", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.collections) setCollections(d.collections);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, []);
+      .catch(() => { setError(true); setLoading(false); });
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (error) {
+    return (
+      <div>
+        <SagasSection />
+        <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
+          <AlertTriangle className="h-8 w-8 text-down" />
+          <p className="font-semibold text-ink">{t("error.title")}</p>
+          <p className="max-w-md text-sm text-ink-dim">{t("error.description")}</p>
+          <button
+            onClick={load}
+            className="mt-2 flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white"
+          >
+            <RotateCw className="h-4 w-4" /> {t("common.retry")}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      <div>
+        <SagasSection />
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <div className="h-8 w-48 animate-pulse rounded-lg bg-white/8" />
+          <div className="flex items-center gap-2">
+            <div className="h-9 w-24 animate-pulse rounded-xl bg-white/8" />
+            <div className="h-10 w-32 animate-pulse rounded-xl bg-white/10" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {[...Array(12)].map((_, i) => (
+            <div key={i} className="aspect-square animate-pulse rounded-2xl bg-white/6" />
+          ))}
+        </div>
       </div>
     );
   }
@@ -274,7 +310,7 @@ export default function CollectionsPage() {
           ))}
         </div>
       ) : (
-        <div className={cn("grid gap-4", view === "small" ? "grid-cols-3 md:grid-cols-5 lg:grid-cols-7" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4")}>
+        <div className={cn("grid gap-4", view === "small" ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6")}>
           {collections.map((col) => (
             <div
               key={col.id}

@@ -2,6 +2,194 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.7.9] — 2026-07-24
+
+### Ajouté
+
+- **Retour arrière suggestions** : le scroll et les résultats chargés sont sauvegardés dans sessionStorage avant navigation, restitués au retour depuis une fiche film/série
+- **Navigation fluide** : le flag `movviz_from` évite le `scrollTo(0,0)` agressif quand on revient de la page titre, mais scroll en haut pour les accès directs
+
+### Corrigé
+
+- **Scroll titre** : remplacé `scrollTo(0,0)` systématique par une détection d'origine (back vs navigation directe)
+
+## [1.7.8] — 2026-07-24
+
+### Ajouté
+
+- **Suggestions infinies** : les recommandations films/séries passent de 40 à 200 résultats, chargement par 20 avec infinite scroll
+- **Tri mixte suggestions** : les recommandations sont maintenant triées par un score composite (30% pertinence, 35% note, 35% récence) pour un meilleur équilibre entre qualité et nouveauté
+- **Cache suggestions** : cache de 10 min pour éviter de re-fetcher TMDb à chaque page
+
+### Corrigé
+
+- **UX pages** : harmonisation des classes Tailwind (hover:scale-105, boutons, espacements, modales backdrop-blur)
+
+## [1.7.7] — 2026-07-24
+
+### Corrigé
+
+- **WebCodecs Player** : la lecture ne démarrait pas — la boucle de rendu s'activait avant l'arrivée des premières frames, provoquant un écran noir. Démarre maintenant à la première frame décodée, horloge sync resettée au bon moment
+
+## [1.7.6] — 2026-07-24
+
+### Corrigé
+
+- **Beta player** : le mode beta ne forçait plus la transcode — utilise maintenant WebCodecs/direct en premier, fallback HLS seulement si nécessaire
+
+## [1.7.5] — 2026-07-24
+
+### Ajouté
+
+- **WebCodecs Player beta** : décodeur HEVC/H.264/AV1 natif via WebCodecs API, évite la transcode Plex
+- **mp4box.js** : demuxage MP4 progressif (range requests) pour alimenter VideoDecoder/AudioDecoder
+- **Sync A/V** : horloge audio avec compensation pause, frame dropping intelligent
+- **Fallback automatique** : si WebCodecs échoue → transcode HLS Plex
+
+## [1.7.4] — 2026-07-24
+
+### Ajouté
+
+- **WOW animations** : framer-motion cascade, hover lift, spring tap sur toute l'interface
+- **Smart transcode** : AV1/VP9/H.264 → direct stream, HEVC → full transcode Plex
+- **Skeleton loading** : shimmer placeholders partout pendant le chargement
+- **PageLoader NProgress** : barre de progression en haut pendant les navigations
+
+### Optimisé
+
+- **Settings** : tabs plus rouges, navigation mobile bottom-sheet
+- **Delete animation** : 300ms avant suppression pour confirmer visuellement
+
+## [1.7.3] — 2026-07-24
+
+### Ajouté
+
+- **Protection dernier admin** : PATCH users/[id] refuse de révoquer le dernier admin
+- **Concurrency CI Docker** : file d'attente, max 1 build, annule les builds parallèles
+
+## [1.7.2] — 2026-07-24
+
+### Ajouté
+
+- **URL state sync** : back button fonctionne sur toutes les pages (discover, search, library, activity, settings, requests)
+- **ScrollRestoration** : skip sur popstate pour éviter les sauts
+
+## [1.7.1] — 2026-07-24
+
+### Corrigé
+
+- **safePlexUrl** : autorise les IP privées pour Plex LAN, bloque localhost/loopback/link-local
+
+## [1.7.0] — 2026-07-24
+
+### Ajouté
+
+- **Scan disque local** : `file.diskPath` séparé de `file.path`, tâche planifiée incrémentale
+- **Rename priorise diskPath** : utilise `file.diskPath` pour les renommages
+
+## [1.6.0] — 2026-07-25
+
+### Ajouté
+
+- **Moniteur Plex en direct** : icône dans la TopBar (admin only) avec animation EEG, affiche qui regarde quoi, débit, progression, état (▶/⏸), résolution et codecs
+- **Détection GPU** : tier automatique (high/medium/low), animations réduites sur GPU faible, toggle manuel
+- **Badges dynamiques animés** : pop/pulse sur changement, mise à jour en temps réel via SSE
+- **Barre de progression fluide** : transition CSS GPU-accelerated, plus de JS polling par frame
+- **Trailers multilingues** : YouTube adapté à la langue (fr→VF, en→VO, es→ES), fallback officiel
+- **X-Api-Key auth** : nouveau mode d'authentification indexeur (header HTTP)
+- **Indexeur tr4ker** : ajouté au catalogue
+- **Auto-update Windows** : installation automatique des mises à jour, activé par défaut
+- **Player beta pro** : contrôles overlay custom, PiP, reprise, shortcuts, vitesse 0.5x-2x, menu audio/ST, bitrate adaptatif
+
+### Optimisé
+
+- **Store Maps O(1)** : `getMovie`/`getSeries` 500x plus rapide avec 2000+ films
+- **SSE temps réel** : 7 composants passent du polling au push (wanted, timeline, notifications, queue...)
+- **UX** : toggle animé, skeleton loading, 28 settings polis, `loading="lazy"` partout
+- **Player** : cache ETag + 304, LRU 300 entrées, WebCodecs detection
+
+## [1.5.4] — 2026-07-24
+
+### Corrigé
+
+- trashPurge : refuse suppression si trashRoots non configuré
+- Sidebar auto-update : globalThis anchor + délai 2s (flush JSON avant kill)
+
+## [1.5.3] — 2026-07-24
+
+### Ajouté
+
+- Auto-update Windows automatique (activé par défaut, désactivable dans À propos)
+
+## [1.5.2] — 2026-07-24
+
+### Ajouté
+
+- Support auth X-Api-Key + indexeur tr4ker
+
+## [1.5.1] — 2026-07-24
+
+### Corrigé
+
+- clearMovies/clearSeries : paramètre isExplicitClear pour bypass le guard NAS-down
+- stateFile : path.resolve pour Windows (.. dans les chemins)
+
+## [1.5.0] — 2026-07-24
+
+### Corrigé
+
+- **Bug racine perte 20 TB trouvé** : `linkOrCopy` supprimait le fichier existant avant de vérifier la source → temp file + rename atomique
+- Routes DELETE : `path.dirname()` + depth check + déduplication dossiers
+- Engine `finishTorrent` : path traversal par nom torrent bloqué
+- Engine `remove(deleteData)` : vérification `startsWith(completedPath)`
+
+## [1.4.8] — 2026-07-24
+
+### Corrigé
+
+- **linkOrCopy atomique** : temp file + rename au lieu de delete-then-copy (bug racine 20TB)
+
+## [1.4.7] — 2026-07-24
+
+### Corrigé
+
+- 6 gardes de sécurité supplémentaires (store, renameExec, depth checks)
+
+## [1.4.6] — 2026-07-23
+
+### Corrigé
+
+- **Protection perte de données — 6 gardes de sécurité** :
+  - **Engine `finishTorrent`** : sanitization du nom de torrent (path traversal `../../` bloqué), validation que le chemin de cleanup reste dans downloadPath
+  - **Engine `remove(deleteData=true)`** : vérification que `movedTo` est bien sous `completedPath` avant suppression récursive
+  - **Store `saveMovies` / `saveSeries`** : refuse d'écraser un fichier de 10+ entrées par `[]` (protection anti-fallback NAS down)
+  - **RenameExec `safeMove`** : refuse de déplacer un dossier racine (depth ≤ 1)
+  - **RenameExec `rmShellFallback`** : vérifie depth ≥ 2 avant `rd /s /q`
+  - **RenameExec `seriesRoot`** : calculé via common ancestor de TOUS les épisodes, garde si root == base
+
+## [1.4.5] — 2026-07-23
+
+### Ajouté
+
+- **Player beta — optimisation complète** (19 recommandations) :
+  - Config hls.js ABR + recovery automatique (réseau/média)
+  - Détection codec client via WebCodecs API (`pickStrategy` : direct/webcodecs/transcode)
+  - SessionId transcode stable (par user+ratingKey), quota 3 sessions/user
+  - Menu sélection piste audio + sous-titres
+  - Reprise de lecture (localStorage + forward à Plex)
+  - Cache LRU segments (TTL 300s, 200 entrées) pour seeks arrière
+  - Cap bitrate adaptatif par résolution (4K→15Mbps, 1080p→8Mbps, 720p→4Mbps)
+  - Smart directPlay (Plex décide au lieu de forcer transcodage)
+  - CORS strict (origin referer, plus de `*`)
+  - Buffering/loading UI, indicateur qualité
+  - Nouveaux endpoints : `/api/stream/[ratingKey]/progress`, `/stop`, `/info`
+- **WebCodecs HEVC/AV1/AC3** : détection du support codec natif du navigateur, même quand `<video>` ne supporte pas le conteneur
+
+### Corrigé
+
+- **TVDB titres japonais persistants** : la resync échouait quand l'épisode existant ET le titre TVDB étaient tous les deux en japonais → fallback "Épisode N" maintenant activé. Nouvel endpoint debug `/api/library/series/[id]/tvdb-debug`.
+- **Build installer Windows** : ne se déclenche plus en doublon (push main + push tag), uniquement sur tags
+
 ## [1.4.4] — 2026-07-23
 
 ### Corrigé

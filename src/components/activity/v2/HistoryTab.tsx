@@ -183,7 +183,7 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
 
         {filtersOpen && (
           <div className="border-t border-white/10 p-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               <div>
                 <h4 className="mb-2 text-sm font-semibold text-ink">{t("activity.filterByType")}</h4>
                 <div className="space-y-1.5">

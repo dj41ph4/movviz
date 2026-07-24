@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
+import path from "node:path";
 import { getMovie, updateMovie, removeMovie } from "@/lib/library/store";
-import { requireUser } from "@/lib/auth/guard";
+import { requireUser, requireAdmin } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity/store";
 import { emitNotification } from "@/lib/notifications/store";
 import { trashMovieFile } from "@/lib/library/trashDelete";
@@ -29,8 +30,8 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const user = requireUser(req);
-  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const user = requireAdmin(req);
+  if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const id = (await params).id;
   const movie = getMovie(id);
   const deleteFiles = req.nextUrl.searchParams.get("deleteFiles") === "true";
@@ -50,8 +51,11 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
       addTrashEntry({ id: movie.id, kind: "movie", title: movie.title, trashPath: trashedTo, deletedAt: Date.now() });
     } else {
       try { fs.unlinkSync(movie.file.path); } catch { /* already gone */ }
-      const dir = movie.file.path.split(/[/\\]/).slice(0, -1).join("/");
-      try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
+      const dir = path.resolve(path.dirname(movie.file.path));
+      const depth = dir.split(path.sep).filter(Boolean).length;
+      if (depth >= 2) {
+        try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
+      }
     }
   }
   removeMovie(id);

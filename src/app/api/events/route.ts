@@ -1,15 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { eventBus } from "@/lib/events/EventBus";
+import type { AppEvent } from "@/lib/events/EventBus";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-/**
- * SSE endpoint — streams `library` events as they happen. The client hook
- * (useLibrarySSE) connects here and revalidates SWR keys on each event so
- * status badges update in real time without polling.
- */
+const KEEPALIVE_MS = 15_000;
+
+const EVENT_SSE_CHANNEL: Record<AppEvent["type"], string> = {
+  movie_updated: "library",
+  series_updated: "library",
+  download_changed: "download",
+  request_updated: "request",
+  notification_added: "notification",
+  user_updated: "user",
+  activity_updated: "activity",
+};
+
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -20,8 +28,13 @@ export async function GET(req: NextRequest) {
   const stream = new ReadableStream({
     start(controller) {
       cleanup = eventBus.on((event) => {
+        const channel = EVENT_SSE_CHANNEL[event.type];
         const data = JSON.stringify(event);
-        controller.enqueue(encoder.encode(`event: library\ndata: ${data}\n\n`));
+        try {
+          controller.enqueue(encoder.encode(`event: ${channel}\ndata: ${data}\n\n`));
+        } catch {
+          // client disconnected
+        }
       });
       keepAlive = setInterval(() => {
         try {
@@ -29,7 +42,7 @@ export async function GET(req: NextRequest) {
         } catch {
           clearInterval(keepAlive);
         }
-      }, 20_000);
+      }, KEEPALIVE_MS);
     },
     cancel() {
       cleanup?.();

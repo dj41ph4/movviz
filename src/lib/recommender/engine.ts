@@ -4,19 +4,6 @@ import { loadMovies, loadSeries } from "@/lib/library/store";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
-/**
- * Build personalised recommendations for a user based on their Plex watch
- * history. Supports both movies and series.
- *
- * Strategy:
- *   1. Fetch TMDB recommendations for every watched movie/series (capped at 25).
- *   2. Score each candidate by how many watched items recommended it.
- *   3. Exclude already-watched and already-owned items.
- *   4. Return top 40, sorted by score descending.
- *
- * Returns empty list if the user has fewer than 3 watched items (too weak a
- * signal — the homepage already has plenty of rows).
- */
 export async function getRecommendations(
   userId: string,
   type: "movie" | "series"
@@ -24,8 +11,6 @@ export async function getRecommendations(
   const status = getWatchStatus(userId);
   if (!status) return [];
 
-  // Anything already in the library shouldn't be suggested again, watched or not
-  // (e.g. downloading, or added but not watched yet).
   const owned = new Set<number>(
     (type === "movie" ? loadMovies() : loadSeries()).map((m) => m.tmdbId)
   );
@@ -63,8 +48,18 @@ export async function getRecommendations(
     }
   }
 
-  return [...score.values()]
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 40)
+  const entries = [...score.values()];
+  const maxCount = Math.max(1, ...entries.map((s) => s.count));
+
+  return entries
+    .map((s) => ({
+      item: s.item,
+      composite:
+        (s.count / maxCount) * 0.3
+        + (Math.min(s.item.rating ?? 0, 10) / 10) * 0.35
+        + (Math.min(Math.max((s.item.year ?? 2000) - 2000, 0), 30) / 30) * 0.35,
+    }))
+    .sort((a, b) => b.composite - a.composite)
+    .slice(0, 200)
     .map((s) => s.item);
 }

@@ -243,6 +243,7 @@ function TmdbStep() {
                 onChange={(e) => setKey(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && save()}
                 placeholder={t("discover.tmdbKeyPlaceholder")}
+                autoComplete="off"
                 className="h-11 flex-1 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
               />
               <button
@@ -311,6 +312,7 @@ function TvdbStep() {
             onChange={(e) => setKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && save()}
             placeholder={t("metadata.tvdbKeyPlaceholder")}
+            autoComplete="off"
             className="h-11 flex-1 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
           />
           <button

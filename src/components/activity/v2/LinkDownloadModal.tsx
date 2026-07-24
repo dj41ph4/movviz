@@ -51,7 +51,7 @@ export function LinkDownloadModal({
               {entry.import?.fileName} {entry.import?.fileSize ? `— ${formatBytes(entry.import.fileSize)}` : ""}
             </p>
           </div>
-          <button onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg glass text-ink-dim hover:text-ink">
+          <button onClick={onClose} aria-label={t("common.close")} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg glass text-ink-dim hover:text-ink">
             <X className="h-4 w-4" />
           </button>
         </div>

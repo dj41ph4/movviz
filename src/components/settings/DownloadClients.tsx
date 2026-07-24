@@ -63,7 +63,7 @@ export function DownloadClients() {
   };
 
   return (
-    <div>
+    <div className="rounded-2xl glass p-5">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <HardDrive className="h-5 w-5" />
@@ -84,7 +84,7 @@ export function DownloadClients() {
           <button
             onClick={restart}
             disabled={restarting}
-            className="flex h-9 shrink-0 items-center gap-2 rounded-xl brand-gradient px-3.5 text-xs font-bold text-white disabled:opacity-50"
+            className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex shrink-0 items-center gap-2 disabled:opacity-50"
           >
             {restarting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             {t("settings.restartEngine")}
@@ -93,7 +93,14 @@ export function DownloadClients() {
       )}
 
       <div className="grid items-start gap-5 lg:grid-cols-2">
-        {(instances ?? []).map((inst) => (
+        {instances && instances.length === 0 ? (
+          <div className="lg:col-span-2 rounded-2xl glass py-12 text-center">
+            <HardDrive className="mx-auto mb-2 h-6 w-6 text-ink-dim" />
+            <p className="font-semibold text-ink">{t("settings.noInstances")}</p>
+            <p className="mt-1 text-sm text-ink-dim">{t("settings.engineOfflineEditHint")}</p>
+          </div>
+        ) : (
+          (instances ?? []).map((inst) => (
           <InstanceCard
             key={inst.id}
             inst={inst}
@@ -104,7 +111,8 @@ export function DownloadClients() {
             onClose={() => setEditing(null)}
             onSaved={() => { setEditing(null); load(); }}
           />
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
@@ -181,7 +189,7 @@ function InstanceCard({
               </div>
             </div>
             <div className="p-4 pt-3">
-              <button onClick={onEdit} className="flex w-full items-center justify-center gap-2 rounded-xl glass-strong py-2.5 text-sm font-bold text-ink transition-transform hover:scale-[1.01]">
+              <button onClick={onEdit} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex w-full items-center justify-center gap-2 transition-transform hover:scale-[1.01]">
                 <Settings2 className="h-4 w-4" /> {t("settings.editInstance")}
               </button>
             </div>
@@ -282,10 +290,10 @@ function EditForm({ inst, pathMode, onClose, onSaved }: { inst: EngineInstance; 
         </button>
       </div>
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onClose} className="flex items-center gap-1.5 rounded-xl glass px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">
+        <button onClick={onClose} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-1.5">
           <X className="h-4 w-4" /> {t("settings.cancel")}
         </button>
-        <button onClick={save} disabled={saving} className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2 text-sm font-bold text-white disabled:opacity-40">
+        <button onClick={save} disabled={saving} className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-40">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {t("settings.save")}
         </button>
       </div>

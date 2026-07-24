@@ -66,10 +66,10 @@ export function ReleaseRulesPanel() {
 
   const removeWord = (w: string) => save({ blockedWords: rules.blockedWords.filter((x) => x !== w) });
 
-  const field = "h-11 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-dim focus:border-brand/40";
+  const field = "w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim";
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-4">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <SlidersHorizontal className="h-5 w-5" />

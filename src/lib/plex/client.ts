@@ -1,4 +1,4 @@
-import type { PlexAccount, PlexFriend, PlexHomeUser, PlexWatchlistItem, PlexServerConfig, PlexSection, PlexLibraryItem, PlexEpisodeItem, PlexMediaInfo, PlexVideoStream, PlexAudioStream, PlexSubtitleStream, PlexChapter } from "./types";
+import type { PlexAccount, PlexCollectionSummary, PlexFriend, PlexHomeUser, PlexWatchlistItem, PlexServerConfig, PlexSection, PlexLibraryItem, PlexEpisodeItem, PlexMediaInfo, PlexVideoStream, PlexAudioStream, PlexSubtitleStream, PlexChapter } from "./types";
 import { loadPlexConfig } from "./store";
 
 /**
@@ -604,5 +604,103 @@ export async function getShowEpisodes(cfg: PlexServerConfig, showRatingKey: stri
       });
   } catch {
     return [];
+  }
+}
+
+// ─── Plex native collections ──────────────────────────────────────────────────
+
+interface RawCollectionItem {
+  ratingKey: string;
+  title: string;
+  childCount?: number;
+  thumb?: string;
+}
+
+/** All native Plex collections across every movie section on the server. */
+export async function getPlexCollections(cfg: PlexServerConfig): Promise<PlexCollectionSummary[]> {
+  const token = cfg.adminToken;
+  if (!token) return [];
+
+  try {
+    const sections = await getLibrarySections(cfg, token);
+    const movieSections = sections.filter((s) => s.type === "movie");
+
+    const results: PlexCollectionSummary[] = [];
+    for (const section of movieSections) {
+      try {
+        const res = await fetchWithRetry(
+          `${serverBase(cfg)}/library/sections/${section.key}/collection`,
+          { headers: serverHeaders(cfg, token), cache: "no-store" },
+        );
+        if (!res.ok) continue;
+        const data = await res.json();
+        const items: RawCollectionItem[] = data?.MediaContainer?.Metadata ?? [];
+        for (const item of items) {
+          results.push({
+            ratingKey: item.ratingKey,
+            title: item.title,
+            thumb: item.thumb ?? null,
+            childCount: item.childCount ?? 0,
+            sectionKey: section.key,
+          });
+        }
+      } catch {
+        continue;
+      }
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+/** Every item in a Plex native collection, with TMDb ids resolved via batch lookup. */
+export async function getPlexCollectionChildren(
+  cfg: PlexServerConfig,
+  collectionRatingKey: string,
+  token: string,
+): Promise<PlexLibraryItem[]> {
+  try {
+    const res = await fetchWithRetry(
+      `${serverBase(cfg)}/library/collections/${collectionRatingKey}/children`,
+      { headers: serverHeaders(cfg, token), cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw: RawLibraryItem[] = data?.MediaContainer?.Metadata ?? [];
+    const infos = await batchTmdbIds(cfg, token, raw.map((i) => i.ratingKey));
+    return raw.map((item) => mapItem(item, infos.get(item.ratingKey) ?? null));
+  } catch {
+    return [];
+  }
+}
+
+export interface PlexCollectionDetail {
+  title: string;
+  posterPath: string | null;
+  children: PlexLibraryItem[];
+}
+
+/** Plex-native collection detail — title, poster and every item with TMDb ids resolved. */
+export async function getPlexCollectionDetail(
+  cfg: PlexServerConfig,
+  collectionRatingKey: string,
+  token: string,
+): Promise<PlexCollectionDetail | null> {
+  try {
+    const res = await fetchWithRetry(
+      `${serverBase(cfg)}/library/collections/${collectionRatingKey}/children`,
+      { headers: serverHeaders(cfg, token), cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const title = data?.MediaContainer?.title2 ?? data?.MediaContainer?.title ?? "";
+    const posterPath = data?.MediaContainer?.thumb ?? null;
+    const raw: RawLibraryItem[] = data?.MediaContainer?.Metadata ?? [];
+    const infos = await batchTmdbIds(cfg, token, raw.map((i) => i.ratingKey));
+    const children = raw.map((item) => mapItem(item, infos.get(item.ratingKey) ?? null));
+    return { title, posterPath, children };
+  } catch {
+    return null;
   }
 }

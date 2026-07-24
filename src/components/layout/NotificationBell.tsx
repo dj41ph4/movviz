@@ -29,7 +29,7 @@ export function NotificationBell() {
 
   // Cached by SWR so the bell state survives navigations without refetching.
   const { data, mutate } = useSWR<{ items: NotificationItem[] }>(
-    "/api/notifications", { refreshInterval: 8000 }
+    "/api/notifications"
   );
   const items = data?.items ?? [];
   const load = () => mutate();
@@ -56,6 +56,7 @@ export function NotificationBell() {
     <div ref={ref} className="relative">
       <button
         onClick={toggle}
+        aria-label={t("notifications.title")}
         className="relative flex h-10 w-10 items-center justify-center rounded-xl glass transition-colors hover:text-brand-glow"
       >
         <Bell className="h-[18px] w-[18px]" />

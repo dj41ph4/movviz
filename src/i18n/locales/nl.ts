@@ -136,6 +136,7 @@ export const nl: Dictionary = {
     save: "Opslaan",
     saving: "Opslaan...",
     cancel: "Annuleren",
+    close: "Sluiten",
     export: "Exporteren",
     import: "Importeren",
     copy: "Kopiëren",
@@ -151,6 +152,21 @@ export const nl: Dictionary = {
     languageLabel: "Taal",
     noResults: "Geen resultaten",
     change: "Wijzigen",
+    retry: "Opnieuw proberen",
+    error: "Fout",
+    goHome: "Home",
+  },
+
+  error: {
+    title: "Er is een fout opgetreden",
+    description: "Er is iets misgegaan. Probeer het opnieuw.",
+    retry: "Opnieuw proberen",
+    notFound: "Pagina niet gevonden",
+    notFoundDescription: "De pagina die je zoekt bestaat niet of is verplaatst.",
+    notFoundCta: "Terug naar home",
+    serverError: "Serverfout",
+    serverErrorDescription: "Er is een onverwachte fout opgetreden. Het team is op de hoogte gebracht.",
+    goHome: "Terug naar home",
   },
 
   status: {
@@ -405,6 +421,7 @@ export const nl: Dictionary = {
   stats: {
     title: "Statistieken",
     description: "Een live overzicht van de bibliotheek, ophaalacties en indexers.",
+    intro: "Een live overzicht van de bibliotheek, ophaalacties en indexers.",
     totalMovies: "Films",
     totalSeries: "Series",
     totalEpisodes: "Beschikbare afleveringen",
@@ -419,6 +436,7 @@ export const nl: Dictionary = {
   activity: {
     title: "Activiteit",
     description: "Downloadwachtrij, bewerkingsgeschiedenis en gezochte content.",
+    intro: "Configureer wat er in het activiteitencentrum verschijnt en bekijk de upgrade-detectie-instellingen.",
     empty: "Nog geen activiteit.",
     seasonPack: "Seizoen {season} — pakket ({count} afleveringen)",
     settings: "Activiteit",
@@ -588,6 +606,7 @@ export const nl: Dictionary = {
     tokenName: "Tokennaam",
     tokenCreatedHint: "Kopieer dit token nu — het wordt niet opnieuw getoond.",
     noTokens: "Nog geen tokens aangemaakt.",
+    confirmRevoke: "Deze token intrekken? Elk script dat hem gebruikt, stopt met werken.",
     discover: "Ontdekken",
     discoverHint: "Vink de continenten aan die je interesseren — films en series van de rest worden uit Ontdekken gefilterd. Niets aangevinkt betekent dat alles wordt getoond.",
     discoverSaved: "Voorkeuren opgeslagen",
@@ -634,6 +653,10 @@ export const nl: Dictionary = {
     logsCopied: "Logs gekopieerd",
     resolverLogsTitle: "Resolver-log",
     resolverLogsHint: "De laatste 500 regels van de Cloudflare-resolver — handig voor het diagnosticeren van challenge-fouten.",
+    searchLogsTitle: "Zoeklogboeken",
+    searchLogsHint: "Diagnostisch logboek van elk indexerverzoek dat door Movviz is verzonden — handig om te begrijpen waarom bepaalde zoekopdrachten niets opleveren.",
+    logsFilterAll: "Alle",
+    logsLines: "regels",
   },
 
   tasks: {
@@ -677,6 +700,7 @@ export const nl: Dictionary = {
 
   cache: {
     title: "Cache",
+    intro: "Bewaakt de in-memory en op schijf opgeslagen TMDb-cache — hits, misses, totaal aantal items en grootte.",
     name: "Cachenaam",
     hits: "Hits",
     misses: "Missers",
@@ -821,6 +845,7 @@ export const nl: Dictionary = {
     aboutSupportHint: "Movviz is gratis en blijft dat ook. Als het je van dienst is, wordt een donatie altijd gewaardeerd.",
     aboutUpdateTitle: "Updates",
     aboutUpdateHint: "Controleer op een nieuwere versie en werk deze Windows-installatie bij met één klik.",
+    autoUpdateLabel: "Updates automatisch installeren wanneer gedetecteerd",
     aboutUpdateNotWindows: "Bijwerken met één klik is alleen beschikbaar op Windows-installaties — trek op Docker/NAS opnieuw de image binnen.",
     aboutCheckUpdate: "Controleren op updates",
     aboutUpToDate: "Movviz is up-to-date",
@@ -834,6 +859,8 @@ export const nl: Dictionary = {
     groupSystem: "Systeem",
     groupAdvanced: "Geavanceerd",
     importListsHint: "Synchroniseer automatisch titels van je Trakt-, IMDb- of Letterboxd-lijsten naar de bibliotheek.",
+    importLists: "Importlijsten",
+    noImportLists: "Geen importlijsten",
     addImportList: "Lijst toevoegen",
     autoApproveImports: "Automatisch goedkeuren zonder toestemming",
     lastSync: "Laatste synchronisatie:",
@@ -855,6 +882,7 @@ export const nl: Dictionary = {
     instanceMovies: "Instantie films",
     instanceSeries: "Instantie series",
     unlimited: "onbeperkt",
+    noInstances: "Geen downloadclient geconfigureerd",
     protocolTorrent: "Torrent",
     editInstance: "Configureren",
     engineOfflineEditHint: "Je kunt de mappen en instellingen hieronder nog steeds bewerken — ze worden van kracht bij de volgende start van de engine.",
@@ -895,6 +923,7 @@ export const nl: Dictionary = {
     url: "API-URL",
     urlHint: "Torznab/Newznab-eindpunt (bijv. https://mijn-indexer/api)",
     apiKey: "API-sleutel",
+    xApiKey: "X-API-Key",
     apiKeyOptional: "API-sleutel (indien vereist)",
     categories: "Categorieën",
     otherCategories: "Overige categorieën",
@@ -951,6 +980,8 @@ export const nl: Dictionary = {
   indexation: {
     movieIntro: "Detecteert films die al op de schijf staan maar nooit aan een bibliotheekitem zijn gekoppeld — handmatig geplaatst, gemigreerd vanuit een andere tool, of toegevoegd vóór Movviz.",
     seriesIntro: "Detecteert afleveringen die al op de schijf staan maar nooit aan een bibliotheekitem zijn gekoppeld — handmatig geplaatst, gemigreerd vanuit een andere tool, of toegevoegd vóór Movviz.",
+    movieTitle: "Filmindexering",
+    seriesTitle: "Serie-indexering",
     scan: "Scannen",
     scanning: "Bezig met scannen…",
     empty: "Niets te indexeren",
@@ -961,6 +992,7 @@ export const nl: Dictionary = {
     fixMatch: "Corrigeren",
     monitor: "Volgen",
     importCount: "{count} importeren",
+    confirmImport: "{count} item(s) in de bibliotheek importeren? De bestanden op de schijf worden gekoppeld aan bibliotheekitems.",
     searchPlaceholder: "Zoek een titel…",
   },
 
@@ -982,6 +1014,8 @@ export const nl: Dictionary = {
     tab: "Hernoemen",
     title: "Bibliotheekbestanden hernoemen",
     intro: "Doorzoekt je bibliotheek en hernoemt film- en seriemappen met de officiële titel in de gekozen taal. Elk hernoemd item krijgt zijn nieuwe titel van TMDb en volgt je naamgevingssjablonen.",
+    scanLabel: "Klaar om je bibliotheek te scannen",
+    scanIntro: "Klik op de knop hieronder om de hele bibliotheek te scannen en film- en seriemappen te detecteren waarvan de namen niet overeenkomen met je sjablonen.",
     languageLabel: "Taal",
     cleanEmptyDirs: "Lege mappen verwijderen na hernoemen",
     scan: "Analyseren",
@@ -1005,12 +1039,15 @@ export const nl: Dictionary = {
     hideLogs: "Log verbergen",
     logsEmpty: "Wachten op log-items...",
     errorTitle: "Scanfout",
+    confirmApply: "{count} item(s) hernoemen? De bestanden worden op de schijf hernoemd. Zorg dat geen ander programma ze gebruikt.",
   },
 
   repairPaths: {
     tab: "Paden herstellen",
     title: "Bestandspaden herstellen",
     intro: "Zoekt voor elk item waarvan het opgeslagen bestand niet gevonden kan worden naar een bestand met exact dezelfde naam elders in de bibliotheek. Verplaatst of verwijdert nooit iets — werkt alleen het opgeslagen pad bij zodra je de match hebt bevestigd.",
+    scanLabel: "Klaar om je bibliotheek te scannen",
+    scanIntro: "Klik op de knop hieronder om elk bibliotheekitem te vinden waarvan het opgeslagen bestand niet op schijf gevonden kan worden, en het echte bestand te lokaliseren.",
     cleanEmptyDirs: "Lege mappen verwijderen na koppeling",
     scan: "Analyseren",
     scanning: "Bezig met analyseren...",
@@ -1043,6 +1080,7 @@ export const nl: Dictionary = {
     deleting: "Bezig met verwijderen...",
     clean: "Geen lege mappen gevonden.",
     deletedCount: "{count} lege map(pen) verwijderd.",
+    confirmDelete: "{count} lege map(pen) verwijderen? Dit kan niet ongedaan worden gemaakt.",
   },
 
   customFormats: {
@@ -1115,6 +1153,7 @@ export const nl: Dictionary = {
     pendingSection: "Wacht op goedkeuring",
     approve: "Goedkeuren",
     reject: "Afwijzen",
+    confirmReject: "Deze gebruiker afwijzen? Ze worden permanent verwijderd.",
     createLocalUser: "Lokale gebruiker aanmaken",
     local: "Lokaal",
     loginTitle: "Inloggen",
@@ -1174,6 +1213,7 @@ export const nl: Dictionary = {
     link: "Plex koppelen",
     relink: "Opnieuw koppelen",
     hostname: "Hostnaam of IP-adres",
+    port: "Poort",
     importUsers: "Plex-gebruikers importeren",
     importedCount: "{n} gebruiker(s) geïmporteerd",
     notConnected: "Koppel eerst Plex hierboven",
@@ -1245,6 +1285,7 @@ export const nl: Dictionary = {
 
   naming: {
     tab: "Naamgeving",
+    title: "Bestandsnaamgeving",
     intro:
       "Movviz analyseert elke voltooide download (titel, jaar, kwaliteit, codec, groep, seizoen/aflevering) en past je eigen sjablonen toe om bestanden automatisch te hernoemen en te organiseren.",
     enable: "Automatisch hernoemen",
@@ -1376,6 +1417,7 @@ export const nl: Dictionary = {
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Opnieuw missende films",
       "seerr-import": "Seerr/Overseerr aanvragen importeren",
+      "disk-scan": "Lokale schijfscan",
     },
   },
 
@@ -1408,7 +1450,39 @@ export const nl: Dictionary = {
     betaSubtitle: "Ondertiteling",
     betaOff: "Uit",
     betaQuality: "Kwaliteit",
+    betaPlay: "Afspelen",
+    betaPause: "Pauze",
+    betaSkipBack: "10s terug",
+    betaSkipForward: "10s vooruit",
+    betaSpeed: "Snelheid",
+    betaSpeedNormal: "Normaal",
+    betaPiP: "Picture in Picture",
+    betaVolume: "Volume",
+    betaMute: "Dempen",
+    betaUnmute: "Dempen opheffen",
+    betaFullscreen: "Volledig scherm",
+    betaExitFullscreen: "Volledig scherm verlaten",
+    betaResume: "Hervatten",
+    betaResumeFrom: "Hervatten vanaf",
+    betaStartOver: "Vanaf begin",
+  },
+
+  plexActivity: {
+    title: "Plex Monitor",
+    popoverTitle: "Actieve sessies",
+    empty: "Geen actieve sessies.",
+    activeCount: "{count} actieve stream{plural}",
+    noActivity: "Geen activiteit",
   },
 
   language: { label: "Taal" },
+
+  diskScan: {
+    title: "Lokale schijfscan",
+    intro: "Doorloopt de bibliotheekmappen om echte bestanden te koppelen aan gevolgde items en lokale paden (diskPath) bij te werken.",
+    fullScan: "Volledige scan",
+    incrementalScan: "Incrementele scan",
+    scanning: "Scannen…",
+    result: "{scanned} bestand(en) gescand, {matched} overeenkomst(en), {updated} bijgewerkt",
+  },
 };

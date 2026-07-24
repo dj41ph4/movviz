@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { cn } from "@/lib/utils";
@@ -50,9 +50,9 @@ const TABS = [
   { id: "naming", labelKey: "naming.tab", icon: Tag, group: "library", adminOnly: true },
   { id: "imports", labelKey: "settings.tabImports", icon: ExternalLink, group: "library", adminOnly: true },
   // Disque
-  { id: "indexation", labelKey: "settings.tabIndexation", icon: Film, group: "disk", adminOnly: true, dangerous: true },
-  { id: "rename", labelKey: "rename.tab", icon: RefreshCw, group: "disk", adminOnly: true, dangerous: true },
-  { id: "maintenance", labelKey: "settings.tabMaintenance", icon: Wrench, group: "disk", adminOnly: true, dangerous: true },
+  { id: "indexation", labelKey: "settings.tabIndexation", icon: Film, group: "disk", adminOnly: true },
+  { id: "rename", labelKey: "rename.tab", icon: RefreshCw, group: "disk", adminOnly: true },
+  { id: "maintenance", labelKey: "settings.tabMaintenance", icon: Wrench, group: "disk", adminOnly: true },
   // Notifications
   { id: "notifications", labelKey: "settings.tabNotifications", icon: BellRing, group: "notifications", adminOnly: true },
   // Système
@@ -86,11 +86,21 @@ function SettingsPageInner() {
   const t = useT();
   const user = useCurrentUser();
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const initialTab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "clients";
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
   const activeTab = visibleTabs.find((tb) => tb.id === tab) ?? visibleTabs[0];
+
+  const pushTab = (id: (typeof TABS)[number]["id"]) => {
+    setTab(id);
+    const p = new URLSearchParams(params.toString());
+    if (id === "clients") p.delete("tab");
+    else p.set("tab", id);
+    router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
+  };
 
 
 
@@ -172,7 +182,7 @@ function SettingsPageInner() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-end bg-black/60 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-50 flex items-end bg-black/50 backdrop-blur-sm md:hidden"
             onClick={() => setMobileNavOpen(false)}
           >
             <motion.div
@@ -181,7 +191,7 @@ function SettingsPageInner() {
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 380, damping: 34 }}
               onClick={(e) => e.stopPropagation()}
-              className="max-h-[80vh] w-full overflow-y-auto rounded-t-2xl glass-strong px-3 pb-2 pt-3 shadow-2xl"
+              className="max-h-[70vh] w-full overflow-y-auto rounded-t-2xl glass-strong px-4 pb-2 pt-3 shadow-2xl"
               style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
             >
               <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
@@ -194,8 +204,8 @@ function SettingsPageInner() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="flex flex-col gap-5 pb-2">
-                {renderGroups((id) => { setTab(id); setMobileNavOpen(false); }, "settings-tab-active-mobile")}
+              <div className="flex flex-col gap-6 pb-2">
+                {renderGroups((id) => { pushTab(id); setMobileNavOpen(false); }, "settings-tab-active-mobile")}
               </div>
             </motion.div>
           </motion.div>
@@ -203,8 +213,8 @@ function SettingsPageInner() {
       </AnimatePresence>
 
       <div className="md:grid md:grid-cols-[224px_1fr] md:items-start md:gap-8">
-        <nav className="hidden flex-col gap-5 md:sticky md:top-24 md:flex">
-          {renderGroups(setTab, "settings-tab-active")}
+        <nav className="hidden flex-col gap-6 md:sticky md:top-24 md:flex">
+          {renderGroups(pushTab, "settings-tab-active")}
         </nav>
 
         <div className="min-w-0">

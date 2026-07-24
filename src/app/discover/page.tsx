@@ -3,10 +3,12 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { GENRE_GRADIENTS } from "@/lib/metadata/curated";
@@ -33,14 +35,24 @@ export default function DiscoverPage() {
 function DiscoverPageInner() {
   const t = useT();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [q, setQ] = useState(() => searchParams.get("q") ?? "");
-  const [mediaType, setMediaType] = useState<"movie" | "series">("movie");
-  const [genre, setGenre] = useState("");
-  const [year, setYear] = useState("");
-  const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]>("popularity.desc");
-  const [company, setCompany] = useState<{ id: string; name: string } | null>(null);
-  const [network, setNetwork] = useState<{ id: string; name: string } | null>(null);
-  const [rowCategory, setRowCategory] = useState<string | null>(null);
+  const [mediaType, setMediaType] = useState<"movie" | "series">(() => (searchParams.get("type") as "series" | null) ?? "movie");
+  const [genre, setGenre] = useState(() => searchParams.get("genre") ?? "");
+  const [year, setYear] = useState(() => searchParams.get("year") ?? "");
+  const [sort, setSort] = useState<(typeof SORT_OPTIONS)[number]>(() => (searchParams.get("sort") as (typeof SORT_OPTIONS)[number] | null) ?? "popularity.desc");
+  const [company, setCompany] = useState<{ id: string; name: string } | null>(() => {
+    const id = searchParams.get("company");
+    const name = searchParams.get("companyName");
+    return id && name ? { id, name } : null;
+  });
+  const [network, setNetwork] = useState<{ id: string; name: string } | null>(() => {
+    const id = searchParams.get("network");
+    const name = searchParams.get("networkName");
+    return id && name ? { id, name } : null;
+  });
+  const [rowCategory, setRowCategory] = useState<string | null>(() => searchParams.get("row") ?? null);
 
   // Browse view — paginated grid, used for search and any active filter/tile selection.
   const [results, setResults] = useState<MetaSearchResult[]>([]);
@@ -51,6 +63,90 @@ function DiscoverPageInner() {
 
   const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!network || !!rowCategory;
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const restoredRef = useRef(false);
+
+  const saveBrowseState = () => {
+    if (!isBrowsing || results.length === 0) return;
+    sessionStorage.setItem("movviz_browse", JSON.stringify({
+      results, page, totalPages, rowCategory, mediaType,
+      q, genre, year, sort, company, network,
+      scrollY: window.scrollY,
+    }));
+  };
+
+  // Restore scroll state on mount (back from a title page).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = sessionStorage.getItem("movviz_browse");
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved.mediaType !== mediaType) return;
+      // Restore filters first so isBrowsing is true and the load trigger fires
+      if (saved.q) setQ(saved.q);
+      if (saved.genre) setGenre(saved.genre);
+      if (saved.year) setYear(saved.year);
+      if (saved.sort) setSort(saved.sort);
+      if (saved.company?.id) setCompany(saved.company);
+      if (saved.network?.id) setNetwork(saved.network);
+      if (saved.rowCategory) setRowCategory(saved.rowCategory);
+      if (saved.results) setResults(saved.results);
+      if (saved.page) setPage(saved.page);
+      if (saved.totalPages) setTotalPages(saved.totalPages);
+      restoredRef.current = true;
+      // Scroll and clear after state settles
+      requestAnimationFrame(() => {
+        window.scrollTo(0, saved.scrollY ?? 0);
+        sessionStorage.removeItem("movviz_browse");
+      });
+    } catch { /* ignore corrupt state */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save state on unmount (SPA navigation away) and on popstate (back button).
+  useEffect(() => {
+    saveBrowseState();
+    const onPop = () => saveBrowseState();
+    window.addEventListener("popstate", onPop);
+    return () => {
+      saveBrowseState();
+      window.removeEventListener("popstate", onPop);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, page, totalPages, rowCategory, mediaType, q, genre, year, sort, company, network, isBrowsing]);
+
+  // Save scroll state + set flag before any navigation to a title page
+  const saveRef = useRef(saveBrowseState);
+  saveRef.current = saveBrowseState;
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const link = (e.target as HTMLElement).closest("a");
+      if (link?.getAttribute("href")?.startsWith("/title/")) {
+        saveRef.current();
+        sessionStorage.setItem("movviz_from", "discover");
+      }
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, []);
+
+  // Sync filter states to URL for back-button support (immediate for non-q filters, q cleanup).
+  useEffect(() => {
+    const p = new URLSearchParams(searchParams.toString());
+    if (!q.trim()) p.delete("q");
+    if (mediaType !== "movie") p.set("type", mediaType); else p.delete("type");
+    if (genre) p.set("genre", genre); else p.delete("genre");
+    if (year) p.set("year", year); else p.delete("year");
+    if (sort !== "popularity.desc") p.set("sort", sort); else p.delete("sort");
+    if (company) { p.set("company", company.id); p.set("companyName", company.name); } else { p.delete("company"); p.delete("companyName"); }
+    if (network) { p.set("network", network.id); p.set("networkName", network.name); } else { p.delete("network"); p.delete("networkName"); }
+    if (rowCategory) p.set("row", rowCategory); else p.delete("row");
+    const qs = p.toString();
+    if (qs !== searchParams.toString()) {
+      router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, mediaType, genre, year, sort, company, network, rowCategory, router, pathname]);
 
   // Every fetch below is SWR-cached by URL — instant render from whatever was
   // last seen for that key (even by another page, e.g. Bibliothèque already
@@ -107,7 +203,12 @@ function DiscoverPageInner() {
   };
 
   const seeAllRow = (key: string) => {
-    clearFilters();
+    setQ("");
+    setGenre("");
+    setYear("");
+    setSort("popularity.desc");
+    setCompany(null);
+    setNetwork(null);
     setRowCategory(key);
   };
 
@@ -126,7 +227,13 @@ function DiscoverPageInner() {
 
   // Manual Films/Séries switch — start browsing that type from a clean filter state.
   const switchMediaType = (mt: "movie" | "series") => {
-    clearFilters();
+    setQ("");
+    setGenre("");
+    setYear("");
+    setSort("popularity.desc");
+    setCompany(null);
+    setNetwork(null);
+    setRowCategory(null);
     setMediaType(mt);
   };
 
@@ -139,7 +246,16 @@ function DiscoverPageInner() {
   // Browse grid — search (debounced) or any filter/tile/row selection, page 1.
   useEffect(() => {
     if (!configured || !isBrowsing) return;
-    const id = setTimeout(() => loadPage(1), q.trim() ? 350 : 0);
+    const id = setTimeout(() => {
+      loadPage(1);
+      // Sync q to URL after debounce.
+      const p = new URLSearchParams(searchParams.toString());
+      if (q.trim()) p.set("q", q.trim()); else p.delete("q");
+      const qs = p.toString();
+      if (qs !== searchParams.toString()) {
+        router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
+      }
+    }, q.trim() ? 350 : 0);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, network, rowCategory]);
@@ -318,8 +434,16 @@ function DiscoverPageInner() {
           {isBrowsing && (
             <>
               {loading && page === 1 && (
-                <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
-                  <Loader2 className="h-5 w-5 animate-spin" />
+                <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  {[...Array(12)].map((_, i) => (
+                    <div key={i}>
+                      <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/6" />
+                      <div className="mt-2.5 space-y-1.5 px-0.5">
+                        <div className="h-3 w-3/4 animate-pulse rounded bg-white/8" />
+                        <div className="h-2.5 w-1/2 animate-pulse rounded bg-white/6" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -330,9 +454,10 @@ function DiscoverPageInner() {
               {results.length > 0 && (
                 <>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-                    {results.map((r) => (
+                    {results.map((r, i) => (
                       <DiscoverCard
                         key={`${r.type}:${r.tmdbId}`}
+                        index={i}
                         result={r}
                         status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
                         libLoaded={libLoaded}
@@ -395,8 +520,20 @@ function HomeRows({
 
   if (loading && rows.length === 0) {
     return (
-      <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
-        <Loader2 className="h-5 w-5 animate-spin" />
+      <div className="space-y-9">
+        {[...Array(4)].map((_, i) => (
+          <section key={i} className="space-y-3">
+            <div className="h-6 w-48 animate-pulse rounded-lg bg-white/8" />
+            <div className="flex gap-4 overflow-hidden">
+              {[...Array(6)].map((_, j) => (
+                <div key={j} className="w-[150px] shrink-0 sm:w-[170px]">
+                  <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/6" />
+                  <div className="mt-2.5 h-3 w-24 animate-pulse rounded bg-white/8" />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
     );
   }
@@ -431,7 +568,7 @@ function HomeRows({
 
       {genres.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-bold text-ink">{t("discover.genres")}</h2>
+          <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{t("discover.genres")}</h2>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {genres.map((g, i) => (
               <button
@@ -463,7 +600,7 @@ function HomeRows({
 function LogoRow({ title, tiles, onClick }: { title: string; tiles: LogoTile[]; onClick: (tile: LogoTile) => void }) {
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-bold text-ink">{title}</h2>
+      <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
       <div className="flex gap-3 overflow-x-auto pb-2">
         {tiles.map((tile) => (
           <button
@@ -506,15 +643,16 @@ function PosterRow({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-ink">{title}</h2>
-        <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-ink hover:text-brand-glow">
+        <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
+        <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-brand-glow hover:text-brand-2 transition-colors">
           {t("discover.seeAll")} <ChevronRight className="h-4 w-4" />
         </button>
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2">
-        {results.map((r) => (
+        {results.map((r, i) => (
           <div key={`${r.type}:${r.tmdbId}`} className="w-[150px] shrink-0 sm:w-[170px]">
             <DiscoverCard
+              index={i}
               result={r}
               status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
               libLoaded={libLoaded}
@@ -590,8 +728,8 @@ function RankedList({
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold text-ink">{title}</h2>
-        <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-ink hover:text-brand-glow">
+        <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
+        <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-brand-glow hover:text-brand-2 transition-colors">
           {t("discover.seeAll")} <ChevronRight className="h-4 w-4" />
         </button>
       </div>
@@ -669,17 +807,20 @@ function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank
 }
 
 function DiscoverCard({
-  result, status, libLoaded, watched, onAdded,
+  result, status, libLoaded, watched, onAdded, index = 0,
 }: {
   result: MetaSearchResult;
   status: string | null;
   libLoaded: boolean;
   watched: boolean;
   onAdded: () => void;
+  index?: number;
 }) {
   const { t, locale } = useI18n();
+  const reduceMotion = useShouldReduceMotion();
   const [adding, setAdding] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   const add = async () => {
     setAdding(true);
@@ -705,12 +846,33 @@ function DiscoverCard({
 
   const poster = result.posterPath ? `https://image.tmdb.org/t/p/w500${result.posterPath}` : null;
 
+  const cascadeAnim = reduceMotion ? {} : {
+    initial: { opacity: 0, y: 20, scale: 0.95 },
+    animate: { opacity: 1, y: 0, scale: 1 },
+    transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
+    whileHover: { scale: 1.03, y: -2, boxShadow: "0 0 25px rgba(168, 130, 255, 0.15)" },
+    whileTap: { scale: 0.98 },
+    style: { willChange: "transform" } as React.CSSProperties,
+  };
+  const btnSpring = reduceMotion ? {} : {
+    whileTap: { scale: 0.95 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 17 },
+  };
+
   return (
-    <article className="group w-full">
+    <motion.article className="group w-full" {...cascadeAnim}>
       <Link href={`/title/${result.type}/${result.tmdbId}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
         {poster ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={poster} alt={result.title} loading="lazy" className="h-full w-full object-cover" />
+          <motion.img
+            src={poster}
+            alt={result.title}
+            loading="lazy"
+            className="h-full w-full object-cover"
+            initial={reduceMotion ? undefined : { opacity: 0 }}
+            animate={reduceMotion ? undefined : { opacity: imgLoaded ? 1 : 0 }}
+            transition={{ duration: 0.4 }}
+            onLoad={() => setImgLoaded(true)}
+          />
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
             {result.type === "movie" ? <Film className="h-7 w-7 text-ink-soft/70" /> : <Tv className="h-7 w-7 text-ink-soft/70" />}
@@ -737,21 +899,22 @@ function DiscoverCard({
           </div>
         )}
         <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <button
+          <motion.button
+            {...btnSpring}
             onClick={(e) => { e.preventDefault(); add(); }}
             disabled={adding || !!status}
             className={cn(
-              "flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-transform hover:scale-105 disabled:hover:scale-100",
+              "flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-bold",
               status ? "bg-ok/20 text-ok" : "brand-gradient text-white"
             )}
           >
             {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : status ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
             {status ? t("discover.added") : adding ? t("discover.adding") : t("discover.addToLibrary")}
-          </button>
+          </motion.button>
         </div>
       </Link>
       <div className="mt-2.5 px-0.5">
-        <Link href={`/title/${result.type}/${result.tmdbId}`} className="block truncate text-sm font-semibold text-ink hover:text-brand-glow">{result.title}</Link>
+        <Link href={`/title/${result.type}/${result.tmdbId}`} className="block truncate text-sm font-semibold text-ink transition-all duration-200 hover:text-brand-glow">{result.title}</Link>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-dim">
           {formatDate(result.releaseDate, locale) ? (
             <span className="flex items-center gap-1">
@@ -763,6 +926,6 @@ function DiscoverCard({
           {feedback && <span className="truncate text-amber">{feedback}</span>}
         </div>
       </div>
-    </article>
+    </motion.article>
   );
 }

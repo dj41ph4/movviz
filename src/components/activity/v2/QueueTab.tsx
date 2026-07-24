@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useMemo, memo, useEffect, useRef } from "react";
+import { useState, useMemo, memo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { useI18n, useT } from "@/i18n/provider";
 import { cn, formatBytes, formatSpeed, formatEta, formatDateTime } from "@/lib/utils";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { QueueItem } from "@/lib/activity/v2/types";
 import {
@@ -29,8 +31,13 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const { locale } = useI18n();
   const router = useRouter();
   const user = useCurrentUser();
+  const reduceMotion = useShouldReduceMotion();
+  const btnSpring = reduceMotion ? {} : {
+    whileTap: { scale: 0.95 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 17 },
+  };
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    "/api/activity/v2?tab=queue", { refreshInterval: 5000, dedupingInterval: 4000 }
+    "/api/activity/v2?tab=queue", { refreshInterval: 3000, dedupingInterval: 2000 }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -200,7 +207,8 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           ))}
         </div>
         {user?.role === "admin" && items.length > 0 && (
-          <button
+          <motion.button
+            {...btnSpring}
             onClick={clearAll}
             disabled={clearingAll}
             title={t("downloads.clearAllHint")}
@@ -208,12 +216,12 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           >
             {clearingAll ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             {t("downloads.clearAll")}
-          </button>
+          </motion.button>
         )}
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         <div className="rounded-xl glass p-4 text-center">
           <Download className="mx-auto mb-2 h-5 w-5 text-cyan" />
           <p className="text-sm text-ink-dim">{t("activity.status.downloading")}</p>
@@ -299,31 +307,15 @@ const QueueItemRow = memo(function QueueItemRow({
   item, isExpanded, actionLoading, t, locale,
   onToggleExpand, onAction, onRemove,
 }: QueueItemRowProps) {
-  const [smoothProgress, setSmoothProgress] = useState(item.download.progress);
-  const speedRef = useRef(item.download.downloadSpeed);
-  const sizeRef = useRef(item.release.size);
+  const reduceMotion = useShouldReduceMotion();
+  const displayProgress = item.download.progress;
 
-  useEffect(() => {
-    speedRef.current = item.download.downloadSpeed;
-    sizeRef.current = item.release.size;
-  }, [item.download.downloadSpeed, item.release.size]);
+  const btnSpring = reduceMotion ? {} : {
+    whileTap: { scale: 0.95 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 17 },
+  };
 
-  useEffect(() => {
-    setSmoothProgress(item.download.progress);
-  }, [item.download.progress]);
-
-  useEffect(() => {
-    if (item.status !== "downloading" && item.status !== "importing") return;
-    if (item.download.downloadSpeed <= 0) return;
-    const rate = item.download.downloadSpeed / item.release.size;
-    const id = setInterval(() => {
-      setSmoothProgress((prev) => Math.min(0.999, prev + rate * 0.12));
-    }, 120);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.status, item.download.downloadSpeed, item.release.size]);
-
-  const displayProgress = smoothProgress;
+  const isActive = item.status === "downloading" || item.status === "importing";
 
   return (
     <div className="rounded-2xl glass overflow-hidden">
@@ -384,11 +376,15 @@ const QueueItemRow = memo(function QueueItemRow({
               </span>
             </div>
 
-            {(item.status === "downloading" || item.status === "importing") && (
+            {isActive && (
               <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                 <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
                   <div
-                    className="h-full rounded-full brand-gradient transition-all duration-1000 ease-linear"
+                    className={cn(
+                      "h-full rounded-full transition-[width] duration-300 ease-out",
+                      "brand-gradient",
+                      !reduceMotion && "animate-shimmer-progress bg-[linear-gradient(90deg,var(--color-brand)_0%,var(--color-brand-glow)_25%,var(--color-brand-2)_50%,var(--color-brand-glow)_75%,var(--color-brand)_100%)]"
+                    )}
                     style={{ width: `${Math.round(displayProgress * 100)}%` }}
                   />
                 </div>
@@ -421,60 +417,66 @@ const QueueItemRow = memo(function QueueItemRow({
         <div className="mt-3 flex shrink-0 justify-end gap-2" onClick={(e) => e.stopPropagation()}>
           {item.status === "downloading" && (
             <>
-              <button
+              <motion.button
+                {...btnSpring}
                 onClick={(e) => { e.stopPropagation(); onAction(item.id, "pause"); }}
                 disabled={actionLoading !== null}
                 title={t("downloads.pause")}
                 className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
               >
                 {actionLoading === `pause_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
-              </button>
-              <button
+              </motion.button>
+              <motion.button
+                {...btnSpring}
                 onClick={(e) => { e.stopPropagation(); onAction(item.id, "search"); }}
                 disabled={actionLoading !== null}
                 title={t("downloads.manual")}
                 className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
               >
                 <Search className="h-4 w-4" />
-              </button>
+              </motion.button>
             </>
           )}
           {item.status === "paused" && (
-            <button
+            <motion.button
+              {...btnSpring}
               onClick={(e) => { e.stopPropagation(); onAction(item.id, "resume"); }}
               disabled={actionLoading !== null}
               title={t("downloads.resume")}
               className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
             >
               {actionLoading === `resume_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            </button>
+            </motion.button>
           )}
           {item.status === "stalled" && (
-            <button
+            <motion.button
+              {...btnSpring}
               onClick={(e) => { e.stopPropagation(); onAction(item.id, "restart"); }}
               disabled={actionLoading !== null}
               title={t("downloads.restart")}
               className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
             >
               {actionLoading === `restart_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-            </button>
+            </motion.button>
           )}
-          <button
+          <motion.button
+            {...btnSpring}
             onClick={(e) => { e.stopPropagation(); onRemove(item.id, false); }}
             disabled={actionLoading !== null}
             title={t("downloads.remove")}
             className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
           >
             {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            {...btnSpring}
             onClick={(e) => { e.stopPropagation(); onRemove(item.id, true); }}
             disabled={actionLoading !== null}
             title={t("downloads.removeData")}
             className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-down/15 hover:text-down disabled:opacity-40"
           >
             {actionLoading === `remove_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <><Trash2 className="h-4 w-4" /> <X className="h-3 w-3 -ml-1" /></>}
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -489,7 +491,14 @@ const QueueItemRow = memo(function QueueItemRow({
                   <span className="font-mono">{Math.round(displayProgress * 100)}%</span>
                 </div>
                   <div className="h-2 overflow-hidden rounded-full bg-black/40">
-                    <div className="h-full rounded-full brand-gradient transition-all duration-1000 ease-linear" style={{ width: `${displayProgress * 100}%` }} />
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-[width] duration-300 ease-out",
+                        "brand-gradient",
+                        isActive && !reduceMotion && "animate-shimmer-progress bg-[linear-gradient(90deg,var(--color-brand)_0%,var(--color-brand-glow)_25%,var(--color-brand-2)_50%,var(--color-brand-glow)_75%,var(--color-brand)_100%)]"
+                      )}
+                      style={{ width: `${displayProgress * 100}%` }}
+                    />
                   </div>
                 <div className="flex justify-between">
                   <span className="text-ink-dim">{t("downloads.down")}</span>

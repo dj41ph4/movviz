@@ -168,6 +168,7 @@ export default function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submit()}
               className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+              autoComplete="username"
               autoFocus
             />
           </div>
@@ -179,6 +180,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && submit()}
               className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+              autoComplete="current-password"
             />
           </div>
 

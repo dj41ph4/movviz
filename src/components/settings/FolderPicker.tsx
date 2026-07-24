@@ -160,14 +160,14 @@ function BrowseModal({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-between gap-2 border-t border-white/10 px-5 py-4">
-          <button onClick={onCancel} className="rounded-xl glass px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 px-5 py-4">
+          <button onClick={onCancel} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm whitespace-nowrap">
             {t("settings.cancel")}
           </button>
           <button
             onClick={() => listing?.path && onChoose(listing.path)}
             disabled={!listing?.path}
-            className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2 text-sm font-bold text-white disabled:opacity-40"
+            className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-40 whitespace-nowrap"
           >
             <Check className="h-4 w-4" /> {t("settings.chooseFolder")}
           </button>

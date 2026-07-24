@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { ImportListConfig, ImportListKind } from "@/lib/importLists/types";
-import { Loader2, Plus, Trash2, RefreshCw, Check, ExternalLink } from "lucide-react";
+import { Loader2, Plus, Trash2, RefreshCw, Check, ExternalLink, List } from "lucide-react";
 
 const KIND_OPTIONS: { value: ImportListKind; label: string; icon: string }[] = [
   { value: "trakt", label: "Trakt", icon: "T" },
@@ -73,9 +73,24 @@ export function ImportListsSettings() {
   };
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-ink-dim">{t("settings.importListsHint")}</p>
+    <div className="rounded-2xl glass p-5 space-y-4">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <List className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("settings.importLists")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("settings.importListsHint")}</p>
+        </div>
+      </div>
 
+      {lists.length === 0 && !showForm && (
+        <div className="rounded-2xl glass py-12 text-center">
+          <List className="mx-auto mb-2 h-6 w-6 text-ink-dim" />
+          <p className="font-semibold text-ink">{t("settings.noImportLists")}</p>
+          <p className="mt-1 text-sm text-ink-dim">{t("settings.importListsHint")}</p>
+        </div>
+      )}
       {lists.map((l) => (
         <div key={l.id} className="flex items-center justify-between rounded-2xl glass p-4">
           <div className="min-w-0 flex-1">
@@ -100,7 +115,7 @@ export function ImportListsSettings() {
         <div className="rounded-2xl glass p-5 space-y-4">
           <div>
             <label className="mb-1 block text-xs font-semibold text-ink-soft">{t("common.name")}</label>
-            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-10 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40" />
+            <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none focus:border-brand/40" />
           </div>
           <div>
             <label className="mb-1 block text-xs font-semibold text-ink-soft">{t("common.type")}</label>
@@ -116,7 +131,7 @@ export function ImportListsSettings() {
             <label className="mb-1 block text-xs font-semibold text-ink-soft">
               {t("common.url")} <a href={hrefHint[form.kind]} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 text-brand-glow"><ExternalLink className="h-3 w-3" /></a>
             </label>
-            <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder={hrefHint[form.kind]} className="h-10 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40" />
+            <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder={hrefHint[form.kind]} className="w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none focus:border-brand/40" />
           </div>
           <div className="flex items-center gap-2">
             <input type="checkbox" id="auto" checked={form.autoApprove} onChange={(e) => setForm({ ...form, autoApprove: e.target.checked })} className="h-4 w-4 accent-brand-glow" />
@@ -126,14 +141,13 @@ export function ImportListsSettings() {
             <button onClick={create} disabled={saving} className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} {t("common.add")}
             </button>
-            <button onClick={() => setShowForm(false)} className="flex h-10 items-center rounded-xl glass px-5 text-sm font-semibold text-ink-soft">{t("common.cancel")}</button>
+            <button onClick={() => setShowForm(false)} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center"></button>
           </div>
         </div>
       )}
 
       {!showForm && (
-        <button onClick={() => setShowForm(true)} className="flex h-11 items-center gap-2 rounded-xl glass px-5 text-sm font-semibold text-ink-soft hover:text-ink">
-          <Plus className="h-4 w-4" /> {t("settings.addImportList")}
+        <button onClick={() => setShowForm(true)} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2">
         </button>
       )}
     </div>

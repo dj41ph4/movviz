@@ -554,7 +554,7 @@ export async function getNetworkLogo(id: number): Promise<string | null> {
 /** Overview + cast + similar titles + franchise collection, for a detail page. */
 const KEY_CREW_JOBS = new Set(["Director", "Writer", "Screenplay", "Producer", "Editor", "Creator"]);
 
-export async function getDetail(type: "movie" | "series", tmdbId: number): Promise<MetaDetail | null> {
+export async function getDetail(type: "movie" | "series", tmdbId: number, preferLanguage?: string): Promise<MetaDetail | null> {
   const kind = type === "movie" ? "movie" : "tv";
   const [data, watchProviders] = await Promise.all([
     tmdbGet<RawDetail>(`/${kind}/${tmdbId}`, {
@@ -601,7 +601,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number): Promi
     releaseDateFull: data.release_date ?? data.first_air_date ?? null,
     revenue: type === "movie" && data.revenue ? data.revenue : null,
     budget: type === "movie" && data.budget ? data.budget : null,
-    trailerKey: pickTrailer(data.videos?.results),
+    trailerKey: pickTrailer(data.videos?.results, preferLanguage),
     rtScore: omdb?.rtScore ?? null,
     metascore: omdb?.metascore ?? null,
     imdbRating: omdb?.imdbRating ?? null,
@@ -675,15 +675,53 @@ interface RawVideo {
   site: string;
   type: string;
   official?: boolean;
+  iso_639_1?: string;
+  iso_3166_1?: string;
 }
 
-/** Best available YouTube trailer: an official "Trailer" first, then any Trailer, then any YouTube video at all. */
-function pickTrailer(videos: RawVideo[] | undefined): string | null {
+/**
+ * Best available YouTube trailer in the user's language, with staged
+ * fallbacks so every title has *something* to show — even when the
+ * preferred-language trailer hasn't been uploaded to TMDb yet.
+ *
+ * Search order:
+ *  1. official Trailer in preferred language
+ *  2. any Trailer in preferred language
+ *  3. official Trailer in English
+ *  4. any Trailer in English
+ *  5. any official Trailer
+ *  6. any Trailer
+ *  7. any YouTube video at all
+ */
+function pickTrailer(videos: RawVideo[] | undefined, preferLanguage?: string): string | null {
   const yt = (videos ?? []).filter((v) => v.site === "YouTube");
-  const officialTrailer = yt.find((v) => v.type === "Trailer" && v.official);
-  if (officialTrailer) return officialTrailer.key;
-  const anyTrailer = yt.find((v) => v.type === "Trailer");
-  if (anyTrailer) return anyTrailer.key;
+  if (yt.length === 0) return null;
+
+  // 1. Official trailer in preferred language
+  let match = yt.find((v) => v.type === "Trailer" && v.official && v.iso_639_1 === preferLanguage);
+  if (match) return match.key;
+
+  // 2. Any trailer in preferred language
+  match = yt.find((v) => v.type === "Trailer" && v.iso_639_1 === preferLanguage);
+  if (match) return match.key;
+
+  // 3–4. English fallback (skip if user already preferred English)
+  if (preferLanguage !== "en") {
+    match = yt.find((v) => v.type === "Trailer" && v.official && v.iso_639_1 === "en");
+    if (match) return match.key;
+    match = yt.find((v) => v.type === "Trailer" && v.iso_639_1 === "en");
+    if (match) return match.key;
+  }
+
+  // 5. Any official trailer
+  match = yt.find((v) => v.type === "Trailer" && v.official);
+  if (match) return match.key;
+
+  // 6. Any trailer
+  match = yt.find((v) => v.type === "Trailer");
+  if (match) return match.key;
+
+  // 7. Any YouTube video
   return yt[0]?.key ?? null;
 }
 

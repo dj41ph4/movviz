@@ -3,16 +3,18 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import useSWR from "swr";
 import { NAV } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
+import { toast } from "@/components/ui/Toast";
 import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
+import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
 import { Download, Loader2, X } from "lucide-react";
 
 interface UpdateInfo {
@@ -36,6 +38,24 @@ export function Sidebar({ version }: { version: string }) {
   const pendingRequests = usePendingRequests();
   const pendingUsers = usePendingUsers();
   const activeDownloads = useActiveDownloads();
+
+  const prevCounts = useRef({ pendingRequests, pendingUsers, activeDownloads });
+  const [pulseBadge, setPulseBadge] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeDownloads > prevCounts.current.activeDownloads && activeDownloads > 0) {
+      setPulseBadge("activeDownloads");
+    }
+    prevCounts.current = { pendingRequests, pendingUsers, activeDownloads };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDownloads]);
+
+  useEffect(() => {
+    if (!pulseBadge) return;
+    const t = setTimeout(() => setPulseBadge(null), 2000);
+    return () => clearTimeout(t);
+  }, [pulseBadge]);
+
   const items = NAV.filter((item) => !item.adminOnly || user?.role === "admin");
 
   const { data: updateInfo, isLoading } = useSWR<UpdateInfo>(
@@ -46,6 +66,11 @@ export function Sidebar({ version }: { version: string }) {
 
   const [installing, setInstalling] = useState(false);
   const [showNasInfo, setShowNasInfo] = useState(false);
+  const autoUpdate = useAutoUpdate();
+  // Anchor on globalThis so remounting the sidebar (page navigation) doesn't
+  // re-trigger an update that was already applied.
+  const g = globalThis as typeof globalThis & { __movvizAutoUpdateTriggered?: boolean };
+  if (g.__movvizAutoUpdateTriggered === undefined) g.__movvizAutoUpdateTriggered = false;
 
   const triggerUpdate = async () => {
     setInstalling(true);
@@ -53,14 +78,30 @@ export function Sidebar({ version }: { version: string }) {
       const res = await fetch("/api/system/update", { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(t("update.failed", { error: err.error ?? "unknown" }));
+        toast("error", t("update.failed", { error: err.error ?? "unknown" }));
       }
     } catch {
-      alert(t("update.failed", { error: "network" }));
+      toast("error", t("update.failed", { error: "network" }));
     } finally {
       setInstalling(false);
     }
   };
+
+  // Auto-update: trigger silently when update is detected and auto-update is enabled
+  useEffect(() => {
+    if (
+      updateInfo?.updateAvailable &&
+      updateInfo.platform === "win32" &&
+      autoUpdate.enabled &&
+      !g.__movvizAutoUpdateTriggered
+    ) {
+      g.__movvizAutoUpdateTriggered = true;
+      // Small delay so any pending background JSON writes (300ms debounce)
+      // can flush to disk before the installer kills this process.
+      setTimeout(() => triggerUpdate(), 2000);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [updateInfo?.updateAvailable, autoUpdate.enabled]);
 
   return (
     <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col gap-2 border-r border-white/5 bg-abyss/60 px-4 py-6 backdrop-blur-xl lg:flex">
@@ -112,7 +153,13 @@ export function Sidebar({ version }: { version: string }) {
               />
               <span className="flex-1">{t(item.labelKey)}</span>
               {liveCount > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full brand-gradient px-1.5 text-[10px] font-bold text-white">
+                <span
+                  key={`${item.liveBadge}-${liveCount}`}
+                  className={cn(
+                    "flex h-5 min-w-5 items-center justify-center rounded-full brand-gradient px-1.5 text-[10px] font-bold text-white animate-badge-pop",
+                    pulseBadge === item.liveBadge && "animate-badge-pulse"
+                  )}
+                >
                   {liveCount}
                 </span>
               )}
@@ -125,31 +172,37 @@ export function Sidebar({ version }: { version: string }) {
       <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
         <Link
           href="/settings?tab=about"
-          className="flex items-center justify-center gap-1.5 px-3 py-2 text-[11px] font-semibold text-ink-dim/60 transition-colors hover:text-ink-dim"
+          className="group flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-[11px] font-semibold text-ink-dim/80 transition-all hover:text-ink-soft hover:bg-white/5"
         >
-          <span className="h-1 w-1 rounded-full bg-current" />
+          <span className="h-2 w-2 rounded-full bg-ok/70 group-hover:bg-ok transition-colors" />
           Movviz v{version}
         </Link>
 
         {updateInfo?.updateAvailable && !isLoading && updateInfo.platform === "win32" && (
-          <button
+          <motion.button
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
             onClick={triggerUpdate}
             disabled={installing}
-            className="flex w-full items-center justify-center gap-2 rounded-xl brand-gradient px-3 py-2 text-xs font-bold text-white disabled:opacity-70"
+            className="flex w-full items-center justify-center gap-2 rounded-xl brand-gradient px-3 py-2 text-xs font-bold text-white disabled:opacity-70 animate-pulse-glow"
           >
             {installing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             {installing ? t("update.inProgress") : t("update.installNow", { version: updateInfo.latestVersion ?? "..." })}
-          </button>
+          </motion.button>
         )}
 
         {updateInfo?.updateAvailable && !isLoading && updateInfo.platform !== "win32" && (
-          <button
+          <motion.button
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
             onClick={() => setShowNasInfo(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-xl glass-strong px-3 py-2 text-xs font-bold text-brand-glow"
+            className="flex w-full items-center justify-center gap-2 rounded-xl glass-strong px-3 py-2 text-xs font-bold text-brand-glow hover:border-brand/30"
           >
             <Download className="h-4 w-4" />
             {t("update.available", { version: updateInfo.latestVersion ?? "..." })}
-          </button>
+          </motion.button>
         )}
 
         {updateInfo && !updateInfo.updateAvailable && !isLoading && (
@@ -175,6 +228,7 @@ export function Sidebar({ version }: { version: string }) {
               </h2>
               <button
                 onClick={() => setShowNasInfo(false)}
+                aria-label={t("common.close")}
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-dim ring-focus hover:text-ink"
               >
                 <X className="h-4 w-4" />

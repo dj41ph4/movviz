@@ -136,6 +136,7 @@ export const it: Dictionary = {
     save: "Salva",
     saving: "Salvataggio...",
     cancel: "Annulla",
+    close: "Chiudi",
     export: "Esporta",
     import: "Importa",
     copy: "Copia",
@@ -151,6 +152,21 @@ export const it: Dictionary = {
     languageLabel: "Lingua",
     noResults: "Nessun risultato",
     change: "Cambia",
+    retry: "Riprova",
+    error: "Errore",
+    goHome: "Home",
+  },
+
+  error: {
+    title: "Si è verificato un errore",
+    description: "Qualcosa è andato storto. Per favore riprova.",
+    retry: "Riprova",
+    notFound: "Pagina non trovata",
+    notFoundDescription: "La pagina che stai cercando non esiste o è stata spostata.",
+    notFoundCta: "Torna alla home",
+    serverError: "Errore del server",
+    serverErrorDescription: "Si è verificato un errore imprevisto. Il team è stato avvisato.",
+    goHome: "Torna alla home",
   },
 
   status: {
@@ -405,6 +421,7 @@ export const it: Dictionary = {
   stats: {
     title: "Statistiche",
     description: "Una panoramica in tempo reale della libreria, dei recuperi e degli indexer.",
+    intro: "Una panoramica in tempo reale della biblioteca, dei recuperi e degli indexer.",
     totalMovies: "Film",
     totalSeries: "Serie",
     totalEpisodes: "Episodi disponibili",
@@ -419,6 +436,7 @@ export const it: Dictionary = {
   activity: {
     title: "Attività",
     description: "Coda di download, cronologia delle operazioni e contenuti ricercati.",
+    intro: "Configura cosa appare nel centro attività e rivedi le impostazioni di rilevamento degli aggiornamenti.",
     empty: "Nessuna attività ancora.",
     seasonPack: "Stagione {season} — pack ({count} episodi)",
     settings: "Attività",
@@ -588,6 +606,7 @@ export const it: Dictionary = {
     tokenName: "Nome del token",
     tokenCreatedHint: "Copia questo token ora — non verrà mostrato di nuovo.",
     noTokens: "Nessun token creato ancora.",
+    confirmRevoke: "Revocare questo token? Qualsiasi script che lo utilizza smetterà di funzionare.",
     discover: "Scopri",
     discoverHint: "Seleziona i continenti che ti interessano — i film e le serie degli altri vengono filtrati da Scopri. Se non selezioni nulla, viene mostrato tutto.",
     discoverSaved: "Preferenze salvate",
@@ -634,6 +653,10 @@ export const it: Dictionary = {
     logsCopied: "Log copiati",
     resolverLogsTitle: "Log del risolutore",
     resolverLogsHint: "Le ultime 500 righe del risolutore Cloudflare — utili per diagnosticare errori di risoluzione.",
+    searchLogsTitle: "Log di ricerca",
+    searchLogsHint: "Log diagnostico di ogni richiesta inviata agli indexer da Movviz — utile per capire perché certe ricerche non restituiscono nulla.",
+    logsFilterAll: "Tutti",
+    logsLines: "righe",
   },
 
   tasks: {
@@ -677,6 +700,7 @@ export const it: Dictionary = {
 
   cache: {
     title: "Cache",
+    intro: "Monitora la cache TMDb in memoria e persistente su disco — hit, miss, voci totali e dimensione.",
     name: "Nome cache",
     hits: "Hit",
     misses: "Miss",
@@ -820,6 +844,7 @@ export const it: Dictionary = {
     aboutSupportHint: "Movviz è gratuito e lo resterà. Se ti è utile, una donazione è sempre apprezzata.",
     aboutUpdateTitle: "Aggiornamenti",
     aboutUpdateHint: "Verifica la presenza di una nuova versione e aggiorna questa installazione Windows con un clic.",
+    autoUpdateLabel: "Installa gli aggiornamenti automaticamente quando rilevati",
     aboutUpdateNotWindows: "L'aggiornamento in un clic è disponibile solo per le installazioni Windows — su Docker/NAS, esegui di nuovo il pull dell'immagine.",
     aboutCheckUpdate: "Verifica aggiornamenti",
     aboutUpToDate: "Movviz è aggiornato",
@@ -833,6 +858,8 @@ export const it: Dictionary = {
     groupSystem: "Sistema",
     groupAdvanced: "Avanzate",
     importListsHint: "Sincronizza automaticamente i titoli dalle tue liste Trakt, IMDb o Letterboxd nella libreria.",
+    importLists: "Liste di importazione",
+    noImportLists: "Nessuna lista di importazione",
     addImportList: "Aggiungi lista",
     autoApproveImports: "Approva automaticamente senza approvazione",
     lastSync: "Ultima sincronizzazione:",
@@ -854,6 +881,7 @@ export const it: Dictionary = {
     instanceMovies: "Istanza film",
     instanceSeries: "Istanza serie",
     unlimited: "illimitato",
+    noInstances: "Nessun client di download configurato",
     protocolTorrent: "Torrent",
     editInstance: "Configura",
     engineOfflineEditHint: "Puoi comunque modificare le cartelle e le impostazioni qui sotto — avranno effetto al prossimo avvio del motore.",
@@ -894,6 +922,7 @@ export const it: Dictionary = {
     url: "URL API",
     urlHint: "Endpoint Torznab/Newznab (es. https://mio-indexer/api)",
     apiKey: "Chiave API",
+    xApiKey: "X-API-Key",
     apiKeyOptional: "Chiave API (se richiesta)",
     categories: "Categorie",
     otherCategories: "Altre categorie",
@@ -950,6 +979,8 @@ export const it: Dictionary = {
   indexation: {
     movieIntro: "Rileva i film già presenti sul disco ma mai collegati a un elemento della libreria — aggiunti manualmente, migrati da un altro strumento, o presenti prima di Movviz.",
     seriesIntro: "Rileva gli episodi già presenti sul disco ma mai collegati a un elemento della libreria — aggiunti manualmente, migrati da un altro strumento, o presenti prima di Movviz.",
+    movieTitle: "Indicizzazione film",
+    seriesTitle: "Indicizzazione serie",
     scan: "Scansiona",
     scanning: "Scansione in corso…",
     empty: "Niente da indicizzare",
@@ -960,6 +991,7 @@ export const it: Dictionary = {
     fixMatch: "Correggi",
     monitor: "Sorveglia",
     importCount: "Importa {count}",
+    confirmImport: "Importare {count} elemento(i) nella biblioteca? I file su disco saranno collegati alle voci della biblioteca.",
     searchPlaceholder: "Cerca un titolo…",
   },
 
@@ -981,6 +1013,8 @@ export const it: Dictionary = {
     tab: "Rinomina",
     title: "Rinominare i file della libreria",
     intro: "Scansiona la libreria e rinomina le cartelle di film e serie usando il titolo ufficiale nella lingua scelta. Ogni elemento rinominato riceve il nuovo titolo da TMDb e segue i tuoi modelli di nomenclatura.",
+    scanLabel: "Pronto per analizzare la tua libreria",
+    scanIntro: "Clicca il pulsante qui sotto per analizzare l'intera libreria e rilevare le cartelle di film e serie i cui nomi non corrispondono ai tuoi modelli.",
     languageLabel: "Lingua",
     cleanEmptyDirs: "Elimina cartelle vuote dopo la rinomina",
     scan: "Analizza",
@@ -1004,12 +1038,15 @@ export const it: Dictionary = {
     hideLogs: "Nascondi log",
     logsEmpty: "In attesa di voci di log...",
     errorTitle: "Errore di scansione",
+    confirmApply: "Rinominare {count} elemento(i)? I file verranno rinominati sul disco. Assicurati che nessun altro programma li stia utilizzando.",
   },
 
   repairPaths: {
     tab: "Ripara percorsi",
     title: "Riparare i percorsi dei file",
     intro: "Per ogni scheda il cui file registrato non viene trovato, cerca un file con esattamente lo stesso nome altrove nella libreria. Non sposta né elimina nulla — aggiorna solo il percorso in database una volta confermata la corrispondenza.",
+    scanLabel: "Pronto per analizzare la tua libreria",
+    scanIntro: "Clicca il pulsante qui sotto per trovare ogni voce della libreria il cui file registrato non si trova sul disco e localizzare il file reale.",
     cleanEmptyDirs: "Elimina cartelle vuote dopo il collegamento",
     scan: "Analizza",
     scanning: "Analisi in corso...",
@@ -1042,6 +1079,7 @@ export const it: Dictionary = {
     deleting: "Eliminazione...",
     clean: "Nessuna cartella vuota trovata.",
     deletedCount: "{count} cartella(e) vuota(e) eliminata(e).",
+    confirmDelete: "Eliminare {count} cartella(e) vuota(e)? Questa azione è irreversibile.",
   },
 
   customFormats: {
@@ -1114,6 +1152,7 @@ export const it: Dictionary = {
     pendingSection: "In attesa di approvazione",
     approve: "Approva",
     reject: "Rifiuta",
+    confirmReject: "Rifiutare questo utente? Verrà eliminato definitivamente.",
     createLocalUser: "Crea un utente locale",
     local: "Locale",
     loginTitle: "Accedi",
@@ -1173,6 +1212,7 @@ export const it: Dictionary = {
     link: "Collega Plex",
     relink: "Riconnetti",
     hostname: "Nome host o indirizzo IP",
+    port: "Porta",
     importUsers: "Importa utenti Plex",
     importedCount: "{n} utente/i importato/i",
     notConnected: "Collega prima Plex qui sopra",
@@ -1244,6 +1284,7 @@ export const it: Dictionary = {
 
   naming: {
     tab: "Nomenclatura",
+    title: "Nomenclatura dei file",
     intro:
       "Movviz analizza ogni download completato (titolo, anno, qualità, codec, gruppo, stagione/episodio) e applica i tuoi modelli personalizzati per rinominare e organizzare automaticamente i file.",
     enable: "Rinomina automatica",
@@ -1375,6 +1416,7 @@ export const it: Dictionary = {
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Riprova film mancanti",
       "seerr-import": "Importa richieste Seerr/Overseerr",
+      "disk-scan": "Scansione disco locale",
     },
   },
 
@@ -1407,7 +1449,39 @@ export const it: Dictionary = {
     betaSubtitle: "Sottotitoli",
     betaOff: "Off",
     betaQuality: "Qualità",
+    betaPlay: "Riproduci",
+    betaPause: "Pausa",
+    betaSkipBack: "Indietro 10s",
+    betaSkipForward: "Avanti 10s",
+    betaSpeed: "Velocità",
+    betaSpeedNormal: "Normale",
+    betaPiP: "Picture in Picture",
+    betaVolume: "Volume",
+    betaMute: "Muto",
+    betaUnmute: "Riattiva audio",
+    betaFullscreen: "Schermo intero",
+    betaExitFullscreen: "Esci da schermo intero",
+    betaResume: "Riprendi",
+    betaResumeFrom: "Riprendi da",
+    betaStartOver: "Dall'inizio",
+  },
+
+  plexActivity: {
+    title: "Monitor Plex",
+    popoverTitle: "Sessioni attive",
+    empty: "Nessuna sessione attiva.",
+    activeCount: "{count} stream{plural} attivi{plural}",
+    noActivity: "Nessuna attività",
   },
 
   language: { label: "Lingua" },
+
+  diskScan: {
+    title: "Scansione disco locale",
+    intro: "Percorre le cartelle della libreria per mappare i file reali alle voci tracciate e aggiornare i percorsi locali (diskPath).",
+    fullScan: "Scansione completa",
+    incrementalScan: "Scansione incrementale",
+    scanning: "Scansione in corso…",
+    result: "{scanned} file scansionati, {matched} corrispondenze, {updated} aggiornati",
+  },
 };

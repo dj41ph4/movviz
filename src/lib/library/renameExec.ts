@@ -88,14 +88,16 @@ async function rmRetry(src: string, log: LogFn, maxRetries = 3): Promise<void> {
 }
 
 function rmShellFallback(src: string, log: LogFn): void {
+  // SAFETY: never delete a filesystem root. rd /s /q on "D:\" would wipe everything.
+  const p = pathFor(src);
+  const resolved = p.resolve(src);
+  const depth = resolved.split(p.sep).filter(Boolean).length;
+  if (depth <= 1) {
+    throw new Error(`[SECURITY] Refusing to delete root-level directory: ${resolved}`);
+  }
   try {
     const win = process.platform === "win32";
     if (win) {
-      // execFileSync with an argv array — src is never interpolated into a
-      // shell command string, so it can't be read as anything but a literal
-      // path no matter what characters a TMDb-translated title contains.
-      // `rd` is a cmd.exe builtin (no standalone .exe), hence invoking
-      // cmd.exe /c with the rest of the command as separate argv entries.
       log(`[RM] shell fallback: rd /s /q "${src}"`);
       execFileSync("cmd.exe", ["/c", "rd", "/s", "/q", src], { timeout: 30000 });
     } else {
@@ -114,6 +116,13 @@ async function safeMove(src: string, dst: string, log: LogFn): Promise<void> {
   const nd = p.resolve(dst);
   if (ns === nd) { log(`[SKIP] ${ns} === ${nd}`); return; }
   if (fs.existsSync(nd)) throw new Error(`Target exists: ${nd}`);
+
+  // SAFETY: refuse to move a filesystem root or a directory that looks like
+  // a library root (too shallow depth).
+  const depth = ns.split(p.sep).filter(Boolean).length;
+  if (depth <= 1) {
+    throw new Error(`[SECURITY] Refusing to move root-level directory: ${ns}`);
+  }
 
   fs.mkdirSync(p.dirname(nd), { recursive: true });
 
@@ -224,7 +233,8 @@ async function sweepResidualFolder(dir: string, target: string, log: LogFn): Pro
 async function renameMovie(id: string, language: string, log: LogFn): Promise<RenameResult> {
   const list = loadMovies();
   const movie = list.find((m) => m.id === id);
-  if (!movie || !movie.file?.path) {
+  const moviePath = movie?.file?.diskPath ?? movie?.file?.path;
+  if (!movie || !moviePath) {
     return { success: false, id, type: "movie", title: "", skipped: true };
   }
 
@@ -235,30 +245,30 @@ async function renameMovie(id: string, language: string, log: LogFn): Promise<Re
   // node:path module follows the host OS instead, which corrupts paths with
   // mixed separators the moment this runs somewhere other than Linux (a
   // Windows dev/test box). Pick the module matching this movie's own path.
-  const p = pathFor(movie.file.path);
+  const p = pathFor(moviePath);
   const templates = loadNamingTemplates();
   const useDots = templates.useDotsInsteadOfSpaces;
   const ctx = buildMovieCtx(movie.file, movie.year, translated);
   const expectedFolder = renderSegment(templates.movieFolder, ctx, useDots);
   const expectedFile = renderSegment(templates.movieFile, ctx, useDots);
-  const ext = p.extname(movie.file.path);
-  const base = p.dirname(p.dirname(movie.file.path));
+  const ext = p.extname(moviePath);
+  const base = p.dirname(p.dirname(moviePath));
   const expectedPath = p.join(base, expectedFolder, expectedFile + ext);
 
-  if (expectedPath === movie.file.path) {
+  if (expectedPath === moviePath) {
     return { success: false, id, type: "movie", title: movie.title, skipped: true };
   }
 
-  log(`[MOVIE] ${movie.title}: ${p.basename(p.dirname(movie.file.path))} → ${expectedFolder}`);
+  log(`[MOVIE] ${movie.title}: ${p.basename(p.dirname(moviePath))} → ${expectedFolder}`);
 
   try {
-    if (!fs.existsSync(movie.file.path)) {
-      throw new Error(`Fichier introuvable à l'emplacement enregistré: ${movie.file.path}`);
+    if (!fs.existsSync(moviePath)) {
+      throw new Error(`Fichier introuvable à l'emplacement enregistré: ${moviePath}`);
     }
 
-    const oldDir = p.dirname(movie.file.path);
+    const oldDir = p.dirname(moviePath);
     const newDir = p.dirname(expectedPath);
-    const oldName = p.basename(movie.file.path);
+    const oldName = p.basename(moviePath);
     const newName = p.basename(expectedPath);
 
     // 1. Rename folder (if changed)
@@ -284,7 +294,7 @@ async function renameMovie(id: string, language: string, log: LogFn): Promise<Re
     }
     updateMovie(movie.id, {
       title: translated,
-      file: { ...movie.file, path: expectedPath },
+      file: { ...movie.file!, path: expectedPath, diskPath: expectedPath },
     });
     log(`[DONE] ${movie.title} → ${expectedFolder}/${expectedFile}${ext}`);
     return { success: true, id, type: "movie", title: translated };
@@ -303,15 +313,16 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     return { success: false, id, type: "series", title: "", skipped: true };
   }
 
-  const firstEp = series.seasons.flatMap((s) => s.episodes).find((e) => e.file?.path);
-  if (!firstEp?.file?.path) {
+  const firstEp = series.seasons.flatMap((s) => s.episodes).find((e) => e.file?.diskPath ?? e.file?.path);
+  const firstEpPath = firstEp?.file?.diskPath ?? firstEp?.file?.path;
+  if (!firstEpPath) {
     return { success: false, id, type: "series", title: series.title, skipped: true };
   }
 
   const translated = await getTitleInLanguage(series.tmdbId, "series", language);
   if (!translated) return { success: false, id, type: "series", title: series.title, skipped: true };
 
-  const p = pathFor(firstEp.file.path);
+  const p = pathFor(firstEpPath);
   const templates = loadNamingTemplates();
   const useDots = templates.useDotsInsteadOfSpaces;
   const seriesCtx: NamingContext = {
@@ -321,8 +332,28 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     audioCodec: null, hdr: null, group: null,
   };
   const expectedFolder = renderSegment(templates.seriesFolder, seriesCtx, useDots);
-  const oldSeriesDir = p.dirname(p.dirname(firstEp.file.path));
-  const base = p.dirname(oldSeriesDir);
+  
+  // SAFETY: find the common parent of ALL episodes in this series, instead of
+  // assuming Show/Season/Ep structure. A flat Show/Ep layout would cause
+  // dirname(dirname(...)) to climb too high (into the parent of all shows)
+  // and sweepResidualFolder would then move every show into one folder.
+  const allEpisodePaths = series.seasons.flatMap(s => s.episodes).filter(e => e.file?.diskPath ?? e.file?.path).map(e => (e.file!.diskPath ?? e.file!.path)!);
+  const epParents = allEpisodePaths.map(path => p.dirname(path));
+  let seriesRoot = new Set(epParents).size === 1 ? epParents[0] : p.dirname(epParents[0]);
+  for (const parent of epParents) {
+    while (!parent.startsWith(seriesRoot)) seriesRoot = p.dirname(seriesRoot);
+  }
+  // NEVER allow the series root to be at the same level as the rename target's parent —
+  // that would mean sweeping an entire library folder into a single show.
+  const base = p.dirname(seriesRoot);
+  // SAFETY: if the common ancestor is at the filesystem root level,
+  // we cannot safely determine the series folder — sweepResidualFolder
+  // would risk moving the entire parent directory. Skip sweeping but
+  // allow the actual episode rename to proceed.
+  const depth = seriesRoot.split(p.sep).filter(Boolean).length;
+  if (depth <= 1 || seriesRoot === base) {
+    log(`[WARN] seriesRoot computed as ${seriesRoot} (depth ${depth}) — skipping folder sweep for safety`);
+  }
   const newSeriesDir = p.join(base, expectedFolder);
 
   // Pre-compute every episode's individual target path. Each one is sourced
@@ -341,21 +372,22 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     };
     const newSeasonFolder = renderSegment(templates.seasonFolder, seasonCtx, useDots);
     for (const ep of season.episodes) {
-      if (!ep.file?.path) continue;
-      const parsed = parseRelease(p.basename(ep.file.path));
+      const epPath = ep.file?.diskPath ?? ep.file?.path;
+      if (!epPath) continue;
+      const parsed = parseRelease(p.basename(epPath));
       const epCtx: NamingContext = {
         title: translated, year: series.year ? String(series.year) : null,
         season: ep.seasonNumber, episode: ep.episodeNumber, episodeTitle: ep.title || null,
-        quality: ep.file.quality ?? "",
-        resolution: parsed.resolution ?? ep.file.resolution,
+        quality: ep.file!.quality ?? "",
+        resolution: parsed.resolution ?? ep.file!.resolution,
         source: parsed.source, videoCodec: parsed.videoCodec, audioCodec: parsed.audioCodec,
         hdr: parsed.hdr, group: parsed.group,
       };
       const expectedEpFile = renderSegment(templates.episodeFile, epCtx, useDots);
-      const ext = p.extname(ep.file.path);
+      const ext = p.extname(epPath);
       const expectedEpPath = p.join(newSeriesDir, newSeasonFolder, expectedEpFile + ext);
-      if (expectedEpPath !== ep.file.path) {
-        epRenames.push({ oldPath: ep.file.path, newPath: expectedEpPath, season: ep.seasonNumber, episode: ep.episodeNumber });
+      if (expectedEpPath !== epPath) {
+        epRenames.push({ oldPath: epPath, newPath: expectedEpPath, season: ep.seasonNumber, episode: ep.episodeNumber });
       }
     }
   }
@@ -364,7 +396,7 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     return { success: false, id, type: "series", title: series.title, skipped: true };
   }
 
-  log(`[SERIES] ${series.title}: → ${expectedFolder} (${epRenames.length}/${series.seasons.reduce((a, s) => a + s.episodes.filter((e) => e.file?.path).length, 0)} episodes to move)`);
+  log(`[SERIES] ${series.title}: → ${expectedFolder} (${epRenames.length}/${series.seasons.reduce((a, s) => a + s.episodes.filter((e) => e.file?.diskPath ?? e.file?.path).length, 0)} episodes to move)`);
 
   try {
     // Create (or reuse, if a previous partial run already made it) the one
@@ -398,10 +430,24 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     // by Movviz, so never renamed, but still real user data) gets carried
     // into the unified destination too, then the now-empty residual folders
     // are removed. Nothing that can't be safely relocated is ever deleted.
-    const residualDirs = new Set(epRenames.map((r) => p.dirname(p.dirname(r.oldPath))));
+    // SAFETY: use the already-computed seriesRoot, not dirname(dirname(...)).
+    // Residual dirs are the individual episode source directories that may contain
+    // leftovers (subs, nfo, artwork). Only clean dirs under seriesRoot.
+    const residualDirs = new Set(epRenames.map((r) => p.dirname(r.oldPath)));
     residualDirs.delete(newSeriesDir);
+    residualDirs.delete(seriesRoot); // never sweep the series root itself
     for (const dir of residualDirs) {
-      await sweepResidualFolder(dir, newSeriesDir, log);
+      // Only clean dirs that are children of seriesRoot (season folders, etc.)
+      if (dir.startsWith(seriesRoot) && dir !== seriesRoot) {
+        await sweepResidualFolder(dir, newSeriesDir, log);
+      }
+    }
+    // After moving season subfolders, clean up the series root if empty.
+    // Skip when depth <= 1 to avoid sweeping an entire drive root.
+    if (seriesRoot.split(p.sep).filter(Boolean).length > 1) {
+      await sweepResidualFolder(seriesRoot, newSeriesDir, log);
+    } else {
+      log(`[WARN] skipping series root sweep — ${seriesRoot} too close to filesystem root`);
     }
 
     // 4. Update library records — only for episodes actually confirmed moved,
@@ -411,7 +457,7 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
       episodes: season.episodes.map((ep) => {
         const r = epRenames.find((e) => e.season === ep.seasonNumber && e.episode === ep.episodeNumber);
         if (!r || !ep.file || !movedEpisodes.has(`${r.season}.${r.episode}`)) return ep;
-        return { ...ep, file: { ...ep.file, path: r.newPath } };
+        return { ...ep, file: { ...ep.file, path: r.newPath, diskPath: r.newPath } };
       }),
     }));
     const seriesPatches = new Map<string, Partial<typeof series>>();

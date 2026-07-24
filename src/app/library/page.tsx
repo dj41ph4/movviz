@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { LibrarySeriesCard } from "@/components/library/LibrarySeriesCard";
@@ -67,8 +67,18 @@ export default function LibraryPage() {
 function LibraryPageInner() {
   const t = useT();
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const initialTab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "library";
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
+
+  const pushTab = (id: (typeof TABS)[number]["id"]) => {
+    setTab(id);
+    const p = new URLSearchParams(params.toString());
+    if (id === "library") p.delete("tab");
+    else p.set("tab", id);
+    router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
+  };
 
   return (
     <div className="mx-auto max-w-[1500px]">
@@ -78,7 +88,7 @@ function LibraryPageInner() {
         {TABS.map((tb) => (
           <button
             key={tb.id}
-            onClick={() => setTab(tb.id)}
+            onClick={() => pushTab(tb.id)}
             className={cn(
               "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
               tab === tb.id ? "brand-gradient text-white shadow-lg" : "glass text-ink-soft hover:text-ink"
@@ -100,13 +110,35 @@ function LibraryPageInner() {
 function LibraryTab() {
   const t = useT();
   const user = useCurrentUser();
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
-  const [type, setType] = useState<(typeof TYPES)[number]["id"]>("all");
-  const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>("title");
-  const [tagFilter, setTagFilter] = useState("");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>(
+    () => (FILTERS.find((f) => f.id === searchParams.get("filter"))?.id ?? "all") as (typeof FILTERS)[number]["id"]
+  );
+  const [type, setType] = useState<(typeof TYPES)[number]["id"]>(
+    () => (TYPES.find((tp) => tp.id === searchParams.get("type"))?.id ?? "all") as (typeof TYPES)[number]["id"]
+  );
+  const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>(
+    () => (SORTS.find((s) => s.id === searchParams.get("sort"))?.id ?? "title") as (typeof SORTS)[number]["id"]
+  );
+  const [tagFilter, setTagFilter] = useState(() => searchParams.get("tag") ?? "");
   const [rescanning, setRescanning] = useState(false);
   const [issues, setIssues] = useState<RescanIssue[] | null>(null);
   const [starting, setStarting] = useState(false);
+
+  // Sync library filters to URL for back-button support.
+  useEffect(() => {
+    const p = new URLSearchParams(searchParams.toString());
+    if (filter !== "all") p.set("filter", filter); else p.delete("filter");
+    if (type !== "all") p.set("type", type); else p.delete("type");
+    if (sort !== "title") p.set("sort", sort); else p.delete("sort");
+    if (tagFilter) p.set("tag", tagFilter); else p.delete("tag");
+    const qs = p.toString();
+    if (qs !== searchParams.toString()) {
+      router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
+    }
+  }, [filter, type, sort, tagFilter, searchParams, router, pathname]);
   const { data: tagsData } = useSWR<{ tags: string[] }>("/api/tags");
   const allTags = tagsData?.tags ?? [];
 
@@ -152,13 +184,13 @@ function LibraryTab() {
   // it) instead of the grid going blank on every visit, then revalidates
   // in the background on the same 3s cadence the old polling used.
   const { data: moviesData, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
-    "/api/library/movies", { refreshInterval: 3000 }
+    "/api/library/movies"
   );
   const { data: seriesData, mutate: mutateSeries } = useSWR<{ series: LibrarySeries[] }>(
-    "/api/library/series", { refreshInterval: 3000 }
+    "/api/library/series"
   );
   const { data: torrentsData } = useSWR<{ torrents: EngineTorrent[] }>(
-    "/api/engine/torrents", { refreshInterval: 3000 }
+    "/api/engine/torrents"
   );
   const movies = moviesData?.movies ?? [];
   const series = seriesData?.series ?? [];
@@ -255,7 +287,7 @@ function LibraryTab() {
 
   return (
     <div>
-      <div className="mb-6 space-y-4 rounded-2xl glass p-4">
+      <div className="mb-6 space-y-4 rounded-2xl glass p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-ink">
             <Film className="h-4 w-4 text-brand-glow" />
@@ -376,19 +408,27 @@ function LibraryTab() {
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        {visibleMovies.map((movie) => (
-          <LibraryMovieCard key={movie.id} movie={movie} torrent={progressFor(movie)} watched={watchedMovies.has(movie.tmdbId)} onChange={refresh} />
+        {visibleMovies.map((movie, i) => (
+          <LibraryMovieCard key={movie.id} index={i} movie={movie} torrent={progressFor(movie)} watched={watchedMovies.has(movie.tmdbId)} onChange={refresh} />
         ))}
-        {visibleSeries.map((s) => (
-          <LibrarySeriesCard key={s.id} series={s} />
+        {visibleSeries.map((s, i) => (
+          <LibrarySeriesCard key={s.id} index={visibleMovies.length + i} series={s} />
         ))}
       </div>
 
       {visibleCount < total && <div ref={sentinelRef} className="h-1" />}
 
       {loading && total === 0 && (
-        <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
-          <Loader2 className="h-5 w-5 animate-spin" /> {t("common.loading")}
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+          {[...Array(12)].map((_, i) => (
+            <div key={i}>
+              <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/6" />
+              <div className="mt-2.5 space-y-1.5 px-0.5">
+                <div className="h-3 w-3/4 animate-pulse rounded bg-white/8" />
+                <div className="h-2.5 w-1/2 animate-pulse rounded bg-white/6" />
+              </div>
+            </div>
+          ))}
         </div>
       )}
       {!loading && total === 0 && (
@@ -480,14 +520,12 @@ function WantedTab() {
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [allProgress, setAllProgress] = useState<{ current: number; total: number } | null>(null);
 
-  // Same SWR keys and cadence as the library tab/dashboard — matching the
-  // interval means SWR's request dedupe actually kicks in instead of two
-  // components polling the same endpoint on two different clocks.
+  // Same SWR keys as the library tab/dashboard — SSE-driven revalidation.
   const { data: moviesData, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
-    "/api/library/movies", { refreshInterval: 3000 }
+    "/api/library/movies"
   );
   const { data: seriesData, mutate: mutateSeries } = useSWR<{ series: LibrarySeries[] }>(
-    "/api/library/series", { refreshInterval: 3000 }
+    "/api/library/series"
   );
   const movies = useMemo(
     () => (moviesData?.movies ?? []).filter((x) => x.monitored && x.status === "missing"),
@@ -578,7 +616,7 @@ function WantedTab() {
   return (
     <div className="mx-auto max-w-[1100px] space-y-4">
       {total > 0 && (
-        <div className="flex items-center justify-between gap-3 rounded-xl glass px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl glass px-4 py-3">
           <span className="text-sm font-semibold text-ink-soft">{total} {t("common.titles")}</span>
           <button
             onClick={downloadAll}

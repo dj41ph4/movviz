@@ -11,7 +11,7 @@ import { LinkDownloadModal } from "./LinkDownloadModal";
 export function UnlinkedTab() {
   const t = useT();
   const { locale } = useI18n();
-  const { data, mutate } = useSWR<{ items: ActivityEntry[] }>("/api/activity/v2?tab=unlinked", { refreshInterval: 15000 });
+  const { data, mutate } = useSWR<{ items: ActivityEntry[] }>("/api/activity/v2?tab=unlinked");
   const [target, setTarget] = useState<ActivityEntry | null>(null);
   const items = data?.items ?? [];
 

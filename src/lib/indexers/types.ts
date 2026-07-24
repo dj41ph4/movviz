@@ -12,7 +12,7 @@ export type IndexerProtocol = "torrent" | "usenet";
 /** Query API standard exposed by the indexer. */
 export type IndexerKind = "torznab" | "newznab";
 /** How the indexer authenticates a request. */
-export type IndexerAuthType = "apikey" | "credentials" | "none";
+export type IndexerAuthType = "apikey" | "credentials" | "x-api-key" | "none";
 
 /**
  * What an indexer's `t=caps` response actually declares it can do. Torznab

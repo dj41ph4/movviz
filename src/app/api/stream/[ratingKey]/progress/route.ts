@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
+import { safePlexUrl } from "@/lib/plex/safeUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,8 @@ let offset = 0;
 
   const cfg = loadPlexConfig();
   if (cfg.hostname && cfg.adminToken) {
-    const base = `${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`;
+    const base = safePlexUrl(`${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`);
+    if (!base) return NextResponse.json({ error: "invalid_plex_url" }, { status: 500 });
     try {
       await fetch(
         `${base}/:/progress?key=${encodeURIComponent(ratingKey)}&offset=${offset}&state=${encodeURIComponent(state)}`,

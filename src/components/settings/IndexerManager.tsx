@@ -139,7 +139,7 @@ export function IndexerManager() {
             }
           }}
           placeholder="http://localhost:9830"
-          className="h-9 flex-1 rounded-lg border border-white/8 bg-black/30 px-3 text-xs font-mono text-ink outline-none focus:border-brand/40"
+          className="flex-1 rounded-xl glass-strong px-3 py-2 text-xs font-mono text-ink outline-none"
         />
         {resolverSaving && <Loader2 className="h-4 w-4 animate-spin text-ink-dim" />}
       </div>
@@ -199,7 +199,7 @@ export function IndexerManager() {
                     <SlidersHorizontal className="h-4 w-4 shrink-0" />
                     {t("indexerMgr.filters")}
                   </button>
-                <button onClick={() => test(r.id)} disabled={testing === r.id} className="flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl glass px-3 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50">
+                <button onClick={() => test(r.id)} disabled={testing === r.id} className="glass-strong text-ink-soft h-10 px-3 rounded-xl font-semibold text-sm flex shrink-0 items-center gap-1.5 whitespace-nowrap transition-colors hover:text-ink disabled:opacity-50">
                   {testing === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wifi className="h-4 w-4" />}
                   {testing === r.id ? t("indexerMgr.testing") : t("indexerMgr.test")}
                 </button>
@@ -360,7 +360,7 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
   const [realCategories, setRealCategories] = useState<CategoryNode[] | null>(null);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
-  const field = "h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none transition-colors placeholder:text-ink-dim focus:border-brand/40";
+  const field = "w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim";
 
   const loadCategories = async () => {
     if (!baseUrl.trim()) return;
@@ -368,6 +368,10 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
     // the indexer would just reject with an HTTP 401 that means nothing to
     // most users ("HTTP 401" isn't self-explanatory; "enter your API key" is).
     if (authType === "apikey" && !apiKey.trim()) {
+      setCategoriesError(t("indexerMgr.categoriesNeedKey"));
+      return;
+    }
+    if (authType === "x-api-key" && !apiKey.trim()) {
       setCategoriesError(t("indexerMgr.categoriesNeedKey"));
       return;
     }
@@ -451,29 +455,29 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.authMode")}</label>
           <div className="flex gap-1 rounded-xl glass p-1">
-            {(["apikey", "credentials"] as const).map((a) => (
+            {(["apikey", "x-api-key", "credentials"] as const).map((a) => (
               <button key={a} onClick={() => setAuthType(a)} className={cn("flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors", authType === a ? "brand-gradient text-white" : "text-ink-soft hover:text-ink")}>
-                {a === "apikey" ? t("indexerMgr.apiKey") : t("indexerMgr.credentials")}
+                {a === "apikey" ? t("indexerMgr.apiKey") : a === "x-api-key" ? t("indexerMgr.xApiKey") : t("indexerMgr.credentials")}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {authType === "apikey" ? (
+      {authType === "apikey" || authType === "x-api-key" ? (
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.apiKey")}</label>
-          <input value={apiKey} onChange={(e) => { setApiKey(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" className={field} />
+          <input value={apiKey} onChange={(e) => { setApiKey(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" autoComplete="off" className={field} />
         </div>
       ) : (
         <>
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.username")}</label>
-            <input value={username} onChange={(e) => { setUsername(e.target.value); setRealCategories(null); }} className={field} />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.password")}</label>
-            <input value={password} onChange={(e) => { setPassword(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" className={field} />
+              <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.username")}</label>
+              <input value={username} onChange={(e) => { setUsername(e.target.value); setRealCategories(null); }} autoComplete="off" className={field} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.password")}</label>
+              <input value={password} onChange={(e) => { setPassword(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" autoComplete="off" className={field} />
           </div>
         </>
       )}
@@ -495,8 +499,8 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
       </div>
 
       <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:col-span-2">
-        <button onClick={onCancel} className="rounded-xl glass px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">{t("indexerMgr.cancel")}</button>
-        <button onClick={save} disabled={saving || !baseUrl.trim()} className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2 text-sm font-bold text-white disabled:opacity-40">
+        <button onClick={onCancel} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm whitespace-nowrap">{t("common.cancel")}</button>
+        <button onClick={save} disabled={saving || !baseUrl.trim()} className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-40 whitespace-nowrap">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {t("indexerMgr.save")}
         </button>
       </div>
@@ -516,7 +520,7 @@ function FilterField({ label, value, onCommit }: { label: string; value: number 
         onBlur={() => onCommit(local ? Number(local) : undefined)}
         inputMode="numeric"
         placeholder="0"
-        className="h-10 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+        className="w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
       />
     </div>
   );

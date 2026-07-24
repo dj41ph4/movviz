@@ -48,13 +48,13 @@ export function RequestMovieModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[12vh] backdrop-blur-sm" onClick={onClose}>
       <div className="w-full max-w-md rounded-2xl glass p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
             <Film className="h-5 w-5 text-brand-glow" /> {t("requests.movieTitle")}
           </h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg glass text-ink-dim hover:text-ink">
+          <button onClick={onClose} aria-label={t("common.close")} className="flex h-8 w-8 items-center justify-center rounded-lg glass text-ink-dim hover:text-ink">
             <X className="h-4 w-4" />
           </button>
         </div>

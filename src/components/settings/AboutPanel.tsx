@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
+import { toast } from "@/components/ui/Toast";
 import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
 import { useVersion } from "@/lib/version/VersionContext";
+import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
 
 interface UpdateCheck {
   currentVersion: string;
@@ -28,6 +31,7 @@ export function AboutPanel() {
   const { data, mutate, isLoading } = useSWR<UpdateCheck>("/api/system/update", fetcher);
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const autoUpdate = useAutoUpdate();
 
   const checkNow = async () => {
     setChecking(true);
@@ -44,17 +48,17 @@ export function AboutPanel() {
       const res = await fetch("/api/system/update", { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(t("update.failed", { error: err.error ?? "unknown" }));
+        toast("error", t("update.failed", { error: err.error ?? "unknown" }));
       }
     } catch {
-      alert(t("update.failed", { error: "network" }));
+      toast("error", t("update.failed", { error: "network" }));
     } finally {
       setInstalling(false);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-6">
       <div className="flex flex-col items-center gap-4 rounded-2xl glass p-8 text-center">
         <AnimatedLogo size="lg" />
         <div>
@@ -101,47 +105,80 @@ export function AboutPanel() {
           {!data || data.platform === "win32" ? t("settings.aboutUpdateHint") : t("settings.aboutUpdateNotWindows")}
         </p>
 
-        <div className="flex items-center gap-3">
+        <label className="mb-4 flex items-center justify-between gap-3 cursor-pointer">
+          <span className="text-sm text-ink-soft">{t("settings.autoUpdateLabel")}</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoUpdate.enabled}
+            onClick={() => autoUpdate.setEnabled(!autoUpdate.enabled)}
+            className={cn(
+              "relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors duration-200",
+              autoUpdate.enabled ? "bg-brand" : "bg-white/15"
+            )}
+          >
+            <motion.span
+              className="inline-block h-5 w-5 rounded-full bg-white shadow-sm"
+              animate={{ x: autoUpdate.enabled ? 22 : 4 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+            />
+          </button>
+        </label>
+
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={checkNow}
             disabled={checking || isLoading}
-            className="flex h-10 items-center gap-2 rounded-xl glass-strong px-4 text-sm font-semibold text-ink-soft disabled:opacity-50"
+            className="flex h-10 items-center gap-2 rounded-xl glass-strong px-4 text-sm font-semibold text-ink-soft disabled:opacity-50 hover:text-ink transition-colors"
           >
             {checking || isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             {t("settings.aboutCheckUpdate")}
           </button>
 
           {data && !data.updateAvailable && (
-            <span className="flex items-center gap-1.5 text-sm text-ok">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-ok">
               <CheckCircle2 className="h-4 w-4" /> {t("settings.aboutUpToDate")}
             </span>
           )}
 
-          {data?.updateAvailable && data.platform === "win32" && (
-            <button
-              onClick={installNow}
-              disabled={installing}
-              className={cn(
-                "flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white",
-                "disabled:opacity-70"
-              )}
-            >
-              {installing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-              {installing ? t("update.inProgress") : t("update.installNow", { version: data.latestVersion ?? "" })}
-            </button>
-          )}
+          <AnimatePresence>
+            {data?.updateAvailable && data.platform === "win32" && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9, y: -8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                onClick={installNow}
+                disabled={installing}
+                className={cn(
+                  "flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white",
+                  "disabled:opacity-70",
+                  "animate-pulse-glow"
+                )}
+              >
+                {installing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {installing ? t("update.inProgress") : t("update.installNow", { version: data.latestVersion ?? "" })}
+              </motion.button>
+            )}
+          </AnimatePresence>
 
-          {data?.updateAvailable && data.platform !== "win32" && (
-            <a
-              href={data.releaseUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white hover:opacity-90 transition-opacity"
-            >
-              <ExternalLink className="h-4 w-4" />
-              {t("update.available", { version: data.latestVersion ?? "" })}
-            </a>
-          )}
+          <AnimatePresence>
+            {data?.updateAvailable && data.platform !== "win32" && (
+              <motion.a
+                initial={{ opacity: 0, scale: 0.9, y: -8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 400, damping: 28 }}
+                href={data.releaseUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white hover:opacity-90 transition-opacity"
+              >
+                <ExternalLink className="h-4 w-4" />
+                {t("update.available", { version: data.latestVersion ?? "" })}
+              </motion.a>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>

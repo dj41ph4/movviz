@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomBytes, createHmac } from "node:crypto";
 import type { User } from "./types";
 import { getRawSigningKey } from "./signing";
+import { eventBus } from "@/lib/events/EventBus";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -61,6 +62,7 @@ export function addUser(user: User): User {
   const list = loadUsers();
   list.push(user);
   saveUsers(list);
+  eventBus.emit({ type: "user_updated" });
   return user;
 }
 export function updateUser(id: string, patch: Partial<User>): User | null {
@@ -69,6 +71,7 @@ export function updateUser(id: string, patch: Partial<User>): User | null {
   if (i < 0) return null;
   list[i] = { ...list[i], ...patch };
   saveUsers(list);
+  eventBus.emit({ type: "user_updated" });
   return list[i];
 }
 /** Used to reject a still-pending registration — never call on an already-approved account. */
@@ -77,6 +80,7 @@ export function deleteUser(id: string): boolean {
   const next = list.filter((u) => u.id !== id);
   if (next.length === list.length) return false;
   saveUsers(next);
+  eventBus.emit({ type: "user_updated" });
   return true;
 }
 

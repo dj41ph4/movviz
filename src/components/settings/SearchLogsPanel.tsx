@@ -94,18 +94,16 @@ export function SearchLogsPanel() {
 
   return (
     <div className="rounded-2xl glass p-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Bug className="h-5 w-5" />
+        </span>
         <div>
-          <h3 className="flex items-center gap-2 font-bold text-ink">
-            <Bug className="h-4 w-4 text-brand-glow" />
-            Diagnostic — Recherche des manquants
-          </h3>
-          <p className="mt-1 max-w-xl text-xs text-ink-dim">
-            Journal détaillé de la recherche de tout ce qui est manquant. Chaque étape (lecture cache RSS,
-            scoring, filtrage, envoi au moteur) est chronométrée. Utile pour comprendre pourquoi un titre
-            n'est pas trouvé ou pourquoi le bouton fait planter l'app.
-          </p>
+          <h3 className="font-bold text-ink">{t("health.searchLogsTitle")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("health.searchLogsHint")}</p>
         </div>
+      </div>
+      <div className="flex items-center justify-between gap-3">
         <div className="flex shrink-0 gap-2">
           <button
             onClick={load}
@@ -113,7 +111,7 @@ export function SearchLogsPanel() {
             className="flex h-9 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-            Actualiser
+            {t("health.logsRefresh")}
           </button>
           <button
             onClick={copy}
@@ -121,7 +119,7 @@ export function SearchLogsPanel() {
             className="flex h-9 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft disabled:opacity-40"
           >
             {copied ? <Check className="h-3.5 w-3.5 text-ok" /> : <Copy className="h-3.5 w-3.5" />}
-            {copied ? "Copiés" : "Copier"}
+            {copied ? t("health.logsCopied") : t("health.logsCopy")}
           </button>
           <button
             onClick={clear}
@@ -129,13 +127,13 @@ export function SearchLogsPanel() {
             className="flex h-9 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft disabled:opacity-40"
           >
             <Trash2 className="h-3.5 w-3.5" />
-            Effacer
+            {t("cache.clear")}
           </button>
         </div>
       </div>
 
       <div className="mt-3 flex gap-1.5">
-        {(["all", "info", "warn", "error", "debug"] as const).map((lvl) => (
+            {(["all", "info", "warn", "error", "debug"] as const).map((lvl) => (
           <button
             key={lvl}
             onClick={() => setLevelFilter(lvl)}
@@ -146,12 +144,12 @@ export function SearchLogsPanel() {
                 : "text-ink-dim hover:text-ink-soft"
             )}
           >
-            {lvl === "all" ? "TOUT" : lvl.toUpperCase()}
+            {lvl === "all" ? t("health.logsFilterAll") : lvl.toUpperCase()}
           </button>
         ))}
-        <span className="ml-auto text-[11px] text-ink-dim">
-          {displayed.length} ligne{displayed.length !== 1 ? "s" : ""}
-        </span>
+            <span className="ml-auto text-[11px] text-ink-dim">
+              {displayed.length} {t("health.logsLines")}
+            </span>
       </div>
 
       <div
@@ -160,10 +158,7 @@ export function SearchLogsPanel() {
         className="mt-3 max-h-[520px] overflow-y-auto rounded-xl border border-white/5 bg-black/40 p-3 font-mono text-[11px] leading-relaxed"
       >
         {!displayed.length ? (
-          <p className="py-6 text-center text-ink-dim">
-            Aucune entrée pour l'instant. Lance une recherche des manquants depuis la bibliothèque,
-            puis actualise ce panneau.
-          </p>
+          <p className="py-6 text-center text-ink-dim">{t("health.logsEmpty")}</p>
         ) : (
           displayed.map((l, i) => (
             <div key={i} className="flex gap-2 whitespace-pre-wrap break-all hover:bg-white/4">

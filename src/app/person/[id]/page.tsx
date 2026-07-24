@@ -48,7 +48,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
       </div>
 
       <h2 className="mb-3 text-lg font-bold text-ink">{t("person.filmography")}</h2>
-      <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
+      <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
         {person.credits.map((c) => (
           <Link key={`${c.type}:${c.tmdbId}`} href={`/title/${c.type}/${c.tmdbId}`} className="group block">
             <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/5 bg-surface">

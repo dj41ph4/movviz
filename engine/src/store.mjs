@@ -71,25 +71,24 @@ export async function movePath(src, dest) {
  * what lets a finished download live in the library instantly while the
  * torrent keeps seeding from the download folder: both paths share the same
  * data on disk, so it costs no time and no extra space.
+ *
+ * SAFETY: writes to a temporary file first, then atomically renames into
+ * place. This ensures the original file is NEVER deleted before the new
+ * one is confirmed — if the source is unavailable (torrent cleaned up),
+ * the existing destination file is preserved rather than lost.
  */
 export async function linkOrCopy(src, dest) {
   await ensureDir(path.dirname(dest));
   try {
     await fsp.link(src, dest);
   } catch (err) {
-    if (err.code !== "EEXIST") {
-      await fsp.cp(src, dest, { recursive: true });
-      return;
-    }
-    // A file already sits at dest (e.g. a previous, incomplete attempt at
-    // the same episode) — replace it instead of silently keeping whatever
-    // was there before, otherwise a re-grab can "succeed" while the stale
-    // file never actually gets updated.
-    await fsp.rm(dest, { force: true });
+    const tmp = dest + "." + process.pid + "." + Date.now() + ".movviz.tmp";
     try {
-      await fsp.link(src, dest);
-    } catch {
-      await fsp.cp(src, dest, { recursive: true });
+      await fsp.cp(src, tmp, { recursive: true });
+      await fsp.rename(tmp, dest);
+    } catch (e) {
+      try { await fsp.rm(tmp, { force: true }); } catch {}
+      throw e;
     }
   }
 }

@@ -98,7 +98,7 @@ export function ManualSearchModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-[8vh] backdrop-blur-sm" onClick={onClose}>
       <div
         className="mx-4 max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-white/10 bg-void shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -108,7 +108,7 @@ export function ManualSearchModal({
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-bold text-ink">{t("search.manualFor", { title })}</h2>
           </div>
-          <button onClick={onClose} className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl glass-strong text-ink-dim hover:text-ink">
+          <button onClick={onClose} aria-label={t("common.close")} className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl glass-strong text-ink-dim hover:text-ink">
             <X className="h-4 w-4" />
           </button>
         </div>

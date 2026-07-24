@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
+import { ScrollRestoration } from "@/components/layout/ScrollRestoration";
 import { ServiceWorkerRegistration } from "@/components/layout/ServiceWorkerRegistration";
 import { PerfReporter } from "@/components/system/PerfReporter";
 import { getAppVersion } from "@/lib/updates/version";
@@ -10,7 +11,10 @@ const DESCRIPTION =
   "Le centre de commande intelligent de vos films et séries — découverte, demandes et bibliothèque, orchestrés en un seul endroit.";
 
 export const metadata: Metadata = {
-  title: "Movviz — Centre de commande média intelligent",
+  title: {
+    template: "Movviz – %s",
+    default: "Movviz — Centre de commande média intelligent",
+  },
   description: DESCRIPTION,
   manifest: "/manifest.json",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
@@ -42,6 +46,7 @@ export default function RootLayout({
     <html lang="fr" suppressHydrationWarning>
       <body className="cinema-grain antialiased">
         <script id="theme-init" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <ScrollRestoration />
         <ServiceWorkerRegistration />
         <PerfReporter />
         <AppShell version={getAppVersion()}>{children}</AppShell>

@@ -2,16 +2,18 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SortableColumnHeader } from "@/components/ui/SortableColumnHeader";
 import { cn, formatBytes, relativeTime } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import type { MediaType } from "@/lib/types";
 import { TitleTargetPicker } from "@/components/activity/v2/TitleTargetPicker";
 import {
-  Search, Zap, Magnet, Server, Download, Loader2, Settings, Film, Tv, Check, ListFilter, X, AlertTriangle,
+  Search, Zap, Magnet, Server, Download, Loader2, Settings, Film, Tv, Check, ListFilter, X, AlertTriangle, RotateCw,
 } from "lucide-react";
 
 /** Extract the season number from a search query (e.g. "South Park S29" → 29, "South Park Season 29" → 29). */
@@ -72,6 +74,9 @@ export default function SearchPage() {
 function SearchPageInner() {
   const t = useT();
   const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const reduceMotion = useShouldReduceMotion();
   const libraryRef = params.get("libraryRef");
   const manualTitle = params.get("title");
   const [q, setQ] = useState(params.get("q") ?? "");
@@ -83,10 +88,16 @@ function SearchPageInner() {
   const [grabbing, setGrabbing] = useState<string | null>(null);
   const [grabbed, setGrabbed] = useState<Set<string>>(new Set());
   const [recentLoading, setRecentLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const [sortKey, setSortKey] = useState<string>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [indexerErrors, setIndexerErrors] = useState<{ indexer: string; detail: string }[]>([]);
   const [pendingTarget, setPendingTarget] = useState<IndexerRelease | null>(null);
+
+  const btnSpring = reduceMotion ? {} : {
+    whileTap: { scale: 0.95 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 17 },
+  };
 
   const sorted = useMemo(() => {
     const arr = [...releases];
@@ -116,7 +127,7 @@ function SearchPageInner() {
 
   // Manual pick from a library card lands here pre-filled — launch the search right away.
   useEffect(() => {
-    if (libraryRef && q.trim()) run();
+    if (q.trim() && !searched) run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -131,6 +142,7 @@ function SearchPageInner() {
   const loadRecent = async (cat: MediaType) => {
     if (recentLoading) return;
     setRecentLoading(true);
+    setFetchError(false);
     try {
       const res = await fetch(`/api/indexers/search?recent=1&category=${cat}`, { cache: "no-store" });
       const data = await res.json();
@@ -141,7 +153,7 @@ function SearchPageInner() {
         setConfigured(false);
       }
     } catch {
-      // silent — indexers might just not support empty queries
+      setFetchError(true);
     } finally {
       setRecentLoading(false);
     }
@@ -149,8 +161,13 @@ function SearchPageInner() {
 
   const run = async () => {
     if (!q.trim()) return;
+    const p = new URLSearchParams(params.toString());
+    p.set("q", q.trim());
+    p.set("category", category);
+    router.push(pathname + "?" + p.toString(), { scroll: false });
     setLoading(true);
     setSearched(true);
+    setFetchError(false);
     try {
       const paramsQ = new URLSearchParams({ q: q.trim() });
       const refTitle = params.get("refTitle");
@@ -166,6 +183,7 @@ function SearchPageInner() {
       setReleases(data.releases ?? []);
       setIndexerErrors(data.errors ?? []);
     } catch {
+      setFetchError(true);
       setConfigured(false);
       setReleases([]);
       setIndexerErrors([]);
@@ -246,22 +264,22 @@ function SearchPageInner() {
         </div>
         <div className="flex items-center gap-1 rounded-2xl glass p-1">
           {(["movie", "series"] as const).map((c) => (
-            <button key={c} onClick={() => setCategory(c)} className={cn("flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors", category === c ? "brand-gradient text-white" : "text-ink-soft hover:text-ink")}>
+            <button key={c} onClick={() => { setCategory(c); const p = new URLSearchParams(params.toString()); p.set("category", c); if (q.trim()) p.set("q", q.trim()); router.push(pathname + "?" + p.toString(), { scroll: false }); }} className={cn("flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-colors", category === c ? "brand-gradient text-white" : "text-ink-soft hover:text-ink")}>
               {c === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
               {c === "movie" ? t("common.movies") : t("common.series")}
             </button>
           ))}
         </div>
-        <button onClick={run} disabled={loading || !q.trim()} className="flex h-14 items-center justify-center gap-2 rounded-2xl brand-gradient px-8 text-sm font-bold text-white shadow-xl transition-transform hover:scale-[1.02] active:scale-95 disabled:opacity-40">
+        <motion.button {...btnSpring} onClick={run} disabled={loading || !q.trim()} className="flex h-14 items-center justify-center gap-2 rounded-2xl brand-gradient px-8 text-sm font-bold text-white shadow-xl transition-transform hover:scale-105 active:scale-95 disabled:opacity-40">
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4 fill-white" />} {t("search.launch")}
-        </button>
+        </motion.button>
       </div>
 
       {/* Per-indexer errors — an indexer rejecting the request (bad key, rate
           limit, malformed query) otherwise looks identical to "found
           nothing", so surface it instead of leaving the user guessing. */}
       {indexerErrors.length > 0 && (
-        <div className="mb-4 flex flex-col gap-1.5 rounded-xl border border-down/25 bg-down/10 px-4 py-2.5 text-sm text-down">
+        <div className="mb-4 flex flex-col gap-1.5 rounded-xl border border-down/20 bg-down/8 px-4 py-2.5 text-sm text-down">
           {indexerErrors.map((e) => (
             <div key={e.indexer} className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -271,8 +289,24 @@ function SearchPageInner() {
         </div>
       )}
 
+      {/* Fetch error */}
+      {fetchError && (
+        <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
+          <AlertTriangle className="h-8 w-8 text-down" />
+          <p className="font-semibold text-ink">{t("error.title")}</p>
+          <p className="max-w-md text-sm text-ink-dim">{t("error.description")}</p>
+          <motion.button
+            {...btnSpring}
+            onClick={() => (searched ? run() : loadRecent(category))}
+            className="mt-2 inline-flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white"
+          >
+            <RotateCw className="h-4 w-4" /> {t("common.retry")}
+          </motion.button>
+        </div>
+      )}
+
       {/* Not configured */}
-      {configured === false && (
+      {configured === false && !fetchError && (
         <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
           <Settings className="h-8 w-8 text-brand-glow" />
           <p className="font-semibold text-ink">{t("search.noIndexers")}</p>
@@ -285,15 +319,61 @@ function SearchPageInner() {
 
       {/* Loading recent */}
       {recentLoading && (
-        <div className="flex items-center justify-center gap-2 rounded-2xl glass py-16 text-ink-dim">
-          <Loader2 className="h-5 w-5 animate-spin" /> {t("search.searching")}
+        <div className="overflow-hidden rounded-2xl glass">
+          <div className="hidden grid-cols-[1fr_110px_65px_75px_65px_100px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
+            <span className="h-3 w-24 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-16 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-10 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-12 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-10 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-14 animate-pulse rounded bg-white/8" />
+          </div>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="grid grid-cols-1 gap-2 border-b border-white/5 px-5 py-4 last:border-0 md:grid-cols-[1fr_110px_65px_75px_65px_100px] md:items-center md:gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 shrink-0 animate-pulse rounded-lg bg-white/8" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/8" />
+                  <div className="h-2.5 w-1/4 animate-pulse rounded bg-white/6" />
+                </div>
+              </div>
+              <div className="h-3 w-20 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-12 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-14 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-10 animate-pulse rounded bg-white/8" />
+              <div className="h-7 w-16 animate-pulse rounded-lg bg-white/8 md:ml-auto" />
+            </div>
+          ))}
         </div>
       )}
 
       {/* Loading search */}
       {loading && (
-        <div className="flex items-center justify-center gap-2 rounded-2xl glass py-16 text-ink-dim">
-          <Loader2 className="h-5 w-5 animate-spin" /> {t("search.searching")}
+        <div className="overflow-hidden rounded-2xl glass">
+          <div className="hidden grid-cols-[1fr_110px_65px_75px_65px_100px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
+            <span className="h-3 w-24 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-16 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-10 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-12 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-10 animate-pulse rounded bg-white/8" />
+            <span className="h-3 w-14 animate-pulse rounded bg-white/8" />
+          </div>
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="grid grid-cols-1 gap-2 border-b border-white/5 px-5 py-4 last:border-0 md:grid-cols-[1fr_110px_65px_75px_65px_100px] md:items-center md:gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 shrink-0 animate-pulse rounded-lg bg-white/8" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/8" />
+                  <div className="h-2.5 w-1/4 animate-pulse rounded bg-white/6" />
+                </div>
+              </div>
+              <div className="h-3 w-20 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-12 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-14 animate-pulse rounded bg-white/8" />
+              <div className="h-3 w-10 animate-pulse rounded bg-white/8" />
+              <div className="h-7 w-16 animate-pulse rounded-lg bg-white/8 md:ml-auto" />
+            </div>
+          ))}
         </div>
       )}
 
@@ -304,7 +384,7 @@ function SearchPageInner() {
             <p className="mb-3 text-sm font-semibold text-ink-soft">{t("search.recentReleases")}</p>
           )}
           <div className="overflow-hidden rounded-2xl glass">
-          <div className="hidden grid-cols-[1fr_110px_60px_70px_60px_100px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
+          <div className="hidden grid-cols-[1fr_110px_65px_75px_65px_100px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
             <SortableColumnHeader label={t("search.release")} column="title" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
             <SortableColumnHeader label={t("search.indexer")} column="indexer" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
             <SortableColumnHeader label={t("search.age")} column="age" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
@@ -313,7 +393,7 @@ function SearchPageInner() {
             <span className="text-right text-ink-dim">{t("search.action")}</span>
           </div>
           {sorted.map((r) => (
-            <div key={r.guid} className="grid grid-cols-1 gap-2 border-b border-white/5 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.03] md:grid-cols-[1fr_110px_60px_70px_60px_100px] md:items-center md:gap-4">
+            <div key={r.guid} className="grid grid-cols-1 gap-2 border-b border-white/5 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.03] md:grid-cols-[1fr_110px_65px_75px_65px_100px] md:items-center md:gap-4">
               <div className="flex min-w-0 items-center gap-3">
                 <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", r.protocol === "torrent" ? "bg-cyan/12 text-cyan" : "bg-brand/12 text-brand-glow")}>
                   {r.protocol === "torrent" ? <Magnet className="h-4 w-4" /> : <Server className="h-4 w-4" />}
@@ -333,14 +413,15 @@ function SearchPageInner() {
                 {r.seeders == null ? "—" : `${r.seeders} ↑`}
               </span>
               <div className="md:text-right">
-                <button
+                <motion.button
+                  {...btnSpring}
                   onClick={() => onGrabClick(r)}
                   disabled={grabbing === r.guid || grabbed.has(r.guid)}
-                  className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-transform hover:scale-105 disabled:opacity-60", grabbed.has(r.guid) ? "bg-ok/15 text-ok" : "brand-gradient text-white")}
+                  className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-60", grabbed.has(r.guid) ? "bg-ok/15 text-ok" : "brand-gradient text-white")}
                 >
                   {grabbing === r.guid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : grabbed.has(r.guid) ? <Check className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
                   {grabbed.has(r.guid) ? t("search.grabbed") : t("common.grab")}
-                </button>
+                </motion.button>
               </div>
             </div>
           ))}
@@ -354,7 +435,7 @@ function SearchPageInner() {
       )}
 
       {pendingTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setPendingTarget(null)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 pt-[12vh] backdrop-blur-sm p-4" onClick={() => setPendingTarget(null)}>
           <div className="w-full max-w-lg rounded-2xl glass-strong p-5" onClick={(e) => e.stopPropagation()}>
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="min-w-0">

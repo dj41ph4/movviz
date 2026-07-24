@@ -38,6 +38,7 @@ export default function UsersPage() {
   };
 
   const reject = async (id: string) => {
+    if (!confirm(t("auth.confirmReject"))) return;
     await fetch(`/api/users/${id}`, { method: "DELETE" });
     load();
   };
@@ -133,6 +134,7 @@ export default function UsersPage() {
                   onChange={(e) => setNewUsername(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && createLocalUser()}
                   className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+                  autoComplete="username"
                   autoFocus
                 />
               </div>
@@ -144,6 +146,7 @@ export default function UsersPage() {
                   onChange={(e) => setNewPassword(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && createLocalUser()}
                   className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+                  autoComplete="new-password"
                 />
               </div>
               {createError && <p className="text-xs font-semibold text-down">{createError}</p>}

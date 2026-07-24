@@ -45,13 +45,13 @@ const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[cal
 export default function DashboardPage() {
   const t = useT();
   const { data: moviesData, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
-    "/api/library/movies", { refreshInterval: 3000 }
+    "/api/library/movies"
   );
   const { data: seriesData } = useSWR<{ series: LibrarySeries[] }>(
-    "/api/library/series", { refreshInterval: 3000 }
+    "/api/library/series"
   );
   const { data: torrentsData } = useSWR<{ torrents: EngineTorrent[] }>(
-    "/api/engine/torrents", { refreshInterval: 3000 }
+    "/api/engine/torrents"
   );
   const { data: layoutData, mutate: mutateLayout } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
 
@@ -130,7 +130,7 @@ export default function DashboardPage() {
             <button
               onClick={() => setAddOpen((v) => !v)}
               disabled={hidden.length === 0}
-              className="flex items-center gap-1.5 rounded-xl glass px-3.5 py-2 text-sm font-semibold text-ink-soft hover:text-ink disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-xl glass px-3.5 py-2 text-sm font-semibold text-ink-soft hover:text-ink disabled:opacity-40 transition-transform hover:scale-105"
             >
               <Plus className="h-4 w-4" /> {t("dashboard.addWidget")}
             </button>
@@ -184,7 +184,7 @@ export default function DashboardPage() {
               <button
                 onClick={() => removeWidget(id)}
                 aria-label={t("dashboard.removeWidget")}
-                className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-down text-white shadow-lg transition-transform hover:scale-110"
+                className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-down/12 text-down shadow-lg backdrop-blur transition-transform hover:scale-110"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -232,8 +232,8 @@ export default function DashboardPage() {
           <section>
             <h2 className="mb-3 text-lg font-bold tracking-tight text-ink">{t("dashboard.recentlyAdded")}</h2>
             <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {recentlyAdded.map((movie) => (
-                <LibraryMovieCard key={movie.id} movie={movie} torrent={progressFor(movie)} onChange={load} />
+              {recentlyAdded.map((movie, i) => (
+                <LibraryMovieCard key={movie.id} index={i} movie={movie} torrent={progressFor(movie)} onChange={load} />
               ))}
             </div>
           </section>

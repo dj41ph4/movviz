@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Loader2, RefreshCw, Search, Check, X, FolderOpen, Film, Tv, ShieldAlert } from "lucide-react";
+import { Loader2, RefreshCw, Search, Check, X, FolderOpen, Film, Tv, ShieldAlert, HardDrive, Scan } from "lucide-react";
 
 interface IndexMatch {
   tmdbId: number;
@@ -45,6 +45,23 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
   const [importing, setImporting] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [monitored, setMonitored] = useState(true);
+  const [diskScanning, setDiskScanning] = useState(false);
+  const [diskScanResult, setDiskScanResult] = useState<{ scanned: number; matched: number; updated: number } | null>(null);
+
+  const runDiskScan = async (incremental: boolean) => {
+    setDiskScanning(true);
+    setDiskScanResult(null);
+    try {
+      const url = incremental ? "/api/library/disk-scan?incremental=1" : "/api/library/disk-scan";
+      const res = await fetch(url, { method: "POST" });
+      const data = await res.json();
+      setDiskScanResult(data);
+    } catch {
+      setDiskScanResult(null);
+    } finally {
+      setDiskScanning(false);
+    }
+  };
 
   const loadStatus = async () => {
     const res = await fetch(`/api/library/index-scan?type=${type}`, { cache: "no-store" });
@@ -101,6 +118,7 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
       .filter((c) => selected.has(c.id) && matchFor(c))
       .map((c) => ({ candidateId: c.id, tmdbId: matchFor(c)!.tmdbId }));
     if (items.length === 0) return;
+    if (!confirm(t("indexation.confirmImport", { count: items.length }))) return;
     setImporting(true);
     try {
       await fetch("/api/library/index-import", {
@@ -123,7 +141,18 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
   const selectedCount = candidates?.filter((c) => selected.has(c.id) && matchFor(c)).length ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-4">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <FolderOpen className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{type === "movie" ? t("indexation.movieTitle") : t("indexation.seriesTitle")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">
+            {type === "movie" ? t("indexation.movieIntro") : t("indexation.seriesIntro")}
+          </p>
+        </div>
+      </div>
       <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
         <div>
@@ -131,11 +160,38 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
           <p className="mt-1 text-xs text-ink-dim">{t("settings.diskWarningHint")}</p>
         </div>
       </div>
+      <div className="rounded-2xl border border-white/8 bg-white/3 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <HardDrive className="h-4 w-4 text-ink-dim" />
+          <p className="text-sm font-semibold text-ink">{t("diskScan.title")}</p>
+        </div>
+        <p className="text-xs text-ink-dim">{t("diskScan.intro")}</p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => runDiskScan(false)}
+            disabled={diskScanning}
+            className="flex h-9 shrink-0 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-bold text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+          >
+            {diskScanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Scan className="h-3.5 w-3.5" />}
+            {diskScanning ? t("diskScan.scanning") : t("diskScan.fullScan")}
+          </button>
+          <button
+            onClick={() => runDiskScan(true)}
+            disabled={diskScanning}
+            className="flex h-9 shrink-0 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-bold text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+          >
+            {diskScanning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            {t("diskScan.incrementalScan")}
+          </button>
+        </div>
+        {diskScanResult && (
+          <p className="text-xs text-ink-soft">
+            {t("diskScan.result", { scanned: diskScanResult.scanned, matched: diskScanResult.matched, updated: diskScanResult.updated })}
+          </p>
+        )}
+      </div>
 
       <div className="flex items-start justify-between gap-4">
-        <p className="max-w-2xl text-sm text-ink-soft">
-          {type === "movie" ? t("indexation.movieIntro") : t("indexation.seriesIntro")}
-        </p>
         <button
           onClick={startScan}
           disabled={scanning}
@@ -230,7 +286,7 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
             <button
               onClick={runImport}
               disabled={importing || selectedCount === 0}
-              className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+              className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-40"
             >
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               {t("indexation.importCount", { count: selectedCount })}
