@@ -101,6 +101,7 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
       .filter((c) => selected.has(c.id) && matchFor(c))
       .map((c) => ({ candidateId: c.id, tmdbId: matchFor(c)!.tmdbId }));
     if (items.length === 0) return;
+    if (!confirm(t("indexation.confirmImport", { count: items.length }))) return;
     setImporting(true);
     try {
       await fetch("/api/library/index-import", {

@@ -108,7 +108,7 @@ export function ManualSearchModal({
           <div className="min-w-0 flex-1">
             <h2 className="text-lg font-bold text-ink">{t("search.manualFor", { title })}</h2>
           </div>
-          <button onClick={onClose} className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl glass-strong text-ink-dim hover:text-ink">
+          <button onClick={onClose} aria-label={t("common.close")} className="ml-4 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl glass-strong text-ink-dim hover:text-ink">
             <X className="h-4 w-4" />
           </button>
         </div>

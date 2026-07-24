@@ -467,17 +467,17 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
       {authType === "apikey" || authType === "x-api-key" ? (
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.apiKey")}</label>
-          <input value={apiKey} onChange={(e) => { setApiKey(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" className={field} />
+          <input value={apiKey} onChange={(e) => { setApiKey(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" autoComplete="off" className={field} />
         </div>
       ) : (
         <>
           <div>
-            <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.username")}</label>
-            <input value={username} onChange={(e) => { setUsername(e.target.value); setRealCategories(null); }} className={field} />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.password")}</label>
-            <input value={password} onChange={(e) => { setPassword(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" className={field} />
+              <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.username")}</label>
+              <input value={username} onChange={(e) => { setUsername(e.target.value); setRealCategories(null); }} autoComplete="off" className={field} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.password")}</label>
+              <input value={password} onChange={(e) => { setPassword(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" autoComplete="off" className={field} />
           </div>
         </>
       )}

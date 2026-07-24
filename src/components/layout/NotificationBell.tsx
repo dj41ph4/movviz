@@ -56,6 +56,7 @@ export function NotificationBell() {
     <div ref={ref} className="relative">
       <button
         onClick={toggle}
+        aria-label={t("notifications.title")}
         className="relative flex h-10 w-10 items-center justify-center rounded-xl glass transition-colors hover:text-brand-glow"
       >
         <Bell className="h-[18px] w-[18px]" />

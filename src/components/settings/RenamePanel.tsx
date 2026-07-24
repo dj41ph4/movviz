@@ -271,6 +271,7 @@ export function RenamePanel() {
       .filter((c) => selected.has(c.id))
       .map((c) => ({ id: c.id, type: c.type }));
     if (selections.length === 0) return;
+    if (!confirm(t("rename.confirmApply", { count: selections.length }))) return;
     setError(null);
     setResults(null);
     setExecProgress(null);

@@ -136,6 +136,7 @@ export const nl: Dictionary = {
     save: "Opslaan",
     saving: "Opslaan...",
     cancel: "Annuleren",
+    close: "Sluiten",
     export: "Exporteren",
     import: "Importeren",
     copy: "Kopiëren",
@@ -151,6 +152,21 @@ export const nl: Dictionary = {
     languageLabel: "Taal",
     noResults: "Geen resultaten",
     change: "Wijzigen",
+    retry: "Opnieuw proberen",
+    error: "Fout",
+    goHome: "Home",
+  },
+
+  error: {
+    title: "Er is een fout opgetreden",
+    description: "Er is iets misgegaan. Probeer het opnieuw.",
+    retry: "Opnieuw proberen",
+    notFound: "Pagina niet gevonden",
+    notFoundDescription: "De pagina die je zoekt bestaat niet of is verplaatst.",
+    notFoundCta: "Terug naar home",
+    serverError: "Serverfout",
+    serverErrorDescription: "Er is een onverwachte fout opgetreden. Het team is op de hoogte gebracht.",
+    goHome: "Terug naar home",
   },
 
   status: {
@@ -588,6 +604,7 @@ export const nl: Dictionary = {
     tokenName: "Tokennaam",
     tokenCreatedHint: "Kopieer dit token nu — het wordt niet opnieuw getoond.",
     noTokens: "Nog geen tokens aangemaakt.",
+    confirmRevoke: "Deze token intrekken? Elk script dat hem gebruikt, stopt met werken.",
     discover: "Ontdekken",
     discoverHint: "Vink de continenten aan die je interesseren — films en series van de rest worden uit Ontdekken gefilterd. Niets aangevinkt betekent dat alles wordt getoond.",
     discoverSaved: "Voorkeuren opgeslagen",
@@ -963,6 +980,7 @@ export const nl: Dictionary = {
     fixMatch: "Corrigeren",
     monitor: "Volgen",
     importCount: "{count} importeren",
+    confirmImport: "{count} item(s) in de bibliotheek importeren? De bestanden op de schijf worden gekoppeld aan bibliotheekitems.",
     searchPlaceholder: "Zoek een titel…",
   },
 
@@ -1007,6 +1025,7 @@ export const nl: Dictionary = {
     hideLogs: "Log verbergen",
     logsEmpty: "Wachten op log-items...",
     errorTitle: "Scanfout",
+    confirmApply: "{count} item(s) hernoemen? De bestanden worden op de schijf hernoemd. Zorg dat geen ander programma ze gebruikt.",
   },
 
   repairPaths: {
@@ -1045,6 +1064,7 @@ export const nl: Dictionary = {
     deleting: "Bezig met verwijderen...",
     clean: "Geen lege mappen gevonden.",
     deletedCount: "{count} lege map(pen) verwijderd.",
+    confirmDelete: "{count} lege map(pen) verwijderen? Dit kan niet ongedaan worden gemaakt.",
   },
 
   customFormats: {
@@ -1117,6 +1137,7 @@ export const nl: Dictionary = {
     pendingSection: "Wacht op goedkeuring",
     approve: "Goedkeuren",
     reject: "Afwijzen",
+    confirmReject: "Deze gebruiker afwijzen? Ze worden permanent verwijderd.",
     createLocalUser: "Lokale gebruiker aanmaken",
     local: "Lokaal",
     loginTitle: "Inloggen",

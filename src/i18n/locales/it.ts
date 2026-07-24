@@ -136,6 +136,7 @@ export const it: Dictionary = {
     save: "Salva",
     saving: "Salvataggio...",
     cancel: "Annulla",
+    close: "Chiudi",
     export: "Esporta",
     import: "Importa",
     copy: "Copia",
@@ -151,6 +152,21 @@ export const it: Dictionary = {
     languageLabel: "Lingua",
     noResults: "Nessun risultato",
     change: "Cambia",
+    retry: "Riprova",
+    error: "Errore",
+    goHome: "Home",
+  },
+
+  error: {
+    title: "Si è verificato un errore",
+    description: "Qualcosa è andato storto. Per favore riprova.",
+    retry: "Riprova",
+    notFound: "Pagina non trovata",
+    notFoundDescription: "La pagina che stai cercando non esiste o è stata spostata.",
+    notFoundCta: "Torna alla home",
+    serverError: "Errore del server",
+    serverErrorDescription: "Si è verificato un errore imprevisto. Il team è stato avvisato.",
+    goHome: "Torna alla home",
   },
 
   status: {
@@ -588,6 +604,7 @@ export const it: Dictionary = {
     tokenName: "Nome del token",
     tokenCreatedHint: "Copia questo token ora — non verrà mostrato di nuovo.",
     noTokens: "Nessun token creato ancora.",
+    confirmRevoke: "Revocare questo token? Qualsiasi script che lo utilizza smetterà di funzionare.",
     discover: "Scopri",
     discoverHint: "Seleziona i continenti che ti interessano — i film e le serie degli altri vengono filtrati da Scopri. Se non selezioni nulla, viene mostrato tutto.",
     discoverSaved: "Preferenze salvate",
@@ -962,6 +979,7 @@ export const it: Dictionary = {
     fixMatch: "Correggi",
     monitor: "Sorveglia",
     importCount: "Importa {count}",
+    confirmImport: "Importare {count} elemento(i) nella biblioteca? I file su disco saranno collegati alle voci della biblioteca.",
     searchPlaceholder: "Cerca un titolo…",
   },
 
@@ -1006,6 +1024,7 @@ export const it: Dictionary = {
     hideLogs: "Nascondi log",
     logsEmpty: "In attesa di voci di log...",
     errorTitle: "Errore di scansione",
+    confirmApply: "Rinominare {count} elemento(i)? I file verranno rinominati sul disco. Assicurati che nessun altro programma li stia utilizzando.",
   },
 
   repairPaths: {
@@ -1044,6 +1063,7 @@ export const it: Dictionary = {
     deleting: "Eliminazione...",
     clean: "Nessuna cartella vuota trovata.",
     deletedCount: "{count} cartella(e) vuota(e) eliminata(e).",
+    confirmDelete: "Eliminare {count} cartella(e) vuota(e)? Questa azione è irreversibile.",
   },
 
   customFormats: {
@@ -1116,6 +1136,7 @@ export const it: Dictionary = {
     pendingSection: "In attesa di approvazione",
     approve: "Approva",
     reject: "Rifiuta",
+    confirmReject: "Rifiutare questo utente? Verrà eliminato definitivamente.",
     createLocalUser: "Crea un utente locale",
     local: "Locale",
     loginTitle: "Accedi",

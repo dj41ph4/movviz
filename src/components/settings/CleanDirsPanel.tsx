@@ -36,6 +36,7 @@ export function CleanDirsPanel() {
     if (!emptyDirs) return;
     const paths = [...selected].map((i) => emptyDirs[i]);
     if (paths.length === 0) return;
+    if (!confirm(t("cleanDirs.confirmDelete", { count: paths.length }))) return;
     setDeleting(true);
     setError(null);
     try {

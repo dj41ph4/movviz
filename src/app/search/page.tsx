@@ -11,7 +11,7 @@ import type { IndexerRelease } from "@/lib/indexers/types";
 import type { MediaType } from "@/lib/types";
 import { TitleTargetPicker } from "@/components/activity/v2/TitleTargetPicker";
 import {
-  Search, Zap, Magnet, Server, Download, Loader2, Settings, Film, Tv, Check, ListFilter, X, AlertTriangle,
+  Search, Zap, Magnet, Server, Download, Loader2, Settings, Film, Tv, Check, ListFilter, X, AlertTriangle, RotateCw,
 } from "lucide-react";
 
 /** Extract the season number from a search query (e.g. "South Park S29" → 29, "South Park Season 29" → 29). */
@@ -83,6 +83,7 @@ function SearchPageInner() {
   const [grabbing, setGrabbing] = useState<string | null>(null);
   const [grabbed, setGrabbed] = useState<Set<string>>(new Set());
   const [recentLoading, setRecentLoading] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const [sortKey, setSortKey] = useState<string>("score");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [indexerErrors, setIndexerErrors] = useState<{ indexer: string; detail: string }[]>([]);
@@ -131,6 +132,7 @@ function SearchPageInner() {
   const loadRecent = async (cat: MediaType) => {
     if (recentLoading) return;
     setRecentLoading(true);
+    setFetchError(false);
     try {
       const res = await fetch(`/api/indexers/search?recent=1&category=${cat}`, { cache: "no-store" });
       const data = await res.json();
@@ -141,7 +143,7 @@ function SearchPageInner() {
         setConfigured(false);
       }
     } catch {
-      // silent — indexers might just not support empty queries
+      setFetchError(true);
     } finally {
       setRecentLoading(false);
     }
@@ -151,6 +153,7 @@ function SearchPageInner() {
     if (!q.trim()) return;
     setLoading(true);
     setSearched(true);
+    setFetchError(false);
     try {
       const paramsQ = new URLSearchParams({ q: q.trim() });
       const refTitle = params.get("refTitle");
@@ -166,6 +169,7 @@ function SearchPageInner() {
       setReleases(data.releases ?? []);
       setIndexerErrors(data.errors ?? []);
     } catch {
+      setFetchError(true);
       setConfigured(false);
       setReleases([]);
       setIndexerErrors([]);
@@ -271,8 +275,23 @@ function SearchPageInner() {
         </div>
       )}
 
+      {/* Fetch error */}
+      {fetchError && (
+        <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
+          <AlertTriangle className="h-8 w-8 text-down" />
+          <p className="font-semibold text-ink">{t("error.title")}</p>
+          <p className="max-w-md text-sm text-ink-dim">{t("error.description")}</p>
+          <button
+            onClick={() => (searched ? run() : loadRecent(category))}
+            className="mt-2 inline-flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white"
+          >
+            <RotateCw className="h-4 w-4" /> {t("common.retry")}
+          </button>
+        </div>
+      )}
+
       {/* Not configured */}
-      {configured === false && (
+      {configured === false && !fetchError && (
         <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
           <Settings className="h-8 w-8 text-brand-glow" />
           <p className="font-semibold text-ink">{t("search.noIndexers")}</p>

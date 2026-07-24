@@ -134,6 +134,28 @@
   transform-origin: center;
 }
 
+.reduce-motion .eeg-bar,
+.reduce-motion .animate-spin,
+.reduce-motion .animate-pulse,
+.reduce-motion .animate-bounce,
+.reduce-motion .animate-ping,
+.reduce-motion .animate-pulse-glow,
+.reduce-motion .animate-badge-pulse,
+.reduce-motion .animate-badge-pop,
+.reduce-motion .animate-shimmer,
+.reduce-motion .logo-ripple {
+  animation: none !important;
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+}
+
 /*
  * Light theme — overrides the same custom properties every utility class
  * already reads via var(--color-*), so components never need their own

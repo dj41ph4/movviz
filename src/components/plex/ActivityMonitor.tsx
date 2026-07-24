@@ -92,7 +92,7 @@ export function ActivityMonitor() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={t("plexActivity.title")}
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl glass transition-colors hover:text-brand-glow"
+        className="relative flex h-11 w-11 items-center justify-center rounded-xl glass transition-colors hover:text-brand-glow"
       >
         <div className="flex items-center gap-[2px]">
           {[0, 1, 2, 3, 4].map((i) => (

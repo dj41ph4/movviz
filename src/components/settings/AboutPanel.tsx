@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
+import { toast } from "@/components/ui/Toast";
 import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
 import { useVersion } from "@/lib/version/VersionContext";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
@@ -47,10 +48,10 @@ export function AboutPanel() {
       const res = await fetch("/api/system/update", { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(t("update.failed", { error: err.error ?? "unknown" }));
+        toast("error", t("update.failed", { error: err.error ?? "unknown" }));
       }
     } catch {
-      alert(t("update.failed", { error: "network" }));
+      toast("error", t("update.failed", { error: "network" }));
     } finally {
       setInstalling(false);
     }

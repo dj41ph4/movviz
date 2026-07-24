@@ -169,10 +169,10 @@ function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: nu
       <td className="px-4 py-3 text-ink-dim" />
       <td className="px-4 py-3 text-right">
         <div className="flex items-center justify-end gap-1">
-          <button onClick={() => onSave(parseInterval(d, h, m))} className="flex h-7 w-7 items-center justify-center rounded-lg text-ok hover:bg-white/10">
+          <button onClick={() => onSave(parseInterval(d, h, m))} aria-label={t("common.save")} className="flex h-7 w-7 items-center justify-center rounded-lg text-ok hover:bg-white/10">
             <Check className="h-3.5 w-3.5" />
           </button>
-          <button onClick={onCancel} className="flex h-7 w-7 items-center justify-center rounded-lg text-red hover:bg-white/10">
+          <button onClick={onCancel} aria-label={t("common.cancel")} className="flex h-7 w-7 items-center justify-center rounded-lg text-red hover:bg-white/10">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>

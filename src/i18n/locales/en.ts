@@ -136,6 +136,7 @@ export const en: Dictionary = {
     save: "Save",
     saving: "Saving...",
     cancel: "Cancel",
+    close: "Close",
     export: "Export",
     import: "Import",
     copy: "Copy",
@@ -151,6 +152,21 @@ export const en: Dictionary = {
     languageLabel: "Language",
     noResults: "No results",
     change: "Change",
+    retry: "Retry",
+    error: "Error",
+    goHome: "Home",
+  },
+
+  error: {
+    title: "Something went wrong",
+    description: "Something went wrong. Please try again.",
+    retry: "Retry",
+    notFound: "Page not found",
+    notFoundDescription: "The page you are looking for does not exist or has been moved.",
+    notFoundCta: "Back to home",
+    serverError: "Server error",
+    serverErrorDescription: "An unexpected error occurred. The team has been notified.",
+    goHome: "Back to home",
   },
 
   status: {
@@ -588,6 +604,7 @@ export const en: Dictionary = {
     tokenName: "Token name",
     tokenCreatedHint: "Copy this token now — it won't be shown again.",
     noTokens: "No tokens created yet.",
+    confirmRevoke: "Revoke this token? Any script using it will stop working.",
     discover: "Discover",
     discoverHint: "Check the continents you care about — everyone else's movies and shows get filtered out of Discover. Nothing checked means everything shows.",
     discoverSaved: "Preferences saved",
@@ -963,6 +980,7 @@ export const en: Dictionary = {
     fixMatch: "Fix",
     monitor: "Monitor",
     importCount: "Import {count}",
+    confirmImport: "Import {count} item(s) into the library? This will link the files on disk to library entries.",
     searchPlaceholder: "Search for a title…",
   },
 
@@ -1007,6 +1025,7 @@ export const en: Dictionary = {
     hideLogs: "Hide log",
     logsEmpty: "Waiting for log entries...",
     errorTitle: "Scan error",
+    confirmApply: "Rename {count} item(s)? Files will be renamed on disk. Make sure no other program is using them.",
   },
 
   repairPaths: {
@@ -1045,6 +1064,7 @@ export const en: Dictionary = {
     deleting: "Deleting...",
     clean: "No empty folders found.",
     deletedCount: "{count} empty folder(s) deleted.",
+    confirmDelete: "Delete {count} empty folder(s)? This cannot be undone.",
   },
 
   customFormats: {
@@ -1117,6 +1137,7 @@ export const en: Dictionary = {
     pendingSection: "Pending approval",
     approve: "Approve",
     reject: "Reject",
+    confirmReject: "Reject this user? They will be deleted permanently.",
     createLocalUser: "Create a local user",
     local: "Local",
     loginTitle: "Sign in",

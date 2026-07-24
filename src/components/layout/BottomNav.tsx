@@ -113,6 +113,7 @@ export function BottomNav() {
                 <span className="text-sm font-bold text-ink">{t("nav.more")}</span>
                 <button
                   onClick={() => setMoreOpen(false)}
+                  aria-label={t("common.close")}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim ring-focus hover:text-ink"
                 >
                   <X className="h-4 w-4" />

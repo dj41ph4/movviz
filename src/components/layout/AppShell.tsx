@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { SWRConfig } from "swr";
 import { useLibrarySSE } from "@/lib/events/useLibrarySSE";
 import { Hourglass, LogOut } from "lucide-react";
@@ -106,11 +107,21 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
             <CommandPaletteProvider>
               <AuroraBackground />
               <div className="relative z-10 flex min-h-screen">
+                <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[9999] focus:rounded-xl focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:outline-none">
+                  Skip to main content
+                </a>
                 <Sidebar version={version} />
                 <div className="flex min-w-0 flex-1 flex-col">
                   <Topbar />
-                  <main className="flex-1 px-4 pt-5 pb-24 sm:px-5 sm:pt-6 md:px-8 md:pt-8 lg:pb-8">
-                    {children}
+                  <main id="main-content" className="flex-1 px-4 pt-5 pb-24 sm:px-5 sm:pt-6 md:px-8 md:pt-8 lg:pb-8">
+                    <motion.div
+                      key={pathname}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, ease: "easeOut" }}
+                    >
+                      {children}
+                    </motion.div>
                   </main>
                 </div>
                 <BottomNav />

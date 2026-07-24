@@ -54,7 +54,7 @@ export function RequestMovieModal({
           <h2 className="flex items-center gap-2 text-lg font-bold text-ink">
             <Film className="h-5 w-5 text-brand-glow" /> {t("requests.movieTitle")}
           </h2>
-          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg glass text-ink-dim hover:text-ink">
+          <button onClick={onClose} aria-label={t("common.close")} className="flex h-8 w-8 items-center justify-center rounded-lg glass text-ink-dim hover:text-ink">
             <X className="h-4 w-4" />
           </button>
         </div>

@@ -136,6 +136,7 @@ export const de: Dictionary = {
     save: "Speichern",
     saving: "Speichert...",
     cancel: "Abbrechen",
+    close: "Schließen",
     export: "Exportieren",
     import: "Importieren",
     copy: "Kopieren",
@@ -151,6 +152,21 @@ export const de: Dictionary = {
     languageLabel: "Sprache",
     noResults: "Keine Ergebnisse",
     change: "Ändern",
+    retry: "Wiederholen",
+    error: "Fehler",
+    goHome: "Startseite",
+  },
+
+  error: {
+    title: "Ein Fehler ist aufgetreten",
+    description: "Etwas ist schiefgelaufen. Bitte versuche es erneut.",
+    retry: "Wiederholen",
+    notFound: "Seite nicht gefunden",
+    notFoundDescription: "Die gesuchte Seite existiert nicht oder wurde verschoben.",
+    notFoundCta: "Zurück zur Startseite",
+    serverError: "Serverfehler",
+    serverErrorDescription: "Ein unerwarteter Fehler ist aufgetreten. Das Team wurde benachrichtigt.",
+    goHome: "Zurück zur Startseite",
   },
 
   status: {
@@ -588,6 +604,7 @@ export const de: Dictionary = {
     tokenName: "Token-Name",
     tokenCreatedHint: "Kopiere dieses Token jetzt — es wird nicht erneut angezeigt.",
     noTokens: "Noch keine Tokens erstellt.",
+    confirmRevoke: "Diesen Token widerrufen? Jedes Skript, das ihn verwendet, funktioniert nicht mehr.",
     discover: "Entdecken",
     discoverHint: "Wähle die Kontinente, die dich interessieren — Filme und Serien der anderen werden aus Entdecken herausgefiltert. Ist nichts ausgewählt, wird alles angezeigt.",
     discoverSaved: "Einstellungen gespeichert",
@@ -980,6 +997,7 @@ export const de: Dictionary = {
     fixMatch: "Korrigieren",
     monitor: "Überwachen",
     importCount: "{count} importieren",
+    confirmImport: "{count} Element(e) in die Bibliothek importieren? Die Dateien auf der Festplatte werden mit den Bibliothekseinträgen verknüpft.",
     searchPlaceholder: "Titel suchen…",
   },
 
@@ -1024,6 +1042,7 @@ export const de: Dictionary = {
     hideLogs: "Log verstecken",
     logsEmpty: "Warte auf Log-Einträge...",
     errorTitle: "Scan-Fehler",
+    confirmApply: "{count} Element(e) umbenennen? Die Dateien werden auf der Festplatte umbenannt. Stellen Sie sicher, dass kein anderes Programm sie verwendet.",
   },
 
   repairPaths: {
@@ -1062,6 +1081,7 @@ export const de: Dictionary = {
     deleting: "Lösche...",
     clean: "Keine leeren Ordner gefunden.",
     deletedCount: "{count} leerer Ordner gelöscht.",
+    confirmDelete: "{count} leere(n) Ordner löschen? Dies kann nicht rückgängig gemacht werden.",
   },
 
   customFormats: {
@@ -1134,6 +1154,7 @@ export const de: Dictionary = {
     pendingSection: "Wartet auf Genehmigung",
     approve: "Genehmigen",
     reject: "Ablehnen",
+    confirmReject: "Diesen Benutzer ablehnen? Er wird endgültig gelöscht.",
     createLocalUser: "Lokalen Benutzer erstellen",
     local: "Lokal",
     loginTitle: "Anmelden",

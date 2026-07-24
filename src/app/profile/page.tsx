@@ -142,6 +142,7 @@ export default function ProfilePage() {
     }
   };
   const revoke = async (id: string) => {
+    if (!confirm(t("profile.confirmRevoke"))) return;
     await fetch(`/api/profile/tokens/${id}`, { method: "DELETE" });
     loadTokens();
   };
@@ -188,6 +189,7 @@ export default function ProfilePage() {
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             placeholder={t("profile.currentPassword")}
+            autoComplete="current-password"
             className="h-11 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
           />
           <input
@@ -195,6 +197,7 @@ export default function ProfilePage() {
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             placeholder={t("profile.newPassword")}
+            autoComplete="new-password"
             className="h-11 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
           />
         </div>

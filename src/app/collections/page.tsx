@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useT } from "@/i18n/provider";
-import { Loader2, Plus, Trash2, Layers, RefreshCw, Grid2x2, Grid3x3, List, Check } from "lucide-react";
+import { Loader2, Plus, Trash2, Layers, RefreshCw, Grid2x2, Grid3x3, List, Check, RotateCw, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { Collection } from "@/lib/collections/types";
@@ -216,17 +216,41 @@ export default function CollectionsPage() {
   const t = useT();
   const [collections, setCollections] = useState<Collection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [view, setView] = useViewMode("movviz-collections-view");
 
-  useEffect(() => {
+  const load = () => {
+    setError(false);
+    setLoading(true);
     fetch("/api/collections", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (d?.collections) setCollections(d.collections);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, []);
+      .catch(() => { setError(true); setLoading(false); });
+  };
+
+  useEffect(() => { load(); }, []);
+
+  if (error) {
+    return (
+      <div>
+        <SagasSection />
+        <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
+          <AlertTriangle className="h-8 w-8 text-down" />
+          <p className="font-semibold text-ink">{t("error.title")}</p>
+          <p className="max-w-md text-sm text-ink-dim">{t("error.description")}</p>
+          <button
+            onClick={load}
+            className="mt-2 flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white"
+          >
+            <RotateCw className="h-4 w-4" /> {t("common.retry")}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

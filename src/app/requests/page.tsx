@@ -8,7 +8,7 @@ import { useT } from "@/i18n/provider";
 import { relativeTime, cn } from "@/lib/utils";
 import type { MediaRequest } from "@/lib/requests/types";
 import type { LibraryStatus } from "@/lib/library/types";
-import { Check, X, Clock, CheckCircle2, Star, Film, HardDriveDownload, Search } from "lucide-react";
+import { Check, X, Clock, CheckCircle2, Star, Film, HardDriveDownload, Search, Loader2, RotateCw, AlertTriangle } from "lucide-react";
 
 type RequestWithMedia = MediaRequest & { mediaStatus?: LibraryStatus | null };
 
@@ -52,11 +52,41 @@ export default function RequestsPage() {
   const [tab, setTab] = useState<"pending" | "all">("pending");
   const [busy, setBusy] = useState<string | null>(null);
 
-  const { data, mutate } = useSWR<{ requests: RequestWithMedia[]; isAdmin: boolean }>(
+  const { data, mutate, isLoading, error } = useSWR<{ requests: RequestWithMedia[]; isAdmin: boolean }>(
     "/api/requests"
   );
   const requests = data?.requests ?? [];
   const isAdmin = !!data?.isAdmin;
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-[1100px]">
+        <PageHeader title={t("requests.title")} />
+        <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
+          <AlertTriangle className="h-8 w-8 text-down" />
+          <p className="font-semibold text-ink">{t("error.title")}</p>
+          <p className="max-w-md text-sm text-ink-dim">{t("error.description")}</p>
+          <button
+            onClick={() => mutate()}
+            className="mt-2 flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white"
+          >
+            <RotateCw className="h-4 w-4" /> {t("common.retry")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-[1100px]">
+        <PageHeader title={t("requests.title")} />
+        <div className="flex items-center justify-center gap-2 py-16 text-ink-dim">
+          <Loader2 className="h-5 w-5 animate-spin" /> {t("common.loading")}
+        </div>
+      </div>
+    );
+  }
 
   const decide = async (id: string, action: "approve" | "decline") => {
     setBusy(id);

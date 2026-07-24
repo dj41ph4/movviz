@@ -134,6 +134,7 @@ export const fr = {
     save: "Enregistrer",
     saving: "Enregistrement...",
     cancel: "Annuler",
+    close: "Fermer",
     export: "Exporter",
     import: "Importer",
     copy: "Copier",
@@ -149,6 +150,21 @@ export const fr = {
     languageLabel: "Langue",
     noResults: "Aucun résultat",
     change: "Changer",
+    retry: "Réessayer",
+    error: "Erreur",
+    goHome: "Accueil",
+  },
+
+  error: {
+    title: "Une erreur est survenue",
+    description: "Quelque chose s'est mal passé. Veuillez réessayer.",
+    retry: "Réessayer",
+    notFound: "Page introuvable",
+    notFoundDescription: "La page que vous cherchez n'existe pas ou a été déplacée.",
+    notFoundCta: "Retour à l'accueil",
+    serverError: "Erreur serveur",
+    serverErrorDescription: "Une erreur inattendue est survenue. L'équipe a été notifiée.",
+    goHome: "Retour à l'accueil",
   },
 
   status: {
@@ -586,6 +602,7 @@ export const fr = {
     tokenName: "Nom du jeton",
     tokenCreatedHint: "Copie ce jeton maintenant — il ne sera plus jamais affiché.",
     noTokens: "Aucun jeton créé.",
+    confirmRevoke: "Révoquer ce jeton ? Tout script qui l'utilise cessera de fonctionner.",
     discover: "Découverte",
     discoverHint: "Coche les continents qui t'intéressent — les films et séries des autres seront filtrés du Découvrir. Rien coché = tout s'affiche.",
     discoverSaved: "Préférences enregistrées",
@@ -961,6 +978,7 @@ export const fr = {
     fixMatch: "Corriger",
     monitor: "Surveiller",
     importCount: "Importer {count}",
+    confirmImport: "Importer {count} élément(s) dans la bibliothèque ? Cela liera les fichiers du disque aux entrées de la bibliothèque.",
     searchPlaceholder: "Rechercher un titre…",
   },
 
@@ -1005,6 +1023,7 @@ export const fr = {
     hideLogs: "Masquer le journal",
     logsEmpty: "En attente des entrées du journal...",
     errorTitle: "Erreur d'analyse",
+    confirmApply: "Renommer {count} élément(s) ? Les fichiers seront renommés sur le disque. Assurez-vous qu'aucun autre programme ne les utilise.",
   },
 
   repairPaths: {
@@ -1043,6 +1062,7 @@ export const fr = {
     deleting: "Suppression...",
     clean: "Aucun dossier vide trouvé.",
     deletedCount: "{count} dossier(s) vide(s) supprimé(s).",
+    confirmDelete: "Supprimer {count} dossier(s) vide(s) ? Cette action est irréversible.",
   },
 
   customFormats: {
@@ -1115,6 +1135,7 @@ export const fr = {
     pendingSection: "En attente d'approbation",
     approve: "Approuver",
     reject: "Rejeter",
+    confirmReject: "Rejeter cet utilisateur ? Il sera supprimé définitivement.",
     createLocalUser: "Créer un utilisateur local",
     local: "Local",
     loginTitle: "Se connecter",

@@ -8,6 +8,7 @@ import useSWR from "swr";
 import { NAV } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
+import { toast } from "@/components/ui/Toast";
 import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { usePendingRequests } from "@/lib/requests/usePendingRequests";
@@ -77,10 +78,10 @@ export function Sidebar({ version }: { version: string }) {
       const res = await fetch("/api/system/update", { method: "POST" });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(t("update.failed", { error: err.error ?? "unknown" }));
+        toast("error", t("update.failed", { error: err.error ?? "unknown" }));
       }
     } catch {
-      alert(t("update.failed", { error: "network" }));
+      toast("error", t("update.failed", { error: "network" }));
     } finally {
       setInstalling(false);
     }
@@ -227,6 +228,7 @@ export function Sidebar({ version }: { version: string }) {
               </h2>
               <button
                 onClick={() => setShowNasInfo(false)}
+                aria-label={t("common.close")}
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-ink-dim ring-focus hover:text-ink"
               >
                 <X className="h-4 w-4" />
