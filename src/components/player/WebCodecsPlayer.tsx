@@ -37,7 +37,7 @@ export function WebCodecsPlayer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const progressBarRef = useRef<HTMLDivElement>(null);
-  const [internalPaused, setInternalPaused] = useState(false);
+  const [internalPaused, setInternalPaused] = useState(true);
   const paused = externalPaused ?? internalPaused;
   const [buffering, setBuffering] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -262,6 +262,11 @@ export function WebCodecsPlayer({
           const pts = frame.timestamp;
           const dur = frame.duration ?? 0;
           videoQueueRef.current.push(frame);
+          if (pausedRef.current && videoQueueRef.current.length === 1) {
+            playStartTimeRef.current = audioCtxRef.current?.currentTime ?? performance.now() / 1000;
+            mediaStartTimeRef.current = 0;
+            setInternalPaused(false);
+          }
           if (videoTimelineRef.current.length > 0) {
             const prev = videoTimelineRef.current[videoTimelineRef.current.length - 1];
             videoTimelineRef.current.push({ pts, duration: dur });

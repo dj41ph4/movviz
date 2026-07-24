@@ -2,6 +2,12 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.7.7] — 2026-07-24
+
+### Corrigé
+
+- **WebCodecs Player** : la lecture ne démarrait pas — la boucle de rendu s'activait avant l'arrivée des premières frames, provoquant un écran noir. Démarre maintenant à la première frame décodée, horloge sync resettée au bon moment
+
 ## [1.7.6] — 2026-07-24
 
 ### Corrigé
