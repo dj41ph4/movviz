@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 import { NAV } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -48,7 +48,10 @@ export function Sidebar({ version }: { version: string }) {
   const [installing, setInstalling] = useState(false);
   const [showNasInfo, setShowNasInfo] = useState(false);
   const autoUpdate = useAutoUpdate();
-  const autoUpdateTriggered = useRef(false);
+  // Anchor on globalThis so remounting the sidebar (page navigation) doesn't
+  // re-trigger an update that was already applied.
+  const g = globalThis as typeof globalThis & { __movvizAutoUpdateTriggered?: boolean };
+  if (g.__movvizAutoUpdateTriggered === undefined) g.__movvizAutoUpdateTriggered = false;
 
   const triggerUpdate = async () => {
     setInstalling(true);
@@ -71,10 +74,12 @@ export function Sidebar({ version }: { version: string }) {
       updateInfo?.updateAvailable &&
       updateInfo.platform === "win32" &&
       autoUpdate.enabled &&
-      !autoUpdateTriggered.current
+      !g.__movvizAutoUpdateTriggered
     ) {
-      autoUpdateTriggered.current = true;
-      triggerUpdate();
+      g.__movvizAutoUpdateTriggered = true;
+      // Small delay so any pending background JSON writes (300ms debounce)
+      // can flush to disk before the installer kills this process.
+      setTimeout(() => triggerUpdate(), 2000);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [updateInfo?.updateAvailable, autoUpdate.enabled]);

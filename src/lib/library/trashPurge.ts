@@ -21,9 +21,11 @@ export async function purgeExpiredTrash(): Promise<{ purged: number; failed: num
   let failed = 0;
   for (const entry of loadTrashManifest()) {
     if (entry.deletedAt > cutoff) continue;
-    // Safety: verify trashPath is actually under a configured trash root
+    // Safety: verify trashPath is actually under a configured trash root.
+    // If no roots are configured, refuse ALL deletions — an empty config means
+    // the admin hasn't set up trash yet, so nothing should be auto-purged.
     const resolved = path.resolve(entry.trashPath);
-    const safe = trashRoots.length === 0 || trashRoots.some((root) => resolved.startsWith(root + path.sep));
+    const safe = trashRoots.length > 0 && trashRoots.some((root) => resolved.startsWith(root + path.sep));
     if (!safe) {
       failed++;
       continue;
