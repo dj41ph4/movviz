@@ -50,7 +50,7 @@ export function ReportIssueButton({
       </button>
 
       {open && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 p-4 pt-[15vh]" onClick={() => setOpen(false)}>
           <div
             onClick={(e) => e.stopPropagation()}
             className="w-full max-w-md rounded-2xl glass-strong p-5"

@@ -115,7 +115,7 @@ export function ActivityMonitor() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-40 w-72 max-w-[calc(100vw-2rem)] rounded-2xl glass-strong p-2 shadow-2xl sm:w-80">
+        <div className="fixed left-4 right-4 top-16 z-40 rounded-2xl glass-strong p-2 shadow-2xl sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-80">
           <div className="flex items-center justify-between px-3 py-2">
             <span className="text-xs font-semibold uppercase tracking-wider text-ink-dim">
               {t("plexActivity.popoverTitle")}

@@ -98,7 +98,7 @@ export function ManualSearchModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-[8vh] backdrop-blur-sm" onClick={onClose}>
       <div
         className="mx-4 max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-white/10 bg-void shadow-2xl"
         onClick={(e) => e.stopPropagation()}

@@ -807,7 +807,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
 
       {showTrailer && detail.trailerKey && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-start justify-center bg-black/80 p-4 pt-[10vh] backdrop-blur-sm"
           onClick={() => setShowTrailer(false)}
         >
           <div className="relative w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
