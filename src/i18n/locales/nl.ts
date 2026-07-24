@@ -1417,6 +1417,7 @@ export const nl: Dictionary = {
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Opnieuw missende films",
       "seerr-import": "Seerr/Overseerr aanvragen importeren",
+      "disk-scan": "Lokale schijfscan",
     },
   },
 
@@ -1475,4 +1476,13 @@ export const nl: Dictionary = {
   },
 
   language: { label: "Taal" },
+
+  diskScan: {
+    title: "Lokale schijfscan",
+    intro: "Doorloopt de bibliotheekmappen om echte bestanden te koppelen aan gevolgde items en lokale paden (diskPath) bij te werken.",
+    fullScan: "Volledige scan",
+    incrementalScan: "Incrementele scan",
+    scanning: "Scannen…",
+    result: "{scanned} bestand(en) gescand, {matched} overeenkomst(en), {updated} bijgewerkt",
+  },
 };

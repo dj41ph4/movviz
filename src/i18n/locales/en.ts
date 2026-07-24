@@ -1417,6 +1417,7 @@ export const en: Dictionary = {
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Retry missing movies",
       "seerr-import": "Seerr/Overseerr request import",
+      "disk-scan": "Local disk scan",
     },
   },
 
@@ -1475,4 +1476,13 @@ export const en: Dictionary = {
   },
 
   language: { label: "Language" },
+
+  diskScan: {
+    title: "Local disk scan",
+    intro: "Walks the library folders to map real files to tracked entries and update local paths (diskPath).",
+    fullScan: "Full scan",
+    incrementalScan: "Incremental scan",
+    scanning: "Scanning…",
+    result: "{scanned} file(s) scanned, {matched} match(es), {updated} updated",
+  },
 };

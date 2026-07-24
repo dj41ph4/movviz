@@ -1415,6 +1415,7 @@ export const fr = {
       "trash-purge": "Purge de la corbeille",
       "retry-missing-movies": "Relance des films manquants",
       "seerr-import": "Import des demandes Overseerr/Seerr",
+      "disk-scan": "Scan disque local",
     },
   },
 
@@ -1473,4 +1474,13 @@ export const fr = {
   },
 
   language: { label: "Langue" },
+
+  diskScan: {
+    title: "Scan disque local",
+    intro: "Parcourt les dossiers de la bibliothèque pour mapper les fichiers réels aux entrées suivies, et mettre à jour les chemins locaux (diskPath).",
+    fullScan: "Scan complet",
+    incrementalScan: "Scan incrémental",
+    scanning: "Scan en cours…",
+    result: "{scanned} fichier(s) scanné(s), {matched} correspondance(s), {updated} mis à jour",
+  },
 } as const;

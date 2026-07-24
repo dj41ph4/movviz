@@ -1434,6 +1434,7 @@ export const de: Dictionary = {
       "trash-purge": "Trash purge",
       "retry-missing-movies": "Fehlende Filme erneut versuchen",
       "seerr-import": "Seerr/Overseerr Anfragen importieren",
+      "disk-scan": "Lokaler Festplatten-Scan",
     },
   },
 
@@ -1474,4 +1475,13 @@ export const de: Dictionary = {
   },
 
   language: { label: "Sprache" },
+
+  diskScan: {
+    title: "Lokaler Festplatten-Scan",
+    intro: "Durchläuft die Bibliotheksordner, um reale Dateien mit verfolgten Einträgen abzugleichen und lokale Pfade (diskPath) zu aktualisieren.",
+    fullScan: "Vollständiger Scan",
+    incrementalScan: "Inkrementeller Scan",
+    scanning: "Scannen …",
+    result: "{scanned} Datei(en) gescannt, {matched} Übereinstimmung(en), {updated} aktualisiert",
+  },
 };

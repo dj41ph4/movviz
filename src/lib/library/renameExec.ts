@@ -233,7 +233,8 @@ async function sweepResidualFolder(dir: string, target: string, log: LogFn): Pro
 async function renameMovie(id: string, language: string, log: LogFn): Promise<RenameResult> {
   const list = loadMovies();
   const movie = list.find((m) => m.id === id);
-  if (!movie || !movie.file?.path) {
+  const moviePath = movie?.file?.diskPath ?? movie?.file?.path;
+  if (!movie || !moviePath) {
     return { success: false, id, type: "movie", title: "", skipped: true };
   }
 
@@ -244,30 +245,30 @@ async function renameMovie(id: string, language: string, log: LogFn): Promise<Re
   // node:path module follows the host OS instead, which corrupts paths with
   // mixed separators the moment this runs somewhere other than Linux (a
   // Windows dev/test box). Pick the module matching this movie's own path.
-  const p = pathFor(movie.file.path);
+  const p = pathFor(moviePath);
   const templates = loadNamingTemplates();
   const useDots = templates.useDotsInsteadOfSpaces;
   const ctx = buildMovieCtx(movie.file, movie.year, translated);
   const expectedFolder = renderSegment(templates.movieFolder, ctx, useDots);
   const expectedFile = renderSegment(templates.movieFile, ctx, useDots);
-  const ext = p.extname(movie.file.path);
-  const base = p.dirname(p.dirname(movie.file.path));
+  const ext = p.extname(moviePath);
+  const base = p.dirname(p.dirname(moviePath));
   const expectedPath = p.join(base, expectedFolder, expectedFile + ext);
 
-  if (expectedPath === movie.file.path) {
+  if (expectedPath === moviePath) {
     return { success: false, id, type: "movie", title: movie.title, skipped: true };
   }
 
-  log(`[MOVIE] ${movie.title}: ${p.basename(p.dirname(movie.file.path))} → ${expectedFolder}`);
+  log(`[MOVIE] ${movie.title}: ${p.basename(p.dirname(moviePath))} → ${expectedFolder}`);
 
   try {
-    if (!fs.existsSync(movie.file.path)) {
-      throw new Error(`Fichier introuvable à l'emplacement enregistré: ${movie.file.path}`);
+    if (!fs.existsSync(moviePath)) {
+      throw new Error(`Fichier introuvable à l'emplacement enregistré: ${moviePath}`);
     }
 
-    const oldDir = p.dirname(movie.file.path);
+    const oldDir = p.dirname(moviePath);
     const newDir = p.dirname(expectedPath);
-    const oldName = p.basename(movie.file.path);
+    const oldName = p.basename(moviePath);
     const newName = p.basename(expectedPath);
 
     // 1. Rename folder (if changed)
@@ -293,7 +294,7 @@ async function renameMovie(id: string, language: string, log: LogFn): Promise<Re
     }
     updateMovie(movie.id, {
       title: translated,
-      file: { ...movie.file, path: expectedPath },
+      file: { ...movie.file!, path: expectedPath, diskPath: expectedPath },
     });
     log(`[DONE] ${movie.title} → ${expectedFolder}/${expectedFile}${ext}`);
     return { success: true, id, type: "movie", title: translated };
@@ -312,15 +313,16 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     return { success: false, id, type: "series", title: "", skipped: true };
   }
 
-  const firstEp = series.seasons.flatMap((s) => s.episodes).find((e) => e.file?.path);
-  if (!firstEp?.file?.path) {
+  const firstEp = series.seasons.flatMap((s) => s.episodes).find((e) => e.file?.diskPath ?? e.file?.path);
+  const firstEpPath = firstEp?.file?.diskPath ?? firstEp?.file?.path;
+  if (!firstEpPath) {
     return { success: false, id, type: "series", title: series.title, skipped: true };
   }
 
   const translated = await getTitleInLanguage(series.tmdbId, "series", language);
   if (!translated) return { success: false, id, type: "series", title: series.title, skipped: true };
 
-  const p = pathFor(firstEp.file.path);
+  const p = pathFor(firstEpPath);
   const templates = loadNamingTemplates();
   const useDots = templates.useDotsInsteadOfSpaces;
   const seriesCtx: NamingContext = {
@@ -335,7 +337,7 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
   // assuming Show/Season/Ep structure. A flat Show/Ep layout would cause
   // dirname(dirname(...)) to climb too high (into the parent of all shows)
   // and sweepResidualFolder would then move every show into one folder.
-  const allEpisodePaths = series.seasons.flatMap(s => s.episodes).filter(e => e.file?.path).map(e => e.file!.path);
+  const allEpisodePaths = series.seasons.flatMap(s => s.episodes).filter(e => e.file?.diskPath ?? e.file?.path).map(e => (e.file!.diskPath ?? e.file!.path)!);
   const epParents = allEpisodePaths.map(path => p.dirname(path));
   let seriesRoot = new Set(epParents).size === 1 ? epParents[0] : p.dirname(epParents[0]);
   for (const parent of epParents) {
@@ -370,21 +372,22 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     };
     const newSeasonFolder = renderSegment(templates.seasonFolder, seasonCtx, useDots);
     for (const ep of season.episodes) {
-      if (!ep.file?.path) continue;
-      const parsed = parseRelease(p.basename(ep.file.path));
+      const epPath = ep.file?.diskPath ?? ep.file?.path;
+      if (!epPath) continue;
+      const parsed = parseRelease(p.basename(epPath));
       const epCtx: NamingContext = {
         title: translated, year: series.year ? String(series.year) : null,
         season: ep.seasonNumber, episode: ep.episodeNumber, episodeTitle: ep.title || null,
-        quality: ep.file.quality ?? "",
-        resolution: parsed.resolution ?? ep.file.resolution,
+        quality: ep.file!.quality ?? "",
+        resolution: parsed.resolution ?? ep.file!.resolution,
         source: parsed.source, videoCodec: parsed.videoCodec, audioCodec: parsed.audioCodec,
         hdr: parsed.hdr, group: parsed.group,
       };
       const expectedEpFile = renderSegment(templates.episodeFile, epCtx, useDots);
-      const ext = p.extname(ep.file.path);
+      const ext = p.extname(epPath);
       const expectedEpPath = p.join(newSeriesDir, newSeasonFolder, expectedEpFile + ext);
-      if (expectedEpPath !== ep.file.path) {
-        epRenames.push({ oldPath: ep.file.path, newPath: expectedEpPath, season: ep.seasonNumber, episode: ep.episodeNumber });
+      if (expectedEpPath !== epPath) {
+        epRenames.push({ oldPath: epPath, newPath: expectedEpPath, season: ep.seasonNumber, episode: ep.episodeNumber });
       }
     }
   }
@@ -393,7 +396,7 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     return { success: false, id, type: "series", title: series.title, skipped: true };
   }
 
-  log(`[SERIES] ${series.title}: → ${expectedFolder} (${epRenames.length}/${series.seasons.reduce((a, s) => a + s.episodes.filter((e) => e.file?.path).length, 0)} episodes to move)`);
+  log(`[SERIES] ${series.title}: → ${expectedFolder} (${epRenames.length}/${series.seasons.reduce((a, s) => a + s.episodes.filter((e) => e.file?.diskPath ?? e.file?.path).length, 0)} episodes to move)`);
 
   try {
     // Create (or reuse, if a previous partial run already made it) the one
@@ -454,7 +457,7 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
       episodes: season.episodes.map((ep) => {
         const r = epRenames.find((e) => e.season === ep.seasonNumber && e.episode === ep.episodeNumber);
         if (!r || !ep.file || !movedEpisodes.has(`${r.season}.${r.episode}`)) return ep;
-        return { ...ep, file: { ...ep.file, path: r.newPath } };
+        return { ...ep, file: { ...ep.file, path: r.newPath, diskPath: r.newPath } };
       }),
     }));
     const seriesPatches = new Map<string, Partial<typeof series>>();

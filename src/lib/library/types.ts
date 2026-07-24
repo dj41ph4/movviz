@@ -23,6 +23,8 @@ export interface QualityProfile {
 
 export interface LibraryFile {
   path: string;
+  /** Chemin réel sur le disque local (scan disque), utilisé par rename/naming. distinct de path (Plex/engine). */
+  diskPath?: string;
   quality: string; // e.g. "BluRay 1080p"
   resolution: string | null;
   videoCodec: string | null; // e.g. "x265"
