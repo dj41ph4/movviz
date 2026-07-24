@@ -909,9 +909,19 @@ export class MovvizInstance {
     // already moved (seedRatio 0) or hardlinked into the library (seeding)
     // and the torrent is done sharing, so the download copies are unwanted.
     if (this.cfg.autoMoveOnComplete) {
-      await fsp
-        .rm(path.join(this.cfg.downloadPath, snap.name), { recursive: true, force: true })
-        .catch(() => {});
+      // Sanitize torrent name: strip path separators, parent dir refs, and
+      // drive letters to prevent path traversal attacks via malicious torrent
+      // names (e.g. "../../media/tv" would walk out of downloadPath and
+      // recursively delete the entire library folder).
+      const safeName = snap.name.replace(/[/\\:]/g, "_").replace(/\.\.+/g, "_");
+      const cleanupTarget = path.join(this.cfg.downloadPath, safeName);
+      // Double-check: never delete anything outside or at the root of downloadPath.
+      const resolved = path.resolve(cleanupTarget);
+      if (!resolved.startsWith(path.resolve(this.cfg.downloadPath)) || resolved === path.resolve(this.cfg.downloadPath)) {
+        console.error(`[engine:${this.cfg.id}] refusing to cleanup unsafe path: ${cleanupTarget} → ${resolved}`);
+      } else {
+        await fsp.rm(resolved, { recursive: true, force: true }).catch(() => {});
+      }
     }
     if (!this.importedHistory.has(snap.infoHash)) {
       // Nothing was (or could be) imported — keep the torrent visible as a
@@ -1208,7 +1218,15 @@ export class MovvizInstance {
     this.importedHistory.delete(infoHash);
     await this.dropCachedTorrentFile(infoHash);
     if (deleteData && rec.movedTo) {
-      await fsp.rm(rec.movedTo, { recursive: true, force: true }).catch(() => {});
+      // Safety: only delete if movedTo is under completedPath (the library root).
+      // Recursive rm on a misconfigured path would wipe the entire library.
+      const moved = path.resolve(rec.movedTo);
+      const completed = path.resolve(this.cfg.completedPath ?? "");
+      if (completed && moved.startsWith(completed + path.sep)) {
+        await fsp.rm(moved, { recursive: true, force: true }).catch(() => {});
+      } else {
+        console.error(`[engine:${this.cfg.id}] refusing to delete data outside completedPath: ${rec.movedTo}`);
+      }
     }
     this.onChange();
     return true;

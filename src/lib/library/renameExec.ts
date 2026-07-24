@@ -88,14 +88,16 @@ async function rmRetry(src: string, log: LogFn, maxRetries = 3): Promise<void> {
 }
 
 function rmShellFallback(src: string, log: LogFn): void {
+  // SAFETY: never delete a filesystem root. rd /s /q on "D:\" would wipe everything.
+  const p = pathFor(src);
+  const resolved = p.resolve(src);
+  const depth = resolved.split(p.sep).filter(Boolean).length;
+  if (depth <= 1) {
+    throw new Error(`[SECURITY] Refusing to delete root-level directory: ${resolved}`);
+  }
   try {
     const win = process.platform === "win32";
     if (win) {
-      // execFileSync with an argv array — src is never interpolated into a
-      // shell command string, so it can't be read as anything but a literal
-      // path no matter what characters a TMDb-translated title contains.
-      // `rd` is a cmd.exe builtin (no standalone .exe), hence invoking
-      // cmd.exe /c with the rest of the command as separate argv entries.
       log(`[RM] shell fallback: rd /s /q "${src}"`);
       execFileSync("cmd.exe", ["/c", "rd", "/s", "/q", src], { timeout: 30000 });
     } else {
@@ -114,6 +116,13 @@ async function safeMove(src: string, dst: string, log: LogFn): Promise<void> {
   const nd = p.resolve(dst);
   if (ns === nd) { log(`[SKIP] ${ns} === ${nd}`); return; }
   if (fs.existsSync(nd)) throw new Error(`Target exists: ${nd}`);
+
+  // SAFETY: refuse to move a filesystem root or a directory that looks like
+  // a library root (too shallow depth).
+  const depth = ns.split(p.sep).filter(Boolean).length;
+  if (depth <= 1) {
+    throw new Error(`[SECURITY] Refusing to move root-level directory: ${ns}`);
+  }
 
   fs.mkdirSync(p.dirname(nd), { recursive: true });
 
@@ -321,8 +330,23 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     audioCodec: null, hdr: null, group: null,
   };
   const expectedFolder = renderSegment(templates.seriesFolder, seriesCtx, useDots);
-  const oldSeriesDir = p.dirname(p.dirname(firstEp.file.path));
-  const base = p.dirname(oldSeriesDir);
+  
+  // SAFETY: find the common parent of ALL episodes in this series, instead of
+  // assuming Show/Season/Ep structure. A flat Show/Ep layout would cause
+  // dirname(dirname(...)) to climb too high (into the parent of all shows)
+  // and sweepResidualFolder would then move every show into one folder.
+  const allEpisodePaths = series.seasons.flatMap(s => s.episodes).filter(e => e.file?.path).map(e => e.file!.path);
+  const epParents = allEpisodePaths.map(path => p.dirname(path));
+  let seriesRoot = new Set(epParents).size === 1 ? epParents[0] : p.dirname(epParents[0]);
+  for (const parent of epParents) {
+    while (!parent.startsWith(seriesRoot)) seriesRoot = p.dirname(seriesRoot);
+  }
+  // NEVER allow the series root to be at the same level as the rename target's parent —
+  // that would mean sweeping an entire library folder into a single show.
+  const base = p.dirname(seriesRoot);
+  if (seriesRoot === base) {
+    throw new Error(`Séries — le dossier source (${seriesRoot}) est au même niveau que le dossier cible. Structure de dossiers invalide ? Vérifiez que chaque série a bien son propre dossier.`);
+  }
   const newSeriesDir = p.join(base, expectedFolder);
 
   // Pre-compute every episode's individual target path. Each one is sourced
@@ -398,11 +422,20 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     // by Movviz, so never renamed, but still real user data) gets carried
     // into the unified destination too, then the now-empty residual folders
     // are removed. Nothing that can't be safely relocated is ever deleted.
-    const residualDirs = new Set(epRenames.map((r) => p.dirname(p.dirname(r.oldPath))));
+    // SAFETY: use the already-computed seriesRoot, not dirname(dirname(...)).
+    // Residual dirs are the individual episode source directories that may contain
+    // leftovers (subs, nfo, artwork). Only clean dirs under seriesRoot.
+    const residualDirs = new Set(epRenames.map((r) => p.dirname(r.oldPath)));
     residualDirs.delete(newSeriesDir);
+    residualDirs.delete(seriesRoot); // never sweep the series root itself
     for (const dir of residualDirs) {
-      await sweepResidualFolder(dir, newSeriesDir, log);
+      // Only clean dirs that are children of seriesRoot (season folders, etc.)
+      if (dir.startsWith(seriesRoot) && dir !== seriesRoot) {
+        await sweepResidualFolder(dir, newSeriesDir, log);
+      }
     }
+    // After moving season subfolders, clean up the series root if empty
+    await sweepResidualFolder(seriesRoot, newSeriesDir, log);
 
     // 4. Update library records — only for episodes actually confirmed moved,
     // so the library never claims a file lives somewhere it doesn't.

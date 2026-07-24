@@ -27,9 +27,33 @@ function writeJson(file: string, data: unknown) {
 // ---- Movies ----
 
 export function loadMovies(): LibraryMovie[] {
-  return readJson<LibraryMovie[]>(MOVIES_FILE, []);
+  const list = readJson<LibraryMovie[]>(MOVIES_FILE, []);
+  // Safety: if the fallback [] was returned due to read failure (NAS down, corruption)
+  // rather than the file being genuinely empty, log it. Empty list on genuine empty
+  // file is fine, but a ~20MB file that suddenly returns [] is a data integrity alarm.
+  if (list.length === 0) {
+    try {
+      const raw = fs.readFileSync(MOVIES_FILE, "utf8");
+      if (raw.trim().length > 2) {
+        console.error("[store] MOVIES_FILE read returned [] but file is non-empty — possible corruption or permission issue");
+      }
+    } catch { /* file genuinely missing or inaccessible — expected */ }
+  }
+  return list;
 }
 function saveMovies(list: LibraryMovie[]) {
+  // Refuse to overwrite a large file with a near-empty list — this protects
+  // against a NAS-down scenario where loadMovies() returned [] as fallback
+  // and the caller then writes that truncated list back to disk.
+  if (list.length === 0) {
+    try {
+      const old = JSON.parse(fs.readFileSync(MOVIES_FILE, "utf8"));
+      if (Array.isArray(old) && old.length > 10) {
+        console.error("[store] REFUSING to overwrite movie library: " + old.length + " entries → 0 — NAS may be down");
+        return;
+      }
+    } catch { /* file missing — fine to write */ }
+  }
   writeJson(MOVIES_FILE, list);
 }
 export function getMovie(id: string): LibraryMovie | null {
@@ -94,9 +118,27 @@ export function getMovieByActiveHash(infoHash: string): LibraryMovie | null {
 // ---- Series ----
 
 export function loadSeries(): LibrarySeries[] {
-  return readJson<LibrarySeries[]>(SERIES_FILE, []);
+  const list = readJson<LibrarySeries[]>(SERIES_FILE, []);
+  if (list.length === 0) {
+    try {
+      const raw = fs.readFileSync(SERIES_FILE, "utf8");
+      if (raw.trim().length > 2) {
+        console.error("[store] SERIES_FILE read returned [] but file is non-empty — possible corruption or permission issue");
+      }
+    } catch { /* file genuinely missing or inaccessible */ }
+  }
+  return list;
 }
 function saveSeries(list: LibrarySeries[]) {
+  if (list.length === 0) {
+    try {
+      const old = JSON.parse(fs.readFileSync(SERIES_FILE, "utf8"));
+      if (Array.isArray(old) && old.length > 10) {
+        console.error("[store] REFUSING to overwrite series library: " + old.length + " entries → 0 — NAS may be down");
+        return;
+      }
+    } catch { /* file missing — fine to write */ }
+  }
   writeJson(SERIES_FILE, list);
 }
 export function getSeries(id: string): LibrarySeries | null {

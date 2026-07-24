@@ -2,6 +2,18 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.4.6] — 2026-07-23
+
+### Corrigé
+
+- **Protection perte de données — 6 gardes de sécurité** :
+  - **Engine `finishTorrent`** : sanitization du nom de torrent (path traversal `../../` bloqué), validation que le chemin de cleanup reste dans downloadPath
+  - **Engine `remove(deleteData=true)`** : vérification que `movedTo` est bien sous `completedPath` avant suppression récursive
+  - **Store `saveMovies` / `saveSeries`** : refuse d'écraser un fichier de 10+ entrées par `[]` (protection anti-fallback NAS down)
+  - **RenameExec `safeMove`** : refuse de déplacer un dossier racine (depth ≤ 1)
+  - **RenameExec `rmShellFallback`** : vérifie depth ≥ 2 avant `rd /s /q`
+  - **RenameExec `seriesRoot`** : calculé via common ancestor de TOUS les épisodes, garde si root == base
+
 ## [1.4.5] — 2026-07-23
 
 ### Ajouté
