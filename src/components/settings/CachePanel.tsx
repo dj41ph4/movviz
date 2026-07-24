@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Trash2, Loader2, Sparkles } from "lucide-react";
+import { Trash2, Loader2, Sparkles, Database } from "lucide-react";
 
 interface CacheStats {
   name: string;
@@ -100,6 +100,15 @@ export function CachePanel() {
   if (caches.length === 0) {
     return (
       <div>
+        <div className="mb-5 flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+            <Database className="h-5 w-5" />
+          </span>
+          <div>
+            <h3 className="font-bold text-ink">{t("cache.title")}</h3>
+            <p className="mt-0.5 text-xs text-ink-dim">{t("cache.intro")}</p>
+          </div>
+        </div>
         {warmSection}
         <div className="rounded-2xl glass py-12 text-center text-sm text-ink-dim">{t("cache.empty")}</div>
       </div>
@@ -108,12 +117,22 @@ export function CachePanel() {
 
   return (
     <div>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Database className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("cache.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("cache.intro")}</p>
+        </div>
+      </div>
       {warmSection}
+
       <div className="overflow-hidden rounded-2xl glass">
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/8 text-left text-xs font-bold uppercase tracking-wide text-ink-dim">
+          <tr className="sticky top-0 z-10 border-b border-white/8 bg-white/[0.03] backdrop-blur text-left text-xs font-bold uppercase tracking-wide text-ink-dim">
             <th className="px-4 py-3">{t("cache.name")}</th>
             <th className="px-4 py-3">{t("cache.hits")}</th>
             <th className="px-4 py-3">{t("cache.misses")}</th>

@@ -8,7 +8,8 @@ export async function GET(req: NextRequest) {
   const type = searchParams.get("type") === "series" ? "series" : "movie";
   const tmdbId = Number(searchParams.get("tmdbId"));
   if (!tmdbId) return NextResponse.json({ error: "tmdbId required" }, { status: 400 });
-  const detail = await getDetail(type, tmdbId);
+  const lang = searchParams.get("lang") ?? undefined;
+  const detail = await getDetail(type, tmdbId, lang);
   if (!detail) return NextResponse.json({ error: "not found" }, { status: 404 });
   return NextResponse.json(detail);
 }

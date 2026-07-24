@@ -76,6 +76,15 @@ export function CleanDirsPanel() {
 
   return (
     <div className="space-y-6">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <FolderOpen className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("cleanDirs.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("cleanDirs.intro")}</p>
+        </div>
+      </div>
       <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
         <div>
@@ -132,7 +141,7 @@ export function CleanDirsPanel() {
                 <button
                   onClick={apply}
                   disabled={deleting || selected.size === 0}
-                  className="flex items-center gap-2 rounded-xl bg-down px-5 py-2 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-xl bg-down px-5 py-2 text-sm font-bold text-white hover:bg-down-hover disabled:opacity-50"
                 >
                   {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   {deleting ? t("cleanDirs.deleting") : t("cleanDirs.delete", { count: selected.size })}

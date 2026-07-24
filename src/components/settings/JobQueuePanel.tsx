@@ -188,7 +188,7 @@ export function JobQueuePanel() {
                   max={100}
                   value={priorities[type] ?? 0}
                   onChange={(e) => setPriority(type, Number(e.target.value))}
-                  className="h-1.5 flex-1 accent-brand-glow"
+                  className="h-1.5 flex-1 rounded-full appearance-none bg-white/10 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-brand-glow [&::-webkit-slider-thumb]:cursor-pointer"
                 />
                 <span className="w-10 shrink-0 text-right text-sm font-bold text-ink tabular-nums">
                   {saving === type ? <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin text-ink-dim" /> : priorities[type]}

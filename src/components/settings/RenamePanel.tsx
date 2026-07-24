@@ -301,6 +301,15 @@ export function RenamePanel() {
 
   return (
     <div className="space-y-6">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <RefreshCw className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("rename.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("rename.intro")}</p>
+        </div>
+      </div>
       <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
         <div>
@@ -310,29 +319,31 @@ export function RenamePanel() {
       </div>
 
       <div className="flex items-start gap-3 rounded-2xl border border-brand/25 bg-brand/8 p-4">
-        <RefreshCw className="mt-0.5 h-5 w-5 shrink-0 text-brand-glow" />
+        <Film className="mt-0.5 h-5 w-5 shrink-0 text-brand-glow" />
         <div className="flex-1">
-          <p className="text-sm font-bold text-ink">{t("rename.title")}</p>
-          <p className="mt-1 text-xs text-ink-dim">{t("rename.intro")}</p>
+          <p className="text-sm font-bold text-ink">{t("rename.scanLabel")}</p>
+          <p className="mt-1 text-xs text-ink-dim">{t("rename.scanIntro")}</p>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="text-sm font-medium text-ink-soft">{t("rename.languageLabel")}</label>
-        <select
-          value={language}
-          onChange={(e) => setLanguage(e.target.value as Locale)}
-          className="h-9 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
-          disabled={running || executing}
-        >
-          {LOCALES.map((l) => (
-            <option key={l} value={l}>{l.toUpperCase()}</option>
-          ))}
-        </select>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="text-sm font-medium text-ink-soft">{t("rename.languageLabel")}</label>
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value as Locale)}
+            className="h-9 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+            disabled={running || executing}
+          >
+            {LOCALES.map((l) => (
+              <option key={l} value={l}>{l.toUpperCase()}</option>
+            ))}
+          </select>
+        </div>
         <button
           onClick={doScan}
           disabled={running || executing}
-          className="flex items-center gap-2 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-white shadow-sm ring-focus hover:bg-brand-glow disabled:opacity-50"
+          className="flex items-center gap-2 rounded-xl brand-gradient px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
         >
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           {running ? t("rename.scanning") : t("rename.scan")}
@@ -502,7 +513,7 @@ export function RenamePanel() {
             <button
               onClick={doExecute}
               disabled={selected.size === 0 || executing}
-              className="flex items-center gap-2 rounded-xl bg-brand px-5 py-2 text-sm font-semibold text-white shadow-sm ring-focus hover:bg-brand-glow disabled:opacity-50"
+              className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
             >
               {executing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               {executing ? t("rename.applying") : t("rename.apply", { count: selected.size })}

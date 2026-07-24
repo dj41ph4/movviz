@@ -136,6 +136,15 @@ export function RepairPathsPanel() {
 
   return (
     <div className="space-y-6">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Wrench className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("repairPaths.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("repairPaths.intro")}</p>
+        </div>
+      </div>
       <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
         <div>
@@ -145,10 +154,10 @@ export function RepairPathsPanel() {
       </div>
 
       <div className="flex items-start gap-3 rounded-2xl border border-brand/25 bg-brand/8 p-4">
-        <Wrench className="mt-0.5 h-5 w-5 shrink-0 text-brand-glow" />
+        <FolderSearch className="mt-0.5 h-5 w-5 shrink-0 text-brand-glow" />
         <div className="flex-1">
-          <p className="text-sm font-bold text-ink">{t("repairPaths.title")}</p>
-          <p className="mt-1 text-xs text-ink-dim">{t("repairPaths.intro")}</p>
+          <p className="text-sm font-bold text-ink">{t("repairPaths.scanLabel")}</p>
+          <p className="mt-1 text-xs text-ink-dim">{t("repairPaths.scanIntro")}</p>
         </div>
       </div>
 

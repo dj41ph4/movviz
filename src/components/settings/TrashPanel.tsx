@@ -58,11 +58,13 @@ export function TrashPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start gap-3 rounded-2xl border border-amber/25 bg-amber/8 p-4">
-        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber" />
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Trash2 className="h-5 w-5" />
+        </span>
         <div>
-          <p className="text-sm font-bold text-ink">{t("trash.title")}</p>
-          <p className="mt-1 text-xs text-ink-dim">{t("trash.intro")}</p>
+          <h3 className="font-bold text-ink">{t("trash.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("trash.intro")}</p>
         </div>
       </div>
 

@@ -43,7 +43,7 @@ export function StatsPanel() {
         </span>
         <div>
           <h3 className="font-bold text-ink">{t("stats.title")}</h3>
-          <p className="mt-0.5 text-xs text-ink-dim">{t("stats.title")}</p>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("stats.intro")}</p>
         </div>
       </div>
 

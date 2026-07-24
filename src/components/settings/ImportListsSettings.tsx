@@ -5,7 +5,7 @@ import useSWR from "swr";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { ImportListConfig, ImportListKind } from "@/lib/importLists/types";
-import { Loader2, Plus, Trash2, RefreshCw, Check, ExternalLink } from "lucide-react";
+import { Loader2, Plus, Trash2, RefreshCw, Check, ExternalLink, List } from "lucide-react";
 
 const KIND_OPTIONS: { value: ImportListKind; label: string; icon: string }[] = [
   { value: "trakt", label: "Trakt", icon: "T" },
@@ -74,8 +74,23 @@ export function ImportListsSettings() {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-ink-dim">{t("settings.importListsHint")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <List className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("settings.importLists")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("settings.importListsHint")}</p>
+        </div>
+      </div>
 
+      {lists.length === 0 && !showForm && (
+        <div className="rounded-2xl glass py-12 text-center">
+          <List className="mx-auto mb-2 h-6 w-6 text-ink-dim" />
+          <p className="font-semibold text-ink">{t("settings.noImportLists")}</p>
+          <p className="mt-1 text-sm text-ink-dim">{t("settings.importListsHint")}</p>
+        </div>
+      )}
       {lists.map((l) => (
         <div key={l.id} className="flex items-center justify-between rounded-2xl glass p-4">
           <div className="min-w-0 flex-1">

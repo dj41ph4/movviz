@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { useT } from "@/i18n/provider";
 import type { NotificationTransportConfig } from "@/lib/notifications/types";
-import { Loader2, Check, X, Send } from "lucide-react";
+import { Loader2, Check, X, Send, BellRing } from "lucide-react";
 
 type TransportKind = "discord" | "telegram" | "gotify" | "slack" | "pushbullet";
 
@@ -95,11 +95,32 @@ export function NotificationSettings() {
     }
   };
 
-  if (!cfg) return <div className="flex items-center justify-center gap-2 py-8 text-ink-dim"><Loader2 className="h-4 w-4 animate-spin" /></div>;
+  if (!cfg) return (
+    <div>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <BellRing className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("settings.tabNotifications")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("settings.notificationsHint")}</p>
+        </div>
+      </div>
+      <div className="flex items-center justify-center gap-2 py-16 text-ink-dim"><Loader2 className="h-5 w-5 animate-spin" /></div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-ink-dim">{t("settings.notificationsHint")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <BellRing className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("settings.tabNotifications")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("settings.notificationsHint")}</p>
+        </div>
+      </div>
 
       {TRANSPORTS.map(({ kind, fields }) => {
         const transport = cfg[kind];

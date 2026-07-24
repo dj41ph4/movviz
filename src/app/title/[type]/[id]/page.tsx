@@ -68,7 +68,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
   // All reads go through SWR: the detail comes back instantly when
   // revisiting a title, and the library/watchlist keys are shared with the
   // pages that already poll them — no duplicate fetch, no status pop-in.
-  const { data: detailData } = useSWR<MetaDetail>(`/api/metadata/detail?type=${type}&tmdbId=${id}`);
+  const { data: detailData } = useSWR<MetaDetail>(`/api/metadata/detail?type=${type}&tmdbId=${id}&lang=${locale}`);
   const detail = detailData?.tmdbId ? detailData : null;
   const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{ items: { tmdbId: number; type: string }[] }>("/api/watchlist");
   const onWatchlist = (watchlistData?.items ?? []).some((x) => x.tmdbId === Number(id) && x.type === type);
@@ -330,7 +330,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
       <div className="relative -mx-6 -mt-6 mb-8 h-[180px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:h-[320px]">
         {backdrop && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={backdrop} alt="" className="h-full w-full object-cover" />
+          <img src={backdrop} alt="" className="h-full w-full object-cover" loading="lazy" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-void via-void/60 to-transparent" />
         {libraryMatch?.id && (
@@ -350,7 +350,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
         <div className="h-44 w-32 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl sm:h-64 sm:w-44">
           {poster ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={poster} alt={detail.title} className="h-full w-full object-cover" />
+            <img src={poster} alt={detail.title} className="h-full w-full object-cover" loading="lazy" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               {type === "movie" ? <Film className="h-8 w-8 text-ink-soft/50" /> : <Tv className="h-8 w-8 text-ink-soft/50" />}
@@ -588,7 +588,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
                     <div className="mx-auto h-24 w-24 overflow-hidden rounded-full bg-surface transition-transform group-hover:scale-105">
                       {c.profilePath ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={`https://image.tmdb.org/t/p/w185${c.profilePath}`} alt={c.name} className="h-full w-full object-cover" />
+                        <img src={`https://image.tmdb.org/t/p/w185${c.profilePath}`} alt={c.name} className="h-full w-full object-cover" loading="lazy" />
                       ) : null}
                     </div>
                     <p className="mt-1.5 truncate text-xs font-semibold text-ink group-hover:text-brand-glow">{c.name}</p>
@@ -615,7 +615,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
                         <div className="aspect-[2/3] overflow-hidden rounded-xl border border-white/5 bg-surface">
                           {s.posterPath ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={`https://image.tmdb.org/t/p/w342${s.posterPath}`} alt={s.title} className="h-full w-full object-cover" />
+                            <img src={`https://image.tmdb.org/t/p/w342${s.posterPath}`} alt={s.title} className="h-full w-full object-cover" loading="lazy" />
                           ) : null}
                           {owned && (
                             <div className="absolute right-1.5 top-1.5 flex items-center gap-1 rounded-md bg-ok px-1.5 py-0.5 text-[10px] font-bold text-black shadow">
@@ -718,7 +718,7 @@ export default function TitleDetailPage({ params }: { params: Promise<{ type: st
                   <div key={p.providerId} title={p.name} className="h-8 w-8 overflow-hidden rounded-lg border border-white/10 bg-surface">
                     {p.logoPath ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={`https://image.tmdb.org/t/p/w92${p.logoPath}`} alt={p.name} className="h-full w-full object-cover" />
+                      <img src={`https://image.tmdb.org/t/p/w92${p.logoPath}`} alt={p.name} className="h-full w-full object-cover" loading="lazy" />
                     ) : null}
                   </div>
                 ))}

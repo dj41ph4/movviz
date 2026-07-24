@@ -107,17 +107,18 @@ export function PerfPanel() {
 
   return (
     <div className="rounded-2xl glass p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Gauge className="h-5 w-5" />
+        </span>
         <div>
-          <h3 className="flex items-center gap-2 font-bold text-ink">
-            <Gauge className="h-4 w-4 text-brand-glow" /> {t("health.perfTitle")}
-          </h3>
-          <p className="mt-1 max-w-xl text-xs text-ink-dim">{t("health.perfHint")}</p>
+          <h3 className="font-bold text-ink">{t("health.perfTitle")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("health.perfHint")}</p>
         </div>
         <button
           onClick={load}
           disabled={loading}
-          className="flex h-9 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft disabled:opacity-50"
+          className="ml-auto flex h-9 shrink-0 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft disabled:opacity-50"
         >
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           {t("health.logsRefresh")}

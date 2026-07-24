@@ -111,19 +111,25 @@ export function SeerrSettings() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <input
-          value={baseUrl}
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("seerr.baseUrl")}</label>
+          <input
+            value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
           placeholder={t("seerr.baseUrl")}
-          className="h-11 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+          className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
         />
-        <input
-          value={apiKey}
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("seerr.apiKey")}</label>
+          <input
+            value={apiKey}
           onChange={(e) => setApiKey(e.target.value)}
           type="password"
           placeholder={t("seerr.apiKey")}
-          className="h-11 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+          className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
         />
+        </div>
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">

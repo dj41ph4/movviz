@@ -76,7 +76,15 @@ export function NamingEditor() {
 
   return (
     <div className="space-y-6">
-      <p className="max-w-3xl text-sm text-ink-soft">{t("naming.intro")}</p>
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Film className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("naming.title")}</h3>
+          <p className="mt-0.5 max-w-3xl text-xs text-ink-dim">{t("naming.intro")}</p>
+        </div>
+      </div>
 
       <div className="flex items-center gap-3 rounded-2xl glass p-4">
         <span className="flex-1 text-sm font-semibold text-ink">

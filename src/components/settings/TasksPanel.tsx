@@ -107,7 +107,7 @@ export function TasksPanel() {
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b border-white/8 text-left text-xs font-bold uppercase tracking-wide text-ink-dim">
+          <tr className="sticky top-0 z-10 border-b border-white/8 bg-white/[0.03] backdrop-blur text-left text-xs font-bold uppercase tracking-wide text-ink-dim">
             <th className="px-4 py-3">{t("tasks.name")}</th>
             <th className="px-4 py-3">{t("tasks.interval")}</th>
             <th className="px-4 py-3">{t("tasks.lastRun")}</th>

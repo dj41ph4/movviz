@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { RefreshCw, Copy, Check, Loader2 } from "lucide-react";
+import { RefreshCw, Copy, Check, Loader2, FileCode } from "lucide-react";
 
 interface LogLine {
   t: number;
@@ -48,11 +48,17 @@ export function ResolverLogsPanel() {
 
   return (
     <div className="rounded-2xl glass p-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <FileCode className="h-5 w-5" />
+        </span>
         <div>
           <h3 className="font-bold text-ink">{t("health.resolverLogsTitle")}</h3>
-          <p className="mt-1 max-w-xl text-xs text-ink-dim">{t("health.resolverLogsHint")}</p>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("health.resolverLogsHint")}</p>
         </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-3">
         <div className="flex shrink-0 gap-2">
           <button
             onClick={load}

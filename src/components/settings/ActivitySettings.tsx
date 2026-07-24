@@ -2,7 +2,7 @@
 
 import { useT } from "@/i18n/provider";
 import { useQualityUpgradesEnabled } from "@/lib/settings/useQualityUpgradesEnabled";
-import { ArrowUp } from "lucide-react";
+import { ArrowUp, Activity } from "lucide-react";
 
 /** V1 is retired — this panel only exposes the one setting still worth surfacing. */
 export function ActivitySettings() {
@@ -11,6 +11,15 @@ export function ActivitySettings() {
 
   return (
     <div className="space-y-6">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <Activity className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("activity.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("activity.intro")}</p>
+        </div>
+      </div>
       <div className="rounded-2xl glass p-6">
         <div className="flex items-center justify-between gap-4 rounded-xl glass p-4">
           <div className="flex items-center gap-3">

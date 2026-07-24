@@ -140,24 +140,33 @@ export function PlexSettings() {
       </div>
 
       <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-        <input
-          value={cfg.hostname}
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("plex.hostname")}</label>
+          <input
+            value={cfg.hostname}
           onChange={(e) => setCfg({ ...cfg, hostname: e.target.value })}
           onBlur={() => save({ hostname: cfg.hostname })}
           placeholder={t("plex.hostname")}
-          className="h-11 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+          className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
         />
-        <input
-          value={cfg.port}
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("plex.port")}</label>
+          <input
+            value={cfg.port}
           onChange={(e) => setCfg({ ...cfg, port: Number(e.target.value.replace(/\D/g, "")) || 0 })}
           onBlur={() => save({ port: cfg.port })}
           placeholder="32400"
           className="h-11 w-28 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
         />
-        <label className="flex h-11 items-center gap-2 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink-soft">
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">SSL</label>
+          <label className="flex h-11 items-center gap-2 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink-soft">
           <input type="checkbox" checked={cfg.useSsl} onChange={(e) => save({ useSsl: e.target.checked })} />
           SSL
         </label>
+        </div>
       </div>
 
       <div className="mt-3 flex items-center gap-2">

@@ -124,6 +124,17 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
 
   return (
     <div className="space-y-6">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+          <FolderOpen className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{type === "movie" ? t("indexation.movieTitle") : t("indexation.seriesTitle")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">
+            {type === "movie" ? t("indexation.movieIntro") : t("indexation.seriesIntro")}
+          </p>
+        </div>
+      </div>
       <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
         <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-down" />
         <div>
@@ -133,9 +144,6 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
       </div>
 
       <div className="flex items-start justify-between gap-4">
-        <p className="max-w-2xl text-sm text-ink-soft">
-          {type === "movie" ? t("indexation.movieIntro") : t("indexation.seriesIntro")}
-        </p>
         <button
           onClick={startScan}
           disabled={scanning}

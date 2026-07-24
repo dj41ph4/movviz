@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Loader2, Trash2, RotateCcw } from "lucide-react";
+import { AlertTriangle, Loader2, Trash2, RotateCcw, ShieldAlert } from "lucide-react";
 
 interface DangerAction {
   action: string;
@@ -57,6 +57,15 @@ export function DangerZonePanel() {
 
   return (
     <div className="space-y-4">
+      <div className="mb-5 flex items-start gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-down/12 text-down">
+          <ShieldAlert className="h-5 w-5" />
+        </span>
+        <div>
+          <h3 className="font-bold text-ink">{t("dangerZone.title")}</h3>
+          <p className="mt-0.5 text-xs text-ink-dim">{t("dangerZone.warningHint")}</p>
+        </div>
+      </div>
       <div className="flex items-start gap-3 rounded-2xl border border-down/25 bg-down/8 p-4">
         <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-down" />
         <div>

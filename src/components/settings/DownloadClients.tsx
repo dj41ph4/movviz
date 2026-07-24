@@ -93,7 +93,14 @@ export function DownloadClients() {
       )}
 
       <div className="grid items-start gap-5 lg:grid-cols-2">
-        {(instances ?? []).map((inst) => (
+        {instances && instances.length === 0 ? (
+          <div className="lg:col-span-2 rounded-2xl glass py-12 text-center">
+            <HardDrive className="mx-auto mb-2 h-6 w-6 text-ink-dim" />
+            <p className="font-semibold text-ink">{t("settings.noInstances")}</p>
+            <p className="mt-1 text-sm text-ink-dim">{t("settings.engineOfflineEditHint")}</p>
+          </div>
+        ) : (
+          (instances ?? []).map((inst) => (
           <InstanceCard
             key={inst.id}
             inst={inst}
@@ -104,7 +111,8 @@ export function DownloadClients() {
             onClose={() => setEditing(null)}
             onSaved={() => { setEditing(null); load(); }}
           />
-        ))}
+        ))
+        )}
       </div>
     </div>
   );
