@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
+import { safePlexUrl } from "@/lib/plex/safeUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -12,9 +13,12 @@ export async function GET(req: NextRequest) {
   if (!cfg.hostname || !cfg.adminToken) return NextResponse.json({ sessions: [] });
 
   const scheme = cfg.useSsl ? "https" : "http";
+  const plexUrl = safePlexUrl(`${scheme}://${cfg.hostname}:${cfg.port}`);
+  if (!plexUrl) return NextResponse.json({ sessions: [] });
+
   let data: any;
   try {
-    const res = await fetch(`${scheme}://${cfg.hostname}:${cfg.port}/status/sessions`, {
+    const res = await fetch(`${plexUrl}/status/sessions`, {
       headers: { "X-Plex-Token": cfg.adminToken, accept: "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(10000),

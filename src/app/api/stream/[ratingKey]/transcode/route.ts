@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
+import { safePlexUrl } from "@/lib/plex/safeUrl";
 import { getStreamCacheTtl } from "@/lib/settings/betaPlayer";
 import { registerSession } from "@/lib/player/transcodeSessions";
 
@@ -74,7 +75,8 @@ export async function GET(req: NextRequest, context: Ctx) {
     return NextResponse.json({ error: "too_many_transcode_sessions" }, { status: 429 });
   }
 
-  const base = `${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`;
+  const base = safePlexUrl(`${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`);
+  if (!base) return NextResponse.json({ error: "invalid_plex_url" }, { status: 500 });
   const token = cfg.adminToken;
   const clientId = `movviz-${user.id}`;
   const sessionId = `movviz-${user.id}-${ratingKey}`;
