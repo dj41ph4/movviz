@@ -2,6 +2,12 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.7.6] — 2026-07-24
+
+### Corrigé
+
+- **Beta player** : le mode beta ne forçait plus la transcode — utilise maintenant WebCodecs/direct en premier, fallback HLS seulement si nécessaire
+
 ## [1.7.5] — 2026-07-24
 
 ### Ajouté

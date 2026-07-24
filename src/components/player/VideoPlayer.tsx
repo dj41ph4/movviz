@@ -195,11 +195,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
     const begin = async (seekTo?: number) => {
       setBuffering(true);
 
-      if (useTranscode) {
-        startHls();
-        return;
-      }
-
+      // useTranscode = beta player mode: try direct/WebCodecs first,
+      // fall back to HLS transcode if the browser can't handle the codec.
       let info: StreamInfo = { videoCodec: null, audioCodec: null };
       try {
         const res = await fetch(`/api/stream/${ratingKey}/info`, { cache: "no-store" });
