@@ -36,7 +36,7 @@ export function StatsPanel() {
   const maxGrabs = Math.max(1, ...stats.grabsByDay.map((d) => d.count));
 
   return (
-    <div>
+    <div className="rounded-2xl glass p-5">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <BarChart3 className="h-5 w-5" />
@@ -47,7 +47,7 @@ export function StatsPanel() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
         <Tile label={t("stats.totalMovies")} value={stats.totalMovies} icon={Film} />
         <Tile label={t("stats.totalSeries")} value={stats.totalSeries} icon={Tv} />
         <Tile label={t("stats.totalEpisodes")} value={stats.totalEpisodes} icon={PackageCheck} />

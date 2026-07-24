@@ -75,7 +75,7 @@ export function NamingEditor() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-4">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <Film className="h-5 w-5" />
@@ -168,10 +168,10 @@ export function NamingEditor() {
           {t("naming.dotsOption")}
         </label>
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={() => setTemplates(DEFAULT_TEMPLATES)} className="flex items-center gap-1.5 rounded-xl glass px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">
+          <button onClick={() => setTemplates(DEFAULT_TEMPLATES)} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-1.5">
             <RotateCcw className="h-4 w-4" /> {t("naming.reset")}
           </button>
-          <button onClick={save} disabled={saving} className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2 text-sm font-bold text-white disabled:opacity-40">
+          <button onClick={save} disabled={saving} className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-40">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             {saved ? t("naming.saved") : t("naming.save")}
           </button>
@@ -199,7 +199,7 @@ function Field({
         onFocus={onFocus}
         onKeyUp={(e) => onCursor((e.target as HTMLInputElement).selectionStart ?? 0)}
         onClick={(e) => onCursor((e.target as HTMLInputElement).selectionStart ?? 0)}
-        className="h-10 w-full rounded-xl border border-white/8 bg-black/30 px-3 font-mono text-xs text-ink outline-none transition-colors focus:border-brand/40"
+        className="w-full rounded-xl glass-strong px-3 py-2.5 font-mono text-xs text-ink outline-none"
       />
     </div>
   );

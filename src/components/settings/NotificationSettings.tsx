@@ -96,7 +96,7 @@ export function NotificationSettings() {
   };
 
   if (!cfg) return (
-    <div>
+    <div className="rounded-2xl glass p-5">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <BellRing className="h-5 w-5" />
@@ -111,7 +111,7 @@ export function NotificationSettings() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-4">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <BellRing className="h-5 w-5" />

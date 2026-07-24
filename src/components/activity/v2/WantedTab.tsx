@@ -162,7 +162,7 @@ export function WantedTab({ active = true }: { active?: boolean }) {
     <div className="space-y-6">
       {/* Actions groupées */}
       {allItems.length > 0 && (
-        <div className="flex items-center gap-3 rounded-2xl glass p-4">
+        <div className="flex flex-wrap items-center gap-3 rounded-2xl glass p-4">
           <button
             onClick={toggleSelectAll}
             className="flex items-center gap-1.5 text-sm text-ink-dim hover:text-ink"
@@ -202,7 +202,7 @@ export function WantedTab({ active = true }: { active?: boolean }) {
       )}
 
       {/* Filtre par type + Tri */}
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-1 rounded-xl glass p-1">
           {(["all", "movie", "series"] as const).map((type) => (
             <button

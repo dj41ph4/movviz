@@ -206,12 +206,12 @@ export function MetadataSettings() {
           value={tvdbApiKey}
           onChange={(e) => setTvdbApiKey(e.target.value)}
           placeholder={hasStoredKey ? "••••••••••••••••" : t("metadata.tvdbKeyPlaceholder")}
-          className="h-11 flex-1 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+          className="flex-1 rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
         />
         <button
           onClick={() => { saveTvdb({ apiKey: tvdbApiKey }); setTvdbApiKey(""); }}
           disabled={tvdbSaving || !tvdbApiKey.trim()}
-          className="flex h-11 items-center rounded-xl brand-gradient px-5 text-sm font-bold text-white disabled:opacity-40"
+          className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center disabled:opacity-40"
         >
           {t("discover.saveKey")}
         </button>
@@ -281,19 +281,19 @@ export function MetadataSettings() {
             onChange={(e) => setTmdbApiKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && saveTmdb()}
             placeholder={t("metadata.tmdbKeyPlaceholder")}
-            className="h-11 flex-1 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+            className="flex-1 rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
           />
           <button
             onClick={saveTmdb}
             disabled={tmdbSaving || !tmdbApiKey.trim()}
-            className="flex h-11 items-center rounded-xl brand-gradient px-5 text-sm font-bold text-white disabled:opacity-40"
+            className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center disabled:opacity-40"
           >
             {t("discover.saveKey")}
           </button>
           <button
             onClick={testTmdb}
             disabled={tmdbTesting}
-            className="flex h-11 items-center rounded-xl glass px-4 text-sm font-semibold text-ink-soft hover:text-ink disabled:opacity-40"
+            className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center disabled:opacity-40"
           >
             {tmdbTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : t("metadata.testKey")}
           </button>
@@ -301,7 +301,7 @@ export function MetadataSettings() {
             <button
               onClick={restoreTmdb}
               disabled={tmdbRestoring}
-              className="flex h-11 items-center gap-1.5 rounded-xl glass px-4 text-sm font-semibold text-ink-soft hover:text-ink disabled:opacity-40"
+              className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-1.5 disabled:opacity-40"
             >
               {tmdbRestoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
               {t("metadata.tmdbRestoreDefault")}
@@ -342,19 +342,19 @@ export function MetadataSettings() {
             onChange={(e) => setOmdbApiKey(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && saveOmdb()}
             placeholder={omdbHasStoredKey ? "••••••••••••••••" : t("metadata.omdbKeyPlaceholder")}
-            className="h-11 flex-1 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+            className="flex-1 rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
           />
           <button
             onClick={saveOmdb}
             disabled={omdbSaving || !omdbApiKey.trim()}
-            className="flex h-11 items-center rounded-xl brand-gradient px-5 text-sm font-bold text-white disabled:opacity-40"
+            className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center disabled:opacity-40"
           >
             {t("discover.saveKey")}
           </button>
           <button
             onClick={testOmdb}
             disabled={omdbTesting || !omdbConfigured}
-            className="flex h-11 items-center rounded-xl glass px-4 text-sm font-semibold text-ink-soft hover:text-ink disabled:opacity-40"
+            className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center disabled:opacity-40"
           >
             {omdbTesting ? <Loader2 className="h-4 w-4 animate-spin" /> : t("metadata.testKey")}
           </button>

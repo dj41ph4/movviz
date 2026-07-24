@@ -301,7 +301,7 @@ export function RenamePanel() {
     : 0;
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-4">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <RefreshCw className="h-5 w-5" />
@@ -344,7 +344,7 @@ export function RenamePanel() {
         <button
           onClick={doScan}
           disabled={running || executing}
-          className="flex items-center gap-2 rounded-xl brand-gradient px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+          className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
         >
           {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           {running ? t("rename.scanning") : t("rename.scan")}
@@ -514,7 +514,7 @@ export function RenamePanel() {
             <button
               onClick={doExecute}
               disabled={selected.size === 0 || executing}
-              className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+              className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
             >
               {executing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               {executing ? t("rename.applying") : t("rename.apply", { count: selected.size })}

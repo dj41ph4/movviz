@@ -57,7 +57,7 @@ export function TrashPanel() {
   if (!cfg) return <div className="flex items-center justify-center gap-2 py-16 text-ink-dim"><Loader2 className="h-5 w-5 animate-spin" /></div>;
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-4">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <Trash2 className="h-5 w-5" />
@@ -100,7 +100,7 @@ export function TrashPanel() {
             value={cfg.retentionDays}
             onChange={(e) => setCfg((c) => (c ? { ...c, retentionDays: Number(e.target.value) || 1 } : c))}
             onBlur={() => save({ retentionDays: cfg.retentionDays }, "retentionDays")}
-            className="h-10 w-24 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+            className="w-24 rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
           />
           <span className="text-sm text-ink-soft">{t("trash.days")}</span>
           {saving === "retentionDays" && <Loader2 className="h-3.5 w-3.5 animate-spin text-ink-dim" />}

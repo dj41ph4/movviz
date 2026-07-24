@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useT } from "@/i18n/provider";
-import { cn } from "@/lib/utils";
 import { AlertTriangle, Loader2, Trash2, RotateCcw, ShieldAlert } from "lucide-react";
 
 interface DangerAction {
@@ -56,7 +55,7 @@ export function DangerZonePanel() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="rounded-2xl glass p-5 space-y-4">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-down/12 text-down">
           <ShieldAlert className="h-5 w-5" />
@@ -76,7 +75,7 @@ export function DangerZonePanel() {
 
       <div className="space-y-2">
         {ACTIONS.map((a) => (
-          <div key={a.action} className="rounded-2xl border border-white/5 bg-black/20 p-4">
+            <div key={a.action} className="rounded-2xl glass p-5">
             <div className="flex items-center justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-bold text-ink">{t(a.titleKey)}</p>
@@ -85,7 +84,7 @@ export function DangerZonePanel() {
               {confirming !== a.action && (
                 <button
                   onClick={() => { setConfirming(a.action); setInput(""); }}
-                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl border border-down/30 bg-down/10 px-3 text-xs font-bold text-down hover:bg-down/20"
+                  className="bg-down/15 border border-down/20 text-down h-10 px-4 rounded-xl font-semibold text-sm flex shrink-0 items-center gap-1.5"
                 >
                   {done === a.action || failed === a.action ? null : a.action === "resetPlexSyncState" ? <RotateCcw className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                   {done === a.action ? t("dangerZone.done") : failed === a.action ? t("dangerZone.failed") : t("dangerZone.trigger")}
@@ -99,22 +98,19 @@ export function DangerZonePanel() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={t("dangerZone.confirmPlaceholder", { word: CONFIRM_WORD })}
-                  className="h-9 flex-1 rounded-lg border border-down/30 bg-black/30 px-3 text-xs text-ink outline-none focus:border-down/60"
+                  className="w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
                 />
                 <button
                   onClick={() => run(a.action)}
                   disabled={input !== CONFIRM_WORD || busy === a.action}
-                  className={cn(
-                    "flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-3 text-xs font-bold text-white disabled:opacity-40",
-                    "bg-down"
-                  )}
+                  className="bg-down/15 border border-down/20 text-down h-10 px-4 rounded-xl font-semibold text-sm flex shrink-0 items-center gap-1.5 disabled:opacity-40"
                 >
                   {busy === a.action ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                   {t("dangerZone.confirmButton")}
                 </button>
                 <button
                   onClick={() => setConfirming(null)}
-                  className="h-9 shrink-0 rounded-lg px-3 text-xs font-semibold text-ink-dim hover:text-ink"
+                  className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm"
                 >
                   {t("common.cancel")}
                 </button>

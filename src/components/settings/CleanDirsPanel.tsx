@@ -76,7 +76,7 @@ export function CleanDirsPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-4">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <FolderOpen className="h-5 w-5" />
@@ -105,7 +105,7 @@ export function CleanDirsPanel() {
       <button
         onClick={scan}
         disabled={scanning}
-        className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-50"
+        className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
       >
         {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <FolderOpen className="h-4 w-4" />}
         {scanning ? t("cleanDirs.scanning") : t("cleanDirs.scan")}
@@ -142,7 +142,7 @@ export function CleanDirsPanel() {
                 <button
                   onClick={apply}
                   disabled={deleting || selected.size === 0}
-                  className="flex items-center gap-2 rounded-xl bg-down px-5 py-2 text-sm font-bold text-white hover:bg-down-hover disabled:opacity-50"
+                  className="bg-down/15 border border-down/20 text-down h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
                 >
                   {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                   {deleting ? t("cleanDirs.deleting") : t("cleanDirs.delete", { count: selected.size })}

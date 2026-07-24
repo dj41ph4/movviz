@@ -323,7 +323,7 @@ function SearchPageInner() {
             <p className="mb-3 text-sm font-semibold text-ink-soft">{t("search.recentReleases")}</p>
           )}
           <div className="overflow-hidden rounded-2xl glass">
-          <div className="hidden grid-cols-[1fr_110px_60px_70px_60px_100px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
+          <div className="hidden grid-cols-[1fr_110px_65px_75px_65px_100px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
             <SortableColumnHeader label={t("search.release")} column="title" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
             <SortableColumnHeader label={t("search.indexer")} column="indexer" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
             <SortableColumnHeader label={t("search.age")} column="age" activeColumn={sortKey} direction={sortDir} onSort={toggleSort} />
@@ -332,7 +332,7 @@ function SearchPageInner() {
             <span className="text-right text-ink-dim">{t("search.action")}</span>
           </div>
           {sorted.map((r) => (
-            <div key={r.guid} className="grid grid-cols-1 gap-2 border-b border-white/5 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.03] md:grid-cols-[1fr_110px_60px_70px_60px_100px] md:items-center md:gap-4">
+            <div key={r.guid} className="grid grid-cols-1 gap-2 border-b border-white/5 px-5 py-4 transition-colors last:border-0 hover:bg-white/[0.03] md:grid-cols-[1fr_110px_65px_75px_65px_100px] md:items-center md:gap-4">
               <div className="flex min-w-0 items-center gap-3">
                 <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", r.protocol === "torrent" ? "bg-cyan/12 text-cyan" : "bg-brand/12 text-brand-glow")}>
                   {r.protocol === "torrent" ? <Magnet className="h-4 w-4" /> : <Server className="h-4 w-4" />}

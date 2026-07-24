@@ -213,7 +213,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
         <div className="rounded-xl glass p-4 text-center">
           <Download className="mx-auto mb-2 h-5 w-5 text-cyan" />
           <p className="text-sm text-ink-dim">{t("activity.status.downloading")}</p>

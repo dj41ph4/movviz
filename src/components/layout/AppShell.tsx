@@ -11,6 +11,7 @@ import { Topbar } from "./Topbar";
 import { BottomNav } from "./BottomNav";
 import { CommandPaletteProvider } from "./CommandPalette";
 import { WhatsNewModal } from "./WhatsNewModal";
+import { ToastContainer } from "@/components/ui/Toast";
 import { I18nProvider, useT } from "@/i18n/provider";
 import { VersionProvider } from "@/lib/version/VersionContext";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -127,6 +128,7 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
                 <BottomNav />
               </div>
               <WhatsNewModal />
+              <ToastContainer />
             </CommandPaletteProvider>
           </VersionProvider>
         </I18nProvider>

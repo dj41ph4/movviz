@@ -10,7 +10,7 @@ export function ActivitySettings() {
   const { enabled, setEnabled } = useQualityUpgradesEnabled();
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-4">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <Activity className="h-5 w-5" />

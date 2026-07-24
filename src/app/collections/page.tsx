@@ -114,7 +114,7 @@ function SagasSection() {
             <div className="mt-2 h-3.5 w-64 rounded bg-white/5" />
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="aspect-[2/3] rounded-2xl bg-white/5" />
           ))}
@@ -125,7 +125,7 @@ function SagasSection() {
 
   return (
     <div className="mb-10">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-ink">{t("collections.sagasTitle")}</h2>
           <p className="text-sm text-ink-dim">{t("collections.sagasHint")}</p>
@@ -177,7 +177,7 @@ function SagasSection() {
           })}
         </div>
       ) : (
-        <div className={cn("grid gap-4", view === "small" ? "grid-cols-3 md:grid-cols-5 lg:grid-cols-7" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-5")}>
+        <div className={cn("grid gap-4", view === "small" ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6")}>
           {sagas.map((s) => {
             const pct = Math.min(100, Math.round((s.ownedCount / s.totalCount) * 100));
             return (
@@ -298,7 +298,7 @@ export default function CollectionsPage() {
           ))}
         </div>
       ) : (
-        <div className={cn("grid gap-4", view === "small" ? "grid-cols-3 md:grid-cols-5 lg:grid-cols-7" : "grid-cols-2 md:grid-cols-3 lg:grid-cols-4")}>
+        <div className={cn("grid gap-4", view === "small" ? "grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7" : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6")}>
           {collections.map((col) => (
             <div
               key={col.id}

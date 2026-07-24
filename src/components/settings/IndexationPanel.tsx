@@ -124,7 +124,7 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
   const selectedCount = candidates?.filter((c) => selected.has(c.id) && matchFor(c)).length ?? 0;
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-4">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <FolderOpen className="h-5 w-5" />
@@ -239,7 +239,7 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
             <button
               onClick={runImport}
               disabled={importing || selectedCount === 0}
-              className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+              className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-40"
             >
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
               {t("indexation.importCount", { count: selectedCount })}

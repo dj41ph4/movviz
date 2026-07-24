@@ -54,7 +54,7 @@ export function BlocklistPanel() {
   };
 
   return (
-    <div>
+    <div className="rounded-2xl glass p-5">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <ShieldAlert className="h-5 w-5" />
@@ -68,7 +68,7 @@ export function BlocklistPanel() {
       {!showAdd && (
         <button
           onClick={() => setShowAdd(true)}
-          className="mb-4 flex items-center gap-2 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white"
+          className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2"
         >
           <Plus className="h-4 w-4" /> {t("blocklist.add")}
         </button>
@@ -198,11 +198,11 @@ function AddBlockForm({ onCancel, onDone }: { onCancel: () => void; onDone: () =
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder={t("blocklist.reasonPlaceholder")}
-            className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-brand/40"
+            className="w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim"
           />
           <div className="flex justify-end gap-2">
-            <button onClick={onCancel} className="rounded-xl glass px-4 py-2 text-sm font-semibold text-ink-soft hover:text-ink">{t("blocklist.cancel")}</button>
-            <button onClick={save} disabled={saving} className="flex items-center gap-2 rounded-xl brand-gradient px-5 py-2 text-sm font-bold text-white disabled:opacity-40">
+            <button onClick={onCancel} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm whitespace-nowrap">{t("common.cancel")}</button>
+            <button onClick={save} disabled={saving} className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-40">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />} {t("blocklist.confirmBlock")}
             </button>
           </div>

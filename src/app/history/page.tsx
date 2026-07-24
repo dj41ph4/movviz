@@ -108,7 +108,7 @@ export default function HistoryPage() {
 
       {!isLoading && items.length > 0 && (
         <div className="overflow-hidden rounded-2xl glass">
-          <div className="hidden grid-cols-[1fr_50px_70px_100px_80px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
+          <div className="hidden grid-cols-[1fr_65px_70px_100px_85px] gap-4 border-b border-white/8 px-5 py-3 text-xs font-bold uppercase tracking-wider md:grid">
             <span>{t("search.release")}</span>
             <span className="text-center">{t("history.kind")}</span>
             <span className="text-center">{t("search.size")}</span>
@@ -123,7 +123,7 @@ export default function HistoryPage() {
             return (
               <div key={entry.id} className="border-b border-white/5 last:border-0">
               <div
-                className="grid grid-cols-1 gap-2 px-5 py-4 transition-colors hover:bg-white/[0.03] md:grid-cols-[1fr_50px_70px_100px_80px] md:items-center md:gap-4"
+                className="grid grid-cols-1 gap-2 px-5 py-4 transition-colors hover:bg-white/[0.03] md:grid-cols-[1fr_65px_70px_100px_85px] md:items-center md:gap-4"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", cls)}>

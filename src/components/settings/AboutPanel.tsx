@@ -58,7 +58,7 @@ export function AboutPanel() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-6">
       <div className="flex flex-col items-center gap-4 rounded-2xl glass p-8 text-center">
         <AnimatedLogo size="lg" />
         <div>

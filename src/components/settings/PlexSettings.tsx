@@ -132,9 +132,9 @@ export function PlexSettings() {
         <button
           onClick={link}
           disabled={linking}
-          className="flex h-9 items-center gap-2 rounded-xl brand-gradient px-3.5 text-xs font-bold text-white disabled:opacity-50"
+          className="flex h-10 items-center gap-2 rounded-xl brand-gradient text-white px-4 font-semibold text-sm disabled:opacity-50"
         >
-          {linking ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LinkIcon className="h-3.5 w-3.5" />}
+          {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : <LinkIcon className="h-4 w-4" />}
           {cfg.connected ? t("plex.relink") : t("plex.link")}
         </button>
       </div>
@@ -147,7 +147,7 @@ export function PlexSettings() {
           onChange={(e) => setCfg({ ...cfg, hostname: e.target.value })}
           onBlur={() => save({ hostname: cfg.hostname })}
           placeholder={t("plex.hostname")}
-          className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+          className="w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
         />
         </div>
         <div>
@@ -157,12 +157,12 @@ export function PlexSettings() {
           onChange={(e) => setCfg({ ...cfg, port: Number(e.target.value.replace(/\D/g, "")) || 0 })}
           onBlur={() => save({ port: cfg.port })}
           placeholder="32400"
-          className="h-11 w-28 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+          className="w-28 rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
         />
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-semibold text-ink-soft">SSL</label>
-          <label className="flex h-11 items-center gap-2 rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink-soft">
+          <label className="flex h-11 items-center gap-2 rounded-xl glass-strong px-3 text-sm text-ink-soft">
           <input type="checkbox" checked={cfg.useSsl} onChange={(e) => save({ useSsl: e.target.checked })} />
           SSL
         </label>
@@ -173,9 +173,9 @@ export function PlexSettings() {
         <button
           onClick={test}
           disabled={testing}
-          className="flex h-9 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft disabled:opacity-50"
+          className="flex h-10 items-center gap-2 rounded-xl glass-strong text-ink-soft px-4 font-semibold text-sm disabled:opacity-50"
         >
-          {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {t("indexerMgr.test")}
         </button>
         {testResult != null && (
@@ -196,20 +196,20 @@ export function PlexSettings() {
             <Toggle on={cfg.syncLibrary} onChange={() => save({ syncLibrary: !cfg.syncLibrary })} />
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               onClick={() => syncNow(false)}
               disabled={syncing}
-              className="flex h-9 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft disabled:opacity-50"
+              className="flex h-10 items-center gap-2 rounded-xl glass-strong text-ink-soft px-4 font-semibold text-sm disabled:opacity-50 whitespace-nowrap"
             >
-              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               {t("plex.syncNow")}
             </button>
             <button
               onClick={() => syncNow(true)}
               disabled={syncing}
               title={t("plex.fullRescanHint")}
-              className="flex h-9 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold text-ink-dim hover:text-ink disabled:opacity-50"
+              className="flex h-10 items-center gap-2 rounded-xl glass-strong text-ink-soft px-4 font-semibold text-sm disabled:opacity-50 whitespace-nowrap"
             >
               {t("plex.fullRescan")}
             </button>
@@ -250,7 +250,7 @@ export function PlexSettings() {
           <Toggle on={betaPlayer} onChange={() => setBetaPlayer(!betaPlayer)} disabled={!cfg.connected} />
         </div>
         {betaPlayer && (
-          <div className="mt-3 flex items-center gap-2">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <label className="text-xs text-ink-dim">Cache segment :</label>
             <input
               type="number"

@@ -93,7 +93,7 @@ export function TasksPanel() {
   };
 
   return (
-    <div>
+    <div className="rounded-2xl glass p-5">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <ListTodo className="h-5 w-5" />

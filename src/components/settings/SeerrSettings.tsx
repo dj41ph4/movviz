@@ -117,7 +117,7 @@ export function SeerrSettings() {
             value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
           placeholder={t("seerr.baseUrl")}
-          className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+          className="w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
         />
         </div>
         <div>
@@ -127,7 +127,7 @@ export function SeerrSettings() {
           onChange={(e) => setApiKey(e.target.value)}
           type="password"
           placeholder={t("seerr.apiKey")}
-          className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+          className="w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
         />
         </div>
       </div>
@@ -136,17 +136,17 @@ export function SeerrSettings() {
         <button
           onClick={save}
           disabled={saving || !baseUrl}
-          className="flex h-9 items-center gap-2 rounded-xl brand-gradient px-3.5 text-xs font-bold text-white disabled:opacity-50"
+          className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
         >
-          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {t("settings.save")}
         </button>
         <button
           onClick={test}
           disabled={testing || !cfg.configured}
-          className="flex h-9 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft disabled:opacity-50"
+          className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
         >
-          {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           {t("indexerMgr.test")}
         </button>
         {testResult != null && (
@@ -163,9 +163,9 @@ export function SeerrSettings() {
           <button
             onClick={importNow}
             disabled={importing}
-            className="flex h-9 items-center gap-2 rounded-xl glass-strong px-3.5 text-xs font-semibold text-ink-soft disabled:opacity-50"
+            className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-50"
           >
-            {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
             {t("seerr.importNow")}
           </button>
 

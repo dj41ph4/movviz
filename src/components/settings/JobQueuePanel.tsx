@@ -108,7 +108,7 @@ export function JobQueuePanel() {
   const recent = jobs.filter((j) => j.status === "completed" || j.status === "failed").slice(0, 10);
 
   return (
-    <div className="space-y-6">
+    <div className="rounded-2xl glass p-5 space-y-6">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
           <ListOrdered className="h-5 w-5" />
