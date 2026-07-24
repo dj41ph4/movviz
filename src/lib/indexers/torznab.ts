@@ -23,7 +23,7 @@ import { markRateLimited } from "./rateLimit";
 
 function buildUrl(ix: ConfiguredIndexer, params: Record<string, string>) {
   const url = new URL(ix.baseUrl);
-  if (ix.authType !== "credentials" && ix.apiKey) {
+  if (ix.authType === "apikey" && ix.apiKey) {
     url.searchParams.set("apikey", ix.apiKey);
   }
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -35,6 +35,9 @@ function authHeaders(ix: ConfiguredIndexer): Record<string, string> {
   if (ix.authType === "credentials" && ix.username) {
     const token = Buffer.from(`${ix.username}:${ix.password}`).toString("base64");
     return { authorization: `Basic ${token}` };
+  }
+  if (ix.authType === "x-api-key" && ix.apiKey) {
+    return { "x-api-key": ix.apiKey };
   }
   return {};
 }

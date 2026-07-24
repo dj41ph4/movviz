@@ -371,6 +371,10 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
       setCategoriesError(t("indexerMgr.categoriesNeedKey"));
       return;
     }
+    if (authType === "x-api-key" && !apiKey.trim()) {
+      setCategoriesError(t("indexerMgr.categoriesNeedKey"));
+      return;
+    }
     if (authType === "credentials" && (!username.trim() || !password.trim())) {
       setCategoriesError(t("indexerMgr.categoriesNeedCredentials"));
       return;
@@ -451,16 +455,16 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.authMode")}</label>
           <div className="flex gap-1 rounded-xl glass p-1">
-            {(["apikey", "credentials"] as const).map((a) => (
+            {(["apikey", "x-api-key", "credentials"] as const).map((a) => (
               <button key={a} onClick={() => setAuthType(a)} className={cn("flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition-colors", authType === a ? "brand-gradient text-white" : "text-ink-soft hover:text-ink")}>
-                {a === "apikey" ? t("indexerMgr.apiKey") : t("indexerMgr.credentials")}
+                {a === "apikey" ? t("indexerMgr.apiKey") : a === "x-api-key" ? t("indexerMgr.xApiKey") : t("indexerMgr.credentials")}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      {authType === "apikey" ? (
+      {authType === "apikey" || authType === "x-api-key" ? (
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.apiKey")}</label>
           <input value={apiKey} onChange={(e) => { setApiKey(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" className={field} />

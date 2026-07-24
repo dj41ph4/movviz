@@ -107,6 +107,17 @@ export const INDEXER_CATALOG: CatalogEntry[] = [
     description: "Usenet indexer focused on fast, complete releases.",
     categories: [2000, 5000],
   },
+  {
+    key: "tr4ker",
+    name: "Tr4ker",
+    kind: "torznab",
+    protocol: "torrent",
+    authType: "x-api-key",
+    siteUrl: "https://tr4ker.com",
+    baseUrl: "https://tr4ker.com/api",
+    description: "Tracker français avec auth par header X-Api-Key.",
+    categories: [2000, 5000],
+  },
 ];
 
 export function catalogEntry(key: string) {

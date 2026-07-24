@@ -895,6 +895,7 @@ export const nl: Dictionary = {
     url: "API-URL",
     urlHint: "Torznab/Newznab-eindpunt (bijv. https://mijn-indexer/api)",
     apiKey: "API-sleutel",
+    xApiKey: "X-API-Key",
     apiKeyOptional: "API-sleutel (indien vereist)",
     categories: "Categorieën",
     otherCategories: "Overige categorieën",

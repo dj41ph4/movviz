@@ -912,6 +912,7 @@ export const de: Dictionary = {
     url: "API-URL",
     urlHint: "Torznab/Newznab-Endpunkt (z. B. https://mein-indexer/api)",
     apiKey: "API-Schlüssel",
+    xApiKey: "X-API-Key",
     apiKeyOptional: "API-Schlüssel (falls erforderlich)",
     categories: "Kategorien",
     otherCategories: "Weitere Kategorien",
