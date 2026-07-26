@@ -121,7 +121,13 @@ function isJunkRating(r: RawMultiResult): boolean {
   const rating = r.vote_average ?? 0;
   const voteCount = r.vote_count ?? 0;
   if (rating === 10 && voteCount <= 1) return true;
-  if (voteCount === 0) return true;
+  if (voteCount === 0) {
+    const releaseDate = r.release_date ?? r.first_air_date;
+    if (!releaseDate) return true;
+    const daysSinceRelease = (Date.now() - new Date(releaseDate).getTime()) / 86400000;
+    if (daysSinceRelease > 30) return true;
+    return false;
+  }
   if (rating !== 0) return false;
   const releaseDate = r.release_date ?? r.first_air_date;
   if (!releaseDate) return true;
@@ -230,7 +236,7 @@ function discoverParamsFor(
     case "upcoming":
       params.sort_by = "primary_release_date.asc";
       params["primary_release_date.gte"] = today;
-      params["vote_count.gte"] = "10";
+      params["vote_count.gte"] = "1";
       break;
     case "now_playing": {
       const since = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10);

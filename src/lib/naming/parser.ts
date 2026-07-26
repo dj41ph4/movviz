@@ -13,7 +13,17 @@ const RESOLUTION_RE = /\b(4320p|2160p|1080p|720p|480p)\b/i;
 const SOURCE_RE = /\b(BluRay|Blu-Ray|BDRemux|REMUX|BDRip|BRRip|WEB-?DL|WEBRip|HDTV|PDTV|SDTV|DVDRip|DVD|CAM|TS)\b/i;
 const VIDEO_CODEC_RE = /\b(x265|x264|H ?265|H ?264|HEVC|AVC10|AVC|AV1|XviD|DivX)\b/i;
 const AUDIO_CODEC_RE = /\b(Atmos|DDP?5[. ]?1|DD5[. ]?1|DTS-?HD|DTS-X|DTS|TrueHD|FLAC|AAC2[. ]?0|AAC|AC3|EAC3|OPUS)\b/i;
-const HDR_RE = /\b(HDR10\+?|Dolby\s?Vision|DV|HLG|HDR)\b/i;
+// Dolby Vision and the HDR10/HDR10+/HLG family are independent tags a release
+// can carry at the same time ("2160p Dolby Vision HDR10" masters exist) — kept
+// as two separate patterns so both can be detected instead of only the first
+// one matched. No "SDR" branch: absence of any HDR tag already means SDR (see
+// buildMediaBadgeItems), so a release explicitly tagged SDR and one with no
+// HDR tag at all are treated identically rather than needing their own case.
+const DV_RE = /\b(Dolby\s?Vision|DV)\b/i;
+const HDR_FAMILY_RE = /\b(HDR10\+|HDR10|HDR|HLG)\b/i;
+// French-scene language tags. MULTI always bundles a French track alongside
+// others, so it's treated as implying VF for scoring/badge purposes.
+const LANGUAGE_RE = /\b(MULTI|VFQ|VFF|TRUEFRENCH|FRENCH|VOSTFR|SUBFRENCH|VOST|VFI|VF2|VF|VO)\b/i;
 // Combined multi-episode file, tried before the plain single-episode
 // pattern: S04E01E02, S04E01-E02, and S04E01-02 all match, capturing both
 // episode numbers. The suffix requires an explicit "-" or "E" separator (not
@@ -25,13 +35,48 @@ const HDR_RE = /\b(HDR10\+?|Dolby\s?Vision|DV|HLG|HDR)\b/i;
 const SEASON_EPISODE_RANGE_RE = /\bS(\d{1,2})E(\d{1,3})(?:-E?|E)(\d{1,3})\b/i;
 const SEASON_EPISODE_RE = /\bS(\d{1,2})E(\d{1,3})\b/i;
 const ALT_SEASON_EPISODE_RE = /\b(\d{1,2})x(\d{1,3})\b/;
-const SEASON_ONLY_RE = /\bS(\d{1,2})\b/i;
+// Scene names almost always use the terse "S07" code, but a chunk of
+// releases (esp. English-titled packs) spell it out as "Season 7"/"Saison 7"
+// instead — both forms need to resolve to the same season number, or these
+// releases silently fall through with no season detected at all.
+// "Arc" shows up on some anime releases in place of a season number (story
+// arc numbering instead of season numbering), and "Livre" is how Kaamelott
+// specifically labels its seasons — as a Roman numeral ("Livre I", "Livre
+// II"...), not a plain digit — both need to resolve to the same season
+// concept as "Saison"/"Season"/"S07".
+const SEASON_ONLY_RE = /\b(?:Saison|Season|Livre|Arc)\.?\s?(\d{1,2}|[IVX]{1,5})\b|\bS(\d{1,2})\b/i;
+const ROMAN_VALUES: Record<string, number> = { I: 1, V: 5, X: 10 };
+
+function romanToInt(roman: string): number {
+  let total = 0;
+  for (let i = 0; i < roman.length; i++) {
+    const cur = ROMAN_VALUES[roman[i]];
+    const next = ROMAN_VALUES[roman[i + 1]];
+    total += next > cur ? -cur : cur;
+  }
+  return total;
+}
 const YEAR_RE = /\b(19|20)\d{2}\b/;
 const VIDEO_EXT_RE = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
-const PACK_DESC_RE = /\b(Complete[.\s]+Series|Complete|Intégrale|Saisons?[.\s]+complètes?|Complet|Serie[.\s]+Completa|Completa|Complete[.\s]+Serie|Compleet|Komplette[.\s]+Serie|Komplett)\b/i;
+// "Int[ée]grale" covers both the accented ("Intégrale") and unaccented
+// ("INTEGRALE") spellings scene releases use interchangeably.
+const PACK_DESC_RE = /\b(Complete[.\s]+Series|Complete|Int[ée]grale|Saisons?[.\s]+complet[eè]?s?|Complet|Serie[.\s]+Completa|Completa|Complete[.\s]+Serie|Compleet|Komplette[.\s]+Serie|Komplett)\b/i;
 
 function escapeRegex(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** MULTI always bundles a French track, so it's surfaced as "MULTI · VF" rather than just "MULTI". */
+function normalizeLanguage(raw: string | null): string | null {
+  if (!raw) return null;
+  const u = raw.toUpperCase();
+  if (u === "MULTI") return "MULTI · VF";
+  if (u === "VFQ") return "VFQ";
+  if (u === "VFF" || u === "TRUEFRENCH" || u === "FRENCH" || u === "VF2" || u === "VFI") return "VF";
+  if (u === "VOSTFR" || u === "SUBFRENCH") return "VOSTFR";
+  if (u === "VOST") return "VOST";
+  if (u === "VO") return "VO";
+  return u;
 }
 
 function firstMatchIndex(source: string, patterns: (RegExp | null)[]): number {
@@ -81,7 +126,21 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
   const source = s.match(SOURCE_RE)?.[0] ?? null;
   const videoCodec = s.match(VIDEO_CODEC_RE)?.[0] ?? null;
   const audioCodec = s.match(AUDIO_CODEC_RE)?.[0] ?? null;
-  const hdr = s.match(HDR_RE)?.[0] ?? null;
+
+  // A release can carry Dolby Vision AND an HDR10/HDR10+/HLG tag at the same
+  // time (dual-layer masters) — captured as two independent booleans rather
+  // than one first-match-wins field so both show up instead of only whichever
+  // tag happened to appear first in the filename.
+  const hasDolbyVision = DV_RE.test(s);
+  const hdrFamily = s.match(HDR_FAMILY_RE)?.[0] ?? null;
+  const hdr = hasDolbyVision && hdrFamily
+    ? `Dolby Vision ${hdrFamily}`
+    : hasDolbyVision
+      ? "Dolby Vision"
+      : hdrFamily;
+
+  const languageRaw = s.match(LANGUAGE_RE)?.[0] ?? null;
+  const language = normalizeLanguage(languageRaw);
 
   let season: number | null = null;
   let episode: number | null = null;
@@ -98,9 +157,14 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
       episode = parseInt(se[2], 10);
     } else {
       const seasonOnly = s.match(SEASON_ONLY_RE);
-      if (seasonOnly) season = parseInt(seasonOnly[1], 10);
+      if (seasonOnly) {
+        const raw = seasonOnly[1] ?? seasonOnly[2];
+        season = /^[IVX]+$/i.test(raw) ? romanToInt(raw.toUpperCase()) : parseInt(raw, 10);
+      }
     }
   }
+
+  const isCompletePack = PACK_DESC_RE.test(s);
 
   const year = s.match(YEAR_RE)?.[0] ?? null;
 
@@ -111,12 +175,18 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
     year ? new RegExp(escapeRegex(year)) : null,
     PACK_DESC_RE,
     resolution ? new RegExp(escapeRegex(resolution), "i") : null,
+    languageRaw ? new RegExp(escapeRegex(languageRaw), "i") : null,
   ]);
 
   const title = s
     .slice(0, titleEnd)
     .replace(/[._]/g, " ")
     .replace(/\s+/g, " ")
+    .trim()
+    // Cutting the title right before a spelled-out "Season 7"/"(2019" tag
+    // (rather than a dot-separated "S07") often leaves a dangling separator
+    // behind, e.g. "The Blacklist - " or "The Blacklist (" — strip it.
+    .replace(/[-–:(\s]+$/, "")
     .trim();
 
   return {
@@ -131,6 +201,8 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
     videoCodec,
     audioCodec,
     hdr,
+    language,
     group,
+    isCompletePack,
   };
 }

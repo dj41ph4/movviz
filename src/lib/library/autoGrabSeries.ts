@@ -18,6 +18,7 @@ import { logActivityV2, createMediaRef, createFailureRef } from "@/lib/activity/
 import { getTvdbEpisodesFor, groupTvdbEpisodesBySeason, tvdbConfigured, type TvdbEpisode } from "@/lib/metadata/tvdb";
 import { loadTvdbConfig } from "@/lib/metadata/tvdbStore";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
+import { episodeHasAired } from "@/lib/library/releaseSchedule";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { searchTv, searchCompleteSeriesPack, COMPLETE_SERIES_TERMS } from "@/lib/indexers/torznab";
@@ -340,7 +341,9 @@ export async function addSeriesToLibrary(
       title: e.title,
       airDate: e.airDate,
       monitored: true,
-      status: "missing",
+      // Unaired episodes start "upcoming" — excluded from every search path
+      // until releaseDayTask flips them to "missing" on/after air date.
+      status: episodeHasAired(e.airDate) ? "missing" : "upcoming",
       file: null,
       activeInfoHash: null,
       plexRatingKey: null,
@@ -1124,6 +1127,40 @@ export async function searchAndGrabSeries(seriesId: string) {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Bidirectional status reconciliation against the air date — see
+ * transitionUpcomingMovies in autoGrab.ts for the full rationale (same idea,
+ * per-episode): "upcoming" → "missing" once aired, AND "missing" → "upcoming"
+ * for any episode whose air date is still in the future, catching every
+ * episode added before the "upcoming" status existed.
+ */
+export function transitionUpcomingEpisodes() {
+  const transitioned: string[] = [];
+  for (const series of loadSeries()) {
+    let changed = false;
+    const seasons = series.seasons.map((season) => {
+      const episodes = season.episodes.map((ep) => {
+        if (ep.status !== "upcoming" && ep.status !== "missing") return ep;
+        const aired = episodeHasAired(ep.airDate);
+        if (ep.status === "upcoming" && aired) {
+          changed = true;
+          transitioned.push(`${series.id}.${season.seasonNumber}.${ep.episodeNumber}`);
+          return { ...ep, status: "missing" as const };
+        }
+        if (ep.status === "missing" && !aired) {
+          changed = true;
+          transitioned.push(`${series.id}.${season.seasonNumber}.${ep.episodeNumber}`);
+          return { ...ep, status: "upcoming" as const };
+        }
+        return ep;
+      });
+      return { ...season, episodes };
+    });
+    if (changed) updateSeries(series.id, { seasons });
+  }
+  return { transitioned };
+}
 
 /**
  * Same idea as autoGrab.ts's searchReleasedMissingMovies — episodes stay

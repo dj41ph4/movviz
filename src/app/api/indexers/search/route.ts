@@ -4,7 +4,7 @@ import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS, TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
-import { searchIndexer, searchMovie, sanitizeQuery } from "@/lib/indexers/torznab";
+import { searchIndexer, searchMovie, sanitizeQuery, rescoreRelease } from "@/lib/indexers/torznab";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import type { MediaType } from "@/lib/types";
@@ -30,11 +30,19 @@ export async function GET(req: NextRequest) {
   // (series) appended, e.g. "“Hurlevent” 2026" or "9-1-1 S09". Confirmed
   // live: sending that combined text as the actual search query returns
   // ZERO results even when the release plainly exists — the title alone
-  // finds it fine. So the clean title, not `q`, is what actually gets
-  // searched; `q` still gets sanitized in case no refTitle was given (a
-  // freeform query typed directly into /search).
+  // finds it fine. So the clean title, not `q`, is what actually gets SENT
+  // to an indexer's own text search.
+  //
+  // But the season/episode code in `q` must NOT simply be discarded: it's
+  // the only signal that lets local scoring (rescoreRelease/torznab.ts) tell
+  // a right-season release from a wrong-season one. Dropping it here (as a
+  // previous version of this route did by using `refTitle || qRaw` for both
+  // purposes) meant a "season 7" search scored season 8/9 episodes exactly
+  // as high as season 7 ones — nothing left to distinguish them. `matchQuery`
+  // keeps that code for scoring; `searchQuery` stays bare for the indexer.
   const refTitle = req.nextUrl.searchParams.get("refTitle")?.trim();
-  const q = sanitizeQuery(refTitle || qRaw);
+  const searchQuery = sanitizeQuery(refTitle || qRaw);
+  const matchQuery = sanitizeQuery(qRaw || refTitle || "");
   const category = req.nextUrl.searchParams.get("category") as MediaType | null;
   const recent = req.nextUrl.searchParams.get("recent") === "1";
   const enabled = loadIndexers().filter((i) => i.enabled);
@@ -52,23 +60,28 @@ export async function GET(req: NextRequest) {
   const scope = category === "movie" ? MOVIE_CATEGORY_IDS : category === "series" ? TV_CATEGORY_IDS : undefined;
   const releases = searchFromCache(scope);
 
-  let filtered = releases.filter((r) => r.score >= 10);
-
   if (recent) {
-    filtered.sort(
-      (a, b) => new Date(b.publishDate ?? 0).getTime() - new Date(a.publishDate ?? 0).getTime()
-    );
-    filtered = filtered.slice(0, 200);
-    return NextResponse.json({ configured: true, queried: enabled.length, releases: filtered, errors: [] });
+    const recentList = releases
+      .filter((r) => r.score >= 10)
+      .sort((a, b) => new Date(b.publishDate ?? 0).getTime() - new Date(a.publishDate ?? 0).getTime())
+      .slice(0, 200);
+    return NextResponse.json({ configured: true, queried: enabled.length, releases: recentList, errors: [] });
   }
 
-  if (q) {
-    const lower = q.toLowerCase();
+  let filtered = releases;
+  if (searchQuery) {
+    const lower = searchQuery.toLowerCase();
     filtered = filtered.filter((r) => sanitizeQuery(r.title).toLowerCase().includes(lower));
   }
+  // Re-score against the actual matchQuery (title + season/episode when
+  // present): the cache was built with NO query context (the hourly RSS scan
+  // doesn't know what will be searched later), so its cached score is only a
+  // generic quality score — recomputing here is what makes wrong-season /
+  // wrong-title releases rank correctly for THIS specific search.
+  filtered = filtered.map((r) => rescoreRelease(r, matchQuery)).filter((r) => r.score >= 10);
   filtered.sort((a, b) => b.score - a.score);
 
-  if (q && filtered.length === 0) {
+  if (searchQuery && filtered.length === 0) {
     const configuredIndexers = enabled.filter((i) => i.protocol === "torrent");
     const indexers = withoutRateLimited(configuredIndexers);
     const alreadyLimited = configuredIndexers.length - indexers.length;
@@ -81,7 +94,7 @@ export async function GET(req: NextRequest) {
         indexers.map((ix) =>
           (category === "movie" && tmdbId
             ? searchMovie(ix, { title: refTitle || qRaw, year, tmdbId, imdbId: imdbIdParam }, scope)
-            : searchIndexer(ix, q, scope)
+            : searchIndexer(ix, searchQuery, scope, matchQuery)
           ).catch(() => [] as IndexerRelease[])
         )
       );
@@ -93,15 +106,15 @@ export async function GET(req: NextRequest) {
         .sort((a, b) => b.score - a.score);
       if (filtered.length === 0) {
         if (newlyLimited > 0) {
-          recordSearchLog("warn", "manual_search.fallback_rate_limited", `"${q}" — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
+          recordSearchLog("warn", "manual_search.fallback_rate_limited", `"${searchQuery}" — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
         } else {
-          recordSearchLog("info", "manual_search.fallback_empty", `"${q}" — recherche directe: ${directResults.flat().length} brut(s), 0 résultat après filtrage${alreadyLimited > 0 ? ` (${alreadyLimited} indexeur(s) déjà rate-limité(s), exclu(s))` : ""}`);
+          recordSearchLog("info", "manual_search.fallback_empty", `"${searchQuery}" — recherche directe: ${directResults.flat().length} brut(s), 0 résultat après filtrage${alreadyLimited > 0 ? ` (${alreadyLimited} indexeur(s) déjà rate-limité(s), exclu(s))` : ""}`);
         }
       } else {
-        recordSearchLog("info", "manual_search.fallback_match", `"${q}" — ${filtered.length} résultat(s) via recherche directe`);
+        recordSearchLog("info", "manual_search.fallback_match", `"${searchQuery}" — ${filtered.length} résultat(s) via recherche directe`);
       }
     } else {
-      recordSearchLog("warn", "manual_search.no_indexers_available", `"${q}" — aucun indexeur disponible : tous rate-limités (${alreadyLimited}/${configuredIndexers.length})`);
+      recordSearchLog("warn", "manual_search.no_indexers_available", `"${searchQuery}" — aucun indexeur disponible : tous rate-limités (${alreadyLimited}/${configuredIndexers.length})`);
     }
   }
 

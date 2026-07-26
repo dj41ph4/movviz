@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SortableColumnHeader } from "@/components/ui/SortableColumnHeader";
 import { cn, formatBytes, relativeTime } from "@/lib/utils";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import type { MediaType } from "@/lib/types";
@@ -73,6 +73,7 @@ export default function SearchPage() {
 
 function SearchPageInner() {
   const t = useT();
+  const { locale } = useI18n();
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -407,7 +408,7 @@ function SearchPageInner() {
                 </div>
               </div>
               <span className="truncate text-sm text-ink-soft">{r.indexer}</span>
-              <span className="text-sm text-ink-soft">{r.publishDate ? relativeTime(r.publishDate) : "—"}</span>
+              <span className="text-sm text-ink-soft">{r.publishDate ? relativeTime(r.publishDate, locale) : "—"}</span>
               <span className="text-sm text-ink-soft">{formatBytes(r.size)}</span>
               <span className={cn("text-sm font-semibold", r.seeders == null ? "text-ink-dim" : r.seeders > 20 ? "text-ok" : "text-amber")}>
                 {r.seeders == null ? "—" : `${r.seeders} ↑`}
@@ -417,7 +418,7 @@ function SearchPageInner() {
                   {...btnSpring}
                   onClick={() => onGrabClick(r)}
                   disabled={grabbing === r.guid || grabbed.has(r.guid)}
-                  className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold disabled:opacity-60", grabbed.has(r.guid) ? "bg-ok/15 text-ok" : "brand-gradient text-white")}
+                  className={cn("inline-flex items-center justify-center gap-1.5 rounded-lg text-xs font-bold disabled:opacity-60 max-sm:h-11 max-sm:w-full max-sm:px-4 sm:px-3 sm:py-1.5", grabbed.has(r.guid) ? "bg-ok/15 text-ok" : "brand-gradient text-white")}
                 >
                   {grabbing === r.guid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : grabbed.has(r.guid) ? <Check className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
                   {grabbed.has(r.guid) ? t("search.grabbed") : t("common.grab")}

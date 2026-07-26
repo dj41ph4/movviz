@@ -11,15 +11,21 @@ export function tmdbImg(path: string | null, size: "w500" | "original" = "w500")
   return `https://image.tmdb.org/t/p/${size}${path}`;
 }
 
-export function relativeTime(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const min = Math.round(diff / 60000);
-  if (min < 1) return "just now";
-  if (min < 60) return `${min}m ago`;
-  const hr = Math.round(min / 60);
-  if (hr < 24) return `${hr}h ago`;
-  const d = Math.round(hr / 24);
-  return `${d}d ago`;
+/** Locale-aware relative time ("53 minutes ago" / "il y a 53 minutes" / ...)
+ *  via Intl.RelativeTimeFormat — every unit and its plural/grammar rules
+ *  come from the locale itself instead of a hand-rolled "Xd ago" suffix that
+ *  was always English regardless of the app's active language. */
+export function relativeTime(iso: string, locale: string = "en") {
+  const diffMs = new Date(iso).getTime() - Date.now();
+  const absMs = Math.abs(diffMs);
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+  if (absMs < 60000) return rtf.format(0, "second");
+  const min = Math.round(diffMs / 60000);
+  if (absMs < 3600000) return rtf.format(min, "minute");
+  const hr = Math.round(diffMs / 3600000);
+  if (absMs < 86400000) return rtf.format(hr, "hour");
+  const d = Math.round(diffMs / 86400000);
+  return rtf.format(d, "day");
 }
 
 /** Human release/air date, e.g. "5 juil. 2026" (fr) / "Jul 5, 2026" (en). */

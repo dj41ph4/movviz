@@ -14,6 +14,7 @@ const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
   downloading: HardDriveDownload,
   searching: Search,
   missing: Clock,
+  upcoming: Calendar,
 };
 
 interface SeasonInfo {
@@ -43,6 +44,7 @@ const STATUS_TONE: Record<LibraryStatus, string> = {
   downloading: "text-cyan bg-cyan/12 border-cyan/25",
   searching: "text-brand-glow bg-brand/12 border-brand/25",
   missing: "text-amber bg-amber/12 border-amber/25",
+  upcoming: "text-ink-dim bg-white/6 border-white/10",
 };
 
 const STATUS_LABEL: Record<LibraryStatus, string> = {
@@ -50,6 +52,7 @@ const STATUS_LABEL: Record<LibraryStatus, string> = {
   downloading: "downloading",
   searching: "searching",
   missing: "missing",
+  upcoming: "upcoming",
 };
 
 function seasonStatus(librarySeason: LibrarySeasonInfo | undefined): LibraryStatus {
@@ -58,6 +61,7 @@ function seasonStatus(librarySeason: LibrarySeasonInfo | undefined): LibraryStat
   if (monitored.length === 0) return "missing";
   if (monitored.every((e) => e.status === "available")) return "available";
   if (monitored.some((e) => e.status === "downloading" || e.status === "searching")) return "downloading";
+  if (monitored.every((e) => e.status === "upcoming")) return "upcoming";
   return "missing";
 }
 

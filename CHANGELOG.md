@@ -2,6 +2,201 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.9.9] — 2026-07-26
+
+### Fuite mémoire corrigée (OOM sur NAS)
+
+- **Chaîne de promesses unbounded supprimée dans `writeJsonCached`** : le système d'écriture des fichiers JSON chaînait les promesses via `.then()` à chaque cycle de coalescence (300ms). Quand le disque était lent (NAS SMB), chaque nouveau maillon retenait une string JSON de ~14 Mo dans sa closure. La chaîne grandissait sans limite → heap de 4 Go → OOM. Remplacement par un sémaphore : maximum 1 écriture en vol, 1 valeur en attente — plus de chaîne.
+- **Même correctif dans le cache TMDb (`registry.ts`)** : `writeChain` utilisait le même pattern de promesses chaînées pour la persistance disque du cache. Remplacé par le même sémaphore — fin de l'accumulation mémoire.
+- **Sync Plex : plus de deep-clone systématique** : les épisodes n'étaient clonés que si `changed === true`. Le passage de détection (comparaison read-only) précède maintenant le clonage, évitant des milliers d'allocations inutiles à chaque cycle.
+- **backfillMissingMediaInfo en batch** : les mises à jour des `plexMediaInfo` manquants passent par `updateMovies(patches)` (1 écriture disque au lieu de N par film).
+
+### Note pour les utilisateurs sur NAS
+- Le crash OOM après ~8 minutes de fonctionnement sur NAS est résolu. Si vous utilisiez `--max-old-space-size` ou `NODE_OPTIONS` pour contourner le crash, ces réglages ne sont plus nécessaires.
+
+### File d'attente : les téléchargements bloqués ne bloquent plus les autres
+
+- **Un téléchargement bloqué (aucun pair depuis 5 minutes) ne compte plus comme actif** — il continue de tourner en arrière-plan au cas où des pairs réapparaissent, mais libère sa place dans la limite de téléchargements simultanés, permettant à un téléchargement en attente de démarrer à sa place
+- **Reprise automatique** : si des pairs réapparaissent sur un téléchargement bloqué, il redevient actif normalement au prochain calcul de la file
+
+## [1.9.7] — 2026-07-26
+
+### Recherche manuelle : lignes de résultats repensées
+
+- **Titre propre + badges structurés** : chaque release affiche désormais un vrai titre (plus le nom de fichier brut), une puce saison/épisode pour les séries (épisode unique, saison complète, ou intégrale), et des mini-logos pour résolution/HDR/codecs au lieu de texte brut
+- **Détection SDR** ajoutée au parseur de noms de release
+
+### Téléchargements : loupe de recherche manuelle unifiée
+
+- **Popup au lieu d'un changement de page** : la recherche manuelle depuis la file de téléchargement s'ouvre maintenant dans le même popup partout (téléchargement en cours, en pause, ou bloqué), au lieu de naviguer vers une autre page
+- **Remplacement d'un téléchargement bloqué** : sur un téléchargement bloqué, la loupe permet de choisir une nouvelle release et propose de remplacer l'ancien téléchargement (suppression du torrent bloqué après la nouvelle capture) — nettoie la file d'attente sans manipulation manuelle
+
+### Sessions Plex actives : refonte visuelle
+
+- **Correction du bug d'affichage** `{plural}` qui s'affichait littéralement dans le texte au lieu du pluriel correct
+- **Nouveau design animé** : affiche direct/pause/mise en mémoire tampon, posters, pastille lecture directe/transcodage, position locale/distante, barre de progression animée
+- **Correction d'un bug de superposition** : le popover s'affichait mal positionné et laissait apparaître le contenu du tableau de bord en transparence — désormais rendu via portail pour un positionnement fiable et un flou d'arrière-plan correct
+
+## [1.9.6] — 2026-07-26
+
+### Panel = simple fenêtre d'affichage
+
+- **`onClose` retiré de `TitleContent`** : le composant de détail n'a plus aucune connaissance du panel — supprimé le bouton Fermer conditionnel, la prop `onClose`, et l'import `ChevronLeft`
+- **Bouton Fermer dans `TitlePanel`** : le panel a maintenant sa propre barre d'en-tête sticky avec `[X] Fermer` — le panel ne fait qu'afficher `TitleContent` sans aucune adaptation
+- **`TitleContent` 100% identique** panel et plein écran : même rendu, même composant, aucune condition
+- **Collections : grilles redimensionnées** — la grande grille utilise maintenant l'ancienne taille de la petite, la petite grille est 2× plus petite (`grid-cols-5` à mobile)
+- **Sync Plex : détection des épisodes supprimés** — les épisodes absents de Plex sont marqués `missing`, les séries supprimées du disque restent à 0/× sans être effacées
+
+## [1.9.5] — 2026-07-26
+
+### Panel = page plein écran (vrai cette fois)
+
+- **Suppression totale du mode panel** : le panneau latéral affiche désormais EXACTEMENT la même page que le titre plein écran — plus aucun `mode === "panel"` conditionnel, plus d'adaptation responsive spécifique, plus de tableau d'acteurs réduit
+- **Même layout, même contenu** : la page titre est rendue à l'identique dans le panel, avec le même header large, la même grille de similaires, les mêmes modales (trailer, recherche manuelle, lecteur vidéo)
+- **Code allégé** : suppression de ~250 lignes de code mode-specific
+
+## [1.9.4] — 2026-07-26
+
+### Header unifié panel/full
+
+- **Header unique** : suppression du header compact panel — le panel utilise désormais EXACTEMENT le même header large (backdrop + poster + métadonnées + actions) que la page plein écran
+- **Bouton fermer** : ajouté dans le header full (coin supérieur gauche) quand `onClose` est fourni
+- **Contenu dédoublonné** : suppression des sections doublons (synopsis, genres, boutons d'action) qui existaient dans le body panel
+- **Code allégé** : suppression de ~100 lignes de code panel-only
+
+## [1.9.3] — 2026-07-26
+
+### Refonte panel latéral
+
+- **Contenu unifié** : le panneau latéral (TitlePanel) affiche désormais EXACTEMENT le même contenu que la page plein écran — sections équipe technique, mots-clés, saisons, infos techniques, action buttons (watchlist, saga, trailer, recherche, ajout) ne sont plus masqués en mode panel
+- **Code simplifié** : suppression de tous les `mode === "full"` conditionnels qui cachaient du contenu dans le panel. Le mode ne gère plus que les adaptations responsive (taille des cartes cast/similaires, mise en page sidebar vs inline)
+- **Actions complètes** : le panel montre maintenant les mêmes boutons d'action que la page titre (ajout, lecture Plex, recherche, pick manuel, watchlist, bande-annonce, saga)
+
+## [1.9.1] — 2026-07-26
+
+### Corrections
+
+- **Plex Watchlist** : ajout des paramètres `includeExternalMedia=1` et `includeCollections=1` à l'appel API discover.provider.plex.tv — Plex filtre les éléments externes sans ces flags, la watchlist revenait vide. Ajout d'un timeout 15s, des en-têtes `X-Plex-Sync-Version` / `X-Plex-Features`, et de logs pour diagnostiquer les échecs
+- **Titres similaires (panel)** : grille passée de `grid-cols-3 gap-4` à `grid-cols-4 gap-2` dans le panneau latéral — les cartes étaient trop larges
+- **Task scheduler** : logging des erreurs `requestMedia` pour détecter les échecs silencieux
+
+## [1.9.0] — 2026-07-26
+
+### Corrections critiques
+
+- **Navigation latérale (sidebar) / tableau de bord vide** : la racine des deux bugs était identique — `filter: blur()` dans la transition de page `AnimatePresence`. Framer Motion ne gère pas correctement l'animation du flou sur certains navigateurs et restait bloqué à `opacity: 0`. Suppression du blur + `initial={false}` pour que la page soit toujours visible immédiatement
+- **Tableau de bord** : ajout d'un état d'erreur visible quand les API échouent (plus de squelette infini ni de page blanche sans explication). Correction du `loading` qui restait `true` pour toujours si toutes les API échouaient
+- **Animations TitlePanel / TitleContent / Découvre** : toutes les durées réduites (backdrop 0.5s→0.25s, 0.6s→0.3s, overlay 0.3s→0.2s, poster 0.15s→0.1s, card glow 500ms→200ms, transition page 0.3s→0.2s) pour une expérience plus réactive
+- **Ressort du panneau latéral** : `stiffness: 320→400` pour un slide plus rapide sans perdre le naturel
+- **TitlePanel** : verrouillage du scroll body quand le panneau est ouvert — la page derrière ne défile plus. Compensation `paddingRight` pour éviter le saut de layout dû à la disparition de la scrollbar
+
+## [1.8.9] — 2026-07-25
+
+### Premium UX
+
+- **TitlePanel** : overlay backdrop animé séparément (fade-in léger différé) pour un effet de profondeur. Ressort recalibré (`damping: 30, stiffness: 320`) pour un slide plus naturel
+- **Backdrop images (panel + page)** : `motion.img` avec fade-in + scale 1.05→1 — l'image apparaît en fondu avec un léger zoom, transition 0.5-0.6s easeOut
+- **Poster (panel)** : fade-in différé 0.15s après le backdrop pour un effet de cascade
+- **Cartes Découvre** : bordure `border-white/5`→`group-hover:border-brand/30` avec transition 500ms — léger glow au survol
+- **Cartes Découvre** : `whileHover` déjà présent (scale 1.03 + boxShadow glow violet)
+
+## [1.8.8] — 2026-07-25
+
+### Mobile — Actions toujours visibles
+
+- **Découvre** : les boutons "Ajouter à la bibliothèque" ne sont plus cachés derrière le hover — une rangée d'actions mobiles (`lg:hidden`) est désormais toujours visible sous chaque affiche
+- **Corbeille** : les boutons Restaurer/Supprimer définitivement ne sont plus cachés derrière le hover — rangée d'actions mobiles toujours visible
+- **Recherche indexeurs** : bouton de téléchargement passe de ~24px à `h-11` (44px) sur mobile, pleine largeur
+- **Bibliothèque (Wanted)** : boutons de recherche passent de `h-8` à `h-10` (40px)
+
+### Layout — Zones tactiles conformes (44px min)
+
+- **Topbar** : barre de recherche `h-10`→`h-11`, bouton Sponsor `h-10 w-10`→`h-11 w-11`
+- **ThemeSwitcher** : bouton `h-10 w-10`→`h-11 w-11`
+- **LanguageSwitcher** : bouton `h-10`→`h-11`
+- **NotificationBell** : bouton `h-10 w-10`→`h-11 w-11`
+- **UserMenu** : padding `py-1.5`→`py-2` (40px→44px)
+- **BottomNav "More"** : bouton fermeture `h-8 w-8`→`h-11 w-11`
+
+### Layout — Overflow & alignements
+
+- **ThemeSwitcher/LanguageSwitcher** : dropdowns sécurisés avec `max-w-[calc(100vw-2rem)]`
+- **BottomNav badge** : `right-[22%]`→`right-1.5` (position fixe, plus de dérive sur différentes largeurs)
+
+## [1.8.7] — 2026-07-25
+
+### Architecture
+
+- **Composant titre unifié** : `TitleContent.tsx` créé — seul composant pour afficher un titre (mode `panel` ou `full`). La page titre (`/title/[type]/[id]`) et le `TitlePanel` l'utilisent désormais. Plus de duplication.
+- **`TitlePanel.tsx`** simplifié à 45 lignes (était 230) — simple conteneur overlay + slide-in
+- **Page titre** simplifiée à 25 lignes (était 939)
+
+### Amélioré
+
+- **Volet latéral (context panel)** : remplace `sm:max-w-2xl` (672px fixe) par `md:max-w-[calc(100vw-8rem)]` — laisse toujours une partie de la page visible. Le scroll du volet est indépendant de la page. Scroll en haut à chaque ouverture.
+- **Animations suppression** : `AnimatePresence` + `exit={{ opacity: 0, y: 20, scale: 0.95 }}` sur les cartes bibliothèque et corbeille. Spinner pendant la suppression.
+- **Barre progression** : `motion.div` framer-motion avec transition 1.2s au lieu de CSS 300ms. Polling 500ms.
+
+### Corrigé
+
+- **Bouton "Ajouter à la bibliothèque"** : n'ouvre plus la fiche titre. Le handler de la page Découverte ignore les clics sur les boutons (`target.closest("button")`). Appel API direct + mise à jour d'état local.
+- **Bouton "Ajouter" en mode plein écran** : utilise `addToLibrary()` au lieu d'ouvrir un RequestModal
+- **Découverte** : scroll et filtres préservés à l'ouverture/fermeture du volet (plus aucun `router.push`)
+
+## [1.8.6] — 2026-07-25
+
+### Corrigé
+
+- **File d'attente** : polling réduit à 500ms (au lieu de 2-3s) — le débit, l'ETA et la progression se mettent à jour toutes les 0.5s, plus d'à-coups
+
+## [1.8.5] — 2026-07-25
+
+### Amélioré
+
+- **File d'attente (QueueTab + DownloadQueue)** : barre de progression remplacée par `motion.div` framer-motion avec transition fluide de 1.2s au lieu du CSS jump 300ms. Animation d'entrée/sortie des éléments avec `AnimatePresence` (opacité + slide Y). Nettement plus fluide visuellement.
+
+## [1.8.4] — 2026-07-25
+
+### Corrigé
+
+- **TitlePanel (volet)** : plus aucun `router.push` — le panel est purement state local. Click handler en phase capture (`true`) + `stopPropagation()` pour bloquer le Link Next.js avant qu'il ne déclenche une navigation. Le volet s'ouvre sans bouger de `/discover`.
+
+## [1.8.3] — 2026-07-25
+
+### Corrigé
+
+- **TitlePanel** : `data-title-panel` ajouté sur le conteneur, le document click handler ignore les clics à l'intérieur du panel (plus de cycle close/reopen sur les titres similaires)
+- **Imports** : nettoyage des imports inutilisés (`AnimatePresence`, `useT`) dans TitlePanel
+
+## [1.8.2] — 2026-07-25
+
+### Corrigé
+
+- **ManualSearchModal** : utilisation de `createPortal` pour sortir le modal du DOM de la carte framer-motion (le `position: fixed` était relatif à la carte à cause du `transform`)
+- **TitlePanel** : réintégration du JSX manquant dans la page Découvrir (perdu pendant les cycles de revert)
+
+## [1.8.1] — 2026-07-25
+
+### Corrigé
+
+- **Barre de progression des téléchargements** : ajout d'une transition CSS `width 0.3s ease-out` pour une animation fluide, polling réduit à 2s
+- **Prochainement** : correction du filtre `vote_count.gte` (10 → 1) et `isJunkRating` ne filtre plus les films à venir sans votes
+- **TitlePanel** : volet coulissant droite→gauche sur la page Découvrir — le clic sur un film/série ouvre le panneau au lieu de naviguer
+
+## [1.8.0] — 2026-07-25
+
+### Ajouté
+
+- **Corbeille (trash)** : les films/séries supprimés de la bibliothèque sont placés dans une corbeille logicielle (`library-trash.json`) avant suppression définitive — possibilité de restaurer ou supprimer définitivement depuis une grille dédiée (`/trash`)
+- **API corbeille** : routes `GET /api/library/trash` (lister), `DELETE /api/library/trash` (vider), `DELETE /api/library/trash/{id}` (supprimer définitivement), `POST /api/library/trash/{id}/restore` (restaurer dans la bibliothèque)
+- **Navigation sidebar** : lien "Corbeille" avec icône Trash2 dans le menu latéral
+- **i18n** : toutes les clés de la corbeille traduites en EN/FR/DE/IT/NL
+
+### Modifié
+
+- **Store** : `removeMovie`/`removeSeries` déclenchent désormais `addToTrash()` avant la suppression du fichier JSON
+- **PageHeader** : suppression de la prop `icon` (incompatible avec le composant)
+
 ## [1.7.9] — 2026-07-24
 
 ### Ajouté

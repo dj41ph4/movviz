@@ -171,11 +171,21 @@ export async function testPlexServer(cfg: PlexServerConfig): Promise<boolean> {
 export async function getPlexWatchlist(userToken: string): Promise<PlexWatchlistItem[]> {
   const cfg = loadPlexConfig();
   try {
-    const res = await fetch("https://discover.provider.plex.tv/library/sections/watchlist/all", {
-      headers: headers(cfg.clientId, { "x-plex-token": userToken }),
+    const url = new URL("https://discover.provider.plex.tv/library/sections/watchlist/all");
+    url.searchParams.set("includeExternalMedia", "1");
+    url.searchParams.set("includeCollections", "1");
+    const res = await fetchWithTimeout(url.toString(), {
+      headers: headers(cfg.clientId, {
+        "x-plex-token": userToken,
+        "x-plex-sync-version": "2",
+        "x-plex-features": "external-media",
+      }),
       cache: "no-store",
     });
-    if (!res.ok) return [];
+    if (!res.ok) {
+      console.error(`[PlexWatchlist] HTTP ${res.status} — sync skipped`);
+      return [];
+    }
     const data = await res.json();
     const items: RawWatchlistItem[] = data?.MediaContainer?.Metadata ?? [];
     return items
@@ -190,7 +200,8 @@ export async function getPlexWatchlist(userToken: string): Promise<PlexWatchlist
         };
       })
       .filter((item) => item.tmdbId != null);
-  } catch {
+  } catch (e) {
+    console.error(`[PlexWatchlist] fetch failed:`, e);
     return [];
   }
 }

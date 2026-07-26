@@ -22,6 +22,7 @@ export const SAMPLE_MOVIE: NamingContext = {
   videoCodec: "x265",
   audioCodec: "DDP5.1",
   hdr: "HDR10",
+  language: null,
   group: "MOVVIZ",
   quality: "BluRay 2160p",
 };
@@ -37,6 +38,7 @@ export const SAMPLE_EPISODE: NamingContext = {
   videoCodec: "x264",
   audioCodec: "AAC",
   hdr: null,
+  language: null,
   group: "MOVVIZ",
   quality: "WEB-DL 1080p",
 };

@@ -151,7 +151,7 @@ export default function HistoryPage() {
                   {entry.release?.size ? formatBytes(entry.release.size) : entry.import?.fileSize ? formatBytes(entry.import.fileSize) : "—"}
                 </span>
                 <span className="text-center text-sm text-ink-soft" title={formatDate(new Date(entry.timestamp).toISOString(), locale) ?? ""}>
-                  {relativeTime(new Date(entry.timestamp).toISOString())}
+                  {relativeTime(new Date(entry.timestamp).toISOString(), locale)}
                 </span>
                 <div className="flex justify-end gap-1">
                   <span className="rounded-full border border-white/8 px-2 py-0.5 text-[10px] font-semibold text-ink-dim">

@@ -106,9 +106,8 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
   const reduceMotion = useShouldReduceMotion();
 
   const pageAnim = reduceMotion ? {} : {
-    initial: { opacity: 0, filter: "blur(4px)" },
-    animate: { opacity: 1, filter: "blur(0px)" },
-    exit: { opacity: 0, filter: "blur(4px)" },
+    animate: { opacity: 1 },
+    exit: { opacity: 0 },
   };
 
   return (
@@ -127,11 +126,12 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
                     <div className="flex min-w-0 flex-1 flex-col">
                       <Topbar />
                       <main id="main-content" className="flex-1 px-4 pt-5 pb-24 sm:px-5 sm:pt-6 md:px-8 md:pt-8 lg:pb-8">
-                        <AnimatePresence mode="wait">
+                        <AnimatePresence>
                           <motion.div
                             key={pathname}
                             {...pageAnim}
-                            transition={{ duration: 0.3, ease: "easeOut" }}
+                            initial={false}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
                           >
                             {children}
                           </motion.div>

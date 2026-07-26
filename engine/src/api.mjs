@@ -145,6 +145,10 @@ export function createApiServer(engine) {
             const body = await readBody(req);
             return send(res, 200, { ok: engine.setFilePriorities(infoHash, body.priorities ?? []) });
           }
+          if (method === "POST" && parts[2] === "priority") {
+            const body = await readBody(req);
+            return send(res, 200, { ok: engine.setPriority(infoHash, body.priority) });
+          }
         }
       }
 

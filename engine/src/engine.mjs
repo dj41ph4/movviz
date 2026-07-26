@@ -91,6 +91,7 @@ export class MovvizEngine {
           addedAt: rec.addedAt,
           paused: rec.userPaused,
           sequential: rec.sequential,
+          priority: rec.priority,
           libraryRef: rec.libraryRef,
           title: rec.title,
           year: rec.year,
@@ -147,6 +148,7 @@ export class MovvizEngine {
   restart(infoHash) { return this.findByInfoHash(infoHash)?.restart(infoHash) ?? Promise.resolve(false); }
   setSequential(infoHash, on) { return this.findByInfoHash(infoHash)?.setSequential(infoHash, on) ?? false; }
   setFilePriorities(infoHash, p) { return this.findByInfoHash(infoHash)?.setFilePriorities(infoHash, p) ?? false; }
+  setPriority(infoHash, priority) { return this.findByInfoHash(infoHash)?.setPriority(infoHash, priority) ?? false; }
   remove(infoHash, deleteData) {
     const inst = this.findByInfoHash(infoHash);
     return inst ? inst.remove(infoHash, deleteData) : Promise.resolve(false);

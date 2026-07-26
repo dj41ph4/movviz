@@ -36,7 +36,7 @@ export function ThemeSwitcher() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={t(current.labelKey)}
-        className="flex h-10 w-10 items-center justify-center rounded-xl glass text-ink-soft transition-colors hover:border-brand/30 hover:text-ink"
+        className="flex h-11 w-11 items-center justify-center rounded-xl glass text-ink-soft transition-colors hover:border-brand/30 hover:text-ink"
       >
         <CurrentIcon className="h-4 w-4" />
       </button>
@@ -48,7 +48,7 @@ export function ThemeSwitcher() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="absolute right-0 top-12 z-50 w-44 overflow-hidden rounded-xl glass-strong p-1.5 shadow-2xl"
+            className="absolute right-0 top-12 z-50 w-44 overflow-hidden rounded-xl glass-strong p-1.5 shadow-2xl max-w-[calc(100vw-2rem)]"
           >
             {OPTIONS.map((opt) => {
               const Icon = opt.icon;

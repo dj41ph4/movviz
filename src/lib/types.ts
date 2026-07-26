@@ -96,6 +96,8 @@ export interface EngineTorrent {
   numPeers: number;
   timeRemaining: number | null; // ms
   sequential: boolean;
+  /** Slot-allocation priority — "high" preempts "low" for a maxActive download slot; real bandwidth effect, not cosmetic. */
+  priority: "high" | "medium" | "low";
   savePath: string;
   addedAt: number | null;
   completedAt: number | null;

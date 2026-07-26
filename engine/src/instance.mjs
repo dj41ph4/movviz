@@ -11,6 +11,9 @@ import {
 } from "./naming.mjs";
 import { WEB_CALLBACK_URL, TORRENT_CACHE_DIR, ENGINE_TOKEN } from "./config.mjs";
 
+/** Lower rank wins a maxActive slot first in reconcileQueue() — this is the actual bandwidth lever, not a cosmetic label. */
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+
 /**
  * A single download instance, bound to one media category (movies or series).
  * Wraps its own WebTorrent client and enforces all the Movviz-specific policy
@@ -195,6 +198,14 @@ export class MovvizInstance {
             completedAt: null,
             userPaused: !!opts.paused,
             queued: false,
+            // True once checkStalled confirms 0 peers/0 speed — a stalled
+            // torrent keeps running (in case peers show up) but no longer
+            // occupies a maxActive slot, so a queued torrent can start
+            // alongside it instead of waiting behind a dead one.
+            stalled: false,
+            // "high" | "medium" | "low" — decides slot allocation order in
+            // reconcileQueue(), not just a UI label. See setPriority().
+            priority: opts.priority ?? "medium",
             sequential: !!opts.sequential,
             completed: false,
             movedTo: null,
@@ -349,6 +360,10 @@ export class MovvizInstance {
       const speed = torrent.downloadSpeed ?? 0;
       if (peers === 0 && speed === 0) {
         const m = this.meta.get(torrent.infoHash);
+        if (m && !m.stalled) {
+          m.stalled = true;
+          this.reconcileQueue(); // free this slot for a queued torrent
+        }
         this.emitActivity("failed", {
           media: {
             id: m?.libraryRef?.split(":")[1] ?? torrent.infoHash,
@@ -363,6 +378,16 @@ export class MovvizInstance {
     // Clear any previous timer for this infoHash, then set a 5-minute one.
     clearTimeout(this._stallTimers.get(torrent.infoHash));
     this._stallTimers.set(torrent.infoHash, setTimeout(checkStalled, 300_000));
+    // Peers can reappear after a stall (tracker re-announce, DHT, etc.) —
+    // as soon as data flows again, un-stall so this reclaims a maxActive
+    // slot on the next reconcile instead of running unlimited forever.
+    torrent.on("download", () => {
+      const m = this.meta.get(torrent.infoHash);
+      if (m?.stalled) {
+        m.stalled = false;
+        this.reconcileQueue();
+      }
+    });
     this.cacheTorrentFile(torrent);
 
     // Selective (episode-targeted) downloads get their own recovery loop
@@ -475,16 +500,27 @@ export class MovvizInstance {
     });
     if (max <= 0) return;
 
-    // Active first, queued last, oldest first within each group.
+    // High priority first, then active-over-queued, then oldest first within
+    // each group. This is what actually gives a "high" torrent more of the
+    // link: when slots are scarce it preempts a running "low" one (which gets
+    // demoted to queued == 0 bandwidth), not just a cosmetic sort order.
     downloading.sort((a, b) => {
       const ma = this.meta.get(a.infoHash);
       const mb = this.meta.get(b.infoHash);
-      return Number(ma.queued) - Number(mb.queued) || ma.addedAt - mb.addedAt;
+      const pa = PRIORITY_RANK[ma.priority ?? "medium"] ?? 1;
+      const pb = PRIORITY_RANK[mb.priority ?? "medium"] ?? 1;
+      return pa - pb || Number(ma.queued) - Number(mb.queued) || ma.addedAt - mb.addedAt;
     });
 
-    downloading.forEach((t, i) => {
+    // Stalled torrents (0 peers/0 speed for 5+ min) keep running in case
+    // peers show up, but don't count against maxActive — otherwise a single
+    // dead torrent blocks every queued torrent behind it forever.
+    let slotsUsed = 0;
+    downloading.forEach((t) => {
       const m = this.meta.get(t.infoHash);
-      const shouldRun = i < max;
+      if (m.stalled) return;
+      const shouldRun = slotsUsed < max;
+      if (shouldRun) slotsUsed++;
       if (shouldRun && m.queued) {
         m.queued = false;
         t.resume();
@@ -1182,6 +1218,21 @@ export class MovvizInstance {
     return true;
   }
 
+  /**
+   * "high" | "medium" | "low" — re-sorts this torrent's slot precedence in
+   * reconcileQueue() immediately, so raising a torrent's priority can bump a
+   * currently-running lower-priority one out of its maxActive slot right
+   * away (real bandwidth reallocation), not just relabel it in the UI.
+   */
+  setPriority(infoHash, priority) {
+    const m = this.meta.get(infoHash);
+    if (!m || !(priority in PRIORITY_RANK)) return false;
+    m.priority = priority;
+    this.reconcileQueue();
+    this.onChange();
+    return true;
+  }
+
   setFilePriorities(infoHash, priorities) {
     const t = this._get(infoHash);
     if (!t) return false;
@@ -1318,6 +1369,7 @@ export class MovvizInstance {
       // just reported guarantees the two always agree.
       timeRemaining: downloadSpeed > 0 ? Math.max(0, ((size - downloaded) / downloadSpeed) * 1000) : null,
       sequential: !!m.sequential,
+      priority: m.priority ?? "medium",
       savePath: m.movedTo ?? this.cfg.downloadPath,
       addedAt: m.addedAt ?? null,
       completedAt: m.completedAt ?? null,
@@ -1355,6 +1407,7 @@ export class MovvizInstance {
       numPeers: 0,
       timeRemaining: null,
       sequential: false,
+      priority: "medium",
       savePath: r.movedTo,
       addedAt: r.addedAt,
       completedAt: r.completedAt,
@@ -1393,6 +1446,7 @@ export class MovvizInstance {
         completedAt: m.completedAt,
         userPaused: m.userPaused,
         sequential: m.sequential,
+        priority: m.priority ?? "medium",
         completed: m.completed,
         // Set once importFiles() has placed the files in the library — on the next
         // start this tells resumeTorrents() to restore it as history instead

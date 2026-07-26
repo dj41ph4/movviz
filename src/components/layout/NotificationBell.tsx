@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Bell } from "lucide-react";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime } from "@/lib/utils";
 import type { NotificationItem } from "@/lib/notifications/types";
 
@@ -24,6 +24,7 @@ function renderNotification(t: (path: string, params?: Record<string, string | n
 
 export function NotificationBell() {
   const t = useT();
+  const { locale } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -57,7 +58,7 @@ export function NotificationBell() {
       <button
         onClick={toggle}
         aria-label={t("notifications.title")}
-        className="relative flex h-10 w-10 items-center justify-center rounded-xl glass transition-colors hover:text-brand-glow"
+        className="relative flex h-11 w-11 items-center justify-center rounded-xl glass transition-colors hover:text-brand-glow"
       >
         <Bell className="h-[18px] w-[18px]" />
         {unread > 0 && <span className="absolute right-2.5 top-2.5 h-2 w-2 rounded-full bg-magenta ring-2 ring-void" />}
@@ -75,7 +76,7 @@ export function NotificationBell() {
                 className="flex flex-col gap-0.5 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-white/5"
               >
                 <span className="text-ink-soft">{renderNotification(t, n)}</span>
-                <span className="text-[11px] text-ink-dim">{relativeTime(new Date(n.createdAt).toISOString())}</span>
+                <span className="text-[11px] text-ink-dim">{relativeTime(new Date(n.createdAt).toISOString(), locale)}</span>
               </Link>
             ))}
           </div>

@@ -23,18 +23,21 @@ const STATUS_TONE: Record<LibraryStatus, string> = {
   downloading: "text-cyan bg-cyan/12 border-cyan/25",
   searching: "text-brand-glow bg-brand/12 border-brand/25",
   missing: "text-amber bg-amber/12 border-amber/25",
+  upcoming: "text-ink-dim bg-white/6 border-white/10",
 };
 const STATUS_BG: Record<LibraryStatus, string> = {
   available: "bg-ok/90 text-white",
   downloading: "bg-cyan/90 text-white",
   searching: "bg-brand/90 text-white",
   missing: "bg-amber/90 text-white",
+  upcoming: "bg-white/20 text-white",
 };
 const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
   available: Check,
   downloading: HardDriveDownload,
   searching: Search,
   missing: Clock,
+  upcoming: Calendar,
 };
 
 export const LibraryMovieCard = memo(function LibraryMovieCard({
@@ -109,9 +112,13 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
     [movie.status, isUpcoming, isDownloading, t]
   );
 
-  const cascadeAnim = reduceMotion ? {} : {
+  const cascadeAnim = reduceMotion ? {
+    layout: true as const,
+  } : {
+    layout: true as const,
     initial: { opacity: 0, y: 20, scale: 0.95 },
     animate: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: 20, scale: 0.95, transition: { duration: 0.25, ease: "easeInOut" as const } },
     transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
     whileHover: { scale: 1.03, y: -2, boxShadow: "0 0 25px rgba(168, 130, 255, 0.15)" },
     whileTap: { scale: 0.98 },
@@ -210,8 +217,8 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
               <ReportIssueButton libraryType="movie" libraryId={movie.id} />
             )}
             {!confirmDelete ? (
-              <motion.button {...btnSpring} onClick={() => setConfirmDelete(true)} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-down">
-                <Trash2 className="h-3.5 w-3.5" />
+              <motion.button {...btnSpring} onClick={() => setConfirmDelete(true)} disabled={deleting} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-down disabled:opacity-50">
+                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
               </motion.button>
             ) : (
               <div className="flex gap-1">
@@ -259,8 +266,8 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
             </motion.button>
             {movie.status === "available" && <ReportIssueButton libraryType="movie" libraryId={movie.id} />}
             {!confirmDelete ? (
-              <motion.button {...btnSpring} onClick={() => setConfirmDelete(true)} className="h-11 w-11 flex items-center justify-center rounded-xl bg-down/15 border border-down/20 text-down active:bg-down/25">
-                <Trash2 className="h-4 w-4" />
+              <motion.button {...btnSpring} onClick={() => setConfirmDelete(true)} disabled={deleting} className="h-11 w-11 flex items-center justify-center rounded-xl bg-down/15 border border-down/20 text-down active:bg-down/25 disabled:opacity-50">
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
               </motion.button>
             ) : (
               <div className="flex flex-1 gap-1">

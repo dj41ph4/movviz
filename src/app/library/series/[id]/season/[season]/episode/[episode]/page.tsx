@@ -9,7 +9,7 @@ import type { LibrarySeries, LibraryEpisode, LibraryStatus } from "@/lib/library
 import type { MetaEpisode } from "@/lib/metadata/types";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
-import { Play, Check, Search, Clock, HardDriveDownload, ArrowLeft, Tv } from "lucide-react";
+import { Play, Check, Search, Clock, HardDriveDownload, ArrowLeft, Tv, Calendar } from "lucide-react";
 
 type EpisodeWithPlexUrl = LibraryEpisode & { plexUrl?: string | null };
 
@@ -18,12 +18,14 @@ const STATUS_TONE: Record<LibraryStatus, string> = {
   downloading: "text-cyan bg-cyan/12 border-cyan/25",
   searching: "text-brand-glow bg-brand/12 border-brand/25",
   missing: "text-amber bg-amber/12 border-amber/25",
+  upcoming: "text-ink-dim bg-white/6 border-white/10",
 };
 const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
   available: Check,
   downloading: HardDriveDownload,
   searching: Search,
   missing: Clock,
+  upcoming: Calendar,
 };
 
 export default function EpisodeDetailPage({

@@ -23,7 +23,15 @@ export interface ReleaseInfo {
   videoCodec: string | null;
   audioCodec: string | null;
   hdr: string | null;
+  /** Normalized audio-language tag parsed from the release name (VF, VFQ,
+   *  MULTI, VOSTFR, VOST, VO) — null when no language tag is present. */
+  language: string | null;
   group: string | null;
+  /** True when the release name carries a "Complete"/"Intégrale" pack marker
+   *  (e.g. "Complete.Series", "Saison.complète") rather than a season/episode
+   *  number — used to distinguish a full-series pack from a season pack or a
+   *  single episode when a season/episode number is also absent. */
+  isCompletePack?: boolean;
 }
 
 /** Everything a token resolver can read from. */

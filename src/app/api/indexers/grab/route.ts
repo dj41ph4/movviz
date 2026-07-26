@@ -24,10 +24,20 @@ function setEpisodeStatus(series: LibrarySeries, seasonNumber: number, episodeNu
  * "downloading" immediately, instead of waiting for the engine's completion
  * callback, so a manual pick from /search reflects in the library UI the
  * same way an automatic grab does.
+ *
+ * `replacingInfoHash` (set by the "replace a blocked download" flow in
+ * ManualSearchModal) lets an episode already claimed by the torrent being
+ * replaced count as eligible too, not just "missing" ones — otherwise this
+ * grab leaves those episodes pointing at the old hash, the subsequent
+ * DELETE of the old torrent then resets them to "missing" via
+ * releaseAllDownloadClaims, and the episode sits there falsely "missing"
+ * (risking a duplicate auto-grab) until the replacement torrent completes.
  */
-function applyDownloadingStatus(libraryRefStr: string, infoHash: string) {
+function applyDownloadingStatus(libraryRefStr: string, infoHash: string, replacingInfoHash?: string | null) {
   const ref = decodeLibraryRef(libraryRefStr);
   if (!ref) return;
+  const eligible = (ep: { status: string; activeInfoHash: string | null }) =>
+    ep.status === "missing" || (!!replacingInfoHash && ep.activeInfoHash === replacingInfoHash);
   if (ref.kind === "movie") {
     if (getMovie(ref.movieId)) updateMovie(ref.movieId, { status: "downloading", activeInfoHash: infoHash });
     return;
@@ -39,10 +49,10 @@ function applyDownloadingStatus(libraryRefStr: string, infoHash: string) {
     return;
   }
   if (ref.kind === "series") {
-    // Complete-series pack — mark all monitored missing episodes downloading.
+    // Complete-series pack — mark all monitored missing (or being-replaced) episodes downloading.
     for (const season of series.seasons) {
       for (const ep of season.episodes) {
-        if (ep.monitored && ep.status === "missing") {
+        if (ep.monitored && eligible(ep)) {
           setEpisodeStatus(series, season.seasonNumber, ep.episodeNumber, infoHash);
         }
       }
@@ -51,7 +61,7 @@ function applyDownloadingStatus(libraryRefStr: string, infoHash: string) {
   }
   const season = series.seasons.find((s) => s.seasonNumber === ref.season);
   for (const ep of season?.episodes ?? []) {
-    if (ep.monitored && ep.status === "missing") setEpisodeStatus(series, ref.season, ep.episodeNumber, infoHash);
+    if (ep.monitored && eligible(ep)) setEpisodeStatus(series, ref.season, ep.episodeNumber, infoHash);
   }
 }
 
@@ -99,7 +109,8 @@ export async function POST(req: NextRequest) {
       }),
     });
     const data = await res.json();
-    if (res.ok && libraryRef && data.infoHash) applyDownloadingStatus(libraryRef, data.infoHash);
+    const replacingInfoHash = typeof body.replacingInfoHash === "string" ? body.replacingInfoHash : null;
+    if (res.ok && libraryRef && data.infoHash) applyDownloadingStatus(libraryRef, data.infoHash, replacingInfoHash);
 
     // Log the grab event when the engine accepted the torrent
     if (res.ok && data.infoHash) {

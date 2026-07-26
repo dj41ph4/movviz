@@ -32,9 +32,13 @@ export function LibrarySeriesCard({ series, index = 0 }: { series: LibrarySeries
         ? null
         : { icon: Clock, cls: "bg-amber/80 text-white", label: t("status.missing") };
 
-  const cascadeAnim = reduceMotion ? {} : {
+  const cascadeAnim = reduceMotion ? {
+    layout: true as const,
+  } : {
+    layout: true as const,
     initial: { opacity: 0, y: 20, scale: 0.95 },
     animate: { opacity: 1, y: 0, scale: 1 },
+    exit: { opacity: 0, y: 20, scale: 0.95, transition: { duration: 0.25, ease: "easeInOut" as const } },
     transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
     whileHover: { scale: 1.03, y: -2, boxShadow: "0 0 25px rgba(168, 130, 255, 0.15)" },
     whileTap: { scale: 0.98 },

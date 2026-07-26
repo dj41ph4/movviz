@@ -42,6 +42,9 @@ export async function GET(req: NextRequest) {
     videoCodec: s.Media?.videoCodec || null,
     audioCodec: s.Media?.audioCodec || null,
     resolution: s.Media?.videoResolution || null,
+    thumb: s.grandparentThumb || s.thumb || null,
+    transcodeDecision: s.TranscodeSession?.videoDecision || "directplay",
+    location: s.Session?.location === "wan" ? "wan" : "lan",
   }));
 
   return NextResponse.json({ sessions });

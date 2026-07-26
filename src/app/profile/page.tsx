@@ -3,7 +3,7 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { relativeTime } from "@/lib/utils";
 import { Key, Copy, Check, Trash2, Loader2, Plus, Star, X, Film, Tv, Sun, Moon, MonitorSmartphone } from "lucide-react";
@@ -30,6 +30,7 @@ const THEME_OPTIONS: { id: ThemeMode; icon: typeof Sun; labelKey: string }[] = [
 
 export default function ProfilePage() {
   const t = useT();
+  const { locale } = useI18n();
   const user = useCurrentUser();
   const { mode: themeMode, setThemeMode } = useTheme();
   const [currentPassword, setCurrentPassword] = useState("");
@@ -307,8 +308,8 @@ export default function ProfilePage() {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink">{tk.name}</p>
                 <p className="text-[11px] text-ink-dim">
-                  {relativeTime(new Date(tk.createdAt).toISOString())}
-                  {tk.lastUsedAt ? ` · ${relativeTime(new Date(tk.lastUsedAt).toISOString())}` : ""}
+                  {relativeTime(new Date(tk.createdAt).toISOString(), locale)}
+                  {tk.lastUsedAt ? ` · ${relativeTime(new Date(tk.lastUsedAt).toISOString(), locale)}` : ""}
                 </p>
               </div>
               <button onClick={() => revoke(tk.id)} className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-down">

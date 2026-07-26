@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime, cn } from "@/lib/utils";
 import type { Issue } from "@/lib/issues/types";
 import { AlertTriangle, CheckCircle2, RotateCcw, Film, Tv, Send, MessageSquare } from "lucide-react";
@@ -17,6 +17,7 @@ const STATUS_TONE: Record<Issue["status"], string> = {
 
 export default function IssuesPage() {
   const t = useT();
+  const { locale } = useI18n();
   const [tab, setTab] = useState<"open" | "all">("open");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -133,7 +134,7 @@ export default function IssuesPage() {
                     <div className="mt-auto flex items-center justify-between pt-3">
                       <span className="text-xs text-ink-dim">
                         {isAdmin ? `${t("issues.reportedBy")} ${i.username} · ` : ""}
-                        {relativeTime(new Date(i.createdAt).toISOString())}
+                        {relativeTime(new Date(i.createdAt).toISOString(), locale)}
                       </span>
 
                       <div className="flex items-center gap-2">
@@ -182,7 +183,7 @@ export default function IssuesPage() {
                           <div key={c.id} className="rounded-xl bg-black/20 px-3 py-2">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-bold text-ink">{c.username}</span>
-                              <span className="text-[10px] text-ink-dim">{relativeTime(new Date(c.createdAt).toISOString())}</span>
+                              <span className="text-[10px] text-ink-dim">{relativeTime(new Date(c.createdAt).toISOString(), locale)}</span>
                             </div>
                             <p className="mt-1 text-sm text-ink-soft">{c.message}</p>
                           </div>

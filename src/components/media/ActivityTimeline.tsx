@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import Link from "next/link";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
 import { AlertCircle, Check, Download, PackageCheck, Plus, Trash2, X } from "lucide-react";
 import { cn, relativeTime } from "@/lib/utils";
 import type { ActivityEntry } from "@/lib/activity/types";
@@ -42,6 +42,7 @@ const LABEL_KEYS: Record<ActivityEntry["kind"], string> = {
 
 export function ActivityTimeline({ entries: suppliedEntries, compact = false }: { entries?: ActivityEntry[]; compact?: boolean }) {
   const t = useT();
+  const { locale } = useI18n();
   const { data, error } = useSWR<{ entries: ActivityEntry[] }>(suppliedEntries ? null : "/api/activity");
   const entries = suppliedEntries ?? data?.entries ?? [];
   const visible = compact ? entries.slice(0, 6) : entries;
@@ -63,7 +64,7 @@ export function ActivityTimeline({ entries: suppliedEntries, compact = false }: 
                   {t(LABEL_KEYS[entry.kind])}{entry.details?.error ? ` — ${entry.details.error}` : entry.details?.releaseTitle ? ` — ${entry.details.releaseTitle}` : ""}
                 </p>
               </div>
-              <span className="shrink-0 text-[11px] text-ink-dim">{relativeTime(new Date(entry.createdAt).toISOString())}</span>
+              <span className="shrink-0 text-[11px] text-ink-dim">{relativeTime(new Date(entry.createdAt).toISOString(), locale)}</span>
             </div>
           );
           return entry.href ? <Link key={entry.id} href={entry.href}>{content}</Link> : <div key={entry.id}>{content}</div>;

@@ -8,12 +8,14 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Film, Check, Clock, Loader2, Download } from "lucide-react";
 import type { MetaCollectionDetail } from "@/lib/metadata/types";
+import { useTitlePanel } from "@/components/title/useTitlePanel";
 
 export default function CollectionPage() {
   const t = useT();
   const params = useParams<{ id: string }>();
   const id = Number(params.id);
   const [downloadingAll, setDownloadingAll] = useState(false);
+  const { titlePanel } = useTitlePanel();
 
   const { data, isLoading, mutate: mutateCollection } = useSWR<MetaCollectionDetail>(id ? `/api/metadata/collection?id=${id}` : null);
   const { data: libraryData, mutate: mutateLibrary } = useSWR<{ movies: { tmdbId: number; status: string; activeInfoHash: string | null }[] }>(
@@ -115,6 +117,8 @@ export default function CollectionPage() {
           );
         })}
       </div>
+
+      {titlePanel}
     </div>
   );
 }

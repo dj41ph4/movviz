@@ -6,7 +6,15 @@
  * the library entry flips to "available" with the real file path.
  */
 
-export type LibraryStatus = "missing" | "searching" | "downloading" | "available";
+/**
+ * "upcoming" — release date is in the future (or unknown-but-unaired for an
+ * episode): deliberately excluded from every search path (searchAllMissing,
+ * the 6h retry task, RSS matching) so the engine never wastes indexer calls
+ * on something that can't possibly exist yet. A scheduled task flips it to
+ * "missing" once the date passes, at which point the normal search pipeline
+ * picks it up like anything else.
+ */
+export type LibraryStatus = "upcoming" | "missing" | "searching" | "downloading" | "available";
 
 import type { PlexMediaInfo } from "@/lib/plex/types";
 
@@ -109,6 +117,17 @@ export interface LibrarySeries {
   tags: string[];
   /** Plex library item id (the show) — set by the Plex library sync, powers "Watch on Plex". */
   plexRatingKey: string | null;
+}
+
+/**
+ * A movie mid-download still carries its pre-grab `status` (e.g. "missing")
+ * until the engine's completion callback flips it — `activeInfoHash` is the
+ * real-time signal that a grab is in flight. Was duplicated ad-hoc at every
+ * call site that needed a movie's true current status; one source of truth
+ * here instead.
+ */
+export function resolveMovieStatus(movie: Pick<LibraryMovie, "status" | "activeInfoHash">): LibraryStatus {
+  return movie.activeInfoHash ? "downloading" : movie.status;
 }
 
 /**

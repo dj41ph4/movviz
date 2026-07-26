@@ -1,19 +1,58 @@
 "use client";
 
-import { useState, useMemo, memo } from "react";
+import { useState, useMemo, memo, useRef, useEffect } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useI18n, useT } from "@/i18n/provider";
 import { cn, formatBytes, formatSpeed, formatEta, formatDateTime } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { encodeLibraryRef } from "@/lib/library/types";
 import type { QueueItem } from "@/lib/activity/v2/types";
+import { ManualSearchModal } from "@/components/search/ManualSearchModal";
+import { parseRelease } from "@/lib/naming/parser";
+import { buildMediaBadgeItems } from "@/components/library/MediaBadges";
 import {
   Film, Tv, Download, Pause, Play, RotateCw, Search, Ban, Check,
-  Users, AlertCircle, Loader, List, Clock, Trash2, X, RefreshCw, ArrowUpFromLine,
+  Users, AlertCircle, Loader, List, Clock, Trash2, X, RefreshCw, ArrowUpFromLine, Gauge,
 } from "lucide-react";
+
+/** Builds the libraryRef the manual-search grab needs from a queue item's
+ *  media info — mirrors the encoding TitleContent.tsx uses when opening
+ *  manual search from a title page, since QueueItem only carries the raw
+ *  season/episode/packEpisodeCount fields, not a pre-encoded ref. */
+function queueItemLibraryRef(media: QueueItem["media"]): string {
+  if (media.type === "movie") return encodeLibraryRef({ kind: "movie", movieId: media.id });
+  if (media.packEpisodeCount && media.season === 0) return encodeLibraryRef({ kind: "series", seriesId: media.id });
+  if (media.packEpisodeCount && media.season != null) return encodeLibraryRef({ kind: "season", seriesId: media.id, season: media.season });
+  if (media.season != null && media.episode != null) return encodeLibraryRef({ kind: "episode", seriesId: media.id, season: media.season, episode: media.episode });
+  return encodeLibraryRef({ kind: "series", seriesId: media.id });
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Search query for a queue item's manual-search/replace popup — must match
+ *  exactly what the original grab searched for (title + season/episode),
+ *  not just the bare series/movie title, or the replacement search finds
+ *  completely different (often wrong-season) releases. Mirrors the query
+ *  conventions from TitleContent's openManualSearch{,Season,Episode}. */
+function queueItemSearchQuery(media: QueueItem["media"]): string {
+  if (media.type === "movie") return media.title;
+  if (media.packEpisodeCount && media.season === 0) return media.title; // full series pack
+  if (media.packEpisodeCount && media.season != null) return `${media.title} S${pad(media.season)}`;
+  if (media.season != null && media.episode != null) return `${media.title} S${pad(media.season)}E${pad(media.episode)}`;
+  return media.title;
+}
+
+function queueItemSearchTitle(media: QueueItem["media"]): string {
+  if (media.type === "movie") return media.title;
+  if (media.packEpisodeCount && media.season === 0) return media.title;
+  if (media.packEpisodeCount && media.season != null) return `${media.title} — S${pad(media.season)}`;
+  if (media.season != null && media.episode != null) return `${media.title} — ${media.season}x${pad(media.episode)}`;
+  return media.title;
+}
 
 const BASE = "/api/engine";
 
@@ -37,12 +76,13 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     transition: { type: "spring" as const, stiffness: 400, damping: 17 },
   };
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    "/api/activity/v2?tab=queue", { refreshInterval: 3000, dedupingInterval: 2000 }
+    "/api/activity/v2?tab=queue", { refreshInterval: 500, dedupingInterval: 250 }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [clearingAll, setClearingAll] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
+  const [manualSearchItem, setManualSearchItem] = useState<QueueItem | null>(null);
 
   const items = data?.items ?? [];
   const activeItems = useMemo(() => items.filter(item => item.status === "downloading" || item.status === "importing"), [items]);
@@ -90,6 +130,20 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     );
   };
 
+  const setPriority = async (itemId: string, priority: "high" | "medium" | "low") => {
+    patchLocal(itemId, (i) => ({ ...i, priority }));
+    try {
+      await api(`${BASE}/torrents/${itemId}/priority`, {
+        method: "POST",
+        body: JSON.stringify({ priority }),
+      });
+    } catch (e) {
+      console.error(`[queue] setPriority failed:`, e);
+    } finally {
+      await mutate();
+    }
+  };
+
   const handleAction = async (itemId: string, action: "pause" | "resume" | "restart" | "retry" | "search" | "block") => {
     setActionLoading(`${action}_${itemId}`);
     if (action === "pause") patchLocal(itemId, (i) => ({ ...i, status: "paused" }));
@@ -118,12 +172,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
         }
         case "search": {
           const item = items.find(i => i.id === itemId);
-          if (item) {
-            const p = new URLSearchParams({ q: item.media.title });
-            if (item.media.tmdbId) p.set("tmdbId", String(item.media.tmdbId));
-            if (item.media.type) p.set("category", item.media.type);
-            router.push(`/search?${p.toString()}`);
-          }
+          if (item) setManualSearchItem(item);
           break;
         }
         case "block": {
@@ -255,6 +304,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
             locale={locale}
             onToggleExpand={toggleExpand}
             onAction={handleAction}
+            onSetPriority={setPriority}
             onRemove={remove}
           />
         ))}
@@ -266,6 +316,25 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           <p className="font-semibold text-ink">{t("activity.noQueue")}</p>
           <p className="max-w-md text-sm text-ink-dim">{t("activity.noQueueHint")}</p>
         </div>
+      )}
+
+      {manualSearchItem && (
+        <ManualSearchModal
+          open={!!manualSearchItem}
+          onClose={() => setManualSearchItem(null)}
+          libraryRef={queueItemLibraryRef(manualSearchItem.media)}
+          query={queueItemSearchQuery(manualSearchItem.media)}
+          category={manualSearchItem.media.type}
+          refTitle={manualSearchItem.media.title}
+          tmdbId={manualSearchItem.media.tmdbId}
+          title={queueItemSearchTitle(manualSearchItem.media)}
+          replaceItemId={manualSearchItem.status === "stalled" ? manualSearchItem.id : undefined}
+          onReplaced={() => {
+            setManualSearchItem(null);
+            mutate((current) => current ? { items: current.items.filter((i) => i.id !== manualSearchItem.id) } : current, { revalidate: false });
+            mutate();
+          }}
+        />
       )}
     </div>
   );
@@ -289,6 +358,7 @@ const areItemEqual = (prev: QueueItemRowProps, next: QueueItemRowProps) => {
   if (a.download.ratio !== b.download.ratio) return false;
   if (a.download.peers !== b.download.peers) return false;
   if (a.release.seeders !== b.release.seeders) return false;
+  if (a.priority !== b.priority) return false;
   return true;
 };
 
@@ -300,15 +370,29 @@ interface QueueItemRowProps {
   locale: string;
   onToggleExpand: (id: string) => void;
   onAction: (id: string, action: "pause" | "resume" | "restart" | "retry" | "search" | "block") => void;
+  onSetPriority: (id: string, priority: "high" | "medium" | "low") => void;
   onRemove: (id: string, withData: boolean) => void;
 }
 
+const PRIORITY_ORDER = ["high", "medium", "low"] as const;
+
 const QueueItemRow = memo(function QueueItemRow({
   item, isExpanded, actionLoading, t, locale,
-  onToggleExpand, onAction, onRemove,
+  onToggleExpand, onAction, onSetPriority, onRemove,
 }: QueueItemRowProps) {
   const reduceMotion = useShouldReduceMotion();
   const displayProgress = item.download.progress;
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const priorityRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!priorityOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (priorityRef.current && !priorityRef.current.contains(e.target as Node)) setPriorityOpen(false);
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [priorityOpen]);
 
   const btnSpring = reduceMotion ? {} : {
     whileTap: { scale: 0.95 },
@@ -316,6 +400,11 @@ const QueueItemRow = memo(function QueueItemRow({
   };
 
   const isActive = item.status === "downloading" || item.status === "importing";
+  const parsed = parseRelease(item.release.releaseTitle);
+  const badgeItems = buildMediaBadgeItems(
+    { resolution: parsed.resolution, videoCodec: parsed.videoCodec, audioCodec: parsed.audioCodec, hdr: parsed.hdr, source: parsed.source, language: parsed.language },
+    "surface",
+  );
 
   return (
     <div className="rounded-2xl glass overflow-hidden">
@@ -364,9 +453,13 @@ const QueueItemRow = memo(function QueueItemRow({
               <span className="flex items-center gap-1">
                 <Download className="h-3 w-3" /> {item.release.indexer}
               </span>
-              <span className="flex items-center gap-1">
-                <Check className="h-3 w-3" /> {item.release.quality}
-              </span>
+              {badgeItems.length > 0 ? (
+                <span className="flex flex-wrap items-center gap-1">{badgeItems}</span>
+              ) : (
+                <span className="flex items-center gap-1">
+                  <Check className="h-3 w-3" /> {item.release.quality}
+                </span>
+              )}
               <span className="flex items-center gap-1">
                 <Users className="h-3 w-3" /> {item.release.seeders}↑ {item.release.leechers}↓
               </span>
@@ -379,13 +472,14 @@ const QueueItemRow = memo(function QueueItemRow({
             {isActive && (
               <div className="mt-2" onClick={(e) => e.stopPropagation()}>
                 <div className="h-1.5 overflow-hidden rounded-full bg-black/40">
-                  <div
+                  <motion.div
                     className={cn(
-                      "h-full rounded-full transition-[width] duration-300 ease-out",
+                      "h-full rounded-full",
                       "brand-gradient",
                       !reduceMotion && "animate-shimmer-progress bg-[linear-gradient(90deg,var(--color-brand)_0%,var(--color-brand-glow)_25%,var(--color-brand-2)_50%,var(--color-brand-glow)_75%,var(--color-brand)_100%)]"
                     )}
-                    style={{ width: `${Math.round(displayProgress * 100)}%` }}
+                    animate={{ width: `${Math.round(displayProgress * 100)}%` }}
+                    transition={{ duration: 1.2, ease: "easeOut" }}
                   />
                 </div>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-dim">
@@ -416,26 +510,15 @@ const QueueItemRow = memo(function QueueItemRow({
 
         <div className="mt-3 flex shrink-0 justify-end gap-2" onClick={(e) => e.stopPropagation()}>
           {item.status === "downloading" && (
-            <>
-              <motion.button
-                {...btnSpring}
-                onClick={(e) => { e.stopPropagation(); onAction(item.id, "pause"); }}
-                disabled={actionLoading !== null}
-                title={t("downloads.pause")}
-                className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
-              >
-                {actionLoading === `pause_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
-              </motion.button>
-              <motion.button
-                {...btnSpring}
-                onClick={(e) => { e.stopPropagation(); onAction(item.id, "search"); }}
-                disabled={actionLoading !== null}
-                title={t("downloads.manual")}
-                className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
-              >
-                <Search className="h-4 w-4" />
-              </motion.button>
-            </>
+            <motion.button
+              {...btnSpring}
+              onClick={(e) => { e.stopPropagation(); onAction(item.id, "pause"); }}
+              disabled={actionLoading !== null}
+              title={t("downloads.pause")}
+              className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+            >
+              {actionLoading === `pause_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Pause className="h-4 w-4" />}
+            </motion.button>
           )}
           {item.status === "paused" && (
             <motion.button
@@ -457,6 +540,57 @@ const QueueItemRow = memo(function QueueItemRow({
               className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
             >
               {actionLoading === `restart_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            </motion.button>
+          )}
+          {(item.status === "downloading" || item.status === "paused" || item.status === "stalled" || item.status === "queued") && (
+            <div ref={priorityRef} className="relative">
+              <motion.button
+                {...btnSpring}
+                onClick={(e) => { e.stopPropagation(); setPriorityOpen((o) => !o); }}
+                disabled={actionLoading !== null}
+                title={t(`downloads.priority.${item.priority ?? "medium"}`)}
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40",
+                  item.priority === "high" ? "text-brand-glow" : item.priority === "low" ? "text-ink-dim" : ""
+                )}
+              >
+                <Gauge className="h-4 w-4" />
+              </motion.button>
+              {priorityOpen && (
+                <div className="absolute right-0 top-12 z-20 w-36 overflow-hidden rounded-xl border border-white/10 bg-void shadow-2xl">
+                  {PRIORITY_ORDER.map((p) => (
+                    <button
+                      key={p}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSetPriority(item.id, p);
+                        setPriorityOpen(false);
+                      }}
+                      className={cn(
+                        "flex w-full items-center justify-between px-3 py-2.5 text-left text-xs font-semibold transition-colors hover:bg-white/10",
+                        (item.priority ?? "medium") === p ? "text-brand-glow" : "text-ink-soft"
+                      )}
+                    >
+                      {t(`downloads.priority.${p}`)}
+                      {(item.priority ?? "medium") === p && <Check className="h-3.5 w-3.5" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {(item.status === "downloading" || item.status === "paused" || item.status === "stalled") && (
+            <motion.button
+              {...btnSpring}
+              onClick={(e) => { e.stopPropagation(); onAction(item.id, "search"); }}
+              disabled={actionLoading !== null}
+              title={item.status === "stalled" ? t("downloads.replace") : t("downloads.manual")}
+              className={cn(
+                "flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40",
+                item.status === "stalled" && "text-down hover:bg-down/15"
+              )}
+            >
+              <Search className="h-4 w-4" />
             </motion.button>
           )}
           <motion.button
@@ -491,13 +625,14 @@ const QueueItemRow = memo(function QueueItemRow({
                   <span className="font-mono">{Math.round(displayProgress * 100)}%</span>
                 </div>
                   <div className="h-2 overflow-hidden rounded-full bg-black/40">
-                    <div
+                    <motion.div
                       className={cn(
-                        "h-full rounded-full transition-[width] duration-300 ease-out",
+                        "h-full rounded-full",
                         "brand-gradient",
                         isActive && !reduceMotion && "animate-shimmer-progress bg-[linear-gradient(90deg,var(--color-brand)_0%,var(--color-brand-glow)_25%,var(--color-brand-2)_50%,var(--color-brand-glow)_75%,var(--color-brand)_100%)]"
                       )}
-                      style={{ width: `${displayProgress * 100}%` }}
+                      animate={{ width: `${displayProgress * 100}%` }}
+                      transition={{ duration: 1.2, ease: "easeOut" }}
                     />
                   </div>
                 <div className="flex justify-between">

@@ -20,6 +20,7 @@ import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { searchMovie, searchIndexer } from "@/lib/indexers/torznab";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
+import { movieHasReleased } from "@/lib/library/releaseSchedule";
 
 const RESOLUTION_ORDER = ["480p", "720p", "1080p", "2160p"];
 const rank = (res: string | null) => (res ? RESOLUTION_ORDER.indexOf(res) : -1);
@@ -35,6 +36,8 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
 
   const meta = await fetchTmdbMovie(tmdbId);
   if (!meta) return { error: "movie not found on TMDb" as const };
+
+  const released = movieHasReleased(meta.vfReleaseDate, meta.releaseDate);
 
   const movie: LibraryMovie = {
     id: `mv_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
@@ -52,7 +55,7 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
     genres: meta.genres,
     monitored: true,
     qualityProfileId: qualityProfileId ?? defaultQualityProfile().id,
-    status: "missing",
+    status: released ? "missing" : "upcoming",
     file: null,
     activeInfoHash: null,
     addedAt: Date.now(),
@@ -69,7 +72,10 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
   // user just chose themselves. A plain "add to library" (Discover, request
   // approval, Plex watchlist sync, …) never sets this, so it keeps
   // auto-searching exactly as before.
-  const searchResult = options?.skipSearch ? null : await searchAndGrabMovie(movie.id);
+  // Also skipped for a movie that hasn't released yet — nothing to find on
+  // any indexer, and this would just burn an API call for a guaranteed miss.
+  // releaseDayTask (scheduler) picks it up automatically once its date passes.
+  const searchResult = options?.skipSearch || !released ? null : await searchAndGrabMovie(movie.id);
   return { movie, searchResult };
 }
 
@@ -297,6 +303,36 @@ export async function checkQualityUpgrades() {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Bidirectional status reconciliation against the release date:
+ *  - "upcoming" → "missing" once the date has actually passed, making it
+ *    eligible for the normal search pipeline (searchAllMissing, the 6h retry
+ *    task, RSS matching) for the first time.
+ *  - "missing" → "upcoming" for anything whose date is still in the future —
+ *    this catches every movie added before the "upcoming" status existed
+ *    (or added via a path that doesn't check the date, e.g. addMediaSilent),
+ *    so the backlog of already-"missing"-but-not-actually-released movies
+ *    stops being searched needlessly too, not just newly-added ones.
+ * Meant to run right before searchReleasedMissingMovies in the same
+ * scheduled pass, so a movie that just released gets both its status flip
+ * and its first real search attempt in the same tick.
+ */
+export function transitionUpcomingMovies() {
+  const transitioned: string[] = [];
+  for (const movie of loadMovies()) {
+    if (movie.status !== "upcoming" && movie.status !== "missing") continue;
+    const released = movieHasReleased(movie.vfReleaseDate, movie.releaseDate);
+    if (movie.status === "upcoming" && released) {
+      updateMovie(movie.id, { status: "missing" });
+      transitioned.push(movie.id);
+    } else if (movie.status === "missing" && !released) {
+      updateMovie(movie.id, { status: "upcoming" });
+      transitioned.push(movie.id);
+    }
+  }
+  return { transitioned };
+}
 
 /**
  * Retry every monitored movie still "missing" whose VF (France digital/

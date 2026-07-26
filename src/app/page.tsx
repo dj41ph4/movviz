@@ -44,13 +44,13 @@ const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[cal
 
 export default function DashboardPage() {
   const t = useT();
-  const { data: moviesData, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
+  const { data: moviesData, error: moviesError, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
     "/api/library/movies"
   );
-  const { data: seriesData } = useSWR<{ series: LibrarySeries[] }>(
+  const { data: seriesData, error: seriesError } = useSWR<{ series: LibrarySeries[] }>(
     "/api/library/series"
   );
-  const { data: torrentsData } = useSWR<{ torrents: EngineTorrent[] }>(
+  const { data: torrentsData, error: torrentsError } = useSWR<{ torrents: EngineTorrent[] }>(
     "/api/engine/torrents"
   );
   const { data: layoutData, mutate: mutateLayout } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
@@ -59,7 +59,8 @@ export default function DashboardPage() {
   const series = seriesData?.series ?? [];
   const torrents = torrentsData?.torrents ?? [];
   const load = () => mutateMovies();
-  const loading = !moviesData && !seriesData && !torrentsData;
+  const hasError = moviesError || seriesError || torrentsError;
+  const loading = !hasError && !moviesData && !seriesData && !torrentsData;
 
   const available = movies.filter((m) => m.status === "available");
   const downloadingMovies = movies.filter((m) => m.status === "downloading" || m.status === "searching");
@@ -170,6 +171,14 @@ export default function DashboardPage() {
             </div>
           ))}
         </div>
+      ) : hasError ? (
+        <div className="rounded-2xl glass p-5 text-center">
+          <div className="flex items-center justify-center gap-2 text-amber">
+            <AlertCircle className="h-5 w-5" />
+            <p className="font-semibold text-ink">{t("common.error")}</p>
+          </div>
+          <p className="mt-1 text-sm text-ink-dim">{t("dashboard.errorHint")}</p>
+        </div>
       ) : order.length === 0 ? (
         <p className="rounded-2xl glass p-5 text-sm text-ink-dim">{t("dashboard.noWidgets")}</p>
       ) : editMode ? (
@@ -220,7 +229,7 @@ export default function DashboardPage() {
               ))}
             </div>
           </div>
-        ) : movies.length === 0 ? (
+        ) : moviesError ? null : movies.length === 0 ? (
           <div className="flex flex-col items-center gap-4 rounded-2xl glass py-20 text-center">
             <Compass className="h-8 w-8 text-brand-glow" />
             <p className="font-semibold text-ink">{t("library.empty")}</p>

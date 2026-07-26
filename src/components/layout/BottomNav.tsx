@@ -13,7 +13,7 @@ import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
 
-const PRIMARY_HREFS = ["/discover", "/library", "/requests", "/activity"];
+const PRIMARY_HREFS = ["/discover", "/library", "/calendar", "/requests"];
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -63,7 +63,7 @@ export function BottomNav() {
               <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
               <span className="leading-none">{t(item.labelKey)}</span>
               {liveCount > 0 && (
-                <span className="absolute right-[22%] top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full brand-gradient px-1 text-[9px] font-bold text-white">
+                <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full brand-gradient px-1 text-[9px] font-bold text-white">
                   {liveCount}
                 </span>
               )}
@@ -114,7 +114,7 @@ export function BottomNav() {
                 <button
                   onClick={() => setMoreOpen(false)}
                   aria-label={t("common.close")}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim ring-focus hover:text-ink"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-dim ring-focus hover:text-ink"
                 >
                   <X className="h-4 w-4" />
                 </button>

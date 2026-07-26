@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime } from "@/lib/utils";
 import { useJobRunning } from "@/lib/jobs/useJobRunning";
 import { RotateCw, Loader2, Pencil, Check, X, ListTodo } from "lucide-react";
@@ -183,6 +183,7 @@ function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: nu
 
 function TaskRow({ task, localRunning, onRun, onEdit }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onEdit: () => void }) {
   const t = useT();
+  const { locale } = useI18n();
   const jobRunning = useJobRunning(task.id);
   const running = localRunning || jobRunning;
   return (
@@ -190,7 +191,7 @@ function TaskRow({ task, localRunning, onRun, onEdit }: { task: TaskStatus; loca
       <td className="px-4 py-3 font-semibold text-ink">{t("scheduler.task." + task.id)}</td>
       <td className="px-4 py-3 text-ink-soft">{formatInterval(task.intervalMs)}</td>
       <td className="px-4 py-3 text-ink-dim">
-        {task.lastRunAt ? relativeTime(new Date(task.lastRunAt).toISOString()) : t("tasks.never")}
+        {task.lastRunAt ? relativeTime(new Date(task.lastRunAt).toISOString(), locale) : t("tasks.never")}
       </td>
       <td className="px-4 py-3 text-ink-dim">{formatDuration(task.lastDurationMs)}</td>
       <td className="px-4 py-3 text-ink-dim">

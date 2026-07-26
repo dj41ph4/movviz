@@ -1,5 +1,5 @@
-import { checkQualityUpgrades, searchReleasedMissingMovies, searchMissingMovies } from "@/lib/library/autoGrab";
-import { searchReleasedMissingEpisodes, searchMissingEpisodes } from "@/lib/library/autoGrabSeries";
+import { checkQualityUpgrades, searchReleasedMissingMovies, searchMissingMovies, transitionUpcomingMovies } from "@/lib/library/autoGrab";
+import { searchReleasedMissingEpisodes, searchMissingEpisodes, transitionUpcomingEpisodes } from "@/lib/library/autoGrabSeries";
 import { rssMatchIndexers } from "@/lib/library/rssScan";
 import { refreshRssCache } from "@/lib/indexers/rssCache";
 import { reconcileDownloadingItems } from "@/lib/library/downloadState";
@@ -79,7 +79,10 @@ export const TASKS: ScheduledTask[] = [
         const items = await getPlexWatchlist(user.plexToken!);
         for (const item of items) {
           if (item.tmdbId == null) continue;
-          await requestMedia(user, item.type, item.tmdbId);
+          const result = await requestMedia(user, item.type, item.tmdbId);
+          if ("error" in result) {
+            console.error(`[PlexWatchlist] ${item.type} ${item.tmdbId} for ${user.username}: ${result.error}`);
+          }
         }
       }
     },
@@ -139,12 +142,17 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "release-day-search",
     name: "Recherche des sorties du jour",
-    intervalMs: 8 * 60 * 60 * 1000, // 3x/day
-    // Movies/episodes stay "missing" indefinitely once their release date is
-    // set but no release has appeared yet — this retries them once they've
-    // actually released (VF digital/physical date for movies, air date for
-    // episodes), a few times a day rather than waiting on a manual search.
+    intervalMs: 6 * 60 * 60 * 1000, // 4x/day (matin/midi/après-midi/soir)
+    // 1. Flip anything "upcoming" whose release/air date has now passed to
+    //    "missing" — this is what makes it eligible for search at all (see
+    //    LibraryStatus's "upcoming" doc). 2. Immediately retry everything
+    //    "missing" whose date is within the last 14 days, so a title that
+    //    just released (or was just flipped above) gets searched several
+    //    times a day instead of waiting on a manual search or the 6h retry
+    //    task — releases routinely land on indexers a bit late.
     run: async () => {
+      transitionUpcomingMovies();
+      transitionUpcomingEpisodes();
       await searchReleasedMissingMovies();
       await searchReleasedMissingEpisodes();
     },

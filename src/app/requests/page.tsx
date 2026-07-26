@@ -5,11 +5,11 @@ import useSWR from "swr";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime, cn } from "@/lib/utils";
 import type { MediaRequest } from "@/lib/requests/types";
 import type { LibraryStatus } from "@/lib/library/types";
-import { Check, X, Clock, CheckCircle2, Star, Film, HardDriveDownload, Search, Loader2, RotateCw, AlertTriangle } from "lucide-react";
+import { Check, X, Clock, CheckCircle2, Star, Film, HardDriveDownload, Search, Loader2, RotateCw, AlertTriangle, Calendar } from "lucide-react";
 
 type RequestWithMedia = MediaRequest & { mediaStatus?: LibraryStatus | null };
 
@@ -23,12 +23,14 @@ const MEDIA_TONE: Record<LibraryStatus, string> = {
   downloading: "text-cyan bg-cyan/12 border-cyan/25",
   searching: "text-brand-glow bg-brand/12 border-brand/25",
   missing: "text-amber bg-amber/12 border-amber/25",
+  upcoming: "text-ink-dim bg-white/6 border-white/10",
 };
 const MEDIA_ICON: Record<LibraryStatus, React.ElementType> = {
   available: CheckCircle2,
   downloading: HardDriveDownload,
   searching: Search,
   missing: Clock,
+  upcoming: Calendar,
 };
 
 /** Approved requests badge with the media's real state; others keep the request state. */
@@ -58,6 +60,7 @@ export default function RequestsPage() {
 
 function RequestsPageInner() {
   const t = useT();
+  const { locale } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -216,7 +219,7 @@ function RequestsPageInner() {
                   <div className="mt-auto flex items-center justify-between pt-3">
                     <span className="text-xs text-ink-dim">
                       {isAdmin ? `${t("requests.requestedBy")} ${r.username} · ` : ""}
-                      {relativeTime(new Date(r.createdAt).toISOString())}
+                      {relativeTime(new Date(r.createdAt).toISOString(), locale)}
                     </span>
 
                     {isAdmin && r.status === "pending" ? (

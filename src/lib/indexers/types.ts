@@ -79,6 +79,12 @@ export interface IndexerRelease {
   infoHash: string | null;
   categories: number[];
   score: number; // Movviz release score (quality/health/freshness)
+  /** Human-readable breakdown of what produced `score` — each matched signal
+   *  and its point delta, most-recently-computed relevance factors included
+   *  when the release was scored against a specific search (see
+   *  rescoreRelease in torznab.ts). Powers the score explanation shown in
+   *  the manual search UI instead of ever exposing the raw release string. */
+  scoreBreakdown?: { label: string; delta: number }[];
 }
 
 /**

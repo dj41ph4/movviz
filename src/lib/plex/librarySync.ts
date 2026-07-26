@@ -3,8 +3,8 @@ import { loadSyncState, saveSyncState } from "./syncState";
 import { getLibrarySections, getSectionItems, getShowEpisodes, getServerIdentity, refreshSection, batchTmdbIds } from "./client";
 import type { PlexServerConfig, PlexSection, PlexLibraryItem } from "./types";
 import {
-  getMovieByTmdbId, addMovie, updateMovie,
-  getSeriesByTmdbId, addSeries, updateSeries,
+  getMovieByTmdbId, addMovie, updateMovie, updateMovies, loadMovies,
+  getSeriesByTmdbId, addSeries, updateSeries, loadSeries,
 } from "@/lib/library/store";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import type { LibraryFile, LibraryMovie, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
@@ -52,18 +52,25 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
   const runStartedAt = Math.floor(Date.now() / 1000);
   let moviesAdded = 0, moviesMatched = 0, seriesAdded = 0, seriesMatched = 0;
 
+  const seenMovieTmdbIds = new Set<number>();
   const moviesSince = force ? undefined : state.moviesLastSyncedAt || undefined;
   for (const section of sections.filter((s) => s.type === "movie")) {
-    const r = await syncMovieSection(cfg, adminToken, section, moviesSince);
+    const r = await syncMovieSection(cfg, adminToken, section, moviesSince, seenMovieTmdbIds);
     moviesAdded += r.added;
     moviesMatched += r.matched;
   }
 
+  const seenSeriesTmdbIds = new Set<number>();
   const seriesSince = force ? undefined : state.seriesLastSyncedAt || undefined;
   for (const section of sections.filter((s) => s.type === "show")) {
-    const r = await syncShowSection(cfg, adminToken, section, seriesSince);
+    const r = await syncShowSection(cfg, adminToken, section, seriesSince, seenSeriesTmdbIds);
     seriesAdded += r.added;
     seriesMatched += r.matched;
+  }
+
+  // Full reconcile: mark items missing if Plex no longer has them
+  if (force) {
+    markMissingFromPlex(seenMovieTmdbIds, seenSeriesTmdbIds);
   }
 
   // After the main sync pass, backfill plexMediaInfo for any movie that has
@@ -99,27 +106,32 @@ function toLibraryFile(plex: PlexLibraryItem): LibraryFile | null {
  * batching ratingKeys through the existing metadata endpoint.
  */
 async function backfillMissingMediaInfo(cfg: PlexServerConfig, token: string) {
-  const { getMovieByTmdbId, loadMovies, updateMovie } = await import("@/lib/library/store");
+  const { getMovieByTmdbId, loadMovies, updateMovies } = await import("@/lib/library/store");
   const missing = loadMovies().filter((m) => m.plexRatingKey && !m.plexMediaInfo);
   if (missing.length === 0) return;
   const keys = missing.map((m) => m.plexRatingKey!).filter(Boolean);
   const unique = [...new Set(keys)];
   const infos = await batchTmdbIds(cfg, token, unique);
+  const patches = new Map<string, Partial<LibraryMovie>>();
   for (const movie of missing) {
     if (!movie.plexRatingKey) continue;
     const info = infos.get(movie.plexRatingKey);
     if (info?.mediaDetail) {
-      updateMovie(movie.id, { plexMediaInfo: info.mediaDetail });
+      patches.set(movie.id, { plexMediaInfo: info.mediaDetail });
     }
+  }
+  if (patches.size > 0) {
+    updateMovies(patches);
   }
 }
 
-async function syncMovieSection(cfg: PlexServerConfig, token: string, section: PlexSection, since: number | undefined) {
+async function syncMovieSection(cfg: PlexServerConfig, token: string, section: PlexSection, since: number | undefined, seenTmdbIds: Set<number>) {
   const items = await getSectionItems(cfg, section.key, token, { sinceUnixSeconds: since });
   let added = 0, matched = 0;
 
   for (const item of items) {
     if (item.tmdbId == null) continue;
+    seenTmdbIds.add(item.tmdbId);
     const file = toLibraryFile(item);
     const existing = getMovieByTmdbId(item.tmdbId);
 
@@ -170,12 +182,13 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
   return { added, matched };
 }
 
-async function syncShowSection(cfg: PlexServerConfig, token: string, section: PlexSection, since: number | undefined) {
+async function syncShowSection(cfg: PlexServerConfig, token: string, section: PlexSection, since: number | undefined, seenTmdbIds: Set<number>) {
   const shows = await getSectionItems(cfg, section.key, token, { sinceUnixSeconds: since });
   let added = 0, matched = 0;
 
   for (const show of shows) {
     if (show.tmdbId == null) continue;
+    seenTmdbIds.add(show.tmdbId);
     const episodes = await getShowEpisodes(cfg, show.ratingKey, token);
     const existing = getSeriesByTmdbId(show.tmdbId);
 
@@ -227,23 +240,81 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
 
     let changed = false;
     if (!existing.plexRatingKey) changed = true;
-    const newSeasons = existing.seasons.map((season) => ({
-      ...season,
-      episodes: season.episodes.map((ep) => {
-        if (ep.status === "available" && ep.plexRatingKey) return ep;
-        const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
-        if (!plexEp) return ep;
-        changed = true;
-        return { ...ep, status: "available" as const, file: toLibraryFile(plexEp) ?? ep.file, plexRatingKey: plexEp.ratingKey };
-      }),
-    }));
+
+    // First pass: detect changes without deep-cloning the whole episode tree
+    if (!changed) {
+      for (const season of existing.seasons) {
+        for (const ep of season.episodes) {
+          const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
+          if (plexEp) {
+            if (ep.status !== "available" || !ep.plexRatingKey) { changed = true; break; }
+          } else {
+            if (ep.status === "available" || ep.file || ep.plexRatingKey) { changed = true; break; }
+          }
+        }
+        if (changed) break;
+      }
+    }
+
     if (changed) {
+      const newSeasons = existing.seasons.map((season) => ({
+        ...season,
+        episodes: season.episodes.map((ep) => {
+          const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
+          if (plexEp) {
+            if (ep.status !== "available" || !ep.plexRatingKey) {
+              return { ...ep, status: "available" as const, file: toLibraryFile(plexEp) ?? ep.file, plexRatingKey: plexEp.ratingKey };
+            }
+            return ep;
+          }
+          if (ep.status === "available" || ep.file || ep.plexRatingKey) {
+            return { ...ep, status: "missing" as const, file: null, activeInfoHash: null, plexRatingKey: null };
+          }
+          return ep;
+        }),
+      }));
       updateSeries(existing.id, { seasons: newSeasons, plexRatingKey: existing.plexRatingKey ?? show.ratingKey });
       matched++;
     }
   }
 
   return { added, matched };
+}
+
+/**
+ * Full-reconcile step: find movies & series that Movviz knows from Plex but
+ * Plex no longer reports at all (deleted from disk). Mark their episodes as
+ * missing instead of showing stale "available" counts.  Never removes the
+ * series/movie record — the user keeps their history, monitoring and tags.
+ */
+function markMissingFromPlex(seenMovieTmdbIds: Set<number>, seenSeriesTmdbIds: Set<number>) {
+  for (const movie of loadMovies()) {
+    if (movie.plexRatingKey && !seenMovieTmdbIds.has(movie.tmdbId)) {
+      updateMovie(movie.id, {
+        status: "missing",
+        file: null,
+        activeInfoHash: null,
+        plexRatingKey: null,
+        plexMediaInfo: null,
+      });
+    }
+  }
+
+  for (const series of loadSeries()) {
+    if (series.plexRatingKey && !seenSeriesTmdbIds.has(series.tmdbId)) {
+      const newSeasons = series.seasons.map((s) => ({
+        ...s,
+        episodes: s.episodes.map((ep) => ({
+          ...ep,
+          status: "missing" as const,
+          file: null,
+          activeInfoHash: null,
+          plexRatingKey: null,
+        })),
+      }));
+      updateSeries(series.id, { seasons: newSeasons, plexRatingKey: null });
+    }
+  }
 }
 
 /**

@@ -28,9 +28,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Configuration de QEMU pour multi-arch
-        uses: docker/setup-qemu-action@v3
-
       - name: Configuration de Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -43,12 +40,11 @@ jobs:
             type=raw,value=latest
             type=sha,format=short
 
-      - name: Construction et publication (multi-arch)
+      - name: Construction et publication
         uses: docker/build-push-action@v6
         with:
           context: .
           file: packaging/docker/Dockerfile
-          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

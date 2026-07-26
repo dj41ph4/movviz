@@ -30,13 +30,21 @@ export async function GET(req: NextRequest) {
     owned.set(m.tmdbCollectionId, (owned.get(m.tmdbCollectionId) ?? 0) + 1);
   }
 
-  const ids = [...owned.keys()];
-  // A large library can span hundreds of distinct collections — firing them
-  // all as one unbounded Promise.all self-inflicts a request storm against
-  // TMDb (seen in practice: 400+ simultaneous calls each slowed to ~4s,
-  // presumably TMDb's own rate limiting kicking in), even though each
-  // individual call is cheap and gets cached afterward. A small fixed
-  // concurrency keeps the same total work without the pile-up.
+  const allIds = [...owned.keys()];
+  // A large library can span hundreds of distinct collections. Resolving all
+  // of them before returning anything means the page stays blank for many
+  // seconds on a cold TMDb cache — paginate instead so the first batch (30 by
+  // default) comes back fast, and the client fetches the rest in the
+  // background. Stable order (insertion order from the library scan) so
+  // offset/limit slices don't overlap or skip entries across calls.
+  const offset = Math.max(0, Number(req.nextUrl.searchParams.get("offset") ?? 0) || 0);
+  const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit") ?? 30) || 30));
+  const ids = allIds.slice(offset, offset + limit);
+
+  // A small fixed concurrency avoids firing the whole page as one unbounded
+  // Promise.all — seen in practice to self-inflict a request storm against
+  // TMDb (400+ simultaneous calls each slowed to ~4s) even though each
+  // individual call is cheap and gets cached afterward.
   const collections = await mapWithConcurrency(ids, 10, (id) => getCollection(id));
   const today = new Date().toISOString().slice(0, 10);
 
@@ -50,8 +58,7 @@ export async function GET(req: NextRequest) {
       const releasedCount = c.parts.filter((p) => p.releaseDate && p.releaseDate <= today).length;
       return { collectionId: ids[i], name: c.name, posterPath: c.posterPath, ownedCount: owned.get(ids[i])!, totalCount: Math.max(releasedCount, owned.get(ids[i])!) };
     })
-    .filter((s): s is SagaSummary => !!s)
-    .sort((a, b) => b.totalCount - b.ownedCount - (a.totalCount - a.ownedCount));
+    .filter((s): s is SagaSummary => !!s);
 
-  return NextResponse.json({ sagas });
+  return NextResponse.json({ sagas, total: allIds.length, hasMore: offset + limit < allIds.length });
 }

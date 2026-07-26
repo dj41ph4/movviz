@@ -5,12 +5,13 @@ import type { LibraryFile } from "@/lib/library/types";
 import { parseRelease } from "@/lib/naming/parser";
 import { Logo4K, LogoHDR, LogoDolbyVision, LogoDolbyAtmos, LogoDTS, LogoTrueHD } from "./FormatLogos";
 
-interface BadgeInfo {
+export interface BadgeInfo {
   resolution: string | null;
   videoCodec: string | null;
   audioCodec: string | null;
   hdr: string | null;
   source: string | null;
+  language?: string | null;
 }
 
 function extractBadges(file: LibraryFile | null | undefined): BadgeInfo {
@@ -33,13 +34,14 @@ function extractBadges(file: LibraryFile | null | undefined): BadgeInfo {
       audioCodec: audioCodec ?? parsed.audioCodec,
       hdr: hdr ?? parsed.hdr,
       source: source ?? parsed.source,
+      language: parsed.language,
     };
   }
 
   return { resolution, videoCodec, audioCodec, hdr, source };
 }
 
-function TextPill({ text, cls }: { text: string; cls: string }) {
+export function TextPill({ text, cls }: { text: string; cls: string }) {
   return (
     <span
       className={cn(
@@ -52,25 +54,17 @@ function TextPill({ text, cls }: { text: string; cls: string }) {
   );
 }
 
-export function MediaBadges({
-  file,
-  className,
-  variant = "overlay",
-}: {
-  file: LibraryFile | null | undefined;
-  className?: string;
-  /**
-   * "overlay" (default) is for badges sitting directly on a poster image —
-   * translucent white-on-photo reads fine there regardless of site theme, so
-   * it stays hardcoded. "surface" is for badges on the page's own background
-   * (title page, episode rows) — those need theme-aware colors instead, or
-   * they read as a near-invisible pale chip in light mode.
-   */
-  variant?: "overlay" | "surface";
-}) {
-  const { resolution, videoCodec, audioCodec, hdr, source } = extractBadges(file);
-  const genericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "bg-white/15 text-white/90";
-  const audioGenericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "bg-white/10 text-white/80";
+/**
+ * Pure badge builder shared by MediaBadges (library files) and the manual
+ * search release row (raw indexer release titles) — same visual language,
+ * one source of truth for the field → logo/pill mapping.
+ */
+export function buildMediaBadgeItems(
+  { resolution, videoCodec, audioCodec, hdr, source, language }: BadgeInfo,
+  variant: "overlay" | "surface",
+): React.ReactNode[] {
+  const genericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "bg-white/15 text-white/90 badge-overlay";
+  const audioGenericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "bg-white/10 text-white/80 badge-overlay-light";
 
   const items: React.ReactNode[] = [];
 
@@ -82,20 +76,38 @@ export function MediaBadges({
   } else if (resolution) {
     const resCls = resolution.startsWith("1080")
       ? "bg-blue-500/80 text-white"
-      : variant === "surface" ? genericCls : "bg-white/20 text-white/90";
+      : variant === "surface" ? genericCls : "bg-white/20 text-white/90 badge-overlay";
     items.push(<TextPill key="res" text={resolution} cls={resCls} />);
   }
 
-  // HDR
+  // HDR / Dolby Vision / SDR — a release can carry Dolby Vision AND an
+  // HDR10/HDR10+/HLG tag at once, so both logos render when both are present
+  // instead of only the first one matched. No HDR tag at all means SDR: scene
+  // releases reliably tag HDR when it's there, so silence is a real signal,
+  // not "unknown" — shown explicitly rather than left blank.
   if (hdr) {
     const hdrUpper = hdr.toUpperCase();
-    if (["DOLBY VISION", "DV"].some((v) => hdrUpper.includes(v))) {
-      items.push(<LogoDolbyVision key="hdr" />);
-    } else if (hdrUpper.includes("HDR") || hdrUpper === "HLG") {
-      items.push(<LogoHDR key="hdr" />);
-    } else {
-      items.push(<TextPill key="hdr" text={hdr.replace(/\s+/g, "")} cls="bg-yellow-500/80 text-black" />);
+    const hasDolbyVision = ["DOLBY VISION", "DV"].some((v) => hdrUpper.includes(v));
+    const hasHdrFamily = hdrUpper.includes("HDR") || hdrUpper.includes("HLG");
+    if (hasDolbyVision) items.push(<LogoDolbyVision key="hdr-dv" />);
+    if (hasHdrFamily) items.push(<LogoHDR key="hdr-family" />);
+    if (!hasDolbyVision && !hasHdrFamily) {
+      items.push(<TextPill key="hdr-other" text={hdr.replace(/\s+/g, "")} cls="bg-yellow-500/80 text-black" />);
     }
+  } else {
+    items.push(<TextPill key="hdr-sdr" text="SDR" cls={variant === "surface" ? genericCls : "bg-white/10 text-white/70 badge-overlay-lighter"} />);
+  }
+
+  // Language
+  if (language) {
+    const isFrench = language === "VF" || language === "VFQ" || language.startsWith("MULTI");
+    items.push(
+      <TextPill
+        key="language"
+        text={language}
+        cls={isFrench ? "border border-brand/25 bg-brand/12 text-brand-glow" : genericCls}
+      />,
+    );
   }
 
   // Audio codec
@@ -123,6 +135,31 @@ export function MediaBadges({
   if (source) {
     items.push(<TextPill key="source" text={source} cls={genericCls} />);
   }
+
+  return items;
+}
+
+export function MediaBadges({
+  file,
+  className,
+  variant = "overlay",
+}: {
+  file: LibraryFile | null | undefined;
+  className?: string;
+  /**
+   * "overlay" (default) is for badges sitting directly on a poster image —
+   * translucent white-on-photo reads fine there regardless of site theme, so
+   * it stays hardcoded. "surface" is for badges on the page's own background
+   * (title page, episode rows) — those need theme-aware colors instead, or
+   * they read as a near-invisible pale chip in light mode.
+   */
+  variant?: "overlay" | "surface";
+}) {
+  // No file means no data at all — showing "SDR" here would claim the
+  // absence of an HDR tag on a release that doesn't exist, not a real signal.
+  if (!file) return null;
+  const info = extractBadges(file);
+  const items = buildMediaBadgeItems(info, variant);
 
   if (items.length === 0) return null;
 

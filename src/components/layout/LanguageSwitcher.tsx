@@ -27,7 +27,7 @@ export function LanguageSwitcher() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label={t("common.languageLabel")}
-        className="flex h-10 items-center gap-1.5 rounded-xl glass px-3 text-sm font-semibold transition-colors hover:border-brand/30"
+        className="flex h-11 items-center gap-1.5 rounded-xl glass px-3 text-sm font-semibold transition-colors hover:border-brand/30"
       >
         <FlagIcon locale={locale} className="h-3.5 w-5 shrink-0 rounded-[2px]" />
         <span className="hidden uppercase sm:block">{locale}</span>
@@ -40,7 +40,7 @@ export function LanguageSwitcher() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
-            className="absolute right-0 top-12 z-50 w-44 overflow-hidden rounded-xl glass-strong p-1.5 shadow-2xl"
+            className="absolute right-0 top-12 z-50 w-44 overflow-hidden rounded-xl glass-strong p-1.5 shadow-2xl max-w-[calc(100vw-2rem)]"
           >
             {LOCALES.map((l) => (
               <button

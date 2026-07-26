@@ -36,7 +36,7 @@ export function UserMenu() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl glass py-1.5 pl-1.5 pr-3 transition-colors hover:border-brand/30"
+        className="flex items-center gap-2 rounded-xl glass py-2 pl-1.5 pr-3 transition-colors hover:border-brand/30"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-lg brand-gradient text-xs font-black text-white">
           {initials}

@@ -50,8 +50,10 @@ class NamedCache {
   misses = 0;
   private saveTimer: NodeJS.Timeout | null = null;
   private lastDiagAt = 0;
-  /** Serializes background writes to the persist file so they never interleave. */
-  private writeChain: Promise<void> = Promise.resolve();
+  /** Semaphore: true while a disk write is in flight. Max 1 at any time. */
+  private writeInFlight = false;
+  /** Single pending write value when a write is in progress. */
+  private pendingWrite: string | null = null;
 
   constructor(public readonly name: string, private ttlMs: number, private persistFile?: string) {
     if (persistFile) this.loadFromDisk();
@@ -81,15 +83,49 @@ class NamedCache {
     const file = this.persistFile;
     if (!file) return;
     const json = JSON.stringify(Object.fromEntries(this.store));
+    if (this.writeInFlight) {
+      this.pendingWrite = json;
+      return;
+    }
+    this.writeInFlight = true;
     const tmp = `${file}.tmp`;
-    this.writeChain = this.writeChain
-      .then(async () => {
-        await fs.promises.mkdir(path.dirname(file), { recursive: true });
-        await fs.promises.writeFile(tmp, json, "utf8");
-        await fs.promises.rename(tmp, file);
-      })
+    const doWrite = () =>
+      fs.promises
+        .mkdir(path.dirname(file), { recursive: true })
+        .then(() => fs.promises.writeFile(tmp, json, "utf8"))
+        .then(() => fs.promises.rename(tmp, file));
+
+    doWrite()
       .catch(() => {
         // Best-effort — losing the persisted cache just means a cold start next time.
+      })
+      .finally(() => {
+        this.writeInFlight = false;
+        if (this.pendingWrite !== null) {
+          const next = this.pendingWrite;
+          this.pendingWrite = null;
+          this.triggerWriteChain(next);
+        }
+      });
+  }
+
+  private triggerWriteChain(json: string) {
+    const file = this.persistFile;
+    if (!file) return;
+    this.writeInFlight = true;
+    const tmp = `${file}.tmp`;
+    fs.promises
+      .mkdir(path.dirname(file), { recursive: true })
+      .then(() => fs.promises.writeFile(tmp, json, "utf8"))
+      .then(() => fs.promises.rename(tmp, file))
+      .catch(() => {})
+      .finally(() => {
+        this.writeInFlight = false;
+        if (this.pendingWrite !== null) {
+          const next = this.pendingWrite;
+          this.pendingWrite = null;
+          this.triggerWriteChain(next);
+        }
       });
   }
 

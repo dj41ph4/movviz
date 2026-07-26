@@ -1,16 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { cn, formatBytes, relativeTime } from "@/lib/utils";
+import { createPortal } from "react-dom";
 import { useT } from "@/i18n/provider";
+import { parseRelease } from "@/lib/naming/parser";
 import type { IndexerRelease } from "@/lib/indexers/types";
-import {
-  Search, Magnet, Server, Download, Loader2, Check, X, Settings, AlertTriangle,
-} from "lucide-react";
+import { ManualSearchReleaseRow } from "./ManualSearchReleaseRow";
+import { Loader2, X, Settings, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 
 export function ManualSearchModal({
   open, onClose, libraryRef, query, category, refTitle, year, title, tmdbId, imdbId,
+  replaceItemId, onReplaced,
 }: {
   open: boolean;
   onClose: () => void;
@@ -22,6 +23,9 @@ export function ManualSearchModal({
   title: string;
   tmdbId?: number;
   imdbId?: string;
+  /** When set, grabbing a release asks to cancel+delete this queue item (an existing download) first — the "replace a stuck/blocked download" flow. */
+  replaceItemId?: string;
+  onReplaced?: () => void;
 }) {
   const t = useT();
   const [releases, setReleases] = useState<IndexerRelease[]>([]);
@@ -66,8 +70,9 @@ export function ManualSearchModal({
   };
 
   const grab = async (r: IndexerRelease) => {
+    if (replaceItemId && !confirm(t("downloads.confirmReplace", { title: r.title }))) return;
     setGrabbing(r.guid);
-    const quality = (r.title.match(/\b(4320p|2160p|1080p|720p|480p)\b/i)?.[0]?.toLowerCase() ?? "Inconnue");
+    const quality = parseRelease(r.title).resolution ?? "Inconnue";
     try {
       const res = await fetch("/api/indexers/grab", {
         method: "POST",
@@ -87,9 +92,19 @@ export function ManualSearchModal({
           protocol: r.protocol,
           seeders: r.seeders,
           leechers: r.leechers,
+          // Lets the grab route re-claim episodes still pointing at the
+          // torrent we're about to delete, instead of them briefly (and
+          // incorrectly) falling back to "missing" once it's removed.
+          replacingInfoHash: replaceItemId ?? undefined,
         }),
       });
-      if (res.ok) setGrabbed((s) => new Set(s).add(r.guid));
+      if (res.ok) {
+        setGrabbed((s) => new Set(s).add(r.guid));
+        if (replaceItemId) {
+          await fetch(`/api/engine/torrents/${replaceItemId}?deleteData=1`, { method: "DELETE" });
+          onReplaced?.();
+        }
+      }
     } finally {
       setGrabbing(null);
     }
@@ -97,7 +112,7 @@ export function ManualSearchModal({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 pt-[8vh] backdrop-blur-sm" onClick={onClose}>
       <div
         className="mx-4 max-h-[80vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-white/10 bg-void shadow-2xl"
@@ -146,36 +161,14 @@ export function ManualSearchModal({
           {!loading && configured !== false && releases.length > 0 && (
             <div className="space-y-1">
               {releases.map((r) => (
-                <div key={r.guid} className="flex items-center gap-3 rounded-xl border border-white/5 bg-black/20 px-4 py-3 transition-colors hover:bg-white/[0.03]">
-                  <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", r.protocol === "torrent" ? "bg-cyan/12 text-cyan" : "bg-brand/12 text-brand-glow")}>
-                      {r.protocol === "torrent" ? <Magnet className="h-4 w-4" /> : <Server className="h-4 w-4" />}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="truncate font-mono text-sm text-ink">{r.title}</p>
-                      <div className="flex items-center gap-3 text-[11px] text-ink-dim">
-                        <span>{r.indexer}</span>
-                        <span>{r.publishDate ? relativeTime(r.publishDate) : "—"}</span>
-                        <span>{formatBytes(r.size)}</span>
-                        {r.seeders != null && <span>{r.seeders} ↑</span>}
-                        <span className={cn("font-bold", r.score >= 90 ? "text-ok" : r.score >= 75 ? "text-amber" : "text-ink-soft")}>
-                          {r.score}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => grab(r)}
-                    disabled={grabbing === r.guid || grabbed.has(r.guid)}
-                    className={cn(
-                      "flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-4 text-xs font-bold transition-transform hover:scale-105 disabled:opacity-60",
-                      grabbed.has(r.guid) ? "bg-ok/15 text-ok" : "brand-gradient text-white"
-                    )}
-                  >
-                    {grabbing === r.guid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : grabbed.has(r.guid) ? <Check className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-                    {grabbed.has(r.guid) ? t("search.grabbed") : t("common.grab")}
-                  </button>
-                </div>
+                <ManualSearchReleaseRow
+                  key={r.guid}
+                  release={r}
+                  category={category}
+                  grabbing={grabbing === r.guid}
+                  grabbed={grabbed.has(r.guid)}
+                  onGrab={grab}
+                />
               ))}
             </div>
           )}
@@ -185,6 +178,7 @@ export function ManualSearchModal({
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -70,7 +70,7 @@ function buildMovieCtx(file: LibraryFile | null | undefined, year: number | null
     title, year: year ? String(year) : null,
     season: null, episode: null, episodeTitle: null,
     quality: file?.quality ?? "", resolution: file?.resolution ?? null,
-    source: null, videoCodec: null, audioCodec: null, hdr: null, group: null,
+    source: null, videoCodec: null, audioCodec: null, hdr: null, language: null, group: null,
   };
 }
 
@@ -329,7 +329,7 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
     title: translated, year: series.year ? String(series.year) : null,
     season: null, episode: null, episodeTitle: null,
     quality: "", resolution: null, source: null, videoCodec: null,
-    audioCodec: null, hdr: null, group: null,
+    audioCodec: null, hdr: null, language: null, group: null,
   };
   const expectedFolder = renderSegment(templates.seriesFolder, seriesCtx, useDots);
   
@@ -368,7 +368,7 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
       title: translated, year: series.year ? String(series.year) : null,
       season: season.seasonNumber, episode: null, episodeTitle: null,
       quality: "", resolution: null, source: null, videoCodec: null,
-      audioCodec: null, hdr: null, group: null,
+      audioCodec: null, hdr: null, language: null, group: null,
     };
     const newSeasonFolder = renderSegment(templates.seasonFolder, seasonCtx, useDots);
     for (const ep of season.episodes) {
@@ -381,7 +381,7 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
         quality: ep.file!.quality ?? "",
         resolution: parsed.resolution ?? ep.file!.resolution,
         source: parsed.source, videoCodec: parsed.videoCodec, audioCodec: parsed.audioCodec,
-        hdr: parsed.hdr, group: parsed.group,
+        hdr: parsed.hdr, language: parsed.language, group: parsed.group,
       };
       const expectedEpFile = renderSegment(templates.episodeFile, epCtx, useDots);
       const ext = p.extname(epPath);

@@ -26,16 +26,19 @@ interface CacheEntry {
 const g = globalThis as typeof globalThis & {
   __movvizFsJsonCache?: Map<string, CacheEntry>;
   __movvizMemoCache?: Map<string, { version: string; value: unknown }>;
-  __movvizWriteQueues?: Map<string, Promise<void>>;
   __movvizPendingWrites?: Map<string, { value: unknown; timer: ReturnType<typeof setTimeout> }>;
+  __movvizWriteInFlight?: Map<string, boolean>;
+  __movvizPendingFileWrites?: Map<string, unknown>;
 };
 const cache: Map<string, CacheEntry> = (g.__movvizFsJsonCache ??= new Map());
 const memoCache: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCache ??= new Map());
-/** One write-in-flight promise per file, so concurrent writes to the same store never interleave on disk even though they no longer block the caller. */
-const writeQueues: Map<string, Promise<void>> = (g.__movvizWriteQueues ??= new Map());
 /** Writes scheduled but not yet started — see the coalescing comment on writeJsonCached(). */
 const pendingWrites: Map<string, { value: unknown; timer: ReturnType<typeof setTimeout> }> =
   (g.__movvizPendingWrites ??= new Map());
+/** Semaphore: is a write currently in flight for this file? Max 1 at any time. */
+const writeInFlight: Map<string, boolean> = (g.__movvizWriteInFlight ??= new Map());
+/** Slot for the single pending write value when a write is in flight. At most 1 value stored. */
+const pendingFileWrites: Map<string, unknown> = (g.__movvizPendingFileWrites ??= new Map());
 /** How long a burst of writes to the same file gets to settle before the coalesced write actually fires. */
 const WRITE_COALESCE_MS = 300;
 
@@ -117,29 +120,56 @@ export function writeJsonCached(file: string, value: unknown): void {
     pendingWrites.delete(file);
     const finalValue = pending ? pending.value : value;
 
-    const compact = JSON.stringify(finalValue);
-    const json = compact.length <= PRETTY_MAX_BYTES ? JSON.stringify(finalValue, null, 2) : compact;
-    const tmp = `${file}.tmp`;
-    const prior = writeQueues.get(file) ?? Promise.resolve();
-    const queued = prior
-      .then(() => fs.promises.writeFile(tmp, json, "utf8"))
+    startFileWrite(file, finalValue);
+  }, WRITE_COALESCE_MS);
+
+  pendingWrites.set(file, { value, timer });
+}
+
+/**
+ * Start a file write using a semaphore to bound the chain to at most 1
+ * in-flight write. If a write is already in progress, the value is stored
+ * in a single-slot `pendingFileWrites` — it will be picked up when the
+ * current write finishes, without chaining promises.
+ *
+ * This prevents the old unbounded promise-chain pattern where slow disk
+ * (NAS) caused each coalesced write to chain a ~14 MB JSON string in a
+ * closure, growing until OOM.
+ */
+function startFileWrite(file: string, val: unknown) {
+  if (writeInFlight.get(file)) {
+    pendingFileWrites.set(file, val);
+    return;
+  }
+
+  writeInFlight.set(file, true);
+  const compact = JSON.stringify(val);
+  const json = compact.length <= PRETTY_MAX_BYTES ? JSON.stringify(val, null, 2) : compact;
+  const tmp = `${file}.tmp`;
+
+  const doWrite = () =>
+    fs.promises
+      .writeFile(tmp, json, "utf8")
       .then(() => fs.promises.rename(tmp, file))
       .then(() => fs.promises.stat(file))
       .then((stat) => {
-        // Only reconcile to a real stat if nothing newer has been queued since —
-        // otherwise this would stamp a stale mtime/size over a fresher pending value.
         const current = cache.get(file);
-        if (current?.value === finalValue) {
-          cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value: finalValue });
+        if (current?.value === val) {
+          cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value: val });
         }
       })
       .catch((err) => {
         console.error(`[fsJsonCache] background write failed for ${file}:`, err);
       });
-    writeQueues.set(file, queued);
-  }, WRITE_COALESCE_MS);
 
-  pendingWrites.set(file, { value, timer });
+  doWrite().finally(() => {
+    writeInFlight.set(file, false);
+    const next = pendingFileWrites.get(file);
+    if (next !== undefined) {
+      pendingFileWrites.delete(file);
+      startFileWrite(file, next);
+    }
+  });
 }
 
 /**

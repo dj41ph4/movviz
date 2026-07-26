@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import { eventBus } from "@/lib/events/EventBus";
+import { addToTrash } from "@/lib/library/trashStore";
 import type { LibraryMovie, LibrarySeries } from "./types";
 
 const CONFIG_DIR =
@@ -166,7 +167,23 @@ export function updateMovies(patches: Map<string, Partial<LibraryMovie>>): void 
   }
 }
 export function removeMovie(id: string) {
-  saveMovies(loadMovies().filter((m) => m.id !== id));
+  const list = loadMovies();
+  const movie = list.find((m) => m.id === id);
+  if (movie) {
+    addToTrash({
+      id: `movie_${movie.tmdbId}`,
+      tmdbId: movie.tmdbId,
+      type: "movie",
+      title: movie.title,
+      posterPath: movie.posterPath,
+      backdropPath: movie.backdropPath,
+      year: movie.year,
+      rating: movie.rating,
+      overview: movie.overview,
+      deletedAt: Date.now(),
+    });
+  }
+  saveMovies(list.filter((m) => m.id !== id));
 }
 /** Danger zone: wipe every movie from Movviz's own database. Never touches Plex or files on disk. */
 export function clearMovies() {
@@ -248,7 +265,23 @@ export function updateSeriesList(patches: Map<string, Partial<LibrarySeries>>): 
   }
 }
 export function removeSeries(id: string) {
-  saveSeries(loadSeries().filter((s) => s.id !== id));
+  const list = loadSeries();
+  const series = list.find((s) => s.id === id);
+  if (series) {
+    addToTrash({
+      id: `series_${series.tmdbId}`,
+      tmdbId: series.tmdbId,
+      type: "series",
+      title: series.title,
+      posterPath: series.posterPath,
+      backdropPath: series.backdropPath,
+      year: series.year,
+      rating: series.rating,
+      overview: series.overview,
+      deletedAt: Date.now(),
+    });
+  }
+  saveSeries(list.filter((s) => s.id !== id));
 }
 /** Danger zone: wipe every series from Movviz's own database. Never touches Plex or files on disk. */
 export function clearSeries() {

@@ -12,6 +12,7 @@ import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import type { ActivityEntry, QueueItem, WantedItem, ActivityMedia } from "@/lib/activity/v2/types";
 import type { EngineTorrent } from "@/lib/types";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
+import { decodeLibraryRef } from "@/lib/library/types";
 import type { User } from "@/lib/auth/types";
 
 const CONFIG_DIR =
@@ -155,14 +156,27 @@ interface HashIndexEntry {
  * A season pack shares one activeInfoHash across several episodes — every
  * one of them is collected so the queue can say "season pack, N episodes"
  * instead of silently picking the first and looking stuck on one episode.
+ *
+ * Also returns id-keyed lookups for movies/series — `activeInfoHash` is
+ * deliberately cleared back to null once a download is imported (see
+ * import/route.ts), so a completed torrent still sitting in the engine's
+ * list falls out of `byHash` right after import. getQueue() falls back to
+ * decoding the torrent's own `libraryRef` (set once at grab time, unrelated
+ * to the mutable library record) and resolving it here by id instead, so a
+ * completed/imported item keeps its real title/type/link forever instead of
+ * degrading to the raw release filename.
  */
-function buildHashIndex(): Map<string, HashIndexEntry> {
+function buildHashIndex(): { byHash: Map<string, HashIndexEntry>; moviesById: Map<string, LibraryMovie>; seriesById: Map<string, LibrarySeries> } {
   return memoizeByFileMtimes("activity-v2-hash-index", libraryFilePaths(), () => {
-    const index = new Map<string, HashIndexEntry>();
+    const byHash = new Map<string, HashIndexEntry>();
+    const moviesById = new Map<string, LibraryMovie>();
+    const seriesById = new Map<string, LibrarySeries>();
     for (const movie of loadMovies()) {
-      if (movie.activeInfoHash) index.set(movie.activeInfoHash, { movie });
+      moviesById.set(movie.id, movie);
+      if (movie.activeInfoHash) byHash.set(movie.activeInfoHash, { movie });
     }
     for (const s of loadSeries()) {
+      seriesById.set(s.id, s);
       const matchesByHash = new Map<string, { season: number; episode: number }[]>();
       let totalMonitored = 0;
       for (const season of s.seasons) {
@@ -178,9 +192,9 @@ function buildHashIndex(): Map<string, HashIndexEntry> {
       for (const [hash, matches] of matchesByHash) {
         // A movie owning the same hash keeps priority — same precedence as
         // the old sequential scan (movie checked first).
-        if (index.has(hash)) continue;
+        if (byHash.has(hash)) continue;
         const isComplete = totalMonitored > 0 && matches.length >= totalMonitored;
-        index.set(hash, {
+        byHash.set(hash, {
           seriesMatch: {
             series: s,
             season: isComplete ? 0 : matches[0].season,
@@ -190,18 +204,48 @@ function buildHashIndex(): Map<string, HashIndexEntry> {
         });
       }
     }
-    return index;
+    return { byHash, moviesById, seriesById };
   });
+}
+
+/** Fallback resolution for a torrent whose library record no longer carries
+ *  a matching activeInfoHash (see buildHashIndex doc) — decodes the
+ *  engine-persisted libraryRef instead. */
+function resolveFromLibraryRef(
+  libraryRef: string | null | undefined,
+  moviesById: Map<string, LibraryMovie>,
+  seriesById: Map<string, LibrarySeries>
+): HashIndexEntry {
+  if (!libraryRef) return {};
+  const ref = decodeLibraryRef(libraryRef);
+  if (!ref) return {};
+  if (ref.kind === "movie") {
+    const movie = moviesById.get(ref.movieId);
+    return movie ? { movie } : {};
+  }
+  const series = seriesById.get(ref.seriesId);
+  if (!series) return {};
+  if (ref.kind === "series") {
+    const count = series.seasons.reduce((sum, se) => sum + se.episodes.filter((e) => e.monitored).length, 0);
+    return { seriesMatch: { series, season: 0, episode: 0, count: count || 1 } };
+  }
+  if (ref.kind === "season") {
+    const season = series.seasons.find((se) => se.seasonNumber === ref.season);
+    const count = season?.episodes.length ?? 1;
+    return { seriesMatch: { series, season: ref.season, episode: season?.episodes[0]?.episodeNumber ?? 1, count } };
+  }
+  return { seriesMatch: { series, season: ref.season, episode: ref.episode, count: 1 } };
 }
 
 async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }>> {
   const engineData = await fetchEngine("torrents") as { torrents?: EngineTorrent[] } | null;
   const torrents = engineData?.torrents ?? [];
-  const hashIndex = buildHashIndex();
+  const { byHash: hashIndex, moviesById, seriesById } = buildHashIndex();
   const { byHash: releaseByHash, byLibraryRef: releaseByLibraryRef } = buildReleaseLookup();
 
   let items: QueueItem[] = torrents.map(t => {
-      const { movie, seriesMatch } = hashIndex.get(t.infoHash) ?? {};
+      const { movie, seriesMatch } = hashIndex.get(t.infoHash)
+        ?? resolveFromLibraryRef(t.libraryRef, moviesById, seriesById);
 
       const media: ActivityMedia = movie
         ? { id: movie.id, title: movie.title, type: "movie", href: `/title/movie/${movie.tmdbId}`, tmdbId: movie.tmdbId }
@@ -254,6 +298,7 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
           state: (t.state === "metadata" ? "downloading" : t.state) as "downloading" | "paused" | "queued" | "completed" | "seeding" | "stalled"
         },
         status: t.state === "paused" ? "paused" : t.state === "stalled" ? "stalled" : t.state === "queued" ? "queued" : t.state === "seeding" ? "seeding" : t.state === "completed" ? "completed" : "downloading",
+        priority: t.priority ?? "medium",
         addedAt
       };
     });

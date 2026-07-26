@@ -40,6 +40,7 @@ function buildMovieCtx(
     videoCodec: null,
     audioCodec: null,
     hdr: null,
+    language: null,
     group: null,
   };
 }
@@ -133,7 +134,7 @@ export async function scanRenames(
         year: series.year ? String(series.year) : null,
         season: null, episode: null, episodeTitle: null,
         quality: "", resolution: null, source: null, videoCodec: null,
-        audioCodec: null, hdr: null, group: null,
+        audioCodec: null, hdr: null, language: null, group: null,
       };
       const expectedFolder = renderSegment(templates.seriesFolder, seriesCtx, useDots);
 
@@ -155,6 +156,7 @@ export async function scanRenames(
             videoCodec: parsed.videoCodec,
             audioCodec: parsed.audioCodec,
             hdr: parsed.hdr,
+            language: parsed.language,
             group: parsed.group,
           };
           const seasonFolder = renderSegment(templates.seasonFolder, seasonCtx, useDots);

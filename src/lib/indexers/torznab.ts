@@ -256,16 +256,16 @@ function bareTitle(query: string): string {
  * genuine match. The cap makes a severe/moderate mismatch structurally
  * unable to outrank a real match no matter how good its other numbers are.
  */
-function titleRelevance(query: string, releaseTitle: string, preParsed?: ReturnType<typeof parseRelease>): { delta: number; cap: number | null } {
-  if (!query) return { delta: 0, cap: null };
+function titleRelevance(query: string, releaseTitle: string, preParsed?: ReturnType<typeof parseRelease>): { delta: number; cap: number | null; label: string } {
+  if (!query) return { delta: 0, cap: null, label: "" };
   const bareQuery = bareTitle(query) || query;
   const parsedTitle = preParsed?.title ?? parseRelease(releaseTitle).title;
   const sim = Math.max(titleSimilarity(bareQuery, releaseTitle), titleSimilarity(bareQuery, parsedTitle));
-  if (sim >= 0.85) return { delta: 35, cap: null };
-  if (sim >= 0.7) return { delta: 15, cap: null };
-  if (sim >= 0.5) return { delta: 0, cap: null };
-  if (sim >= 0.3) return { delta: -25, cap: 55 };
-  return { delta: -60, cap: 20 };
+  if (sim >= 0.85) return { delta: 35, cap: null, label: "Titre correspondant" };
+  if (sim >= 0.7) return { delta: 15, cap: null, label: "Titre proche" };
+  if (sim >= 0.5) return { delta: 0, cap: null, label: "" };
+  if (sim >= 0.3) return { delta: -25, cap: 55, label: "Titre peu correspondant" };
+  return { delta: -60, cap: 20, label: "Titre très différent" };
 }
 
 /** Detects whether a query year appears in the release title. */
@@ -284,55 +284,163 @@ function titleYearMatch(query: string, releaseTitle: string): boolean {
  * the same robust parser the auto-grab path relies on — rather than
  * comparing the raw SxxExx text, so it isn't fooled by formatting
  * differences either.
+ *
+ * The season number is treated as a MAJOR relevance signal, not a minor one:
+ * a wrong-season release must never be able to outrank a right-season one no
+ * matter how good its quality/seeder/custom-format numbers are (a season-8
+ * remux with 500 seeders is still useless to someone who asked for season
+ * 7). The penalty and its cap both scale with how far off the season is —
+ * one season away is bad, three seasons away is much worse — rather than a
+ * single flat penalty that treats "off by one" the same as "off by five".
  */
-function seasonEpisodeRelevance(query: string, releaseTitle: string, preParsed?: ReturnType<typeof parseRelease>): { delta: number; cap: number | null } {
+function seasonEpisodeRelevance(query: string, releaseTitle: string, preParsed?: ReturnType<typeof parseRelease>): { delta: number; cap: number | null; label: string } {
   const qm = query.match(/\bS(\d{1,2})(?:E(\d{1,3}))?\b/i);
-  if (!qm) return { delta: 0, cap: null };
+  if (!qm) return { delta: 0, cap: null, label: "" };
   const qSeason = parseInt(qm[1], 10);
   const qEpisode = qm[2] ? parseInt(qm[2], 10) : null;
 
   const r = preParsed ?? parseRelease(releaseTitle);
-  if (r.season == null) return { delta: 0, cap: null };
-  if (r.season !== qSeason) return { delta: -60, cap: 20 };
-  if (qEpisode == null) return { delta: 0, cap: null };
-  if (r.episode == null) return { delta: 15, cap: null };
-  return r.episode === qEpisode ? { delta: 30, cap: null } : { delta: -50, cap: 40 };
+
+  if (r.season == null) {
+    // No season/episode code at all — either unparseable, or a genuine
+    // complete-series pack (e.g. "Breaking.Bad.Complete.Series"), which DOES
+    // contain the requested season, just not called out by number. Modest
+    // bonus, well below an exact season match, since it's not as sharply
+    // targeted as a release naming the season explicitly.
+    if (r.isCompletePack) return { delta: 10, cap: null, label: "Intégrale (contient la saison demandée)" };
+    return { delta: 0, cap: null, label: "" };
+  }
+
+  if (r.season !== qSeason) {
+    const distance = Math.abs(r.season - qSeason);
+    // distance 1 → -70/cap 20, distance 2 → -85/cap 15, distance 3+ → -100.../cap 5-10
+    const delta = -70 - (distance - 1) * 15;
+    const cap = Math.max(5, 20 - (distance - 1) * 5);
+    return { delta, cap, label: `Mauvaise saison (S${r.season} au lieu de S${qSeason})` };
+  }
+
+  // Right season from here on.
+  if (qEpisode == null) {
+    // Season-scoped request ("season 7", no specific episode).
+    if (r.episode == null) return { delta: 45, cap: null, label: "Saison complète correspondante" };
+    return { delta: 25, cap: null, label: "Épisode de la bonne saison" };
+  }
+
+  // Episode-scoped request.
+  if (r.episode == null) return { delta: 18, cap: null, label: "Pack de saison contenant l'épisode demandé" };
+  return r.episode === qEpisode
+    ? { delta: 50, cap: null, label: "Épisode correspondant" }
+    : { delta: -50, cap: 40, label: `Mauvais épisode (E${r.episode} au lieu de E${qEpisode})` };
 }
 
-function score(r: Omit<IndexerRelease, "score">, rules: ReleaseRules, query?: string) {
+export interface ScoreBreakdownItem {
+  label: string;
+  delta: number;
+}
+
+/**
+ * Additive score plus a labeled breakdown of every signal that produced it —
+ * the breakdown is what powers the score explanation shown in the manual
+ * search UI ("Score: 92 = +40 base, +25 saison correspondante, ..."),
+ * answering "is this exactly what was asked for?" rather than just "does the
+ * filename contain similar words?".
+ */
+function score(r: Omit<IndexerRelease, "score" | "scoreBreakdown">, rules: ReleaseRules, query?: string): { value: number; breakdown: ScoreBreakdownItem[] } {
+  const breakdown: ScoreBreakdownItem[] = [{ label: "Base", delta: 40 }];
   let s = 40;
+  const add = (label: string, delta: number) => {
+    if (!delta) return;
+    s += delta;
+    breakdown.push({ label, delta });
+  };
+
   const t = r.title.toLowerCase();
-  if (/2160p|\b4k\b|uhd/.test(t)) s += 30;
-  else if (/1080p/.test(t)) s += 20;
-  else if (/720p/.test(t)) s += 8;
-  if (/remux|bluray|blu-ray/.test(t)) s += 10;
-  if (/web-?dl|webrip/.test(t)) s += 6;
-  if (/dolby\s?vision|dv/.test(t)) s += 8;
-  else if (/hdr10\+|hdr10/.test(t)) s += 5;
-  else if (/\bhdr\b/.test(t)) s += 3;
-  if (/atmos|truehd/.test(t)) s += 3;
+  if (/2160p|\b4k\b|uhd/.test(t)) add("Résolution 4K/2160p", 30);
+  else if (/1080p/.test(t)) add("Résolution 1080p", 20);
+  else if (/720p/.test(t)) add("Résolution 720p", 8);
+  if (/remux|bluray|blu-ray/.test(t)) add("Source BluRay/Remux", 10);
+  if (/web-?dl|webrip/.test(t)) add("Source WEB-DL", 6);
+  if (/dolby\s?vision|dv/.test(t)) add("Dolby Vision", 8);
+  else if (/hdr10\+|hdr10/.test(t)) add("HDR10", 5);
+  else if (/\bhdr\b/.test(t)) add("HDR", 3);
+  if (/atmos|truehd/.test(t)) add("Audio Atmos/TrueHD", 3);
   const codec = normalizeCodec(t.match(CODEC_RE)?.[0] ?? null);
-  if (codec) s += rules.codecScores[codec] ?? 0;
-  if (r.seeders != null) s += Math.min(20, Math.round(Math.log2((r.seeders || 0) + 1) * 4));
-  else if (r.grabs != null) s += Math.min(15, Math.round(Math.log2((r.grabs || 0) + 1) * 3));
+  if (codec) add(`Codec ${codec}`, rules.codecScores[codec] ?? 0);
+  // A torrent's seeder count isn't just a quality signal, it's whether the
+  // download can actually complete: 0 seeders means the torrent is dead (no
+  // source left to download from at all), and 1 seeder is a single point of
+  // failure that stalls or dies mid-download constantly — both get an
+  // explicit penalty on top of losing the normal positive bonus, instead of
+  // just missing out on it.
+  let deadTorrent = false;
+  if (r.seeders != null) {
+    if (r.seeders === 0) {
+      add("0 seeder (mort)", -1000);
+      deadTorrent = true;
+    } else if (r.seeders === 1) {
+      add("1 seul seeder", -20);
+    } else {
+      add(`${r.seeders} seeders`, Math.min(20, Math.round(Math.log2(r.seeders + 1) * 4)));
+    }
+  } else if (r.grabs != null) {
+    add(`${r.grabs} téléchargements`, Math.min(15, Math.round(Math.log2((r.grabs || 0) + 1) * 3)));
+  }
   if (r.publishDate) {
     const ageDays = (Date.now() - new Date(r.publishDate).getTime()) / 86400000;
-    if (ageDays < 2) s += 8;
-    else if (ageDays < 14) s += 3;
+    if (ageDays < 2) add("Récent (< 2 jours)", 8);
+    else if (ageDays < 14) add("Récent (< 14 jours)", 3);
   }
-  s += applyCustomFormats(r.title);
-  let cap = 100;
+  add("Formats personnalisés", applyCustomFormats(r.title));
+  // Blocked words demote instead of silently hiding the release outright —
+  // a hard exclusion could leave a search with zero results even when a
+  // blocked-word release is the only thing available; a heavy penalty keeps
+  // it visible but ranked at the bottom, below any release that isn't
+  // blocked, while still letting quality-profile minScore gates filter it
+  // out of auto-grab entirely when nothing better exists.
+  const blockedWord = matchesBlockedWord(r.title, rules);
+  if (blockedWord) add(`Mot interdit : "${blockedWord}"`, -70);
+
+  // No default ceiling: a well-matched, high-quality release (top
+  // resolution + source + HDR + codec + seeders + freshness + custom
+  // formats) legitimately stacks past 100 — clamping every good match down
+  // to the same "100" erased the very priority differences the user
+  // configures (per-codec scores, custom formats) once two or more releases
+  // crossed the old ceiling, leaving them tied and sorted arbitrarily. The
+  // cap here exists only to keep a clearly mismatched release (wrong
+  // title/season/episode) from outranking a real match — see titleRelevance
+  // / seasonEpisodeRelevance's caps, which still apply below and are what
+  // actually enforce "wrong season can never beat right season".
+  let cap: number | null = null;
   if (query) {
     const parsed = parseRelease(r.title);
     const titleRel = titleRelevance(query, r.title, parsed);
-    s += titleRel.delta;
-    if (titleRel.cap != null) cap = Math.min(cap, titleRel.cap);
+    add(titleRel.label, titleRel.delta);
+    if (titleRel.cap != null) cap = cap == null ? titleRel.cap : Math.min(cap, titleRel.cap);
     const seRel = seasonEpisodeRelevance(query, r.title, parsed);
-    s += seRel.delta;
-    if (seRel.cap != null) cap = Math.min(cap, seRel.cap);
-    if (!titleYearMatch(query, r.title)) s -= 15;
+    add(seRel.label, seRel.delta);
+    if (seRel.cap != null) cap = cap == null ? seRel.cap : Math.min(cap, seRel.cap);
+    if (!titleYearMatch(query, r.title)) add("Année différente", -15);
   }
-  return Math.max(1, Math.min(cap, s));
+
+  const value = deadTorrent ? 0 : Math.max(1, cap != null ? Math.min(cap, s) : s);
+  if (!deadTorrent && cap != null && cap < s) breakdown.push({ label: `Plafonné à ${cap} (pertinence insuffisante)`, delta: value - s });
+  return { value, breakdown };
+}
+
+/**
+ * Recompute a release's score against a fresh query/rules — used by the
+ * manual search API route to re-score RSS-cached releases (cached with no
+ * query context at all, since the hourly RSS scan doesn't know what a user
+ * will search for later) against the actual season/episode/title the user
+ * is asking for right now. Without this, cached releases keep whatever
+ * generic quality score they were cached with, and a wrong-season episode
+ * with good quality/seeders scores as high as the right season.
+ */
+export function rescoreRelease(r: IndexerRelease, query?: string): IndexerRelease {
+  const rules = loadReleaseRules();
+  const { score: _oldScore, scoreBreakdown: _oldBreakdown, ...base } = r;
+  const scored = score(base, rules, query);
+  return { ...r, score: scored.value, scoreBreakdown: scored.breakdown };
 }
 
 function parseReleases(text: string, ix: ConfiguredIndexer, effectiveCategories: number[], query?: string): IndexerRelease[] {
@@ -341,7 +449,7 @@ function parseReleases(text: string, ix: ConfiguredIndexer, effectiveCategories:
   const releases: IndexerRelease[] = [];
   for (const block of items) {
     const title = tag(block, "title");
-    if (!title || matchesBlockedWord(title, rules)) continue;
+    if (!title) continue;
     const enclosureRaw = block.match(/<enclosure[^>]*url="([^"]*)"[^>]*>/i)?.[1] ?? null;
     const enclosure = enclosureRaw != null ? decodeXmlEntities(enclosureRaw) : null;
     const enclosureLen = block.match(/<enclosure[^>]*length="(\d+)"/i)?.[1];
@@ -372,7 +480,8 @@ function parseReleases(text: string, ix: ConfiguredIndexer, effectiveCategories:
       infoHash,
       categories: effectiveCategories,
     };
-    releases.push({ ...base, score: score(base, rules, query) });
+    const scored = score(base, rules, query);
+    releases.push({ ...base, score: scored.value, scoreBreakdown: scored.breakdown });
   }
   return releases;
 }
@@ -479,14 +588,23 @@ async function runSearch(
   return filterBySizeAge(parseReleases(r.text, ix, effective, query), ix);
 }
 
-/** Generic free-text search across everything the indexer offers — used by the interactive Search page. */
+/**
+ * Generic free-text search across everything the indexer offers — used by
+ * the interactive Search page. `matchQuery` (already sanitized), when given,
+ * is used for LOCAL relevance scoring instead of the search text itself —
+ * needed when the text actually sent to the indexer must be the bare title
+ * (a season/episode code appended to the indexer's own query returns zero
+ * results — see searchTv) while scoring still needs that season/episode code
+ * to tell right-season from wrong-season releases apart.
+ */
 export async function searchIndexer(
   ix: ConfiguredIndexer,
   query: string,
-  scopeCategories?: number[]
+  scopeCategories?: number[],
+  matchQuery?: string
 ): Promise<IndexerRelease[]> {
   const q = sanitizeQuery(query);
-  return runSearch(ix, { t: "search", q }, scopeCategories, q);
+  return runSearch(ix, { t: "search", q }, scopeCategories, matchQuery ?? q);
 }
 
 export interface MovieSearchCriteria {

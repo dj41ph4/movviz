@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import useSWR from "swr";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatBytes, formatSpeed, formatEtaMs } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import type { EngineTorrent } from "@/lib/types";
 import { Download, Pause, CheckCircle2, AlertTriangle, Clock, WifiOff } from "lucide-react";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 
 const VISIBLE_LIMIT = 3;
 
@@ -24,7 +26,7 @@ export function DownloadQueue() {
   // Shared SWR key with the Téléchargements page and the dashboard grid —
   // one poll feeds all of them, and the queue paints instantly from cache.
   const { data, error } = useSWR<{ torrents: EngineTorrent[] }>(
-    "/api/engine/torrents", { refreshInterval: 3000 }
+    "/api/engine/torrents", { refreshInterval: 500 }
   );
   const torrents = error ? null : data?.torrents ?? null;
 
@@ -54,11 +56,20 @@ export function DownloadQueue() {
       )}
 
       <div className="space-y-2">
+        <AnimatePresence initial={false}>
         {queued.slice(0, VISIBLE_LIMIT).map((d) => {
           const s = STATUS[d.state] ?? STATUS.downloading;
           const Icon = s.icon;
           return (
-            <div key={d.infoHash} className="rounded-xl border border-white/5 bg-black/20 p-2.5">
+            <motion.div
+              key={d.infoHash}
+              layout
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.35, ease: "easeInOut" }}
+              className="rounded-xl border border-white/5 bg-black/20 p-2.5"
+            >
               <div className="flex items-center gap-2.5">
                 <Icon className={cn("h-4 w-4 shrink-0", s.tone)} />
                 <span className="flex-1 truncate text-sm font-medium text-ink">{d.name}</span>
@@ -68,17 +79,19 @@ export function DownloadQueue() {
               </div>
               <div className="mt-1.5 flex items-center gap-2.5">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/40">
-                  <div
+                  <motion.div
                     className={cn("h-full rounded-full", d.state === "stalled" ? "bg-down" : "brand-gradient")}
-                    style={{ width: `${Math.round((d.progress ?? 0) * 100)}%` }}
+                    animate={{ width: `${Math.round((d.progress ?? 0) * 100)}%` }}
+                    transition={{ duration: 1.2, ease: "easeOut" }}
                   />
                 </div>
                 <span className="w-10 text-right text-xs font-semibold text-ink-soft">{Math.round((d.progress ?? 0) * 100)}%</span>
                 <span className="hidden w-14 text-right text-[11px] text-ink-dim sm:inline">{formatBytes(d.size)}</span>
               </div>
-            </div>
+            </motion.div>
           );
         })}
+        </AnimatePresence>
       </div>
 
       {queued.length > VISIBLE_LIMIT && (

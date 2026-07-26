@@ -17,6 +17,9 @@ export interface PlexSession {
   videoCodec: string | null;
   audioCodec: string | null;
   resolution: string | null;
+  thumb: string | null;
+  transcodeDecision: "transcode" | "copy" | "directplay";
+  location: "lan" | "wan";
 }
 
 export function usePlexActivity() {

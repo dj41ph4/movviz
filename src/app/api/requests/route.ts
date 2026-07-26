@@ -12,6 +12,7 @@ function overallSeriesStatus(series: LibrarySeries): LibraryStatus {
   if (episodes.every((e) => e.status === "available")) return "available";
   if (episodes.some((e) => e.status === "downloading" || e.status === "searching")) return "downloading";
   if (episodes.some((e) => e.status === "available")) return "downloading";
+  if (episodes.every((e) => e.status === "upcoming")) return "upcoming";
   return "missing";
 }
 

@@ -119,6 +119,7 @@ export interface QueueItem {
   release: ActivityRelease;
   download: ActivityDownload;
   status: "queued" | "downloading" | "paused" | "importing" | "seeding" | "completed" | "failed" | "stalled";
+  priority?: "high" | "medium" | "low";
   addedAt: number;
   estimatedCompletion?: number;
 }

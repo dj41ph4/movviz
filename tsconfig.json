@@ -38,6 +38,7 @@
   "exclude": [
     "node_modules",
     "_refs",
-    "resolver"
+    "resolver",
+    "packaging/windows/installer/stage"
   ]
 }

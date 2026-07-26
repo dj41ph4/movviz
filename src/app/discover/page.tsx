@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { useTitlePanel } from "@/components/title/useTitlePanel";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { GENRE_GRADIENTS } from "@/lib/metadata/curated";
@@ -82,7 +83,6 @@ function DiscoverPageInner() {
       if (!raw) return;
       const saved = JSON.parse(raw);
       if (saved.mediaType !== mediaType) return;
-      // Restore filters first so isBrowsing is true and the load trigger fires
       if (saved.q) setQ(saved.q);
       if (saved.genre) setGenre(saved.genre);
       if (saved.year) setYear(saved.year);
@@ -94,7 +94,6 @@ function DiscoverPageInner() {
       if (saved.page) setPage(saved.page);
       if (saved.totalPages) setTotalPages(saved.totalPages);
       restoredRef.current = true;
-      // Scroll and clear after state settles
       requestAnimationFrame(() => {
         window.scrollTo(0, saved.scrollY ?? 0);
         sessionStorage.removeItem("movviz_browse");
@@ -115,20 +114,9 @@ function DiscoverPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results, page, totalPages, rowCategory, mediaType, q, genre, year, sort, company, network, isBrowsing]);
 
-  // Save scroll state + set flag before any navigation to a title page
-  const saveRef = useRef(saveBrowseState);
-  saveRef.current = saveBrowseState;
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      const link = (e.target as HTMLElement).closest("a");
-      if (link?.getAttribute("href")?.startsWith("/title/")) {
-        saveRef.current();
-        sessionStorage.setItem("movviz_from", "discover");
-      }
-    };
-    document.addEventListener("click", handler);
-    return () => document.removeEventListener("click", handler);
-  }, []);
+  // Panel titre coulissant (remplace la navigation vers /title/...) — partagé
+  // avec Bibliothèque/Collection/Calendrier via useTitlePanel().
+  const { titlePanel } = useTitlePanel();
 
   // Sync filter states to URL for back-button support (immediate for non-q filters, q cleanup).
   useEffect(() => {
@@ -483,6 +471,8 @@ function DiscoverPageInner() {
           )}
         </>
       )}
+
+      {titlePanel}
     </div>
   );
 }
@@ -861,7 +851,7 @@ function DiscoverCard({
 
   return (
     <motion.article className="group w-full" {...cascadeAnim}>
-      <Link href={`/title/${result.type}/${result.tmdbId}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
+      <Link href={`/title/${result.type}/${result.tmdbId}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30">
         {poster ? (
           <motion.img
             src={poster}
@@ -913,7 +903,23 @@ function DiscoverCard({
           </motion.button>
         </div>
       </Link>
-      <div className="mt-2.5 px-0.5">
+
+      {/* Actions mobiles (toujours visibles) */}
+      <div className="mt-2.5 lg:hidden">
+        <button
+          onClick={(e) => { e.preventDefault(); add(); }}
+          disabled={adding || !!status}
+          className={cn(
+            "flex h-11 w-full items-center justify-center gap-1.5 rounded-xl text-sm font-bold",
+            status ? "bg-ok/20 text-ok" : "brand-gradient text-white"
+          )}
+        >
+          {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : status ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          {status ? t("discover.added") : adding ? t("discover.adding") : t("discover.addToLibrary")}
+        </button>
+      </div>
+
+      <div className="mt-1.5 px-0.5">
         <Link href={`/title/${result.type}/${result.tmdbId}`} className="block truncate text-sm font-semibold text-ink transition-all duration-200 hover:text-brand-glow">{result.title}</Link>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-dim">
           {formatDate(result.releaseDate, locale) ? (

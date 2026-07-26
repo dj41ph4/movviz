@@ -87,6 +87,7 @@ function computeExpectedMoviePaths(movie: LibraryMovie, roots: string[], templat
     videoCodec: null,
     audioCodec: null,
     hdr: null,
+    language: null,
     group: null,
   };
   const expectedFolder = renderSegment(templates.movieFolder, ctx, useDots);
@@ -118,6 +119,7 @@ function computeExpectedEpisodePaths(
     videoCodec: parsed.videoCodec,
     audioCodec: parsed.audioCodec,
     hdr: parsed.hdr,
+    language: parsed.language,
     group: parsed.group,
   };
   const seriesFolderCtx: NamingContext = { ...ctx, season: null, episode: null };
