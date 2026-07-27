@@ -8,7 +8,9 @@ import type { IndexerRelease } from "@/lib/indexers/types";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
 import { releaseTitleMatches, seasonEpisodeMatches } from "@/lib/library/matching";
-import { withinSizeLimit } from "@/lib/library/releaseRules";
+import { withinSizeLimit, loadReleaseRules } from "@/lib/library/releaseRules";
+import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
+import { recordDecision } from "@/lib/library/decisionLog";
 import { buildGrabPayload } from "@/lib/indexers/grabPayload";
 import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/server";
 import { getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
@@ -406,6 +408,7 @@ async function grabRelease(
   const t0 = performance.now();
   const releases = searchFromCache(TV_CATEGORY_IDS);
   const cacheMs = Math.round(performance.now() - t0);
+  const rules = loadReleaseRules();
 
   const label = episodeNumber
     ? `${series.title} S${String(seasonNumber).padStart(2, "0")}E${String(episodeNumber).padStart(2, "0")}`
@@ -418,7 +421,9 @@ async function grabRelease(
   const step2 = step1.filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title));
   const step3 = step2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber));
   const step4 = step3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true));
-  const step5 = step4.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
+  // Decision Guard: a blocked term is a hard veto here — no score, however high, can rescue a release an admin explicitly forbade.
+  const stepBlocked = step4.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
+  const step5 = stepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
   const step6 = step5.filter(({ release }) => release.score >= profile.minScore);
   const step7 = step6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
   const step8 = step7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
@@ -429,6 +434,14 @@ async function grabRelease(
   if (candidates.length > 0) {
     const top = candidates[0];
     recordSearchLog("info", "grab_release.match", `${label} — meilleur candidat: "${top.release.title}" (score:${top.release.score}, indexeur:${top.release.indexerId})`);
+    recordDecision({
+      refTitle: label,
+      releaseTitle: top.release.title,
+      decision: "accepted",
+      reasons: top.release.scoreBreakdown?.length
+        ? top.release.scoreBreakdown.map((b) => ({ type: "score", message: `${b.label} (${b.delta >= 0 ? "+" : ""}${b.delta})` }))
+        : [{ type: "profile_match", message: "Correspond au profil de qualité" }],
+    });
     return { ok: true, release: top.release };
   }
 
@@ -466,7 +479,8 @@ async function grabRelease(
   const dStep2 = dStep1.filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title));
   const dStep3 = dStep2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber));
   const dStep4 = dStep3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true));
-  const dStep5 = dStep4.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
+  const dStepBlocked = dStep4.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
+  const dStep5 = dStepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
   const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
   const dStep7 = dStep6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
   const dStep8 = dStep7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
@@ -482,6 +496,14 @@ async function grabRelease(
     return { ok: false, error: "no_match", totalReleases: releases.length + directReleases.length };
   }
   recordSearchLog("info", "grab_release.fallback_match", `${label} — meilleur candidat via recherche directe: "${topDirect.release.title}" (score:${topDirect.release.score}, indexeur:${topDirect.release.indexerId})`);
+  recordDecision({
+    refTitle: label,
+    releaseTitle: topDirect.release.title,
+    decision: "accepted",
+    reasons: topDirect.release.scoreBreakdown?.length
+      ? topDirect.release.scoreBreakdown.map((b) => ({ type: "score", message: `${b.label} (${b.delta >= 0 ? "+" : ""}${b.delta})` }))
+      : [{ type: "profile_match", message: "Correspond au profil de qualité" }],
+  });
   return { ok: true, release: topDirect.release };
 }
 
@@ -955,6 +977,7 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
   const t0 = performance.now();
   const releases = searchFromCache(TV_CATEGORY_IDS);
   const cacheMs = Math.round(performance.now() - t0);
+  const rules = loadReleaseRules();
   recordSearchLog("debug", "series_pack.cache_read", `${series.title} (${seasonCount} saisons) — cache RSS donne ${releases.length} release(s) (${cacheMs}ms)`, cacheMs);
 
   const tS = performance.now();
@@ -962,6 +985,8 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
     .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons))
+    // Decision Guard: a blocked term is a hard veto here — no score, however high, can rescue a release an admin explicitly forbade.
+    .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
     .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
     .filter(({ release }) => release.score >= profile.minScore)
     .filter(({ release }) => withinSizeLimit(release.size, "series"))
@@ -1000,6 +1025,7 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
       .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
       .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
       .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons))
+      .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
       .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
       .filter(({ release }) => release.score >= profile.minScore)
       .filter(({ release }) => withinSizeLimit(release.size, "series"))
@@ -1019,6 +1045,15 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
   } else {
     recordSearchLog("info", "series_pack.match", `${series.title} — meilleur pack: "${top.release.title}" (score:${top.release.score}, indexeur:${top.release.indexerId})`);
   }
+
+  recordDecision({
+    refTitle: series.title,
+    releaseTitle: top.release.title,
+    decision: "accepted",
+    reasons: top.release.scoreBreakdown?.length
+      ? top.release.scoreBreakdown.map((b) => ({ type: "score", message: `${b.label} (${b.delta >= 0 ? "+" : ""}${b.delta})` }))
+      : [{ type: "profile_match", message: "Correspond au profil de qualité" }],
+  });
 
   const sent = await sendToEngine(
     top.release,

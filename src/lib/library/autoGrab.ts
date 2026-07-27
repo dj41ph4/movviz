@@ -5,7 +5,9 @@ import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
 import { releaseTitleMatches, yearIsCompatible } from "@/lib/library/matching";
-import { withinSizeLimit } from "@/lib/library/releaseRules";
+import { withinSizeLimit, loadReleaseRules } from "@/lib/library/releaseRules";
+import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
+import { recordDecision } from "@/lib/library/decisionLog";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { buildGrabPayload } from "@/lib/indexers/grabPayload";
 import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/server";
@@ -99,6 +101,7 @@ export async function searchAndGrabMovie(movieId: string) {
 
   updateMovie(movie.id, { status: "searching" });
 
+  const rules = loadReleaseRules();
   const tCache = performance.now();
   const releases = searchFromCache(MOVIE_CATEGORY_IDS);
   const cacheMs = Math.round(performance.now() - tCache);
@@ -109,6 +112,9 @@ export async function searchAndGrabMovie(movieId: string) {
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title))
     .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
+    // Decision Guard: a blocked term is a hard veto here — no score, however
+    // high, can rescue a release an admin explicitly forbade.
+    .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
     .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
     .filter(({ release }) => release.score >= profile.minScore)
     .filter(({ release }) => withinSizeLimit(release.size, "movie"))
@@ -149,6 +155,7 @@ export async function searchAndGrabMovie(movieId: string) {
         .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
         .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title))
         .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
+        .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
         .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
         .filter(({ release }) => release.score >= profile.minScore)
         .filter(({ release }) => withinSizeLimit(release.size, "movie"))
@@ -185,19 +192,48 @@ export async function searchAndGrabMovie(movieId: string) {
     return { error: "no_match" as const, detail: "No release matched the title/year or met the quality profile", queried: 0 };
   }
 
-  const best = finalCandidates[0].release;
-  const payload = await buildGrabPayload({
-    magnetUrl: best.magnetUrl,
-    downloadUrl: best.downloadUrl,
-    indexerId: best.indexerId,
-  });
-  if ("error" in payload) {
-    updateMovie(movie.id, { status: "missing" });
-    recordSearchLog("error", "search_movie.grab_payload_failed", `${movie.title} — ${best.title}: ${payload.error}`);
-    logActivity("failed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, releaseTitle: best.title, indexer: best.indexerId, error: payload.error });
-    logActivityV2({ kind: "failed", media, actor: "system", failure: createFailureRef("download_failed", `Impossible de récupérer le lien de téléchargement (${best.title}) : ${payload.error}`) });
-    return { error: "grab_failed" as const, detail: payload.error };
+  // A candidate's download link can fail on its own (indexer-side quota,
+  // dead link, transient error) without the release itself being at fault —
+  // previously a single failed grab-payload fetch gave up on the movie
+  // entirely even when other, lower-scored candidates (often on a different
+  // indexer) were sitting right there. Now step down the sorted list and
+  // only give up once every attempted candidate has failed.
+  const MAX_GRAB_ATTEMPTS = 5;
+  let best: IndexerRelease | null = null;
+  let payload: Awaited<ReturnType<typeof buildGrabPayload>> | null = null;
+  let lastGrabError: string | null = null;
+  for (const candidate of finalCandidates.slice(0, MAX_GRAB_ATTEMPTS)) {
+    const attempt = await buildGrabPayload({
+      magnetUrl: candidate.release.magnetUrl,
+      downloadUrl: candidate.release.downloadUrl,
+      indexerId: candidate.release.indexerId,
+    });
+    if (!("error" in attempt)) {
+      best = candidate.release;
+      payload = attempt;
+      break;
+    }
+    lastGrabError = attempt.error;
+    recordSearchLog("warn", "search_movie.grab_payload_retry", `${movie.title} — "${candidate.release.title}" a échoué (${attempt.error}), tentative du candidat suivant`);
   }
+
+  if (!best || !payload) {
+    updateMovie(movie.id, { status: "missing" });
+    recordSearchLog("error", "search_movie.grab_payload_failed", `${movie.title} — tous les candidats essayés ont échoué (dernière erreur: ${lastGrabError})`);
+    logActivity("failed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, error: lastGrabError ?? "unknown" });
+    logActivityV2({ kind: "failed", media, actor: "system", failure: createFailureRef("download_failed", `Impossible de récupérer le lien de téléchargement pour tous les candidats essayés : ${lastGrabError}`) });
+    return { error: "grab_failed" as const, detail: lastGrabError ?? "unknown" };
+  }
+
+  recordDecision({
+    refTitle: movie.title,
+    releaseTitle: best.title,
+    decision: "accepted",
+    intent: "first_acquisition",
+    reasons: best.scoreBreakdown?.length
+      ? best.scoreBreakdown.map((b) => ({ type: "score", message: `${b.label} (${b.delta >= 0 ? "+" : ""}${b.delta})` }))
+      : [{ type: "profile_match", message: "Correspond au profil de qualité" }],
+  });
 
   try {
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
@@ -250,11 +286,13 @@ export async function checkQualityUpgrades() {
     if (rank(movie.file.resolution) >= rank(profile.cutoffResolution)) continue;
 
     const releases = searchFromCache(MOVIE_CATEGORY_IDS);
+    const rules = loadReleaseRules();
 
     const better = releases
       .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
       .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title))
       .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
+      .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
       .filter(({ parsed }) => parsed.resolution && profile.allowedResolutions.includes(parsed.resolution))
       .filter(({ parsed }) => rank(parsed.resolution) > rank(movie.file!.resolution))
       .filter(({ release }) => release.score >= profile.minScore)
@@ -269,9 +307,29 @@ export async function checkQualityUpgrades() {
       continue;
     }
 
-    const best = better[0].release;
-    const payload = await buildGrabPayload({ magnetUrl: best.magnetUrl, downloadUrl: best.downloadUrl, indexerId: best.indexerId });
-    if ("error" in payload) continue;
+    // Same "try the next candidate before giving up" logic as searchAndGrabMovie.
+    let best: IndexerRelease | null = null;
+    let payload: Awaited<ReturnType<typeof buildGrabPayload>> | null = null;
+    for (const candidate of better.slice(0, 5)) {
+      const attempt = await buildGrabPayload({ magnetUrl: candidate.release.magnetUrl, downloadUrl: candidate.release.downloadUrl, indexerId: candidate.release.indexerId });
+      if (!("error" in attempt)) {
+        best = candidate.release;
+        payload = attempt;
+        break;
+      }
+      recordSearchLog("warn", "quality_upgrade.grab_payload_retry", `${movie.title} — "${candidate.release.title}" a échoué (${attempt.error}), tentative du candidat suivant`);
+    }
+    if (!best || !payload) continue;
+
+    recordDecision({
+      refTitle: movie.title,
+      releaseTitle: best.title,
+      decision: "accepted",
+      intent: "quality_upgrade",
+      reasons: best.scoreBreakdown?.length
+        ? best.scoreBreakdown.map((b) => ({ type: "score", message: `${b.label} (${b.delta >= 0 ? "+" : ""}${b.delta})` }))
+        : [{ type: "quality_upgrade", message: "Meilleure résolution disponible" }],
+    });
 
     try {
       const res = await fetch(`${ENGINE_BASE}/torrents`, {

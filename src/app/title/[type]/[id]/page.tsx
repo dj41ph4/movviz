@@ -2,6 +2,7 @@
 
 import { use, useEffect } from "react";
 import { TitleContent } from "@/components/title/TitleContent";
+import { useTitlePanel } from "@/components/title/useTitlePanel";
 
 export default function TitleDetailPage({
   params,
@@ -11,6 +12,7 @@ export default function TitleDetailPage({
   const { type: rawType, id } = use(params);
   const type = rawType === "series" ? "series" : "movie";
   const tmdbId = Number(id);
+  const { titlePanel } = useTitlePanel();
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -19,6 +21,7 @@ export default function TitleDetailPage({
 
   return (
     <div className="mx-auto max-w-[1200px]">
+      {titlePanel}
       <TitleContent tmdbId={tmdbId} type={type} />
     </div>
   );

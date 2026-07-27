@@ -196,9 +196,30 @@ export class MovvizEngine {
 
   // ---- Reporting ---------------------------------------------------------
 
+  /**
+   * GET /torrents and GET /stats are polled every 2-3s by every connected
+   * browser tab (queue tab, activity monitor, dashboard widgets) — each call
+   * used to walk every WebTorrent instance and rebuild a summary object per
+   * torrent from scratch, even when several requests land in the same tick
+   * (multiple tabs, or /stats calling listTorrents() itself right after the
+   * /torrents route already did). A short cache collapses that burst into
+   * one real computation. Deliberately time-based, not version-counter-based
+   * (despite torrent state being event-driven elsewhere): progress/speed/
+   * peers change continuously regardless of any add/remove/pause event, so
+   * there's no "nothing changed" version to key on — a plain short TTL gives
+   * the same benefit (dedupe a burst) without needing every mutation method
+   * to remember to bump a counter.
+   */
   listTorrents() {
+    const CACHE_MS = 400;
+    const now = Date.now();
+    if (this._torrentsCache && now - this._torrentsCacheAt < CACHE_MS) {
+      return this._torrentsCache;
+    }
     const out = [];
     for (const inst of this.instances.values()) out.push(...inst.list());
+    this._torrentsCache = out;
+    this._torrentsCacheAt = now;
     return out;
   }
 

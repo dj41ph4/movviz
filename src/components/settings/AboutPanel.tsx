@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { toast } from "@/components/ui/Toast";
-import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink } from "lucide-react";
+import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink, Sparkles, RotateCcw } from "lucide-react";
 import { useVersion } from "@/lib/version/VersionContext";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
 
@@ -97,6 +98,27 @@ export function AboutPanel() {
         >
           GitHub Sponsors <ExternalLink className="h-3.5 w-3.5" />
         </a>
+      </div>
+
+      <div className="rounded-2xl glass p-5">
+        <h3 className="mb-1 text-sm font-bold text-ink">{t("settings.smartConfigTitle")}</h3>
+        <p className="mb-4 text-sm text-ink-dim">{t("settings.smartConfigHint")}</p>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            href="/setup"
+            className="flex h-10 items-center gap-2 rounded-xl glass-strong px-4 text-sm font-semibold text-ink-soft transition-colors hover:text-ink"
+          >
+            <RotateCcw className="h-4 w-4" />
+            {t("settings.smartConfigFull")}
+          </Link>
+          <Link
+            href="/setup?mode=smart"
+            className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white"
+          >
+            <Sparkles className="h-4 w-4" />
+            {t("settings.smartConfigSmart")}
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-2xl glass p-5">

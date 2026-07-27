@@ -7,12 +7,18 @@ export function StatTile({
   icon: Icon,
   accent = "brand",
   delta,
+  compact = false,
 }: {
   label: string;
   value: string | number;
   icon: LucideIcon;
   accent?: "brand" | "cyan" | "magenta" | "ok" | "amber";
   delta?: string;
+  /** Slim pill instead of a full card — for surfaces that already have a big
+   *  focal element above (e.g. the Cinematic Hero), where a second row of
+   *  large tiles would just compete for attention. Same colors/icon, no new
+   *  visual language, just less of it. */
+  compact?: boolean;
 }) {
   const tones: Record<string, string> = {
     brand: "text-brand-glow bg-brand/12",
@@ -28,6 +34,21 @@ export function StatTile({
     ok: "hover:border-ok/25",
     amber: "hover:border-amber/25",
   };
+
+  if (compact) {
+    return (
+      <div className={cn("flex items-center gap-2.5 rounded-xl glass px-3.5 py-2.5 transition-colors", accentBorders[accent])}>
+        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", tones[accent])}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <div className="min-w-0 leading-tight">
+          <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-ink-dim">{label}</p>
+          <p className="text-lg font-black tracking-tight text-ink">{value}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(
       "group relative overflow-hidden rounded-2xl glass p-5 transition-all hover:-translate-y-0.5 hover:shadow-lg",

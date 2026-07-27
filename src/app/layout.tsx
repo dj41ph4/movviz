@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { ScrollRestoration } from "@/components/layout/ScrollRestoration";
@@ -45,7 +46,13 @@ export default function RootLayout({
   return (
     <html lang="fr" suppressHydrationWarning>
       <body className="cinema-grain antialiased">
-        <script id="theme-init" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        {/* next/script's beforeInteractive strategy injects this before hydration
+            (avoiding a flash of the wrong theme) via Next's own script-injection
+            path — a raw <script> tag here got reconciled by React on every
+            client-side navigation, which correctly (but harmlessly) warned
+            "scripts inside React components are never executed when rendering
+            on the client" each time. */}
+        <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <ScrollRestoration />
         <ServiceWorkerRegistration />
         <PerfReporter />

@@ -6,8 +6,49 @@ import { loadDiscoverLayout } from "@/lib/metadata/discoverStore";
 import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
+import { loadMovies } from "@/lib/library/store";
+import { loadRequests } from "@/lib/requests/store";
+import type { MetaSearchResult } from "@/lib/metadata/types";
+import type { User } from "@/lib/auth/types";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Build an "upcoming" row that prioritizes the current user's own requested
+ * movies (from the requests store, which IS per-user) whose library status is
+ * "upcoming", and fills the rest with TMDb's editorial upcoming list — so
+ * each user sees their own future releases first, then discovers other
+ * unreleased movies.
+ */
+async function buildUpcomingRow(user: User | null, originCountries?: string[]): Promise<MetaSearchResult[]> {
+  const [tmdbUpcoming, userMovies, requests] = await Promise.all([
+    browseCategory("movie", "upcoming", 1, originCountries),
+    loadMovies(),
+    user ? loadRequests() : Promise.resolve([]),
+  ]);
+
+  const userTmdbSet = user
+    ? new Set(requests.filter((r) => r.type === "movie" && r.userId === user.id).map((r) => r.tmdbId))
+    : new Set<number>();
+
+  const userUpcoming = userMovies
+    .filter((m) => m.status === "upcoming" && (!user || user.role === "admin" || userTmdbSet.has(m.tmdbId)))
+    .map((m) => ({
+      tmdbId: m.tmdbId,
+      type: "movie" as const,
+      title: m.title,
+      year: m.year,
+      releaseDate: m.releaseDate,
+      overview: m.overview,
+      posterPath: m.posterPath,
+      backdropPath: m.backdropPath,
+      rating: m.rating,
+    }));
+
+  const extra = tmdbUpcoming.results.filter((r) => !userUpcoming.some((u) => u.tmdbId === r.tmdbId));
+
+  return [...userUpcoming, ...extra];
+}
 
 /**
  * Curated homepage rows for Discover — several TMDb editorial buckets fetched
@@ -38,20 +79,20 @@ export async function GET(req: NextRequest) {
 
   if (layout === "allocine") {
     if (type === "movie") {
-      const [rec, newVod, nowPlaying, boxOffice, trend, topRated, upcoming, kids] = await Promise.all([
+      const [rec, newVod, nowPlaying, boxOffice, trend, topRated, upcomingResults, kids] = await Promise.all([
         recommended,
         getAllocineNewVod(),
         browseCategory("movie", "now_playing", 1, originCountries),
         getBoxOffice(1, originCountries),
         trending("movie", 1, originCountries),
         browseCategory("movie", "top_rated", 1, originCountries),
-        browseCategory("movie", "upcoming", 1, originCountries),
+        buildUpcomingRow(user, originCountries),
         getKidsRow("movie", 1, originCountries),
       ]);
       const rows = [
         { key: "recommended", results: rec },
         { key: "nowPlaying", results: nowPlaying.results },
-        { key: "upcoming", results: upcoming.results },
+        { key: "upcoming", results: upcomingResults },
         { key: "trending", results: trend.results.slice(0, 10), ranked: true },
         { key: "topRated", results: topRated.results },
         { key: "newVod", results: newVod.results },
@@ -78,13 +119,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ configured: true, layout, rows });
   }
 
-  const lastCategory = type === "movie" ? "upcoming" : "on_the_air";
-  const [rec, trend, popular, topRated, last] = await Promise.all([
+  const [rec, trend, popular, topRated, upcomingResults] = await Promise.all([
     recommended,
     trending(type, 1, originCountries),
     browseCategory(type, "popular", 1, originCountries),
     browseCategory(type, "top_rated", 1, originCountries),
-    browseCategory(type, lastCategory, 1, originCountries),
+    type === "movie" ? buildUpcomingRow(user, originCountries) : browseCategory("series", "on_the_air", 1, originCountries).then((r) => r.results),
   ]);
 
   const rows = [
@@ -92,7 +132,7 @@ export async function GET(req: NextRequest) {
     { key: "trending", results: trend.results },
     { key: "popular", results: popular.results },
     { key: "topRated", results: topRated.results },
-    { key: type === "movie" ? "upcoming" : "onAir", results: last.results },
+    { key: type === "movie" ? "upcoming" : "onAir", results: upcomingResults },
   ].filter((r) => r.results.length > 0);
 
   return NextResponse.json({ configured: true, layout, rows });

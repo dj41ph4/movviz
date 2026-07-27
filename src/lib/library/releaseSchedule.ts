@@ -30,3 +30,11 @@ export function episodeHasAired(airDate: string | null, now = Date.now()): boole
   if (Number.isNaN(t)) return true;
   return t <= now;
 }
+
+/** Whole days between now and a future ISO date — null if the date is unknown/invalid/past. */
+export function daysUntil(date: string | null, now = Date.now()): number | null {
+  if (!date) return null;
+  const t = new Date(date).getTime();
+  if (Number.isNaN(t) || t <= now) return null;
+  return Math.ceil((t - now) / 86400000);
+}

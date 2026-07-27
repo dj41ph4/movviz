@@ -31,6 +31,7 @@ async function buildPlexCollectionDetail(
           releaseDate: movie.releaseDate,
           overview: movie.overview,
           posterPath: movie.posterPath,
+          backdropPath: movie.backdropPath,
           rating: movie.rating,
         });
         continue;
@@ -44,6 +45,7 @@ async function buildPlexCollectionDetail(
       releaseDate: null,
       overview: "",
       posterPath: null,
+      backdropPath: null,
       rating: 0,
     });
   }

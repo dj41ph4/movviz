@@ -68,6 +68,25 @@
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+/*
+ * Page-level fade on route change (AppShell). Deliberately plain CSS, not
+ * framer-motion: the previous AnimatePresence/motion.div wrapper could get
+ * stuck applying its `exit: { opacity: 0 }` value to the INCOMING page after
+ * a burst of fast successive navigations, leaving fully-rendered content
+ * invisible (opacity: 0 in the DOM, nothing visible on screen) until a hard
+ * refresh remounted the tree from scratch. A `key`-driven remount + a
+ * one-shot forwards-less animation can't get stuck this way: with no
+ * animation-fill-mode set, the element simply reverts to its normal (opaque)
+ * style the instant the animation ends — there's no "exit state" to leak
+ * into the next page.
+ */
+@keyframes page-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-page-fade-in {
+  animation: page-fade-in 0.2s ease-out;
+}
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
@@ -381,6 +400,9 @@ html {
   html {
     transition: none !important;
   }
+  .animate-page-fade-in {
+    animation: none !important;
+  }
 }
 
 html, body {
@@ -500,6 +522,42 @@ body {
  * position 100% -> 0%) lands back on a pixel-identical frame — the loop has
  * no visible seam.
  */
+/* 4K badge — a slow-looping gradient shimmer instead of a flat dark fill, so
+   the top resolution tier reads as a little more premium than the others
+   without turning into a distracting flashing effect.
+   Seamless-loop technique: the color sequence is written out TWICE back to
+   back (0-50% = one full period, 50-100% = the exact same period again),
+   background-size is exactly 200%, and the animation pans by exactly one
+   period (position 0% -> 100%). Because period two is pixel-identical to
+   period one, the instant the animation restarts at 0% it's showing exactly
+   what was already on screen at 100% a moment ago — no visible seam/jump,
+   unlike animating across a single, non-repeated gradient (which was the
+   original bug: the pattern's start and end don't line up, so the loop
+   restart reads as a hard cut). */
+.badge-4k-shimmer {
+  background-image: linear-gradient(
+    110deg,
+    #1a1a1a 0%,
+    color-mix(in oklab, var(--color-brand) 60%, #1a1a1a) 10%,
+    color-mix(in oklab, var(--color-cyan) 60%, #1a1a1a) 20%,
+    #1a1a1a 27.5%,
+    color-mix(in oklab, var(--color-magenta) 60%, #1a1a1a) 37.5%,
+    #1a1a1a 50%,
+    #1a1a1a 50%,
+    color-mix(in oklab, var(--color-brand) 60%, #1a1a1a) 60%,
+    color-mix(in oklab, var(--color-cyan) 60%, #1a1a1a) 70%,
+    #1a1a1a 77.5%,
+    color-mix(in oklab, var(--color-magenta) 60%, #1a1a1a) 87.5%,
+    #1a1a1a 100%
+  );
+  background-size: 200% 100%;
+  animation: badge4kShimmer 6s linear infinite;
+}
+@keyframes badge4kShimmer {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+
 .text-logo-flow {
   background: linear-gradient(
     110deg,

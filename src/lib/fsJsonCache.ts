@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { getJsonWritePool } from "./workers/jsonWritePool";
 
 /**
  * Process-wide cache for the JSON files that back every Movviz store.
@@ -26,12 +27,17 @@ interface CacheEntry {
 const g = globalThis as typeof globalThis & {
   __movvizFsJsonCache?: Map<string, CacheEntry>;
   __movvizMemoCache?: Map<string, { version: string; value: unknown }>;
+  __movvizMemoCacheAsync?: Map<string, { version: string; value: unknown }>;
+  __movvizMemoInFlightAsync?: Map<string, Promise<unknown>>;
   __movvizPendingWrites?: Map<string, { value: unknown; timer: ReturnType<typeof setTimeout> }>;
   __movvizWriteInFlight?: Map<string, boolean>;
   __movvizPendingFileWrites?: Map<string, unknown>;
+  __movvizLastKnownSize?: Map<string, number>;
 };
 const cache: Map<string, CacheEntry> = (g.__movvizFsJsonCache ??= new Map());
 const memoCache: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCache ??= new Map());
+const memoCacheAsync: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCacheAsync ??= new Map());
+const memoInFlightAsync: Map<string, Promise<unknown>> = (g.__movvizMemoInFlightAsync ??= new Map());
 /** Writes scheduled but not yet started — see the coalescing comment on writeJsonCached(). */
 const pendingWrites: Map<string, { value: unknown; timer: ReturnType<typeof setTimeout> }> =
   (g.__movvizPendingWrites ??= new Map());
@@ -41,6 +47,27 @@ const writeInFlight: Map<string, boolean> = (g.__movvizWriteInFlight ??= new Map
 const pendingFileWrites: Map<string, unknown> = (g.__movvizPendingFileWrites ??= new Map());
 /** How long a burst of writes to the same file gets to settle before the coalesced write actually fires. */
 const WRITE_COALESCE_MS = 300;
+/**
+ * Last known on-disk size per file, updated by both readJsonCached and a
+ * completed write — used to decide whether the NEXT write is big enough to
+ * offload (see LARGE_FILE_WORKER_THRESHOLD_BYTES below). Kept separate from
+ * `cache` because writeJsonCached() immediately marks the cache entry's size
+ * as -1 (pending) before the actual write ever runs, so `cache` alone can't
+ * answer "was this file already large" at the moment startFileWrite needs it.
+ */
+const lastKnownSize: Map<string, number> = (g.__movvizLastKnownSize ??= new Map());
+/**
+ * Above this size, a write's JSON.stringify is expensive enough (tens of ms
+ * on a dev machine, measured several times that on NAS-class CPUs — see
+ * PRETTY_MAX_BYTES below) to matter if it runs on the main thread: it blocks
+ * every other request on the same process for its whole duration, including
+ * unrelated ones like the Docker health check. Past this size the stringify
+ * + atomic write is dispatched to a worker_threads pool instead (see
+ * jsonWritePool.ts) so the main thread stays free. Small stores (settings,
+ * indexers, users...) stay on the fast inline path — not worth an IPC
+ * round-trip for something that costs under a millisecond either way.
+ */
+const LARGE_FILE_WORKER_THRESHOLD_BYTES = 1_000_000;
 
 /**
  * Above this compact-JSON size, skip pretty-printing. Indentation on the
@@ -68,6 +95,7 @@ export function readJsonCached<T>(file: string, fallback: T): T {
   try {
     const value = JSON.parse(fs.readFileSync(file, "utf8")) as T;
     cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value });
+    lastKnownSize.set(file, stat.size);
     return value;
   } catch {
     return fallback;
@@ -143,26 +171,36 @@ function startFileWrite(file: string, val: unknown) {
   }
 
   writeInFlight.set(file, true);
-  const compact = JSON.stringify(val);
-  const json = compact.length <= PRETTY_MAX_BYTES ? JSON.stringify(val, null, 2) : compact;
-  const tmp = `${file}.tmp`;
 
-  const doWrite = () =>
-    fs.promises
-      .writeFile(tmp, json, "utf8")
-      .then(() => fs.promises.rename(tmp, file))
-      .then(() => fs.promises.stat(file))
-      .then((stat) => {
-        const current = cache.get(file);
-        if (current?.value === val) {
-          cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value: val });
-        }
+  const applyResult = (stat: { mtimeMs: number; size: number }) => {
+    lastKnownSize.set(file, stat.size);
+    const current = cache.get(file);
+    if (current?.value === val) {
+      cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value: val });
+    }
+  };
+
+  // Past the threshold, stringify + write runs in a worker so the main
+  // thread never blocks on it (see LARGE_FILE_WORKER_THRESHOLD_BYTES).
+  // Below it, the previous inline path stays exactly as it was — cheapest
+  // for the many small stores that never come close to the threshold.
+  const doWrite = ((lastKnownSize.get(file) ?? 0) >= LARGE_FILE_WORKER_THRESHOLD_BYTES
+    ? getJsonWritePool().run({ file, value: val }, 30_000).then(applyResult)
+    : Promise.resolve().then(() => {
+        const compact = JSON.stringify(val);
+        const json = compact.length <= PRETTY_MAX_BYTES ? JSON.stringify(val, null, 2) : compact;
+        const tmp = `${file}.tmp`;
+        return fs.promises
+          .writeFile(tmp, json, "utf8")
+          .then(() => fs.promises.rename(tmp, file))
+          .then(() => fs.promises.stat(file))
+          .then(applyResult);
       })
-      .catch((err) => {
-        console.error(`[fsJsonCache] background write failed for ${file}:`, err);
-      });
+  ).catch((err: unknown) => {
+    console.error(`[fsJsonCache] background write failed for ${file}:`, err);
+  });
 
-  doWrite().finally(() => {
+  doWrite.finally(() => {
     writeInFlight.set(file, false);
     const next = pendingFileWrites.get(file);
     if (next !== undefined) {
@@ -196,4 +234,45 @@ export function memoizeByFileMtimes<T>(key: string, files: string[], compute: ()
   const value = compute();
   memoCache.set(key, { version, value });
   return value;
+}
+
+/**
+ * Async counterpart to `memoizeByFileMtimes` — for a derived computation
+ * that's dispatched to a worker_threads pool (postMessage is inherently
+ * async) instead of run inline. Same mtime/size versioning, plus an
+ * in-flight guard: several callers landing on a stale version at once (e.g.
+ * a burst of polls right after the library changed) share the same
+ * in-progress computation instead of each queuing its own worker task.
+ */
+export async function memoizeByFileMtimesAsync<T>(
+  key: string,
+  files: string[],
+  compute: () => Promise<T>
+): Promise<T> {
+  const version = files
+    .map((f) => {
+      try {
+        const s = fs.statSync(f);
+        return `${s.mtimeMs}:${s.size}`;
+      } catch {
+        return "missing";
+      }
+    })
+    .join("|");
+  const hit = memoCacheAsync.get(key);
+  if (hit && hit.version === version) return hit.value as T;
+
+  const inFlight = memoInFlightAsync.get(key);
+  if (inFlight) return inFlight as Promise<T>;
+
+  const promise = compute()
+    .then((value) => {
+      memoCacheAsync.set(key, { version, value });
+      return value;
+    })
+    .finally(() => {
+      memoInFlightAsync.delete(key);
+    });
+  memoInFlightAsync.set(key, promise);
+  return promise;
 }

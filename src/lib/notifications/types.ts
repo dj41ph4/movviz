@@ -13,7 +13,8 @@ export type NotificationKind =
   | "import_series_available"
   | "grab_movie"
   | "grab_movie_upgrade"
-  | "grab_episode";
+  | "grab_episode"
+  | "upgrade_candidates_found";
 
 export interface NotificationItem {
   id: string;

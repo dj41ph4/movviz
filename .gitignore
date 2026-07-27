@@ -45,6 +45,10 @@ yarn-error.log*
 # opencode agents (local only)
 .opencode/agents/*.md
 
+# AI assistant local config — never committed (no AI credit anywhere, project charter)
+/.claude/
+/CLAUDE.md
+
 # debug logs
 build-debug*.txt
 build-errors.txt

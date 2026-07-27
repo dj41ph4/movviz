@@ -206,7 +206,7 @@ const tag = (block: string, name: string) => {
 };
 
 /** Sum the score of every enabled custom format whose regex terms match the release title. */
-function applyCustomFormats(title: string): number {
+export function applyCustomFormats(title: string): number {
   let delta = 0;
   for (const cf of loadCustomFormats()) {
     if (!cf.enabled) continue;

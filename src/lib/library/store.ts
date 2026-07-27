@@ -3,7 +3,8 @@ import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import { eventBus } from "@/lib/events/EventBus";
 import { addToTrash } from "@/lib/library/trashStore";
-import type { LibraryMovie, LibrarySeries } from "./types";
+import { recordStatusTransition } from "@/lib/library/statusTransitions";
+import type { LibraryMovie, LibrarySeries, LibraryStatus } from "./types";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -135,11 +136,15 @@ export function updateMovie(id: string, patch: Partial<LibraryMovie>): LibraryMo
   const list = loadMovies();
   const i = list.findIndex((m) => m.id === id);
   if (i < 0) return null;
+  const previousStatus = list[i].status;
   list[i] = { ...list[i], ...patch };
   saveMovies(list);
   invalidateMovieCaches();
   if ("status" in patch || "activeInfoHash" in patch) {
     eventBus.emit({ type: "movie_updated", movieId: id });
+  }
+  if (patch.status && patch.status !== previousStatus) {
+    recordStatusTransition({ refType: "movie", refId: id, title: list[i].title, from: previousStatus, to: patch.status });
   }
   return list[i];
 }
@@ -158,7 +163,12 @@ export function updateMovies(patches: Map<string, Partial<LibraryMovie>>): void 
   const list = loadMovies();
   for (let i = 0; i < list.length; i++) {
     const patch = patches.get(list[i].id);
-    if (patch) list[i] = { ...list[i], ...patch };
+    if (!patch) continue;
+    const previousStatus = list[i].status;
+    list[i] = { ...list[i], ...patch };
+    if (patch.status && patch.status !== previousStatus) {
+      recordStatusTransition({ refType: "movie", refId: list[i].id, title: list[i].title, from: previousStatus, to: patch.status });
+    }
   }
   saveMovies(list);
   invalidateMovieCaches();
@@ -239,10 +249,34 @@ export function addSeries(series: LibrarySeries): LibrarySeries {
   saveSeries(list);
   return series;
 }
+/** Diffs old vs new episode statuses within a series and journals each change — shared by updateSeries/updateSeriesList. */
+function recordEpisodeStatusDiff(series: LibrarySeries, newSeasons: LibrarySeries["seasons"]) {
+  const previous = new Map<string, LibraryStatus>();
+  for (const season of series.seasons) {
+    for (const ep of season.episodes) previous.set(`${season.seasonNumber}:${ep.episodeNumber}`, ep.status);
+  }
+  for (const season of newSeasons) {
+    for (const ep of season.episodes) {
+      const key = `${season.seasonNumber}:${ep.episodeNumber}`;
+      const from = previous.get(key);
+      if (from && from !== ep.status) {
+        recordStatusTransition({
+          refType: "episode",
+          refId: `${series.id}:${season.seasonNumber}:${ep.episodeNumber}`,
+          title: `${series.title} S${String(season.seasonNumber).padStart(2, "0")}E${String(ep.episodeNumber).padStart(2, "0")}`,
+          from,
+          to: ep.status,
+        });
+      }
+    }
+  }
+}
+
 export function updateSeries(id: string, patch: Partial<LibrarySeries>): LibrarySeries | null {
   const list = loadSeries();
   const i = list.findIndex((s) => s.id === id);
   if (i < 0) return null;
+  if (patch.seasons) recordEpisodeStatusDiff(list[i], patch.seasons);
   list[i] = { ...list[i], ...patch };
   saveSeries(list);
   invalidateSeriesCaches();
@@ -256,7 +290,9 @@ export function updateSeriesList(patches: Map<string, Partial<LibrarySeries>>): 
   const list = loadSeries();
   for (let i = 0; i < list.length; i++) {
     const patch = patches.get(list[i].id);
-    if (patch) list[i] = { ...list[i], ...patch };
+    if (!patch) continue;
+    if (patch.seasons) recordEpisodeStatusDiff(list[i], patch.seasons);
+    list[i] = { ...list[i], ...patch };
   }
   saveSeries(list);
   invalidateSeriesCaches();

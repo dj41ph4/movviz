@@ -1,0 +1,142 @@
+"use client";
+
+import useSWR from "swr";
+import { useMemo } from "react";
+import { PosterRow } from "@/components/media/PosterRow";
+import { DashboardPosterCard } from "./DashboardPosterCard";
+import { useT } from "@/i18n/provider";
+import { daysUntil } from "@/lib/library/releaseSchedule";
+import type { LibraryMovie } from "@/lib/library/types";
+import type { MetaSearchResult } from "@/lib/metadata/types";
+import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
+
+interface UpgradeCandidate {
+  movieId: string;
+  title: string;
+  detectedVersion: string;
+}
+
+/**
+ * The 5 carousels below the Hero — each one gated by the matching entry in
+ * `layout.sections` (same `DashboardSectionId`s defined in LOT5.1), so
+ * hiding a row in Réglages (LOT5.6) doesn't need a second toggle system.
+ * Reuses `findUpgradeCandidates`/`getRecommendations` verbatim via their
+ * existing API routes — no second scoring/search engine.
+ */
+export function DashboardRows({ sections, movies }: { sections: DashboardLayout["sections"]; movies: LibraryMovie[] }) {
+  const t = useT();
+  const visible = useMemo(() => new Set(sections.filter((s) => s.visible).map((s) => s.id)), [sections]);
+
+  const { data: rowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[] }[] }>(
+    visible.has("discover") ? "/api/metadata/rows?type=movie" : null
+  );
+  const { data: recData } = useSWR<{ results: MetaSearchResult[] }>(
+    visible.has("becauseYouLike") ? "/api/metadata/recommendations?type=movie" : null
+  );
+  const { data: upgradeData } = useSWR<{ candidates: UpgradeCandidate[] }>(
+    visible.has("upgradesAvailable") ? "/api/library/upgrade-candidates" : null
+  );
+
+  const trending = rowsData?.rows.find((r) => r.key === "trending")?.results ?? [];
+  const recommended = recData?.results ?? [];
+
+  const recentlyAdded = useMemo(
+    () => [...movies].filter((m) => m.status === "available").sort((a, b) => b.addedAt - a.addedAt).slice(0, 20),
+    [movies]
+  );
+
+  const upcoming = useMemo(
+    () =>
+      movies
+        .filter((m) => m.status === "upcoming")
+        .map((m) => ({ m, days: daysUntil(m.vfReleaseDate ?? m.releaseDate) }))
+        .filter((x): x is { m: LibraryMovie; days: number } => x.days !== null)
+        .sort((a, b) => a.days - b.days)
+        .slice(0, 20),
+    [movies]
+  );
+
+  const upgrades = useMemo(() => {
+    if (!upgradeData?.candidates.length) return [];
+    const byId = new Map(movies.map((m) => [m.id, m] as const));
+    return upgradeData.candidates
+      .map((c) => ({ candidate: c, movie: byId.get(c.movieId) }))
+      .filter((x): x is { candidate: UpgradeCandidate; movie: LibraryMovie } => !!x.movie);
+  }, [upgradeData, movies]);
+
+  const sectionOrder: DashboardSectionId[] = ["becauseYouLike", "availableNow", "comingSoon", "upgradesAvailable", "discover"];
+
+  return (
+    <div className="space-y-8">
+      {sectionOrder.map((id) => {
+        if (!visible.has(id)) return null;
+
+        if (id === "becauseYouLike" && recommended.length > 0) {
+          return (
+            <PosterRow key={id} title={t("dashboard.rowRecommended")}>
+              {recommended.map((r) => (
+                <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} />
+              ))}
+            </PosterRow>
+          );
+        }
+
+        if (id === "availableNow" && recentlyAdded.length > 0) {
+          return (
+            <PosterRow key={id} title={t("dashboard.recentlyAdded")}>
+              {recentlyAdded.map((m) => (
+                <DashboardPosterCard key={m.id} tmdbId={m.tmdbId} type="movie" title={m.title} posterPath={m.posterPath} rating={m.rating} />
+              ))}
+            </PosterRow>
+          );
+        }
+
+        if (id === "comingSoon" && upcoming.length > 0) {
+          return (
+            <PosterRow key={id} title={t("dashboard.rowUpcoming")}>
+              {upcoming.map(({ m, days }) => (
+                <DashboardPosterCard
+                  key={m.id}
+                  tmdbId={m.tmdbId}
+                  type="movie"
+                  title={m.title}
+                  posterPath={m.posterPath}
+                  badge={days <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: days })}
+                />
+              ))}
+            </PosterRow>
+          );
+        }
+
+        if (id === "upgradesAvailable" && upgrades.length > 0) {
+          return (
+            <PosterRow key={id} title={t("dashboard.upgradesAvailable")}>
+              {upgrades.map(({ candidate, movie }) => (
+                <DashboardPosterCard
+                  key={candidate.movieId}
+                  tmdbId={movie.tmdbId}
+                  type="movie"
+                  title={movie.title}
+                  posterPath={movie.posterPath}
+                  badge={candidate.detectedVersion}
+                />
+              ))}
+            </PosterRow>
+          );
+        }
+
+        if (id === "discover" && trending.length > 0) {
+          return (
+            <PosterRow key={id} title={t("dashboard.rowTrending")}>
+              {trending.map((r) => (
+                <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} />
+              ))}
+            </PosterRow>
+          );
+        }
+
+        return null;
+      })}
+    </div>
+  );
+}

@@ -11,12 +11,12 @@ import type { LibraryMovie, LibraryStatus } from "@/lib/library/types";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import { TagEditor } from "./TagEditor";
-import { MediaBadges } from "./MediaBadges";
+import { MediaBadges, BADGE_SHAPE } from "./MediaBadges";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
-import { Star, Trash2, RotateCw, Loader2, Film, Check, Search, Clock, HardDriveDownload, Tag, Eye, Play, Calendar, ListFilter, CalendarCheck, X } from "lucide-react";
+import { Star, Trash2, RotateCw, Loader2, Film, Check, Search, Clock, HardDriveDownload, Tag, Eye, Play, Calendar, ListFilter, CalendarCheck, X, Layers } from "lucide-react";
 
 const STATUS_TONE: Record<LibraryStatus, string> = {
   available: "text-ok bg-ok/12 border-ok/25",
@@ -160,23 +160,28 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
           </div>
         )}
 
-        <div className="pointer-events-none absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-bold text-amber backdrop-blur">
+        <div className={cn(BADGE_SHAPE, "pointer-events-none absolute left-2 top-2 border-white/15 bg-black/55 text-amber")}>
           <Star className="h-3 w-3 fill-amber" /> {movie.rating.toFixed(1)}
         </div>
+        {movie.versions && movie.versions.length > 1 && (
+          <div className={cn(BADGE_SHAPE, "pointer-events-none absolute left-2 top-9 border-white/15 bg-black/55 text-white")}>
+            <Layers className="h-3 w-3" /> {movie.versions.length}
+          </div>
+        )}
         {statusBadge && (
-          <div className={cn("pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold backdrop-blur", statusBadge.cls)} title={statusBadge.label}>
+          <div className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 border-white/15", statusBadge.cls)} title={statusBadge.label}>
             <statusBadge.icon className={cn("h-3 w-3", isDownloading && "animate-spin")} />
             <span className="hidden sm:inline">{statusBadge.label}</span>
             {watched && movie.status === "available" && <Eye className="h-2.5 w-2.5 ml-0.5" />}
           </div>
         )}
         {watched && !statusBadge && (
-          <div title={t("watch.watched")} className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full bg-ok/90 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur">
+          <div title={t("watch.watched")} className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 border-white/15 bg-ok text-white")}>
             <Eye className="h-3 w-3" /> <span className="hidden sm:inline">{t("watch.watched")}</span>
           </div>
         )}
 
-        <MediaBadges file={movie.file} className="absolute bottom-2 left-2 right-2" />
+        <MediaBadges file={movie.file} plexMediaInfo={movie.plexMediaInfo} year={movie.year} className="absolute bottom-2 left-2 right-2" />
 
         <div className="pointer-events-none absolute inset-0 hidden lg:flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           {movie.status === "available" && movie.plexUrl && (

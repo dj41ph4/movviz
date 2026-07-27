@@ -93,9 +93,41 @@ export function titleSimilarity(a: string, b: string): number {
 
 const TITLE_MATCH_THRESHOLD = 0.72;
 
+/** Extracts a trailing sequel/part number (1-2 digits) from an already
+ *  normalized title, e.g. "rush hour 3" -> { base: "rush hour", num: 3 }.
+ *  Capped at 2 digits on purpose — a 4-digit trailing number is almost
+ *  always a year baked into the title itself (Blade Runner 2049), not a
+ *  sequel count, and treating it as one would misfire on those. */
+function extractTrailingSequelNumber(normalized: string): { base: string; num: number } | null {
+  const m = normalized.match(/^(.*\S)\s(\d{1,2})$/);
+  if (!m) return null;
+  return { base: m[1], num: parseInt(m[2], 10) };
+}
+
+/**
+ * Franchise awareness: a release parsed as "Rush Hour 3" must never be
+ * accepted for a search targeting "Rush Hour 4" just because the strings are
+ * ~91% similar by Levenshtein distance — same protection applies to any
+ * numbered sequel (Avatar 2 vs 3, John Wick 4 vs 3, Toy Story 5 vs 4, …) with
+ * no franchise names hardcoded. Only fires when the two titles are identical
+ * except for that trailing number, so it can never misfire on an unrelated
+ * title that merely ends in a digit with nothing to compare it against
+ * (e.g. "District 9", "Blade Runner 2049" against a completely different
+ * target) — those have no matching "base" on the other side.
+ */
+export function sequelNumbersConflict(parsedTitle: string, targetTitle: string): boolean {
+  const a = extractTrailingSequelNumber(normalizeTitle(parsedTitle));
+  const b = extractTrailingSequelNumber(normalizeTitle(targetTitle));
+  if (!a || !b) return false;
+  return a.base === b.base && a.num !== b.num;
+}
+
 /** Does this parsed release's title plausibly refer to the target movie/series? */
 export function releaseTitleMatches(parsedTitle: string, targetTitle: string, aliases: string[] = []): boolean {
   const candidates = [targetTitle, ...aliases];
+  // A sequel-number conflict is disqualifying on its own — a close name
+  // never overrides it, checked before the fuzzy similarity pass below.
+  if (candidates.some((t) => sequelNumbersConflict(parsedTitle, t))) return false;
   return candidates.some((t) => titleSimilarity(parsedTitle, t) >= TITLE_MATCH_THRESHOLD);
 }
 

@@ -63,6 +63,7 @@ export interface MetaSearchResult {
   releaseDate: string | null;
   overview: string;
   posterPath: string | null;
+  backdropPath: string | null;
   rating: number;
 }
 

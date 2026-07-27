@@ -8,11 +8,14 @@ import { StatTile } from "@/components/ui/StatTile";
 import { DownloadQueue } from "@/components/media/DownloadQueue";
 import { UpdateAvailableBanner } from "@/components/system/UpdateAvailableBanner";
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
+import { DashboardHero } from "@/components/dashboard/DashboardHero";
+import { DashboardRows } from "@/components/dashboard/DashboardRows";
+import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
-import { DASHBOARD_WIDGET_IDS, type DashboardWidgetId, type DashboardLayout } from "@/lib/dashboard/types";
+import { DASHBOARD_WIDGET_IDS, DEFAULT_DASHBOARD_LAYOUT, type DashboardWidgetId, type DashboardLayout } from "@/lib/dashboard/types";
 import {
   Film, Tv, HardDriveDownload, Search as SearchIcon, Clock, Compass, ListVideo, AlertCircle,
   Pencil, Check, Plus, X, type LucideIcon,
@@ -54,6 +57,8 @@ export default function DashboardPage() {
     "/api/engine/torrents"
   );
   const { data: layoutData, mutate: mutateLayout } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
+  const layout = layoutData?.layout ?? DEFAULT_DASHBOARD_LAYOUT;
+  const { titlePanel } = useTitlePanel();
 
   const movies = moviesData?.movies ?? [];
   const series = seriesData?.series ?? [];
@@ -107,11 +112,16 @@ export default function DashboardPage() {
 
   const persist = (widgets: DashboardWidgetId[]) => {
     setOrder(widgets);
-    mutateLayout({ layout: { widgets } }, false);
+    // Always POST the full layout (not just `widgets`) — sanitizeDashboardLayout
+    // treats a payload without `version: 2` as a legacy pre-migration file and
+    // resets mode/hero/sections to defaults, which would otherwise silently
+    // flip the user back to "classic" on every widget drag.
+    const next = { ...(layoutData?.layout ?? DEFAULT_DASHBOARD_LAYOUT), widgets };
+    mutateLayout({ layout: next }, false);
     fetch("/api/dashboard/layout", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ widgets }),
+      body: JSON.stringify(next),
     });
   };
 
@@ -125,6 +135,8 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-8">
+      {layout.mode === "cinema" && <DashboardHero settings={layout.hero} />}
+
       <div className="flex flex-wrap items-center justify-end gap-2">
         {editMode && (
           <div className="relative">
@@ -162,52 +174,69 @@ export default function DashboardPage() {
         </button>
       </div>
 
-      {loading ? (
-        <div className="flex flex-wrap gap-4">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className={cn(TILE_CLASS, "rounded-2xl glass p-5")}>
-              <div className="h-3 w-20 animate-pulse rounded bg-white/10" />
-              <div className="mt-3 h-8 w-16 animate-pulse rounded bg-white/10" />
-            </div>
-          ))}
-        </div>
-      ) : hasError ? (
-        <div className="rounded-2xl glass p-5 text-center">
-          <div className="flex items-center justify-center gap-2 text-amber">
-            <AlertCircle className="h-5 w-5" />
-            <p className="font-semibold text-ink">{t("common.error")}</p>
-          </div>
-          <p className="mt-1 text-sm text-ink-dim">{t("dashboard.errorHint")}</p>
-        </div>
-      ) : order.length === 0 ? (
-        <p className="rounded-2xl glass p-5 text-sm text-ink-dim">{t("dashboard.noWidgets")}</p>
-      ) : editMode ? (
-        <Reorder.Group as="div" axis="y" values={order} onReorder={persist} className="flex flex-wrap gap-4">
-          {order.map((id) => (
-            <Reorder.Item
-              key={id}
-              value={id}
-              className={cn(TILE_CLASS, "relative cursor-grab active:cursor-grabbing")}
-            >
-              <StatTile label={widgetLabels[id]} value={widgetValues[id]} icon={WIDGET_ICONS[id]} accent={WIDGET_ACCENTS[id]} />
-              <button
-                onClick={() => removeWidget(id)}
-                aria-label={t("dashboard.removeWidget")}
-                className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-down/12 text-down shadow-lg backdrop-blur transition-transform hover:scale-110"
+      {layout.showStats && (
+        loading ? (
+          <div className={cn("flex flex-wrap", layout.mode === "cinema" ? "gap-2" : "gap-4")}>
+            {[...Array(8)].map((_, i) => (
+              <div
+                key={i}
+                className={cn(
+                  layout.mode === "cinema" ? "h-[52px] w-[160px] rounded-xl glass" : cn(TILE_CLASS, "rounded-2xl glass p-5")
+                )}
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </Reorder.Item>
-          ))}
-        </Reorder.Group>
-      ) : (
-        <div className="flex flex-wrap gap-4">
-          {order.map((id) => (
-            <div key={id} className={TILE_CLASS}>
-              <StatTile label={widgetLabels[id]} value={widgetValues[id]} icon={WIDGET_ICONS[id]} accent={WIDGET_ACCENTS[id]} />
+                {layout.mode !== "cinema" && (
+                  <>
+                    <div className="h-3 w-20 animate-pulse rounded bg-white/10" />
+                    <div className="mt-3 h-8 w-16 animate-pulse rounded bg-white/10" />
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : hasError ? (
+          <div className="rounded-2xl glass p-5 text-center">
+            <div className="flex items-center justify-center gap-2 text-amber">
+              <AlertCircle className="h-5 w-5" />
+              <p className="font-semibold text-ink">{t("common.error")}</p>
             </div>
-          ))}
-        </div>
+            <p className="mt-1 text-sm text-ink-dim">{t("dashboard.errorHint")}</p>
+          </div>
+        ) : order.length === 0 ? (
+          <p className="rounded-2xl glass p-5 text-sm text-ink-dim">{t("dashboard.noWidgets")}</p>
+        ) : editMode ? (
+          <Reorder.Group as="div" axis="y" values={order} onReorder={persist} className="flex flex-wrap gap-4">
+            {order.map((id) => (
+              <Reorder.Item
+                key={id}
+                value={id}
+                className={cn(TILE_CLASS, "relative cursor-grab active:cursor-grabbing")}
+              >
+                <StatTile label={widgetLabels[id]} value={widgetValues[id]} icon={WIDGET_ICONS[id]} accent={WIDGET_ACCENTS[id]} />
+                <button
+                  onClick={() => removeWidget(id)}
+                  aria-label={t("dashboard.removeWidget")}
+                  className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-down/12 text-down shadow-lg backdrop-blur transition-transform hover:scale-110"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </Reorder.Item>
+            ))}
+          </Reorder.Group>
+        ) : layout.mode === "cinema" ? (
+          <div className="flex flex-wrap gap-2">
+            {order.map((id) => (
+              <StatTile key={id} compact label={widgetLabels[id]} value={widgetValues[id]} icon={WIDGET_ICONS[id]} accent={WIDGET_ACCENTS[id]} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-4">
+            {order.map((id) => (
+              <div key={id} className={TILE_CLASS}>
+                <StatTile label={widgetLabels[id]} value={widgetValues[id]} icon={WIDGET_ICONS[id]} accent={WIDGET_ACCENTS[id]} />
+              </div>
+            ))}
+          </div>
+        )
       )}
 
       {/*
@@ -215,41 +244,48 @@ export default function DashboardPage() {
         it used to move into a narrow 320px side rail on desktop, which made
         it much harder to read at a glance on a wide screen.
       */}
-      <div className="space-y-6">
-        <DownloadQueue />
-      </div>
+      {layout.showDownloads && (
+        <div className="space-y-6">
+          <DownloadQueue />
+        </div>
+      )}
 
-      <div className="mt-8">
-        {loading ? (
-          <div className="space-y-3">
-            <div className="h-6 w-40 animate-pulse rounded bg-white/10" />
-            <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {[...Array(10)].map((_, i) => (
-                <div key={i} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/10" />
-              ))}
+      {layout.mode === "cinema" ? (
+        !loading && !moviesError && movies.length > 0 && <DashboardRows sections={layout.sections} movies={movies} />
+      ) : (
+        <div className="mt-8">
+          {loading ? (
+            <div className="space-y-3">
+              <div className="h-6 w-40 animate-pulse rounded bg-white/10" />
+              <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {[...Array(10)].map((_, i) => (
+                  <div key={i} className="aspect-[2/3] animate-pulse rounded-2xl bg-white/10" />
+                ))}
+              </div>
             </div>
-          </div>
-        ) : moviesError ? null : movies.length === 0 ? (
-          <div className="flex flex-col items-center gap-4 rounded-2xl glass py-20 text-center">
-            <Compass className="h-8 w-8 text-brand-glow" />
-            <p className="font-semibold text-ink">{t("library.empty")}</p>
-            <Link href="/discover" className="rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white">
-              {t("discover.title")}
-            </Link>
-          </div>
-        ) : (
-          <section>
-            <h2 className="mb-3 text-lg font-bold tracking-tight text-ink">{t("dashboard.recentlyAdded")}</h2>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-              {recentlyAdded.map((movie, i) => (
-                <LibraryMovieCard key={movie.id} index={i} movie={movie} torrent={progressFor(movie)} onChange={load} />
-              ))}
+          ) : moviesError ? null : movies.length === 0 ? (
+            <div className="flex flex-col items-center gap-4 rounded-2xl glass py-20 text-center">
+              <Compass className="h-8 w-8 text-brand-glow" />
+              <p className="font-semibold text-ink">{t("library.empty")}</p>
+              <Link href="/discover" className="rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white">
+                {t("discover.title")}
+              </Link>
             </div>
-          </section>
-        )}
-      </div>
+          ) : (
+            <section>
+              <h2 className="mb-3 text-lg font-bold tracking-tight text-ink">{t("dashboard.recentlyAdded")}</h2>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                {recentlyAdded.map((movie, i) => (
+                  <LibraryMovieCard key={movie.id} index={i} movie={movie} torrent={progressFor(movie)} onChange={load} />
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
+      )}
 
       <UpdateAvailableBanner />
+      {titlePanel}
     </div>
   );
 }

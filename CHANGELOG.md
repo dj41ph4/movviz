@@ -2,6 +2,151 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.10.10] — 2026-07-27
+
+### Interface
+
+- **Refonte premium des badges** : tous les badges (résolution, HDR, langue, codec, source, année, note, statut, versions) partagent maintenant exactement la même forme — même hauteur, mêmes coins arrondis, même échelle de police. Fini les deux styles de badges différents sur une même affiche.
+- **Visibilité garantie sur toute affiche** : les badges reposaient sur un fond blanc translucide, invisible sur une affiche à dominante claire. Ils utilisent maintenant un fond sombre suffisamment opaque pour rester lisibles, que l'affiche soit claire ou sombre.
+
+### Recherche et remplacement
+
+- **Nouvelle tâche planifiée** ("Vérification des remplacements suggérés", quotidienne) : les propositions de remplacement (VFQ→VF, préférences de recherche) sont désormais détectées automatiquement en arrière-plan et notifiées — plus besoin d'ouvrir le panneau pour les découvrir. Comme toujours, rien n'est jamais téléchargé automatiquement.
+
+## [1.10.9] — 2026-07-27
+
+### Réglages
+
+- **Recherche des réglages** : un champ de recherche en haut du menu (desktop et mobile) filtre instantanément par nom ET par description — plus besoin de connaître l'onglet exact pour retrouver une option.
+- **Onglet "Diagnostics" scindé en trois** : les 7 panneaux qui y étaient empilés (Doctor Movviz, contrôle de santé, statistiques, performance, journal de recherche, journal du moteur, journal du résolveur) sont maintenant répartis en "Diagnostics", "Performance" et "Journaux" — chacun tient sur un écran raisonnable.
+- **Rechercher partout (Ctrl/Cmd+K)** indexe maintenant aussi tous les onglets des réglages — tape "webhook" ou "codec" depuis n'importe quelle page pour sauter directement au bon endroit, sans passer par les réglages d'abord.
+- Une info-bulle sur chaque onglet du menu résume ce qu'il contient.
+
+### Interface
+
+- **Badge 4K** : le dégradé animé de la 1.10.8 avait une coupure visible à la boucle — corrigé, la boucle est maintenant parfaitement continue.
+
+## [1.10.8] — 2026-07-27
+
+### Recherche et remplacement
+
+- **Langue cible personnalisable** (Réglages → Qualité) : la détection de langue de la 1.10.7 était figée sur "VFQ → VF". Elle est maintenant entièrement configurable — n'importe quelle langue reconnue (VF, VFQ, MULTI · VF, VOSTFR, VOST, VO) peut être choisie comme cible, et tout fichier possédé dans une autre langue devient éligible à un remplacement vers celle-ci. Aucun sens n'est imposé : un foyer québécois peut tout aussi bien viser le VFQ.
+
+## [1.10.7] — 2026-07-27
+
+### Recherche et remplacement
+
+- **Détection VFQ → VF** : "Rechercher et remplacer" repère maintenant les films en français québécois et propose une version française de France équivalente ou meilleure, indépendamment de vos préférences de recherche configurées.
+- **Taille affichée** dans chaque proposition, avant et après, avec la différence.
+- **Ajouter une version** : le bouton ne trouvait plus rien pour la plupart des films déjà en bibliothèque — la recherche se limitait au cache des sorties très récentes. Une recherche directe est maintenant tentée quand ce cache ne donne rien, comme pour la recherche manuelle.
+
+### Tableau de bord
+
+- **Badge année** ajouté sur les affiches (films et séries), à côté des autres badges qualité.
+- **Suggestions personnalisées** : le profil de goûts (genres/réalisateurs/acteurs) utilisé pour noter les suggestions se basait sur toute la bibliothèque partagée au lieu des vues propres à chaque profil connecté — corrigé, chaque profil a maintenant ses propres suggestions.
+- **Pondération du score** revue : les vues personnelles et les ajouts issus d'une demande pèsent désormais le plus, suivis par la note et la date de sortie récente.
+
+### Interface
+
+- **Badge 4K** : dégradé animé en boucle plutôt qu'un fond uni.
+
+### Performance
+
+- Les écritures des gros fichiers de bibliothèque (JSON) sont désormais déportées sur un thread séparé — évite un blocage du serveur pendant l'écriture, notamment sur NAS.
+- Correction d'une boucle infinie du moteur de téléchargement sur un torrent sans aucun pair, qui pouvait s'accumuler indéfiniment jusqu'à nécessiter un redémarrage.
+
+## [1.10.6] — 2026-07-27
+
+### Interface
+
+- **Statut traduit** : le statut des films et séries (`Returning Series`, `Ended`, `Released`...) s'affiche désormais dans la langue de l'interface (fr, en, de, it, nl).
+
+### YouTube
+
+- **Recherche YouTube directe** en fallback quand TMDb n'a pas de bande-annonce dans la langue de l'interface : le titre, l'année et le terme de recherche (`bande-annonce officielle VF`, `official trailer`, `offizieller Trailer`...) sont envoyés à YouTube, et le premier ID vidéo est extrait. Cache 24h.
+- **Full HD systématique** : `setPlaybackQuality("hd1080")` déjà présent, confirmé.
+
+## [1.10.5] — 2026-07-27
+
+### YouTube
+
+- **Recherche YouTube directe** en fallback quand TMDb n'a pas de bande-annonce dans la langue de l'interface : le titre, l'année et le terme de recherche (`bande-annonce officielle VF`, `official trailer`, `offizieller Trailer`...) sont envoyés à YouTube, et le premier ID vidéo est extrait. Cache 24h.
+- **Full HD systématique** : `setPlaybackQuality("hd1080")` déjà présent, confirmé.
+
+## [1.10.4] — 2026-07-27
+
+### Interface
+
+- **Bouton son muet/sonore** sur la vidéo d'ambiance (bande-annonce) — cercle vitré en bas à droite, apparaît quand la vidéo joue, permet d'entendre l'audio sans quitter la page. Fond noir/40, hover white/20, scale 110%.
+
+### YouTube
+
+- **Sous-titres masqués par défaut** (`cc_load_policy: 0`) sur la vidéo d'ambiance.
+
+## [1.10.3] — 2026-07-27
+
+### Le moteur explique ses choix
+
+- **Decision Guard** : un mot interdit configuré dans les Réglages bloque désormais réellement une release en recherche automatique, quel que soit son score — avant, ce n'était qu'un malus qu'un score élevé pouvait compenser. La release reste visible en recherche manuelle, juste pénalisée.
+- **Protection contre les mauvaises suites** : une recherche pour "Rush Hour 4" ne peut plus accrocher "Rush Hour 3" (ou tout autre film numéroté proche mais différent — Avatar, John Wick, Toy Story...) simplement parce que les noms se ressemblent.
+- **Doctor Movviz** (Réglages → Diagnostics) : un bouton "Analyser mon installation" qui vérifie la configuration, les indexeurs, la clé TMDb, et affiche l'historique récent des décisions automatiques (téléchargé car... / refusé car...) avec le détail du score.
+
+### Bibliothèque
+
+- **Nouvelle tâche "Diagnostic bibliothèque"** (tous les 30 jours, ou lançable à la main) : repère les statuts incohérents, les sorties pas encore rattrapées et l'absence de langue détectée — ne télécharge jamais rien, prépare seulement l'état des lieux.
+- **Badge de langue enfin fiable** : il ne s'affichait auparavant que sur d'anciens fichiers importés sans métadonnées ; il est désormais calculé pour tout fichier, et enrichi par la piste audio réelle vue par Plex quand elle est disponible.
+- **Bouton "Rechercher et remplacer"** dans la Bibliothèque : liste les films dont une meilleure version existe selon tes préférences de recherche configurées (termes favoris/interdits), à résolution égale ou supérieure — jamais lancé automatiquement.
+- **Préférences de recherche** regroupées et expliquées clairement dans Réglages → Qualité.
+
+### Assistant de configuration
+
+- **Nouvelle étape Apparence** : clair/sombre/automatique, choix visible dès le premier lancement (sombre par défaut).
+- **Nouvelle étape Matériel principal** (TV, smartphone, PC, NAS, serveur) : propose un point de départ pour les points de codec selon l'usage, avec l'explication de sa conséquence avant de valider.
+- **Intro animée** au tout premier lancement de l'assistant.
+- **"Relancer l'assistant"** (Réglages → À propos) : configuration complète, ou optimisation intelligente qui ne retouche jamais une valeur modifiée manuellement depuis.
+
+### Calendrier
+
+- **Vue semaine par défaut partout** (desktop et mobile), plus lisible qu'une grille mensuelle chargée de posters.
+
+### Moteur de téléchargement
+
+- **Cache 400ms sur listTorrents** : `/torrents` et `/stats` pollés toutes les 2-3s par chaque onglet du navigateur ne recomputent plus l'état complet à chaque requête — un court TTL déduplique les bursts (plusieurs onglets, ou `/stats` appelant `listTorrents()` juste après `/torrents`).
+- **Évitement de collision fichier** : avant de renommer un fichier téléchargé dans la bibliothèque, le moteur vérifie qu'aucun fichier du même nom n'existe déjà à la destination. Si c'est le cas, un suffixe ` (2)`, ` (3)`… est ajouté avant l'extension. Plus de fichier écrasé silencieusement lors d'une deuxième version d'un même film.
+
+### File d'activité
+
+- **Index hash déporté dans un pool worker_threads** : le calcul de l'index hash (qui relie chaque infoHash à son film/série dans la file) tourne désormais hors du thread principal via un pool de workers. En cas d'échec du pool (timeout, worker crash, build standalone), le calcul retombe automatiquement en ligne sur le thread principal — jamais de file cassée.
+- **Nouveau champ `memoizeByFileMtimesAsync`** dans `fsJsonCache` : pendant la durée d'un calcul worker, les appels suivants (burst de polls) attendent le même calcul au lieu d'en lancer un second.
+
+### Dashboard
+
+- **Refonte complète** : le tableau de bord affiche désormais des vignettes statistiques claires (StatTile), un mode de présentation choisi par l'utilisateur (Compact/Détailé/Mosaïque), et une nouvelle disposition enregistrée dans les préférences.
+
+### Bibliothèque
+
+- **Versions multiples** : un film peut désormais avoir plusieurs fichiers physiques (`versions[]`) — par exemple une copie 2160p HDR principale + une copie 1080p VF secondaire. Le bouton "Gérer les versions" sur la fiche film liste les copies, marque la copie principale et permet de naviguer.
+- **Sync Plex multi-versions** : la synchronisation Plex intègre désormais les `<Media>` multiples rapportés par Plex pour un même élément — chaque piste vidéo distincte devient une `LibraryFileVersion` dans Movviz, avec conservation de l'ID et de l'historique si le chemin était déjà connu.
+- **Intention de grab tracée** : chaque téléchargement enregistre son intention (`first_acquisition`, `quality_upgrade`) dans le journal de décision — l'utilisateur voit pourquoi un fichier a été téléchargé.
+
+### Assistant de configuration
+
+- **Nouvelle étape "Personnalisation"** : choix des appareils du foyer (TV 4K, smartphone, tablette, PC, console, serveur distant) — stocké en préférence, sans sélection automatique, prêt pour une future optimisation des profils qualité. Préférences de disposition du Dashboard également accessibles ici.
+
+### Fiche détail / TitleContent
+
+- **TrailerHeader** : le backdrop fixe de la fiche film/série peut désormais afficher une bande-annonce en lecture automatique (lorsqu'une clé YouTube est disponible) — remplace l'image statique avec une transition fluide.
+- **Bouton "Gérer les versions"** visible sur les films dont la bibliothèque possède plusieurs fichiers physiques.
+
+### Calendrier
+
+- **Nouveau système de composants** : `CalendarEntryChip`, `CalendarFilterBar`, `CalendarMonthGrid`, `CalendarWeekGrid` — architecture modulaire, prépare l'évolution vers un calendrier premium.
+
+### Corrections
+
+- **Indexeurs tronqués à largeur réduite** : le nom, le statut et l'URL d'un indexeur pouvaient devenir illisibles dès que la fenêtre rétrécissait (largeur volée par les boutons d'action sur la même ligne) — nom/statut/URL ont maintenant leur propre ligne, toujours pleine largeur.
+- **Volet latéral** (fiche film/série) désormais actif aussi sur les pages Personne, Profil et la page titre autonome — ces trois pages naviguaient encore en plein écran.
+
 ## [1.9.9] — 2026-07-26
 
 ### Fuite mémoire corrigée (OOM sur NAS)

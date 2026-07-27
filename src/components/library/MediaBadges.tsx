@@ -5,6 +5,14 @@ import type { LibraryFile } from "@/lib/library/types";
 import { parseRelease } from "@/lib/naming/parser";
 import { Logo4K, LogoHDR, LogoDolbyVision, LogoDolbyAtmos, LogoDTS, LogoTrueHD } from "./FormatLogos";
 
+/** Only the streams' language fields are needed here — narrower than the full
+ *  PlexMediaInfo so callers with a partial/simplified copy (API responses
+ *  that don't round-trip every field) can still pass it through as-is. */
+interface PlexLanguageSource {
+  audioStreams: { language: string | null }[];
+  subtitleStreams: { language: string | null }[];
+}
+
 export interface BadgeInfo {
   resolution: string | null;
   videoCodec: string | null;
@@ -12,46 +20,65 @@ export interface BadgeInfo {
   hdr: string | null;
   source: string | null;
   language?: string | null;
+  /** Movie/series release year — not derived from the file at all (a title's year never changes across versions), so callers that have it (library cards) pass it in directly rather than it coming out of extractBadges(). */
+  year?: number | null;
 }
 
-function extractBadges(file: LibraryFile | null | undefined): BadgeInfo {
-  if (!file) return { resolution: null, videoCodec: null, audioCodec: null, hdr: null, source: null };
-
-  const resolution = file.resolution ?? null;
-  const videoCodec = file.videoCodec ?? null;
-  const audioCodec = file.audioCodec ?? null;
-  const hdr = file.hdr ?? null;
-  const source = file.source ?? null;
-
-  // For items imported before these fields existed, fall back to parsing the
-  // file's own basename — scene-style filenames almost always carry codec tags.
-  if (!videoCodec || !audioCodec || !hdr || !source) {
-    const basename = file.path.replace(/^.*[/\\]/, "").replace(/\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i, "");
-    const parsed = parseRelease(basename);
-    return {
-      resolution: resolution ?? parsed.resolution,
-      videoCodec: videoCodec ?? parsed.videoCodec,
-      audioCodec: audioCodec ?? parsed.audioCodec,
-      hdr: hdr ?? parsed.hdr,
-      source: source ?? parsed.source,
-      language: parsed.language,
-    };
+/**
+ * Plex saw the real decoded stream, so when available it's a stronger signal
+ * than a filename tag (which can simply be wrong). Deliberately coarse — VFQ
+ * vs VF vs TRUEFRENCH are scene-release distinctions Plex has no concept of —
+ * this only tells us what languages are actually present on the file.
+ */
+function deriveLanguageFromPlex(info: PlexLanguageSource | null | undefined): string | null {
+  if (!info || info.audioStreams.length === 0) return null;
+  const audioLangs = new Set(info.audioStreams.map((s) => (s.language ?? "").toLowerCase()).filter(Boolean));
+  const hasFrenchAudio = [...audioLangs].some((l) => l.startsWith("fr"));
+  const hasOtherAudio = [...audioLangs].some((l) => !l.startsWith("fr"));
+  if (hasFrenchAudio && hasOtherAudio) return "MULTI · VF";
+  if (hasFrenchAudio) return "VF";
+  if (hasOtherAudio) {
+    const hasFrenchSub = info.subtitleStreams.some((s) => (s.language ?? "").toLowerCase().startsWith("fr"));
+    return hasFrenchSub ? "VOSTFR" : "VO";
   }
-
-  return { resolution, videoCodec, audioCodec, hdr, source };
+  return null;
 }
+
+function extractBadges(file: LibraryFile | null | undefined, plexMediaInfo?: PlexLanguageSource | null): BadgeInfo {
+  if (!file) return { resolution: null, videoCodec: null, audioCodec: null, hdr: null, source: null, language: null };
+
+  // Always parse the basename — scene-style filenames almost always carry a
+  // language tag, and it was previously only extracted here as a fallback
+  // for items missing other fields, leaving the language badge inert for any
+  // normally-grabbed file. Kept extensible: no term is hardcoded, parseRelease
+  // already handles the full vocabulary (VF/VFQ/VOSTFR/MULTI/...).
+  const basename = file.path.replace(/^.*[/\\]/, "").replace(/\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i, "");
+  const parsed = parseRelease(basename);
+  const plexLanguage = deriveLanguageFromPlex(plexMediaInfo);
+
+  return {
+    resolution: file.resolution ?? parsed.resolution,
+    videoCodec: file.videoCodec ?? parsed.videoCodec,
+    audioCodec: file.audioCodec ?? parsed.audioCodec,
+    hdr: file.hdr ?? parsed.hdr,
+    source: file.source ?? parsed.source,
+    // Plex corrects/enriches the filename's claim rather than replacing it
+    // outright when Plex has nothing to say (no media info synced yet).
+    language: plexLanguage ?? parsed.language,
+  };
+}
+
+/**
+ * Fixed dimensions shared by EVERY badge in the app — the pill row here, the
+ * SVG logos in FormatLogos.tsx, and the poster corner chips (rating,
+ * versions, status, watched) in LibraryMovieCard/LibrarySeriesCard. One
+ * scale, so a resolution pill next to a Dolby logo next to a corner status
+ * chip never look like three different design systems stitched together.
+ */
+export const BADGE_SHAPE = "inline-flex h-[21px] shrink-0 items-center gap-1 rounded-full px-2.5 text-[11px] font-bold leading-none backdrop-blur-sm";
 
 export function TextPill({ text, cls }: { text: string; cls: string }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex h-[21px] shrink-0 items-center rounded-md px-2 text-[11px] font-bold leading-none backdrop-blur-sm",
-        cls,
-      )}
-    >
-      {text}
-    </span>
-  );
+  return <span className={cn(BADGE_SHAPE, cls)}>{text}</span>;
 }
 
 /**
@@ -60,23 +87,36 @@ export function TextPill({ text, cls }: { text: string; cls: string }) {
  * one source of truth for the field → logo/pill mapping.
  */
 export function buildMediaBadgeItems(
-  { resolution, videoCodec, audioCodec, hdr, source, language }: BadgeInfo,
+  { resolution, videoCodec, audioCodec, hdr, source, language, year }: BadgeInfo,
   variant: "overlay" | "surface",
 ): React.ReactNode[] {
-  const genericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "bg-white/15 text-white/90 badge-overlay";
-  const audioGenericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "bg-white/10 text-white/80 badge-overlay-light";
+  // "overlay" badges sit directly on unpredictable poster artwork — a photo
+  // can be bright or dark at any given corner, so their own backing must
+  // stay legible either way. A translucent WHITE fill (the previous design)
+  // reads fine on dark art but disappears on a light poster background —
+  // a solid-enough dark scrim, by contrast, darkens whatever's behind it
+  // regardless of the source image's own brightness, so white text on top
+  // stays reliably readable. "surface" badges sit on the app's own
+  // (already theme-aware) background instead, so they keep the softer
+  // ink-toned treatment.
+  const genericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "border border-white/15 bg-black/55 text-white";
+  const audioGenericCls = variant === "surface" ? "border border-white/8 bg-black/20 text-ink-soft" : "border border-white/10 bg-black/45 text-white/90";
 
   const items: React.ReactNode[] = [];
+
+  // Year — first, since it identifies the title itself rather than a
+  // property of this particular file/release.
+  if (year) {
+    items.push(<TextPill key="year" text={String(year)} cls={genericCls} />);
+  }
 
   // Resolution
   if (resolution?.startsWith("2160")) {
     items.push(<Logo4K key="res" />);
   } else if (resolution?.startsWith("4320")) {
-    items.push(<TextPill key="res" text="8K" cls="bg-amber/80 text-white" />);
+    items.push(<TextPill key="res" text="8K" cls="bg-amber text-white" />);
   } else if (resolution) {
-    const resCls = resolution.startsWith("1080")
-      ? "bg-blue-500/80 text-white"
-      : variant === "surface" ? genericCls : "bg-white/20 text-white/90 badge-overlay";
+    const resCls = resolution.startsWith("1080") ? "bg-blue-500 text-white" : genericCls;
     items.push(<TextPill key="res" text={resolution} cls={resCls} />);
   }
 
@@ -92,10 +132,10 @@ export function buildMediaBadgeItems(
     if (hasDolbyVision) items.push(<LogoDolbyVision key="hdr-dv" />);
     if (hasHdrFamily) items.push(<LogoHDR key="hdr-family" />);
     if (!hasDolbyVision && !hasHdrFamily) {
-      items.push(<TextPill key="hdr-other" text={hdr.replace(/\s+/g, "")} cls="bg-yellow-500/80 text-black" />);
+      items.push(<TextPill key="hdr-other" text={hdr.replace(/\s+/g, "")} cls="bg-yellow-500 text-black" />);
     }
   } else {
-    items.push(<TextPill key="hdr-sdr" text="SDR" cls={variant === "surface" ? genericCls : "bg-white/10 text-white/70 badge-overlay-lighter"} />);
+    items.push(<TextPill key="hdr-sdr" text="SDR" cls={genericCls} />);
   }
 
   // Language
@@ -105,7 +145,7 @@ export function buildMediaBadgeItems(
       <TextPill
         key="language"
         text={language}
-        cls={isFrench ? "border border-brand/25 bg-brand/12 text-brand-glow" : genericCls}
+        cls={isFrench ? "border border-brand/40 bg-black/55 text-brand-glow" : genericCls}
       />,
     );
   }
@@ -141,10 +181,16 @@ export function buildMediaBadgeItems(
 
 export function MediaBadges({
   file,
+  plexMediaInfo,
+  year,
   className,
   variant = "overlay",
 }: {
   file: LibraryFile | null | undefined;
+  /** Optional — when present, its audio/subtitle streams enrich/correct the filename-derived language badge. */
+  plexMediaInfo?: PlexLanguageSource | null;
+  /** Movie/series release year — shown as its own badge alongside the file-derived ones. */
+  year?: number | null;
   className?: string;
   /**
    * "overlay" (default) is for badges sitting directly on a poster image —
@@ -158,8 +204,8 @@ export function MediaBadges({
   // No file means no data at all — showing "SDR" here would claim the
   // absence of an HDR tag on a release that doesn't exist, not a real signal.
   if (!file) return null;
-  const info = extractBadges(file);
-  const items = buildMediaBadgeItems(info, variant);
+  const info = extractBadges(file, plexMediaInfo);
+  const items = buildMediaBadgeItems({ ...info, year }, variant);
 
   if (items.length === 0) return null;
 

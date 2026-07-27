@@ -10,10 +10,12 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, CornerDownLeft, Compass, Loader2, Film, Tv } from "lucide-react";
+import { Search, CornerDownLeft, Compass, Loader2, Film, Tv, SlidersHorizontal } from "lucide-react";
 import { NAV } from "@/lib/nav";
+import { SETTINGS_TABS } from "@/lib/settingsNav";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 
 interface Title {
@@ -53,6 +55,7 @@ export function CommandPaletteProvider({
   const [searching, setSearching] = useState(false);
   const router = useRouter();
   const t = useT();
+  const user = useCurrentUser();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
@@ -146,6 +149,16 @@ export function CommandPaletteProvider({
     })).filter(
       (p) => !q || p.label.toLowerCase().includes(q) || p.sub.toLowerCase().includes(q)
     );
+    const settingsTabs = SETTINGS_TABS
+      .filter((tb) => !tb.adminOnly || user?.role === "admin")
+      .map((tb) => ({
+        kind: "setting" as const,
+        id: `settings-${tb.id}`,
+        label: t(tb.labelKey),
+        sub: t(tb.hintKey),
+        href: tb.id === "clients" ? "/settings" : `/settings?tab=${tb.id}`,
+      }))
+      .filter((s) => !q || s.label.toLowerCase().includes(q) || s.sub.toLowerCase().includes(q));
     const matchedTitles = titles
       .filter((m) => !q || m.title.toLowerCase().includes(q))
       .slice(0, 4)

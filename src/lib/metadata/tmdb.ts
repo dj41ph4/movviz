@@ -11,6 +11,24 @@ import path from "node:path";
 import { loadTmdbKey } from "./store";
 import { getCache } from "@/lib/cache/registry";
 import { omdbConfigured, getOmdbRatings } from "./omdb";
+import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
+import { translateStatus } from "./statusTranslations";
+
+/**
+ * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
+ * `language-COUNTRY` code TMDb's API actually expects. Extensible: any new
+ * locale added to `LOCALES` just needs an entry here, no other change.
+ */
+const LOCALE_TO_TMDB_LANGUAGE: Record<string, string> = {
+  fr: "fr-FR",
+  en: "en-US",
+  de: "de-DE",
+  it: "it-IT",
+  nl: "nl-NL",
+};
+function toTmdbLanguage(locale?: string): string {
+  return (locale && LOCALE_TO_TMDB_LANGUAGE[locale]) || "fr-FR";
+}
 
 const TMDB_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — enough to dedupe repeated calls without going stale
 const TMDB_CACHE_NAME = "The Movie Database API";
@@ -152,6 +170,7 @@ function mapPaged(
         releaseDate: (r.release_date ?? r.first_air_date)?.slice(0, 10) ?? null,
         overview: r.overview ?? "",
         posterPath: r.poster_path ?? null,
+        backdropPath: r.backdrop_path ?? null,
         rating: r.vote_average ?? 0,
       })),
     page: data.page ?? 1,
@@ -202,6 +221,7 @@ export async function searchMovies(query: string, page = 1): Promise<{ results: 
       releaseDate: r.release_date?.slice(0, 10) ?? null,
       overview: r.overview ?? "",
       posterPath: r.poster_path ?? null,
+      backdropPath: r.backdrop_path ?? null,
       rating: r.vote_average ?? 0,
       originalTitle: r.original_title ?? r.title ?? "",
     })),
@@ -535,6 +555,7 @@ export async function getPerson(personId: number): Promise<MetaPerson | null> {
       releaseDate: (c.release_date ?? c.first_air_date)?.slice(0, 10) ?? null,
       overview: c.overview ?? "",
       posterPath: c.poster_path ?? null,
+      backdropPath: c.backdrop_path ?? null,
       rating: c.vote_average ?? 0,
     }));
   return {
@@ -563,9 +584,25 @@ const KEY_CREW_JOBS = new Set(["Director", "Writer", "Screenplay", "Producer", "
 export async function getDetail(type: "movie" | "series", tmdbId: number, preferLanguage?: string): Promise<MetaDetail | null> {
   const kind = type === "movie" ? "movie" : "tv";
   const [data, watchProviders] = await Promise.all([
-    tmdbGet<RawDetail>(`/${kind}/${tmdbId}`, {
-      append_to_response: "credits,recommendations,keywords,external_ids,videos",
-    }),
+    // Previously always fetched in fr-FR regardless of the interface's own
+    // language — `preferLanguage` was only ever used AFTER the fact, to pick
+    // a trailer out of a `videos.results` list that was already French-only.
+    // An English-UI request could never see an English trailer this way
+    // (nor a properly-localized overview/tagline/genres). Now the whole
+    // detail fetch — and therefore the video list `pickTrailer` picks
+    // from — matches the caller's actual locale. `include_video_language`
+    // broadens the video list beyond just the target language (many
+    // trailers on TMDb are only ever tagged "en" even for foreign titles),
+    // so pickTrailer's own English-then-any fallback chain has real
+    // candidates to work with instead of an empty list.
+    tmdbGet<RawDetail>(
+      `/${kind}/${tmdbId}`,
+      {
+        append_to_response: "credits,recommendations,keywords,external_ids,videos",
+        include_video_language: `${preferLanguage ?? "fr"},en,null`,
+      },
+      toTmdbLanguage(preferLanguage)
+    ),
     getWatchProviders(type, tmdbId),
   ]);
   if (!data) return null;
@@ -585,7 +622,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
     rating: data.vote_average ?? 0,
     genres: (data.genres ?? []).map((g) => g.name),
     runtime: data.runtime ?? data.episode_run_time?.[0] ?? null,
-    status: data.status ?? "",
+    status: translateStatus(data.status ?? "", preferLanguage ?? "fr"),
     originalLanguage: data.original_language ?? "",
     countries: (data.production_countries ?? []).map((c) => c.name),
     studios: (data.production_companies ?? []).map((c) => c.name),
@@ -607,7 +644,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
     releaseDateFull: data.release_date ?? data.first_air_date ?? null,
     revenue: type === "movie" && data.revenue ? data.revenue : null,
     budget: type === "movie" && data.budget ? data.budget : null,
-    trailerKey: pickTrailer(data.videos?.results, preferLanguage),
+    trailerKey: await pickTrailer(data.videos?.results, preferLanguage, data.title ?? data.name ?? "", yearOf(data.release_date ?? data.first_air_date)),
     rtScore: omdb?.rtScore ?? null,
     metascore: omdb?.metascore ?? null,
     imdbRating: omdb?.imdbRating ?? null,
@@ -619,6 +656,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
       releaseDate: (r.release_date ?? r.first_air_date)?.slice(0, 10) ?? null,
       overview: r.overview ?? "",
       posterPath: r.poster_path ?? null,
+      backdropPath: r.backdrop_path ?? null,
       rating: r.vote_average ?? 0,
     })),
     collection: data.belongs_to_collection
@@ -686,49 +724,52 @@ interface RawVideo {
 }
 
 /**
- * Best available YouTube trailer in the user's language, with staged
- * fallbacks so every title has *something* to show — even when the
- * preferred-language trailer hasn't been uploaded to TMDb yet.
+ * Best available YouTube trailer in the user's language.
  *
- * Search order:
- *  1. official Trailer in preferred language
- *  2. any Trailer in preferred language
- *  3. official Trailer in English
- *  4. any Trailer in English
- *  5. any official Trailer
- *  6. any Trailer
- *  7. any YouTube video at all
+ * Priority:
+ *  1. TMDb trailer in the user's language → immediate return
+ *  2. YouTube search fallback (title + lang terms, e.g. "bande-annonce VF")
+ *  3. Any TMDb trailer (English or other) — last resort
  */
-function pickTrailer(videos: RawVideo[] | undefined, preferLanguage?: string): string | null {
+async function pickTrailer(videos: RawVideo[] | undefined, preferLanguage: string | undefined, title: string, year: number | null): Promise<string | null> {
   const yt = (videos ?? []).filter((v) => v.site === "YouTube");
-  if (yt.length === 0) return null;
 
-  // 1. Official trailer in preferred language
-  let match = yt.find((v) => v.type === "Trailer" && v.official && v.iso_639_1 === preferLanguage);
-  if (match) return match.key;
-
-  // 2. Any trailer in preferred language
-  match = yt.find((v) => v.type === "Trailer" && v.iso_639_1 === preferLanguage);
-  if (match) return match.key;
-
-  // 3–4. English fallback (skip if user already preferred English)
-  if (preferLanguage !== "en") {
-    match = yt.find((v) => v.type === "Trailer" && v.official && v.iso_639_1 === "en");
-    if (match) return match.key;
-    match = yt.find((v) => v.type === "Trailer" && v.iso_639_1 === "en");
-    if (match) return match.key;
+  // ── 1. TMDb trailer in preferred language ──
+  if (preferLanguage && yt.length > 0) {
+    const langMatch = yt.find((v) => v.type === "Trailer" && v.iso_639_1 === preferLanguage);
+    if (langMatch) return langMatch.key;
   }
 
-  // 5. Any official trailer
-  match = yt.find((v) => v.type === "Trailer" && v.official);
-  if (match) return match.key;
+  // ── 2. YouTube search fallback ──────────────────────────────────────
+  // TMDb has no trailer in the user's language — search YouTube directly
+  // with title + year + language-specific terms.
+  const lang = preferLanguage ?? "fr";
+  const cacheKey = `yt:${title}:${year ?? 0}:${lang}`;
+  const cache = getCache("YouTube Search", 24 * 60 * 60 * 1000);
+  const cached = cache.getStale<string>(cacheKey);
+  if (cached !== undefined) {
+    // Even if cached value is null (previous failed search), still give
+    // the TMDb best-match a chance — cached null just skips YouTube.
+    if (cached.value) return cached.value;
+  } else {
+    // Not in cache: search YouTube, cache result (null or found).
+    const ytResult = await searchYouTubeTrailer(title, year, lang);
+    cache.set(cacheKey, ytResult);
+    if (ytResult) return ytResult;
+  }
 
-  // 6. Any trailer
-  match = yt.find((v) => v.type === "Trailer");
-  if (match) return match.key;
+  // ── 3. Any TMDb trailer (last resort) ───────────────────────────────
+  if (yt.length > 0) {
+    if (preferLanguage !== "en") {
+      const en = yt.find((v) => v.type === "Trailer" && v.iso_639_1 === "en");
+      if (en) return en.key;
+    }
+    const any = yt.find((v) => v.type === "Trailer");
+    if (any) return any.key;
+    return yt[0]?.key ?? null;
+  }
 
-  // 7. Any YouTube video
-  return yt[0]?.key ?? null;
+  return null;
 }
 
 interface RawWatchProviders {
@@ -789,6 +830,7 @@ export async function getCollection(collectionId: number): Promise<MetaCollectio
         releaseDate: r.release_date?.slice(0, 10) ?? null,
         overview: r.overview ?? "",
         posterPath: r.poster_path ?? null,
+        backdropPath: r.backdrop_path ?? null,
         rating: r.vote_average ?? 0,
       }))
       .sort((a, b) => (a.releaseDate ?? "9999").localeCompare(b.releaseDate ?? "9999")),
@@ -807,6 +849,7 @@ interface RawMultiResult {
   first_air_date?: string;
   overview?: string;
   poster_path?: string | null;
+  backdrop_path?: string | null;
   vote_average?: number;
   vote_count?: number;
   popularity?: number;

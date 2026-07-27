@@ -6,11 +6,17 @@ interface LogoProps {
   className?: string;
 }
 
+/**
+ * Same h-[21px]/rounded-full/backdrop-blur shape as every other badge in the
+ * app (see MediaBadges.tsx's BADGE_SHAPE) — a solid-enough dark fill (not a
+ * translucent one) so the logo stays legible whether it's sitting over a
+ * bright or a dark patch of poster artwork.
+ */
 function BaseBadge({ className, children }: LogoProps & { children: React.ReactNode }) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center rounded-md border border-white/10 bg-[#1a1a1a] px-2 leading-none backdrop-blur-sm",
+        "inline-flex h-[21px] shrink-0 items-center rounded-full border border-white/15 bg-black/70 px-2.5 leading-none backdrop-blur-sm",
         className,
       )}
     >
@@ -21,7 +27,7 @@ function BaseBadge({ className, children }: LogoProps & { children: React.ReactN
 
 export function Logo4K({ className }: LogoProps) {
   return (
-    <BaseBadge className={cn("h-[21px]", className)}>
+    <BaseBadge className={cn("badge-4k-shimmer", className)}>
       <svg viewBox="0 0 36 21" className="h-full w-auto" aria-label="4K">
         <text x="0" y="17" fontFamily="Arial,sans-serif" fontSize="18" fontWeight="900" fill="#fff">
           4K
@@ -33,7 +39,7 @@ export function Logo4K({ className }: LogoProps) {
 
 export function LogoHDR({ className }: LogoProps) {
   return (
-    <BaseBadge className={cn("h-[21px]", className)}>
+    <BaseBadge className={className}>
       <svg viewBox="0 0 40 21" className="h-full w-auto" aria-label="HDR">
         <text x="0" y="16" fontFamily="Arial,sans-serif" fontSize="15" fontWeight="900" fill="#fff">
           HDR
@@ -45,7 +51,7 @@ export function LogoHDR({ className }: LogoProps) {
 
 export function LogoDolbyVision({ className }: LogoProps) {
   return (
-    <BaseBadge className={cn("h-[21px] rounded-[10.5px] px-3", className)}>
+    <BaseBadge className={cn("px-3", className)}>
       <svg viewBox="0 0 48 21" className="h-full w-auto" aria-label="Dolby Vision">
         <text x="0" y="9.5" fontFamily="Arial,sans-serif" fontSize="5.5" fontWeight="800" fill="#aaa" letterSpacing="1">
           DOLBY
@@ -60,7 +66,7 @@ export function LogoDolbyVision({ className }: LogoProps) {
 
 export function LogoDolbyAtmos({ className }: LogoProps) {
   return (
-    <BaseBadge className={cn("h-[21px] rounded-[10.5px] px-3", className)}>
+    <BaseBadge className={cn("px-3", className)}>
       <svg viewBox="0 0 52 21" className="h-full w-auto" aria-label="Dolby Atmos">
         <text x="0" y="9.5" fontFamily="Arial,sans-serif" fontSize="5.5" fontWeight="800" fill="#aaa" letterSpacing="1">
           DOLBY
@@ -75,7 +81,7 @@ export function LogoDolbyAtmos({ className }: LogoProps) {
 
 export function LogoDTS({ className }: LogoProps) {
   return (
-    <BaseBadge className={cn("h-[21px]", className)}>
+    <BaseBadge className={className}>
       <svg viewBox="0 0 36 21" className="h-full w-auto" aria-label="DTS">
         <text x="0" y="17" fontFamily="Arial,sans-serif" fontSize="14" fontWeight="900" fill="#fff">
           DTS
@@ -87,7 +93,7 @@ export function LogoDTS({ className }: LogoProps) {
 
 export function LogoTrueHD({ className }: LogoProps) {
   return (
-    <BaseBadge className={cn("h-[21px]", className)}>
+    <BaseBadge className={className}>
       <svg viewBox="0 0 62 21" className="h-full w-auto" aria-label="TrueHD">
         <text x="0" y="16" fontFamily="Arial,sans-serif" fontSize="12" fontWeight="800" fill="#fff">
           TrueHD

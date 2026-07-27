@@ -11,7 +11,10 @@ interface ReleaseRules {
   maxEpisodeSizeMb: number | null;
   maxSeasonSizeMb: number | null;
   codecScores: { x264: number; x265: number; av1: number };
+  preferredLanguageUpgrade: string | null;
 }
+
+const LANGUAGE_UPGRADE_OPTIONS = ["VF", "VFQ", "MULTI · VF", "VOSTFR", "VOST", "VO"] as const;
 
 const mbToGb = (mb: number | null) => (mb ? String(Math.round((mb / 1024) * 100) / 100) : "");
 const gbToMb = (gb: string) => {
@@ -157,6 +160,35 @@ export function ReleaseRulesPanel() {
             onCommit={(v) => save({ codecScores: { ...rules.codecScores, av1: v } })}
             className={field}
           />
+        </div>
+      </div>
+
+      {/* Language upgrade target — deliberately symmetric, no direction hardcoded (see searchAndReplace.ts). */}
+      <div className="rounded-2xl glass p-5">
+        <h3 className="font-bold text-ink">{t("releaseRules.languageUpgradeTitle")}</h3>
+        <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.languageUpgradeHint")}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => save({ preferredLanguageUpgrade: null })}
+            className={cn(
+              "rounded-xl px-3 py-2 text-xs font-bold transition-colors",
+              rules.preferredLanguageUpgrade === null ? "brand-gradient text-white" : "glass-strong text-ink-soft hover:text-ink"
+            )}
+          >
+            {t("releaseRules.languageUpgradeDisabled")}
+          </button>
+          {LANGUAGE_UPGRADE_OPTIONS.map((lang) => (
+            <button
+              key={lang}
+              onClick={() => save({ preferredLanguageUpgrade: lang })}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-bold font-mono transition-colors",
+                rules.preferredLanguageUpgrade === lang ? "brand-gradient text-white" : "glass-strong text-ink-soft hover:text-ink"
+              )}
+            >
+              {lang}
+            </button>
+          ))}
         </div>
       </div>
 

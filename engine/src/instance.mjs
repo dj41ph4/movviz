@@ -15,6 +15,27 @@ import { WEB_CALLBACK_URL, TORRENT_CACHE_DIR, ENGINE_TOKEN } from "./config.mjs"
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
 /**
+ * Multi-version safety net (LOT6.3): the movie filename template already
+ * includes quality/codec tokens, so two different releases of the same
+ * movie normally land at two different filenames on their own — no suffix
+ * needed. A suffix is only appended when that's NOT enough (e.g. two
+ * releases with identical quality/codec/group tokens, or a second version
+ * grabbed before the first one finished renaming). Never overwrites an
+ * existing file silently.
+ */
+async function avoidCollision(dest) {
+  let candidate = dest;
+  let attempt = 2;
+  const ext = path.extname(dest);
+  const base = dest.slice(0, dest.length - ext.length);
+  while (await fsp.access(candidate).then(() => true).catch(() => false)) {
+    candidate = `${base} (${attempt})${ext}`;
+    attempt += 1;
+  }
+  return candidate;
+}
+
+/**
  * A single download instance, bound to one media category (movies or series).
  * Wraps its own WebTorrent client and enforces all the Movviz-specific policy
  * on top of the raw transport: queueing (max active), seed-ratio auto-stop,
@@ -410,6 +431,13 @@ export class MovvizInstance {
     let lastDownloaded = -1;
     let stage = 0; // 0 = normal, 1 = nudged once
     let everProgressed = false;
+    // Bounds the "never got a single byte" retry loop below — without this
+    // cap a torrent with no working seeders at all would nudge forever
+    // (stage kept resetting to 0 every cycle since everProgressed never
+    // becomes true), leaking one setInterval + wire-destroy cycle per dead
+    // torrent indefinitely until the process runs out of resources.
+    const MAX_NEVER_PROGRESSED_NUDGES = 6; // ~9 minutes at 90s/tick
+    let neverProgressedNudges = 0;
     const stallTimer = setInterval(() => {
       if (t.destroyed || t.done) {
         clearInterval(stallTimer);
@@ -438,8 +466,12 @@ export class MovvizInstance {
       // Never got a single byte at all — still finding/negotiating with
       // peers is normal for the first several minutes on a fresh torrent
       // (DHT bootstrap, tracker announces). Keep nudging instead of
-      // deleting a download that never really got a chance to start.
-      if (!everProgressed) {
+      // deleting a download that never really got a chance to start, but
+      // only up to MAX_NEVER_PROGRESSED_NUDGES — past that it's a dead
+      // torrent (no seeders at all), not a slow one, and must be given up
+      // on like any other stall instead of nudging forever.
+      if (!everProgressed && neverProgressedNudges < MAX_NEVER_PROGRESSED_NUDGES) {
+        neverProgressedNudges += 1;
         stage = 0;
         lastDownloaded = -1;
         return;
@@ -1067,7 +1099,7 @@ export class MovvizInstance {
         } else {
           const movieFolder = renderSegment(naming.movieFolder, ctx, naming.useDotsInsteadOfSpaces);
           const fileName = renderSegment(naming.movieFile, ctx, naming.useDotsInsteadOfSpaces) + ext;
-          dest = path.join(this.cfg.completedPath, movieFolder, fileName);
+          dest = await avoidCollision(path.join(this.cfg.completedPath, movieFolder, fileName));
         }
 
         const src = path.join(this.cfg.downloadPath, file.path);

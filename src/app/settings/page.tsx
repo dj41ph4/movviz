@@ -11,6 +11,7 @@ import { DownloadClients } from "@/components/settings/DownloadClients";
 import { NamingEditor } from "@/components/settings/NamingEditor";
 import { WebhookSettings } from "@/components/settings/WebhookSettings";
 import { HealthPanel } from "@/components/settings/HealthPanel";
+import { DoctorPanel } from "@/components/settings/DoctorPanel";
 import { EngineLogsPanel } from "@/components/settings/EngineLogsPanel";
 import { ResolverLogsPanel } from "@/components/settings/ResolverLogsPanel";
 import { PerfPanel } from "@/components/settings/PerfPanel";
@@ -33,46 +34,17 @@ import { RenamePanel } from "@/components/settings/RenamePanel";
 import { RepairPathsPanel } from "@/components/settings/RepairPathsPanel";
 import { CleanDirsPanel } from "@/components/settings/CleanDirsPanel";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { Magnet, HardDrive, Gauge, Tag, Activity, DatabaseBackup, ListTodo, ListOrdered, Database, Play, BookOpen, ChevronDown, X, Info, ExternalLink, Film, RefreshCw, Wrench, BellRing, Skull } from "lucide-react";
+import { ChevronDown, X, Search } from "lucide-react";
 import { ActivitySettings } from "@/components/settings/ActivitySettings";
 import { AboutPanel } from "@/components/settings/AboutPanel";
 import { JobQueuePanel } from "@/components/settings/JobQueuePanel";
 import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
+import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
+import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT } from "@/lib/settingsNav";
 
-const TABS = [
-  // Téléchargement
-  { id: "clients", labelKey: "settings.tabClients", icon: HardDrive, group: "download" },
-  { id: "indexers", labelKey: "settings.tabIndexers", icon: Magnet, group: "download" },
-  { id: "qualite", labelKey: "settings.tabQualite", icon: Gauge, group: "download", adminOnly: true },
-  // Bibliothèque
-  { id: "metadata", labelKey: "metadata.title", icon: BookOpen, group: "library", adminOnly: true },
-  { id: "plex", labelKey: "plex.title", icon: Play, group: "library", adminOnly: true },
-  { id: "naming", labelKey: "naming.tab", icon: Tag, group: "library", adminOnly: true },
-  { id: "imports", labelKey: "settings.tabImports", icon: ExternalLink, group: "library", adminOnly: true },
-  // Disque
-  { id: "indexation", labelKey: "settings.tabIndexation", icon: Film, group: "disk", adminOnly: true },
-  { id: "rename", labelKey: "rename.tab", icon: RefreshCw, group: "disk", adminOnly: true },
-  { id: "maintenance", labelKey: "settings.tabMaintenance", icon: Wrench, group: "disk", adminOnly: true },
-  // Notifications
-  { id: "notifications", labelKey: "settings.tabNotifications", icon: BellRing, group: "notifications", adminOnly: true },
-  // Système
-  { id: "health", labelKey: "health.title", icon: Activity, group: "system", adminOnly: true },
-  { id: "tasks", labelKey: "tasks.title", icon: ListTodo, group: "system", adminOnly: true },
-  { id: "jobs", labelKey: "jobs.title", icon: ListOrdered, group: "system", adminOnly: true },
-  { id: "cache", labelKey: "cache.title", icon: Database, group: "system", adminOnly: true },
-  { id: "backup", labelKey: "backup.title", icon: DatabaseBackup, group: "system", adminOnly: true },
-  { id: "about", labelKey: "settings.tabAbout", icon: Info, group: "system", adminOnly: true },
-  { id: "danger", labelKey: "dangerZone.title", icon: Skull, group: "system", adminOnly: true, dangerous: true },
-] as const;
-
-const GROUP_ORDER = ["download", "library", "disk", "notifications", "system"] as const;
-const GROUP_LABEL_KEY: Record<(typeof GROUP_ORDER)[number], string | null> = {
-  download: "settings.groupDownload",
-  library: "settings.groupLibrary",
-  disk: "settings.groupDisk",
-  notifications: "settings.groupNotifications",
-  system: "settings.groupSystem",
-};
+const TABS = SETTINGS_TABS;
+const GROUP_ORDER = SETTINGS_GROUP_ORDER;
+const GROUP_LABEL_KEY = SETTINGS_GROUP_LABEL_KEY;
 
 export default function SettingsPage() {
   return (
@@ -91,6 +63,7 @@ function SettingsPageInner() {
   const initialTab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "clients";
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [filterQuery, setFilterQuery] = useState("");
   const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
   const activeTab = visibleTabs.find((tb) => tb.id === tab) ?? visibleTabs[0];
 
@@ -102,16 +75,25 @@ function SettingsPageInner() {
     router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
   };
 
-
+  // "où est l'option X" — filtre par nom ET par description (hintKey), pas
+  // juste le libellé du bouton, pour retrouver un réglage même sans en
+  // connaître le nom exact de l'onglet qui le contient.
+  const q = filterQuery.trim().toLowerCase();
+  const matchingTabs = q
+    ? visibleTabs.filter((tb) => t(tb.labelKey).toLowerCase().includes(q) || t(tb.hintKey).toLowerCase().includes(q))
+    : visibleTabs;
 
   const groups = GROUP_ORDER.map((g) => ({
     id: g,
     labelKey: GROUP_LABEL_KEY[g],
-    items: visibleTabs.filter((tb) => tb.group === g),
+    items: matchingTabs.filter((tb) => tb.group === g),
   })).filter((g) => g.items.length > 0);
 
   const renderGroups = (onPick: (id: (typeof TABS)[number]["id"]) => void, layoutId: string) => (
     <>
+      {groups.length === 0 && (
+        <p className="px-3 text-sm text-ink-dim">{t("settings.searchNoResults", { query: filterQuery })}</p>
+      )}
       {groups.map((g) => (
         <div key={g.id}>
           {g.labelKey && (
@@ -129,6 +111,7 @@ function SettingsPageInner() {
                   {dangerous && idx > 0 && <div className="mb-1.5 border-t border-white/8 pt-3" />}
                   <button
                     onClick={() => onPick(tb.id)}
+                    title={t(tb.hintKey)}
                     className={cn(
                       "group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition-colors ring-focus",
                       active
@@ -146,7 +129,7 @@ function SettingsPageInner() {
                         transition={{ type: "spring", stiffness: 380, damping: 32 }}
                       />
                     )}
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <Icon className={cn("h-4 w-4 shrink-0", !active && !dangerous && SETTINGS_GROUP_ACCENT[g.id])} />
                     <span className="truncate">{t(tb.labelKey)}</span>
                   </button>
                 </div>
@@ -204,6 +187,15 @@ function SettingsPageInner() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
+              <div className="relative mb-3">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim" />
+                <input
+                  value={filterQuery}
+                  onChange={(e) => setFilterQuery(e.target.value)}
+                  placeholder={t("settings.searchPlaceholder")}
+                  className="w-full rounded-xl glass-strong py-2.5 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-ink-dim"
+                />
+              </div>
               <div className="flex flex-col gap-6 pb-2">
                 {renderGroups((id) => { pushTab(id); setMobileNavOpen(false); }, "settings-tab-active-mobile")}
               </div>
@@ -213,17 +205,34 @@ function SettingsPageInner() {
       </AnimatePresence>
 
       <div className="md:grid md:grid-cols-[224px_1fr] md:items-start md:gap-8">
-        <nav className="hidden flex-col gap-6 md:sticky md:top-24 md:flex">
-          {renderGroups(pushTab, "settings-tab-active")}
+        <nav className="hidden flex-col gap-4 md:sticky md:top-24 md:flex">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim" />
+            <input
+              value={filterQuery}
+              onChange={(e) => setFilterQuery(e.target.value)}
+              placeholder={t("settings.searchPlaceholder")}
+              className="w-full rounded-xl glass py-2.5 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-ink-dim ring-focus"
+            />
+          </div>
+          <div className="flex flex-col gap-6">
+            {renderGroups(pushTab, "settings-tab-active")}
+          </div>
         </nav>
 
         <div className="min-w-0">
+          {tab === "dashboard" && <DashboardExperiencePanel />}
+
           {tab === "clients" && <DownloadClients />}
 
           {tab === "indexers" && <IndexerManager />}
 
           {tab === "qualite" && user?.role === "admin" && (
             <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-ink">{t("settings.searchPreferencesTitle")}</h2>
+                <p className="mt-1 max-w-2xl text-sm text-ink-dim">{t("settings.searchPreferencesHint")}</p>
+              </div>
               <ReleaseRulesPanel />
               <CustomFormatsPanel />
             </div>
@@ -268,11 +277,22 @@ function SettingsPageInner() {
             </div>
           )}
 
-          {tab === "health" && user?.role === "admin" && (
+          {tab === "diagnostics" && user?.role === "admin" && (
             <div className="space-y-6">
+              <DoctorPanel />
               <HealthPanel />
-              <StatsPanel />
+            </div>
+          )}
+
+          {tab === "performance" && user?.role === "admin" && (
+            <div className="space-y-6">
               <PerfPanel />
+              <StatsPanel />
+            </div>
+          )}
+
+          {tab === "logs" && user?.role === "admin" && (
+            <div className="space-y-6">
               <SearchLogsPanel />
               <EngineLogsPanel />
               <ResolverLogsPanel />

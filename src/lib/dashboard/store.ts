@@ -22,7 +22,10 @@ function write(data: Store) {
 
 export function loadDashboardLayout(userId: string): DashboardLayout {
   const data = read();
-  return data[userId] ?? DEFAULT_DASHBOARD_LAYOUT;
+  // Sanitized on read, not just on save — a file written before the v2
+  // schema (mode/hero/sections) existed is upgraded to a complete, valid
+  // layout on every load instead of only whenever the user next saves.
+  return data[userId] ? sanitizeDashboardLayout(data[userId]) : DEFAULT_DASHBOARD_LAYOUT;
 }
 
 export function saveDashboardLayout(userId: string, layout: unknown): DashboardLayout {

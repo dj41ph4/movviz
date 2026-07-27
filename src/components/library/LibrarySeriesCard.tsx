@@ -8,7 +8,7 @@ import { cn, formatDate } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { LibrarySeries } from "@/lib/library/types";
 import { Star, Tv, Check, Clock, HardDriveDownload, CalendarCheck, Calendar, Loader2 } from "lucide-react";
-import { MediaBadges, aggregateBadges } from "./MediaBadges";
+import { MediaBadges, aggregateBadges, BADGE_SHAPE } from "./MediaBadges";
 
 export function LibrarySeriesCard({ series, index = 0 }: { series: LibrarySeries; index?: number }) {
   const { t, locale } = useI18n();
@@ -25,12 +25,12 @@ export function LibrarySeriesCard({ series, index = 0 }: { series: LibrarySeries
   const nothingMonitored = monitored.length === 0;
   const anyBusy = downloading > 0;
   const statusBadge = allAvailable
-    ? { icon: Check, cls: "bg-ok/90 text-white", label: t("status.available") }
+    ? { icon: Check, cls: "bg-ok text-white", label: t("status.available") }
     : anyBusy
-      ? { icon: Loader2, cls: "bg-purple-500/90 text-white", label: t("status.downloading") }
+      ? { icon: Loader2, cls: "bg-purple-500 text-white", label: t("status.downloading") }
       : nothingMonitored
         ? null
-        : { icon: Clock, cls: "bg-amber/80 text-white", label: t("status.missing") };
+        : { icon: Clock, cls: "bg-amber text-white", label: t("status.missing") };
 
   const cascadeAnim = reduceMotion ? {
     layout: true as const,
@@ -66,16 +66,16 @@ export function LibrarySeriesCard({ series, index = 0 }: { series: LibrarySeries
               <span className="line-clamp-3 text-sm font-semibold text-ink/90">{series.title}</span>
             </div>
           )}
-          <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold backdrop-blur">
-            <Star className="h-3 w-3 fill-amber text-amber" /> {series.rating.toFixed(1)}
+          <div className={cn(BADGE_SHAPE, "absolute left-2 top-2 border-white/15 bg-black/55 text-amber")}>
+            <Star className="h-3 w-3 fill-amber" /> {series.rating.toFixed(1)}
           </div>
           {statusBadge && (
-            <div className={cn("pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold backdrop-blur", statusBadge.cls)} title={statusBadge.label}>
+            <div className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 border-white/15", statusBadge.cls)} title={statusBadge.label}>
               <statusBadge.icon className={cn("h-3 w-3", statusBadge.icon === Loader2 && "animate-spin")} />
             </div>
           )}
 
-          <MediaBadges file={aggregateBadges(episodes)} className="absolute bottom-2 left-2 right-2" />
+          <MediaBadges file={aggregateBadges(episodes)} year={series.year} className="absolute bottom-2 left-2 right-2" />
         </div>
 
         <div className="mt-2.5 px-0.5">

@@ -6,7 +6,8 @@ import { loadActivity } from "@/lib/activity/store";
 import { loadRequests } from "@/lib/requests/store";
 import { getIndexer } from "@/lib/indexers/store";
 import { loadMovies, loadSeries, libraryFilePaths } from "@/lib/library/store";
-import { memoizeByFileMtimes } from "@/lib/fsJsonCache";
+import { memoizeByFileMtimes, memoizeByFileMtimesAsync } from "@/lib/fsJsonCache";
+import { getHashIndexPool } from "@/lib/workers/hashIndexPool";
 import { DEFAULT_QUALITY_PROFILES } from "@/lib/library/qualityProfiles";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import type { ActivityEntry, QueueItem, WantedItem, ActivityMedia } from "@/lib/activity/v2/types";
@@ -14,6 +15,7 @@ import type { EngineTorrent } from "@/lib/types";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { decodeLibraryRef } from "@/lib/library/types";
 import type { User } from "@/lib/auth/types";
+import { computeHashIndex, type HashIndexResult, type HashIndexEntry } from "@/lib/library/hashIndexCompute";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -140,11 +142,6 @@ function buildReleaseLookupImpl(): { byHash: Map<string, ResolvedRelease>; byLib
   return { byHash, byLibraryRef };
 }
 
-interface HashIndexEntry {
-  movie?: LibraryMovie;
-  seriesMatch?: { series: LibrarySeries; season: number; episode: number; count: number };
-}
-
 /**
  * infoHash → owning library item, built in ONE pass over the whole library
  * and memoized until a library file actually changes. getQueue() used to
@@ -152,10 +149,6 @@ interface HashIndexEntry {
  * with ~640 series (~42 000 episodes) and a handful of active torrents,
  * that was hundreds of thousands of episode iterations per poll, a real
  * chunk of the latency the queue tab showed on the NAS.
- *
- * A season pack shares one activeInfoHash across several episodes — every
- * one of them is collected so the queue can say "season pack, N episodes"
- * instead of silently picking the first and looking stuck on one episode.
  *
  * Also returns id-keyed lookups for movies/series — `activeInfoHash` is
  * deliberately cleared back to null once a download is imported (see
@@ -165,46 +158,26 @@ interface HashIndexEntry {
  * to the mutable library record) and resolving it here by id instead, so a
  * completed/imported item keeps its real title/type/link forever instead of
  * degrading to the raw release filename.
+ *
+ * The actual reduction lives in hashIndexCompute.ts (computeHashIndex) —
+ * duplicated (kept in sync) in workers/hashIndexWorker.mjs so a worker_threads
+ * pool can run it off the main thread for a large library. Dispatched there
+ * first; falls straight back to the inline computation on ANY worker failure
+ * (pool exhausted, timeout, worker crash, or — notably — a packaged/standalone
+ * build where the worker script didn't get traced/copied correctly) so a
+ * worker-pool problem degrades to "a bit more main-thread CPU", never to a
+ * broken queue.
  */
-function buildHashIndex(): { byHash: Map<string, HashIndexEntry>; moviesById: Map<string, LibraryMovie>; seriesById: Map<string, LibrarySeries> } {
-  return memoizeByFileMtimes("activity-v2-hash-index", libraryFilePaths(), () => {
-    const byHash = new Map<string, HashIndexEntry>();
-    const moviesById = new Map<string, LibraryMovie>();
-    const seriesById = new Map<string, LibrarySeries>();
-    for (const movie of loadMovies()) {
-      moviesById.set(movie.id, movie);
-      if (movie.activeInfoHash) byHash.set(movie.activeInfoHash, { movie });
+async function buildHashIndex(): Promise<HashIndexResult> {
+  return memoizeByFileMtimesAsync("activity-v2-hash-index", libraryFilePaths(), async () => {
+    const movies = loadMovies();
+    const series = loadSeries();
+    try {
+      return await getHashIndexPool().run({ movies, series });
+    } catch (err) {
+      console.error("[activity/v2] hash index worker failed, falling back to main thread:", err);
+      return computeHashIndex(movies, series);
     }
-    for (const s of loadSeries()) {
-      seriesById.set(s.id, s);
-      const matchesByHash = new Map<string, { season: number; episode: number }[]>();
-      let totalMonitored = 0;
-      for (const season of s.seasons) {
-        for (const ep of season.episodes) {
-          if (ep.monitored) totalMonitored++;
-          if (ep.activeInfoHash) {
-            const list = matchesByHash.get(ep.activeInfoHash) ?? [];
-            list.push({ season: season.seasonNumber, episode: ep.episodeNumber });
-            matchesByHash.set(ep.activeInfoHash, list);
-          }
-        }
-      }
-      for (const [hash, matches] of matchesByHash) {
-        // A movie owning the same hash keeps priority — same precedence as
-        // the old sequential scan (movie checked first).
-        if (byHash.has(hash)) continue;
-        const isComplete = totalMonitored > 0 && matches.length >= totalMonitored;
-        byHash.set(hash, {
-          seriesMatch: {
-            series: s,
-            season: isComplete ? 0 : matches[0].season,
-            episode: isComplete ? 0 : matches[0].episode,
-            count: matches.length,
-          },
-        });
-      }
-    }
-    return { byHash, moviesById, seriesById };
   });
 }
 
@@ -240,7 +213,7 @@ function resolveFromLibraryRef(
 async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }>> {
   const engineData = await fetchEngine("torrents") as { torrents?: EngineTorrent[] } | null;
   const torrents = engineData?.torrents ?? [];
-  const { byHash: hashIndex, moviesById, seriesById } = buildHashIndex();
+  const { byHash: hashIndex, moviesById, seriesById } = await buildHashIndex();
   const { byHash: releaseByHash, byLibraryRef: releaseByLibraryRef } = buildReleaseLookup();
 
   let items: QueueItem[] = torrents.map(t => {

@@ -31,7 +31,17 @@ export async function buildGrabPayload({
       // was previously invisible to the rate-limit tracker, so the very next
       // search would query this indexer again immediately instead of backing
       // off like every other 429 path already does.
-      if (res.status === 429 && indexerId) markRateLimited(indexerId);
+      //
+      // Some private trackers answer rapid-fire download requests with 401
+      // instead of 429 once a per-minute download quota is exceeded — the
+      // search itself (a separate Torznab request) still succeeds and returns
+      // valid results, so this looks like an auth failure but isn't one: the
+      // exact same URL, opened once by hand a minute later, works fine. An
+      // automatic run grabbing many movies back-to-back can trip this well
+      // before a human clicking manually ever would. Treat it the same as a
+      // 429 — back off this indexer for the cooldown window rather than
+      // hammering it again on the very next candidate.
+      if ((res.status === 429 || res.status === 401) && indexerId) markRateLimited(indexerId);
       throw new Error(`HTTP ${res.status}`);
     }
     const buf = Buffer.from(await res.arrayBuffer());

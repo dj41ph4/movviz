@@ -7,6 +7,7 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { LibrarySeriesCard } from "@/components/library/LibrarySeriesCard";
+import { SearchAndReplacePanel } from "@/components/library/SearchAndReplacePanel";
 import { useT, useI18n } from "@/i18n/provider";
 import { cn, relativeTime, formatDate } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
@@ -138,6 +139,7 @@ function LibraryTab() {
   const [tagFilter, setTagFilter] = useState(() => searchParams.get("tag") ?? "");
   const [rescanning, setRescanning] = useState(false);
   const [issues, setIssues] = useState<RescanIssue[] | null>(null);
+  const [searchAndReplaceOpen, setSearchAndReplaceOpen] = useState(false);
   const [starting, setStarting] = useState(false);
 
   // Sync library filters to URL for back-button support.
@@ -328,6 +330,13 @@ function LibraryTab() {
                 {rescanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
                 {t("library.rescan")}
               </button>
+              <button
+                onClick={() => setSearchAndReplaceOpen(true)}
+                className="flex h-9 items-center gap-2 rounded-lg glass-strong px-3.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink whitespace-nowrap"
+              >
+                <RefreshCw className="h-4 w-4" />
+                {t("library.searchAndReplace")}
+              </button>
             </div>
           )}
         </div>
@@ -449,6 +458,8 @@ function LibraryTab() {
       {!loading && total === 0 && (
         <p className="col-span-full py-16 text-center text-ink-dim">{t("library.empty")}</p>
       )}
+
+      <SearchAndReplacePanel open={searchAndReplaceOpen} onClose={() => setSearchAndReplaceOpen(false)} />
     </div>
   );
 }

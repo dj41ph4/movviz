@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { motion } from "framer-motion";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -9,19 +8,21 @@ import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { MetaDetail } from "@/lib/metadata/types";
-import type { LibraryStatus, LibraryFile } from "@/lib/library/types";
+import type { LibraryStatus, LibraryFile, LibraryFileVersion } from "@/lib/library/types";
 import { SeasonAccordion } from "@/components/title/SeasonAccordion";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
+import { VersionsPanel } from "@/components/title/VersionsPanel";
 import { BrandIcon } from "@/components/ui/BrandIcon";
 import { TagEditor } from "@/components/library/TagEditor";
 import { MediaBadges } from "@/components/library/MediaBadges";
+import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import {
-  Star, Plus, Check, Loader2, Bookmark, Film, Tv,
+  Star, Plus, Check, Loader2, Bookmark,
   Clock, HardDriveDownload, Search, SearchCheck, Hash, Play,
   ListFilter, Layers, ChevronDown, Calendar, X, Trash2, RefreshCw,
   type LucideIcon,
@@ -130,6 +131,7 @@ type LibraryListItem = {
   tmdbId: number;
   status?: LibraryStatus;
   file?: LibraryFile | null;
+  versions?: LibraryFileVersion[];
   monitored?: boolean;
   plexUrl?: string | null;
   plexRatingKey?: string | null;
@@ -220,9 +222,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       .map((e) => `${e.season}.${e.episode}`),
   );
 
-  const poster = detail?.posterPath
-    ? `https://image.tmdb.org/t/p/w500${detail.posterPath}`
-    : null;
   const backdrop = detail?.backdropPath
     ? `https://image.tmdb.org/t/p/original${detail.backdropPath}`
     : null;
@@ -236,6 +235,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const [searchingSeason, setSearchingSeason] = useState<number | null>(null);
   const [searchingEpisode, setSearchingEpisode] = useState<string | null>(null);
   const [searchingComplete, setSearchingComplete] = useState(false);
+  const [versionsOpen, setVersionsOpen] = useState(false);
   const [manualSearch, setManualSearch] = useState<{
     libraryRef: string;
     query: string;
@@ -814,19 +814,16 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
        * ── HEADER ────────────────────────────────────────────────────
        * Full page layout (large backdrop + overlay).
        */}
-      <div className="relative -mx-6 -mt-6 mb-8 h-[180px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:h-[320px]">
-          {backdrop && (
-            <motion.img
-              src={backdrop}
-              alt=""
-              className="h-full w-full object-cover"
-              loading="lazy"
-              initial={{ opacity: 0, scale: 1.05 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-void via-void/60 to-transparent" />
+      <div className="relative -mx-6 -mt-6 mb-8 h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:h-[75vh] sm:min-h-[420px]">
+          <TrailerHeader
+            backdropUrl={backdrop}
+            trailerKey={detail.trailerKey}
+            title={detail.title}
+            trigger="immediate"
+            className="h-full w-full"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-void via-void/70 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-void/60 via-transparent to-transparent" />
           {libraryMatch?.id && (
             <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-8 sm:top-8">
               <ReportIssueButton
@@ -842,216 +839,201 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 </button>
               </div>
             )}
-          </div>
 
-          {/* Poster + title + metadata + action buttons (full page) */}
-          <div className="relative z-10 -mt-14 flex flex-col items-center gap-4 text-center sm:-mt-40 sm:flex-row sm:items-start sm:gap-6 sm:text-left">
-            <div className="h-44 w-32 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl sm:h-64 sm:w-44">
-              {poster ? (
-                <img
-                  src={poster}
-                  alt={detail.title}
-                  className="h-full w-full object-cover"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center">
-                  {type === "movie" ? (
-                    <Film className="h-8 w-8 text-ink-soft/50" />
-                  ) : (
-                    <Tv className="h-8 w-8 text-ink-soft/50" />
-                  )}
-                </div>
+          {/* Title + metadata + actions, overlaid bottom-left on the video —
+              same composition as the Dashboard Cinematic Hero (reused, not
+              reinvented): status pill, big title, compact meta line, then a
+              primary action pill plus compact icon-only circles for the
+              secondary ones, instead of a wall of full-width labeled
+              buttons competing with the video for attention. */}
+          <div className="absolute inset-x-0 bottom-0 z-10 flex flex-col gap-3 p-4 sm:p-10">
+            {libraryStatus && StatusIcon && (
+              <span
+                className={cn(
+                  "inline-flex w-fit items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold",
+                  STATUS_TONE[libraryStatus],
+                )}
+              >
+                <StatusIcon className="h-3 w-3" />{" "}
+                {t(`status.${libraryStatus}`)}
+              </span>
+            )}
+            <h1 className="max-w-2xl text-3xl font-black tracking-tight text-white drop-shadow-lg sm:text-5xl">
+              {detail.title}
+            </h1>
+            <div className="flex flex-wrap items-center gap-3 text-sm text-white/80">
+              <span className="flex items-center gap-1 font-semibold text-amber">
+                <Star className="h-4 w-4 fill-amber" />{" "}
+                {detail.rating.toFixed(1)}
+              </span>
+              {detail.rtScore != null && (
+                <span className="flex items-center gap-1 font-semibold">
+                  <BrandIcon
+                    name="rottenTomatoes"
+                    className="h-4 w-4 rounded"
+                  />{" "}
+                  {detail.rtScore}%
+                </span>
               )}
+              {detail.metascore != null && (
+                <span className="flex items-center gap-1 font-semibold">
+                  <span className="flex h-4 w-4 items-center justify-center rounded bg-[#54B848] text-[9px] font-black text-white">
+                    M
+                  </span>{" "}
+                  {detail.metascore}
+                </span>
+              )}
+              {detail.imdbRating != null && (
+                <span className="flex items-center gap-1 font-semibold">
+                  <BrandIcon name="imdb" className="h-4 w-4 rounded" />{" "}
+                  {detail.imdbRating.toFixed(1)}
+                </span>
+              )}
+              <span>{detail.year ?? "—"}</span>
+              {detail.runtime ? (
+                <span>
+                  {detail.runtime} {t("title.minutes")}
+                </span>
+              ) : null}
+              {type === "series" && detail.seasons && (
+                <span>
+                  {detail.seasons.length} {t("title.seasonsCount")}
+                </span>
+              )}
+              <span className="max-w-xs truncate sm:max-w-md">{detail.genres.join(", ")}</span>
             </div>
-
-            <div className="flex flex-1 flex-col items-center pb-2 sm:items-start sm:justify-end">
-              {libraryStatus && StatusIcon && (
-                <span
-                  className={cn(
-                    "mb-2 inline-flex w-fit items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold",
-                    STATUS_TONE[libraryStatus],
-                  )}
-                >
-                  <StatusIcon className="h-3 w-3" />{" "}
-                  {t(`status.${libraryStatus}`)}
-                </span>
-              )}
-              <h1 className="text-2xl font-black text-ink sm:text-3xl">
-                {detail.title}
-              </h1>
-              <div className="mt-1.5 flex flex-wrap items-center justify-center gap-3 text-sm text-ink-soft sm:justify-start">
-                <span className="flex items-center gap-1 font-semibold text-amber">
-                  <Star className="h-4 w-4 fill-amber" />{" "}
-                  {detail.rating.toFixed(1)}
-                </span>
-                {detail.rtScore != null && (
-                  <span className="flex items-center gap-1 font-semibold">
-                    <BrandIcon
-                      name="rottenTomatoes"
-                      className="h-4 w-4 rounded"
-                    />{" "}
-                    {detail.rtScore}%
-                  </span>
-                )}
-                {detail.metascore != null && (
-                  <span className="flex items-center gap-1 font-semibold">
-                    <span className="flex h-4 w-4 items-center justify-center rounded bg-[#54B848] text-[9px] font-black text-white">
-                      M
-                    </span>{" "}
-                    {detail.metascore}
-                  </span>
-                )}
-                {detail.imdbRating != null && (
-                  <span className="flex items-center gap-1 font-semibold">
-                    <BrandIcon name="imdb" className="h-4 w-4 rounded" />{" "}
-                    {detail.imdbRating.toFixed(1)}
-                  </span>
-                )}
-                <span>{detail.year ?? "—"}</span>
-                {detail.runtime ? (
-                  <span>
-                    {detail.runtime} {t("title.minutes")}
-                  </span>
-                ) : null}
-                {type === "series" && detail.seasons && (
-                  <span>
-                    {detail.seasons.length} {t("title.seasonsCount")}
-                  </span>
-                )}
-                <span>{detail.genres.join(", ")}</span>
-              </div>
-              {detail.tagline && (
-                <p className="mt-2 max-w-2xl text-sm italic text-ink-dim">
-                  {detail.tagline}
-                </p>
-              )}
-              <p className="mt-3 max-w-2xl text-sm text-ink-soft">
-                {detail.overview || t("title.noSynopsis")}
+            {detail.tagline && (
+              <p className="max-w-xl text-sm italic text-white/70">
+                {detail.tagline}
               </p>
+            )}
 
-              {type === "movie" && (
-                <MediaBadges
-                  file={libraryMatch?.file}
-                  className="relative static mt-3"
-                  variant="surface"
-                />
-              )}
-
-              {/* Action buttons — full page */}
-              <div className="mt-4 flex flex-wrap justify-center gap-2 sm:justify-start">
-                {!inLibrary ? (
-                  <button
-                    onClick={addToLibrary}
-                    disabled={adding}
-                    className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white transition-transform hover:scale-105 disabled:opacity-50"
-                  >
-                    {adding ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                    {t("discover.addToLibrary")}
-                  </button>
-                ) : (
-                  <>
-                    {libraryStatus === "available" && libraryMatch?.plexUrl && (
-                      betaPlayer && libraryMatch?.plexRatingKey ? (
-                        <button
-                          onClick={() => setPlayRatingKey(libraryMatch.plexRatingKey!)}
-                          className="flex h-10 items-center gap-2 rounded-xl bg-amber px-5 text-sm font-bold text-black transition-transform hover:scale-105"
-                        >
-                          <Play className="h-4 w-4 fill-black" />
-                          {t("library.watchOnPlex")}
-                        </button>
-                      ) : (
-                        <a
-                          href={libraryMatch.plexUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex h-10 items-center gap-2 rounded-xl bg-amber px-5 text-sm font-bold text-black transition-transform hover:scale-105"
-                        >
-                          <Play className="h-4 w-4 fill-black" />
-                          {t("library.watchOnPlex")}
-                        </a>
-                      )
-                    )}
-                    {canSearch && (
-                      <button
-                        onClick={triggerSearch}
-                        disabled={isSearching}
-                        title={
-                          libraryStatus === "available"
-                            ? t("activity.upgrades.title")
-                            : undefined
-                        }
-                        className={cn(
-                          "flex h-10 items-center gap-2 rounded-xl px-5 text-sm font-bold transition-transform hover:scale-105",
-                          libraryStatus === "available"
-                            ? "glass text-ink-soft hover:text-ink"
-                            : "bg-cyan/15 text-cyan",
-                        )}
-                      >
-                        {isSearching ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Search className="h-4 w-4" />
-                        )}
-                        {t("activity.searchNow")}
-                      </button>
-                    )}
-                    {libraryMatch?.id && (
-                      <button
-                        onClick={openManualSearch}
-                        title={t("library.manualSearch")}
-                        className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink transition-transform hover:scale-105"
-                      >
-                        <ListFilter className="h-4 w-4" />
-                        {t("search.manualPick")}
-                      </button>
-                    )}
-                  </>
-                )}
+            {/* Action row */}
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              {!inLibrary ? (
                 <button
-                  onClick={toggleWatchlist}
-                  disabled={watching}
-                  className={cn(
-                    "flex h-10 items-center gap-2 rounded-xl px-5 text-sm font-bold glass transition-transform hover:scale-105",
-                    onWatchlist ? "text-brand-glow" : "text-ink-soft",
-                  )}
+                  onClick={addToLibrary}
+                  disabled={adding}
+                  className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white transition-transform hover:scale-105 disabled:opacity-50"
                 >
-                  {watching ? (
+                  {adding ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    <Bookmark
-                      className={cn(
-                        "h-4 w-4",
-                        onWatchlist && "fill-brand-glow",
-                      )}
-                    />
+                    <Plus className="h-4 w-4" />
                   )}
-                  {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
+                  {t("discover.addToLibrary")}
                 </button>
-                {detail.trailerKey && (
-                  <button
-                    onClick={() => setShowTrailer(true)}
-                    className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink transition-transform hover:scale-105"
-                  >
-                    <Play className="h-4 w-4" />
-                    {t("title.trailer")}
-                  </button>
+              ) : (
+                <>
+                  {libraryStatus === "available" && libraryMatch?.plexUrl && (
+                    betaPlayer && libraryMatch?.plexRatingKey ? (
+                      <button
+                        onClick={() => setPlayRatingKey(libraryMatch.plexRatingKey!)}
+                        className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105"
+                      >
+                        <Play className="h-4 w-4 fill-black" />
+                        {t("library.watchOnPlex")}
+                      </button>
+                    ) : (
+                      <a
+                        href={libraryMatch.plexUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105"
+                      >
+                        <Play className="h-4 w-4 fill-black" />
+                        {t("library.watchOnPlex")}
+                      </a>
+                    )
+                  )}
+                  {canSearch && (
+                    <button
+                      onClick={triggerSearch}
+                      disabled={isSearching}
+                      title={
+                        libraryStatus === "available"
+                          ? t("activity.upgrades.title")
+                          : t("activity.searchNow")
+                      }
+                      className={cn(
+                        "flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-bold backdrop-blur transition-transform hover:scale-105",
+                        libraryStatus === "available"
+                          ? "bg-white/10 text-white/80 hover:text-white"
+                          : "bg-cyan/80 text-white",
+                      )}
+                    >
+                      {isSearching ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Search className="h-4 w-4" />
+                      )}
+                      {libraryStatus === "available" ? "" : t("activity.searchNow")}
+                    </button>
+                  )}
+                  {libraryMatch?.id && (
+                    <button
+                      onClick={openManualSearch}
+                      title={t("library.manualSearch")}
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white"
+                    >
+                      <ListFilter className="h-4 w-4" />
+                    </button>
+                  )}
+                  {type === "movie" && libraryStatus === "available" && libraryMatch?.file && libraryMatch?.id && (
+                    <button
+                      onClick={() => setVersionsOpen(true)}
+                      title={
+                        libraryMatch.versions && libraryMatch.versions.length > 1
+                          ? t("title.versions.title", { count: libraryMatch.versions.length })
+                          : t("title.versions.manage")
+                      }
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white"
+                    >
+                      <Layers className="h-4 w-4" />
+                    </button>
+                  )}
+                </>
+              )}
+              <button
+                onClick={toggleWatchlist}
+                disabled={watching}
+                title={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-transform hover:scale-110",
+                  onWatchlist ? "text-brand-glow" : "text-white/80 hover:text-white",
                 )}
-                {type === "movie" && detail.collection && (
-                  <Link
-                    href={`/collection/${detail.collection.id}`}
-                    className="flex h-10 items-center gap-2 rounded-xl glass px-5 text-sm font-bold text-ink-soft hover:text-ink transition-transform hover:scale-105"
-                  >
-                    <Layers className="h-4 w-4" />
-                    {t("title.saga")}
-                  </Link>
+              >
+                {watching ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Bookmark
+                    className={cn(
+                      "h-4 w-4",
+                      onWatchlist && "fill-brand-glow",
+                    )}
+                  />
                 )}
-              </div>
+              </button>
+              {detail.trailerKey && (
+                <button
+                  onClick={() => setShowTrailer(true)}
+                  title={t("title.trailer")}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white"
+                >
+                  <Play className="h-4 w-4" />
+                </button>
+              )}
+              {type === "movie" && detail.collection && (
+                <Link
+                  href={`/collection/${detail.collection.id}`}
+                  title={t("title.saga")}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white"
+                >
+                  <Layers className="h-4 w-4" />
+                </Link>
+              )}
             </div>
+          </div>
       </div>
 
     {/*
@@ -1061,6 +1043,22 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_260px]">
         {/* ── MAIN COLUMN ────────────────────────────────────────────── */}
         <div className="min-w-0 space-y-10">
+          {/* Synopsis + quality badges, right below the hero — same spot
+              Netflix puts the overview under the video/actions overlay. */}
+          <div className="space-y-3">
+            <p className="max-w-3xl text-sm text-ink-soft">
+              {detail.overview || t("title.noSynopsis")}
+            </p>
+            {type === "movie" && (
+              <MediaBadges
+                file={libraryMatch?.file}
+                plexMediaInfo={libraryMatch?.plexMediaInfo}
+                className="relative static"
+                variant="surface"
+              />
+            )}
+          </div>
+
           {/* ── Cast ──────────────────────────────────────────────────── */}
           {detail.cast.length > 0 && (
             <div>
@@ -1339,6 +1337,16 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           title={manualSearch.title}
           tmdbId={manualSearch.tmdbId}
           imdbId={manualSearch.imdbId}
+        />
+      )}
+
+      {versionsOpen && libraryMatch?.id && (
+        <VersionsPanel
+          movieId={libraryMatch.id}
+          title={detail.title}
+          versions={libraryMatch.versions?.length ? libraryMatch.versions : libraryMatch.file ? [{ ...libraryMatch.file, id: "primary", versionSource: "unknown", reason: "Acquisition initiale", primary: true }] : []}
+          onClose={() => setVersionsOpen(false)}
+          onChange={() => mutateLibrary()}
         />
       )}
 

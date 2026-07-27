@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useT } from "@/i18n/provider";
@@ -48,13 +48,10 @@ export default function CalendarPage() {
   const { data, error, isLoading } = useSWR<{ entries: CalendarEntry[] }>("/api/calendar");
   const entries = data?.entries ?? [];
 
-  const [view, setView] = useState<CalendarView>("month");
-  useEffect(() => {
-    // Default to week on mobile — a 7-col month grid with posters is
-    // unreadable at phone width. Only applied once on mount so a manual
-    // toggle afterward isn't fought by a resize.
-    if (window.innerWidth < 768) setView("week");
-  }, []);
+  // Week is the primary view everywhere (desktop and mobile alike) — a 7-col
+  // month grid with posters is unreadable at phone width, and week reads as
+  // more actionable ("what's coming up this week") than a full month.
+  const [view, setView] = useState<CalendarView>("week");
 
   const [anchor, setAnchor] = useState(() => new Date());
   const shift = (deltaMonthsOrWeeks: number) => {

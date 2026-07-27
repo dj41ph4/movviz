@@ -17,6 +17,18 @@ export interface ReleaseRules {
   maxSeasonSizeMb: number | null;
   /** Score bonus per codec, layered on top of resolution/source/custom-format scoring. */
   codecScores: { x264: number; x265: number; av1: number };
+  /**
+   * "Rechercher et remplacer"'s language-upgrade target — a normalized
+   * language tag (see naming/parser.ts's normalizeLanguage: "VF", "VFQ",
+   * "VOSTFR", "VOST", "VO") or null to disable this specific upgrade path
+   * entirely. Deliberately a plain user preference, not a hardcoded
+   * direction: a Quebec household wants the reverse of a France one, and
+   * neither is "the" correct default — only which one Movviz assumes out of
+   * the box (VF, matching the project's French-first default audience).
+   * Symmetric by construction: any owned file whose language differs from
+   * this target is eligible, regardless of which two tags are involved.
+   */
+  preferredLanguageUpgrade: string | null;
 }
 
 const DEFAULT_RULES: ReleaseRules = {
@@ -26,6 +38,7 @@ const DEFAULT_RULES: ReleaseRules = {
   maxSeasonSizeMb: null,
   // x265/AV1 deliver the same quality in a smaller file, so they outscore x264 by default.
   codecScores: { x264: 0, x265: 8, av1: 14 },
+  preferredLanguageUpgrade: "VF",
 };
 
 function read(): ReleaseRules {

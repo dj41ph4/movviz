@@ -14,6 +14,7 @@ import type { WatchlistItem } from "@/lib/watchlist/types";
 import { useTheme } from "@/lib/theme/useTheme";
 import { cn } from "@/lib/utils";
 import type { ThemeMode } from "@/lib/theme/theme";
+import { useTitlePanel } from "@/components/title/useTitlePanel";
 
 interface TokenRecord {
   id: string;
@@ -33,6 +34,7 @@ export default function ProfilePage() {
   const { locale } = useI18n();
   const user = useCurrentUser();
   const { mode: themeMode, setThemeMode } = useTheme();
+  const { titlePanel } = useTitlePanel();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [pwMessage, setPwMessage] = useState<string | null>(null);
@@ -156,6 +158,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-[800px]">
+      {titlePanel}
       <PageHeader eyebrow={user.username} title={t("profile.title")} description={t("profile.description")} />
 
       <div className="mb-6 rounded-2xl glass p-5">

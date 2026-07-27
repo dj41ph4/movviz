@@ -150,28 +150,39 @@ export function IndexerManager() {
           const dot = status === "ok" ? "text-ok" : status === "fail" ? "text-down" : "text-ink-dim";
           return (
             <div key={r.id} className="rounded-2xl glass p-4">
-              <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                <span className={cn("flex h-11 w-11 items-center justify-center rounded-xl", r.protocol === "torrent" ? "bg-cyan/12 text-cyan" : "bg-brand/12 text-brand-glow")}>
+              {/* Identity row — always full-width so the name/URL never gets
+                  squeezed to nothing by the action buttons below, which used
+                  to sit on this same flex-wrap row and steal its space at
+                  narrower viewports (buttons don't shrink, so the truncating
+                  name did — down to an invisible sliver). */}
+              <div className="flex items-center gap-3">
+                <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", r.protocol === "torrent" ? "bg-cyan/12 text-cyan" : "bg-brand/12 text-brand-glow")}>
                   {r.protocol === "torrent" ? <Magnet className="h-5 w-5" /> : <Server className="h-5 w-5" />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <h3 className="truncate font-bold text-ink">{r.name}</h3>
-                    <Circle className={cn("h-2 w-2 fill-current", dot)} />
-                    <span className={cn("text-xs font-semibold", dot)}>
-                      {status === "ok" ? t("indexerMgr.testOk") : status === "fail" ? `${t("indexerMgr.testFail")}${r.lastTest?.detail ? " · " + r.lastTest.detail : ""}` : t("indexerMgr.untested")}
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <Circle className={cn("h-2 w-2 fill-current", dot)} />
+                      <span className={cn("text-xs font-semibold", dot)}>
+                        {status === "ok" ? t("indexerMgr.testOk") : status === "fail" ? `${t("indexerMgr.testFail")}${r.lastTest?.detail ? " · " + r.lastTest.detail : ""}` : t("indexerMgr.untested")}
+                      </span>
                     </span>
                     {r.hasApiKey && (
-                      <span title={t("indexerMgr.apiKey")}><KeyRound className="h-3 w-3 text-ink-dim" /></span>
+                      <span title={t("indexerMgr.apiKey")}><KeyRound className="h-3 w-3 shrink-0 text-ink-dim" /></span>
                     )}
                     {r.hasCredentials && (
-                      <span title={t("indexerMgr.credentials")}><UserRound className="h-3 w-3 text-ink-dim" /></span>
+                      <span title={t("indexerMgr.credentials")}><UserRound className="h-3 w-3 shrink-0 text-ink-dim" /></span>
                     )}
                   </div>
                   <p className="truncate text-xs text-ink-dim">
                     {r.protocol === "torrent" ? t("indexerMgr.torrent") : t("indexerMgr.usenet")} · {r.baseUrl}
                   </p>
                 </div>
+              </div>
+
+              {/* Actions row — wraps freely on its own line, never competing with the identity row above for width. */}
+              <div className="mt-3 flex flex-wrap items-center gap-2 sm:gap-3">
                 <button
                   onClick={() => setEditingCats(editingCats === r.id ? null : r.id)}
                   className={cn("flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3 text-sm font-semibold transition-colors", editingCats === r.id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}

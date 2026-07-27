@@ -43,6 +43,37 @@ export interface LibraryFile {
   addedAt: number;
 }
 
+/**
+ * Why a grab happened — threaded through the existing/new grab paths into
+ * `decisionLog.ts`, NOT a second engine: `first_acquisition` is the normal
+ * `autoGrab.ts` path (unchanged), `quality_upgrade` is the existing
+ * `searchAndReplace.ts` path (unchanged), `additional_version` is the new
+ * LOT6 "add a version" search (`addVersionSearch.ts`) which deliberately
+ * ignores quality/size limits but keeps every safety filter.
+ */
+export type GrabIntent = "first_acquisition" | "quality_upgrade" | "additional_version";
+
+/**
+ * One physical file for a movie that can have several. `primary: boolean`
+ * lives per-entry rather than as a separate index into the array — adding
+ * or removing a version never requires shifting an index alongside it.
+ * Deliberately shaped as `LibraryFile` + a few fields so `versions.ts` can
+ * operate on it generically (see LOT8 — same shape will back episodes
+ * later without a rewrite).
+ */
+export interface LibraryFileVersion extends LibraryFile {
+  id: string;
+  /**
+   * Indexer name, or "plex" when detected via the Plex library sync. Named
+   * `versionSource` (not `source`) because `LibraryFile` already has a
+   * `source` field with a different meaning (release source, e.g. "BluRay").
+   */
+  versionSource: string;
+  /** Human-readable — "Acquisition initiale", "Version supplémentaire", or free text. */
+  reason: string;
+  primary: boolean;
+}
+
 export interface LibraryMovie {
   id: string; // movviz id, "mv_..."
   tmdbId: number;
@@ -61,6 +92,16 @@ export interface LibraryMovie {
   qualityProfileId: string;
   status: LibraryStatus;
   file: LibraryFile | null;
+  /**
+   * Additional copies of this same movie (e.g. a 2160p HDR primary + a 1080p
+   * VF secondary) — absent/empty for the overwhelming majority of
+   * single-file movies. `file` always stays populated as a mirror of
+   * whichever entry has `primary: true`, so the ~20 existing call sites
+   * that read `movie.file` directly need zero changes. Only code that
+   * ADDS/replaces a version goes through `src/lib/library/versions.ts`
+   * instead of patching `file` by hand.
+   */
+  versions?: LibraryFileVersion[];
   /** infoHash of the torrent currently in flight for this movie, if any. */
   activeInfoHash: string | null;
   addedAt: number;

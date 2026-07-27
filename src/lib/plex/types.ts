@@ -20,6 +20,14 @@ export interface PlexSection {
   title: string;
 }
 
+/** One `<Media>` entry parsed off a Plex item — see parseAllMediaVersions in client.ts. */
+export interface PlexMediaVersion {
+  file: { path: string; size: number; resolution: string | null };
+  videoCodec: string | null;
+  audioCodec: string | null;
+  hdr: string | null;
+}
+
 export interface PlexLibraryItem {
   ratingKey: string;
   tmdbId: number | null;
@@ -36,6 +44,13 @@ export interface PlexLibraryItem {
   audioCodec: string | null;
   /** HDR type from Plex stream analysis (e.g. "HDR10", "Dolby Vision"). */
   hdr: string | null;
+  /**
+   * Set only when Plex reports more than one `<Media>` entry for this item
+   * (a genuine multi-version title, e.g. 2160p HDR10 + 1080p VF) — absent
+   * for the overwhelming majority of single-file items, same convention as
+   * `LibraryMovie.versions` on the Movviz side.
+   */
+  mediaVersions?: PlexMediaVersion[];
   /** Rich media metadata (streams, chapters, container, bitrate). */
   mediaDetail: PlexMediaInfo | null;
 }

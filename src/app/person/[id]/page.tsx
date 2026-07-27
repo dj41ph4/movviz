@@ -6,10 +6,12 @@ import Link from "next/link";
 import { useT } from "@/i18n/provider";
 import type { MetaPerson } from "@/lib/metadata/tmdb";
 import { Film, Tv, User } from "lucide-react";
+import { useTitlePanel } from "@/components/title/useTitlePanel";
 
 export default function PersonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = usePromise(params);
   const t = useT();
+  const { titlePanel } = useTitlePanel();
   // Cached by SWR: navigating back to a person re-renders instantly.
   const { data } = useSWR<MetaPerson>(`/api/metadata/person?id=${id}`);
   const person = data?.id ? data : null;
@@ -30,6 +32,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
 
   return (
     <div className="mx-auto max-w-[1200px]">
+      {titlePanel}
       <div className="mb-8 flex gap-6">
         <div className="h-56 w-40 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
           {photo ? (

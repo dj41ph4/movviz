@@ -10,6 +10,7 @@ import { useT, useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
+import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { GENRE_GRADIENTS } from "@/lib/metadata/curated";
@@ -628,31 +629,22 @@ function PosterRow({
   onAdded: (key: string) => void;
   onSeeAll: () => void;
 }) {
-  const t = useT();
   if (results.length === 0) return null;
   return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
-        <button onClick={onSeeAll} className="flex items-center gap-1 text-sm font-semibold text-brand-glow hover:text-brand-2 transition-colors">
-          {t("discover.seeAll")} <ChevronRight className="h-4 w-4" />
-        </button>
-      </div>
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {results.map((r, i) => (
-          <div key={`${r.type}:${r.tmdbId}`} className="w-[150px] shrink-0 sm:w-[170px]">
-            <DiscoverCard
-              index={i}
-              result={r}
-              status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
-              libLoaded={libLoaded}
-              watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
-              onAdded={() => onAdded(`${r.type}:${r.tmdbId}`)}
-            />
-          </div>
-        ))}
-      </div>
-    </section>
+    <SharedPosterRow title={title} onSeeAll={onSeeAll}>
+      {results.map((r, i) => (
+        <div key={`${r.type}:${r.tmdbId}`} className="w-[150px] shrink-0 sm:w-[170px]">
+          <DiscoverCard
+            index={i}
+            result={r}
+            status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
+            libLoaded={libLoaded}
+            watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
+            onAdded={() => onAdded(`${r.type}:${r.tmdbId}`)}
+          />
+        </div>
+      ))}
+    </SharedPosterRow>
   );
 }
 

@@ -7,7 +7,7 @@ import {
   getSeriesByTmdbId, addSeries, updateSeries, loadSeries,
 } from "@/lib/library/store";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
-import type { LibraryFile, LibraryMovie, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
+import type { LibraryFile, LibraryFileVersion, LibraryMovie, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 
 // A run does hundreds of sequential awaited TMDb/Plex calls, so two overlapping
@@ -99,6 +99,56 @@ function toLibraryFile(plex: PlexLibraryItem): LibraryFile | null {
 }
 
 /**
+ * Merges Plex's `mediaVersions` (LOT6.4 — one entry per `<Media>` Plex
+ * reports for this item) into the movie's own `versions[]`, matched by
+ * `path` so a version Movviz already knows about keeps its id/history
+ * instead of being recreated. A path Plex no longer lists but Movviz still
+ * has is KEPT (never deleted) — same caution as the rest of the sync
+ * (Plex's incremental response only ever covers recently-changed items,
+ * never a full "this is everything" snapshot). Two versions are only ever
+ * merged under the SAME tmdbId — this never creates a second library entry.
+ */
+function stripVersionFields(v: LibraryFileVersion): LibraryFile {
+  const { id: _id, versionSource: _versionSource, reason: _reason, primary: _primary, ...file } = v;
+  return file;
+}
+
+function mergePlexVersions(existing: LibraryMovie, item: PlexLibraryItem): { file: LibraryFile; versions?: LibraryFileVersion[] } | null {
+  if (!item.mediaVersions || item.mediaVersions.length === 0) return null;
+
+  const priorByPath = new Map<string, LibraryFileVersion>();
+  for (const v of existing.versions ?? []) priorByPath.set(v.path, v);
+  if (existing.versions === undefined && existing.file) priorByPath.set(existing.file.path, { ...existing.file, id: "legacy_primary", versionSource: "unknown", reason: "Acquisition initiale", primary: true });
+
+  const versions: LibraryFileVersion[] = item.mediaVersions.map((v, i) => {
+    const prior = priorByPath.get(v.file.path);
+    priorByPath.delete(v.file.path);
+    return {
+      path: v.file.path,
+      quality: v.file.resolution ?? prior?.quality ?? "",
+      resolution: v.file.resolution,
+      videoCodec: v.videoCodec,
+      audioCodec: v.audioCodec,
+      hdr: v.hdr,
+      source: prior?.source ?? null,
+      size: v.file.size,
+      addedAt: prior?.addedAt ?? Date.now(),
+      id: prior?.id ?? `plex_${item.ratingKey}_${i}`,
+      versionSource: "plex",
+      reason: prior?.reason ?? (i === 0 ? "Détecté via Plex" : "Version supplémentaire détectée via Plex"),
+      primary: i === 0,
+    };
+  });
+
+  // Anything left in priorByPath is a version Plex's response didn't mention
+  // this time around — kept, demoted to non-primary since Plex's index 0 wins.
+  for (const leftover of priorByPath.values()) versions.push({ ...leftover, primary: false });
+
+  const primaryEntry = versions.find((v) => v.primary) ?? versions[0];
+  return { file: stripVersionFields(primaryEntry), versions };
+}
+
+/**
  * Backfills plexMediaInfo for every library movie that has a plexRatingKey
  * but no media detail yet. The incremental sync only processes recently-
  * changed Plex items, so older movies never get their stream/chapter/container
@@ -138,7 +188,13 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
     if (existing) {
       const patch: Partial<LibraryMovie> = {};
       if (existing.status !== "available") patch.status = "available";
-      if (file) patch.file = file;
+      const merged = mergePlexVersions(existing, item);
+      if (merged) {
+        patch.file = merged.file;
+        patch.versions = merged.versions;
+      } else if (file) {
+        patch.file = file;
+      }
       if (!existing.plexRatingKey) patch.plexRatingKey = item.ratingKey;
       if (item.mediaDetail) patch.plexMediaInfo = item.mediaDetail;
       if (Object.keys(patch).length > 0) {
@@ -150,6 +206,27 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
 
     const meta = await fetchTmdbMovie(item.tmdbId);
     if (!meta) continue;
+
+    // Brand-new movie with several Plex Media entries already at add time —
+    // no prior version history to preserve, just build versions[] directly.
+    const initialVersions: LibraryFileVersion[] | undefined = item.mediaVersions?.length
+      ? item.mediaVersions.map((v, i) => ({
+          path: v.file.path,
+          quality: v.file.resolution ?? "",
+          resolution: v.file.resolution,
+          videoCodec: v.videoCodec,
+          audioCodec: v.audioCodec,
+          hdr: v.hdr,
+          source: null,
+          size: v.file.size,
+          addedAt: Date.now(),
+          id: `plex_${item.ratingKey}_${i}`,
+          versionSource: "plex",
+          reason: i === 0 ? "Détecté via Plex" : "Version supplémentaire détectée via Plex",
+          primary: i === 0,
+        }))
+      : undefined;
+
     const movie: LibraryMovie = {
       id: `mv_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
       tmdbId: meta.tmdbId,
@@ -167,7 +244,8 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
       monitored: true,
       qualityProfileId: defaultQualityProfile().id,
       status: "available",
-      file,
+      file: initialVersions ? stripVersionFields(initialVersions[0]) : file,
+      versions: initialVersions,
       activeInfoHash: null,
       addedAt: Date.now(),
       tags: ["plex"],

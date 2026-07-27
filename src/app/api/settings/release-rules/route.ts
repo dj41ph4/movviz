@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { loadReleaseRules, saveReleaseRules } from "@/lib/library/releaseRules";
+import { markWizardWritten, markManuallyEdited, type WizardTrackedField } from "@/lib/setup/wizardProvenance";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,25 @@ export async function PUT(req: NextRequest) {
       av1: Number.isFinite(body.codecScores.av1) ? Number(body.codecScores.av1) : cur.av1,
     };
   }
+  if ("preferredLanguageUpgrade" in body) {
+    const allowed = ["VF", "VFQ", "MULTI · VF", "VOSTFR", "VOST", "VO"];
+    patch.preferredLanguageUpgrade = allowed.includes(body.preferredLanguageUpgrade) ? body.preferredLanguageUpgrade : null;
+  }
   const next = saveReleaseRules(patch);
+
+  // Provenance: only the fields the setup wizard's hardware step actually
+  // writes are tracked, distinguishing a wizard-set default from a value the
+  // user later edits by hand in the Qualité settings tab — see
+  // wizardProvenance.ts for how LOT4.2's smart re-optimization uses this.
+  const touched: WizardTrackedField[] = [];
+  if ("codecScores" in patch) touched.push("codecScores.x264", "codecScores.x265", "codecScores.av1");
+  if ("maxMovieSizeMb" in patch) touched.push("maxMovieSizeMb");
+  if ("maxEpisodeSizeMb" in patch) touched.push("maxEpisodeSizeMb");
+  if ("maxSeasonSizeMb" in patch) touched.push("maxSeasonSizeMb");
+  if (touched.length > 0) {
+    if (body.source === "wizard") markWizardWritten(touched);
+    else markManuallyEdited(touched);
+  }
+
   return NextResponse.json(next);
 }

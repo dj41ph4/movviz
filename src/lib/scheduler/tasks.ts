@@ -20,6 +20,8 @@ import { mapWithConcurrency } from "@/lib/concurrency";
 import { importSeerrRequests } from "@/lib/seerr/importRequests";
 import { seerrConfigured } from "@/lib/seerr/store";
 import { incrementalDiskScan } from "@/lib/library/diskScan";
+import { runLibraryHealthCheck } from "@/lib/library/libraryHealthCheck";
+import { findUpgradeCandidates } from "@/lib/library/searchAndReplace";
 
 export interface ScheduledTask {
   id: string;
@@ -57,6 +59,28 @@ export const TASKS: ScheduledTask[] = [
       const issues = await reconcileLibrary();
       if (issues.length > 0) {
         emitNotification("reconcile_issues", `Réconciliation : ${issues.length} anomalie(s) détectée(s)`, "/library", { count: issues.length });
+      }
+    },
+  },
+  {
+    id: "search-and-replace-check",
+    name: "Vérification des remplacements suggérés",
+    // "Rechercher et remplacer" (searchAndReplace.ts) was on-demand only —
+    // nothing ever ran it unless an admin happened to open the panel. This
+    // surfaces the same read-only candidates (language-upgrade target and
+    // custom-format preferences) proactively, still never grabbing anything
+    // on its own — purely a heads-up notification, exactly like
+    // library-reconcile above.
+    intervalMs: 24 * 60 * 60 * 1000, // daily
+    run: async () => {
+      const candidates = await findUpgradeCandidates();
+      if (candidates.length > 0) {
+        emitNotification(
+          "upgrade_candidates_found",
+          `${candidates.length} remplacement(s) suggéré(s) disponible(s)`,
+          "/library",
+          { count: candidates.length }
+        );
       }
     },
   },
@@ -240,6 +264,18 @@ export const TASKS: ScheduledTask[] = [
     intervalMs: 30 * 24 * 60 * 60 * 1000, // every 30 days
     run: async () => {
       await purgeExpiredTrash();
+    },
+  },
+  {
+    id: "library-health-check",
+    name: "Diagnostic bibliothèque",
+    intervalMs: 30 * 24 * 60 * 60 * 1000, // every 30 days
+    // Read-only: never searches, never downloads. Only prepares data
+    // (statuses incohérents, langue non détectée, sorties pas rattrapées,
+    // métadonnées incomplètes) — see libraryHealthCheck.ts for the full
+    // rationale. Manually launchable like any task via /api/tasks/[id]/run.
+    run: async () => {
+      await runLibraryHealthCheck();
     },
   },
 ];

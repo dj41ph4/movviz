@@ -1,4 +1,4 @@
-import type { PlexAccount, PlexCollectionSummary, PlexFriend, PlexHomeUser, PlexWatchlistItem, PlexServerConfig, PlexSection, PlexLibraryItem, PlexEpisodeItem, PlexMediaInfo, PlexVideoStream, PlexAudioStream, PlexSubtitleStream, PlexChapter } from "./types";
+import type { PlexAccount, PlexCollectionSummary, PlexFriend, PlexHomeUser, PlexWatchlistItem, PlexServerConfig, PlexSection, PlexLibraryItem, PlexEpisodeItem, PlexMediaInfo, PlexVideoStream, PlexAudioStream, PlexSubtitleStream, PlexChapter, PlexMediaVersion } from "./types";
 import { loadPlexConfig } from "./store";
 
 /**
@@ -307,9 +307,9 @@ const AUDIO_CODEC_LABEL: Record<string, string> = {
   dts: "DTS",
 };
 
-function parseStreamInfo(media: RawMedia[] | undefined): { videoCodec: string | null; audioCodec: string | null; hdr: string | null } {
-  if (!media?.[0]?.Part?.[0]?.Stream) return { videoCodec: null, audioCodec: null, hdr: null };
-  const streams = media[0].Part[0].Stream;
+function parseStreamInfo(media: RawMedia[] | undefined, index = 0): { videoCodec: string | null; audioCodec: string | null; hdr: string | null } {
+  if (!media?.[index]?.Part?.[0]?.Stream) return { videoCodec: null, audioCodec: null, hdr: null };
+  const streams = media[index].Part![0].Stream!;
   let videoCodec: string | null = null;
   let audioCodec: string | null = null;
   let hdr: string | null = null;
@@ -411,16 +411,40 @@ export function parseMediaDetail(item: RawLibraryItem): PlexMediaInfo {
   };
 }
 
-function parseFile(item: RawLibraryItem): PlexLibraryItem["file"] {
-  const media = item.Media?.[0];
+const RESOLUTION_MAP: Record<string, string> = { "4k": "2160p", "1080": "1080p", "720": "720p", "480": "480p" };
+
+function parseFileAt(item: RawLibraryItem, index: number): PlexLibraryItem["file"] {
+  const media = item.Media?.[index];
   const part = media?.Part?.[0];
   if (!part?.file) return null;
-  const resMap: Record<string, string> = { "4k": "2160p", "1080": "1080p", "720": "720p", "480": "480p" };
   return {
     path: part.file,
     size: part.size ?? 0,
-    resolution: media?.videoResolution ? (resMap[media.videoResolution] ?? null) : null,
+    resolution: media?.videoResolution ? (RESOLUTION_MAP[media.videoResolution] ?? null) : null,
   };
+}
+
+function parseFile(item: RawLibraryItem): PlexLibraryItem["file"] {
+  return parseFileAt(item, 0);
+}
+
+/**
+ * Plex exposes every version of a movie under the SAME item's `Media[]`
+ * array (e.g. a 2160p HDR10 entry and a 1080p VF entry side by side) — the
+ * rest of this file only ever reads `Media[0]`, which is exactly the
+ * "Plex sync silently drops every version but one" gap LOT6.4 fixes.
+ * Returns one entry per `Media[]` index that actually has a resolvable
+ * file, in Plex's own order (index 0 stays whatever Plex considers primary).
+ */
+export function parseAllMediaVersions(item: RawLibraryItem): PlexMediaVersion[] {
+  const count = item.Media?.length ?? 0;
+  const versions: PlexMediaVersion[] = [];
+  for (let i = 0; i < count; i++) {
+    const file = parseFileAt(item, i);
+    if (!file) continue;
+    versions.push({ file, ...parseStreamInfo(item.Media, i) });
+  }
+  return versions;
 }
 
 function mapItem(item: RawLibraryItem, info: BatchItemInfo | null): PlexLibraryItem {
@@ -437,6 +461,7 @@ function mapItem(item: RawLibraryItem, info: BatchItemInfo | null): PlexLibraryI
     audioCodec: info?.audioCodec ?? null,
     hdr: info?.hdr ?? null,
     mediaDetail: info?.mediaDetail ?? null,
+    mediaVersions: info?.mediaVersions?.length ? info.mediaVersions : undefined,
   };
 }
 
@@ -464,6 +489,8 @@ interface BatchItemInfo {
   audioCodec: string | null;
   hdr: string | null;
   mediaDetail: PlexMediaInfo;
+  /** Only set when Plex reports more than one Media entry for this item — see parseAllMediaVersions. */
+  mediaVersions: PlexMediaVersion[];
 }
 
 /**
@@ -489,10 +516,12 @@ export async function batchTmdbIds(cfg: PlexServerConfig, token: string, ratingK
       const raw: RawLibraryItem[] = data?.MediaContainer?.Metadata ?? [];
       for (const item of raw) {
         const info = parseStreamInfo(item.Media);
+        const mediaVersions = parseAllMediaVersions(item);
         result.set(item.ratingKey, {
           tmdbId: extractTmdbId(item.Guid),
           ...info,
           mediaDetail: parseMediaDetail(item),
+          mediaVersions: mediaVersions.length > 1 ? mediaVersions : [],
         });
       }
     } catch {
@@ -608,7 +637,7 @@ export async function getShowEpisodes(cfg: PlexServerConfig, showRatingKey: stri
       .map((e) => {
         const streams = parseStreamInfo(e.Media);
         return {
-          ...mapItem(e, { tmdbId: null, ...streams, mediaDetail: parseMediaDetail(e) }),
+          ...mapItem(e, { tmdbId: null, ...streams, mediaDetail: parseMediaDetail(e), mediaVersions: [] }),
           seasonNumber: e.parentIndex!,
           episodeNumber: e.index!,
         };

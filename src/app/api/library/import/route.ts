@@ -7,6 +7,8 @@ import { refreshPlexLibraryFor } from "@/lib/plex/librarySync";
 import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createReleaseRef, createImportRef } from "@/lib/activity/v2/store";
 import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
+import { takePendingVersionIntent } from "@/lib/library/pendingVersionIntent";
+import { addVersion, setPrimaryFile } from "@/lib/library/versions";
 
 export const dynamic = "force-dynamic";
 
@@ -77,20 +79,34 @@ export async function POST(req: NextRequest) {
     const movie = getMovie(ref.movieId);
     if (!movie) return NextResponse.json({ error: "movie not found" }, { status: 404 });
     const best = [...files].sort((a, b) => b.size - a.size)[0];
+    const newFile = {
+      path: best.path,
+      quality: best.quality ?? "—",
+      resolution: best.resolution,
+      videoCodec: best.videoCodec,
+      audioCodec: best.audioCodec,
+      hdr: best.hdr,
+      source: best.source,
+      size: best.size,
+      addedAt: Date.now(),
+    };
+
+    // A pending "add" intent (LOT6.2/6.10 — user explicitly chose "Ajouter
+    // comme version supplémentaire") never overwrites the primary file.
+    // Everything else — first acquisition, quality upgrade, or an
+    // additional-version search where the user chose "Remplacer" instead —
+    // keeps the existing "replace the primary" behavior, now routed through
+    // versions.ts so an existing versions[] array stays in sync too.
+    const pendingMode = takePendingVersionIntent(infoHash);
+    const versioned = pendingMode === "add"
+      ? addVersion(movie, newFile, { versionSource: "indexer", reason: "Version supplémentaire" })
+      : setPrimaryFile(movie, newFile, { versionSource: "indexer", reason: movie.file ? "Mise à niveau qualité" : "Acquisition initiale" });
+
     updateMovie(movie.id, {
       status: "available",
       activeInfoHash: null,
-      file: {
-        path: best.path,
-        quality: best.quality ?? "—",
-        resolution: best.resolution,
-        videoCodec: best.videoCodec,
-        audioCodec: best.audioCodec,
-        hdr: best.hdr,
-        source: best.source,
-        size: best.size,
-        addedAt: Date.now(),
-      },
+      file: versioned.file,
+      versions: versioned.versions,
     });
     emitNotification("import_movie_available", `${movie.title} est maintenant disponible`, "/library", { title: movie.title });
     logActivity("imported", "system", movie.title, "/library", {
