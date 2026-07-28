@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Ban, Trash2, Loader2, Search, Plus, X, Film, Tv, ShieldAlert } from "lucide-react";
@@ -93,27 +94,37 @@ export function BlocklistPanel() {
         </div>
       ) : (
         <div className="space-y-2">
-          {list.map((b) => (
-            <div key={b.id} className="flex items-center gap-3 rounded-2xl glass p-3">
-              <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", b.type === "movie" ? "bg-cyan/12 text-cyan" : "bg-brand/12 text-brand-glow")}>
-                {b.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-ink">{b.title} <span className="font-normal text-ink-dim">{b.year ?? ""}</span></p>
-                <p className="truncate text-xs text-ink-dim">
-                  {b.reason ? b.reason : t("blocklist.noReason")} · {t("blocklist.blockedBy", { user: b.blockedBy })}
-                </p>
-              </div>
-              <button
-                onClick={() => remove(b.id)}
-                disabled={removing === b.id}
-                className="flex h-9 items-center gap-1.5 rounded-xl glass-strong px-3 text-xs font-semibold text-down disabled:opacity-50"
+          <AnimatePresence initial={false}>
+            {list.map((b) => (
+              <motion.div
+                key={b.id}
+                layout
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                className="flex items-center gap-3 overflow-hidden rounded-2xl glass p-3"
               >
-                {removing === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                {t("blocklist.unblock")}
-              </button>
-            </div>
-          ))}
+                <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", b.type === "movie" ? "bg-cyan/12 text-cyan" : "bg-brand/12 text-brand-glow")}>
+                  {b.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-ink">{b.title} <span className="font-normal text-ink-dim">{b.year ?? ""}</span></p>
+                  <p className="truncate text-xs text-ink-dim">
+                    {b.reason ? b.reason : t("blocklist.noReason")} · {t("blocklist.blockedBy", { user: b.blockedBy })}
+                  </p>
+                </div>
+                <button
+                  onClick={() => remove(b.id)}
+                  disabled={removing === b.id}
+                  className="flex h-9 shrink-0 items-center gap-1.5 rounded-xl glass-strong px-3 text-xs font-semibold text-down disabled:opacity-50"
+                >
+                  {removing === b.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                  {t("blocklist.unblock")}
+                </button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
     </div>

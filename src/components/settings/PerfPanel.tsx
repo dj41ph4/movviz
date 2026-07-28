@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { RefreshCw, Loader2, Gauge, Globe, MonitorSmartphone, X } from "lucide-react";
+import { RefreshCw, Loader2, Gauge, Globe, MonitorSmartphone, X, Activity } from "lucide-react";
 
 interface PerfAggregate {
   kind: "client" | "outbound";
@@ -22,6 +22,20 @@ interface PerfErrorEntry {
   label: string;
   ms: number;
   status: number;
+}
+
+interface EventLoopSample {
+  t: number;
+  meanMs: number;
+  maxMs: number;
+  p99Ms: number;
+}
+
+/** Event-loop delay tone is stricter than request-timing tone — a few ms here means EVERY concurrent request is paying that tax, not just one slow endpoint. */
+function eventLoopTone(ms: number) {
+  if (ms >= 100) return "text-down";
+  if (ms >= 30) return "text-amber";
+  return "text-ok";
 }
 
 function msTone(ms: number) {
@@ -77,6 +91,8 @@ function PerfTable({ rows, emptyLabel, onErrorClick }: { rows: PerfAggregate[]; 
 export function PerfPanel() {
   const t = useT();
   const [aggregates, setAggregates] = useState<PerfAggregate[] | null>(null);
+  const [eventLoopLive, setEventLoopLive] = useState<EventLoopSample | null>(null);
+  const [eventLoopHistory, setEventLoopHistory] = useState<EventLoopSample[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorModal, setErrorModal] = useState<{ kind: string; label: string; entries: PerfErrorEntry[] } | null>(null);
 
@@ -84,7 +100,12 @@ export function PerfPanel() {
     setLoading(true);
     try {
       const res = await fetch("/api/perf", { cache: "no-store" });
-      if (res.ok) setAggregates((await res.json()).aggregates ?? []);
+      if (res.ok) {
+        const data = await res.json();
+        setAggregates(data.aggregates ?? []);
+        setEventLoopLive(data.eventLoop?.live ?? null);
+        setEventLoopHistory(data.eventLoop?.history ?? []);
+      }
     } finally {
       setLoading(false);
     }
@@ -123,6 +144,43 @@ export function PerfPanel() {
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           {t("health.logsRefresh")}
         </button>
+      </div>
+
+      <div className="mb-5 rounded-xl border border-white/8 bg-black/20 p-4">
+        <h4 className="flex items-center gap-1.5 text-xs font-bold text-ink-dim">
+          <Activity className="h-3.5 w-3.5" /> {t("health.eventLoopTitle")}
+        </h4>
+        <p className="mt-1 text-[11px] leading-relaxed text-ink-dim">{t("health.eventLoopHint")}</p>
+        {eventLoopHistory.length === 0 && !eventLoopLive ? (
+          <p className="py-4 text-center text-xs text-ink-dim">{t("health.eventLoopEmpty")}</p>
+        ) : (
+          <>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {[
+                { label: t("health.eventLoopMean"), ms: eventLoopLive?.meanMs ?? 0 },
+                { label: t("health.eventLoopP99"), ms: eventLoopLive?.p99Ms ?? 0 },
+                { label: t("health.eventLoopMax"), ms: eventLoopLive?.maxMs ?? 0 },
+              ].map((s) => (
+                <div key={s.label} className="rounded-lg bg-black/30 px-3 py-2 text-center">
+                  <div className={cn("font-mono text-lg font-bold", eventLoopTone(s.ms))}>{fmtMs(s.ms)}</div>
+                  <div className="mt-0.5 text-[10px] uppercase tracking-wider text-ink-dim">{s.label}</div>
+                </div>
+              ))}
+            </div>
+            {eventLoopHistory.length > 1 && (
+              <div className="mt-3 flex h-10 items-end gap-px">
+                {eventLoopHistory.slice(-80).map((s, i) => (
+                  <div
+                    key={i}
+                    className={cn("min-w-[2px] flex-1 rounded-t-sm", eventLoopTone(s.meanMs).replace("text-", "bg-"))}
+                    style={{ height: `${Math.max(4, Math.min(100, (s.meanMs / 100) * 100))}%` }}
+                    title={`${new Date(s.t).toLocaleTimeString()} — ${fmtMs(s.meanMs)}`}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <div className="mt-4 space-y-4">

@@ -15,6 +15,7 @@ import { useTheme } from "@/lib/theme/useTheme";
 import { cn } from "@/lib/utils";
 import type { ThemeMode } from "@/lib/theme/theme";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface TokenRecord {
   id: string;
@@ -145,7 +146,7 @@ export default function ProfilePage() {
     }
   };
   const revoke = async (id: string) => {
-    if (!confirm(t("profile.confirmRevoke"))) return;
+    if (!(await confirmDialog(t("profile.confirmRevoke")))) return;
     await fetch(`/api/profile/tokens/${id}`, { method: "DELETE" });
     loadTokens();
   };

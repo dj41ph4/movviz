@@ -136,17 +136,38 @@ export function updateMovie(id: string, patch: Partial<LibraryMovie>): LibraryMo
   const list = loadMovies();
   const i = list.findIndex((m) => m.id === id);
   if (i < 0) return null;
-  const previousStatus = list[i].status;
-  list[i] = { ...list[i], ...patch };
+  const oldMovie = list[i];
+  const previousStatus = oldMovie.status;
+  const updated = { ...oldMovie, ...patch };
+  list[i] = updated;
+
+  // Same targeted-patch reasoning as updateSeries() below — avoid forcing a
+  // full O(library size) rebuild of every lookup map on every single call,
+  // which a bulk run (autoGrab.ts calls this repeatedly across hundreds of
+  // movies) turns into a sustained cost on the main thread.
+  const byId = _moviesById, byTmdbId = _moviesByTmdbId, byActiveHash = _moviesByActiveHash;
+
   saveMovies(list);
   invalidateMovieCaches();
+
+  if (byId && byTmdbId && byActiveHash) {
+    byId.set(updated.id, updated);
+    byTmdbId.set(updated.tmdbId, updated);
+    if (oldMovie.activeInfoHash && oldMovie.activeInfoHash !== updated.activeInfoHash) byActiveHash.delete(oldMovie.activeInfoHash);
+    if (updated.activeInfoHash) byActiveHash.set(updated.activeInfoHash, updated);
+    _moviesById = byId;
+    _moviesByTmdbId = byTmdbId;
+    _moviesByActiveHash = byActiveHash;
+    _lastMovies = list;
+  }
+
   if ("status" in patch || "activeInfoHash" in patch) {
     eventBus.emit({ type: "movie_updated", movieId: id });
   }
   if (patch.status && patch.status !== previousStatus) {
-    recordStatusTransition({ refType: "movie", refId: id, title: list[i].title, from: previousStatus, to: patch.status });
+    recordStatusTransition({ refType: "movie", refId: id, title: updated.title, from: previousStatus, to: patch.status });
   }
-  return list[i];
+  return updated;
 }
 
 /**
@@ -175,6 +196,21 @@ export function updateMovies(patches: Map<string, Partial<LibraryMovie>>): void 
   for (const id of patches.keys()) {
     eventBus.emit({ type: "movie_updated", movieId: id });
   }
+}
+/**
+ * Silently drops movie records by id — no Trash entry, unlike removeMovie().
+ * Only ever used to merge duplicate library entries (same tmdbId added
+ * twice): the content isn't gone, it's still there under the entry that was
+ * kept, so logging it as a user-visible "deletion" in Trash would be
+ * misleading.
+ */
+export function pruneMovies(ids: Set<string>): number {
+  if (ids.size === 0) return 0;
+  const list = loadMovies();
+  const filtered = list.filter((m) => !ids.has(m.id));
+  if (filtered.length === list.length) return 0;
+  saveMovies(filtered);
+  return list.length - filtered.length;
 }
 export function removeMovie(id: string) {
   const list = loadMovies();
@@ -276,14 +312,52 @@ export function updateSeries(id: string, patch: Partial<LibrarySeries>): Library
   const list = loadSeries();
   const i = list.findIndex((s) => s.id === id);
   if (i < 0) return null;
-  if (patch.seasons) recordEpisodeStatusDiff(list[i], patch.seasons);
-  list[i] = { ...list[i], ...patch };
+  const oldSeries = list[i];
+  if (patch.seasons) recordEpisodeStatusDiff(oldSeries, patch.seasons);
+  const updated = { ...oldSeries, ...patch };
+  list[i] = updated;
+
+  // Snapshot the live maps (if built) before saveSeries's blanket invalidation
+  // below, so they can be patched for just THIS series instead of every
+  // subsequent getSeries() call re-scanning every season/episode of every
+  // series in the whole library from scratch (ensureSeriesMaps' activeHash
+  // build). That full rescan — previously forced on every single call here —
+  // was the actual reason a bulk run (autoGrabSeries.ts calls updateSeries
+  // several times per item, across hundreds of items) stalled the whole
+  // server: confirmed live via the event-loop-delay monitor, whose sustained
+  // 30-120ms plateau appeared the instant a bulk search job started and
+  // disappeared when it finished. Maps are still mutable objects even after
+  // invalidateSeriesCaches() nulls the module-level pointers to them, so
+  // capturing the references here and patching + reassigning them after is
+  // safe and correct — it's the exact same objects, just kept alive.
+  const byId = _seriesById, byTmdbId = _seriesByTmdbId, byActiveHash = _seriesByActiveHash;
+
   saveSeries(list);
   invalidateSeriesCaches();
+
+  if (byId && byTmdbId && byActiveHash) {
+    byId.set(updated.id, updated);
+    byTmdbId.set(updated.tmdbId, updated);
+    for (const season of oldSeries.seasons) {
+      for (const ep of season.episodes) {
+        if (ep.activeInfoHash) byActiveHash.delete(ep.activeInfoHash);
+      }
+    }
+    for (const season of updated.seasons) {
+      for (const ep of season.episodes) {
+        if (ep.activeInfoHash) byActiveHash.set(ep.activeInfoHash, { series: updated, season: season.seasonNumber, episode: ep.episodeNumber });
+      }
+    }
+    _seriesById = byId;
+    _seriesByTmdbId = byTmdbId;
+    _seriesByActiveHash = byActiveHash;
+    _lastSeries = list;
+  }
+
   if ("seasons" in patch || "status" in patch || "activeInfoHash" in patch) {
     eventBus.emit({ type: "series_updated", seriesId: id });
   }
-  return list[i];
+  return updated;
 }
 export function updateSeriesList(patches: Map<string, Partial<LibrarySeries>>): void {
   if (patches.size === 0) return;
@@ -299,6 +373,15 @@ export function updateSeriesList(patches: Map<string, Partial<LibrarySeries>>): 
   for (const id of patches.keys()) {
     eventBus.emit({ type: "series_updated", seriesId: id });
   }
+}
+/** Silently drops series records by id — see pruneMovies() for why this skips Trash. */
+export function pruneSeries(ids: Set<string>): number {
+  if (ids.size === 0) return 0;
+  const list = loadSeries();
+  const filtered = list.filter((s) => !ids.has(s.id));
+  if (filtered.length === list.length) return 0;
+  saveSeries(filtered);
+  return list.length - filtered.length;
 }
 export function removeSeries(id: string) {
   const list = loadSeries();

@@ -7,7 +7,8 @@ import { searchFromCache } from "@/lib/indexers/rssCache";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
-import { releaseTitleMatches, seasonEpisodeMatches } from "@/lib/library/matching";
+import { releaseTitleMatches } from "@/lib/library/matching";
+import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
 import { recordDecision } from "@/lib/library/decisionLog";
@@ -417,10 +418,19 @@ async function grabRelease(
   recordSearchLog("debug", "grab_release.cache_read", `${label} — cache RSS donne ${releases.length} release(s) (${cacheMs}ms)`, cacheMs);
 
   const tS = performance.now();
-  const step1 = releases.map((r) => ({ release: r, parsed: parseRelease(r.title) }));
-  const step2 = step1.filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title));
-  const step3 = step2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber));
-  const step4 = step3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true));
+  // Parse + title/season/episode matching (the CPU-heavy regex pass over
+  // every cached release) runs in a real worker thread, not here — see
+  // releaseMatchWorker.mjs for why. Everything after (blocked words,
+  // resolution, score, size) stays on the main thread: it's cheap array
+  // filtering that needs live store/config state, not worth a round-trip.
+  const matched = await getReleaseMatchPool().run({
+    releases: releases.map((r) => ({ title: r.title })),
+    targetTitle: series.title,
+    seasonNumber,
+    episodeNumber: filterPack ? null : (episodeNumber ?? null),
+    filterPack,
+  });
+  const step4 = matched.survivors.map(({ idx, parsed }) => ({ release: releases[idx], parsed }));
   // Decision Guard: a blocked term is a hard veto here — no score, however high, can rescue a release an admin explicitly forbade.
   const stepBlocked = step4.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
   const step5 = stepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
@@ -429,7 +439,7 @@ async function grabRelease(
   const step8 = step7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
   const candidates = step8.sort((a, b) => b.release.score - a.release.score);
   const scoreMs = Math.round(performance.now() - tS);
-  recordSearchLog("debug", "grab_release.scoring", `${label} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms), titre:${step2.length}, saison:${step3.length}, pack:${step4.length}, résolution:${step5.length}, score:${step6.length}, taille:${step7.length}, échec:${step8.length}`, scoreMs);
+  recordSearchLog("debug", "grab_release.scoring", `${label} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms), titre:${matched.titleCount}, saison:${matched.secondCount}, pack:${matched.packCount}, résolution:${step5.length}, score:${step6.length}, taille:${step7.length}, échec:${step8.length}`, scoreMs);
 
   if (candidates.length > 0) {
     const top = candidates[0];
@@ -475,10 +485,14 @@ async function grabRelease(
   const newlyLimited = countNewlyRateLimited(indexers);
   recordSearchLog("info", "grab_release.fallback_result", `${label} — recherche directe: ${directReleases.length} release(s) (${directMs}ms)`, directMs);
 
-  const dStep1 = directReleases.map((r) => ({ release: r, parsed: parseRelease(r.title) }));
-  const dStep2 = dStep1.filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title));
-  const dStep3 = dStep2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber));
-  const dStep4 = dStep3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true));
+  const dMatched = await getReleaseMatchPool().run({
+    releases: directReleases.map((r) => ({ title: r.title })),
+    targetTitle: series.title,
+    seasonNumber,
+    episodeNumber: filterPack ? null : (episodeNumber ?? null),
+    filterPack,
+  });
+  const dStep4 = dMatched.survivors.map(({ idx, parsed }) => ({ release: directReleases[idx], parsed }));
   const dStepBlocked = dStep4.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
   const dStep5 = dStepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
   const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
@@ -491,7 +505,7 @@ async function grabRelease(
     if (newlyLimited > 0) {
       recordSearchLog("warn", "grab_release.fallback_rate_limited", `${label} — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
     } else {
-      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat sur ${directReleases.length} directs (titre:${dStep2.length}, saison:${dStep3.length}, pack:${dStep4.length}, résolution:${dStep5.length}, score:${dStep6.length}, taille:${dStep7.length}, échec:${dStep8.length})`);
+      recordSearchLog("warn", "grab_release.no_match", `${label} — 0 candidat sur ${directReleases.length} directs (titre:${dMatched.titleCount}, saison:${dMatched.secondCount}, pack:${dMatched.packCount}, résolution:${dStep5.length}, score:${dStep6.length}, taille:${dStep7.length}, échec:${dStep8.length})`);
     }
     return { ok: false, error: "no_match", totalReleases: releases.length + directReleases.length };
   }

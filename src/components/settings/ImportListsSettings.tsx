@@ -141,13 +141,14 @@ export function ImportListsSettings() {
             <button onClick={create} disabled={saving} className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} {t("common.add")}
             </button>
-            <button onClick={() => setShowForm(false)} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center"></button>
+            <button onClick={() => setShowForm(false)} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center">{t("common.cancel")}</button>
           </div>
         </div>
       )}
 
       {!showForm && (
-        <button onClick={() => setShowForm(true)} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2">
+        <button onClick={() => setShowForm(true)} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 transition-colors hover:bg-white/10 hover:text-ink">
+          <Plus className="h-4 w-4" /> {t("common.add")}
         </button>
       )}
     </div>

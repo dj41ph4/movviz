@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useI18n } from "@/i18n/provider";
 import { LOCALES, type Locale } from "@/i18n/config";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Film, Tv, Loader2, Check, X, ArrowRight, AlertTriangle,
   RefreshCw, Search, Bug, ShieldAlert,
@@ -271,7 +272,7 @@ export function RenamePanel() {
       .filter((c) => selected.has(c.id))
       .map((c) => ({ id: c.id, type: c.type }));
     if (selections.length === 0) return;
-    if (!confirm(t("rename.confirmApply", { count: selections.length }))) return;
+    if (!(await confirmDialog(t("rename.confirmApply", { count: selections.length })))) return;
     setError(null);
     setResults(null);
     setExecProgress(null);

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import useSWR from "swr";
+import { AnimatePresence } from "framer-motion";
 import { Link2, FileQuestion } from "lucide-react";
 import { useI18n, useT } from "@/i18n/provider";
 import { formatBytes, formatDateTime } from "@/lib/utils";
@@ -45,13 +46,15 @@ export function UnlinkedTab() {
           </button>
         </div>
       ))}
-      {target && (
-        <LinkDownloadModal
-          entry={target}
-          onClose={() => setTarget(null)}
-          onLinked={() => mutate()}
-        />
-      )}
+      <AnimatePresence>
+        {target && (
+          <LinkDownloadModal
+            entry={target}
+            onClose={() => setTarget(null)}
+            onLinked={() => mutate()}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

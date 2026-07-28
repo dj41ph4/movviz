@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Loader2, Clock, CheckCircle2, XCircle, ListChecks, ListOrdered } from "lucide-react";
@@ -129,26 +130,36 @@ export function JobQueuePanel() {
           </div>
         ) : (
           <div className="space-y-2">
-            {active.map((job) => {
-              const Icon = STATUS_ICON[job.status];
-              const pct = job.total > 0 ? Math.round((job.current / job.total) * 100) : 0;
-              return (
-                <div key={job.id} className="rounded-2xl glass p-3.5">
-                  <div className="flex items-center gap-2.5">
-                    <Icon className={cn("h-4 w-4 shrink-0", STATUS_TONE[job.status], job.status === "running" && "animate-spin")} />
-                    <span className="flex-1 truncate text-sm font-medium text-ink">{job.label}</span>
-                    <span className="shrink-0 text-xs text-ink-dim">
-                      {job.status === "queued" ? t("jobs.statusQueued") : `${job.current}/${job.total}`}
-                    </span>
-                  </div>
-                  {job.status === "running" && job.total > 0 && (
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/40">
-                      <div className="h-full rounded-full brand-gradient transition-[width] duration-500" style={{ width: `${pct}%` }} />
+            <AnimatePresence initial={false}>
+              {active.map((job) => {
+                const Icon = STATUS_ICON[job.status];
+                const pct = job.total > 0 ? Math.round((job.current / job.total) * 100) : 0;
+                return (
+                  <motion.div
+                    key={job.id}
+                    layout
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    className="overflow-hidden rounded-2xl glass p-3.5"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Icon className={cn("h-4 w-4 shrink-0", STATUS_TONE[job.status], job.status === "running" && "animate-spin")} />
+                      <span className="flex-1 truncate text-sm font-medium text-ink">{job.label}</span>
+                      <span className="shrink-0 text-xs text-ink-dim">
+                        {job.status === "queued" ? t("jobs.statusQueued") : `${job.current}/${job.total}`}
+                      </span>
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                    {job.status === "running" && job.total > 0 && (
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/40">
+                        <div className="h-full rounded-full brand-gradient transition-[width] duration-500" style={{ width: `${pct}%` }} />
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
           </div>
         )}
 
@@ -156,16 +167,26 @@ export function JobQueuePanel() {
           <div className="mt-4">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-dim">{t("jobs.recent")}</p>
             <div className="space-y-1.5">
-              {recent.map((job) => {
-                const Icon = STATUS_ICON[job.status];
-                return (
-                  <div key={job.id} className="flex items-center gap-2.5 rounded-xl glass px-3 py-2 text-xs">
-                    <Icon className={cn("h-3.5 w-3.5 shrink-0", STATUS_TONE[job.status])} />
-                    <span className="flex-1 truncate text-ink-soft">{job.label}</span>
-                    <span className="text-ink-dim">{job.total > 0 ? `${job.current}/${job.total}` : ""}</span>
-                  </div>
-                );
-              })}
+              <AnimatePresence initial={false}>
+                {recent.map((job) => {
+                  const Icon = STATUS_ICON[job.status];
+                  return (
+                    <motion.div
+                      key={job.id}
+                      layout
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                      className="flex items-center gap-2.5 overflow-hidden rounded-xl glass px-3 py-2 text-xs"
+                    >
+                      <Icon className={cn("h-3.5 w-3.5 shrink-0", STATUS_TONE[job.status])} />
+                      <span className="flex-1 truncate text-ink-soft">{job.label}</span>
+                      <span className="text-ink-dim">{job.total > 0 ? `${job.current}/${job.total}` : ""}</span>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
             </div>
           </div>
         )}

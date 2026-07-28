@@ -2,6 +2,7 @@
 
 import { useT } from "@/i18n/provider";
 import { useQualityUpgradesEnabled } from "@/lib/settings/useQualityUpgradesEnabled";
+import { cn } from "@/lib/utils";
 import { ArrowUp, Activity } from "lucide-react";
 
 /** V1 is retired — this panel only exposes the one setting still worth surfacing. */
@@ -29,17 +30,17 @@ export function ActivitySettings() {
               <p className="text-sm text-ink-dim">{t("activity.upgrades.desc")}</p>
             </div>
           </div>
-          <label className="relative inline-flex cursor-pointer items-center">
-            <input
-              type="checkbox"
-              checked={enabled}
-              onChange={() => setEnabled(!enabled)}
-              className="peer sr-only"
-            />
-            <div className="h-6 w-11 rounded-full bg-white/10 after:absolute after:left-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-brand-glow peer-checked:after:translate-x-full" />
-          </label>
+          <Toggle on={enabled} onChange={() => setEnabled(!enabled)} />
         </div>
       </div>
     </div>
+  );
+}
+
+function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+  return (
+    <button onClick={onChange} className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on ? "brand-gradient" : "bg-white/10")}>
+      <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
+    </button>
   );
 }

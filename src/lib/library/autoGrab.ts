@@ -3,8 +3,7 @@ import { DEFAULT_QUALITY_PROFILES, defaultQualityProfile } from "@/lib/library/q
 import { encodeLibraryRef, type LibraryMovie } from "@/lib/library/types";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS } from "@/lib/indexers/categories";
-import { parseRelease } from "@/lib/naming/parser";
-import { releaseTitleMatches, yearIsCompatible } from "@/lib/library/matching";
+import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
 import { recordDecision } from "@/lib/library/decisionLog";
@@ -108,10 +107,15 @@ export async function searchAndGrabMovie(movieId: string) {
   recordSearchLog("debug", "search_movie.cache_read", `${movie.title} (${movie.year}) — cache RSS donne ${releases.length} release(s) (${cacheMs}ms)`, cacheMs);
 
   const tScore = performance.now();
-  const candidates = releases
-    .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title))
-    .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
+  // Parse + title/year matching (the CPU-heavy regex pass over every cached
+  // release) runs in a real worker thread — see releaseMatchWorker.mjs.
+  const matched = await getReleaseMatchPool().run({
+    releases: releases.map((r) => ({ title: r.title })),
+    targetTitle: movie.title,
+    targetYear: movie.year,
+  });
+  const candidates = matched.survivors
+    .map(({ idx, parsed }) => ({ release: releases[idx], parsed }))
     // Decision Guard: a blocked term is a hard veto here — no score, however
     // high, can rescue a release an admin explicitly forbade.
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
@@ -151,10 +155,13 @@ export async function searchAndGrabMovie(movieId: string) {
       const newlyLimited = countNewlyRateLimited(indexers);
       recordSearchLog("info", "search_movie.fallback_result", `${movie.title} — recherche directe: ${directReleases.length} release(s) (${directMs}ms)`, directMs);
 
-      const candidates2 = directReleases
-        .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-        .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title))
-        .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
+      const matched2 = await getReleaseMatchPool().run({
+        releases: directReleases.map((r) => ({ title: r.title })),
+        targetTitle: movie.title,
+        targetYear: movie.year,
+      });
+      const candidates2 = matched2.survivors
+        .map(({ idx, parsed }) => ({ release: directReleases[idx], parsed }))
         .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
         .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
         .filter(({ release }) => release.score >= profile.minScore)
@@ -288,10 +295,13 @@ export async function checkQualityUpgrades() {
     const releases = searchFromCache(MOVIE_CATEGORY_IDS);
     const rules = loadReleaseRules();
 
-    const better = releases
-      .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-      .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title))
-      .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
+    const matchedUpgrade = await getReleaseMatchPool().run({
+      releases: releases.map((r) => ({ title: r.title })),
+      targetTitle: movie.title,
+      targetYear: movie.year,
+    });
+    const better = matchedUpgrade.survivors
+      .map(({ idx, parsed }) => ({ release: releases[idx], parsed }))
       .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
       .filter(({ parsed }) => parsed.resolution && profile.allowedResolutions.includes(parsed.resolution))
       .filter(({ parsed }) => rank(parsed.resolution) > rank(movie.file!.resolution))

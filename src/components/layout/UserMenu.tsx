@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, ShieldCheck, UserCog } from "lucide-react";
+import { mutate } from "swr";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useT } from "@/i18n/provider";
 
@@ -28,6 +29,10 @@ export function UserMenu() {
   const initials = user.username.slice(0, 2).toUpperCase();
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
+    // Same stale-SWR-cache fix as the login page — otherwise the cached
+    // "/api/auth/me" result keeps reporting the old user for up to 30s
+    // (dedupingInterval) after the session cookie is already cleared.
+    await mutate("/api/auth/me");
     router.push("/login");
     router.refresh();
   };

@@ -33,8 +33,14 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
   const { data: recData } = useSWR<{ results: MetaSearchResult[] }>(
     visible.has("becauseYouLike") ? "/api/metadata/recommendations?type=movie" : null
   );
+  // This endpoint runs a real multi-minute scan (up to 25 movies + 25
+  // episodes falling back to live indexer searches) — never revalidate it
+  // just because the window regained focus, unlike every other row here.
+  // The server-side cache in the route also bounds the cost of whatever
+  // revalidations do happen (mount, manual refresh).
   const { data: upgradeData } = useSWR<{ candidates: UpgradeCandidate[] }>(
-    visible.has("upgradesAvailable") ? "/api/library/upgrade-candidates" : null
+    visible.has("upgradesAvailable") ? "/api/library/upgrade-candidates" : null,
+    { revalidateOnFocus: false, dedupingInterval: 10 * 60 * 1000 }
   );
 
   const trending = rowsData?.rows.find((r) => r.key === "trending")?.results ?? [];

@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useT } from "@/i18n/provider";
 import { FolderOpen, Loader2, Check, AlertTriangle, Trash2, ShieldAlert } from "lucide-react";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 
 export function CleanDirsPanel() {
   const t = useT();
@@ -36,7 +37,7 @@ export function CleanDirsPanel() {
     if (!emptyDirs) return;
     const paths = [...selected].map((i) => emptyDirs[i]);
     if (paths.length === 0) return;
-    if (!confirm(t("cleanDirs.confirmDelete", { count: paths.length }))) return;
+    if (!(await confirmDialog(t("cleanDirs.confirmDelete", { count: paths.length })))) return;
     setDeleting(true);
     setError(null);
     try {

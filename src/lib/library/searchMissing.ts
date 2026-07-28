@@ -55,6 +55,21 @@ async function runBatch<T>(
 
 export type SearchMissingScope = "all" | "movie" | "series";
 
+// Fisher-Yates — searching in a fixed order means anything near the end of
+// the library never gets a turn before the run trips a 429 and grinds to a
+// halt for the rest of the batch. A random order each run spreads that risk
+// across the whole library instead of always sacrificing the same tail end.
+function shuffle<T>(items: T[]): T[] {
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+type QueueItem = { type: "movie"; id: string } | { type: "series"; id: string };
+
 /**
  * Manual "search everything missing" action — every monitored movie still
  * missing, and every monitored series with at least one monitored+missing
@@ -63,6 +78,9 @@ export type SearchMissingScope = "all" | "movie" | "series";
  * buttons, just triggered in bulk for the whole library at once. `scope`
  * restricts the run to just movies or just series — the library page's
  * bulk button now only searches whichever category is currently filtered.
+ * The processing order is shuffled (movies among movies, series among
+ * series, and the two categories interleaved when scope is "all") so a
+ * 429 partway through a run doesn't always strand the same titles.
  */
 export async function searchAllMissing(onProgress?: (current: number, total: number) => void, scope: SearchMissingScope = "all") {
   const t0 = performance.now();
@@ -82,8 +100,17 @@ export async function searchAllMissing(onProgress?: (current: number, total: num
     onProgress?.(current, total || 1);
   };
 
-  await runBatch(movies, (m) => searchAndGrabMovie(m.id), CONCURRENCY, tick);
-  await runBatch(series, (s) => searchAndGrabSeries(s.id), CONCURRENCY, tick);
+  const queue: QueueItem[] = shuffle([
+    ...shuffle(movies).map((m): QueueItem => ({ type: "movie", id: m.id })),
+    ...shuffle(series).map((s): QueueItem => ({ type: "series", id: s.id })),
+  ]);
+
+  await runBatch(
+    queue,
+    (item) => (item.type === "movie" ? searchAndGrabMovie(item.id) : searchAndGrabSeries(item.id)),
+    CONCURRENCY,
+    tick
+  );
 
   const totalMs = Math.round(performance.now() - t0);
   recordSearchLog("info", "search_all_missing.end", `Terminé en ${totalMs}ms — ${movies.length} film(s), ${series.length} série(s)`, totalMs);

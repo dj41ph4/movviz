@@ -22,6 +22,8 @@ import { seerrConfigured } from "@/lib/seerr/store";
 import { incrementalDiskScan } from "@/lib/library/diskScan";
 import { runLibraryHealthCheck } from "@/lib/library/libraryHealthCheck";
 import { findUpgradeCandidates } from "@/lib/library/searchAndReplace";
+import { findEpisodeUpgradeCandidates } from "@/lib/library/searchAndReplaceSeries";
+import { backfillMovieLanguages, backfillSeriesLanguages } from "@/lib/tasks/languageDetectionTask";
 
 export interface ScheduledTask {
   id: string;
@@ -73,15 +75,29 @@ export const TASKS: ScheduledTask[] = [
     // library-reconcile above.
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
+      // Sequential, not Promise.all — see the same comment on the API route:
+      // each of these already runs its own sequential indexer fallback, so
+      // running both at once would double the concurrent request stream.
       const candidates = await findUpgradeCandidates();
-      if (candidates.length > 0) {
+      const episodeCandidates = await findEpisodeUpgradeCandidates();
+      const count = candidates.length + episodeCandidates.length;
+      if (count > 0) {
         emitNotification(
           "upgrade_candidates_found",
-          `${candidates.length} remplacement(s) suggéré(s) disponible(s)`,
+          `${count} remplacement(s) suggéré(s) disponible(s)`,
           "/library",
-          { count: candidates.length }
+          { count }
         );
       }
+    },
+  },
+  {
+    id: "language-detection",
+    name: "Détection des langues (Plex + nom de fichier)",
+    intervalMs: 24 * 60 * 60 * 1000, // daily
+    run: async () => {
+      await backfillMovieLanguages();
+      await backfillSeriesLanguages();
     },
   },
   {
@@ -95,7 +111,7 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "plex-watchlist-sync",
     name: "Synchronisation de la liste de suivi Plex",
-    intervalMs: 15 * 60 * 1000, // every 15 minutes
+    intervalMs: 60 * 1000, // every minute
     run: async () => {
       if (!loadPlexConfig().watchlistSyncEnabled) return;
       const users = loadUsers().filter((u) => u.autoRequestFromWatchlist && u.plexToken);
@@ -131,7 +147,7 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "plex-watch-sync",
     name: "Synchronisation des vues Plex",
-    intervalMs: 15 * 60 * 1000, // every 15 minutes, alongside the watchlist poll
+    intervalMs: 2 * 60 * 60 * 1000, // every 2 hours
     run: async () => {
       const users = loadUsers().filter((u) => u.plexToken);
       // Was one user at a time — combined with the per-show sequential calls
@@ -222,7 +238,7 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "download-state-reconcile",
     name: "Réconciliation des téléchargements en cours",
-    intervalMs: 10 * 60 * 1000, // every 10 minutes
+    intervalMs: 60 * 60 * 1000, // hourly
     // Items stuck on "downloading" whose torrent no longer exists in the
     // engine (deleted, wiped, lost on crash) go back to "missing" so the
     // wanted list and RSS scan pick them up again.

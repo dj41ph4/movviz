@@ -427,6 +427,16 @@ body {
   border-radius: 99px;
   border: 2px solid var(--color-void);
 }
+/* On a narrow viewport the 10px gradient thumb (sized for a mouse cursor to
+   grab) reads as a bold solid bar taking a visible bite out of the screen
+   edge — thinner and more translucent here, unchanged above 639px. */
+@media (max-width: 639px) {
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-thumb {
+    border: none;
+    opacity: 0.5;
+  }
+}
 
 ::selection {
   background: color-mix(in oklab, var(--color-brand) 40%, transparent);
@@ -524,17 +534,27 @@ body {
  */
 /* 4K badge — a slow-looping gradient shimmer instead of a flat dark fill, so
    the top resolution tier reads as a little more premium than the others
-   without turning into a distracting flashing effect.
-   Seamless-loop technique: the color sequence is written out TWICE back to
-   back (0-50% = one full period, 50-100% = the exact same period again),
-   background-size is exactly 200%, and the animation pans by exactly one
-   period (position 0% -> 100%). Because period two is pixel-identical to
-   period one, the instant the animation restarts at 0% it's showing exactly
-   what was already on screen at 100% a moment ago — no visible seam/jump,
-   unlike animating across a single, non-repeated gradient (which was the
-   original bug: the pattern's start and end don't line up, so the loop
-   restart reads as a hard cut). */
+   without turning into a distracting flashing effect. Travels left to right.
+   Seamless-loop + no-stutter technique: the shimmer lives on an absolutely
+   positioned ::before twice the badge's width, painted with the color
+   sequence written out TWICE back to back (0-50% = one full period, 50-100%
+   = the exact same period again). It's animated with `transform: translateX`
+   (GPU-composited, sub-pixel accurate) instead of `background-position`
+   (which repaints on the main thread and can visibly hitch right at the
+   loop restart). translateX is expressed as a percentage of the ::before's
+   OWN box, so -50% is always exactly one badge-width regardless of the
+   badge's rendered size — the wrap point lands on a pixel-identical frame,
+   no seam. */
 .badge-4k-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #1a1a1a;
+}
+.badge-4k-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 200%;
   background-image: linear-gradient(
     110deg,
     #1a1a1a 0%,
@@ -550,12 +570,12 @@ body {
     color-mix(in oklab, var(--color-magenta) 60%, #1a1a1a) 87.5%,
     #1a1a1a 100%
   );
-  background-size: 200% 100%;
   animation: badge4kShimmer 6s linear infinite;
+  will-change: transform;
 }
 @keyframes badge4kShimmer {
-  from { background-position: 0% 50%; }
-  to { background-position: 100% 50%; }
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0%); }
 }
 
 .text-logo-flow {

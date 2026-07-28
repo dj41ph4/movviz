@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { Info, Play, Pause, Plus, Loader2, Check } from "lucide-react";
@@ -8,13 +8,23 @@ import { HeroSlideshow } from "./HeroSlideshow";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { MediaBadges } from "@/components/library/MediaBadges";
 import { useT, useI18n } from "@/i18n/provider";
-import { cn } from "@/lib/utils";
+import { cn, openPlexLink } from "@/lib/utils";
 import type { HeroSlide } from "@/lib/dashboard/suggestionEngine";
 import type { DashboardHeroSettings } from "@/lib/dashboard/types";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null };
 
 const POSTER_BASE = "https://image.tmdb.org/t/p/w1280";
+
+// The featured slide is a deterministic ranking over data that barely moves
+// day to day (library/watch/request state) — with no anchoring, every fresh
+// page load just restarts at index 0 and shows the same top-ranked title
+// again, so in practice it never visibly changes across separate visits (the
+// in-page auto-rotation only advances while the tab stays open, which rarely
+// happens for 3h straight). Anchoring the starting index to a wall-clock
+// time bucket makes it stable within a window but genuinely advance to the
+// next candidate once that window has passed, regardless of session length.
+const ROTATION_PERIOD_MS = 3 * 60 * 60 * 1000;
 
 function reasonLabel(t: ReturnType<typeof useT>, reason: HeroSlide["score"]["reasons"][number]): string {
   if (reason.key === "genreMatch" && reason.params?.genres) {
@@ -30,10 +40,20 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   const slides = data?.slides ?? [];
 
   const [index, setIndex] = useState(0);
+  const [anchored, setAnchored] = useState(false);
   const [manuallyPaused, setManuallyPaused] = useState(false);
   const [showReasons, setShowReasons] = useState(false);
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState<Set<number>>(new Set());
+
+  // Runs once per mount, as soon as the slide count is known — not on every
+  // SWR revalidation, so it never yanks the user back to a different slide
+  // mid-visit after they've navigated manually.
+  useEffect(() => {
+    if (anchored || slides.length === 0) return;
+    setIndex(Math.floor(Date.now() / ROTATION_PERIOD_MS) % slides.length);
+    setAnchored(true);
+  }, [anchored, slides.length]);
 
   const active = slides[Math.min(index, slides.length - 1)];
   const activeReasons = useMemo(() => active?.score.reasons.filter((r) => r.matched) ?? [], [active]);
@@ -79,7 +99,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px]">
         <TrailerHeader
           backdropUrl={backdropUrl}
-          trailerKey={active.detail.trailerKey}
+          trailerKeys={active.detail.trailerKeys}
           title={active.detail.title}
           trigger={trailerTrigger}
           enabled={trailerEnabled}
@@ -127,6 +147,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
                 href={active.plexUrl}
                 target="_blank"
                 rel="noreferrer"
+                onClick={(e) => openPlexLink(e, active.plexUrl!)}
                 className="flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
               >
                 <Play className="h-4 w-4" /> {t("library.watchOnPlex")}

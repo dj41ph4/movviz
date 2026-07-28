@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { MouseEvent } from "react";
 import { useRouter } from "next/navigation";
+import { mutate } from "swr";
 import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
@@ -73,6 +74,16 @@ export default function LoginPage() {
         );
         return;
       }
+      // AppShell (wrapping this very page) already mounted useCurrentUser()
+      // and cached its pre-login "{ user: null }" result under the shared
+      // "/api/auth/me" SWR key — with dedupingInterval: 30_000, a plain
+      // router.refresh() (which only re-runs server components, never
+      // touches client-side SWR state) left that stale "logged out" value
+      // in place for up to 30s after a real login, showing the app as still
+      // signed out until a full page reload wiped the SWR cache. Forcing a
+      // revalidation of that exact key is what actually picks up the new
+      // session cookie.
+      await mutate("/api/auth/me");
       if (mode === "register") {
         // Only the very first account (setup) skips approval — everyone
         // registering after that lands on the "pending" screen instead.
@@ -115,6 +126,8 @@ export default function LoginPage() {
         });
         const poll = await pollRes.json();
         if (poll.done) {
+          // Same stale-SWR-cache fix as the password login path above.
+          await mutate("/api/auth/me");
           router.push(setupRequired ? "/setup" : "/");
           router.refresh();
           return;

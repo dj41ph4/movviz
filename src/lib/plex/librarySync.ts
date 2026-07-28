@@ -8,6 +8,7 @@ import {
 } from "@/lib/library/store";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import type { LibraryFile, LibraryFileVersion, LibraryMovie, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
+import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 
 // A run does hundreds of sequential awaited TMDb/Plex calls, so two overlapping
@@ -85,7 +86,7 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
 
 function toLibraryFile(plex: PlexLibraryItem): LibraryFile | null {
   if (!plex.file) return null;
-  return {
+  const raw: LibraryFile = {
     path: plex.file.path,
     quality: plex.file.resolution ?? "",
     resolution: plex.file.resolution,
@@ -96,6 +97,8 @@ function toLibraryFile(plex: PlexLibraryItem): LibraryFile | null {
     size: plex.file.size,
     addedAt: Date.now(),
   };
+  raw.language = detectFileLanguage(raw, plex.mediaDetail);
+  return raw;
 }
 
 /**
@@ -123,6 +126,19 @@ function mergePlexVersions(existing: LibraryMovie, item: PlexLibraryItem): { fil
   const versions: LibraryFileVersion[] = item.mediaVersions.map((v, i) => {
     const prior = priorByPath.get(v.file.path);
     priorByPath.delete(v.file.path);
+    const versionLang = prior?.language ?? (i === 0 && item.mediaDetail
+      ? detectFileLanguage({
+          path: v.file.path,
+          quality: v.file.resolution ?? prior?.quality ?? "",
+          resolution: v.file.resolution,
+          videoCodec: v.videoCodec,
+          audioCodec: v.audioCodec,
+          hdr: v.hdr,
+          source: prior?.source ?? null,
+          size: v.file.size,
+          addedAt: prior?.addedAt ?? Date.now(),
+        } as LibraryFile, item.mediaDetail)
+      : undefined);
     return {
       path: v.file.path,
       quality: v.file.resolution ?? prior?.quality ?? "",
@@ -133,6 +149,7 @@ function mergePlexVersions(existing: LibraryMovie, item: PlexLibraryItem): { fil
       source: prior?.source ?? null,
       size: v.file.size,
       addedAt: prior?.addedAt ?? Date.now(),
+      language: versionLang,
       id: prior?.id ?? `plex_${item.ratingKey}_${i}`,
       versionSource: "plex",
       reason: prior?.reason ?? (i === 0 ? "Détecté via Plex" : "Version supplémentaire détectée via Plex"),
@@ -167,7 +184,12 @@ async function backfillMissingMediaInfo(cfg: PlexServerConfig, token: string) {
     if (!movie.plexRatingKey) continue;
     const info = infos.get(movie.plexRatingKey);
     if (info?.mediaDetail) {
-      patches.set(movie.id, { plexMediaInfo: info.mediaDetail });
+      const patch: Partial<LibraryMovie> & { file?: Partial<LibraryFile> } = { plexMediaInfo: info.mediaDetail };
+      if (movie.file) {
+        const lang = detectFileLanguage(movie.file, info.mediaDetail);
+        if (lang) patch.file = { ...movie.file, language: lang };
+      }
+      patches.set(movie.id, patch as Partial<LibraryMovie>);
     }
   }
   if (patches.size > 0) {
@@ -210,21 +232,28 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
     // Brand-new movie with several Plex Media entries already at add time —
     // no prior version history to preserve, just build versions[] directly.
     const initialVersions: LibraryFileVersion[] | undefined = item.mediaVersions?.length
-      ? item.mediaVersions.map((v, i) => ({
-          path: v.file.path,
-          quality: v.file.resolution ?? "",
-          resolution: v.file.resolution,
-          videoCodec: v.videoCodec,
-          audioCodec: v.audioCodec,
-          hdr: v.hdr,
-          source: null,
-          size: v.file.size,
-          addedAt: Date.now(),
-          id: `plex_${item.ratingKey}_${i}`,
-          versionSource: "plex",
-          reason: i === 0 ? "Détecté via Plex" : "Version supplémentaire détectée via Plex",
-          primary: i === 0,
-        }))
+      ? item.mediaVersions.map((v, i) => {
+          const base = {
+            path: v.file.path,
+            quality: v.file.resolution ?? "",
+            resolution: v.file.resolution,
+            videoCodec: v.videoCodec,
+            audioCodec: v.audioCodec,
+            hdr: v.hdr,
+            source: null,
+            size: v.file.size,
+            addedAt: Date.now(),
+            language: undefined as string | null | undefined,
+            id: `plex_${item.ratingKey}_${i}`,
+            versionSource: "plex" as const,
+            reason: i === 0 ? "Détecté via Plex" : "Version supplémentaire détectée via Plex",
+            primary: i === 0,
+          };
+          if (i === 0 && item.mediaDetail) {
+            base.language = detectFileLanguage(base as LibraryFile, item.mediaDetail);
+          }
+          return base as LibraryFileVersion;
+        })
       : undefined;
 
     const movie: LibraryMovie = {
@@ -319,13 +348,16 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
     let changed = false;
     if (!existing.plexRatingKey) changed = true;
 
-    // First pass: detect changes without deep-cloning the whole episode tree
+    // First pass: detect changes without deep-cloning the whole episode tree.
+    // Also flag episodes whose language hasn't been set yet.
+    let needsLanguageBackfill = false;
     if (!changed) {
       for (const season of existing.seasons) {
         for (const ep of season.episodes) {
           const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey) { changed = true; break; }
+            if (ep.file && ep.file.language === undefined) needsLanguageBackfill = true;
           } else {
             if (ep.status === "available" || ep.file || ep.plexRatingKey) { changed = true; break; }
           }
@@ -334,13 +366,13 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
       }
     }
 
-    if (changed) {
+    if (changed || needsLanguageBackfill) {
       const newSeasons = existing.seasons.map((season) => ({
         ...season,
         episodes: season.episodes.map((ep) => {
           const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
-            if (ep.status !== "available" || !ep.plexRatingKey) {
+            if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {
               return { ...ep, status: "available" as const, file: toLibraryFile(plexEp) ?? ep.file, plexRatingKey: plexEp.ratingKey };
             }
             return ep;

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin, requireUser } from "@/lib/auth/guard";
 import { aggregatePerf, recordPerf, perfLabel, getPerfEntries } from "@/lib/perf";
+import { getEventLoopHistory, getEventLoopLive } from "@/lib/eventLoopMonitor";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,10 @@ export async function GET(req: NextRequest) {
     });
     return NextResponse.json({ entries });
   }
-  return NextResponse.json({ aggregates: aggregatePerf() });
+  return NextResponse.json({
+    aggregates: aggregatePerf(),
+    eventLoop: { live: getEventLoopLive(), history: getEventLoopHistory() },
+  });
 }
 
 /** Batch of client-side measurements reported by PerfReporter. */

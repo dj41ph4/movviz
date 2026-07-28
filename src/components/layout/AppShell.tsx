@@ -4,7 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
-import { SWRConfig } from "swr";
+import { SWRConfig, mutate } from "swr";
 import { useLibrarySSE } from "@/lib/events/useLibrarySSE";
 import { Hourglass, LogOut } from "lucide-react";
 import { AuroraBackground } from "@/components/fx/AuroraBackground";
@@ -14,6 +14,7 @@ import { BottomNav } from "./BottomNav";
 import { CommandPaletteProvider } from "./CommandPalette";
 import { WhatsNewModal } from "./WhatsNewModal";
 import { ToastContainer } from "@/components/ui/Toast";
+import { ConfirmDialogHost } from "@/components/ui/ConfirmDialog";
 import { PageLoaderProvider } from "@/components/ui/PageLoader";
 import { I18nProvider, useT } from "@/i18n/provider";
 import { VersionProvider } from "@/lib/version/VersionContext";
@@ -52,6 +53,8 @@ function PendingApprovalScreen({ username }: { username: string }) {
   const router = useRouter();
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
+    // Same stale-SWR-cache fix as UserMenu's logout / the login page.
+    await mutate("/api/auth/me");
     router.push("/login");
     router.refresh();
   };
@@ -79,6 +82,19 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
   const pathname = usePathname();
   const isAuthPage = pathname === "/login" || pathname === "/setup";
   const currentUser = useCurrentUser();
+  const isPending = !!currentUser && currentUser.status === "pending";
+
+  // Every hook must run on every render regardless of which branch below
+  // ends up returned — currentUser can flip (unauthenticated → signed in,
+  // or active → pending) while this same component instance stays mounted
+  // across a client-side navigation, and conditionally calling hooks only
+  // in the "fully signed in" branch made React throw "rendered more hooks
+  // than during the previous render" the moment that transition happened.
+  // Subscribes to /api/events and revalidates SWR library keys on status
+  // change — disabled (no SSE connection opened) on the auth pages/pending
+  // screen, where there's nothing authenticated to keep live.
+  useLibrarySSE(!isAuthPage && !isPending);
+  const reduceMotion = useShouldReduceMotion();
 
   if (isAuthPage) {
     return (
@@ -89,21 +105,16 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
     );
   }
 
-  if (currentUser && currentUser.status === "pending") {
+  if (isPending) {
     return (
       <I18nProvider>
         <AuroraBackground />
         <div className="relative z-10">
-          <PendingApprovalScreen username={currentUser.username} />
+          <PendingApprovalScreen username={currentUser!.username} />
         </div>
       </I18nProvider>
     );
   }
-
-  // Mounted once here — subscribes to /api/events and revalidates SWR
-  // library keys on every status change. The hook itself has no UI output.
-  useLibrarySSE();
-  const reduceMotion = useShouldReduceMotion();
 
   return (
       <SWRConfig value={swrConfig}>
@@ -130,6 +141,7 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
                   </div>
                   <WhatsNewModal />
                   <ToastContainer />
+                  <ConfirmDialogHost />
                 </PageLoaderProvider>
               </Suspense>
             </CommandPaletteProvider>

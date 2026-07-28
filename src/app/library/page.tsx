@@ -24,7 +24,7 @@ import {
 import { mapWithConcurrency } from "@/lib/concurrency";
 
 interface RescanIssue {
-  kind: "missing" | "untracked";
+  kind: "missing" | "untracked" | "duplicate";
   path: string;
 }
 
@@ -229,16 +229,9 @@ function LibraryTab() {
   const { data: watchData } = useSWR<{ movies: number[] }>("/api/watch-status");
   const watchedMovies = useMemo(() => new Set<number>(watchData?.movies ?? []), [watchData]);
 
-  const sortItems = <TItem extends { title: string; addedAt: number; rating: number }>(list: TItem[]): TItem[] =>
-    sort === "recent"
-      ? [...list].sort((a, b) => b.addedAt - a.addedAt)
-      : sort === "rating"
-        ? [...list].sort((a, b) => b.rating - a.rating)
-        : [...list].sort((a, b) => a.title.localeCompare(b.title));
-
   const movieItems = useMemo(
-    () => sortItems(type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && (!tagFilter || (m.tags ?? []).includes(tagFilter)))),
-    [movies, filter, type, tagFilter, sort]
+    () => (type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && (!tagFilter || (m.tags ?? []).includes(tagFilter)))),
+    [movies, filter, type, tagFilter]
   );
   const seriesStatus = (s: LibrarySeries): LibraryStatus => {
     const monitored = s.seasons.flatMap((se) => se.episodes).filter((e) => e.monitored);
@@ -248,11 +241,32 @@ function LibraryTab() {
     return "missing";
   };
   const seriesItems = useMemo(
-    () => sortItems(type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && (!tagFilter || (s.tags ?? []).includes(tagFilter)))),
-    [series, filter, type, tagFilter, sort]
+    () => (type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && (!tagFilter || (s.tags ?? []).includes(tagFilter)))),
+    [series, filter, type, tagFilter]
   );
-  const items = movieItems;
-  const total = items.length + seriesItems.length;
+
+  // When "Tout" mixes movies and series, they must be sorted TOGETHER — every
+  // sort mode, not just alphabetical — instead of each type being sorted on
+  // its own and simply concatenated (which always put every movie before
+  // every series, alphabetical order or not; sorting separately then
+  // stitching the two lists together can never interleave them).
+  type CombinedItem = { kind: "movie"; movie: LibraryMovie } | { kind: "series"; series: LibrarySeries };
+  const combinedItems = useMemo(() => {
+    const combined: CombinedItem[] = [
+      ...movieItems.map((movie): CombinedItem => ({ kind: "movie", movie })),
+      ...seriesItems.map((series): CombinedItem => ({ kind: "series", series })),
+    ];
+    const titleOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.title : c.series.title);
+    const addedAtOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.addedAt : c.series.addedAt);
+    const ratingOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.rating : c.series.rating);
+    return sort === "recent"
+      ? combined.sort((a, b) => addedAtOf(b) - addedAtOf(a))
+      : sort === "rating"
+        ? combined.sort((a, b) => ratingOf(b) - ratingOf(a))
+        : combined.sort((a, b) => titleOf(a).localeCompare(titleOf(b)));
+  }, [movieItems, seriesItems, sort]);
+
+  const total = combinedItems.length;
 
   // Progressive rendering: paint the first batch immediately so the page is
   // interactive at once, then mount the rest in idle time. Rendering the whole
@@ -294,8 +308,7 @@ function LibraryTab() {
     return () => io.disconnect();
   }, [visibleCount, total]);
 
-  const visibleMovies = items.slice(0, visibleCount);
-  const visibleSeries = seriesItems.slice(0, Math.max(0, visibleCount - items.length));
+  const visibleItems = combinedItems.slice(0, visibleCount);
 
   const progressFor = (movie: LibraryMovie) =>
     movie.activeInfoHash ? torrents.find((t) => t.infoHash === movie.activeInfoHash) : null;
@@ -349,8 +362,8 @@ function LibraryTab() {
               <div className="space-y-1.5">
                 {issues.map((issue, i) => (
                   <div key={i} className="flex items-center gap-2 text-xs text-ink-soft">
-                    <span className={cn("shrink-0 rounded-full px-2 py-0.5 font-semibold", issue.kind === "missing" ? "bg-down/12 text-down" : "bg-amber/12 text-amber")}>
-                      {issue.kind === "missing" ? t("library.fileMissing") : t("library.untrackedFile")}
+                    <span className={cn("shrink-0 rounded-full px-2 py-0.5 font-semibold", issue.kind === "missing" ? "bg-down/12 text-down" : issue.kind === "duplicate" ? "bg-cyan/12 text-cyan" : "bg-amber/12 text-amber")}>
+                      {issue.kind === "missing" ? t("library.fileMissing") : issue.kind === "duplicate" ? t("library.duplicateMerged") : t("library.untrackedFile")}
                     </span>
                     <span className="truncate font-mono">{issue.path}</span>
                   </div>
@@ -431,12 +444,13 @@ function LibraryTab() {
 
       <AnimatePresence mode="popLayout">
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {visibleMovies.map((movie, i) => (
-            <LibraryMovieCard key={movie.id} index={i} movie={movie} torrent={progressFor(movie)} watched={watchedMovies.has(movie.tmdbId)} onChange={refresh} />
-          ))}
-          {visibleSeries.map((s, i) => (
-            <LibrarySeriesCard key={s.id} index={visibleMovies.length + i} series={s} />
-          ))}
+          {visibleItems.map((entry, i) =>
+            entry.kind === "movie" ? (
+              <LibraryMovieCard key={entry.movie.id} index={i} movie={entry.movie} torrent={progressFor(entry.movie)} watched={watchedMovies.has(entry.movie.tmdbId)} onChange={refresh} />
+            ) : (
+              <LibrarySeriesCard key={entry.series.id} index={i} series={entry.series} />
+            )
+          )}
         </div>
       </AnimatePresence>
 

@@ -2,6 +2,210 @@
 
 Toutes les nouveautés et corrections notables de Movviz, expliquées simplement.
 
+## [1.10.38] — 2026-07-28
+
+### Activité
+
+- **"Lire sur Plex" plus fiable pour ouvrir l'appli mobile plutôt que le navigateur** : le lien pointait déjà vers app.plex.tv (que Plex enregistre comme lien universel iOS/Android — l'appli s'ouvre automatiquement toute seule si elle est installée, sinon la page web s'affiche normalement, sans rien à coder pour ça). Sur téléphone uniquement, le lien navigue maintenant dans le même onglet au lieu d'un nouvel onglet, ce qui fiabilise cette bascule automatique sur certains navigateurs. Aucun changement sur desktop.
+
+## [1.10.37] — 2026-07-28
+
+### Activité
+
+- **Bibliothèque épurée sur mobile** : la rangée de 5 icônes (recherche manuelle, tags, signalement, suppression...) sous chaque affiche est remplacée par un seul geste utile — "Lire sur Plex" si disponible, "Rechercher" sinon. Le reste (gestion des tags, suppression...) reste accessible depuis la fiche complète. Le survol desktop, déjà nickel, garde sa rangée complète.
+- **Badges plus discrets sur mobile** : seuls la résolution et la langue restent visibles (légèrement réduits) sur une affiche en grille à deux colonnes ; année, HDR, codecs et source ne s'affichent qu'à partir de la taille tablette. Aucun changement sur desktop.
+- **Barre de défilement plus discrète sur mobile** : la barre dégradée épaisse pensée pour une souris devenait envahissante sur un petit écran — réduite et adoucie en dessous de 640px, inchangée au-dessus.
+- **Les widgets du tableau de bord (statistiques, file de téléchargement, tâches planifiées) sont désormais désactivés par défaut sur une toute nouvelle installation** — ils restent activables en un clic depuis Réglages → Tableau de bord. Aucun impact sur une installation existante, qui garde ses réglages actuels.
+
+## [1.10.36] — 2026-07-28
+
+### Activité
+
+- **La bande-annonce plein écran mobile force maintenant le mode paysage** dès l'ouverture, comme YouTube ou Netflix, au lieu de rester lettrboxée en portrait (meilleur effort — indisponible sur les navigateurs qui ne supportent pas la rotation forcée, notamment Safari iOS hors installation en écran d'accueil).
+
+### Correctifs
+
+- **Bouton "activer le son" toujours pas cliquable, cette fois sur ordinateur** : le correctif précédent n'avait déplacé le bouton qu'en mobile — le même recouvrement par le bloc titre/actions pouvait aussi arriver sur desktop selon le contenu affiché. Le bouton reste maintenant en haut à gauche à toutes les tailles d'écran.
+
+## [1.10.35] — 2026-07-28
+
+### Correctifs
+
+- **Bande-annonce en plein écran sur mobile** : la fenêtre "regarder la bande-annonce" s'ouvrait comme une toute petite carte coincée en haut de l'écran, entourée de vide flouté — sur téléphone, elle occupe maintenant tout l'écran sur un fond noir plein, comme sur Netflix/YouTube. Le rendu bureau (déjà parfait) reste identique au pixel près.
+- **Bouton "activer le son" toujours pas cliquable, cette fois sur mobile spécifiquement** : sur un écran étroit, le bloc titre/actions passe sur plusieurs lignes et devient assez grand pour recouvrir le coin où vivait ce bouton, sans que rien ne le signale visuellement. Déplacé en haut à gauche sur mobile uniquement (jamais disputé par aucun autre élément) — inchangé sur bureau.
+
+## [1.10.34] — 2026-07-28
+
+### Activité
+
+- **La fiche d'un titre ne se contente plus d'apparaître en fondu — elle grandit littéralement depuis l'affiche sur laquelle tu as cliqué**, jusqu'à occuper sa place définitive à l'écran (façon App Store / Apple TV). Actif partout où une fiche s'ouvre en panneau (bibliothèque, découverte, collections, calendrier, recherche...), sans rien changer d'autre à l'affichage. Désactivé automatiquement si tu as demandé moins d'animations.
+
+## [1.10.33] — 2026-07-28
+
+### Correctifs
+
+- **Bouton "activer le son" toujours pas cliquable sur les fiches** : le vrai coupable était le voile dégradé posé par-dessus la bande-annonce pour garder le texte lisible — il interceptait le clic avant qu'il n'atteigne le bouton en dessous. Corrigé (et vérifié sur la page collection qui avait le même souci en dormance).
+
+## [1.10.32] — 2026-07-28
+
+### Correctifs
+
+- **Découverte gardait ta recherche/tes filtres même après avoir quitté la page** : ce mécanisme datait d'avant le passage des fiches à un panneau glissant (qui ne quitte plus jamais la page) — il ne servait donc plus à rien et se contentait de resauvegarder ta dernière recherche à chaque fois que tu partais, obligeant à vider les données du site pour repartir de zéro. Supprimé : Découverte repart maintenant propre à chaque nouvelle visite.
+
+## [1.10.31] — 2026-07-28
+
+### Correctifs
+
+- **Le film/série mis en avant sur le tableau de bord ne changeait plus depuis des jours** : le classement des suggestions bouge très peu d'un jour à l'autre, et chaque ouverture du tableau de bord repartait sur le tout premier de la liste — la rotation automatique n'avançait que si l'onglet restait ouvert en continu, ce qui n'arrive presque jamais. La mise en avant change maintenant réellement toutes les 3 heures, même en revenant sur le tableau de bord après une coupure.
+- **Bouton "activer le son" de la bande-annonce visible mais impossible à cliquer** : le lecteur YouTube intégré remplaçait son propre élément par un iframe qui, une fois en place, interceptait le clic destiné au bouton par-dessus lui. Corrigé.
+
+## [1.10.30] — 2026-07-28
+
+### Activité
+
+- **Passe de finition premium sur les écrans "utilitaires"** (Réglages, Activité, Utilisateurs) : deux boutons totalement vides à cause d'un texte manquant sont réparés (dont le seul bouton pour ajouter une liste d'import quand elle est vide) ; les dernières couleurs non standard sont alignées sur la palette officielle ; les fenêtres de création d'utilisateur et de liaison de téléchargement s'ouvrent maintenant avec la même animation que le reste de l'app ; les files de tâches, la liste noire et la zone de danger animent proprement l'apparition/disparition de leurs lignes ; les écrans vides (cache, historique, incidents) ont maintenant une icône au lieu d'un simple texte : et un titre de release trop long dans la file d'attente ne déborde plus sur mobile.
+
+## [1.10.29] — 2026-07-28
+
+### Activité
+
+- **Plus aucune popup native du navigateur** : chaque "êtes-vous sûr ?" (suppression d'un téléchargement, d'un utilisateur, d'un indexeur, d'un format personnalisé, d'un token, import en masse, renommage en masse...) passait par la boîte de dialogue grise du navigateur — remplacée partout par une fenêtre de confirmation Movviz, animée et cohérente avec le reste de l'interface, adaptée au mobile.
+- **Nouvelle carte "Terminé" dans Activité → File d'attente** : la rangée de statistiques affiche maintenant le nombre de téléchargements terminés à côté des autres compteurs.
+- **Animation du badge 4K revue** : le dégradé défile maintenant de gauche à droite (au lieu de droite à gauche) et la boucle est désormais totalement fluide, sans coupure perceptible au redémarrage.
+
+## [1.10.28] — 2026-07-28
+
+### Activité
+
+- **Intervalles par défaut des tâches planifiées ajustés** : sur une installation neuve, la synchronisation de la liste de suivi Plex démarre maintenant toutes les minutes (au lieu de 15), la synchronisation des vues Plex toutes les 2 heures (au lieu de 15 minutes) et la réconciliation des téléchargements en cours toutes les heures (au lieu de 10 minutes) — ces valeurs correspondent aux réglages déjà éprouvés en usage réel.
+
+## [1.10.27] — 2026-07-28
+
+### Activité
+
+- **Texte de la mesure "Boucle d'événements" (Réglages → Performance) mis à jour** : il décrivait encore un fonctionnement 100% mono-thread, alors que le calcul le plus lourd tourne désormais sur des threads séparés (voir 1.10.26). Le texte explique maintenant ce qui reste sur le thread principal et pourquoi ce blocage devrait rester rare.
+
+## [1.10.26] — 2026-07-28
+
+### Activité
+
+- **Le calcul de correspondance des releases tourne maintenant sur un vrai thread séparé** : jusqu'ici, comparer chaque release trouvée au titre recherché (films et séries) se faisait sur le même thread que celui qui répond à toutes les requêtes de l'interface — pendant un gros job ("Rechercher les manquants", mise à niveau qualité...), ce calcul pouvait ralentir tout le reste de l'app en même temps, mesuré en direct sur le serveur. Ce calcul est désormais délégué à un pool de vrais threads système, dédiés à ce travail et rien d'autre, avec un nombre de threads calibré pour ne jamais monopoliser toutes les ressources du serveur. L'interface reste fluide quelle que soit la taille du job en cours.
+
+## [1.10.25] — 2026-07-28
+
+### Correctifs
+
+- **Connexion/déconnexion qui exigeait de recharger la page** : juste après une connexion ou une déconnexion réussie, l'app continuait parfois à afficher l'ancien état (connecté/déconnecté) pendant une trentaine de secondes, jusqu'à un rechargement manuel. La mise à jour de session ne se propageait pas immédiatement à l'interface — c'est corrigé, l'app reflète maintenant l'état réel dès l'action.
+- **Plantage React possible pendant cette même transition** : un ordre d'appels internes incorrect pouvait provoquer une erreur au moment exact où l'état de connexion changeait sans recharger la page — invisible tant qu'un rechargement manuel contournait le problème, mais qui serait devenu un vrai plantage une fois le correctif ci-dessus en place. Corrigé en même temps.
+
+## [1.10.24] — 2026-07-28
+
+### Activité
+
+- **Bande-annonce bloquée par l'ayant droit** : certaines bandes-annonces (ex. Kaamelott, bloquée par Calt Distribution) refusaient toute lecture intégrée. Movviz essaie maintenant automatiquement une autre bande-annonce disponible dès que la première est bloquée ou supprimée, aussi bien dans le fond animé des fiches que dans la fenêtre de lecture dédiée. Si vraiment aucune ne passe, un lien direct vers YouTube est proposé au lieu de l'écran d'erreur brut.
+
+## [1.10.23] — 2026-07-28
+
+### Activité
+
+- **Bouton "Tout mettre en pause" dans la file de téléchargement** : un seul bouton pour mettre en pause tous les téléchargements actifs d'un coup — il devient "Tout reprendre" une fois que tout est en pause, pour tout relancer d'un seul clic.
+
+## [1.10.22] — 2026-07-28
+
+### Correctifs
+
+- **Cause réelle des ralentissements généralisés pendant les grosses recherches** : chaque mise à jour d'un film ou d'une série (marquer "en recherche", "manquant", "en téléchargement"...) invalidait tout le cache de la bibliothèque, forçant l'appel suivant à tout reconstruire depuis zéro — pour les séries, ça voulait dire reparcourir la totalité des saisons et épisodes de la bibliothèque entière (plus de 16 000 épisodes), pas seulement ceux qui venaient de changer. Un gros job (comme "Rechercher les manquants", qui met à jour des centaines d'éléments à la suite) déclenchait ça des centaines de fois d'affilée sur le thread principal, expliquant pourquoi tout Movviz ralentissait pendant ce temps, pas seulement la recherche elle-même. Confirmé en mesurant directement le blocage réel avant/après (voir 1.10.21) : le plateau soutenu disparaît. Les mises à jour ne rafraîchissent plus que ce qui a réellement changé.
+
+### Activité
+
+- **Mesure directe de la boucle d'événements** : Réglages → Performance affiche maintenant en temps réel à quel point le serveur est bloqué (moyenne/P99/max sur les 15 dernières secondes, historique sur 1h), au lieu de devoir le déduire indirectement des temps de réponse. Un blocage se voit désormais immédiatement, avec un historique pour le recouper avec ce qui tournait au même moment.
+- **Texte d'aide des formats personnalisés simplifié** : reformulé en langage clair, centré sur l'idée de points bonus/malus, plus accessible que la formulation technique précédente.
+
+## [1.10.20] — 2026-07-28
+
+### Activité
+
+- **Badge "jours restants" sur tout film pas encore sorti** : Bibliothèque, Découverte et fiche film affichent maintenant "Dans X jours"/"Demain" au lieu d'un simple "À venir" — le même traitement que le tableau de bord, désormais partout.
+
+### Correctifs
+
+- **Lecteur vidéo (bande-annonce) pouvant déborder sur la barre latérale** : le clip du lecteur repose maintenant aussi sur un confinement de rendu renforcé, en plus du recadrage existant, pour empêcher tout débordement quel que soit le contenu chargé dans le lecteur intégré.
+
+## [1.10.19] — 2026-07-28
+
+### Correctifs
+
+- **Panneau "Rechercher et remplacer" bloquait tout le serveur** : la rangée "Remplacements disponibles" du tableau de bord relançait le scan complet de la bibliothèque à chaque fois que la fenêtre du navigateur reprenait le focus, sans aucune protection contre les exécutions concurrentes côté serveur — contrairement à toutes les autres actions en masse de l'app. Pire, ce scan traitait la bibliothèque entière de façon synchrone sans jamais rendre la main, ce qui gelait le serveur pour toutes les autres requêtes le temps du calcul (plusieurs dizaines de secondes avec une grosse bibliothèque). La rangée ne se relance plus au focus, l'endpoint est maintenant mis en cache et dédoublonné côté serveur, et le scan laisse respirer le serveur entre chaque titre.
+- **Codec ignoré par "Rechercher et remplacer"** : ce panneau ne comparait que la langue et les formats personnalisés configurés, jamais le codec vidéo — une bibliothèque déjà en bon audio/format mais encore en x264 ne voyait donc jamais de suggestion de remplacement, même avec des points de codec (x265/AV1) explicitement configurés dans Réglages → Qualité. Le codec est maintenant un 3ᵉ critère de comparaison.
+- **"Ajouter une version" pouvait remplacer le fichier existant au lieu d'ajouter** : si un téléchargement lancé via "Ajouter une version" échouait ou était annulé avant son import, le choix "ajouter" restait mémorisé indéfiniment pour cette release précise. Une recherche automatique ou manuelle ultérieure retombant sur la même release héritait alors silencieusement de ce choix. Ce choix expire maintenant après quelques heures.
+
+## [1.10.18] — 2026-07-28
+
+### Activité
+
+- **Ordre aléatoire pour "Rechercher les manquants"** : le bouton traitait toujours la bibliothèque dans le même ordre, ce qui pouvait finir par déclencher un blocage 429 chez un indexeur avant même d'avoir atteint les derniers titres — ceux-là n'étaient alors jamais recherchés. L'ordre est maintenant mélangé à chaque lancement (films entre eux, séries entre elles, et les deux catégories entrelacées quand on recherche tout), pour que ce soit toujours des titres différents qui passent en premier.
+
+## [1.10.17] — 2026-07-28
+
+### Activité
+
+- **Bouton "Remplacer les bloqués"** (File d'attente, admin) : recherche et remplace automatiquement chaque téléchargement bloqué par la meilleure release trouvée pour chacun — le même principe que la loupe rouge sur un élément, mais pour tous les bloqués d'un coup, en un clic. Traitement séquentiel (un élément à la fois, avec une pause entre chaque) pour ne jamais surcharger les indexeurs.
+
+## [1.10.16] — 2026-07-28
+
+### Moteur de téléchargement
+
+- **Abandon d'un torrent mort deux fois trop lent** : le correctif de la 1.10.7 (abandon d'un torrent sans aucun pair après quelques minutes) mettait en réalité ~24-36 minutes à se déclencher au lieu des ~9 minutes prévues — chaque cycle de la boucle de vérification comptait pour le double de sa durée réelle. Corrigé : le plafond est maintenant calibré sur la vraie durée d'un cycle.
+
+## [1.10.15] — 2026-07-28
+
+### Recherche et remplacement — épisodes de séries
+
+- **Chaque épisode disponible est maintenant éligible au remplacement** : "Rechercher et remplacer" couvrait uniquement les films — un épisode en VOST ou en VFQ n'avait aucun moyen d'être proposé pour un remplacement vers la langue cible configurée. Il détecte et propose maintenant aussi les épisodes, avec la même règle de langue que les films (Réglages → Qualité).
+- Recherche directe (repli quand le cache RSS est vide) strictement séquentielle, un indexeur à la fois, avec un plafond par passage — protège les indexeurs contre un excès de requêtes sur une grosse bibliothèque de séries. Le même plafond a été ajouté au côté films.
+- Le panneau "Rechercher et remplacer" affiche maintenant films et épisodes ensemble, avec le code Sxx Exx pour les épisodes.
+- La tâche planifiée quotidienne et la notification associée couvrent maintenant aussi les épisodes.
+
+### Bibliothèque
+
+- **Doublons fusionnés automatiquement** : deux entrées bibliothèque pointant vers le même film ou la même série (même identifiant TMDb) sont désormais détectées et fusionnées par "Réconcilier avec le disque" (bouton manuel et tâche quotidienne) — la meilleure des deux est conservée, l'autre disparaît sans repasser par la corbeille (rien n'est perdu, c'est la même entrée qui subsiste).
+
+### Corrections diverses
+
+- Deux tâches planifiées ("Diagnostic bibliothèque", "Détection des langues") affichaient leur identifiant technique brut au lieu d'un nom lisible, faute de traduction — corrigé dans les 5 langues.
+
+## [1.10.14] — 2026-07-28
+
+### Corrections détection des langues
+
+- **`languageSatisfies()` réparée** : la comparaison utilisait `.replace(/[\s·]+/g, "")` (qui supprime le point médian) mais testait toujours `"MULTI·VF"` (avec le point) — résultat : aucun match. Désormais les deux côtés sont normalisés (point médian et espaces retirés) avant la comparaison via `Set`. Les opérateurs normaux `VF`, `VFQ`, `VFF`, `TRUEFRENCH`, `FRENCH`, `FR`, `VF2`, `VFI` ne sont pas impactés.
+- **`grabUpgradeCandidate()`** : utilise désormais `file.language` en priorité (au lieu de `parseRelease()`) et `languageSatisfies()` pour détecter si un upgrade est utile — plus de faux upgrades vers `MULTI·VF` quand `VF` est présent.
+- **`bestLanguageMatch()`** : remplace la stricte égalité par `languageSatisfies()` — un fichier `VF` peut désormais être retenu quand la cible est `MULTI·VF`.
+- **`mergePlexVersions()`** : la langue est maintenant préservée pour la version primaire (détectée depuis les flux audio Plex) et portée par les versions précédentes si connu.
+- **`backfillMissingMediaInfo()`** : détecte et persiste aussi `file.language` depuis les flux audio Plex lors du rattrapage des métadonnées manquantes.
+- **Boucle infinie évitée** : les conditions `!ep.file.language` remplacées par `ep.file.language === undefined` pour les fichiers où la détection Plex a échoué (language = `null`).
+
+## [1.10.13] — 2026-07-28
+
+### Recherche et remplacement
+
+- **Upgrade MULTI·VF moins agressif** : un fichier `VF` ou `VFQ` (audio français) est désormais considéré comme satisfaisant la cible `MULTI · VF` — plus besoin de chercher une version multilingue quand le français est déjà présent. Symétrique : `MULTI · VF` satisfait aussi `VF`/`VFQ`.
+
+## [1.10.12] — 2026-07-28
+
+### Détection des langues
+
+- **Langue persistée sur chaque fichier** : la langue des films et épisodes est désormais détectée via Plex (flux audio) et stockée sur `file.language`. Le badge d'affichage et le système de recherche/remplacement utilisent cette valeur persistée en priorité — fini les `?` dans les logs.
+- **Synchro Plex enrichie** : pendant la synchro, la langue est déduite des flux audio Plex (VF/VOSTFR/MULTI/VO) et sauvegardée. Pour les épisodes existants sans langue, elle est renseignée à la synchro suivante — un seul passage, pas de boucle.
+- **Tâche planifiée "Détection des langues"** (quotidienne) : rattrape les films et séries qui n'ont pas encore leur `language` renseigné.
+- **Refonte du badge** : utilise désormais `file.language` en priorité, puis Plex, puis filename.
+
+## [1.10.11] — 2026-07-28
+
+### Bibliothèque
+
+- **Tri "Tout" corrigé** : quand films et séries sont mélangés (vue "Tout"), le tri (titre, récemment ajouté, note) les triait chacun séparément puis affichait tous les films avant toutes les séries. Il trie maintenant l'ensemble ensemble, quel que soit le critère choisi — un vrai classement mélangé, pas films-puis-séries.
+
 ## [1.10.10] — 2026-07-27
 
 ### Interface

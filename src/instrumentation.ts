@@ -6,6 +6,9 @@
  */
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { startEventLoopMonitor } = await import("@/lib/eventLoopMonitor");
+    startEventLoopMonitor();
+
     const { recordPerf, perfLabel } = await import("@/lib/perf");
 
     // Time every OUTBOUND fetch the server makes (TMDb, Plex, indexers,

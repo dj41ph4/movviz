@@ -1,8 +1,10 @@
 import fs from "node:fs";
-import { loadMovies, loadSeries } from "@/lib/library/store";
+import { loadMovies, loadSeries, pruneMovies, pruneSeries } from "@/lib/library/store";
+import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/server";
 import { trashRoots } from "@/lib/library/trashStore";
 import { pathFor } from "@/lib/library/renamePath";
+import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 
 const VIDEO_EXT = /\.(mkv|mp4|avi|ts|m2ts)$/i;
 
@@ -15,8 +17,73 @@ function walk(dir: string): string[] {
 }
 
 export interface RescanIssue {
-  kind: "missing" | "untracked";
+  kind: "missing" | "untracked" | "duplicate";
   path: string;
+}
+
+const STATUS_RANK: Record<LibraryStatus, number> = { available: 4, downloading: 3, searching: 2, missing: 1, upcoming: 0 };
+
+/**
+ * Merges library entries that share the same tmdbId — should never happen
+ * given addMovie()/addSeries() both guard against it at creation time, but a
+ * duplicate can still exist from data created before that guard, or from a
+ * gap in some other add path. Keeps the "best" entry (available beats
+ * downloading beats searching beats missing beats upcoming; a real file
+ * beats none; oldest addedAt as the final tiebreak — the one the user has
+ * had longest) and silently drops the rest via pruneMovies/pruneSeries
+ * (no Trash entry — nothing was actually deleted, the title just collapses
+ * back into a single entry).
+ */
+function mergeDuplicateMovies(): RescanIssue[] {
+  const movies = loadMovies();
+  const byTmdbId = new Map<number, LibraryMovie[]>();
+  for (const m of movies) {
+    const list = byTmdbId.get(m.tmdbId) ?? [];
+    list.push(m);
+    byTmdbId.set(m.tmdbId, list);
+  }
+
+  const toRemove = new Set<string>();
+  const issues: RescanIssue[] = [];
+  for (const [tmdbId, dups] of byTmdbId) {
+    if (dups.length < 2) continue;
+    const sorted = [...dups].sort((a, b) =>
+      (STATUS_RANK[b.status] - STATUS_RANK[a.status]) || (Number(!!b.file) - Number(!!a.file)) || (a.addedAt - b.addedAt)
+    );
+    const [keep, ...drop] = sorted;
+    for (const d of drop) toRemove.add(d.id);
+    issues.push({ kind: "duplicate", path: `movie:${tmdbId} "${keep.title}" — ${drop.length} doublon(s) fusionné(s)` });
+    recordSearchLog("info", "reconcile.duplicate_movie_merged", `${keep.title} (tmdbId ${tmdbId}) — ${drop.length} entrée(s) en double fusionnée(s), conservé: ${keep.id} (${keep.status})`);
+  }
+  if (toRemove.size > 0) pruneMovies(toRemove);
+  return issues;
+}
+
+function countAvailableEpisodes(s: LibrarySeries): number {
+  return s.seasons.reduce((sum, season) => sum + season.episodes.filter((e) => e.status === "available").length, 0);
+}
+
+function mergeDuplicateSeries(): RescanIssue[] {
+  const seriesList = loadSeries();
+  const byTmdbId = new Map<number, LibrarySeries[]>();
+  for (const s of seriesList) {
+    const list = byTmdbId.get(s.tmdbId) ?? [];
+    list.push(s);
+    byTmdbId.set(s.tmdbId, list);
+  }
+
+  const toRemove = new Set<string>();
+  const issues: RescanIssue[] = [];
+  for (const [tmdbId, dups] of byTmdbId) {
+    if (dups.length < 2) continue;
+    const sorted = [...dups].sort((a, b) => (countAvailableEpisodes(b) - countAvailableEpisodes(a)) || (a.addedAt - b.addedAt));
+    const [keep, ...drop] = sorted;
+    for (const d of drop) toRemove.add(d.id);
+    issues.push({ kind: "duplicate", path: `series:${tmdbId} "${keep.title}" — ${drop.length} doublon(s) fusionné(s)` });
+    recordSearchLog("info", "reconcile.duplicate_series_merged", `${keep.title} (tmdbId ${tmdbId}) — ${drop.length} entrée(s) en double fusionnée(s), conservé: ${keep.id} (${countAvailableEpisodes(keep)} ép. disponibles)`);
+  }
+  if (toRemove.size > 0) pruneSeries(toRemove);
+  return issues;
 }
 
 /** Case-insensitive on Windows/macOS-style filesystems; exact elsewhere isn't worth the complexity here. */
@@ -49,6 +116,10 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
     .map((inst) => inst.completedPath)
     .filter(Boolean);
 
+  // Merge first so the rest of this pass (and the "N titres" counts shown
+  // everywhere in the app) reflects the deduped state, not a stale one.
+  const duplicateIssues = [...mergeDuplicateMovies(), ...mergeDuplicateSeries()];
+
   const trackedPaths = new Set<string>();
   for (const movie of loadMovies()) if (movie.file) trackedPaths.add(pathFor(movie.file.path).normalize(movie.file.path));
   for (const series of loadSeries())
@@ -77,5 +148,5 @@ export async function reconcileLibrary(): Promise<RescanIssue[]> {
     if (!trackedPaths.has(p)) issues.push({ kind: "untracked", path: p });
   }
 
-  return issues;
+  return [...duplicateIssues, ...issues];
 }

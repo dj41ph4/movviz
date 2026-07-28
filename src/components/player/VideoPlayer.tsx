@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
-import { cn } from "@/lib/utils";
+import { cn, openPlexLink } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import {
   X, Maximize2, Minimize2, ExternalLink, AlertTriangle, Loader2,
@@ -598,6 +598,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
               href={plexUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => openPlexLink(e, plexUrl)}
               className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:bg-white/10 hover:text-ink"
               title={t("library.watchOnPlex")}
             >
@@ -625,6 +626,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
                 href={plexUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => openPlexLink(e, plexUrl)}
                 className="flex h-10 items-center gap-2 rounded-xl bg-amber px-5 text-sm font-bold text-black"
               >
                 <ExternalLink className="h-4 w-4" />

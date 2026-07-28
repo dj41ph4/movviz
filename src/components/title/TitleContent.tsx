@@ -1,21 +1,22 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/i18n/provider";
-import { cn } from "@/lib/utils";
+import { cn, openPlexLink } from "@/lib/utils";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { MetaDetail } from "@/lib/metadata/types";
 import type { LibraryStatus, LibraryFile, LibraryFileVersion } from "@/lib/library/types";
+import { daysUntil } from "@/lib/library/releaseSchedule";
 import { SeasonAccordion } from "@/components/title/SeasonAccordion";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
 import { BrandIcon } from "@/components/ui/BrandIcon";
 import { TagEditor } from "@/components/library/TagEditor";
 import { MediaBadges } from "@/components/library/MediaBadges";
-import { TrailerHeader } from "@/components/media/TrailerHeader";
+import { TrailerHeader, TrailerModalPlayer } from "@/components/media/TrailerHeader";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
@@ -245,6 +246,36 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   } | null>(null);
   const [showFullCrew, setShowFullCrew] = useState(false);
   const [showTrailer, setShowTrailer] = useState(false);
+  const trailerModalRef = useRef<HTMLDivElement>(null);
+
+  // Mobile only — the trailer modal is a real full-screen player now (see
+  // below), so it should behave like one: go fullscreen and force landscape,
+  // same as YouTube/Netflix's own mobile players, instead of leaving the
+  // video letterboxed sideways in portrait. Fullscreen is required by every
+  // browser that supports orientation locking at all (locking without it
+  // throws) — requested on the modal's own element, not the whole document,
+  // so it only ever affects this one overlay. Neither API is universally
+  // supported (iOS Safari has no orientation-lock API whatsoever outside a
+  // home-screen-installed PWA) — both calls are best-effort and silently
+  // no-op where unavailable, since the modal already renders correctly
+  // without them, just not force-rotated.
+  useEffect(() => {
+    if (!showTrailer || typeof window === "undefined" || window.innerWidth >= 640) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        if (trailerModalRef.current && !document.fullscreenElement) {
+          await trailerModalRef.current.requestFullscreen();
+        }
+        if (!cancelled) await (screen.orientation as any)?.lock?.("landscape");
+      } catch { /* not supported on this browser/context — modal still works, just not rotated */ }
+    })();
+    return () => {
+      cancelled = true;
+      try { (screen.orientation as any)?.unlock?.(); } catch { /* unsupported */ }
+      if (document.fullscreenElement) { try { document.exitFullscreen(); } catch { /* unsupported */ } }
+    };
+  }, [showTrailer]);
   const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
   const [resyncingAnime, setResyncingAnime] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
@@ -565,6 +596,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   }
 
   const StatusIcon = libraryStatus ? STATUS_ICON[libraryStatus] : null;
+  // Same day-count treatment as the library card and dashboard row — "à
+  // venir" alone doesn't say if that's tomorrow or in six months.
+  const daysToRelease =
+    type === "movie" && libraryStatus === "upcoming" ? daysUntil(detail?.releaseDateFull ?? null) : null;
 
   const technicalContent = (
     <>
@@ -750,6 +785,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               href={libraryMatch.plexUrl}
               target="_blank"
               rel="noreferrer"
+              onClick={(e) => openPlexLink(e, libraryMatch.plexUrl!)}
               title="Plex"
               className="h-8 w-8 shrink-0 overflow-hidden rounded-lg transition-transform hover:scale-110"
             >
@@ -814,16 +850,19 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
        * ── HEADER ────────────────────────────────────────────────────
        * Full page layout (large backdrop + overlay).
        */}
-      <div className="relative -mx-6 -mt-6 mb-8 h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:h-[75vh] sm:min-h-[420px]">
+      <div
+        className="relative -mx-6 -mt-6 mb-8 h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:h-[75vh] sm:min-h-[420px]"
+        style={{ contain: "paint" }}
+      >
           <TrailerHeader
             backdropUrl={backdrop}
-            trailerKey={detail.trailerKey}
+            trailerKeys={detail.trailerKeys}
             title={detail.title}
             trigger="immediate"
             className="h-full w-full"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-void via-void/70 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-void/60 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void via-void/70 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-void/60 via-transparent to-transparent" />
           {libraryMatch?.id && (
             <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-8 sm:top-8">
               <ReportIssueButton
@@ -851,11 +890,15 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               <span
                 className={cn(
                   "inline-flex w-fit items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-bold",
-                  STATUS_TONE[libraryStatus],
+                  daysToRelease != null ? "border-brand/25 bg-brand/12 text-brand-glow" : STATUS_TONE[libraryStatus],
                 )}
               >
                 <StatusIcon className="h-3 w-3" />{" "}
-                {t(`status.${libraryStatus}`)}
+                {daysToRelease != null
+                  ? daysToRelease <= 1
+                    ? t("dashboard.hero.inOneDay")
+                    : t("dashboard.hero.inDays", { n: daysToRelease })
+                  : t(`status.${libraryStatus}`)}
               </span>
             )}
             <h1 className="max-w-2xl text-3xl font-black tracking-tight text-white drop-shadow-lg sm:text-5xl">
@@ -939,6 +982,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         href={libraryMatch.plexUrl}
                         target="_blank"
                         rel="noreferrer"
+                        onClick={(e) => openPlexLink(e, libraryMatch.plexUrl!)}
                         className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105"
                       >
                         <Play className="h-4 w-4 fill-black" />
@@ -1298,28 +1342,29 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
       {/* ── MODALS ────────────────────────────────────────────────────── */}
       {showTrailer && detail.trailerKey && (
+        // Full-bleed, edge-to-edge and vertically centered on a solid black
+        // stage on mobile — a small max-w-3xl card floating near the top
+        // (the sm:+ desktop treatment, untouched below) left most of the
+        // screen as wasted blurred backdrop and squeezed the video into a
+        // ~200px strip. From sm: up, back to the original floating card.
         <div
-          className="fixed inset-0 z-[100] flex items-start justify-center bg-black/50 p-4 pt-[12vh] backdrop-blur-sm"
+          ref={trailerModalRef}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black sm:items-start sm:bg-black/50 sm:p-4 sm:pt-[12vh] sm:backdrop-blur-sm"
           onClick={() => setShowTrailer(false)}
         >
           <div
-            className="relative w-full max-w-3xl"
+            className="relative w-full sm:max-w-3xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setShowTrailer(false)}
-              className="absolute -top-10 right-0 flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft hover:text-ink"
+              aria-label={t("common.close")}
+              className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur transition-colors hover:bg-black/60 sm:-top-10 sm:right-0 sm:h-8 sm:w-8 sm:rounded-lg sm:bg-transparent sm:text-ink-soft sm:backdrop-blur-none sm:hover:bg-transparent sm:hover:text-ink"
             >
-              <X className="h-5 w-5" />
+              <X className="h-5 w-5 sm:h-5 sm:w-5" />
             </button>
-            <div className="aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl">
-              <iframe
-                src={`https://www.youtube-nocookie.com/embed/${detail.trailerKey}?autoplay=1`}
-                title={t("title.trailer")}
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                className="h-full w-full"
-              />
+            <div className="aspect-video w-full overflow-hidden border-white/10 bg-black shadow-2xl sm:rounded-2xl sm:border">
+              <TrailerModalPlayer trailerKeys={detail.trailerKeys} title={t("title.trailer")} />
             </div>
           </div>
         </div>

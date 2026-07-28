@@ -4,7 +4,8 @@ import { useState, useMemo, memo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useI18n } from "@/i18n/provider";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, openPlexLink } from "@/lib/utils";
+import { daysUntil } from "@/lib/library/releaseSchedule";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { LibraryMovie, LibraryStatus } from "@/lib/library/types";
@@ -98,18 +99,26 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
     () => !!(movie.vfReleaseDate && new Date(movie.vfReleaseDate) > new Date()),
     [movie.vfReleaseDate]
   );
+  // Same day-count treatment as the dashboard's "Bientôt disponible" row —
+  // "à venir" alone doesn't tell you if that's tomorrow or in six months.
+  const daysToRelease = useMemo(() => daysUntil(movie.vfReleaseDate ?? movie.releaseDate), [movie.vfReleaseDate, movie.releaseDate]);
   const isDownloading = movie.status === "downloading" || movie.status === "searching";
+  const upcomingLabel = daysToRelease != null
+    ? daysToRelease <= 1
+      ? t("dashboard.hero.inOneDay")
+      : t("dashboard.hero.inDays", { n: daysToRelease })
+    : t("status.wanted");
   const statusBadge = useMemo(() =>
     movie.status === "available"
       ? { icon: Check, cls: "bg-ok/90 text-white", label: t("status.available") }
       : isDownloading
         ? { icon: Loader2, cls: "bg-purple-500/90 text-white", label: t("status.downloading") }
-        : movie.status === "missing" && isUpcoming
-          ? { icon: CalendarCheck, cls: "bg-cyan/80 text-white", label: t("status.wanted") }
+        : movie.status === "upcoming" || (movie.status === "missing" && isUpcoming)
+          ? { icon: CalendarCheck, cls: "bg-black/55 text-brand-glow", label: upcomingLabel }
           : movie.status === "missing"
             ? { icon: Clock, cls: "bg-amber/80 text-white", label: t("status.missing") }
             : null,
-    [movie.status, isUpcoming, isDownloading, t]
+    [movie.status, isUpcoming, isDownloading, upcomingLabel, t]
   );
 
   const cascadeAnim = reduceMotion ? {
@@ -181,7 +190,7 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
           </div>
         )}
 
-        <MediaBadges file={movie.file} plexMediaInfo={movie.plexMediaInfo} year={movie.year} className="absolute bottom-2 left-2 right-2" />
+        <MediaBadges file={movie.file} plexMediaInfo={movie.plexMediaInfo} year={movie.year} className="absolute bottom-2 left-2 right-2" compactOnMobile />
 
         <div className="pointer-events-none absolute inset-0 hidden lg:flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           {movie.status === "available" && movie.plexUrl && (
@@ -198,6 +207,7 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
                 href={movie.plexUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={(e) => openPlexLink(e, movie.plexUrl!)}
                 className="pointer-events-auto mb-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black"
               >
                 <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
@@ -242,55 +252,44 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
         </div>
       </div>
 
-      {/* Actions mobiles — opaques, cliquables, cachées sur desktop */}
+      {/* Actions mobiles — un seul geste utile à la fois, pas une rangée
+          d'icônes de gestion (tags, suppression, recherche manuelle...) qui
+          n'ont leur place que dans la fiche détaillée. Le mobile sert à
+          vérifier ce qui existe et à lancer une recherche/lecture en un tap,
+          rien de plus — cachée sur desktop, qui garde sa rangée complète au
+          survol. */}
       <div className="lg:hidden">
-        {movie.status === "available" && movie.plexUrl && (
+        {movie.status === "available" && movie.plexUrl ? (
           <div className="mt-1.5">
             {betaPlayer && movie.plexRatingKey ? (
               <motion.button {...btnSpring} onClick={() => setPlayRatingKey(movie.plexRatingKey!)} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
                 <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
               </motion.button>
             ) : (
-              <a href={movie.plexUrl} target="_blank" rel="noopener noreferrer" className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
+              <a href={movie.plexUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => openPlexLink(e, movie.plexUrl!)} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
                 <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
               </a>
             )}
           </div>
-        )}
-        {canGrab && (
-          <div className="mt-1.5 flex gap-1.5">
-            <motion.button {...btnSpring} onClick={search} disabled={busy} title={t("library.autoSearch")} className="flex-1 h-11 flex items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-bold text-ink-soft active:bg-white/10">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
-              <span className="hidden sm:inline">{t("library.autoSearch")}</span>
+        ) : canGrab ? (
+          <div className="mt-1.5">
+            <motion.button {...btnSpring} onClick={search} disabled={busy} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-bold text-ink-soft active:bg-white/10">
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+              {t("library.autoSearch")}
             </motion.button>
-            <motion.button {...btnSpring} onClick={() => setShowManualSearch(true)} title={t("library.manualSearch")} className="flex-1 h-11 flex items-center justify-center rounded-xl glass-strong text-xs font-bold text-ink-soft active:bg-white/10">
-              <ListFilter className="h-4 w-4" />
-            </motion.button>
-            <motion.button {...btnSpring} onClick={() => setEditingTags((v) => !v)} className="h-11 w-11 flex items-center justify-center rounded-xl glass-strong text-ink-soft active:bg-white/10">
-              <Tag className="h-4 w-4" />
-            </motion.button>
-            {movie.status === "available" && <ReportIssueButton libraryType="movie" libraryId={movie.id} />}
-            {!confirmDelete ? (
-              <motion.button {...btnSpring} onClick={() => setConfirmDelete(true)} disabled={deleting} className="h-11 w-11 flex items-center justify-center rounded-xl bg-down/15 border border-down/20 text-down active:bg-down/25 disabled:opacity-50">
-                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-              </motion.button>
-            ) : (
-              <div className="flex flex-1 gap-1">
-                <motion.button {...btnSpring} onClick={() => { remove(true); setConfirmDelete(false); }} className="h-11 flex-1 flex items-center justify-center gap-1 rounded-xl bg-down px-2 text-[10px] font-bold text-white active:bg-down/80">{t("downloads.removeData")}</motion.button>
-                <motion.button {...btnSpring} onClick={() => { remove(false); setConfirmDelete(false); }} className="h-11 flex-1 flex items-center justify-center gap-1 rounded-xl glass-strong px-2 text-[10px] font-bold text-ink-soft active:bg-white/10">{t("common.remove")}</motion.button>
-                <motion.button {...btnSpring} onClick={() => setConfirmDelete(false)} className="h-11 w-11 flex items-center justify-center rounded-xl glass-strong text-ink-dim active:bg-white/10"><X className="h-4 w-4" /></motion.button>
-              </div>
-            )}
           </div>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-2.5 px-0.5">
         <Link href={`/title/movie/${movie.tmdbId}`} className="block truncate text-sm font-semibold text-ink transition-all duration-200 hover:text-brand-glow hover:scale-[1.02] hover:origin-left">{movie.title}</Link>
         <div className="mt-1 flex items-center gap-2">
-          <span className={cn("inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold", STATUS_TONE[movie.status])}>
+          <span className={cn(
+            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
+            movie.status === "upcoming" && daysToRelease != null ? "border-brand/25 bg-brand/12 text-brand-glow" : STATUS_TONE[movie.status]
+          )}>
             <Icon className="h-2.5 w-2.5" />
-            {t(`status.${movie.status}`)}
+            {movie.status === "upcoming" && daysToRelease != null ? upcomingLabel : t(`status.${movie.status}`)}
           </span>
           {movie.status === "downloading" && torrent && (
             <span className="text-[10px] text-ink-dim">{Math.round((torrent.progress ?? 0) * 100)}%</span>

@@ -6,6 +6,7 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { CustomFormat } from "@/lib/customFormats/types";
 import { SlidersHorizontal, Plus, Trash2, X, Check, Loader2, Gauge } from "lucide-react";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 
 export function CustomFormatsPanel() {
   const t = useT();
@@ -29,7 +30,7 @@ export function CustomFormatsPanel() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm(t("customFormats.confirmRemove"))) return;
+    if (!(await confirmDialog(t("customFormats.confirmRemove")))) return;
     await fetch(`/api/custom-formats/${id}`, { method: "DELETE" });
     load();
   };
@@ -134,7 +135,7 @@ function AddForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => voi
             <input value={terms} onChange={(e) => setTerms(e.target.value)} placeholder={t("customFormats.termsHint")} className={cn(field, "font-mono text-xs")} />
           </div>
           <div className="flex justify-end gap-2 sm:col-span-3">
-            <button onClick={onCancel} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm"></button>
+            <button onClick={onCancel} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm">{t("common.cancel")}</button>
             <button onClick={save} disabled={saving || !name.trim() || !terms.trim()} className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-40">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {t("indexerMgr.save")}
             </button>

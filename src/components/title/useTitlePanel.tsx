@@ -7,6 +7,8 @@ import { TitlePanel } from "./TitlePanel";
 export interface SelectedTitle {
   tmdbId: number;
   type: "movie" | "series";
+  /** Screen position/size of the poster that was clicked, captured at click time — lets TitlePanel morph outward from exactly that spot instead of just fading in centered. Undefined when opened some other way (e.g. programmatically, with no originating element). */
+  originRect?: { top: number; left: number; width: number; height: number };
 }
 
 /**
@@ -25,8 +27,8 @@ export interface SelectedTitle {
 export function useTitlePanel() {
   const [selectedTitle, setSelectedTitle] = useState<SelectedTitle | null>(null);
 
-  const openTitlePanel = useCallback((tmdbId: number, type: "movie" | "series") => {
-    setSelectedTitle({ tmdbId, type });
+  const openTitlePanel = useCallback((tmdbId: number, type: "movie" | "series", originRect?: SelectedTitle["originRect"]) => {
+    setSelectedTitle({ tmdbId, type, originRect });
   }, []);
 
   const closeTitlePanel = useCallback(() => {
@@ -48,7 +50,14 @@ export function useTitlePanel() {
       if (!id) return;
       e.preventDefault();
       e.stopPropagation();
-      openTitlePanel(id, t);
+      // The poster tile itself (image + rounded frame) is usually a child of
+      // the <a> rather than the link's own full clickable area (which often
+      // includes title/meta text below the artwork) — preferring it here
+      // means the morph grows from the artwork the eye was actually on.
+      const artwork = link.querySelector("img, [data-morph-source]") as HTMLElement | null;
+      const rectEl = artwork ?? link;
+      const r = rectEl.getBoundingClientRect();
+      openTitlePanel(id, t, { top: r.top, left: r.left, width: r.width, height: r.height });
     };
     document.addEventListener("click", handler, true);
     return () => document.removeEventListener("click", handler, true);
@@ -60,6 +69,7 @@ export function useTitlePanel() {
         <TitlePanel
           tmdbId={selectedTitle.tmdbId}
           type={selectedTitle.type}
+          originRect={selectedTitle.originRect}
           onClose={closeTitlePanel}
         />
       )}

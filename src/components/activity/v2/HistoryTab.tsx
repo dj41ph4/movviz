@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useI18n, useT } from "@/i18n/provider";
 import { cn, formatClockTime, formatDateTime } from "@/lib/utils";
 import type { ActivityEntry } from "@/lib/activity/v2/types";
-import { Download, Check, PackageCheck, X, AlertCircle, Search, Filter, ChevronDown, ChevronUp, Users } from "lucide-react";
+import { Download, Check, PackageCheck, X, AlertCircle, Search, Filter, ChevronDown, ChevronUp, Users, Clock } from "lucide-react";
 
 /** Calendar-day bucket of a timestamp, in local time. */
 function dayKey(ts: number): string {
@@ -324,9 +324,12 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
         })}
 
         {filteredItems.length === 0 && (
-          <div className="rounded-2xl glass py-16 text-center text-sm text-ink-dim">
-            {searchQuery || selectedTypes.length > 0 || selectedUsers.length > 0 || selectedIndexers.length > 0
-              ? t("activity.noResults") : t("activity.noActivity")}
+          <div className="flex flex-col items-center gap-2 rounded-2xl glass py-16 text-center">
+            <Clock className="h-6 w-6 text-ink-dim" />
+            <p className="text-sm text-ink-dim">
+              {searchQuery || selectedTypes.length > 0 || selectedUsers.length > 0 || selectedIndexers.length > 0
+                ? t("activity.noResults") : t("activity.noActivity")}
+            </p>
           </div>
         )}
       </div>

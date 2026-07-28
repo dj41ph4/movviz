@@ -14,9 +14,12 @@ import type { QueueItem } from "@/lib/activity/v2/types";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { parseRelease } from "@/lib/naming/parser";
 import { buildMediaBadgeItems } from "@/components/library/MediaBadges";
+import type { IndexerRelease } from "@/lib/indexers/types";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import {
-  Film, Tv, Download, Pause, Play, RotateCw, Search, Ban, Check,
-  Users, AlertCircle, Loader, List, Clock, Trash2, X, RefreshCw, ArrowUpFromLine, Gauge,
+  Film, Tv, Download, Pause, Play, PauseCircle, PlayCircle, RotateCw, Search, Ban, Check,
+  Users, AlertCircle, Loader, List, Clock, Trash2, X, RefreshCw, ArrowUpFromLine, Gauge, Wand2,
+  CheckCircle2,
 } from "lucide-react";
 
 /** Builds the libraryRef the manual-search grab needs from a queue item's
@@ -83,11 +86,21 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const [clearingAll, setClearingAll] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [manualSearchItem, setManualSearchItem] = useState<QueueItem | null>(null);
+  const [bulkReplacing, setBulkReplacing] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+  const [bulkPausing, setBulkPausing] = useState(false);
 
   const items = data?.items ?? [];
   const activeItems = useMemo(() => items.filter(item => item.status === "downloading" || item.status === "importing"), [items]);
   const stalledItems = useMemo(() => items.filter(item => item.status === "stalled"), [items]);
   const pausedItems = useMemo(() => items.filter(item => item.status === "paused"), [items]);
+  const completedItems = useMemo(() => items.filter(item => item.status === "completed" || item.status === "seeding"), [items]);
+  // Anything currently pausable (downloading/queued/stalled) — while any of
+  // these exist the button reads "pause all" and targets them. Once none are
+  // left (everything pausable has been paused), it flips to "resume all" and
+  // targets the paused set instead — a single toggle rather than two buttons.
+  const pausableItems = useMemo(() => items.filter(item => item.status === "downloading" || item.status === "queued" || item.status === "stalled"), [items]);
+  const resumeAllMode = pausableItems.length === 0 && pausedItems.length > 0;
 
   const statusPriority = (s: string): number => {
     if (s === "downloading" || s === "importing") return 0;
@@ -200,7 +213,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   };
 
   const remove = async (itemId: string, withData: boolean) => {
-    if (!confirm(withData ? t("downloads.confirmRemove") : t("downloads.confirmRemoveKeep"))) return;
+    if (!(await confirmDialog(withData ? t("downloads.confirmRemove") : t("downloads.confirmRemoveKeep")))) return;
     setActionLoading(`remove_${itemId}`);
     // Drop it from view right away rather than leaving it sitting there
     // until the delete round-trip and next poll confirm it's gone.
@@ -215,8 +228,38 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     }
   };
 
+  /** Single toggle button: pauses everything pausable, or — once nothing
+   *  pausable is left — resumes everything paused. Concurrent, not paced
+   *  like the indexer-search bulk actions below: pause/resume only ever hit
+   *  the LOCAL engine (127.0.0.1), never an external indexer, so there's no
+   *  rate limit to protect against here. */
+  const toggleAll = async () => {
+    const targets = resumeAllMode ? pausedItems : pausableItems;
+    if (targets.length === 0) return;
+    const action = resumeAllMode ? "resume" : "pause";
+    const newStatus = action === "pause" ? "paused" : "downloading";
+    setBulkPausing(true);
+    const ids = new Set(targets.map((i) => i.id));
+    mutate(
+      (current) => current ? { items: current.items.map((i) => (ids.has(i.id) ? { ...i, status: newStatus } : i)) } : current,
+      { revalidate: false }
+    );
+    try {
+      await Promise.all(
+        targets.map((item) =>
+          api(`${BASE}/torrents/${item.id}/${action}`, { method: "POST" }).catch((e) => {
+            console.error(`[queue] bulk ${action} failed for ${item.id}:`, e);
+          })
+        )
+      );
+    } finally {
+      setBulkPausing(false);
+      await mutate();
+    }
+  };
+
   const clearAll = async () => {
-    if (!confirm(t("downloads.confirmClearAll"))) return;
+    if (!(await confirmDialog(t("downloads.confirmClearAll")))) return;
     setClearingAll(true);
     mutate({ items: [] }, { revalidate: false });
     try {
@@ -225,6 +268,76 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       console.error(`[queue] clear-all failed:`, e);
     } finally {
       setClearingAll(false);
+      await mutate();
+    }
+  };
+
+  /**
+   * Bulk counterpart to the per-item red magnifying glass on a stalled
+   * download — same exact flow (search → grab the best release → delete the
+   * stuck torrent, tied via replacingInfoHash so claimed episodes aren't
+   * briefly dropped to "missing"), just automatic (top-scored release, no
+   * picker) and run for every currently stalled item instead of one at a
+   * time. Deliberately sequential (one item fully done before the next
+   * starts), not Promise.all — each item's own search already makes its own
+   * indexer round-trip(s); running several of those concurrently would
+   * multiply the request burst hitting the same indexers at once.
+   */
+  const replaceAllStalled = async () => {
+    const targets = stalledItems;
+    if (targets.length === 0) return;
+    if (!(await confirmDialog(t("downloads.confirmReplaceBlocked", { count: targets.length })))) return;
+    setBulkReplacing(true);
+    setBulkProgress({ current: 0, total: targets.length });
+    let replaced = 0;
+    try {
+      for (let i = 0; i < targets.length; i++) {
+        const item = targets[i];
+        try {
+          const p = new URLSearchParams({ q: queueItemSearchQuery(item.media), category: item.media.type });
+          p.set("refTitle", item.media.title);
+          if (item.media.tmdbId) p.set("tmdbId", String(item.media.tmdbId));
+          const searchData = await api(`/api/indexers/search?${p.toString()}`);
+          const best: IndexerRelease | undefined = (searchData.releases ?? [])[0];
+          if (best) {
+            const quality = parseRelease(best.title).resolution ?? "Inconnue";
+            const grabRes = await fetch("/api/indexers/grab", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({
+                magnetUrl: best.magnetUrl,
+                downloadUrl: best.downloadUrl,
+                indexerId: best.indexerId,
+                category: item.media.type,
+                libraryRef: queueItemLibraryRef(item.media),
+                title: item.media.title,
+                indexerName: best.indexer,
+                quality,
+                score: best.score,
+                size: best.size,
+                protocol: best.protocol,
+                seeders: best.seeders,
+                leechers: best.leechers,
+                replacingInfoHash: item.id,
+              }),
+            });
+            if (grabRes.ok) {
+              await api(`${BASE}/torrents/${item.id}?deleteData=1`, { method: "DELETE" });
+              replaced++;
+            }
+          }
+        } catch (e) {
+          console.error(`[queue] bulk replace failed for ${item.id}:`, e);
+        }
+        setBulkProgress({ current: i + 1, total: targets.length });
+        // Same pacing discipline as every other sequential multi-item search
+        // path in the app (autoGrabSeries.ts's ITEM_DELAY_MS) — never fire
+        // back-to-back item searches with zero gap.
+        if (i < targets.length - 1) await new Promise((r) => setTimeout(r, 1500));
+      }
+    } finally {
+      setBulkReplacing(false);
+      setBulkProgress(null);
       await mutate();
     }
   };
@@ -255,22 +368,54 @@ export function QueueTab({ active = true }: { active?: boolean }) {
             </button>
           ))}
         </div>
-        {user?.role === "admin" && items.length > 0 && (
-          <motion.button
-            {...btnSpring}
-            onClick={clearAll}
-            disabled={clearingAll}
-            title={t("downloads.clearAllHint")}
-            className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl glass px-3.5 py-2 text-xs font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
-          >
-            {clearingAll ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-            {t("downloads.clearAll")}
-          </motion.button>
-        )}
+        <div className="flex shrink-0 items-center gap-2">
+          {user?.role === "admin" && (pausableItems.length > 0 || pausedItems.length > 0) && (
+            <motion.button
+              {...btnSpring}
+              onClick={toggleAll}
+              disabled={bulkPausing || bulkReplacing || clearingAll}
+              title={resumeAllMode ? t("downloads.resumeAllHint") : t("downloads.pauseAllHint")}
+              className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl glass px-3.5 py-2 text-xs font-semibold text-ink-soft transition-colors hover:bg-white/10 disabled:opacity-50"
+            >
+              {bulkPausing ? (
+                <Loader className="h-3.5 w-3.5 animate-spin" />
+              ) : resumeAllMode ? (
+                <PlayCircle className="h-3.5 w-3.5" />
+              ) : (
+                <PauseCircle className="h-3.5 w-3.5" />
+              )}
+              {resumeAllMode ? t("downloads.resumeAll") : t("downloads.pauseAll")}
+            </motion.button>
+          )}
+          {user?.role === "admin" && stalledItems.length > 0 && (
+            <motion.button
+              {...btnSpring}
+              onClick={replaceAllStalled}
+              disabled={bulkReplacing || clearingAll}
+              title={t("downloads.replaceBlockedHint")}
+              className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl glass px-3.5 py-2 text-xs font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
+            >
+              {bulkReplacing ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+              {bulkReplacing && bulkProgress ? `${t("downloads.replaceBlocked")} (${bulkProgress.current}/${bulkProgress.total})` : t("downloads.replaceBlocked")}
+            </motion.button>
+          )}
+          {user?.role === "admin" && items.length > 0 && (
+            <motion.button
+              {...btnSpring}
+              onClick={clearAll}
+              disabled={clearingAll || bulkReplacing}
+              title={t("downloads.clearAllHint")}
+              className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-xl glass px-3.5 py-2 text-xs font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
+            >
+              {clearingAll ? <Loader className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              {t("downloads.clearAll")}
+            </motion.button>
+          )}
+        </div>
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
         <div className="rounded-xl glass p-4 text-center">
           <Download className="mx-auto mb-2 h-5 w-5 text-cyan" />
           <p className="text-sm text-ink-dim">{t("activity.status.downloading")}</p>
@@ -287,6 +432,11 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           <p className="text-2xl font-bold text-down">{stalledItems.length}</p>
         </div>
         <div className="rounded-xl glass p-4 text-center">
+          <CheckCircle2 className="mx-auto mb-2 h-5 w-5 text-ok" />
+          <p className="text-sm text-ink-dim">{t("activity.status.completed")}</p>
+          <p className="text-2xl font-bold text-ok">{completedItems.length}</p>
+        </div>
+        <div className="col-span-2 rounded-xl glass p-4 text-center sm:col-span-1">
           <List className="mx-auto mb-2 h-5 w-5 text-ink-dim" />
           <p className="text-sm text-ink-dim">{t("common.all")}</p>
           <p className="text-2xl font-bold text-ink">{items.length}</p>
@@ -661,9 +811,9 @@ const QueueItemRow = memo(function QueueItemRow({
             <div>
               <h4 className="mb-2 font-semibold text-ink">{t("search.release")}</h4>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-ink-dim">{t("search.release")}</span>
-                  <span className="font-mono text-xs">{item.release.releaseTitle}</span>
+                <div className="flex justify-between gap-2">
+                  <span className="shrink-0 text-ink-dim">{t("search.release")}</span>
+                  <span className="min-w-0 truncate font-mono text-xs" title={item.release.releaseTitle}>{item.release.releaseTitle}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-ink-dim">{t("search.size")}</span>

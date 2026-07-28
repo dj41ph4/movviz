@@ -217,7 +217,7 @@ export function MetadataSettings() {
         </button>
       </div>
       {tvdbTestResult && (
-        <p className={cn("mt-2 text-xs font-semibold", tvdbTestResult.ok ? "text-ok" : "text-red")}>
+        <p className={cn("mt-2 text-xs font-semibold", tvdbTestResult.ok ? "text-ok" : "text-down")}>
           {tvdbTestResult.ok ? t("metadata.keyValid") : t("metadata.keyInvalid")}
         </p>
       )}
@@ -309,7 +309,7 @@ export function MetadataSettings() {
           )}
         </div>
         {tmdbTestResult && (
-          <p className={cn("mt-2 text-xs font-semibold", tmdbTestResult.ok ? "text-ok" : "text-red")}>
+          <p className={cn("mt-2 text-xs font-semibold", tmdbTestResult.ok ? "text-ok" : "text-down")}>
             {tmdbTestResult.ok
               ? t("metadata.keyValid")
               : tmdbTestResult.error === "invalid_key"
@@ -360,7 +360,7 @@ export function MetadataSettings() {
           </button>
         </div>
         {omdbTestResult && (
-          <p className={cn("mt-2 text-xs font-semibold", omdbTestResult.ok ? "text-ok" : "text-red")}>
+          <p className={cn("mt-2 text-xs font-semibold", omdbTestResult.ok ? "text-ok" : "text-down")}>
             {omdbTestResult.ok ? t("metadata.keyValid") : t("metadata.keyInvalid")}
           </p>
         )}

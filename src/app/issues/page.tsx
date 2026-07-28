@@ -214,7 +214,10 @@ export default function IssuesPage() {
         </AnimatePresence>
 
         {visible.length === 0 && (
-          <div className="rounded-2xl glass py-20 text-center text-ink-dim">{t("issues.empty")}</div>
+          <div className="flex flex-col items-center gap-2 rounded-2xl glass py-20 text-center">
+            <CheckCircle2 className="h-6 w-6 text-ok" />
+            <p className="text-ink-dim">{t("issues.empty")}</p>
+          </div>
         )}
       </div>
     </div>

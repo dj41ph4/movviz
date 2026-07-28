@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Loader2, RefreshCw, Search, Check, X, FolderOpen, Film, Tv, ShieldAlert, HardDrive, Scan } from "lucide-react";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 
 interface IndexMatch {
   tmdbId: number;
@@ -118,7 +119,7 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
       .filter((c) => selected.has(c.id) && matchFor(c))
       .map((c) => ({ candidateId: c.id, tmdbId: matchFor(c)!.tmdbId }));
     if (items.length === 0) return;
-    if (!confirm(t("indexation.confirmImport", { count: items.length }))) return;
+    if (!(await confirmDialog(t("indexation.confirmImport", { count: items.length })))) return;
     setImporting(true);
     try {
       await fetch("/api/library/index-import", {

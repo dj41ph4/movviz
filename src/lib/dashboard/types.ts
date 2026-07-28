@@ -70,9 +70,12 @@ const DEFAULT_SECTIONS: DashboardLayout["sections"] = DASHBOARD_SECTION_IDS.map(
 export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   version: 2,
   mode: "cinema",
-  showStats: true,
-  showDownloads: true,
-  showTasks: true,
+  // Off by default on a fresh install — an existing install's own saved
+  // `true` is never touched by this (sanitizeDashboardLayout only falls
+  // back to these defaults for a field that was never actually saved).
+  showStats: false,
+  showDownloads: false,
+  showTasks: false,
   hero: DEFAULT_HERO_SETTINGS,
   sections: DEFAULT_SECTIONS,
   widgets: [...DASHBOARD_WIDGET_IDS],

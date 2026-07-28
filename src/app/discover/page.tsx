@@ -12,10 +12,11 @@ import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
 import type { MetaSearchResult } from "@/lib/metadata/types";
+import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { GENRE_GRADIENTS } from "@/lib/metadata/curated";
 import {
-  Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, Calendar, Clock,
+  Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, Calendar, Clock, CalendarCheck,
 } from "lucide-react";
 
 const SORT_OPTIONS = ["popularity.desc", "vote_average.desc", "primary_release_date.desc"] as const;
@@ -65,55 +66,6 @@ function DiscoverPageInner() {
 
   const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!network || !!rowCategory;
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const restoredRef = useRef(false);
-
-  const saveBrowseState = () => {
-    if (!isBrowsing || results.length === 0) return;
-    sessionStorage.setItem("movviz_browse", JSON.stringify({
-      results, page, totalPages, rowCategory, mediaType,
-      q, genre, year, sort, company, network,
-      scrollY: window.scrollY,
-    }));
-  };
-
-  // Restore scroll state on mount (back from a title page).
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const raw = sessionStorage.getItem("movviz_browse");
-      if (!raw) return;
-      const saved = JSON.parse(raw);
-      if (saved.mediaType !== mediaType) return;
-      if (saved.q) setQ(saved.q);
-      if (saved.genre) setGenre(saved.genre);
-      if (saved.year) setYear(saved.year);
-      if (saved.sort) setSort(saved.sort);
-      if (saved.company?.id) setCompany(saved.company);
-      if (saved.network?.id) setNetwork(saved.network);
-      if (saved.rowCategory) setRowCategory(saved.rowCategory);
-      if (saved.results) setResults(saved.results);
-      if (saved.page) setPage(saved.page);
-      if (saved.totalPages) setTotalPages(saved.totalPages);
-      restoredRef.current = true;
-      requestAnimationFrame(() => {
-        window.scrollTo(0, saved.scrollY ?? 0);
-        sessionStorage.removeItem("movviz_browse");
-      });
-    } catch { /* ignore corrupt state */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Save state on unmount (SPA navigation away) and on popstate (back button).
-  useEffect(() => {
-    saveBrowseState();
-    const onPop = () => saveBrowseState();
-    window.addEventListener("popstate", onPop);
-    return () => {
-      saveBrowseState();
-      window.removeEventListener("popstate", onPop);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [results, page, totalPages, rowCategory, mediaType, q, genre, year, sort, company, network, isBrowsing]);
 
   // Panel titre coulissant (remplace la navigation vers /title/...) — partagé
   // avec Bibliothèque/Collection/Calendrier via useTitlePanel().
@@ -827,6 +779,10 @@ function DiscoverCard({
   };
 
   const poster = result.posterPath ? `https://image.tmdb.org/t/p/w500${result.posterPath}` : null;
+  // Same day-count treatment as the library card and dashboard row — a
+  // not-yet-released movie already being monitored shouldn't be
+  // indistinguishable from any other TMDb browse result.
+  const daysToRelease = result.type === "movie" ? daysUntil(result.releaseDate) : null;
 
   const cascadeAnim = reduceMotion ? {} : {
     initial: { opacity: 0, y: 20, scale: 0.95 },
@@ -878,6 +834,14 @@ function DiscoverCard({
         {status === "missing" && libLoaded && (
           <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full bg-amber/80 px-2 py-1 text-[11px] font-bold text-white backdrop-blur">
             <Clock className="h-3 w-3" />
+          </div>
+        )}
+        {status === "upcoming" && libLoaded && (
+          <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/15 bg-black/55 px-2 py-1 text-[11px] font-bold text-brand-glow backdrop-blur">
+            <CalendarCheck className="h-3 w-3" />
+            {daysToRelease != null && (
+              <span>{daysToRelease <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: daysToRelease })}</span>
+            )}
           </div>
         )}
         <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">

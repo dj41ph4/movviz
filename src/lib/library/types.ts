@@ -41,6 +41,8 @@ export interface LibraryFile {
   source: string | null;     // e.g. "BluRay", "WEB-DL"
   size: number; // bytes
   addedAt: number;
+  /** Langue détectée (Plex audio streams > filename tags). */
+  language?: string | null;
 }
 
 /**

@@ -7,6 +7,7 @@ import { parseRelease } from "@/lib/naming/parser";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { ManualSearchReleaseRow } from "./ManualSearchReleaseRow";
 import { Loader2, X, Settings, AlertTriangle } from "lucide-react";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import Link from "next/link";
 
 export function ManualSearchModal({
@@ -70,7 +71,7 @@ export function ManualSearchModal({
   };
 
   const grab = async (r: IndexerRelease) => {
-    if (replaceItemId && !confirm(t("downloads.confirmReplace", { title: r.title }))) return;
+    if (replaceItemId && !(await confirmDialog(t("downloads.confirmReplace", { title: r.title })))) return;
     setGrabbing(r.guid);
     const quality = parseRelease(r.title).resolution ?? "Inconnue";
     try {

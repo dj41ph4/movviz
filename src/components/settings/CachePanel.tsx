@@ -110,7 +110,10 @@ export function CachePanel() {
           </div>
         </div>
         {warmSection}
-        <div className="rounded-2xl glass py-12 text-center text-sm text-ink-dim">{t("cache.empty")}</div>
+        <div className="flex flex-col items-center gap-2 rounded-2xl glass py-12 text-center">
+          <Database className="h-6 w-6 text-ink-dim" />
+          <p className="text-sm text-ink-dim">{t("cache.empty")}</p>
+        </div>
       </div>
     );
   }

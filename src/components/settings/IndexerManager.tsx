@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { CatalogEntry, IndexerAuthType, IndexerCapabilities } from "@/lib/indexers/types";
 import type { CategoryNode } from "@/lib/indexers/categories";
 import { CategoryPicker } from "./CategoryPicker";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Magnet, Server, Plus, Circle, Trash2, Wifi, Loader2, X, Check, ArrowLeft, KeyRound, UserRound, Tags, SlidersHorizontal,
 } from "lucide-react";
@@ -54,7 +55,7 @@ export function IndexerManager() {
   useEffect(() => { load(); }, [load]);
 
   const remove = async (id: string) => {
-    if (!confirm(t("indexerMgr.confirmRemove"))) return;
+    if (!(await confirmDialog(t("indexerMgr.confirmRemove")))) return;
     const prev = rows;
     setRows((rs) => rs.filter((r) => r.id !== id));
     try {

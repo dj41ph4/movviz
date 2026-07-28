@@ -609,6 +609,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
   const imdbId = data.external_ids?.imdb_id ?? null;
   const omdb = imdbId && omdbConfigured() ? await getOmdbRatings(imdbId) : null;
   const keywords = type === "movie" ? data.keywords?.keywords : data.keywords?.results;
+  const trailerKeys = await pickTrailerCandidates(data.videos?.results, preferLanguage, data.title ?? data.name ?? "", yearOf(data.release_date ?? data.first_air_date));
   return {
     tmdbId: data.id,
     type,
@@ -644,7 +645,8 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
     releaseDateFull: data.release_date ?? data.first_air_date ?? null,
     revenue: type === "movie" && data.revenue ? data.revenue : null,
     budget: type === "movie" && data.budget ? data.budget : null,
-    trailerKey: await pickTrailer(data.videos?.results, preferLanguage, data.title ?? data.name ?? "", yearOf(data.release_date ?? data.first_air_date)),
+    trailerKey: trailerKeys[0] ?? null,
+    trailerKeys,
     rtScore: omdb?.rtScore ?? null,
     metascore: omdb?.metascore ?? null,
     imdbRating: omdb?.imdbRating ?? null,
@@ -724,20 +726,31 @@ interface RawVideo {
 }
 
 /**
- * Best available YouTube trailer in the user's language.
+ * Ordered YouTube trailer candidates in the user's language, best first.
  *
  * Priority:
- *  1. TMDb trailer in the user's language → immediate return
+ *  1. TMDb trailer in the user's language
  *  2. YouTube search fallback (title + lang terms, e.g. "bande-annonce VF")
- *  3. Any TMDb trailer (English or other) — last resort
+ *  3. Every other TMDb trailer (English first, then any), then teasers
+ *
+ * Returns a LIST rather than a single pick: TMDb has no reliable signal for
+ * "this specific video is embed-blocked for third-party sites" (a
+ * per-rightsholder embed restriction — Kaamelott's trailer blocked by Calt
+ * Distribution was the case that surfaced this) — that only shows up live,
+ * client-side, when the YouTube player itself reports an error. Handing the
+ * player an ordered fallback list lets it try the next candidate instead of
+ * just failing.
  */
-async function pickTrailer(videos: RawVideo[] | undefined, preferLanguage: string | undefined, title: string, year: number | null): Promise<string | null> {
+async function pickTrailerCandidates(videos: RawVideo[] | undefined, preferLanguage: string | undefined, title: string, year: number | null): Promise<string[]> {
   const yt = (videos ?? []).filter((v) => v.site === "YouTube");
+  const candidates: string[] = [];
+  const add = (key: string | null | undefined) => {
+    if (key && !candidates.includes(key)) candidates.push(key);
+  };
 
   // ── 1. TMDb trailer in preferred language ──
   if (preferLanguage && yt.length > 0) {
-    const langMatch = yt.find((v) => v.type === "Trailer" && v.iso_639_1 === preferLanguage);
-    if (langMatch) return langMatch.key;
+    add(yt.find((v) => v.type === "Trailer" && v.iso_639_1 === preferLanguage)?.key);
   }
 
   // ── 2. YouTube search fallback ──────────────────────────────────────
@@ -748,28 +761,23 @@ async function pickTrailer(videos: RawVideo[] | undefined, preferLanguage: strin
   const cache = getCache("YouTube Search", 24 * 60 * 60 * 1000);
   const cached = cache.getStale<string>(cacheKey);
   if (cached !== undefined) {
-    // Even if cached value is null (previous failed search), still give
-    // the TMDb best-match a chance — cached null just skips YouTube.
-    if (cached.value) return cached.value;
+    // Cached null just skips this step — a prior failed search doesn't
+    // prevent the TMDb-sourced candidates below from being added.
+    add(cached.value);
   } else {
-    // Not in cache: search YouTube, cache result (null or found).
     const ytResult = await searchYouTubeTrailer(title, year, lang);
     cache.set(cacheKey, ytResult);
-    if (ytResult) return ytResult;
+    add(ytResult);
   }
 
-  // ── 3. Any TMDb trailer (last resort) ───────────────────────────────
+  // ── 3. Every other TMDb trailer, then teasers as a last resort ──────
   if (yt.length > 0) {
-    if (preferLanguage !== "en") {
-      const en = yt.find((v) => v.type === "Trailer" && v.iso_639_1 === "en");
-      if (en) return en.key;
-    }
-    const any = yt.find((v) => v.type === "Trailer");
-    if (any) return any.key;
-    return yt[0]?.key ?? null;
+    if (preferLanguage !== "en") add(yt.find((v) => v.type === "Trailer" && v.iso_639_1 === "en")?.key);
+    for (const v of yt.filter((v) => v.type === "Trailer")) add(v.key);
+    for (const v of yt.filter((v) => v.type === "Teaser")) add(v.key);
   }
 
-  return null;
+  return candidates.slice(0, 5);
 }
 
 interface RawWatchProviders {

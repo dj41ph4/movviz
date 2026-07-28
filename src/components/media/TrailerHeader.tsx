@@ -2,9 +2,10 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Volume2, VolumeX } from "lucide-react";
+import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useCroppedBackdrop } from "@/lib/media/useCroppedBackdrop";
+import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -32,7 +33,7 @@ const HOVER_DELAY_MS = 900; // "survol prolongé" — not an instant trigger on 
 const MIN_QUALITY = "hd1080";
 
 let apiLoadPromise: Promise<void> | null = null;
-function loadYouTubeApi(): Promise<void> {
+export function loadYouTubeApi(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
   if ((window as any).YT?.Player) return Promise.resolve();
   if (apiLoadPromise) return apiLoadPromise;
@@ -51,7 +52,8 @@ function loadYouTubeApi(): Promise<void> {
 
 export interface TrailerHeaderProps {
   backdropUrl: string | null;
-  trailerKey: string | null;
+  /** Ordered fallback candidates, best first — see pickTrailerCandidates() in tmdb.ts. A video can be embed-blocked (rights holder restriction, e.g. Kaamelott's trailer blocked by Calt Distribution) in a way TMDb's own metadata never flags; the player advances to the next candidate on error instead of just failing. */
+  trailerKeys: string[];
   title: string;
   /** "immediate" — starts as soon as it's allowed to (title page header).
    *  "hover" — only plays while hovered past HOVER_DELAY_MS (dashboard hero, several slides share the same screen real estate). */
@@ -72,7 +74,7 @@ export interface TrailerHeaderProps {
 const LOOP_BEFORE_END_SEC = 0.75;
 const LOOP_POLL_MS = 250;
 
-function YouTubePlayer({ trailerKey, title, muted, onPlayingChange }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void }) {
+function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void }) {
   const containerId = `yt-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const playerRef = useRef<any>(null);
 
@@ -99,6 +101,16 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange }: { trailerK
         },
         events: {
           onReady: (e: any) => {
+            // The IFrame API replaces our placeholder <div> (which carries
+            // pointer-events-none) with a brand-new <iframe> that does NOT
+            // inherit its class/style — without this, the iframe silently
+            // starts intercepting clicks over its whole (oversized, cover-
+            // trick) area, including the mute button rendered on top of it,
+            // even though the button visually sits above it via z-index.
+            try {
+              const iframe = e.target.getIframe?.();
+              if (iframe) iframe.style.pointerEvents = "none";
+            } catch { /* best-effort */ }
             if (muted) e.target.mute();
             else e.target.unMute();
             e.target.setPlaybackQuality(MIN_QUALITY);
@@ -128,6 +140,13 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange }: { trailerK
               e.target.setPlaybackQuality(MIN_QUALITY);
             }
           },
+          // Fires for a removed/private video (100) or one the owner has
+          // disabled embedding for (101/150 — the actual Kaamelott case:
+          // blocked by Calt Distribution on third-party sites). Never
+          // reached for network hiccups, so this is specifically "this
+          // exact video will never play here," worth immediately trying
+          // the next candidate for.
+          onError: () => onError(),
         },
       });
     });
@@ -167,11 +186,18 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange }: { trailerK
   );
 }
 
-export function TrailerHeader({ backdropUrl, trailerKey, title, trigger, enabled = true, muted: initialMuted = true, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropUrl, trailerKeys, title, trigger, enabled = true, muted: initialMuted = true, className }: TrailerHeaderProps) {
   const reduceMotion = useShouldReduceMotion();
   const croppedBackdrop = useCroppedBackdrop(backdropUrl);
   const [soundOn, setSoundOn] = useState(!initialMuted);
   const muted = !soundOn;
+  // Which candidate we're currently trying — advanced by onError below.
+  // Reset to 0 whenever the candidate list itself changes (new title), not
+  // just on every render, or a slide change would keep replaying whichever
+  // fallback the PREVIOUS title happened to land on.
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  useEffect(() => { setCandidateIndex(0); }, [trailerKeys]);
+  const trailerKey = trailerKeys[candidateIndex] ?? null;
   const canPlay = enabled && !!trailerKey && !reduceMotion;
   const [playing, setPlaying] = useState(trigger === "immediate" && canPlay);
   // YouTube renders its own full "not playing" chrome — title, channel
@@ -189,6 +215,12 @@ export function TrailerHeader({ backdropUrl, trailerKey, title, trigger, enabled
 
   useEffect(() => { setVideoPlaying(false); }, [trailerKey, playing]);
 
+  // This exact video is blocked/removed — never a network hiccup (that
+  // wouldn't fire onError at all) — so retrying it would just fail again.
+  // Move to the next candidate; once the list is exhausted, trailerKey
+  // resolves to null and canPlay naturally falls back to the static poster.
+  const onVideoError = () => setCandidateIndex((i) => i + 1);
+
   useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
 
   const onMouseEnter = () => {
@@ -203,7 +235,15 @@ export function TrailerHeader({ backdropUrl, trailerKey, title, trigger, enabled
   return (
     <div
       className={`${className ?? ""} relative overflow-hidden`}
-      style={{ containerType: "size" }}
+      // `contain: paint` on top of overflow-hidden — the "cover" trick below
+      // deliberately oversizes the YouTube iframe past this box (cqw/cqh
+      // units) and relies on clipping to hide the excess. overflow-hidden
+      // clips normal content reliably, but YouTube's own ad-break UI
+      // (rendered inside the iframe, entirely outside our control) was seen
+      // briefly painting past this boundary during ad load — paint
+      // containment is a hard clip guarantee at the compositor level,
+      // closing that gap regardless of what the embedded iframe does.
+      style={{ containerType: "size", contain: "paint" }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -222,7 +262,7 @@ export function TrailerHeader({ backdropUrl, trailerKey, title, trigger, enabled
             transition={{ duration: 0.5 }}
             className="relative h-full w-full"
           >
-            <YouTubePlayer key={trailerKey} trailerKey={trailerKey!} title={title} muted={muted} onPlayingChange={setVideoPlaying} />
+            <YouTubePlayer key={trailerKey} trailerKey={trailerKey!} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} />
             <div
               className={cn(
                 "absolute inset-0 transition-opacity duration-500",
@@ -236,11 +276,18 @@ export function TrailerHeader({ backdropUrl, trailerKey, title, trigger, enabled
                 <div className="h-full w-full bg-surface" />
               )}
             </div>
-            {/* Son — bascule muet/sonore, visible seulement quand la vidéo joue */}
+            {/* Son — bascule muet/sonore, visible seulement quand la vidéo joue.
+                Top-left, at every width — the bottom-right corner is where
+                every consumer (TitleContent, DashboardHero) anchors its
+                title/actions block, which can grow tall enough (wrapping
+                onto more lines, more badges/buttons than usual) to sit on
+                top of and swallow clicks on that corner even on a wide
+                screen; top-left is never contested by either consumer,
+                regardless of width. */}
             <button
               onClick={() => setSoundOn((s) => !s)}
               className={cn(
-                "absolute bottom-4 right-4 z-20 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition-all duration-200",
+                "absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition-all duration-200",
                 "bg-black/40 text-white/80 hover:bg-white/20 hover:text-white hover:scale-110 active:scale-95"
               )}
               aria-label={muted ? "Activer le son" : "Couper le son"}
@@ -266,4 +313,68 @@ export function TrailerHeader({ backdropUrl, trailerKey, title, trigger, enabled
       </AnimatePresence>
     </div>
   );
+}
+
+/**
+ * Interactive, user-controls-visible player for the "watch trailer" modal
+ * (TitleContent.tsx) — deliberately separate from the ambient background
+ * player above (ambient is muted/looping/chromeless; this is a single
+ * explicit watch with full YouTube controls and sound). Shares the same
+ * candidate-list-with-fallback approach: on a blocked/removed video (the
+ * Kaamelott-blocked-by-Calt-Distribution case), it advances to the next
+ * TMDb/YouTube candidate automatically instead of leaving YouTube's own
+ * "Video unavailable" chrome on screen with no way out but closing the modal.
+ */
+export function TrailerModalPlayer({ trailerKeys, title }: { trailerKeys: string[]; title: string }) {
+  const t = useT();
+  const containerId = `yt-modal-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const playerRef = useRef<any>(null);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  const trailerKey = trailerKeys[candidateIndex] ?? null;
+
+  useEffect(() => {
+    if (!trailerKey) return;
+    let cancelled = false;
+    loadYouTubeApi().then(() => {
+      if (cancelled) return;
+      const YT = (window as any).YT;
+      playerRef.current = new YT.Player(containerId, {
+        videoId: trailerKey,
+        playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
+        events: {
+          onError: () => setCandidateIndex((i) => i + 1),
+        },
+      });
+    });
+    return () => {
+      cancelled = true;
+      try { playerRef.current?.destroy(); } catch { /* already gone */ }
+    };
+  }, [containerId, trailerKey]);
+
+  if (!trailerKey) {
+    // Every candidate failed — a plain YouTube link at least gives the user
+    // a way to actually watch it, since youtube.com itself isn't subject to
+    // the same third-party embed restriction that blocked it here.
+    const firstKey = trailerKeys[0];
+    return (
+      <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-surface p-6 text-center">
+        <TriangleAlert className="h-8 w-8 text-amber" />
+        <p className="font-semibold text-ink">{t("title.trailerUnavailable")}</p>
+        <p className="max-w-sm text-sm text-ink-dim">{t("title.trailerUnavailableHint")}</p>
+        {firstKey && (
+          <a
+            href={`https://www.youtube.com/watch?v=${firstKey}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-1 flex items-center gap-1.5 rounded-xl brand-gradient px-4 py-2 text-sm font-bold text-white transition-transform hover:scale-105"
+          >
+            <ExternalLink className="h-4 w-4" /> {t("title.watchOnYoutube")}
+          </a>
+        )}
+      </div>
+    );
+  }
+
+  return <div id={containerId} title={title} className="aspect-video w-full" />;
 }

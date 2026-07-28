@@ -1,8 +1,28 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import type { MouseEvent } from "react";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+/**
+ * "Lire sur Plex" links already point at app.plex.tv, which the Plex apps
+ * register as an iOS Universal Link / Android App Link target — the OS
+ * silently opens the native app instead of the browser when it's installed,
+ * with zero JS involved, and falls through to the normal web page when it
+ * isn't. There's nothing to "detect" for an https link like there would be
+ * for an old custom-scheme deep link (no app installed ≠ an error to catch,
+ * it just loads the page). The one real lever left: some browsers are less
+ * reliable at handing a `target="_blank"` tap to the OS for interception
+ * than a plain top-level navigation — same-tab is used on a phone-sized
+ * viewport (checked at click time only, never during render, so this never
+ * causes a hydration mismatch), desktop keeps opening a new tab as before.
+ */
+export function openPlexLink(e: MouseEvent, url: string) {
+  if (typeof window === "undefined" || window.innerWidth >= 640) return;
+  e.preventDefault();
+  window.location.href = url;
 }
 
 /** TMDB image helper with graceful degradation. */

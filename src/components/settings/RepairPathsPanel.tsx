@@ -198,7 +198,7 @@ export function RepairPathsPanel() {
       {cleaning && (
         <div className="flex items-center gap-2 rounded-2xl glass-strong p-4 text-sm text-ink-soft">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Nettoyage des dossiers vides…
+          {t("repairPaths.cleaningEmptyDirs")}
         </div>
       )}
 

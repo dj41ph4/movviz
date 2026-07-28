@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { AlertTriangle, Loader2, Trash2, RotateCcw, ShieldAlert } from "lucide-react";
 
@@ -76,7 +77,7 @@ export function DangerZonePanel() {
       <div className="space-y-2">
         {ACTIONS.map((a) => (
             <div key={a.action} className="rounded-2xl glass p-5">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-bold text-ink">{t(a.titleKey)}</p>
                 <p className="mt-0.5 text-xs text-ink-dim">{t(a.hintKey)}</p>
@@ -84,38 +85,48 @@ export function DangerZonePanel() {
               {confirming !== a.action && (
                 <button
                   onClick={() => { setConfirming(a.action); setInput(""); }}
-                  className="bg-down/15 border border-down/20 text-down h-10 px-4 rounded-xl font-semibold text-sm flex shrink-0 items-center gap-1.5"
+                  className="bg-down/15 border border-down/20 text-down h-10 px-4 rounded-xl font-semibold text-sm flex shrink-0 items-center gap-1.5 transition-transform hover:scale-105"
                 >
                   {done === a.action || failed === a.action ? null : a.action === "resetPlexSyncState" ? <RotateCcw className="h-3.5 w-3.5" /> : <Trash2 className="h-3.5 w-3.5" />}
                   {done === a.action ? t("dangerZone.done") : failed === a.action ? t("dangerZone.failed") : t("dangerZone.trigger")}
                 </button>
               )}
             </div>
-            {confirming === a.action && (
-              <div className="mt-3 flex items-center gap-2 border-t border-white/5 pt-3">
-                <input
-                  autoFocus
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={t("dangerZone.confirmPlaceholder", { word: CONFIRM_WORD })}
-                  className="w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
-                />
-                <button
-                  onClick={() => run(a.action)}
-                  disabled={input !== CONFIRM_WORD || busy === a.action}
-                  className="bg-down/15 border border-down/20 text-down h-10 px-4 rounded-xl font-semibold text-sm flex shrink-0 items-center gap-1.5 disabled:opacity-40"
+            <AnimatePresence initial={false}>
+              {confirming === a.action && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
                 >
-                  {busy === a.action ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                  {t("dangerZone.confirmButton")}
-                </button>
-                <button
-                  onClick={() => setConfirming(null)}
-                  className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm"
-                >
-                  {t("common.cancel")}
-                </button>
-              </div>
-            )}
+                  <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/5 pt-3">
+                    <input
+                      autoFocus
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      placeholder={t("dangerZone.confirmPlaceholder", { word: CONFIRM_WORD })}
+                      className="w-full min-w-0 flex-1 rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none sm:w-auto"
+                    />
+                    <button
+                      onClick={() => run(a.action)}
+                      disabled={input !== CONFIRM_WORD || busy === a.action}
+                      className="bg-down/15 border border-down/20 text-down h-10 px-4 rounded-xl font-semibold text-sm flex shrink-0 items-center gap-1.5 disabled:opacity-40"
+                    >
+                      {busy === a.action ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                      {t("dangerZone.confirmButton")}
+                    </button>
+                    <button
+                      onClick={() => setConfirming(null)}
+                      className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm"
+                    >
+                      {t("common.cancel")}
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         ))}
       </div>

@@ -75,7 +75,7 @@ export function LibrarySeriesCard({ series, index = 0 }: { series: LibrarySeries
             </div>
           )}
 
-          <MediaBadges file={aggregateBadges(episodes)} year={series.year} className="absolute bottom-2 left-2 right-2" />
+          <MediaBadges file={aggregateBadges(episodes)} year={series.year} className="absolute bottom-2 left-2 right-2" compactOnMobile />
         </div>
 
         <div className="mt-2.5 px-0.5">

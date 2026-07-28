@@ -172,7 +172,7 @@ function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: nu
           <button onClick={() => onSave(parseInterval(d, h, m))} aria-label={t("common.save")} className="flex h-7 w-7 items-center justify-center rounded-lg text-ok hover:bg-white/10">
             <Check className="h-3.5 w-3.5" />
           </button>
-          <button onClick={onCancel} aria-label={t("common.cancel")} className="flex h-7 w-7 items-center justify-center rounded-lg text-red hover:bg-white/10">
+          <button onClick={onCancel} aria-label={t("common.cancel")} className="flex h-7 w-7 items-center justify-center rounded-lg text-down hover:bg-white/10">
             <X className="h-3.5 w-3.5" />
           </button>
         </div>

@@ -30,11 +30,18 @@ function scheduleReconnect(connect: () => void) {
  * on the relevant keys for each event type. Mount once at the app root —
  * every consumer benefiting from an SSE-affected key gets instant updates
  * without polling. Reconnects with exponential backoff on failure.
+ *
+ * `enabled` (default true) lets a caller skip connecting — e.g. AppShell
+ * calls this unconditionally (every hook must run on every render, login
+ * page included, or React throws "rendered more hooks than previous render"
+ * the moment currentUser flips from unauthenticated to authenticated
+ * mid-session) but still shouldn't open an SSE connection while signed out.
  */
-export function useLibrarySSE() {
+export function useLibrarySSE(enabled = true) {
   const esRef = useRef<EventSource | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     function connect() {
       esRef.current?.close();
 
@@ -62,5 +69,5 @@ export function useLibrarySSE() {
       if (globalReconnectTimer) clearTimeout(globalReconnectTimer);
       esRef.current?.close();
     };
-  }, []);
+  }, [enabled]);
 }

@@ -28,7 +28,7 @@ function BaseBadge({ className, children }: LogoProps & { children: React.ReactN
 export function Logo4K({ className }: LogoProps) {
   return (
     <BaseBadge className={cn("badge-4k-shimmer", className)}>
-      <svg viewBox="0 0 36 21" className="h-full w-auto" aria-label="4K">
+      <svg viewBox="0 0 36 21" className="relative z-10 h-full w-auto" aria-label="4K">
         <text x="0" y="17" fontFamily="Arial,sans-serif" fontSize="18" fontWeight="900" fill="#fff">
           4K
         </text>

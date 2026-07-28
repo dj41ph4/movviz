@@ -436,7 +436,16 @@ export class MovvizInstance {
     // (stage kept resetting to 0 every cycle since everProgressed never
     // becomes true), leaking one setInterval + wire-destroy cycle per dead
     // torrent indefinitely until the process runs out of resources.
-    const MAX_NEVER_PROGRESSED_NUDGES = 6; // ~9 minutes at 90s/tick
+    //
+    // Each full cycle (log "stalled", nudge, then check again) is 2 ticks —
+    // NOT 1 — because `lastDownloaded` gets reset to a sentinel on every
+    // stage transition below, forcing one silent "just observing" tick
+    // before the next real check can fire. At 90s/tick that's 3 minutes per
+    // cycle, so this cap must be sized against THAT, not against the raw
+    // poll interval — confirmed live: a genuinely dead torrent (0 peers, 0
+    // bytes, ever) was still nudging 24+ minutes in with the old value of 6
+    // (which assumed 1 tick/cycle, i.e. ~9 minutes — actually ~18 minutes).
+    const MAX_NEVER_PROGRESSED_NUDGES = 3; // ~9 minutes at 2 ticks (180s) per cycle
     let neverProgressedNudges = 0;
     const stallTimer = setInterval(() => {
       if (t.destroyed || t.done) {

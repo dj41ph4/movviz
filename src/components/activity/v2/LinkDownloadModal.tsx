@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion } from "framer-motion";
 import { X, Loader2 } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { formatBytes } from "@/lib/utils";
@@ -42,8 +43,16 @@ export function LinkDownloadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl glass-strong p-5" onClick={(e) => e.stopPropagation()}>
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: -12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, scale: 0.98 }}
+        className="w-full max-w-lg rounded-2xl glass-strong p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-ink">{t("activity.linkDownload")}</h2>
@@ -65,7 +74,7 @@ export function LinkDownloadModal({
         )}
 
         {error && <p className="mt-3 text-xs font-semibold text-down">{t(`activity.linkError.${error}`)}</p>}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

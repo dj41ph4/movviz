@@ -4,7 +4,7 @@ import { useState, use as usePromise } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useT } from "@/i18n/provider";
-import { cn } from "@/lib/utils";
+import { cn, openPlexLink } from "@/lib/utils";
 import type { LibrarySeries, LibraryEpisode, LibraryStatus } from "@/lib/library/types";
 import type { MetaEpisode } from "@/lib/metadata/types";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
@@ -107,6 +107,7 @@ export default function EpisodeDetailPage({
               href={ep.plexUrl}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(e) => openPlexLink(e, ep.plexUrl!)}
               className="flex h-9 items-center gap-2 rounded-xl bg-amber px-4 text-sm font-bold text-black"
             >
               <Play className="h-4 w-4 fill-black" /> {t("library.watchOnPlex")}
