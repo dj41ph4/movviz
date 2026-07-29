@@ -70,6 +70,22 @@ export function createApiServer(engine) {
         return send(res, 200, { logs: getLogs() });
       }
 
+      // GET /client-type
+      if (method === "GET" && parts[0] === "client-type") {
+        return send(res, 200, { clientType: engine._clientType });
+      }
+
+      // POST /client-type — switch backend (webtorrent|native)
+      if (method === "POST" && parts[0] === "client-type") {
+        const body = await readBody(req);
+        try {
+          await engine.setClientType(body.clientType);
+          return send(res, 200, { clientType: engine._clientType });
+        } catch (e) {
+          return send(res, 400, { error: e.message });
+        }
+      }
+
       // /instances
       if (parts[0] === "instances") {
         if (method === "GET" && parts.length === 1) {

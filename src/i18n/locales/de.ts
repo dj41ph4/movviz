@@ -1104,6 +1104,11 @@ export const de: Dictionary = {
     cutoff: "Schwelle",
     clientsIntro:
       "Jede Kategorie hat ihren eigenen Download-Client mit eigenen Ordnern, Limits und Prioritäten. Alles ist vereinheitlicht, doch jede Instanz bleibt unabhängig.",
+    clientEngine: "Torrent-Engine",
+    clientStableLabel: "Stabil",
+    clientNativeLabel: "Beta",
+    clientNativeHint: "~5 MB RAM, hunderte Torrents",
+    clientWebtorrentHint: "50-100 MB RAM, natives JS",
     boundTo: "Zugeordnet zu",
     downloadPath: "Download-Ordner",
     completedPath: "Ordner für abgeschlossene Downloads",

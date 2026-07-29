@@ -1,0 +1,920 @@
+import path from "node:path";
+import fsp from "node:fs/promises";
+import { ensureDir, movePath, linkOrCopy } from "../store.mjs";
+import {
+  loadNamingTemplates,
+  parseRelease,
+  buildContext,
+  renderSegment,
+  VIDEO_EXT_RE,
+} from "../naming.mjs";
+import { WEB_CALLBACK_URL, TORRENT_CACHE_DIR, ENGINE_TOKEN } from "../config.mjs";
+
+const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+
+function fmtSize(bytes) {
+  if (!bytes || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + " " + units[i];
+}
+
+async function avoidCollision(dest) {
+  let candidate = dest;
+  let attempt = 2;
+  const ext = path.extname(dest);
+  const base = dest.slice(0, dest.length - ext.length);
+  while (await fsp.access(candidate).then(() => true).catch(() => false)) {
+    candidate = `${base} (${attempt})${ext}`;
+    attempt += 1;
+  }
+  return candidate;
+}
+
+/**
+ * Base backend — all shared download/import/queue/naming logic that both
+ * WebTorrent and Aria2 backends inherit. Concrete subclasses implement the
+ * `_client*` abstract methods for transport-specific operations.
+ */
+export class AbstractBackend {
+  constructor(cfg, { onChange, emitActivity } = {}) {
+    this.cfg = cfg;
+    this.onChange = onChange ?? (() => {});
+    this.emitActivity = emitActivity ?? (() => {});
+    this.meta = new Map();
+    this.importedHistory = new Map();
+    this.client = null;
+    this.folderError = null;
+    this._stallTimers = new Map();
+    this.cfg.logTag = this.constructor.name === "NativeTorrentBackend" ? "beta" : this.constructor.name === "LibtorrentBackend" ? "alpha" : "stable";
+  }
+
+  // ─── Abstract methods (override in subclass) ──────────────────────────────
+  /** Create the underlying torrent client. Must set `this.client`. */
+  async _clientCreate() { throw new Error("_clientCreate not implemented"); }
+  async _clientDestroy() { throw new Error("_clientDestroy not implemented"); }
+  async _clientAdd(torrentId, opts) { throw new Error("_clientAdd not implemented"); }
+  async _clientRemove(infoHash, deleteData) { throw new Error("_clientRemove not implemented"); }
+  async _clientPause(infoHash) { throw new Error("_clientPause not implemented"); }
+  async _clientResume(infoHash) { throw new Error("_clientResume not implemented"); }
+  _clientList() { throw new Error("_clientList not implemented"); }
+  _clientGet(infoHash) { throw new Error("_clientGet not implemented"); }
+  /** Return snapshot: { infoHash, name, length, files: [{name,path,length,selected}], magnetURI } */
+  _clientSnapshot(infoHash) { throw new Error("_clientSnapshot not implemented"); }
+  /** Wire done/error/download/ready events on a newly added torrent handle. Called after meta is set. */
+  _clientWireEvents(handle, infoHash) { throw new Error("_clientWireEvents not implemented"); }
+  _clientSetSequential(infoHash, on) { return false; }
+  _clientSetFilePriorities(infoHash, priorities) { return false; }
+  _clientSetPriority(infoHash, priority) {}
+  _clientSelectFiles(handle, matchSet) {}
+  /** How many ms to wait between polling for progress (0 = event-driven like WT) */
+  get _clientPollIntervalMs() { return 0; }
+  /** Called every poll tick — for backends that need to sync state from an external process. */
+  async _clientPoll() {}
+
+  // ─── Init ────────────────────────────────────────────────────────────────
+
+  async init() {
+    this.folderError = null;
+    try {
+      await ensureDir(this.cfg.downloadPath);
+      await ensureDir(this.cfg.completedPath);
+    } catch (e) {
+      this.folderError = e.message;
+      console.error(
+        `[engine:${this.cfg.id}][${this.cfg.logTag}] folder unavailable (${e.message}) — downloads blocked until the folders are fixed in Settings`
+      );
+    }
+    await this._clientCreate().catch((e) => {
+      console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] client init failed (${e.message}) — instance offline until restart`);
+      this.client = null;
+    });
+    this._applyThrottle?.();
+    import("../upnp.mjs").then(({ addMapping }) =>
+      addMapping(this.cfg.torrentPort, this.cfg.name || this.cfg.id)
+    ).catch(() => {});
+
+    const pi = this._clientPollIntervalMs;
+    if (pi > 0) {
+      this._pollTimer = setInterval(() => this._clientPoll().catch(() => {}), pi);
+    }
+  }
+
+  async destroy() {
+    import("../upnp.mjs").then(({ removeMapping }) =>
+      removeMapping(this.cfg.torrentPort)
+    ).catch(() => {});
+    clearInterval(this._pollTimer);
+    for (const t of this._stallTimers.values()) clearTimeout(t);
+    this._stallTimers.clear();
+    await this._clientDestroy();
+  }
+
+  // ─── Lookup ──────────────────────────────────────────────────────────────
+
+  _get(infoHash) {
+    return this._clientGet(infoHash);
+  }
+
+  // ─── Adding ──────────────────────────────────────────────────────────────
+
+  async add(torrentId, opts = {}) {
+    if (this.folderError) {
+      throw new Error(`download folder unavailable: ${this.folderError}`);
+    }
+    // Extract infoHash from magnet URI when not explicitly provided —
+    // aria2 (native backend) cannot resolve infoHash from a magnet at add
+    // time, so without opts.infoHash the GID becomes the meta key, the
+    // real infoHash never matches, and onComplete is never triggered.
+    if (!opts.infoHash && typeof torrentId === "string") {
+      const m = torrentId.match(/[?&]xt=urn:btih:([a-f0-9]{32,64})/i);
+      if (m) opts = { ...opts, infoHash: m[1].toLowerCase() };
+    }
+    if (opts.infoHash) {
+      const existing = this._get(opts.infoHash);
+      if (existing) return this.summary(existing);
+      const hist = this.importedHistory.get(opts.infoHash);
+      if (hist) return this.importedSummary(hist);
+    }
+
+    const handle = await this._clientAdd(torrentId, opts);
+
+    this.meta.set(handle.infoHash, {
+      addedAt: opts.addedAt ?? Date.now(),
+      completedAt: null,
+      userPaused: !!opts.paused,
+      queued: false,
+      stalled: false,
+      priority: opts.priority ?? "medium",
+      sequential: !!opts.sequential,
+      completed: false,
+      finishing: false,
+      movedTo: null,
+      libraryRef: opts.libraryRef ?? null,
+      title: opts.title ?? null,
+      year: opts.year ?? null,
+      episodeTarget: opts.episodeTarget ?? null,
+      episodeTargets: opts.episodeTargets ?? null,
+      selectedFileIndices: null,
+    });
+
+    this._clientWireEvents(handle, handle.infoHash);
+
+    this._wireStallDetection(handle, handle.infoHash);
+
+    if (opts.paused) Promise.resolve(this._clientPause(handle.infoHash)).catch(() => {});
+    if (opts.sequential) this._clientSetSequential(handle.infoHash, true);
+
+    this._selectEpisodeFiles(handle, this.meta.get(handle.infoHash));
+    this.reconcileQueue();
+    this.onChange();
+
+    console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}] + ${handle.name ?? handle.infoHash} (${fmtSize(handle.length ?? 0)})`);
+
+    const releaseInfo = parseRelease(handle.name ?? "");
+    this.emitActivity("grabbed", {
+      media: {
+        id: opts.libraryRef?.split(":")[1] ?? handle.infoHash,
+        title: opts.title ?? handle.name ?? "Inconnu",
+        type: this.cfg.category,
+        href: opts.libraryRef
+          ? `/title/${this.cfg.category}/${opts.year ? "?year=" + opts.year : ""}`
+          : "#",
+      },
+      release: {
+        indexer: "Indexeur inconnu",
+        releaseTitle: handle.name ?? "Release inconnue",
+        protocol: "torrent",
+        size: handle.length ?? 0,
+        quality: releaseInfo.quality ?? releaseInfo.resolution ?? "Inconnue",
+        score: 0,
+        seeders: handle.numPeers ?? 0,
+        leechers: 0,
+        customFormats: [],
+      },
+      download: {
+        client: this.constructor.name.replace("Backend", ""),
+        infoHash: handle.infoHash ?? "",
+        progress: 0,
+        downloadSpeed: 0,
+        uploadSpeed: 0,
+        eta: 0,
+        ratio: 0,
+        peers: handle.numPeers ?? 0,
+        state: "downloading",
+      },
+      metadata: {
+        libraryRef: opts.libraryRef ?? undefined,
+        year: opts.year ?? undefined,
+      },
+    });
+
+    return this.summary(handle);
+  }
+
+  restoreImported(rec) {
+    this.importedHistory.set(rec.infoHash, {
+      infoHash: rec.infoHash,
+      magnetURI: rec.magnetURI ?? null,
+      name: rec.name ?? rec.title ?? rec.infoHash,
+      size: rec.size ?? 0,
+      movedTo: rec.movedTo,
+      addedAt: rec.addedAt ?? null,
+      completedAt: rec.completedAt ?? null,
+      libraryRef: rec.libraryRef ?? null,
+      title: rec.title ?? null,
+      year: rec.year ?? null,
+    });
+  }
+
+  // ─── Completion ──────────────────────────────────────────────────────────
+
+  async onComplete(infoHash) {
+    const m = this.meta.get(infoHash);
+    if (!m || m.completed || m.processing) return;
+    m.processing = true;
+    try {
+      m.completedAt ??= Date.now();
+      this.reconcileQueue();
+      this.onChange();
+
+      const snap = this._clientSnapshot(infoHash);
+      const releaseInfo = parseRelease(snap.name ?? "");
+      const mediaBase = {
+        id: m.libraryRef?.split(":")[1] ?? snap.infoHash,
+        title: m.title ?? snap.name ?? "Inconnu",
+        type: this.cfg.category,
+        href: m.libraryRef ? `/title/${this.cfg.category}/${m.year ?? ""}` : "#",
+      };
+
+      this.emitActivity("importing", {
+        media: mediaBase,
+        download: {
+          client: this.constructor.name.replace("Backend", ""),
+          infoHash: snap.infoHash,
+          progress: 1, downloadSpeed: 0, uploadSpeed: 0, eta: 0,
+          ratio: snap.ratio ?? 0, peers: snap.numPeers ?? 0, state: "downloading",
+        },
+        metadata: { libraryRef: m.libraryRef ?? undefined, year: m.year ?? undefined },
+      });
+
+      const limit = Number(this.cfg.seedRatio) || 0;
+      if (!this.cfg.autoMoveOnComplete) {
+        m.completed = true;
+        m.completedAt ??= Date.now();
+        if (!this.importedHistory.has(snap.infoHash)) {
+          this.importedHistory.set(snap.infoHash, {
+            infoHash: snap.infoHash, magnetURI: snap.magnetURI ?? null, name: snap.name,
+            size: snap.length, movedTo: null,
+            addedAt: m.addedAt, completedAt: m.completedAt, libraryRef: m.libraryRef ?? null,
+            title: m.title ?? null, year: m.year ?? null,
+          });
+        }
+        this.reconcileQueue();
+        this.onChange();
+        return;
+      }
+
+      if (limit <= 0) {
+        await this._finish(snap, false).catch((e) => {
+          console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] finish failed:`, e.message);
+          this.emitActivity("failed", {
+            media: mediaBase,
+            failure: { code: "import_failed", message: e.message ?? "Échec du déplacement des fichiers" },
+            metadata: { libraryRef: m.libraryRef ?? undefined },
+          });
+        });
+      } else {
+        if (m.movedTo) {
+          // Already imported via linkOrCopy — aria2 finished seeding.
+          // Only cleanup if the library notification actually went through.
+          if (!m.notifiedLibrary && m.libraryRef) {
+            // Notification never succeeded — retry NOW before cleanup
+            m.movedFiles ??= [];
+            const ok = await this._notifyLibrary(m.libraryRef, m.movedFiles, snap.infoHash);
+            if (ok) m.notifiedLibrary = true;
+          }
+          if (m.notifiedLibrary || !m.libraryRef) {
+            await this._finish(snap, true).catch((e) => {
+              console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] finish failed:`, e.message);
+            });
+          }
+          return;
+        }
+        console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}] → import ${snap.name ?? infoHash} → bibliothèque...`);
+        const err = await this._import(snap, linkOrCopy).catch((e) => {
+          console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] import failed:`, e.message);
+          return e;
+        });
+        if (err) {
+          this.emitActivity("failed", {
+            media: mediaBase,
+            failure: { code: "import_failed", message: err.message ?? "Échec de l'import" },
+            metadata: { libraryRef: m.libraryRef ?? undefined },
+          });
+        } else {
+          // Import succeeded (linkOrCopy). Notification was attempted inside
+          // _import — if it succeeded, m.notifiedLibrary is true.
+          // Set completed only if library was notified (or no libraryRef).
+          if (m.notifiedLibrary || !m.libraryRef) {
+            m.completed = true;
+          }
+          m.completedAt ??= Date.now();
+          if (!this.importedHistory.has(snap.infoHash)) {
+            this.importedHistory.set(snap.infoHash, {
+              infoHash: snap.infoHash, magnetURI: snap.magnetURI ?? null, name: snap.name,
+              size: snap.length, movedTo: m.movedTo ?? null,
+              addedAt: m.addedAt, completedAt: m.completedAt, libraryRef: m.libraryRef ?? null,
+              title: m.title ?? null, year: m.year ?? null,
+            });
+          }
+          const wasUpgrade = m.completedAt && (Date.now() - m.completedAt > 60_000);
+          this.emitActivity(wasUpgrade ? "upgraded" : "imported", {
+            media: mediaBase,
+            release: {
+              indexer: "Indexeur inconnu",
+              releaseTitle: snap.name ?? "Release inconnue",
+              protocol: "torrent",
+              size: snap.length ?? 0,
+              quality: releaseInfo.quality ?? releaseInfo.resolution ?? "Inconnue",
+              score: 0, customFormats: [],
+            },
+            metadata: { libraryRef: m.libraryRef ?? undefined, year: m.year ?? undefined },
+          });
+        }
+      }
+    } finally {
+      m.processing = false;
+    }
+  }
+
+  // ─── Queue ───────────────────────────────────────────────────────────────
+
+  reconcileQueue() {
+    const max = this.cfg.maxActive || 0;
+    if (max <= 0) return;
+    const all = this._clientList().filter((t) => {
+      const m = this.meta.get(t.infoHash);
+      return m && !m.userPaused && !this._isDone(t);
+    });
+    all.sort((a, b) => {
+      const ma = this.meta.get(a.infoHash);
+      const mb = this.meta.get(b.infoHash);
+      const pa = PRIORITY_RANK[ma?.priority ?? "medium"] ?? 1;
+      const pb = PRIORITY_RANK[mb?.priority ?? "medium"] ?? 1;
+      return pa - pb || Number(ma?.queued) - Number(mb?.queued) || (ma?.addedAt ?? 0) - (mb?.addedAt ?? 0);
+    });
+    let slotsUsed = 0;
+    for (const t of all) {
+      const m = this.meta.get(t.infoHash);
+      if (m?.stalled) continue;
+      const shouldRun = slotsUsed < max;
+      if (shouldRun) slotsUsed++;
+      if (shouldRun && m?.queued) {
+        m.queued = false;
+        this._clientResume(t.infoHash).catch(() => {});
+      } else if (!shouldRun && m && !m.queued) {
+        m.queued = true;
+        this._clientPause(t.infoHash).catch(() => {});
+      }
+    }
+  }
+
+  // ─── Tick ────────────────────────────────────────────────────────────────
+
+  tick() {
+    // Retry failed _notifyLibrary calls for any torrent that has been
+    // imported (movedTo set) but whose library callback never went through.
+    // Runs every 15s — doesn't depend on _clientList() (torrent may have
+    // been removed from the client after _finish cleanup).
+    for (const [infoHash, m] of this.meta) {
+      if (m?.libraryRef && m?.movedFiles?.length && !m.notifiedLibrary
+          && (!m.lastNotifyAttempt || Date.now() - m.lastNotifyAttempt > 15_000)) {
+        m.lastNotifyAttempt = Date.now();
+        this._notifyLibrary(m.libraryRef, m.movedFiles, infoHash)
+          .then((ok) => { if (ok) { m.notifiedLibrary = true; m.completed = true; } })
+          .catch(() => {});
+      }
+    }
+
+    for (const t of this._clientList()) {
+      const m = this.meta.get(t.infoHash);
+      if (m?.completed) continue;
+      if (this._isDone(t) && !m?.finishing) {
+        this.onComplete(t.infoHash).catch((e) =>
+          console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] onComplete tick failed:`, e.message)
+        );
+      }
+    }
+  }
+
+  // ─── Commands ────────────────────────────────────────────────────────────
+
+  async remove(infoHash, deleteData) {
+    const m = this.meta.get(infoHash);
+    if (!m) return false;
+    m.finishing = true;
+    const snap = this._clientSnapshot(infoHash);
+    await this._clientRemove(infoHash, deleteData).catch(() => {});
+    if (deleteData && snap?.name) {
+      const safeName = snap.name.replace(/[/\\:]/g, "_").replace(/\.\.+/g, "_");
+      const cleanupTarget = path.join(this.cfg.downloadPath, safeName);
+      const resolved = path.resolve(cleanupTarget);
+      if (resolved.startsWith(path.resolve(this.cfg.downloadPath)) && resolved !== path.resolve(this.cfg.downloadPath)) {
+        await fsp.rm(resolved, { recursive: true, force: true }).catch(() => {});
+      }
+      for (const f of (snap.files ?? [])) {
+        const fp = f.path ? (path.isAbsolute(f.path) ? f.path : path.join(this.cfg.downloadPath, f.path)) : null;
+        if (fp && path.resolve(fp).startsWith(path.resolve(this.cfg.downloadPath))) {
+          try { await fsp.unlink(fp); } catch {}
+        }
+      }
+      try {
+        const dlPath = path.resolve(this.cfg.downloadPath);
+        const entries = await fsp.readdir(dlPath, { withFileTypes: true });
+        for (const e of entries) {
+          if (e.isDirectory()) {
+            const dp = path.join(dlPath, e.name);
+            try {
+              const contents = await fsp.readdir(dp, { withFileTypes: true, recursive: true });
+              const hasVideo = contents.some((c) => c.isFile() && VIDEO_EXT_RE.test(c.name));
+              if (!hasVideo) await fsp.rm(dp, { recursive: true, force: true });
+              else try { await fsp.rmdir(dp); } catch {}
+            } catch { try { await fsp.rmdir(dp); } catch {} }
+          }
+        }
+      } catch {}
+    }
+    await this._dropCachedTorrentFile?.(infoHash);
+    this.meta.delete(infoHash);
+    this.reconcileQueue();
+    this.onChange();
+    return true;
+  }
+
+  pause(infoHash) {
+    const m = this.meta.get(infoHash);
+    if (m) m.userPaused = true;
+    return this._clientPause(infoHash);
+  }
+
+  resume(infoHash) {
+    const m = this.meta.get(infoHash);
+    if (m) m.userPaused = false;
+    return this._clientResume(infoHash);
+  }
+
+  setSequential(infoHash, on) {
+    const m = this.meta.get(infoHash);
+    if (m) m.sequential = on;
+    return this._clientSetSequential(infoHash, on);
+  }
+
+  setFilePriorities(infoHash, p) {
+    return this._clientSetFilePriorities(infoHash, p);
+  }
+
+  setPriority(infoHash, priority) {
+    const m = this.meta.get(infoHash);
+    if (m) m.priority = priority;
+    this._clientSetPriority(infoHash, priority);
+    this.reconcileQueue();
+    this.onChange();
+    return true;
+  }
+
+  detail(infoHash) {
+    const t = this._clientGet(infoHash);
+    if (t) return this.summary(t, true);
+    const rec = this.importedHistory.get(infoHash);
+    if (rec) return this.importedSummary(rec);
+    return null;
+  }
+
+  // ─── Reporting ───────────────────────────────────────────────────────────
+
+  summary(t, detail = false) {
+    const m = this.meta.get(t.infoHash);
+    const isSeeding = this._isDone(t) && !m?.completed;
+    const state = m?.completed ? "completed" : isSeeding ? "seeding" : m?.queued ? "queued" : m?.userPaused ? "paused" : "downloading";
+    const base = {
+      infoHash: t.infoHash,
+      name: t.name ?? t.infoHash,
+      size: t.length ?? 0,
+      length: t.length ?? 0,
+      downloaded: t.downloaded ?? 0,
+      progress: t.length > 0 ? (t.downloaded ?? 0) / t.length : 0,
+      downloadSpeed: t.downloadSpeed ?? 0,
+      uploadSpeed: t.uploadSpeed ?? 0,
+      numPeers: t.numPeers ?? 0,
+      ratio: t.ratio ?? 0,
+      timeRemaining: t.timeRemaining ?? null,
+      state,
+      addedAt: m?.addedAt ?? null,
+      completedAt: m?.completedAt ?? null,
+      libraryRef: m?.libraryRef ?? null,
+      title: m?.title ?? null,
+      year: m?.year ?? null,
+      priority: m?.priority ?? "medium",
+      sequential: m?.sequential ?? false,
+      userPaused: m?.userPaused ?? false,
+      queued: m?.queued ?? false,
+      stalled: m?.stalled ?? false,
+      category: this.cfg.category,
+      instanceId: this.cfg.id,
+    };
+    if (detail) base.files = (t.files ?? []).map((f) => ({
+      name: f.name, path: f.path, length: f.length, downloaded: f.downloaded ?? 0,
+    }));
+    return base;
+  }
+
+  importedSummary(rec) {
+    return {
+      infoHash: rec.infoHash,
+      name: rec.name,
+      length: rec.size,
+      downloaded: rec.size,
+      progress: 1,
+      downloadSpeed: 0,
+      uploadSpeed: 0,
+      numPeers: 0,
+      ratio: 0,
+      state: "completed",
+      addedAt: rec.addedAt,
+      completedAt: rec.completedAt,
+      libraryRef: rec.libraryRef ?? null,
+      title: rec.title ?? null,
+      year: rec.year ?? null,
+      priority: "medium",
+      sequential: false,
+      userPaused: false,
+      queued: false,
+      stalled: false,
+      category: this.cfg.category,
+      instanceId: this.cfg.id,
+      movedTo: rec.movedTo ?? null,
+    };
+  }
+
+  list() {
+    const out = [];
+    const seen = new Set();
+    for (const t of this._clientList()) {
+      out.push(this.summary(t));
+      seen.add(t.infoHash);
+    }
+    for (const rec of this.importedHistory.values()) {
+      if (!seen.has(rec.infoHash)) out.push(this.importedSummary(rec));
+    }
+    return out;
+  }
+
+  // ─── Persistence ─────────────────────────────────────────────────────────
+
+  persistable() {
+    const out = [];
+    for (const t of this._clientList()) {
+      const m = this.meta.get(t.infoHash);
+      if (!m) continue;
+      out.push({
+        infoHash: t.infoHash,
+        magnetURI: t.magnetURI ?? null,
+        name: t.name ?? t.infoHash,
+        size: t.length ?? 0,
+        addedAt: m.addedAt,
+        completedAt: m.completedAt,
+        movedTo: m.movedTo,
+        libraryRef: m.libraryRef ?? null,
+        title: m.title ?? null,
+        year: m.year ?? null,
+        episodeTarget: m.episodeTarget ?? null,
+        episodeTargets: m.episodeTargets ?? null,
+        userPaused: m.userPaused,
+        sequential: m.sequential,
+        priority: m.priority,
+        paused: m.userPaused,
+      });
+    }
+    for (const rec of this.importedHistory.values()) {
+      out.push({
+        infoHash: rec.infoHash,
+        magnetURI: rec.magnetURI,
+        name: rec.name,
+        size: rec.size,
+        movedTo: rec.movedTo,
+        addedAt: rec.addedAt,
+        completedAt: rec.completedAt,
+        libraryRef: rec.libraryRef,
+        title: rec.title,
+        year: rec.year,
+        episodeTarget: null,
+        episodeTargets: null,
+        userPaused: false,
+        sequential: false,
+        priority: "medium",
+        paused: false,
+      });
+    }
+    return out;
+  }
+
+  applyConfig(patch) {
+    Object.assign(this.cfg, patch);
+    this._applyThrottle?.();
+  }
+
+  // ─── Import files (shared) ───────────────────────────────────────────────
+
+  async _import(snap, transfer) {
+    const m = this.meta.get(snap.infoHash);
+    if (!m || m.movedTo) return;
+
+    const naming = loadNamingTemplates();
+    const movedFiles = [];
+    const targetList = m.episodeTargets ?? (m.episodeTarget ? [m.episodeTarget] : null);
+    const availableFiles = snap.files.filter((f) => {
+      if (f.selected === false) return false;
+      if (!targetList) return true;
+      const info = parseRelease(f.name);
+      return targetList.some(
+        (t) => info.season === t.season && info.episode != null &&
+          (info.episode === t.episode || (info.episodeEnd != null && t.episode > info.episode && t.episode <= info.episodeEnd))
+      );
+    });
+
+    if (!naming.enabled) {
+      let firstDest = null;
+      for (const file of availableFiles) {
+        const src = path.isAbsolute(file.path) ? file.path : path.join(this.cfg.downloadPath, file.path);
+        const dest = path.join(this.cfg.completedPath, file.path);
+        await transfer(src, dest);
+        // Replace download copy with symlink → library so aria2 seeds from
+        // the library file (saves disk and keeps library as single source of truth).
+        if (transfer === linkOrCopy) {
+          await fsp.unlink(src).catch(() => {});
+          await fsp.symlink(dest, src).catch(() => {});
+        }
+        firstDest ??= path.join(this.cfg.completedPath, snap.name);
+        movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length });
+      }
+      m.movedTo = firstDest ?? this.cfg.completedPath;
+    } else {
+      const videoFiles = availableFiles.filter((f) => VIDEO_EXT_RE.test(f.name));
+      const targets = videoFiles.length ? videoFiles : availableFiles;
+      const releaseInfo = parseRelease(snap.name);
+      let firstDest = null;
+      for (const file of targets) {
+        const fileInfo = parseRelease(file.name);
+        const info = fileInfo.season != null || fileInfo.episode != null ? fileInfo : releaseInfo;
+        if (m.title) info.title = m.title;
+        if (m.year) info.year = String(m.year);
+        const ctx = buildContext(info);
+        const ext = path.extname(file.name);
+        let dest;
+        if (this.cfg.category === "series") {
+          const seriesFolder = renderSegment(naming.seriesFolder, ctx, naming.useDotsInsteadOfSpaces);
+          const seasonFolder = renderSegment(naming.seasonFolder, ctx, naming.useDotsInsteadOfSpaces);
+          const fileName = renderSegment(naming.episodeFile, ctx, naming.useDotsInsteadOfSpaces) + ext;
+          dest = path.join(this.cfg.completedPath, seriesFolder, seasonFolder, fileName);
+        } else {
+          const movieFolder = renderSegment(naming.movieFolder, ctx, naming.useDotsInsteadOfSpaces);
+          const fileName = renderSegment(naming.movieFile, ctx, naming.useDotsInsteadOfSpaces) + ext;
+          dest = await avoidCollision(path.join(this.cfg.completedPath, movieFolder, fileName));
+        }
+        const src = path.isAbsolute(file.path) ? file.path : path.join(this.cfg.downloadPath, file.path);
+        await transfer(src, dest);
+        if (transfer === linkOrCopy) {
+          await fsp.unlink(src).catch(() => {});
+          await fsp.symlink(dest, src).catch(() => {});
+        }
+        firstDest ??= dest;
+        movedFiles.push({
+          path: dest, quality: ctx.quality || null, resolution: ctx.resolution || null,
+          videoCodec: ctx.videoCodec || null, audioCodec: ctx.audioCodec || null,
+          hdr: ctx.hdr || null, source: ctx.source || null, size: file.length,
+          season: info.season ?? null, episode: info.episode ?? null,
+          episodeEnd: info.episodeEnd ?? null,
+        });
+      }
+      m.movedTo = firstDest ?? this.cfg.completedPath;
+    }
+
+    this.importedHistory.set(snap.infoHash, {
+      infoHash: snap.infoHash, magnetURI: snap.magnetURI ?? null, name: snap.name,
+      size: snap.length, movedTo: m.movedTo, addedAt: m.addedAt,
+      completedAt: m.completedAt, libraryRef: m.libraryRef ?? null,
+      title: m.title ?? null, year: m.year ?? null,
+    });
+
+    this.onChange();
+    if (m.libraryRef) {
+      m.movedFiles = movedFiles;
+      const ok = await this._notifyLibrary(m.libraryRef, movedFiles, snap.infoHash);
+      if (ok) {
+        m.notifiedLibrary = true;
+        console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}]   bibliothèque notifiée ✓`);
+      } else {
+        console.warn(`[engine:${this.cfg.id}][${this.cfg.logTag}]   bibliothèque injoignable — retry automatique dans ~15s`);
+      }
+    }
+  }
+
+  async _notifyLibrary(libraryRef, files, infoHash) {
+    try {
+      const res = await fetch(`${WEB_CALLBACK_URL}/api/library/import`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-movviz-token": ENGINE_TOKEN },
+        body: JSON.stringify({ libraryRef, category: this.cfg.category, files, infoHash }),
+      });
+      if (!res.ok) {
+        console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] library import callback failed: HTTP ${res.status}`);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] library import callback unreachable:`, e.message);
+      return false;
+    }
+  }
+
+  async _finish(snap, alreadyImported) {
+    const m = this.meta.get(snap.infoHash);
+    if (!m) return;
+    m.completed = true;
+    m.completedAt ??= Date.now();
+
+    let importOk = false;
+    if (!alreadyImported && this.cfg.autoMoveOnComplete) {
+      try {
+        await this._import(snap, movePath);
+        importOk = true;
+      } catch (e) {
+        console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] move failed:`, e.message);
+      }
+    } else {
+      importOk = true;
+    }
+
+    // Only delete the download folder if the import/move succeeded — otherwise
+    // the original files are still needed in the download directory.
+    if (importOk && this.cfg.autoMoveOnComplete && snap.name) {
+      const safeName = snap.name.replace(/[/\\:]/g, "_").replace(/\.\.+/g, "_");
+      const cleanupTarget = path.join(this.cfg.downloadPath, safeName);
+      const resolved = path.resolve(cleanupTarget);
+      if (resolved.startsWith(path.resolve(this.cfg.downloadPath)) && resolved !== path.resolve(this.cfg.downloadPath)) {
+        try { await fsp.rm(resolved, { recursive: true, force: true }); } catch {}
+        console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}]   download nettoyé: ${safeName}`);
+      }
+      // Also cleanup individual files — for flat torrents the directory cleanup
+      // above may miss them because snap.name doesn't include the file extension.
+      for (const f of (snap.files ?? [])) {
+        const fp = f.path ? (path.isAbsolute(f.path) ? f.path : path.join(this.cfg.downloadPath, f.path)) : null;
+        if (fp && path.resolve(fp).startsWith(path.resolve(this.cfg.downloadPath))) {
+          try { await fsp.unlink(fp); } catch {}
+        }
+      }
+      // Remove subdirectories left behind — if a dir contains no video files
+      // (only .torrent, .nfo, .txt, etc.), it's safe to delete entirely.
+      try {
+        const dlPath = path.resolve(this.cfg.downloadPath);
+        const entries = await fsp.readdir(dlPath, { withFileTypes: true });
+        for (const e of entries) {
+          if (e.isDirectory()) {
+            const dp = path.join(dlPath, e.name);
+            try {
+              const contents = await fsp.readdir(dp, { withFileTypes: true, recursive: true });
+              const hasVideo = contents.some((c) => c.isFile() && VIDEO_EXT_RE.test(c.name));
+              if (!hasVideo) await fsp.rm(dp, { recursive: true, force: true });
+              else try { await fsp.rmdir(dp); } catch {}
+            } catch { try { await fsp.rmdir(dp); } catch {} }
+          }
+        }
+      } catch {}
+    }
+
+    if (!this.importedHistory.has(snap.infoHash)) {
+      this.importedHistory.set(snap.infoHash, {
+        infoHash: snap.infoHash, magnetURI: snap.magnetURI ?? null, name: snap.name,
+        size: snap.length, movedTo: m.movedTo ?? path.join(this.cfg.downloadPath, snap.name),
+        addedAt: m.addedAt, completedAt: m.completedAt, libraryRef: m.libraryRef ?? null,
+        title: m.title ?? null, year: m.year ?? null,
+      });
+    }
+
+    await this._dropCachedTorrentFile?.(snap.infoHash);
+    this.reconcileQueue();
+    this.onChange();
+  }
+
+  // ─── Episode matching (shared) ───────────────────────────────────────────
+
+  _seasonFromPath(filePath) {
+    const dirs = path.dirname(filePath).split(/[\\/]/);
+    for (const d of dirs) {
+      const m = d.match(/\bS(\d{1,2})\b/i);
+      if (m) return parseInt(m[1], 10);
+      const seasonWords = ["season", "saison", "staffel", "seizoen", "temporada", "stagione"];
+      for (const word of seasonWords) {
+        const re = new RegExp(`\\b${word}\\D*(\\d{1,2})\\b`, "i");
+        const wm = d.match(re);
+        if (wm) return parseInt(wm[1], 10);
+      }
+    }
+    return null;
+  }
+
+  _matchesEpisode(f, target) {
+    const info = parseRelease(f.name);
+    if (info.season === target.season && info.episode === target.episode) return true;
+    if (info.season === target.season && info.episode != null && info.episodeEnd != null &&
+        target.episode >= info.episode && target.episode <= info.episodeEnd) return true;
+    if (info.season == null || info.episode == null) {
+      const pathSeason = this._seasonFromPath(f.path);
+      if (pathSeason == null) return false;
+      if (pathSeason !== target.season) return false;
+      if (info.season == null && info.episode === target.episode) return true;
+      if (info.season == null && info.episode == null) {
+        const nums = [...f.name.replace(VIDEO_EXT_RE, "").matchAll(/(\d+)/g)];
+        for (const n of nums) {
+          if (parseInt(n[1], 10) === target.episode) return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  _selectEpisodeFiles(handle, meta) {
+    const targets = meta.episodeTargets ?? (meta.episodeTarget ? [meta.episodeTarget] : []);
+    if (targets.length === 0 || !handle.files?.length) return;
+
+    const matches = [];
+    handle.files.forEach((f, i) => {
+      for (const target of targets) {
+        if (this._matchesEpisode(f, target)) { matches.push(i); break; }
+      }
+    });
+
+    if (matches.length === 0 && targets.length === 1) {
+      const target = targets[0];
+      let ctxSeason = parseRelease(handle.name).season;
+      if (ctxSeason == null) {
+        for (const f of handle.files) {
+          ctxSeason = parseRelease(f.name).season;
+          if (ctxSeason != null) break;
+        }
+      }
+      if ((ctxSeason ?? target.season) === target.season) {
+        handle.files.forEach((f, i) => {
+          if (matches.includes(i)) return;
+          if (parseRelease(f.name).season != null) return;
+          const nums = [...f.name.replace(VIDEO_EXT_RE, "").matchAll(/(\d+)/g)];
+          for (const n of nums) {
+            if (parseInt(n[1], 10) === target.episode) { matches.push(i); return; }
+          }
+        });
+      }
+      if (matches.length === 0 && target.episode <= handle.files.length) {
+        const sorted = handle.files.map((f, i) => ({ index: i, name: f.name })).sort((a, b) => a.name.localeCompare(b.name));
+        matches.push(sorted[target.episode - 1].index);
+      }
+    }
+
+    if (matches.length === 0) return;
+    const matchSet = new Set(matches);
+    this._clientSelectFiles(handle, matchSet);
+    meta.selectedFileIndices = matchSet;
+  }
+
+  _isDone(t) {
+    if (t.done) return true;
+    const m = this.meta.get(t.infoHash);
+    if (!m?.selectedFileIndices || !t.files) return false;
+    return [...m.selectedFileIndices].every((i) => t.files[i]?.done);
+  }
+
+  // ─── Stall detection ─────────────────────────────────────────────────────
+
+  _wireStallDetection(handle, infoHash) {
+    const check = () => {
+      const t = this._clientGet(infoHash);
+      if (!t || t.done) return;
+      const peers = t.numPeers ?? 0;
+      const speed = t.downloadSpeed ?? 0;
+      if (peers === 0 && speed === 0) {
+        const m = this.meta.get(infoHash);
+        if (m && !m.stalled) {
+          m.stalled = true;
+          this.reconcileQueue();
+        }
+      }
+    };
+    clearTimeout(this._stallTimers.get(infoHash));
+    this._stallTimers.set(infoHash, setTimeout(check, 300_000));
+  }
+
+  _clearStallTimer(infoHash) {
+    clearTimeout(this._stallTimers.get(infoHash));
+    this._stallTimers.delete(infoHash);
+  }
+}

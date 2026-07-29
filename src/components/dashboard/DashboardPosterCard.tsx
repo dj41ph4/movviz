@@ -5,7 +5,7 @@ import { Star, Film, Tv } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BADGE_SHAPE } from "@/components/library/MediaBadges";
 
-const POSTER_BASE = "https://image.tmdb.org/t/p/w342";
+const POSTER_BASE = "/tmdb/w342";
 
 /**
  * Lighter sibling of Discover's `DiscoverCard` — same poster/rating visual

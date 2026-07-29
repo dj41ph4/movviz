@@ -49,7 +49,7 @@ function tmdbCache() {
  */
 
 const BASE = "https://api.themoviedb.org/3";
-const IMG_BASE = "https://image.tmdb.org/t/p";
+const IMG_BASE = "/tmdb";
 
 /** Ships with a working key so Movviz discovers content out of the box — Settings lets anyone swap in their own. */
 const DEFAULT_TMDB_API_KEY = "0216fd47717b17e80ba94a3bb1c82d2e";
@@ -598,7 +598,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
     tmdbGet<RawDetail>(
       `/${kind}/${tmdbId}`,
       {
-        append_to_response: "credits,recommendations,keywords,external_ids,videos",
+        append_to_response: "credits,recommendations,keywords,external_ids,videos,release_dates",
         include_video_language: `${preferLanguage ?? "fr"},en,null`,
       },
       toTmdbLanguage(preferLanguage)
@@ -643,6 +643,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
     imdbId,
     watchProviders,
     releaseDateFull: data.release_date ?? data.first_air_date ?? null,
+    vfReleaseDate: type === "movie" ? extractFrDigitalOrPhysicalDate(data.release_dates?.results) : null,
     revenue: type === "movie" && data.revenue ? data.revenue : null,
     budget: type === "movie" && data.budget ? data.budget : null,
     trailerKey: trailerKeys[0] ?? null,
@@ -714,6 +715,7 @@ interface RawDetail {
   external_ids?: { imdb_id?: string | null; tvdb_id?: number | string | null };
   origin_country?: string[];
   videos?: { results?: RawVideo[] };
+  release_dates?: { results: Array<{ iso_3166_1: string; release_dates: Array<{ type: number; release_date: string }> }> };
 }
 
 interface RawVideo {

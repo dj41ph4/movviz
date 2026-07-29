@@ -48,24 +48,20 @@ export async function GET(req: NextRequest) {
 
   for (const movie of loadMovies()) {
     if (!movie.monitored) continue;
-    const byDate = new Map<string, string[]>();
-    if (movie.releaseDate) byDate.set(movie.releaseDate, ["VO"]);
-    // Dubbed/regional dates get merged into the same row when they land on
-    // the same date as another version already recorded for this movie.
-    if (movie.vfReleaseDate) {
-      const existing = byDate.get(movie.vfReleaseDate);
-      if (existing) existing.push("VF");
-      else byDate.set(movie.vfReleaseDate, ["VF"]);
-    }
-    for (const [date, badges] of byDate) {
-      entries.push({
-        date, kind: "movie", title: movie.title, posterPath: movie.posterPath, href: `/title/movie/${movie.tmdbId}`, badges,
-        tmdbId: movie.tmdbId,
-        libraryRef: encodeLibraryRef({ kind: "movie", movieId: movie.id }),
-        status: resolveMovieStatus(movie),
-        year: movie.year,
-      });
-    }
+    // Prioritize VOD/BluRay date over theatrical — a movie is only
+    // actionable once it's actually downloadable, which is the digital/
+    // physical release, not the cinema premiere.
+    const date = movie.vfReleaseDate ?? movie.releaseDate;
+    if (!date) continue;
+    const badges: string[] = movie.vfReleaseDate ? ["VF"] : ["VO"];
+    entries.push({
+      date, kind: "movie", title: movie.title, posterPath: movie.posterPath,
+      href: `/title/movie/${movie.tmdbId}`, badges,
+      tmdbId: movie.tmdbId,
+      libraryRef: encodeLibraryRef({ kind: "movie", movieId: movie.id }),
+      status: resolveMovieStatus(movie),
+      year: movie.year,
+    });
   }
 
   for (const series of loadSeries()) {

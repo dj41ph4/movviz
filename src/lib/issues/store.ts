@@ -1,43 +1,63 @@
-import fs from "node:fs";
-import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import path from "node:path";
-import type { Issue } from "./types";
+/**
+ * Auto-reported client-side issues — non-critical errors (trailer playback,
+ * image load failures, etc.) that should never reach the user as visible
+ * crashes or error modals, but should be visible on the admin diagnostics
+ * page so they don't go unnoticed.
+ *
+ * Also supports the public-facing per-title issue tracker
+ * (api/issues/[id]/…) with statuses and admin comments.
+ */
 
-const CONFIG_DIR =
-  process.env.MOVVIZ_CONFIG_DIR ??
-  process.env.MOVVIZ_DATA_DIR ??
-  path.join(process.cwd(), ".movviz-data");
-const FILE = path.join(CONFIG_DIR, "issues.json");
-
-function read(): Issue[] {
-  return readJsonCached<Issue[]>(FILE, []);
-}
-function write(list: Issue[]) {
-  fs.mkdirSync(CONFIG_DIR, { recursive: true });
-  writeJsonCached(FILE, list);
+interface IssueComment {
+  id: string;
+  userId: string;
+  username: string;
+  message: string;
+  createdAt: number;
 }
 
-export function loadIssues(): Issue[] {
-  return read();
+interface Issue {
+  id: string;
+  userId?: string;
+  message: string;
+  stack?: string;
+  count: number;
+  firstSeen: number;
+  lastSeen: number;
+  status?: string;
+  comments: IssueComment[];
 }
-export function getIssue(id: string): Issue | null {
-  return read().find((i) => i.id === id) ?? null;
+
+let issues: Issue[] = [];
+
+export function reportIssue(error: Error | string): void {
+  const message = typeof error === "string" ? error : error.message;
+  const stack = typeof error === "string" ? undefined : error.stack;
+  const now = Date.now();
+  const existing = issues.find((i) => i.message === message);
+  if (existing) {
+    existing.count++;
+    existing.lastSeen = now;
+  } else {
+    issues.push({ id: crypto.randomUUID?.() ?? `${now}`, message, stack, count: 1, firstSeen: now, lastSeen: now, comments: [] });
+  }
 }
-export function addIssue(issue: Issue): Issue {
-  const list = read();
-  list.push(issue);
-  write(list);
-  return issue;
+
+export function getIssues(): Issue[] {
+  return [...issues];
 }
+
+export function getIssue(id: string): Issue | undefined {
+  return issues.find((i) => i.id === id);
+}
+
 export function updateIssue(id: string, patch: Partial<Issue>): Issue | null {
-  const list = read();
-  const i = list.findIndex((x) => x.id === id);
-  if (i < 0) return null;
-  list[i] = { ...list[i], ...patch, updatedAt: Date.now() };
-  write(list);
-  return list[i];
+  const idx = issues.findIndex((i) => i.id === id);
+  if (idx === -1) return null;
+  issues[idx] = { ...issues[idx], ...patch };
+  return issues[idx];
 }
-/** Danger zone: wipe every issue. */
-export function clearIssues() {
-  write([]);
+
+export function clearIssues(): void {
+  issues = [];
 }

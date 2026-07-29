@@ -5,7 +5,7 @@ import type { LibraryFile } from "@/lib/library/types";
 import { parseRelease } from "@/lib/naming/parser";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import type { PlexLanguageSource } from "@/lib/library/detectLanguage";
-import { Logo4K, LogoHDR, LogoDolbyVision, LogoDolbyAtmos, LogoDTS, LogoTrueHD } from "./FormatLogos";
+import { Logo4K, LogoHDR, LogoDolbyVision, LogoDolbyAtmos, LogoDolbyDigital, LogoDolbyDigitalPlus, LogoDTS, LogoTrueHD } from "./FormatLogos";
 
 export interface BadgeInfo {
   resolution: string | null;
@@ -133,8 +133,6 @@ export function buildMediaBadgeItems(
     if (!hasDolbyVision && !hasHdrFamily) {
       items.push(tag("hdr", "hdr-other", <TextPill text={hdr.replace(/\s+/g, "")} cls="bg-yellow-500 text-black" />));
     }
-  } else {
-    items.push(tag("hdr", "hdr-sdr", <TextPill text="SDR" cls={genericCls} />));
   }
 
   // Language
@@ -148,25 +146,64 @@ export function buildMediaBadgeItems(
     );
   }
 
-  // Audio codec
+  // Audio codec — logos for premium formats (Dolby, DTS, TrueHD), readable
+  // labels for everything else. Maps both parser output (Atmos, EAC3, DD5.1…)
+  // and Plex/ffprobe codec IDs (dca, truehd, pcm_s16le…) to a single label.
   if (audioCodec) {
-    const upper = audioCodec.toUpperCase();
-    if (upper.includes("ATMOS") || upper.includes("DOLBY")) {
-      items.push(tag("audio", "audio", <LogoDolbyAtmos />));
-    } else if (upper.includes("DTS")) {
-      items.push(tag("audio", "audio", <LogoDTS />));
-    } else if (/TRUEHD/i.test(audioCodec)) {
-      items.push(tag("audio", "audio", <LogoTrueHD />));
+    const clean = audioCodec.replace(/[. _-]/g, "").toLowerCase();
+    const logoMap: Record<string, React.ReactNode> = {
+      "atmos": <LogoDolbyAtmos />,
+      "dolbyatmos": <LogoDolbyAtmos />,
+      "eac3": <LogoDolbyDigitalPlus />,
+      "ddp": <LogoDolbyDigitalPlus />,
+      "ddp51": <LogoDolbyDigitalPlus />,
+      "ac3": <LogoDolbyDigital />,
+      "dd51": <LogoDolbyDigital />,
+      "dolbydigital": <LogoDolbyDigital />,
+      "truehd": <LogoTrueHD />,
+      "dts": <LogoDTS />,
+      "dtshd": <LogoDTS />,
+      "dtsh": <LogoDTS />,
+      "dtsx": <LogoDTS />,
+      "dtshdma": <LogoDTS />,
+      "dtshdx": <LogoDTS />,
+      "dca": <LogoDTS />,
+    };
+    const textMap: Record<string, string> = {
+      "flac": "FLAC",
+      "pcm": "PCM",
+      "pcm_s16le": "PCM",
+      "pcm_s24le": "PCM",
+      "pcm_f32le": "PCM",
+      "lpcm": "PCM",
+      "aac": "AAC",
+      "aac20": "AAC",
+      "mp3": "MP3",
+      "mp2": "MP2",
+      "opus": "Opus",
+      "vorbis": "Vorbis",
+      "wma": "WMA",
+      "wmapro": "WMA Pro",
+    };
+    if (clean in logoMap) {
+      items.push(tag("audio", "audio", logoMap[clean]));
+    } else if (clean in textMap) {
+      items.push(tag("audio", "audio", <TextPill text={textMap[clean]} cls={audioGenericCls} />));
     } else {
-      items.push(
-        tag("audio", "audio", <TextPill text={audioCodec.replace(/\./g, "")} cls={audioGenericCls} />),
-      );
+      items.push(tag("audio", "audio", <TextPill text={clean.toUpperCase()} cls={audioGenericCls} />));
     }
   }
 
   // Video codec
   if (videoCodec) {
-    items.push(tag("video", "video", <TextPill text={videoCodec} cls={genericCls} />));
+    const vc = videoCodec.replace(/[. _-]/g, "").toLowerCase();
+    const vcMap: Record<string, string> = {
+      "x265": "HEVC", "h265": "HEVC", "hevc": "HEVC",
+      "x264": "AVC", "h264": "AVC", "avc": "AVC", "avc10": "AVC",
+      "av1": "AV1", "vp9": "VP9", "xvid": "XviD", "divx": "DivX",
+    };
+    const label = vcMap[vc] ?? videoCodec.toUpperCase();
+    items.push(tag("video", "video", <TextPill text={label} cls={genericCls} />));
   }
 
   // Source

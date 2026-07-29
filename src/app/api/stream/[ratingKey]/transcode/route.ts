@@ -4,6 +4,7 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { safePlexUrl } from "@/lib/plex/safeUrl";
 import { getStreamCacheTtl } from "@/lib/settings/betaPlayer";
 import { registerSession } from "@/lib/player/transcodeSessions";
+import { logTranscode } from "@/lib/player/transcodeLogs";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +73,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   }
 
   if (!registerSession(user.id, ratingKey)) {
+    logTranscode(ratingKey, "session", "Too many concurrent transcode sessions", 429);
     return NextResponse.json({ error: "too_many_transcode_sessions" }, { status: 429 });
   }
 
@@ -93,7 +95,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   });
   if (!metaRes.ok) {
     const body = await metaRes.text().catch(() => "");
-    console.error("[transcode] metadata fetch failed", ratingKey, metaRes.status, body.slice(0, 500));
+    logTranscode(ratingKey, "meta-fetch", `HTTP ${metaRes.status}: ${body.slice(0, 200)}`, metaRes.status);
     return NextResponse.json({ error: "metadata_fetch_failed" }, { status: 502 });
   }
 
@@ -107,6 +109,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   const height = Number(media?.videoResolution ?? media?.height ?? 0);
   const videoCodec = (media?.videoCodec as string)?.toLowerCase() ?? "";
   const audioCodec = (media?.audioCodec as string)?.toLowerCase() ?? "";
+  logTranscode(ratingKey, "meta", `container=${media?.container ?? "?"} video=${videoCodec} audio=${audioCodec} res=${height}p`, "ok");
 
   // Smart transcode: only re-encode what the browser can't play natively.
   // H.264 + AAC → direct stream everywhere. AV1/VP9 → direct on Chrome/FF.
@@ -129,7 +132,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   const audioStreamID = sp.get("audioStreamID");
   const subtitleStreamID = sp.get("subtitleStreamID");
 
-  const transcodePath = encodeURIComponent(`${base}/library/metadata/${ratingKey}`);
+  const transcodePath = encodeURIComponent(`/library/metadata/${ratingKey}`);
   let transcodeUrl =
     `${base}/video/:/transcode/universal/start.m3u8` +
     `?path=${transcodePath}` +
@@ -146,6 +149,8 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (subtitleStreamID) transcodeUrl += `&subtitleStreamID=${encodeURIComponent(subtitleStreamID)}`;
 
   try {
+    console.log(`[transcode] ${ratingKey} → ${transcodeUrl.slice(0, 180)}`);
+    logTranscode(ratingKey, "plex-fetch", `codecs: v=${transcodeVideoCodec} a=${transcodeAudioCodec} bitrate=${maxVideoBitrate}k`, "ok");
     const m3u8Res = await fetch(transcodeUrl, {
       headers: {
         "x-plex-token": token,
@@ -156,11 +161,14 @@ export async function GET(req: NextRequest, context: Ctx) {
     });
     if (!m3u8Res.ok) {
       const body = await m3u8Res.text().catch(() => "");
-      console.error("[transcode] start failed", ratingKey, m3u8Res.status, body.slice(0, 500));
+      logTranscode(ratingKey, "plex-response", `HTTP ${m3u8Res.status}: ${body.slice(0, 200)}`, m3u8Res.status);
+      console.error(`[transcode] ${ratingKey} FAIL ${m3u8Res.status}: ${body.slice(0, 300)}`);
+      console.error(`[transcode] ${ratingKey} codecs → video:${videoCodec}(${transcodeVideoCodec}) audio:${audioCodec}(${transcodeAudioCodec})`);
       return NextResponse.json({ error: "transcode_start_failed" }, { status: 502 });
     }
 
     const raw = await m3u8Res.text();
+    logTranscode(ratingKey, "m3u8", `ok — ${raw.split("\n").length} lines`, "ok");
     const proxyBase = `/api/stream/plex-proxy`;
     const cacheTtl = getStreamCacheTtl();
 

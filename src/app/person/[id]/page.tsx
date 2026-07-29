@@ -28,7 +28,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
     </div>
   );
 
-  const photo = person.profilePath ? `https://image.tmdb.org/t/p/w342${person.profilePath}` : null;
+  const photo = person.profilePath ? `/tmdb/w342${person.profilePath}` : null;
 
   return (
     <div className="mx-auto max-w-[1200px]">
@@ -57,7 +57,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
             <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/5 bg-surface">
               {c.posterPath ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={`https://image.tmdb.org/t/p/w342${c.posterPath}`} alt={c.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                <img src={`/tmdb/w342${c.posterPath}`} alt={c.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center">
                   {c.type === "movie" ? <Film className="h-6 w-6 text-ink-soft/60" /> : <Tv className="h-6 w-6 text-ink-soft/60" />}

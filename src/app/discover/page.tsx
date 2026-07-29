@@ -555,7 +555,7 @@ function LogoRow({ title, tiles, onClick }: { title: string; tiles: LogoTile[]; 
               <div className="flex h-full w-full items-center justify-center rounded-xl bg-white/95 p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`https://image.tmdb.org/t/p/w300${tile.logoPath}`}
+                  src={`/tmdb/w300${tile.logoPath}`}
                   alt={tile.name}
                   className="h-full w-full object-contain"
                 />
@@ -687,7 +687,7 @@ function RankedList({
 function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank: number; result: MetaSearchResult; status: string | null; libLoaded: boolean; watched: boolean; onAdded: () => void }) {
   const t = useT();
   const [adding, setAdding] = useState(false);
-  const poster = result.posterPath ? `https://image.tmdb.org/t/p/w92${result.posterPath}` : null;
+  const poster = result.posterPath ? `/tmdb/w92${result.posterPath}` : null;
   const inLib = !!status;
 
   const StatusIcon = status === "available" ? Check : status === "downloading" ? Loader2 : status === "missing" ? Clock : null;
@@ -778,7 +778,7 @@ function DiscoverCard({
     }
   };
 
-  const poster = result.posterPath ? `https://image.tmdb.org/t/p/w500${result.posterPath}` : null;
+  const poster = result.posterPath ? `/tmdb/w500${result.posterPath}` : null;
   // Same day-count treatment as the library card and dashboard row — a
   // not-yet-released movie already being monitored shouldn't be
   // indistinguishable from any other TMDb browse result.

@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useI18n, useT } from "@/i18n/provider";
 import { cn, formatBytes, formatSpeed, formatEta, formatDateTime } from "@/lib/utils";
+import { useSmoothProgress } from "@/lib/media/useSmoothProgress";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { encodeLibraryRef } from "@/lib/library/types";
@@ -531,7 +532,7 @@ const QueueItemRow = memo(function QueueItemRow({
   onToggleExpand, onAction, onSetPriority, onRemove,
 }: QueueItemRowProps) {
   const reduceMotion = useShouldReduceMotion();
-  const displayProgress = item.download.progress;
+  const displayProgress = useSmoothProgress(item.download.progress, item.release.size, item.download.downloadSpeed);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const priorityRef = useRef<HTMLDivElement>(null);
 
@@ -570,7 +571,7 @@ const QueueItemRow = memo(function QueueItemRow({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <Link href={item.media.href} className="truncate font-semibold text-ink hover:text-brand-glow">
+              <Link href={item.media?.href ?? "#"} className="truncate font-semibold text-ink hover:text-brand-glow">
                 {item.media.title}
                 {item.media.packEpisodeCount ? (
                   <span className="text-ink-dim">

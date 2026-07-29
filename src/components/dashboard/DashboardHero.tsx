@@ -14,7 +14,7 @@ import type { DashboardHeroSettings } from "@/lib/dashboard/types";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null };
 
-const POSTER_BASE = "https://image.tmdb.org/t/p/w1280";
+const POSTER_BASE = "/tmdb/w1280";
 
 // The featured slide is a deterministic ranking over data that barely moves
 // day to day (library/watch/request state) — with no anchoring, every fresh

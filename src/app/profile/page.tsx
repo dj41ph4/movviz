@@ -231,7 +231,7 @@ export default function ProfilePage() {
         <h3 className="mb-4 text-sm font-bold text-ink-soft">{t("watchlist.title")}</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {watchlistItems.map((item) => {
-            const poster = item.posterPath ? `https://image.tmdb.org/t/p/w500${item.posterPath}` : null;
+            const poster = item.posterPath ? `/tmdb/w500${item.posterPath}` : null;
             const key = `${item.type}:${item.tmdbId}`;
             return (
               <article key={key} className="group w-full">

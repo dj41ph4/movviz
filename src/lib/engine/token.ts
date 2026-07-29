@@ -1,11 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import { randomUUID } from "node:crypto";
 
-const CONFIG_DIR =
-  process.env.MOVVIZ_CONFIG_DIR ??
-  process.env.MOVVIZ_DATA_DIR ??
-  path.join(process.cwd(), ".movviz-data");
+function resolveConfigDir(): string {
+  const envConfig = process.env.MOVVIZ_CONFIG_DIR;
+  const envData = process.env.MOVVIZ_DATA_DIR;
+  if (envConfig || envData) return envConfig ?? envData!;
+  if (process.env.NODE_ENV !== "production") return path.join(process.cwd(), ".movviz-data");
+  if (process.platform === "win32") {
+    return process.env.ProgramData ? path.join(process.env.ProgramData, "Movviz") : path.join(os.homedir(), "Movviz");
+  }
+  if (typeof process.getuid === "function" && process.getuid() === 0) return "/var/lib/movviz";
+  const xdg = process.env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share");
+  return path.join(xdg, "movviz");
+}
+
+const CONFIG_DIR = resolveConfigDir();
 const FILE = path.join(CONFIG_DIR, "engine-token.json");
 
 let cached: string | null = null;

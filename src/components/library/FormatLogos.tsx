@@ -102,3 +102,33 @@ export function LogoTrueHD({ className }: LogoProps) {
     </BaseBadge>
   );
 }
+
+export function LogoDolbyDigital({ className }: LogoProps) {
+  return (
+    <BaseBadge className={cn("px-3", className)}>
+      <svg viewBox="0 0 54 21" className="h-full w-auto" aria-label="Dolby Digital">
+        <text x="0" y="9.5" fontFamily="Arial,sans-serif" fontSize="5.5" fontWeight="800" fill="#aaa" letterSpacing="1">
+          DOLBY
+        </text>
+        <text x="0" y="18" fontFamily="Arial,sans-serif" fontSize="9" fontWeight="900" fill="#fff" letterSpacing="0.5">
+          DIGITAL
+        </text>
+      </svg>
+    </BaseBadge>
+  );
+}
+
+export function LogoDolbyDigitalPlus({ className }: LogoProps) {
+  return (
+    <BaseBadge className={cn("px-3", className)}>
+      <svg viewBox="0 0 58 21" className="h-full w-auto" aria-label="Dolby Digital Plus">
+        <text x="0" y="9.5" fontFamily="Arial,sans-serif" fontSize="5.5" fontWeight="800" fill="#aaa" letterSpacing="1">
+          DOLBY
+        </text>
+        <text x="0" y="18" fontFamily="Arial,sans-serif" fontSize="9" fontWeight="900" fill="#fff" letterSpacing="0.5">
+          DIGITAL+
+        </text>
+      </svg>
+    </BaseBadge>
+  );
+}

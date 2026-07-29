@@ -1087,6 +1087,11 @@ export const nl: Dictionary = {
     cutoff: "Drempel",
     clientsIntro:
       "Elke categorie heeft zijn eigen downloadclient, met eigen mappen, limieten en prioriteiten. Alles is verenigd, maar elke instantie blijft onafhankelijk.",
+    clientEngine: "Torrent-engine",
+    clientStableLabel: "Stabiel",
+    clientNativeLabel: "Beta",
+    clientNativeHint: "~5 MB RAM, honderden torrents",
+    clientWebtorrentHint: "50-100 MB RAM, native JS",
     boundTo: "Gekoppeld aan",
     downloadPath: "Downloadmap",
     completedPath: "Map voor voltooide items",

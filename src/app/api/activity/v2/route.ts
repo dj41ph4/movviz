@@ -216,7 +216,7 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
   const { byHash: hashIndex, moviesById, seriesById } = await buildHashIndex();
   const { byHash: releaseByHash, byLibraryRef: releaseByLibraryRef } = buildReleaseLookup();
 
-  let items: QueueItem[] = torrents.map(t => {
+    let items: QueueItem[] = torrents.map(t => {
       const { movie, seriesMatch } = hashIndex.get(t.infoHash)
         ?? resolveFromLibraryRef(t.libraryRef, moviesById, seriesById);
 
@@ -285,7 +285,7 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
 }
 
 async function getHistory(user: User): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
-  let entries = loadActivityV2();
+  let entries = loadActivityV2().filter(e => e.media?.href);
   if (user.role !== "admin") {
     const userTmdbIds = getUserTmdbIds(user);
     entries = entries.filter((e) => e.media.tmdbId != null && userTmdbIds.has(e.media.tmdbId));
@@ -294,7 +294,7 @@ async function getHistory(user: User): Promise<NextResponse<{ items: ActivityEnt
 }
 
 async function getFailures(user: User): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
-  let entries = loadActivityV2().filter(e => e.kind === "failed");
+  let entries = loadActivityV2().filter(e => e.kind === "failed" && e.media?.href);
   if (user.role !== "admin") {
     const userTmdbIds = getUserTmdbIds(user);
     entries = entries.filter((e) => e.media.tmdbId != null && userTmdbIds.has(e.media.tmdbId));
@@ -311,7 +311,7 @@ async function getFailures(user: User): Promise<NextResponse<{ items: ActivityEn
  */
 async function getUnlinked(user: User): Promise<NextResponse<{ items: ActivityEntry[]; total: number }>> {
   if (user.role !== "admin") return NextResponse.json({ items: [], total: 0 });
-  const entries = loadActivityV2().filter(e => e.kind === "imported" && e.import && e.media.href === "#");
+  const entries = loadActivityV2().filter(e => e.kind === "imported" && e.import && e.media?.href === "#");
   return NextResponse.json({ items: entries, total: entries.length });
 }
 

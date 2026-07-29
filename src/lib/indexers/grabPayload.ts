@@ -20,11 +20,24 @@ export async function buildGrabPayload({
 
   try {
     const source = indexerId ? getIndexer(indexerId) : null;
-    const headers: Record<string, string> =
-      source?.authType === "credentials" && source.username
-        ? { authorization: `Basic ${Buffer.from(`${source.username}:${source.password}`).toString("base64")}` }
-        : {};
-    const res = await fetch(downloadUrl, { cache: "no-store", headers, signal: AbortSignal.timeout(12_000) });
+    const headers: Record<string, string> = {};
+    if (source?.authType === "credentials" && source.username) {
+      headers.authorization = `Basic ${Buffer.from(`${source.username}:${source.password}`).toString("base64")}`;
+    } else if (source?.authType === "x-api-key" && source.apiKey) {
+      headers["X-Api-Key"] = source.apiKey;
+    }
+    // Append apikey as query param for apikey-based indexers (not already in URL)
+    let url = downloadUrl;
+    if (source?.authType === "apikey" && source.apiKey) {
+      try {
+        const u = new URL(downloadUrl);
+        if (!u.searchParams.has("apikey")) {
+          u.searchParams.set("apikey", source.apiKey);
+          url = u.toString();
+        }
+      } catch { /* keep original url if parsing fails */ }
+    }
+    const res = await fetch(url, { cache: "no-store", headers, signal: AbortSignal.timeout(12_000) });
     if (!res.ok) {
       // Fetching the actual .torrent file is a third kind of request to the
       // indexer, on top of the RSS refresh and Torznab search — a 429 here

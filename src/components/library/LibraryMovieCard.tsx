@@ -63,7 +63,7 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
   const [deleting, setDeleting] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
   const poster = useMemo(
-    () => movie.posterPath ? `https://image.tmdb.org/t/p/w500${movie.posterPath}` : null,
+    () => movie.posterPath ? `/tmdb/w500${movie.posterPath}` : null,
     [movie.posterPath]
   );
   const Icon = STATUS_ICON[movie.status];

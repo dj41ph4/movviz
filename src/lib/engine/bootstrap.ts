@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 import fs from "node:fs";
+import os from "node:os";
 import { recordEngineOutput } from "./crashLog";
 
 /**
@@ -43,14 +44,26 @@ export async function bootstrapEngine() {
     return;
   }
 
-  // Piped (not "ignore") so a crash on start — bad port, permission-denied
-  // data dir, etc. — actually shows up in `docker logs`/the service log
-  // instead of vanishing silently, which made this class of failure
-  // impossible to diagnose from a NAS with no shell access.
+  // Resolve the config directory explicitly and pass it to the engine so
+  // both processes agree on where state/credentials live regardless of
+  // NODE_ENV or platform heuristics — without this, the engine might pick a
+  // different root than the web app (e.g. ProgramData vs .movviz-data) which
+  // means a token mismatch → every API call gets 401.
+  const cfgDir =
+    process.env.MOVVIZ_CONFIG_DIR ??
+    process.env.MOVVIZ_DATA_DIR ??
+    (process.env.NODE_ENV !== "production"
+      ? path.join(process.cwd(), ".movviz-data")
+      : process.platform === "win32"
+        ? path.join(process.env.ProgramData ?? os.homedir(), "Movviz")
+        : typeof process.getuid === "function" && process.getuid() === 0
+          ? "/var/lib/movviz"
+          : path.join(process.env.XDG_DATA_HOME ?? path.join(os.homedir(), ".local", "share"), "movviz"));
+
   const child = spawn(process.execPath, [entry], {
     detached: true,
     stdio: ["ignore", "pipe", "pipe"],
-    env: process.env,
+    env: { ...process.env, MOVVIZ_CONFIG_DIR: cfgDir, MOVVIZ_DATA_DIR: cfgDir },
   });
   child.stdout?.on("data", (d) => {
     process.stdout.write(`[engine] ${d}`);

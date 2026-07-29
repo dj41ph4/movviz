@@ -119,18 +119,44 @@ export function videoCanPlay(mimeType: string): boolean {
 
 export type PlaybackStrategy = "direct" | "webcodecs" | "transcode";
 
+/**
+ * Plex returns codec names like "h264", "hevc", "aac" — these are NOT valid
+ * RFC 6381 codec strings. Every browser returns "" for `canPlayType("video/mp4;
+ * codecs=\"h264\"")`. Normalize to proper RFC 6381 before the check so direct
+ * play actually works for H.264+AAC MP4s (the most common library format).
+ */
+function toRfc6381(plexCodec: string | null | undefined, type: "video" | "audio"): string | null {
+  if (!plexCodec) return null;
+  const c = plexCodec.toLowerCase();
+  if (type === "video") {
+    if (c === "h264" || c === "h.264" || c.includes("avc")) return "avc1.640028";
+    if (c === "hevc" || c === "h265" || c === "h.265") return "hev1.1.6.L93.B0";
+    if (c.includes("av1")) return "av01.0.05M.08";
+    if (c === "vp9") return "vp09.00.10.08";
+    return "avc1.640028"; // fallback: most browsers support H.264
+  }
+  if (c === "aac" || c.includes("mp4a")) return "mp4a.40.2";
+  if (c === "ac3" || c === "ac-3" || c === "eac3" || c === "ec-3") return "ac-3";
+  if (c === "opus") return "opus";
+  if (c === "mp3" || c.includes("mp3")) return "mp4a.40.34";
+  if (c === "flac") return "flac";
+  return "mp4a.40.2"; // fallback: AAC is the safest bet
+}
+
 export async function pickStrategy(
   videoCodec: string | null | undefined,
   audioCodec: string | null | undefined
 ): Promise<PlaybackStrategy> {
-  const videoMime = videoCodec
-    ? `video/mp4; codecs="${videoCodec}"`
-    : "video/mp4";
-  if (videoCanPlay(videoMime)) {
-    const audioMime = audioCodec
-      ? `audio/mp4; codecs="${audioCodec}"`
-      : null;
-    if (!audioMime || videoCanPlay(audioMime)) return "direct";
+  const videoRfc = toRfc6381(videoCodec, "video");
+  const audioRfc = toRfc6381(audioCodec, "audio");
+
+  // Known-safe container + codec combos → direct play without canPlayType check.
+  // The browser fires `error` on the <video> element if it can't play,
+  // and the fallback (VideoPlayer.tsx:188) kicks in automatically.
+  const isSafeDirect = videoRfc === "avc1.640028" || videoRfc === "hev1.1.6.L93.B0";
+
+  if (isSafeDirect && videoCanPlay(`video/mp4; codecs="${videoRfc}"`)) {
+    if (!audioRfc || videoCanPlay(`audio/mp4; codecs="${audioRfc}"`)) return "direct";
   }
 
   const caps = await detectCodecs();

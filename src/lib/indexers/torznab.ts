@@ -532,35 +532,25 @@ function extractIndexerError(text: string): string | null {
  */
 export function sanitizeQuery(q: string): string {
   // Release names are dot-separated ("100.Millions.2025...",
-  // "House.of.the.Dragon.S03..."), and confirmed live against both
-  // configured indexers (C411, Torr9): a query containing a literal space
-  // does NOT match a dot in the release name — a multi-word query like
-  // "100 Millions" or "House of the Dragon" returns 0 results even though
-  // the exact same query with dots instead of spaces returns dozens. Local
-  // matching (titleSimilarity/parseReleases) already normalizes dots and
-  // spaces identically, so this is safe for the matchQuery use too.
-  // ":" never appears in a scene release name either (subtitle separators
-  // become a space or get dropped entirely) — confirmed live: "Resident
-  // Evil : Chapitre Final" returns 0, "Resident Evil Chapitre Final" (no
-  // colon) returns 4.
-  // "…" (ellipsis) and "..." appear in titles like "What If...?" — they
-  // are never part of a scene release name, and leaving them produces a
-  // query like "What.If..." that indexers can't match. Strip them before
-  // the space-to-dot pass so the result is clean ("What.If").
-  // "?" and "¿" are similarly absent from release names — confirmed on
-  // both configured indexers.
-  // Accented chars ("é", "è", "ç", "ñ"…) are never used in scene release
-  // names either — a search for "Team.Démolition" returns 0 while
-  // "Team.Demolition" returns the expected results. Normalize to ASCII so
-  // titles like "Team Démolition" or "What If...?" actually find releases.
+  // "House.of.the.Dragon.S03..."), and confirmed live against multiple
+  // indexers (C411, YGG, Torr9): a query containing a literal space
+  // does NOT match a dot in the release name. Dots replace spaces for
+  // the actual indexer search, while local matching (titleSimilarity/
+  // parseReleases) normalises both forms identically.
+  //
+  // ":" / "…" / "..." / "?" / "¿" are never part of scene release names.
+  // Accented chars ("é", "è", "ç", "ñ"…) are never used in release names
+  // either — "Team.Démolition" returns 0, "Team.Demolition" works.
+  // Leading/trailing apostrophes and articles are stripped for broader
+  // matching on indexers that treat "L'Arme Fatale" literally.
   return q
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[!"'()+|:‘’"“”–—¿?…]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")   // strip combining diacritics (accents)
+    .replace(/['\u2019\u2018]/g, " ")  // apostrophes / single quotes → space
+    .replace(/[^a-zA-Z0-9\s]/g, " ")  // everything else → space
+    .replace(/\s+/g, " ")             // collapse spaces
     .trim()
-    .replace(/\s+/g, ".")
-    .replace(/\.{2,}/g, ".")
-    .replace(/^\.|\.$/g, "");
+    .replace(/\s+/g, ".");            // spaces → dots for indexer search
 }
 
 async function runSearch(

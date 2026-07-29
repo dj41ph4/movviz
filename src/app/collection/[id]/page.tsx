@@ -52,7 +52,7 @@ export default function CollectionPage() {
     }
   };
 
-  const backdrop = data.backdropPath ? `https://image.tmdb.org/t/p/w1280${data.backdropPath}` : null;
+  const backdrop = data.backdropPath ? `/tmdb/w1280${data.backdropPath}` : null;
 
   return (
     <div className="mx-auto max-w-[1280px]">
@@ -82,7 +82,7 @@ export default function CollectionPage() {
       <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {data.parts.map((part) => {
           const status = libStatus.get(part.tmdbId);
-          const poster = part.posterPath ? `https://image.tmdb.org/t/p/w500${part.posterPath}` : null;
+          const poster = part.posterPath ? `/tmdb/w500${part.posterPath}` : null;
           return (
             <Link key={part.tmdbId} href={`/title/movie/${part.tmdbId}`} className="group block">
               <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">

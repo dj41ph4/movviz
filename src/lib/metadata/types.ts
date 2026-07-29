@@ -135,7 +135,8 @@ export interface MetaDetail {
   tvdbId: number | null; // series only
   imdbId: string | null;
   watchProviders: MetaWatchProvider[];
-  releaseDateFull: string | null; // exact ISO date, when known — release/first-air date
+  releaseDateFull: string | null;
+  vfReleaseDate: string | null; // exact ISO date, when known — release/first-air date
   revenue: number | null; // movies only, TMDb doesn't report this for series
   budget: number | null; // movies only
   trailerKey: string | null; // YouTube video id, or null if none found — first (best) entry of trailerKeys

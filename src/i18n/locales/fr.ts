@@ -1085,6 +1085,11 @@ export const fr = {
     // Multi-instance download clients
     clientsIntro:
       "Chaque catégorie possède son propre client de téléchargement, avec ses dossiers, ses limites et ses priorités. Tout est unifié, mais chaque instance reste indépendante.",
+    clientEngine: "Moteur torrent",
+    clientStableLabel: "Stable",
+    clientNativeLabel: "Bêta",
+    clientNativeHint: "~5 Mo RAM, centaines de torrents",
+    clientWebtorrentHint: "50-100 Mo RAM, natif JS",
     boundTo: "Rattaché à",
     downloadPath: "Dossier de téléchargement",
     completedPath: "Dossier des complétés",

@@ -181,7 +181,7 @@ function RequestsPageInner() {
       <div className="space-y-4">
         <AnimatePresence mode="popLayout">
           {visible.map((r) => {
-            const poster = r.posterPath ? `https://image.tmdb.org/t/p/w200${r.posterPath}` : null;
+            const poster = r.posterPath ? `/tmdb/w200${r.posterPath}` : null;
             return (
               <motion.div
                 key={r.id}

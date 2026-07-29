@@ -1086,6 +1086,11 @@ export const it: Dictionary = {
     cutoff: "Soglia",
     clientsIntro:
       "Ogni categoria ha il proprio client di download, con cartelle, limiti e priorità propri. Tutto è unificato, ma ogni istanza resta indipendente.",
+    clientEngine: "Motore torrent",
+    clientStableLabel: "Stabile",
+    clientNativeLabel: "Beta",
+    clientNativeHint: "~5 MB RAM, centinaia di torrent",
+    clientWebtorrentHint: "50-100 MB RAM, JS nativo",
     boundTo: "Associato a",
     downloadPath: "Cartella di download",
     completedPath: "Cartella dei completati",

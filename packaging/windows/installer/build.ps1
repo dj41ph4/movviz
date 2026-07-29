@@ -82,6 +82,30 @@ Copy-Item -Recurse -Force (Join-Path $engineSrc "src") (Join-Path $stageEngine "
 Copy-Item -Force (Join-Path $engineSrc "package.json") (Join-Path $stageEngine "package.json")
 Copy-Item -Recurse -Force $engineNM (Join-Path $stageEngine "node_modules")
 
+# Native torrent engine — download the binary and bundle it inside engine/aria2/
+# so the user can switch to the high-performance backend in Settings.
+Step "Staging aria2 backend"
+$aria2Dir = Join-Path $stageEngine "aria2"
+New-Item -ItemType Directory -Force $aria2Dir | Out-Null
+$aria2Url = "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip"
+$aria2Zip = Join-Path $stage ".tools\aria2.zip"
+try {
+  [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+  Invoke-WebRequest -Uri $aria2Url -OutFile $aria2Zip -UseBasicParsing
+  Expand-Archive -Path $aria2Zip -DestinationPath $aria2Dir -Force
+  # The zip contains a subfolder (aria2-1.37.0-win-64bit-build1/), move aria2c.exe up
+  $aria2Exe = Get-ChildItem -Recurse -Filter "aria2c.exe" $aria2Dir | Select-Object -First 1
+  if ($aria2Exe) {
+    Move-Item -Force $aria2Exe.FullName (Join-Path $aria2Dir "aria2c.exe")
+    # Remove the leftover subfolder
+    Get-ChildItem -Directory $aria2Dir | Remove-Item -Recurse -Force
+  }
+  Remove-Item -Force $aria2Zip
+  Write-Host "  aria2c.exe bundled ($((Get-Item (Join-Path $aria2Dir 'aria2c.exe')).Length / 1KB) KB)" -ForegroundColor DarkGray
+} catch {
+  Write-Host "  native engine download failed ($_), skipping - WebTorrent remains the default" -ForegroundColor Yellow
+}
+
 # Cloudflare resolver — built and bundled so the web server can spawn it on demand.
 Step "Staging Cloudflare resolver"
 $resolverSrc = Join-Path $root "resolver"

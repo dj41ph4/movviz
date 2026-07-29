@@ -27,7 +27,7 @@ interface CalendarEntryChipProps {
 
 export function CalendarEntryChip({ entry, onQuickSearch, searching, compact }: CalendarEntryChipProps) {
   const t = useT();
-  const poster = entry.posterPath ? `https://image.tmdb.org/t/p/w92${entry.posterPath}` : null;
+  const poster = entry.posterPath ? `/tmdb/w92${entry.posterPath}` : null;
   // Anime-VF-launch rows (kind "series") are informational — there's no
   // single grabbable file behind "the dub launched", so no quick action.
   const canQuickSearch = entry.libraryRef && entry.kind !== "series";

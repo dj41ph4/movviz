@@ -25,10 +25,10 @@ export function openPlexLink(e: MouseEvent, url: string) {
   window.location.href = url;
 }
 
-/** TMDB image helper with graceful degradation. */
+/** TMDB image helper — proxied through /tmdb/ rewrite to eliminate CORS warnings. */
 export function tmdbImg(path: string | null, size: "w500" | "original" = "w500") {
   if (!path) return null;
-  return `https://image.tmdb.org/t/p/${size}${path}`;
+  return `/tmdb/${size}${path}`;
 }
 
 /** Locale-aware relative time ("53 minutes ago" / "il y a 53 minutes" / ...)

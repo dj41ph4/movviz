@@ -12,6 +12,7 @@ import { NamingEditor } from "@/components/settings/NamingEditor";
 import { WebhookSettings } from "@/components/settings/WebhookSettings";
 import { HealthPanel } from "@/components/settings/HealthPanel";
 import { DoctorPanel } from "@/components/settings/DoctorPanel";
+import { TranscodeLogsPanel } from "@/components/settings/TranscodeLogsPanel";
 import { EngineLogsPanel } from "@/components/settings/EngineLogsPanel";
 import { ResolverLogsPanel } from "@/components/settings/ResolverLogsPanel";
 import { PerfPanel } from "@/components/settings/PerfPanel";
@@ -33,6 +34,7 @@ import { TrashPanel } from "@/components/settings/TrashPanel";
 import { RenamePanel } from "@/components/settings/RenamePanel";
 import { RepairPathsPanel } from "@/components/settings/RepairPathsPanel";
 import { CleanDirsPanel } from "@/components/settings/CleanDirsPanel";
+import { RecoverDownloadsPanel } from "@/components/settings/RecoverDownloadsPanel";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { ChevronDown, X, Search } from "lucide-react";
 import { ActivitySettings } from "@/components/settings/ActivitySettings";
@@ -263,6 +265,7 @@ function SettingsPageInner() {
 
           {tab === "maintenance" && user?.role === "admin" && (
             <div className="space-y-6">
+              <RecoverDownloadsPanel />
               <RepairPathsPanel />
               <CleanDirsPanel />
               <TrashPanel />
@@ -281,6 +284,7 @@ function SettingsPageInner() {
             <div className="space-y-6">
               <DoctorPanel />
               <HealthPanel />
+              <TranscodeLogsPanel />
             </div>
           )}
 

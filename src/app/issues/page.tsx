@@ -93,7 +93,7 @@ export default function IssuesPage() {
       <div className="space-y-4">
         <AnimatePresence mode="popLayout">
           {visible.map((i) => {
-            const poster = i.posterPath ? `https://image.tmdb.org/t/p/w200${i.posterPath}` : null;
+            const poster = i.posterPath ? `/tmdb/w200${i.posterPath}` : null;
             const isOpen = expanded === i.id;
             return (
               <motion.div

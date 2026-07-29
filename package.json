@@ -1,6 +1,6 @@
 {
   "name": "movviz",
-  "version": "1.10.38",
+  "version": "1.10.89",
   "private": true,
   "description": "Movviz — centre de commande média unifié. Découvrez, demandez, indexez et gérez films et séries depuis une interface unique et cinématographique.",
   "scripts": {
@@ -38,3 +38,4 @@
     "node-windows": "^1.0.0-beta.8"
   }
 }
+

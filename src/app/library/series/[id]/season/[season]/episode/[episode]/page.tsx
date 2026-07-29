@@ -68,7 +68,7 @@ export default function EpisodeDetailPage({
   );
 
   const Icon = STATUS_ICON[ep.status];
-  const still = meta?.stillPath ? `https://image.tmdb.org/t/p/original${meta.stillPath}` : null;
+  const still = meta?.stillPath ? `/tmdb/original${meta.stillPath}` : null;
 
   return (
     <div className="mx-auto max-w-[1000px]">

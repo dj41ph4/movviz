@@ -284,7 +284,7 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <Link href={item.media.href} className="truncate font-semibold text-ink hover:text-brand-glow">
+                  <Link href={item.media?.href ?? "#"} className="truncate font-semibold text-ink hover:text-brand-glow">
                     {item.media.title}
                     {item.media.season && item.media.episode && (
                       <span className="text-ink-dim"> — S{item.media.season}E{String(item.media.episode).padStart(2, "0")}</span>

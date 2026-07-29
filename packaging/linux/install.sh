@@ -24,6 +24,18 @@ fi
 command -v node >/dev/null 2>&1 || { echo "Node.js is required but not found." >&2; exit 1; }
 command -v npm  >/dev/null 2>&1 || { echo "npm is required but not found." >&2; exit 1; }
 
+# Install aria2 for the high-performance torrent backend (optional, WebTorrent used otherwise).
+if ! command -v aria2c >/dev/null 2>&1; then
+  echo "Installing aria2 (torrent backend)…"
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get install -y aria2 >/dev/null 2>&1 || true
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y aria2 >/dev/null 2>&1 || true
+  elif command -v apk >/dev/null 2>&1; then
+    apk add --no-cache aria2 >/dev/null 2>&1 || true
+  fi
+fi
+
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 echo "Movviz — installing from ${SRC_DIR}"
 

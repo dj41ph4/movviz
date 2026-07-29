@@ -238,7 +238,7 @@ export const TASKS: ScheduledTask[] = [
   {
     id: "download-state-reconcile",
     name: "Réconciliation des téléchargements en cours",
-    intervalMs: 60 * 60 * 1000, // hourly
+    intervalMs: 5 * 60 * 1000, // every 5 min — hourly was too slow, stuck "downloading" badges persisted far too long
     // Items stuck on "downloading" whose torrent no longer exists in the
     // engine (deleted, wiped, lost on crash) go back to "missing" so the
     // wanted list and RSS scan pick them up again.

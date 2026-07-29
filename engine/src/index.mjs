@@ -11,11 +11,6 @@ import {
   PATH_MODE,
 } from "./config.mjs";
 
-/**
- * Movviz download engine entry point. Starts the engine, then exposes it over
- * the internal REST API. Runs as its own service (port 9820), independent of
- * the web server, so downloads keep going even while the UI restarts.
- */
 async function main() {
   console.log(`[engine] storage layout (${PATH_MODE}):`);
   console.log(`[engine]   config → ${CONFIG_DIR}`);

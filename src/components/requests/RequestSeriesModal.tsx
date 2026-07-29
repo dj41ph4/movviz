@@ -84,7 +84,7 @@ export function RequestSeriesModal({
 
         <div className="mt-4 flex items-center gap-4 rounded-xl bg-surface/50 p-3">
           {detail.posterPath ? (
-            <img src={`https://image.tmdb.org/t/p/w92${detail.posterPath}`} alt="" className="h-16 w-11 rounded-lg object-cover" />
+            <img src={`/tmdb/w92${detail.posterPath}`} alt="" className="h-16 w-11 rounded-lg object-cover" />
           ) : (
             <div className="flex h-16 w-11 items-center justify-center rounded-lg bg-surface"><Tv className="h-5 w-5 text-ink-dim" /></div>
           )}

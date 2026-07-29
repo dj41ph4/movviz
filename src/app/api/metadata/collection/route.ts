@@ -106,7 +106,7 @@ async function listMergedCollections(): Promise<MergedCollection[]> {
     result.push({
       ratingKey: String(col.id),
       title: col.name,
-      thumb: col.posterPath ? `https://image.tmdb.org/t/p/w185${col.posterPath}` : null,
+      thumb: col.posterPath ? `/tmdb/w185${col.posterPath}` : null,
       childCount: col.parts.length,
       source: "tmdb",
     });

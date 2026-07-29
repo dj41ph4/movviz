@@ -18,6 +18,8 @@ import { TagEditor } from "@/components/library/TagEditor";
 import { MediaBadges } from "@/components/library/MediaBadges";
 import { TrailerHeader, TrailerModalPlayer } from "@/components/media/TrailerHeader";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { reportIssue } from "@/lib/issues/store";
 import { VideoPlayer } from "@/components/player/VideoPlayer";
 import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -224,7 +226,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   );
 
   const backdrop = detail?.backdropPath
-    ? `https://image.tmdb.org/t/p/original${detail.backdropPath}`
+    ? `/tmdb/original${detail.backdropPath}`
     : null;
 
   /* ── local state ────────────────────────────────────────────────────── */
@@ -599,7 +601,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   // Same day-count treatment as the library card and dashboard row — "à
   // venir" alone doesn't say if that's tomorrow or in six months.
   const daysToRelease =
-    type === "movie" && libraryStatus === "upcoming" ? daysUntil(detail?.releaseDateFull ?? null) : null;
+    type === "movie" && libraryStatus === "upcoming" ? daysUntil(detail?.vfReleaseDate ?? detail?.releaseDateFull ?? null) : null;
 
   const technicalContent = (
     <>
@@ -758,7 +760,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               >
                 {p.logoPath ? (
                   <img
-                    src={`https://image.tmdb.org/t/p/w92${p.logoPath}`}
+                    src={`/tmdb/w92${p.logoPath}`}
                     alt={p.name}
                     className="h-full w-full object-cover"
                     loading="lazy"
@@ -854,13 +856,17 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         className="relative -mx-6 -mt-6 mb-8 h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:h-[75vh] sm:min-h-[420px]"
         style={{ contain: "paint" }}
       >
-          <TrailerHeader
-            backdropUrl={backdrop}
-            trailerKeys={detail.trailerKeys}
-            title={detail.title}
-            trigger="immediate"
-            className="h-full w-full"
-          />
+          <ErrorBoundary onError={(e) => reportIssue(`Trailer crash: ${e.message}`)} fallback={
+            backdrop ? <img src={backdrop} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-void" />
+          }>
+            <TrailerHeader
+              backdropUrl={backdrop}
+              trailerKeys={detail.trailerKeys}
+              title={detail.title}
+              trigger="immediate"
+              className="h-full w-full"
+            />
+          </ErrorBoundary>
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void via-void/70 to-transparent" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-void/60 via-transparent to-transparent" />
           {libraryMatch?.id && (
@@ -1120,7 +1126,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                       <div className="mx-auto h-24 w-24 overflow-hidden rounded-full bg-surface transition-transform group-hover:scale-105">
                         {c.profilePath ? (
                           <img
-                            src={`https://image.tmdb.org/t/p/w185${c.profilePath}`}
+                            src={`/tmdb/w185${c.profilePath}`}
                             alt={c.name}
                             className="h-full w-full object-cover"
                             loading="lazy"
@@ -1311,7 +1317,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         <div className="overflow-hidden rounded-lg border border-white/5 bg-surface aspect-[2/3]">
                           {s.posterPath ? (
                             <img
-                              src={`https://image.tmdb.org/t/p/w342${s.posterPath}`}
+                              src={`/tmdb/w342${s.posterPath}`}
                               alt={s.title}
                               className="h-full w-full object-cover"
                               loading="lazy"
@@ -1364,7 +1370,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               <X className="h-5 w-5 sm:h-5 sm:w-5" />
             </button>
             <div className="aspect-video w-full overflow-hidden border-white/10 bg-black shadow-2xl sm:rounded-2xl sm:border">
-              <TrailerModalPlayer trailerKeys={detail.trailerKeys} title={t("title.trailer")} />
+              <ErrorBoundary onError={(e) => reportIssue(`Trailer modal crash: ${e.message}`)}>
+                <TrailerModalPlayer trailerKeys={detail.trailerKeys} title={t("title.trailer")} />
+              </ErrorBoundary>
             </div>
           </div>
         </div>

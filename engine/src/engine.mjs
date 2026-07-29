@@ -1,29 +1,38 @@
 import path from "node:path";
 import fsp from "node:fs/promises";
-import { MovvizInstance } from "./instance.mjs";
+import { WebTorrentBackend } from "./backends/WebTorrentBackend.mjs";
+import { NativeTorrentBackend } from "./backends/NativeTorrentBackend.mjs";
+import { LibtorrentBackend } from "./backends/LibtorrentBackend.mjs";
 import {
   DEFAULT_INSTANCES,
   DATA_DIR,
   CONFIG_DIR,
   TORRENT_CACHE_DIR,
+  WEB_CALLBACK_URL,
+  ENGINE_TOKEN,
+  resolveClientType,
 } from "./config.mjs";
 import { loadState, scheduleSave, writeState, ensureDir } from "./store.mjs";
 
-/**
- * The engine ties the per-category instances together and drives automation:
- * routing a grab to the right instance, resuming torrents after a restart,
- * aggregating stats, and persisting state. It is the single object the API
- * (and therefore Movviz) talks to.
- */
+function createBackend(cfg, deps, clientType) {
+  if (clientType === "native") {
+    return new NativeTorrentBackend(cfg, deps);
+  }
+  if (clientType === "libtorrent") {
+    return new LibtorrentBackend(cfg, deps);
+  }
+  return new WebTorrentBackend(cfg, deps);
+}
+
 export class MovvizEngine {
   constructor() {
-    this.instances = new Map(); // id -> MovvizInstance
+    this.instances = new Map();
     this.state = loadState() ?? {};
     this.started = false;
+    this._clientType = resolveClientType(this.state);
   }
 
   configs() {
-    // Persisted instance configs win over the built-in defaults.
     const saved = this.state.instances ?? {};
     return DEFAULT_INSTANCES.map((d) => ({ ...d, ...(saved[d.id] ?? {}) }));
   }
@@ -31,22 +40,31 @@ export class MovvizEngine {
   async start() {
     await ensureDir(CONFIG_DIR);
     await ensureDir(DATA_DIR);
+    const deps = {
+      onChange: () => this.persist(),
+      emitActivity: (type, data) => this._emitActivity(type, data),
+    };
     for (const cfg of this.configs()) {
-      const inst = new MovvizInstance(cfg, { onChange: () => this.persist() });
-      await inst.init();
-      this.instances.set(cfg.id, inst);
+      try {
+        const inst = createBackend(cfg, deps, this._clientType);
+        await inst.init();
+        this.instances.set(cfg.id, inst);
+      } catch (e) {
+        console.error(`[engine] failed to start instance ${cfg.id}: ${e.message}`);
+      }
     }
-
+    if (this.instances.size === 0) {
+      console.error("[engine] no instances started — API still available for configuration");
+      this.started = true;
+      return;
+    }
     await this.resumeTorrents();
-
-    // Ratio enforcement + persistence heartbeat.
     this.ticker = setInterval(() => {
       for (const inst of this.instances.values()) inst.tick();
     }, 5000);
-
     this.started = true;
     console.log(
-      `[engine] started with ${this.instances.size} instance(s): ` +
+      `[engine] started with ${this.instances.size} instance(s) [client: ${this._clientType}]: ` +
         [...this.instances.keys()].join(", ")
     );
   }
@@ -55,35 +73,21 @@ export class MovvizEngine {
     const saved = this.state.torrents ?? [];
     let resumed = 0;
     let restored = 0;
-    // A systemic failure (client never came up) used to print one "resume
-    // failed" line per saved torrent — hundreds on a large queue. Track
-    // failures by message instead and print one summary line per distinct
-    // cause once the pass is done.
     const failuresByReason = new Map();
     for (const rec of saved) {
       const inst = this.instances.get(rec.instanceId);
       if (!inst) continue;
-
-      // Already imported before the restart — its files were moved out of
-      // the download folder, so there's nothing for WebTorrent to resume.
-      // Restore it as history instead of re-adding a doomed torrent.
       if (rec.movedTo) {
         inst.restoreImported(rec);
         restored++;
         continue;
       }
-
-      // Resume from the cached .torrent metainfo when we have it — the
-      // engine can then verify the on-disk data immediately, with zero
-      // dependency on peers being around to serve metadata. The magnet link
-      // stays as the fallback for torrents added before the cache existed.
       let torrentId = null;
       try {
         torrentId = await fsp.readFile(path.join(TORRENT_CACHE_DIR, `${rec.infoHash}.torrent`));
       } catch {
         torrentId = rec.magnetURI ?? null;
       }
-
       if (!torrentId) continue;
       try {
         await inst.add(torrentId, {
@@ -145,26 +149,35 @@ export class MovvizEngine {
 
   pause(infoHash) { return this.findByInfoHash(infoHash)?.pause(infoHash) ?? false; }
   resume(infoHash) { return this.findByInfoHash(infoHash)?.resume(infoHash) ?? false; }
-  restart(infoHash) { return this.findByInfoHash(infoHash)?.restart(infoHash) ?? Promise.resolve(false); }
+  async restart(infoHash) {
+    const inst = this.findByInfoHash(infoHash);
+    if (!inst) return false;
+    const t = inst._get(infoHash);
+    if (!t) return false;
+    await inst.remove(infoHash, true);
+    const rec = inst.importedHistory.get(infoHash);
+    if (!rec) return false;
+    await inst.add(rec.magnetURI ?? rec.infoHash, {
+      infoHash, libraryRef: rec.libraryRef, title: rec.title, year: rec.year,
+    });
+    return true;
+  }
   setSequential(infoHash, on) { return this.findByInfoHash(infoHash)?.setSequential(infoHash, on) ?? false; }
   setFilePriorities(infoHash, p) { return this.findByInfoHash(infoHash)?.setFilePriorities(infoHash, p) ?? false; }
   setPriority(infoHash, priority) { return this.findByInfoHash(infoHash)?.setPriority(infoHash, priority) ?? false; }
-  remove(infoHash, deleteData) {
+  async remove(infoHash, deleteData) {
     const inst = this.findByInfoHash(infoHash);
-    return inst ? inst.remove(infoHash, deleteData) : Promise.resolve(false);
+    return inst ? inst.remove(infoHash, deleteData) : false;
   }
 
   detail(infoHash) {
     for (const inst of this.instances.values()) {
-      const t = inst._get(infoHash);
-      if (t) return inst.summary(t, true);
-      const rec = inst.importedHistory.get(infoHash);
-      if (rec) return inst.importedSummary(rec);
+      const d = inst.detail(infoHash);
+      if (d) return d;
     }
     return null;
   }
 
-  /** Drop every finished (completed/seeding) torrent from every instance's list — keeps files, no Plex/disk changes. */
   async clearFinished() {
     let cleared = 0;
     for (const inst of this.instances.values()) {
@@ -180,7 +193,6 @@ export class MovvizEngine {
   patchInstance(id, patch) {
     const inst = this.instances.get(id);
     if (!inst) return null;
-    // Whitelist mutable fields — never let a caller rewrite id or category.
     const allowed = [
       "name", "downloadPath", "completedPath", "maxActive",
       "downloadLimitKbps", "uploadLimitKbps", "seedRatio", "autoStart",
@@ -194,22 +206,51 @@ export class MovvizEngine {
     return inst.cfg;
   }
 
+  /** Switch client type and restart instances. */
+  async setClientType(clientType) {
+    if (clientType !== "webtorrent" && clientType !== "native" && clientType !== "libtorrent") {
+      throw new Error(`invalid client type: ${clientType}`);
+    }
+    this._clientType = clientType;
+    this.state.clientType = clientType;
+    this.persist();
+    await this._recreateInstances();
+  }
+
+  async _recreateInstances() {
+    for (const inst of this.instances.values()) {
+      await inst.destroy();
+    }
+    this.instances.clear();
+    const deps = {
+      onChange: () => this.persist(),
+      emitActivity: (type, data) => this._emitActivity(type, data),
+    };
+    for (const cfg of this.configs()) {
+      try {
+        const inst = createBackend(cfg, deps, this._clientType);
+        await inst.init();
+        this.instances.set(cfg.id, inst);
+      } catch (e) {
+        console.error(`[engine] failed to recreate instance ${cfg.id}: ${e.message}`);
+      }
+    }
+    await this.resumeTorrents();
+  }
+
+  // ---- Activity logging --------------------------------------------------
+
+  _emitActivity(type, data) {
+    const body = JSON.stringify({ type, data, source: "engine", clientType: this._clientType });
+    fetch(`${WEB_CALLBACK_URL}/api/activity/log`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-movviz-token": ENGINE_TOKEN },
+      body,
+    }).catch(() => {});
+  }
+
   // ---- Reporting ---------------------------------------------------------
 
-  /**
-   * GET /torrents and GET /stats are polled every 2-3s by every connected
-   * browser tab (queue tab, activity monitor, dashboard widgets) — each call
-   * used to walk every WebTorrent instance and rebuild a summary object per
-   * torrent from scratch, even when several requests land in the same tick
-   * (multiple tabs, or /stats calling listTorrents() itself right after the
-   * /torrents route already did). A short cache collapses that burst into
-   * one real computation. Deliberately time-based, not version-counter-based
-   * (despite torrent state being event-driven elsewhere): progress/speed/
-   * peers change continuously regardless of any add/remove/pause event, so
-   * there's no "nothing changed" version to key on — a plain short TTL gives
-   * the same benefit (dedupe a burst) without needing every mutation method
-   * to remember to bump a counter.
-   */
   listTorrents() {
     const CACHE_MS = 400;
     const now = Date.now();
@@ -234,6 +275,7 @@ export class MovvizEngine {
         total: torrents.length,
         downloadSpeed: torrents.reduce((a, t) => a + t.downloadSpeed, 0),
         uploadSpeed: torrents.reduce((a, t) => a + t.uploadSpeed, 0),
+        clientType: this._clientType,
       };
     });
   }
@@ -247,6 +289,7 @@ export class MovvizEngine {
       completed: torrents.filter((t) => t.state === "completed").length,
       downloadSpeed: torrents.reduce((a, t) => a + t.downloadSpeed, 0),
       uploadSpeed: torrents.reduce((a, t) => a + t.uploadSpeed, 0),
+      clientType: this._clientType,
     };
   }
 
@@ -261,19 +304,17 @@ export class MovvizEngine {
         torrents.push({ ...rec, instanceId: inst.cfg.id });
       }
     }
-    this.state = { instances, torrents, savedAt: Date.now() };
+    this.state = { ...this.state, instances, torrents, savedAt: Date.now() };
     scheduleSave(this.state);
   }
 
   async shutdown() {
     clearInterval(this.ticker);
-    // persist() only schedules a debounced write — the process is about to
-    // exit, so flush the state to disk NOW or the last ~800ms of progress
-    // (completions, moves, resume data) silently vanish on every restart.
     this.persist();
     await writeState(this.state).catch((e) =>
       console.error("[engine] final state save failed:", e.message)
     );
     for (const inst of this.instances.values()) await inst.destroy();
+    import("./upnp.mjs").then(({ close }) => close()).catch(() => {});
   }
 }

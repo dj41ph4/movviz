@@ -31,6 +31,7 @@ interface StreamTrack {
 interface StreamInfo {
   videoCodec: string | null;
   audioCodec: string | null;
+  container: string | null;
   audioStreams?: StreamTrack[];
   subtitleStreams?: StreamTrack[];
   height?: number | null;
@@ -58,7 +59,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
   const fallbackGuardRef = useRef(false);
   const startHlsRef = useRef<((extraParams?: string) => void) | null>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const infoRef = useRef<StreamInfo>({ videoCodec: null, audioCodec: null });
+  const infoRef = useRef<StreamInfo>({ videoCodec: null, audioCodec: null, container: null });
   const progressRef = useRef<HTMLDivElement>(null);
   const volumeTrackRef = useRef<HTMLDivElement>(null);
   const seekingRef = useRef(false);
@@ -197,11 +198,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
 
       // useTranscode = beta player mode: try direct/WebCodecs first,
       // fall back to HLS transcode if the browser can't handle the codec.
-      let info: StreamInfo = { videoCodec: null, audioCodec: null };
+      let info: StreamInfo = { videoCodec: null, audioCodec: null, container: null };
       try {
         const res = await fetch(`/api/stream/${ratingKey}/info`, { cache: "no-store" });
         if (res.ok) {
           info = (await res.json()) as StreamInfo;
+          info.container = (info as any).container ?? null;
           infoRef.current = info;
           if (Array.isArray(info.audioStreams)) setAudioStreams(info.audioStreams);
           if (Array.isArray(info.subtitleStreams)) setSubtitleStreams(info.subtitleStreams);
@@ -214,7 +216,20 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
 
       let strategy: PlaybackStrategy;
       try {
-        strategy = await pickStrategy(info.videoCodec, info.audioCodec);
+        // MKV containers can't play natively in browsers — skip direct, go to WebCodecs or transcode
+        const container = (info.container ?? "").toLowerCase();
+        if (container === "mkv" || container === "avi" || container === "wmv" || container === "flv") {
+          // MKV can't play natively in <video>, but WebCodecs can decode it.
+          // Try WebCodecs first, fall back to HLS transcode.
+          const caps = await detectCodecs();
+          if (caps.webcodecsAvailable && (caps.h264 || caps.hevc || caps.av1)) {
+            strategy = "webcodecs";
+          } else {
+            strategy = "transcode";
+          }
+        } else {
+          strategy = await pickStrategy(info.videoCodec, info.audioCodec);
+        }
       } catch {
         strategy = "direct";
       }

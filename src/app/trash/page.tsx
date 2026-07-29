@@ -102,7 +102,7 @@ export default function TrashPage() {
                   <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
                     {item.posterPath ? (
                       <img
-                        src={`https://image.tmdb.org/t/p/w342${item.posterPath}`}
+                        src={`/tmdb/w342${item.posterPath}`}
                         alt={item.title}
                         className="h-full w-full object-cover"
                         loading="lazy"

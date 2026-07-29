@@ -14,7 +14,7 @@ export function LibrarySeriesCard({ series, index = 0 }: { series: LibrarySeries
   const { t, locale } = useI18n();
   const reduceMotion = useShouldReduceMotion();
   const [imgLoaded, setImgLoaded] = useState(false);
-  const poster = series.posterPath ? `https://image.tmdb.org/t/p/w500${series.posterPath}` : null;
+  const poster = series.posterPath ? `/tmdb/w500${series.posterPath}` : null;
 
   const episodes = series.seasons.flatMap((s) => s.episodes);
   const monitored = episodes.filter((e) => e.monitored);

@@ -130,16 +130,16 @@ export default function HistoryPage() {
                     <Icon className="h-4 w-4" />
                   </span>
                   <div className="min-w-0">
-                    <Link href={entry.media.href} className="truncate text-sm font-semibold text-ink hover:text-brand-glow">
-                      {entry.media.title}
+                    <Link href={entry.media?.href ?? "#"} className="truncate text-sm font-semibold text-ink hover:text-brand-glow">
+                      {entry.media?.title ?? "—"}
                     </Link>
                     {entry.release?.releaseTitle && (
                       <p className="truncate font-mono text-[11px] text-ink-dim">{entry.release.releaseTitle}</p>
                     )}
-                    {entry.media.season != null && (
+                    {entry.media?.season != null && (
                       <p className="text-[11px] text-ink-dim">
                         S{String(entry.media.season).padStart(2, "0")}
-                        {entry.media.episode != null && `E${String(entry.media.episode).padStart(2, "0")}`}
+                        {entry.media?.episode != null && `E${String(entry.media.episode).padStart(2, "0")}`}
                       </p>
                     )}
                   </div>
