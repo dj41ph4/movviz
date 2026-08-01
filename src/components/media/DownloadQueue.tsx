@@ -18,6 +18,7 @@ const STATUS = {
   seeding: { icon: CheckCircle2, tone: "text-ok", key: "downloads.states.seeding" },
   completed: { icon: CheckCircle2, tone: "text-ok", key: "downloads.states.completed" },
   stalled: { icon: AlertTriangle, tone: "text-down", key: "downloads.states.stalled" },
+  blocked: { icon: AlertTriangle, tone: "text-down", key: "downloads.states.blocked" },
   metadata: { icon: Clock, tone: "text-brand-glow", key: "downloads.states.metadata" },
 } as const;
 
@@ -35,8 +36,25 @@ export function DownloadQueue() {
   const queued = (torrents ?? []).filter((d) => d.state !== "completed" && d.state !== "seeding");
   const active = queued.filter((d) => d.state === "downloading").length;
 
+  const hasDownloads = queued.length > 0 || !!error;
+
   return (
-    <div className="rounded-2xl glass p-4">
+    <AnimatePresence>
+      {hasDownloads && (
+        <motion.div
+          key="queue"
+          initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+          animate={{ opacity: 1, height: "auto", marginBottom: 16 }}
+          exit={{ opacity: 0, height: 0, marginBottom: 0, transition: { duration: 0.4, ease: [0.32, 0.72, 0, 1] } }}
+          transition={{ duration: 0.5, ease: [0.16, 0.5, 0.32, 1] }}
+          className="overflow-hidden"
+        >
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
+            className="rounded-2xl glass p-4"
+          >
       <div className="mb-3 flex items-center justify-between">
         <h2 className="text-sm font-bold text-ink">{t("dashboard.downloadQueue")}</h2>
         <span className="rounded-full bg-cyan/12 px-2.5 py-1 text-xs font-semibold text-cyan">
@@ -80,7 +98,7 @@ export function DownloadQueue() {
               <div className="mt-1.5 flex items-center gap-2.5">
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/40">
                   <motion.div
-                    className={cn("h-full rounded-full", d.state === "stalled" ? "bg-down" : "brand-gradient")}
+                    className={cn("h-full rounded-full", d.state === "stalled" || d.state === "blocked" ? "bg-warn" : "brand-gradient")}
                     animate={{ width: `${Math.round((d.progress ?? 0) * 100)}%` }}
                     transition={{ duration: 1.2, ease: "easeOut" }}
                   />
@@ -95,10 +113,13 @@ export function DownloadQueue() {
       </div>
 
       {queued.length > VISIBLE_LIMIT && (
-        <Link href="/activity" className="mt-3 block text-center text-xs font-semibold text-brand-glow hover:text-brand">
-          {t("dashboard.viewQueue", { n: queued.length - VISIBLE_LIMIT })}
-        </Link>
+          <Link href="/activity" className="mt-3 block text-center text-xs font-semibold text-brand-glow hover:text-brand">
+            {t("dashboard.viewQueue", { n: queued.length - VISIBLE_LIMIT })}
+          </Link>
+        )}
+          </motion.div>
+        </motion.div>
       )}
-    </div>
+    </AnimatePresence>
   );
 }

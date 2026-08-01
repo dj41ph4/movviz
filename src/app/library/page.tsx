@@ -442,13 +442,13 @@ function LibraryTab() {
         )}
       </div>
 
-      <AnimatePresence mode="popLayout">
+      <AnimatePresence mode="sync">
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {visibleItems.map((entry, i) =>
             entry.kind === "movie" ? (
               <LibraryMovieCard key={entry.movie.id} index={i} movie={entry.movie} torrent={progressFor(entry.movie)} watched={watchedMovies.has(entry.movie.tmdbId)} onChange={refresh} />
             ) : (
-              <LibrarySeriesCard key={entry.series.id} index={i} series={entry.series} />
+              <LibrarySeriesCard key={entry.series.id} index={i} series={entry.series} onChange={refresh} />
             )
           )}
         </div>
@@ -654,7 +654,7 @@ function SagasSection() {
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-brand-glow/20 to-purple/20">
                   {s.posterPath ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={`/tmdb/w185${s.posterPath}`} alt={s.name} className="h-full w-full object-cover" />
+                    <img src={`/tmdb/w185${s.posterPath}`} alt={s.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center"><Layers className="h-5 w-5 text-ink-soft/60" /></div>
                   )}
@@ -683,7 +683,7 @@ function SagasSection() {
                 <div className="aspect-[2/3]">
                   {s.posterPath ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={`/tmdb/w342${s.posterPath}`} alt={s.name} className="h-full w-full object-cover" />
+                    <img src={`/tmdb/w342${s.posterPath}`} alt={s.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/20 to-purple/20">
                       <Layers className="h-8 w-8 text-ink-soft/60" />
@@ -799,7 +799,7 @@ function UserCollectionsSection() {
                       >
                         {item.posterPath ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={`/tmdb/w154${item.posterPath}`} alt={item.title} className="h-full w-full object-cover" />
+                          <img src={`/tmdb/w154${item.posterPath}`} alt={item.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/20 to-purple/20">
                             {item.type === "movie" ? <Film className="h-4 w-4 text-ink-soft/60" /> : <Tv className="h-4 w-4 text-ink-soft/60" />}

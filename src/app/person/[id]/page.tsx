@@ -37,7 +37,7 @@ export default function PersonPage({ params }: { params: Promise<{ id: string }>
         <div className="h-56 w-40 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt={person.name} className="h-full w-full object-cover" />
+            <img src={photo} alt={person.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center"><User className="h-8 w-8 text-ink-soft/50" /></div>
           )}

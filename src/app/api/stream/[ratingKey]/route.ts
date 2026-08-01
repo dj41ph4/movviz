@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { safePlexUrl } from "@/lib/plex/safeUrl";
 import { getStreamCacheTtl } from "@/lib/settings/betaPlayer";
+import { plexClientHeaders } from "@/lib/player/plexStream";
 
 export const dynamic = "force-dynamic";
 
@@ -36,15 +37,12 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (!base) return NextResponse.json({ error: "invalid_plex_url" }, { status: 500 });
   const token = cfg.adminToken;
   const clientId = `movviz-${user.id}`;
+  const headers = plexClientHeaders(token, clientId);
 
   try {
-    const metaUrl = `${base}/library/metadata/${ratingKey}?X-Plex-Token=${token}`;
+    const metaUrl = `${base}/library/metadata/${ratingKey}`;
     const metaRes = await fetch(metaUrl, {
-      headers: {
-        accept: "application/json",
-        "x-plex-token": token,
-        "x-plex-client-identifier": clientId,
-      },
+      headers,
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
@@ -63,17 +61,17 @@ export async function GET(req: NextRequest, context: Ctx) {
 
     const media = metadata.Media?.[0];
     const part = media?.Part?.[0];
-    if (!part?.id) {
+    if (!part?.id && !part?.key) {
       return NextResponse.json({ error: "no_media_part" }, { status: 404 });
     }
 
-    const container = media.container || "mp4";
-    const streamUrl = `${base}/library/parts/${part.id}/file.${container}?X-Plex-Token=${token}`;
+    // Prefer the part key Plex itself advertises (handles multi-part / odd paths)
+    const streamPath = typeof part.key === "string" && part.key.startsWith("/")
+      ? part.key
+      : `/library/parts/${part.id}/file.${media.container || "mp4"}`;
+    const streamUrl = `${base}${streamPath}`;
 
-    const plexHeaders: Record<string, string> = {
-      "x-plex-token": token,
-      "x-plex-client-identifier": clientId,
-    };
+    const plexHeaders: Record<string, string> = { ...headers };
     const range = req.headers.get("range");
     if (range) plexHeaders["range"] = range;
 

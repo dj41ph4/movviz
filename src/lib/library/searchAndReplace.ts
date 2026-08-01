@@ -16,6 +16,8 @@ import { emitNotification } from "@/lib/notifications/store";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited } from "@/lib/indexers/rateLimit";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { isUpgradeIgnored } from "@/lib/library/ignoredUpgrades";
+import { getMediaIndex, type MediaIndexEntry } from "@/lib/library/mediaIndex";
 import type { IndexerRelease } from "@/lib/indexers/types";
 
 /**
@@ -42,7 +44,7 @@ export interface UpgradeCandidate {
   detectedFormatScore: number;
   size: number;
   /** Translation key + params, same pattern as the dashboard Hero's SuggestionScore.reasons — never a raw string baked server-side, so every locale renders it correctly. */
-  reasonKey: "languageUpgrade" | "customFormatUpgrade" | "codecUpgrade";
+  reasonKey: "languageUpgrade" | "audioCodecUpgrade" | "videoCodecUpgrade" | "resolutionUpgrade" | "customFormatUpgrade" | "codecUpgrade";
   reasonParams?: Record<string, string>;
 }
 
@@ -68,6 +70,16 @@ export function yieldToEventLoop(): Promise<void> {
 
 function versionLabel(resolution: string | null, videoCodec: string | null, audioCodec: string | null): string {
   return [resolution, videoCodec, audioCodec].filter(Boolean).join(" · ") || "?";
+}
+
+/** True when the candidate is a real upgrade — not just the same file re-downloaded under a different release name. */
+function isMeaningfulUpgrade(candidate: { release: IndexerRelease; parsed: ReturnType<typeof parseRelease> }, movie: { file: { size: number; resolution: string | null; videoCodec: string | null } | null }, isLanguage = false): boolean {
+  if (!movie.file || isLanguage) return true;
+  const r = candidate.parsed;
+  if (rank(r.resolution) > rank(movie.file.resolution)) return true;
+  if (r.videoCodec && movie.file.videoCodec && normalizeCodec(r.videoCodec) !== normalizeCodec(movie.file.videoCodec)) return true;
+  const sizeDiff = Math.abs((candidate.release.size - movie.file.size) / Math.max(movie.file.size, 1));
+  return sizeDiff >= 0.10; // at least 10% size difference
 }
 
 /**
@@ -141,8 +153,24 @@ function bestLanguageMatch(
  *   configured would otherwise never surface anything to replace, even with
  *   codec preferences explicitly set. Cache-only, same as custom-format.
  */
-/** Normalised French audio tags (space/dot stripped) for `languageSatisfies`. */
-const FRENCH_TAGS_NORM = new Set(["VF", "VFQ", "VFF", "TRUEFRENCH", "FRENCH", "FR", "VF2", "VFI", "MULTIVF"]);
+/** Language group mappings for languageSatisfies. */
+const LANGUAGE_GROUPS: Record<string, Set<string>> = {
+  VF: new Set(["VF", "VFQ", "VFF", "TRUEFRENCH", "FRENCH", "FR", "VF2", "VFI"]),
+  ITA: new Set(["ITA", "ITALIAN"]),
+  GER: new Set(["GER", "GERMAN", "DEUTSCH"]),
+  NL: new Set(["NL", "DUTCH", "NEDERLANDS"]),
+  EN: new Set(["EN", "ENGLISH"]),
+  ES: new Set(["ES", "SPANISH", "ESPANOL"]),
+};
+
+function getLanguageGroup(tag: string): string | null {
+  const up = tag.toUpperCase();
+  for (const [group, tags] of Object.entries(LANGUAGE_GROUPS)) {
+    if (tags.has(up)) return group;
+  }
+  if (up in LANGUAGE_GROUPS) return up;
+  return null;
+}
 
 function normLang(s: string): string {
   return s.toUpperCase().replace(/[\s·]+/g, "");
@@ -163,15 +191,45 @@ function normLang(s: string): string {
  */
 export const MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN = 25;
 
-/** True when `current` already satisfies `target` (e.g. VF satisfies MULTI·VF). */
+/** True when `current` already satisfies `target` (e.g. VF satisfies MULTI·VF, ITA satisfies MULTI·ITA). */
 export function languageSatisfies(target: string, current: string | null | undefined): boolean {
   if (!current) return false;
   if (target === current) return true;
   const up = normLang(current);
   const tUp = normLang(target);
-  if (tUp === "MULTIVF" && FRENCH_TAGS_NORM.has(up)) return true;
-  if (up === "MULTIVF" && FRENCH_TAGS_NORM.has(tUp)) return true;
+  // MULTI · X handling: if either is MULTI-prefixed, check if the other belongs to the same language group
+  if (tUp.startsWith("MULTI")) {
+    const suffix = tUp.replace("MULTI", "");
+    const group = getLanguageGroup(suffix);
+    if (group) {
+      const cGroup = getLanguageGroup(up);
+      if (cGroup === group) return true;
+      const groupTags = LANGUAGE_GROUPS[group];
+      if (groupTags && groupTags.has(up)) return true;
+    }
+  }
+  if (up.startsWith("MULTI")) {
+    const suffix = up.replace("MULTI", "");
+    const group = getLanguageGroup(suffix);
+    if (group) {
+      const tGroup = getLanguageGroup(tUp);
+      if (tGroup === group) return true;
+      const groupTags = LANGUAGE_GROUPS[group];
+      if (groupTags && groupTags.has(tUp)) return true;
+    }
+  }
   return false;
+}
+
+/** True when the parsed release's video codec matches the user's target preference. */
+function videoCodecSatisfies(target: string, parsed: ReturnType<typeof parseRelease>): boolean {
+  const codec = normalizeCodec(parsed.videoCodec);
+  return normalizeCodec(target) === codec;
+}
+
+/** True when the parsed release's audio codec matches the user's target preference. */
+function audioCodecSatisfies(target: string, parsed: ReturnType<typeof parseRelease>): boolean {
+  return (parsed.audioCodec ?? "").toLowerCase() === target.toLowerCase();
 }
 
 export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
@@ -180,18 +238,29 @@ export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
   const candidates: UpgradeCandidate[] = [];
   const cachedReleases = searchFromCache(MOVIE_CATEGORY_IDS);
   let liveSearchesUsed = 0;
+  const index = getMediaIndex();
 
-  for (const movie of loadMovies()) {
+  for (const m of index.movies) {
     await yieldToEventLoop();
-    if (movie.status !== "available" || !movie.file || !movie.monitored) continue;
-    const profile = DEFAULT_QUALITY_PROFILES.find((p) => p.id === movie.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
+    if (!m.monitored) continue;
+    if (m.movieId && isUpgradeIgnored(m.movieId)) continue;
+    const profile = DEFAULT_QUALITY_PROFILES.find((p) => p.id === m.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
 
-    const currentBasename = path.basename(movie.file.path);
-    const currentFormatScore = applyCustomFormats(currentBasename);
-    const currentLanguage = movie.file.language ?? parseRelease(currentBasename).language;
-    const wantsLanguageUpgrade = !!targetLanguage && !languageSatisfies(targetLanguage, currentLanguage);
+    // Fast pre-check: skip only if movie satisfies ALL configurable criteria
+    // AND there are no codec score / format upgrades to check (signal is
+    // irrelevant for these — they ALWAYS need safeMatches computation).
+    const wantsLanguageUpgrade = !!targetLanguage && !languageSatisfies(targetLanguage, m.language);
+    const wantsAudioUpgrade = !!rules.preferredAudioCodec && (m.audioCodec ?? "").toLowerCase() !== rules.preferredAudioCodec.toLowerCase();
+    const wantsVideoUpgrade = !!rules.preferredVideoCodec && normalizeCodec(m.videoCodec) !== normalizeCodec(rules.preferredVideoCodec);
+    // Movies always need safeMatches for format/codec score upgrades — only
+    // episodes can skip entirely (see searchAndReplaceSeries.ts).
+    const wantsResolutionUpgrade = !!rules.preferredResolution && rank(m.resolution) < rank(rules.preferredResolution);
+    if (!wantsLanguageUpgrade && !wantsAudioUpgrade && !wantsVideoUpgrade && !wantsResolutionUpgrade) {
+      // Even if no configurable upgrade is wanted, codec scores (x264→x265)
+      // and custom formats may still produce candidates — never skip movies.
+    }
 
-    const safeMatches = computeSafeMatches(cachedReleases, movie, movie.file.resolution, rules, profile);
+    const safeMatches = computeSafeMatches(cachedReleases, { title: m.title, year: m.year }, m.resolution, rules, profile);
 
     let languageUpgrade = wantsLanguageUpgrade ? bestLanguageMatch(safeMatches, targetLanguage!) : undefined;
 
@@ -200,59 +269,93 @@ export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
       const indexers = withoutRateLimited(configuredIndexers);
       if (indexers.length > 0) {
         liveSearchesUsed++;
-        recordSearchLog("info", "search_and_replace.language_fallback_direct", `${movie.title} — ${currentLanguage ?? "?"} détecté, cache sans ${targetLanguage}, recherche directe sur ${indexers.length} indexeur(s)`);
+        recordSearchLog("info", "search_and_replace.language_fallback_direct", `${m.title} — ${m.language ?? "?"} détecté, cache sans ${targetLanguage}, recherche directe sur ${indexers.length} indexeur(s)`);
         const directReleases: IndexerRelease[] = [];
+        // Full movie object needed for imdbId/tmdbId — rare path, OK to fetch.
+        const fullMovie = loadMovies().find((x) => x.id === m.movieId);
         for (const ix of indexers) {
-          const results = await searchMovie(ix, { title: movie.title, year: movie.year, imdbId: movie.imdbId, tmdbId: movie.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
+          const results = await searchMovie(ix, { title: m.title, year: m.year, imdbId: fullMovie?.imdbId, tmdbId: fullMovie?.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
           directReleases.push(...results);
         }
-        const directMatches = computeSafeMatches(directReleases, movie, movie.file.resolution, rules, profile);
+        const directMatches = computeSafeMatches(directReleases, { title: m.title, year: m.year }, m.resolution, rules, profile);
         languageUpgrade = bestLanguageMatch(directMatches, targetLanguage!);
       }
     }
 
+    // Audio codec upgrade
+    const wantsAudioCodecUpgrade = !!rules.preferredAudioCodec && !audioCodecSatisfies(rules.preferredAudioCodec, { audioCodec: m.audioCodec } as ReturnType<typeof parseRelease>);
+    const audioCodecUpgrade = wantsAudioCodecUpgrade && !languageUpgrade
+      ? safeMatches.find(({ parsed }) => audioCodecSatisfies(rules.preferredAudioCodec!, parsed))
+      : undefined;
+
+    // Video codec upgrade
+    const wantsVideoCodecUpgrade = !!rules.preferredVideoCodec && normalizeCodec(m.videoCodec) !== normalizeCodec(rules.preferredVideoCodec);
+    const videoCodecUpgrade = wantsVideoCodecUpgrade && !languageUpgrade && !audioCodecUpgrade
+      ? safeMatches.find(({ parsed }) => videoCodecSatisfies(rules.preferredVideoCodec!, parsed))
+      : undefined;
+
+    // Resolution upgrade
+    const resolutionUpgrade = wantsResolutionUpgrade && !languageUpgrade && !audioCodecUpgrade && !videoCodecUpgrade
+      ? safeMatches.find(({ parsed }) => rank(parsed.resolution) >= rank(rules.preferredResolution!))
+      : undefined;
+
     const formatUpgrade = safeMatches
-      .filter(({ release }) => applyCustomFormats(release.title) > currentFormatScore)
+      .filter(({ release }) => applyCustomFormats(release.title) > m.formatScore)
       .sort((a, b) => applyCustomFormats(b.release.title) - applyCustomFormats(a.release.title) || b.release.score - a.release.score)[0];
 
-    // Codec upgrade (LOT — same resolution but a better codec per the user's
-    // own codecScores, e.g. x264 -> x265/AV1): lowest priority of the three,
-    // since language and custom-format bonuses are stronger, more deliberate
-    // signals — but without this, a library with its resolution already
-    // maxed out and no custom formats configured beyond the default French
-    // audio one (the common case) never surfaces anything at all, even
-    // though the user explicitly configured non-zero codec preferences.
-    const currentCodecScore = codecScore(movie.file.videoCodec, rules);
+    const currentCodecScore = codecScore(m.videoCodec, rules);
     const codecUpgrade = !formatUpgrade
       ? safeMatches
           .filter(({ parsed }) => codecScore(parsed.videoCodec, rules) > currentCodecScore)
           .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0]
       : undefined;
 
-    const best = languageUpgrade ?? formatUpgrade ?? codecUpgrade;
+    const best = languageUpgrade ?? audioCodecUpgrade ?? videoCodecUpgrade ?? resolutionUpgrade ?? formatUpgrade ?? codecUpgrade; if (best && !isMeaningfulUpgrade(best as never, { file: { size: m.size, resolution: m.resolution, videoCodec: m.videoCodec } } as never, !!languageUpgrade)) continue;
     if (!best) continue;
 
+    // Determine which upgrade type won
+    let reasonKey: UpgradeCandidate["reasonKey"];
+    let reasonParams: Record<string, string> | undefined;
+    if (best === languageUpgrade && languageUpgrade) {
+      reasonKey = "languageUpgrade";
+      reasonParams = { from: m.language ?? "?", to: targetLanguage! };
+    } else if (best === audioCodecUpgrade && audioCodecUpgrade) {
+      reasonKey = "audioCodecUpgrade";
+      reasonParams = { from: m.audioCodec ?? "?", to: rules.preferredAudioCodec! };
+    } else if (best === videoCodecUpgrade && videoCodecUpgrade) {
+      reasonKey = "videoCodecUpgrade";
+      reasonParams = { from: m.videoCodec ?? "?", to: rules.preferredVideoCodec! };
+    } else if (best === resolutionUpgrade && resolutionUpgrade) {
+      reasonKey = "resolutionUpgrade";
+      reasonParams = { from: m.resolution ?? "?", to: rules.preferredResolution! };
+    } else if (best === formatUpgrade && formatUpgrade) {
+      reasonKey = "customFormatUpgrade";
+      reasonParams = { delta: String(applyCustomFormats(best.release.title) - m.formatScore) };
+    } else if (best) {
+      reasonKey = "codecUpgrade";
+      reasonParams = { from: m.videoCodec ?? "?", to: best.parsed.videoCodec ?? "?" };
+    } else {
+      continue;
+    }
+
     candidates.push({
-      movieId: movie.id,
-      title: movie.title,
-      currentVersion: versionLabel(movie.file.resolution, movie.file.videoCodec, movie.file.audioCodec),
-      currentFormatScore,
-      currentSize: movie.file.size,
+      movieId: m.movieId!,
+      title: m.title,
+      currentVersion: versionLabel(m.resolution, m.videoCodec, m.audioCodec),
+      currentFormatScore: m.formatScore,
+      currentSize: m.size,
       detectedVersion: versionLabel(best.parsed.resolution, best.parsed.videoCodec, best.parsed.audioCodec),
       detectedFormatScore: applyCustomFormats(best.release.title),
       size: best.release.size,
-      ...(languageUpgrade
-        ? { reasonKey: "languageUpgrade" as const, reasonParams: { from: currentLanguage ?? "?", to: targetLanguage! } }
-        : formatUpgrade
-          ? { reasonKey: "customFormatUpgrade" as const, reasonParams: { delta: String(applyCustomFormats(best.release.title) - currentFormatScore) } }
-          : { reasonKey: "codecUpgrade" as const, reasonParams: { from: movie.file.videoCodec ?? "?", to: best.parsed.videoCodec ?? "?" } }),
+      reasonKey,
+      reasonParams,
     });
   }
 
   return candidates;
 }
 
-export type GrabUpgradeResult = { ok: true } | { ok: false; error: "movie_not_found" | "no_candidate" | "engine_unreachable" };
+export type GrabUpgradeResult = { ok: true; infoHash: string } | { ok: false; error: "movie_not_found" | "no_candidate" | "engine_unreachable" };
 
 /**
  * Re-evaluates and grabs the current best candidate for one movie — never
@@ -265,7 +368,7 @@ export type GrabUpgradeResult = { ok: true } | { ok: false; error: "movie_not_fo
  */
 export async function grabUpgradeCandidate(movieId: string): Promise<GrabUpgradeResult> {
   const movie = loadMovies().find((m) => m.id === movieId);
-  if (!movie || !movie.file) return { ok: false, error: "movie_not_found" };
+  if (!movie || !movie.file) return { ok: false, error: "movie_not_found" }; if (isUpgradeIgnored(movieId)) return { ok: false, error: "no_candidate" };
 
   const rules = loadReleaseRules();
   const targetLanguage = rules.preferredLanguageUpgrade;
@@ -296,18 +399,46 @@ export async function grabUpgradeCandidate(movieId: string): Promise<GrabUpgrade
     }
   }
 
-  const formatUpgrade = safeMatches
+  let formatUpgrade = safeMatches
     .filter(({ release }) => applyCustomFormats(release.title) > currentFormatScore)
     .sort((a, b) => applyCustomFormats(b.release.title) - applyCustomFormats(a.release.title) || b.release.score - a.release.score)[0];
 
   const currentCodecScore = codecScore(movie.file.videoCodec, rules);
-  const codecUpgrade = !formatUpgrade
-    ? safeMatches
+  let codecUpgrade: (typeof safeMatches)[0] | undefined;
+  if (!formatUpgrade) {
+    codecUpgrade = safeMatches
         .filter(({ parsed }) => codecScore(parsed.videoCodec, rules) > currentCodecScore)
-        .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0]
-    : undefined;
+        .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0];
+  }
 
-  const best = (languageUpgrade ?? formatUpgrade ?? codecUpgrade)?.release;
+  // Fallback to direct indexer search when RSS cache (only ~150 most recent
+  // releases) misses older catalog titles — same pattern as language fallback.
+  if (!languageUpgrade && !formatUpgrade && !codecUpgrade) {
+    const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
+    const indexers = withoutRateLimited(configuredIndexers);
+    if (indexers.length > 0) {
+      const directReleases: IndexerRelease[] = [];
+      for (const ix of indexers) {
+        const results = await searchMovie(ix, { title: movie.title, year: movie.year, imdbId: movie.imdbId, tmdbId: movie.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
+        directReleases.push(...results);
+      }
+      const directMatches = computeSafeMatches(directReleases, movie, movie.file.resolution, rules, profile)
+          .filter(({ release }) => withinSizeLimit(release.size, "movie"));
+      if (wantsLanguageUpgrade) languageUpgrade = bestLanguageMatch(directMatches, targetLanguage!) ?? languageUpgrade;
+      if (!formatUpgrade) {
+        formatUpgrade = directMatches
+          .filter(({ release }) => applyCustomFormats(release.title) > currentFormatScore)
+          .sort((a, b) => applyCustomFormats(b.release.title) - applyCustomFormats(a.release.title) || b.release.score - a.release.score)[0];
+        if (!formatUpgrade) {
+          codecUpgrade = directMatches
+              .filter(({ parsed }) => codecScore(parsed.videoCodec, rules) > currentCodecScore)
+              .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0];
+        }
+      }
+    }
+  }
+
+  const bestMatch = languageUpgrade ?? formatUpgrade ?? codecUpgrade; if (!bestMatch?.release) return { ok: false, error: 'no_candidate' }; if (!isMeaningfulUpgrade(bestMatch, movie, !!languageUpgrade)) return { ok: false, error: 'no_candidate' }; const best = bestMatch.release;
   if (!best) return { ok: false, error: "no_candidate" };
 
   const payload = await buildGrabPayload({ magnetUrl: best.magnetUrl, downloadUrl: best.downloadUrl, indexerId: best.indexerId });
@@ -329,14 +460,14 @@ export async function grabUpgradeCandidate(movieId: string): Promise<GrabUpgrade
     const torrent = await res.json();
     if (!res.ok) return { ok: false, error: "engine_unreachable" };
     updateMovie(movie.id, { status: "downloading", activeInfoHash: torrent.infoHash });
-    emitNotification(
-      "grab_movie_upgrade",
-      `${movie.title} — remplacement lancé (préférences de recherche)`,
-      "/library",
-      { title: movie.title }
-    );
-    return { ok: true };
+    emitNotification("grab_movie_upgrade", `${movie.title} — remplacement lancé`, "/library", { title: movie.title });
+    return { ok: true, infoHash: torrent.infoHash };
   } catch {
     return { ok: false, error: "engine_unreachable" };
   }
 }
+
+
+
+
+

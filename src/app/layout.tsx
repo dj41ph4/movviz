@@ -7,6 +7,7 @@ import { ServiceWorkerRegistration } from "@/components/layout/ServiceWorkerRegi
 import { PerfReporter } from "@/components/system/PerfReporter";
 import { getAppVersion } from "@/lib/updates/version";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme";
+import { REDUCE_MOTION_INIT_SCRIPT } from "@/lib/gpu/reduceMotionInit";
 
 const DESCRIPTION =
   "Le centre de commande intelligent de vos films et séries — découverte, demandes et bibliothèque, orchestrés en un seul endroit.";
@@ -53,6 +54,7 @@ export default function RootLayout({
             "scripts inside React components are never executed when rendering
             on the client" each time. */}
         <Script id="theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <Script id="reduce-motion-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: REDUCE_MOTION_INIT_SCRIPT }} />
         <ScrollRestoration />
         <ServiceWorkerRegistration />
         <PerfReporter />

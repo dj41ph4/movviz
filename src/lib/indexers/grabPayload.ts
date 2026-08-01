@@ -1,5 +1,6 @@
 import { getIndexer } from "./store";
 import { markRateLimited } from "./rateLimit";
+import { throttleIndexerRequest } from "./rateLimit";
 
 /**
  * Resolve a release (magnet or a protected .torrent/nzb URL) into whatever
@@ -37,6 +38,9 @@ export async function buildGrabPayload({
         }
       } catch { /* keep original url if parsing fails */ }
     }
+    // Fetching the .torrent file counts against the indexer's per-minute
+    // quota too (e.g. c411: 15 req/min) — wait for a free slot first.
+    if (source?.baseUrl) await throttleIndexerRequest(source.baseUrl);
     const res = await fetch(url, { cache: "no-store", headers, signal: AbortSignal.timeout(12_000) });
     if (!res.ok) {
       // Fetching the actual .torrent file is a third kind of request to the

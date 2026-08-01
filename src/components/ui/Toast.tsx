@@ -78,8 +78,8 @@ function ToastCard({ t, dismiss, reduceAnimations }: { t: ToastItem; dismiss: (i
         className="group relative overflow-hidden rounded-2xl border border-white/10"
         style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(30,18,50,0.95) 50%, rgba(30,18,50,0.98) 100%)" }}
       >
-        {/* Shimmer */}
-        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2.5s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-white/[0.06] to-transparent" />
+        {/* Shimmer (GPU-composited via transform) */}
+        <div className="shimmer-gpu absolute inset-0" />
         <div className="relative flex items-start gap-3 px-4 py-3.5">
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand/25 backdrop-blur">
             <Download className="h-4 w-4 text-brand-glow" />

@@ -7,10 +7,15 @@ import { useT } from "@/i18n/provider";
 import {
   X, Maximize2, Minimize2, ExternalLink, AlertTriangle, Loader2,
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
-  SkipBack, SkipForward, PictureInPicture2,
+  SkipBack, SkipForward, PictureInPicture2, Zap, Monitor, Settings,
 } from "lucide-react";
-import { pickStrategy, detectCodecs, type PlaybackStrategy, type CodecCapabilities } from "@/lib/player/webcodecs";
+import { pickStrategy, detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, type PlaybackStrategy, type CodecCapabilities } from "@/lib/player/webcodecs";
 import { WebCodecsPlayer } from "./WebCodecsPlayer";
+import { orchestrate } from "@/lib/playback/orchestrator";
+import { detectCapabilities } from "@/lib/playback/capabilities";
+import { MSEPlaybackEngine, type MseDebugStats } from "@/lib/playback/mse/MSEPlaybackEngine";
+import type { MediaInfo } from "@/lib/playback/types";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 
 interface VideoPlayerProps {
   ratingKey: string;
@@ -18,6 +23,8 @@ interface VideoPlayerProps {
   title: string;
   onClose: () => void;
   useTranscode?: boolean;
+  /** Seconds to pre-buffer before starting playback (default 0 = play immediately). */
+  prebufferSeconds?: number;
 }
 
 interface StreamTrack {
@@ -37,8 +44,33 @@ interface StreamInfo {
   height?: number | null;
 }
 
+/**
+ * Best fallback track when the default one (DTS/TrueHD/PCM) can't be decoded.
+ * Prefers: same language as the original track → 5.1 (3-6 channels) → 2.0 → AAC.
+ */
+function scoreAudioTrack(t: StreamTrack, prefLang: string): number {
+  const c = (t.codec ?? "").toLowerCase();
+  let score = 0;
+  if (prefLang && (t.language ?? "").toLowerCase() === prefLang) score += 4;
+  const ch = t.channels ?? 0;
+  if (ch >= 3 && ch <= 6) score += 2;
+  else if (ch === 2) score += 1;
+  if (c.includes("aac")) score += 1;
+  return score;
+}
+
 const PROGRESS_KEY = (ratingKey: string) => `movviz:progress:${ratingKey}`;
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
+
+/**
+ * Max seconds to pre-buffer before starting playback. The pre-buffer warms
+ * the server-side stream cache so early seeks are instant — but it DELAYS
+ * playback start by its own value, so it must stay small: wiring the old
+ * streamCacheTtl default (300s) straight in as prebufferSeconds held every
+ * movie on the "mise en cache…" screen for up to 5 minutes. 30s matches
+ * hls.js's own maxBufferLength: a sane head start, not a loading wall.
+ */
+export const PREBUFFER_SECONDS = 30;
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -49,10 +81,13 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }: VideoPlayerProps) {
+export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, prebufferSeconds }: VideoPlayerProps) {
   const t = useT();
   const tRef = useRef(t);
   tRef.current = t;
+  const beta = useBetaPlayer();
+  const betaRef = useRef(beta);
+  betaRef.current = beta;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -65,6 +100,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
   const seekingRef = useRef(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const beginRef = useRef<((seekTo?: number) => Promise<void>) | null>(null);
+  const transcodeVideoRef = useRef(true);
+  const transcodeAudioRef = useRef(true);
+  const transcodeModeRef = useRef<"auto" | "audio" | "video" | "full">("auto");
+  const codecCapsRef = useRef<CodecCapabilities | null>(null);
+  const audioStreamIdRef = useRef<string | null>(null);
+  const defaultAudioIdRef = useRef<string | null>(null);
+  const mseEngineRef = useRef<MSEPlaybackEngine | null>(null);
+  const mseSkippedRef = useRef(false);
 
   const [error, setError] = useState<string | null>(null);
   const [usingFallback, setUsingFallback] = useState(false);
@@ -72,13 +115,17 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
   const [buffering, setBuffering] = useState(false);
   const [webcodecsNotice, setWebcodecsNotice] = useState(false);
   const [useWebcodecs, setUseWebcodecs] = useState(false);
+  const [mseActive, setMseActive] = useState(false);
+  const [mseStats, setMseStats] = useState<MseDebugStats | null>(null);
   const [codecCaps, setCodecCaps] = useState<CodecCapabilities | null>(null);
   const [audioStreams, setAudioStreams] = useState<StreamTrack[]>([]);
   const [subtitleStreams, setSubtitleStreams] = useState<StreamTrack[]>([]);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [currentSubtitle, setCurrentSubtitle] = useState<string | null>(null);
   const [currentLevel, setCurrentLevel] = useState<number | null>(null);
-  const [menuOpen, setMenuOpen] = useState<null | "audio" | "subtitle" | "speed">(null);
+  const [menuOpen, setMenuOpen] = useState<null | "audio" | "subtitle" | "speed" | "quality" | "transcode">(null);
+  const [directMode, setDirectMode] = useState(false);
+  const qualityMaxWidthRef = useRef<number | null>(null);
 
   const [playing, setPlaying] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -93,6 +140,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
   const [pipSupported, setPipSupported] = useState(false);
   const [showResume, setShowResume] = useState(false);
   const [savedPos, setSavedPos] = useState(0);
+  const [cacheProgress, setCacheProgress] = useState<{ current: number; target: number } | null>(null);
+  // Hard cap: no caller can reintroduce a multi-minute loading wall by
+  // passing a huge prebuffer (the old streamCacheTtl wiring did exactly that
+  // — see PREBUFFER_SECONDS).
+  const prebufferRef = useRef(Math.min(prebufferSeconds ?? 0, PREBUFFER_SECONDS));
+  prebufferRef.current = Math.min(prebufferSeconds ?? 0, PREBUFFER_SECONDS);
 
   useEffect(() => {
     setPipSupported(
@@ -107,12 +160,34 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
     if (!hls) return;
     let url = `/api/stream/${ratingKey}/transcode`;
     const params = new URLSearchParams();
+    const mode = transcodeModeRef.current;
+    const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "audio" || mode === "full" ? "1" : "0";
+    let ta: string;
+    if (mode === "auto") {
+      // Re-evaluate the target track's codec — E-AC3/DTS/TrueHD tracks must
+      // transcode audio (hls.js can't transmux them from TS), never copy
+      const track = audioStreams.find((s) => s.id === audioId);
+      const trackCodec = track?.codec ?? infoRef.current?.audioCodec;
+      if (trackCodec && (!codecCapsRef.current || !isAudioMseTransmuxable(trackCodec, codecCapsRef.current))) {
+        ta = "1";
+      } else {
+        ta = transcodeAudioRef.current ? "1" : "0";
+      }
+    } else {
+      ta = mode === "video" || mode === "full" ? "1" : "0";
+    }
+    params.set("tv", tv);
+    params.set("ta", ta);
+    if (qualityMaxWidthRef.current) params.set("maxWidth", String(qualityMaxWidthRef.current));
     if (audioId) params.set("audioStreamID", audioId);
     if (subtitleId) params.set("subtitleStreamID", subtitleId);
     const qs = params.toString();
     if (qs) url += `?${qs}`;
     setCurrentAudio(audioId);
     setCurrentSubtitle(subtitleId);
+    // Keep refs in sync — the badge and handleReturnToHls read them
+    audioStreamIdRef.current = audioId;
+    if (mode === "auto") transcodeAudioRef.current = ta === "1";
     hls.loadSource(url);
   };
 
@@ -134,8 +209,21 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
       fallbackGuardRef.current = true;
       setUsingFallback(true);
 
-      const url = extraParams ? `${hlsUrl}?${extraParams}` : hlsUrl;
+      const mode = transcodeModeRef.current;
+      const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "audio" || mode === "full" ? "1" : "0";
+      const ta = mode === "auto" ? (transcodeAudioRef.current ? "1" : "0") : mode === "video" || mode === "full" ? "1" : "0";
+      let url = `${hlsUrl}?tv=${tv}&ta=${ta}`;
+      if (audioStreamIdRef.current) url += `&audioStreamID=${audioStreamIdRef.current}`;
+      if (qualityMaxWidthRef.current) url += `&maxWidth=${qualityMaxWidthRef.current}`;
+      if (extraParams) url += `&${extraParams}`;
+      // Tear down any previous instance before creating a new one
+      if (hlsRef.current) {
+        try { hlsRef.current.destroy(); } catch { /* ignore */ }
+        hlsRef.current = null;
+      }
+
       if (Hls.isSupported()) {
+        let networkRetries = 0;
         const hls = new Hls({
           capLevelToPlayerSize: true,
           maxBufferLength: 30,
@@ -143,32 +231,82 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
           enableWorker: true,
           lowLatencyMode: false,
           backBufferLength: 30,
+          // Plex segments can take a moment on first request (transcode spin-up)
+          fragLoadingTimeOut: 30000,
+          manifestLoadingTimeOut: 20000,
+          levelLoadingTimeOut: 20000,
+          xhrSetup: (xhr) => {
+            // Same-origin cookies for /api/stream auth
+            xhr.withCredentials = true;
+          },
         });
         hlsRef.current = hls;
         hls.loadSource(url);
         hls.attachMedia(el);
 
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          networkRetries = 0;
+          const prebufSecs = prebufferRef.current;
+          if (prebufSecs > 0 && el.duration > prebufSecs) {
+            setBuffering(true);
+            setCacheProgress({ current: 0, target: prebufSecs });
+            const iv = setInterval(() => {
+              if (el.buffered.length > 0) {
+                const bufferedSecs = el.buffered.end(0) - el.currentTime;
+                const clamped = Math.min(bufferedSecs, prebufSecs);
+                setCacheProgress({ current: clamped, target: prebufSecs });
+                if (bufferedSecs >= prebufSecs || bufferedSecs >= el.duration - el.currentTime) {
+                  clearInterval(iv);
+                  setCacheProgress(null);
+                  setBuffering(false);
+                  void el.play().catch(() => void 0);
+                }
+              }
+            }, 300);
+            hls.on(Hls.Events.DESTROYING, () => clearInterval(iv));
+          } else {
+            setBuffering(false);
+            void el.play().catch(() => void 0);
+          }
+        });
+
         hls.on(Hls.Events.ERROR, (_event, data) => {
           if (!data.fatal) return;
+          console.error("[VideoPlayer] HLS fatal", data.type, data.details, data.response);
           switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              hls.startLoad();
+            case Hls.ErrorTypes.NETWORK_ERROR: {
+              networkRetries += 1;
+              if (networkRetries > 5) {
+                setError(tRef.current("player.betaError"));
+                hls.destroy();
+                hlsRef.current = null;
+                break;
+              }
+              // Brief backoff then retry — covers Plex cold-start 503s
+              setTimeout(() => {
+                try { hls.startLoad(); } catch { /* destroyed */ }
+              }, 400 * networkRetries);
               break;
+            }
             case Hls.ErrorTypes.MEDIA_ERROR:
-              hls.recoverMediaError();
+              try { hls.recoverMediaError(); } catch {
+                setError(tRef.current("player.betaError"));
+                hls.destroy();
+                hlsRef.current = null;
+              }
               break;
             default:
               setError(tRef.current("player.betaError"));
               hls.destroy();
+              hlsRef.current = null;
               break;
           }
         });
 
-        hls.on(Hls.Events.FRAG_LOADING, () => setBuffering(true));
-        hls.on(Hls.Events.FRAG_BUFFERED, () => setBuffering(false));
         hls.on(Hls.Events.LEVEL_SWITCHED, (_e, data) => setCurrentLevel(data.level));
       } else if (el.canPlayType("application/vnd.apple.mpegurl")) {
         el.src = url;
+        void el.play().catch(() => void 0);
       } else {
         setError(tRef.current("player.betaError"));
       }
@@ -216,36 +354,88 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
 
       let strategy: PlaybackStrategy;
       try {
-        // MKV containers can't play natively in browsers — skip direct, go to WebCodecs or transcode
+        // Detect browser codec capabilities once
+        const caps = await detectCodecs();
+        setCodecCaps(caps);
+        codecCapsRef.current = caps;
+
+        // --- Bypass codecs audio: auto-switch to a compatible track ---
+        // DTS/TrueHD/PCM can't be decoded by ANY browser. Most Blu-ray remuxes
+        // carry a second track (AC3/EAC3/AAC...) — pick it so audio is copied
+        // (ta=0) instead of transcoded, with zero audible quality loss.
+        // CRITICAL: direct play and WebCodecs play the file's DEFAULT track —
+        // they cannot select a track. So a switch forces the HLS path, which
+        // can via audioStreamID. Otherwise the browser plays the DTS track
+        // and the video is silently muted.
+        const audioTracks = Array.isArray(info.audioStreams) ? info.audioStreams : [];
+        const selAudio = audioTracks.find((s) => s.selected) ?? audioTracks[0];
+        defaultAudioIdRef.current = selAudio?.id ?? null;
+        let effectiveAudioCodec = selAudio?.codec ?? info.audioCodec;
+        audioStreamIdRef.current = selAudio?.id ?? null;
+        let audioSwitched = false;
+        if (effectiveAudioCodec && !isAudioCodecSupported(effectiveAudioCodec, caps)) {
+          const prefLang = selAudio?.language ?? "";
+          const fallback = audioTracks
+            .filter(
+              (t) =>
+                t.id !== selAudio?.id &&
+                !!t.codec &&
+                isAudioMseTransmuxable(t.codec, caps)
+            )
+            .sort((a, b) => scoreAudioTrack(b, prefLang) - scoreAudioTrack(a, prefLang))[0];
+          if (fallback?.codec) {
+            setCurrentAudio(fallback.id);
+            audioStreamIdRef.current = fallback.id;
+            effectiveAudioCodec = fallback.codec;
+            audioSwitched = true;
+            console.log(`[player] audio bypass: ${selAudio?.codec ?? info.audioCodec} → ${fallback.codec} (piste ${fallback.id})`);
+          }
+        }
+
+        // Always compute individual codec flags (non-MP4 still needs selective transcode)
+        transcodeVideoRef.current = info.videoCodec ? !isVideoCodecSupported(info.videoCodec, caps) : false;
+        // HLS gate: ta=0 (copy) ONLY for codecs hls.js can transmux from TS.
+        // E-AC3/DTS/TrueHD/FLAC/Opus in HLS → transcode to AAC, never copy.
+        transcodeAudioRef.current = effectiveAudioCodec ? !isAudioMseTransmuxable(effectiveAudioCodec, caps) : false;
+
         const container = (info.container ?? "").toLowerCase();
-        if (container === "mkv" || container === "avi" || container === "wmv" || container === "flv") {
-          // MKV can't play natively in <video>, but WebCodecs can decode it.
-          // Try WebCodecs first, fall back to HLS transcode.
-          const caps = await detectCodecs();
-          if (caps.webcodecsAvailable && (caps.h264 || caps.hevc || caps.av1)) {
-            strategy = "webcodecs";
+        const nonMp4 =
+          container === "mkv" ||
+          container === "avi" ||
+          container === "wmv" ||
+          container === "flv" ||
+          container === "ts" ||
+          container === "m2ts" ||
+          container === "mpegts";
+        if (nonMp4) {
+          strategy = "transcode";
+        } else {
+          const videoOk = !info.videoCodec || !transcodeVideoRef.current;
+          const audioOk = !effectiveAudioCodec || isAudioCodecSupported(effectiveAudioCodec, caps);
+          if (audioSwitched) {
+            // Only HLS can select the fallback track via audioStreamID
+            strategy = "transcode";
+          } else if (videoOk && audioOk) {
+            // Both codecs supported natively → try direct play then WebCodecs
+            strategy = await pickStrategy(info.videoCodec, effectiveAudioCodec);
           } else {
             strategy = "transcode";
           }
-        } else {
-          strategy = await pickStrategy(info.videoCodec, info.audioCodec);
         }
       } catch {
-        strategy = "direct";
+        strategy = "transcode";
+        transcodeVideoRef.current = true;
+        transcodeAudioRef.current = true;
       }
 
       if (strategy === "transcode") {
-        startHls();
+        if (!(await tryStartMse(info, seekTo))) startHls();
         return;
       }
 
       if (strategy === "webcodecs") {
         setWebcodecsNotice(true);
         setUseWebcodecs(true);
-        try {
-          const caps = await detectCodecs();
-          setCodecCaps(caps);
-        } catch { /* ignore */ }
         if (seekTo && seekTo > 0) {
           // WebCodecsPlayer will be remounted and start fresh due to key change
           setShowResume(false);
@@ -256,6 +446,78 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
     };
 
     beginRef.current = begin;
+
+    const destroyMse = () => {
+      if (mseEngineRef.current) {
+        try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
+        mseEngineRef.current = null;
+      }
+      setMseActive(false);
+      setMseStats(null);
+    };
+
+    const fallbackFromMse = () => {
+      destroyMse();
+      mseSkippedRef.current = true;
+      setBuffering(true);
+      fallbackGuardRef.current = false;
+      startHlsRef.current?.();
+    };
+
+    // MSE leg: replaces the HLS-transcode leg for MP4 files whose codecs are
+    // provably MSE-copyable. Deterministic — every failure falls back to HLS.
+    const tryStartMse = async (info: StreamInfo, seekTo?: number): Promise<boolean> => {
+      const video = videoRef.current;
+      if (!video) return false;
+      const b = betaRef.current;
+      if (!b.enabled || mseSkippedRef.current || b.playbackEngine === "native") return false;
+      if (seekTo && seekTo > 0) return false; // resume path stays on proven engines
+      const media: MediaInfo = {
+        ratingKey,
+        container: info.container,
+        videoCodec: info.videoCodec,
+        audioCodec: info.audioCodec,
+      };
+      try {
+        const caps = await detectCapabilities();
+        const decision = await orchestrate({
+          media,
+          capabilities: caps,
+          engine: b.playbackEngine,
+          subtitleActive: !!currentSubtitle,
+          directPossible: false,
+          webcodecsPossible: false,
+        });
+        if (decision.engine !== "mse" || !decision.mse) return false;
+
+        const engine = new MSEPlaybackEngine({
+          onBuffering: (buffering) => setBuffering(buffering),
+          onError: (_msg, fatal) => {
+            if (!fatal) return;
+            if (!mseEngineRef.current) return;
+            fallbackFromMse();
+          },
+          onDebug: (stats) => setMseStats(stats),
+        });
+        mseEngineRef.current = engine;
+        setMseActive(true);
+        setBuffering(true);
+        engine.attach(video);
+        try {
+          await engine.load(ratingKey, {
+            videoMime: decision.mse.videoMime,
+            audioMime: decision.mse.audioMime,
+            debug: b.debug,
+          });
+        } catch {
+          fallbackFromMse();
+          return false;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    };
 
     const saved = Number(localStorage.getItem(PROGRESS_KEY(ratingKey)));
     if (saved > 5 && Number.isFinite(saved)) {
@@ -290,20 +552,22 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
     progressTimerRef.current = setInterval(saveProgress, 10000);
 
     return () => {
-      if (el.currentTime > 0) {
-        try {
-          const offset = Math.floor(el.currentTime * 1000);
-          void fetch(`/api/stream/${ratingKey}/progress`, {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ offset, state: "stopped" }),
-            keepalive: true,
-          }).catch(() => void 0);
-          void fetch(`/api/stream/${ratingKey}/stop`, {
-            method: "POST",
-            keepalive: true,
-          }).catch(() => void 0);
-        } catch { /* ignore */ }
+      try {
+        const offset = Math.floor(el.currentTime * 1000);
+        void fetch(`/api/stream/${ratingKey}/progress`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ offset, state: "stopped" }),
+          keepalive: true,
+        }).catch(() => void 0);
+        void fetch(`/api/stream/${ratingKey}/stop`, {
+          method: "POST",
+          keepalive: true,
+        }).catch(() => void 0);
+      } catch { /* ignore */ }
+      if (mseEngineRef.current) {
+        try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
+        mseEngineRef.current = null;
       }
 
       if (progressTimerRef.current) {
@@ -561,20 +825,25 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
     setMenuOpen(null);
   };
 
-  const toggleMenu = (menu: "audio" | "subtitle" | "speed") => {
+  const toggleMenu = (menu: "audio" | "subtitle" | "speed" | "quality" | "transcode") => {
     setMenuOpen((prev) => (prev === menu ? null : menu));
   };
 
   const handleWebcodecsFallback = useCallback(() => {
     setUseWebcodecs(false);
     setWebcodecsNotice(false);
+    setError(null);
     setBuffering(true);
-    // start HLS transcoding via the stored ref
+    // Allow startHls to run even if a previous attempt set the guard
+    fallbackGuardRef.current = false;
     if (startHlsRef.current) {
       startHlsRef.current();
     } else {
-      // If startHls hasn't been initialized yet, set a flag to use transcode
-      setError("WebCodecs unsupported — useTranscode required");
+      // startHls is defined in the effect — schedule after video element mounts
+      requestAnimationFrame(() => {
+        fallbackGuardRef.current = false;
+        startHlsRef.current?.();
+      });
     }
   }, []);
 
@@ -588,6 +857,77 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
     void beginRef.current?.(0);
   };
 
+  const handleDirectPlay = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (mseEngineRef.current) {
+      try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
+      mseEngineRef.current = null;
+      mseSkippedRef.current = true;
+      setMseActive(false);
+      setMseStats(null);
+    }
+    // Direct play can't select an audio track — if a fallback track was chosen
+    // (audio bypass) or the user picked a non-default track, the browser would
+    // play the file's default (undecodable) track → silent video. Stay on HLS.
+    if (
+      audioStreamIdRef.current !== null &&
+      audioStreamIdRef.current !== defaultAudioIdRef.current
+    ) {
+      startHlsRef.current?.();
+      return;
+    }
+    if (hlsRef.current) {
+      try { hlsRef.current.destroy(); } catch { /* ignore */ }
+      hlsRef.current = null;
+    }
+    fallbackGuardRef.current = false;
+    setDirectMode(true);
+    setUsingFallback(false);
+    setBuffering(true);
+    el.src = `/api/stream/${ratingKey}`;
+    void el.play().catch(() => void 0);
+  };
+
+  const handleReturnToHls = () => {
+    setDirectMode(false);
+    setUsingFallback(false);
+    fallbackGuardRef.current = false;
+    setBuffering(true);
+    if (mseEngineRef.current) {
+      try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
+      mseEngineRef.current = null;
+      mseSkippedRef.current = true;
+      setMseActive(false);
+      setMseStats(null);
+    }
+    startHlsRef.current?.();
+  };
+
+  const QUALITY_PRESETS = [
+    { label: t("player.betaQualityOriginal"), maxWidth: null },
+    { label: "4K", maxWidth: 3840 },
+    { label: "1440p", maxWidth: 2560 },
+    { label: "1080p", maxWidth: 1920 },
+    { label: "720p", maxWidth: 1280 },
+  ] as const;
+
+  const handleQualityChange = (mw: number | null) => {
+    qualityMaxWidthRef.current = mw;
+    setMenuOpen(null);
+    if (mseEngineRef.current) {
+      // Downscaling needs a transcode — deterministic switch to the HLS leg
+      fallbackGuardRef.current = false;
+      handleReturnToHls();
+      return;
+    }
+    if (hlsRef.current) {
+      reloadHls(currentAudio, currentSubtitle);
+    } else if (startHlsRef.current) {
+      startHlsRef.current();
+    }
+  };
+
   const playedPct = ((seekPreview ?? currentTime) / (duration || 1)) * 100;
 
   return (
@@ -596,14 +936,35 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
         <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 gap-2">
           <div className="flex items-center gap-2 min-w-0">
             {usingFallback && (
-              <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-amber/15 px-2 text-[10px] font-semibold text-amber">
-                <AlertTriangle className="h-3 w-3" />
-                {t("player.betaTranscoded")}
+              <span className={cn(
+                "flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[10px] font-semibold",
+                transcodeVideoRef.current || transcodeAudioRef.current ? "bg-amber/15 text-amber" : "bg-green/15 text-green"
+              )}>
+                {transcodeVideoRef.current || transcodeAudioRef.current ? <AlertTriangle className="h-3 w-3" /> : <Zap className="h-3 w-3" />}
+                {transcodeVideoRef.current && transcodeAudioRef.current
+                  ? t("player.betaTranscoded")
+                  : transcodeVideoRef.current
+                    ? t("player.betaTranscodedVideo")
+                    : transcodeAudioRef.current
+                      ? t("player.betaTranscodedAudio")
+                      : t("player.betaDirectStream")}
               </span>
             )}
-            {webcodecsNotice && !usingFallback && (
+            {webcodecsNotice && !usingFallback && !directMode && (
               <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-cyan/15 px-2 text-[10px] font-semibold text-cyan">
                 {t("player.betaWebcodecs")}
+              </span>
+            )}
+            {directMode && (
+              <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-green/15 px-2 text-[10px] font-semibold text-green">
+                <Zap className="h-3 w-3" />
+                {t("player.betaDirectPlay")}
+              </span>
+            )}
+            {mseActive && (
+              <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-cyan/15 px-2 text-[10px] font-semibold text-cyan">
+                <Zap className="h-3 w-3" />
+                {t("player.betaMseStream")}
               </span>
             )}
             <p className="truncate text-sm font-semibold text-ink">{title}</p>
@@ -668,9 +1029,33 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
                 />
               )}
 
-              {buffering && !useWebcodecs && (
+              {buffering && !useWebcodecs && !mseActive && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-white/80" />
+                </div>
+              )}
+
+              {mseActive && mseStats && beta.debug && (
+                <div className="pointer-events-none absolute bottom-16 left-3 z-30 rounded-lg bg-black/70 px-3 py-2 font-mono text-[10px] leading-relaxed text-white/80">
+                  <div>MSE {mseStats.state} · buf {mseStats.bufferedSec.toFixed(1)}s</div>
+                  <div>{mseStats.networkMbps.toFixed(1)} Mbps · seg {mseStats.segmentMs.toFixed(0)}ms</div>
+                  <div>rebuffer {mseStats.rebufferCount} · errors {mseStats.errors} · start {(mseStats.startupMs / 1000).toFixed(1)}s</div>
+                  <div>{(mseStats.fetchedBytes / 1048576).toFixed(1)} MB fetched</div>
+                </div>
+              )}
+
+              {cacheProgress && (
+                <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/80">
+                  <div className="flex flex-col items-center gap-4 p-8 text-center">
+                    <p className="text-md font-semibold text-white">{t("player.betaCacheFill")}</p>
+                    <div className="h-2 w-64 overflow-hidden rounded-full bg-white/10">
+                      <div
+                        className="h-full rounded-full brand-gradient transition-all duration-300"
+                        style={{ width: `${(cacheProgress.current / cacheProgress.target) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-ink-dim">{cacheProgress.current.toFixed(0)}s / {cacheProgress.target}s</p>
+                  </div>
                 </div>
               )}
 
@@ -792,6 +1177,32 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
 
                     <div className="relative">
                       <button
+                        onClick={() => toggleMenu("quality")}
+                        className="flex h-11 w-11 items-center justify-center rounded-lg text-white/60 hover:text-white"
+                        aria-label={t("player.betaQuality")}
+                      >
+                        <Monitor className="h-5 w-5" />
+                      </button>
+                      {menuOpen === "quality" && (
+                        <div className="absolute right-0 bottom-full mb-2 w-28 rounded-xl border border-white/10 bg-surface p-1 shadow-2xl">
+                          {QUALITY_PRESETS.map((preset) => (
+                            <button
+                              key={preset.label}
+                              onClick={() => handleQualityChange(preset.maxWidth)}
+                              className={cn(
+                                "flex w-full items-center justify-center rounded-lg px-3 py-2 text-xs hover:bg-white/10",
+                                qualityMaxWidthRef.current === preset.maxWidth ? "text-brand-glow" : "text-ink-dim"
+                              )}
+                            >
+                              {preset.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="relative">
+                      <button
                         onClick={() => toggleMenu("speed")}
                         className="flex h-11 w-11 items-center justify-center rounded-lg text-white/60 hover:text-white"
                         aria-label={t("player.betaSpeed")}
@@ -891,7 +1302,59 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode }
                             )}
                           </div>
                         )}
+                        <div className="relative">
+                          <button
+                            onClick={() => toggleMenu("transcode")}
+                            className="flex h-11 w-11 items-center justify-center rounded-lg text-white/60 hover:text-white"
+                            title={t("player.betaTranscodeMode")}
+                          >
+                            <Settings className="h-5 w-5" />
+                          </button>
+                          {menuOpen === "transcode" && (
+                            <div className="absolute right-0 bottom-full mb-2 w-32 rounded-xl border border-white/10 bg-surface p-1 shadow-2xl">
+                              {(["auto", "audio", "video", "full"] as const).map((m) => (
+                                <button
+                                  key={m}
+                                  onClick={() => {
+                                    transcodeModeRef.current = m;
+                                    setMenuOpen(null);
+                                    if (hlsRef.current) reloadHls(currentAudio, currentSubtitle);
+                                    else if (startHlsRef.current) startHlsRef.current();
+                                  }}
+                                  className={cn(
+                                    "flex w-full items-center justify-center rounded-lg px-3 py-2 text-xs hover:bg-white/10",
+                                    transcodeModeRef.current === m ? "text-brand-glow" : "text-ink-dim"
+                                  )}
+                                >
+                                  {m === "auto" ? t("player.betaTranscodeAuto")
+                                    : m === "audio" ? t("player.betaTranscodeAudio")
+                                    : m === "video" ? t("player.betaTranscodeVideo")
+                                    : t("player.betaTranscodeFull")}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={handleDirectPlay}
+                          className="flex h-11 w-11 items-center justify-center rounded-lg text-white/60 hover:text-green"
+                          title={t("player.betaDirectPlay")}
+                          aria-label={t("player.betaDirectPlay")}
+                        >
+                          <Zap className="h-5 w-5" />
+                        </button>
                       </div>
+                    )}
+
+                    {directMode && (
+                      <button
+                        onClick={handleReturnToHls}
+                        className="flex h-11 w-11 items-center justify-center rounded-lg text-white/60 hover:text-amber"
+                        title={t("player.betaReturnHls")}
+                        aria-label={t("player.betaReturnHls")}
+                      >
+                        <AlertTriangle className="h-5 w-5" />
+                      </button>
                     )}
 
                     {pipSupported && (

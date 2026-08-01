@@ -7,7 +7,7 @@ import { useT } from "@/i18n/provider";
 import { cn, openPlexLink } from "@/lib/utils";
 import type { LibrarySeries, LibraryEpisode, LibraryStatus } from "@/lib/library/types";
 import type { MetaEpisode } from "@/lib/metadata/types";
-import { VideoPlayer } from "@/components/player/VideoPlayer";
+import { VideoPlayer, PREBUFFER_SECONDS } from "@/components/player/VideoPlayer";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { Play, Check, Search, Clock, HardDriveDownload, ArrowLeft, Tv, Calendar } from "lucide-react";
 
@@ -79,7 +79,7 @@ export default function EpisodeDetailPage({
       <div className="relative -mx-6 mb-6 aspect-video overflow-hidden rounded-2xl border border-white/5 bg-surface sm:-mx-0">
         {still ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={still} alt={ep.title} className="h-full w-full object-cover" />
+          <img src={still} alt={ep.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <Tv className="h-10 w-10 text-ink-soft/40" />
@@ -126,6 +126,7 @@ export default function EpisodeDetailPage({
           title={ep.title}
           onClose={() => setPlayRatingKey(null)}
           useTranscode={betaPlayer}
+          prebufferSeconds={PREBUFFER_SECONDS}
         />
       )}
     </div>

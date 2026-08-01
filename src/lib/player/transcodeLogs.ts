@@ -12,21 +12,23 @@ interface LogEntry {
 }
 
 const MAX = 50;
-const buffer: LogEntry[] = [];
 
-function add(entry: LogEntry) {
-  buffer.push(entry);
-  while (buffer.length > MAX) buffer.shift();
+function getBuffer(): LogEntry[] {
+  const g = globalThis as unknown as { __movvizTranscodeLogs?: LogEntry[] };
+  if (!g.__movvizTranscodeLogs) g.__movvizTranscodeLogs = [];
+  return g.__movvizTranscodeLogs;
 }
 
 export function logTranscode(ratingKey: string, step: string, detail: string, status: number | "ok" = "ok") {
-  add({ time: Date.now(), ratingKey, step, detail, status });
+  const buf = getBuffer();
+  buf.push({ time: Date.now(), ratingKey, step, detail, status });
+  while (buf.length > MAX) buf.shift();
 }
 
 export function getTranscodeLogs(): LogEntry[] {
-  return [...buffer];
+  return [...getBuffer()];
 }
 
 export function clearTranscodeLogs(): void {
-  buffer.length = 0;
+  getBuffer().length = 0;
 }

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getEngineToken } from "@/lib/engine/token";
+import fsp from "node:fs/promises";
+import path from "path";
 import { decodeLibraryRef, encodeLibraryRef } from "@/lib/library/types";
 import { getMovie, updateMovie, getSeries, updateSeries } from "@/lib/library/store";
 import { emitNotification } from "@/lib/notifications/store";
@@ -102,6 +104,16 @@ export async function POST(req: NextRequest) {
       ? addVersion(movie, newFile, { versionSource: "indexer", reason: "Version supplémentaire" })
       : setPrimaryFile(movie, newFile, { versionSource: "indexer", reason: movie.file ? "Mise à niveau qualité" : "Acquisition initiale" });
 
+    // "optimize" — delete the old file from disk, keep only the new version
+    if (pendingMode === "optimize" && movie.file) {
+      try {
+        const oldPath = path.resolve(movie.file.path);
+        if (oldPath.startsWith("/data/") || oldPath.includes("media")) {
+          await fsp.unlink(oldPath);
+        }
+      } catch {}
+    }
+
     updateMovie(movie.id, {
       status: "available",
       activeInfoHash: null,
@@ -185,7 +197,6 @@ export async function POST(req: NextRequest) {
     // skipped (they don't belong to any tracked episode).
     const seasons = series.seasons.map((season) => {
       const seasonFiles = files.filter((f) => f.season === season.seasonNumber);
-      if (seasonFiles.length === 0) return season;
       const episodes = season.episodes.map((ep) => {
         const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
         if (!match) return releaseIfOrphaned(ep, infoHash);

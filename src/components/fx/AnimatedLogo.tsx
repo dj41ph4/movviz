@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Clapperboard } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 
 /** Small glowing dots orbiting the mark — pure CSS rotation, a static offset renders the orbit radius. */
 const ORBIT_PARTICLES = [
@@ -22,15 +23,22 @@ const SIZES = {
  * ripple rings, a rotating aurora halo, and a breathing glow. Used
  * everywhere the brand mark appears (login, sidebar, about) so it reads
  * as the same deliberate animation rather than a simplified copy.
+ * Fully static when reduce-motion is on (settings toggle or OS preference).
  */
 export function AnimatedLogo({ size = "md" }: { size?: keyof typeof SIZES }) {
   const s = SIZES[size];
+  const reduce = useShouldReduceMotion();
+
   return (
     <div className={cn("relative flex items-center justify-center", s.outer)}>
-      <span className="logo-ripple absolute inset-0 rounded-full border border-brand/40" />
-      <span className="logo-ripple absolute inset-0 rounded-full border border-magenta/30" style={{ animationDelay: "-1.4s" }} />
-      <span className={cn("logo-halo absolute -z-10 rounded-full opacity-90", s.halo)} />
-      {ORBIT_PARTICLES.map((p, i) => (
+      {!reduce && (
+        <>
+          <span className="logo-ripple absolute inset-0 rounded-full border border-brand/40" />
+          <span className="logo-ripple absolute inset-0 rounded-full border border-magenta/30" style={{ animationDelay: "-1.4s" }} />
+        </>
+      )}
+      <span className={cn("logo-halo absolute -z-10 rounded-full opacity-90", s.halo, reduce && "logo-halo-static")} />
+      {!reduce && ORBIT_PARTICLES.map((p, i) => (
         <div
           key={i}
           aria-hidden
@@ -47,13 +55,19 @@ export function AnimatedLogo({ size = "md" }: { size?: keyof typeof SIZES }) {
           />
         </div>
       ))}
-      <motion.div
-        className={cn("logo-glow-pulse flex items-center justify-center rounded-2xl brand-gradient", s.inner)}
-        animate={{ scale: [1, 1.05, 1] }}
-        transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <Clapperboard className={cn("text-white", s.icon)} strokeWidth={2.5} />
-      </motion.div>
+      {reduce ? (
+        <div className={cn("flex items-center justify-center rounded-2xl brand-gradient", s.inner)}>
+          <Clapperboard className={cn("text-white", s.icon)} strokeWidth={2.5} />
+        </div>
+      ) : (
+        <motion.div
+          className={cn("logo-glow-pulse flex items-center justify-center rounded-2xl brand-gradient", s.inner)}
+          animate={{ scale: [1, 1.05, 1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+        >
+          <Clapperboard className={cn("text-white", s.icon)} strokeWidth={2.5} />
+        </motion.div>
+      )}
     </div>
   );
 }

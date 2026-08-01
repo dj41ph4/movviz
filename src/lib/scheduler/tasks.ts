@@ -1,4 +1,4 @@
-import { checkQualityUpgrades, searchReleasedMissingMovies, searchMissingMovies, transitionUpcomingMovies } from "@/lib/library/autoGrab";
+import { checkQualityUpgrades, searchReleasedMissingMovies, searchMissingMovies, transitionUpcomingMovies, autoUpgradeAll } from "@/lib/library/autoGrab";
 import { searchReleasedMissingEpisodes, searchMissingEpisodes, transitionUpcomingEpisodes } from "@/lib/library/autoGrabSeries";
 import { rssMatchIndexers } from "@/lib/library/rssScan";
 import { refreshRssCache } from "@/lib/indexers/rssCache";
@@ -98,6 +98,22 @@ export const TASKS: ScheduledTask[] = [
     run: async () => {
       await backfillMovieLanguages();
       await backfillSeriesLanguages();
+    },
+  },
+  {
+    id: "auto-upgrade-all",
+    name: "Mise à niveau automatique (Rechercher et remplacer)",
+    intervalMs: 6 * 60 * 60 * 1000, // every 6 hours
+    run: async () => {
+      const result = await autoUpgradeAll();
+      if (result.movies > 0 || result.episodes > 0) {
+        emitNotification(
+          "upgrade_candidates_found",
+          result.movies + " film(s) et " + result.episodes + " épisode(s) mis à niveau automatiquement",
+          "/library",
+          { count: result.movies + result.episodes }
+        );
+      }
     },
   },
   {

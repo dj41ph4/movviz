@@ -23,7 +23,7 @@ const DV_RE = /\b(Dolby\s?Vision|DV)\b/i;
 const HDR_FAMILY_RE = /\b(HDR10\+|HDR10|HDR|HLG)\b/i;
 // French-scene language tags. MULTI always bundles a French track alongside
 // others, so it's treated as implying VF for scoring/badge purposes.
-const LANGUAGE_RE = /\b(MULTI|VFQ|VFF|TRUEFRENCH|FRENCH|VOSTFR|SUBFRENCH|VOST|VFI|VF2|VF|VO)\b/i;
+const LANGUAGE_RE = /\b(MULTI|VFQ|VFF|TRUEFRENCH|FRENCH|VOSTFR|SUBFRENCH|VOST|VFI|VF2|VF|VO|ITA|ITALIAN|GER|GERMAN|DEUTSCH|DUTCH|NEDERLANDS|NL|SPANISH|ESPANOL|ES|ENGLISH)\b/i;
 // Combined multi-episode file, tried before the plain single-episode
 // pattern: S04E01E02, S04E01-E02, and S04E01-02 all match, capturing both
 // episode numbers. The suffix requires an explicit "-" or "E" separator (not
@@ -76,6 +76,11 @@ function normalizeLanguage(raw: string | null): string | null {
   if (u === "VOSTFR" || u === "SUBFRENCH") return "VOSTFR";
   if (u === "VOST") return "VOST";
   if (u === "VO") return "VO";
+  if (u === "ITA" || u === "ITALIAN") return "ITA";
+  if (u === "GER" || u === "GERMAN" || u === "DEUTSCH") return "GER";
+  if (u === "DUTCH" || u === "NL" || u === "NEDERLANDS") return "NL";
+  if (u === "SPANISH" || u === "ESPANOL" || u === "ES") return "ES";
+  if (u === "ENGLISH") return "EN";
   return u;
 }
 

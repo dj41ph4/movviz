@@ -29,6 +29,14 @@ export interface ReleaseRules {
    * this target is eligible, regardless of which two tags are involved.
    */
   preferredLanguageUpgrade: string | null;
+  /** Target video codec for search-and-replace — "x264" | "x265" | "AV1" | null (off). */
+  preferredVideoCodec: string | null;
+  /** Target audio codec for search-and-replace — "DTS" | "TrueHD" | "Atmos" | "AAC" | "AC3" | "EAC3" | "FLAC" | "OPUS" | null (off). */
+  preferredAudioCodec: string | null;
+  /** Target resolution for search-and-replace — "720p" | "1080p" | "2160p" | "4320p" | null (off). */
+  preferredResolution: string | null;
+  /** When enabled, autoUpgradeAll() runs periodically (every 6h) to automatically grab upgrade candidates. */
+  autoUpgradeEnabled: boolean;
 }
 
 const DEFAULT_RULES: ReleaseRules = {
@@ -39,6 +47,10 @@ const DEFAULT_RULES: ReleaseRules = {
   // x265/AV1 deliver the same quality in a smaller file, so they outscore x264 by default.
   codecScores: { x264: 0, x265: 8, av1: 14 },
   preferredLanguageUpgrade: "VF",
+  preferredVideoCodec: null,
+  preferredAudioCodec: null,
+  preferredResolution: null,
+  autoUpgradeEnabled: false,
 };
 
 function read(): ReleaseRules {

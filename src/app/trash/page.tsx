@@ -86,7 +86,7 @@ export default function TrashPage() {
           <p className="max-w-md text-sm text-ink-soft">{t("trash.emptyHint")}</p>
         </div>
       ) : (
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence mode="sync">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {items.map((item) => {
               const key = `${item.type}_${item.tmdbId}`;

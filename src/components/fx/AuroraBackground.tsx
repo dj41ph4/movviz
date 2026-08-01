@@ -18,7 +18,7 @@ export function AuroraBackground() {
 
       {/* Drifting aurora blobs */}
       <div
-        className="absolute -top-1/3 -left-1/4 h-[70vh] w-[70vh] rounded-full blur-[120px]"
+        className="aurora-blob absolute -top-1/3 -left-1/4 h-[70vh] w-[70vh] rounded-full blur-[90px]"
         style={{
           background:
             "radial-gradient(circle, rgba(124,92,255,0.55), transparent 60%)",
@@ -27,7 +27,7 @@ export function AuroraBackground() {
         }}
       />
       <div
-        className="absolute top-1/4 right-[-10%] h-[60vh] w-[60vh] rounded-full blur-[130px]"
+        className="aurora-blob absolute top-1/4 right-[-10%] h-[60vh] w-[60vh] rounded-full blur-[100px]"
         style={{
           background:
             "radial-gradient(circle, rgba(255,75,208,0.45), transparent 60%)",
@@ -37,7 +37,7 @@ export function AuroraBackground() {
         }}
       />
       <div
-        className="absolute bottom-[-20%] left-1/3 h-[55vh] w-[55vh] rounded-full blur-[140px]"
+        className="aurora-blob absolute bottom-[-20%] left-1/3 h-[55vh] w-[55vh] rounded-full blur-[110px]"
         style={{
           background:
             "radial-gradient(circle, rgba(52,226,255,0.4), transparent 60%)",
@@ -49,7 +49,7 @@ export function AuroraBackground() {
 
       {/* Fine grid */}
       <div
-        className="absolute inset-0 opacity-[0.05]"
+        className="aurora-grid absolute inset-0 opacity-[0.05]"
         style={{
           backgroundImage:
             "linear-gradient(var(--aurora-grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--aurora-grid-line) 1px, transparent 1px)",

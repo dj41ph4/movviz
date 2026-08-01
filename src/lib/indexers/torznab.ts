@@ -6,6 +6,7 @@ import { loadResolverConfig } from "@/lib/resolver/store";
 import { titleSimilarity } from "@/lib/library/matching";
 import { parseRelease } from "@/lib/naming/parser";
 import { markRateLimited } from "./rateLimit";
+import { throttleIndexerRequest } from "./rateLimit";
 
 /**
  * Torznab / Newznab client. These share one query protocol (an RSS/XML API),
@@ -74,6 +75,9 @@ async function resolveCookies(ix: ConfiguredIndexer): Promise<string | null> {
 }
 
 async function fetchXml(url: string, ix: ConfiguredIndexer, timeoutMs = 12000) {
+  // Per-indexer per-minute quota (e.g. c411: 15 req/min) — wait for a free
+  // slot BEFORE sending, so the documented quota is never exceeded.
+  await throttleIndexerRequest(ix.baseUrl);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {

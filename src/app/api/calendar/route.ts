@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { encodeLibraryRef, resolveMovieStatus, type LibraryStatus, type LibrarySeries } from "@/lib/library/types";
-import { findAnimeVfLaunch } from "@/lib/metadata/animeVfCalendar";
+import { allAnimeVfLaunches } from "@/lib/metadata/animeVfCalendar";
+import { titleSimilarity } from "@/lib/library/matching";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,8 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  const allAnimeLaunches = await allAnimeVfLaunches();
+
   for (const series of loadSeries()) {
     if (!series.monitored) continue;
     for (const season of series.seasons) {
@@ -93,7 +96,16 @@ export async function GET(req: NextRequest) {
     // Informational only — no single grabbable file behind "the dub
     // launched", so libraryRef is null and the UI must not offer a quick
     // search action for this row.
-    const anime = await findAnimeVfLaunch(series.title);
+    const MATCH_THRESHOLD = 0.72;
+    let anime: typeof allAnimeLaunches[number] | null = null;
+    let bestScore = 0;
+    for (const l of allAnimeLaunches) {
+      const score = titleSimilarity(series.title, l.title);
+      if (score >= MATCH_THRESHOLD && score > bestScore) {
+        anime = l;
+        bestScore = score;
+      }
+    }
     if (anime && !anime.vostfrOnly) {
       entries.push({
         date: anime.launchDate,

@@ -13,7 +13,7 @@ export interface ChangelogEntry {
 }
 
 const FILE = path.join(process.cwd(), "CHANGELOG.md");
-const VERSION_HEADER = /^##\s+\[([\d.]+)\](?:\s+—\s+(.+))?/;
+const VERSION_HEADER = /^##\s+(?:v|\[)?([\d.]+)(?:\])?(?:\s+—\s+(.+))?/;
 
 /**
  * Pulls the "for humans" release notes for one version straight out of

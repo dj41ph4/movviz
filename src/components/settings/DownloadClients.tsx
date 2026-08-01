@@ -125,7 +125,7 @@ export function DownloadClients() {
               ) : type === "webtorrent" ? (
                 t("settings.clientStableLabel")
               ) : type === "libtorrent" ? (
-                <span className="flex items-center gap-1.5">libtorrent <span className="rounded bg-amber/20 px-1.5 py-0.5 text-[9px] font-bold text-amber">Alpha</span></span>
+                <span className="flex items-center gap-1.5">libtorrent <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold text-red-400">Expérimental</span></span>
               ) : (
                 t("settings.clientNativeLabel")
               )}
@@ -222,7 +222,7 @@ function InstanceCard({
           </p>
         </div>
         <span className="rounded-lg bg-black/30 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-ink-soft">
-          {inst.clientType === "native" ? t("settings.clientNativeLabel") : inst.clientType === "libtorrent" ? "libtorrent (Alpha)" : "WebTorrent"}
+          {inst.clientType === "native" ? t("settings.clientNativeLabel") : inst.clientType === "libtorrent" ? "libtorrent (Expérimental)" : "WebTorrent"}
         </span>
       </div>
 

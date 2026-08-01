@@ -8,9 +8,12 @@ import {
   renderSegment,
   VIDEO_EXT_RE,
 } from "../naming.mjs";
-import { WEB_CALLBACK_URL, TORRENT_CACHE_DIR, ENGINE_TOKEN } from "../config.mjs";
+import { WEB_CALLBACK_URL, ENGINE_TOKEN } from "../config.mjs";
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
+
+/** Règle produit : un torrent sans activité (0 octets reçus, 0 pairs) pendant 2 minutes passe "blocked". */
+const STALL_MS = 120_000;
 
 function fmtSize(bytes) {
   if (!bytes || bytes <= 0) return "0 B";
@@ -45,7 +48,6 @@ export class AbstractBackend {
     this.importedHistory = new Map();
     this.client = null;
     this.folderError = null;
-    this._stallTimers = new Map();
     this.cfg.logTag = this.constructor.name === "NativeTorrentBackend" ? "beta" : this.constructor.name === "LibtorrentBackend" ? "alpha" : "stable";
   }
 
@@ -105,8 +107,6 @@ export class AbstractBackend {
       removeMapping(this.cfg.torrentPort)
     ).catch(() => {});
     clearInterval(this._pollTimer);
-    for (const t of this._stallTimers.values()) clearTimeout(t);
-    this._stallTimers.clear();
     await this._clientDestroy();
   }
 
@@ -144,7 +144,11 @@ export class AbstractBackend {
       completedAt: null,
       userPaused: !!opts.paused,
       queued: false,
-      stalled: false,
+      stalled: !!opts.stalled,
+      stalledAt: opts.stalledAt ?? null,
+      dequeuedAt: opts.dequeuedAt ?? null,
+      lastActivityAt: null,
+      lastDownloaded: 0,
       priority: opts.priority ?? "medium",
       sequential: !!opts.sequential,
       completed: false,
@@ -159,8 +163,6 @@ export class AbstractBackend {
     });
 
     this._clientWireEvents(handle, handle.infoHash);
-
-    this._wireStallDetection(handle, handle.infoHash);
 
     if (opts.paused) Promise.resolve(this._clientPause(handle.infoHash)).catch(() => {});
     if (opts.sequential) this._clientSetSequential(handle.infoHash, true);
@@ -360,9 +362,14 @@ export class AbstractBackend {
     all.sort((a, b) => {
       const ma = this.meta.get(a.infoHash);
       const mb = this.meta.get(b.infoHash);
+      // Torrents without dequeuedAt (never stalled) go FIRST; recently
+      // unstalled ones are re-queued by their dequeuedAt — the most recent
+      // recovery goes to the END of the queue.
+      const da = ma?.dequeuedAt ?? 0;
+      const db = mb?.dequeuedAt ?? 0;
       const pa = PRIORITY_RANK[ma?.priority ?? "medium"] ?? 1;
       const pb = PRIORITY_RANK[mb?.priority ?? "medium"] ?? 1;
-      return pa - pb || Number(ma?.queued) - Number(mb?.queued) || (ma?.addedAt ?? 0) - (mb?.addedAt ?? 0);
+      return da - db || pa - pb || Number(ma?.queued) - Number(mb?.queued) || (ma?.addedAt ?? 0) - (mb?.addedAt ?? 0);
     });
     let slotsUsed = 0;
     for (const t of all) {
@@ -372,10 +379,10 @@ export class AbstractBackend {
       if (shouldRun) slotsUsed++;
       if (shouldRun && m?.queued) {
         m.queued = false;
-        this._clientResume(t.infoHash).catch(() => {});
+        Promise.resolve(this._clientResume(t.infoHash)).catch(() => {});
       } else if (!shouldRun && m && !m.queued) {
         m.queued = true;
-        this._clientPause(t.infoHash).catch(() => {});
+        Promise.resolve(this._clientPause(t.infoHash)).catch(() => {});
       }
     }
   }
@@ -400,6 +407,7 @@ export class AbstractBackend {
     for (const t of this._clientList()) {
       const m = this.meta.get(t.infoHash);
       if (m?.completed) continue;
+      this._checkStall(t);
       if (this._isDone(t) && !m?.finishing) {
         this.onComplete(t.infoHash).catch((e) =>
           console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] onComplete tick failed:`, e.message)
@@ -412,7 +420,15 @@ export class AbstractBackend {
 
   async remove(infoHash, deleteData) {
     const m = this.meta.get(infoHash);
-    if (!m) return false;
+    if (!m) {
+      // Completed/imported torrent — clean history entry (no aria2 download to stop)
+      if (this.importedHistory.has(infoHash)) {
+        this.importedHistory.delete(infoHash);
+        this.onChange();
+        return true;
+      }
+      return false;
+    }
     m.finishing = true;
     const snap = this._clientSnapshot(infoHash);
     await this._clientRemove(infoHash, deleteData).catch(() => {});
@@ -460,7 +476,13 @@ export class AbstractBackend {
 
   resume(infoHash) {
     const m = this.meta.get(infoHash);
-    if (m) m.userPaused = false;
+    if (m) {
+      m.userPaused = false;
+      m.stalled = false;
+      m.stalledAt = null;
+      m.dequeuedAt = null;
+      m.queued = false;
+    }
     return this._clientResume(infoHash);
   }
 
@@ -476,7 +498,24 @@ export class AbstractBackend {
 
   setPriority(infoHash, priority) {
     const m = this.meta.get(infoHash);
-    if (m) m.priority = priority;
+    if (m) {
+      m.priority = priority;
+      // Override manuel : remonte dans la file (efface la remise en dernier du
+      // recovery) et débloque un torrent stalled (le remet en course — il sera
+      // re-stallé 2 min plus tard s'il ne bouge toujours pas).
+      if (m.dequeuedAt) m.dequeuedAt = null;
+      if (m.stalled) {
+        m.stalled = false;
+        m.stalledAt = null;
+        // Réarme le compteur d'activité : le re-stall ne survient qu'après
+        // 2 min d'inactivité réelle, pas immédiatement au tick suivant.
+        m.lastActivityAt = Date.now();
+        if (m.queued) {
+          m.queued = false;
+          Promise.resolve(this._clientResume(infoHash)).catch(() => {});
+        }
+      }
+    }
     this._clientSetPriority(infoHash, priority);
     this.reconcileQueue();
     this.onChange();
@@ -496,7 +535,7 @@ export class AbstractBackend {
   summary(t, detail = false) {
     const m = this.meta.get(t.infoHash);
     const isSeeding = this._isDone(t) && !m?.completed;
-    const state = m?.completed ? "completed" : isSeeding ? "seeding" : m?.queued ? "queued" : m?.userPaused ? "paused" : "downloading";
+    const state = m?.completed ? "completed" : isSeeding ? "seeding" : m?.userPaused ? "paused" : m?.stalled ? "blocked" : m?.queued ? "queued" : "downloading";
     const base = {
       infoHash: t.infoHash,
       name: t.name ?? t.infoHash,
@@ -593,6 +632,9 @@ export class AbstractBackend {
         userPaused: m.userPaused,
         sequential: m.sequential,
         priority: m.priority,
+        stalled: m.stalled ?? false,
+        stalledAt: m.stalledAt ?? null,
+        dequeuedAt: m.dequeuedAt ?? null,
         paused: m.userPaused,
       });
     }
@@ -636,11 +678,7 @@ export class AbstractBackend {
     const availableFiles = snap.files.filter((f) => {
       if (f.selected === false) return false;
       if (!targetList) return true;
-      const info = parseRelease(f.name);
-      return targetList.some(
-        (t) => info.season === t.season && info.episode != null &&
-          (info.episode === t.episode || (info.episodeEnd != null && t.episode > info.episode && t.episode <= info.episodeEnd))
-      );
+      return targetList.some((t) => this._matchesEpisode(f, t));
     });
 
     if (!naming.enabled) {
@@ -708,7 +746,7 @@ export class AbstractBackend {
     });
 
     this.onChange();
-    if (m.libraryRef) {
+    if (m.libraryRef && movedFiles.length > 0) {
       m.movedFiles = movedFiles;
       const ok = await this._notifyLibrary(m.libraryRef, movedFiles, snap.infoHash);
       if (ok) {
@@ -717,6 +755,10 @@ export class AbstractBackend {
       } else {
         console.warn(`[engine:${this.cfg.id}][${this.cfg.logTag}]   bibliothèque injoignable — retry automatique dans ~15s`);
       }
+    }
+    // No files matched the episode targets — nothing to import, stop retrying.
+    if (movedFiles.length === 0 && m.libraryRef) {
+      m.completed = true;
     }
   }
 
@@ -893,28 +935,69 @@ export class AbstractBackend {
     return [...m.selectedFileIndices].every((i) => t.files[i]?.done);
   }
 
-  // ─── Stall detection ─────────────────────────────────────────────────────
+  // ─── Stall detection (règle produit : 2 min sans activité → "blocked") ─
 
-  _wireStallDetection(handle, infoHash) {
-    const check = () => {
-      const t = this._clientGet(infoHash);
-      if (!t || t.done) return;
-      const peers = t.numPeers ?? 0;
-      const speed = t.downloadSpeed ?? 0;
-      if (peers === 0 && speed === 0) {
-        const m = this.meta.get(infoHash);
-        if (m && !m.stalled) {
-          m.stalled = true;
-          this.reconcileQueue();
-        }
+  /**
+   * Règle produit : un torrent sans mouvement pendant 2 minutes passe en
+   * catégorie "blocked" — il ne consomme plus de slot dans la file (ne bloque
+   * plus les autres). S'il se débloque, il se remet EN DERNIER dans la file.
+   * Détection pilotée par tick() (5 s, tous backends — WT, aria2, rtorrent) :
+   * `lastActivityAt` est réarmé par construction dès qu'une activité reprend,
+   * ce qui couvre aussi le cycle stall → recovery → re-stall.
+   */
+  _checkStall(t) {
+    const m = this.meta.get(t.infoHash);
+    if (!m || m.completed || m.userPaused || m.finishing || this._isDone(t)) return;
+    const now = Date.now();
+    const speed = t.downloadSpeed ?? 0;
+    const peers = t.numPeers ?? 0;
+    const downloaded = t.downloaded ?? 0;
+    if (speed > 0 || peers > 0 || downloaded > (m.lastDownloaded ?? 0)) {
+      m.lastDownloaded = downloaded;
+      if (m.stalled) {
+        this._recoverFromStall(t.infoHash);
+        return;
       }
-    };
-    clearTimeout(this._stallTimers.get(infoHash));
-    this._stallTimers.set(infoHash, setTimeout(check, 300_000));
+      m.lastActivityAt = now;
+      return;
+    }
+    // En attente de slot (pausé par le moteur) → jamais "blocked" (faux positif).
+    if (m.queued) return;
+    if (!m.lastActivityAt) {
+      m.lastActivityAt = now;
+      return;
+    }
+    if (now - m.lastActivityAt >= STALL_MS && !m.stalled) {
+      m.stalled = true;
+      m.stalledAt = now;
+      m.queued = true; // ne consomme plus de slot
+      this.reconcileQueue();
+      this.onChange();
+    }
   }
 
-  _clearStallTimer(infoHash) {
-    clearTimeout(this._stallTimers.get(infoHash));
-    this._stallTimers.delete(infoHash);
+  /**
+   * Un torrent "blocked" a repris du téléchargement : il est remis EN DERNIER
+   * dans la file (dequeuedAt = clé de tri primaire, pause côté client, queued
+   * reste true — il ne reprend qu'après tous les autres torrents).
+   */
+  _recoverFromStall(infoHash) {
+    const m = this.meta.get(infoHash);
+    if (!m?.stalled) return;
+    m.stalled = false;
+    m.stalledAt = null;
+    m.dequeuedAt = Date.now();
+    m.queued = true;
+    m.lastActivityAt = Date.now();
+    // Le torrent débloqué est remis dans la file (queued=true) : tant qu'un
+    // slot est libre il reprend via reconcileQueue. La pause n'est posée que
+    // si maxActive > 0 — avec maxActive=0 reconcileQueue retourne tôt sans
+    // jamais reprendre un torrent pausé, une pause y créerait un blocage
+    // permanent.
+    if ((this.cfg.maxActive || 0) > 0) {
+      Promise.resolve(this._clientPause(infoHash)).catch(() => {});
+    }
+    this.reconcileQueue();
+    this.onChange();
   }
 }

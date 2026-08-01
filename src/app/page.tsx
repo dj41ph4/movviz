@@ -162,16 +162,18 @@ export default function DashboardPage() {
             )}
           </div>
         )}
-        <button
-          onClick={() => { setEditMode((v) => !v); setAddOpen(false); }}
-          className={cn(
-            "flex items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold transition-colors",
-            editMode ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"
-          )}
-        >
-          {editMode ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-          {editMode ? t("dashboard.done") : t("dashboard.edit")}
-        </button>
+        {layout.showStats && (
+          <button
+            onClick={() => { setEditMode((v) => !v); setAddOpen(false); }}
+            title={editMode ? t("dashboard.done") : t("dashboard.edit")}
+            className={cn(
+              "flex h-9 w-9 items-center justify-center rounded-xl transition-colors",
+              editMode ? "brand-gradient text-white" : "glass text-ink-dim hover:text-ink"
+            )}
+          >
+            {editMode ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+          </button>
+        )}
       </div>
 
       {layout.showStats && (

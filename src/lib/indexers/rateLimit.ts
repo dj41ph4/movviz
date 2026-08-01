@@ -13,6 +13,68 @@ const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes
 const g = globalThis as typeof globalThis & { __movvizRateLimit?: Map<string, number> };
 const limits: Map<string, number> = (g.__movvizRateLimit ??= new Map());
 
+/**
+ * Per-indexer request quotas (requests/minute), keyed by API hostname —
+ * private trackers document these and will 429 (or ban) past them. Applied
+ * BEFORE the request is sent, so the quota is never exceeded in the first
+ * place: the call waits for a free slot in the sliding window.
+ *
+ * C411 (https://c411.org): max 15 requests per minute.
+ */
+export const INDEXER_REQUEST_QUOTAS: Record<string, number> = {
+  "c411.org": 15,
+};
+
+interface QuotaState {
+  window: number[];
+}
+
+function quotaStateFor(hostname: string): QuotaState {
+  const q = g as typeof globalThis & { __movvizRequestQuotas?: Map<string, QuotaState> };
+  const quotas = (q.__movvizRequestQuotas ??= new Map());
+  let st = quotas.get(hostname);
+  if (!st) {
+    st = { window: [] };
+    quotas.set(hostname, st);
+  }
+  return st;
+}
+
+function hostnameOf(baseUrl: string): string {
+  try {
+    return new URL(baseUrl).hostname;
+  } catch {
+    return baseUrl;
+  }
+}
+
+function quotaFor(baseUrl: string): number {
+  return INDEXER_REQUEST_QUOTAS[hostnameOf(baseUrl)] ?? 0;
+}
+
+/**
+ * Throttle one outgoing request against the indexer's per-minute quota.
+ * Waits (async) until a slot is free in the 60s sliding window. No-op when
+ * the indexer has no configured quota.
+ */
+export async function throttleIndexerRequest(baseUrl: string): Promise<void> {
+  const max = quotaFor(baseUrl);
+  if (max <= 0) return;
+  const st = quotaStateFor(hostnameOf(baseUrl));
+  const now = Date.now();
+  const WINDOW_MS = 60_000;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    st.window = st.window.filter((t) => now - t < WINDOW_MS);
+    if (st.window.length < max) {
+      st.window.push(Date.now());
+      return;
+    }
+    const oldest = st.window[0];
+    await new Promise<void>((resolve) => setTimeout(resolve, Math.max(250, oldest + WINDOW_MS - Date.now())));
+  }
+}
+
 /** Mark an indexer as rate-limited (cooldown starts now + 10 min). */
 export function markRateLimited(indexerId: string) {
   limits.set(indexerId, Date.now() + COOLDOWN_MS);

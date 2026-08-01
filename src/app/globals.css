@@ -176,18 +176,30 @@
 .reduce-motion .animate-badge-pulse,
 .reduce-motion .animate-badge-pop,
 .reduce-motion .animate-shimmer,
+.reduce-motion .animate-shimmer-progress,
 .reduce-motion .animate-heartbeat,
-.reduce-motion .logo-ripple {
+.reduce-motion .animate-page-fade-in,
+.reduce-motion .logo-ripple,
+.reduce-motion .logo-halo,
+.reduce-motion .logo-glow-pulse {
   animation: none !important;
+}
+
+.reduce-motion .logo-halo-static {
+  animation: none !important;
+  filter: blur(12px);
+  opacity: 0.7;
 }
 
 .reduce-motion *,
 .reduce-motion *::before,
 .reduce-motion *::after {
   animation-duration: 0s !important;
+  animation-iteration-count: 1 !important;
   animation-delay: 0s !important;
   transition-duration: 0s !important;
   transition-delay: 0s !important;
+  scroll-behavior: auto !important;
 }
 
 @keyframes shimmer-progress {
@@ -447,15 +459,15 @@ body {
 
 .glass {
   background: color-mix(in oklab, var(--color-surface) 62%, transparent);
-  backdrop-filter: blur(20px) saturate(140%);
-  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid color-mix(in oklab, #fff 8%, transparent);
 }
 
 .glass-strong {
   background: color-mix(in oklab, var(--color-surface-2) 80%, transparent);
-  backdrop-filter: blur(28px) saturate(160%);
-  -webkit-backdrop-filter: blur(28px) saturate(160%);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
   border: 1px solid color-mix(in oklab, #fff 10%, transparent);
 }
 
@@ -601,4 +613,77 @@ body {
 /* One-time expanding rings behind the login logo, staggered for depth. */
 .logo-ripple {
   animation: logoRipple 2.8s ease-out infinite;
+}
+
+/* ============================================================
+   GPU-tier optimizations — .gpu-low / .gpu-medium on <html>
+   ============================================================ */
+
+/* Aurora: reduce blur progressively per tier */
+.gpu-ultralow .aurora-blob,
+.gpu-ultralow .aurora-grid {
+  display: none;
+}
+.gpu-medium .aurora-blob {
+  filter: blur(80px);
+}
+.gpu-low .aurora-blob {
+  filter: blur(40px);
+}
+
+/* Glass: reduce/remove expensive backdrop-filter per tier */
+.gpu-ultralow .glass,
+.gpu-ultralow .glass-strong {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--color-surface);
+}
+.gpu-medium .glass,
+.gpu-medium .glass-strong {
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+}
+.gpu-low .glass,
+.gpu-low .glass-strong {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--color-surface);
+}
+
+/* badgePulse/logoPulse: static glow on low-tier (no box-shadow paint) */
+.gpu-low .animate-badge-pulse {
+  animation: none !important;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 40%, transparent);
+}
+.gpu-low .logo-glow-pulse {
+  animation: none !important;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 45%, transparent),
+    0 0 18px -2px color-mix(in oklab, var(--color-magenta) 50%, transparent);
+}
+
+/* Shimmer: GPU-composited version using transform translateX instead of
+   background-position (paint → composite). Uses ::before pseudo-element
+   with width:200% and animates translateX. Same pattern as badge4kShimmer. */
+.shimmer-gpu {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-gpu::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 200%;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, #fff 8%, transparent) 40%,
+    color-mix(in oklab, #fff 8%, transparent) 55%,
+    transparent 75%
+  );
+  animation: shimmerGpu 2.5s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes shimmerGpu {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0%); }
 }

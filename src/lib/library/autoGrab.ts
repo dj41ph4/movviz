@@ -15,6 +15,9 @@ import { emitNotification } from "@/lib/notifications/store";
 import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createFailureRef } from "@/lib/activity/v2/store";
 import { isQualityUpgradesEnabled } from "@/lib/settings/qualityUpgrades";
+import { findUpgradeCandidates, grabUpgradeCandidate } from "@/lib/library/searchAndReplace";
+import { findEpisodeUpgradeCandidates, grabEpisodeUpgradeCandidate } from "@/lib/library/searchAndReplaceSeries";
+import { isUpgradeIgnored } from "@/lib/library/ignoredUpgrades";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
 import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
@@ -22,6 +25,7 @@ import { searchMovie, searchIndexer } from "@/lib/indexers/torznab";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
 import { movieHasReleased } from "@/lib/library/releaseSchedule";
+import { withSearchLock } from "@/lib/library/autoGrabSeries";
 
 const RESOLUTION_ORDER = ["480p", "720p", "1080p", "2160p"];
 const rank = (res: string | null) => (res ? RESOLUTION_ORDER.indexOf(res) : -1);
@@ -89,16 +93,40 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
  * Shared by the manual "search now" action and by auto-search on add.
  */
 export async function searchAndGrabMovie(movieId: string) {
-  const movie = getMovie(movieId);
-  if (!movie) return { error: "movie not found" as const };
+  // Serialized per movie + try/finally safety net: two concurrent searches of
+  // the same movie (bulk "search all missing" + scheduled retry) would each
+  // grab the same release, and any exception between the "searching" flip and
+  // its restore paths below would leave the movie stuck on "searching"
+  // forever (see the finally in the wrapper — the boot-time reconcile is the
+  // only other resumer, so this is the difference between a 1-line blip and
+  // days of "Recherche…").
+  return withSearchLock(`movie:${movieId}`, async () => {
+    const movie = getMovie(movieId);
+    if (!movie) return { error: "movie not found" as const };
+    updateMovie(movie.id, { status: "searching" });
+    try {
+      return await searchAndGrabMovieInner(movie);
+    } finally {
+      const fresh = getMovie(movieId);
+      if (fresh?.status === "searching") {
+        updateMovie(movieId, { status: "missing" });
+        recordSearchLog("warn", "search_movie.stale_search_restored", `${fresh.title} — remis à "manquant" (statut "recherche" laissé par une erreur en cours de recherche)`);
+      }
+    }
+  });
+}
 
+/**
+ * The actual search body of searchAndGrabMovie, extracted so the "searching"
+ * flip and its restore are always paired in the wrapper above — see the
+ * comment there for why the pairing matters.
+ */
+async function searchAndGrabMovieInner(movie: LibraryMovie) {
   const profile =
     DEFAULT_QUALITY_PROFILES.find((p) => p.id === movie.qualityProfileId) ??
     DEFAULT_QUALITY_PROFILES[0];
 
   const media = createMediaRef("movie", movie.id, movie.tmdbId, movie.title);
-
-  updateMovie(movie.id, { status: "searching" });
 
   const rules = loadReleaseRules();
   const tCache = performance.now();
@@ -370,6 +398,33 @@ export async function checkQualityUpgrades() {
   return { upgraded };
 }
 
+
+/**
+ * Auto-upgrade all eligible movies and episodes — run by the scheduler
+ * every 6 hours when autoUpgradeEnabled is true in releaseRules.
+ */
+export async function autoUpgradeAll(): Promise<{ movies: number; episodes: number }> {
+  const rules = loadReleaseRules();
+  if (!rules.autoUpgradeEnabled) return { movies: 0, episodes: 0 };
+
+  const candidates = await findUpgradeCandidates();
+  let movieCount = 0;
+  for (const c of candidates) {
+    if (c.movieId && isUpgradeIgnored(c.movieId)) continue;
+    await grabUpgradeCandidate(c.movieId!);
+    movieCount++;
+  }
+
+  const epCandidates = await findEpisodeUpgradeCandidates();
+  let epCount = 0;
+  for (const c of epCandidates) {
+    const result = await grabEpisodeUpgradeCandidate(c.seriesId, c.seasonNumber, c.episodeNumber);
+    if (result.ok) epCount++;
+  }
+
+  return { movies: movieCount, episodes: epCount };
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -431,12 +486,18 @@ export async function searchReleasedMissingMovies() {
  * hammering indexers on a huge library.
  */
 export async function searchMissingMovies(max = 100) {
-  const movies = loadMovies().filter((m) => m.monitored && m.status === "missing");
-  const batch = movies.slice(0, max);
+  const candidates = loadMovies().filter((m) => m.monitored && m.status === "missing");
+  // Randomize to avoid re-searching the same movies every pass — every run
+  // targets a different subset of the missing library.
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+  const batch = candidates.slice(0, max);
   const searched: string[] = [];
   for (const movie of batch) {
     await searchAndGrabMovie(movie.id);
     searched.push(movie.id);
   }
-  return { searched, total: movies.length };
+  return { searched, total: candidates.length };
 }

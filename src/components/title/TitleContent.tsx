@@ -15,12 +15,12 @@ import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
 import { BrandIcon } from "@/components/ui/BrandIcon";
 import { TagEditor } from "@/components/library/TagEditor";
-import { MediaBadges } from "@/components/library/MediaBadges";
+import { MediaBadges, buildMediaBadgeItems } from "@/components/library/MediaBadges";
 import { TrailerHeader, TrailerModalPlayer } from "@/components/media/TrailerHeader";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { reportIssue } from "@/lib/issues/store";
-import { VideoPlayer } from "@/components/player/VideoPlayer";
+import { VideoPlayer, PREBUFFER_SECONDS } from "@/components/player/VideoPlayer";
 import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
@@ -857,7 +857,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         style={{ contain: "paint" }}
       >
           <ErrorBoundary onError={(e) => reportIssue(`Trailer crash: ${e.message}`)} fallback={
-            backdrop ? <img src={backdrop} alt="" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-void" />
+            backdrop ? <img src={backdrop} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-void" />
           }>
             <TrailerHeader
               backdropUrl={backdrop}
@@ -909,6 +909,26 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
             )}
             <h1 className="max-w-2xl text-3xl font-black tracking-tight text-white drop-shadow-lg sm:text-5xl">
               {detail.title}
+              {detail.year ? (
+                <span className="ml-2 inline-block align-baseline font-normal text-ink-dim text-lg sm:text-xl">
+                  {detail.year}
+                </span>
+              ) : null}
+              {libraryMatch?.file?.hdr ? (
+                <span className="ml-2 inline-flex items-center gap-1 align-middle">
+                  {buildMediaBadgeItems(
+                    {
+                      hdr: libraryMatch.file.hdr,
+                      resolution: null,
+                      videoCodec: null,
+                      audioCodec: null,
+                      source: null,
+                      language: null,
+                    },
+                    "surface",
+                  )}
+                </span>
+              ) : null}
             </h1>
             <div className="flex flex-wrap items-center gap-3 text-sm text-white/80">
               <span className="flex items-center gap-1 font-semibold text-amber">
@@ -956,7 +976,16 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 {detail.tagline}
               </p>
             )}
-
+            {libraryMatch?.file && (
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <MediaBadges
+                  file={libraryMatch.file}
+                  plexMediaInfo={libraryMatch?.plexMediaInfo}
+                  className="relative static"
+                  variant="surface"
+                />
+              </div>
+            )}
             {/* Action row */}
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {!inLibrary ? (
@@ -1093,20 +1122,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[1fr_260px]">
         {/* ── MAIN COLUMN ────────────────────────────────────────────── */}
         <div className="min-w-0 space-y-10">
-          {/* Synopsis + quality badges, right below the hero — same spot
-              Netflix puts the overview under the video/actions overlay. */}
-          <div className="space-y-3">
+          <div>
             <p className="max-w-3xl text-sm text-ink-soft">
               {detail.overview || t("title.noSynopsis")}
             </p>
-            {type === "movie" && (
-              <MediaBadges
-                file={libraryMatch?.file}
-                plexMediaInfo={libraryMatch?.plexMediaInfo}
-                className="relative static"
-                variant="surface"
-              />
-            )}
           </div>
 
           {/* ── Cast ──────────────────────────────────────────────────── */}
@@ -1410,6 +1429,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           title={detail?.title ?? ""}
           onClose={() => setPlayRatingKey(null)}
           useTranscode={betaPlayer}
+          prebufferSeconds={PREBUFFER_SECONDS}
         />
       )}
     </>

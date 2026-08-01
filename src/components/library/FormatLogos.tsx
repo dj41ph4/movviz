@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
@@ -25,11 +26,57 @@ function BaseBadge({ className, children }: LogoProps & { children: React.ReactN
   );
 }
 
+/* ───────────── 4K ULTRA PREMIUM — animated brand-color badge ─────────────
+ * Three animation layers running simultaneously, tuned to never clash:
+ *
+ *   Layer 1 — badge background  | CSS class `badge-4k-shimmer`
+ *     A slow, dark, double-period gradient traveling on an absolutely
+ *     positioned ::before pseudo-element, clipped to the pill shape.
+ *     GPU-composited via translateX (not background-position), so the
+ *     6 s loop is stutter‑free even under main‑thread load.
+ *
+ *   Layer 2 — border + glow      | Framer Motion
+ *     The pill's border color and an outer box-shadow pulse cycle
+ *     through brand → cyan → magenta → brand‑2 in a 5.5 s easeInOut
+ *     sine‑like loop. The glow remains tiny (6–8 px) on purpose — it
+ *     whispers "premium" instead of shouting.
+ *
+ *   Layer 3 — SVG text fill      | SMIL <animateTransform> inside <linearGradient>
+ *     A 200 %‑wide gradient carrying the full brand palette written
+ *     twice back‑to‑back (0–50 % = one period, 50–100 % = identical
+ *     repeat).  The gradient is translated left by exactly one text‑
+ *     width (objectBoundingBox unit‑1) over 4.5 s, then jumps back to
+ *     zero — because the first and last stops are identical (#eef1ff),
+ *     the jump is invisible and the flow appears continuous forever.
+ *
+ * Each SVG on the page gets a unique gradient id (React useId) so
+ * multiple badges on the same poster row never share a definition.
+ * ─────────────────────────────────────────────────────────────────────── */
+
 export function Logo4K({ className }: LogoProps) {
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const gradientId = `g4k-${uid}`;
+
   return (
-    <BaseBadge className={cn("badge-4k-shimmer", className)}>
-      <svg viewBox="0 0 36 21" className="relative z-10 h-full w-auto" aria-label="4K">
-        <text x="0" y="17" fontFamily="Arial,sans-serif" fontSize="18" fontWeight="900" fill="#fff">
+    <BaseBadge className={cn("px-1.5", className)}>
+      <svg viewBox="0 0 24 21" className="h-full w-auto" aria-label="4K">
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="2" y2="0" gradientUnits="objectBoundingBox">
+            <stop offset="0%"      stopColor="#eef1ff" />
+            <stop offset="10%"     stopColor="#a06bff" />
+            <stop offset="22.5%"   stopColor="#ff4bd0" />
+            <stop offset="35%"     stopColor="#34e2ff" />
+            <stop offset="47.5%"   stopColor="#c04bff" />
+            <stop offset="50%"     stopColor="#eef1ff" />
+            <stop offset="60%"     stopColor="#a06bff" />
+            <stop offset="72.5%"   stopColor="#ff4bd0" />
+            <stop offset="85%"     stopColor="#34e2ff" />
+            <stop offset="97.5%"   stopColor="#c04bff" />
+            <stop offset="100%"    stopColor="#eef1ff" />
+            <animateTransform attributeName="gradientTransform" type="translate" from="0 0" to="-1 0" dur="4.5s" repeatCount="indefinite" />
+          </linearGradient>
+        </defs>
+        <text x="12" y="17" textAnchor="middle" fontFamily="Arial,sans-serif" fontSize="16" fontWeight="900" fill={`url(#${gradientId})`}>
           4K
         </text>
       </svg>
@@ -97,6 +144,30 @@ export function LogoTrueHD({ className }: LogoProps) {
       <svg viewBox="0 0 62 21" className="h-full w-auto" aria-label="TrueHD">
         <text x="0" y="16" fontFamily="Arial,sans-serif" fontSize="12" fontWeight="800" fill="#fff">
           TrueHD
+        </text>
+      </svg>
+    </BaseBadge>
+  );
+}
+
+export function LogoFullHD({ className }: LogoProps) {
+  return (
+    <BaseBadge className={className}>
+      <svg viewBox="0 0 34 21" className="relative z-10 h-full w-auto" aria-label="Full HD">
+        <text x="0" y="17" fontFamily="Arial,sans-serif" fontSize="14" fontWeight="900" fill="#fff">
+          FHD
+        </text>
+      </svg>
+    </BaseBadge>
+  );
+}
+
+export function LogoHD({ className }: LogoProps) {
+  return (
+    <BaseBadge className={cn("px-2", className)}>
+      <svg viewBox="0 0 22 21" className="relative z-10 h-full w-auto" aria-label="HD">
+        <text x="0" y="17" fontFamily="Arial,sans-serif" fontSize="14" fontWeight="900" fill="#fff">
+          HD
         </text>
       </svg>
     </BaseBadge>

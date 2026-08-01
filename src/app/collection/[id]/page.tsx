@@ -59,7 +59,7 @@ export default function CollectionPage() {
       {backdrop && (
         <div className="relative -mx-4 mb-6 h-[220px] overflow-hidden sm:-mx-5 md:-mx-8 md:h-[300px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={backdrop} alt={data.name} className="h-full w-full object-cover" />
+          <img src={backdrop} alt={data.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-abyss/40 to-transparent" />
         </div>
       )}

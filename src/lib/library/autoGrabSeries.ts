@@ -19,7 +19,6 @@ import { emitNotification } from "@/lib/notifications/store";
 import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createFailureRef } from "@/lib/activity/v2/store";
 import { getTvdbEpisodesFor, groupTvdbEpisodesBySeason, tvdbConfigured, type TvdbEpisode } from "@/lib/metadata/tvdb";
-import { loadTvdbConfig } from "@/lib/metadata/tvdbStore";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
 import { episodeHasAired } from "@/lib/library/releaseSchedule";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
@@ -648,13 +647,80 @@ export async function searchAndGrabEpisode(
 
   setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "searching" });
 
+  // try/finally safety net: any exception between the flip and the restore
+  // paths below would leave the episode "searching" forever (see
+  // restoreStaleEpisodeSearch). A successful grab already moved it to
+  // "downloading" — the finally only restores what is STILL "searching".
+  try {
+    return await searchAndGrabEpisodeCascade(series, seriesId, seasonNumber, episodeNumber, profile, media, missingEpisodeNumbers, options);
+  } finally {
+    restoreStaleEpisodeSearch(seriesId, seasonNumber, episodeNumber);
+  }
+}
+
+/**
+ * The actual search cascade of searchAndGrabEpisode, extracted so the
+ * "searching" flip above is always protected by the finally — see
+ * restoreStaleEpisodeSearch for why that matters.
+ */
+async function searchAndGrabEpisodeCascade(
+  series: LibrarySeries,
+  seriesId: string,
+  seasonNumber: number,
+  episodeNumber: number,
+  profile: ReturnType<typeof profileFor>,
+  media: ReturnType<typeof createMediaRef>,
+  missingEpisodeNumbers: number[],
+  options?: { skipPackRetry?: boolean }
+) {
+  // RÈGLE ABSOLUE — cascade stricte : intégrale d'abord, sinon saison, sinon
+  // épisode seul. skipPackRetry (posé par les boucles batch) signifie que
+  // l'intégrale ET la saison ont déjà été cherchées et épuisées pour cette
+  // série dans ce même run → on ne cherche que l'épisode seul.
+  if (!options?.skipPackRetry) {
+    // Intégrale d'abord — couvre toute la série d'un coup quand elle existe.
+    const seriesPack = await tryGrabSeriesPack(series, profile);
+    if (seriesPack) {
+      setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+      logActivity("grabbed", "system", `${series.title} — ${seasonNumber}x${String(episodeNumber).padStart(2, "0")} (via intégrale)`, `/title/series/${series.tmdbId}`, {
+        libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
+        releaseTitle: seriesPack.release.title,
+        indexer: seriesPack.release.indexerId,
+        infoHash: seriesPack.torrent.infoHash,
+      });
+      return { ok: true as const, release: seriesPack.release, torrent: seriesPack.torrent };
+    }
+
+    await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+
+    // Pas d'intégrale — un pack de saison vaut le coup : il amène aussi tous
+    // les autres épisodes manquants de la saison.
+    const pack = await tryGrabSeasonPack(series, seasonNumber, profile, missingEpisodeNumbers);
+    if (pack) {
+      setEpisodesStatus(series, seasonNumber, missingEpisodeNumbers, { status: "downloading", activeInfoHash: pack.torrent.infoHash });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+      logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (${missingEpisodeNumbers.length} ép., via ${seasonNumber}x${String(episodeNumber).padStart(2, "0")})`, `/title/series/${series.tmdbId}`, {
+        libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
+        releaseTitle: pack.release.title,
+        indexer: pack.release.indexerId,
+        infoHash: pack.torrent.infoHash,
+      });
+      return { ok: true as const, release: pack.release, torrent: pack.torrent };
+    }
+
+    await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+  }
+
+  // Ni intégrale ni saison — l'épisode seul, en dernier.
   const single = await grabRelease(series, seasonNumber, episodeNumber, profile, false);
   if (single.ok) {
     const sent = await sendToEngine(
       single.release,
       "series",
       encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
-      series.title
+      series.title,
+      { season: seasonNumber, episode: episodeNumber }
     );
     if ("error" in sent) {
       setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "missing" });
@@ -678,67 +744,6 @@ export async function searchAndGrabEpisode(
     return { ok: true as const, release: single.release, torrent: sent.torrent };
   }
 
-  // When called from searchAndGrabSeason's per-episode loop, the season and
-  // series pack were already searched for ONCE, right before that loop
-  // started, and came up empty — nothing about the cache or indexer
-  // availability changes between one episode and the next, so redoing both
-  // searches again for every single missing episode is pure waste. Measured
-  // live on shows with 40-75+ missing episodes and no pack (old sitcoms):
-  // this redundancy, combined with the pacing pauses below (needed for
-  // direct calls, where this IS the first attempt), turned a single show
-  // into hours of repeated, guaranteed-empty searches. Skipped here; still
-  // run for a standalone single-episode search (skipPackRetry unset).
-  if (options?.skipPackRetry) {
-    setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "missing" });
-    logActivityV2({
-      kind: "failed",
-      media,
-      actor: "system",
-      failure: createFailureRef(
-        single.error === "no_indexers" ? "no_indexers" : "no_release_found",
-        `Aucune release exploitable trouvée pour cet épisode (pack de saison et intégrale déjà écartés pour cette série). ${describeGrabFailure(single)}`
-      ),
-    });
-    return single;
-  }
-
-  // Same real pause between fallback stages as searchAndGrabSeason — this
-  // function has its own 3-stage cascade (episode, then season pack, then
-  // series pack) that was equally unpaced.
-  await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
-
-  // No standalone release — a season pack is worth grabbing every other
-  // missing episode of the season from too.
-  const pack = await tryGrabSeasonPack(series, seasonNumber, profile, missingEpisodeNumbers);
-  if (pack) {
-    setEpisodesStatus(series, seasonNumber, missingEpisodeNumbers, { status: "downloading", activeInfoHash: pack.torrent.infoHash });
-    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
-    logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (${missingEpisodeNumbers.length} ép., via ${seasonNumber}x${String(episodeNumber).padStart(2, "0")})`, `/title/series/${series.tmdbId}`, {
-      libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
-      releaseTitle: pack.release.title,
-      indexer: pack.release.indexerId,
-      infoHash: pack.torrent.infoHash,
-    });
-    return { ok: true as const, release: pack.release, torrent: pack.torrent };
-  }
-
-  await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
-
-  // No season pack either — try a complete-series pack, extracting every
-  // missing episode across the whole show while it's being pulled anyway.
-  const seriesPack = await tryGrabSeriesPack(series, profile);
-  if (seriesPack) {
-    setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
-    logActivity("grabbed", "system", `${series.title} — ${seasonNumber}x${String(episodeNumber).padStart(2, "0")} (via intégrale)`, `/title/series/${series.tmdbId}`, {
-      libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
-      releaseTitle: seriesPack.release.title,
-      indexer: seriesPack.release.indexerId,
-      infoHash: seriesPack.torrent.infoHash,
-    });
-    return { ok: true as const, release: seriesPack.release, torrent: seriesPack.torrent };
-  }
-
   setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "missing" });
   logActivityV2({
     kind: "failed",
@@ -746,10 +751,37 @@ export async function searchAndGrabEpisode(
     actor: "system",
     failure: createFailureRef(
       single.error === "no_indexers" ? "no_indexers" : "no_release_found",
-      `Aucune release exploitable trouvée, ni pour l'épisode seul, ni pour un pack de saison ou une intégrale. ${describeGrabFailure(single)}`
+      options?.skipPackRetry
+        ? `Aucune release exploitable trouvée pour cet épisode (pack de saison et intégrale déjà écartés pour cette série). ${describeGrabFailure(single)}`
+        : `Aucune release exploitable trouvée, ni pour une intégrale, ni pour un pack de saison, ni pour l'épisode seul. ${describeGrabFailure(single)}`
     ),
   });
   return single;
+}
+
+/**
+ * try/finally safety net for the "searching" flip: whatever throws between
+ * the flip and the restore paths (worker-pool crash, indexer timeout,
+ * engine outage), the episode must come back to "missing". A status left
+ * "searching" has no resumer anywhere except the boot-time
+ * reconcileStaleSearches — confirmed live: a bulk search hit by an error
+ * left 13 episodes of Les Experts stuck on "Recherche…" for days.
+ * Only restores if the episode is STILL "searching" — a grab that
+ * succeeded, or a concurrent search that progressed it, keeps its status.
+ */
+function restoreStaleEpisodeSearch(seriesId: string, seasonNumber: number, episodeNumber: number) {
+  const fresh = getSeries(seriesId);
+  if (!fresh) return;
+  const ep = fresh.seasons
+    .find((s) => s.seasonNumber === seasonNumber)
+    ?.episodes.find((e) => e.episodeNumber === episodeNumber);
+  if (!ep || ep.status !== "searching") return;
+  setEpisodeStatus(fresh, seasonNumber, episodeNumber, { status: "missing" });
+  recordSearchLog(
+    "warn",
+    "grab_episode.stale_search_restored",
+    `${fresh.title} S${seasonNumber}E${String(episodeNumber).padStart(2, "0")} — remis à "manquant" (statut "recherche" laissé par une erreur en cours de recherche)`
+  );
 }
 
 /**
@@ -783,6 +815,42 @@ async function tryGrabSeasonPackImpl(
 }
 
 /**
+ * Serializes every search that touches one series or movie across the whole
+ * process. Bulk "search all missing", scheduled retries and manual buttons
+ * all run as separate queue jobs with up to MAX_CONCURRENT in flight, so
+ * without this two jobs can process the same series at the same time — each
+ * running its own intégrale/season-pack search chain (measured live: 3
+ * identical complete-series searches of one show at once, each 12+ HTTP
+ * requests per indexer). Later callers wait for the earlier one, then
+ * re-read fresh state: by then the first pass has usually grabbed
+ * everything, so they fall out through the "nothing missing anymore" early
+ * returns instead of re-searching.
+ *
+ * Anchored on globalThis (AGENTS.md rule) — Next.js bundles API routes
+ * separately, so a module-level Map wouldn't be shared between the route
+ * bundle and the scheduler bundle.
+ */
+const gSearchLocks = globalThis as typeof globalThis & {
+  __movvizSearchLock?: Map<string, Promise<unknown>>;
+};
+
+export function withSearchLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const locks = (gSearchLocks.__movvizSearchLock ??= new Map());
+  const prev = locks.get(key) ?? Promise.resolve();
+  const run = prev.then(fn, fn);
+  const chain = run
+    .then(
+      () => undefined,
+      () => undefined
+    )
+    .finally(() => {
+      if (locks.get(key) === chain) locks.delete(key);
+    });
+  locks.set(key, chain);
+  return run;
+}
+
+/**
  * Two missing episodes of the same season searched around the same time
  * (e.g. one click per episode, or a single click racing the bulk "search
  * missing" job) would otherwise each run their own indexer search and grab
@@ -790,8 +858,19 @@ async function tryGrabSeasonPackImpl(
  * content. In-flight calls for the same series+season share one promise
  * instead: the second caller waits for the first's result and reuses it
  * rather than starting a redundant grab.
+ *
+ * Anchored on globalThis (AGENTS.md rule) — Next.js bundles API routes
+ * separately, so a module-level Map wouldn't be shared between the route
+ * bundle and the scheduler bundle.
  */
-const seasonPackInFlight = new Map<string, ReturnType<typeof tryGrabSeasonPackImpl>>();
+const gAutoGrab = globalThis as typeof globalThis & {
+  __movvizSeasonPackInFlight?: Map<string, ReturnType<typeof tryGrabSeasonPackImpl>>;
+  __movvizSeriesPackInFlight?: Map<string, ReturnType<typeof tryGrabSeriesPackImpl>>;
+};
+
+function seasonPackInFlight() {
+  return (gAutoGrab.__movvizSeasonPackInFlight ??= new Map());
+}
 
 function tryGrabSeasonPack(
   series: LibrarySeries,
@@ -800,12 +879,12 @@ function tryGrabSeasonPack(
   missingEpisodeNumbers: number[]
 ) {
   const key = `${series.id}-${seasonNumber}`;
-  const existing = seasonPackInFlight.get(key);
+  const existing = seasonPackInFlight().get(key);
   if (existing) return existing;
   const p = tryGrabSeasonPackImpl(series, seasonNumber, profile, missingEpisodeNumbers).finally(() => {
-    seasonPackInFlight.delete(key);
+    seasonPackInFlight().delete(key);
   });
-  seasonPackInFlight.set(key, p);
+  seasonPackInFlight().set(key, p);
   return p;
 }
 
@@ -833,6 +912,64 @@ export async function searchAndGrabSeason(
 
   setEpisodesStatus(series, seasonNumber, missing.map((e) => e.episodeNumber), { status: "searching" });
 
+  // try/finally safety net — same contract as searchAndGrabEpisode: the
+  // season-wide flip must come back to "missing" no matter what throws
+  // inside the cascade (the per-episode fallback restores each episode it
+  // touches, but any exception before that would leave the whole season
+  // stuck on "searching" — see restoreStaleSeasonSearch).
+  try {
+    return await searchAndGrabSeasonCascade(series, seriesId, seasonNumber, profile, missing, options);
+  } finally {
+    restoreStaleSeasonSearch(seriesId, seasonNumber, missing.map((e) => e.episodeNumber));
+  }
+}
+
+/**
+ * The actual search cascade of searchAndGrabSeason, extracted so the
+ * season-wide "searching" flip above is always protected by the finally —
+ * see restoreStaleSeasonSearch.
+ */
+async function searchAndGrabSeasonCascade(
+  series: LibrarySeries,
+  seriesId: string,
+  seasonNumber: number,
+  profile: ReturnType<typeof profileFor>,
+  missing: LibraryEpisode[],
+  options?: { skipSeriesPackRetry?: boolean }
+) {
+  // RÈGLE ABSOLUE — intégrale d'abord : si elle existe, elle couvre toute la
+  // série d'un coup. Skipped when a prior season in this same searchAndGrabSeries
+  // run already searched for this exact pack and found nothing — whether a
+  // complete-series pack exists can't change between one season and the next
+  // in the same run, so re-searching it per season (measured live: 6
+  // identical, empty direct searches for one 8-season show) is pure wasted
+  // indexer load.
+  if (!options?.skipSeriesPackRetry) {
+    const seriesPack = await tryGrabSeriesPack(series, profile);
+    if (seriesPack) {
+      setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+      logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (via intégrale)`, `/title/series/${series.tmdbId}`, {
+        libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
+        releaseTitle: seriesPack.release.title,
+        indexer: seriesPack.release.indexerId,
+        infoHash: seriesPack.torrent.infoHash,
+      });
+      return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
+    }
+
+    // Real pause before the next fallback stage — confirmed live as still
+    // necessary even with the per-item pacing above: one series with no cache
+    // hit chains series-pack, season-pack, then per-episode attempts, each
+    // querying every configured indexer in parallel with no gap between
+    // stages. That's several near-simultaneous request bursts for a SINGLE
+    // series, which alone was enough to trip an indexer's rate limit (a
+    // second series barely added to it before the 429 hit).
+    await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+  }
+
+  // Pas d'intégrale — le pack de saison, qui amène aussi tous les autres
+  // épisodes manquants de la saison.
   const pack = await tryGrabSeasonPack(series, seasonNumber, profile, missing.map((e) => e.episodeNumber));
   if (pack) {
     setEpisodesStatus(series, seasonNumber, missing.map((e) => e.episodeNumber), {
@@ -849,47 +986,13 @@ export async function searchAndGrabSeason(
     return { ok: true as const, mode: "pack" as const, release: pack.release, torrent: pack.torrent };
   }
 
-  // Real pause before the next fallback stage — confirmed live as still
-  // necessary even with the per-item pacing above: one series with no cache
-  // hit chains season-pack, series-pack, then per-episode attempts, each
-  // querying every configured indexer in parallel with no gap between
-  // stages. That's several near-simultaneous request bursts for a SINGLE
-  // series, which alone was enough to trip an indexer's rate limit (a
-  // second series barely added to it before the 429 hit).
+  // Real pause before moving to the per-episode fallback stage.
   await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
 
-  // No season pack — try to find a complete-series pack and extract this
-  // season from it. Only the targeted episodes' files get selected. Skipped
-  // when a prior season in this same searchAndGrabSeries run already searched
-  // for this exact pack and found nothing — whether a complete-series pack
-  // exists can't change between one season and the next in the same run, so
-  // re-searching it per season (measured live: 6 identical, empty direct
-  // searches for one 8-season show) is pure wasted indexer load.
-  if (!options?.skipSeriesPackRetry) {
-    const seriesPack = await tryGrabSeriesPack(series, profile);
-    if (seriesPack) {
-      setEpisodesStatus(series, seasonNumber, missing.map((e) => e.episodeNumber), {
-        status: "downloading",
-        activeInfoHash: seriesPack.torrent.infoHash,
-      });
-      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
-      logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (via intégrale)`, `/title/series/${series.tmdbId}`, {
-        libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
-        releaseTitle: seriesPack.release.title,
-        indexer: seriesPack.release.indexerId,
-        infoHash: seriesPack.torrent.infoHash,
-      });
-      return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
-    }
-
-    // Same real pause before moving to the per-episode fallback stage.
-    await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
-  }
-
-  // No pack at all — grab episodes one at a time. skipPackRetry: true since
-  // the season pack and series pack were both just searched for, right
-  // above, for this exact season — re-searching either one again for every
-  // single missing episode found nothing new (same cache, same indexer
+  // Ni intégrale ni pack de saison — les épisodes un par un. skipPackRetry:
+  // true since the season pack and series pack were both just searched for,
+  // right above, for this exact season — re-searching either one again for
+  // every single missing episode found nothing new (same cache, same indexer
   // availability) while multiplying both the request count and the pacing
   // delays by 3x per episode. Confirmed live: a show with dozens of missing
   // episodes took hours under that redundancy.
@@ -902,16 +1005,39 @@ export async function searchAndGrabSeason(
 }
 
 /**
+ * try/finally safety net for the season-wide "searching" flip — restores
+ * every episode of the season that is still "searching" (i.e. not grabbed,
+ * not restored by the per-episode fallback) when the cascade threw.
+ */
+function restoreStaleSeasonSearch(seriesId: string, seasonNumber: number, episodeNumbers: number[]) {
+  const fresh = getSeries(seriesId);
+  if (!fresh) return;
+  const stillSearching = fresh.seasons
+    .find((s) => s.seasonNumber === seasonNumber)
+    ?.episodes.filter((e) => episodeNumbers.includes(e.episodeNumber) && e.status === "searching");
+  if (!stillSearching || stillSearching.length === 0) return;
+  setEpisodesStatus(fresh, seasonNumber, stillSearching.map((e) => e.episodeNumber), { status: "missing" });
+  recordSearchLog(
+    "warn",
+    "grab_season.stale_search_restored",
+    `${fresh.title} — saison ${seasonNumber} : ${stillSearching.length} épisode(s) remis à "manquant" (statut "recherche" laissé par une erreur en cours de recherche)`
+  );
+}
+
+/**
  * Collect every { season, episode } that is monitored + missing across the
  * entire series — used when a complete-series pack is grabbed so the engine
- * knows which files to select.
+ * knows which files to select. "searching" episodes are included: a season
+ * search flips its whole season to "searching" BEFORE the series pack is
+ * attempted, so excluding them would silently drop the current season from
+ * the engine's file selection.
  */
 function collectMissingTargets(series: LibrarySeries): { season: number; episode: number }[] {
   const targets: { season: number; episode: number }[] = [];
   for (const season of series.seasons) {
     if (!season.monitored) continue;
     for (const ep of season.episodes) {
-      if (ep.monitored && ep.status === "missing") targets.push({ season: season.seasonNumber, episode: ep.episodeNumber });
+      if (ep.monitored && (ep.status === "missing" || ep.status === "searching")) targets.push({ season: season.seasonNumber, episode: ep.episodeNumber });
     }
   }
   return targets;
@@ -981,10 +1107,20 @@ function isCompleteSeriesPackTitle(rawTitle: string, seasonCount: number, target
  * Try to grab a complete-series pack (single torrent with every season/episode
  * of the show). When found, sends it to the engine with episodeTargets so only
  * the missing episodes' files land on disk.
+ *
+ * Deduped in-flight (same contract as season packs): concurrent calls for the
+ * same series share one promise so the same integral pack can't be grabbed
+ * twice by racing runs (bulk search + scheduled task + manual button).
+ * `seasonFilter` restricts the pack to the given seasons (used by bulk
+ * searches respecting a season budget — the engine only selects those files).
  */
-async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<typeof profileFor>) {
+async function tryGrabSeriesPackImpl(
+  series: LibrarySeries,
+  profile: ReturnType<typeof profileFor>,
+  seasonFilter?: Set<number>
+) {
   const seasonCount = series.seasons.filter((s) => s.seasonNumber > 0 && s.monitored).length;
-  const targets = collectMissingTargets(series);
+  const targets = collectMissingTargets(series).filter((t) => !seasonFilter || seasonFilter.has(t.season));
   if (targets.length === 0) return null;
   const targetSeasons = [...new Set(targets.map((t) => t.season))];
 
@@ -1087,56 +1223,92 @@ async function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<type
 }
 
 /**
- * Search + grab a complete-series pack that covers every monitored season.
- * Falls back to searching per-season when no pack is found.
+ * Deduped wrapper around tryGrabSeriesPackImpl — concurrent calls for the
+ * same series share one promise (same contract as season packs), so a
+ * complete-series pack can't be searched/grabbed twice by racing runs
+ * (bulk "search missing" + scheduled tasks + manual buttons).
  */
-export async function searchAndGrabCompleteSeries(seriesId: string) {
-  const series = getSeries(seriesId);
-  if (!series) return { error: "series not found" as const };
-  const profile = profileFor(series.qualityProfileId);
-
-  const targets = collectMissingTargets(series);
-  if (targets.length === 0) return { ok: true as const, skipped: "nothing missing" };
-
-  const seriesPack = await tryGrabSeriesPack(series, profile);
-  if (seriesPack) {
-    setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
-    logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
-      libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
-      releaseTitle: seriesPack.release.title,
-      indexer: seriesPack.release.indexerId,
-      infoHash: seriesPack.torrent.infoHash,
-    });
-    return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
-  }
-
-  // No complete pack — search each season individually
-  const results = [];
-  for (const season of series.seasons) {
-    if (!season.monitored) continue;
-    const missing = season.episodes.filter((e) => e.monitored && e.status === "missing");
-    if (missing.length === 0) continue;
-    results.push(await searchAndGrabSeason(seriesId, season.seasonNumber));
-  }
-  return { ok: true as const, mode: "per_season" as const, results };
+function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<typeof profileFor>, seasonFilter?: Set<number>) {
+  const key = `${series.id}|${seasonFilter ? [...seasonFilter].sort((a, b) => a - b).join(",") : "*"}`;
+  const existing = (gAutoGrab.__movvizSeriesPackInFlight ??= new Map()).get(key);
+  if (existing) return existing;
+  const p = tryGrabSeriesPackImpl(series, profile, seasonFilter).finally(() => {
+    gAutoGrab.__movvizSeriesPackInFlight?.delete(key);
+  });
+  (gAutoGrab.__movvizSeriesPackInFlight ??= new Map()).set(key, p);
+  return p;
 }
 
-/** Below this fraction of monitored episodes actually available, a complete-series pack is tried before going season by season — cheaper than pulling a dozen near-empty season packs for a show nobody's really started yet. */
-const LOW_COMPLETION_SERIES_PACK_THRESHOLD = 0.1;
+/**
+ * Search + grab a complete-series pack that covers every monitored season.
+ * Falls back to searching per-season when no pack is found. Serialized per
+ * series via withSearchLock, like every other series-level search entry
+ * point.
+ */
+export async function searchAndGrabCompleteSeries(seriesId: string) {
+  return withSearchLock(`series:${seriesId}`, async () => {
+    const series = getSeries(seriesId);
+    if (!series) return { error: "series not found" as const };
+    const profile = profileFor(series.qualityProfileId);
 
-/** Search every monitored season that still has missing episodes — the "search whole series" / "rechercher les manquants" action. */
-export async function searchAndGrabSeries(seriesId: string) {
-  const series = getSeries(seriesId);
-  if (!series) return { error: "series not found" as const };
-  const profile = profileFor(series.qualityProfileId);
+    const targets = collectMissingTargets(series);
+    if (targets.length === 0) return { ok: true as const, skipped: "nothing missing" };
 
-  const monitoredEpisodes = series.seasons.filter((s) => s.monitored).flatMap((s) => s.episodes.filter((e) => e.monitored));
-  const missingCount = monitoredEpisodes.filter((e) => e.status === "missing").length;
-  if (missingCount === 0) return { ok: true as const, results: [] };
+    const seriesPack = await tryGrabSeriesPack(series, profile);
+    if (seriesPack) {
+      setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
+      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+      logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
+        libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
+        releaseTitle: seriesPack.release.title,
+        indexer: seriesPack.release.indexerId,
+        infoHash: seriesPack.torrent.infoHash,
+      });
+      return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
+    }
 
-  const completion = monitoredEpisodes.length ? 1 - missingCount / monitoredEpisodes.length : 1;
-  if (completion < LOW_COMPLETION_SERIES_PACK_THRESHOLD) {
+    // No complete pack — search each season individually. skipSeriesPackRetry:
+    // true — l'intégrale vient d'être épuisée au niveau série, chaque saison ne
+    // doit pas la re-chercher (même cache, même réponse).
+    // Real pause between seasons, same pacing as searchAndGrabSeries: the engine
+    // needs a beat to start a grabbed pack before the next search chain fires.
+    const results = [];
+    for (const season of series.seasons) {
+      if (!season.monitored) continue;
+      const missing = season.episodes.filter((e) => e.monitored && e.status === "missing");
+      if (missing.length === 0) continue;
+      await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+      results.push(await searchAndGrabSeason(seriesId, season.seasonNumber, { skipSeriesPackRetry: true }));
+    }
+    return { ok: true as const, mode: "per_season" as const, results };
+  });
+}
+
+/**
+ * Search every monitored season that still has missing episodes — the "search
+ * whole series" / "rechercher les manquants" action. RÈGLE ABSOLUE :
+ * l'intégrale est cherchée en premier systématiquement (plus de seuil de
+ * complétion) — si elle est trouvée, STOP ; sinon saison par saison, chaque
+ * saison essayant intégrale(skip) → pack saison → épisodes.
+ *
+ * Serialized per series via withSearchLock: a bulk job and a scheduled
+ * retry searching the same show at the same time would otherwise each run
+ * their own full search chain (see withSearchLock's comment). The lock also
+ * reports per-season progress through `onSeasonDone` so the bulk job's
+ * counter advances season by season instead of freezing on 0/N during a
+ * giant show.
+ */
+export async function searchAndGrabSeries(seriesId: string, options?: { onSeasonDone?: () => void }) {
+  return withSearchLock(`series:${seriesId}`, async () => {
+    const series = getSeries(seriesId);
+    if (!series) return { error: "series not found" as const };
+    const profile = profileFor(series.qualityProfileId);
+
+    const monitoredEpisodes = series.seasons.filter((s) => s.monitored).flatMap((s) => s.episodes.filter((e) => e.monitored));
+    const missingCount = monitoredEpisodes.filter((e) => e.status === "missing").length;
+    if (missingCount === 0) return { ok: true as const, results: [] };
+
+    // Intégrale d'abord — couvre toute la série d'un coup quand elle existe.
     const seriesPack = await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
@@ -1149,30 +1321,28 @@ export async function searchAndGrabSeries(seriesId: string) {
       });
       return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
     }
-  }
 
-  const results = [];
-  // Once one season's fallback proves no complete-series pack exists, every
-  // later season here skips re-searching for it (see skipSeriesPackRetry in
-  // searchAndGrabSeason) — the answer can't change between seasons within
-  // this same run.
-  let seriesPackExhausted = false;
-  for (const season of series.seasons) {
-    if (!season.monitored) continue;
-    if (!season.episodes.some((e) => e.monitored && e.status === "missing")) continue;
-    const result = await searchAndGrabSeason(seriesId, season.seasonNumber, { skipSeriesPackRetry: seriesPackExhausted });
-    if (!seriesPackExhausted && "mode" in result && result.mode === "per_episode") seriesPackExhausted = true;
-    results.push(result);
-    // Each search synchronously title-matches against the whole RSS cache —
-    // real CPU time on Node's single thread. A show missing many seasons
-    // (e.g. 6+) would otherwise run that back-to-back with no gap, stalling
-    // every other request on the server for the whole stretch. A real pause
-    // (not just a same-tick yield) spreads that cost out in wall-clock time
-    // instead of one sustained burst — see the matching comment in
-    // searchMissing.ts's runBatch.
-    await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
-  }
-  return { ok: true as const, results };
+    const results = [];
+    // L'intégrale vient d'être épuisée pour ce run — toutes les saisons passent
+    // skipSeriesPackRetry: true (la réponse ne peut pas changer entre deux
+    // saisons dans le même run).
+    for (const season of series.seasons) {
+      if (!season.monitored) continue;
+      if (!season.episodes.some((e) => e.monitored && e.status === "missing")) continue;
+      const result = await searchAndGrabSeason(seriesId, season.seasonNumber, { skipSeriesPackRetry: true });
+      results.push(result);
+      options?.onSeasonDone?.();
+      // Each search synchronously title-matches against the whole RSS cache —
+      // real CPU time on Node's single thread. A show missing many seasons
+      // (e.g. 6+) would otherwise run that back-to-back with no gap, stalling
+      // every other request on the server for the whole stretch. A real pause
+      // (not just a same-tick yield) spreads that cost out in wall-clock time
+      // instead of one sustained burst — see the matching comment in
+      // searchMissing.ts's runBatch.
+      await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+    }
+    return { ok: true as const, results };
+  });
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -1222,9 +1392,10 @@ export async function searchReleasedMissingEpisodes() {
   const now = Date.now();
   const searched: string[] = [];
 
-  // Group qualifying episodes by season so each season is tried as a pack
-  // first, same "pack first, then per-episode" rule as a manual season search.
-  const bySeason = new Map<string, { series: LibrarySeries; seasonNumber: number; episodeNumbers: number[] }>();
+  // Group qualifying episodes by series — RÈGLE ABSOLUE : l'intégrale est
+  // tentée UNE fois par série avant toute saison/épisode, puis chaque saison
+  // est tentée comme pack, puis épisode par épisode.
+  const bySeries = new Map<string, { series: LibrarySeries; seasons: Map<number, number[]> }>();
   for (const series of loadSeries()) {
     if (!series.monitored) continue;
     for (const season of series.seasons) {
@@ -1232,34 +1403,90 @@ export async function searchReleasedMissingEpisodes() {
         if (!ep.monitored || ep.status !== "missing" || !ep.airDate) continue;
         const airedAt = new Date(ep.airDate).getTime();
         if (Number.isNaN(airedAt) || airedAt > now || now - airedAt > 14 * DAY_MS) continue;
-        const key = `${series.id}.${season.seasonNumber}`;
-        const entry = bySeason.get(key) ?? { series, seasonNumber: season.seasonNumber, episodeNumbers: [] };
-        entry.episodeNumbers.push(ep.episodeNumber);
-        bySeason.set(key, entry);
+        let entry = bySeries.get(series.id);
+        if (!entry) {
+          entry = { series, seasons: new Map() };
+          bySeries.set(series.id, entry);
+        }
+        const list = entry.seasons.get(season.seasonNumber) ?? [];
+        list.push(ep.episodeNumber);
+        entry.seasons.set(season.seasonNumber, list);
       }
     }
   }
 
-  for (const { series, seasonNumber, episodeNumbers } of bySeason.values()) {
-    const profile = profileFor(series.qualityProfileId);
-    const pack = await tryGrabSeasonPack(series, seasonNumber, profile, episodeNumbers);
-    if (pack) {
-      setEpisodesStatus(series, seasonNumber, episodeNumbers, {
-        status: "downloading",
-        activeInfoHash: pack.torrent.infoHash,
-      });
-      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
-      for (const episodeNumber of episodeNumbers) searched.push(`${series.id}.${seasonNumber}.${episodeNumber}`);
-      continue;
-    }
-    for (const episodeNumber of episodeNumbers) {
-      await searchAndGrabEpisode(series.id, seasonNumber, episodeNumber);
-      searched.push(`${series.id}.${seasonNumber}.${episodeNumber}`);
-      await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
-    }
+  for (const { series, seasons } of bySeries.values()) {
+    await withSearchLock(`series:${series.id}`, async () => {
+      // Re-derive from fresh state: an earlier pass on this series (bulk job,
+      // manual button) may have grabbed some of it while we waited on the
+      // lock — re-searching what it just grabbed would be pure wasted load.
+      const current = stillMissingFromFresh(series.id, seasons);
+      if (!current) return;
+      const { series: fresh, seasons: freshSeasons } = current;
+      const profile = profileFor(fresh.qualityProfileId);
+
+      // 1. Intégrale d'abord — couvre toute la série d'un coup quand elle existe.
+      const seriesPack = await tryGrabSeriesPack(fresh, profile);
+      if (seriesPack) {
+        setMultiSeasonEpisodesStatus(fresh, groupTargetsBySeason(seriesPack.targets), {
+          status: "downloading",
+          activeInfoHash: seriesPack.torrent.infoHash,
+        });
+        void notifySeerrStatus("series", fresh.tmdbId, "processing").catch(() => {});
+        for (const [seasonNumber, episodeNumbers] of freshSeasons) {
+          for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
+        }
+        return;
+      }
+
+      // 2. Par saison : pack de saison d'abord, sinon épisode par épisode
+      // (skipPackRetry — l'intégrale vient d'être épuisée pour cette série).
+      for (const [seasonNumber, episodeNumbers] of freshSeasons) {
+        const pack = await tryGrabSeasonPack(fresh, seasonNumber, profile, episodeNumbers);
+        if (pack) {
+          setEpisodesStatus(fresh, seasonNumber, episodeNumbers, {
+            status: "downloading",
+            activeInfoHash: pack.torrent.infoHash,
+          });
+          void notifySeerrStatus("series", fresh.tmdbId, "processing").catch(() => {});
+          for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
+          continue;
+        }
+        for (const episodeNumber of episodeNumbers) {
+          await searchAndGrabEpisode(fresh.id, seasonNumber, episodeNumber, { skipPackRetry: true });
+          searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
+          await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+        }
+      }
+    });
   }
 
   return { searched };
+}
+
+/**
+ * Re-derives, from fresh store state, which of a previously collected
+ * { season → episodes } budget are still monitored+missing — used inside
+ * withSearchLock so a pass that waited behind another pass on the same
+ * series never re-searches what the first pass already grabbed. Returns
+ * null when nothing remains (the usual outcome after an earlier grab).
+ */
+function stillMissingFromFresh(
+  seriesId: string,
+  seasons: Map<number, number[]>
+): { series: LibrarySeries; seasons: Map<number, number[]> } | null {
+  const fresh = getSeries(seriesId);
+  if (!fresh) return null;
+  const result = new Map<number, number[]>();
+  for (const [seasonNumber, episodeNumbers] of seasons) {
+    const season = fresh.seasons.find((s) => s.seasonNumber === seasonNumber);
+    const still = (season?.episodes ?? [])
+      .filter((e) => episodeNumbers.includes(e.episodeNumber) && e.monitored && e.status === "missing")
+      .map((e) => e.episodeNumber);
+    if (still.length > 0) result.set(seasonNumber, still);
+  }
+  if (result.size === 0) return null;
+  return { series: fresh, seasons: result };
 }
 
 /** True if `text` contains CJK characters (Japanese/Chinese kanji, hiragana, katakana). Used to detect when TVDB fell back to Japanese because no French title exists. */
@@ -1273,7 +1500,9 @@ export function hasCjkText(text: string): boolean {
  */
 export async function searchMissingEpisodes(maxSeasons = 30) {
   const searched: string[] = [];
-  const bySeason = new Map<string, { series: LibrarySeries; seasonNumber: number; episodeNumbers: number[] }>();
+  // Group by series — RÈGLE ABSOLUE : l'intégrale est tentée UNE fois par
+  // série (limitée aux saisons du budget), avant toute saison/épisode.
+  const bySeries = new Map<string, { series: LibrarySeries; seasons: Map<number, number[]> }>();
   let seasonCount = 0;
 
   for (const series of loadSeries()) {
@@ -1282,33 +1511,73 @@ export async function searchMissingEpisodes(maxSeasons = 30) {
       if (seasonCount >= maxSeasons) break;
       for (const ep of season.episodes) {
         if (ep.monitored && ep.status === "missing") {
-          const key = `${series.id}.${season.seasonNumber}`;
-          const entry = bySeason.get(key) ?? { series, seasonNumber: season.seasonNumber, episodeNumbers: [] };
-          entry.episodeNumbers.push(ep.episodeNumber);
-          bySeason.set(key, entry);
+          let entry = bySeries.get(series.id);
+          if (!entry) {
+            entry = { series, seasons: new Map() };
+            bySeries.set(series.id, entry);
+          }
+          const list = entry.seasons.get(season.seasonNumber) ?? [];
+          list.push(ep.episodeNumber);
+          entry.seasons.set(season.seasonNumber, list);
         }
       }
       seasonCount++;
     }
   }
 
-  for (const { series, seasonNumber, episodeNumbers } of bySeason.values()) {
-    const profile = profileFor(series.qualityProfileId);
-    const pack = await tryGrabSeasonPack(series, seasonNumber, profile, episodeNumbers);
-    if (pack) {
-      setEpisodesStatus(series, seasonNumber, episodeNumbers, {
-        status: "downloading",
-        activeInfoHash: pack.torrent.infoHash,
-      });
-      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
-      for (const episodeNumber of episodeNumbers) searched.push(`${series.id}.${seasonNumber}.${episodeNumber}`);
-      continue;
-    }
-    for (const episodeNumber of episodeNumbers) {
-      await searchAndGrabEpisode(series.id, seasonNumber, episodeNumber);
-      searched.push(`${series.id}.${seasonNumber}.${episodeNumber}`);
-      await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
-    }
+  // Randomize series order so the same shows don't get re-searched every pass.
+  const entries = [...bySeries.values()];
+  for (let i = entries.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [entries[i], entries[j]] = [entries[j], entries[i]];
+  }
+
+  for (const { series, seasons } of entries) {
+    await withSearchLock(`series:${series.id}`, async () => {
+      // Re-derive from fresh state: an earlier pass on this series (bulk job,
+      // manual button) may have grabbed some of it while we waited on the
+      // lock — re-searching what it just grabbed would be pure wasted load.
+      const current = stillMissingFromFresh(series.id, seasons);
+      if (!current) return;
+      const { series: fresh, seasons: freshSeasons } = current;
+      const profile = profileFor(fresh.qualityProfileId);
+
+      // 1. Intégrale d'abord — limitée aux saisons du budget (seasonFilter) :
+      //    l'engine ne sélectionne que les fichiers de ces saisons.
+      const seasonFilter = new Set(freshSeasons.keys());
+      const seriesPack = await tryGrabSeriesPack(fresh, profile, seasonFilter);
+      if (seriesPack) {
+        setMultiSeasonEpisodesStatus(fresh, groupTargetsBySeason(seriesPack.targets), {
+          status: "downloading",
+          activeInfoHash: seriesPack.torrent.infoHash,
+        });
+        void notifySeerrStatus("series", fresh.tmdbId, "processing").catch(() => {});
+        for (const [seasonNumber, episodeNumbers] of freshSeasons) {
+          for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
+        }
+        return;
+      }
+
+      // 2. Par saison : pack de saison d'abord, sinon épisode par épisode
+      //    (skipPackRetry — l'intégrale vient d'être épuisée pour cette série).
+      for (const [seasonNumber, episodeNumbers] of freshSeasons) {
+        const pack = await tryGrabSeasonPack(fresh, seasonNumber, profile, episodeNumbers);
+        if (pack) {
+          setEpisodesStatus(fresh, seasonNumber, episodeNumbers, {
+            status: "downloading",
+            activeInfoHash: pack.torrent.infoHash,
+          });
+          void notifySeerrStatus("series", fresh.tmdbId, "processing").catch(() => {});
+          for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
+          continue;
+        }
+        for (const episodeNumber of episodeNumbers) {
+          await searchAndGrabEpisode(fresh.id, seasonNumber, episodeNumber, { skipPackRetry: true });
+          searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
+          await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
+        }
+      }
+    });
   }
 
   return { searched };

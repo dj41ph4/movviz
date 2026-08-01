@@ -91,7 +91,7 @@ export default function IssuesPage() {
       </PageHeader>
 
       <div className="space-y-4">
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence mode="sync">
           {visible.map((i) => {
             const poster = i.posterPath ? `/tmdb/w200${i.posterPath}` : null;
             const isOpen = expanded === i.id;
@@ -108,7 +108,7 @@ export default function IssuesPage() {
                   <div className="h-24 w-16 shrink-0 overflow-hidden rounded-xl bg-surface">
                     {poster ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={poster} alt={i.title} className="h-full w-full object-cover" />
+                      <img src={poster} alt={i.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         {i.libraryType === "movie" ? <Film className="h-5 w-5 text-ink-soft/50" /> : <Tv className="h-5 w-5 text-ink-soft/50" />}

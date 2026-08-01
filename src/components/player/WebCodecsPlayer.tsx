@@ -276,6 +276,8 @@ export function WebCodecsPlayer({
         },
         error: (error: DOMException) => {
           console.error("[WebCodecs] VideoDecoder error:", error.message);
+          // Dead decoder = invalid path → fall back to HLS transcode
+          fallbackRef.current?.();
         },
       });
       videoDecoderRef.current = vDecoder;
@@ -295,6 +297,8 @@ export function WebCodecsPlayer({
         },
         error: (error: DOMException) => {
           console.error("[WebCodecs] AudioDecoder error:", error.message);
+          // Dead decoder = muted video → fall back to HLS transcode
+          fallbackRef.current?.();
         },
       });
       audioDecoderRef.current = aDecoder;
@@ -303,6 +307,7 @@ export function WebCodecsPlayer({
     let configuredVideo = false;
     let configuredAudio = false;
     let configuredVideoFallback = false; // prevent re-entrant fallback
+    let configuredAudioTrackId = -1; // track id the AudioDecoder was configured for
     let retryCount = 0;
     const MAX_RETRIES_FRAGMENTED = 5;
 
@@ -377,32 +382,31 @@ export function WebCodecsPlayer({
             }
 
             if (t.audio && aDecoder) {
-              if (!configuredAudio) {
+              // Only configure a track this player can actually decode.
+              // Mixed-track files (AAC + DTS/AC3...) must never feed samples
+              // from another codec into the decoder — it dies silently.
+              const tc = (t.codec ?? "").toLowerCase();
+              const decodable =
+                tc.includes("opus") || tc === "aac" || tc === "mp4a.40.2" || tc === "mp4a.40.5";
+              if (!configuredAudio && decodable) {
                 audioTracksRef.current.push(t);
                 try {
-                  const codecStr = audioCodec ?? "mp4a.40.2";
+                  const codecStr = t.codec;
                   const supported = await AudioDecoder.isConfigSupported({
                     codec: codecStr,
                     sampleRate: t.audio.sampleRate,
                     numberOfChannels: t.audio.channelCount,
                   });
-                  if (!supported.supported) {
-                    console.warn("[WebCodecs] Audio codec not supported, playing without audio");
-                    aDecoder = null;
-                    audioDecoderRef.current = null;
-                    return;
+                  if (supported.supported) {
+                    aDecoder.configure({
+                      codec: codecStr,
+                      sampleRate: t.audio.sampleRate,
+                      numberOfChannels: t.audio.channelCount,
+                    });
+                    configuredAudio = true;
+                    configuredAudioTrackId = t.id;
                   }
-                  aDecoder.configure({
-                    codec: codecStr,
-                    sampleRate: t.audio.sampleRate,
-                    numberOfChannels: t.audio.channelCount,
-                  });
-                  configuredAudio = true;
-                } catch {
-                  console.warn("[WebCodecs] AudioDecoder config failed, playing without audio");
-                  aDecoder = null;
-                  audioDecoderRef.current = null;
-                }
+                } catch { /* try the next audio track */ }
               }
             }
           }
@@ -473,7 +477,7 @@ export function WebCodecsPlayer({
               } catch { /* ignore */ }
             }
 
-            if (trackInfo.audio && aDecoder && configuredAudio) {
+            if (trackInfo.audio && aDecoder && configuredAudio && s.trackId === configuredAudioTrackId) {
               const pts = Math.round((s.cts / trackInfo.timescale) * 1_000_000);
               const dur = Math.round((s.duration / trackInfo.timescale) * 1_000_000);
 
@@ -495,6 +499,9 @@ export function WebCodecsPlayer({
           setError(evt.message);
           onError?.(evt.message);
           setBuffering(false);
+          // Fall back to HLS transcode when WebCodecs demux fails (non-MP4, fetch error, etc.)
+          fallbackRef.current?.();
+          return;
         }
 
         if (evt.type === "done") {

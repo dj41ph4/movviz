@@ -1,15 +1,35 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { MotionConfig } from "framer-motion";
+import { REDUCE_MOTION_STORAGE_KEY } from "@/lib/gpu/reduceMotionInit";
+
+export type GpuTier = "high" | "medium" | "low" | "ultraLow";
 
 export interface GpuInfo {
   renderer: string;
   vendor: string;
-  tier: "high" | "medium" | "low";
+  tier: GpuTier;
   cores: number;
   memoryGB: number;
+  /** true = kill every animation (logo, CSS, framer-motion). */
   reduceAnimations: boolean;
 }
+
+interface GpuContextValue extends GpuInfo {
+  setReduceAnimations: (v: boolean) => void;
+  setTier: (tier: GpuTier) => void;
+}
+
+const STORAGE_KEY = REDUCE_MOTION_STORAGE_KEY;
+const TIER_STORAGE_KEY = "movviz-gpu-tier";
+
+const TIER_CLASS: Record<GpuTier, string> = {
+  high: "gpu-high",
+  medium: "gpu-medium",
+  low: "gpu-low",
+  ultraLow: "gpu-ultralow",
+};
 
 function detectGpu(): { renderer: string; vendor: string } {
   if (typeof document === "undefined") return { renderer: "unknown", vendor: "unknown" };
@@ -17,7 +37,7 @@ function detectGpu(): { renderer: string; vendor: string } {
     const canvas = document.createElement("canvas");
     const gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl") as WebGLRenderingContext | null;
     if (!gl) return { renderer: "unknown", vendor: "unknown" };
-    const debugInfo = (gl as any).getExtension("WEBGL_debug_renderer_info");
+    const debugInfo = (gl as WebGLRenderingContext).getExtension("WEBGL_debug_renderer_info");
     if (!debugInfo) return { renderer: "unknown", vendor: "unknown" };
     return {
       renderer: gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) || "unknown",
@@ -28,54 +48,80 @@ function detectGpu(): { renderer: string; vendor: string } {
   }
 }
 
-function computeTier(): { tier: GpuInfo["tier"]; cores: number; memoryGB: number } {
-  if (typeof navigator === "undefined") return { tier: "high", cores: 4, memoryGB: 4 };
-  const cores = navigator.hardwareConcurrency || 4;
-  const memoryGB = ((navigator as any).deviceMemory as number) || 4;
-  const gpu = detectGpu();
-  const renderer = gpu.renderer.toLowerCase();
-
-  if (cores <= 2 || memoryGB <= 2) return { tier: "low", cores, memoryGB };
-  if (renderer.includes("llvmpipe") || renderer.includes("swiftshader") || renderer.includes("microsoft basic render")) return { tier: "low", cores, memoryGB };
-  if (cores <= 4 || memoryGB <= 4) return { tier: "medium", cores, memoryGB };
-  return { tier: "high", cores, memoryGB };
+function loadSavedTier(): GpuTier {
+  if (typeof localStorage === "undefined") return "medium";
+  try {
+    const saved = localStorage.getItem(TIER_STORAGE_KEY);
+    if (saved === "high" || saved === "medium" || saved === "low" || saved === "ultraLow") return saved;
+  } catch {}
+  return "medium";
 }
 
-const GpuContext = createContext<GpuInfo>({
+function computeTier(): { tier: GpuInfo["tier"]; cores: number; memoryGB: number } {
+  return { tier: loadSavedTier(), cores: 4, memoryGB: 4 };
+}
+
+const defaultValue: GpuContextValue = {
   renderer: "unknown",
   vendor: "unknown",
-  tier: "high",
+  tier: "medium",
   cores: 4,
   memoryGB: 4,
   reduceAnimations: false,
-});
+  setReduceAnimations: () => {},
+  setTier: () => {},
+};
+
+const GpuContext = createContext<GpuContextValue>(defaultValue);
 
 export function GpuProvider({ children }: { children: React.ReactNode }) {
+  const [hydrated, setHydrated] = useState(false);
   const [info, setInfo] = useState<GpuInfo>(() => {
-    const stored = typeof localStorage !== "undefined" ? localStorage.getItem("movviz-reduce-animations") : null;
     const { tier, cores, memoryGB } = computeTier();
     const gpu = detectGpu();
-    const reduceAnimations = stored !== null ? stored === "1" : tier === "low";
-    return { ...gpu, tier, cores, memoryGB, reduceAnimations };
+    return { ...gpu, tier, cores, memoryGB, reduceAnimations: false };
   });
 
   useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const { tier, cores, memoryGB } = computeTier();
+    const gpu = detectGpu();
+    const reduceAnimations = stored !== null ? stored === "1" : false;
+    setInfo({ ...gpu, tier, cores, memoryGB, reduceAnimations });
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
     if (info.reduceAnimations) {
       document.documentElement.classList.add("reduce-motion");
     } else {
       document.documentElement.classList.remove("reduce-motion");
     }
-    if (info.tier === "low") {
-      document.documentElement.classList.add("gpu-low");
-    }
-    localStorage.setItem("movviz-reduce-animations", info.reduceAnimations ? "1" : "0");
-  }, [info.reduceAnimations, info.tier]);
+    document.documentElement.classList.remove("gpu-high", "gpu-medium", "gpu-low", "gpu-ultralow");
+    document.documentElement.classList.add(TIER_CLASS[info.tier]);
+    localStorage.setItem(STORAGE_KEY, info.reduceAnimations ? "1" : "0");
+  }, [hydrated, info.reduceAnimations, info.tier]);
 
-  const setReduceAnimations = (v: boolean) => setInfo((prev) => ({ ...prev, reduceAnimations: v }));
+  const setReduceAnimations = useCallback((v: boolean) => {
+    setInfo((prev) => ({ ...prev, reduceAnimations: v }));
+  }, []);
+
+  const setTier = useCallback((tier: GpuTier) => {
+    setInfo((prev) => ({ ...prev, tier }));
+    try { localStorage.setItem(TIER_STORAGE_KEY, tier); } catch {}
+  }, []);
+
+  const value = useMemo(
+    () => ({ ...info, setReduceAnimations, setTier }),
+    [info, setReduceAnimations, setTier],
+  );
 
   return (
-    <GpuContext.Provider value={{ ...info, reduceAnimations: info.reduceAnimations }}>
-      {children}
+    <GpuContext.Provider value={value}>
+      <MotionConfig reducedMotion={info.reduceAnimations ? "always" : "user"}>
+        {children}
+      </MotionConfig>
     </GpuContext.Provider>
   );
 }

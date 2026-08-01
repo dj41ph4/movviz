@@ -3,7 +3,7 @@ import { parseRelease } from "@/lib/naming/parser";
 import { releaseTitleMatches, yearIsCompatible } from "@/lib/library/matching";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
-import { searchAndGrabSeason } from "@/lib/library/autoGrabSeries";
+import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSeries";
 
 /**
  * RSS sync: matches cached RSS feed data against everything Movviz currently
@@ -32,6 +32,12 @@ export async function rssMatchIndexers() {
   let grabbed = 0;
   const grabbedMovies = new Set<string>();
   const grabbedSeasons = new Set<string>();
+  // The series pack (intégrale) is searched once per series per pass — if
+  // several seasons of the same show match RSS releases in the same pass,
+  // re-searching it for each season is pure indexer load (same cache, same
+  // result). Later seasons skip the series-pack stage and go straight to
+  // season pack → per-episode.
+  const seriesPackSearched = new Set<string>();
 
   for (const parsed of parsedReleases) {
     for (const movie of missingMovies) {
@@ -51,7 +57,15 @@ export async function rssMatchIndexers() {
       // RSS just signals a release exists for this season — do a proper
       // pack-first search (falls back to per-episode) rather than grabbing
       // this one RSS item directly, so quality-profile scoring still applies.
-      const result = await searchAndGrabSeason(s.seriesId, s.season);
+      const skipSeriesPack = seriesPackSearched.has(s.seriesId);
+      seriesPackSearched.add(s.seriesId);
+      // Locked per series like every other search entry point: a bulk job or
+      // scheduled retry may be mid-search on this exact series right now —
+      // without the lock this RSS hit would run a redundant season search
+      // chain against it.
+      const result = await withSearchLock(`series:${s.seriesId}`, () =>
+        searchAndGrabSeason(s.seriesId, s.season, { skipSeriesPackRetry: skipSeriesPack })
+      );
       if ("ok" in result && result.ok) grabbed++;
     }
   }

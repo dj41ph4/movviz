@@ -24,7 +24,7 @@
  * window to comfortably longer than any real download, so an abandoned
  * intent expires instead of lingering indefinitely.
  */
-export type VersionGrabMode = "replace" | "add";
+export type VersionGrabMode = "replace" | "add" | "optimize";
 
 const MAX_AGE_MS = 6 * 60 * 60 * 1000;
 

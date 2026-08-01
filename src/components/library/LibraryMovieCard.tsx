@@ -12,12 +12,12 @@ import type { LibraryMovie, LibraryStatus } from "@/lib/library/types";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import { TagEditor } from "./TagEditor";
-import { MediaBadges, BADGE_SHAPE } from "./MediaBadges";
+import { MediaBadges, buildMediaBadgeItems, BADGE_SHAPE } from "./MediaBadges";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
-import { VideoPlayer } from "@/components/player/VideoPlayer";
+import { VideoPlayer, PREBUFFER_SECONDS } from "@/components/player/VideoPlayer";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
-import { Star, Trash2, RotateCw, Loader2, Film, Check, Search, Clock, HardDriveDownload, Tag, Eye, Play, Calendar, ListFilter, CalendarCheck, X, Layers } from "lucide-react";
+import { Star, Trash2, RotateCw, Loader2, Film, Check, Search, Clock, HardDriveDownload, Tag, Eye, Play, Calendar, ListFilter, Sparkles, CalendarCheck, X, Layers } from "lucide-react";
 
 const STATUS_TONE: Record<LibraryStatus, string> = {
   available: "text-ok bg-ok/12 border-ok/25",
@@ -86,6 +86,14 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
       setBusy(false);
     }
   };
+  const handleOptimize = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/library/movies/${movie.id}/optimize`, { method: "POST" });
+      if ((await res.json()).ok) onChange();
+    } finally { setBusy(false); }
+  };
+
   const remove = async (withFiles: boolean) => {
     setDeleting(true);
     await fetch(`/api/library/movies/${movie.id}?deleteFiles=${withFiles}`, { method: "DELETE" });
@@ -121,17 +129,14 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
     [movie.status, isUpcoming, isDownloading, upcomingLabel, t]
   );
 
-  const cascadeAnim = reduceMotion ? {
-    layout: true as const,
-  } : {
+  const cascadeAnim = reduceMotion ? {} : {
     layout: true as const,
     initial: { opacity: 0, y: 20, scale: 0.95 },
     animate: { opacity: 1, y: 0, scale: 1 },
     exit: { opacity: 0, y: 20, scale: 0.95, transition: { duration: 0.25, ease: "easeInOut" as const } },
     transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
-    whileHover: { scale: 1.03, y: -2, boxShadow: "0 0 25px rgba(168, 130, 255, 0.15)" },
+    whileHover: { scale: 1.03, y: -2 },
     whileTap: { scale: 0.98 },
-    style: { willChange: "transform" } as React.CSSProperties,
   };
   const btnSpring = reduceMotion ? {} : {
     whileTap: { scale: 0.95 },
@@ -139,7 +144,7 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
   };
 
   return (
-    <motion.article className="group w-full" {...cascadeAnim}>
+    <motion.article className="group w-full transition-shadow duration-300 hover:shadow-[0_0_25px_rgba(168,130,255,0.15)]" {...cascadeAnim}>
       <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
         <Link href={`/title/movie/${movie.tmdbId}`} className="absolute inset-0 block">
           {poster ? (
@@ -158,7 +163,16 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand/12">
                 <Film className="h-6 w-6 text-brand-glow" />
               </div>
-              <span className="line-clamp-3 text-sm font-semibold text-ink/80">{movie.title}</span>
+              <div className="flex items-center justify-center gap-1 flex-wrap">
+                <span className="text-sm font-semibold text-ink/80">{movie.title}</span>
+                {movie.year && (
+                  <span className={cn(BADGE_SHAPE, "border border-white/15 bg-black/55 text-white")}>{movie.year}</span>
+                )}
+                {movie.file?.hdr && buildMediaBadgeItems(
+                  { resolution: null, videoCodec: null, audioCodec: null, hdr: movie.file.hdr, source: null, language: null },
+                  "overlay"
+                )}
+              </div>
             </div>
           )}
         </Link>
@@ -178,19 +192,25 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
           </div>
         )}
         {statusBadge && (
-          <div className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 border-white/15", statusBadge.cls)} title={statusBadge.label}>
-            <statusBadge.icon className={cn("h-3 w-3", isDownloading && "animate-spin")} />
-            <span className="hidden sm:inline">{statusBadge.label}</span>
-            {watched && movie.status === "available" && <Eye className="h-2.5 w-2.5 ml-0.5" />}
+          <div className={cn("flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/70 backdrop-blur-sm pointer-events-none absolute right-2 top-2", statusBadge.cls)} title={statusBadge.label}>
+            <statusBadge.icon className={cn("h-3.5 w-3.5", isDownloading && "animate-spin")} />
           </div>
         )}
         {watched && !statusBadge && (
-          <div title={t("watch.watched")} className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 border-white/15 bg-ok text-white")}>
-            <Eye className="h-3 w-3" /> <span className="hidden sm:inline">{t("watch.watched")}</span>
+          <div title={t("watch.watched")} className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-white/15 bg-ok/90 text-white backdrop-blur-sm pointer-events-none absolute right-2 top-2">
+            <Eye className="h-3.5 w-3.5" />
           </div>
         )}
 
-        <MediaBadges file={movie.file} plexMediaInfo={movie.plexMediaInfo} year={movie.year} className="absolute bottom-2 left-2 right-2" compactOnMobile />
+        <MediaBadges file={movie.file} plexMediaInfo={movie.plexMediaInfo} year={movie.year} className="absolute bottom-2 left-2 right-2" compactOnMobile hideTypes={["resolution", "year", "hdr"]} />
+        {movie.file?.resolution && (
+          <div className="pointer-events-none absolute left-1/2 top-2 -translate-x-1/2 flex items-center gap-1">
+            {buildMediaBadgeItems(
+              { resolution: movie.file.resolution, videoCodec: null, audioCodec: null, hdr: null, source: null, language: null },
+              "overlay"
+            )}
+          </div>
+        )}
 
         <div className="pointer-events-none absolute inset-0 hidden lg:flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           {movie.status === "available" && movie.plexUrl && (
@@ -215,6 +235,11 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
             )
           )}
           <div className="pointer-events-auto flex gap-2">
+            {movie.status === "available" && movie.file && (
+              <motion.button {...btnSpring} onClick={handleOptimize} disabled={busy} title="Optimiser (rechercher une meilleure version et remplacer)" className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-bold text-brand-glow hover:text-ink">
+                <Sparkles className="h-3.5 w-3.5" />
+              </motion.button>
+            )}
             {canGrab && (
               <motion.button {...btnSpring} onClick={search} disabled={busy} title={t("library.autoSearch")} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl brand-gradient text-xs font-bold text-white">
                 {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
@@ -282,7 +307,16 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
       </div>
 
       <div className="mt-2.5 px-0.5">
-        <Link href={`/title/movie/${movie.tmdbId}`} className="block truncate text-sm font-semibold text-ink transition-all duration-200 hover:text-brand-glow hover:scale-[1.02] hover:origin-left">{movie.title}</Link>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <Link href={`/title/movie/${movie.tmdbId}`} className="truncate text-sm font-semibold text-ink transition-all duration-200 hover:text-brand-glow hover:scale-[1.02] hover:origin-left">{movie.title}</Link>
+          {movie.year && (
+            <span className={cn(BADGE_SHAPE, "border border-white/8 bg-black/20 text-ink-soft")}>{movie.year}</span>
+          )}
+          {movie.file?.hdr && buildMediaBadgeItems(
+            { resolution: null, videoCodec: null, audioCodec: null, hdr: movie.file.hdr, source: null, language: null },
+            "surface"
+          )}
+        </div>
         <div className="mt-1 flex items-center gap-2">
           <span className={cn(
             "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
@@ -332,8 +366,14 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
           title={movie.title}
           onClose={() => setPlayRatingKey(null)}
           useTranscode={betaPlayer}
+          prebufferSeconds={PREBUFFER_SECONDS}
         />
       )}
     </motion.article>
   );
 });
+
+
+
+
+

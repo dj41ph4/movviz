@@ -5,6 +5,8 @@ import { getMovie, updateMovie, removeMovie } from "@/lib/library/store";
 import { requireUser, requireAdmin } from "@/lib/auth/guard";
 import { logActivity } from "@/lib/activity/store";
 import { emitNotification } from "@/lib/notifications/store";
+import { loadPlexConfig } from "@/lib/plex/store";
+import { buildPlexWebUrl } from "@/lib/plex/client";
 import { trashMovieFile } from "@/lib/library/trashDelete";
 import { addTrashEntry } from "@/lib/library/trashStore";
 
@@ -15,7 +17,10 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const movie = getMovie((await params).id);
-  return movie ? NextResponse.json(movie) : NextResponse.json({ error: "not found" }, { status: 404 });
+  if (!movie) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const cfg = loadPlexConfig();
+  const plexUrl = movie.plexRatingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, movie.plexRatingKey) : null;
+  return NextResponse.json({ ...movie, plexUrl });
 }
 
 export async function PATCH(req: NextRequest, { params }: Ctx) {

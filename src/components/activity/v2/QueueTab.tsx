@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, memo, useRef, useEffect } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as globalMutate } from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -79,12 +79,14 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     whileTap: { scale: 0.95 },
     transition: { type: "spring" as const, stiffness: 400, damping: 17 },
   };
+  const [clearingAll, setClearingAll] = useState(false);
+  const SWR_KEY = "/api/activity/v2?tab=queue";
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    "/api/activity/v2?tab=queue", { refreshInterval: 500, dedupingInterval: 250 }
+    clearingAll ? null : SWR_KEY,
+    { refreshInterval: 500, dedupingInterval: 250 }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [clearingAll, setClearingAll] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [manualSearchItem, setManualSearchItem] = useState<QueueItem | null>(null);
   const [bulkReplacing, setBulkReplacing] = useState(false);
@@ -259,17 +261,17 @@ export function QueueTab({ active = true }: { active?: boolean }) {
     }
   };
 
+
   const clearAll = async () => {
     if (!(await confirmDialog(t("downloads.confirmClearAll")))) return;
     setClearingAll(true);
-    mutate({ items: [] }, { revalidate: false });
     try {
       await api(`${BASE}/torrents/clear-all`, { method: "POST" });
     } catch (e) {
       console.error(`[queue] clear-all failed:`, e);
     } finally {
+      globalMutate(SWR_KEY, { items: [] }, { revalidate: false });
       setClearingAll(false);
-      await mutate();
     }
   };
 

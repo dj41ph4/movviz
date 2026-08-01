@@ -179,7 +179,7 @@ function RequestsPageInner() {
       </PageHeader>
 
       <div className="space-y-4">
-        <AnimatePresence mode="popLayout">
+        <AnimatePresence mode="sync">
           {visible.map((r) => {
             const poster = r.posterPath ? `/tmdb/w200${r.posterPath}` : null;
             return (
@@ -194,7 +194,7 @@ function RequestsPageInner() {
                 <div className="h-28 w-20 shrink-0 overflow-hidden rounded-xl bg-surface">
                   {poster ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={poster} alt={r.title} className="h-full w-full object-cover" />
+                    <img src={poster} alt={r.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center"><Film className="h-6 w-6 text-ink-soft/50" /></div>
                   )}

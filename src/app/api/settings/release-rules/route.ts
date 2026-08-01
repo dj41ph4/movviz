@@ -31,10 +31,29 @@ export async function PUT(req: NextRequest) {
     };
   }
   if ("preferredLanguageUpgrade" in body) {
-    const allowed = ["VF", "VFQ", "MULTI · VF", "VOSTFR", "VOST", "VO"];
+    const allowed = ["VF", "VFQ", "MULTI · VF", "VOSTFR", "VOST", "VO", "ITA", "MULTI · ITA", "GER", "MULTI · GER", "NL", "MULTI · NL", "EN", "MULTI · EN"];
     patch.preferredLanguageUpgrade = allowed.includes(body.preferredLanguageUpgrade) ? body.preferredLanguageUpgrade : null;
   }
+  if ("preferredVideoCodec" in body) {
+    const allowedVideo = ["x264", "x265", "AV1"];
+    patch.preferredVideoCodec = allowedVideo.includes(body.preferredVideoCodec) ? body.preferredVideoCodec : null;
+  }
+  if ("preferredAudioCodec" in body) {
+    const allowedAudio = ["DTS", "TrueHD", "Atmos", "AAC", "AC3", "EAC3", "FLAC", "OPUS"];
+    patch.preferredAudioCodec = allowedAudio.includes(body.preferredAudioCodec) ? body.preferredAudioCodec : null;
+  }
+  if ("preferredResolution" in body) {
+    const allowedRes = ["720p", "1080p", "2160p", "4320p"];
+    patch.preferredResolution = allowedRes.includes(body.preferredResolution) ? body.preferredResolution : null;
+  }
+  if ("autoUpgradeEnabled" in body) {
+    patch.autoUpgradeEnabled = Boolean(body.autoUpgradeEnabled);
+  }
   const next = saveReleaseRules(patch);
+
+  // Invalidate upgrade-candidates cache (release rules changed)
+  const g = globalThis as typeof globalThis & { __movvizUpgradeCandidatesCache?: unknown };
+  g.__movvizUpgradeCandidatesCache = undefined;
 
   // Provenance: only the fields the setup wizard's hardware step actually
   // writes are tracked, distinguishing a wizard-set default from a value the

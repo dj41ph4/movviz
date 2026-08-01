@@ -17,7 +17,7 @@ interface PlexConfig {
 
 export function PlexSettings() {
   const t = useT();
-  const { enabled: betaPlayer, streamCacheTtl, setEnabled: setBetaPlayer, setStreamCacheTtl } = useBetaPlayer();
+  const { enabled: betaPlayer, streamCacheTtl, playbackEngine, setEnabled: setBetaPlayer, setStreamCacheTtl, setPlaybackEngine } = useBetaPlayer();
   const [cfg, setCfg] = useState<PlexConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -250,17 +250,31 @@ export function PlexSettings() {
           <Toggle on={betaPlayer} onChange={() => setBetaPlayer(!betaPlayer)} disabled={!cfg.connected} />
         </div>
         {betaPlayer && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <label className="text-xs text-ink-dim">Cache segment :</label>
-            <input
-              type="number"
-              min={0}
-              max={86400}
-              value={streamCacheTtl}
-              onChange={(e) => setStreamCacheTtl(parseInt(e.target.value) || 0)}
-              className="h-8 w-20 rounded-lg border border-white/8 bg-black/30 px-2 text-xs text-ink outline-none focus:border-brand/40"
-            />
-            <span className="text-xs text-ink-dim">secondes (0 = pas de cache)</span>
+          <div className="mt-3 flex flex-col gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs text-ink-dim">Cache segment :</label>
+              <input
+                type="number"
+                min={0}
+                max={86400}
+                value={streamCacheTtl}
+                onChange={(e) => setStreamCacheTtl(parseInt(e.target.value) || 0)}
+                className="h-8 w-20 rounded-lg border border-white/8 bg-black/30 px-2 text-xs text-ink outline-none focus:border-brand/40"
+              />
+              <span className="text-xs text-ink-dim">secondes (0 = pas de cache)</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="text-xs text-ink-dim">{t("player.betaEngine")} :</label>
+              <select
+                value={playbackEngine}
+                onChange={(e) => setPlaybackEngine(e.target.value as "auto" | "native" | "mse")}
+                className="h-8 rounded-lg border border-white/8 bg-black/30 px-2 text-xs text-ink outline-none focus:border-brand/40"
+              >
+                <option value="auto">{t("player.betaEngineAuto")}</option>
+                <option value="native">{t("player.betaEngineNative")}</option>
+                <option value="mse">{t("player.betaEngineMse")}</option>
+              </select>
+            </div>
           </div>
         )}
       </div>

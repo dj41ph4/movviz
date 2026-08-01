@@ -5,7 +5,7 @@ import type { LibraryFile } from "@/lib/library/types";
 import { parseRelease } from "@/lib/naming/parser";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import type { PlexLanguageSource } from "@/lib/library/detectLanguage";
-import { Logo4K, LogoHDR, LogoDolbyVision, LogoDolbyAtmos, LogoDolbyDigital, LogoDolbyDigitalPlus, LogoDTS, LogoTrueHD } from "./FormatLogos";
+import { Logo4K, LogoHDR, LogoDolbyVision, LogoDolbyAtmos, LogoDolbyDigital, LogoDolbyDigitalPlus, LogoDTS, LogoTrueHD, LogoFullHD, LogoHD } from "./FormatLogos";
 
 export interface BadgeInfo {
   resolution: string | null;
@@ -63,6 +63,7 @@ export function buildMediaBadgeItems(
   { resolution, videoCodec, audioCodec, hdr, source, language, year }: BadgeInfo,
   variant: "overlay" | "surface",
   compact = false,
+  hideTypes?: string[],
 ): React.ReactNode[] {
   // "overlay" badges sit directly on unpredictable poster artwork — a photo
   // can be bright or dark at any given corner, so their own backing must
@@ -105,18 +106,23 @@ export function buildMediaBadgeItems(
 
   // Year — first, since it identifies the title itself rather than a
   // property of this particular file/release.
-  if (year) {
+  if (year && !hideTypes?.includes("year")) {
     items.push(tag("year", "year", <TextPill text={String(year)} cls={genericCls} />));
   }
 
   // Resolution
-  if (resolution?.startsWith("2160")) {
-    items.push(tag("resolution", "res", <Logo4K />));
-  } else if (resolution?.startsWith("4320")) {
-    items.push(tag("resolution", "res", <TextPill text="8K" cls="bg-amber text-white" />));
-  } else if (resolution) {
-    const resCls = resolution.startsWith("1080") ? "bg-blue-500 text-white" : genericCls;
-    items.push(tag("resolution", "res", <TextPill text={resolution} cls={resCls} />));
+  if (resolution && !hideTypes?.includes("resolution")) {
+    if (resolution.startsWith("2160")) {
+      items.push(tag("resolution", "res", <Logo4K />));
+    } else if (resolution.startsWith("4320")) {
+      items.push(tag("resolution", "res", <TextPill text="8K" cls="bg-amber text-white" />));
+    } else if (resolution.startsWith("1080")) {
+      items.push(tag("resolution", "res", <LogoFullHD />));
+    } else if (resolution.startsWith("720")) {
+      items.push(tag("resolution", "res", <LogoHD />));
+    } else {
+      items.push(tag("resolution", "res", <TextPill text={resolution} cls={genericCls} />));
+    }
   }
 
   // HDR / Dolby Vision / SDR — a release can carry Dolby Vision AND an
@@ -124,7 +130,7 @@ export function buildMediaBadgeItems(
   // instead of only the first one matched. No HDR tag at all means SDR: scene
   // releases reliably tag HDR when it's there, so silence is a real signal,
   // not "unknown" — shown explicitly rather than left blank.
-  if (hdr) {
+  if (hdr && !hideTypes?.includes("hdr")) {
     const hdrUpper = hdr.toUpperCase();
     const hasDolbyVision = ["DOLBY VISION", "DV"].some((v) => hdrUpper.includes(v));
     const hasHdrFamily = hdrUpper.includes("HDR") || hdrUpper.includes("HLG");
@@ -136,7 +142,7 @@ export function buildMediaBadgeItems(
   }
 
   // Language
-  if (language) {
+  if (language && !hideTypes?.includes("language")) {
     const isFrench = language === "VF" || language === "VFQ" || language.startsWith("MULTI");
     items.push(
       tag("language", "language", <TextPill
@@ -149,7 +155,7 @@ export function buildMediaBadgeItems(
   // Audio codec — logos for premium formats (Dolby, DTS, TrueHD), readable
   // labels for everything else. Maps both parser output (Atmos, EAC3, DD5.1…)
   // and Plex/ffprobe codec IDs (dca, truehd, pcm_s16le…) to a single label.
-  if (audioCodec) {
+  if (audioCodec && !hideTypes?.includes("audio")) {
     const clean = audioCodec.replace(/[. _-]/g, "").toLowerCase();
     const logoMap: Record<string, React.ReactNode> = {
       "atmos": <LogoDolbyAtmos />,
@@ -195,7 +201,7 @@ export function buildMediaBadgeItems(
   }
 
   // Video codec
-  if (videoCodec) {
+  if (videoCodec && !hideTypes?.includes("video")) {
     const vc = videoCodec.replace(/[. _-]/g, "").toLowerCase();
     const vcMap: Record<string, string> = {
       "x265": "HEVC", "h265": "HEVC", "hevc": "HEVC",
@@ -207,7 +213,7 @@ export function buildMediaBadgeItems(
   }
 
   // Source
-  if (source) {
+  if (source && !hideTypes?.includes("source")) {
     items.push(tag("source", "source", <TextPill text={source} cls={genericCls} />));
   }
 
@@ -221,6 +227,7 @@ export function MediaBadges({
   className,
   variant = "overlay",
   compactOnMobile = false,
+  hideTypes,
 }: {
   file: LibraryFile | null | undefined;
   /** Optional — when present, its audio/subtitle streams enrich/correct the filename-derived language badge. */
@@ -246,12 +253,13 @@ export function MediaBadges({
    * so only call sites that asked for the mobile cleanup are affected.
    */
   compactOnMobile?: boolean;
+  hideTypes?: string[];
 }) {
   // No file means no data at all — showing "SDR" here would claim the
   // absence of an HDR tag on a release that doesn't exist, not a real signal.
   if (!file) return null;
   const info = extractBadges(file, plexMediaInfo);
-  const items = buildMediaBadgeItems({ ...info, year }, variant, compactOnMobile);
+  const items = buildMediaBadgeItems({ ...info, year }, variant, compactOnMobile, hideTypes);
 
   if (items.length === 0) return null;
 

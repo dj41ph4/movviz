@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { safePlexUrl } from "@/lib/plex/safeUrl";
-import { logTranscode } from "@/lib/player/transcodeLogs";
+import { plexClientHeaders } from "@/lib/player/plexStream";
 
 export const dynamic = "force-dynamic";
 
@@ -36,15 +36,12 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (!base) return NextResponse.json({ error: "invalid_plex_url" }, { status: 500 });
   const token = cfg.adminToken;
   const clientId = `movviz-${user.id}`;
+  const headers = plexClientHeaders(token, clientId);
 
   try {
-    const metaUrl = `${base}/library/metadata/${ratingKey}?X-Plex-Token=${token}`;
+    const metaUrl = `${base}/library/metadata/${ratingKey}`;
     const metaRes = await fetch(metaUrl, {
-      headers: {
-        accept: "application/json",
-        "x-plex-token": token,
-        "x-plex-client-identifier": clientId,
-      },
+      headers,
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });

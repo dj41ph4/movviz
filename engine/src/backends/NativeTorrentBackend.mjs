@@ -30,6 +30,7 @@ export class NativeTorrentBackend extends AbstractBackend {
     this._completedGids = new Set();   // gids detected as freshly completed
     this._cachedHandles = new Map();   // infoHash → cached handle (updated on poll)
     this._handlePromises = new Map();  // gid ? { resolve, reject, timer }
+    this._removedGids = new Set();     // gids being deleted — never resurrected by the poll
   }
 
   get _clientPollIntervalMs() { return 2500; }
@@ -306,10 +307,31 @@ export class NativeTorrentBackend extends AbstractBackend {
       ]);
 
       const allStatuses = [...(active ?? []), ...(waiting ?? []), ...(stopped ?? [])];
+
+      // Torrents the user removed may linger in tellStopped for a few polls
+      // (removeDownloadResult can race a forceRemove). Never resurrect them:
+      // keep retrying the cleanup, drop their handles, and exclude them from
+      // every downstream pass (selection, completion, cache).
+      const liveStatuses = [];
+      for (const s of allStatuses) {
+        if (this._removedGids.has(s.gid)) {
+          this._rpcCall("aria2.removeDownloadResult", [s.gid]).catch(() => {});
+          this._cachedHandles.delete(s.gid);
+          const staleHash = (s.infoHash ?? "").toLowerCase();
+          if (staleHash) this._cachedHandles.delete(staleHash);
+          continue;
+        }
+        liveStatuses.push(s);
+      }
+      // Forget removed gids that are fully gone from aria2's reports.
+      for (const gid of this._removedGids) {
+        if (!allStatuses.some((s) => s.gid === gid)) this._removedGids.delete(gid);
+      }
+
       const seenGids = new Set();
       const seenInfoHashes = new Set();
 
-      for (const s of allStatuses) {
+      for (const s of liveStatuses) {
         const h = this._nativeStatusToHandle(s);
         if (h.infoHash) {
           this._cachedHandles.set(h.infoHash, h);
@@ -318,10 +340,25 @@ export class NativeTorrentBackend extends AbstractBackend {
         }
       }
 
+      // Re-execute _selectEpisodeFiles for any torrent that was added with
+      // empty files list (magnets before metadata resolution) — the initial
+      // call in add() had no files to match against, so select-file was never
+      // sent to aria2, and the full torrent was downloaded unnecessarily.
+      for (const s of liveStatuses) {
+        if ((s.status ?? "") === "complete" || (s.status ?? "") === "removed") continue;
+        const rawInfoHash = (s.infoHash ?? "").toLowerCase();
+        const infoHash = rawInfoHash || this._gidToInfoHash.get(s.gid) || s.gid;
+        const m = this.meta.get(infoHash) ?? this.meta.get(s.gid);
+        if (m && m.episodeTargets?.length && !m.selectedFileIndices && (s.files?.length ?? 0) > 0) {
+          const h = this._nativeStatusToHandle(s);
+          this._selectEpisodeFiles(h, m);
+        }
+      }
+
       // Handle freshly completed torrents — check stopped AND active/waiting
       // (--bt-stop-timeout=0 keeps completed torrents in tellActive forever)
-      for (const s of allStatuses) {
-        const isComplete = s.status === "complete" || (Number(s.totalLength) > 0 && Number(s.completedLength) >= Number(s.totalLength));
+      for (const s of liveStatuses) {
+        const isComplete = s.status === "complete" || s.status === "seeding" || (Number(s.totalLength) > 0 && Number(s.completedLength) >= Number(s.totalLength));
         if (isComplete && !this._completedGids.has(s.gid)) {
           this._completedGids.add(s.gid);
           const h = this._nativeStatusToHandle(s);
@@ -442,12 +479,13 @@ export class NativeTorrentBackend extends AbstractBackend {
   async _clientRemove(infoHash, deleteData) {
     const gid = this._gidFor(infoHash);
     if (!gid) return false;
-    try {
-      await this._rpcCall("aria2.remove", [gid]);
-    } catch { /* may already be complete */ }
-    try {
-      await this._rpcCall("aria2.removeDownloadResult", [gid]);
-    } catch {}
+    // forceRemove handles all states (active/waiting/paused/seeding) reliably
+    let ok = false;
+    try { await this._rpcCall("aria2.forceRemove", [gid]); ok = true; } catch {}
+    if (!ok) try { await this._rpcCall("aria2.remove", [gid]); ok = true; } catch {}
+    try { await this._rpcCall("aria2.removeDownloadResult", [gid]); } catch {}
+    if (!ok) return false;
+    this._removedGids.add(gid);
     this._gidToInfoHash.delete(gid);
     this._infoHashToGid.delete(infoHash);
     this._cachedHandles.delete(infoHash);
@@ -538,12 +576,6 @@ export class NativeTorrentBackend extends AbstractBackend {
           .catch(() => {});
       }
     }
-  }
-
-  // ─── Done check ────────────────────────────────────────────────────────
-
-  _isDone(t) {
-    return t.done === true;
   }
 
   // ─── Enforce ratio (aria2 does this natively with --seed-ratio) ────────

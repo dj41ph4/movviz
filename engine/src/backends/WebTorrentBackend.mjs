@@ -217,7 +217,6 @@ export class WebTorrentBackend extends AbstractBackend {
     if (!t) return;
 
     t.on("done", () => {
-      this._clearStallTimer(infoHash);
       this.onComplete(infoHash).catch((e) =>
         console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] onComplete failed:`, e.message)
       );
@@ -244,8 +243,8 @@ export class WebTorrentBackend extends AbstractBackend {
     t.on("download", () => {
       const m = this.meta.get(infoHash);
       if (m?.stalled) {
-        m.stalled = false;
-        this.reconcileQueue();
+        // Reprise du téléchargement → levée du blocage, remise en dernier dans la file.
+        this._recoverFromStall(infoHash);
       }
     });
 
@@ -314,6 +313,7 @@ export class WebTorrentBackend extends AbstractBackend {
       }
       clearInterval(stallTimer);
       const meta = this.meta.get(infoHash);
+      if (meta?.stalled) return; // blocked → la règle 2 min prend le relais ; le torrent reste en file et peut récupérer
       this.emitActivity("failed", {
         media: { id: meta?.libraryRef?.split(":")[1] ?? infoHash, title: meta?.title ?? t.name ?? "Inconnu", type: this.cfg.category, href: "#" },
         failure: { code: "no_peers_for_piece", message: "Aucun pair ne détient les dernières pièces" },
@@ -360,6 +360,7 @@ export class WebTorrentBackend extends AbstractBackend {
       }
       clearInterval(stallTimer);
       const meta2 = this.meta.get(infoHash);
+      if (meta2?.stalled) return; // blocked → la règle 2 min prend le relais ; le torrent reste en file et peut récupérer
       this.emitActivity("failed", {
         media: { id: meta2?.libraryRef?.split(":")[1] ?? infoHash, title: meta2?.title ?? t.name ?? "Inconnu", type: this.cfg.category, href: "#" },
         failure: { code: "no_peers_for_piece", message: "Aucun pair ne détient les dernières pièces" },

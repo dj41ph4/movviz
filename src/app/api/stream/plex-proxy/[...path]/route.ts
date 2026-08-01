@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { safePlexUrl } from "@/lib/plex/safeUrl";
 import { getStreamCacheTtl } from "@/lib/settings/betaPlayer";
+import { plexClientHeaders, rewriteM3u8 } from "@/lib/player/plexStream";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -56,6 +58,7 @@ function cacheGet(key: string): CacheEntry | null {
     cache.delete(key);
     return null;
   }
+  // LRU touch
   cache.delete(key);
   cache.set(key, entry);
   return entry;
@@ -73,6 +76,10 @@ function cacheSet(key: string, entry: CacheEntry): void {
 const MAX_CACHEABLE_SIZE = 8 * 1024 * 1024;
 
 export async function GET(req: NextRequest, context: Ctx) {
+  // Auth: browser sends session cookie (same-origin). Reject anonymous.
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
   const { path } = await context.params;
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) {
@@ -82,15 +89,19 @@ export async function GET(req: NextRequest, context: Ctx) {
   const base = safePlexUrl(`${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`);
   if (!base) return NextResponse.json({ error: "invalid_plex_url" }, { status: 500 });
   const token = cfg.adminToken;
+  const clientId = `movviz-${user.id}`;
 
-  const qs = req.nextUrl.searchParams;
-  qs.set("X-Plex-Token", token);
+  // Rebuild Plex path. Catch-all may split "video" / ":" / "transcode" / ...
+  const plexPath = "/" + path.map((p) => decodeURIComponent(p)).join("/");
+  const qs = new URLSearchParams(req.nextUrl.searchParams);
+  // Never trust client-supplied token — always inject ours
+  qs.delete("X-Plex-Token");
+  qs.delete("X-Plex-Token".toLowerCase());
 
-  const plexUrl = `${base}/${path.join("/")}?${qs.toString()}`;
+  const plexUrl = `${base}${plexPath}${qs.toString() ? `?${qs.toString()}` : ""}`;
 
   const plexHeaders: Record<string, string> = {
-    "x-plex-token": token,
-    "x-plex-client-identifier": "movviz-proxy",
+    ...plexClientHeaders(token, clientId),
   };
   const range = req.headers.get("range");
   if (range) plexHeaders["range"] = range;
@@ -102,21 +113,17 @@ export async function GET(req: NextRequest, context: Ctx) {
     "access-control-allow-credentials": "true",
   };
 
-  const isPlaylistPath = path.some((p) => p.endsWith(".m3u8"));
-
+  const isPlaylistPath = plexPath.endsWith(".m3u8") || path.some((p) => p.endsWith(".m3u8"));
   const cacheKey = `${plexUrl}|${range ?? ""}`;
 
+  // Cache playlists + small non-range segments
   if (isPlaylistPath || !range) {
     const cached = cacheGet(cacheKey);
     if (cached) {
       if (req.headers.get("if-none-match") === cached.etag) {
         return new NextResponse(null, {
           status: 304,
-          headers: {
-            etag: cached.etag,
-            "cache-control": cacheControl,
-            ...corsHeaders,
-          },
+          headers: { etag: cached.etag, "cache-control": cacheControl, ...corsHeaders },
         });
       }
       return new NextResponse(new Uint8Array(cached.body), {
@@ -143,35 +150,36 @@ export async function GET(req: NextRequest, context: Ctx) {
     let plexRes: Response;
     try {
       plexRes = await fetchPlex(AbortSignal.timeout(30000));
-      if (plexRes.status === 502 || plexRes.status === 504) {
-        await new Promise((r) => setTimeout(r, 200));
+      // Retry transient gateway errors (Plex still spinning up the segment)
+      if (plexRes.status === 502 || plexRes.status === 504 || plexRes.status === 503) {
+        await new Promise((r) => setTimeout(r, 250));
         plexRes = await fetchPlex(AbortSignal.timeout(30000));
-        if (plexRes.status === 502 || plexRes.status === 504) {
-          await new Promise((r) => setTimeout(r, 200));
+        if (plexRes.status === 502 || plexRes.status === 504 || plexRes.status === 503) {
+          await new Promise((r) => setTimeout(r, 400));
           plexRes = await fetchPlex(AbortSignal.timeout(30000));
         }
       }
     } catch (e) {
-      console.error("[plex-proxy] fetch error", plexUrl, e);
+      console.error("[plex-proxy] fetch error", plexPath, e);
       return NextResponse.json({ error: "proxy_error" }, { status: 500 });
     }
 
     if (!plexRes.ok && plexRes.status !== 206) {
       const body = await plexRes.text().catch(() => "");
-      console.error("[plex-proxy] fetch failed", plexRes.status, plexUrl, body.slice(0, 500));
+      console.error("[plex-proxy] fetch failed", plexRes.status, plexPath, body.slice(0, 300));
       return NextResponse.json({ error: "proxy_fetch_failed" }, { status: plexRes.status });
     }
 
     const contentType = plexRes.headers.get("content-type") || "";
-    const isPlaylist = contentType.includes("mpegurl") || contentType.includes("m3u");
+    const isPlaylist =
+      isPlaylistPath ||
+      contentType.includes("mpegurl") ||
+      contentType.includes("m3u") ||
+      contentType.includes("application/vnd.apple.mpegurl");
 
     if (isPlaylist) {
       const raw = await plexRes.text();
-      const proxyBase = `/api/stream/plex-proxy`;
-      const rewritten = raw.replace(
-        /(https?:\/\/[^\/]+)?(\/playlists\/[^\s"']*)/g,
-        (_match, _host, p) => `${proxyBase}${p}`
-      );
+      const rewritten = rewriteM3u8(raw, plexPath);
       const etag = buildEtag(rewritten);
 
       if (req.headers.get("if-none-match") === etag) {
@@ -181,20 +189,21 @@ export async function GET(req: NextRequest, context: Ctx) {
         });
       }
 
-      const body = new Uint8Array(Buffer.from(rewritten));
-      if (body.byteLength <= MAX_CACHEABLE_SIZE) {
+      const bodyBuf = Buffer.from(rewritten, "utf8");
+      if (bodyBuf.byteLength <= MAX_CACHEABLE_SIZE) {
+        // Media playlists are live — short TTL
         cacheSet(cacheKey, {
-          body: Buffer.from(rewritten),
-          contentType,
+          body: bodyBuf,
+          contentType: "application/vnd.apple.mpegurl",
           status: 200,
           etag,
-          expires: Date.now() + CACHE_TTL_MS,
+          expires: Date.now() + Math.min(CACHE_TTL_MS, 15_000),
         });
       }
-      return new NextResponse(body, {
+      return new NextResponse(new Uint8Array(bodyBuf), {
         headers: {
-          "content-type": contentType,
-          "cache-control": cacheControl,
+          "content-type": "application/vnd.apple.mpegurl",
+          "cache-control": "private, max-age=5",
           etag,
           "x-movviz-cache": "MISS",
           ...corsHeaders,
@@ -203,7 +212,7 @@ export async function GET(req: NextRequest, context: Ctx) {
     }
 
     const resHeaders: Record<string, string> = {
-      "content-type": contentType,
+      "content-type": contentType || "application/octet-stream",
       "cache-control": cacheControl,
       ...corsHeaders,
     };
@@ -226,7 +235,7 @@ export async function GET(req: NextRequest, context: Ctx) {
 
       cacheSet(cacheKey, {
         body: buf,
-        contentType,
+        contentType: resHeaders["content-type"],
         status: plexRes.status,
         etag,
         expires: Date.now() + CACHE_TTL_MS,
@@ -244,7 +253,7 @@ export async function GET(req: NextRequest, context: Ctx) {
       headers: resHeaders,
     });
   } catch (e) {
-    console.error("[plex-proxy] error", plexUrl, e);
+    console.error("[plex-proxy] error", plexPath, e);
     return NextResponse.json({ error: "proxy_error" }, { status: 500 });
   }
 }

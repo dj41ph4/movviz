@@ -89,14 +89,25 @@ export async function searchAllMissing(onProgress?: (current: number, total: num
     (s) => s.monitored && s.seasons.some((se) => se.monitored && se.episodes.some((e) => e.monitored && e.status === "missing"))
   );
 
-  const total = movies.length + series.length;
+  // Progress unit = one movie, or one MISSING SEASON of a series. The old
+  // per-series unit froze the counter at 0/N for the whole duration of the
+  // first (often giant, 20-30 season) show in the batch — confirmed live:
+  // "0/413" that read as a stuck job. Per-season ticks move the counter
+  // roughly every item's worth of work instead.
+  const seriesSeasonCounts = new Map(
+    series.map((s) => [
+      s.id,
+      s.seasons.filter((se) => se.monitored && se.episodes.some((e) => e.monitored && e.status === "missing")).length,
+    ])
+  );
+  const total = movies.length + [...seriesSeasonCounts.values()].reduce((a, b) => a + b, 0);
   let current = 0;
   onProgress?.(current, total || 1);
 
-  recordSearchLog("info", "search_all_missing.start", `${movies.length} film(s), ${series.length} série(s) à traiter (concurrence=${CONCURRENCY})`);
+  recordSearchLog("info", "search_all_missing.start", `${movies.length} film(s), ${series.length} série(s) (${total} unités) à traiter (concurrence=${CONCURRENCY})`);
 
-  const tick = () => {
-    current++;
+  const tick = (n = 1) => {
+    current += n;
     onProgress?.(current, total || 1);
   };
 
@@ -107,9 +118,33 @@ export async function searchAllMissing(onProgress?: (current: number, total: num
 
   await runBatch(
     queue,
-    (item) => (item.type === "movie" ? searchAndGrabMovie(item.id) : searchAndGrabSeries(item.id)),
+    async (item) => {
+      if (item.type === "movie") {
+        try {
+          await searchAndGrabMovie(item.id);
+        } finally {
+          // Same contract as the series branch below: the tick must fire
+          // even if the search itself throws (runBatch swallows it) so
+          // current reaches total.
+          tick();
+        }
+        return;
+      }
+      let done = 0;
+      try {
+        await searchAndGrabSeries(item.id, { onSeasonDone: () => { done++; tick(); } });
+      } finally {
+        // Top up whatever the series itself didn't tick — an intégrale found
+        // (or nothing left by the time the per-series lock released us, or an
+        // error swallowed by runBatch) covers the whole series at once, so
+        // its remaining expected seasons count here so current never stalls
+        // behind total.
+        const expected = seriesSeasonCounts.get(item.id) ?? 0;
+        while (done < expected) { done++; tick(); }
+      }
+    },
     CONCURRENCY,
-    tick
+    () => {}
   );
 
   const totalMs = Math.round(performance.now() - t0);

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
+import type { EngineConfig } from "@/lib/playback/types";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -11,9 +12,22 @@ interface BetaPlayerConfig {
   enabled: boolean;
   /** Durée de cache en secondes pour les segments vidéo (0 = pas de cache). Défaut: 300s (5 min). */
   streamCacheTtl: number;
+  /**
+   * Moteur de lecture : "auto" (décision automatique, MSE pour les MP4
+   * compatibles), "native" (moteurs existants uniquement), "mse" (tente MSE
+   * en priorité, fallback automatique). Défaut: "auto".
+   */
+  playbackEngine: EngineConfig;
+  /** Affiche le panneau debug playback (mode, codecs, buffer, réseau...). */
+  debug: boolean;
 }
 
-const DEFAULT: BetaPlayerConfig = { enabled: false, streamCacheTtl: 300 };
+const DEFAULT: BetaPlayerConfig = {
+  enabled: false,
+  streamCacheTtl: 300,
+  playbackEngine: "auto",
+  debug: false,
+};
 
 function load(): BetaPlayerConfig {
   return { ...DEFAULT, ...readJsonCached<Partial<BetaPlayerConfig>>(FILE, {}) };
@@ -39,4 +53,23 @@ export function getStreamCacheTtl(): number {
 export function setStreamCacheTtl(ttl: number): void {
   const cfg = load();
   save({ ...cfg, streamCacheTtl: Math.max(0, ttl) });
+}
+
+export function getPlaybackEngine(): EngineConfig {
+  const v = load().playbackEngine;
+  return v === "native" || v === "mse" ? v : "auto";
+}
+
+export function setPlaybackEngine(engine: EngineConfig): void {
+  const cfg = load();
+  save({ ...cfg, playbackEngine: engine === "native" || engine === "mse" ? engine : "auto" });
+}
+
+export function isPlaybackDebugEnabled(): boolean {
+  return load().debug;
+}
+
+export function setPlaybackDebugEnabled(enabled: boolean): void {
+  const cfg = load();
+  save({ ...cfg, debug: !!enabled });
 }

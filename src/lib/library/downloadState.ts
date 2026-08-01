@@ -91,9 +91,10 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
 
   // A torrent that exists but is completed/seeding/paused/stalled is NOT
   // actively downloading — the import callback should have fired already,
-  // but if it failed the episode stays stuck forever. Only "downloading",
-  // "metadata", and "queued" count as truly active.
-  const ACTIVE_STATES = new Set(["downloading", "metadata", "queued"]);
+  // but if it failed the episode stays stuck forever. "blocked" (2 min sans
+  // mouvement, règle produit) is still a live torrent that can recover —
+  // it stays claimed so the library badge isn't falsely released.
+  const ACTIVE_STATES = new Set(["downloading", "metadata", "queued", "blocked"]);
   const isActivelyDownloading = new Map(data.torrents.map((t) => [t.infoHash, ACTIVE_STATES.has(t.state)]));
 
   let released = 0;

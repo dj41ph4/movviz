@@ -54,7 +54,7 @@ export function CalendarEntryChip({ entry, onQuickSearch, searching, compact }: 
         <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-surface">
           {poster ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={poster} alt={entry.title} className="h-full w-full object-cover" />
+            <img src={poster} alt={entry.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               {entry.kind === "movie" ? <Film className="h-4 w-4 text-ink-soft/50" /> : <Tv className="h-4 w-4 text-ink-soft/50" />}

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { safePlexUrl } from "@/lib/plex/safeUrl";
 import { unregisterSession } from "@/lib/player/transcodeSessions";
+import { plexClientHeaders } from "@/lib/player/plexStream";
 
 export const dynamic = "force-dynamic";
 
@@ -26,11 +27,7 @@ export async function POST(req: NextRequest, context: Ctx) {
         `${base}/video/:/transcode/universal/stop?session=${encodeURIComponent(sessionId)}`,
         {
           method: "GET",
-          headers: {
-            "X-Plex-Token": cfg.adminToken,
-            "X-Plex-Client-Identifier": clientId,
-            accept: "application/json",
-          },
+          headers: plexClientHeaders(cfg.adminToken, clientId),
           signal: AbortSignal.timeout(5000),
         }
       );

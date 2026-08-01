@@ -110,7 +110,12 @@ function saveMovies(list: LibraryMovie[], isExplicitClear = false) {
         console.error("[store] REFUSING to overwrite movie library: " + old.length + " entries → 0 — NAS may be down");
         return;
       }
-    } catch { /* file missing — fine to write */ }
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.error("[store] REFUSING to overwrite movie library — cannot read existing file:", err);
+        return;
+      }
+    }
   }
   writeJson(MOVIES_FILE, list);
   invalidateMovieCaches();
@@ -263,7 +268,12 @@ function saveSeries(list: LibrarySeries[], isExplicitClear = false) {
         console.error("[store] REFUSING to overwrite series library: " + old.length + " entries → 0 — NAS may be down");
         return;
       }
-    } catch { /* file missing — fine to write */ }
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code !== "ENOENT") {
+        console.error("[store] REFUSING to overwrite series library — cannot read existing file:", err);
+        return;
+      }
+    }
   }
   writeJson(SERIES_FILE, list);
   invalidateSeriesCaches();

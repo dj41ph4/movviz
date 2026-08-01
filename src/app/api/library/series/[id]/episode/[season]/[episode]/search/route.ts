@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { searchAndGrabEpisode } from "@/lib/library/autoGrabSeries";
+import { searchAndGrabEpisode, withSearchLock } from "@/lib/library/autoGrabSeries";
 import { getSeries } from "@/lib/library/store";
 import { enqueueJob } from "@/lib/jobs/queue";
 
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!series) return NextResponse.json({ error: "series not found" }, { status: 404 });
 
   enqueueJob("qualityUpgrade", `Recherche : ${series.title} — S${season}E${episode}`, 1, async (setProgress) => {
-    await searchAndGrabEpisode(id, Number(season), Number(episode));
+    await withSearchLock(`series:${id}`, () => searchAndGrabEpisode(id, Number(season), Number(episode)));
     setProgress(1, 1);
   }, `episode-search-${id}-${season}-${episode}`);
   return NextResponse.json({ queued: true });

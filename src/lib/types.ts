@@ -85,7 +85,7 @@ export interface EngineTorrent {
   magnetURI: string;
   instanceId: string;
   category: MediaType;
-  state: "metadata" | "downloading" | "seeding" | "paused" | "queued" | "stalled" | "completed";
+  state: "metadata" | "downloading" | "seeding" | "paused" | "queued" | "stalled" | "blocked" | "completed";
   progress: number; // 0..1
   size: number; // bytes
   downloaded: number;

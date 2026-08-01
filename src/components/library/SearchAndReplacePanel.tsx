@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { formatBytes } from "@/lib/utils";
-import { Loader2, X, ArrowRight, RefreshCw, Check, Languages, Sparkles, Cpu, HardDrive, Tv } from "lucide-react";
+import { Loader2, X, ArrowRight, RefreshCw, Check, Languages, Sparkles, Cpu, HardDrive, Tv, EyeOff, Music, Monitor } from "lucide-react";
+import { toast } from "@/components/ui/Toast";
 
 interface MovieUpgradeCandidate {
   movieId: string;
@@ -15,7 +17,7 @@ interface MovieUpgradeCandidate {
   detectedVersion: string;
   detectedFormatScore: number;
   size: number;
-  reasonKey: "languageUpgrade" | "customFormatUpgrade" | "codecUpgrade";
+  reasonKey: "languageUpgrade" | "audioCodecUpgrade" | "videoCodecUpgrade" | "customFormatUpgrade" | "codecUpgrade";
   reasonParams?: Record<string, string>;
 }
 
@@ -28,7 +30,7 @@ interface EpisodeUpgradeCandidate {
   currentSize: number;
   detectedVersion: string;
   size: number;
-  reasonKey: "languageUpgrade";
+  reasonKey: "languageUpgrade" | "audioCodecUpgrade" | "videoCodecUpgrade";
   reasonParams: { from: string; to: string };
 }
 
@@ -42,7 +44,7 @@ interface Row {
   currentSize: number;
   detectedVersion: string;
   size: number;
-  reasonKey: "languageUpgrade" | "customFormatUpgrade" | "codecUpgrade";
+  reasonKey: "languageUpgrade" | "audioCodecUpgrade" | "videoCodecUpgrade" | "customFormatUpgrade" | "codecUpgrade";
   reasonParams?: Record<string, string>;
   grabUrl: string;
 }
@@ -54,14 +56,30 @@ function episodeCode(season: number, episode: number): string {
 export function SearchAndReplacePanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useT();
   const [loading, setLoading] = useState(false);
-  const [rows, setRows] = useState<Row[]>([]);
+  const [allRows, setAllRows] = useState<Row[]>([]);
+  const [visibleRows, setVisibleRows] = useState<Row[]>([]);
   const [grabbing, setGrabbing] = useState<string | null>(null);
   const [grabbed, setGrabbed] = useState<Set<string>>(new Set());
+  const revealTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Progressive reveal — items appear one by one every 60ms.
+  useEffect(() => {
+    if (revealTimer.current) clearInterval(revealTimer.current);
+    if (allRows.length === 0) { setVisibleRows([]); return; }
+    let i = 0;
+    setVisibleRows([allRows[0]]);
+    revealTimer.current = setInterval(() => {
+      i++;
+      if (i >= allRows.length) { clearInterval(revealTimer.current!); return; }
+      setVisibleRows((prev) => [...prev, allRows[i]]);
+    }, 60);
+    return () => { if (revealTimer.current) clearInterval(revealTimer.current); };
+  }, [allRows]);
 
   useEffect(() => {
-    if (!open) return;
-    setRows([]);
+    if (!open) { setAllRows([]); setVisibleRows([]); return; }
     setGrabbed(new Set());
+    setAllRows([]);
     setLoading(true);
     fetch("/api/library/upgrade-candidates", { cache: "no-store" })
       .then((r) => r.json())
@@ -91,7 +109,7 @@ export function SearchAndReplacePanel({ open, onClose }: { open: boolean; onClos
           reasonParams: c.reasonParams,
           grabUrl: `/api/library/upgrade-candidates/episode/${c.seriesId}/${c.seasonNumber}/${c.episodeNumber}/grab`,
         }));
-        setRows([...movieRows, ...episodeRows]);
+        setAllRows([...movieRows, ...episodeRows]);
       })
       .finally(() => setLoading(false));
   }, [open]);
@@ -100,11 +118,36 @@ export function SearchAndReplacePanel({ open, onClose }: { open: boolean; onClos
     setGrabbing(row.key);
     try {
       const res = await fetch(row.grabUrl, { method: "POST" });
-      if (res.ok) setGrabbed((s) => new Set(s).add(row.key));
+      const data = await res.json();
+      if (res.ok) {
+        setGrabbed((s) => new Set(s).add(row.key));
+        toast("success", t("library.searchAndReplaceGrabbed", { title: row.title }));
+      } else {
+        toast("error", data.error ?? "Échec du remplacement");
+      }
+    } catch {
+      toast("error", "Moteur injoignable");
     } finally {
       setGrabbing(null);
     }
   };
+
+  const ignore = async (row: Row) => {
+    setGrabbing(row.key);
+    try {
+      await fetch(`/api/library/upgrade-candidates/${row.grabUrl.split("/").slice(-2)[0]}/ignore`, { method: "POST" });
+      setAllRows((prev) => prev.filter((r) => r.key !== row.key));
+      toast("info", t("library.searchAndReplaceIgnored", { title: row.title }));
+    } catch {
+      toast("error", "Erreur");
+    } finally {
+      setGrabbing(null);
+    }
+  };
+
+  const totalCount = allRows.length;
+  const visibleCount = visibleRows.length;
+  const progress = totalCount > 0 ? visibleCount / totalCount : 0;
 
   if (!open) return null;
 
@@ -126,21 +169,44 @@ export function SearchAndReplacePanel({ open, onClose }: { open: boolean; onClos
 
         <div className="p-6">
           {loading && (
-            <div className="flex items-center justify-center gap-2 py-10 text-ink-dim">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              {t("common.loading")}
+            <div className="flex flex-col items-center gap-4 py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-brand-glow" />
+              <p className="text-sm text-ink-dim">{t("library.searchAndReplaceAnalyzing")}</p>
+              <div className="h-1 w-48 overflow-hidden rounded-full bg-white/5">
+                <motion.div
+                  className="h-full rounded-full brand-gradient"
+                  animate={{ width: ["0%", "90%", "0%"] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </div>
             </div>
           )}
+          {!loading && totalCount > 0 && visibleCount < totalCount && (
+            <div className="mb-4 space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-ink-dim">{t("library.searchAndReplaceProgress", { current: visibleCount, total: totalCount })}</span>
+                <span className="font-semibold text-brand-glow">{Math.round(progress * 100)}%</span>
+              </div>
+              <div className="h-1 w-full overflow-hidden rounded-full bg-white/5">
+                <motion.div className="h-full rounded-full brand-gradient" animate={{ width: `${progress * 100}%` }} transition={{ duration: 0.3, ease: "easeOut" }} />
+              </div>
+            </div>
+          )}
+          {!loading && totalCount > 0 && visibleCount >= totalCount && (
+            <p className="mb-4 text-center text-xs font-semibold text-ok">{t("library.searchAndReplaceComplete", { count: totalCount })}</p>
+          )}
 
-          {!loading && rows.length === 0 && (
+          {!loading && visibleRows.length === 0 && allRows.length === 0 && (
             <p className="py-10 text-center text-sm text-ink-dim">{t("library.searchAndReplaceEmpty")}</p>
           )}
 
-          {!loading && rows.length > 0 && (
+          {(!loading || visibleRows.length > 0) && visibleRows.length > 0 && (
             <div className="space-y-2.5">
-              {rows.map((row) => {
+              {visibleRows.map((row) => {
                 const isGrabbed = grabbed.has(row.key);
                 const isLanguageUpgrade = row.reasonKey === "languageUpgrade";
+                const isAudioCodecUpgrade = row.reasonKey === "audioCodecUpgrade";
+                const isVideoCodecUpgrade = row.reasonKey === "videoCodecUpgrade";
                 const isCodecUpgrade = row.reasonKey === "codecUpgrade";
                 const sizeDelta = row.size - row.currentSize;
                 return (
@@ -157,12 +223,16 @@ export function SearchAndReplacePanel({ open, onClose }: { open: boolean; onClos
                         className={
                           isLanguageUpgrade
                             ? "inline-flex shrink-0 items-center gap-1 rounded-full border border-cyan/25 bg-cyan/12 px-2 py-0.5 text-[10px] font-bold text-cyan"
-                            : isCodecUpgrade
-                              ? "inline-flex shrink-0 items-center gap-1 rounded-full border border-purple/25 bg-purple/12 px-2 py-0.5 text-[10px] font-bold text-purple"
-                              : "inline-flex shrink-0 items-center gap-1 rounded-full border border-brand/25 bg-brand/12 px-2 py-0.5 text-[10px] font-bold text-brand-glow"
+                            : isAudioCodecUpgrade
+                              ? "inline-flex shrink-0 items-center gap-1 rounded-full border border-ok/25 bg-ok/12 px-2 py-0.5 text-[10px] font-bold text-ok"
+                              : isVideoCodecUpgrade
+                                ? "inline-flex shrink-0 items-center gap-1 rounded-full border border-blue-400/25 bg-blue-400/12 px-2 py-0.5 text-[10px] font-bold text-blue-400"
+                                : isCodecUpgrade
+                                  ? "inline-flex shrink-0 items-center gap-1 rounded-full border border-purple/25 bg-purple/12 px-2 py-0.5 text-[10px] font-bold text-purple"
+                                  : "inline-flex shrink-0 items-center gap-1 rounded-full border border-brand/25 bg-brand/12 px-2 py-0.5 text-[10px] font-bold text-brand-glow"
                         }
                       >
-                        {isLanguageUpgrade ? <Languages className="h-2.5 w-2.5" /> : isCodecUpgrade ? <Cpu className="h-2.5 w-2.5" /> : <Sparkles className="h-2.5 w-2.5" />}
+                        {isLanguageUpgrade ? <Languages className="h-2.5 w-2.5" /> : isAudioCodecUpgrade ? <Music className="h-2.5 w-2.5" /> : isVideoCodecUpgrade ? <Monitor className="h-2.5 w-2.5" /> : isCodecUpgrade ? <Cpu className="h-2.5 w-2.5" /> : <Sparkles className="h-2.5 w-2.5" />}
                         {t(`library.searchAndReplaceReasons.${row.reasonKey}`, row.reasonParams)}
                       </span>
                     </div>
@@ -182,20 +252,29 @@ export function SearchAndReplacePanel({ open, onClose }: { open: boolean; onClos
                         </span>
                       )}
                     </div>
-                    <button
-                      onClick={() => grab(row)}
-                      disabled={grabbing === row.key || isGrabbed}
-                      className="mt-3 flex h-8 items-center gap-1.5 rounded-lg brand-gradient px-3 text-xs font-bold text-white transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-                    >
-                      {grabbing === row.key ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : isGrabbed ? (
-                        <Check className="h-3.5 w-3.5" />
-                      ) : (
-                        <RefreshCw className="h-3.5 w-3.5" />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => grab(row)}
+                        disabled={grabbing === row.key || isGrabbed}
+                        className="mt-3 flex h-8 items-center gap-1.5 rounded-lg brand-gradient px-3 text-xs font-bold text-white transition-transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100">
+                        {grabbing === row.key ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : isGrabbed ? (
+                          <Check className="h-3.5 w-3.5" />
+                        ) : (
+                          t("library.searchAndReplaceAction")
+                        )}
+                      </button>
+                      {!isGrabbed && (
+                        <button
+                          onClick={() => ignore(row)}
+                          disabled={grabbing === row.key}
+                          className="mt-3 flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-black/20 px-3 text-xs font-bold text-ink-dim transition-colors hover:text-ink hover:border-white/20 disabled:opacity-50">
+                          <EyeOff className="h-3.5 w-3.5" />
+                          {t("library.searchAndReplaceIgnore")}
+                        </button>
                       )}
-                      {isGrabbed ? t("library.searchAndReplaceLaunched") : t("library.searchAndReplaceAction")}
-                    </button>
+                    </div>
                   </div>
                 );
               })}

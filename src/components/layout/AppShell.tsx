@@ -19,6 +19,7 @@ import { PageLoaderProvider } from "@/components/ui/PageLoader";
 import { I18nProvider, useT } from "@/i18n/provider";
 import { VersionProvider } from "@/lib/version/VersionContext";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { GpuProvider } from "@/lib/gpu/GpuProvider";
 
 /**
  * Shared data-fetch cache for the whole session. SWR keeps its cache keyed
@@ -98,25 +99,30 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
 
   if (isAuthPage) {
     return (
-      <I18nProvider>
-        <AuroraBackground />
-        <div className="relative z-10">{children}</div>
-      </I18nProvider>
+      <GpuProvider>
+        <I18nProvider>
+          <AuroraBackground />
+          <div className="relative z-10">{children}</div>
+        </I18nProvider>
+      </GpuProvider>
     );
   }
 
   if (isPending) {
     return (
-      <I18nProvider>
-        <AuroraBackground />
-        <div className="relative z-10">
-          <PendingApprovalScreen username={currentUser!.username} />
-        </div>
-      </I18nProvider>
+      <GpuProvider>
+        <I18nProvider>
+          <AuroraBackground />
+          <div className="relative z-10">
+            <PendingApprovalScreen username={currentUser!.username} />
+          </div>
+        </I18nProvider>
+      </GpuProvider>
     );
   }
 
   return (
+      <GpuProvider>
       <SWRConfig value={swrConfig}>
         <I18nProvider>
           <VersionProvider version={version}>
@@ -148,5 +154,6 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
           </VersionProvider>
         </I18nProvider>
       </SWRConfig>
+      </GpuProvider>
   );
 }

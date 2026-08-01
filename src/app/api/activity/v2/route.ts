@@ -268,9 +268,9 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
           eta,
           ratio: t.ratio ?? 0,
           peers: t.numPeers,
-          state: (t.state === "metadata" ? "downloading" : t.state) as "downloading" | "paused" | "queued" | "completed" | "seeding" | "stalled"
+          state: (t.state === "metadata" ? "downloading" : t.state === "blocked" ? "stalled" : t.state) as "downloading" | "paused" | "queued" | "completed" | "seeding" | "stalled"
         },
-        status: t.state === "paused" ? "paused" : t.state === "stalled" ? "stalled" : t.state === "queued" ? "queued" : t.state === "seeding" ? "seeding" : t.state === "completed" ? "completed" : "downloading",
+        status: t.state === "paused" ? "paused" : t.state === "blocked" || t.state === "stalled" ? "stalled" : t.state === "queued" ? "queued" : t.state === "seeding" ? "seeding" : t.state === "completed" ? "completed" : "downloading",
         priority: t.priority ?? "medium",
         addedAt
       };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { X, Plus, Loader2, SlidersHorizontal } from "lucide-react";
 
@@ -12,9 +12,23 @@ interface ReleaseRules {
   maxSeasonSizeMb: number | null;
   codecScores: { x264: number; x265: number; av1: number };
   preferredLanguageUpgrade: string | null;
+  preferredVideoCodec: string | null;
+  preferredAudioCodec: string | null;
+  preferredResolution: string | null;
+  autoUpgradeEnabled: boolean;
 }
 
-const LANGUAGE_UPGRADE_OPTIONS = ["VF", "VFQ", "MULTI · VF", "VOSTFR", "VOST", "VO"] as const;
+const VIDEO_CODEC_OPTIONS = ["x264", "x265", "AV1"] as const;
+const AUDIO_CODEC_OPTIONS = ["DTS", "TrueHD", "Atmos", "AAC", "AC3", "EAC3", "FLAC", "OPUS"] as const;
+const LANGUAGE_BY_LOCALE: Record<string, readonly string[]> = {
+  fr: ["VF", "VFQ", "MULTI · VF", "VOSTFR", "VOST", "VO"],
+  en: ["EN", "MULTI · EN", "VO", "VOSTFR"],
+  de: ["GER", "MULTI · GER", "VO"],
+  it: ["ITA", "MULTI · ITA", "VO"],
+  nl: ["NL", "MULTI · NL", "VO"],
+};
+const FALLBACK_LANGUAGES = ["VF", "VFQ", "MULTI · VF", "VOSTFR", "VOST", "VO"] as const;
+const RESOLUTION_OPTIONS = ["720p", "1080p", "2160p", "4320p"] as const;
 
 const mbToGb = (mb: number | null) => (mb ? String(Math.round((mb / 1024) * 100) / 100) : "");
 const gbToMb = (gb: string) => {
@@ -24,6 +38,8 @@ const gbToMb = (gb: string) => {
 
 export function ReleaseRulesPanel() {
   const t = useT();
+  const { locale } = useI18n();
+  const languageOptions = (LANGUAGE_BY_LOCALE[locale] ?? FALLBACK_LANGUAGES) as readonly string[];
   const [rules, setRules] = useState<ReleaseRules | null>(null);
   const [wordInput, setWordInput] = useState("");
   const [saving, setSaving] = useState(false);
@@ -177,7 +193,7 @@ export function ReleaseRulesPanel() {
           >
             {t("releaseRules.languageUpgradeDisabled")}
           </button>
-          {LANGUAGE_UPGRADE_OPTIONS.map((lang) => (
+          {languageOptions.map((lang: string) => (
             <button
               key={lang}
               onClick={() => save({ preferredLanguageUpgrade: lang })}
@@ -189,6 +205,114 @@ export function ReleaseRulesPanel() {
               {lang}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Video codec target */}
+      <div className="rounded-2xl glass p-5">
+        <h3 className="font-bold text-ink">{t("releaseRules.videoCodecTitle")}</h3>
+        <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.videoCodecHint")}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => save({ preferredVideoCodec: null })}
+            className={cn(
+              "rounded-xl px-3 py-2 text-xs font-bold transition-colors",
+              rules.preferredVideoCodec === null ? "brand-gradient text-white" : "glass-strong text-ink-soft hover:text-ink"
+            )}
+          >
+            {t("releaseRules.codecDisabled")}
+          </button>
+          {VIDEO_CODEC_OPTIONS.map((codec) => (
+            <button
+              key={codec}
+              onClick={() => save({ preferredVideoCodec: codec })}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-bold font-mono transition-colors",
+                rules.preferredVideoCodec === codec ? "brand-gradient text-white" : "glass-strong text-ink-soft hover:text-ink"
+              )}
+            >
+              {codec}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Audio codec target */}
+      <div className="rounded-2xl glass p-5">
+        <h3 className="font-bold text-ink">{t("releaseRules.audioCodecTitle")}</h3>
+        <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.audioCodecHint")}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => save({ preferredAudioCodec: null })}
+            className={cn(
+              "rounded-xl px-3 py-2 text-xs font-bold transition-colors",
+              rules.preferredAudioCodec === null ? "brand-gradient text-white" : "glass-strong text-ink-soft hover:text-ink"
+            )}
+          >
+            {t("releaseRules.codecDisabled")}
+          </button>
+          {AUDIO_CODEC_OPTIONS.map((codec) => (
+            <button
+              key={codec}
+              onClick={() => save({ preferredAudioCodec: codec })}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-bold font-mono transition-colors",
+                rules.preferredAudioCodec === codec ? "brand-gradient text-white" : "glass-strong text-ink-soft hover:text-ink"
+              )}
+            >
+              {codec}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Resolution target */}
+      <div className="rounded-2xl glass p-5">
+        <h3 className="font-bold text-ink">{t("releaseRules.resolutionTitle")}</h3>
+        <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.resolutionHint")}</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => save({ preferredResolution: null })}
+            className={cn(
+              "rounded-xl px-3 py-2 text-xs font-bold transition-colors",
+              rules.preferredResolution === null ? "brand-gradient text-white" : "glass-strong text-ink-soft hover:text-ink"
+            )}
+          >
+            {t("releaseRules.codecDisabled")}
+          </button>
+          {RESOLUTION_OPTIONS.map((res) => (
+            <button
+              key={res}
+              onClick={() => save({ preferredResolution: res })}
+              className={cn(
+                "rounded-xl px-3 py-2 text-xs font-bold font-mono transition-colors",
+                rules.preferredResolution === res ? "brand-gradient text-white" : "glass-strong text-ink-soft hover:text-ink"
+              )}
+            >
+              {res}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Auto-upgrade toggle */}
+      <div className="rounded-2xl glass p-5">
+        <h3 className="font-bold text-ink">{t("releaseRules.autoUpgradeTitle")}</h3>
+        <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.autoUpgradeHint")}</p>
+        <div className="mt-4 flex items-center justify-between gap-4">
+          <span className="text-xs text-ink-soft">{rules.autoUpgradeEnabled ? t("common.enabled") : t("common.disabled")}</span>
+          <button
+            onClick={() => save({ autoUpgradeEnabled: !rules.autoUpgradeEnabled })}
+            className={cn(
+              "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+              rules.autoUpgradeEnabled ? "brand-gradient" : "bg-white/10"
+            )}
+          >
+            <span className={cn(
+              "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+              rules.autoUpgradeEnabled && "translate-x-5"
+            )} />
+          </button>
         </div>
       </div>
 

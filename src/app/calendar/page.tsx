@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import useSWR from "swr";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { useT } from "@/i18n/provider";
@@ -45,7 +45,12 @@ export default function CalendarPage() {
   const t = useT();
   const { locale } = useI18n();
   const { titlePanel } = useTitlePanel();
-  const { data, error, isLoading } = useSWR<{ entries: CalendarEntry[] }>("/api/calendar");
+  const { data, error, isLoading, isValidating } = useSWR<{ entries: CalendarEntry[] }>("/api/calendar", {
+    revalidateOnFocus: false,
+    errorRetryCount: 3,
+    dedupingInterval: 10_000,
+    revalidateIfStale: false,
+  });
   const entries = data?.entries ?? [];
 
   // Week is the primary view everywhere (desktop and mobile alike) — a 7-col
@@ -54,16 +59,51 @@ export default function CalendarPage() {
   const [view, setView] = useState<CalendarView>("week");
 
   const [anchor, setAnchor] = useState(() => new Date());
-  const shift = (deltaMonthsOrWeeks: number) => {
+  const [periodCount, setPeriodCount] = useState(view === "month" ? 1 : 4);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Reset period count when view or kind changes
+  const resetPeriods = useCallback((v: CalendarView) => {
+    setPeriodCount(v === "month" ? 1 : 4);
+  }, []);
+
+  // Infinite scroll: add more periods when sentinel enters viewport
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) setPeriodCount((c) => Math.min(c + (view === "month" ? 1 : 4), view === "month" ? 12 : 52));
+    }, { rootMargin: "200px" });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [view, periodCount]);
+
+  const periods = useMemo(() => {
+    const out: Date[] = [];
+    const cursor = view === "month"
+      ? new Date(anchor.getFullYear(), anchor.getMonth(), 1)
+      : startOfWeek(anchor);
+    for (let i = 0; i < periodCount; i++) {
+      out.push(new Date(cursor));
+      if (view === "month") cursor.setMonth(cursor.getMonth() + 1);
+      else cursor.setDate(cursor.getDate() + 7);
+    }
+    return out;
+  }, [anchor, view, periodCount]);
+
+  const shift = (delta: number) => {
     setAnchor((prev) => {
       const next = new Date(prev);
-      if (view === "month") next.setMonth(next.getMonth() + deltaMonthsOrWeeks);
-      else next.setDate(next.getDate() + deltaMonthsOrWeeks * 7);
+      if (view === "month") next.setMonth(next.getMonth() + delta);
+      else next.setDate(next.getDate() + delta * 7);
       return next;
     });
+    setPeriodCount(view === "month" ? 1 : 4);
   };
   const periodLabel = view === "month"
-    ? anchor.toLocaleDateString(locale, { month: "long", year: "numeric" })
+    ? periods.length > 1
+      ? `${periods[0].toLocaleDateString(locale, { month: "long", year: "numeric" })} – ${periods[periods.length - 1].toLocaleDateString(locale, { month: "long", year: "numeric" })}`
+      : anchor.toLocaleDateString(locale, { month: "long", year: "numeric" })
     : (() => {
         const start = startOfWeek(anchor);
         const end = new Date(start);
@@ -83,7 +123,7 @@ export default function CalendarPage() {
   };
 
   const [searchTarget, setSearchTarget] = useState<CalendarEntry | null>(null);
-  const searchingKey: string | null = null;
+  const searchingKey = searchTarget ? `${searchTarget.date}-${searchTarget.title}` : null;
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -102,8 +142,8 @@ export default function CalendarPage() {
         hiddenStatuses={hiddenStatuses}
         onToggleStatus={toggleStatus}
         view={view}
-        onViewChange={setView}
-        onToday={() => setAnchor(new Date())}
+        onViewChange={(v) => { setView(v); setPeriodCount(v === "month" ? 1 : 4); }}
+        onToday={() => { setAnchor(new Date()); setPeriodCount(view === "month" ? 1 : 4); }}
       />
 
       <div className="mb-3 flex items-center justify-between">
@@ -139,23 +179,34 @@ export default function CalendarPage() {
         </div>
       )}
       {!isLoading && !error && filtered.length > 0 && (
-        view === "month" ? (
-          <CalendarMonthGrid
-            entries={filtered}
-            monthDate={anchor}
-            todayIso={todayIso}
-            onQuickSearch={setSearchTarget}
-            searchingKey={searchingKey}
-          />
-        ) : (
-          <CalendarWeekGrid
-            entries={filtered}
-            weekStart={startOfWeek(anchor)}
-            todayIso={todayIso}
-            onQuickSearch={setSearchTarget}
-            searchingKey={searchingKey}
-          />
-        )
+        <div className="space-y-6">
+          {periods.map((periodDate, i) => (
+            view === "month" ? (
+              <CalendarMonthGrid
+                key={periodDate.toISOString()}
+                entries={filtered}
+                monthDate={periodDate}
+                todayIso={todayIso}
+                onQuickSearch={setSearchTarget}
+                searchingKey={searchingKey}
+              />
+            ) : (
+              <CalendarWeekGrid
+                key={periodDate.toISOString()}
+                entries={filtered}
+                weekStart={periodDate}
+                todayIso={todayIso}
+                onQuickSearch={setSearchTarget}
+                searchingKey={searchingKey}
+              />
+            )
+          ))}
+          <div ref={sentinelRef} className="flex items-center justify-center py-6">
+            {periodCount < (view === "month" ? 12 : 52) && (
+              <Loader2 className="h-4 w-4 animate-spin text-ink-dim" />
+            )}
+          </div>
+        </div>
       )}
 
       {searchTarget && searchTarget.libraryRef && (

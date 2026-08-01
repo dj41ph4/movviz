@@ -35,7 +35,7 @@ const g = globalThis as typeof globalThis & {
   __movvizLastKnownSize?: Map<string, number>;
 };
 const cache: Map<string, CacheEntry> = (g.__movvizFsJsonCache ??= new Map());
-const memoCache: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCache ??= new Map());
+export const memoCache: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCache ??= new Map());
 const memoCacheAsync: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCacheAsync ??= new Map());
 const memoInFlightAsync: Map<string, Promise<unknown>> = (g.__movvizMemoInFlightAsync ??= new Map());
 /** Writes scheduled but not yet started — see the coalescing comment on writeJsonCached(). */

@@ -5,7 +5,7 @@ import { searchFromCache } from "@/lib/indexers/rssCache";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
 import { releaseTitleMatches, seasonEpisodeMatches } from "@/lib/library/matching";
-import { withinSizeLimit, loadReleaseRules } from "@/lib/library/releaseRules";
+import { withinSizeLimit, loadReleaseRules, normalizeCodec } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
 import { searchTv } from "@/lib/indexers/torznab";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
@@ -43,8 +43,8 @@ export interface EpisodeUpgradeCandidate {
   currentSize: number;
   detectedVersion: string;
   size: number;
-  reasonKey: "languageUpgrade";
-  reasonParams: { from: string; to: string };
+  reasonKey: "languageUpgrade" | "audioCodecUpgrade" | "videoCodecUpgrade";
+  reasonParams: Record<string, string>;
 }
 
 function versionLabel(resolution: string | null, videoCodec: string | null, audioCodec: string | null): string {
@@ -102,20 +102,32 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
   let liveSearchesUsed = 0;
 
   for (const { series, seasonNumber, episodeNumber, file } of eligibleEpisodes(loadSeries())) {
-    // See yieldToEventLoop()'s doc in searchAndReplace.ts — with thousands of
-    // episodes in a real library, this loop's per-episode CPU work (regex
-    // title/season/episode matching against every cached release) would
-    // otherwise starve every other request on the server for the entire scan.
     await yieldToEventLoop();
-    const profile = DEFAULT_QUALITY_PROFILES.find((p) => p.id === series.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
     const currentBasename = file.path.replace(/^.*[/\\]/, "");
     const currentLanguage = file.language ?? parseRelease(currentBasename).language;
-    if (languageSatisfies(targetLanguage, currentLanguage)) continue;
+
+    // Fast pre-check — skip computeSafeEpisodeMatches (heavy regex) if the
+    // episode already matches every configured upgrade path.
+    const wantsLanguageUpgrade = !!targetLanguage && !languageSatisfies(targetLanguage, currentLanguage);
+    const wantsAudioUpgrade = !!rules.preferredAudioCodec && (file.audioCodec ?? "").toLowerCase() !== rules.preferredAudioCodec.toLowerCase();
+    const wantsVideoUpgrade = !!rules.preferredVideoCodec && normalizeCodec(file.videoCodec) !== normalizeCodec(rules.preferredVideoCodec);
+    if (!wantsLanguageUpgrade && !wantsAudioUpgrade && !wantsVideoUpgrade) continue;
+
+    const profile = DEFAULT_QUALITY_PROFILES.find((p) => p.id === series.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
 
     const safeMatches = computeSafeEpisodeMatches(cachedReleases, series, seasonNumber, episodeNumber, file.resolution, rules, profile);
-    let best = bestEpisodeLanguageMatch(safeMatches, targetLanguage);
 
-    if (!best && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN) {
+    let best: ReturnType<typeof computeSafeEpisodeMatches>[0] | undefined;
+    let upgradeKind: EpisodeUpgradeCandidate["reasonKey"] | null = null;
+
+    // Language upgrade (highest priority)
+    if (wantsLanguageUpgrade) {
+      best = bestEpisodeLanguageMatch(safeMatches, targetLanguage);
+      if (best) upgradeKind = "languageUpgrade";
+    }
+
+    // Live search fallback for language
+    if (wantsLanguageUpgrade && !best && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN) {
       const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
       const indexers = withoutRateLimited(configuredIndexers);
       if (indexers.length > 0) {
@@ -123,19 +135,40 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
         const label = `${series.title} S${String(seasonNumber).padStart(2, "0")}E${String(episodeNumber).padStart(2, "0")}`;
         recordSearchLog("info", "search_and_replace_series.language_fallback_direct", `${label} — ${currentLanguage ?? "?"} détecté, cache sans ${targetLanguage}, recherche directe sur ${indexers.length} indexeur(s)`);
         const directReleases: IndexerRelease[] = [];
-        // Sequential, one indexer at a time — same pacing discipline as
-        // autoGrabSeries.ts, so this never fires a burst of parallel
-        // requests at a single indexer.
         for (const ix of indexers) {
           const results = await searchTv(ix, { title: series.title, season: seasonNumber, episode: episodeNumber }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
           directReleases.push(...results);
         }
         const directMatches = computeSafeEpisodeMatches(directReleases, series, seasonNumber, episodeNumber, file.resolution, rules, profile);
         best = bestEpisodeLanguageMatch(directMatches, targetLanguage);
+        if (best) upgradeKind = "languageUpgrade";
       }
     }
 
-    if (!best) continue;
+    // Audio codec upgrade
+    if (!best && rules.preferredAudioCodec) {
+      const currentAudio = (file.audioCodec ?? "").toLowerCase();
+      if (currentAudio !== rules.preferredAudioCodec.toLowerCase()) {
+        best = safeMatches.find(({ parsed }) => (parsed.audioCodec ?? "").toLowerCase() === rules.preferredAudioCodec!.toLowerCase());
+        if (best) upgradeKind = "audioCodecUpgrade";
+      }
+    }
+
+    // Video codec upgrade
+    if (!best && rules.preferredVideoCodec) {
+      if (normalizeCodec(file.videoCodec) !== normalizeCodec(rules.preferredVideoCodec)) {
+        best = safeMatches.find(({ parsed }) => normalizeCodec(parsed.videoCodec) === normalizeCodec(rules.preferredVideoCodec!));
+        if (best) upgradeKind = "videoCodecUpgrade";
+      }
+    }
+
+    if (!best || !upgradeKind) continue;
+
+    const reasonParams: Record<string, string> = upgradeKind === "languageUpgrade"
+      ? { from: currentLanguage ?? "?", to: targetLanguage! }
+      : upgradeKind === "audioCodecUpgrade"
+        ? { from: file.audioCodec ?? "?", to: rules.preferredAudioCodec! }
+        : { from: file.videoCodec ?? "?", to: rules.preferredVideoCodec! }; 
 
     candidates.push({
       seriesId: series.id,
@@ -146,8 +179,8 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
       currentSize: file.size,
       detectedVersion: versionLabel(best.parsed.resolution, best.parsed.videoCodec, best.parsed.audioCodec),
       size: best.release.size,
-      reasonKey: "languageUpgrade",
-      reasonParams: { from: currentLanguage ?? "?", to: targetLanguage },
+      reasonKey: upgradeKind,
+      reasonParams,
     });
   }
 
