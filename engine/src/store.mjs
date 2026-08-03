@@ -50,7 +50,28 @@ export async function writeState(state) {
   await fsp.rename(tmp, STATE_FILE);
 }
 
-/** Recursively move a directory/file, falling back to copy+delete across drives. */
+/** Sum of file sizes under `p`, recursively — `p` itself if it's a plain file. */
+async function totalSize(p) {
+  const st = await fsp.stat(p);
+  if (!st.isDirectory()) return st.size;
+  let sum = 0;
+  const entries = await fsp.readdir(p, { withFileTypes: true });
+  for (const e of entries) {
+    sum += await totalSize(path.join(p, e.name));
+  }
+  return sum;
+}
+
+/**
+ * Recursively move a directory/file, falling back to copy+delete across
+ * drives (fsp.rename fails with EXDEV between filesystems/volumes — the
+ * normal case in Docker, where downloads and the library are usually
+ * separate bind mounts). fsp.cp doesn't checksum or size-verify against the
+ * source, so a size check gates the delete: src is only ever removed once
+ * dest is confirmed to match (recursively summed for a directory/multi-file
+ * torrent, not just the top-level entry), never on the assumption that cp
+ * "must have" worked.
+ */
 export async function movePath(src, dest) {
   await ensureDir(path.dirname(dest));
   try {
@@ -58,6 +79,10 @@ export async function movePath(src, dest) {
   } catch (err) {
     if (err.code === "EXDEV") {
       await fsp.cp(src, dest, { recursive: true });
+      const [srcSize, destSize] = await Promise.all([totalSize(src), totalSize(dest)]);
+      if (srcSize !== destSize) {
+        throw new Error(`copy verification failed: ${src} -> ${dest} size mismatch (${srcSize} vs ${destSize}) — source left in place`);
+      }
       await fsp.rm(src, { recursive: true, force: true });
     } else {
       throw err;

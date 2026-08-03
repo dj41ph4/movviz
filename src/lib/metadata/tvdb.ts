@@ -18,6 +18,11 @@ export function tvdbConfigured(): boolean {
   return !!apiKey();
 }
 
+/** Global opt-out for special-episode (season 0) tracking — see tvdbStore.ts. */
+export function specialsEnabled(): boolean {
+  return loadTvdbConfig().specialsEnabled;
+}
+
 async function getToken(): Promise<string | null> {
   const key = apiKey();
   if (!key) return null;
@@ -59,6 +64,22 @@ async function tvdbGet<T>(path: string): Promise<T | null> {
   }
 }
 
+/**
+ * TVDB v4's episode-translation endpoint takes the language as a URL PATH
+ * segment (3-letter ISO 639-2/B code), not the Accept-Language header —
+ * the header is accepted by the API but silently ignored for this specific
+ * endpoint, so /episodes/default always returned the show's original
+ * (often Japanese, for anime) episode names no matter what was requested.
+ * This is exactly the "you already fixed this and broke it again" bug:
+ * the previous fix only set the header, which never actually worked here.
+ */
+const TVDB_LANG_CODES: Record<string, string> = {
+  fr: "fra", en: "eng", it: "ita", nl: "nld", de: "deu", ja: "jpn", es: "spa", pt: "por",
+};
+function tvdbLangCode(iso6391: string): string {
+  return TVDB_LANG_CODES[iso6391] ?? "eng";
+}
+
 export interface TvdbSearchResult {
   tvdbId: number;
   name: string;
@@ -84,18 +105,80 @@ export interface TvdbEpisode {
   airDate: string | null;
 }
 
-/** The "default" episode order — matches how TVDB expects anime/absolute-numbered shows to be browsed. */
-export async function getTvdbEpisodes(tvdbId: number): Promise<TvdbEpisode[]> {
-  const data = await tvdbGet<{ episodes: RawEpisode[] }>(`/series/${tvdbId}/episodes/default`);
-  if (!data) return [];
-  return data.episodes
-    .filter((e) => e.seasonNumber > 0)
+function rawEpisodesToTvdbEpisodes(raw: RawEpisode[] | undefined): TvdbEpisode[] {
+  return (raw ?? [])
     .map((e) => ({
       seasonNumber: e.seasonNumber,
       episodeNumber: e.number,
       title: e.name ?? "",
       airDate: e.aired ?? null,
     }));
+}
+
+/**
+ * The "default" episode order — matches how TVDB expects anime/absolute-
+ * numbered shows to be browsed. Requests the URL-path-localized endpoint
+ * (see tvdbLangCode's comment for why the header alone doesn't work), with
+ * two fallbacks: per-episode gaps (TVDB's translation coverage is often
+ * partial — some episodes translated, others not) are filled in from the
+ * original-language list, and if the localized endpoint fails outright
+ * (unsupported language, 404), the whole thing falls back to the original.
+ */
+export async function getTvdbEpisodes(tvdbId: number, langOverride?: string): Promise<TvdbEpisode[]> {
+  const code = tvdbLangCode(langOverride ?? loadTvdbConfig().language ?? "fr");
+  const localized = await tvdbGet<{ episodes: RawEpisode[] }>(`/series/${tvdbId}/episodes/default/${code}`);
+
+  if (localized?.episodes?.length) {
+    const episodes = rawEpisodesToTvdbEpisodes(localized.episodes);
+    if (episodes.every((e) => e.title)) return episodes;
+    const original = await tvdbGet<{ episodes: RawEpisode[] }>(`/series/${tvdbId}/episodes/default`);
+    const originalByKey = new Map(
+      rawEpisodesToTvdbEpisodes(original?.episodes).map((e) => [`${e.seasonNumber}x${e.episodeNumber}`, e.title])
+    );
+    return episodes.map((e) => (e.title ? e : { ...e, title: originalByKey.get(`${e.seasonNumber}x${e.episodeNumber}`) ?? e.title }));
+  }
+
+  const data = await tvdbGet<{ episodes: RawEpisode[] }>(`/series/${tvdbId}/episodes/default`);
+  return rawEpisodesToTvdbEpisodes(data?.episodes);
+}
+
+interface RawSeason {
+  id: number;
+  number: number;
+  name?: string | null;
+  type?: { type?: string };
+}
+
+interface RawSeasonTranslation {
+  name?: string;
+}
+
+/**
+ * Real arc/saga names (e.g. "La Bataille Des Dieux" for Dragon Ball Super
+ * season 1) — TMDb only curates these for some seasons of some shows
+ * (inconsistent), while TVDB's "official" season list names every season.
+ * Purely cosmetic: callers must keep matching downloads by season NUMBER,
+ * never by this name — a torrent release is never named after the arc.
+ */
+export async function getTvdbSeasonNames(tvdbId: number, langOverride?: string): Promise<Map<number, string>> {
+  const code = tvdbLangCode(langOverride ?? loadTvdbConfig().language ?? "fr");
+  const extended = await tvdbGet<{ seasons?: RawSeason[] }>(`/series/${tvdbId}/extended`);
+  // Season 0 (specials) included too — TVDB does sometimes give it a real
+  // name, though most callers will just fall back to a generic "Specials"
+  // label when it doesn't (see LibrarySeason construction call sites).
+  const officialSeasons = (extended?.seasons ?? []).filter(
+    (s) => (s.type?.type ?? "official") === "official" && s.number >= 0
+  );
+
+  const names = new Map<number, string>();
+  await Promise.all(
+    officialSeasons.map(async (s) => {
+      const translated = await tvdbGet<RawSeasonTranslation>(`/seasons/${s.id}/translations/${code}`);
+      const name = translated?.name || s.name;
+      if (name) names.set(s.number, name);
+    })
+  );
+  return names;
 }
 
 export interface TvdbSeason {

@@ -35,6 +35,10 @@ const SEASON_EPISODE_RANGE_RE = /\bS(\d{1,2})E(\d{1,3})(?:-E?|E)(\d{1,3})\b/i;
 const SEASON_EPISODE_RE = /\bS(\d{1,2})E(\d{1,3})\b/i;
 const ALT_SEASON_EPISODE_RE = /\b(\d{1,2})x(\d{1,3})\b/;
 const SEASON_ONLY_RE = /\b(?:Saison|Season|Livre|Arc)\.?\s?(\d{1,2}|[IVX]{1,5})\b|\bS(\d{1,2})\b/i;
+// Keep in sync with SPECIAL_EPISODE_RE in src/lib/naming/parser.ts (trailing
+// number optional for OVA/OAV/OAD/Special — a lot of releases never number
+// their single one; "SP" alone stays digit-required, too collision-prone).
+const SPECIAL_EPISODE_RE = /\b(?:OVAs?|OAVs?|OADs?|Specials?)\.?\s?(\d{1,3})?\b|\bSPs?\.?\s?(\d{1,3})\b/i;
 const ROMAN_VALUES = { I: 1, V: 5, X: 10 };
 
 function romanToInt(roman) {
@@ -48,7 +52,12 @@ function romanToInt(roman) {
 }
 const YEAR_RE = /\b(19|20)\d{2}\b/;
 const VIDEO_EXT_RE = /\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i;
-const PACK_DESC_RE = /\b(Complete[.\s]+Series|Complete|Int[ée]grale|Saisons?[.\s]+complet[eè]?s?|Complet|Serie[.\s]+Completa|Completa|Complete[.\s]+Serie|Compleet|Komplette[.\s]+Serie|Komplett)\b/i;
+// Mirror of naming/parser.ts's PACK_DESC_RE — the worker runs outside the
+// bundler and can't import it. Keep in sync with parser.ts (single source of
+// truth). Complete-series pack markers, all languages scene releases
+// actually use: English, French, Italian, Spanish, Portuguese, Dutch,
+// German, Polish. Single line: regex literals cannot span lines.
+const PACK_DESC_RE = /\b(Complete[.\s]+(Series|Collection|Boxset|Box[.\s]Set|Seasons?|Edition|Set)|Complete|Full[.\s]+Series|Full[.\s]+Collection|Entire[.\s]+Series|All[.\s]+Seasons|Series[.\s]+Complete|Collection[.\s]+Complete|The[.\s]+Complete|Int[ée]grale|Int[ée]grale[.\s]+Compl[èe]te|Integral|Saisons?[.\s]+compl[èe]te?s?|Collection[.\s]+compl[èe]te|S[ée]rie[.\s]+compl[èe]te|Coffret[.\s]*(int[ée]gral|complet)|Toutes[.\s]+les[.\s]+saisons|La[.\s]+s[ée]rie[.\s]+compl[èe]te|Complet|Compl[èe]te|Serie[.\s]+Completa|Completa|Temporadas[.\s]+Completas|Colecci[oó]n[.\s]+Completa|Edici[oó]n[.\s]+Completa|(?:Todos?|Todas)[.\s]+(?:los|las)[.\s]+(?:episodios|temporadas)|S[ée]rie[.\s]+Compl[èe]te|S[ée]rie[.\s]+Completa|Cole[çc][ãa]o[.\s]+Completa|Temporadas[.\s]+Completas|Complete[.\s]+Serie|Compleet|Volledige[.\s]+(serie|collectie)|Alle[.\s]+seizoenen|Komplette[.\s]+Serie|Komplett|Komplettbox|Alle[.\s]+Staffeln|Komplette[.\s]+Sammlung|Wszystkie[.\s]+sezony|Pe[łl]na[.\s]+seria|Kompletna[.\s]+seria)\b/i;
 
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -120,6 +129,12 @@ function parseRelease(rawName) {
       if (seasonOnly) {
         const raw = seasonOnly[1] ?? seasonOnly[2];
         season = /^[IVX]+$/i.test(raw) ? romanToInt(raw.toUpperCase()) : parseInt(raw, 10);
+      } else {
+        const special = s.match(SPECIAL_EPISODE_RE);
+        if (special) {
+          season = 0;
+          episode = special[1] ? parseInt(special[1], 10) : special[2] ? parseInt(special[2], 10) : 1;
+        }
       }
     }
   }
@@ -131,6 +146,7 @@ function parseRelease(rawName) {
     SEASON_EPISODE_RE,
     ALT_SEASON_EPISODE_RE,
     SEASON_ONLY_RE,
+    SPECIAL_EPISODE_RE,
     year ? new RegExp(escapeRegex(year)) : null,
     PACK_DESC_RE,
     resolution ? new RegExp(escapeRegex(resolution), "i") : null,

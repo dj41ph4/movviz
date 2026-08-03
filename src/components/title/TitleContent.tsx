@@ -12,6 +12,7 @@ import type { LibraryStatus, LibraryFile, LibraryFileVersion } from "@/lib/libra
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import { SeasonAccordion } from "@/components/title/SeasonAccordion";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
+import { IntegralSearchModal } from "@/components/search/IntegralSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
 import { BrandIcon } from "@/components/ui/BrandIcon";
 import { TagEditor } from "@/components/library/TagEditor";
@@ -187,7 +188,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
   const { data: libraryData, mutate: mutateLibrary } = useSWR<
     Record<string, LibraryListItem[]>
-  >(libEndpoint, fetcher);
+  >(`${libEndpoint}?tmdbId=${tmdbId}`, fetcher);
 
   const libraryMatchRaw = (
     (type === "movie" ? libraryData?.movies : libraryData?.series) ?? []
@@ -238,6 +239,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const [searchingSeason, setSearchingSeason] = useState<number | null>(null);
   const [searchingEpisode, setSearchingEpisode] = useState<string | null>(null);
   const [searchingComplete, setSearchingComplete] = useState(false);
+  const [integralSearchOpen, setIntegralSearchOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [manualSearch, setManualSearch] = useState<{
     libraryRef: string;
@@ -418,9 +420,18 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     [libraryMatch?.id, mutateLibrary],
   );
 
-  const searchCompleteSeries = useCallback(async () => {
+  const searchCompleteSeries = useCallback(() => {
+    if (!libraryMatch?.id) return;
+    // The integral button opens the selection popup instead of auto-grabbing
+    // blindly — the user sees every complete-series pack the automatic flow
+    // would have considered and picks the one they want.
+    setIntegralSearchOpen(true);
+  }, [libraryMatch?.id]);
+
+  const autoSearchCompleteSeries = useCallback(async () => {
     if (!libraryMatch?.id) return;
     setSearchingComplete(true);
+    setIntegralSearchOpen(false);
     try {
       await fetch(
         `/api/library/series/${libraryMatch.id}/search-complete-series`,
@@ -449,8 +460,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
             new: data.newSeasonCount,
           }),
         );
-      } else if (data.error === "not_more_granular") {
-        setResyncResult(t("library.resyncAnimeNoChange"));
       } else if (data.error === "active_downloads") {
         setResyncResult(t("library.resyncAnimeActiveDownloads"));
       } else if (data.error === "no_disk_seasons") {
@@ -1409,6 +1418,19 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           title={manualSearch.title}
           tmdbId={manualSearch.tmdbId}
           imdbId={manualSearch.imdbId}
+        />
+      )}
+
+      {integralSearchOpen && libraryMatch?.id && (
+        <IntegralSearchModal
+          open={integralSearchOpen}
+          onClose={() => setIntegralSearchOpen(false)}
+          seriesId={libraryMatch.id}
+          title={detail.title}
+          tmdbId={tmdbId}
+          seasonCount={detail.seasons?.length}
+          onGrabbed={() => mutateLibrary()}
+          onAutoSearch={() => void autoSearchCompleteSeries()}
         />
       )}
 

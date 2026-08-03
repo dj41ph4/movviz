@@ -12,7 +12,16 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const cfg = loadPlexConfig();
   const urlFor = (ratingKey: string | null) => (ratingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, ratingKey) : null);
-  const series = loadSeries().map((s) => ({
+  // A title page only ever needs its own single match — fetching the whole
+  // library (every series, full season/episode structures) just to .find()
+  // one by tmdbId client-side was the actual cause of "why does this page
+  // take forever to know if the title is already in the library". Optional
+  // filter, additive: omitting tmdbId keeps returning the full list for
+  // callers that need it (the Bibliothèque page itself).
+  const tmdbIdParam = req.nextUrl.searchParams.get("tmdbId");
+  const tmdbId = tmdbIdParam ? Number(tmdbIdParam) : null;
+  const all = tmdbId ? loadSeries().filter((s) => s.tmdbId === tmdbId) : loadSeries();
+  const series = all.map((s) => ({
     ...s,
     plexUrl: urlFor(s.plexRatingKey),
   }));

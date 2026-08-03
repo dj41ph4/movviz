@@ -16,7 +16,7 @@ const MAX_CONCURRENT_WHILE_DOWNLOADING = 2;
 const MAX_HISTORY = 100;
 
 export type ProgressFn = (current: number, total: number) => void;
-type Runner = (setProgress: ProgressFn) => Promise<void>;
+type Runner = (setProgress: ProgressFn) => Promise<unknown>;
 
 interface QueueState {
   jobs: Job[]; // newest first, capped at MAX_HISTORY
@@ -97,8 +97,9 @@ function runJob(job: Job, runner: Runner) {
     if (total) job.total = total;
   };
   runner(setProgress)
-    .then(() => {
+    .then((result) => {
       job.status = "completed";
+      job.result = result;
     })
     .catch((err) => {
       job.status = "failed";

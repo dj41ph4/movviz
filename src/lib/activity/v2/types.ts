@@ -20,6 +20,8 @@ export interface ActivityMedia {
   episode?: number;
   /** Number of episodes sharing this same torrent (a season pack) — omitted/1 for a single episode. */
   packEpisodeCount?: number;
+  /** Number of distinct seasons covered by this same torrent (a complete-series pack) — set alongside packEpisodeCount when the download is a whole-series intégrale. */
+  seasonCount?: number;
   posterPath?: string | null;
   href: string;
   tmdbId?: number;

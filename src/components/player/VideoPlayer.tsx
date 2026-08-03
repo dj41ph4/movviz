@@ -9,7 +9,8 @@ import {
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
   SkipBack, SkipForward, PictureInPicture2, Zap, Monitor, Settings,
 } from "lucide-react";
-import { pickStrategy, detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, type PlaybackStrategy, type CodecCapabilities } from "@/lib/player/webcodecs";
+import { pickStrategy, detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, toRfc6381, type PlaybackStrategy, type CodecCapabilities } from "@/lib/player/webcodecs";
+import { watchForSilentAudio } from "@/lib/player/silentAudioDetector";
 import { WebCodecsPlayer } from "./WebCodecsPlayer";
 import { orchestrate } from "@/lib/playback/orchestrator";
 import { detectCapabilities } from "@/lib/playback/capabilities";
@@ -93,6 +94,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const hlsRef = useRef<Hls | null>(null);
   const fallbackGuardRef = useRef(false);
   const startHlsRef = useRef<((extraParams?: string) => void) | null>(null);
+  const stopSilentWatchRef = useRef<(() => void) | null>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const infoRef = useRef<StreamInfo>({ videoCodec: null, audioCodec: null, container: null });
   const progressRef = useRef<HTMLDivElement>(null);
@@ -208,6 +210,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       if (fallbackGuardRef.current) return;
       fallbackGuardRef.current = true;
       setUsingFallback(true);
+      setDirectMode(false);
 
       const mode = transcodeModeRef.current;
       const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "audio" || mode === "full" ? "1" : "0";
@@ -312,7 +315,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       }
     };
 
-    const startDirect = (seekTo?: number) => {
+    const startDirect = (seekTo?: number, expectAudio?: boolean) => {
       if (seekTo && seekTo > 0) {
         el.addEventListener(
           "loadedmetadata",
@@ -324,15 +327,42 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       }
       el.src = directUrl;
 
-      const onError = () => {
-        if (!fallbackGuardRef.current && !hlsRef.current) startHls();
+      // Recovery chain is strictly direct → MSE → HLS: a failed/silent
+      // direct play still gets a shot at the bitstream-copy MSE engine
+      // (proven, no server transcode) before falling all the way back to a
+      // real Plex transcode. tryStartMse() itself no-ops for anything it
+      // can't handle (wrong container, active subtitles, seek-resume...)
+      // and returns false, which cascades straight to HLS — same contract
+      // as the strategy==="transcode" branch in begin() already uses.
+      let directRecoveryStarted = false;
+      const recoverFromDirect = async () => {
+        if (directRecoveryStarted || fallbackGuardRef.current || hlsRef.current || mseEngineRef.current) return;
+        directRecoveryStarted = true;
+        if (!(await tryStartMse(infoRef.current, seekTo))) startHls();
       };
+
+      const onError = () => { void recoverFromDirect(); };
       el.addEventListener("error", onError);
       (el as unknown as { __vpOnError?: () => void }).__vpOnError = onError;
+
+      // Safety net: the codec checks that greenlit direct play are all
+      // static pre-playback probes (see webcodecs.ts) — none of them are
+      // re-verified once actually playing, and an unroutable/unsupported
+      // audio track does not fire the `error` event above, it just plays
+      // silently. Watch real decoded audio energy for a few seconds and
+      // recover through the same direct → MSE → HLS chain if genuinely
+      // silent, so HLS stays an automatic last resort, not a manual escape.
+      if (expectAudio) {
+        stopSilentWatchRef.current?.();
+        stopSilentWatchRef.current = watchForSilentAudio(el, () => { void recoverFromDirect(); });
+      }
     };
 
     const begin = async (seekTo?: number) => {
       setBuffering(true);
+      // Reset the engine badge — begin() can re-run (resume-with-seek) and
+      // the previous run's engine may differ from this one.
+      setDirectMode(false);
 
       // useTranscode = beta player mode: try direct/WebCodecs first,
       // fall back to HLS transcode if the browser can't handle the codec.
@@ -353,6 +383,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       } catch { /* ignore */ }
 
       let strategy: PlaybackStrategy;
+      let effectiveAudioCodec: string | null | undefined;
       try {
         // Detect browser codec capabilities once
         const caps = await detectCodecs();
@@ -370,7 +401,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         const audioTracks = Array.isArray(info.audioStreams) ? info.audioStreams : [];
         const selAudio = audioTracks.find((s) => s.selected) ?? audioTracks[0];
         defaultAudioIdRef.current = selAudio?.id ?? null;
-        let effectiveAudioCodec = selAudio?.codec ?? info.audioCodec;
+        effectiveAudioCodec = selAudio?.codec ?? info.audioCodec;
         audioStreamIdRef.current = selAudio?.id ?? null;
         let audioSwitched = false;
         if (effectiveAudioCodec && !isAudioCodecSupported(effectiveAudioCodec, caps)) {
@@ -407,11 +438,25 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           container === "ts" ||
           container === "m2ts" ||
           container === "mpegts";
+        const videoOk = !info.videoCodec || !transcodeVideoRef.current;
+        const audioOk = !effectiveAudioCodec || isAudioCodecSupported(effectiveAudioCodec, caps);
         if (nonMp4) {
-          strategy = "transcode";
+          // WebCodecs (MP4 box demuxer) and MSE (MP4 fMP4 segmenter) can't
+          // parse Matroska/AVI/etc. — but a browser's native <video> decoder
+          // often can, independently of what WebCodecs/MediaSource report:
+          // those APIs only see a narrower, licensed-codec-aware slice of
+          // what the platform's own media framework actually decodes.
+          // Confirmed live twice — E-AC3 AND DTS both played fine via native
+          // <video> on files where isAudioCodecSupported/toRfc6381 said no
+          // (toRfc6381 hard-codes DTS/TrueHD/PCM as "no browser can play
+          // this", which turned out to be exactly as unreliable a signal as
+          // isAudioCodecSupported for what a real system-level decoder can
+          // do). So for non-MP4 containers, no static audio-codec check at
+          // all — always try direct, and lean entirely on the error-event/
+          // silent-audio safety net in startDirect to recover automatically
+          // if this particular file doesn't actually work.
+          strategy = !audioSwitched && videoOk ? "direct" : "transcode";
         } else {
-          const videoOk = !info.videoCodec || !transcodeVideoRef.current;
-          const audioOk = !effectiveAudioCodec || isAudioCodecSupported(effectiveAudioCodec, caps);
           if (audioSwitched) {
             // Only HLS can select the fallback track via audioStreamID
             strategy = "transcode";
@@ -442,7 +487,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         }
         return;
       }
-      startDirect(seekTo);
+      setDirectMode(true);
+      startDirect(seekTo, !!effectiveAudioCodec);
     };
 
     beginRef.current = begin;
@@ -501,6 +547,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         });
         mseEngineRef.current = engine;
         setMseActive(true);
+        setDirectMode(false);
         setBuffering(true);
         engine.attach(video);
         try {
@@ -569,6 +616,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
         mseEngineRef.current = null;
       }
+      stopSilentWatchRef.current?.();
+      stopSilentWatchRef.current = null;
 
       if (progressTimerRef.current) {
         clearInterval(progressTimerRef.current);
@@ -958,7 +1007,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
             {directMode && (
               <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-green/15 px-2 text-[10px] font-semibold text-green">
                 <Zap className="h-3 w-3" />
-                {t("player.betaDirectPlay")}
+                {t("player.betaDirectActive")}
               </span>
             )}
             {mseActive && (

@@ -227,6 +227,18 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
               id: seriesMatch.series.id, title: seriesMatch.series.title, type: "series",
               season: seriesMatch.season, episode: seriesMatch.episode,
               packEpisodeCount: seriesMatch.count > 1 ? seriesMatch.count : undefined,
+              // season === 0 = the torrent spans multiple seasons (an
+              // intégrale, whether or not it covers every monitored season —
+              // some may already be available under a different hash).
+              // matchedSeasonCount (from the hash index) reflects exactly
+              // how many seasons THIS torrent covers; the libraryRef-fallback
+              // path doesn't know the actual match set, so it falls back to
+              // every monitored season with content as a best estimate.
+              seasonCount: seriesMatch.season === 0
+                ? seriesMatch.matchedSeasonCount
+                  ?? seriesMatch.series.seasons.filter((se) => se.monitored && se.episodes.some((e) => e.monitored)).length
+                  ?? undefined
+                : undefined,
               href: `/title/series/${seriesMatch.series.tmdbId}`,
               tmdbId: seriesMatch.series.tmdbId,
             }

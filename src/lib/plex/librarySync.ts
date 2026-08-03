@@ -304,6 +304,9 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
       if (!meta) continue;
       const seasons: LibrarySeason[] = [];
       for (const s of meta.seasons) {
+        // Same opt-in-by-default rule as every other series-creation path —
+        // specials (season 0) start unmonitored, regular seasons unaffected.
+        const monitoredByDefault = s.seasonNumber !== 0;
         const detail = await fetchTmdbSeason(show.tmdbId, s.seasonNumber);
         const eps: LibraryEpisode[] = (detail?.episodes ?? []).map((e) => {
           const plexEp = episodes.find((pe) => pe.seasonNumber === e.seasonNumber && pe.episodeNumber === e.episodeNumber);
@@ -312,14 +315,14 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
             episodeNumber: e.episodeNumber,
             title: e.title,
             airDate: e.airDate,
-            monitored: true,
+            monitored: monitoredByDefault,
             status: plexEp ? "available" : "missing",
             file: plexEp ? toLibraryFile(plexEp) : null,
             activeInfoHash: null,
             plexRatingKey: plexEp?.ratingKey ?? null,
           };
         });
-        seasons.push({ seasonNumber: s.seasonNumber, name: s.name, monitored: true, episodes: eps });
+        seasons.push({ seasonNumber: s.seasonNumber, name: s.name, monitored: monitoredByDefault, episodes: eps });
       }
       addSeries({
         id: `sr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,

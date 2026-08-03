@@ -140,7 +140,7 @@ export async function importSeriesCandidate(
 
   const seasonNumbers = [...new Set([...byEpisode.keys()].map((k) => Number(k.split(".")[0])))];
   const seasons: LibrarySeason[] = [];
-  for (const s of meta.seasons.filter((s) => s.seasonNumber > 0)) {
+  for (const s of meta.seasons) {
     const detail = await fetchTmdbSeason(tmdbId, s.seasonNumber);
     const episodes: LibraryEpisode[] = (detail?.episodes ?? []).map((e) => {
       const match = byEpisode.get(`${e.seasonNumber}.${e.episodeNumber}`);

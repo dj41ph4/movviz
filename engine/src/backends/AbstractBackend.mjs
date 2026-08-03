@@ -15,6 +15,9 @@ const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 /** Règle produit : un torrent sans activité (0 octets reçus, 0 pairs) pendant 2 minutes passe "blocked". */
 const STALL_MS = 120_000;
 
+/** After this many consecutive import failures for the same torrent, stop retrying automatically — see onComplete's `err` branch. */
+const IMPORT_MAX_RETRIES = 5;
+
 function fmtSize(bytes) {
   if (!bytes || bytes <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB", "TB"];
@@ -233,7 +236,7 @@ export class AbstractBackend {
 
   async onComplete(infoHash) {
     const m = this.meta.get(infoHash);
-    if (!m || m.completed || m.processing) return;
+    if (!m || m.completed || m.processing || m.importAbandoned) return;
     m.processing = true;
     try {
       m.completedAt ??= Date.now();
@@ -309,11 +312,35 @@ export class AbstractBackend {
           return e;
         });
         if (err) {
-          this.emitActivity("failed", {
-            media: mediaBase,
-            failure: { code: "import_failed", message: err.message ?? "Échec de l'import" },
-            metadata: { libraryRef: m.libraryRef ?? undefined },
-          });
+          // A permanently-failing import (e.g. the torrent's file is
+          // genuinely gone) previously retried forever, every ~5s, with no
+          // backoff or give-up — observed live in production: 20+ minutes,
+          // ~250 identical "import failed" log lines, spamming the activity
+          // feed and every notification webhook, until someone noticed and
+          // restarted the engine by hand. Past IMPORT_MAX_RETRIES, stop:
+          // mark importAbandoned (checked by onComplete's guard above) so
+          // this torrent is left alone instead of retried on every future
+          // completion check, and emit exactly one clear "gave up" activity
+          // instead of one per attempt.
+          m.importFailCount = (m.importFailCount ?? 0) + 1;
+          const givingUp = m.importFailCount >= IMPORT_MAX_RETRIES;
+          if (givingUp) m.importAbandoned = true;
+          if (m.importFailCount === 1 || givingUp) {
+            this.emitActivity("failed", {
+              media: mediaBase,
+              failure: {
+                code: "import_failed",
+                message: givingUp
+                  ? `${err.message ?? "Échec de l'import"} — abandon après ${m.importFailCount} tentatives, intervention manuelle nécessaire`
+                  : err.message ?? "Échec de l'import",
+              },
+              metadata: { libraryRef: m.libraryRef ?? undefined },
+            });
+          }
+          if (givingUp) {
+            console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] import abandonné pour ${snap.name ?? infoHash} après ${m.importFailCount} échecs consécutifs — intervention manuelle nécessaire`);
+          }
+          this.onChange();
         } else {
           // Import succeeded (linkOrCopy). Notification was attempted inside
           // _import — if it succeeded, m.notifiedLibrary is true.
@@ -322,6 +349,33 @@ export class AbstractBackend {
             m.completed = true;
           }
           m.completedAt ??= Date.now();
+          // Cleanup here, not just inside _finish — once m.completed is set
+          // above, tick() never calls onComplete() for this torrent again
+          // (see the `if (m?.completed) continue;` guard), so the
+          // `if (m.movedTo)` branch above (which reaches _finish(snap,true)
+          // and ITS cleanup call) structurally cannot run a second time in
+          // the normal success case. Without this, the download folder was
+          // never actually cleaned up for a torrent that imported correctly
+          // on the first try — the leftover symlinks/residue files just sat
+          // there permanently. Gated the same way _finish gates it: only
+          // after a successful import, regardless of notify status (matches
+          // path A's model, where cleanup depends on the move succeeding,
+          // not on notify succeeding — the retry loop in tick() handles a
+          // failed notify independently via m.movedFiles). ALSO gated on
+          // !m.symlinkVerificationFailed — _cleanupDownloadFolder deletes
+          // the whole download folder unconditionally, so it must never run
+          // when _swapForSymlink (above, inside _import) declined to touch
+          // one of this torrent's files because its copy couldn't be
+          // verified: that file is the only good copy left, sitting in the
+          // exact folder this would otherwise wipe. ALSO gated on
+          // !m.hasUnmatchedFiles — set by _import() when a downloaded video
+          // file matched no episode target; cleanup deletes the whole
+          // folder regardless of match status, so an unmatched file must
+          // never be swept away with the rest (see the [import-match] log
+          // lines for what specifically didn't match and why).
+          if (this.cfg.autoMoveOnComplete && snap.name && !m.symlinkVerificationFailed && !m.hasUnmatchedFiles) {
+            await this._cleanupDownloadFolder(snap);
+          }
           if (!this.importedHistory.has(snap.infoHash)) {
             this.importedHistory.set(snap.infoHash, {
               infoHash: snap.infoHash, magnetURI: snap.magnetURI ?? null, name: snap.name,
@@ -395,7 +449,13 @@ export class AbstractBackend {
     // Runs every 15s — doesn't depend on _clientList() (torrent may have
     // been removed from the client after _finish cleanup).
     for (const [infoHash, m] of this.meta) {
-      if (m?.libraryRef && m?.movedFiles?.length && !m.notifiedLibrary
+      // m.movedFiles is set (even to []) once _import has run — checking
+      // the array reference rather than its length lets a zero-match
+      // import (see _import's notify call, which now fires even with no
+      // moved files to release orphaned episodes back to "missing") retry
+      // on the same 15s cadence if the callback itself failed, instead of
+      // silently never retrying because [] is falsy-length.
+      if (m?.libraryRef && m?.movedFiles && !m.notifiedLibrary
           && (!m.lastNotifyAttempt || Date.now() - m.lastNotifyAttempt > 15_000)) {
         m.lastNotifyAttempt = Date.now();
         this._notifyLibrary(m.libraryRef, m.movedFiles, infoHash)
@@ -535,7 +595,7 @@ export class AbstractBackend {
   summary(t, detail = false) {
     const m = this.meta.get(t.infoHash);
     const isSeeding = this._isDone(t) && !m?.completed;
-    const state = m?.completed ? "completed" : isSeeding ? "seeding" : m?.userPaused ? "paused" : m?.stalled ? "blocked" : m?.queued ? "queued" : "downloading";
+    const state = m?.completed ? "completed" : m?.importAbandoned ? "blocked" : isSeeding ? "seeding" : m?.userPaused ? "paused" : m?.stalled ? "blocked" : m?.queued ? "queued" : "downloading";
     const base = {
       infoHash: t.infoHash,
       name: t.name ?? t.infoHash,
@@ -675,11 +735,53 @@ export class AbstractBackend {
     const naming = loadNamingTemplates();
     const movedFiles = [];
     const targetList = m.episodeTargets ?? (m.episodeTarget ? [m.episodeTarget] : null);
+    // Remember which target each file was selected for — _matchesEpisode
+    // already resolves season/episode for files whose name carries neither
+    // (path-based season + absolute-numbering fallback, see below it). That
+    // resolution is otherwise thrown away: the per-file loop below re-parses
+    // file.name from scratch and would end up with season/episode both null
+    // for exactly those files.
+    const matchedTargetByFile = new Map();
     const availableFiles = snap.files.filter((f) => {
       if (f.selected === false) return false;
       if (!targetList) return true;
-      return targetList.some((t) => this._matchesEpisode(f, t));
+      const t = targetList.find((t) => this._matchesEpisode(f, t));
+      if (t) matchedTargetByFile.set(f, t);
+      return t != null;
     });
+
+    // Diagnostic: a video file that's actually part of this torrent but
+    // matched NO target is exactly how a season pack silently loses episodes
+    // — confirmed live twice (Dragon Ball Super, Blood Lad): the torrent
+    // downloads 100%, but _matchesEpisode only recognizes a subset of files
+    // against episodeTargets, and _cleanupDownloadFolder then deletes
+    // literally everything in the download folder regardless, including the
+    // unmatched originals — an unrecoverable loss with no trace of what
+    // those files even were. Log every miss with enough detail (parsed
+    // season/episode, path-derived season, raw name) to diagnose why the
+    // match failed, and flag the torrent so cleanup below refuses to run
+    // instead of destroying files nothing ever accounted for.
+    if (targetList) {
+      // Exclude tiny video files — bundled samples/trailers are almost
+      // always well under this, never a real episode, and would otherwise
+      // trip the guard on an import that's actually completely fine.
+      const MIN_EPISODE_BYTES = 50 * 1024 * 1024;
+      const unmatchedVideo = snap.files.filter(
+        (f) => f.selected !== false && VIDEO_EXT_RE.test(f.name) && !matchedTargetByFile.has(f) && (f.length ?? 0) >= MIN_EPISODE_BYTES
+      );
+      if (unmatchedVideo.length > 0) {
+        m.hasUnmatchedFiles = true;
+        console.warn(
+          `[engine:${this.cfg.id}][${this.cfg.logTag}][import-match] ${snap.name}: ${unmatchedVideo.length} fichier(s) vidéo non apparié(s) sur ${targetList.length} cible(s), ${matchedTargetByFile.size} apparié(s) — nettoyage désactivé pour ce torrent.`
+        );
+        for (const f of unmatchedVideo) {
+          const info = parseRelease(f.name);
+          console.warn(
+            `[engine:${this.cfg.id}][${this.cfg.logTag}][import-match]   ✗ ${f.path} — parsed S${info.season ?? "?"}E${info.episode ?? "?"}, pathSeason=${this._seasonFromPath(f.path) ?? "?"}`
+          );
+        }
+      }
+    }
 
     if (!naming.enabled) {
       let firstDest = null;
@@ -690,8 +792,7 @@ export class AbstractBackend {
         // Replace download copy with symlink → library so aria2 seeds from
         // the library file (saves disk and keeps library as single source of truth).
         if (transfer === linkOrCopy) {
-          await fsp.unlink(src).catch(() => {});
-          await fsp.symlink(dest, src).catch(() => {});
+          if (!(await this._swapForSymlink(src, dest))) m.symlinkVerificationFailed = true;
         }
         firstDest ??= path.join(this.cfg.completedPath, snap.name);
         movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length });
@@ -707,12 +808,39 @@ export class AbstractBackend {
         const info = fileInfo.season != null || fileInfo.episode != null ? fileInfo : releaseInfo;
         if (m.title) info.title = m.title;
         if (m.year) info.year = String(m.year);
+        // Neither the filename nor the overall release name carried a season
+        // and/or episode (e.g. an anime pack with absolute episode numbering,
+        // or per-season subfolders but season-less filenames). Without a
+        // fallback, `info.season`/`info.episode` stay null, which both
+        // misfiles the library folder ("Season 00") and — more importantly —
+        // makes the library-side import (applyImportedFiles) unable to match
+        // this file to any episode: the "series"/"season"/"episode" branches
+        // all require a concrete season/episode number (movedFileCoversEpisode
+        // returns false whenever f.episode is null). Reuse the target this
+        // file was already matched against above (same _matchesEpisode call,
+        // which already resolves season via folder path and episode via
+        // absolute-number-in-filename) rather than re-guessing blind.
+        if (info.season == null || info.episode == null) {
+          const matchedTarget = matchedTargetByFile.get(file);
+          if (matchedTarget) {
+            if (info.season == null) info.season = matchedTarget.season;
+            if (info.episode == null) info.episode = matchedTarget.episode;
+          } else if (info.season == null) {
+            const pathSeason = this._seasonFromPath(file.path);
+            if (pathSeason != null) info.season = pathSeason;
+          }
+        }
         const ctx = buildContext(info);
         const ext = path.extname(file.name);
         let dest;
         if (this.cfg.category === "series") {
           const seriesFolder = renderSegment(naming.seriesFolder, ctx, naming.useDotsInsteadOfSpaces);
-          const seasonFolder = renderSegment(naming.seasonFolder, ctx, naming.useDotsInsteadOfSpaces);
+          // Specials always land in a literal "Specials" folder regardless of
+          // the user's season-folder template — Plex specifically expects
+          // "Specials" or "Season 00", and there's no real reason to let the
+          // naming template vary for this one folder the way it can for
+          // regular seasons.
+          const seasonFolder = ctx.season === 0 ? "Specials" : renderSegment(naming.seasonFolder, ctx, naming.useDotsInsteadOfSpaces);
           const fileName = renderSegment(naming.episodeFile, ctx, naming.useDotsInsteadOfSpaces) + ext;
           dest = path.join(this.cfg.completedPath, seriesFolder, seasonFolder, fileName);
         } else {
@@ -723,8 +851,7 @@ export class AbstractBackend {
         const src = path.isAbsolute(file.path) ? file.path : path.join(this.cfg.downloadPath, file.path);
         await transfer(src, dest);
         if (transfer === linkOrCopy) {
-          await fsp.unlink(src).catch(() => {});
-          await fsp.symlink(dest, src).catch(() => {});
+          if (!(await this._swapForSymlink(src, dest))) m.symlinkVerificationFailed = true;
         }
         firstDest ??= dest;
         movedFiles.push({
@@ -746,12 +873,24 @@ export class AbstractBackend {
     });
 
     this.onChange();
-    if (m.libraryRef && movedFiles.length > 0) {
+    // Notify even with zero moved files — confirmed live (Futurama S6): a
+    // "season pack" release can download 100% and structurally not contain
+    // ANY of the targeted episodes at all (e.g. a release group's own
+    // "season 6" only covers a different episode range than TMDb/TVDB's —
+    // not a filename-parsing bug, the episodes just genuinely aren't in this
+    // release). Previously this branch only ran when movedFiles.length > 0,
+    // so the library callback — and with it applyImportedFiles's
+    // releaseIfOrphaned reset — never fired, leaving every targeted episode
+    // stuck on "downloading" forever with no path back to "missing" for a
+    // retry. The callback (and the web app's route) both already handle an
+    // empty files array correctly: every episode still claiming this
+    // infoHash gets released back to "missing" instead of silently orphaned.
+    if (m.libraryRef) {
       m.movedFiles = movedFiles;
       const ok = await this._notifyLibrary(m.libraryRef, movedFiles, snap.infoHash);
       if (ok) {
         m.notifiedLibrary = true;
-        console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}]   bibliothèque notifiée ✓`);
+        console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}]   bibliothèque notifiée ✓${movedFiles.length === 0 ? " (0 fichier — cibles relâchées vers « manquant »)" : ""}`);
       } else {
         console.warn(`[engine:${this.cfg.id}][${this.cfg.logTag}]   bibliothèque injoignable — retry automatique dans ~15s`);
       }
@@ -760,6 +899,45 @@ export class AbstractBackend {
     if (movedFiles.length === 0 && m.libraryRef) {
       m.completed = true;
     }
+  }
+
+  /**
+   * Replaces a download-folder file with a symlink to its library copy —
+   * ONLY once that library copy is confirmed present with a matching size.
+   * `fsp.cp`/`fsp.link`'s fallback copy inside linkOrCopy() doesn't checksum
+   * or size-verify against the source, so without this check a silently
+   * incomplete copy (torrent client still flushing the file, a transient
+   * I/O hiccup) could get "confirmed" by unlinking the only good copy —
+   * exactly the failure mode this function exists to rule out before
+   * touching `src` at all. If verification fails, both copies are left in
+   * place (safe but not cleaned up) rather than guessing.
+   *
+   * Returns true only if the swap fully completed as expected (verified +
+   * symlinked) — callers MUST treat a false return as "do not assume this
+   * file is safe to clean up elsewhere" (see the symlinkVerificationFailed
+   * flag set by _import's callers, which gates _cleanupDownloadFolder: that
+   * method deletes the whole download folder unconditionally once called,
+   * so it must never run while a file this function declined to touch is
+   * still sitting there as the only good copy).
+   */
+  async _swapForSymlink(src, dest) {
+    let verified = false;
+    try {
+      const [s, d] = await Promise.all([fsp.stat(src), fsp.stat(dest)]);
+      verified = s.size === d.size;
+    } catch {
+      verified = false; // stat failing on either side — cannot confirm, do nothing
+    }
+    if (!verified) {
+      console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] skipping cleanup of ${src}: destination copy not verified (size mismatch or unreadable) — leaving both copies in place`);
+      return false;
+    }
+    await fsp.unlink(src).catch(() => {});
+    const linked = await fsp.symlink(dest, src).then(() => true).catch(() => false);
+    if (!linked) {
+      console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] symlink swap failed after removing ${src} — seeding source for this file is now missing (library copy at ${dest} is unaffected)`);
+    }
+    return linked;
   }
 
   async _notifyLibrary(libraryRef, files, infoHash) {
@@ -792,47 +970,40 @@ export class AbstractBackend {
         await this._import(snap, movePath);
         importOk = true;
       } catch (e) {
+        // Unlike onComplete's linkOrCopy path (which used to retry this
+        // forever with no backoff — see IMPORT_MAX_RETRIES), this path
+        // (movePath, seedRatio<=0) already only runs once: m.completed is
+        // set unconditionally above regardless of outcome, so onComplete's
+        // own guard prevents a retry loop here. But a failure was
+        // previously ONLY a console.error with no emitActivity call at
+        // all — silent from the user's point of view, no bell/webhook, no
+        // visible reason the torrent never showed up in the library.
         console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] move failed:`, e.message);
+        this.emitActivity("failed", {
+          media: {
+            id: m.libraryRef?.split(":")[1] ?? snap.infoHash,
+            title: m.title ?? snap.name ?? "Inconnu",
+            type: this.cfg.category,
+            href: m.libraryRef ? `/title/${this.cfg.category}/${m.year ?? ""}` : "#",
+          },
+          failure: { code: "import_failed", message: e.message ?? "Échec du déplacement des fichiers" },
+          metadata: { libraryRef: m.libraryRef ?? undefined },
+        });
       }
     } else {
       importOk = true;
     }
 
     // Only delete the download folder if the import/move succeeded — otherwise
-    // the original files are still needed in the download directory.
-    if (importOk && this.cfg.autoMoveOnComplete && snap.name) {
-      const safeName = snap.name.replace(/[/\\:]/g, "_").replace(/\.\.+/g, "_");
-      const cleanupTarget = path.join(this.cfg.downloadPath, safeName);
-      const resolved = path.resolve(cleanupTarget);
-      if (resolved.startsWith(path.resolve(this.cfg.downloadPath)) && resolved !== path.resolve(this.cfg.downloadPath)) {
-        try { await fsp.rm(resolved, { recursive: true, force: true }); } catch {}
-        console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}]   download nettoyé: ${safeName}`);
-      }
-      // Also cleanup individual files — for flat torrents the directory cleanup
-      // above may miss them because snap.name doesn't include the file extension.
-      for (const f of (snap.files ?? [])) {
-        const fp = f.path ? (path.isAbsolute(f.path) ? f.path : path.join(this.cfg.downloadPath, f.path)) : null;
-        if (fp && path.resolve(fp).startsWith(path.resolve(this.cfg.downloadPath))) {
-          try { await fsp.unlink(fp); } catch {}
-        }
-      }
-      // Remove subdirectories left behind — if a dir contains no video files
-      // (only .torrent, .nfo, .txt, etc.), it's safe to delete entirely.
-      try {
-        const dlPath = path.resolve(this.cfg.downloadPath);
-        const entries = await fsp.readdir(dlPath, { withFileTypes: true });
-        for (const e of entries) {
-          if (e.isDirectory()) {
-            const dp = path.join(dlPath, e.name);
-            try {
-              const contents = await fsp.readdir(dp, { withFileTypes: true, recursive: true });
-              const hasVideo = contents.some((c) => c.isFile() && VIDEO_EXT_RE.test(c.name));
-              if (!hasVideo) await fsp.rm(dp, { recursive: true, force: true });
-              else try { await fsp.rmdir(dp); } catch {}
-            } catch { try { await fsp.rmdir(dp); } catch {} }
-          }
-        }
-      } catch {}
+    // the original files are still needed in the download directory. Also
+    // gated on !m.symlinkVerificationFailed for the same reason as the other
+    // _cleanupDownloadFolder call site in onComplete() above — this branch
+    // is reached both for path A (movePath, where the flag is never set)
+    // and for a retried linkOrCopy import (alreadyImported=true, where it
+    // can be). ALSO gated on !m.hasUnmatchedFiles — see the matching guard
+    // in onComplete() above for why.
+    if (importOk && this.cfg.autoMoveOnComplete && snap.name && !m.symlinkVerificationFailed && !m.hasUnmatchedFiles) {
+      await this._cleanupDownloadFolder(snap);
     }
 
     if (!this.importedHistory.has(snap.infoHash)) {
@@ -849,11 +1020,54 @@ export class AbstractBackend {
     this.onChange();
   }
 
+  // Extracted from _finish so it can also be invoked directly from
+  // onComplete's first-time-import success branch (linkOrCopy / seedRatio>0
+  // path) — that path never gets a SECOND onComplete() call to reach this
+  // cleanup via _finish, since m.completed is already set on the first call
+  // and tick() skips completed torrents from then on; see onComplete.
+  async _cleanupDownloadFolder(snap) {
+    const safeName = snap.name.replace(/[/\\:]/g, "_").replace(/\.\.+/g, "_");
+    const cleanupTarget = path.join(this.cfg.downloadPath, safeName);
+    const resolved = path.resolve(cleanupTarget);
+    if (resolved.startsWith(path.resolve(this.cfg.downloadPath)) && resolved !== path.resolve(this.cfg.downloadPath)) {
+      try { await fsp.rm(resolved, { recursive: true, force: true }); } catch {}
+      console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}]   download nettoyé: ${safeName}`);
+    }
+    // Also cleanup individual files — for flat torrents the directory cleanup
+    // above may miss them because snap.name doesn't include the file extension.
+    for (const f of (snap.files ?? [])) {
+      const fp = f.path ? (path.isAbsolute(f.path) ? f.path : path.join(this.cfg.downloadPath, f.path)) : null;
+      if (fp && path.resolve(fp).startsWith(path.resolve(this.cfg.downloadPath))) {
+        try { await fsp.unlink(fp); } catch {}
+      }
+    }
+    // Remove subdirectories left behind — if a dir contains no video files
+    // (only .torrent, .nfo, .txt, etc.), it's safe to delete entirely.
+    try {
+      const dlPath = path.resolve(this.cfg.downloadPath);
+      const entries = await fsp.readdir(dlPath, { withFileTypes: true });
+      for (const e of entries) {
+        if (e.isDirectory()) {
+          const dp = path.join(dlPath, e.name);
+          try {
+            const contents = await fsp.readdir(dp, { withFileTypes: true, recursive: true });
+            const hasVideo = contents.some((c) => c.isFile() && VIDEO_EXT_RE.test(c.name));
+            if (!hasVideo) await fsp.rm(dp, { recursive: true, force: true });
+            else try { await fsp.rmdir(dp); } catch {}
+          } catch { try { await fsp.rmdir(dp); } catch {} }
+        }
+      }
+    } catch {}
+  }
+
   // ─── Episode matching (shared) ───────────────────────────────────────────
 
   _seasonFromPath(filePath) {
     const dirs = path.dirname(filePath).split(/[\\/]/);
     for (const d of dirs) {
+      // "Specials" carries no digit at all — recognized by name, mapped
+      // straight to season 0, same convention as scanSeriesDiskStructure.
+      if (/^specials?$/i.test(d.trim())) return 0;
       const m = d.match(/\bS(\d{1,2})\b/i);
       if (m) return parseInt(m[1], 10);
       const seasonWords = ["season", "saison", "staffel", "seizoen", "temporada", "stagione"];

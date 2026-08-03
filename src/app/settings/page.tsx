@@ -8,8 +8,7 @@ import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import { IndexerManager } from "@/components/settings/IndexerManager";
 import { DownloadClients } from "@/components/settings/DownloadClients";
-import { NamingEditor } from "@/components/settings/NamingEditor";
-import { WebhookSettings } from "@/components/settings/WebhookSettings";
+import { NamingSettings } from "@/components/settings/NamingSettings";
 import { HealthPanel } from "@/components/settings/HealthPanel";
 import { DoctorPanel } from "@/components/settings/DoctorPanel";
 import { TranscodeLogsPanel } from "@/components/settings/TranscodeLogsPanel";
@@ -17,11 +16,12 @@ import { EngineLogsPanel } from "@/components/settings/EngineLogsPanel";
 import { ResolverLogsPanel } from "@/components/settings/ResolverLogsPanel";
 import { PerfPanel } from "@/components/settings/PerfPanel";
 import { BackupSettings } from "@/components/settings/BackupSettings";
-import { TasksPanel } from "@/components/settings/TasksPanel";
+import { AutomationSettings } from "@/components/settings/AutomationSettings";
 import { CachePanel } from "@/components/settings/CachePanel";
 import { StatsPanel } from "@/components/settings/StatsPanel";
 import { PlexSettings } from "@/components/settings/PlexSettings";
 import { MetadataSettings } from "@/components/settings/MetadataSettings";
+import { AnimeSettings } from "@/components/settings/AnimeSettings";
 import { BlocklistPanel } from "@/components/settings/BlocklistPanel";
 import { CustomFormatsPanel } from "@/components/settings/CustomFormatsPanel";
 import { ReleaseRulesPanel } from "@/components/settings/ReleaseRulesPanel";
@@ -31,15 +31,12 @@ import { ImportListsSettings } from "@/components/settings/ImportListsSettings";
 import { SeerrSettings } from "@/components/settings/SeerrSettings";
 import { IndexationPanel } from "@/components/settings/IndexationPanel";
 import { TrashPanel } from "@/components/settings/TrashPanel";
-import { RenamePanel } from "@/components/settings/RenamePanel";
 import { RepairPathsPanel } from "@/components/settings/RepairPathsPanel";
 import { CleanDirsPanel } from "@/components/settings/CleanDirsPanel";
 import { RecoverDownloadsPanel } from "@/components/settings/RecoverDownloadsPanel";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { ChevronDown, X, Search } from "lucide-react";
-import { ActivitySettings } from "@/components/settings/ActivitySettings";
 import { AboutPanel } from "@/components/settings/AboutPanel";
-import { JobQueuePanel } from "@/components/settings/JobQueuePanel";
 import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
 import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
 import { GpuSettingsPanel } from "@/components/settings/GpuSettingsPanel";
@@ -244,17 +241,20 @@ function SettingsPageInner() {
 
           {tab === "metadata" && user?.role === "admin" && <MetadataSettings />}
 
+          {tab === "anime" && user?.role === "admin" && <AnimeSettings />}
+
           {tab === "plex" && user?.role === "admin" && <PlexSettings />}
 
-          {tab === "naming" && user?.role === "admin" && <NamingEditor />}
+          {tab === "naming" && user?.role === "admin" && <NamingSettings />}
 
           {tab === "imports" && user?.role === "admin" && (
             <div className="space-y-6">
               <ImportListsSettings />
               <SeerrSettings />
-              <BlocklistPanel />
             </div>
           )}
+
+          {tab === "blocklist" && user?.role === "admin" && <BlocklistPanel />}
 
           {tab === "indexation" && user?.role === "admin" && (
             <div className="space-y-6">
@@ -262,8 +262,6 @@ function SettingsPageInner() {
               <IndexationPanel type="series" />
             </div>
           )}
-
-          {tab === "rename" && user?.role === "admin" && <RenamePanel />}
 
           {tab === "maintenance" && user?.role === "admin" && (
             <div className="space-y-6">
@@ -274,13 +272,7 @@ function SettingsPageInner() {
             </div>
           )}
 
-          {tab === "notifications" && user?.role === "admin" && (
-            <div className="space-y-6">
-              <NotificationSettings />
-              <WebhookSettings />
-              <ActivitySettings />
-            </div>
-          )}
+          {tab === "notifications" && user?.role === "admin" && <NotificationSettings />}
 
           {tab === "diagnostics" && user?.role === "admin" && (
             <div className="space-y-6">
@@ -305,15 +297,16 @@ function SettingsPageInner() {
             </div>
           )}
 
-          {tab === "tasks" && user?.role === "admin" && <TasksPanel />}
-
-          {tab === "jobs" && user?.role === "admin" && <JobQueuePanel />}
+          {tab === "automation" && user?.role === "admin" && <AutomationSettings />}
 
           {tab === "cache" && user?.role === "admin" && <CachePanel />}
 
-          {tab === "backup" && user?.role === "admin" && <BackupSettings />}
-
-          {tab === "about" && user?.role === "admin" && <AboutPanel />}
+          {tab === "about" && user?.role === "admin" && (
+            <div className="space-y-6">
+              <AboutPanel />
+              <BackupSettings />
+            </div>
+          )}
 
           {tab === "danger" && user?.role === "admin" && <DangerZonePanel />}
         </div>

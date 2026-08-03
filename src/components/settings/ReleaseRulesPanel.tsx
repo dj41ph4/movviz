@@ -10,7 +10,9 @@ interface ReleaseRules {
   maxMovieSizeMb: number | null;
   maxEpisodeSizeMb: number | null;
   maxSeasonSizeMb: number | null;
+  maxSeriesSizeMb: number | null;
   codecScores: { x264: number; x265: number; av1: number };
+  sizePreference: "smaller" | "balanced" | "quality";
   preferredLanguageUpgrade: string | null;
   preferredVideoCodec: string | null;
   preferredAudioCodec: string | null;
@@ -131,7 +133,7 @@ export function ReleaseRulesPanel() {
       <div className="rounded-2xl glass p-5">
         <h3 className="font-bold text-ink">{t("releaseRules.maxSizesTitle")}</h3>
         <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.maxSizesHint")}</p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <SizeField
             label={t("releaseRules.maxMovieSize")}
             value={mbToGb(rules.maxMovieSizeMb)}
@@ -148,6 +150,12 @@ export function ReleaseRulesPanel() {
             label={t("releaseRules.maxSeasonSize")}
             value={mbToGb(rules.maxSeasonSizeMb)}
             onCommit={(v) => save({ maxSeasonSizeMb: gbToMb(v) })}
+            className={field}
+          />
+          <SizeField
+            label={t("releaseRules.maxSeriesSize")}
+            value={mbToGb(rules.maxSeriesSizeMb)}
+            onCommit={(v) => save({ maxSeriesSizeMb: gbToMb(v) })}
             className={field}
           />
         </div>
@@ -176,6 +184,32 @@ export function ReleaseRulesPanel() {
             onCommit={(v) => save({ codecScores: { ...rules.codecScores, av1: v } })}
             className={field}
           />
+        </div>
+      </div>
+
+      {/* Size/quality selection policy — independent of the codec scoring
+          above (see releaseRules.ts's sizePreference doc comment): that
+          nudges general relevance, this only decides which already-
+          qualifying release actually gets grabbed. */}
+      <div className="rounded-2xl glass p-5">
+        <h3 className="font-bold text-ink">{t("releaseRules.sizePreferenceTitle")}</h3>
+        <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.sizePreferenceHint")}</p>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          {(["smaller", "balanced", "quality"] as const).map((opt) => (
+            <button
+              key={opt}
+              onClick={() => save({ sizePreference: opt })}
+              className={cn(
+                "rounded-xl border px-4 py-3 text-left text-sm font-semibold transition-colors",
+                rules.sizePreference === opt ? "border-brand/40 bg-brand/12 text-brand-glow" : "border-white/8 bg-black/20 text-ink-soft hover:text-ink"
+              )}
+            >
+              {t(`releaseRules.sizePreference${opt.charAt(0).toUpperCase()}${opt.slice(1)}`)}
+              <p className="mt-0.5 text-xs font-normal text-ink-dim">
+                {t(`releaseRules.sizePreference${opt.charAt(0).toUpperCase()}${opt.slice(1)}Hint`)}
+              </p>
+            </button>
+          ))}
         </div>
       </div>
 

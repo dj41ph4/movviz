@@ -13,9 +13,13 @@ interface TvdbConfig {
   useForAnime: boolean;
   /** Langue des titres retournés par TVDB (code ISO 639-1, ex: "fr", "en", "ja"). */
   language: string;
+  /** Suivre les épisodes spéciaux (saison 0) pour toute nouvelle série ajoutée
+   *  ou resynchronisée. Désactivé, le comportement redevient celui d'avant
+   *  cette fonctionnalité : la saison 0 n'est jamais ajoutée à la bibliothèque. */
+  specialsEnabled: boolean;
 }
 
-const DEFAULT: TvdbConfig = { apiKey: null, useForAnime: true, language: "fr" };
+const DEFAULT: TvdbConfig = { apiKey: null, useForAnime: true, language: "fr", specialsEnabled: true };
 
 export function loadTvdbConfig(): TvdbConfig {
   return { ...DEFAULT, ...readJsonCached<Partial<TvdbConfig>>(FILE, {}) };

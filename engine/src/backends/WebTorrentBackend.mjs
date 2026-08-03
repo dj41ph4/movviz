@@ -224,6 +224,22 @@ export class WebTorrentBackend extends AbstractBackend {
 
     t.on("ready", () => {
       this._cacheTorrentFile(t).catch(() => {});
+      // add()'s initial _selectEpisodeFiles call (AbstractBackend.mjs) can
+      // land before WebTorrent has finished the peer metadata exchange —
+      // client.add() only waits for infoHash, not for t.files — so for a
+      // magnet-added episode/season-pack grab (deselect:true in _clientAdd,
+      // meaning every file starts unselected) that first attempt silently
+      // does nothing (`!handle.files?.length` guard), permanently leaving
+      // every file deselected: the torrent still connects peers (selection
+      // doesn't affect that) so it reads as active and never trips stall
+      // detection, but downloads 0 bytes of anything forever. "ready" fires
+      // once t.files is actually populated, so retry here — same fix
+      // already shipped for this exact race in NativeTorrentBackend.mjs's
+      // poll loop, just triggered by the event instead of polling.
+      const m = this.meta.get(infoHash);
+      if (m && (m.episodeTargets?.length || m.episodeTarget) && !m.selectedFileIndices && t.files?.length) {
+        this._selectEpisodeFiles(this._wtHandle(t), m);
+      }
       this.onChange();
     });
 

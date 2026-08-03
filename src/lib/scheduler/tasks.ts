@@ -263,6 +263,40 @@ export const TASKS: ScheduledTask[] = [
     },
   },
   {
+    id: "stuck-downloads-recover",
+    name: "Récupération des téléchargements terminés non importés",
+    intervalMs: 30 * 60 * 1000, // every 30 min
+    // A completed torrent whose import callback never landed (engine crash
+    // between completion and import, failed move, lost callback) leaves its
+    // files in the download folder while the library item stays stuck on
+    // "downloading" — invisible to the wanted list AND never re-searchable.
+    // Detects exactly those (completed torrent + still-claimed hash) and
+    // recovers the files through the same idempotent logic as the manual
+    // "Récupérer les téléchargements" maintenance action.
+    run: async () => {
+      const { detectStuckDownloads, recoverDownloads } = await import("@/lib/library/recoverDownloads");
+      let stuck: Awaited<ReturnType<typeof detectStuckDownloads>>;
+      try {
+        stuck = await detectStuckDownloads();
+      } catch (e) {
+        console.error("[scheduler] stuck-downloads-recover: détection impossible —", (e as Error).message);
+        return;
+      }
+      if (stuck.length === 0) return;
+      try {
+        // Restrict the recovery to the stuck torrents themselves — never a
+        // blind scan of the download folder (see recoverDownloads).
+        const result = await recoverDownloads(stuck);
+        if (result.recovered.length > 0) {
+          emitNotification("downloads_recovered", `${result.recovered.length} téléchargement(s) terminé(s) récupéré(s) depuis le dossier de téléchargement`, "/activity?tab=queue", { count: result.recovered.length });
+        }
+        console.log(`[scheduler] stuck-downloads-recover: ${stuck.length} coincé(s), ${result.recovered.length} récupéré(s), ${result.failed.length} échec(s), ${result.duplicates.length} doublon(s)`);
+      } catch (e) {
+        console.error("[scheduler] stuck-downloads-recover failed:", (e as Error).message);
+      }
+    },
+  },
+  {
     id: "anime-vf-calendar-refresh",
     name: "Rafraîchissement du calendrier VF anime",
     intervalMs: 24 * 60 * 60 * 1000, // daily

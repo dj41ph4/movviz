@@ -16,8 +16,13 @@ export function RequestSeriesModal({
   onRequested: () => void;
 }) {
   const t = useT();
-  const seasons = detail.seasons?.filter((s) => s.seasonNumber > 0) ?? [];
-  const [selected, setSelected] = useState<Set<number>>(new Set(seasons.map((s) => s.seasonNumber)));
+  const seasons = detail.seasons ?? [];
+  // Specials (season 0) can still be requested explicitly, but — same
+  // opt-in-by-default rule as everywhere else specials are handled — they
+  // don't come pre-checked the way regular seasons do.
+  const [selected, setSelected] = useState<Set<number>>(
+    new Set(seasons.filter((s) => s.seasonNumber !== 0).map((s) => s.seasonNumber))
+  );
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);

@@ -47,6 +47,12 @@ const SEASON_EPISODE_RANGE_RE = /\bS(\d{1,2})E(\d{1,3})(?:-E?|E)(\d{1,3})\b/i;
 const SEASON_EPISODE_RE = /\bS(\d{1,2})E(\d{1,3})\b/i;
 const ALT_SEASON_EPISODE_RE = /\b(\d{1,2})x(\d{1,3})\b/;
 const SEASON_ONLY_RE = /\bS(\d{1,2})\b/i;
+// Keep in sync with SPECIAL_EPISODE_RE in src/lib/naming/parser.ts — anime
+// specials/OVAs rarely carry a literal S00Exx marker ("OVA1", "SP03", etc.),
+// checked only as a fallback after the normal SxxExx patterns fail. Trailing
+// number optional for OVA/OAV/OAD/Special (many releases never number their
+// single one); "SP" alone stays digit-required, too collision-prone bare.
+const SPECIAL_EPISODE_RE = /\b(?:OVAs?|OAVs?|OADs?|Specials?)\.?\s?(\d{1,3})?\b|\bSPs?\.?\s?(\d{1,3})\b/i;
 const YEAR_RE = /\b(19|20)\d{2}\b/;
 
 function firstMatchIndex(source, patterns) {
@@ -91,7 +97,15 @@ export function parseRelease(rawName) {
       episode = parseInt(se[2], 10);
     } else {
       const seasonOnly = s.match(SEASON_ONLY_RE);
-      if (seasonOnly) season = parseInt(seasonOnly[1], 10);
+      if (seasonOnly) {
+        season = parseInt(seasonOnly[1], 10);
+      } else {
+        const special = s.match(SPECIAL_EPISODE_RE);
+        if (special) {
+          season = 0;
+          episode = special[1] ? parseInt(special[1], 10) : special[2] ? parseInt(special[2], 10) : 1;
+        }
+      }
     }
   }
 
@@ -101,6 +115,7 @@ export function parseRelease(rawName) {
     SEASON_EPISODE_RE,
     ALT_SEASON_EPISODE_RE,
     SEASON_ONLY_RE,
+    SPECIAL_EPISODE_RE,
     year ? new RegExp(year) : null,
     resolution ? new RegExp(resolution, "i") : null,
   ]);

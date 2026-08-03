@@ -102,12 +102,12 @@ export function SeasonAccordion({
     if (librarySeasons && librarySeasons.length > seasons.length) {
       return librarySeasons.map((ls) => ({
         seasonNumber: ls.seasonNumber ?? 0,
-        name: seasons.find((s) => s.seasonNumber === ls.seasonNumber)?.name ?? `Saison ${ls.seasonNumber}`,
+        name: seasons.find((s) => s.seasonNumber === ls.seasonNumber)?.name ?? `${t("title.season")} ${ls.seasonNumber}`,
         episodeCount: ls.episodes.length,
       }));
     }
     return seasons;
-  }, [seasons, librarySeasons]);
+  }, [seasons, librarySeasons, t]);
 
   const sorted = [...effectiveSeasons].sort((a, b) => b.seasonNumber - a.seasonNumber);
 

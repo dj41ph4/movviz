@@ -95,6 +95,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
 
   const items = data?.items ?? [];
   const activeItems = useMemo(() => items.filter(item => item.status === "downloading" || item.status === "importing"), [items]);
+  const queuedItems = useMemo(() => items.filter(item => item.status === "queued"), [items]);
   const stalledItems = useMemo(() => items.filter(item => item.status === "stalled"), [items]);
   const pausedItems = useMemo(() => items.filter(item => item.status === "paused"), [items]);
   const completedItems = useMemo(() => items.filter(item => item.status === "completed" || item.status === "seeding"), [items]);
@@ -418,11 +419,16 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       </div>
 
       {/* Stats cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         <div className="rounded-xl glass p-4 text-center">
           <Download className="mx-auto mb-2 h-5 w-5 text-cyan" />
           <p className="text-sm text-ink-dim">{t("activity.status.downloading")}</p>
           <p className="text-2xl font-bold text-cyan">{activeItems.length}</p>
+        </div>
+        <div className="rounded-xl glass p-4 text-center">
+          <Clock className="mx-auto mb-2 h-5 w-5 text-brand-glow" />
+          <p className="text-sm text-ink-dim">{t("activity.status.queued")}</p>
+          <p className="text-2xl font-bold text-brand-glow">{queuedItems.length}</p>
         </div>
         <div className="rounded-xl glass p-4 text-center">
           <Pause className="mx-auto mb-2 h-5 w-5 text-amber" />
@@ -439,7 +445,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           <p className="text-sm text-ink-dim">{t("activity.status.completed")}</p>
           <p className="text-2xl font-bold text-ok">{completedItems.length}</p>
         </div>
-        <div className="col-span-2 rounded-xl glass p-4 text-center sm:col-span-1">
+        <div className="col-span-2 rounded-xl glass p-4 text-center sm:col-span-3 lg:col-span-1">
           <List className="mx-auto mb-2 h-5 w-5 text-ink-dim" />
           <p className="text-sm text-ink-dim">{t("common.all")}</p>
           <p className="text-2xl font-bold text-ink">{items.length}</p>
@@ -579,7 +585,9 @@ const QueueItemRow = memo(function QueueItemRow({
                   <span className="text-ink-dim">
                     {" — "}
                     {item.media.season === 0
-                      ? t("library.searchCompleteSeries")
+                      ? item.media.seasonCount && item.media.seasonCount > 1
+                        ? t("activity.completeSeriesPackSeason", { count: item.media.packEpisodeCount ?? 0, seasons: item.media.seasonCount })
+                        : t("activity.completeSeriesPack", { count: item.media.packEpisodeCount ?? 0 })
                       : t("activity.seasonPack", { season: item.media.season ?? 0, count: item.media.packEpisodeCount ?? 0 })}
                   </span>
                 ) : item.media.season && item.media.episode ? (

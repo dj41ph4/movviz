@@ -19,7 +19,7 @@ export async function PUT(req: NextRequest) {
   if (Array.isArray(body.blockedWords)) {
     patch.blockedWords = body.blockedWords.map((w: unknown) => String(w).trim()).filter(Boolean);
   }
-  for (const key of ["maxMovieSizeMb", "maxEpisodeSizeMb", "maxSeasonSizeMb"] as const) {
+  for (const key of ["maxMovieSizeMb", "maxEpisodeSizeMb", "maxSeasonSizeMb", "maxSeriesSizeMb"] as const) {
     if (key in body) patch[key] = body[key] == null ? null : Math.max(0, Number(body[key])) || null;
   }
   if (body.codecScores && typeof body.codecScores === "object") {
@@ -48,6 +48,10 @@ export async function PUT(req: NextRequest) {
   }
   if ("autoUpgradeEnabled" in body) {
     patch.autoUpgradeEnabled = Boolean(body.autoUpgradeEnabled);
+  }
+  if ("sizePreference" in body) {
+    const allowedSizePreference = ["smaller", "balanced", "quality"];
+    patch.sizePreference = allowedSizePreference.includes(body.sizePreference) ? body.sizePreference : "balanced";
   }
   const next = saveReleaseRules(patch);
 

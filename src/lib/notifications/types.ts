@@ -14,7 +14,10 @@ export type NotificationKind =
   | "grab_movie"
   | "grab_movie_upgrade"
   | "grab_episode"
-  | "upgrade_candidates_found";
+  | "grab_season"
+  | "grab_series"
+  | "upgrade_candidates_found"
+  | "downloads_recovered";
 
 export interface NotificationItem {
   id: string;

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Check, X, Loader2, LinkIcon, RefreshCw, User, Play } from "lucide-react";
+import { Check, X, Loader2, LinkIcon, RefreshCw, User, Play, MonitorPlay } from "lucide-react";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 
 interface PlexConfig {
@@ -242,6 +242,16 @@ export function PlexSettings() {
       {cfg.connected && <ProfilePicker />}
 
       <div className="mt-5 border-t border-white/8 pt-5">
+        <div className="mb-4 flex items-start gap-3">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-500/12 text-purple-400">
+            <MonitorPlay className="h-4 w-4" />
+          </span>
+          <div>
+            <h4 className="text-sm font-bold text-ink">{t("player.playbackSectionTitle")}</h4>
+            <p className="text-xs text-ink-dim">{t("player.playbackSectionHint")}</p>
+          </div>
+        </div>
+
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold text-ink">{t("player.betaToggle")}</p>
@@ -252,7 +262,7 @@ export function PlexSettings() {
         {betaPlayer && (
           <div className="mt-3 flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              <label className="text-xs text-ink-dim">Cache segment :</label>
+              <label className="text-xs text-ink-dim">{t("player.segmentCache")} :</label>
               <input
                 type="number"
                 min={0}
@@ -261,7 +271,7 @@ export function PlexSettings() {
                 onChange={(e) => setStreamCacheTtl(parseInt(e.target.value) || 0)}
                 className="h-8 w-20 rounded-lg border border-white/8 bg-black/30 px-2 text-xs text-ink outline-none focus:border-brand/40"
               />
-              <span className="text-xs text-ink-dim">secondes (0 = pas de cache)</span>
+              <span className="text-xs text-ink-dim">{t("player.segmentCacheHint")}</span>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <label className="text-xs text-ink-dim">{t("player.betaEngine")} :</label>
@@ -275,6 +285,7 @@ export function PlexSettings() {
                 <option value="mse">{t("player.betaEngineMse")}</option>
               </select>
             </div>
+            <p className="text-[11px] text-ink-dim">{t("player.betaEngineHint")}</p>
           </div>
         )}
       </div>

@@ -370,7 +370,9 @@ async function renameSeries(id: string, language: string, log: LogFn): Promise<R
       quality: "", resolution: null, source: null, videoCodec: null,
       audioCodec: null, hdr: null, language: null, group: null,
     };
-    const newSeasonFolder = renderSegment(templates.seasonFolder, seasonCtx, useDots);
+    // Specials always land in a literal "Specials" folder — see the matching
+    // comment in the engine's AbstractBackend.mjs.
+    const newSeasonFolder = season.seasonNumber === 0 ? "Specials" : renderSegment(templates.seasonFolder, seasonCtx, useDots);
     for (const ep of season.episodes) {
       const epPath = ep.file?.diskPath ?? ep.file?.path;
       if (!epPath) continue;

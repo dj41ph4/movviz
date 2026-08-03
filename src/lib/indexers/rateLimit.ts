@@ -22,7 +22,7 @@ const limits: Map<string, number> = (g.__movvizRateLimit ??= new Map());
  * C411 (https://c411.org): max 15 requests per minute.
  */
 export const INDEXER_REQUEST_QUOTAS: Record<string, number> = {
-  "c411.org": 15,
+  // Désactivé pour ne pas bloquer "rechercher les manquants"
 };
 
 interface QuotaState {

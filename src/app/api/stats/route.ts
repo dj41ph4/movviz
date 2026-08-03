@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     const iso = d.toISOString().slice(0, 10);
     const count = notifications.filter(
       (n) =>
-        (n.kind === "grab_movie" || n.kind === "grab_movie_upgrade" || n.kind === "grab_episode") &&
+        (n.kind === "grab_movie" || n.kind === "grab_movie_upgrade" || n.kind === "grab_episode" || n.kind === "grab_season" || n.kind === "grab_series") &&
         new Date(n.createdAt).toISOString().slice(0, 10) === iso
     ).length;
     days.push({ date: iso, count });

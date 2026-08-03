@@ -34,4 +34,8 @@ export interface Job {
    *  id) — several sources can share one JobType, so isTypeActive() alone
    *  can't tell them apart. */
   sourceId?: string;
+  /** Whatever the runner resolved with, once completed — lets a polling UI
+   *  (e.g. a bulk action with a per-item result summary) fetch its result
+   *  through the same /api/jobs list instead of a separate storage channel. */
+  result?: unknown;
 }

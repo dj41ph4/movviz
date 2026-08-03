@@ -124,7 +124,9 @@ function computeExpectedEpisodePaths(
   };
   const seriesFolderCtx: NamingContext = { ...ctx, season: null, episode: null };
   const expectedSeriesFolder = renderSegment(templates.seriesFolder, seriesFolderCtx, useDots);
-  const seasonFolder = renderSegment(templates.seasonFolder, ctx, useDots);
+  // Specials always land in a literal "Specials" folder — see the matching
+  // comment in the engine's AbstractBackend.mjs.
+  const seasonFolder = ep.seasonNumber === 0 ? "Specials" : renderSegment(templates.seasonFolder, ctx, useDots);
   const epFile = renderSegment(templates.episodeFile, ctx, useDots);
   const ext = p.extname(ep.file.path);
   return roots.map((root) => pathFor(root).join(root, expectedSeriesFolder, seasonFolder, epFile + ext));

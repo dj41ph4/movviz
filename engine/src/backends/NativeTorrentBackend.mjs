@@ -62,7 +62,23 @@ export class NativeTorrentBackend extends AbstractBackend {
     const bin = this._findBinary();
     this._rpcPort = await this._findFreePort();
 
+    // Without an explicit path, aria2 defaults to $HOME/.aria2/dht.dat —
+    // under $HOME/.cache on this image, which isn't inside the persisted
+    // /config volume. Every container restart/redeploy then starts DHT
+    // completely cold (confirmed live: "Failed to load DHT routing table"
+    // on every boot), and a burst of magnets added right after a fresh
+    // restart — before DHT has had time to rebuild a working routing table
+    // from bootstrap nodes — can fail to resolve metadata for most of them
+    // at once (every added torrent stuck at 0 B). Persisting dht.dat inside
+    // CONFIG_DIR keeps a warm routing table across restarts.
+    const dhtDir = path.join(CONFIG_DIR, "aria2");
+    try { fs.mkdirSync(dhtDir, { recursive: true }); } catch { /* best effort */ }
+    const dhtFile = path.join(dhtDir, `dht-${this.cfg.id}.dat`);
+    const dhtFile6 = path.join(dhtDir, `dht6-${this.cfg.id}.dat`);
+
     const args = [
+      `--dht-file-path=${dhtFile}`,
+      `--dht-file-path6=${dhtFile6}`,
       "--enable-rpc",
       "--rpc-listen-all=false",
       `--rpc-listen-port=${this._rpcPort}`,

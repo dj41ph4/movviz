@@ -22,10 +22,8 @@ function computeHashIndex(movies, series) {
   for (const s of series) {
     seriesById.set(s.id, s);
     const matchesByHash = new Map();
-    let totalMonitored = 0;
     for (const season of s.seasons) {
       for (const ep of season.episodes) {
-        if (ep.monitored) totalMonitored++;
         if (ep.activeInfoHash) {
           const list = matchesByHash.get(ep.activeInfoHash) ?? [];
           list.push({ season: season.seasonNumber, episode: ep.episodeNumber });
@@ -35,13 +33,16 @@ function computeHashIndex(movies, series) {
     }
     for (const [hash, matches] of matchesByHash) {
       if (byHash.has(hash)) continue;
-      const isComplete = totalMonitored > 0 && matches.length >= totalMonitored;
+      // Keep in sync with hashIndexCompute.ts's isMultiSeason logic.
+      const matchedSeasons = new Set(matches.map((m) => m.season));
+      const isMultiSeason = matchedSeasons.size > 1;
       byHash.set(hash, {
         seriesMatch: {
           series: s,
-          season: isComplete ? 0 : matches[0].season,
-          episode: isComplete ? 0 : matches[0].episode,
+          season: isMultiSeason ? 0 : matches[0].season,
+          episode: isMultiSeason ? 0 : matches[0].episode,
           count: matches.length,
+          matchedSeasonCount: isMultiSeason ? matchedSeasons.size : undefined,
         },
       });
     }

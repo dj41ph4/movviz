@@ -93,7 +93,7 @@ export function SeerrSettings() {
           <ExternalLink className="h-5 w-5" />
         </span>
         <div>
-          <h3 className="font-bold text-ink">{t("settings.tabImports")}</h3>
+          <h3 className="font-bold text-ink">{t("seerr.title")}</h3>
           <p className="mt-0.5 text-xs text-ink-dim">{t("seerr.intro")}</p>
         </div>
       </div>

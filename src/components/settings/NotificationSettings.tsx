@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { useT } from "@/i18n/provider";
 import type { NotificationTransportConfig } from "@/lib/notifications/types";
 import { Loader2, Check, X, Send, BellRing } from "lucide-react";
+import { WebhookSettings } from "@/components/settings/WebhookSettings";
 
 type TransportKind = "discord" | "telegram" | "gotify" | "slack" | "pushbullet";
 
@@ -163,6 +164,8 @@ export function NotificationSettings() {
           </div>
         );
       })}
+
+      <WebhookSettings />
 
       {draft && (
         <button

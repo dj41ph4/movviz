@@ -2,7 +2,7 @@ import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 
 export interface HashIndexEntry {
   movie?: LibraryMovie;
-  seriesMatch?: { series: LibrarySeries; season: number; episode: number; count: number };
+  seriesMatch?: { series: LibrarySeries; season: number; episode: number; count: number; matchedSeasonCount?: number };
 }
 
 export interface HashIndexResult {
@@ -35,10 +35,8 @@ export function computeHashIndex(movies: LibraryMovie[], series: LibrarySeries[]
   for (const s of series) {
     seriesById.set(s.id, s);
     const matchesByHash = new Map<string, { season: number; episode: number }[]>();
-    let totalMonitored = 0;
     for (const season of s.seasons) {
       for (const ep of season.episodes) {
-        if (ep.monitored) totalMonitored++;
         if (ep.activeInfoHash) {
           const list = matchesByHash.get(ep.activeInfoHash) ?? [];
           list.push({ season: season.seasonNumber, episode: ep.episodeNumber });
@@ -50,13 +48,23 @@ export function computeHashIndex(movies: LibraryMovie[], series: LibrarySeries[]
       // A movie owning the same hash keeps priority — same precedence as
       // the old sequential scan (movie checked first).
       if (byHash.has(hash)) continue;
-      const isComplete = totalMonitored > 0 && matches.length >= totalMonitored;
+      // A pack spanning more than one season is a series/multi-season grab
+      // regardless of whether it happens to cover literally every monitored
+      // episode in the whole show — a show with one season already available
+      // elsewhere (different hash) previously made an otherwise-complete pack
+      // look "incomplete" and fall back to labeling it after its first
+      // episode's season (e.g. "Saison 1" for what was actually most of an
+      // intégrale). Single-season packs are unaffected — same season for
+      // every match, so this still resolves to that season number.
+      const matchedSeasons = new Set(matches.map((m) => m.season));
+      const isMultiSeason = matchedSeasons.size > 1;
       byHash.set(hash, {
         seriesMatch: {
           series: s,
-          season: isComplete ? 0 : matches[0].season,
-          episode: isComplete ? 0 : matches[0].episode,
+          season: isMultiSeason ? 0 : matches[0].season,
+          episode: isMultiSeason ? 0 : matches[0].episode,
           count: matches.length,
+          matchedSeasonCount: isMultiSeason ? matchedSeasons.size : undefined,
         },
       });
     }

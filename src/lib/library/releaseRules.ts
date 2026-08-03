@@ -15,6 +15,8 @@ export interface ReleaseRules {
   maxMovieSizeMb: number | null;
   maxEpisodeSizeMb: number | null;
   maxSeasonSizeMb: number | null;
+  /** A complete-series pack ("intégrale") spans every season — naturally several times larger than a single season pack, so it needs its own (much higher, or unset) cap rather than silently reusing maxSeasonSizeMb. */
+  maxSeriesSizeMb: number | null;
   /** Score bonus per codec, layered on top of resolution/source/custom-format scoring. */
   codecScores: { x264: number; x265: number; av1: number };
   /**
@@ -37,6 +39,19 @@ export interface ReleaseRules {
   preferredResolution: string | null;
   /** When enabled, autoUpgradeAll() runs periodically (every 6h) to automatically grab upgrade candidates. */
   autoUpgradeEnabled: boolean;
+  /**
+   * Auto-grab's size/quality selection policy among candidates that already
+   * pass minScore + size-limit + blocked-word filtering — deliberately kept
+   * separate from `codecScores` above (which nudges the general relevance
+   * score) rather than folded into it: this only decides which of several
+   * already-acceptable releases actually gets grabbed, using file size
+   * normalized by codec efficiency (a 10GB x265 encode is roughly the same
+   * real quality as a 20GB x264 one — see CODEC_SIZE_EFFICIENCY below), not
+   * raw bytes. "balanced" reproduces the exact pre-existing sort behavior
+   * (score descending, or smallest-size-first for complete-series packs) —
+   * the default, so nothing changes for anyone who doesn't touch this.
+   */
+  sizePreference: "smaller" | "balanced" | "quality";
 }
 
 const DEFAULT_RULES: ReleaseRules = {
@@ -44,6 +59,7 @@ const DEFAULT_RULES: ReleaseRules = {
   maxMovieSizeMb: null,
   maxEpisodeSizeMb: null,
   maxSeasonSizeMb: null,
+  maxSeriesSizeMb: null,
   // x265/AV1 deliver the same quality in a smaller file, so they outscore x264 by default.
   codecScores: { x264: 0, x265: 8, av1: 14 },
   preferredLanguageUpgrade: "VF",
@@ -51,7 +67,52 @@ const DEFAULT_RULES: ReleaseRules = {
   preferredAudioCodec: null,
   preferredResolution: null,
   autoUpgradeEnabled: false,
+  sizePreference: "balanced",
 };
+
+/**
+ * Approximate bitrate needed to reach the SAME perceptual quality, relative
+ * to x264 = 1.0 — e.g. an x265 file at 0.55x the size of an x264 file is
+ * roughly equivalent quality (real-world scene encodes vary — these are
+ * midpoints of published codec-comparison studies, not a precise constant).
+ * Used only to rank already-qualifying candidates by real size/quality, not
+ * as a hard rule — see `sizePreference` above.
+ */
+const CODEC_SIZE_EFFICIENCY: Record<"x264" | "x265" | "av1", number> = {
+  x264: 1,
+  x265: 0.55,
+  av1: 0.4,
+};
+
+/** Normalizes a release's size to its "x264-equivalent" size for the same
+ *  quality, so two releases of different codecs can be compared fairly —
+ *  a smaller normalized value genuinely means less real quality/size, not
+ *  just fewer raw bytes. */
+export function perceptualSizeBytes(sizeBytes: number, codec: string | null): number {
+  const normalized = normalizeCodec(codec);
+  const efficiency = normalized ? CODEC_SIZE_EFFICIENCY[normalized] : 1;
+  return sizeBytes / efficiency;
+}
+
+/**
+ * Primary sort for auto-grab candidates that already passed minScore/size-
+ * limit/blocked-word filtering. "balanced" is the pre-existing behavior
+ * (pure relevance score, unchanged) — "smaller"/"quality" re-rank by real
+ * size (codec-normalized), smallest or largest first respectively. Movies,
+ * episodes and season packs all share this; complete-series packs use their
+ * own comparator (see autoGrabSeries.ts) since their "balanced" default was
+ * already size-based, not score-based, before this setting existed.
+ */
+export function compareBySizePreference(
+  preference: ReleaseRules["sizePreference"],
+  a: { size: number; score: number; videoCodec?: string | null },
+  b: { size: number; score: number; videoCodec?: string | null }
+): number {
+  if (preference === "balanced") return b.score - a.score;
+  const aSize = perceptualSizeBytes(a.size, a.videoCodec ?? null);
+  const bSize = perceptualSizeBytes(b.size, b.videoCodec ?? null);
+  return preference === "smaller" ? aSize - bSize : bSize - aSize;
+}
 
 function read(): ReleaseRules {
   return { ...DEFAULT_RULES, ...readJsonCached<Partial<ReleaseRules>>(FILE, {}) };
@@ -96,8 +157,16 @@ export function withinSizeLimit(
   kind: "movie" | "episode" | "season" | "series",
   rules: ReleaseRules = read()
 ): boolean {
+  // "series" used to fall through to maxSeasonSizeMb (no branch matched it) —
+  // an intégrale is naturally several times bigger than a single season, so
+  // any season cap silently rejected every real complete-series pack from
+  // the automatic intégrale search while manual search (which doesn't apply
+  // this filter) still showed the exact same release.
   const limitMb =
-    kind === "movie" ? rules.maxMovieSizeMb : kind === "episode" ? rules.maxEpisodeSizeMb : rules.maxSeasonSizeMb;
+    kind === "movie" ? rules.maxMovieSizeMb
+      : kind === "episode" ? rules.maxEpisodeSizeMb
+      : kind === "season" ? rules.maxSeasonSizeMb
+      : rules.maxSeriesSizeMb;
   if (!limitMb || !sizeBytes) return true;
   return sizeBytes <= limitMb * 1024 * 1024;
 }

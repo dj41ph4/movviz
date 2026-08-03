@@ -11,7 +11,16 @@ export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const cfg = loadPlexConfig();
-  const movies = loadMovies().map((m) => ({
+  // A title page only ever needs its own single match — fetching the whole
+  // library (thousands of entries) just to .find() one by tmdbId client-side
+  // was the actual cause of "why does this page take forever to know if the
+  // title is already in the library". Optional filter, additive: omitting
+  // tmdbId keeps returning the full list for callers that need it (the
+  // Bibliothèque page itself).
+  const tmdbIdParam = req.nextUrl.searchParams.get("tmdbId");
+  const tmdbId = tmdbIdParam ? Number(tmdbIdParam) : null;
+  const all = tmdbId ? loadMovies().filter((m) => m.tmdbId === tmdbId) : loadMovies();
+  const movies = all.map((m) => ({
     ...m,
     plexUrl: m.plexRatingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, m.plexRatingKey) : null,
   }));

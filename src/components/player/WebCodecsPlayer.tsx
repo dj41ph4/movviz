@@ -411,6 +411,17 @@ export function WebCodecsPlayer({
             }
           }
 
+          // Every audio track was skipped as undecodable (mixed AAC+DTS/AC3
+          // files, unsupported profile, etc.) — unlike a decode error, this
+          // never throws and never fires AudioDecoder's own error callback,
+          // so playback would otherwise proceed silently with no audio and
+          // no way to recover. Fall back to HLS transcode deterministically.
+          if (aDecoder && !configuredAudio && tracks.some((t) => t.audio)) {
+            console.warn("[WebCodecs] no audio track was decodable — falling back to transcode");
+            fallbackRef.current?.();
+            return;
+          }
+
           if (maxDur > 0) {
             setDuration(maxDur);
             durationRef.current = maxDur;

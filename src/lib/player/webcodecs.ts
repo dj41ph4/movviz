@@ -185,7 +185,7 @@ export type PlaybackStrategy = "direct" | "webcodecs" | "transcode";
  * codecs=\"h264\"")`. Normalize to proper RFC 6381 before the check so direct
  * play actually works for H.264+AAC MP4s (the most common library format).
  */
-function toRfc6381(plexCodec: string | null | undefined, type: "video" | "audio"): string | null {
+export function toRfc6381(plexCodec: string | null | undefined, type: "video" | "audio"): string | null {
   if (!plexCodec) return null;
   const c = plexCodec.toLowerCase();
   if (type === "video") {

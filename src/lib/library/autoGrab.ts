@@ -4,7 +4,7 @@ import { encodeLibraryRef, type LibraryMovie } from "@/lib/library/types";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
-import { withinSizeLimit, loadReleaseRules } from "@/lib/library/releaseRules";
+import { withinSizeLimit, loadReleaseRules, compareBySizePreference } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
 import { recordDecision } from "@/lib/library/decisionLog";
 import type { IndexerRelease } from "@/lib/indexers/types";
@@ -151,7 +151,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
     .filter(({ release }) => release.score >= profile.minScore)
     .filter(({ release }) => withinSizeLimit(release.size, "movie"))
     .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-    .sort((a, b) => b.release.score - a.release.score);
+    .sort((a, b) => compareBySizePreference(rules.sizePreference, { ...a.release, videoCodec: a.parsed.videoCodec }, { ...b.release, videoCodec: b.parsed.videoCodec }));
   const scoreMs = Math.round(performance.now() - tScore);
   recordSearchLog("debug", "search_movie.scoring", `${movie.title} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms)`, scoreMs);
 
@@ -195,7 +195,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
         .filter(({ release }) => release.score >= profile.minScore)
         .filter(({ release }) => withinSizeLimit(release.size, "movie"))
         .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-        .sort((a, b) => b.release.score - a.release.score);
+        .sort((a, b) => compareBySizePreference(rules.sizePreference, { ...a.release, videoCodec: a.parsed.videoCodec }, { ...b.release, videoCodec: b.parsed.videoCodec }));
 
       if (candidates2.length > 0) {
         finalCandidates = candidates2;

@@ -4,34 +4,18 @@ import { buildGrabPayload } from "@/lib/indexers/grabPayload";
 import { decodeLibraryRef } from "@/lib/library/types";
 import { getMovie, updateMovie, getSeries, updateSeries } from "@/lib/library/store";
 import { logActivityV2, createReleaseRef, createDownloadRef } from "@/lib/activity/v2/store";
-import type { LibrarySeries } from "@/lib/library/types";
 import { requireUser } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
-function setEpisodeStatus(series: LibrarySeries, seasonNumber: number, episodeNumber: number, activeInfoHash: string) {
-  const seasons = series.seasons.map((s) =>
-    s.seasonNumber !== seasonNumber
-      ? s
-      : { ...s, episodes: s.episodes.map((e) => (e.episodeNumber === episodeNumber ? { ...e, status: "downloading" as const, activeInfoHash } : e)) }
-  );
-  updateSeries(series.id, { seasons });
-}
-
 /**
- * Mirrors what the auto-grab path (autoGrab.ts/autoGrabSeries.ts) does right
- * after handing a release to the engine — flip the matching library entry to
- * "downloading" immediately, instead of waiting for the engine's completion
- * callback, so a manual pick from /search reflects in the library UI the
- * same way an automatic grab does.
- *
- * `replacingInfoHash` (set by the "replace a blocked download" flow in
- * ManualSearchModal) lets an episode already claimed by the torrent being
- * replaced count as eligible too, not just "missing" ones — otherwise this
- * grab leaves those episodes pointing at the old hash, the subsequent
- * DELETE of the old torrent then resets them to "missing" via
- * releaseAllDownloadClaims, and the episode sits there falsely "missing"
- * (risking a duplicate auto-grab) until the replacement torrent completes.
+ * Apply "downloading" to the episodes claimed by a grab in ONE pass and ONE
+ * updateSeries call. The pre-review version called setEpisodeStatus() per
+ * episode, each rebuilding the whole seasons array from the same stale
+ * snapshot — with the async-coalesced writes only the LAST episode kept
+ * "downloading" and every other claimed episode silently reverted to
+ * "missing" (wanted re-grabs, import misattribution). See setEpisodesStatus
+ * in autoGrabSeries.ts for the same lesson.
  */
 function applyDownloadingStatus(libraryRefStr: string, infoHash: string, replacingInfoHash?: string | null) {
   const ref = decodeLibraryRef(libraryRefStr);
@@ -44,25 +28,25 @@ function applyDownloadingStatus(libraryRefStr: string, infoHash: string, replaci
   }
   const series = getSeries(ref.seriesId);
   if (!series) return;
-  if (ref.kind === "episode") {
-    setEpisodeStatus(series, ref.season, ref.episode, infoHash);
-    return;
-  }
-  if (ref.kind === "series") {
-    // Complete-series pack — mark all monitored missing (or being-replaced) episodes downloading.
-    for (const season of series.seasons) {
-      for (const ep of season.episodes) {
-        if (ep.monitored && eligible(ep)) {
-          setEpisodeStatus(series, season.seasonNumber, ep.episodeNumber, infoHash);
-        }
+
+  const seasonNumbers = ref.kind === "series"
+    ? series.seasons.map((s) => s.seasonNumber)
+    : ref.kind === "season"
+      ? [ref.season]
+      : [ref.season];
+
+  const seasons = series.seasons.map((s) => {
+    if (!seasonNumbers.includes(s.seasonNumber)) return s;
+    const episodes = s.episodes.map((e) => {
+      if (ref.kind === "episode" && e.episodeNumber !== ref.episode) return e;
+      if (e.monitored && eligible(e)) {
+        return { ...e, status: "downloading" as const, activeInfoHash: infoHash };
       }
-    }
-    return;
-  }
-  const season = series.seasons.find((s) => s.seasonNumber === ref.season);
-  for (const ep of season?.episodes ?? []) {
-    if (ep.monitored && eligible(ep)) setEpisodeStatus(series, ref.season, ep.episodeNumber, infoHash);
-  }
+      return e;
+    });
+    return { ...s, episodes };
+  });
+  updateSeries(series.id, { seasons });
 }
 
 /**
@@ -130,6 +114,16 @@ export async function POST(req: NextRequest) {
           : getSeries(decodedRef.seriesId)
         : null;
 
+      // Complete-series pack (kind series): report how many episodes/seasons
+      // the torrent covers, so Activité labels it "Intégrale — X épisodes".
+      let packEpisodeCount: number | undefined;
+      let seasonCount: number | undefined;
+      if (decodedRef?.kind === "series" && refMedia && "seasons" in refMedia) {
+        const monitoredSeasons = refMedia.seasons.filter((s) => s.monitored);
+        packEpisodeCount = monitoredSeasons.reduce((sum, s) => sum + s.episodes.filter((e) => e.monitored).length, 0);
+        seasonCount = monitoredSeasons.filter((s) => s.episodes.some((e) => e.monitored)).length;
+      }
+
       logActivityV2({
         kind: "grabbed",
         media: {
@@ -138,6 +132,9 @@ export async function POST(req: NextRequest) {
             : data.infoHash,
           title: body.title ?? body.indexerName ?? "Inconnu",
           type: category,
+          season: decodedRef?.kind === "series" ? 0 : undefined,
+          packEpisodeCount,
+          seasonCount,
           href: refMedia ? `/title/${category}/${refMedia.tmdbId}` : "#",
         },
         actor: "system",

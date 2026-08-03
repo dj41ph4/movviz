@@ -7,9 +7,10 @@ import { searchFromCache } from "@/lib/indexers/rssCache";
 import type { IndexerRelease } from "@/lib/indexers/types";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
-import { releaseTitleMatches } from "@/lib/library/matching";
+import type { ReleaseInfo } from "@/lib/naming/types";
+import { releaseTitleMatches, yearIsCompatible } from "@/lib/library/matching";
 import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
-import { withinSizeLimit, loadReleaseRules } from "@/lib/library/releaseRules";
+import { withinSizeLimit, loadReleaseRules, compareBySizePreference, perceptualSizeBytes, type ReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
 import { recordDecision } from "@/lib/library/decisionLog";
 import { buildGrabPayload } from "@/lib/indexers/grabPayload";
@@ -17,8 +18,8 @@ import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/serv
 import { getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { emitNotification } from "@/lib/notifications/store";
 import { logActivity } from "@/lib/activity/store";
-import { logActivityV2, createMediaRef, createFailureRef } from "@/lib/activity/v2/store";
-import { getTvdbEpisodesFor, groupTvdbEpisodesBySeason, tvdbConfigured, type TvdbEpisode } from "@/lib/metadata/tvdb";
+import { logActivityV2, createMediaRef, createFailureRef, createReleaseRef } from "@/lib/activity/v2/store";
+import { getTvdbEpisodesFor, getTvdbSeasonNames, groupTvdbEpisodesBySeason, tvdbConfigured, specialsEnabled, type TvdbEpisode } from "@/lib/metadata/tvdb";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
 import { episodeHasAired } from "@/lib/library/releaseSchedule";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
@@ -44,29 +45,34 @@ async function buildAnimeSeasonsFromTvdb(
   const tvdbEpisodes = await getTvdbEpisodesFor(tvdbId, title, year);
   if (tvdbEpisodes.length === 0) return tmdbSeasons;
 
-  const tvdbSeasons = groupTvdbEpisodesBySeason(tvdbEpisodes);
+  const tvdbSeasons = (specialsEnabled() ? groupTvdbEpisodesBySeason(tvdbEpisodes) : groupTvdbEpisodesBySeason(tvdbEpisodes).filter((s) => s.seasonNumber !== 0));
   if (tvdbSeasons.length <= tmdbSeasons.length) {
     // TVDB isn't more granular here — just patch titles/dates in place.
     applyTvdbTitleOverrides(tvdbEpisodes, tmdbSeasons);
     return tmdbSeasons;
   }
 
-  return tvdbSeasons.map((s) => ({
-    seasonNumber: s.seasonNumber,
-    name: `Saison ${s.seasonNumber}`,
-    monitored: true,
-    episodes: s.episodes.map((e) => ({
-      seasonNumber: e.seasonNumber,
-      episodeNumber: e.episodeNumber,
-      title: e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`,
-      airDate: e.airDate,
-      monitored: true,
-      status: "missing",
-      file: null,
-      activeInfoHash: null,
-      plexRatingKey: null,
-    })),
-  }));
+  const seasonNames = tvdbId ? await getTvdbSeasonNames(tvdbId) : new Map<number, string>();
+
+  return tvdbSeasons.map((s) => {
+    const monitoredByDefault = s.seasonNumber !== 0;
+    return {
+      seasonNumber: s.seasonNumber,
+      name: seasonNames.get(s.seasonNumber) ?? `Saison ${s.seasonNumber}`,
+      monitored: monitoredByDefault,
+      episodes: s.episodes.map((e) => ({
+        seasonNumber: e.seasonNumber,
+        episodeNumber: e.episodeNumber,
+        title: e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`,
+        airDate: e.airDate,
+        monitored: monitoredByDefault,
+        status: "missing" as const,
+        file: null,
+        activeInfoHash: null,
+        plexRatingKey: null,
+      })),
+    };
+  });
 }
 
 function applyTvdbTitleOverrides(tvdbEpisodes: TvdbEpisode[], seasons: LibrarySeason[]) {
@@ -113,11 +119,14 @@ function scanSeriesDiskStructure(baseDir: string): DiskSeason[] {
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
-    // Match "Saison 1", "Season 01", "S01", "Saison 1 - Nom", etc.
-    const sm = entry.name.match(/S(?:aison)?[. _-]?(\d{1,2})/i);
-    if (!sm) continue;
-    const seasonNumber = parseInt(sm[1], 10);
-    if (seasonNumber < 1) continue;
+    // Match "Saison 1", "Season 01", "S01", "Saison 1 - Nom", "Specials",
+    // "Season 00", etc. — "Specials" carries no digit at all, so it's
+    // recognized by name and mapped straight to season 0.
+    const isSpecials = /^specials?$/i.test(entry.name.trim());
+    const sm = isSpecials ? null : entry.name.match(/S(?:aison)?[. _-]?(\d{1,2})/i);
+    if (!isSpecials && !sm) continue;
+    const seasonNumber = isSpecials ? 0 : parseInt(sm![1], 10);
+    if (seasonNumber < 0) continue;
 
     let seasonFiles: fs.Dirent[];
     try {
@@ -151,7 +160,7 @@ function scanSeriesDiskStructure(baseDir: string): DiskSeason[] {
 
 export type ResyncAnimeResult =
   | { ok: true; oldSeasonCount: number; newSeasonCount: number }
-  | { ok: false; error: "not_found" | "no_tvdb_match" | "not_more_granular" | "active_downloads" | "no_disk_seasons" };
+  | { ok: false; error: "not_found" | "no_tvdb_match" | "active_downloads" | "no_disk_seasons" };
 
 /**
  * Resync a series already in the library :
@@ -193,6 +202,7 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
   // ---- 3. Get TVDB metadata ----
   const meta = await fetchTmdbSeries(series.tmdbId);
   const tvdbEpisodes = await getTvdbEpisodesFor(meta?.tvdbId ?? null, series.title, series.year);
+  const seasonNames = meta?.tvdbId ? await getTvdbSeasonNames(meta.tvdbId) : new Map<number, string>();
   const tvdbByKey = new Map<string, TvdbEpisode>();
   for (const e of tvdbEpisodes) {
     tvdbByKey.set(`${e.seasonNumber}-${e.episodeNumber}`, e);
@@ -268,7 +278,7 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
 
       newSeasons.push({
         seasonNumber: ds.seasonNumber,
-        name: `Saison ${ds.seasonNumber}`,
+        name: seasonNames.get(ds.seasonNumber) ?? `Saison ${ds.seasonNumber}`,
         monitored: true,
         episodes,
       });
@@ -281,14 +291,35 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
   // ---- 5. Fallback: no disk data — compare TVDB vs TMDb directly ----
   if (tvdbEpisodes.length === 0) return { ok: false, error: diskSeasons.length === 0 && baseDir ? "no_disk_seasons" : "no_tvdb_match" };
 
-  const tvdbSeasons = groupTvdbEpisodesBySeason(tvdbEpisodes);
-  if (tvdbSeasons.length <= series.seasons.length) return { error: "not_more_granular", ok: false };
+  const tvdbSeasons = (specialsEnabled() ? groupTvdbEpisodesBySeason(tvdbEpisodes) : groupTvdbEpisodesBySeason(tvdbEpisodes).filter((s) => s.seasonNumber !== 0));
+  if (tvdbSeasons.length <= series.seasons.length) {
+    // TVDB isn't more granular here, but resyncing is still worth doing for
+    // its own sake: refreshing episode titles (e.g. picking up a
+    // newly-working localized TVDB title where the library still has the
+    // Japanese original from an earlier import) shouldn't require a season
+    // restructure to happen at all — patch titles/dates in place instead of
+    // silently no-oping.
+    const patched = series.seasons.map((se) => ({ ...se, episodes: se.episodes.map((e) => ({ ...e })) }));
+    applyTvdbTitleOverrides(tvdbEpisodes, patched);
+    updateSeries(seriesId, { seasons: patched });
+    return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: patched.length };
+  }
 
   const newSeasons: LibrarySeason[] = [];
   let cursor = 0;
   for (const s of tvdbSeasons) {
+    // Same opt-in-by-default rule as a fresh add — a genuinely new season 0
+    // discovered here (no prior library entry to carry a monitored flag
+    // from) shouldn't come pre-monitored the way a real season does.
+    const monitoredByDefault = s.seasonNumber !== 0;
+    // Season 0 never participates in the positional carry-over below: it's
+    // new territory for any series added before specials were tracked, so
+    // there's no legitimate "old" episode at any particular cursor position
+    // to correspond to it — consuming cursor slots for it would shift every
+    // later real season's carry-over by however many specials TVDB reports,
+    // silently reassigning files/statuses between unrelated episodes.
     const episodes: LibraryEpisode[] = s.episodes.map((e) => {
-      const carried = oldFlat[cursor++];
+      const carried = s.seasonNumber === 0 ? undefined : oldFlat[cursor++];
       return {
         seasonNumber: e.seasonNumber,
         episodeNumber: e.episodeNumber,
@@ -296,18 +327,61 @@ export async function resyncAnimeSeasonsFromTvdb(seriesId: string): Promise<Resy
           ? (e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`)
           : carried.title,
         airDate: e.airDate,
-        monitored: carried?.monitored ?? true,
+        monitored: carried?.monitored ?? monitoredByDefault,
         status: carried?.status ?? "missing",
         file: carried?.file ?? null,
         activeInfoHash: carried?.activeInfoHash ?? null,
         plexRatingKey: carried?.plexRatingKey ?? null,
       };
     });
-    newSeasons.push({ seasonNumber: s.seasonNumber, name: `Saison ${s.seasonNumber}`, monitored: true, episodes });
+    newSeasons.push({
+      seasonNumber: s.seasonNumber,
+      name: seasonNames.get(s.seasonNumber) ?? `Saison ${s.seasonNumber}`,
+      monitored: monitoredByDefault,
+      episodes,
+    });
   }
 
   updateSeries(seriesId, { seasons: newSeasons });
   return { ok: true, oldSeasonCount: series.seasons.length, newSeasonCount: newSeasons.length };
+}
+
+/**
+ * Backfills season 0 (specials) from TMDb for a series that already has a
+ * library entry but was added before specials were tracked at all — TMDb is
+ * the metadata source for EVERY series (not just anime, which additionally
+ * gets the richer TVDB-sourced resync above), so this is the generic
+ * counterpart that applies regardless of genre. Purely additive: never
+ * touches a season the series already has, only appends season 0 when TMDb
+ * lists one and the series doesn't have it yet.
+ */
+export async function backfillMissingSeason0FromTmdb(seriesId: string): Promise<{ ok: boolean; added: boolean; error?: string }> {
+  if (!specialsEnabled()) return { ok: true, added: false };
+
+  const series = getSeries(seriesId);
+  if (!series) return { ok: false, added: false, error: "not_found" };
+  if (series.seasons.some((s) => s.seasonNumber === 0)) return { ok: true, added: false };
+
+  const meta = await fetchTmdbSeries(series.tmdbId).catch(() => null);
+  const tmdbSeason0 = meta?.seasons.find((s) => s.seasonNumber === 0);
+  if (!tmdbSeason0) return { ok: true, added: false };
+
+  const detail = await fetchTmdbSeason(series.tmdbId, 0).catch(() => null);
+  const episodes: LibraryEpisode[] = (detail?.episodes ?? []).map((e) => ({
+    seasonNumber: e.seasonNumber,
+    episodeNumber: e.episodeNumber,
+    title: e.title,
+    airDate: e.airDate,
+    monitored: false,
+    status: episodeHasAired(e.airDate) ? "missing" : "upcoming",
+    file: null,
+    activeInfoHash: null,
+    plexRatingKey: null,
+  }));
+
+  const newSeason: LibrarySeason = { seasonNumber: 0, name: tmdbSeason0.name, monitored: false, episodes };
+  updateSeries(seriesId, { seasons: [...series.seasons, newSeason] });
+  return { ok: true, added: true };
 }
 
 /**
@@ -329,20 +403,27 @@ export async function addSeriesToLibrary(
   const meta = await fetchTmdbSeries(tmdbId);
   if (!meta) return { error: "series not found on TMDb" as const };
 
+  const specialsAllowed = specialsEnabled();
   const targetSeasons = (seasonNumbers?.length
     ? meta.seasons.filter((s) => seasonNumbers.includes(s.seasonNumber))
     : meta.seasons
-  ).filter((s) => s.seasonNumber > 0);
+  ).filter((s) => specialsAllowed || s.seasonNumber !== 0);
 
   const seasons: LibrarySeason[] = [];
   for (const s of targetSeasons) {
+    // Specials (season 0 — OVAs, recaps, bonus content) are tracked like any
+    // other season now, but default unmonitored: they're lower-value and
+    // often harder to find releases for than regular episodes, so opting in
+    // is on the user rather than auto-searching them the moment a series is
+    // added. Regular seasons are unaffected (still default monitored).
+    const monitoredByDefault = s.seasonNumber !== 0;
     const detail = await fetchTmdbSeason(tmdbId, s.seasonNumber);
     const episodes: LibraryEpisode[] = (detail?.episodes ?? []).map((e) => ({
       seasonNumber: e.seasonNumber,
       episodeNumber: e.episodeNumber,
       title: e.title,
       airDate: e.airDate,
-      monitored: true,
+      monitored: monitoredByDefault,
       // Unaired episodes start "upcoming" — excluded from every search path
       // until releaseDayTask flips them to "missing" on/after air date.
       status: episodeHasAired(e.airDate) ? "missing" : "upcoming",
@@ -350,7 +431,7 @@ export async function addSeriesToLibrary(
       activeInfoHash: null,
       plexRatingKey: null,
     }));
-    seasons.push({ seasonNumber: s.seasonNumber, name: s.name, monitored: true, episodes });
+    seasons.push({ seasonNumber: s.seasonNumber, name: s.name, monitored: monitoredByDefault, episodes });
   }
 
   const finalSeasons = meta.isAnime && tvdbConfigured() && !seasonNumbers?.length
@@ -383,7 +464,7 @@ export async function addSeriesToLibrary(
   return { series, searchResult };
 }
 
-function profileFor(qualityProfileId: string) {
+export function profileFor(qualityProfileId: string) {
   return DEFAULT_QUALITY_PROFILES.find((p) => p.id === qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
 }
 
@@ -396,6 +477,48 @@ function describeGrabFailure(result: { error: "no_indexers" | "no_match"; totalR
   if (result.error === "no_indexers") return "Aucun indexeur torrent activé.";
   if (!result.totalReleases) return "Aucun résultat trouvé sur les indexeurs pour cette recherche.";
   return `${result.totalReleases} résultat(s) trouvé(s) sur les indexeurs, mais aucun ne correspond au titre, à la saison/l'épisode, à la résolution autorisée ou au score minimum du profil de qualité.`;
+}
+
+/**
+ * Single activity-v2 "grabbed" entry for every series grab path (épisode,
+ * pack de saison, intégrale), so Activité always knows WHAT level of content
+ * the torrent carries. Convention used by the queue reconstruction too
+ * (activity/v2/route.ts): season === 0 + packEpisodeCount = intégrale.
+ */
+function logSeriesGrabV2(
+  series: LibrarySeries,
+  kind: "episode" | "season" | "series",
+  release: IndexerRelease,
+  packEpisodeCount: number,
+  seasonCount: number,
+  season?: number,
+  episode?: number
+) {
+  logActivityV2({
+    kind: "grabbed",
+    media: createMediaRef(
+      "series",
+      series.id,
+      series.tmdbId,
+      series.title,
+      kind === "episode" ? season : kind === "season" ? season : 0,
+      kind === "episode" ? episode : undefined,
+      packEpisodeCount,
+      kind === "series" ? seasonCount : undefined
+    ),
+    actor: "system",
+    release: createReleaseRef(
+      release.indexerId,
+      release.title,
+      release.protocol,
+      release.size,
+      parseRelease(release.title).source ?? "Inconnue",
+      release.score,
+      release.seeders ?? undefined,
+      release.leechers ?? undefined
+    ),
+    metadata: { libraryRef: encodeLibraryRef({ kind, seriesId: series.id, season, episode } as never) },
+  });
 }
 
 async function grabRelease(
@@ -436,7 +559,7 @@ async function grabRelease(
   const step6 = step5.filter(({ release }) => release.score >= profile.minScore);
   const step7 = step6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
   const step8 = step7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
-  const candidates = step8.sort((a, b) => b.release.score - a.release.score);
+  const candidates = step8.sort((a, b) => compareBySizePreference(rules.sizePreference, { ...a.release, videoCodec: a.parsed.videoCodec }, { ...b.release, videoCodec: b.parsed.videoCodec }));
   const scoreMs = Math.round(performance.now() - tS);
   recordSearchLog("debug", "grab_release.scoring", `${label} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms), titre:${matched.titleCount}, saison:${matched.secondCount}, pack:${matched.packCount}, résolution:${step5.length}, score:${step6.length}, taille:${step7.length}, échec:${step8.length}`, scoreMs);
 
@@ -497,7 +620,7 @@ async function grabRelease(
   const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
   const dStep7 = dStep6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
   const dStep8 = dStep7.filter(({ release }) => !isRecentlyFailedRelease(release.infoHash));
-  const directCandidates = dStep8.sort((a, b) => b.release.score - a.release.score);
+  const directCandidates = dStep8.sort((a, b) => compareBySizePreference(rules.sizePreference, { ...a.release, videoCodec: a.parsed.videoCodec }, { ...b.release, videoCodec: b.parsed.videoCodec }));
 
   const topDirect = directCandidates[0];
   if (!topDirect) {
@@ -683,12 +806,19 @@ async function searchAndGrabEpisodeCascade(
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
       void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
-      logActivity("grabbed", "system", `${series.title} — ${seasonNumber}x${String(episodeNumber).padStart(2, "0")} (via intégrale)`, `/title/series/${series.tmdbId}`, {
-        libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
+      logActivity("grabbed", "system", `${series.title} — intégrale (${seriesPack.targets.length} ép.)`, `/title/series/${series.tmdbId}`, {
+        libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
         releaseTitle: seriesPack.release.title,
         indexer: seriesPack.release.indexerId,
         infoHash: seriesPack.torrent.infoHash,
       });
+      logSeriesGrabV2(
+        series,
+        "series",
+        seriesPack.release,
+        seriesPack.targets.length,
+        new Set(seriesPack.targets.map((t) => t.season)).size
+      );
       return { ok: true as const, release: seriesPack.release, torrent: seriesPack.torrent };
     }
 
@@ -701,11 +831,12 @@ async function searchAndGrabEpisodeCascade(
       setEpisodesStatus(series, seasonNumber, missingEpisodeNumbers, { status: "downloading", activeInfoHash: pack.torrent.infoHash });
       void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
       logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (${missingEpisodeNumbers.length} ép., via ${seasonNumber}x${String(episodeNumber).padStart(2, "0")})`, `/title/series/${series.tmdbId}`, {
-        libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
+        libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
         releaseTitle: pack.release.title,
         indexer: pack.release.indexerId,
         infoHash: pack.torrent.infoHash,
       });
+      logSeriesGrabV2(series, "season", pack.release, missingEpisodeNumbers.length, 1, seasonNumber);
       return { ok: true as const, release: pack.release, torrent: pack.torrent };
     }
 
@@ -735,6 +866,7 @@ async function searchAndGrabEpisodeCascade(
       indexer: single.release.indexerId,
       infoHash: sent.torrent.infoHash,
     });
+    logSeriesGrabV2(series, "episode", single.release, 1, 1, seasonNumber, episodeNumber);
     emitNotification(
       "grab_episode",
       `${series.title} — ${seasonNumber}x${String(episodeNumber).padStart(2, "0")} récupéré`,
@@ -811,6 +943,19 @@ async function tryGrabSeasonPackImpl(
     episodeTargets
   );
   if (!("ok" in sent)) return null;
+  // Placed here (the deduped Impl function), not at each of the several
+  // callers below — season/episode counts are only correct at the moment
+  // of the actual grab, and this fires exactly once per real grab even
+  // though multiple callers can race for the same season (they share this
+  // same in-flight promise). Season-pack and intégrale grabs previously had
+  // no notification kind at all, unlike single-episode grabs — see
+  // grab_season/grab_series in NotificationKind.
+  emitNotification(
+    "grab_season",
+    `${series.title} — Saison ${seasonNumber} récupérée (${missingEpisodeNumbers.length} ép.)`,
+    `/title/series/${series.tmdbId}`,
+    { title: series.title, season: seasonNumber, count: missingEpisodeNumbers.length }
+  );
   return { release: packResult.release, torrent: sent.torrent };
 }
 
@@ -949,12 +1094,19 @@ async function searchAndGrabSeasonCascade(
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
       void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
-      logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (via intégrale)`, `/title/series/${series.tmdbId}`, {
-        libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
+      logActivity("grabbed", "system", `${series.title} — intégrale (${seriesPack.targets.length} ép.)`, `/title/series/${series.tmdbId}`, {
+        libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
         releaseTitle: seriesPack.release.title,
         indexer: seriesPack.release.indexerId,
         infoHash: seriesPack.torrent.infoHash,
       });
+      logSeriesGrabV2(
+        series,
+        "series",
+        seriesPack.release,
+        seriesPack.targets.length,
+        new Set(seriesPack.targets.map((t) => t.season)).size
+      );
       return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
     }
 
@@ -983,6 +1135,7 @@ async function searchAndGrabSeasonCascade(
       indexer: pack.release.indexerId,
       infoHash: pack.torrent.infoHash,
     });
+    logSeriesGrabV2(series, "season", pack.release, missing.length, 1, seasonNumber);
     return { ok: true as const, mode: "pack" as const, release: pack.release, torrent: pack.torrent };
   }
 
@@ -1053,7 +1206,7 @@ const SEASON_RANGE_RE = /\bS(?:easons?|aison)?\.?\s?0?(\d{1,3})\s*[-–toà]+\s*
  * Extract the season range from a release title (e.g. "S01 à S28" → {lo: 1, hi: 28}).
  * Returns null if no season range is found.
  */
-function extractSeasonRange(rawTitle: string): { lo: number; hi: number } | null {
+export function extractSeasonRange(rawTitle: string): { lo: number; hi: number } | null {
   const range = rawTitle.match(SEASON_RANGE_RE);
   if (!range) return null;
   const lo = parseInt(range[1], 10);
@@ -1070,19 +1223,41 @@ function extractSeasonRange(rawTitle: string): { lo: number; hi: number } | null
  * season 6 episode can win as "the complete series pack" and get grabbed to
  * cover a completely different season's missing episode — confirmed live:
  * American Horror Story's S13E01 target got matched to, and downloaded as,
- * a plain "American.Horror.Story.S06..." release. Requires either an
- * explicit pack marker ("Complete", "Intégrale"...) or a season range
- * ("S01-S13") covering essentially the whole show.
+ * a plain "American.Horror.Story.S06..." release.
+ *
+ * Detection rules (mission: the NAME is the primary signal, backed by an
+ * exhaustive keyword list — see COMPLETE_SERIES_TERMS in torznab.ts):
+ *  - a release carries an explicit pack marker ("Complete", "Intégrale",
+ *    "Saisons complètes", … in any of ~10 languages) → intégrale candidate;
+ *  - or a season range ("S01-S13") covering essentially the whole show;
+ *  - BUT a release with an explicit single-season episode marker
+ *    (S01E01-S01E24, S04E01-E24 — i.e. `parsed.episode != null`) is a
+ *    SEASON pack, never an intégrale, even when it carries a "Complete"
+ *    tag (that tag refers to the season being complete, not the show).
  *
  * When targetSeasons is provided, the pack must also cover at least one of
  * the requested seasons — prevents "Intégrale S01-S28" from being grabbed
  * for a Season 29 search (the range doesn't include S29).
  */
-function isCompleteSeriesPackTitle(rawTitle: string, seasonCount: number, targetSeasons?: number[]): boolean {
+export function isCompleteSeriesPackTitle(
+  rawTitle: string,
+  seasonCount: number,
+  targetSeasons?: number[],
+  parsedEpisode?: number | null,
+  parsedSeason?: number | null
+): boolean {
   const range = extractSeasonRange(rawTitle);
   const hasTerm = COMPLETE_SERIES_TERMS_RE.test(rawTitle);
 
   if (!hasTerm && !range) return false;
+
+  // Un pack de saison taggé "Complete" (S01E01-S01E24) n'est pas une intégrale.
+  if (!range && parsedEpisode != null) return false;
+
+  // Un pack de SAISON taggé "Complete" sans plage couvrante ("Show.S03.Complete",
+  // "Show.Complete.Season.1") n'est pas une intégrale non plus — le marqueur
+  // "Complete" s'y réfère à la saison, pas à la série entière.
+  if (!range && parsedSeason != null) return false;
 
   // If there's a season range, it must cover most of the show
   if (range) {
@@ -1114,11 +1289,56 @@ function isCompleteSeriesPackTitle(rawTitle: string, seasonCount: number, target
  * `seasonFilter` restricts the pack to the given seasons (used by bulk
  * searches respecting a season budget — the engine only selects those files).
  */
-async function tryGrabSeriesPackImpl(
+/**
+ * Collects every complete-series-pack candidate for a series, from the RSS
+ * cache first, falling back to a direct multi-indexer search when the cache
+ * has nothing. This is the SINGLE source of truth for the integral search —
+ * the auto-grab flow (tryGrabSeriesPackImpl) and the manual integral
+ * selection popup both consume it, so what the popup offers is exactly what
+ * the automatic search would have grabbed.
+ */
+export interface CompleteSeriesCandidate {
+  release: IndexerRelease;
+  parsed: ReleaseInfo;
+}
+
+// Regular scoring (resolution/HDR/codec/custom formats) rewards exactly the
+// things that make an intégrale enormous — a 4K remux pack scores highest
+// but can be 10x the size of a perfectly watchable 1080p WEB-DL of the same
+// show. For a complete-series pack specifically, disk space matters far more
+// than squeezing out extra quality points, so candidates are picked by
+// smallest size first instead — but only among packs with enough seeders to
+// actually finish downloading; a torrent with 0-1 seeders is a stall risk
+// no matter how small it is, so those only get considered as a last resort
+// (sorted by quality score, the old behavior) when nothing safer exists.
+const MIN_SAFE_SEEDERS = 2;
+// "balanced" (default, unchanged) keeps the raw-byte smallest-first pick
+// described above. "smaller"/"quality" (opt-in, see releaseRules.ts's
+// sizePreference) use codec-normalized size instead — so a 12GB x265 pack
+// correctly beats a 20GB x264 one of the same real quality under "smaller",
+// rather than losing to it on raw bytes as it would have before.
+function compareCompletePackCandidates(
+  a: CompleteSeriesCandidate,
+  b: CompleteSeriesCandidate,
+  sizePreference: ReleaseRules["sizePreference"] = "balanced"
+): number {
+  const aSafe = a.release.seeders == null || a.release.seeders >= MIN_SAFE_SEEDERS;
+  const bSafe = b.release.seeders == null || b.release.seeders >= MIN_SAFE_SEEDERS;
+  if (aSafe !== bSafe) return aSafe ? -1 : 1;
+  if (aSafe) {
+    if (sizePreference === "balanced") return a.release.size - b.release.size;
+    const aSize = perceptualSizeBytes(a.release.size, a.parsed.videoCodec);
+    const bSize = perceptualSizeBytes(b.release.size, b.parsed.videoCodec);
+    return sizePreference === "smaller" ? aSize - bSize : bSize - aSize;
+  }
+  return b.release.score - a.release.score;
+}
+
+export async function searchCompleteSeriesCandidates(
   series: LibrarySeries,
   profile: ReturnType<typeof profileFor>,
   seasonFilter?: Set<number>
-) {
+): Promise<{ candidates: CompleteSeriesCandidate[]; targets: { season: number; episode: number }[]; seasonCount: number; targetSeasons: number[] } | null> {
   const seasonCount = series.seasons.filter((s) => s.seasonNumber > 0 && s.monitored).length;
   const targets = collectMissingTargets(series).filter((t) => !seasonFilter || seasonFilter.has(t.season));
   if (targets.length === 0) return null;
@@ -1131,28 +1351,35 @@ async function tryGrabSeriesPackImpl(
   recordSearchLog("debug", "series_pack.cache_read", `${series.title} (${seasonCount} saisons) — cache RSS donne ${releases.length} release(s) (${cacheMs}ms)`, cacheMs);
 
   const tS = performance.now();
-  const candidates = releases
+  const candidates: CompleteSeriesCandidate[] = releases
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-    .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons))
+    // A same-titled reboot/remake from a different year (e.g. Avatar: The
+    // Last Airbender 2005 animated vs. 2024 live-action) has an identical
+    // title — with no season/episode numbers to disambiguate an intégrale
+    // (unlike a regular episode/season search), title similarity alone can
+    // never tell them apart. yearIsCompatible is lenient (a release with no
+    // year at all still passes) so this only rejects a release that states
+    // a clearly different year, never a legitimately unlabeled one.
+    .filter(({ parsed }) => yearIsCompatible(parsed.year, series.year))
+    .filter(({ release, parsed }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons, parsed.episode, parsed.season))
     // Decision Guard: a blocked term is a hard veto here — no score, however high, can rescue a release an admin explicitly forbade.
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
     .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
     .filter(({ release }) => release.score >= profile.minScore)
     .filter(({ release }) => withinSizeLimit(release.size, "series"))
     .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-    .sort((a, b) => b.release.score - a.release.score);
+    .sort(compareCompletePackCandidates);
   const scoreMs = Math.round(performance.now() - tS);
   recordSearchLog("debug", "series_pack.scoring", `${series.title} — ${candidates.length} candidat(s) sur ${releases.length} brut(s) (${scoreMs}ms)`, scoreMs);
 
-  let top = candidates[0];
-  if (!top) {
+  if (candidates.length === 0) {
     const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
     const indexers = withoutRateLimited(configuredIndexers);
     const alreadyLimited = configuredIndexers.length - indexers.length;
     if (indexers.length === 0) {
       recordSearchLog("warn", "series_pack.no_match", `${series.title} — aucun pack intégrale trouvé sur ${releases.length} bruts, aucun indexeur disponible : tous rate-limités (${alreadyLimited}/${configuredIndexers.length})`);
-      return null;
+      return { candidates, targets, seasonCount, targetSeasons };
     }
     const tDirect = performance.now();
     recordSearchLog(
@@ -1171,30 +1398,51 @@ async function tryGrabSeriesPackImpl(
     const newlyLimited = countNewlyRateLimited(indexers);
     recordSearchLog("info", "series_pack.fallback_result", `${series.title} — recherche directe: ${directReleases.length} release(s) (${directMs}ms)`, directMs);
 
-    const directCandidates = directReleases
+    const directCandidates: CompleteSeriesCandidate[] = directReleases
       .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
       .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
-      .filter(({ release }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons))
-      .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
+    // A same-titled reboot/remake from a different year (e.g. Avatar: The
+    // Last Airbender 2005 animated vs. 2024 live-action) has an identical
+    // title — with no season/episode numbers to disambiguate an intégrale
+    // (unlike a regular episode/season search), title similarity alone can
+    // never tell them apart. yearIsCompatible is lenient (a release with no
+    // year at all still passes) so this only rejects a release that states
+    // a clearly different year, never a legitimately unlabeled one.
+    .filter(({ parsed }) => yearIsCompatible(parsed.year, series.year))
+    .filter(({ release, parsed }) => isCompleteSeriesPackTitle(release.title, seasonCount, targetSeasons, parsed.episode, parsed.season))
+    .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
       .filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution))
       .filter(({ release }) => release.score >= profile.minScore)
       .filter(({ release }) => withinSizeLimit(release.size, "series"))
       .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))
-      .sort((a, b) => b.release.score - a.release.score);
+      .sort(compareCompletePackCandidates);
+    candidates.push(...directCandidates);
 
-    top = directCandidates[0];
-    if (!top) {
+    if (directCandidates.length === 0) {
       if (newlyLimited > 0) {
         recordSearchLog("warn", "series_pack.fallback_rate_limited", `${series.title} — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
       } else {
         recordSearchLog("warn", "series_pack.no_match", `${series.title} — 0 candidat (cache + recherche directe: ${releases.length + directReleases.length} bruts)`);
       }
-      return null;
+      return { candidates, targets, seasonCount, targetSeasons };
     }
-    recordSearchLog("info", "series_pack.fallback_match", `${series.title} — meilleur pack via recherche directe: "${top.release.title}" (score:${top.release.score}, indexeur:${top.release.indexerId})`);
+    recordSearchLog("info", "series_pack.fallback_match", `${series.title} — ${directCandidates.length} pack(s) via recherche directe, meilleur: "${directCandidates[0].release.title}" (score:${directCandidates[0].release.score}, indexeur:${directCandidates[0].release.indexerId})`);
   } else {
-    recordSearchLog("info", "series_pack.match", `${series.title} — meilleur pack: "${top.release.title}" (score:${top.release.score}, indexeur:${top.release.indexerId})`);
+    recordSearchLog("info", "series_pack.match", `${series.title} — ${candidates.length} pack(s), meilleur: "${candidates[0].release.title}" (score:${candidates[0].release.score}, indexeur:${candidates[0].release.indexerId})`);
   }
+
+  return { candidates, targets, seasonCount, targetSeasons };
+}
+
+async function tryGrabSeriesPackImpl(
+  series: LibrarySeries,
+  profile: ReturnType<typeof profileFor>,
+  seasonFilter?: Set<number>
+) {
+  const found = await searchCompleteSeriesCandidates(series, profile, seasonFilter);
+  if (!found || found.candidates.length === 0) return null;
+  const { candidates, targets } = found;
+  const top = candidates[0];
 
   recordDecision({
     refTitle: series.title,
@@ -1219,6 +1467,14 @@ async function tryGrabSeriesPackImpl(
     return null;
   }
   recordSearchLog("info", "series_pack.grabbed", `${series.title} — "${top.release.title}" envoyé au moteur (${targets.length} ép. ciblés)`);
+  // Same placement rationale as tryGrabSeasonPackImpl above — fires exactly
+  // once per real grab, previously missing entirely for intégrale grabs.
+  emitNotification(
+    "grab_series",
+    `${series.title} — intégrale récupérée (${targets.length} ép.)`,
+    `/title/series/${series.tmdbId}`,
+    { title: series.title, count: targets.length }
+  );
   return { release: top.release, torrent: sent.torrent, targets };
 }
 
@@ -1228,10 +1484,19 @@ async function tryGrabSeriesPackImpl(
  * complete-series pack can't be searched/grabbed twice by racing runs
  * (bulk "search missing" + scheduled tasks + manual buttons).
  */
-function tryGrabSeriesPack(series: LibrarySeries, profile: ReturnType<typeof profileFor>, seasonFilter?: Set<number>) {
+type SeriesPackResult = {
+  release: IndexerRelease;
+  torrent: { infoHash: string };
+  targets: { season: number; episode: number }[];
+};
+function tryGrabSeriesPack(
+  series: LibrarySeries,
+  profile: ReturnType<typeof profileFor>,
+  seasonFilter?: Set<number>
+): Promise<SeriesPackResult | null> {
   const key = `${series.id}|${seasonFilter ? [...seasonFilter].sort((a, b) => a - b).join(",") : "*"}`;
   const existing = (gAutoGrab.__movvizSeriesPackInFlight ??= new Map()).get(key);
-  if (existing) return existing;
+  if (existing) return existing as Promise<SeriesPackResult | null>;
   const p = tryGrabSeriesPackImpl(series, profile, seasonFilter).finally(() => {
     gAutoGrab.__movvizSeriesPackInFlight?.delete(key);
   });
@@ -1264,6 +1529,13 @@ export async function searchAndGrabCompleteSeries(seriesId: string) {
         indexer: seriesPack.release.indexerId,
         infoHash: seriesPack.torrent.infoHash,
       });
+      logSeriesGrabV2(
+        series,
+        "series",
+        seriesPack.release,
+        seriesPack.targets.length,
+        new Set(seriesPack.targets.map((t) => t.season)).size
+      );
       return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
     }
 
@@ -1272,8 +1544,11 @@ export async function searchAndGrabCompleteSeries(seriesId: string) {
     // doit pas la re-chercher (même cache, même réponse).
     // Real pause between seasons, same pacing as searchAndGrabSeries: the engine
     // needs a beat to start a grabbed pack before the next search chain fires.
+    // Ordre chronologique imposé (S01 → S02 → …) : le store ne garantit pas
+    // l'ordre du tableau, et la mission exige la progression dans l'ordre.
     const results = [];
-    for (const season of series.seasons) {
+    const orderedSeasons = [...series.seasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
+    for (const season of orderedSeasons) {
       if (!season.monitored) continue;
       const missing = season.episodes.filter((e) => e.monitored && e.status === "missing");
       if (missing.length === 0) continue;
@@ -1319,14 +1594,22 @@ export async function searchAndGrabSeries(seriesId: string, options?: { onSeason
         indexer: seriesPack.release.indexerId,
         infoHash: seriesPack.torrent.infoHash,
       });
+      logSeriesGrabV2(
+        series,
+        "series",
+        seriesPack.release,
+        seriesPack.targets.length,
+        new Set(seriesPack.targets.map((t) => t.season)).size
+      );
       return { ok: true as const, mode: "series_pack" as const, release: seriesPack.release, torrent: seriesPack.torrent };
     }
 
     const results = [];
     // L'intégrale vient d'être épuisée pour ce run — toutes les saisons passent
     // skipSeriesPackRetry: true (la réponse ne peut pas changer entre deux
-    // saisons dans le même run).
-    for (const season of series.seasons) {
+    // saisons dans le même run). Ordre chronologique imposé (S01 → S02 → …).
+    const orderedSeasons = [...series.seasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
+    for (const season of orderedSeasons) {
       if (!season.monitored) continue;
       if (!season.episodes.some((e) => e.monitored && e.status === "missing")) continue;
       const result = await searchAndGrabSeason(seriesId, season.seasonNumber, { skipSeriesPackRetry: true });

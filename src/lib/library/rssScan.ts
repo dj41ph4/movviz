@@ -38,6 +38,16 @@ export async function rssMatchIndexers() {
   // result). Later seasons skip the series-pack stage and go straight to
   // season pack → per-episode.
   const seriesPackSearched = new Set<string>();
+  // Once an intégrale actually lands for a series, it covers every season at
+  // once — any OTHER missingSeasons entry for that same series (this array
+  // is a snapshot from before any grab in this pass) must be skipped
+  // entirely, not just re-searched with skipSeriesPackRetry. Without this, a
+  // later RSS release matching e.g. season 2 of a show whose intégrale was
+  // just grabbed for season 1's match still ran a full season-pack →
+  // per-episode cascade against it — confirmed live: one intégrale, one
+  // redundant season pack, AND every individual episode of another season
+  // all grabbed for the same show in one scan.
+  const seriesFullyGrabbed = new Set<string>();
 
   for (const parsed of parsedReleases) {
     for (const movie of missingMovies) {
@@ -50,6 +60,7 @@ export async function rssMatchIndexers() {
 
     if (parsed.season == null) continue;
     for (const s of missingSeasons) {
+      if (seriesFullyGrabbed.has(s.seriesId)) continue;
       const key = `${s.seriesId}.${s.season}`;
       if (grabbedSeasons.has(key)) continue;
       if (parsed.season !== s.season || !releaseTitleMatches(parsed.title, s.seriesTitle)) continue;
@@ -66,7 +77,10 @@ export async function rssMatchIndexers() {
       const result = await withSearchLock(`series:${s.seriesId}`, () =>
         searchAndGrabSeason(s.seriesId, s.season, { skipSeriesPackRetry: skipSeriesPack })
       );
-      if ("ok" in result && result.ok) grabbed++;
+      if ("ok" in result && result.ok) {
+        grabbed++;
+        if ("mode" in result && result.mode === "series_pack") seriesFullyGrabbed.add(s.seriesId);
+      }
     }
   }
 

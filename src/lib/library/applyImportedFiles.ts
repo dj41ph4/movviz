@@ -1,0 +1,356 @@
+import { getMovie, updateMovie, getSeries, updateSeries } from "@/lib/library/store";
+import { encodeLibraryRef } from "@/lib/library/types";
+import { emitNotification } from "@/lib/notifications/store";
+import { refreshPlexLibraryFor } from "@/lib/plex/librarySync";
+import { logActivity } from "@/lib/activity/store";
+import { logActivityV2, createMediaRef, createReleaseRef, createImportRef } from "@/lib/activity/v2/store";
+import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
+import { takePendingVersionIntent } from "@/lib/library/pendingVersionIntent";
+import { addVersion, setPrimaryFile } from "@/lib/library/versions";
+import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
+import path from "node:path";
+
+export interface ImportedFile {
+  path: string;
+  quality: string | null;
+  resolution: string | null;
+  videoCodec: string | null;
+  audioCodec: string | null;
+  hdr: string | null;
+  source: string | null;
+  size: number;
+  season?: number | null;
+  episode?: number | null;
+  /** Set when one file covers a combined range of episodes (e.g. S04E01E02) — see src/lib/naming/parser.ts. */
+  episodeEnd?: number | null;
+}
+
+export type LibraryImportRef =
+  | { kind: "movie"; movieId: string }
+  | { kind: "season"; seriesId: string; season: number }
+  | { kind: "series"; seriesId: string }
+  | { kind: "episode"; seriesId: string; season: number; episode: number };
+
+/** True when `episodeNumber` is the file's episode, or falls inside its combined-episode range. */
+function movedFileCoversEpisode(f: ImportedFile, episodeNumber: number): boolean {
+  if (f.episode == null) return false;
+  if (f.episode === episodeNumber) return true;
+  return f.episodeEnd != null && episodeNumber > f.episode && episodeNumber <= f.episodeEnd;
+}
+
+interface EpisodeLike {
+  status: string;
+  activeInfoHash: string | null;
+}
+
+/**
+ * A multi-episode-target grab (season/series pack, or an episode grab that
+ * fell back to one) can leave some of its targeted episodes without a
+ * matching file — a filename that doesn't parse cleanly, an odd episode
+ * numbering scheme, etc. Since the torrent this callback fires for is fully
+ * imported, nothing more is ever coming for that episode from this grab: if
+ * we leave it as "downloading" it stays stuck forever, because its
+ * activeInfoHash now points at a completed/imported torrent that
+ * reconcileDownloadingItems will never consider "gone". Release it back to
+ * "missing" here instead so the next search tries again.
+ */
+function releaseIfOrphaned<T extends EpisodeLike>(ep: T, infoHash: string | undefined): T {
+  if (infoHash && ep.status === "downloading" && ep.activeInfoHash === infoHash) {
+    return { ...ep, status: "missing", activeInfoHash: null };
+  }
+  return ep;
+}
+
+function refreshLoose(kind: "movie" | "tv") {
+  void refreshPlexLibraryFor(kind).catch(() => {});
+}
+
+/**
+ * Delete the old library file for a quality-upgrade "optimize" import. Only
+ * ever deletes a file that (a) is not the just-imported file itself and (b)
+ * lives under one of the engine's completed folders (the library root) —
+ * never an arbitrary path derived from a substring check.
+ */
+async function deleteOptimizedOldFile(oldPath: string, newFilePath: string): Promise<void> {
+  const resolvedOld = path.resolve(oldPath);
+  if (resolvedOld === path.resolve(newFilePath)) return; // self-delete guard
+  try {
+    const res = await fetch(`${ENGINE_BASE}/instances`, {
+      headers: engineHeaders(),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return;
+    const { instances } = await res.json() as { instances?: Array<{ completedPath?: string }> };
+    const roots = (instances ?? []).map((i) => path.resolve(i.completedPath ?? "")).filter(Boolean);
+    if (!roots.some((root) => resolvedOld.startsWith(root + path.sep))) return;
+    await import("node:fs/promises").then((fsp) => fsp.unlink(resolvedOld)).catch(() => {});
+  } catch {
+    // Engine unreachable — keep the old file rather than delete anything.
+  }
+}
+
+/**
+ * Shared implementation of the engine's import callback (and of the
+ * recover-downloads fallback import): apply a list of moved files to the
+ * library — flip statuses to "available", attach file metadata, log
+ * activity, notify Plex/Seerr. Both callers must produce identical library
+ * state, so there is exactly one implementation.
+ */
+export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedFile[], infoHash?: string) {
+  if (ref.kind === "movie") {
+    const movie = getMovie(ref.movieId);
+    if (!movie) return { ok: false as const, error: "movie not found" };
+    // Movie grabs have no episode-target matching gate (see _import()'s
+    // targetList — null for movies, so every downloaded file passes through
+    // untouched), so this is only reachable in a genuinely degenerate case
+    // (empty extracted torrent). releaseIfOrphaned doesn't apply to movies —
+    // just report failure instead of crashing on an undefined `best`.
+    if (files.length === 0) return { ok: false as const, error: "no files" };
+    const best = [...files].sort((a, b) => b.size - a.size)[0];
+    const newFile = {
+      path: best.path,
+      quality: best.quality ?? "—",
+      resolution: best.resolution,
+      videoCodec: best.videoCodec,
+      audioCodec: best.audioCodec,
+      hdr: best.hdr,
+      source: best.source,
+      size: best.size,
+      addedAt: Date.now(),
+    };
+
+    // A pending "add" intent (LOT6.2/6.10 — user explicitly chose "Ajouter
+    // comme version supplémentaire") never overwrites the primary file.
+    const pendingMode = takePendingVersionIntent(infoHash);
+    const versioned = pendingMode === "add"
+      ? addVersion(movie, newFile, { versionSource: "indexer", reason: "Version supplémentaire" })
+      : setPrimaryFile(movie, newFile, { versionSource: "indexer", reason: movie.file ? "Mise à niveau qualité" : "Acquisition initiale" });
+
+    // "optimize" — delete the old file from disk, keep only the new version.
+    // Guarded: never the just-imported file, never outside the library root.
+    if (pendingMode === "optimize" && movie.file) {
+      await deleteOptimizedOldFile(movie.file.path, newFile.path);
+    }
+
+    updateMovie(movie.id, {
+      status: "available",
+      activeInfoHash: null,
+      file: versioned.file,
+      versions: versioned.versions,
+    });
+    emitNotification("import_movie_available", `${movie.title} est maintenant disponible`, "/library", { title: movie.title });
+    logActivity("imported", "system", movie.title, "/library", {
+      libraryRef: encodeLibraryRef({ kind: "movie", movieId: movie.id }),
+      quality: best.quality ?? undefined,
+    });
+    logActivityV2({
+      kind: "imported",
+      media: createMediaRef("movie", movie.id, movie.tmdbId, movie.title),
+      actor: "system",
+      release: best.quality ? createReleaseRef("", "Importé", "torrent", best.size, best.quality, 0) : undefined,
+      import: createImportRef(best.path, best.size, movie.title, best.quality ?? "—"),
+    });
+    refreshLoose("movie");
+    void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});
+    return { ok: true as const, updated: "movie", id: movie.id };
+  }
+
+  const series = getSeries(ref.seriesId);
+  if (!series) return { ok: false as const, error: "series not found" };
+
+  const label = ref.kind === "series" ? `${series.title} — intégrale` : `${series.title} — saison ${ref.season}`;
+  const mediaLabel = ref.kind === "series" ? `${series.title} — Intégrale` : `${series.title} — Saison ${ref.season}`;
+  const code = ref.kind === "episode" ? `${ref.season}x${String(ref.episode).padStart(2, "0")}` : null;
+
+  if (ref.kind === "season") {
+    // A file's own parsed season must agree with the season this grab was
+    // FOR — without this check, a season pack that turns out to actually
+    // contain a different season's episodes (mislabeled release, or a
+    // release matched under the wrong season somewhere upstream) would still
+    // get filed into ref.season just because the episode numbers happen to
+    // line up (e.g. every season starts at episode 1). A season-less file
+    // (f.season == null, e.g. a bare "01.mkv" the engine couldn't season-tag)
+    // is still accepted — that's a real gap in the filename, not a mismatch.
+    const seasonFiles = files.filter((f) => f.season == null || f.season === ref.season);
+    const seasons = series.seasons.map((season) => {
+      if (season.seasonNumber !== ref.season) return season;
+      const episodes = season.episodes.map((ep) => {
+        const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
+        if (!match) return releaseIfOrphaned(ep, infoHash);
+        return {
+          ...ep,
+          status: "available" as const,
+          activeInfoHash: null,
+          file: {
+            path: match.path,
+            quality: match.quality ?? "—",
+            resolution: match.resolution,
+            videoCodec: match.videoCodec,
+            audioCodec: match.audioCodec,
+            hdr: match.hdr,
+            source: match.source,
+            size: match.size,
+            addedAt: Date.now(),
+          },
+        };
+      });
+      return { ...season, episodes };
+    });
+    updateSeries(series.id, { seasons });
+    // Zero files means every targeted episode was just released back to
+    // "missing" above (releaseIfOrphaned), not made available — none of
+    // this "it's ready" signal (notification, activity log, Seerr) applies.
+    // Before the caller was allowed to reach this branch with files=[], it
+    // was unreachable; now that a zero-match season pack calls in here too
+    // (see AbstractBackend.mjs's _import), skip the false "available" signal.
+    if (files.length > 0) {
+      emitNotification("import_season_available", `${label} est maintenant disponible`, `/title/series/${series.tmdbId}`, { title: series.title, season: ref.season });
+      logActivity("imported", "system", label, `/title/series/${series.tmdbId}`, {
+        libraryRef: encodeLibraryRef({ kind: "season", seriesId: series.id, season: ref.season }),
+        quality: files[0]?.quality ?? undefined,
+      });
+      logActivityV2({
+        kind: "imported",
+        media: createMediaRef("series", series.id, series.tmdbId, mediaLabel, ref.season),
+        actor: "system",
+        release: files[0]?.quality ? createReleaseRef("", "Importé", "torrent", files[0].size, files[0].quality, 0) : undefined,
+      });
+      refreshLoose("tv");
+      void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
+    }
+    return { ok: true as const, updated: "season", id: series.id };
+  }
+
+  if (ref.kind === "series") {
+    // Complete-series pack — dispatch each file to its correct episode
+    // across multiple seasons. Files without season/episode metadata are
+    // skipped (they don't belong to any tracked episode).
+    const seasons = series.seasons.map((season) => {
+      const seasonFiles = files.filter((f) => f.season === season.seasonNumber);
+      const episodes = season.episodes.map((ep) => {
+        const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
+        if (!match) return releaseIfOrphaned(ep, infoHash);
+        return {
+          ...ep,
+          status: "available" as const,
+          activeInfoHash: null,
+          file: {
+            path: match.path,
+            quality: match.quality ?? "—",
+            resolution: match.resolution,
+            videoCodec: match.videoCodec,
+            audioCodec: match.audioCodec,
+            hdr: match.hdr,
+            source: match.source,
+            size: match.size,
+            addedAt: Date.now(),
+          },
+        };
+      });
+      return { ...season, episodes };
+    });
+    updateSeries(series.id, { seasons });
+    const importedCount = files.filter((f) => f.season != null && f.episode != null).length;
+    // Zero matched episodes means every target was just released back to
+    // "missing" above (releaseIfOrphaned) — skip the false "available"
+    // signal (see the season branch's matching comment).
+    if (importedCount > 0) {
+      emitNotification("import_series_available", `${series.title} — ${importedCount} épisode(s) importés`, `/title/series/${series.tmdbId}`, { title: series.title });
+      logActivity("imported", "system", `${series.title} — intégrale (${importedCount} ép.)`, `/title/series/${series.tmdbId}`, {
+        libraryRef: encodeLibraryRef({ kind: "series", seriesId: series.id }),
+        quality: files[0]?.quality ?? undefined,
+      });
+      logActivityV2({
+        kind: "imported",
+        media: createMediaRef("series", series.id, series.tmdbId, `${series.title} — Intégrale`),
+        actor: "system",
+        release: files[0]?.quality ? createReleaseRef("", "Importé", "torrent", files[0].size, files[0].quality, 0) : undefined,
+      });
+      refreshLoose("tv");
+      void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
+    }
+    return { ok: true as const, updated: "series", id: series.id, imported: importedCount };
+  }
+
+  // ref.kind === "episode" — two very different situations land here:
+  //
+  // 1. A plain single-episode grab: exactly one file, always meant for
+  //    ref.episode regardless of what its own filename happens to parse to
+  //    (a mislabeled/off-by-one release is still THE release the user or
+  //    auto-search picked for this episode — there's no other candidate
+  //    episode it could rightfully belong to). Assign it directly and leave
+  //    every other episode alone.
+  //
+  // 2. A season-pack grab targeting several missing episodes at once that
+  //    only carries ONE episode in libraryRef, but the engine moved files
+  //    for every targeted episode in the same batch — match each file to its
+  //    own episode by parsed number, or every episode past the first would
+  //    stay stuck "downloading" forever despite already having a file.
+  const singleFile = files.length === 1 ? files[0] : null;
+  // Same season-consistency guard as the "season" branch above.
+  const seasonFiles = files.filter((f) => f.season == null || f.season === ref.season);
+  const seasons = series.seasons.map((season) => {
+    if (season.seasonNumber !== ref.season) return season;
+    const episodes = season.episodes.map((ep) => {
+      if (singleFile) {
+        if (ep.episodeNumber !== ref.episode) return releaseIfOrphaned(ep, infoHash);
+        return {
+          ...ep,
+          status: "available" as const,
+          activeInfoHash: null,
+          file: {
+            path: singleFile.path,
+            quality: singleFile.quality ?? "—",
+            resolution: singleFile.resolution,
+            videoCodec: singleFile.videoCodec,
+            audioCodec: singleFile.audioCodec,
+            hdr: singleFile.hdr,
+            source: singleFile.source,
+            size: singleFile.size,
+            addedAt: Date.now(),
+          },
+        };
+      }
+      const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
+      if (!match) return releaseIfOrphaned(ep, infoHash);
+      return {
+        ...ep,
+        status: "available" as const,
+        activeInfoHash: null,
+        file: {
+          path: match.path,
+          quality: match.quality ?? "—",
+          resolution: match.resolution,
+          videoCodec: match.videoCodec,
+          audioCodec: match.audioCodec,
+          hdr: match.hdr,
+          source: match.source,
+          size: match.size,
+          addedAt: Date.now(),
+        },
+      };
+    });
+    return { ...season, episodes };
+  });
+
+  updateSeries(series.id, { seasons });
+  // Zero files means every targeted episode was just released back to
+  // "missing" above (releaseIfOrphaned) — skip the false "available" signal
+  // (see the season branch's matching comment).
+  if (files.length > 0) {
+    emitNotification("import_episode_available", `${series.title} — ${code} est maintenant disponible`, `/title/series/${series.tmdbId}`, { title: series.title, code: code! });
+    logActivity("imported", "system", `${series.title} — ${code}`, `/title/series/${series.tmdbId}`, {
+      libraryRef: encodeLibraryRef({ kind: "episode", seriesId: series.id, season: ref.season, episode: ref.episode }),
+      quality: files[0]?.quality ?? undefined,
+    });
+    logActivityV2({
+      kind: "imported",
+      media: createMediaRef("series", series.id, series.tmdbId, series.title, ref.season, ref.episode),
+      actor: "system",
+      release: files[0]?.quality ? createReleaseRef("", "Importé", "torrent", files[0].size, files[0].quality, 0) : undefined,
+    });
+    refreshLoose("tv");
+    void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
+  }
+  return { ok: true as const, updated: "episode", id: series.id };
+}

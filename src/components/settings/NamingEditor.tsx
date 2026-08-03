@@ -209,7 +209,7 @@ function PreviewLine({ icon: Icon, value }: { icon: React.ElementType; value: st
   return (
     <div className="mt-4 flex items-center gap-2 rounded-xl border border-white/5 bg-black/20 px-3 py-2">
       <Icon className="h-3.5 w-3.5 shrink-0 text-ink-dim" />
-      <code className="truncate text-xs text-ok">{value}</code>
+      <code className="min-w-0 flex-1 truncate text-xs text-ok">{value}</code>
     </div>
   );
 }

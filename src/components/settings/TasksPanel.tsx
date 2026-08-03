@@ -103,7 +103,11 @@ export function TasksPanel() {
           <p className="mt-0.5 text-xs text-ink-dim">{t("tasks.name")}</p>
         </div>
       </div>
-      <div className="overflow-hidden rounded-2xl glass">
+      {/* Table on sm+ — a data-dense grid works fine once there's room for
+          6 columns. Below that, the columns don't fit no matter how far
+          the horizontal scroll goes (confirmed at 375px: headers truncate,
+          content clips) — a stacked card per task reads far better there. */}
+      <div className="hidden overflow-hidden rounded-2xl glass sm:block">
       <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
@@ -138,6 +142,27 @@ export function TasksPanel() {
         </tbody>
       </table>
       </div>
+      </div>
+
+      <div className="space-y-2 sm:hidden">
+        {tasks.map((task) =>
+          editing === task.id ? (
+            <EditCard
+              key={task.id}
+              task={task}
+              onSave={(ms) => saveInterval(task.id, ms)}
+              onCancel={() => setEditing(null)}
+            />
+          ) : (
+            <TaskCard
+              key={task.id}
+              task={task}
+              localRunning={running === task.id}
+              onRun={() => run(task.id)}
+              onEdit={() => setEditing(task.id)}
+            />
+          )
+        )}
       </div>
     </div>
   );
@@ -178,6 +203,75 @@ function EditRow({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: nu
         </div>
       </td>
     </tr>
+  );
+}
+
+function EditCard({ task, onSave, onCancel }: { task: TaskStatus; onSave: (ms: number | null) => void; onCancel: () => void }) {
+  const t = useT();
+  const split = splitInterval(task.intervalMs);
+  const [d, setD] = useState(split.days);
+  const [h, setH] = useState(split.hours);
+  const [m, setM] = useState(split.minutes);
+
+  return (
+    <div className="rounded-xl glass p-3">
+      <p className="mb-2 font-semibold text-ink">{t("scheduler.task." + task.id)}</p>
+      <div className="flex items-center gap-1.5">
+        <input value={d} onChange={(e) => setD(Math.max(0, parseInt(e.target.value) || 0))} className="h-8 w-14 rounded-lg border border-white/8 bg-black/30 px-1.5 text-center text-xs text-ink outline-none" />
+        <span className="text-xs text-ink-dim">j</span>
+        <input value={h} onChange={(e) => setH(Math.max(0, Math.min(23, parseInt(e.target.value) || 0)))} className="h-8 w-14 rounded-lg border border-white/8 bg-black/30 px-1.5 text-center text-xs text-ink outline-none" />
+        <span className="text-xs text-ink-dim">h</span>
+        <input value={m} onChange={(e) => setM(Math.max(0, Math.min(59, parseInt(e.target.value) || 0)))} className="h-8 w-14 rounded-lg border border-white/8 bg-black/30 px-1.5 text-center text-xs text-ink outline-none" />
+        <span className="text-xs text-ink-dim">min</span>
+        <div className="ml-auto flex items-center gap-1">
+          <button onClick={() => onSave(parseInterval(d, h, m))} aria-label={t("common.save")} className="flex h-8 w-8 items-center justify-center rounded-lg text-ok hover:bg-white/10">
+            <Check className="h-3.5 w-3.5" />
+          </button>
+          <button onClick={onCancel} aria-label={t("common.cancel")} className="flex h-8 w-8 items-center justify-center rounded-lg text-down hover:bg-white/10">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TaskCard({ task, localRunning, onRun, onEdit }: { task: TaskStatus; localRunning: boolean; onRun: () => void; onEdit: () => void }) {
+  const t = useT();
+  const { locale } = useI18n();
+  const jobRunning = useJobRunning(task.id);
+  const running = localRunning || jobRunning;
+  const nextRun = task.nextRunAt
+    ? (() => {
+        const remaining = formatFuture(task.nextRunAt);
+        return remaining ? `${t("tasks.in")} ${remaining}` : t("tasks.now");
+      })()
+    : "—";
+
+  return (
+    <div className="rounded-xl glass p-3">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-semibold text-ink">{t("scheduler.task." + task.id)}</p>
+        <div className="flex shrink-0 items-center gap-1">
+          <button onClick={onEdit} className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-dim hover:bg-white/10 hover:text-ink">
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={onRun}
+            disabled={running}
+            className="flex h-8 w-8 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-brand-glow disabled:opacity-50"
+          >
+            {running ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-ink-dim">
+        <span>{t("tasks.interval")} : {formatInterval(task.intervalMs)}</span>
+        <span>{t("tasks.lastDuration")} : {formatDuration(task.lastDurationMs)}</span>
+        <span>{t("tasks.lastRun")} : {task.lastRunAt ? relativeTime(new Date(task.lastRunAt).toISOString(), locale) : t("tasks.never")}</span>
+        <span>{t("tasks.nextRun")} : {nextRun}</span>
+      </div>
+    </div>
   );
 }
 

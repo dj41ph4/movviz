@@ -688,11 +688,30 @@ export async function searchTv(
  * requires every query word to appear in the result title.
  */
 export const COMPLETE_SERIES_TERMS = [
-  "Complete Series", "Complete", // English
-  "Intégrale", "Saisons complètes", "Complet", // French
-  "Serie Completa", "Completa", // Italian/Spanish
-  "Complete Serie", "Compleet", // Dutch
-  "Komplette Serie", "Komplett", // German
+  // English
+  "Complete Series", "Complete Collection", "Complete Boxset", "Complete Box Set",
+  "Complete Seasons", "Complete Edition", "Complete Set", "Complete",
+  "Full Series", "Full Collection", "Entire Series", "All Seasons",
+  "Series Complete", "Collection Complete", "The Complete",
+  // French
+  "Intégrale", "Intégrale Complète", "Integrale", "Integral",
+  "Saisons complètes", "Saison complète", "Collection complète",
+  "Série complète", "Coffret intégral", "Coffret complet",
+  "Toutes les saisons", "La série complète", "Complet", "Complète",
+  // Italian / Spanish
+  "Serie Completa", "Completa", "Temporadas Completas", "Colección Completa",
+  "Edición Completa", "Todos los episodios", "Todas las temporadas",
+  "Série Complète",
+  // Portuguese
+  "Série Completa", "Coleção Completa", "Temporadas Completas",
+  // Dutch
+  "Complete Serie", "Compleet", "Volledige serie", "Volledige collectie",
+  "Alle seizoenen",
+  // German
+  "Komplette Serie", "Komplett", "Komplettbox", "Alle Staffeln",
+  "Komplette Sammlung",
+  // Polish
+  "Wszystkie sezony", "Pełna seria", "Kompletna seria",
 ];
 
 /**
@@ -710,23 +729,28 @@ export async function searchCompleteSeriesPack(
   // Search the indexer with the bare title only — appending "Complete Series"/
   // "Seasons 1-N" etc. to the actual query string returns 0 results from real
   // torznab backends even when matching releases exist (same bug fixed for
-  // searchMovie/searchTv above). The combined term is still used as the
-  // matchQuery so parseReleases can score/filter for series-pack relevance.
+  // searchMovie/searchTv above).
   const searchQuery = sanitizeQuery(criteria.title);
   const matchQueries = COMPLETE_SERIES_TERMS.map((term) => `${criteria.title} ${term}`);
   if (criteria.seasonCount) matchQueries.push(`${criteria.title} Seasons 1-${criteria.seasonCount}`);
 
-  const results = await Promise.all(
-    matchQueries.map((matchQuery) =>
-      runSearch(ix, { t: "search", q: searchQuery }, scopeCategories, matchQuery).catch(() => [])
-    )
-  );
+  // ONE HTTP request per indexer — every matchQuery above differs only in
+  // the LOCAL relevance-scoring string, so firing them all as separate
+  // requests (the pre-review behavior) sent ~50 identical queries to each
+  // indexer and risked 429/ban. Fetch once, then re-score each release
+  // locally against every term and keep the best score.
+  const releases = await runSearch(ix, { t: "search", q: searchQuery }, scopeCategories).catch(() => []);
   const seen = new Set<string>();
   const merged: IndexerRelease[] = [];
-  for (const release of results.flat()) {
+  for (const release of releases) {
     if (seen.has(release.guid)) continue;
     seen.add(release.guid);
-    merged.push(release);
+    let best = release;
+    for (const matchQuery of matchQueries) {
+      const rescored = rescoreRelease(release, matchQuery);
+      if (rescored.score > best.score) best = rescored;
+    }
+    merged.push(best);
   }
   return merged;
 }

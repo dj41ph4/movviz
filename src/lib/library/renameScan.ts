@@ -159,7 +159,9 @@ export async function scanRenames(
             language: parsed.language,
             group: parsed.group,
           };
-          const seasonFolder = renderSegment(templates.seasonFolder, seasonCtx, useDots);
+          // Specials always land in a literal "Specials" folder — see the
+          // matching comment in the engine's AbstractBackend.mjs.
+          const seasonFolder = season.seasonNumber === 0 ? "Specials" : renderSegment(templates.seasonFolder, seasonCtx, useDots);
           const epFile = renderSegment(templates.episodeFile, seasonCtx, useDots);
           const ext = p.extname(ep.file.path);
           const expectedEpPath = p.join(baseDir, expectedFolder, seasonFolder, epFile + ext);

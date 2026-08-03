@@ -4,6 +4,220 @@ Toutes les nouveautés et corrections notables de Movviz.
 
 ---
 
+## v1.12.50 — 3 août 2026
+
+### Qualité — nouvelle politique de taille pour le téléchargement automatique
+
+- **Nouveau réglage** (Réglages → Qualité) : "Plus petit" / "Équilibré" / "Meilleure qualité", pour départager les meilleurs candidats déjà retenus par le score de qualité habituel. Le calcul tient compte de l'efficacité réelle du codec (un x265 de 10 Go ≈ un x264 de 20 Go en qualité perçue, AV1 encore plus efficace) plutôt que la taille brute — ce n'est donc pas forcément le plus gros fichier qui est le meilleur, ni le plus petit le pire. S'applique aux films, épisodes, packs de saison et intégrales. **"Équilibré" reste le réglage par défaut et reproduit exactement le comportement actuel** — rien ne change tant que ce réglage n'est pas modifié à la main.
+
+## v1.12.49 — 3 août 2026
+
+### Correctif — un OAD non numéroté mal reconnu comme "Saison 4"
+
+- **Correctif, confirmé en conditions réelles** : une release marquée "OAD" (variante fréquente d'OVA sur les animes) sans numéro derrière (ex. "...2029.OAD.MULTI...") n'était pas reconnue comme épisode spécial — elle a été acceptée par erreur comme candidat pour une recherche de saison 4 en cours, alors qu'elle n'a aucun rapport. Le fichier n'a jamais été réellement importé sous ce nom grâce aux protections déjà en place (garde-fou "aucune correspondance" de la v1.12.39) mais s'affichait comme rattaché à la saison 4 dans la file d'attente. "OAD" est maintenant reconnu au même titre qu'OVA/Special, et un tel spécial sans numéro est correctement classé en saison 0 plutôt que rejeté ou mal assigné.
+
+## v1.12.48 — 3 août 2026
+
+### Réglages — correctif du sélecteur Nommage
+
+- **Correctif** : les deux onglets du sélecteur "Modèles / Appliquer en masse" (onglet Nommage) s'affichaient avec leur clé technique brute au lieu du libellé français, trouvé lors de la vérification en direct du déploiement précédent.
+
+## v1.12.47 — 3 août 2026
+
+### Réglages — deuxième vague de la refonte d'ergonomie
+
+- **"Nommage" et "Renommage" fusionnés** en un seul onglet avec deux sections (Modèles / Appliquer en masse) — c'était une seule tâche cohérente coupée en deux, dans deux groupes différents.
+- **"Tâches" et "File d'attente" fusionnés** en un onglet "Automatisation" (Planification / File & priorités) — les deux décrivaient le même système de tâches de fond sous deux angles.
+- **Webhook générique intégré à Notifications** comme 6ᵉ carte de transport, au même style que Discord/Telegram/Gotify/Slack/Pushbullet, au lieu d'un bloc séparé.
+- **Correctif d'affichage mobile** : le tableau des tâches planifiées devient une liste de cartes en dessous de 640px au lieu de colonnes tronquées illisibles.
+
+## v1.12.46 — 3 août 2026
+
+### Réglages — première vague de la refonte d'ergonomie
+
+- **Correctif** : deux tâches planifiées s'affichaient avec leur identifiant technique brut au lieu d'un libellé français ("Mise à niveau automatique de toute la bibliothèque", "Récupération des téléchargements coincés").
+- Suppression de l'ancien panneau "Activité" de Notifications, vide depuis que son seul réglage a migré vers Qualité.
+- "Sauvegarde" (export/restauration de config) rejoint l'onglet "À propos" plutôt que d'occuper son propre onglet pour 2 boutons.
+- La carte de synchronisation Seerr dans "Importations" ne porte plus le même nom que l'onglet lui-même.
+- La "Liste de blocage" a désormais son propre onglet — elle n'a pas de rapport avec l'import de listes externes.
+- Les réglages du lecteur bêta (moteur de lecture, cache segment), jusqu'ici mélangés aux réglages de connexion Plex, sont maintenant clairement séparés avec une explication en français de ce que fait chaque réglage.
+- Correction d'un débordement visuel sur mobile dans l'aperçu de nommage des fichiers.
+
+## v1.12.45 — 3 août 2026
+
+### Bibliothèque — les épisodes spéciaux ne concernaient que les animes
+
+- **Correctif** : le suivi des épisodes spéciaux (saison 0) ne s'appliquait qu'aux séries repérées comme anime, alors que TMDb liste aussi une saison 0 pour beaucoup de séries classiques (making-of, épisodes bonus). "Resynchroniser tous les animes" (Réglages → Anime) complète maintenant aussi les séries non-anime déjà suivies, directement depuis TMDb.
+
+## v1.12.44 — 3 août 2026
+
+### Anime — la resynchronisation TVDB en masse échouait sur une grande bibliothèque
+
+- **Correctif, confirmé en conditions réelles** : "Resynchroniser tous les animes" (Réglages → Anime) tournait comme une seule requête bloquante — sur une bibliothèque de plusieurs milliers de titres, ça dépassait le délai du proxy et échouait en silence ("network_error") avant même d'avoir traité un seul anime, expliquant pourquoi la saison des épisodes spéciaux restait vide pour la plupart des séries déjà suivies. Tourne maintenant comme tâche de fond avec suivi de progression, comme la recherche des manquants.
+
+## v1.12.43 — 3 août 2026
+
+### Maintenance — "Récupérer téléchargements" ne trouvait plus les fichiers d'un torrent disparu du moteur
+
+- **Correctif** : quand un torrent disparaît complètement du moteur (supprimé côté client, perdu après un redémarrage) alors que la bibliothèque le montre toujours "en téléchargement", ses fichiers restaient introuvables — même avec un dossier de téléchargement non vide, l'outil de récupération ne trouvait plus rien, faute de torrent connu à qui les rattacher. Un second chemin de récupération, plus prudent, cible désormais précisément ce cas : uniquement des fichiers n'appartenant à AUCUN torrent actuellement connu du moteur (actif ou terminé), correspondant à un film ou une saison de série spécifiquement en attente d'un tel torrent disparu, après une période de silence plus longue qu'à l'habitude faute de confirmation du moteur.
+
+## v1.12.42 — 3 août 2026
+
+### Réglages — nouvel onglet "Anime"
+
+- **Tous les réglages liés aux animes sont désormais regroupés dans un onglet dédié** (Réglages → Anime) : configuration TVDB, langue, synchronisation en masse — auparavant éclatés entre l'onglet Métadonnées et l'onglet Maintenance.
+- **Nouvelle option "Suivre les épisodes spéciaux"** : désactivée, la saison 0 (OAV, spéciaux) n'est plus ajoutée ni suivie pour les nouvelles séries et les resynchronisations TVDB — retour au comportement d'avant la fonctionnalité. Les séries déjà suivies ne sont pas affectées.
+
+## v1.12.41 — 3 août 2026
+
+### Bibliothèque — support des épisodes spéciaux (OAV, bonus)
+
+- **Ajout du suivi complet des épisodes spéciaux (saison 0)** — jusqu'ici totalement exclus de la bibliothèque dès l'ajout d'une série, ce qui rendait l'accordéon "Épisodes spéciaux" de la page d'un titre visible mais toujours vide au clic. Les spéciaux sont maintenant une vraie saison suivie comme les autres, mais **non surveillée par défaut** (contrairement aux saisons normales) — ce sont des contenus bonus souvent plus rares à trouver, l'utilisateur active la recherche automatique lui-même s'il le souhaite.
+- **Reconnaissance des dossiers "Specials"** (en plus de "Season 00") lors du scan disque, et écriture systématique vers un dossier "Specials" à l'import, conforme à ce qu'attend Plex.
+- **Analyse des noms de release étendue** pour repérer les spéciaux même sans marqueur S00Exx classique — tags "OVA"/"OAV"/"SP"/"Special" fréquents sur les releases anime.
+- **Resynchronisation TVDB étendue aux spéciaux** pour l'anime, avec la même logique de rafraîchissement de titres déjà en place pour les saisons normales.
+- Aucun changement côté films : un OAV qui a sa propre fiche film sur TMDb (ex. les films Dragon Ball) continue d'être traité comme un film, exactement comme avant — seuls les spéciaux rattachés à la fiche série sont concernés.
+
+## v1.12.40 — 3 août 2026
+
+### Bibliothèque — un pack qui ne contient aucun épisode ciblé restait bloqué "en téléchargement" pour toujours
+
+- **Correctif majeur, confirmé en conditions réelles (Futurama)** : une release de pack de saison peut se télécharger entièrement à 100% et pourtant ne contenir strictement aucun des épisodes manquants ciblés — pas une erreur d'analyse de nom de fichier, mais un vrai décalage de numérotation de saison entre le groupe qui a publié la release et TMDb/TVDB (ex. leur "saison 6" ne couvre que les épisodes 1-16 quand la vraie saison en fait 26). Dans ce cas, la bibliothèque n'était jamais prévenue de l'échec — les épisodes ciblés restaient bloqués sur "téléchargement" indéfiniment, sans jamais redevenir "manquant" pour permettre une nouvelle recherche. Corrigé : la bibliothèque est maintenant toujours prévenue, même quand rien n'a pu être importé, et les épisodes concernés repassent automatiquement en "manquant".
+- **Performance — la page d'un titre mettait du temps à afficher son statut réel** (ajouté à la bibliothèque, épisodes disponibles...) : elle chargeait toute la bibliothèque à chaque ouverture juste pour retrouver le titre concerné. Elle ne demande plus que ce titre précis, nettement plus rapide.
+
+## v1.12.39 — 3 août 2026
+
+### Moteur de téléchargement — un pack partiellement apparié ne supprime plus les fichiers non traités
+
+- **Correctif majeur, confirmé en conditions réelles** : un pack de saison peut terminer son téléchargement à 100% mais ne faire correspondre qu'une partie de ses fichiers vidéo aux épisodes attendus (selon le nommage exact de la release) — les fichiers non appariés n'étaient jamais déplacés vers la bibliothèque, et le nettoyage automatique du dossier de téléchargement les supprimait ensuite avec le reste, sans trace ni avertissement. Le nettoyage automatique est maintenant désactivé pour un torrent dont au moins un fichier vidéo (hors échantillons/bandes-annonces) n'a correspondu à aucun épisode ciblé — les fichiers restent en sécurité dans le dossier de téléchargement en attendant une vérification manuelle.
+- **Nouveau journal de diagnostic** (visible dans le journal du moteur, Réglages → Journaux) qui détaille, pour chaque fichier non apparié, le nom, le chemin, et ce que l'analyse du nom en a extrait — pour comprendre précisément pourquoi la correspondance a échoué.
+
+## v1.12.38 — 3 août 2026
+
+### Bibliothèque — resynchronisation TVDB en un clic pour tous les animes
+
+- **Ajout d'un bouton dans Réglages → Maintenance** pour relancer la resynchronisation TVDB sur tous les animes de la bibliothèque en une seule action, au lieu de devoir le faire série par série. Restructure les saisons quand TVDB en propose plus, sinon rafraîchit les titres d'épisode (le point de terminaison existait déjà côté serveur mais n'était relié à aucun bouton).
+
+## v1.12.37 — 3 août 2026
+
+### Moteur de téléchargement — table de routage DHT non persistée
+
+- **Correctif — une rafale de torrents ajoutés juste après un redémarrage du moteur pouvait rester bloquée à 0 B, sans jamais récupérer ses métadonnées.** Cause : la table de routage DHT d'aria2 n'était jamais sauvegardée dans le volume persistant — chaque redémarrage/déploiement repartait d'une table complètement vide, qui a besoin d'un peu de temps pour se reconstruire auprès des nœuds d'amorçage. Un gros lot de torrents ajouté juste après un redémarrage tombait alors en pleine reconstruction à froid. La table DHT est maintenant sauvegardée dans le dossier de configuration persistant, donc elle reste chaude d'un redémarrage à l'autre.
+
+## v1.12.36 — 3 août 2026
+
+### Recherche RSS — une intégrale trouvée ne couvrait pas le reste du passage
+
+- **Correctif majeur — une série pouvait recevoir l'intégrale ET un pack de saison ET chaque épisode un par un ET un autre pack de saison, tous grabés dans le même passage de scan RSS.** Cause : la liste des saisons manquantes à vérifier était figée au tout début du scan, avant tout grab — donc une fois l'intégrale trouvée pour une série (via la correspondance d'une saison), le scan ne savait pas que le reste de la série venait d'être couvert et relançait une recherche complète (pack puis épisode par épisode) dès qu'une autre release du cache RSS matchait une autre saison de la même série. Corrigé : dès qu'une intégrale est grabée pour une série pendant le scan, plus aucune autre saison de cette série n'est retraitée dans le même passage.
+
+### Métadonnées anime (TVDB)
+
+- **La resynchronisation TVDB abandonnait complètement (aucun changement) quand elle ne trouvait pas plus de saisons que ce que Movviz avait déjà** — même quand le seul but était de rafraîchir des titres d'épisode (par exemple les remettre en français après le correctif de langue). Elle applique maintenant ce rafraîchissement de titres en place, sans exiger une restructuration des saisons.
+
+## v1.12.35 — 3 août 2026
+
+### Lecteur bêta — plus aucun codec audio bloqué à l'avance en conteneur non-MP4
+
+- **Le DTS était encore explicitement écarté de la tentative de lecture directe**, alors qu'il se lit très bien nativement sur certaines configurations (décodeur système installé). Pour un conteneur non-MP4, plus aucun codec audio n'est présupposé illisible — la lecture directe est toujours tentée en premier, et le filet de sécurité (détection de silence) reste seul responsable de basculer vers MSE puis HLS si ça ne fonctionne vraiment pas sur la machine qui regarde.
+
+## v1.12.34 — 2 août 2026
+
+### Lecteur bêta — la lecture directe refusait trop souvent d'essayer
+
+- **Un MKV avec de l'E-AC3 partait automatiquement en HLS avec réencodage audio, alors que la lecture directe fonctionnait très bien manuellement** (bouton "Test direct"). Cause : la décision automatique se basait sur ce que WebCodecs/MediaSource savent détecter, qui est plus étroit que ce que l'élément vidéo natif du navigateur sait réellement décoder (notamment via un décodeur système comme Dolby sur Windows) — pour les conteneurs non-MP4, seuls les codecs qu'aucun navigateur ne sait jamais lire (DTS/TrueHD/PCM) bloquent maintenant la tentative de lecture directe ; tout le reste est essayé, avec le filet de sécurité (détection de silence) qui reprend la main si ça ne marche vraiment pas.
+- **Badge du lecteur rendu explicite** : la lecture directe automatique affiche maintenant "Lecture directe" (avant, seul un déclenchement manuel du bouton "Test direct" affichait un badge — la lecture directe automatique ne montrait rien du tout). Les badges Direct / MSE / HLS restent maintenant mutuellement exclusifs à chaque changement de moteur.
+
+## v1.12.33 — 2 août 2026
+
+### Lecteur bêta — la lecture directe pour tous les conteneurs, HLS en tout dernier recours
+
+- **Un fichier MKV (ou AVI/WMV/FLV/TS) partait systématiquement en HLS, même quand il aurait parfaitement fonctionné en lecture directe.** La détection de conteneur forçait le passage en transcodage pour tout ce qui n'était pas MP4, sans même essayer — alors que le blocage venait uniquement des moteurs internes (WebCodecs, MSE) qui ne savent lire que la structure MP4, pas du décodeur vidéo natif du navigateur. La lecture directe est maintenant tentée pour tous les conteneurs dès que les codecs eux-mêmes sont lisibles ; HLS ne se déclenche plus que si ça échoue vraiment.
+- **Ordre de secours corrigé : lecture directe → moteur MSE (sans transcodage serveur) → HLS en tout dernier recours.** Un échec (erreur de lecture ou son silencieux détecté) essayait auparavant HLS directement, en sautant l'étape MSE — alors que MSE reste sans transcodage serveur et doit avoir sa chance avant de tomber sur la solution la plus coûteuse.
+
+## v1.12.32 — 2 août 2026
+
+### Lecteur bêta — HLS en vrai filet de secours
+
+- **La lecture native/WebCodecs pouvait jouer une vidéo sans le son, silencieusement, sans aucun repli automatique vers HLS.** Toutes les vérifications de compatibilité codec se faisaient avant la lecture (probes statiques) et n'étaient jamais reconfirmées une fois la lecture réellement démarrée — un flux audio finalement non lisible ne déclenche ni erreur `<video>` ni erreur du décodeur WebCodecs, la vidéo joue juste en silence. Ajout d'une vérification en direct (quelques secondes après le démarrage, sur l'énergie audio réellement décodée) qui bascule automatiquement vers HLS si aucun son n'est détecté alors qu'une piste audio était attendue — même filet de secours que pour les erreurs de lecture classiques. La priorité lecture native d'abord, HLS en repli, est inchangée ; HLS devient un vrai filet de secours automatique au lieu d'un bouton "revenir au HLS" à cliquer soi-même.
+- Même correctif côté WebCodecs : si aucune piste audio du fichier n'était décodable (toutes ignorées silencieusement), la lecture continuait en vidéo seule sans jamais basculer vers HLS.
+
+## v1.12.31 — 2 août 2026
+
+### Moteur de téléchargement — import anime/intégrale
+
+- **Correctif majeur — un pack anime terminé (intégrale ou saison) restait « Manquant » dans la bibliothèque alors que les fichiers étaient bien arrivés au bon endroit sur le disque.** Cause : pour un fichier sans motif SxxEyy classique dans son nom (typique des gros packs anime en numérotation absolue, avec dossiers par saison mais fichiers non numérotés par saison), le moteur savait déjà retrouver la bonne saison/épisode au moment de sélectionner le fichier — mais jetait cette info et la redevinait ensuite depuis zéro, en pire, pour l'envoyer à la bibliothèque. Résultat : saison/épisode vides envoyés à l'import, donc aucune correspondance possible côté bibliothèque, malgré un fichier déjà bien placé sur le disque (invisible aussi pour l'outil « Récupérer téléchargements », qui ne scanne que le dossier de téléchargement, pas la bibliothèque). Le moteur réutilise maintenant l'info déjà résolue au moment de la sélection au lieu de la redeviner. N'affecte que les cas où le nom de fichier n'a pas de SxxEyy explicite ; les téléchargements classiques (SxxEyy présent) et les films sont inchangés.
+
+## v1.12.30 — 2 août 2026
+
+### Activité — file de téléchargement
+
+- **Un pack multi-saisons (intégrale) s'affichait comme « Saison 1 » dans la file** dès qu'une des saisons de la série était déjà disponible ailleurs (hash différent) — le calcul considérait le pack « incomplet » parce qu'il ne couvrait pas littéralement 100% des épisodes surveillés de toute la série, et retombait alors sur la première saison rencontrée. Un pack est maintenant reconnu comme intégrale/multi-saisons dès qu'il couvre plusieurs saisons différentes, peu importe si une autre saison est déjà acquise séparément. Le nombre de saisons affiché (« Intégrale — X épisodes / Y saisons ») reflète aussi maintenant les saisons réellement couvertes par CE pack, plus une estimation globale.
+- **La qualité affichée pouvait dire « Inconnue » alors que l'info était bien présente dans le titre de la release** — la récupération d'un pack de saison/épisode/intégrale enregistrait toujours « Inconnue » en dur au lieu d'analyser le titre de la release. Corrigé.
+- **Ajout d'une carte « En attente » dans les statistiques de la file de téléchargement**, qui manquait à côté de Téléchargement/En pause/Bloqué/Terminé/Tout.
+
+## v1.12.29 — 2 août 2026
+
+### Métadonnées anime (TVDB)
+
+- **Correctif — les titres d'épisode restaient en japonais après une resynchronisation TVDB sur un anime**, malgré la langue configurée dans les réglages. Cause : l'API TVDB v4 attend la langue comme segment de l'URL sur son endpoint de traduction d'épisodes (ex. `/episodes/default/fra`) — l'en-tête `Accept-Language` seul, utilisé jusqu'ici, est silencieusement ignoré par cet endpoint précis et renvoie toujours les titres originaux. Corrigé pour utiliser le bon format d'appel, avec repli automatique sur les titres originaux si un épisode précis n'a pas de traduction disponible.
+- **Pour certains animes découpés par arc (ex. Dragon Ball Super), une seule saison affichait son vrai nom (« La Bataille Des Dieux ») alors que les autres affichaient juste « Saison N »** — TMDb ne nomme les saisons que de façon inégale selon les séries. La resynchronisation TVDB récupère maintenant le vrai nom de chaque saison (les 5 arcs pour Dragon Ball Super, par exemple) au lieu de générer « Saison N » par défaut. Purement cosmétique : la correspondance des téléchargements reste basée sur le numéro de saison, jamais sur son nom.
+
+## v1.12.28 — 2 août 2026
+
+### Moteur de téléchargement — fiabilité de l'import
+
+- **Correctif majeur — un import qui échoue en boucle ne bloquait plus rien mais ne s'arrêtait jamais** : observé en direct en production, un fichier introuvable au moment de l'import (ex. sélection de fichier ratée) relançait la tentative toutes les ~5 secondes, indéfiniment (des centaines de tentatives identiques sur 20+ minutes dans le journal), sans jamais s'arrêter ni prévenir clairement — jusqu'à un redémarrage manuel du moteur. Après 5 échecs consécutifs, l'import s'arrête maintenant de lui-même, remonte une seule notification claire au lieu d'une par tentative, et le téléchargement apparaît "Bloqué" dans l'interface au lieu de tourner en boucle silencieusement.
+- **Un déplacement de fichier échoué (hors ré-essai) était totalement silencieux** : aucune notification, aucune trace dans l'activité — seule une ligne dans les journaux serveur, jamais vue par l'utilisateur. Corrigé : une notification claire apparaît maintenant aussi dans ce cas.
+- **Sécurité renforcée sur le déplacement/nettoyage après téléchargement** : la copie vers la bibliothèque est maintenant vérifiée (taille du fichier comparée à l'original, y compris pour un pack multi-fichiers) avant toute suppression du dossier de téléchargement — plus aucun risque de perdre le seul exemplaire valide sur une copie incomplète.
+- **Le nettoyage du dossier de téléchargement ne se déclenchait quasiment jamais après un import réussi** (bug structurel, présent depuis longtemps) — le fichier restait indéfiniment en double jusqu'à ce qu'un événement secondaire déclenche accidentellement le nettoyage. Corrigé : le nettoyage se déclenche maintenant systématiquement après un import réussi.
+
+## v1.12.27 — 2 août 2026
+
+### Moteur de téléchargement
+
+- **Correctif majeur — des téléchargements automatiques d'épisode/saison restaient bloqués à 0% indéfiniment, avec pairs connectés mais aucune progression**, sans jamais être détectés comme « bloqué » (donc invisibles dans la file d'attente). Cause : pour un pack multi-fichiers ajouté par magnet, la sélection du ou des fichiers ciblés pouvait s'exécuter avant que WebTorrent ait fini de récupérer la liste des fichiers du torrent — la sélection ne trouvait alors rien à sélectionner, et rien ne la retentait ensuite. Comme les pairs restent connectés malgré tout, la détection de blocage (basée sur l'activité réseau) ne se déclenchait jamais. Un correctif équivalent existait déjà pour le moteur natif mais n'avait jamais été porté sur WebTorrent (le moteur par défaut) — c'est fait. N'affecte que les téléchargements ciblant un ou plusieurs épisodes précis dans un pack (donc surtout les séries) ; les films ne sont pas concernés.
+
+### Activité
+
+- **Le journal d'activité affichait parfois le mauvais type d'événement** : une récupération d'intégrale déclenchée pendant une recherche de saison ou d'épisode isolé était enregistrée comme une simple récupération de saison/épisode (mauvaise icône, portée mal décrite — ex. « saison 3 » au lieu de « intégrale, 96 épisodes »), alors que le journal v2 avait déjà la bonne info. Corrigé pour les 3 cas concernés.
+
+## v1.12.26 — 2 août 2026
+
+### Intégrales (coffrets complets)
+
+- **Un remake/reboot homonyme d'une autre année pouvait être proposé à la place de la bonne série** (ex. « Avatar : The Last Airbender » 2024 renvoyait l'intégrale de la version animée 2005) — l'intégrale n'a ni saison ni épisode à comparer pour distinguer deux séries au titre identique, seule la date permet de trancher. La date de la release est maintenant vérifiée contre celle de la série ; une release sans date reste acceptée (rien à comparer), une release datée qui ne correspond pas est rejetée.
+- **Sélection par taille, plus par qualité** : parmi les intégrales candidates, la plus petite est maintenant choisie en priorité (au lieu de la mieux notée, qui favorisait mécaniquement les plus gros fichiers 4K/Remux) — à condition d'avoir au moins 2 seeders. En dessous, une intégrale n'est retenue qu'en dernier recours.
+- **Notifications manquantes pour les récupérations de pack de saison et d'intégrale** : contrairement à une récupération épisode par épisode, ces deux cas ne déclenchaient aucune notification (ni cloche interne, ni Discord/Telegram/Slack/Gotify/Pushbullet). Corrigé, et le compteur de récupérations du tableau de bord (7 derniers jours) les compte désormais aussi.
+
+## v1.12.25 — 2 août 2026
+
+### Intégrales (coffrets complets)
+
+- **Correctif majeur — la recherche d'intégrale rejetait silencieusement presque tous les vrais coffrets complets** : `withinSizeLimit()` n'avait pas de branche dédiée pour le type « series » et retombait sur la limite de taille configurée pour un simple pack de saison. Une intégrale couvrant toute une série est naturellement plusieurs fois plus grosse qu'une seule saison — avec n'importe quelle limite de saison réaliste configurée (ex. 16 Go), le résultat était 0 candidat en recherche automatique, alors que la recherche manuelle affichait et badgeait correctement la même release comme « Intégrale » (elle ne passe pas par ce filtre). Nouveau réglage dédié **Intégrale** dans Réglages → Qualité → Taille maximale (illimité par défaut).
+
+## v1.12.24 — 2 août 2026
+
+### Intégrales (coffrets complets)
+
+- **Détection élargie** : 53 termes « complète » dans 7 langues (EN/FR/DE/IT/NL/ES/PT/PL) + plages de saisons (`S01-S28`, `Saisons 1 à 28`), sans multiplicateur de requêtes : une seule requête par indexeur, puis re-score local par terme.
+- **Garde-fous anti-faux-positifs** : un pack de saison taggé « Complete » (`S01E01-S01E24`, `S03.Complete`, `Complete.Season.1`) n'est plus confondu avec une intégrale.
+- **Correctifs PACK_DESC_RE** : « Saisons complètes » (pluriel) et « Todas las temporadas » étaient ignorés — détectés par les nouveaux tests.
+- **Suite de tests** : nouveau runner `npm test` (node --test + loader d'alias `@/`), 13 tests de détection + parité parser/worker.
+
+### Récupération des téléchargements
+
+- **Détection des downloads coincés** : un torrent terminé dont l'import n'est jamais arrivé (callback perdu/crash) est détecté par corrélation infoHash ↔ statut « downloading », et récupéré automatiquement par la tâche planifiée.
+- **Récupération sécurisée** : seuls les fichiers des torrents terminés (completed/seeding) sont déplacés — jamais de scan aveugle du dossier ; gardes de profondeur de dossier, déplacement atomique sans écrasement, mutex anti-double-exécution.
+- **Fallback import** : chaque fichier récupéré est appliqué à la bibliothèque par la même implémentation que le callback du moteur (`applyImportedFiles`) — plus d'épisode bloqué « downloading » à vie.
+
+### Import fiable
+
+- **503 `destination_missing`** : le callback d'import refuse de marquer « available » un fichier absent de sa destination ; le moteur retente automatiquement (~15 s) jusqu'à ce que les fichiers soient visibles.
+- **Sécurité DELETE** : la suppression des doublons ne touche plus que les chemins validés contre les dossiers de téléchargement du moteur.
+- **Grab en un seul passage** : les claims « downloading » des packs multi-épisodes sont appliqués en une seule écriture — plus de clobbering qui remettait silencieusement les épisodes à « missing ».
+
+---
+
 ## v1.12.23 — 1 août 2026
 
 ### Recherche des manquants — fiabilité

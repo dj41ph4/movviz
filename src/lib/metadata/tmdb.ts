@@ -420,7 +420,6 @@ export async function getSeries(tmdbId: number): Promise<MetaSeries | null> {
     status: data.status ?? "",
     isAnime: !!data.origin_country?.includes("JP") && !!data.genres?.some((g) => g.name === "Animation"),
     seasons: (data.seasons ?? [])
-      .filter((s) => s.season_number > 0)
       .map((s) => ({
         seasonNumber: s.season_number,
         name: s.name,
