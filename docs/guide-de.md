@@ -445,6 +445,7 @@ Jeder Indexer zeigt:
 - **Maximale Größen** — Maximal zulässige Größen für Filme (GB), Episoden (GB) und Staffeln (GB). Releases, die diese überschreiten, werden abgelehnt.
 - **Codec-Bewertungen** — Bewertungen für Video-Codecs: x264, x265 und AV1. Höhere Bewertungen erhöhen die Wahrscheinlichkeit, dass Releases mit diesem Codec ausgewählt werden.
 - **Benutzerdefinierte Formate** — Regex-basierte Bewertungsregeln, die auf Release-Titel angewendet werden. Jedes Format hat einen Namen, eine Bewertung (positiv oder negativ) und Regex-Begriffe. Erstelle sie, um Muster wie "HDR", "Dolby Vision", "Remux" usw. zu priorisieren oder zu degradieren.
+- **Größenrichtlinie** — Entscheidet zwischen den besten Kandidaten bei gleicher Bewertung: **Kleinste** (platzsparendste), **Ausgewogen** (Standardverhalten, höchste Gesamtbewertung gewinnt) oder **Beste Qualität** (reichhaltigste tatsächliche Qualität, auch wenn größer). Die Berechnung berücksichtigt die Codec-Effizienz, nicht nur die reine Größe.
 
 ### 14.2. Bibliothek
 
@@ -554,6 +555,13 @@ Einstellungen:
 Optionen:
 - **Stilles automatisches Neulinken** — Für Docker-Bind-Mounts erkennt und korrigiert Movviz Pfadänderungen automatisch
 - **"Leere Ordner nach dem Neulinken entfernen"** — Bereinige verwaiste Verzeichnisse nach der Reparatur
+
+**Downloads wiederherstellen:** Stellt abgeschlossene Downloads wieder her, deren Import in die Bibliothek nie erfolgreich war — Dateien, die im Download-Ordner verblieben sind, werden unter Anwendung deiner Benennungsvorlagen in die Bibliothek verschoben.
+
+- Ergebnisse werden gruppiert in **Wiederhergestellt**, **Fehlgeschlagen** (mit Grund) und **Duplikate** (Datei bereits in der Bibliothek vorhanden)
+- **Duplikate löschen** — Entfernt Download-Dateien, die bereits in der Bibliothek vorhanden sind
+- **Nicht zugeordnete löschen** — Entfernt Dateien, für die kein passender Titel gefunden wurde
+- Eine geplante Aufgabe führt automatisch dieselbe Prüfung aus
 
 **Leere Ordner:** Durchsuche konfigurierte Stammordner nach leeren Verzeichnissen.
 

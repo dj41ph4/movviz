@@ -445,6 +445,7 @@ Ogni indexer mostra:
 - **Dimensioni massime** — Dimensioni massime consentite per film (GB), episodi (GB) e stagioni (GB). Le release che le superano vengono rifiutate.
 - **Punteggi codec** — Punteggi per i codec video: x264, x265 e AV1. Punteggi più alti rendono le release con quel codec più probabili da scegliere.
 - **Formati personalizzati** — Regole di punteggio basate su regex applicate ai titoli delle release. Ogni formato ha un nome, un punteggio (positivo o negativo) e termini regex. Creane per prioritizzare o deprioritizzare pattern come "HDR", "Dolby Vision", "Remux", ecc.
+- **Politica di dimensione** — Determina il vincitore tra i migliori candidati a parità di punteggio: **Più piccolo** (il più efficiente in termini di spazio), **Bilanciato** (comportamento predefinito, vince il punteggio complessivo più alto) o **Migliore qualità** (il più ricco in qualità reale, anche se più voluminoso). Il calcolo tiene conto dell'efficienza del codec, non solo della dimensione grezza.
 
 ### 14.2. Libreria
 
@@ -550,6 +551,17 @@ Impostazioni:
    - **Conflitto** — Un file che corrisponde a più voci della libreria
 3. **Browser file** — Per la correzione manuale, apri un browser file per navigare e selezionare il percorso corretto
 4. **Applica** — Ricollega le voci selezionate
+
+Opzioni:
+- **Riconnessione automatica silenziosa** — Per i bind mount Docker, Movviz rileva e corregge automaticamente i cambi di percorso in silenzio
+- **"Rimuovi le cartelle vuote dopo il ricollegamento"** — Pulisce le directory orfane dopo la riparazione
+
+**Recupera i download:** Recupera i download completati la cui importazione nella libreria non è mai andata a buon fine — i file rimasti nella cartella di download vengono spostati nella libreria applicando i tuoi modelli di denominazione.
+
+- Risultati classificati in **Recuperati**, **Falliti** (con il motivo) e **Duplicati** (file già presente in libreria)
+- **Cancella duplicati** — Rimuove i file di download già presenti in libreria
+- **Cancella non corrispondenti** — Rimuove i file per cui non è stato trovato alcun titolo corrispondente
+- Un'attività pianificata esegue automaticamente lo stesso controllo
 
 **Cartelle vuote:** Scansiona le cartelle principali configurate per directory vuote.
 

@@ -445,6 +445,7 @@ Chaque indexeur affiche :
 - **Tailles maximales** — Tailles maximales autorisées pour les films (Go), les épisodes (Go) et les saisons (Go). Les releases qui les dépassent sont rejetées.
 - **Scores de codec** — Scores pour les codecs vidéo : x264, x265 et AV1. Des scores plus élevés rendent les releases avec ce codec plus susceptibles d'être choisies.
 - **Formats personnalisés** — Règles de score basées sur des regex appliquées aux titres des releases. Chaque format possède un nom, un score (positif ou négatif) et des termes regex. Créez-en pour prioritiser ou déprioritiser des motifs spécifiques (ex. « HDR », « Dolby Vision », « Remux », etc.).
+- **Politique de taille** — Départage les meilleurs candidats à score égal : **Plus petit** (le plus économe en espace), **Équilibré** (comportement par défaut, le meilleur score global l'emporte) ou **Meilleure qualité** (le plus riche en qualité réelle, même si plus volumineux). Le calcul tient compte de l'efficacité du codec, pas seulement de la taille brute.
 
 ### 14.2. Bibliothèque
 
@@ -565,6 +566,13 @@ Paramètres :
 Options :
 - **Auto-reconnexion silencieuse** — Pour les bind mounts Docker, Movviz détecte et corrige automatiquement les changements de chemin silencieusement
 - **« Supprimer les dossiers vides après la reconnexion »** — Nettoie les répertoires orphelins après la réparation
+
+**Récupérer les téléchargements :** Récupère les téléchargements terminés dont l'import dans la bibliothèque n'a jamais abouti — fichiers restés dans le dossier de téléchargement, déplacés vers la bibliothèque en appliquant vos modèles de nommage.
+
+- Résultats classés en **Récupérés**, **Échoués** (avec la raison) et **Doublons** (fichier déjà présent en bibliothèque)
+- **Effacer les doublons** — Supprime les fichiers de téléchargement déjà présents en bibliothèque
+- **Effacer sans correspondance** — Supprime les fichiers pour lesquels aucun titre correspondant n'a été trouvé
+- Une tâche planifiée exécute automatiquement la même vérification
 
 **Dossiers vides :** Scanne les dossiers racine configurés pour les répertoires vides.
 

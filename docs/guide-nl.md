@@ -445,6 +445,7 @@ Elke indexer toont:
 - **Maximale grootten** — Maximaal toegestane groottes voor films (GB), afleveringen (GB) en seizoenen (GB). Releases die deze overschrijden worden afgewezen.
 - **Codec-scores** — Scores voor videocodecs: x264, x265 en AV1. Hogere scores maken releases met die codec waarschijnlijker om gekozen te worden.
 - **Aangepaste formaten** — Op regex gebaseerde scoreregels toegepast op releasetitels. Elk formaat heeft een naam, een score (positief of negatief) en regex-termen. Maak ze aan om patronen zoals "HDR", "Dolby Vision", "Remux" enz. te prioriteren of te degraderen.
+- **Groottebeleid** — Beslist tussen topkandidaten met gelijke score: **Kleinst** (meest zuinig met ruimte), **Gebalanceerd** (standaardgedrag, hoogste totaalscore wint) of **Beste kwaliteit** (rijkst aan werkelijke kwaliteit, ook al is het groter). De berekening houdt rekening met codec-efficiëntie, niet alleen met de ruwe grootte.
 
 ### 14.2. Bibliotheek
 
@@ -550,6 +551,17 @@ Instellingen:
    - **Conflict** — Een bestand dat overeenkomt met meerdere bibliotheekitems
 3. **Bestandsbrowser** — Voor handmatige correctie open je een bestandsbrowser om het juiste pad te vinden
 4. **Toepassen** — Koppel de geselecteerde items opnieuw
+
+Opties:
+- **Stille automatische herkoppeling** — Voor Docker bind mounts detecteert en corrigeert Movviz padwijzigingen automatisch en stilzwijgend
+- **"Lege mappen verwijderen na herkoppeling"** — Ruim verweesde mappen op na de reparatie
+
+**Downloads herstellen:** Herstelt voltooide downloads waarvan de import in de bibliotheek nooit is gelukt — bestanden die in de downloadmap zijn achtergebleven worden naar de bibliotheek verplaatst met toepassing van je naamgevingssjablonen.
+
+- Resultaten ingedeeld in **Hersteld**, **Mislukt** (met reden) en **Duplicaten** (bestand al aanwezig in de bibliotheek)
+- **Duplicaten wissen** — Verwijdert downloadbestanden die al in de bibliotheek aanwezig zijn
+- **Niet-overeenkomende wissen** — Verwijdert bestanden waarvoor geen overeenkomende titel is gevonden
+- Een geplande taak voert automatisch dezelfde controle uit
 
 **Lege mappen:** Scan geconfigureerde hoofdmap op lege mappen.
 

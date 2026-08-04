@@ -445,6 +445,7 @@ Each indexer shows:
 - **Maximum sizes** — Maximum allowed sizes for movies (GB), episodes (GB), and seasons (GB). Releases exceeding these are rejected.
 - **Codec scores** — Scores for video codecs: x264, x265, and AV1. Higher scores make releases with that codec more likely to be chosen.
 - **Custom formats** — Regex-based scoring rules applied to release titles. Each format has a name, score (positive or negative), and regex terms. Create them to prioritize or deprioritize patterns like "HDR", "Dolby Vision", "Remux", etc.
+- **Size policy** — Breaks ties between top candidates with equal scores: **Smallest** (most space-efficient), **Balanced** (default behavior, highest overall score wins), or **Best quality** (richest in real quality, even if larger). The calculation accounts for codec efficiency, not just raw size.
 
 ### 14.2. Library
 
@@ -565,6 +566,13 @@ Settings:
 Options:
 - **Silent auto-relinking** — For Docker bind mounts, Movviz detects and corrects path changes silently
 - **"Remove empty folders after relinking"** — Clean up orphaned directories after repair
+
+**Recover downloads:** Recovers completed downloads whose import into the library never succeeded — files left in the download folder are moved to the library, applying your naming templates.
+
+- Results are grouped into **Recovered**, **Failed** (with the reason), and **Duplicates** (file already present in the library)
+- **Clear duplicates** — Removes download files already present in the library
+- **Clear unmatched** — Removes files for which no matching title was found
+- A scheduled task automatically runs the same check
 
 **Empty folders:** Scan configured root folders for empty directories.
 
