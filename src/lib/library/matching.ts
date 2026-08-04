@@ -122,12 +122,38 @@ export function sequelNumbersConflict(parsedTitle: string, targetTitle: string):
   return a.base === b.base && a.num !== b.num;
 }
 
+/** True when `parsedTitle`, once normalized, is EXACTLY the official title
+ *  concatenated with one of the configured aliases (either order, single
+ *  space between) — the "localized title + romanized original title glued
+ *  together" pattern many anime release/fansub groups use (e.g. "Moi Quand
+ *  Je Me Reincarne En Slime Tensei Shitara Slime Datta Ken"), which the
+ *  extra-words penalty in titleSimilarity() above scores below threshold.
+ *  Deliberately exact-match only, never fuzzy: this is an opt-in,
+ *  admin-confirmed exception to that penalty, not a loosening of it — an
+ *  alias must be added by a human confirming it's genuinely another name for
+ *  this exact title before it has any effect. With no aliases configured
+ *  (the default) this function is a no-op. */
+function matchesConcatenatedAlias(parsedTitle: string, targetTitle: string, aliases: string[]): boolean {
+  const np = normalizeTitle(parsedTitle);
+  const nt = normalizeTitle(targetTitle);
+  if (!np || !nt) return false;
+  for (const alias of aliases) {
+    const na = normalizeTitle(alias);
+    if (!na) continue;
+    if (np === `${nt} ${na}`.trim() || np === `${na} ${nt}`.trim()) return true;
+  }
+  return false;
+}
+
 /** Does this parsed release's title plausibly refer to the target movie/series? */
 export function releaseTitleMatches(parsedTitle: string, targetTitle: string, aliases: string[] = []): boolean {
   const candidates = [targetTitle, ...aliases];
   // A sequel-number conflict is disqualifying on its own — a close name
-  // never overrides it, checked before the fuzzy similarity pass below.
+  // never overrides it, checked before everything below.
   if (candidates.some((t) => sequelNumbersConflict(parsedTitle, t))) return false;
+  // Opt-in exact "official title + alias" concatenation, checked before the
+  // fuzzy pass since that's exactly the shape the extra-words penalty rejects.
+  if (matchesConcatenatedAlias(parsedTitle, targetTitle, aliases)) return true;
   return candidates.some((t) => titleSimilarity(parsedTitle, t) >= TITLE_MATCH_THRESHOLD);
 }
 

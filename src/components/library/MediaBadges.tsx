@@ -3,8 +3,9 @@
 import { cn } from "@/lib/utils";
 import type { LibraryFile } from "@/lib/library/types";
 import { parseRelease } from "@/lib/naming/parser";
-import { detectFileLanguage } from "@/lib/library/detectLanguage";
+import { detectFileLanguage, findAudioStreamForLocale } from "@/lib/library/detectLanguage";
 import type { PlexLanguageSource } from "@/lib/library/detectLanguage";
+import { useI18n } from "@/i18n/provider";
 import { Logo4K, LogoHDR, LogoDolbyVision, LogoDolbyAtmos, LogoDolbyDigital, LogoDolbyDigitalPlus, LogoDTS, LogoTrueHD, LogoFullHD, LogoHD } from "./FormatLogos";
 
 export interface BadgeInfo {
@@ -18,7 +19,7 @@ export interface BadgeInfo {
   year?: number | null;
 }
 
-function extractBadges(file: LibraryFile | null | undefined, plexMediaInfo?: PlexLanguageSource | null): BadgeInfo {
+function extractBadges(file: LibraryFile | null | undefined, plexMediaInfo: PlexLanguageSource | null | undefined, locale: string): BadgeInfo {
   if (!file) return { resolution: null, videoCodec: null, audioCodec: null, hdr: null, source: null, language: null };
 
   // Always parse the basename — scene-style filenames almost always carry a
@@ -29,10 +30,18 @@ function extractBadges(file: LibraryFile | null | undefined, plexMediaInfo?: Ple
   const basename = file.path.replace(/^.*[/\\]/, "").replace(/\.(mkv|mp4|avi|ts|m2ts|wmv|mov|webm|flv)$/i, "");
   const parsed = parseRelease(basename);
 
+  // A file can carry several audio tracks in different languages (e.g.
+  // English EAC3 + French AAC) — the featured audio codec badge should
+  // reflect the track matching Movviz's own selected UI language, not
+  // whichever stream happened to come first in the container. Falls back to
+  // the persisted/parsed codec (previous behavior, unchanged) when Plex
+  // stream data isn't available or none matches the current locale.
+  const localeStream = findAudioStreamForLocale(plexMediaInfo, locale);
+
   return {
     resolution: file.resolution ?? parsed.resolution,
     videoCodec: file.videoCodec ?? parsed.videoCodec,
-    audioCodec: file.audioCodec ?? parsed.audioCodec,
+    audioCodec: localeStream?.codec || file.audioCodec || parsed.audioCodec,
     hdr: file.hdr ?? parsed.hdr,
     source: file.source ?? parsed.source,
     // Persisted language (from Plex sync or detection task) takes priority,
@@ -257,8 +266,9 @@ export function MediaBadges({
 }) {
   // No file means no data at all — showing "SDR" here would claim the
   // absence of an HDR tag on a release that doesn't exist, not a real signal.
+  const { locale } = useI18n();
   if (!file) return null;
-  const info = extractBadges(file, plexMediaInfo);
+  const info = extractBadges(file, plexMediaInfo, locale);
   const items = buildMediaBadgeItems({ ...info, year }, variant, compactOnMobile, hideTypes);
 
   if (items.length === 0) return null;

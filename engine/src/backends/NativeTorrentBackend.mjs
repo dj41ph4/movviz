@@ -115,6 +115,26 @@ export class NativeTorrentBackend extends AbstractBackend {
     const maxPeers = Math.max(1, this.cfg.maxPeers ?? 55);
     args.push(`--bt-max-peers=${maxPeers}`);
 
+    // aria2 runs at most --max-concurrent-downloads (default: 5) downloads at
+    // once and, by default, a torrent that finished downloading but is still
+    // SEEDING keeps counting against that limit. With a seed ratio configured
+    // (seedRatio > 0 → --seed-ratio), a finished torrent can seed for hours or
+    // days, so after only 5 completed torrents every subsequent torrent is put
+    // in aria2's "waiting" state and never starts: no tracker announce, no
+    // peers, totalLength stays 0. From the outside that is indistinguishable
+    // from "no peer ever connects" (numPeers 0 / progress 0 / speed 0), and the
+    // 2-minute anti-stall rule then flips it to "blocked". Confirmed live: six
+    // torrents added right after five completed ones sat at totalLength 0 with
+    // a fully populated per-file list — the exact signature of aria2's waiting
+    // queue, not of a dead swarm.
+    //
+    // Movviz already has its own queue (maxActive per instance, reconcileQueue)
+    // which pauses the extras it doesn't want running, so aria2's internal
+    // limit must never be the narrower of the two — it only ever produced an
+    // invisible second queue nobody could observe or drain.
+    args.push("--bt-detach-seed-only=true");
+    args.push(`--max-concurrent-downloads=${Math.max(20, (this.cfg.maxActive || 0) * 2)}`);
+
     console.log(`[engine:${this.cfg.id}][${this.cfg.logTag}] spawning ${bin} on RPC port ${this._rpcPort}...`);
 
     try {
@@ -128,11 +148,18 @@ export class NativeTorrentBackend extends AbstractBackend {
       );
     }
 
-    this._process.stdout?.on("data", (d) => process.stdout.write(`[aria2:${this.cfg.id}] ${d}`));
-    this._process.stderr?.on("data", (d) => {
-      if (d.toString().includes("exceptional CUE")) return; // noise from some releases
-      process.stderr.write(`[aria2:${this.cfg.id}] ${d}`);
-    });
+    // Route the client's own output through console.* so it lands in the
+    // engine's log ring buffer (Settings > Diagnostics / /api/engine/logs) —
+    // writing straight to the process streams made tracker and announce
+    // errors completely invisible on a NAS/Docker install with no shell.
+    const emit = (level, chunk) => {
+      const text = String(chunk).trim();
+      if (!text) return;
+      if (text.includes("exceptional CUE")) return; // noise from some releases
+      (level === "error" ? console.error : console.log)(`[aria2:${this.cfg.id}] ${text}`);
+    };
+    this._process.stdout?.on("data", (d) => emit("info", d));
+    this._process.stderr?.on("data", (d) => emit("error", d));
 
     this._process.on("exit", (code, signal) => {
       console.error(`[engine:${this.cfg.id}][${this.cfg.logTag}] aria2c exited (code=${code}, signal=${signal})`);
@@ -269,7 +296,14 @@ export class NativeTorrentBackend extends AbstractBackend {
       this._infoHashToGid.set(rawInfoHash, gid);
     }
 
-    const total = Number(status.totalLength) || 0;
+    // A torrent still sitting in the client's own waiting queue reports
+    // totalLength 0 while its per-file list is already complete — showing it
+    // as "0 B" hid the fact that the metadata was perfectly fine and only the
+    // start was being deferred. Fall back to the sum of the file sizes; the
+    // real totalLength always wins when the download is running (it accounts
+    // for partial file selection, which the raw sum does not).
+    const total = Number(status.totalLength)
+      || (status.files ?? []).reduce((acc, f) => acc + (Number(f.length) || 0), 0);
     const completed = Number(status.completedLength) || 0;
     const downloadSpeed = Number(status.downloadSpeed) || 0;
     const uploadSpeed = Number(status.uploadSpeed) || 0;

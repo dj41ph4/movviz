@@ -231,6 +231,10 @@ Identique à l'onglet Recherchés de la Bibliothèque — éléments surveillés
 
 Une vue filtrée de l'historique qui montre uniquement les événements échoués pour un débogage rapide.
 
+### 7.5. Non liés
+
+Liste les téléchargements importés qui ne sont rattachés à aucun film ou série suivi en bibliothèque. Le bouton **Lier** ouvre un modal pour rattacher manuellement le fichier au bon titre.
+
 ---
 
 ## 8. Recherche indexeur (/search)
@@ -450,6 +454,8 @@ Chaque indexeur affiche :
 - **TVDB** — La clé API de TheTVDB pour les métadonnées supplémentaires. Inclut un interrupteur pour utiliser TVDB spécifiquement pour les titres **anime**.
 - **OMDb** — La clé API de The Open Movie Database pour les scores Rotten Tomatoes et les évaluations Metacritic. Testez pour vérifier.
 - **Disposition Découverte** — Choisissez entre la disposition standard **Movviz** (carrousels d'affiches + classements) ou la disposition **Allociné**, qui modifie le style de la page Découverte.
+
+**Anime :** Sous-onglet dédié regroupant les réglages spécifiques à l'anime — clé TVDB, activation de TVDB pour les animes, et suivi des épisodes spéciaux (saison 0) désactivé par défaut pour les nouvelles séries.
 
 **Plex :** Intégration avec Plex Media Server.
 
@@ -694,6 +700,7 @@ Une page de détail complète pour les films et séries, montrant tout sur un ti
 - **Regarder sur Plex** — Si disponible en bibliothèque et Plex est connecté, ouvre directement le lecteur web Plex
 - **Rechercher** — Si l'élément existe en bibliothèque, déclenche une nouvelle recherche sur l'indexeur (utilisé aussi pour les mises à jour qualité)
 - **Choix manuel** — Ouvre la page de recherche indexeur pré-remplie pour la sélection manuelle de la release
+- **Modifier** (icône crayon, admin) — Ouvre un panneau pour ajuster un titre déjà en bibliothèque : voir « Modifier la fiche » ci-dessous
 - **Signet / Retirer le signet** — Ajoute ou retire de votre watchlist personnelle
 - **Bande-annonce** — Ouvre un modal avec la bande-annonce YouTube
 - **Saga** — Pour les films, lien vers la page de collection/saga TMDb
@@ -701,6 +708,23 @@ Une page de détail complète pour les films et séries, montrant tout sur un ti
 ### Badge de statut bibliothèque
 
 Affiche le statut actuel du titre dans votre bibliothèque : Disponible, En téléchargement, Recherche en cours ou Manquant.
+
+### Modifier la fiche
+
+Le bouton crayon (admin) ouvre un panneau de modification pour un titre déjà en bibliothèque :
+
+- **Suivi** — Active ou désactive le suivi automatique
+- **Profil de qualité** — Change le profil de qualité cible
+- **Emplacement du fichier** (films) — Corrige manuellement le chemin du fichier via le navigateur de dossiers intégré
+- **Autres noms** — Déclare des titres alternatifs (ex. titre original romanisé pour un anime) pour fiabiliser la recherche automatique, sans affaiblir la protection contre les faux positifs
+
+### Versions (films)
+
+Pour un film disponible, un panneau « Gestion des versions » permet de :
+- **Ajouter une version supplémentaire** — Recherche et récupère une autre qualité du même film sans remplacer la version existante
+- **Comparer** — Affiche plusieurs versions côte à côte (qualité, taille, codecs)
+- **Définir comme principale** — Change quelle version est utilisée par défaut
+- **Supprimer** — Retire une version spécifique
 
 ### Casting et Équipe
 
@@ -715,6 +739,8 @@ Pour les séries, un panneau des saisons montre chaque saison avec ses épisodes
 - Activation du suivi
 - Badge de statut
 - Bouton de recherche par saison
+
+**Épisodes spéciaux (saison 0) :** Les OAV, bonus et autres épisodes hors continuité sont suivis comme une saison normale, mais non surveillés par défaut — activez leur suivi individuellement ou globalement dans Réglages > Anime si vous les voulez.
 
 ### Mots-clés
 

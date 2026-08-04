@@ -25,6 +25,13 @@ export interface ActivityMedia {
   posterPath?: string | null;
   href: string;
   tmdbId?: number;
+  /** False only for a torrent the engine has no library association for at
+   *  all (no matching activeInfoHash, no resolvable libraryRef — e.g. added
+   *  by hand outside Movviz's own search/grab flow, or the release title
+   *  never matched anything). `title` is then just a best-effort guess
+   *  parsed from the raw torrent name, not a confirmed library match —
+   *  omitted (implicitly true) everywhere else. */
+  linked?: boolean;
 }
 
 export interface ActivityRelease {

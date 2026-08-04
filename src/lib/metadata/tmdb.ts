@@ -399,6 +399,7 @@ export async function getMovie(tmdbId: number): Promise<MetaMovie | null> {
     releaseDate: data.release_date ?? null,
     vfReleaseDate: extractFrDigitalOrPhysicalDate(data.release_dates?.results),
     collectionId: data.belongs_to_collection?.id ?? null,
+    originalTitle: data.original_title || data.title,
   };
 }
 
@@ -428,6 +429,7 @@ export async function getSeries(tmdbId: number): Promise<MetaSeries | null> {
         posterPath: s.poster_path ?? null,
         episodes: [],
       })),
+    originalTitle: data.original_name || data.name,
   };
 }
 
@@ -868,6 +870,7 @@ interface RawMovie {
   id: number;
   imdb_id?: string | null;
   title: string;
+  original_title?: string;
   release_date?: string;
   overview?: string;
   poster_path?: string | null;
@@ -901,6 +904,7 @@ function extractFrDigitalOrPhysicalDate(results: RawReleaseDatesCountry[] | unde
 interface RawSeries {
   id: number;
   name: string;
+  original_name?: string;
   first_air_date?: string;
   overview?: string;
   poster_path?: string | null;

@@ -9,6 +9,7 @@ import type { ReleaseInfo } from "@/lib/naming/types";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import { decodeLibraryRef } from "@/lib/library/types";
 import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImportedFiles";
+import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules";
 
 /**
  * Shared implementation of the "Récupérer les téléchargements" maintenance
@@ -27,19 +28,22 @@ import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImport
  * Every move is guarded (source must stay under downloadPath, destination
  * under completedPath) and executed atomically without overwrite.
  *
- * ORPHANED CLAIMS: a torrent can vanish from the engine entirely (removed
- * from the client, lost across a restart, manually deleted) while the
- * library item it was downloading is still marked "downloading" with that
- * now-unknown infoHash — its files sit in the download folder forever,
- * invisible to the engine-confirmed path above since there's no torrent
- * record left to list them. For this case only, a file is still never
- * touched blindly: it must (a) not belong to any current torrent (active or
- * otherwise — never overrides the "still downloading" guard above), (b) sit
- * quiet for a longer grace period since there's no engine "completed" signal
- * to rely on, and (c) fuzzy-match a library item that is SPECIFICALLY
- * waiting on an orphaned claim (movie downloading with an unknown hash, or a
- * series season with at least one such episode) — never any arbitrary
- * library title.
+ * UNCLAIMED FILES: a torrent can vanish from the engine entirely (removed
+ * from the client, lost across a restart, manually deleted) — its files sit
+ * in the download folder forever, invisible to the engine-confirmed path
+ * above since there's no torrent record left to list them. This covers both
+ * a library item still marked "downloading" with that now-unknown infoHash,
+ * AND one already reset back to "missing" by a stuck-download/reconciliation
+ * pass that gave up on the claim before the file was ever recovered — once
+ * that reset happens the item carries no marker at all, so requiring a live
+ * "downloading" claim would make the file invisible forever. A file is still
+ * never touched blindly: it must (a) not belong to any current torrent
+ * (active or otherwise — never overrides the "still downloading" guard
+ * above), and (b) sit quiet for a longer grace period since there's no
+ * engine "completed" signal to rely on. Once both hold, it's matched against
+ * the full library exactly like the engine-confirmed path above — the same
+ * trust level, since "no torrent currently claims this file" is the
+ * equivalent safety signal to "a completed torrent's own file list".
  */
 export interface Recovered { title: string; src: string; dest: string; size: number; season?: number; episode?: number }
 export interface Failed { src: string; size: number; reason: string }
@@ -151,6 +155,20 @@ function fuzzyMatch(parsedTitle: string, libTitle: string): boolean {
   if (pWords.length === 0 || lWords.length === 0) return false;
   const overlap = pWords.filter((w) => lWords.includes(w)).length;
   return overlap / Math.max(pWords.length, lWords.length) >= 0.6;
+}
+
+/**
+ * A scene release is always named after the ORIGINAL title, never a
+ * localized one — "New York, crime organisé" in the library vs.
+ * "Law.and.Order.Organized.Crime..." on disk share zero words, so matching
+ * against `title` alone systematically fails for any show whose French
+ * display title diverges from its original name. Checks `originalTitle`
+ * (TMDb's non-localized title, stored since it was added — see types.ts)
+ * as a second candidate when present; entries added before this field
+ * existed just fall back to title-only matching, same as before.
+ */
+function matchesTitle(parsedTitle: string, item: { title: string; originalTitle?: string | null }): boolean {
+  return fuzzyMatch(parsedTitle, item.title) || (!!item.originalTitle && fuzzyMatch(parsedTitle, item.originalTitle));
 }
 
 async function scanVideoFiles(dir: string): Promise<string[]> {
@@ -278,31 +296,12 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
     const movies = loadMovies();
     const series = loadSeries();
     const naming = loadNamingTemplates();
+    const releaseRules = loadReleaseRules();
     const recovered: Recovered[] = [];
     const failed: Failed[] = [];
     const duplicates: Duplicate[] = [];
 
     const stuckSet = new Map<string, StuckDownload>((stuck ?? []).map((s) => [s.infoHash, s]));
-
-    // Orphaned claims: a library item still says "downloading" against an
-    // infoHash the engine no longer knows about at all (as opposed to a
-    // hash it knows and reports as still actively downloading — that stays
-    // fully excluded by the allowed-set logic below, same as always).
-    const knownHashes = new Set(torrents.map((t) => t.infoHash));
-    const orphanedMovieIds = new Set(
-      movies.filter((m) => m.status === "downloading" && m.activeInfoHash && !knownHashes.has(m.activeInfoHash)).map((m) => m.id)
-    );
-    const orphanedSeriesSeasons = new Map<string, Set<number>>();
-    for (const s of series) {
-      for (const se of s.seasons) {
-        const hasOrphan = se.episodes.some((e) => e.status === "downloading" && e.activeInfoHash && !knownHashes.has(e.activeInfoHash));
-        if (hasOrphan) {
-          const set = orphanedSeriesSeasons.get(s.id) ?? new Set<number>();
-          set.add(se.seasonNumber);
-          orphanedSeriesSeasons.set(s.id, set);
-        }
-      }
-    }
 
     for (const inst of instances) {
       if (!inst.downloadPath || !inst.completedPath) {
@@ -341,74 +340,91 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
         }
       }
 
-      // A torrent gone entirely from the engine leaves candidateTorrents/
-      // allowed empty for this instance — that's exactly the orphaned-claim
-      // scenario, so this must NOT bail out early the way the engine-
-      // confirmed path alone used to; only skip when there's truly nothing
-      // to do either way.
-      const canTryOrphans = inst.category === "movie" ? orphanedMovieIds.size > 0 : orphanedSeriesSeasons.size > 0;
-      if (allowed.size === 0 && !canTryOrphans) continue;
-
       // Files belonging to ANY torrent the engine still tracks — including
       // active/paused/queued/blocked ones, not just the completed/seeding
-      // candidates above — must never be eligible for the orphan path.
+      // candidates above — must never be eligible for the unclaimed path.
       // Otherwise a stalled-but-still-downloading torrent's file (its mtime
       // frozen past ORPHAN_MIN_AGE_MS) could be misattributed to an
-      // unrelated orphaned library claim that merely shares a fuzzy-matched
-      // title (e.g. a remake/re-release), silently stealing an in-progress
-      // download.
+      // unrelated library title it merely fuzzy-matches, silently stealing
+      // an in-progress download.
       const activeTorrents = instTorrents.filter((t) => !candidateTorrents.includes(t));
       const activeFiles = new Set<string>();
-      // If any active torrent's file list can't be confirmed, the orphan
+      // If any active torrent's file list can't be confirmed, the unclaimed
       // path for this instance is disabled entirely this run rather than
       // silently trusting a partial activeFiles set — an unconfirmed active
-      // torrent's files must never be eligible for orphan-matching by
-      // omission (see review finding: a transient engine timeout must not
-      // reopen the misattribution window this whole block exists to close).
-      let orphansSafeThisInstance = canTryOrphans;
-      if (canTryOrphans) {
-        for (const t of activeTorrents) {
-          let detail: { files?: TorrentDetailFile[] } | null = null;
-          try {
-            const res = await fetch(`${ENGINE_BASE}/torrents/${t.infoHash}`, {
-              headers: engineHeaders(),
-              signal: AbortSignal.timeout(10_000),
-            });
-            if (res.ok) detail = await res.json();
-            else orphansSafeThisInstance = false;
-          } catch { orphansSafeThisInstance = false; }
-          for (const f of detail?.files ?? []) {
-            if (!f.path) continue;
-            const fp = resolveTorrentFile(inst.downloadPath, f);
-            if (isInside(inst.downloadPath, fp)) activeFiles.add(fp);
-          }
+      // torrent's files must never be eligible for unclaimed-matching by
+      // omission (a transient engine timeout must not reopen the
+      // misattribution window this whole block exists to close).
+      let filesSafeThisInstance = true;
+      for (const t of activeTorrents) {
+        let detail: { files?: TorrentDetailFile[] } | null = null;
+        try {
+          const res = await fetch(`${ENGINE_BASE}/torrents/${t.infoHash}`, {
+            headers: engineHeaders(),
+            signal: AbortSignal.timeout(10_000),
+          });
+          if (res.ok) detail = await res.json();
+          else filesSafeThisInstance = false;
+        } catch { filesSafeThisInstance = false; }
+        for (const f of detail?.files ?? []) {
+          if (!f.path) continue;
+          const fp = resolveTorrentFile(inst.downloadPath, f);
+          if (isInside(inst.downloadPath, fp)) activeFiles.add(fp);
         }
       }
 
       const files = await scanVideoFiles(inst.downloadPath);
       for (const fp of files) {
         const engineConfirmed = allowed.has(fp);
-        if (!engineConfirmed && (!orphansSafeThisInstance || activeFiles.has(fp))) continue; // file of an active torrent or foreign — never touch
+        if (!engineConfirmed && (!filesSafeThisInstance || activeFiles.has(fp))) continue; // file of an active torrent or unconfirmed — never touch
 
         const age = await getFileAgeMs(fp);
         if (age < (engineConfirmed ? 30_000 : ORPHAN_MIN_AGE_MS)) continue;
 
         const size = await fsp.stat(fp).then((s) => s.size).catch(() => 0);
         const basename = path.basename(fp);
-        const parsed = parseRelease(basename);
+        let parsed = parseRelease(basename);
+        // Some releases (fansub-style season packs especially) name each
+        // episode file after its own episode title only — "01 - Ryusui vs.
+        // Senku.mkv" — with the show name and season living solely in the
+        // containing folder ("Dr.Stone.S04.MULTI...-AnimesForAll"). The file's
+        // own basename never parses a season in that case, so fall back to
+        // the parent folder's name (only ever consulted when the file itself
+        // gave up), keeping the folder's title/season/quality but recovering
+        // the episode number from the file's own leading digits.
+        if (inst.category === "series" && parsed.season == null) {
+          const folderParsed = parseRelease(path.basename(path.dirname(fp)));
+          if (folderParsed.season != null) {
+            const epMatch = basename.match(/^\D*(\d{1,3})\b/);
+            parsed = { ...folderParsed, episode: epMatch ? parseInt(epMatch[1], 10) : folderParsed.episode };
+          }
+        }
         const parsedTitle = parsed.title;
         if (!parsedTitle || parsedTitle.length < 2) {
           failed.push({ src: fp, size, reason: "Impossible d'extraire un titre du nom de fichier" });
           continue;
         }
 
+        // Same reasoning as applyImportedFiles.ts's post-import safety net —
+        // a file's real name can carry a blocked term the original search
+        // never saw (the indexer's own advertised title can differ from
+        // what's actually inside the torrent). Recovery works from files
+        // already sitting on disk with no grab decision to have blocked in
+        // the first place, so this is the only checkpoint before it would
+        // otherwise get silently imported as a normal available file.
+        const blockedTerm = matchesBlockedWord(basename, releaseRules) ?? matchesBlockedWord(path.basename(path.dirname(fp)), releaseRules);
+        if (blockedTerm) {
+          failed.push({ src: fp, size, reason: `Terme interdit détecté : "${blockedTerm}"` });
+          continue;
+        }
+
         let dest: string | null = null;
+        let destRoot = inst.completedPath;
         let label = "";
         let importRef: import("@/lib/library/applyImportedFiles").LibraryImportRef | null = null;
 
         if (inst.category === "movie") {
-          const moviePool = engineConfirmed ? movies : movies.filter((m) => orphanedMovieIds.has(m.id));
-          const match = moviePool.find((m) => fuzzyMatch(parsedTitle, m.title));
+          const match = movies.find((m) => matchesTitle(parsedTitle, m));
           if (match) {
             const ctx = buildContext({ ...parsed, title: match.title, year: String(match.year ?? "") } as ReleaseInfo);
             const folder = renderSegment(naming.movieFolder, ctx, naming.useDotsInsteadOfSpaces);
@@ -419,17 +435,8 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
             importRef = { kind: "movie", movieId: match.id };
           }
         } else if (inst.category === "series") {
-          const seriesPool = engineConfirmed ? series : series.filter((s) => orphanedSeriesSeasons.has(s.id));
-          const sMatch = seriesPool.find((s) => fuzzyMatch(parsedTitle, s.title));
-          if (sMatch) {
-            if (parsed.season == null) {
-              failed.push({ src: fp, size, reason: `Série "${sMatch.title}" trouvée mais saison non détectée` });
-              continue;
-            }
-            if (!engineConfirmed && !orphanedSeriesSeasons.get(sMatch.id)?.has(parsed.season)) {
-              failed.push({ src: fp, size, reason: `Série "${sMatch.title}" trouvée mais aucun épisode orphelin pour la saison ${parsed.season}` });
-              continue;
-            }
+          const sMatch = series.find((s) => matchesTitle(parsedTitle, s));
+          if (sMatch && parsed.season != null) {
             const ctx = buildContext({ ...parsed, title: sMatch.title, year: String(sMatch.year ?? "") } as ReleaseInfo);
             const seriesFolder = renderSegment(naming.seriesFolder, ctx, naming.useDotsInsteadOfSpaces);
             // Specials always land in a literal "Specials" folder — see the
@@ -444,16 +451,74 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
             // by the file's parsed episode/range — the same matching the
             // engine's season-pack import callback performs.
             importRef = { kind: "season", seriesId: sMatch.id, season: parsed.season };
+          } else {
+            // A release with no season marker inside a series-category
+            // download isn't necessarily an episode gone unparsed — franchise
+            // "INTEGRALE" packs routinely bundle standalone TV movies
+            // alongside the show itself (e.g. "Ben 10: Alien X-Tinction"
+            // shipped inside a Ben 10 series pack). Falls back to the movie
+            // library before giving up, using the MOVIE instance's own
+            // completedPath since this file physically sits under the
+            // series instance's downloadPath but belongs in the film library.
+            const movieMatch = movies.find((m) => matchesTitle(parsedTitle, m));
+            const movieInst = instances.find((i) => i.category === "movie");
+            if (movieMatch && movieInst?.completedPath) {
+              const ctx = buildContext({ ...parsed, title: movieMatch.title, year: String(movieMatch.year ?? "") } as ReleaseInfo);
+              const folder = renderSegment(naming.movieFolder, ctx, naming.useDotsInsteadOfSpaces);
+              const file = renderSegment(naming.movieFile, ctx, naming.useDotsInsteadOfSpaces);
+              const ext = path.extname(fp);
+              dest = path.join(movieInst.completedPath, folder, file + ext);
+              destRoot = movieInst.completedPath;
+              label = movieMatch.title;
+              importRef = { kind: "movie", movieId: movieMatch.id };
+            } else if (sMatch) {
+              failed.push({ src: fp, size, reason: `Série "${sMatch.title}" trouvée mais saison non détectée` });
+              continue;
+            }
           }
         }
 
         if (dest) {
-          if (!isInside(inst.completedPath, dest)) {
+          if (!isInside(destRoot, dest)) {
             failed.push({ src: fp, size, reason: "Destination hors du dossier de la bibliothèque — récupération ignorée" });
             continue;
           }
           try {
-            try { await fsp.access(dest); failed.push({ src: fp, size, reason: "Existe déjà dans la bibliothèque" }); duplicates.push({ src: fp, size }); continue; } catch {}
+            const destStat = await fsp.stat(dest).catch(() => null);
+            if (destStat) {
+              // The file was already imported once — a duplicate grab (e.g.
+              // a torrent whose libraryRef was lost across an engine restart
+              // before it could import, see locks.ts) downloaded the same
+              // episode again. The source copy is redundant (surfaced below
+              // via `duplicates` for manual cleanup), but the library itself
+              // can still be stuck reporting "missing"/"downloading" for an
+              // episode that's genuinely already available — every scheduled
+              // search then re-grabs it, compounding the duplicate downloads
+              // forever. Reconcile the library status here using the file
+              // that's ALREADY at its destination, same shared path as a
+              // normal import.
+              if (importRef) {
+                const fileEntry: ImportedFile = {
+                  path: dest,
+                  quality: null,
+                  resolution: parsed.resolution,
+                  videoCodec: parsed.videoCodec,
+                  audioCodec: parsed.audioCodec,
+                  hdr: parsed.hdr,
+                  source: parsed.source,
+                  size: destStat.size,
+                  season: parsed.season,
+                  episode: parsed.episode,
+                  episodeEnd: parsed.episodeEnd,
+                };
+                try {
+                  await applyImportedFiles(importRef, [fileEntry], undefined);
+                } catch { /* best-effort — duplicate cleanup below still applies regardless */ }
+              }
+              failed.push({ src: fp, size, reason: "Existe déjà dans la bibliothèque" });
+              duplicates.push({ src: fp, size });
+              continue;
+            }
             await fsp.mkdir(path.dirname(dest), { recursive: true });
             await moveNoOverwrite(fp, dest);
             recovered.push({ title: label, src: fp, dest, size, season: parsed.season ?? undefined, episode: parsed.episode ?? undefined });

@@ -265,6 +265,19 @@ export const it: Dictionary = {
     addVersion: {
       warning: "Questa ricerca ignora i normali limiti di qualità e dimensione per trovare una versione alternativa. Le regole di sicurezza restano attive.",
     },
+    edit: {
+      title: "Modifica scheda",
+      monitored: "Monitorato",
+      qualityProfile: "Profilo qualità",
+      location: "Posizione del file",
+      noFile: "Nessun file collegato",
+      browse: "Sfoglia",
+      locationError: "Impossibile collegare questo file.",
+      aliases: "Altri nomi",
+      aliasesHint: "Un altro nome noto di questo titolo (es. il titolo originale romanizzato) — usato solo per riconoscere le release che lo aggiungono al nome, mai mostrato altrove.",
+      aliasesPlaceholder: "Aggiungi un altro nome…",
+      save: "Salva",
+    },
   },
 
   person: {
@@ -578,6 +591,8 @@ export const it: Dictionary = {
     intro: "Configura cosa appare nel centro attività e rivedi le impostazioni di rilevamento degli aggiornamenti.",
     empty: "Nessuna attività ancora.",
     seasonPack: "Stagione {season} — pack ({count} episodi)",
+    queueUnlinkedBadge: "Non collegato — titolo indovinato",
+    queueUnlinkedHint: "Questo download non è collegato a nessun film/serie della libreria — titolo dedotto dal nome del file, da verificare.",
     completeSeriesPack: "Serie completa — {count} episodi",
     completeSeriesPackSeason: "Serie completa — {count} episodi / {seasons} stagioni",
     integralSearchFor: "Serie completa — {title}",
@@ -720,6 +735,7 @@ export const it: Dictionary = {
       grab_series: "{title} — serie completa recuperata ({count} ep.)",
       upgrade_candidates_found: "{count} sostituzione/i suggerita/e disponibile/i",
       downloads_recovered: "{count} download completato/i recuperato/i dalla cartella di download",
+      import_blocked_word: "{title} — download rimosso (termine vietato \"{term}\" rilevato a posteriori)",
     },
     transport: {
       discord: "Discord",

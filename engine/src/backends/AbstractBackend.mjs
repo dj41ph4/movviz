@@ -1087,6 +1087,23 @@ export class AbstractBackend {
         target.episode >= info.episode && target.episode <= info.episodeEnd) return true;
     if (info.season == null || info.episode == null) {
       const pathSeason = this._seasonFromPath(f.path);
+      // Neither the filename nor the containing folder carries a season at
+      // all — a single-file torrent (numbered-episode-title fansub release,
+      // e.g. "02 - Le donjon evolue.mkv") lands directly under the download
+      // root with no wrapping folder, so there's no path to read a season
+      // from either. Confirmed live: this silently dropped a fully-completed
+      // download back to "missing" every time. The grab itself already knows
+      // which season this target belongs to — that's what was searched for —
+      // so trust it instead of demanding independent folder confirmation
+      // that simply can't exist for this release shape, and fall back to the
+      // same embedded-episode-number heuristic used below.
+      if (pathSeason == null && info.season == null) {
+        const nums = [...f.name.replace(VIDEO_EXT_RE, "").matchAll(/(\d+)/g)];
+        for (const n of nums) {
+          if (parseInt(n[1], 10) === target.episode) return true;
+        }
+        return false;
+      }
       if (pathSeason == null) return false;
       if (pathSeason !== target.season) return false;
       if (info.season == null && info.episode === target.episode) return true;

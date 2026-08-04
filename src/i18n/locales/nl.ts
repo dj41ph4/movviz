@@ -265,6 +265,19 @@ export const nl: Dictionary = {
     addVersion: {
       warning: "Deze zoekopdracht negeert de gebruikelijke kwaliteits- en groottelimieten om een alternatieve versie te vinden. Veiligheidsregels blijven actief.",
     },
+    edit: {
+      title: "Item bewerken",
+      monitored: "Gevolgd",
+      qualityProfile: "Kwaliteitsprofiel",
+      location: "Bestandslocatie",
+      noFile: "Geen bestand gekoppeld",
+      browse: "Bladeren",
+      locationError: "Kon dit bestand niet koppelen.",
+      aliases: "Andere namen",
+      aliasesHint: "Een andere bekende naam voor deze titel (bijv. de geromaniseerde originele titel) — alleen gebruikt om releases te herkennen die hem aan de naam plakken, nooit ergens getoond.",
+      aliasesPlaceholder: "Nog een naam toevoegen…",
+      save: "Opslaan",
+    },
   },
 
   person: {
@@ -578,6 +591,8 @@ export const nl: Dictionary = {
     intro: "Configureer wat er in het activiteitencentrum verschijnt en bekijk de upgrade-detectie-instellingen.",
     empty: "Nog geen activiteit.",
     seasonPack: "Seizoen {season} — pakket ({count} afleveringen)",
+    queueUnlinkedBadge: "Niet gekoppeld — geraden titel",
+    queueUnlinkedHint: "Deze download is aan geen enkele film/serie in de bibliotheek gekoppeld — titel geraden op basis van de bestandsnaam, controleer dit.",
     completeSeriesPack: "Volledige serie — {count} afleveringen",
     completeSeriesPackSeason: "Volledige serie — {count} afleveringen / {seasons} seizoenen",
     integralSearchFor: "Volledige serie — {title}",
@@ -720,6 +735,7 @@ export const nl: Dictionary = {
       grab_series: "{title} — complete serie opgehaald ({count} afl.)",
       upgrade_candidates_found: "{count} voorgestelde vervanging(en) beschikbaar",
       downloads_recovered: "{count} voltooide download(s) hersteld vanuit de downloadmap",
+      import_blocked_word: "{title} — download verwijderd (verboden term \"{term}\" achteraf gedetecteerd)",
     },
     transport: {
       discord: "Discord",

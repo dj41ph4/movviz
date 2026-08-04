@@ -281,6 +281,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
       plexRatingKey: item.ratingKey,
       plexMediaInfo: item.mediaDetail ?? null,
       tmdbCollectionId: meta.collectionId,
+      originalTitle: meta.originalTitle,
     };
     addMovie(movie);
     added++;
@@ -343,6 +344,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         addedAt: Date.now(),
         tags: ["plex"],
         plexRatingKey: show.ratingKey,
+        originalTitle: meta.originalTitle,
       });
       added++;
       continue;

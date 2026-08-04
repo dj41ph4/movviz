@@ -270,27 +270,28 @@ export const TASKS: ScheduledTask[] = [
     // between completion and import, failed move, lost callback) leaves its
     // files in the download folder while the library item stays stuck on
     // "downloading" — invisible to the wanted list AND never re-searchable.
-    // Detects exactly those (completed torrent + still-claimed hash) and
-    // recovers the files through the same idempotent logic as the manual
-    // "Récupérer les téléchargements" maintenance action.
+    // This used to only call detectStuckDownloads() first and bail out
+    // entirely when it found nothing — but that function requires the
+    // torrent to STILL be present and completed/seeding in the engine's own
+    // list. Confirmed live, repeatedly, this session: a torrent can vanish
+    // from the engine ENTIRELY (crash, restart, manual cleanup) while its
+    // files sit untouched on disk — invisible to detectStuckDownloads, only
+    // ever found by the full blind scan the manual "Récupérer les
+    // téléchargements" button runs. That gap meant genuinely recoverable
+    // files (Law & Order, Dr. Stone, Doctor Who, Pokémon — all hit live) sat
+    // unrecovered until someone remembered to click the button by hand. Runs
+    // the same full scan on a schedule now that this session's fixes
+    // (originalTitle matching, folder-name fallback, movie-in-series-pack
+    // fallback, post-import blocklist re-check) have made it safe and
+    // reliable enough to trust unattended.
     run: async () => {
-      const { detectStuckDownloads, recoverDownloads } = await import("@/lib/library/recoverDownloads");
-      let stuck: Awaited<ReturnType<typeof detectStuckDownloads>>;
+      const { recoverDownloads } = await import("@/lib/library/recoverDownloads");
       try {
-        stuck = await detectStuckDownloads();
-      } catch (e) {
-        console.error("[scheduler] stuck-downloads-recover: détection impossible —", (e as Error).message);
-        return;
-      }
-      if (stuck.length === 0) return;
-      try {
-        // Restrict the recovery to the stuck torrents themselves — never a
-        // blind scan of the download folder (see recoverDownloads).
-        const result = await recoverDownloads(stuck);
+        const result = await recoverDownloads();
         if (result.recovered.length > 0) {
           emitNotification("downloads_recovered", `${result.recovered.length} téléchargement(s) terminé(s) récupéré(s) depuis le dossier de téléchargement`, "/activity?tab=queue", { count: result.recovered.length });
         }
-        console.log(`[scheduler] stuck-downloads-recover: ${stuck.length} coincé(s), ${result.recovered.length} récupéré(s), ${result.failed.length} échec(s), ${result.duplicates.length} doublon(s)`);
+        console.log(`[scheduler] stuck-downloads-recover: ${result.recovered.length} récupéré(s), ${result.failed.length} ignoré(s), ${result.duplicates.length} doublon(s)`);
       } catch (e) {
         console.error("[scheduler] stuck-downloads-recover failed:", (e as Error).message);
       }

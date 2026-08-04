@@ -51,12 +51,12 @@ function isDuplicateOfOwnedVersion(
 /** Runs the shared filter chain over a raw release list, producing sorted VersionCandidates. */
 function filterCandidates(
   releases: IndexerRelease[],
-  movie: Parameters<typeof isDuplicateOfOwnedVersion>[0] & { title: string; year: number | null },
+  movie: Parameters<typeof isDuplicateOfOwnedVersion>[0] & { title: string; year: number | null; aliases?: string[] },
   rules: ReturnType<typeof loadReleaseRules>
 ): VersionCandidate[] {
   return releases
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title))
+    .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []))
     .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
     .filter(({ release }) => !isRecentlyFailedRelease(release.infoHash))

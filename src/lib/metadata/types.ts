@@ -18,6 +18,7 @@ export interface MetaMovie {
   releaseDate: string | null; // ISO date, exact — year alone isn't enough for a calendar
   vfReleaseDate: string | null; // France digital/physical release date — when the title is actually obtainable
   collectionId: number | null; // TMDb franchise id (belongs_to_collection) — null if this movie isn't part of one
+  originalTitle: string; // TMDb's non-localized title — what a scene release is actually named after
 }
 
 export interface MetaEpisode {
@@ -53,6 +54,7 @@ export interface MetaSeries {
   status: string; // "Returning Series", "Ended", ...
   isAnime: boolean; // Japanese origin + Animation genre — triggers TVDB episode metadata when enabled
   seasons: MetaSeason[]; // summary only (no episodes) when listed from search
+  originalTitle: string; // TMDb's non-localized title — what a scene release is actually named after
 }
 
 export interface MetaSearchResult {

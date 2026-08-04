@@ -23,6 +23,10 @@ export function RecoverDownloadsPanel() {
     summary: string;
   } | null>(null);
   const [cleaning, setCleaning] = useState(false);
+  const [cleaningUnmatched, setCleaningUnmatched] = useState(false);
+
+  const NO_MATCH_REASON = "Aucune correspondance trouvée dans la bibliothèque";
+  const unmatched = result?.failed.filter((f) => f.reason === NO_MATCH_REASON) ?? [];
 
   const run = async () => {
     if (!(await confirmDialog("Scanner le dossier de téléchargement à la recherche de fichiers non importés ? Les fichiers seront renommés et déplacés vers la bibliothèque.", { tone: "default" }))) return;
@@ -60,6 +64,31 @@ export function RecoverDownloadsPanel() {
     }
   };
 
+  // Only the exact "no match at all" reason is offered for deletion — other
+  // failure reasons (season not detected, destination outside the library,
+  // engine unreachable...) are transient or still fixable (e.g. adding the
+  // show to the library later lets the next scan match it), so deleting on
+  // those would be destroying a file the next run could still recover.
+  const cleanUnmatched = async () => {
+    if (!unmatched.length) return;
+    if (!(await confirmDialog(`Supprimer ${unmatched.length} fichier(s) sans correspondance dans la bibliothèque ? Ces fichiers ne correspondent à aucun film/série suivi — action irréversible.`, { tone: "danger" }))) return;
+    setCleaningUnmatched(true);
+    try {
+      const res = await fetch("/api/maintenance/recover-downloads", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ files: unmatched.map((f) => f.src) }),
+      });
+      const data = await res.json() as { deleted?: number };
+      if (data.deleted) {
+        setResult((prev) => prev ? { ...prev, failed: prev.failed.filter((f) => f.reason !== NO_MATCH_REASON) } : null);
+        toast("success", `${data.deleted} fichier(s) sans correspondance supprimé(s)`);
+      }
+    } finally {
+      setCleaningUnmatched(false);
+    }
+  };
+
   return (
     <div className="rounded-2xl glass p-5">
       <div className="mb-4 flex items-start gap-3">
@@ -91,6 +120,17 @@ export function RecoverDownloadsPanel() {
           >
             {cleaning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
             Effacer {result.duplicates.length} doublon(s)
+          </button>
+        ) : null}
+        {unmatched.length ? (
+          <button
+            onClick={cleanUnmatched}
+            disabled={cleaningUnmatched}
+            title="Ces fichiers ne correspondent à aucun film/série suivi dans la bibliothèque"
+            className="flex h-10 items-center gap-2 rounded-xl bg-down/15 px-4 text-sm font-semibold text-down transition-colors hover:bg-down/25 disabled:opacity-50"
+          >
+            {cleaningUnmatched ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            Effacer {unmatched.length} sans correspondance
           </button>
         ) : null}
       </div>

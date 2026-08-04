@@ -97,6 +97,7 @@ export async function importMovieCandidate(
     plexRatingKey: null,
     plexMediaInfo: null,
     tmdbCollectionId: meta.collectionId,
+    originalTitle: meta.originalTitle,
   };
   addMovie(movie);
   void notifySeerrStatus("movie", tmdbId, "available").catch(() => {});
@@ -178,6 +179,7 @@ export async function importSeriesCandidate(
     addedAt: Date.now(),
     tags: [],
     plexRatingKey: null,
+    originalTitle: meta.originalTitle,
   };
   addSeries(series);
   return { ok: true, kind: "series", id: series.id };

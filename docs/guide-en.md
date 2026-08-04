@@ -231,6 +231,10 @@ Same as the Library Wanted tab — missing monitored items that can be searched 
 
 A filtered view of history showing only failed events for quick debugging.
 
+### 7.5. Unlinked
+
+Lists imported downloads that aren't attached to any monitored movie or series in the library. The **Link** button opens a modal to manually attach the file to the right title.
+
 ---
 
 ## 8. Indexer Search (/search)
@@ -450,6 +454,8 @@ Each indexer shows:
 - **TVDB** — TheTVDB API key for supplemental metadata. Includes a toggle to use TVDB specifically for **anime** titles.
 - **OMDb** — The Open Movie Database API key for Rotten Tomatoes scores and Metacritic ratings. Test to verify.
 - **Discover Layout** — Choose between the standard **Movviz** layout (poster carousels + rankings) or the **Allociné** layout, which changes the Discover page styling.
+
+**Anime:** Dedicated sub-tab grouping anime-specific settings — TVDB key, enabling TVDB for anime, and monitoring of special episodes (season 0), which is off by default for new series.
 
 **Plex:** Plex Media Server integration.
 
@@ -694,6 +700,7 @@ A comprehensive detail page for movies and series, showing everything about a ti
 - **Watch on Plex** — If available in the library and Plex is connected, opens directly in the Plex web player
 - **Search** — If the item exists in the library, triggers a new indexer search (also used for quality upgrades)
 - **Manual pick** — Opens the indexer search page pre-filled for manual release selection
+- **Edit** (pencil icon, admin) — Opens a panel to adjust a title already in the library: see "Edit title" below
 - **Bookmark / Unbookmark** — Add or remove from your personal watchlist
 - **Trailer** — Opens a modal with the YouTube trailer
 - **Saga** — For movies, links to the TMDb collection/saga page
@@ -701,6 +708,23 @@ A comprehensive detail page for movies and series, showing everything about a ti
 ### Library status badge
 
 Shows the current library status of the title: Available, Downloading, Searching, or Missing.
+
+### Edit title
+
+The pencil button (admin) opens an edit panel for a title already in the library:
+
+- **Monitored** — Enables or disables automatic monitoring
+- **Quality profile** — Changes the target quality profile
+- **File location** (movies) — Manually corrects the file path via the built-in folder browser
+- **Alternate titles** — Declares alternate titles (e.g. original romanized title for an anime) to make automatic search more reliable, without weakening false-positive protection
+
+### Versions (movies)
+
+For an available movie, a "Version management" panel lets you:
+- **Add another version** — Search and grab another quality of the same movie without replacing the existing version
+- **Compare** — Show multiple versions side by side (quality, size, codecs)
+- **Set as primary** — Change which version is used by default
+- **Delete** — Remove a specific version
 
 ### Cast and Crew
 
@@ -715,6 +739,8 @@ For series, a seasons panel shows each season with its episodes. Each episode sh
 - Monitor toggle
 - Status badge
 - Season-wide search button
+
+**Special episodes (season 0):** OVAs, extras, and other out-of-continuity episodes are tracked like a regular season, but not monitored by default — enable their monitoring individually or globally in Settings > Anime if you want them.
 
 ### Keywords
 

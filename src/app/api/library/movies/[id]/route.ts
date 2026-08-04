@@ -27,9 +27,16 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const patch = await req.json();
-  const allowed = ["monitored", "qualityProfileId", "tags"] as const;
+  const allowed = ["monitored", "qualityProfileId", "tags", "aliases"] as const;
   const clean: Record<string, unknown> = {};
   for (const k of allowed) if (k in patch) clean[k] = patch[k];
+  // aliases feeds release matching, so it can't be trusted raw like a purely
+  // cosmetic field: keep only non-empty strings, drop the key entirely if the
+  // client sent something that isn't an array at all.
+  if ("aliases" in clean) {
+    if (!Array.isArray(clean.aliases)) delete clean.aliases;
+    else clean.aliases = (clean.aliases as unknown[]).filter((a): a is string => typeof a === "string" && a.trim() !== "").map((a) => a.trim());
+  }
   const updated = updateMovie((await params).id, clean);
   return updated ? NextResponse.json(updated) : NextResponse.json({ error: "not found" }, { status: 404 });
 }

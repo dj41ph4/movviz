@@ -265,6 +265,19 @@ export const de: Dictionary = {
     addVersion: {
       warning: "Diese Suche ignoriert die üblichen Qualitäts- und Größenlimits, um eine alternative Version zu finden. Die Sicherheitsregeln bleiben aktiv.",
     },
+    edit: {
+      title: "Eintrag bearbeiten",
+      monitored: "Überwacht",
+      qualityProfile: "Qualitätsprofil",
+      location: "Dateispeicherort",
+      noFile: "Keine Datei verknüpft",
+      browse: "Durchsuchen",
+      locationError: "Diese Datei konnte nicht verknüpft werden.",
+      aliases: "Weitere Namen",
+      aliasesHint: "Ein weiterer bekannter Name dieses Titels (z. B. der romanisierte Originaltitel) — dient nur dazu, Releases zu erkennen, die ihn an den Namen anhängen, wird sonst nirgends angezeigt.",
+      aliasesPlaceholder: "Weiteren Namen hinzufügen…",
+      save: "Speichern",
+    },
   },
 
   person: {
@@ -578,6 +591,8 @@ export const de: Dictionary = {
     intro: "Konfiguriere, was im Aktivitätszentrum erscheint, und überprüfe die Upgrade-Erkennungseinstellungen.",
     empty: "Noch keine Aktivität.",
     seasonPack: "Staffel {season} — Paket ({count} Episoden)",
+    queueUnlinkedBadge: "Nicht verknüpft — vermuteter Titel",
+    queueUnlinkedHint: "Dieser Download ist mit keinem Film/keiner Serie der Bibliothek verknüpft — Titel aus dem Dateinamen geraten, zur Überprüfung.",
     completeSeriesPack: "Komplette Serie — {count} Episoden",
     completeSeriesPackSeason: "Komplette Serie — {count} Episoden / {seasons} Staffeln",
     integralSearchFor: "Komplette Serie — {title}",
@@ -720,6 +735,7 @@ export const de: Dictionary = {
       grab_series: "{title} — komplette Serie abgerufen ({count} Folgen)",
       upgrade_candidates_found: "{count} vorgeschlagene(r) Ersatz verfügbar",
       downloads_recovered: "{count} abgeschlossene(r) Download(s) aus dem Download-Ordner wiederhergestellt",
+      import_blocked_word: "{title} — Download entfernt (verbotener Begriff \"{term}\" nachträglich erkannt)",
     },
     transport: {
       discord: "Discord",

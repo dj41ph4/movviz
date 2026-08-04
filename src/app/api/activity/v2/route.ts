@@ -16,6 +16,7 @@ import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { decodeLibraryRef } from "@/lib/library/types";
 import type { User } from "@/lib/auth/types";
 import { computeHashIndex, type HashIndexResult, type HashIndexEntry } from "@/lib/library/hashIndexCompute";
+import { parseRelease } from "@/lib/naming/parser";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -242,7 +243,26 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
               href: `/title/series/${seriesMatch.series.tmdbId}`,
               tmdbId: seriesMatch.series.tmdbId,
             }
-          : { id: t.infoHash, title: t.name, type: "movie", href: "#" };
+          // No hash-index or libraryRef match at all — a torrent added by
+          // hand outside Movviz's own search/grab flow, or one whose
+          // libraryRef pointed at a since-deleted library item. The raw
+          // torrent name alone (e.g. "Pokemon.S04...") rarely tells an admin
+          // which of several same-franchise entries it might belong to —
+          // parsing it at least surfaces a best-effort title/season guess
+          // instead of the bare filename, and `linked: false` lets the UI
+          // show it's an unconfirmed guess, not a real match.
+          : (() => {
+              const parsed = parseRelease(t.name);
+              return {
+                id: t.infoHash,
+                title: parsed.title || t.name,
+                type: parsed.season != null ? "series" : "movie",
+                season: parsed.season ?? undefined,
+                episode: parsed.episode ?? undefined,
+                href: "#",
+                linked: false,
+              } as ActivityMedia;
+            })();
 
       // t.timeRemaining is milliseconds (engine's summary()); QueueItem.download.eta
       // is documented/consumed as seconds everywhere downstream, so convert here.

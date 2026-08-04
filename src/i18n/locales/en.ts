@@ -265,6 +265,19 @@ export const en: Dictionary = {
     addVersion: {
       warning: "This search ignores the usual quality and size limits in order to find an alternate version. Safety rules stay active.",
     },
+    edit: {
+      title: "Edit item",
+      monitored: "Monitored",
+      qualityProfile: "Quality profile",
+      location: "File location",
+      noFile: "No file linked",
+      browse: "Browse",
+      locationError: "Couldn't link this file.",
+      aliases: "Other names",
+      aliasesHint: "Another known name for this title (e.g. the romanized original title) — used only to recognise releases that append it to the name, never displayed anywhere else.",
+      aliasesPlaceholder: "Add another name…",
+      save: "Save",
+    },
   },
 
   person: {
@@ -578,6 +591,8 @@ export const en: Dictionary = {
     intro: "Configure what appears in the activity center and review the upgrade detection settings.",
     empty: "No activity yet.",
     seasonPack: "Season {season} — pack ({count} episodes)",
+    queueUnlinkedBadge: "Unlinked — guessed title",
+    queueUnlinkedHint: "This download isn't linked to any library movie/series — title guessed from the filename, worth double-checking.",
     completeSeriesPack: "Complete series — {count} episodes",
     completeSeriesPackSeason: "Complete series — {count} episodes / {seasons} seasons",
     integralSearchFor: "Complete series — {title}",
@@ -720,6 +735,7 @@ export const en: Dictionary = {
       grab_series: "{title} — complete series grabbed ({count} ep.)",
       upgrade_candidates_found: "{count} suggested replacement(s) available",
       downloads_recovered: "{count} completed download(s) recovered from the download folder",
+      import_blocked_word: "{title} — download removed (blocked term \"{term}\" detected after the fact)",
     },
     transport: {
       discord: "Discord",

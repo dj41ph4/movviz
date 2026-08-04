@@ -14,6 +14,8 @@ import { SeasonAccordion } from "@/components/title/SeasonAccordion";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { IntegralSearchModal } from "@/components/search/IntegralSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
+import { EditTitleModal } from "@/components/title/EditTitleModal";
+import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import { BrandIcon } from "@/components/ui/BrandIcon";
 import { TagEditor } from "@/components/library/TagEditor";
 import { MediaBadges, buildMediaBadgeItems } from "@/components/library/MediaBadges";
@@ -28,7 +30,7 @@ import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import {
   Star, Plus, Check, Loader2, Bookmark,
   Clock, HardDriveDownload, Search, SearchCheck, Hash, Play,
-  ListFilter, Layers, ChevronDown, Calendar, X, Trash2, RefreshCw,
+  ListFilter, Layers, ChevronDown, Calendar, X, Trash2, RefreshCw, Pencil,
   type LucideIcon,
 } from "lucide-react";
 
@@ -137,9 +139,11 @@ type LibraryListItem = {
   file?: LibraryFile | null;
   versions?: LibraryFileVersion[];
   monitored?: boolean;
+  qualityProfileId?: string;
   plexUrl?: string | null;
   plexRatingKey?: string | null;
   tags?: string[];
+  aliases?: string[];
   plexMediaInfo?: {
     container: string | null;
     bitrate: number | null;
@@ -241,6 +245,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const [searchingComplete, setSearchingComplete] = useState(false);
   const [integralSearchOpen, setIntegralSearchOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [manualSearch, setManualSearch] = useState<{
     libraryRef: string;
     query: string;
@@ -885,9 +890,18 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 libraryId={libraryMatch.id}
                 className="h-10 w-10 backdrop-blur"
               />
+              {user?.role === "admin" && (
+                <button
+                  onClick={() => setEditOpen(true)}
+                  title={t("title.edit.title")}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
               <button
                 onClick={remove}
-                className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-down"
+                className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-down transition-transform hover:scale-110 active:scale-90"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -1001,7 +1015,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 <button
                   onClick={addToLibrary}
                   disabled={adding}
-                  className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white transition-transform hover:scale-105 disabled:opacity-50"
+                  className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95 disabled:opacity-50"
                 >
                   {adding ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -1016,7 +1030,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                     betaPlayer && libraryMatch?.plexRatingKey ? (
                       <button
                         onClick={() => setPlayRatingKey(libraryMatch.plexRatingKey!)}
-                        className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105"
+                        className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
                       >
                         <Play className="h-4 w-4 fill-black" />
                         {t("library.watchOnPlex")}
@@ -1027,7 +1041,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         target="_blank"
                         rel="noreferrer"
                         onClick={(e) => openPlexLink(e, libraryMatch.plexUrl!)}
-                        className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105"
+                        className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
                       >
                         <Play className="h-4 w-4 fill-black" />
                         {t("library.watchOnPlex")}
@@ -1044,7 +1058,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                           : t("activity.searchNow")
                       }
                       className={cn(
-                        "flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-bold backdrop-blur transition-transform hover:scale-105",
+                        "flex h-11 items-center gap-2 rounded-xl px-5 text-sm font-bold backdrop-blur transition-transform hover:scale-105 active:scale-95",
                         libraryStatus === "available"
                           ? "bg-white/10 text-white/80 hover:text-white"
                           : "bg-cyan/80 text-white",
@@ -1062,7 +1076,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                     <button
                       onClick={openManualSearch}
                       title={t("library.manualSearch")}
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white"
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white active:scale-90"
                     >
                       <ListFilter className="h-4 w-4" />
                     </button>
@@ -1075,7 +1089,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                           ? t("title.versions.title", { count: libraryMatch.versions.length })
                           : t("title.versions.manage")
                       }
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white"
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white active:scale-90"
                     >
                       <Layers className="h-4 w-4" />
                     </button>
@@ -1087,7 +1101,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 disabled={watching}
                 title={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
                 className={cn(
-                  "flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-transform hover:scale-110",
+                  "flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-transform hover:scale-110 active:scale-90",
                   onWatchlist ? "text-brand-glow" : "text-white/80 hover:text-white",
                 )}
               >
@@ -1106,7 +1120,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 <button
                   onClick={() => setShowTrailer(true)}
                   title={t("title.trailer")}
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white active:scale-90"
                 >
                   <Play className="h-4 w-4" />
                 </button>
@@ -1115,7 +1129,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 <Link
                   href={`/collection/${detail.collection.id}`}
                   title={t("title.saga")}
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white"
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white active:scale-90"
                 >
                   <Layers className="h-4 w-4" />
                 </Link>
@@ -1440,6 +1454,20 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           title={detail.title}
           versions={libraryMatch.versions?.length ? libraryMatch.versions : libraryMatch.file ? [{ ...libraryMatch.file, id: "primary", versionSource: "unknown", reason: "Acquisition initiale", primary: true }] : []}
           onClose={() => setVersionsOpen(false)}
+          onChange={() => mutateLibrary()}
+        />
+      )}
+
+      {editOpen && libraryMatch?.id && (
+        <EditTitleModal
+          type={type}
+          id={libraryMatch.id}
+          title={detail.title}
+          monitored={libraryMatch.monitored ?? true}
+          qualityProfileId={libraryMatch.qualityProfileId ?? defaultQualityProfile().id}
+          aliases={libraryMatch.aliases ?? []}
+          filePath={libraryMatch.file?.path}
+          onClose={() => setEditOpen(false)}
           onChange={() => mutateLibrary()}
         />
       )}

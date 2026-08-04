@@ -108,6 +108,13 @@ export interface LibraryMovie {
   activeInfoHash: string | null;
   addedAt: number;
   tags: string[];
+  /**
+   * Admin-supplied alternate names for this title (e.g. the romanized
+   * original-language title). Only used by release matching, to accept
+   * releases that glue an alias onto the official title — never displayed.
+   * Optional: undefined means "none", so existing entries need no backfill.
+   */
+  aliases?: string[];
   /** Plex library item id — set by the Plex library sync, powers "Watch on Plex". */
   plexRatingKey: string | null;
   /** Rich media metadata from Plex (streams, chapters, container, bitrate). */
@@ -118,6 +125,19 @@ export interface LibraryMovie {
    * existed — backfilled by the "scan for sagas" pass instead of on every read).
    */
   tmdbCollectionId?: number | null;
+  /**
+   * TMDb's original (non-localized) title — e.g. "Law and Order: Organized
+   * Crime" for a movie whose French `title` is completely different. Needed
+   * because a scene release is always named after the original title, never
+   * the localized one: any matching done purely by filename (recovering an
+   * orphaned download with no libraryRef to lean on) has to check both.
+   * A normal grab never needs this — it already knows exactly which title
+   * it's downloading via libraryRef, so the imported file is renamed using
+   * the library's own `title` regardless of what the release was called.
+   * `undefined` for entries added before this field existed (backfilled by
+   * the TVDB/anime sync-all pass for series; not yet for movies).
+   */
+  originalTitle?: string | null;
 }
 
 export interface LibraryEpisode {
@@ -158,8 +178,12 @@ export interface LibrarySeries {
   seasons: LibrarySeason[];
   addedAt: number;
   tags: string[];
+  /** See the identical field on LibraryMovie — alternate names used only by release matching. */
+  aliases?: string[];
   /** Plex library item id (the show) — set by the Plex library sync, powers "Watch on Plex". */
   plexRatingKey: string | null;
+  /** See the identical field on LibraryMovie for why this exists. */
+  originalTitle?: string | null;
 }
 
 /**

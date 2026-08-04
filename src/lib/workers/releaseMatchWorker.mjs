@@ -251,9 +251,27 @@ function sequelNumbersConflict(parsedTitle, targetTitle) {
   return a.base === b.base && a.num !== b.num;
 }
 
+/** Mirror of matching.ts's matchesConcatenatedAlias — exact "official title +
+ *  alias" concatenation (either order), the anime "localized title +
+ *  romanized original title glued on" pattern. Exact-match only on purpose:
+ *  it's an opt-in, admin-confirmed exception to titleSimilarity()'s
+ *  extra-words penalty, not a loosening of it. */
+function matchesConcatenatedAlias(parsedTitle, targetTitle, aliases) {
+  const np = normalizeTitle(parsedTitle);
+  const nt = normalizeTitle(targetTitle);
+  if (!np || !nt) return false;
+  for (const alias of aliases) {
+    const na = normalizeTitle(alias);
+    if (!na) continue;
+    if (np === `${nt} ${na}`.trim() || np === `${na} ${nt}`.trim()) return true;
+  }
+  return false;
+}
+
 function releaseTitleMatches(parsedTitle, targetTitle, aliases = []) {
   const candidates = [targetTitle, ...aliases];
   if (candidates.some((t) => sequelNumbersConflict(parsedTitle, t))) return false;
+  if (matchesConcatenatedAlias(parsedTitle, targetTitle, aliases)) return true;
   return candidates.some((t) => titleSimilarity(parsedTitle, t) >= TITLE_MATCH_THRESHOLD);
 }
 

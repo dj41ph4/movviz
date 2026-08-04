@@ -8,7 +8,11 @@ import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { takePendingVersionIntent } from "@/lib/library/pendingVersionIntent";
 import { addVersion, setPrimaryFile } from "@/lib/library/versions";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
+import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules";
+import { recordDecision } from "@/lib/library/decisionLog";
+import { withKeyLock } from "@/lib/library/locks";
 import path from "node:path";
+import fsp from "node:fs/promises";
 
 export interface ImportedFile {
   path: string;
@@ -89,6 +93,84 @@ async function deleteOptimizedOldFile(oldPath: string, newFilePath: string): Pro
   }
 }
 
+/** Same root-validated deletion pattern as deleteOptimizedOldFile — never an
+ *  arbitrary path, only one confirmed to sit under a known completed-library
+ *  root. Used to remove a file quarantined by checkPostImportBlockedWord. */
+async function deleteQuarantinedFile(filePath: string): Promise<void> {
+  try {
+    const res = await fetch(`${ENGINE_BASE}/instances`, {
+      headers: engineHeaders(),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return;
+    const { instances } = await res.json() as { instances?: Array<{ completedPath?: string }> };
+    const roots = (instances ?? []).map((i) => path.resolve(i.completedPath ?? "")).filter(Boolean);
+    const resolved = path.resolve(filePath);
+    if (!roots.some((root) => resolved.startsWith(root + path.sep))) return;
+    await fsp.unlink(resolved).catch(() => {});
+  } catch {
+    // Engine unreachable — leave the file rather than guess.
+  }
+}
+
+/**
+ * Second-layer blocklist enforcement. The pre-grab filter (decisionGuard.ts)
+ * only ever sees the INDEXER'S OWN advertised release title — confirmed live
+ * that a release can ship with an actual torrent name that diverges from
+ * what the indexer listed it as (e.g. indexer search result said "Japonais",
+ * the real torrent was named "...SUBFRENCH..."), silently smuggling a
+ * blocked term straight past the pre-download filter since there was nothing
+ * to catch it on at grab time. By the time applyImportedFiles runs, the
+ * engine knows the torrent's real name — checked here, in the one shared
+ * import path both the engine callback and the recover-downloads fallback
+ * already go through, so this closes the gap for both at once.
+ */
+async function checkPostImportBlockedWord(infoHash: string | undefined): Promise<string | null> {
+  if (!infoHash) return null;
+  try {
+    const res = await fetch(`${ENGINE_BASE}/torrents/${infoHash}`, {
+      headers: engineHeaders(),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const detail = await res.json() as { name?: string };
+    if (!detail.name) return null;
+    return matchesBlockedWord(detail.name, loadReleaseRules());
+  } catch {
+    return null;
+  }
+}
+
+/** Reverts whatever this import targeted back to "missing" so the next
+ *  scheduled search retries it, and returns a human-readable label for the
+ *  notification/decision log. Mirrors releaseIfOrphaned's own condition
+ *  (only reverts an episode that's still "downloading" against this exact
+ *  infoHash) so it never clobbers an unrelated concurrent grab. */
+function revertBlockedImport(ref: LibraryImportRef, infoHash: string | undefined): string {
+  if (ref.kind === "movie") {
+    const movie = getMovie(ref.movieId);
+    if (!movie) return "?";
+    // Same guard as releaseIfOrphaned below — only revert if this movie is
+    // still actually claimed by the exact torrent being quarantined. Without
+    // this, a newer grab that started between the blocked torrent completing
+    // and this async check running (duplicate/retried engine callback,
+    // manual re-grab) would get its own in-progress state stomped back to
+    // "missing" by a check that's really about the OLD, blocked download.
+    if (!infoHash || movie.activeInfoHash === infoHash) {
+      updateMovie(movie.id, { status: "missing", activeInfoHash: null });
+    }
+    return movie.title;
+  }
+  const series = getSeries(ref.seriesId);
+  if (!series) return "?";
+  const seasons = series.seasons.map((season) => ({
+    ...season,
+    episodes: season.episodes.map((ep) => releaseIfOrphaned(ep, infoHash)),
+  }));
+  updateSeries(series.id, { seasons });
+  return ref.kind === "series" ? `${series.title} — intégrale` : ref.kind === "season" ? `${series.title} — saison ${ref.season}` : `${series.title} — ${ref.season}x${String(ref.episode).padStart(2, "0")}`;
+}
+
 /**
  * Shared implementation of the engine's import callback (and of the
  * recover-downloads fallback import): apply a list of moved files to the
@@ -97,6 +179,25 @@ async function deleteOptimizedOldFile(oldPath: string, newFilePath: string): Pro
  * state, so there is exactly one implementation.
  */
 export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedFile[], infoHash?: string) {
+  const lockKey = ref.kind === "movie" ? `movie:${ref.movieId}` : `series:${ref.seriesId}`;
+  return withKeyLock(lockKey, () => applyImportedFilesLocked(ref, files, infoHash));
+}
+
+async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFile[], infoHash?: string) {
+  const blockedTerm = await checkPostImportBlockedWord(infoHash);
+  if (blockedTerm) {
+    for (const f of files) await deleteQuarantinedFile(f.path);
+    const label = revertBlockedImport(ref, infoHash);
+    recordDecision({
+      refTitle: label,
+      releaseTitle: files[0]?.path ? path.basename(files[0].path) : label,
+      decision: "rejected",
+      reasons: [{ type: "blocked_word", message: `Terme interdit détecté après téléchargement : "${blockedTerm}"` }],
+    });
+    emitNotification("import_blocked_word", `${label} — téléchargement supprimé (terme interdit "${blockedTerm}" détecté)`, "/library", { title: label, term: blockedTerm });
+    return { ok: false as const, error: "blocked_word" };
+  }
+
   if (ref.kind === "movie") {
     const movie = getMovie(ref.movieId);
     if (!movie) return { ok: false as const, error: "movie not found" };

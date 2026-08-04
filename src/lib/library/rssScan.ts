@@ -19,12 +19,12 @@ export async function rssMatchIndexers() {
   const parsedReleases = releases.map((r) => parseRelease(r.title));
 
   const missingMovies = loadMovies().filter((m) => m.monitored && m.status === "missing");
-  const missingSeasons: { seriesId: string; seriesTitle: string; season: number }[] = [];
+  const missingSeasons: { seriesId: string; seriesTitle: string; seriesAliases: string[]; season: number }[] = [];
   for (const series of loadSeries()) {
     if (!series.monitored) continue;
     for (const season of series.seasons) {
       if (season.episodes.some((e) => e.monitored && e.status === "missing")) {
-        missingSeasons.push({ seriesId: series.id, seriesTitle: series.title, season: season.seasonNumber });
+        missingSeasons.push({ seriesId: series.id, seriesTitle: series.title, seriesAliases: series.aliases ?? [], season: season.seasonNumber });
       }
     }
   }
@@ -52,7 +52,7 @@ export async function rssMatchIndexers() {
   for (const parsed of parsedReleases) {
     for (const movie of missingMovies) {
       if (grabbedMovies.has(movie.id)) continue;
-      if (!releaseTitleMatches(parsed.title, movie.title) || !yearIsCompatible(parsed.year, movie.year)) continue;
+      if (!releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []) || !yearIsCompatible(parsed.year, movie.year)) continue;
       grabbedMovies.add(movie.id);
       const result = await searchAndGrabMovie(movie.id);
       if ("ok" in result && result.ok) grabbed++;
@@ -63,7 +63,7 @@ export async function rssMatchIndexers() {
       if (seriesFullyGrabbed.has(s.seriesId)) continue;
       const key = `${s.seriesId}.${s.season}`;
       if (grabbedSeasons.has(key)) continue;
-      if (parsed.season !== s.season || !releaseTitleMatches(parsed.title, s.seriesTitle)) continue;
+      if (parsed.season !== s.season || !releaseTitleMatches(parsed.title, s.seriesTitle, s.seriesAliases)) continue;
       grabbedSeasons.add(key);
       // RSS just signals a release exists for this season — do a proper
       // pack-first search (falls back to per-episode) rather than grabbing

@@ -96,14 +96,14 @@ function isMeaningfulUpgrade(candidate: { release: IndexerRelease; parsed: Retur
  */
 function computeSafeMatches(
   releases: IndexerRelease[],
-  movie: { title: string; year: number | null },
+  movie: { title: string; year: number | null; aliases?: string[] },
   currentResolution: string | null,
   rules: ReturnType<typeof loadReleaseRules>,
   profile: { allowedResolutions: string[] }
 ) {
   return releases
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title))
+    .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []))
     .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
     .filter(({ parsed }) => parsed.resolution && profile.allowedResolutions.includes(parsed.resolution))

@@ -17,7 +17,8 @@ export type NotificationKind =
   | "grab_season"
   | "grab_series"
   | "upgrade_candidates_found"
-  | "downloads_recovered";
+  | "downloads_recovered"
+  | "import_blocked_word";
 
 export interface NotificationItem {
   id: string;

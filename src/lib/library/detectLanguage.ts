@@ -2,8 +2,41 @@ import { parseRelease } from "@/lib/naming/parser";
 import type { LibraryFile } from "./types";
 
 export interface PlexLanguageSource {
-  audioStreams: { language: string | null }[];
+  audioStreams: { language: string | null; codec?: string }[];
   subtitleStreams: { language: string | null }[];
+}
+
+/** Locale → prefixes an actual Plex stream language/languageCode can carry
+ *  for that language (full English name from `language`, ISO 639-1/2/3
+ *  variants from `languageCode`) — e.g. "French"/"fr"/"fre"/"fra" all mean
+ *  the same French track. */
+const LOCALE_LANGUAGE_PREFIXES: Record<string, string[]> = {
+  fr: ["french", "fr", "fre", "fra"],
+  en: ["english", "en", "eng"],
+  it: ["italian", "it", "ita"],
+  nl: ["dutch", "nl", "nld", "dut"],
+  de: ["german", "de", "ger", "deu"],
+};
+
+/**
+ * Picks the audio track matching Movviz's own selected UI language — a file
+ * can have English EAC3 and French AAC at once, and which one is "the" audio
+ * codec badge shouldn't depend on stream order in the source file (Plex/
+ * ffprobe just report them in whatever order the container stores them).
+ * Returns null when no stream matches (falls back to whatever the caller
+ * already had — unaffected file/parsed-based codec detection is unchanged).
+ */
+export function findAudioStreamForLocale(
+  info: PlexLanguageSource | null | undefined,
+  locale: string
+): { language: string | null; codec?: string } | null {
+  if (!info?.audioStreams.length) return null;
+  const prefixes = LOCALE_LANGUAGE_PREFIXES[locale];
+  if (!prefixes) return null;
+  return info.audioStreams.find((s) => {
+    const lang = (s.language ?? "").toLowerCase();
+    return lang && prefixes.some((p) => lang.startsWith(p));
+  }) ?? null;
 }
 
 export function deriveLanguageFromPlex(info: PlexLanguageSource | null | undefined): string | null {

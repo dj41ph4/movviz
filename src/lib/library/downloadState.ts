@@ -1,3 +1,4 @@
+import path from "node:path";
 import { engineGet } from "@/lib/engine/server";
 import {
   getMovieByActiveHash,
@@ -8,6 +9,8 @@ import {
 } from "@/lib/library/store";
 import type { LibrarySeries, LibraryEpisode, LibraryFile, LibraryStatus } from "@/lib/library/types";
 import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
+import { parseRelease } from "@/lib/naming/parser";
+import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImportedFiles";
 
 /**
  * Keeps library "downloading" badges honest. A movie/episode flips to
@@ -85,8 +88,27 @@ export function releaseAllDownloadClaims(infoHash: string) {
  * actually has, and releases the ones whose torrent is gone or no longer
  * actively downloading. Skips entirely when the engine is unreachable.
  */
+/** Builds an ImportedFile by parsing the moved file's own name — same
+ *  fallback pattern recoverDownloads.ts uses for orphaned files. */
+function importedFileFromMovedPath(movedTo: string, size: number): ImportedFile {
+  const parsed = parseRelease(path.basename(movedTo));
+  return {
+    path: movedTo,
+    quality: null,
+    resolution: parsed.resolution,
+    videoCodec: parsed.videoCodec,
+    audioCodec: parsed.audioCodec,
+    hdr: parsed.hdr,
+    source: parsed.source,
+    size,
+    season: parsed.season,
+    episode: parsed.episode,
+    episodeEnd: parsed.episodeEnd,
+  };
+}
+
 export async function reconcileDownloadingItems(): Promise<{ released: number }> {
-  const data = await engineGet<{ torrents: { infoHash: string; state: string }[] }>("torrents");
+  const data = await engineGet<{ torrents: { infoHash: string; state: string; movedTo?: string; length?: number }[] }>("torrents");
   if (!data) return { released: 0 };
 
   // A torrent that exists but is completed/seeding/paused/stalled is NOT
@@ -95,17 +117,28 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
   // mouvement, règle produit) is still a live torrent that can recover —
   // it stays claimed so the library badge isn't falsely released.
   const ACTIVE_STATES = new Set(["downloading", "metadata", "queued", "blocked"]);
-  const isActivelyDownloading = new Map(data.torrents.map((t) => [t.infoHash, ACTIVE_STATES.has(t.state)]));
+  const torrentsByHash = new Map(data.torrents.map((t) => [t.infoHash, t]));
+  const isActivelyDownloading = (infoHash: string) => ACTIVE_STATES.has(torrentsByHash.get(infoHash)?.state ?? "");
 
   let released = 0;
   for (const movie of loadMovies()) {
     if (movie.status === "downloading" && movie.activeInfoHash) {
-      const active = isActivelyDownloading.get(movie.activeInfoHash);
-      if (active === false || active === undefined) {
-        const newStatus = movie.file ? "available" : "missing";
-        updateMovie(movie.id, { status: newStatus, activeInfoHash: null });
-        if (newStatus === "available") {
-          void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});
+      const infoHash = movie.activeInfoHash;
+      const t = torrentsByHash.get(infoHash);
+      if (!isActivelyDownloading(infoHash)) {
+        // The file already sits on disk at its final library path (import
+        // succeeded engine-side) but the library never recorded it — a
+        // concurrent import write for another title/episode raced this one
+        // and clobbered it (see locks.ts). Adopt the file instead of
+        // discarding it and forcing a wasted re-download.
+        if (t?.movedTo) {
+          await applyImportedFiles({ kind: "movie", movieId: movie.id }, [importedFileFromMovedPath(t.movedTo, t.length ?? 0)], infoHash);
+        } else {
+          const newStatus = movie.file ? "available" : "missing";
+          updateMovie(movie.id, { status: newStatus, activeInfoHash: null });
+          if (newStatus === "available") {
+            void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});
+          }
         }
         released++;
       }
@@ -115,10 +148,19 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
     for (const season of series.seasons) {
       for (const ep of season.episodes) {
         if (ep.status === "downloading" && ep.activeInfoHash) {
-          const active = isActivelyDownloading.get(ep.activeInfoHash);
-          if (active === false || active === undefined) {
-            const current = loadSeries().find((s) => s.id === series.id);
-            if (current) patchEpisode(current, season.seasonNumber, ep.episodeNumber, { status: ep.file ? "available" : "missing", activeInfoHash: null });
+          const infoHash = ep.activeInfoHash;
+          const t = torrentsByHash.get(infoHash);
+          if (!isActivelyDownloading(infoHash)) {
+            if (t?.movedTo) {
+              await applyImportedFiles(
+                { kind: "episode", seriesId: series.id, season: season.seasonNumber, episode: ep.episodeNumber },
+                [importedFileFromMovedPath(t.movedTo, t.length ?? 0)],
+                infoHash
+              );
+            } else {
+              const current = loadSeries().find((s) => s.id === series.id);
+              if (current) patchEpisode(current, season.seasonNumber, ep.episodeNumber, { status: ep.file ? "available" : "missing", activeInfoHash: null });
+            }
             released++;
           }
         }

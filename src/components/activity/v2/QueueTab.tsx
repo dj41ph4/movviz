@@ -579,26 +579,45 @@ const QueueItemRow = memo(function QueueItemRow({
 
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
-              <Link href={item.media?.href ?? "#"} className="truncate font-semibold text-ink hover:text-brand-glow">
-                {item.media.title}
-                {item.media.packEpisodeCount ? (
-                  <span className="text-ink-dim">
-                    {" — "}
-                    {item.media.season === 0
-                      ? item.media.seasonCount && item.media.seasonCount > 1
-                        ? t("activity.completeSeriesPackSeason", { count: item.media.packEpisodeCount ?? 0, seasons: item.media.seasonCount })
-                        : t("activity.completeSeriesPack", { count: item.media.packEpisodeCount ?? 0 })
-                      : t("activity.seasonPack", { season: item.media.season ?? 0, count: item.media.packEpisodeCount ?? 0 })}
-                  </span>
-                ) : item.media.season && item.media.episode ? (
-                  <span className="text-ink-dim">
-                    {" — "}
-                    {`S${item.media.season}E${String(item.media.episode).padStart(2, "0")}`}
-                  </span>
-                ) : null}
-              </Link>
+              {item.media.linked === false ? (
+                <span className="truncate font-semibold text-ink" title={t("activity.queueUnlinkedHint")}>
+                  {item.media.title}
+                  {item.media.season != null && (
+                    <span className="text-ink-dim">
+                      {" — "}
+                      {item.media.episode != null
+                        ? `S${item.media.season}E${String(item.media.episode).padStart(2, "0")}`
+                        : `S${item.media.season}`}
+                    </span>
+                  )}
+                </span>
+              ) : (
+                <Link href={item.media?.href ?? "#"} className="truncate font-semibold text-ink hover:text-brand-glow">
+                  {item.media.title}
+                  {item.media.packEpisodeCount ? (
+                    <span className="text-ink-dim">
+                      {" — "}
+                      {item.media.season === 0
+                        ? item.media.seasonCount && item.media.seasonCount > 1
+                          ? t("activity.completeSeriesPackSeason", { count: item.media.packEpisodeCount ?? 0, seasons: item.media.seasonCount })
+                          : t("activity.completeSeriesPack", { count: item.media.packEpisodeCount ?? 0 })
+                        : t("activity.seasonPack", { season: item.media.season ?? 0, count: item.media.packEpisodeCount ?? 0 })}
+                    </span>
+                  ) : item.media.season && item.media.episode ? (
+                    <span className="text-ink-dim">
+                      {" — "}
+                      {`S${item.media.season}E${String(item.media.episode).padStart(2, "0")}`}
+                    </span>
+                  ) : null}
+                </Link>
+              )}
               <span className="shrink-0 whitespace-nowrap font-mono text-[11px] text-ink-dim">{formatDateTime(item.addedAt, locale)}</span>
             </div>
+            {item.media.linked === false && (
+              <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-amber/25 bg-amber/12 px-2 py-0.5 text-[10px] font-bold text-amber">
+                <AlertCircle className="h-2.5 w-2.5" /> {t("activity.queueUnlinkedBadge")}
+              </span>
+            )}
 
             <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-ink-dim">
               <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold",

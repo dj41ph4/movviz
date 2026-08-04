@@ -231,6 +231,10 @@ Uguale alla scheda Ricercati della Libreria — elementi monitorati mancanti che
 
 Una vista filtrata della cronologia che mostra solo gli eventi falliti per un debug rapido.
 
+### 7.5. Non collegati
+
+Elenca i download importati che non sono associati a nessun film o serie monitorati in libreria. Il pulsante **Collega** apre un modale per associare manualmente il file al titolo corretto.
+
 ---
 
 ## 8. Ricerca Indexer (/search)
@@ -450,6 +454,8 @@ Ogni indexer mostra:
 - **TVDB** — La chiave API di TheTVDB per metadati supplementari. Include un'interruttore per usare TVDB specificamente per i titoli **anime**.
 - **OMDb** — La chiave API di The Open Movie Database per punteggi Rotten Tomatoes e valutazioni Metacritic. Testa per verificare.
 - **Layout Scopri** — Scegli tra il layout standard **Movviz** (caroselli di poster + classifiche) o il layout **Allociné**, che modifica lo stile della pagina Scopri.
+
+**Anime:** Sotto-scheda dedicata che raggruppa le impostazioni specifiche per l'anime — chiave TVDB, attivazione di TVDB per gli anime e monitoraggio degli episodi speciali (stagione 0), disattivato di default per le nuove serie.
 
 **Plex:** Integrazione con Plex Media Server.
 
@@ -679,6 +685,7 @@ Una pagina di dettaglio completa per film e serie, che mostra tutto su un titolo
 - **Guarda su Plex** — Se disponibile in libreria e Plex è connesso, apre direttamente il lettore web Plex
 - **Cerca** — Se l'elemento esiste in libreria, attiva una nuova ricerca sull'indexer (usato anche per aggiornamenti di qualità)
 - **Scelta manuale** — Apre la pagina di ricerca indexer pre-compilata per la selezione manuale della release
+- **Modifica** (icona matita, admin) — Apre un pannello per modificare un titolo già in libreria: vedi "Modifica scheda" qui sotto
 - **Segnalibro / Rimuovi segnalibro** — Aggiungi o rimuovi dalla tua watchlist personale
 - **Trailer** — Apre un modale con il trailer di YouTube
 - **Saga** — Per i film, collega alla pagina della collezione/saga TMDb
@@ -686,6 +693,23 @@ Una pagina di dettaglio completa per film e serie, che mostra tutto su un titolo
 ### Badge stato libreria
 
 Mostra lo stato corrente del titolo nella tua libreria: Disponibile, In download, Ricerca in corso o Mancante.
+
+### Modifica scheda
+
+Il pulsante matita (admin) apre un pannello di modifica per un titolo già in libreria:
+
+- **Monitorato** — Attiva o disattiva il monitoraggio automatico
+- **Profilo di qualità** — Cambia il profilo di qualità target
+- **Posizione file** (film) — Corregge manualmente il percorso del file tramite il navigatore di cartelle integrato
+- **Titoli alternativi** — Dichiara titoli alternativi (es. titolo originale romanizzato per un anime) per rendere più affidabile la ricerca automatica, senza indebolire la protezione contro i falsi positivi
+
+### Versioni (film)
+
+Per un film disponibile, un pannello "Gestione versioni" permette di:
+- **Aggiungere una versione supplementare** — Cerca e recupera un'altra qualità dello stesso film senza sostituire la versione esistente
+- **Confrontare** — Mostra più versioni fianco a fianco (qualità, dimensione, codec)
+- **Impostare come principale** — Cambia quale versione viene usata di default
+- **Eliminare** — Rimuove una versione specifica
 
 ### Cast e Troupe
 
@@ -700,6 +724,8 @@ Per le serie, un pannello delle stagioni mostra ogni stagione con i suoi episodi
 - Attivazione monitoraggio
 - Badge di stato
 - Pulsante di ricerca per stagione
+
+**Episodi speciali (stagione 0):** OAV, contenuti bonus e altri episodi fuori continuità sono monitorati come una stagione normale, ma non monitorati di default — attiva il loro monitoraggio individualmente o globalmente in Impostazioni > Anime se li vuoi.
 
 ### Parole chiave
 

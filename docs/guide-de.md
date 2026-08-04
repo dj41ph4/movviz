@@ -231,6 +231,10 @@ Gleich wie der Gewünscht-Tab in der Bibliothek — fehlende überwachte Element
 
 Eine gefilterte Ansicht des Verlaufs, die nur fehlgeschlagene Ereignisse zur schnellen Fehlersuche anzeigt.
 
+### 7.5. Nicht verknüpft
+
+Listet importierte Downloads auf, die keinem überwachten Film oder keiner überwachten Serie in der Bibliothek zugeordnet sind. Die Schaltfläche **Verknüpfen** öffnet ein Modal, um die Datei manuell dem richtigen Titel zuzuordnen.
+
 ---
 
 ## 8. Indexer-Suche (/search)
@@ -450,6 +454,8 @@ Jeder Indexer zeigt:
 - **TVDB** — Der API-Schlüssel von TheTVDB für zusätzliche Metadaten. Enthält einen Schalter, um TVDB speziell für **Anime**-Titel zu verwenden.
 - **OMDb** — Der API-Schlüssel von The Open Movie Database für Rotten Tomatoes-Bewertungen und Metacritic-Werte. Testen zur Überprüfung.
 - **Entdecken-Layout** — Wähle zwischen dem Standard-**Movviz**-Layout (Poster-Karussells + Ranglisten) oder dem **Allociné**-Layout, das den Stil der Entdecken-Seite anpasst.
+
+**Anime:** Eigener Unterreiter mit anime-spezifischen Einstellungen — TVDB-Schlüssel, Aktivierung von TVDB für Anime und Überwachung von Sonderepisoden (Staffel 0), standardmäßig deaktiviert für neue Serien.
 
 **Plex:** Integration mit Plex Media Server.
 
@@ -683,6 +689,7 @@ Eine umfassende Detailseite für Filme und Serien, die alles über einen Titel z
 - **Auf Plex ansehen** — Wenn in der Bibliothek verfügbar und Plex verbunden ist, öffnet direkt den Plex-Web-Player
 - **Suchen** — Wenn das Element in der Bibliothek existiert, starte eine neue Indexersuche (auch für Qualitätsaktualisierungen verwendet)
 - **Manuelle Auswahl** — Öffnet die vorausgefüllte Indexersuche-Seite zur manuellen Release-Auswahl
+- **Bearbeiten** (Bleistift-Symbol, Admin) — Öffnet ein Panel zum Anpassen eines bereits in der Bibliothek vorhandenen Titels: siehe "Titel bearbeiten" unten
 - **Lesezeichen / Lesezeichen entfernen** — Zur persönlichen Watchlist hinzufügen oder daraus entfernen
 - **Trailer** — Öffnet ein Modal mit dem YouTube-Trailer
 - **Saga** — Für Filme, verlinkt zur TMDb-Sammlungs-/Saga-Seite
@@ -690,6 +697,23 @@ Eine umfassende Detailseite für Filme und Serien, die alles über einen Titel z
 ### Bibliotheksstatus-Badge
 
 Zeigt den aktuellen Status des Titels in deiner Bibliothek: Verfügbar, Wird heruntergeladen, Suche läuft oder Fehlt.
+
+### Titel bearbeiten
+
+Die Bleistift-Schaltfläche (Admin) öffnet ein Bearbeitungspanel für einen bereits in der Bibliothek vorhandenen Titel:
+
+- **Überwacht** — Aktiviert oder deaktiviert die automatische Überwachung
+- **Qualitätsprofil** — Ändert das Ziel-Qualitätsprofil
+- **Dateispeicherort** (Filme) — Korrigiert den Dateipfad manuell über den integrierten Ordner-Browser
+- **Alternative Titel** — Legt alternative Titel fest (z. B. originaler romanisierter Titel für einen Anime), um die automatische Suche zuverlässiger zu machen, ohne den Schutz vor Fehlalarmen zu schwächen
+
+### Versionen (Filme)
+
+Für einen verfügbaren Film ermöglicht ein Panel "Versionsverwaltung":
+- **Weitere Version hinzufügen** — Sucht und lädt eine andere Qualität desselben Films herunter, ohne die vorhandene Version zu ersetzen
+- **Vergleichen** — Zeigt mehrere Versionen nebeneinander an (Qualität, Größe, Codecs)
+- **Als primär festlegen** — Ändert, welche Version standardmäßig verwendet wird
+- **Löschen** — Entfernt eine bestimmte Version
 
 ### Besetzung und Crew
 
@@ -704,6 +728,8 @@ Für Serien zeigt ein Staffel-Panel jede Staffel mit ihren Episoden. Jede Episod
 - Überwachungs-Umschalter
 - Status-Badge
 - Such-Button pro Staffel
+
+**Sonderepisoden (Staffel 0):** OVAs, Extras und andere Episoden außerhalb der Kontinuität werden wie eine normale Staffel verfolgt, aber standardmäßig nicht überwacht — aktiviere ihre Überwachung individuell oder global in Einstellungen > Anime, falls gewünscht.
 
 ### Schlüsselwörter
 

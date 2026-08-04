@@ -43,7 +43,7 @@ export function ReportIssueButton({
     <>
       <button
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}
-        className={cn("flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-ink-soft transition-colors hover:text-amber", className)}
+        className={cn("flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-ink-soft transition-all hover:text-amber hover:scale-110 active:scale-90", className)}
         title={t("issues.report")}
       >
         <Flag className="h-3.5 w-3.5" />

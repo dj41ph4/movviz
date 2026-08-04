@@ -231,6 +231,10 @@ Hetzelfde als het tabblad Gezocht in de Bibliotheek — ontbrekende gemonitorde 
 
 Een gefilterde weergave van de geschiedenis die alleen mislukte gebeurtenissen toont voor snelle foutopsporing.
 
+### 7.5. Niet gekoppeld
+
+Toont geïmporteerde downloads die niet zijn gekoppeld aan een gemonitorde film of serie in de bibliotheek. De knop **Koppelen** opent een modaal om het bestand handmatig aan de juiste titel te koppelen.
+
 ---
 
 ## 8. Indexer Zoeken (/search)
@@ -450,6 +454,8 @@ Elke indexer toont:
 - **TVDB** — De API-sleutel van TheTVDB voor aanvullende metadata. Bevat een schakelaar om TVDB specifiek voor **anime**-titels te gebruiken.
 - **OMDb** — De API-sleutel van The Open Movie Database voor Rotten Tomatoes-scores en Metacritic-beoordelingen. Testen om te verifiëren.
 - **Ontdekken-lay-out** — Kies tussen de standaard **Movviz**-lay-out (postercarrousels + ranglijsten) of de **Allociné**-lay-out, die de stijl van de Ontdekken-pagina aanpast.
+
+**Anime:** Aparte subtab met anime-specifieke instellingen — TVDB-sleutel, TVDB inschakelen voor anime, en monitoring van speciale afleveringen (seizoen 0), standaard uitgeschakeld voor nieuwe series.
 
 **Plex:** Integratie met Plex Media Server.
 
@@ -679,6 +685,7 @@ Een uitgebreide detailpagina voor films en series, die alles over een titel toon
 - **Bekijken op Plex** — Indien beschikbaar in bibliotheek en Plex is verbonden, opent direct de Plex-webspeler
 - **Zoeken** — Als het item in de bibliotheek bestaat, start een nieuwe indexer-zoekopdracht (ook gebruikt voor kwaliteitsupdates)
 - **Handmatige keuze** — Opent de vooringevulde indexerzoekpagina voor handmatige release-selectie
+- **Bewerken** (potloodpictogram, beheerder) — Opent een paneel om een titel die al in de bibliotheek staat aan te passen: zie "Titel bewerken" hieronder
 - **Bladwijzer / Bladwijzer verwijderen** — Toevoegen aan of verwijderen uit je persoonlijke watchlist
 - **Trailer** — Opent een modaal met de YouTube-trailer
 - **Saga** — Voor films, linkt naar de TMDb-collectie-/sagapagina
@@ -686,6 +693,23 @@ Een uitgebreide detailpagina voor films en series, die alles over een titel toon
 ### Bibliotheekstatusbadge
 
 Toont de huidige status van de titel in je bibliotheek: Beschikbaar, Aan het downloaden, Bezig met zoeken of Ontbrekend.
+
+### Titel bewerken
+
+De potloodknop (beheerder) opent een bewerkingspaneel voor een titel die al in de bibliotheek staat:
+
+- **Gemonitord** — Schakelt automatische monitoring in of uit
+- **Kwaliteitsprofiel** — Wijzigt het doel-kwaliteitsprofiel
+- **Bestandslocatie** (films) — Corrigeert het bestandspad handmatig via de ingebouwde mapverkenner
+- **Alternatieve titels** — Geeft alternatieve titels op (bijv. originele geromaniseerde titel voor een anime) om automatisch zoeken betrouwbaarder te maken, zonder de bescherming tegen valse positieven te verzwakken
+
+### Versies (films)
+
+Voor een beschikbare film biedt een paneel "Versiebeheer" de mogelijkheid om:
+- **Extra versie toevoegen** — Een andere kwaliteit van dezelfde film zoeken en ophalen zonder de bestaande versie te vervangen
+- **Vergelijken** — Meerdere versies naast elkaar tonen (kwaliteit, grootte, codecs)
+- **Als primair instellen** — Wijzigen welke versie standaard wordt gebruikt
+- **Verwijderen** — Een specifieke versie verwijderen
 
 ### Cast en Crew
 
@@ -700,6 +724,8 @@ Voor series toont een seizoenenpaneel elk seizoen met zijn afleveringen. Elke af
 - Monitoringschakelaar
 - Statusbadge
 - Zoekknop per seizoen
+
+**Speciale afleveringen (seizoen 0):** OVA's, extra's en andere afleveringen buiten de continuïteit worden gevolgd als een normaal seizoen, maar standaard niet gemonitord — schakel monitoring individueel of globaal in via Instellingen > Anime als je ze wilt.
 
 ### Trefwoorden
 

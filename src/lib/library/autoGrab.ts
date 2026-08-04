@@ -65,6 +65,7 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
     activeInfoHash: null,
     addedAt: Date.now(),
     tags: [],
+    originalTitle: meta.originalTitle,
     plexRatingKey: null,
     plexMediaInfo: null,
     tmdbCollectionId: meta.collectionId,
@@ -140,6 +141,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
   const matched = await getReleaseMatchPool().run({
     releases: releases.map((r) => ({ title: r.title })),
     targetTitle: movie.title,
+    aliases: movie.aliases ?? [],
     targetYear: movie.year,
   });
   const candidates = matched.survivors
@@ -186,6 +188,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
       const matched2 = await getReleaseMatchPool().run({
         releases: directReleases.map((r) => ({ title: r.title })),
         targetTitle: movie.title,
+        aliases: movie.aliases ?? [],
         targetYear: movie.year,
       });
       const candidates2 = matched2.survivors
@@ -326,6 +329,7 @@ export async function checkQualityUpgrades() {
     const matchedUpgrade = await getReleaseMatchPool().run({
       releases: releases.map((r) => ({ title: r.title })),
       targetTitle: movie.title,
+      aliases: movie.aliases ?? [],
       targetYear: movie.year,
     });
     const better = matchedUpgrade.survivors

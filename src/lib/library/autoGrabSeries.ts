@@ -27,6 +27,7 @@ import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { searchTv, searchCompleteSeriesPack, COMPLETE_SERIES_TERMS } from "@/lib/indexers/torznab";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
+import { withKeyLock } from "@/lib/library/locks";
 
 /**
  * Anime tends to have more reliable episode numbering/titles on TVDB than
@@ -457,6 +458,7 @@ export async function addSeriesToLibrary(
     addedAt: Date.now(),
     tags: [],
     plexRatingKey: null,
+    originalTitle: meta.originalTitle,
   };
   addSeries(series);
 
@@ -548,13 +550,35 @@ async function grabRelease(
   const matched = await getReleaseMatchPool().run({
     releases: releases.map((r) => ({ title: r.title })),
     targetTitle: series.title,
+    aliases: series.aliases ?? [],
     seasonNumber,
     episodeNumber: filterPack ? null : (episodeNumber ?? null),
     filterPack,
   });
   const step4 = matched.survivors.map(({ idx, parsed }) => ({ release: releases[idx], parsed }));
+  // Two library entries can share the exact same title with nothing but the
+  // year to tell them apart (e.g. "Doctor Who" 1963 vs 2005 — confirmed
+  // live: the classic show's season/episode search matched and grabbed a
+  // release actually belonging to the 2005 reboot, since season numbers
+  // alone don't disambiguate two shows that both have a "season 9"). The
+  // intégrale search path already guards against this with yearIsCompatible
+  // — season/episode search never did. Same lenient semantics: a release
+  // with no year at all still passes, only a release that states a clearly
+  // different year gets rejected.
+  // KNOWN TRADEOFF: series.year is always the show's DEBUT year, not the
+  // broadcast year of any specific season — a decades-spanning back
+  // catalogue (26 seasons across 1963-1989, in Doctor Who's own case) could
+  // in principle have an old season's release tagged with its own real
+  // broadcast year, which would then get wrongly rejected here since it sits
+  // more than a year off the debut year. Accepted deliberately: it's the
+  // same tradeoff the intégrale path has already lived with, and it only
+  // trades a same-title-different-year false positive (silently grabbing
+  // the wrong show, confirmed to actually happen) for a narrower false
+  // negative (a legitimate old-season release requiring a manual grab) —
+  // revisit with a per-season tolerance if that ever surfaces for real.
+  const stepYear = step4.filter(({ parsed }) => yearIsCompatible(parsed.year, series.year));
   // Decision Guard: a blocked term is a hard veto here — no score, however high, can rescue a release an admin explicitly forbade.
-  const stepBlocked = step4.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
+  const stepBlocked = stepYear.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
   const step5 = stepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
   const step6 = step5.filter(({ release }) => release.score >= profile.minScore);
   const step7 = step6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
@@ -610,12 +634,14 @@ async function grabRelease(
   const dMatched = await getReleaseMatchPool().run({
     releases: directReleases.map((r) => ({ title: r.title })),
     targetTitle: series.title,
+    aliases: series.aliases ?? [],
     seasonNumber,
     episodeNumber: filterPack ? null : (episodeNumber ?? null),
     filterPack,
   });
   const dStep4 = dMatched.survivors.map(({ idx, parsed }) => ({ release: directReleases[idx], parsed }));
-  const dStepBlocked = dStep4.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
+  const dStepYear = dStep4.filter(({ parsed }) => yearIsCompatible(parsed.year, series.year));
+  const dStepBlocked = dStepYear.filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked);
   const dStep5 = dStepBlocked.filter(({ parsed }) => !parsed.resolution || profile.allowedResolutions.includes(parsed.resolution));
   const dStep6 = dStep5.filter(({ release }) => release.score >= profile.minScore);
   const dStep7 = dStep6.filter(({ release }) => withinSizeLimit(release.size, filterPack ? "season" : "episode"));
@@ -973,26 +999,12 @@ async function tryGrabSeasonPackImpl(
  *
  * Anchored on globalThis (AGENTS.md rule) — Next.js bundles API routes
  * separately, so a module-level Map wouldn't be shared between the route
- * bundle and the scheduler bundle.
+ * bundle and the scheduler bundle. Shared with the import callback path
+ * (see locks.ts) so a completed-episode import never races a concurrent
+ * search on the same series.
  */
-const gSearchLocks = globalThis as typeof globalThis & {
-  __movvizSearchLock?: Map<string, Promise<unknown>>;
-};
-
 export function withSearchLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
-  const locks = (gSearchLocks.__movvizSearchLock ??= new Map());
-  const prev = locks.get(key) ?? Promise.resolve();
-  const run = prev.then(fn, fn);
-  const chain = run
-    .then(
-      () => undefined,
-      () => undefined
-    )
-    .finally(() => {
-      if (locks.get(key) === chain) locks.delete(key);
-    });
-  locks.set(key, chain);
-  return run;
+  return withKeyLock(key, fn);
 }
 
 /**
@@ -1353,7 +1365,7 @@ export async function searchCompleteSeriesCandidates(
   const tS = performance.now();
   const candidates: CompleteSeriesCandidate[] = releases
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
+    .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title, series.aliases ?? []))
     // A same-titled reboot/remake from a different year (e.g. Avatar: The
     // Last Airbender 2005 animated vs. 2024 live-action) has an identical
     // title — with no season/episode numbers to disambiguate an intégrale
@@ -1400,7 +1412,7 @@ export async function searchCompleteSeriesCandidates(
 
     const directCandidates: CompleteSeriesCandidate[] = directReleases
       .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-      .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
+      .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title, series.aliases ?? []))
     // A same-titled reboot/remake from a different year (e.g. Avatar: The
     // Last Airbender 2005 animated vs. 2024 live-action) has an identical
     // title — with no season/episode numbers to disambiguate an intégrale

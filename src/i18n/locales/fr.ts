@@ -263,6 +263,19 @@ export const fr = {
     addVersion: {
       warning: "Cette recherche ignore les limites habituelles de qualité et taille afin de trouver une version alternative. Les règles de sécurité restent actives.",
     },
+    edit: {
+      title: "Modifier la fiche",
+      monitored: "Surveillé",
+      qualityProfile: "Profil de qualité",
+      location: "Emplacement du fichier",
+      noFile: "Aucun fichier lié",
+      browse: "Parcourir",
+      locationError: "Impossible de lier ce fichier.",
+      aliases: "Autres noms",
+      aliasesHint: "Autre nom connu de ce titre (ex. titre original romanisé) — utilisé uniquement pour reconnaître des releases qui l'ajoutent au nom, jamais affiché ailleurs.",
+      aliasesPlaceholder: "Ajouter un autre nom…",
+      save: "Enregistrer",
+    },
   },
 
   person: {
@@ -576,6 +589,8 @@ export const fr = {
     intro: "Configurez ce qui apparaît dans le centre d'activité et examinez les paramètres de détection de mise à niveau.",
     empty: "Aucune activité pour l'instant.",
     seasonPack: "Saison {season} — pack ({count} épisodes)",
+    queueUnlinkedBadge: "Non lié — titre deviné",
+    queueUnlinkedHint: "Ce téléchargement n'est rattaché à aucun film/série de la bibliothèque — titre deviné à partir du nom du fichier, à vérifier.",
     completeSeriesPack: "Intégrale — {count} épisodes",
     completeSeriesPackSeason: "Intégrale — {count} épisodes / {seasons} saisons",
     integralSearchFor: "Intégrale — {title}",
@@ -718,6 +733,7 @@ export const fr = {
       grab_series: "{title} — intégrale récupérée ({count} ép.)",
       upgrade_candidates_found: "{count} remplacement(s) suggéré(s) disponible(s)",
       downloads_recovered: "{count} téléchargement(s) terminé(s) récupéré(s) depuis le dossier de téléchargement",
+      import_blocked_word: "{title} — téléchargement supprimé (terme interdit \"{term}\" détecté après coup)",
     },
     transport: {
       discord: "Discord",

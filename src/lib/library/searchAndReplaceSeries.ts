@@ -53,7 +53,7 @@ function versionLabel(resolution: string | null, videoCodec: string | null, audi
 
 function computeSafeEpisodeMatches(
   releases: IndexerRelease[],
-  series: { title: string },
+  series: { title: string; aliases?: string[] },
   seasonNumber: number,
   episodeNumber: number,
   currentResolution: string | null,
@@ -62,7 +62,7 @@ function computeSafeEpisodeMatches(
 ) {
   return releases
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title))
+    .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title, series.aliases ?? []))
     .filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, episodeNumber))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
     .filter(({ parsed }) => parsed.resolution && profile.allowedResolutions.includes(parsed.resolution))
