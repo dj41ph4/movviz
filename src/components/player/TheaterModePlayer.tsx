@@ -81,10 +81,15 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
     };
   }, []);
 
-  // Very bright source art still gets a dark scrim (spec: "contenu très
-  // lumineux -> ambiance sombre mais avec profondeur") — brightness only
-  // ever pushes the scrim darker, never lighter than the baseline.
-  const scrimOpacity = ambience ? Math.min(0.92, 0.8 + ambience.brightness * 0.15) : 0.8;
+  // Very bright source art still gets a darker scrim (spec: "contenu très
+  // lumineux -> ambiance sombre mais avec profondeur") — brightness pushes
+  // the scrim darker, never lighter than the baseline. Capped well below
+  // opaque: this scrim sits on top of the color gradient, so a previous,
+  // near-opaque version of this value (up to 0.92) was crushing the entire
+  // ambience effect to flat black regardless of source art — confirmed live
+  // ("noir sur fond noir"). It only needs to keep the letterbox area from
+  // ever reading as fully saturated, not erase the color.
+  const scrimOpacity = ambience ? Math.min(0.6, 0.32 + ambience.brightness * 0.25) : 0.45;
   const ambienceStyle = ambience
     ? ({
         "--theater-ambience-1": `hsl(${ambience.dominant.h} ${Math.round(ambience.dominant.s * 100)}% ${Math.round(ambience.dominant.l * 100)}%)`,
@@ -114,11 +119,11 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
           transition={{ duration: reduceMotion ? 0.15 : DURATION, ease: EASE }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={ambienceSrc} alt="" className="h-full w-full scale-110 object-cover opacity-25 blur-3xl" />
+          <img src={ambienceSrc} alt="" className="h-full w-full scale-110 object-cover opacity-40 blur-3xl" />
           {ambience && (
             <div
               className="absolute inset-0"
-              style={{ background: "radial-gradient(120% 100% at 50% 20%, var(--theater-ambience-1) 0%, transparent 55%), radial-gradient(120% 100% at 50% 90%, var(--theater-ambience-2) 0%, transparent 55%)", opacity: 0.35, mixBlendMode: "screen" }}
+              style={{ background: "radial-gradient(120% 100% at 50% 20%, var(--theater-ambience-1) 0%, transparent 55%), radial-gradient(120% 100% at 50% 90%, var(--theater-ambience-2) 0%, transparent 55%)", opacity: 0.7, mixBlendMode: "screen" }}
             />
           )}
           <div className="absolute inset-0 bg-black" style={{ opacity: scrimOpacity }} />

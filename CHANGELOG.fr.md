@@ -4,6 +4,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.12.76 — août 2026
+
+### L'ambiance colorimétrique du Mode Théâtre était invisible — corrigé, et rééquilibré pour un vrai impact visuel
+
+- **Corrigé, confirmé en conditions réelles** : la couleur d'ambiance extraite de l'affiche de chaque titre était structurellement masquée — le fond du lecteur vidéo lui-même était totalement opaque, peint par-dessus la couche d'ambiance, donc la couleur n'apparaissait qu'un bref instant pendant l'animation d'ouverture avant de disparaître complètement pour tout le reste du visionnage. En plus de ça, la couche d'ambiance elle-même portait un second voile noir quasi opaque empilé directement sur le dégradé de couleur, écrasant le peu qui transparaissait pendant cet instant jusqu'à le rendre quasi nul. Résultat net : du noir plat quel que soit le visuel du titre.
+- Le fond du lecteur est désormais transparent là où il doit laisser transparaître l'arrière-plan, et l'équilibre voile/dégradé a été retravaillé pour que la couleur extraite soit réellement visible dans les bandes noires autour de la vidéo — une affiche vive et colorée teinte désormais visiblement le théâtre, une affiche sombre reste feutrée, au lieu que tout ait le même rendu.
+
 ## v1.12.75 — août 2026
 
 ### Cause racine d'un pack de saison entièrement téléchargé qui n'apparaissait jamais dans la bibliothèque

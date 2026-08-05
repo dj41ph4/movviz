@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.12.76 — August 2026
+
+### Der inhaltsadaptive Hintergrund des Kinomodus war unsichtbar — behoben und für echte visuelle Wirkung neu ausbalanciert
+
+- **Behoben, live bestätigt**: Die aus dem jeweiligen Artwork eines Titels extrahierte Farbstimmung war strukturell verborgen — der Hintergrund des Video-Players selbst war vollständig deckend und wurde über der Stimmungsebene gezeichnet, sodass die Farbe nur für einen kurzen Moment während der Eröffnungsanimation aufblitzte, bevor sie für die gesamte restliche Wiedergabedauer vollständig verschwand. Zusätzlich trug die Stimmungsebene selbst eine zweite, nahezu deckende schwarze Abdunklung, die direkt über dem Farbverlauf lag und das wenige, das während dieses Moments durchschien, auf fast nichts reduzierte. Nettoeffekt: durchgehend Schwarz, unabhängig vom Artwork des Titels.
+- Der Hintergrund des Players ist jetzt dort transparent, wo der Hintergrund durchscheinen soll, und das Verhältnis zwischen Abdunklung und Farbverlauf wurde neu austariert, sodass die extrahierte Farbe in den Letterbox-Bereichen rund um das Video tatsächlich sichtbar ist — ein helles, farbenfrohes Poster taucht den Kinoraum jetzt sichtbar in Farbe, ein dunkles bleibt stimmungsvoll gedeckt, statt dass alles gleich aussieht.
+
 ## v1.12.75 — August 2026
 
 ### Ursache eines abgeschlossenen Staffelpaket-Downloads, der nie in der Bibliothek auftauchte

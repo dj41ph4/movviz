@@ -948,7 +948,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
 
   return (
     <div className={cn(!embedded && "fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm", embedded && "h-full w-full")}>
-      <div className={cn("relative flex flex-col overflow-hidden bg-surface shadow-2xl", embedded ? "h-full w-full rounded-none" : fullscreen ? "h-full w-full rounded-none" : "rounded-2xl h-[80vh] w-[90vw] max-w-5xl")}>
+      <div className={cn("relative flex flex-col overflow-hidden shadow-2xl", embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface", !embedded && fullscreen ? "h-full w-full rounded-none" : !embedded ? "rounded-2xl h-[80vh] w-[90vw] max-w-5xl" : undefined)}>
         <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 gap-2">
           <div className="flex items-center gap-2 min-w-0">
             {usingFallback && (
@@ -1001,7 +1001,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         </div>
 
         <div
-          className="relative flex flex-1 items-center justify-center bg-black"
+          className={cn("relative flex flex-1 items-center justify-center", embedded ? "bg-transparent" : "bg-black")}
           onMouseMove={resetHideTimer}
           onMouseEnter={resetHideTimer}
           onTouchStart={resetHideTimer}

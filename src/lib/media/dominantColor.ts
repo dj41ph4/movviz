@@ -15,9 +15,9 @@
 
 const SAMPLE_SIZE = 32;
 const HUE_BUCKETS = 12; // 30° each
-const SATURATION_CAP = 0.35;
-const LIGHTNESS_MIN = 0.08;
-const LIGHTNESS_MAX = 0.22;
+const SATURATION_CAP = 0.6;
+const LIGHTNESS_MIN = 0.16;
+const LIGHTNESS_MAX = 0.36;
 
 export interface AmbienceColor {
   h: number;
