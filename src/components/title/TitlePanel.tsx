@@ -5,50 +5,18 @@ import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { TitleContent } from "@/components/title/TitleContent";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { computeMorphOrigin, estimateModalGeometry, type MorphTransform, type Rect } from "@/lib/motion/morphOrigin";
 
 interface TitlePanelProps {
   tmdbId: number;
   type: "movie" | "series";
-  originRect?: { top: number; left: number; width: number; height: number };
+  originRect?: Rect;
   onClose: () => void;
 }
 
-interface MorphTransform {
-  x: number;
-  y: number;
-  scaleX: number;
-  scaleY: number;
-}
-
-/**
- * Estimates where the card will end up BEFORE it's ever painted, so the
- * "grow from the clicked poster" morph can be the panel's true first frame
- * instead of a follow-up correction — framer-motion's `initial` prop only
- * ever applies at first mount, so waiting for a post-mount DOM measurement
- * (e.g. a layout effect) would always be one frame too late; by then the
- * component has already committed its fallback initial style. The card's
- * intrinsic content height isn't knowable ahead of time, but the estimate
- * only has to be reasonable — the transition always converges on the real,
- * correctly laid-out CSS geometry (scaleY: 1) by its end regardless of how
- * accurate the guess was, since the origin is a center-to-center delta.
- */
-function estimateMorph(originRect: NonNullable<TitlePanelProps["originRect"]>): MorphTransform | null {
-  if (typeof window === "undefined") return null;
-  if (originRect.width === 0 || originRect.height === 0) return null;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const mobile = vw < 640; // Tailwind's sm breakpoint — full-screen card below it.
-  const outerPad = (vw < 768 ? 24 : 40) * 2; // sm:p-6 / md:p-10 on the fixed centering wrapper.
-  const finalWidth = mobile ? vw : Math.min(vw - outerPad, 1024); // sm:max-w-5xl
-  const finalHeight = mobile ? vh : Math.min(vh * 0.88, vh - outerPad); // sm:max-h-[88vh]
-  const finalLeft = (vw - finalWidth) / 2;
-  const finalTop = (vh - finalHeight) / 2;
-  return {
-    x: originRect.left + originRect.width / 2 - (finalLeft + finalWidth / 2),
-    y: originRect.top + originRect.height / 2 - (finalTop + finalHeight / 2),
-    scaleX: originRect.width / finalWidth,
-    scaleY: originRect.height / finalHeight,
-  };
+function estimateMorph(originRect: Rect): MorphTransform | null {
+  const final = estimateModalGeometry();
+  return final ? computeMorphOrigin(originRect, final) : null;
 }
 
 export function TitlePanel({ tmdbId, type, originRect, onClose }: TitlePanelProps) {

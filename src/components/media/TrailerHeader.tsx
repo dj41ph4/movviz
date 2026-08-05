@@ -7,6 +7,7 @@ import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useCroppedBackdrop } from "@/lib/media/useCroppedBackdrop";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
+import { registerAmbientVideo } from "@/lib/player/ambientVideoRegistry";
 
 /**
  * Shared "video instead of a static backdrop" header — used by the title
@@ -222,6 +223,12 @@ export function TrailerHeader({ backdropUrl, trailerKeys, title, trigger, enable
   const onVideoError = () => setCandidateIndex((i) => i + 1);
 
   useEffect(() => () => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
+
+  // Lets the real player (PlayerProvider.play()) stop this ambient preview
+  // the instant it opens, so only one video is ever playing at once — reuses
+  // the exact same setPlaying(false) this component already calls itself on
+  // hover-leave, just exposed so it can also be triggered externally.
+  useEffect(() => registerAmbientVideo(() => setPlaying(false)), []);
 
   const onMouseEnter = () => {
     if (trigger !== "hover" || !canPlay) return;

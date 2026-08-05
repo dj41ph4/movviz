@@ -502,6 +502,7 @@ export const nl: Dictionary = {
     untrackedFile: "Bestand aanwezig maar niet gevolgd",
     duplicateMerged: "Duplicaat samengevoegd",
     watchOnPlex: "Bekijken op Plex",
+    play: "Afspelen",
     sortTitle: "Titel",
     sortRecent: "Onlangs toegevoegd",
     sortRating: "Waardering",

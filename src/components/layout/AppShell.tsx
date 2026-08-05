@@ -20,6 +20,7 @@ import { I18nProvider, useT } from "@/i18n/provider";
 import { VersionProvider } from "@/lib/version/VersionContext";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { GpuProvider } from "@/lib/gpu/GpuProvider";
+import { PlayerProvider } from "@/lib/player/PlayerProvider";
 
 /**
  * Shared data-fetch cache for the whole session. SWR keeps its cache keyed
@@ -127,29 +128,31 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
         <I18nProvider>
           <VersionProvider version={version}>
             <CommandPaletteProvider>
-              <Suspense fallback={null}>
-                <PageLoaderProvider>
-                  <AuroraBackground />
-                  <div className="relative z-10 flex min-h-screen">
-                    <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[9999] focus:rounded-xl focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:outline-none">
-                      Skip to main content
-                    </a>
-                    <Sidebar version={version} />
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <Topbar />
-                      <main id="main-content" className="flex-1 px-4 pt-5 pb-24 sm:px-5 sm:pt-6 md:px-8 md:pt-8 lg:pb-8">
-                        <div key={pathname} className={cn(!reduceMotion && "animate-page-fade-in")}>
-                          {children}
-                        </div>
-                      </main>
+              <PlayerProvider>
+                <Suspense fallback={null}>
+                  <PageLoaderProvider>
+                    <AuroraBackground />
+                    <div className="relative z-10 flex min-h-screen">
+                      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[9999] focus:rounded-xl focus:bg-brand focus:px-4 focus:py-2 focus:text-sm focus:font-bold focus:text-white focus:outline-none">
+                        Skip to main content
+                      </a>
+                      <Sidebar version={version} />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <Topbar />
+                        <main id="main-content" className="flex-1 px-4 pt-5 pb-24 sm:px-5 sm:pt-6 md:px-8 md:pt-8 lg:pb-8">
+                          <div key={pathname} className={cn(!reduceMotion && "animate-page-fade-in")}>
+                            {children}
+                          </div>
+                        </main>
+                      </div>
+                      <BottomNav />
                     </div>
-                    <BottomNav />
-                  </div>
-                  <WhatsNewModal />
-                  <ToastContainer />
-                  <ConfirmDialogHost />
-                </PageLoaderProvider>
-              </Suspense>
+                    <WhatsNewModal />
+                    <ToastContainer />
+                    <ConfirmDialogHost />
+                  </PageLoaderProvider>
+                </Suspense>
+              </PlayerProvider>
             </CommandPaletteProvider>
           </VersionProvider>
         </I18nProvider>

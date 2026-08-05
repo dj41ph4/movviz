@@ -500,6 +500,7 @@ export const fr = {
     untrackedFile: "Fichier présent mais non suivi",
     duplicateMerged: "Doublon fusionné",
     watchOnPlex: "Lire sur Plex",
+    play: "Lire",
     sortTitle: "Titre",
     sortRecent: "Récemment ajouté",
     sortRating: "Note",

@@ -4,6 +4,16 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.12.72 — August 2026
+
+### Theatermodus — ein echter immersiver Player, kein Video in einem Modal
+
+- **Neu**: Der Beta-Player öffnet sich jetzt in einem vollwertigen „Theatermodus" — die aktuelle Seite bleibt genau dort dahinter stehen, wo sie war (Scrollposition, Zustand, alles), der Player vergrößert sich vom angeklickten Button aus mit einem echten geometrischen Übergang (keine Überblendung), und die Seite dahinter verdunkelt und verwischt sich schrittweise, statt einfach zu verschwinden.
+- Jeder ambiente Trailer oder jede Vorschau, die irgendwo auf dem Bildschirm läuft, stoppt in dem Moment, in dem sich der echte Player öffnet — niemals zwei Videos gleichzeitig.
+- Der Hintergrund des Players nimmt jetzt eine subtile Farbstimmung an, die aus dem Artwork des Titels selbst extrahiert wird (dominante Töne, helligkeitsbewusst), statt flach schwarz zu sein — einmal pro Titel analysiert und zwischengespeichert, nie während der Wiedergabe.
+- „Auf Plex ansehen" heißt jetzt überall „Abspielen", wo der Beta-Player die Wiedergabe tatsächlich selbst übernimmt, und bleibt „Auf Plex ansehen", wo es sich um eine echte Übergabe an Plex handelt — konsistent auf jeder Titelkarte, der Titelseite, der Episodenseite und im Dashboard-Hero (der zuvor überhaupt keine Beta-Player-Integration hatte).
+- Die drei separaten Kopien dieser Auslöselogik in der App sind jetzt eine einzige gemeinsame Implementierung, wodurch die Lücke geschlossen wird, dass eine künftige Korrektur nur an einer Stelle landet und an den anderen übersehen wird.
+
 ## v1.12.71 — August 2026
 
 ### Das „Neuigkeiten"-Fenster folgt jetzt der Oberflächensprache

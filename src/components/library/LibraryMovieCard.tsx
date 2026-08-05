@@ -15,8 +15,9 @@ import { TagEditor } from "./TagEditor";
 import { MediaBadges, buildMediaBadgeItems, BADGE_SHAPE } from "./MediaBadges";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
-import { VideoPlayer, PREBUFFER_SECONDS } from "@/components/player/VideoPlayer";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { usePlayer } from "@/lib/player/PlayerProvider";
+import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { Star, Trash2, RotateCw, Loader2, Film, Check, Search, Clock, HardDriveDownload, Tag, Eye, Play, Calendar, ListFilter, Sparkles, CalendarCheck, X, Layers } from "lucide-react";
 
 const STATUS_TONE: Record<LibraryStatus, string> = {
@@ -54,7 +55,8 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
   const { enabled: betaPlayer } = useBetaPlayer();
   const reduceMotion = useShouldReduceMotion();
   const user = useCurrentUser();
-  const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
+  const { play } = usePlayer();
+  const { label: playLabel } = usePlayLabel(movie.plexRatingKey);
   const [busy, setBusy] = useState(false);
   const [editingTags, setEditingTags] = useState(false);
   const [showManualSearch, setShowManualSearch] = useState(false);
@@ -217,10 +219,17 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
             betaPlayer && movie.plexRatingKey ? (
               <motion.button
                 {...btnSpring}
-                onClick={() => setPlayRatingKey(movie.plexRatingKey!)}
+                onClick={(e) => play({
+                  ratingKey: movie.plexRatingKey!,
+                  plexUrl: movie.plexUrl!,
+                  title: movie.title,
+                  useTranscode: betaPlayer,
+                  originRect: e.currentTarget.getBoundingClientRect(),
+                  posterUrl: poster,
+                })}
                 className="pointer-events-auto mb-2 flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black"
               >
-                <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
+                <Play className="h-3.5 w-3.5 fill-black" /> {playLabel}
               </motion.button>
             ) : (
               <a
@@ -287,8 +296,15 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
         {movie.status === "available" && movie.plexUrl ? (
           <div className="mt-1.5">
             {betaPlayer && movie.plexRatingKey ? (
-              <motion.button {...btnSpring} onClick={() => setPlayRatingKey(movie.plexRatingKey!)} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
-                <Play className="h-3.5 w-3.5 fill-black" /> {t("library.watchOnPlex")}
+              <motion.button {...btnSpring} onClick={(e) => play({
+                ratingKey: movie.plexRatingKey!,
+                plexUrl: movie.plexUrl!,
+                title: movie.title,
+                useTranscode: betaPlayer,
+                originRect: e.currentTarget.getBoundingClientRect(),
+                posterUrl: poster,
+              })} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
+                <Play className="h-3.5 w-3.5 fill-black" /> {playLabel}
               </motion.button>
             ) : (
               <a href={movie.plexUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => openPlexLink(e, movie.plexUrl!)} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">
@@ -357,16 +373,6 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
           refTitle={movie.title}
           year={movie.year ? String(movie.year) : undefined}
           title={movie.title}
-        />
-      )}
-      {playRatingKey && movie.plexUrl && movie.plexRatingKey && (
-        <VideoPlayer
-          ratingKey={playRatingKey}
-          plexUrl={movie.plexUrl}
-          title={movie.title}
-          onClose={() => setPlayRatingKey(null)}
-          useTranscode={betaPlayer}
-          prebufferSeconds={PREBUFFER_SECONDS}
         />
       )}
     </motion.article>

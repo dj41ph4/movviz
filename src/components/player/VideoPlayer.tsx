@@ -18,7 +18,7 @@ import { MSEPlaybackEngine, type MseDebugStats } from "@/lib/playback/mse/MSEPla
 import type { MediaInfo } from "@/lib/playback/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 
-interface VideoPlayerProps {
+export interface VideoPlayerProps {
   ratingKey: string;
   plexUrl: string;
   title: string;
@@ -26,6 +26,10 @@ interface VideoPlayerProps {
   useTranscode?: boolean;
   /** Seconds to pre-buffer before starting playback (default 0 = play immediately). */
   prebufferSeconds?: number;
+  /** True when rendered inside TheaterModePlayer, which owns positioning,
+   *  sizing, and the backdrop — skips this component's own fixed/backdrop
+   *  wrapper so it doesn't fight the parent's animated geometry. */
+  embedded?: boolean;
 }
 
 interface StreamTrack {
@@ -82,7 +86,7 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, prebufferSeconds }: VideoPlayerProps) {
+export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded }: VideoPlayerProps) {
   const t = useT();
   const tRef = useRef(t);
   tRef.current = t;
@@ -980,8 +984,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const playedPct = ((seekPreview ?? currentTime) / (duration || 1)) * 100;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm">
-      <div className={cn("relative flex flex-col overflow-hidden rounded-2xl bg-surface shadow-2xl", fullscreen ? "h-full w-full rounded-none" : "h-[80vh] w-[90vw] max-w-5xl")}>
+    <div className={cn(!embedded && "fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm", embedded && "h-full w-full")}>
+      <div className={cn("relative flex flex-col overflow-hidden bg-surface shadow-2xl", embedded ? "h-full w-full rounded-none" : fullscreen ? "h-full w-full rounded-none" : "rounded-2xl h-[80vh] w-[90vw] max-w-5xl")}>
         <div className="flex items-center justify-between border-b border-white/8 px-4 py-3 gap-2">
           <div className="flex items-center gap-2 min-w-0">
             {usingFallback && (

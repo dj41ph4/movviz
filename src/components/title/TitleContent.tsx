@@ -23,7 +23,8 @@ import { TrailerHeader, TrailerModalPlayer } from "@/components/media/TrailerHea
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { reportIssue } from "@/lib/issues/store";
-import { VideoPlayer, PREBUFFER_SECONDS } from "@/components/player/VideoPlayer";
+import { usePlayer } from "@/lib/player/PlayerProvider";
+import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
@@ -233,6 +234,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const backdrop = detail?.backdropPath
     ? `/tmdb/original${detail.backdropPath}`
     : null;
+  const poster = detail?.posterPath
+    ? `/tmdb/w500${detail.posterPath}`
+    : null;
 
   /* ── local state ────────────────────────────────────────────────────── */
 
@@ -285,7 +289,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       if (document.fullscreenElement) { try { document.exitFullscreen(); } catch { /* unsupported */ } }
     };
   }, [showTrailer]);
-  const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
+  const { play } = usePlayer();
+  const usePlayLabelResult = usePlayLabel(libraryMatch?.plexRatingKey);
   const [resyncingAnime, setResyncingAnime] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
 
@@ -790,7 +795,15 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         {libraryStatus === "available" && libraryMatch?.plexUrl && (
           betaPlayer && libraryMatch?.plexRatingKey ? (
             <button
-              onClick={() => setPlayRatingKey(libraryMatch.plexRatingKey!)}
+              onClick={(e) => play({
+                ratingKey: libraryMatch.plexRatingKey!,
+                plexUrl: libraryMatch.plexUrl!,
+                title: detail?.title ?? "",
+                useTranscode: betaPlayer,
+                originRect: e.currentTarget.getBoundingClientRect(),
+                backdropUrl: backdrop,
+                posterUrl: poster,
+              })}
               title="Plex"
               className="h-8 w-8 shrink-0 overflow-hidden rounded-lg transition-transform hover:scale-110"
             >
@@ -1029,11 +1042,19 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   {libraryStatus === "available" && libraryMatch?.plexUrl && (
                     betaPlayer && libraryMatch?.plexRatingKey ? (
                       <button
-                        onClick={() => setPlayRatingKey(libraryMatch.plexRatingKey!)}
+                        onClick={(e) => play({
+                          ratingKey: libraryMatch.plexRatingKey!,
+                          plexUrl: libraryMatch.plexUrl!,
+                          title: detail?.title ?? "",
+                          useTranscode: betaPlayer,
+                          originRect: e.currentTarget.getBoundingClientRect(),
+                          backdropUrl: backdrop,
+                          posterUrl: poster,
+                        })}
                         className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
                       >
                         <Play className="h-4 w-4 fill-black" />
-                        {t("library.watchOnPlex")}
+                        {usePlayLabelResult.label}
                       </button>
                     ) : (
                       <a
@@ -1472,16 +1493,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         />
       )}
 
-      {playRatingKey && libraryMatch?.plexUrl && libraryMatch?.plexRatingKey && (
-        <VideoPlayer
-          ratingKey={playRatingKey}
-          plexUrl={libraryMatch.plexUrl}
-          title={detail?.title ?? ""}
-          onClose={() => setPlayRatingKey(null)}
-          useTranscode={betaPlayer}
-          prebufferSeconds={PREBUFFER_SECONDS}
-        />
-      )}
     </>
   );
 }

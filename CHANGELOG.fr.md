@@ -4,7 +4,15 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.12.71 — août 2026
+## v1.12.72 — août 2026
+
+### Mode Théâtre — un vrai lecteur immersif, pas une vidéo dans une fenêtre
+
+- **Nouveau** : le lecteur Bêta s'ouvre désormais dans un véritable « Mode Théâtre » — la page en cours reste exactement où elle était derrière lui (scroll, état, tout est conservé), le lecteur s'étend depuis le bouton cliqué avec une vraie transition géométrique (pas un simple fondu), et la page derrière s'assombrit et se floute progressivement plutôt que de simplement disparaître.
+- Toute bande-annonce ou aperçu en lecture à l'écran s'arrête à l'instant où le vrai lecteur s'ouvre — jamais deux vidéos en même temps.
+- Le fond du lecteur adopte désormais une ambiance colorimétrique subtile extraite de l'affiche du titre (teintes dominantes, sensible à la luminosité) au lieu d'un noir plat — analysée une seule fois par titre puis mise en cache, jamais pendant la lecture.
+- « Lire dans Plex » devient « Lire » partout où le lecteur Bêta gère réellement la lecture, et reste « Lire sur Plex » partout où c'est un vrai renvoi vers Plex — cohérent sur chaque carte de titre, la fiche détaillée, la page épisode et le grand visuel du tableau de bord (qui n'avait jusqu'ici aucune intégration avec le lecteur Bêta).
+- Les trois copies séparées de cette logique de déclenchement dans l'application ne forment désormais plus qu'une seule implémentation partagée, fermant l'écart où un futur correctif aurait pu atterrir à un seul endroit et être oublié ailleurs.
 
 ### La fenêtre « nouveautés » suit désormais la langue de l'interface
 

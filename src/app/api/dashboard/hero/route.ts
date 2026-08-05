@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const withPlexUrl = slides.map((slide) => {
     const movie = byTmdbId.get(slide.detail.tmdbId);
     const plexUrl = movie?.plexRatingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, movie.plexRatingKey) : null;
-    return { ...slide, plexUrl };
+    return { ...slide, plexUrl, plexRatingKey: movie?.plexRatingKey ?? null };
   });
 
   return NextResponse.json({ slides: withPlexUrl });

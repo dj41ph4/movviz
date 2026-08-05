@@ -11,8 +11,11 @@ import { useT, useI18n } from "@/i18n/provider";
 import { cn, openPlexLink } from "@/lib/utils";
 import type { HeroSlide } from "@/lib/dashboard/suggestionEngine";
 import type { DashboardHeroSettings } from "@/lib/dashboard/types";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { usePlayer } from "@/lib/player/PlayerProvider";
+import { usePlayLabel } from "@/lib/player/usePlayLabel";
 
-type HeroApiSlide = HeroSlide & { plexUrl: string | null };
+type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null };
 
 const POSTER_BASE = "/tmdb/w1280";
 
@@ -57,6 +60,9 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
 
   const active = slides[Math.min(index, slides.length - 1)];
   const activeReasons = useMemo(() => active?.score.reasons.filter((r) => r.matched) ?? [], [active]);
+  const { enabled: betaPlayer } = useBetaPlayer();
+  const { play } = usePlayer();
+  const { label: playLabel } = usePlayLabel(active?.plexRatingKey);
 
   const addActiveToLibrary = async () => {
     if (!active) return;
@@ -143,15 +149,32 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             </Link>
 
             {active.plexUrl ? (
-              <a
-                href={active.plexUrl}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => openPlexLink(e, active.plexUrl!)}
-                className="flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
-              >
-                <Play className="h-4 w-4" /> {t("library.watchOnPlex")}
-              </a>
+              betaPlayer && active.plexRatingKey ? (
+                <button
+                  type="button"
+                  onClick={(e) => play({
+                    ratingKey: active.plexRatingKey!,
+                    plexUrl: active.plexUrl!,
+                    title: active.detail.title,
+                    useTranscode: betaPlayer,
+                    originRect: e.currentTarget.getBoundingClientRect(),
+                    backdropUrl,
+                  })}
+                  className="flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
+                >
+                  <Play className="h-4 w-4" /> {playLabel}
+                </button>
+              ) : (
+                <a
+                  href={active.plexUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => openPlexLink(e, active.plexUrl!)}
+                  className="flex items-center gap-1.5 rounded-xl bg-white/15 px-4 py-2.5 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105"
+                >
+                  <Play className="h-4 w-4" /> {t("library.watchOnPlex")}
+                </a>
+              )
             ) : !active.libraryStatus ? (
               <button
                 type="button"

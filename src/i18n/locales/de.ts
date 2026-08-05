@@ -502,6 +502,7 @@ export const de: Dictionary = {
     untrackedFile: "Datei vorhanden, aber nicht erfasst",
     duplicateMerged: "Duplikat zusammengeführt",
     watchOnPlex: "Auf Plex ansehen",
+    play: "Abspielen",
     sortTitle: "Titel",
     sortRecent: "Kürzlich hinzugefügt",
     sortRating: "Bewertung",

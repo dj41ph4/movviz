@@ -4,7 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.12.71 — August 2026
+## v1.12.72 — August 2026
+
+### Theater Mode — a real immersive player, not a video in a modal
+
+- **New**: the Beta player now opens in a full "Theater Mode" — the current page stays exactly where it was behind it (scroll position, state, everything), the player expands from the button you clicked with a genuine geometric transition (not a fade), and the page behind dims and blurs progressively rather than just disappearing.
+- Any ambient trailer or preview playing anywhere on screen stops the instant the real player opens — never two videos playing at once.
+- The player's backdrop now takes on a subtle color ambience extracted from the title's own artwork (dominant tones, brightness-aware) instead of being flat black — analyzed once per title and cached, never during playback.
+- "Lire dans Plex" now reads "Lire" wherever the Beta player will actually handle playback, and stays "Lire sur Plex" wherever it's a genuine hand-off to Plex — consistent across every title card, the title page, the episode page, and the dashboard hero (which previously had no Beta player integration at all).
+- The three separate copies of this trigger logic across the app are now one shared implementation, closing the gap where a future fix could land in one place and be missed in the others.
 
 ### In-app "what's new" now follows your interface language
 

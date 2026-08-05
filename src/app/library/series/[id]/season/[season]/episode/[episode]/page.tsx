@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, use as usePromise } from "react";
+import { use as usePromise } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useT } from "@/i18n/provider";
 import { cn, openPlexLink } from "@/lib/utils";
 import type { LibrarySeries, LibraryEpisode, LibraryStatus } from "@/lib/library/types";
 import type { MetaEpisode } from "@/lib/metadata/types";
-import { VideoPlayer, PREBUFFER_SECONDS } from "@/components/player/VideoPlayer";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { usePlayer } from "@/lib/player/PlayerProvider";
+import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { Play, Check, Search, Clock, HardDriveDownload, ArrowLeft, Tv, Calendar } from "lucide-react";
 
 type EpisodeWithPlexUrl = LibraryEpisode & { plexUrl?: string | null };
@@ -38,7 +39,7 @@ export default function EpisodeDetailPage({
   const episodeNumber = Number(episode);
   const t = useT();
   const { enabled: betaPlayer } = useBetaPlayer();
-  const [playRatingKey, setPlayRatingKey] = useState<string | null>(null);
+  const { play } = usePlayer();
   // Same SWR key as the series detail page: navigating from there paints
   // this page instantly instead of waiting for a fresh fetch.
   const { data: seriesData } = useSWR<LibrarySeries & { plexUrl?: string | null; id?: string }>(
@@ -49,6 +50,13 @@ export default function EpisodeDetailPage({
     series ? `/api/metadata/season?tmdbId=${series.tmdbId}&season=${seasonNumber}` : null
   );
   const meta = (seasonData?.episodes ?? []).find((e) => e.episodeNumber === episodeNumber) ?? null;
+  const seasonObj = series?.seasons.find((s) => s.seasonNumber === seasonNumber);
+  const ep = seasonObj?.episodes.find((e) => e.episodeNumber === episodeNumber) as EpisodeWithPlexUrl | undefined;
+  // Hooks must run unconditionally on every render — computed above the
+  // loading-state early returns below (via optional chaining) rather than
+  // after them, or this would violate rules-of-hooks the moment `ep` is
+  // still unknown on first paint.
+  const { label: playLabel } = usePlayLabel(ep?.plexRatingKey);
 
   if (!series) return (
     <div className="mx-auto max-w-[1000px] animate-pulse">
@@ -61,8 +69,6 @@ export default function EpisodeDetailPage({
     </div>
   );
 
-  const seasonObj = series.seasons.find((s) => s.seasonNumber === seasonNumber);
-  const ep = seasonObj?.episodes.find((e) => e.episodeNumber === episodeNumber) as EpisodeWithPlexUrl | undefined;
   if (!ep) return (
     <div className="mx-auto max-w-[1000px] text-center py-24 text-sm text-ink-dim">{t("common.loading")}</div>
   );
@@ -97,10 +103,17 @@ export default function EpisodeDetailPage({
         {ep.plexUrl && (
           betaPlayer && ep.plexRatingKey ? (
             <button
-              onClick={() => setPlayRatingKey(ep.plexRatingKey!)}
+              onClick={(e) => play({
+                ratingKey: ep.plexRatingKey!,
+                plexUrl: ep.plexUrl!,
+                title: ep.title,
+                useTranscode: betaPlayer,
+                originRect: e.currentTarget.getBoundingClientRect(),
+                backdropUrl: still,
+              })}
               className="flex h-9 items-center gap-2 rounded-xl bg-amber px-4 text-sm font-bold text-black"
             >
-              <Play className="h-4 w-4 fill-black" /> {t("library.watchOnPlex")}
+              <Play className="h-4 w-4 fill-black" /> {playLabel}
             </button>
           ) : (
             <a
@@ -119,16 +132,6 @@ export default function EpisodeDetailPage({
       <h1 className="mt-3 text-2xl font-black text-ink">{ep.title}</h1>
       {ep.airDate && <p className="mt-1 text-sm text-ink-dim">{ep.airDate}</p>}
       <p className="mt-4 max-w-2xl text-sm text-ink-soft">{meta?.overview || t("title.noSynopsis")}</p>
-      {playRatingKey && ep.plexUrl && ep.plexRatingKey && (
-        <VideoPlayer
-          ratingKey={playRatingKey}
-          plexUrl={ep.plexUrl}
-          title={ep.title}
-          onClose={() => setPlayRatingKey(null)}
-          useTranscode={betaPlayer}
-          prebufferSeconds={PREBUFFER_SECONDS}
-        />
-      )}
     </div>
   );
 }
