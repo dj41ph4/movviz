@@ -4,6 +4,15 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.12.73 — August 2026
+
+### Beta-Player — direkte Wiedergabe startet jetzt so, wie der manuelle „Blitz"-Wiederholungsversuch schon immer funktionierte
+
+- **Behoben**: Der Player entschied bisher, ob eine direkte Wiedergabe versucht wird, indem er die Codec-Unterstützung vorab mit Browser-APIs prüfte, die dafür bekannt sind, bei gängigen Fällen zu „lügen" (AC-3/E-AC-3 wird auf Chrome/Edge stets als „nicht unterstützt" gemeldet, manche Container meldeten problemlos dekodierbares Video als nicht unterstützt) — was viele Dateien in ein Transcoding oder einen WebCodecs-Fallback umleitete, obwohl die direkte Wiedergabe sie tatsächlich problemlos verarbeitet hätte. Live bestätigt: Der manuelle Wiederholungs-Button, der stets bedingungslos direkte Wiedergabe ohne diese Vorabprüfung versuchte, funktionierte merklich besser.
+- Direkte Wiedergabe ist jetzt der bedingungslose erste Versuch bei jedem Video, genau wie es der manuelle Wiederholungsversuch bereits tat — beide sind jetzt buchstäblich derselbe Codepfad, mit derselben automatischen Wiederherstellung (Rückfall auf den anderen Wiedergabemodus bei einem echten Wiedergabefehler oder bei tatsächlich stummer Tonspur, unverändert gegenüber vorher).
+- Auch der manuelle Wiederholungs-Button profitiert jetzt von derselben automatischen Wiederherstellung und setzt an der aktuellen Position fort, statt wieder von vorn zu beginnen.
+- Der inzwischen vollständig ungenutzte WebCodecs-Wiedergabepfad, in den diese Vorabprüfung früher umleitete, wurde entfernt — er war lediglich eine schlechtere, redundante Version dessen, was direkte Wiedergabe zusammen mit der bestehenden Fallback-Kette bereits abdeckt.
+
 ## v1.12.72 — August 2026
 
 ### Theatermodus — ein echter immersiver Player, kein Video in einem Modal

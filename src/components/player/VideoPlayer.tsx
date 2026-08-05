@@ -9,9 +9,8 @@ import {
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
   SkipBack, SkipForward, PictureInPicture2, Zap, Monitor, Settings,
 } from "lucide-react";
-import { pickStrategy, detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, toRfc6381, type PlaybackStrategy, type CodecCapabilities } from "@/lib/player/webcodecs";
+import { detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, type CodecCapabilities } from "@/lib/player/webcodecs";
 import { watchForSilentAudio } from "@/lib/player/silentAudioDetector";
-import { WebCodecsPlayer } from "./WebCodecsPlayer";
 import { orchestrate } from "@/lib/playback/orchestrator";
 import { detectCapabilities } from "@/lib/playback/capabilities";
 import { MSEPlaybackEngine, type MseDebugStats } from "@/lib/playback/mse/MSEPlaybackEngine";
@@ -106,6 +105,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const seekingRef = useRef(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const beginRef = useRef<((seekTo?: number) => Promise<void>) | null>(null);
+  const startDirectRef = useRef<((seekTo?: number, expectAudio?: boolean) => void) | null>(null);
   const transcodeVideoRef = useRef(true);
   const transcodeAudioRef = useRef(true);
   const transcodeModeRef = useRef<"auto" | "audio" | "video" | "full">("auto");
@@ -119,11 +119,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const [usingFallback, setUsingFallback] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [buffering, setBuffering] = useState(false);
-  const [webcodecsNotice, setWebcodecsNotice] = useState(false);
-  const [useWebcodecs, setUseWebcodecs] = useState(false);
   const [mseActive, setMseActive] = useState(false);
   const [mseStats, setMseStats] = useState<MseDebugStats | null>(null);
-  const [codecCaps, setCodecCaps] = useState<CodecCapabilities | null>(null);
   const [audioStreams, setAudioStreams] = useState<StreamTrack[]>([]);
   const [subtitleStreams, setSubtitleStreams] = useState<StreamTrack[]>([]);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
@@ -345,6 +342,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         if (!(await tryStartMse(infoRef.current, seekTo))) startHls();
       };
 
+      // Direct play can now be (re)started more than once per mount — the
+      // manual retry button reuses this same function — so a stale listener
+      // from a previous attempt must be removed first, or it stacks up and
+      // double-fires recovery.
+      const prevErr = (el as unknown as { __vpOnError?: () => void }).__vpOnError;
+      if (prevErr) el.removeEventListener("error", prevErr);
       const onError = () => { void recoverFromDirect(); };
       el.addEventListener("error", onError);
       (el as unknown as { __vpOnError?: () => void }).__vpOnError = onError;
@@ -361,6 +364,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         stopSilentWatchRef.current = watchForSilentAudio(el, () => { void recoverFromDirect(); });
       }
     };
+    startDirectRef.current = startDirect;
 
     const begin = async (seekTo?: number) => {
       setBuffering(true);
@@ -386,22 +390,21 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         }
       } catch { /* ignore */ }
 
-      let strategy: PlaybackStrategy;
+      let strategy: "direct" | "transcode";
       let effectiveAudioCodec: string | null | undefined;
       try {
         // Detect browser codec capabilities once
         const caps = await detectCodecs();
-        setCodecCaps(caps);
         codecCapsRef.current = caps;
 
         // --- Bypass codecs audio: auto-switch to a compatible track ---
         // DTS/TrueHD/PCM can't be decoded by ANY browser. Most Blu-ray remuxes
         // carry a second track (AC3/EAC3/AAC...) — pick it so audio is copied
         // (ta=0) instead of transcoded, with zero audible quality loss.
-        // CRITICAL: direct play and WebCodecs play the file's DEFAULT track —
-        // they cannot select a track. So a switch forces the HLS path, which
-        // can via audioStreamID. Otherwise the browser plays the DTS track
-        // and the video is silently muted.
+        // CRITICAL: direct play plays the file's DEFAULT track — it cannot
+        // select a track. So a switch forces the HLS path, which can via
+        // audioStreamID. Otherwise the browser plays the DTS track and the
+        // video is silently muted.
         const audioTracks = Array.isArray(info.audioStreams) ? info.audioStreams : [];
         const selAudio = audioTracks.find((s) => s.selected) ?? audioTracks[0];
         defaultAudioIdRef.current = selAudio?.id ?? null;
@@ -427,50 +430,34 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           }
         }
 
-        // Always compute individual codec flags (non-MP4 still needs selective transcode)
+        // Always compute individual codec flags (feeds the fallback leg's
+        // transcode-mode badges/menu regardless of how it was reached).
         transcodeVideoRef.current = info.videoCodec ? !isVideoCodecSupported(info.videoCodec, caps) : false;
         // HLS gate: ta=0 (copy) ONLY for codecs hls.js can transmux from TS.
         // E-AC3/DTS/TrueHD/FLAC/Opus in HLS → transcode to AAC, never copy.
         transcodeAudioRef.current = effectiveAudioCodec ? !isAudioMseTransmuxable(effectiveAudioCodec, caps) : false;
 
-        const container = (info.container ?? "").toLowerCase();
-        const nonMp4 =
-          container === "mkv" ||
-          container === "avi" ||
-          container === "wmv" ||
-          container === "flv" ||
-          container === "ts" ||
-          container === "m2ts" ||
-          container === "mpegts";
-        const videoOk = !info.videoCodec || !transcodeVideoRef.current;
-        const audioOk = !effectiveAudioCodec || isAudioCodecSupported(effectiveAudioCodec, caps);
-        if (nonMp4) {
-          // WebCodecs (MP4 box demuxer) and MSE (MP4 fMP4 segmenter) can't
-          // parse Matroska/AVI/etc. — but a browser's native <video> decoder
-          // often can, independently of what WebCodecs/MediaSource report:
-          // those APIs only see a narrower, licensed-codec-aware slice of
-          // what the platform's own media framework actually decodes.
-          // Confirmed live twice — E-AC3 AND DTS both played fine via native
-          // <video> on files where isAudioCodecSupported/toRfc6381 said no
-          // (toRfc6381 hard-codes DTS/TrueHD/PCM as "no browser can play
-          // this", which turned out to be exactly as unreliable a signal as
-          // isAudioCodecSupported for what a real system-level decoder can
-          // do). So for non-MP4 containers, no static audio-codec check at
-          // all — always try direct, and lean entirely on the error-event/
-          // silent-audio safety net in startDirect to recover automatically
-          // if this particular file doesn't actually work.
-          strategy = !audioSwitched && videoOk ? "direct" : "transcode";
-        } else {
-          if (audioSwitched) {
-            // Only HLS can select the fallback track via audioStreamID
-            strategy = "transcode";
-          } else if (videoOk && audioOk) {
-            // Both codecs supported natively → try direct play then WebCodecs
-            strategy = await pickStrategy(info.videoCodec, effectiveAudioCodec);
-          } else {
-            strategy = "transcode";
-          }
-        }
+        // Direct play is now the unconditional first attempt — the manual
+        // "lightning bolt" button and this automatic path are the same
+        // function (startDirect), sharing the same error/silent-audio
+        // recovery net. No more static canPlayType/MediaSource probing to
+        // pre-decide "direct" vs "webcodecs" vs "transcode": confirmed live
+        // that those probes lie for common cases (AC-3/E-AC-3 canPlayType on
+        // Chrome/Edge, DTS/TrueHD on native <video> for non-MP4 containers)
+        // and routed away from direct play that would have actually worked
+        // fine. Only two structural gates remain, because both are facts,
+        // not probabilistic probes:
+        //  - audioSwitched: direct play cannot select a non-default audio
+        //    track, so if the bypass logic above had to switch tracks,
+        //    direct is impossible, not just risky.
+        //  - video codec truly undecodable: skip a doomed direct attempt.
+        // Everything else — silent/broken default audio, a codec probe that
+        // would have said "should be fine" but isn't — is caught live by
+        // startDirect's error listener + watchForSilentAudio, exactly as it
+        // already was for the subset of files that used to reach "direct".
+        strategy = audioSwitched || (info.videoCodec && !isVideoCodecSupported(info.videoCodec, caps))
+          ? "transcode"
+          : "direct";
       } catch {
         strategy = "transcode";
         transcodeVideoRef.current = true;
@@ -482,15 +469,6 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         return;
       }
 
-      if (strategy === "webcodecs") {
-        setWebcodecsNotice(true);
-        setUseWebcodecs(true);
-        if (seekTo && seekTo > 0) {
-          // WebCodecsPlayer will be remounted and start fresh due to key change
-          setShowResume(false);
-        }
-        return;
-      }
       setDirectMode(true);
       startDirect(seekTo, !!effectiveAudioCodec);
     };
@@ -882,24 +860,6 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     setMenuOpen((prev) => (prev === menu ? null : menu));
   };
 
-  const handleWebcodecsFallback = useCallback(() => {
-    setUseWebcodecs(false);
-    setWebcodecsNotice(false);
-    setError(null);
-    setBuffering(true);
-    // Allow startHls to run even if a previous attempt set the guard
-    fallbackGuardRef.current = false;
-    if (startHlsRef.current) {
-      startHlsRef.current();
-    } else {
-      // startHls is defined in the effect — schedule after video element mounts
-      requestAnimationFrame(() => {
-        fallbackGuardRef.current = false;
-        startHlsRef.current?.();
-      });
-    }
-  }, []);
-
   const handleResume = () => {
     setShowResume(false);
     void beginRef.current?.(savedPos);
@@ -938,8 +898,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     setDirectMode(true);
     setUsingFallback(false);
     setBuffering(true);
-    el.src = `/api/stream/${ratingKey}`;
-    void el.play().catch(() => void 0);
+    // Reuses the exact same function (and its error/silent-audio recovery
+    // net) as the default first-attempt path — a manual retry is no longer
+    // a weaker, unwired duplicate of it. Resumes from the current position
+    // instead of restarting from 0.
+    startDirectRef.current?.(el.currentTime > 0 ? el.currentTime : undefined, !!infoRef.current.audioCodec);
   };
 
   const handleReturnToHls = () => {
@@ -1003,11 +966,6 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                       : t("player.betaDirectStream")}
               </span>
             )}
-            {webcodecsNotice && !usingFallback && !directMode && (
-              <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-cyan/15 px-2 text-[10px] font-semibold text-cyan">
-                {t("player.betaWebcodecs")}
-              </span>
-            )}
             {directMode && (
               <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-green/15 px-2 text-[10px] font-semibold text-green">
                 <Zap className="h-3 w-3" />
@@ -1064,25 +1022,15 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
             </div>
           ) : (
             <>
-              {useWebcodecs && codecCaps ? (
-                <WebCodecsPlayer
-                  src={`/api/stream/${ratingKey}`}
-                  capabilities={codecCaps}
-                  onError={(msg) => setError(msg)}
-                  onTimeUpdate={(t) => setCurrentTime(t)}
-                  onFallback={handleWebcodecsFallback}
-                />
-              ) : (
-                <video
-                  ref={videoRef}
-                  className="h-full w-full cursor-pointer"
-                  autoPlay
-                  playsInline
-                  onClick={togglePlay}
-                />
-              )}
+              <video
+                ref={videoRef}
+                className="h-full w-full cursor-pointer"
+                autoPlay
+                playsInline
+                onClick={togglePlay}
+              />
 
-              {buffering && !useWebcodecs && !mseActive && (
+              {buffering && !mseActive && (
                 <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <Loader2 className="h-8 w-8 animate-spin text-white/80" />
                 </div>
@@ -1137,7 +1085,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                 </div>
               )}
 
-              {!error && !useWebcodecs && (
+              {!error && (
                 <div
                   className={cn(
                     "absolute bottom-0 left-0 right-0 transition-opacity duration-300",

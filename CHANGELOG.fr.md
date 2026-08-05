@@ -4,6 +4,15 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.12.73 — août 2026
+
+### Lecteur Bêta — la lecture directe démarre désormais comme le réessai manuel « éclair » a toujours fonctionné
+
+- **Corrigé** : le lecteur décidait de tenter ou non la lecture directe en pré-vérifiant le support des codecs via des API navigateur connues pour mentir sur des cas courants (AC-3/E-AC-3 systématiquement signalés « non supportés » sur Chrome/Edge, certains conteneurs signalant une vidéo pourtant décodable comme non supportée) — ce qui redirigeait de nombreux fichiers vers un transcodage ou un repli WebCodecs alors que la lecture directe les aurait très bien gérés. Confirmé en conditions réelles : le bouton de réessai manuel, qui tentait toujours la lecture directe sans cette pré-vérification, fonctionnait nettement mieux.
+- La lecture directe est désormais la première tentative systématique sur chaque vidéo, exactement comme le faisait déjà le réessai manuel — les deux sont maintenant littéralement le même chemin de code, partageant la même récupération automatique (repli vers l'autre mode de lecture en cas d'erreur de lecture réelle ou de son réellement silencieux, inchangé par rapport à avant).
+- Le bouton de réessai manuel bénéficie désormais de cette même récupération automatique, et reprend depuis la position en cours au lieu de repartir de zéro.
+- Suppression du chemin de lecture WebCodecs, désormais totalement inutilisé, vers lequel cette pré-vérification redirigeait — il s'agissait strictement d'une version moins bonne et redondante de ce que la lecture directe et la chaîne de repli existante couvrent déjà.
+
 ## v1.12.72 — août 2026
 
 ### Mode Théâtre — un vrai lecteur immersif, pas une vidéo dans une fenêtre
