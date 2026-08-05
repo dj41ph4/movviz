@@ -47,6 +47,13 @@ COPY --from=builder --chown=movviz:movviz /app/.next/static ./.next/static
 COPY --from=builder --chown=movviz:movviz /app/public ./public
 # Download engine, bundled next to server.js so the web app spawns it on boot.
 COPY --from=builder --chown=movviz:movviz /app/engine ./engine
+# Read at runtime via process.cwd() (src/lib/changelog.ts) for the in-app
+# "what's new" popup — `.next/standalone` only contains what Next's build
+# tracer can statically detect, which a process.cwd()-joined path never is,
+# so these were never actually present in the runtime image without an
+# explicit copy (confirmed live: /api/system/changelog returned empty on the
+# deployed container despite the files existing in the repo).
+COPY --from=builder --chown=movviz:movviz /app/CHANGELOG*.md ./
 
 RUN mkdir -p /config /data && chown movviz:movviz /config /data
 # /config = app config & state · /data = media root (torrents + library)

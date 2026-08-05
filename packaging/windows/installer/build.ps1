@@ -63,6 +63,11 @@ Copy-Item -Recurse -Force (Join-Path $root ".next\static") (Join-Path $stage "ap
 if (Test-Path (Join-Path $root "public")) {
   Copy-Item -Recurse -Force (Join-Path $root "public") (Join-Path $stage "app\public")
 }
+# Read at runtime via process.cwd() (src/lib/changelog.ts) for the in-app
+# "what's new" popup — the standalone build's file tracer only grabs files
+# reachable through static imports, never a process.cwd()-joined path, so
+# these were silently missing from every installed build without this copy.
+Get-ChildItem -Path $root -Filter "CHANGELOG*.md" -File | Copy-Item -Destination (Join-Path $stage "app") -Force
 
 # Download engine — bundled next to the app so the web server spawns it on boot.
 Step "Staging download engine"

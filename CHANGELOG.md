@@ -4,9 +4,18 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.71 — August 2026
+
+### In-app "what's new" now follows your interface language
+
+- Release notes are now localized per UI language (falling back to English for anything not yet translated), instead of a single fixed-language file.
+- **Fixed**: the release notes were silently missing on both the Docker and Windows builds — the file they're read from was never actually included in either packaged build, so the "what's new" popup had nothing to show.
+
 ## v1.12.70 — August 2026
 
-**Root cause fixed, confirmed live**: removing a torrent from the download engine reported success and wiped its own tracking (including which library title it belonged to) even when the underlying download client silently failed to actually remove it — the torrent kept running and seeding untouched, but the engine had no record of it anymore. This is what produced downloads that could never be linked back to a title no matter how many times a recovery scan ran. The engine now only clears its own bookkeeping once removal is independently confirmed; otherwise the torrent stays tracked and can be retried instead of turning into a permanent orphan.
+### Download engine — root cause of permanently unlinked downloads
+
+- **Fixed, confirmed live**: removing a torrent from the download engine reported success and wiped its own tracking (including which library title it belonged to) even when the underlying download client silently failed to actually remove it — the torrent kept running and seeding untouched, but the engine had no record of it anymore. This is what produced downloads that could never be linked back to a title no matter how many times a recovery scan ran. The engine now only clears its own bookkeeping once removal is independently confirmed; otherwise the torrent stays tracked and can be retried instead of turning into a permanent orphan.
 
 ## v1.12.51 – v1.12.69 — August 2026
 
