@@ -3,6 +3,17 @@ import { priorityOf } from "./priorities";
 import type { Job, JobType } from "./types";
 
 const MAX_CONCURRENT = 3;
+// Watchdog ceiling — confirmed live: a single stuck task (Plex watch-status
+// sync, 10+ minutes with zero progress despite the Plex client's own
+// per-request timeouts) occupied a concurrency slot indefinitely, starving
+// every other job behind it — including a user-triggered manual search,
+// which then silently never ran. This is the reason a monitored series can
+// go weeks without ever being searched: not a matching bug, the scheduler
+// itself was wedged. A stuck runner can't be truly cancelled without
+// threading an AbortSignal through every task's own network calls (a much
+// larger change), but freeing its queue slot after this ceiling — so the
+// rest of the queue keeps moving — closes the actual observed failure mode.
+const JOB_TIMEOUT_MS = 10 * 60 * 1000;
 // While a torrent is actively downloading, background jobs back off to leave
 // room for the download. Was 1 (fully serial): a slow background sync
 // (Plex views, Plex library) already running when the user clicked a
@@ -96,16 +107,34 @@ function runJob(job: Job, runner: Runner) {
     job.current = current;
     if (total) job.total = total;
   };
+  let settled = false;
+  const timeoutTimer = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    job.status = "failed";
+    job.error = `Délai dépassé (>${Math.round(JOB_TIMEOUT_MS / 60000)} min) — la tâche est restée bloquée, libération de la file`;
+    job.completedAt = Date.now();
+    state.runningCount--;
+    void dispatch();
+  }, JOB_TIMEOUT_MS);
+
   runner(setProgress)
     .then((result) => {
+      if (settled) return; // watchdog already freed this slot — a late result must not double-decrement runningCount
+      settled = true;
+      clearTimeout(timeoutTimer);
       job.status = "completed";
       job.result = result;
+      job.completedAt = Date.now();
+      state.runningCount--;
+      void dispatch();
     })
     .catch((err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutTimer);
       job.status = "failed";
       job.error = err instanceof Error ? err.message : String(err);
-    })
-    .finally(() => {
       job.completedAt = Date.now();
       state.runningCount--;
       void dispatch();

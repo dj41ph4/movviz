@@ -60,6 +60,36 @@ function containsAsWords(haystack: string, needle: string): boolean {
   return new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`).test(haystack);
 }
 
+/**
+ * Whole-string character-edit-distance is blind to a wholesale word
+ * substitution when the differing word happens to be similar in spelling
+ * and length — confirmed live: "How I Met Your Father" (a real, unrelated
+ * spin-off show) scored ~91% similar to a search for "How I Met Your
+ * Mother" by raw Levenshtein distance alone, comfortably above the match
+ * threshold, because "father"/"mother" differ by only 2 of 6 characters
+ * relative to the full ~22-character title. When both titles have the same
+ * word count, a single word that isn't at least a plausible spelling
+ * variant of its counterpart (typo/accent difference, not a different word
+ * entirely) is disqualifying on its own, regardless of how close the
+ * character-level ratio makes the two strings look overall.
+ */
+function hasWholesaleWordSubstitution(na: string, nb: string): boolean {
+  const wa = na.split(" ").filter(Boolean);
+  const wb = nb.split(" ").filter(Boolean);
+  if (wa.length !== wb.length || wa.length < 2) return false;
+  for (let i = 0; i < wa.length; i++) {
+    if (wa[i] === wb[i]) continue;
+    const wDist = levenshtein(wa[i], wb[i]);
+    const wMaxLen = Math.max(wa[i].length, wb[i].length);
+    // A word-level edit distance under 25% of the word's own length is a
+    // plausible spelling variant (e.g. "colour"/"color"); anything more is
+    // a genuinely different word standing in the same position, not a
+    // variant of the same one.
+    if (wMaxLen === 0 || wDist / wMaxLen > 0.25) return true;
+  }
+  return false;
+}
+
 /** 0..1 similarity — 1 is identical, accent/case/punctuation-insensitive. */
 export function titleSimilarity(a: string, b: string): number {
   const na = normalizeTitle(a);
@@ -88,7 +118,9 @@ export function titleSimilarity(a: string, b: string): number {
     return Math.max(0.5, 0.9 - extraWords * 0.15 - singleWordPenalty);
   }
   const dist = levenshtein(na, nb);
-  return Math.max(0, 1 - dist / Math.max(na.length, nb.length));
+  const charSim = Math.max(0, 1 - dist / Math.max(na.length, nb.length));
+  if (hasWholesaleWordSubstitution(na, nb)) return Math.min(charSim, 0.5);
+  return charSim;
 }
 
 const TITLE_MATCH_THRESHOLD = 0.72;

@@ -219,6 +219,22 @@ function containsAsWords(haystack, needle) {
   return new RegExp(`(?:^|\\s)${escaped}(?:\\s|$)`).test(haystack);
 }
 
+// Mirrors matching.ts's hasWholesaleWordSubstitution() — see that file for
+// the full rationale (confirmed live: "How I Met Your Father" scoring ~91%
+// similar to "How I Met Your Mother" by raw character distance alone).
+function hasWholesaleWordSubstitution(na, nb) {
+  const wa = na.split(" ").filter(Boolean);
+  const wb = nb.split(" ").filter(Boolean);
+  if (wa.length !== wb.length || wa.length < 2) return false;
+  for (let i = 0; i < wa.length; i++) {
+    if (wa[i] === wb[i]) continue;
+    const wDist = levenshtein(wa[i], wb[i]);
+    const wMaxLen = Math.max(wa[i].length, wb[i].length);
+    if (wMaxLen === 0 || wDist / wMaxLen > 0.25) return true;
+  }
+  return false;
+}
+
 function titleSimilarity(a, b) {
   const na = normalizeTitle(a);
   const nb = normalizeTitle(b);
@@ -233,7 +249,9 @@ function titleSimilarity(a, b) {
     return Math.max(0.5, 0.9 - extraWords * 0.15 - singleWordPenalty);
   }
   const dist = levenshtein(na, nb);
-  return Math.max(0, 1 - dist / Math.max(na.length, nb.length));
+  const charSim = Math.max(0, 1 - dist / Math.max(na.length, nb.length));
+  if (hasWholesaleWordSubstitution(na, nb)) return Math.min(charSim, 0.5);
+  return charSim;
 }
 
 const TITLE_MATCH_THRESHOLD = 0.72;

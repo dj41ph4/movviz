@@ -4,6 +4,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.12.74 — août 2026
+
+### Bug de correspondance pouvant récupérer la mauvaise série, et un blocage de la file de tâches pouvant geler silencieusement toutes les recherches en arrière-plan
+
+- **Corrigé, confirmé en conditions réelles** : le score de correspondance des titres considérait deux titres comme quasi identiques sur la seule base de la distance de caractères, même quand ils différaient par un mot entièrement différent — confirmé en direct avec « How I Met Your Father » (un spin-off sans rapport) obtenant ~91 % de similarité avec une recherche pour « How I Met Your Mother » et étant récupéré à sa place. Le calcul vérifie désormais aussi mot par mot : un mot entièrement différent (et non une simple variante orthographique) est disqualifiant, peu importe à quel point le nombre de caractères global paraît proche.
+- **Corrigé, confirmé en conditions réelles** : une seule tâche de fond bloquée (ici une synchronisation Plex lente) pouvait occuper indéfiniment une place dans la file de tâches, bloquant silencieusement toutes les autres tâches en attente derrière elle — y compris les recherches planifiées et manuelles — aussi longtemps qu'elle restait bloquée, sans aucune erreur ni indication qu'un problème existait. C'est ce qui pouvait laisser un titre pourtant correctement ajouté et surveillé sans jamais être réellement recherché. La file libère désormais la place d'une tâche au bout de 10 minutes si elle n'est pas terminée, pour qu'une seule tâche bloquée ne puisse plus affamer tout ce qui la suit.
+
 ## v1.12.73 — août 2026
 
 ### Lecteur Bêta — la lecture directe démarre désormais comme le réessai manuel « éclair » a toujours fonctionné

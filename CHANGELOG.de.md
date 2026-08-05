@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.12.74 — August 2026
+
+### Matching-Fehler, der die falsche Serie erfassen konnte, und ein Job-Queue-Stau, der still alle Hintergrundsuchen einfrieren konnte
+
+- **Behoben, live bestätigt**: Der Titel-Matching-Score behandelte zwei Titel allein aufgrund der reinen Zeichendistanz als nahezu identisch, selbst wenn sie sich durch ein völlig anderes Wort unterschieden — live bestätigt mit „How I Met Your Father" (ein unverwandtes Spin-off), das bei einer Suche nach „How I Met Your Mother" eine Ähnlichkeit von ca. 91 % erzielte und stattdessen erfasst wurde. Der Scorer prüft jetzt zusätzlich Wort für Wort: Ein völlig anderes Wort (keine Rechtschreibvariante) disqualifiziert die Übereinstimmung, unabhängig davon, wie nah die Gesamtzeichenzahl beieinanderliegt.
+- **Behoben, live bestätigt**: Eine einzelne hängengebliebene Hintergrundaufgabe (in diesem Fall eine langsame Plex-Synchronisierung) konnte einen Job-Queue-Slot unbegrenzt lange belegen und dabei still jeden anderen wartenden Job dahinter blockieren – einschließlich geplanter und manueller Suchen – solange die Aufgabe hängen blieb, ohne jeglichen Fehler oder Hinweis, dass etwas nicht stimmte. Genau das konnte dazu führen, dass ein überwachter, korrekt hinzugefügter Titel nie tatsächlich gesucht wurde. Die Queue gibt den Slot eines Jobs jetzt nach 10 Minuten frei, falls er noch nicht abgeschlossen ist, sodass eine einzelne hängende Aufgabe nicht mehr alles dahinter aushungern kann.
+
 ## v1.12.73 — August 2026
 
 ### Beta-Player — direkte Wiedergabe startet jetzt so, wie der manuelle „Blitz"-Wiederholungsversuch schon immer funktionierte
