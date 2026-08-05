@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.12.75 — August 2026
+
+### Ursache eines abgeschlossenen Staffelpaket-Downloads, der nie in der Bibliothek auftauchte
+
+- **Behoben, live bestätigt**: ein konkreter Fall untersucht (ein Anime, dessen Staffelpakete vollständig heruntergeladen waren – die Warteschlange zeigte sie als „abgeschlossen" – aber keine der Folgen jemals verfügbar wurde). Die Ursache: manche Staffelpaket-Releases benennen ihre Episodendateien nach der Show in einer stark abgekürzten oder unüblichen Form, die der Titel-Parser nicht erkennen kann (im bestätigten Fall ein Akronym, das kein einziges Wort mit dem echten Titel teilt) – als die Dateien des abgeschlossenen Downloads also keiner erfassten Folge zugeordnet werden konnten, wurden sie korrekterweise *nicht* gelöscht, aber der Recovery-Durchlauf, der genau diesen Fall abfangen soll, hielt den Fehltreffer nur in einem Wert fest, den niemand jemals ausliest – sodass die Dateien unbegrenzt lange ohne jegliche Sichtbarkeit liegen blieben.
+- Der Recovery-Durchlauf erfasst diese jetzt auf dieselbe Weise, wie es ein wirklich nicht verknüpfter manueller Download bereits tut: Sie erscheinen unter Activité → Non liés, wo sie manuell dem richtigen Titel zugeordnet werden können – generisch, für jede Release, deren Namen der Parser nicht sicher zuordnen kann, nicht nur für die eine Show, bei der es aufgefallen ist.
+
 ## v1.12.74 — August 2026
 
 ### Matching-Fehler, der die falsche Serie erfassen konnte, und ein Job-Queue-Stau, der still alle Hintergrundsuchen einfrieren konnte

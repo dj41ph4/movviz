@@ -4,6 +4,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.12.75 — août 2026
+
+### Cause racine d'un pack de saison entièrement téléchargé qui n'apparaissait jamais dans la bibliothèque
+
+- **Corrigé, confirmé en conditions réelles** : investigation d'un cas précis (un anime dont les packs de saison avaient entièrement fini de télécharger — la file les affichait « Terminé » — mais dont aucun épisode ne devenait jamais disponible). Cause racine : certaines releases en pack de saison nomment leurs fichiers d'épisode selon une forme du titre fortement abrégée ou non standard, que l'analyseur de titres ne peut pas reconnaître (dans le cas confirmé, un acronyme ne partageant aucun mot avec le vrai titre) — donc quand les fichiers du téléchargement terminé ne correspondaient à aucun épisode suivi, ils n'étaient à juste titre pas supprimés, mais la passe de récupération censée justement rattraper ce cas ne faisait qu'enregistrer l'échec dans une valeur que rien ne lisait jamais, laissant les fichiers là indéfiniment sans aucune visibilité.
+- La passe de récupération les enregistre désormais de la même façon qu'un téléchargement manuel réellement non lié le fait déjà : ils apparaissent dans Activité → Non liés, où ils peuvent être manuellement rattachés au bon titre — de façon générique, pour toute release dont le nom ne peut pas être mappé avec confiance par l'analyseur, pas seulement pour la série ayant révélé le problème.
+
 ## v1.12.74 — août 2026
 
 ### Bug de correspondance pouvant récupérer la mauvaise série, et un blocage de la file de tâches pouvant geler silencieusement toutes les recherches en arrière-plan

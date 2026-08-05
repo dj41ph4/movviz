@@ -10,6 +10,7 @@ import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import { decodeLibraryRef } from "@/lib/library/types";
 import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImportedFiles";
 import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules";
+import { loadActivityV2, logActivityV2, createImportRef } from "@/lib/activity/v2/store";
 
 /**
  * Shared implementation of the "Récupérer les téléchargements" maintenance
@@ -268,6 +269,39 @@ function resolveTorrentFile(downloadPath: string, f: TorrentDetailFile): string 
 const g = globalThis as typeof globalThis & { __movvizRecoverRunning?: boolean };
 
 /**
+ * A completed file recoverDownloads() cannot title-match to anything in the
+ * library — the release's own name (or the internal filenames of a season
+ * pack, e.g. "SDBZH Saison 1.Universe.Mission" for Super Dragon Ball Heroes,
+ * confirmed live) doesn't overlap enough words with any known title —
+ * previously only landed in the in-memory `failed` array, which the
+ * scheduler task never persists anywhere. The file itself is never deleted
+ * (it's still sitting in the download folder), so it silently existed
+ * forever with no way for a human to notice or act on it. This surfaces it
+ * through the SAME "unlinked downloads" activity entry + manual-link UI a
+ * truly-manual no-title torrent add already produces, generically for any
+ * title the parser/matcher couldn't confidently resolve — not a hack scoped
+ * to this one show. Idempotent: skips if this exact file already has an
+ * unlinked entry from a previous recovery pass.
+ */
+function recordUnlinked(fp: string, size: number, parsedTitle: string, category: string, season: number | null | undefined, quality: string | null | undefined) {
+  const already = loadActivityV2().some((e) => e.kind === "imported" && e.import?.destinationPath === fp && e.media?.href === "#");
+  if (already) return;
+  logActivityV2({
+    kind: "imported",
+    media: {
+      id: fp,
+      title: parsedTitle,
+      type: category === "movie" ? "movie" : "series",
+      season: season ?? undefined,
+      href: "#",
+      linked: false,
+    },
+    actor: "system",
+    import: createImportRef(fp, size, path.basename(fp), quality ?? "—"),
+  });
+}
+
+/**
  * Recover completed downloads. When `stuck` is provided (scheduler path),
  * ONLY those torrents' files are candidates. Otherwise (manual action) every
  * file whose owning torrent is completed/seeding is a candidate — files of
@@ -473,6 +507,7 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
               importRef = { kind: "movie", movieId: movieMatch.id };
             } else if (sMatch) {
               failed.push({ src: fp, size, reason: `Série "${sMatch.title}" trouvée mais saison non détectée` });
+              recordUnlinked(fp, size, parsedTitle, inst.category, parsed.season, parsed.resolution);
               continue;
             }
           }
@@ -551,6 +586,7 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
           }
         } else {
           failed.push({ src: fp, size, reason: "Aucune correspondance trouvée dans la bibliothèque" });
+          recordUnlinked(fp, size, parsedTitle, inst.category, parsed.season, parsed.resolution);
         }
       }
     }
