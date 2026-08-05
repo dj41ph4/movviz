@@ -4,6 +4,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.12.78 — août 2026
+
+### Cause racine du fait que la récupération de téléchargements n'arrivait pas non plus à relier — elle jetait une information qu'elle avait déjà
+
+- **Corrigé, confirmé en conditions réelles** : investigation d'un cas précis (Wakfu) où l'outil de récupération de téléchargements ne trouvait aucune correspondance pour des fichiers terminés, alors même que la série était déjà correctement présente dans la bibliothèque. Cause racine : la récupération redevinait la série de chaque fichier uniquement à partir de son nom de fichier et de son chemin de dossier, même pour des fichiers dont le téléchargement d'origine savait déjà — avec certitude, depuis l'instant même où il avait été récupéré — exactement à quelle série et quelle saison il appartenait. Cette information faisant autorité était jetée avant que la correspondance par fichier ne s'exécute, forçant chaque fichier à passer par une supposition floue basée sur le nom de fichier. Pour une série organisée en `NomSérie/Saison 01/episode.avi` avec un fichier d'épisode dont le nom ne porte aucun repère de saison reconnaissable, cette supposition retombait sur la lecture du dossier de saison lui-même ("Saison 01") comme titre de la série — ne partageant aucun mot avec le vrai nom, donc ne correspondant jamais.
+- La récupération résout désormais directement la série/saison d'un fichier à partir de l'enregistrement de son téléchargement d'origine quand disponible, au lieu de deviner — et quand elle doit malgré tout se rabattre sur la lecture des noms de dossiers, elle vérifie désormais un niveau plus haut chaque fois que le dossier le plus proche s'avère être un simple repère de saison sans titre réel dedans, plutôt que de s'arrêter au premier dossier quel que soit son contenu réel. Les deux corrections sont génériques — elles s'appliquent à toute série organisée ainsi, pas seulement à celle ayant révélé le bug.
+
 ## v1.12.77 — août 2026
 
 ### Le Mode Théâtre laissait la page de fond transparaître visiblement

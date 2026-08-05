@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.12.78 — August 2026
+
+### Ursache dafür, dass auch die Download-Wiederherstellung nicht neu verknüpfen konnte — Recovery verwarf Informationen, die es bereits besaß
+
+- **Behoben, live bestätigt**: ein konkreter Fall untersucht (Wakfu), bei dem das Download-Recovery-Tool keine Übereinstimmung für abgeschlossene Dateien finden konnte, obwohl die Show bereits korrekt in der Bibliothek vorhanden war. Ursache: Recovery erriet die Show jeder Datei erneut, rein anhand von Dateiname und Ordnerpfad — selbst bei Dateien, deren ursprünglicher Download bereits ab dem Moment des Grabbens mit Sicherheit wusste, zu welcher Serie und Staffel sie gehörten. Diese maßgebliche Information wurde verworfen, bevor der Abgleich pro Datei ausgeführt wurde, sodass jede Datei stattdessen durch eine unscharfe Vermutung anhand des Dateinamens laufen musste. Bei einer Show, die als `ShowName/Saison 01/Episode.avi` organisiert ist, mit einer Episodendatei, deren Name selbst keinen erkennbaren Staffel-Hinweis trägt, griff diese Vermutung auf das Lesen des Staffelordners selbst ("Saison 01") als Show-Titel zurück — der kein einziges Wort mit dem echten Namen teilt, sodass nie eine Übereinstimmung zustande kam.
+- Recovery ermittelt die Show/Staffel einer Datei jetzt direkt aus dem eigenen Datensatz des ursprünglichen Downloads, sofern vorhanden, statt zu raten — und wenn doch auf das Lesen von Ordnernamen zurückgegriffen werden muss, prüft es jetzt eine Ebene höher, sobald sich der nähere Ordner als bloßer Staffel-Marker ohne echten Titel darin herausstellt, statt beim ersten Ordner stehenzubleiben, unabhängig von dessen tatsächlichem Inhalt. Beide Korrekturen sind generisch — sie gelten für jede so organisierte Show, nicht nur für diejenige, bei der der Fehler aufgefallen ist.
+
 ## v1.12.77 — August 2026
 
 ### Kinomodus ließ die dahinterliegende Seite sichtbar durchscheinen

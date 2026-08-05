@@ -356,8 +356,16 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
         (stuckSet.size === 0 || stuckSet.has(t.infoHash))
       );
 
-      // Build the allowed file set from the torrents' own file lists.
-      const allowed = new Set<string>();
+      // Build the allowed file set from the torrents' own file lists —
+      // keeping each file's owning torrent's libraryRef alongside it (not
+      // just a bare path) so the per-file loop below can resolve the exact
+      // library target directly by ID instead of re-guessing it from the
+      // file's own name/path. Confirmed live (Wakfu): a completed torrent
+      // already carries a libraryRef pointing straight at the right series —
+      // that's authoritative, grab-time information — yet it was being
+      // discarded here, forcing every file back through fuzzy title matching
+      // even when the answer was already known with certainty.
+      const allowed = new Map<string, string | null>();
       for (const t of candidateTorrents) {
         let detail: { files?: TorrentDetailFile[] } | null = null;
         try {
@@ -370,7 +378,7 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
         for (const f of detail?.files ?? []) {
           if (!f.path) continue;
           const fp = resolveTorrentFile(inst.downloadPath, f);
-          if (isInside(inst.downloadPath, fp)) allowed.add(fp);
+          if (isInside(inst.downloadPath, fp)) allowed.set(fp, t.libraryRef ?? null);
         }
       }
 
@@ -427,8 +435,24 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
         // gave up), keeping the folder's title/season/quality but recovering
         // the episode number from the file's own leading digits.
         if (inst.category === "series" && parsed.season == null) {
-          const folderParsed = parseRelease(path.basename(path.dirname(fp)));
+          const seasonFolderName = path.basename(path.dirname(fp));
+          let folderParsed = parseRelease(seasonFolderName);
           if (folderParsed.season != null) {
+            // A pure "Saison 01"-style season folder carries no title of its
+            // own — parseRelease has nothing to extract and falls back to
+            // returning the raw folder name itself as the title. That's
+            // indistinguishable from a genuine title without checking for
+            // this exact case, and confirmed live it broke matching entirely
+            // for a real "ShowName/Saison 01/episode.ext" layout (Wakfu): the
+            // season folder became the "title" fed to the matcher below,
+            // sharing zero words with the real show name one level further
+            // up. Walk up one more level for the title whenever this
+            // happens, generically for any show organized this way.
+            if (folderParsed.title === seasonFolderName) {
+              const showFolderName = path.basename(path.dirname(path.dirname(fp)));
+              const showParsed = parseRelease(showFolderName);
+              if (showParsed.title) folderParsed = { ...folderParsed, title: showParsed.title };
+            }
             const epMatch = basename.match(/^\D*(\d{1,3})\b/);
             parsed = { ...folderParsed, episode: epMatch ? parseInt(epMatch[1], 10) : folderParsed.episode };
           }
@@ -452,13 +476,49 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
           continue;
         }
 
+        // Resolve directly by the owning torrent's libraryRef when one is
+        // available — authoritative, grab-time information, so this always
+        // takes priority over guessing from the file's own name/path below.
+        // Confirmed live (Wakfu): the torrent already knew exactly which
+        // series/season it belonged to; only the fuzzy fallback below (fed a
+        // mangled "Saison 01" title) ever failed.
+        let refMatch:
+          | { kind: "movie"; movie: (typeof movies)[number] }
+          | { kind: "series"; series: (typeof series)[number]; season?: number; episode?: number }
+          | null = null;
+        if (engineConfirmed) {
+          const ownerRef = allowed.get(fp);
+          const decoded = ownerRef ? decodeLibraryRef(ownerRef) : null;
+          if (decoded?.kind === "movie") {
+            const m = movies.find((mv) => mv.id === decoded.movieId);
+            if (m) refMatch = { kind: "movie", movie: m };
+          } else if (decoded?.kind === "season" || decoded?.kind === "episode" || decoded?.kind === "series") {
+            const s = series.find((sr) => sr.id === decoded.seriesId);
+            if (s) {
+              refMatch = {
+                kind: "series",
+                series: s,
+                season: "season" in decoded ? decoded.season : undefined,
+                episode: "episode" in decoded ? decoded.episode : undefined,
+              };
+            }
+          }
+        }
+        if (refMatch?.kind === "series" && (refMatch.season != null || refMatch.episode != null)) {
+          parsed = {
+            ...parsed,
+            season: refMatch.season ?? parsed.season,
+            episode: refMatch.episode ?? parsed.episode,
+          };
+        }
+
         let dest: string | null = null;
         let destRoot = inst.completedPath;
         let label = "";
         let importRef: import("@/lib/library/applyImportedFiles").LibraryImportRef | null = null;
 
         if (inst.category === "movie") {
-          const match = movies.find((m) => matchesTitle(parsedTitle, m));
+          const match = refMatch?.kind === "movie" ? refMatch.movie : movies.find((m) => matchesTitle(parsedTitle, m));
           if (match) {
             const ctx = buildContext({ ...parsed, title: match.title, year: String(match.year ?? "") } as ReleaseInfo);
             const folder = renderSegment(naming.movieFolder, ctx, naming.useDotsInsteadOfSpaces);
@@ -469,7 +529,7 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
             importRef = { kind: "movie", movieId: match.id };
           }
         } else if (inst.category === "series") {
-          const sMatch = series.find((s) => matchesTitle(parsedTitle, s));
+          const sMatch = refMatch?.kind === "series" ? refMatch.series : series.find((s) => matchesTitle(parsedTitle, s));
           if (sMatch && parsed.season != null) {
             const ctx = buildContext({ ...parsed, title: sMatch.title, year: String(sMatch.year ?? "") } as ReleaseInfo);
             const seriesFolder = renderSegment(naming.seriesFolder, ctx, naming.useDotsInsteadOfSpaces);
