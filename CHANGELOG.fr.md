@@ -4,6 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.12.79 — août 2026
+
+### Durcissement du correctif précédent après une revue indépendante
+
+- Une revue indépendante du correctif de récupération de la v1.12.78 a repéré deux vraies lacunes avant qu'elles ne posent problème : la nouvelle résolution « faire confiance à l'enregistrement d'origine du téléchargement » aurait pu écraser un numéro de saison explicite et différent porté par le nom du fichier lui-même — c'est-à-dire qu'une release mal étiquetée aurait pu être silencieusement classée dans le mauvais dossier de saison. Elle ne fait désormais que compléter une saison/épisode que le nom du fichier ne fournissait pas déjà, sans jamais écraser celle qu'il fournissait. Par ailleurs, un cas restant (un film intégré dans un pack de type série) était encore sur l'ancien chemin de simple supposition alors que tous les autres cas avaient déjà été mis à niveau — désormais cohérent partout.
+
 ## v1.12.78 — août 2026
 
 ### Cause racine du fait que la récupération de téléchargements n'arrivait pas non plus à relier — elle jetait une information qu'elle avait déjà

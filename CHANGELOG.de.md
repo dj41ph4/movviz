@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.12.79 — August 2026
+
+### Die vorherige Korrektur nach einer unabhängigen Überprüfung gehärtet
+
+- Eine unabhängige Überprüfung der Recovery-Korrektur aus v1.12.78 deckte zwei reale Lücken auf, bevor sie zuschlagen konnten: Die neue Auflösung "vertraue dem eigenen Datensatz des ursprünglichen Downloads" hätte eine explizite, abweichende Staffelnummer aus dem eigenen Dateinamen überschreiben können — was bedeutet, dass eine falsch beschriftete Release still und leise im falschen Staffelordner hätte landen können. Sie ergänzt jetzt nur noch eine Staffel/Episode, die der Dateiname selbst noch nicht lieferte, und überschreibt nie eine bereits vorhandene. Außerdem lief eine verbleibende Stelle (ein Film, der in einem Paket der Kategorie Serien gebündelt war) noch auf dem alten, rein vermutungsbasierten Pfad, während jeder andere Fall bereits aktualisiert worden war — jetzt über alle Fälle hinweg konsistent.
+
 ## v1.12.78 — August 2026
 
 ### Ursache dafür, dass auch die Download-Wiederherstellung nicht neu verknüpfen konnte — Recovery verwarf Informationen, die es bereits besaß

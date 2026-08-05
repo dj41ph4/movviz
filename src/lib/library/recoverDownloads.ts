@@ -505,10 +505,20 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
           }
         }
         if (refMatch?.kind === "series" && (refMatch.season != null || refMatch.episode != null)) {
+          // Fills in a season/episode the file's own name didn't provide —
+          // never overrides one it DID provide. The grab-time libraryRef is
+          // authoritative about which SHOW a file belongs to (a torrent
+          // genuinely cannot be grabbed for the wrong series), but a
+          // mislabeled release can still legitimately contain a different
+          // season than the one it was searched for — the file's own parsed
+          // season, when present, must keep winning that specific disagreement
+          // exactly like it already did before this file had any libraryRef
+          // context at all, or a mislabeled pack would silently misfile its
+          // real content into the wrong season folder with no error.
           parsed = {
             ...parsed,
-            season: refMatch.season ?? parsed.season,
-            episode: refMatch.episode ?? parsed.episode,
+            season: parsed.season ?? refMatch.season ?? null,
+            episode: parsed.episode ?? refMatch.episode ?? null,
           };
         }
 
@@ -554,7 +564,11 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
             // library before giving up, using the MOVIE instance's own
             // completedPath since this file physically sits under the
             // series instance's downloadPath but belongs in the film library.
-            const movieMatch = movies.find((m) => matchesTitle(parsedTitle, m));
+            // A libraryRef resolved above to a movie (grabbed under the
+            // series instance for exactly this reason) takes priority over
+            // the fuzzy guess, same as the movie/season branches already do —
+            // this branch was the one spot still fuzzy-only.
+            const movieMatch = refMatch?.kind === "movie" ? refMatch.movie : movies.find((m) => matchesTitle(parsedTitle, m));
             const movieInst = instances.find((i) => i.category === "movie");
             if (movieMatch && movieInst?.completedPath) {
               const ctx = buildContext({ ...parsed, title: movieMatch.title, year: String(movieMatch.year ?? "") } as ReleaseInfo);
