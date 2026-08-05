@@ -491,7 +491,22 @@ export class AbstractBackend {
     }
     m.finishing = true;
     const snap = this._clientSnapshot(infoHash);
-    await this._clientRemove(infoHash, deleteData).catch(() => {});
+    // _clientRemove can silently fail to resolve the client's internal handle
+    // (aria2 GID / libtorrent id lookup miss) and return false without
+    // throwing — confirmed live: this used to fall straight through to
+    // meta.delete() below regardless, wiping libraryRef and every other
+    // bookkeeping field while the torrent kept running/seeding in the actual
+    // client, completely untouched. From that point Movviz had zero record
+    // of it ever existing — showing up later as a permanently "unlinked"
+    // torrent with no way back short of a blind filename-matching recovery
+    // scan. Only wipe this backend's own state once the client itself
+    // confirms the torrent is actually gone (either _clientRemove returned
+    // true, or an independent _clientGet lookup shows it's no longer there).
+    const removed = await this._clientRemove(infoHash, deleteData).catch(() => false);
+    if (!removed && this._clientGet(infoHash)) {
+      m.finishing = false;
+      return false;
+    }
     if (deleteData && snap?.name) {
       const safeName = snap.name.replace(/[/\\:]/g, "_").replace(/\.\.+/g, "_");
       const cleanupTarget = path.join(this.cfg.downloadPath, safeName);
