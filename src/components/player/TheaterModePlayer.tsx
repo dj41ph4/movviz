@@ -99,6 +99,19 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
 
   return (
     <div className="fixed inset-0 z-[100] h-[100dvh] w-screen" style={ambienceStyle}>
+      {/* Always-opaque base, rendered unconditionally and before anything
+       * else — confirmed live: making VideoPlayer's own background
+       * transparent (so the ambience below can show through in the
+       * letterbox bars) meant that on its own, NOTHING behind it was
+       * actually fully opaque: the page-dim layer below is only ~80% black
+       * through an 8px blur, and the ambience group (when present) stacks
+       * several partial-opacity layers with no solid base of its own. Net
+       * result was the real page bleeding through visibly at the edges
+       * (readable text/thumbnails) — worse than the flat black it replaced.
+       * This solid layer guarantees the page can never show through again,
+       * with or without ambience data (e.g. no backdrop/poster URL).
+       */}
+      <div className="absolute inset-0 bg-[#07070b]" />
       {/* Stacking order (spec section 13): page (blurred here) → blurred/
           color-graded backdrop → dark scrim → player → controls. */}
       <motion.div

@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.12.77 — August 2026
+
+### Kinomodus ließ die dahinterliegende Seite sichtbar durchscheinen
+
+- **Behoben, live bestätigt**: Die vorherige Korrektur machte den Hintergrund des Players selbst transparent, damit die Farbstimmung durchscheinen konnte — aber nichts dahinter war tatsächlich vollständig deckend (die Abdunklungsebene der Seite ist über einen Weichzeichner nur zu etwa 80 % schwarz, und die Farbebenen selbst stapeln mehrere teiltransparente Effekte ohne solide Basis). Die echte Bibliotheksseite war am Ende sichtbar lesbar durch die Letterbox-Balken hindurch — schlimmer als das flache Schwarz, das sie ersetzte. Es wurde eine dauerhafte, vollständig deckende Basisebene unter allem anderen hinzugefügt, sodass die Seite nie wieder durchscheinen kann, mit oder ohne verfügbares Artwork eines Titels für die Farbextraktion.
+
 ## v1.12.76 — August 2026
 
 ### Der inhaltsadaptive Hintergrund des Kinomodus war unsichtbar — behoben und für echte visuelle Wirkung neu ausbalanciert

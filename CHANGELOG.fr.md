@@ -4,6 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.12.77 — août 2026
+
+### Le Mode Théâtre laissait la page de fond transparaître visiblement
+
+- **Corrigé, confirmé en conditions réelles** : le correctif précédent rendait le fond du lecteur transparent pour laisser transparaître l'ambiance colorimétrique — mais rien derrière n'était en réalité totalement opaque (la couche d'assombrissement de la page n'est qu'environ 80 % noire à travers un flou, et les couches de couleur elles-mêmes empilent plusieurs effets partiellement transparents sans base solide). La vraie page bibliothèque finissait par être visiblement lisible à travers les bandes noires — pire que le noir plat qu'elle remplaçait. Ajout d'une couche de base définitivement opaque sous tout le reste, pour que la page ne puisse plus jamais transparaître, avec ou sans visuel disponible pour l'extraction de couleur.
+
 ## v1.12.76 — août 2026
 
 ### L'ambiance colorimétrique du Mode Théâtre était invisible — corrigé, et rééquilibré pour un vrai impact visuel

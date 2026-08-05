@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.77 — August 2026
+
+### Theater Mode was letting the page underneath bleed through visibly
+
+- **Fixed, confirmed live**: the previous fix made the player's own background transparent so the color ambience could show through — but nothing behind it was actually fully opaque (the page-dim layer is only ~80% black through a blur, and the color layers themselves stack several partial-opacity effects with no solid base). The real library page ended up visibly readable through the letterbox bars — worse than the flat black it replaced. Added a permanent, fully opaque base layer underneath everything else, so the page can never show through again, with or without a title's artwork available for the color extraction.
+
 ## v1.12.76 — August 2026
 
 ### Theater Mode's content-adaptive backdrop was invisible — fixed, and rebalanced for real visual impact
