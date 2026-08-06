@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.82 — August 2026
+
+### Release 1.12.82 — encodage vérifié, pipeline CI relancé sur un commit sain
+
+- **Contexte** : le premier push de la v1.12.81 a été réalisé avec un `package.json` corrompu par un BOM UTF-8 (`U+FEFF`) introduit par un écriture PowerShell — le build CI (`next build` via `build.ps1`) a échoué avec `package.json is not parseable: invalid JSON: expected value at line 1 column 1`.
+- **Corrigé** : l'encodage de tous les fichiers concernés (`package.json`, `README.md`, `CHANGELOG.md`, `autoGrabSeries.ts`, `torznab.ts`, `autoGrab.ts`, `mediaMap.ts`, `rssCache.ts`) a été vérifié octet par octet — aucun BOM, UTF-8 propre. Le commit corrigé de la v1.12.81 contenait déjà le code exact sans BOM ; la v1.12.82 repart d'une base saine et relance le pipeline complet (installateur Windows + image Docker) sur le bon commit.
+- **Rappel** : les fichiers source ne doivent JAMAIS être écrits via PowerShell 5.1 (`Set-Content`, redirections) — ses encodages par défaut corrompent l'UTF-8 ou ajoutent un BOM.
+
+---
+
 ## v1.12.81 — August 2026
 
 ### Search/matching audit (TR4KER vs C411), link-before-download, Seerr notification flood, and a discovered engine-token mismatch
