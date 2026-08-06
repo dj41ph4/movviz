@@ -7,6 +7,7 @@ import { X, Plus, Loader2, SlidersHorizontal } from "lucide-react";
 
 interface ReleaseRules {
   blockedWords: string[];
+  allowedWords: string[];
   maxMovieSizeMb: number | null;
   maxEpisodeSizeMb: number | null;
   maxSeasonSizeMb: number | null;
@@ -43,7 +44,6 @@ export function ReleaseRulesPanel() {
   const { locale } = useI18n();
   const languageOptions = (LANGUAGE_BY_LOCALE[locale] ?? FALLBACK_LANGUAGES) as readonly string[];
   const [rules, setRules] = useState<ReleaseRules | null>(null);
-  const [wordInput, setWordInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -78,15 +78,6 @@ export function ReleaseRulesPanel() {
 
   if (!rules) return null;
 
-  const addWord = () => {
-    const w = wordInput.trim();
-    if (!w || rules.blockedWords.some((x) => x.toLowerCase() === w.toLowerCase())) return;
-    setWordInput("");
-    save({ blockedWords: [...rules.blockedWords, w] });
-  };
-
-  const removeWord = (w: string) => save({ blockedWords: rules.blockedWords.filter((x) => x !== w) });
-
   const field = "w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim";
 
   return (
@@ -102,32 +93,28 @@ export function ReleaseRulesPanel() {
       </div>
 
       {/* Blocked words */}
-      <div className="rounded-2xl glass p-5">
-        <h3 className="font-bold text-ink">{t("releaseRules.blockedWordsTitle")}</h3>
-        <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.blockedWordsHint")}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {rules.blockedWords.map((w) => (
-            <span key={w} className="flex items-center gap-1.5 rounded-full border border-white/8 bg-black/30 py-1 pl-3 pr-1.5 text-xs font-semibold text-ink-soft">
-              {w}
-              <button onClick={() => removeWord(w)} className="flex h-5 w-5 items-center justify-center rounded-full text-ink-dim hover:bg-down/15 hover:text-down">
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-        </div>
-        <div className="mt-3 flex gap-2">
-          <input
-            value={wordInput}
-            onChange={(e) => setWordInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addWord()}
-            placeholder={t("releaseRules.blockedWordsPlaceholder")}
-            className={cn(field, "flex-1")}
-          />
-          <button onClick={addWord} disabled={!wordInput.trim()} className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-40">
-            <Plus className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      <WordListEditor
+        title={t("releaseRules.blockedWordsTitle")}
+        hint={t("releaseRules.blockedWordsHint")}
+        placeholder={t("releaseRules.blockedWordsPlaceholder")}
+        words={rules.blockedWords}
+        field={field}
+        onAdd={(w) => save({ blockedWords: [...rules.blockedWords, w] })}
+        onRemove={(w) => save({ blockedWords: rules.blockedWords.filter((x) => x !== w) })}
+        duplicates={(w) => rules.blockedWords.some((x) => x.toLowerCase() === w.toLowerCase())}
+      />
+
+      {/* Allowed words — cancel a blocked-word match (e.g. "VOSTFR+FRENCH") */}
+      <WordListEditor
+        title={t("releaseRules.allowedWordsTitle")}
+        hint={t("releaseRules.allowedWordsHint")}
+        placeholder={t("releaseRules.allowedWordsPlaceholder")}
+        words={rules.allowedWords}
+        field={field}
+        onAdd={(w) => save({ allowedWords: [...rules.allowedWords, w] })}
+        onRemove={(w) => save({ allowedWords: rules.allowedWords.filter((x) => x !== w) })}
+        duplicates={(w) => rules.allowedWords.some((x) => x.toLowerCase() === w.toLowerCase())}
+      />
 
       {/* Max sizes */}
       <div className="rounded-2xl glass p-5">
@@ -393,6 +380,62 @@ function ScoreField({ label, value, onCommit, className }: { label: string; valu
         inputMode="numeric"
         className={className}
       />
+    </div>
+  );
+}
+
+function WordListEditor({
+  title,
+  hint,
+  placeholder,
+  words,
+  field,
+  onAdd,
+  onRemove,
+  duplicates,
+}: {
+  title: string;
+  hint: string;
+  placeholder: string;
+  words: string[];
+  field: string;
+  onAdd: (w: string) => void;
+  onRemove: (w: string) => void;
+  duplicates: (w: string) => boolean;
+}) {
+  const [input, setInput] = useState("");
+  const add = () => {
+    const w = input.trim();
+    if (!w || duplicates(w)) return;
+    setInput("");
+    onAdd(w);
+  };
+  return (
+    <div className="rounded-2xl glass p-5">
+      <h3 className="font-bold text-ink">{title}</h3>
+      <p className="mt-1 text-xs text-ink-dim">{hint}</p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {words.map((w) => (
+          <span key={w} className="flex items-center gap-1.5 rounded-full border border-white/8 bg-black/30 py-1 pl-3 pr-1.5 text-xs font-semibold text-ink-soft">
+            {w}
+            <button onClick={() => onRemove(w)} className="flex h-5 w-5 items-center justify-center rounded-full text-ink-dim hover:bg-down/15 hover:text-down">
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+          placeholder={placeholder}
+          className={cn(field, "flex-1")}
+        />
+        <button onClick={add} disabled={!input.trim()} className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-40">
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }

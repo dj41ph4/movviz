@@ -19,6 +19,9 @@ export async function PUT(req: NextRequest) {
   if (Array.isArray(body.blockedWords)) {
     patch.blockedWords = body.blockedWords.map((w: unknown) => String(w).trim()).filter(Boolean);
   }
+  if (Array.isArray(body.allowedWords)) {
+    patch.allowedWords = body.allowedWords.map((w: unknown) => String(w).trim()).filter(Boolean);
+  }
   for (const key of ["maxMovieSizeMb", "maxEpisodeSizeMb", "maxSeasonSizeMb", "maxSeriesSizeMb"] as const) {
     if (key in body) patch[key] = body[key] == null ? null : Math.max(0, Number(body[key])) || null;
   }

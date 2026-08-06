@@ -4,6 +4,17 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.83 — August 2026
+
+### Mots autorisés — un terme présent dans le titre annule le mot interdit
+
+- **Nouveau** : dans Réglages → Qualité, une section "Mots autorisés" vient s'ajouter à "Mots interdits". Si un mot autorisé est présent dans le titre d'une release, le mot interdit correspondant est annulé. Cas typique résolu : un debile a uploadé un épisode marqué "VOSTFR" alors que c'est en réalité un multi — `Arrow.S01E01.MULTi.VOSTFR+FRENCH.1080p...` avec "VOSTFR" interdit + "FRENCH" autorisé est désormais accepté, tandis qu'un simple VOSTFR reste rejeté.
+- **Application** : la logique vit dans `matchesBlockedWord()` (`releaseRules.ts`), donc toutes les entrées la respectent — recherche auto (torznab), garde de décision, import de fichiers, récupération de téléchargements.
+- **Match** : en sous-chaîne insensible à la casse, comme les mots interdits (note : "TRUEFRENCH" contient "FRENCH").
+- Tests : 6 nouveaux cas dans `scripts/allowed-words.test.ts` (23/23 verts).
+
+---
+
 ## v1.12.82 — August 2026
 
 ### Release 1.12.82 — encodage vérifié, pipeline CI relancé sur un commit sain

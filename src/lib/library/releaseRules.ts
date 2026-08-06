@@ -11,6 +11,13 @@ const FILE = path.join(CONFIG_DIR, "releaseRules.json");
 export interface ReleaseRules {
   /** Any release whose title contains one of these (case-insensitive) is rejected outright. */
   blockedWords: string[];
+  /**
+   * Terms that cancel a blocked-word match: if the same title contains one
+   * of these, the block doesn't apply. E.g. blocked "VOSTFR" + allowed
+   * "FRENCH" lets "MULTi.VOSTFR+FRENCH" through (a proper multi audio track),
+   * while a bare "VOSTFR" release is still rejected.
+   */
+  allowedWords: string[];
   /** MB caps — null/0 means no limit. Kept separate since a season pack is naturally much larger than one episode. */
   maxMovieSizeMb: number | null;
   maxEpisodeSizeMb: number | null;
@@ -56,6 +63,7 @@ export interface ReleaseRules {
 
 const DEFAULT_RULES: ReleaseRules = {
   blockedWords: [],
+  allowedWords: [],
   maxMovieSizeMb: null,
   maxEpisodeSizeMb: null,
   maxSeasonSizeMb: null,
@@ -133,12 +141,21 @@ export function saveReleaseRules(patch: Partial<ReleaseRules>): ReleaseRules {
   return next;
 }
 
-/** Plain substring match (case-insensitive) — "must not contain" release terms. */
+/**
+ * Plain substring match (case-insensitive) — "must not contain" release
+ * terms. A blocked match is cancelled when the title also contains one of
+ * `rules.allowedWords` (e.g. "VOSTFR+FRENCH" with FRENCH whitelisted).
+ */
 export function matchesBlockedWord(title: string, rules: ReleaseRules = read()): string | null {
   const t = title.toLowerCase();
   for (const word of rules.blockedWords) {
     const w = word.trim().toLowerCase();
-    if (w && t.includes(w)) return word;
+    if (!w || !t.includes(w)) continue;
+    const cancelled = rules.allowedWords.some((a) => {
+      const aw = a.trim().toLowerCase();
+      return aw && t.includes(aw);
+    });
+    if (!cancelled) return word;
   }
   return null;
 }
