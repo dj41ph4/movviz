@@ -13,34 +13,89 @@ function fmtSize(bytes: number) {
   return (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0) + " " + u[i];
 }
 
+/** Batch size for the recover run — a full-scan single request over a big
+ *  download folder times out and its giant response freezes the UI. The run
+ *  is split server-side into chunks of this many files, re-invoked until
+ *  hasMore is false, and each chunk's result is merged progressively. */
+const BATCH_SIZE = 20;
+/** Hard safety valve against a misbehaving server looping forever. */
+const MAX_BATCHES = 10_000;
+
+interface RecoverResult {
+  recovered: Array<{ title: string; src: string; dest: string; size: number; season?: number; episode?: number }>;
+  failed: Array<{ src: string; size: number; reason: string }>;
+  duplicates: Array<{ src: string; size: number }>;
+  summary: string;
+}
+
 export function RecoverDownloadsPanel() {
   const t = useT();
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{
-    recovered: Array<{ title: string; src: string; dest: string; size: number; season?: number; episode?: number }>;
-    failed: Array<{ src: string; size: number; reason: string }>;
-    duplicates: Array<{ src: string; size: number }>;
-    summary: string;
-  } | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [result, setResult] = useState<RecoverResult | null>(null);
   const [cleaning, setCleaning] = useState(false);
   const [cleaningUnmatched, setCleaningUnmatched] = useState(false);
 
   const NO_MATCH_REASON = "Aucune correspondance trouvée dans la bibliothèque";
   const unmatched = result?.failed.filter((f) => f.reason === NO_MATCH_REASON) ?? [];
 
+  const merge = (acc: RecoverResult, chunk: RecoverResult): RecoverResult => {
+    // Dedupe by src — instance-level failures ("instance:xyz") are re-reported
+    // by every batch since they're not file paths and can't be tracked in
+    // `processed`; a same-src duplicate in the state would also double-count
+    // in the UI and in the "Effacer" buttons.
+    const bySrc = <T extends { src: string }>(list: T[]): T[] => {
+      const seen = new Set<string>();
+      return list.filter((x) => (seen.has(x.src) ? false : (seen.add(x.src), true)));
+    };
+    return {
+      recovered: bySrc([...acc.recovered, ...chunk.recovered]),
+      failed: bySrc([...acc.failed, ...chunk.failed]),
+      duplicates: bySrc([...acc.duplicates, ...chunk.duplicates]),
+      summary: acc.summary,
+    };
+  };
+
   const run = async () => {
     if (!(await confirmDialog("Scanner le dossier de téléchargement à la recherche de fichiers non importés ? Les fichiers seront renommés et déplacés vers la bibliothèque.", { tone: "default" }))) return;
     setLoading(true);
+    setProgress(null);
     setResult(null);
     try {
-      const res = await fetch("/api/maintenance/recover-downloads", { method: "POST" });
-      const data = await res.json();
-      setResult(data);
-      toast("success", data.summary);
-    } catch {
-      setResult({ recovered: [], failed: [], duplicates: [], summary: "Erreur moteur" });
+      // Chunked run: each request handles at most BATCH_SIZE files and
+      // returns the paths it touched; the next request skips them (the
+      // server is idempotent per path). `processed` grows across batches.
+      const acc: RecoverResult = { recovered: [], failed: [], duplicates: [], summary: "" };
+      let processed: string[] = [];
+      let hasMore = true;
+      let batches = 0;
+      while (hasMore && batches < MAX_BATCHES) {
+        batches++;
+        setProgress(`Lot ${batches} — ${acc.recovered.length + acc.failed.length + acc.duplicates.length} fichier(s) examiné(s)`);
+        const res = await fetch("/api/maintenance/recover-downloads", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ batchSize: BATCH_SIZE, processed }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.error ?? "Erreur moteur");
+        const chunk = data as RecoverResult & { attempted?: string[]; hasMore?: boolean };
+        const next = merge(acc, chunk);
+        acc.recovered = next.recovered;
+        acc.failed = next.failed;
+        acc.duplicates = next.duplicates;
+        processed = processed.concat(chunk.attempted ?? []);
+        hasMore = !!chunk.hasMore;
+      }
+      acc.summary = `${acc.recovered.length} récupéré(s), ${acc.failed.length} ignoré(s), ${acc.duplicates.length} doublon(s)`;
+      setResult(acc);
+      toast("success", acc.summary);
+    } catch (e) {
+      setResult({ recovered: [], failed: [], duplicates: [], summary: (e as Error).message ?? "Erreur moteur" });
+      toast("error", (e as Error).message ?? "Erreur moteur");
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -138,7 +193,8 @@ export function RecoverDownloadsPanel() {
       {result && (
         <div className="mt-4 space-y-2 text-sm">
           <p className="font-semibold text-ink-soft">{result.summary}</p>
-          {result.recovered.map((r, i) => (
+          {loading && progress && <p className="text-xs text-ink-dim">{progress}</p>}
+          {result.recovered.slice(0, 30).map((r, i) => (
             <div key={i} className="flex items-start gap-2 rounded-lg bg-ok/10 p-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" />
               <div className="min-w-0 flex-1">
@@ -150,7 +206,10 @@ export function RecoverDownloadsPanel() {
               </div>
             </div>
           ))}
-          {result.failed.map((f, i) => (
+          {result.recovered.length > 30 && (
+            <p className="text-xs text-ink-dim">… et {result.recovered.length - 30} autre(s) récupéré(s)</p>
+          )}
+          {result.failed.slice(0, 30).map((f, i) => (
             <div key={i} className="flex items-start gap-2 rounded-lg bg-down/10 p-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-down" />
               <div className="min-w-0">
@@ -159,6 +218,9 @@ export function RecoverDownloadsPanel() {
               </div>
             </div>
           ))}
+          {result.failed.length > 30 && (
+            <p className="text-xs text-ink-dim">… et {result.failed.length - 30} autre(s) ignoré(s)</p>
+          )}
         </div>
       )}
     </div>

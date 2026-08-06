@@ -1,4 +1,4 @@
-import type { Dictionary } from "../types";
+﻿import type { Dictionary } from "../types";
 
 /** English dictionary — mirrors the French key structure. */
 export const en: Dictionary = {
@@ -237,7 +237,7 @@ export const en: Dictionary = {
     firstAirDate: "First air date",
     revenue: "Revenue",
     budget: "Budget",
-    showMore: "Show more",
+    showMore: "Show more ({n} left)",
     trailer: "Trailer",
     trailerUnavailable: "Trailer unavailable",
     trailerUnavailableHint: "The rights holder has blocked playback of this video on third-party sites.",

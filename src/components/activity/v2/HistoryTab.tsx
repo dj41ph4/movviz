@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useI18n, useT } from "@/i18n/provider";
@@ -27,8 +27,7 @@ const KIND_ICONS = {
   approved: <Check className="h-4 w-4" />,
   declined: <X className="h-4 w-4" />,
   searching: <Search className="h-4 w-4" />,
-  grabbed: <Download className="h-4 w-4" />,
-  downloading: <Download className="h-4 w-4" />,
+  grabbed: <Download className="h-4 w-4" />,  downloading: <Download className="h-4 w-4" />,
   importing: <PackageCheck className="h-4 w-4" />,
   imported: <PackageCheck className="h-4 w-4" />,
   upgraded: <Download className="h-4 w-4" />,
@@ -60,6 +59,9 @@ const STATUS_TABS = [
   { id: "inProgress",  types: ["grabbed", "downloading", "importing", "searching"] },
   { id: "failures",    types: ["failed", "blocked", "declined", "removed"] },
 ] as const;
+
+const RENDER_BATCH_INITIAL = 100;
+const RENDER_BATCH_STEP = 150;
 
 export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } = {}) {
   const t = useT();
@@ -111,6 +113,26 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
 
     return true;
   }), [items, selectedTypes, selectedUsers, selectedIndexers, searchQuery]);
+
+  // Progressive rendering — the history keeps thousands of entries (MAX_KEEP
+  // 2000) and rendering them all in one pass froze the tab; paint the first
+  // batch immediately and grow in idle time. Day grouping runs on the visible
+  // slice only, so a new day's header can't appear without its entries.
+  const [visibleCount, setVisibleCount] = useState(RENDER_BATCH_INITIAL);
+  useEffect(() => {
+    setVisibleCount(RENDER_BATCH_INITIAL);
+  }, [filteredItems.length]);
+  useEffect(() => {
+    if (visibleCount >= filteredItems.length) return;
+    const grow = () => setVisibleCount((c) => c + RENDER_BATCH_STEP);
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(grow);
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(grow, 50);
+    return () => window.clearTimeout(id);
+  }, [visibleCount, filteredItems.length]);
+  const visibleItems = filteredItems.slice(0, visibleCount);
 
   const toggleType = (type: string) => {
     if (type === "all") {
@@ -264,11 +286,11 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
 
       {/* Résultats — groupés par jour (les entrées arrivent déjà triées de la plus récente à la plus ancienne) */}
       <div className="space-y-1.5">
-        {filteredItems.map((item, idx) => {
+        {visibleItems.map((item, idx) => {
           const Icon = KIND_ICONS[item.kind];
           const tone = KIND_TONES[item.kind];
           const label = t("activity.kinds." + item.kind);
-          const newDay = idx === 0 || dayKey(item.timestamp) !== dayKey(filteredItems[idx - 1].timestamp);
+          const newDay = idx === 0 || dayKey(item.timestamp) !== dayKey(visibleItems[idx - 1].timestamp);
 
           return (
             <div key={item.id}>
@@ -322,6 +344,16 @@ export function HistoryTab({ failuresOnly = false }: { failuresOnly?: boolean } 
             </div>
           );
         })}
+
+        {filteredItems.length > visibleItems.length && (
+          <button
+            onClick={() => setVisibleCount((c) => c + RENDER_BATCH_STEP)}
+            className="mx-auto flex h-11 items-center gap-2 rounded-xl bg-white/5 px-4 text-sm font-semibold text-ink-soft transition-colors hover:bg-white/10"
+          >
+            <ChevronDown className="h-4 w-4" />
+            {t("activity.showMore", { n: filteredItems.length - visibleItems.length })}
+          </button>
+        )}
 
         {filteredItems.length === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-2xl glass py-16 text-center">

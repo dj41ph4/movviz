@@ -16,7 +16,12 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   try {
-    const result = await recoverDownloads();
+    // Batch mode: the client splits a big run into chunks of 20 files and
+    // re-invokes with the accumulated `processed` list until hasMore=false —
+    // a single synchronous request over a large download folder would
+    // otherwise time out and the huge JSON response would freeze the UI.
+    const { batchSize, processed } = await req.json().catch(() => ({})) as { batchSize?: number; processed?: string[] };
+    const result = await recoverDownloads(undefined, { batchSize: batchSize ?? 20, processed });
     return NextResponse.json(result);
   } catch (e) {
     const msg = (e as Error).message;

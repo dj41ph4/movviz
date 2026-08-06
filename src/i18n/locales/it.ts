@@ -1,4 +1,4 @@
-import type { Dictionary } from "../types";
+﻿import type { Dictionary } from "../types";
 
 /** Dizionario italiano — rispecchia la struttura delle chiavi francese/inglese. */
 export const it: Dictionary = {
@@ -237,7 +237,7 @@ export const it: Dictionary = {
     firstAirDate: "Prima messa in onda",
     revenue: "Incassi",
     budget: "Budget",
-    showMore: "Mostra di più",
+    showMore: "Mostra di più ({n} rimanenti)",
     trailer: "Trailer",
     trailerUnavailable: "Trailer non disponibile",
     trailerUnavailableHint: "Il titolare dei diritti ha bloccato la riproduzione di questo video su siti terzi.",

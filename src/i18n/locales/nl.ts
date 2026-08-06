@@ -1,4 +1,4 @@
-import type { Dictionary } from "../types";
+﻿import type { Dictionary } from "../types";
 
 /** Nederlands woordenboek — weerspiegelt de Franse/Engelse sleutelstructuur. */
 export const nl: Dictionary = {
@@ -237,7 +237,7 @@ export const nl: Dictionary = {
     firstAirDate: "Eerste uitzending",
     revenue: "Opbrengst",
     budget: "Budget",
-    showMore: "Meer tonen",
+    showMore: "Meer tonen ({n} resterend)",
     trailer: "Trailer",
     trailerUnavailable: "Trailer niet beschikbaar",
     trailerUnavailableHint: "De rechthebbende heeft het afspelen van deze video op sites van derden geblokkeerd.",

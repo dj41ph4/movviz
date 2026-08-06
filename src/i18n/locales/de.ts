@@ -1,4 +1,4 @@
-import type { Dictionary } from "../types";
+﻿import type { Dictionary } from "../types";
 
 /** Deutsches Wörterbuch — spiegelt die französische/englische Schlüsselstruktur. */
 export const de: Dictionary = {
@@ -237,7 +237,7 @@ export const de: Dictionary = {
     firstAirDate: "Erstausstrahlung",
     revenue: "Einnahmen",
     budget: "Budget",
-    showMore: "Mehr anzeigen",
+    showMore: "Mehr anzeigen ({n} verbleibend)",
     trailer: "Trailer",
     trailerUnavailable: "Trailer nicht verfügbar",
     trailerUnavailableHint: "Der Rechteinhaber hat die Wiedergabe dieses Videos auf Drittanbieter-Seiten gesperrt.",

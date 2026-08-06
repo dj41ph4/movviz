@@ -69,6 +69,9 @@ async function api(path: string, opts?: RequestInit) {
 const FILTERS = ["all", "downloading", "seeding", "stalled", "completed"] as const;
 type Filter = (typeof FILTERS)[number];
 
+const RENDER_BATCH_INITIAL = 50;
+const RENDER_BATCH_STEP = 100;
+
 export function QueueTab({ active = true }: { active?: boolean }) {
   const t = useT();
   const { locale } = useI18n();
@@ -129,6 +132,26 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       if (pa !== pb) return pa - pb;
       return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
     }), [items, filter]);
+
+  // Progressive rendering — a queue with hundreds of completed/seeding items
+  // crashed the tab when every row was painted on every 500ms poll. Paint the
+  // first batch immediately (active/importing items sort first, so the live
+  // part of the queue is always visible), grow the rest in idle time.
+  const [visibleCount, setVisibleCount] = useState(RENDER_BATCH_INITIAL);
+  useEffect(() => {
+    setVisibleCount(RENDER_BATCH_INITIAL);
+  }, [filter]);
+  useEffect(() => {
+    if (visibleCount >= filtered.length) return;
+    const grow = () => setVisibleCount((c) => c + RENDER_BATCH_STEP);
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(grow);
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(grow, 50);
+    return () => window.clearTimeout(id);
+  }, [visibleCount, filtered.length]);
+  const visibleItems = filtered.slice(0, visibleCount);
 
   const toggleExpand = (id: string) => {
     setExpandedItem(expandedItem === id ? null : id);
@@ -453,7 +476,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       </div>
 
       <div className="space-y-3">
-        {filtered.map((item) => (
+        {visibleItems.map((item) => (
           <QueueItemRow
             key={item.id}
             item={item}
@@ -468,6 +491,16 @@ export function QueueTab({ active = true }: { active?: boolean }) {
           />
         ))}
       </div>
+
+      {filtered.length > visibleItems.length && (
+        <button
+          onClick={() => setVisibleCount((c) => c + RENDER_BATCH_STEP)}
+          className="mx-auto flex h-11 items-center gap-2 rounded-xl bg-white/5 px-4 text-sm font-semibold text-ink-soft transition-colors hover:bg-white/10"
+        >
+          <List className="h-4 w-4" />
+          {t("activity.showMore", { n: filtered.length - visibleItems.length })}
+        </button>
+      )}
 
       {filtered.length === 0 && (
         <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">

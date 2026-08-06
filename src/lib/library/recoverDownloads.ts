@@ -307,23 +307,45 @@ function recordUnlinked(fp: string, size: number, parsedTitle: string, category:
  * file whose owning torrent is completed/seeding is a candidate — files of
  * still-downloading torrents are NEVER touched.
  *
+ * Batch mode (manual action — a big download folder must never time out the
+ * request or freeze the UI): pass `opts.batchSize` to attempt at most that
+ * many NEW files per call; files listed in `opts.processed` (paths already
+ * attempted by earlier batches of the same run) are skipped silently, never
+ * re-reported — a permanently-failed file would otherwise be retried and
+ * re-failed on every batch, forever. The caller re-invokes with the
+ * accumulated processed list until `hasMore` is false. Without a batchSize
+ * (scheduler path) the whole run happens in one pass.
+ *
  * After each successful move, the library metadata is updated exactly like
  * the engine's import callback would have (applyImportedFiles) — recovery is
  * a fallback import, so the item must not stay stuck on "downloading".
  */
-export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
+export interface RecoverOptions {
+  /** Max NEW files attempted in this call. Default: no limit (one pass). */
+  batchSize?: number;
+  /** src paths already attempted by previous batches of this run. */
+  processed?: string[];
+}
+
+export async function recoverDownloads(stuck?: StuckDownload[], opts: RecoverOptions = {}): Promise<{
   recovered: Recovered[];
   failed: Failed[];
   duplicates: Duplicate[];
   summary: string;
+  /** src paths handled by THIS call (recovered + duplicates + file-level failures) — feed them back into opts.processed. */
+  attempted: string[];
+  /** True when more files remain — the caller must re-invoke with the accumulated processed list. */
+  hasMore: boolean;
 }> {
   // Serialize concurrent runs (scheduler + manual action) — a second run
   // while one is moving files would race on the same destinations.
   if (g.__movvizRecoverRunning) {
-    return { recovered: [], failed: [], duplicates: [], summary: "Déjà en cours d'exécution" };
+    return { recovered: [], failed: [], duplicates: [], attempted: [], hasMore: false, summary: "Déjà en cours d'exécution" };
   }
   g.__movvizRecoverRunning = true;
   try {
+    const batchSize = Math.min(200, Math.max(1, opts.batchSize ?? Number.MAX_SAFE_INTEGER));
+    const processed = new Set(opts.processed ?? []);
     const instances = await fetchInstances();
     const torrents = await fetchTorrents();
 
@@ -334,10 +356,14 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
     const recovered: Recovered[] = [];
     const failed: Failed[] = [];
     const duplicates: Duplicate[] = [];
+    let attemptedCount = 0;
+    let hasMore = false;
+    let batchFull = false;
 
     const stuckSet = new Map<string, StuckDownload>((stuck ?? []).map((s) => [s.infoHash, s]));
 
     for (const inst of instances) {
+      if (batchFull) break;
       if (!inst.downloadPath || !inst.completedPath) {
         failed.push({ src: `instance:${inst.id}`, size: 0, reason: "Chemins de téléchargement/destination manquants côté moteur" });
         continue;
@@ -417,11 +443,25 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
 
       const files = await scanVideoFiles(inst.downloadPath);
       for (const fp of files) {
+        // Batch mode — a file a previous batch of this run already attempted
+        // (moved, duplicate, or failed) is skipped without being examined
+        // again: re-reporting it every batch would both spin the run forever
+        // and duplicate every entry in the UI. Only files that reach a
+        // terminal state (recovered/duplicate/failed) are recorded, so a
+        // too-young file stays eligible for the next batch.
+        if (processed.has(fp)) continue;
         const engineConfirmed = allowed.has(fp);
         if (!engineConfirmed && (!filesSafeThisInstance || activeFiles.has(fp))) continue; // file of an active torrent or unconfirmed — never touch
 
         const age = await getFileAgeMs(fp);
         if (age < (engineConfirmed ? 30_000 : ORPHAN_MIN_AGE_MS)) continue;
+
+        // Batch cap reached — more eligible files remain, tell the caller to
+        // re-invoke with the accumulated processed list. `break` exits the
+        // instance loop, `batchFull` stops the remaining instances.
+        if (attemptedCount >= batchSize) { hasMore = true; batchFull = true; break; }
+        attemptedCount++;
+        processed.add(fp);
 
         const size = await fsp.stat(fp).then((s) => s.size).catch(() => 0);
         const basename = path.basename(fp);
@@ -667,6 +707,10 @@ export async function recoverDownloads(stuck?: StuckDownload[]): Promise<{
 
     return {
       recovered, failed, duplicates,
+      // Everything this batch tried, so the caller can feed it back as
+      // opts.processed — the run only advances on files it has never seen.
+      attempted: [...recovered.map((r) => r.src), ...failed.map((f) => f.src), ...duplicates.map((d) => d.src)],
+      hasMore,
       summary: `${recovered.length} récupéré(s), ${failed.length} ignoré(s), ${duplicates.length} doublon(s)`,
     };
   } finally {

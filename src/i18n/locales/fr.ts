@@ -1,4 +1,4 @@
-/** Dictionnaire français — langue principale et source de vérité des clés. */
+﻿/** Dictionnaire français — langue principale et source de vérité des clés. */
 export const fr = {
   brand: { tagline: "Media Core" },
 
@@ -235,7 +235,7 @@ export const fr = {
     firstAirDate: "Première diffusion",
     revenue: "Recettes",
     budget: "Budget",
-    showMore: "Montrer plus",
+    showMore: "Montrer plus ({n} restants)",
     trailer: "Bande-annonce",
     trailerUnavailable: "Bande-annonce indisponible",
     trailerUnavailableHint: "L'ayant droit a bloqué la lecture de cette vidéo sur les sites tiers.",
