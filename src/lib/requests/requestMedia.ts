@@ -25,7 +25,11 @@ export async function requestMedia(
   if (isBlocked(type, tmdbId)) return { blocked: true as const };
 
   const alreadyInLibrary = type === "movie" ? getMovieByTmdbId(tmdbId) : getSeriesByTmdbId(tmdbId);
-  if (alreadyInLibrary) return { alreadyInLibrary: true as const };
+  // The item itself rides along so a caller that asks for the title and finds
+  // it already present can link to it right away — without re-fetching the
+  // whole library and hoping the entry is there (the "Impossible d'ajouter ce
+  // titre à la bibliothèque" failure in the link-before-download picker).
+  if (alreadyInLibrary) return { alreadyInLibrary: true as const, item: alreadyInLibrary };
 
   const limit = type === "movie" ? user.requestLimitMovies : user.requestLimitSeries;
   if (user.role !== "admin" && limit != null) {

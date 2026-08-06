@@ -631,7 +631,12 @@ export async function searchMovie(
     if (criteria.imdbId && caps.movieSearchImdb) params.imdbid = criteria.imdbId.replace(/^tt/, "");
     if (criteria.tmdbId && caps.movieSearchTmdb) params.tmdbid = String(criteria.tmdbId);
     if (Object.keys(params).length > 1) {
-      const results = await runSearch(ix, params, scopeCategories, matchQuery);
+      // The ID mode may fail outright (indexer-side error → runSearch
+      // throws, HTTP 5xx → []) — that must never swallow the search
+      // entirely, so the text fallback below always runs. Callers' own
+      // .catch(() => []) would otherwise silently turn a transient indexer
+      // error into "nothing found".
+      const results = await runSearch(ix, params, scopeCategories, matchQuery).catch(() => [] as IndexerRelease[]);
       if (results.length > 0) return results;
       // ID search returned nothing — fall back to text search so a title
       // with accents or special chars still finds releases.
@@ -646,6 +651,7 @@ export interface TvSearchCriteria {
   episode?: number | null;
   imdbId?: string | null;
   tmdbId?: number | null;
+  tvdbId?: number | null;
 }
 
 /** Uses t=tvsearch with season/ep + an id param when the indexer declares support for it; falls back to a text query. */
@@ -667,13 +673,17 @@ export async function searchTv(
     ? `${criteria.title} S${pad(criteria.season)}E${pad(criteria.episode)}`
     : `${criteria.title} S${pad(criteria.season)}`);
 
-  if (caps?.tvSearch && caps.tvSearchSeason && (criteria.imdbId || criteria.tmdbId)) {
+  if (caps?.tvSearch && caps.tvSearchSeason && (criteria.imdbId || criteria.tmdbId || criteria.tvdbId)) {
     const params: Record<string, string> = { t: "tvsearch", season: String(criteria.season) };
     if (criteria.episode && caps.tvSearchEp) params.ep = String(criteria.episode);
     if (criteria.imdbId && caps.tvSearchImdb) params.imdbid = criteria.imdbId.replace(/^tt/, "");
     if (criteria.tmdbId && caps.tvSearchTmdb) params.tmdbid = String(criteria.tmdbId);
+    if (criteria.tvdbId && caps.tvSearchTvdb) params.tvdbid = String(criteria.tvdbId);
     if (Object.keys(params).length > 2) {
-      const results = await runSearch(ix, params, scopeCategories, matchQuery);
+      // Same guarantee as searchMovie: a failing ID mode (indexer error →
+      // throw, HTTP 5xx → []) must not swallow the search — always fall
+      // back to the text query below.
+      const results = await runSearch(ix, params, scopeCategories, matchQuery).catch(() => [] as IndexerRelease[]);
       if (results.length > 0) return results;
     }
   }

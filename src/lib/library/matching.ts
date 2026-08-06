@@ -189,6 +189,35 @@ export function releaseTitleMatches(parsedTitle: string, targetTitle: string, al
   return candidates.some((t) => titleSimilarity(parsedTitle, t) >= TITLE_MATCH_THRESHOLD);
 }
 
+interface LibraryTitleLike {
+  title: string;
+  year: number | null;
+  originalTitle?: string | null;
+  aliases?: string[];
+}
+
+/**
+ * Duplicate-library-entry guard: two records describe the same title when
+ * ANY of their name variants (official title, original title, aliases)
+ * agree, AND the years are compatible. TMDb hosts duplicate entries (same
+ * show, different tmdbId — Yellowstone 19355/73586, My Life with the Walter
+ * Boys, Lucky, Berserk, One Piece, Ben 10, Scrubs, Avatar, Hot Ones…), which
+ * a tmdbId-only lookup lets slip in as a second library entry. Never merges
+ * reboots: different years never match.
+ */
+export function libraryEntriesMatch(a: LibraryTitleLike, b: LibraryTitleLike): boolean {
+  if (!yearIsCompatible(a.year != null ? String(a.year) : null, b.year)) return false;
+  const aNames = [a.title, a.originalTitle ?? "", ...(a.aliases ?? [])].filter(Boolean);
+  const bNames = [b.title, b.originalTitle ?? "", ...(b.aliases ?? [])].filter(Boolean);
+  for (const an of aNames) {
+    for (const bn of bNames) {
+      if (an === bn) return true;
+      if (titleSimilarity(an, bn) >= TITLE_MATCH_THRESHOLD) return true;
+    }
+  }
+  return false;
+}
+
 /** Movies: if the release states a year, it must be within 1 of the target — absent year is not disqualifying. */
 export function yearIsCompatible(parsedYear: string | null, targetYear: number | null): boolean {
   if (!parsedYear || !targetYear) return true;

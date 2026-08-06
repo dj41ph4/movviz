@@ -109,13 +109,37 @@ export async function refreshRssCache(): Promise<{ fetched: number }> {
 
   const t0 = performance.now();
   const results = indexers.length > 0
-    ? await Promise.all(indexers.map((ix) => searchIndexer(ix, "").catch(() => [])))
+    ? await Promise.all(
+        indexers.map((ix) =>
+          searchIndexer(ix, "").catch((e) => {
+            // An indexer error (torznab <error> response) currently turns
+            // into a silent per-indexer "0" in the result log — with no
+            // cause it reads exactly like "there's nothing new to cache",
+            // which is how a healthy indexer hiding behind repeated errors
+            // (e.g. C411 answering q="" with an error) never gets noticed.
+            recordSearchLog("warn", "rss_refresh.indexer_error", `${ix.name} — erreur au refresh RSS: ${(e as Error).message}`);
+            return [] as IndexerRelease[];
+          })
+        )
+      )
     : [];
   const all = results.flat();
   const fetchMs = Math.round(performance.now() - t0);
 
   const perIndexer = indexers.map((ix, i) => `${ix.name}:${results[i]?.length ?? 0}`).join(", ");
   recordSearchLog("info", "rss_refresh.result", `${all.length} release(s) depuis ${indexers.length} indexeur(s) (${fetchMs}ms) [${perIndexer}]`, fetchMs);
+
+  // An indexer returning 0 while the others return plenty is suspicious —
+  // a real feed that went empty, or an indexer whose generic t=search with
+  // an empty query never returns anything (some trackers only answer ID
+  // modes). Either way it deserves a visible warn per cycle (hourly, so no
+  // spam), not a silent "C411:0" buried in the info line.
+  for (const ix of indexers) {
+    const got = results[indexers.indexOf(ix)]?.length ?? 0;
+    if (got === 0) {
+      recordSearchLog("warn", "rss_refresh.indexer_empty", `${ix.name} — 0 release sur ce cycle (tvSearch=${ix.caps?.tvSearch ? "oui" : "non"}, tvSearchTvdb=${ix.caps?.tvSearchTvdb ? "oui" : "non"})`);
+    }
+  }
 
   // Every configured indexer either rate-limited or errored out this cycle —
   // a transient blip, not "there's nothing left to find". Overwriting the

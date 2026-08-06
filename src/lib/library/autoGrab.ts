@@ -19,9 +19,10 @@ import { findUpgradeCandidates, grabUpgradeCandidate } from "@/lib/library/searc
 import { findEpisodeUpgradeCandidates, grabEpisodeUpgradeCandidate } from "@/lib/library/searchAndReplaceSeries";
 import { isUpgradeIgnored } from "@/lib/library/ignoredUpgrades";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
-import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
+import { notifySeerrProcessingOnce } from "@/lib/seerr/mediaMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { searchMovie, searchIndexer } from "@/lib/indexers/torznab";
+import { libraryEntriesMatch } from "@/lib/library/matching";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
 import { movieHasReleased } from "@/lib/library/releaseSchedule";
@@ -41,6 +42,13 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
 
   const meta = await fetchTmdbMovie(tmdbId);
   if (!meta) return { error: "movie not found on TMDb" as const };
+
+  // Same duplicate-entry guard as series: TMDb sometimes lists the same
+  // film under two ids — reuse the tracked entry instead of duplicating it.
+  const existingByTitle = loadMovies().find((m) =>
+    libraryEntriesMatch({ title: meta.title, year: meta.year, originalTitle: meta.originalTitle }, m)
+  );
+  if (existingByTitle) return { movie: existingByTitle, searchResult: null };
 
   const released = movieHasReleased(meta.vfReleaseDate, meta.releaseDate);
 
@@ -129,6 +137,16 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
 
   const media = createMediaRef("movie", movie.id, movie.tmdbId, movie.title);
 
+  // Scene/tracker releases are always named after the ORIGINAL title (e.g.
+  // "The Man from Toronto" vs the French "Un homme de Toronto") — searching
+  // the localized title alone misses real releases. The original title
+  // becomes the primary search target; the localized title stays as an alias.
+  const searchTitle = movie.originalTitle && movie.originalTitle !== movie.title ? movie.originalTitle : movie.title;
+  const searchAliases = [
+    ...(movie.aliases ?? []),
+    ...(movie.originalTitle && movie.originalTitle !== movie.title ? [movie.originalTitle] : []),
+  ];
+
   const rules = loadReleaseRules();
   const tCache = performance.now();
   const releases = searchFromCache(MOVIE_CATEGORY_IDS);
@@ -140,8 +158,8 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
   // release) runs in a real worker thread — see releaseMatchWorker.mjs.
   const matched = await getReleaseMatchPool().run({
     releases: releases.map((r) => ({ title: r.title })),
-    targetTitle: movie.title,
-    aliases: movie.aliases ?? [],
+    targetTitle: searchTitle,
+    aliases: searchAliases,
     targetYear: movie.year,
   });
   const candidates = matched.survivors
@@ -178,7 +196,7 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
       // Sequential: un indexeur à la fois pour éviter les 429 en parallèle.
       const directReleases: IndexerRelease[] = [];
       for (const ix of indexers) {
-        const results = await searchMovie(ix, { title: movie.title, year: movie.year, imdbId: movie.imdbId, tmdbId: movie.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
+        const results = await searchMovie(ix, { title: searchTitle, year: movie.year, imdbId: movie.imdbId, tmdbId: movie.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
         directReleases.push(...results);
       }
       const directMs = Math.round(performance.now() - tDirect);
@@ -187,8 +205,8 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
 
       const matched2 = await getReleaseMatchPool().run({
         releases: directReleases.map((r) => ({ title: r.title })),
-        targetTitle: movie.title,
-        aliases: movie.aliases ?? [],
+        targetTitle: searchTitle,
+        aliases: searchAliases,
         targetYear: movie.year,
       });
       const candidates2 = matched2.survivors
@@ -289,13 +307,15 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
     const torrent = await res.json();
     if (!res.ok) {
       updateMovie(movie.id, { status: "missing" });
-      recordSearchLog("error", "search_movie.engine_rejected", `${movie.title} — "${best.title}" refusé par le moteur (${JSON.stringify(torrent)})`);
+      const detail = JSON.stringify(torrent);
+      const hint = detail.includes("unauthorized") ? " — TOKEN MOTEUR INVALIDE : le moteur et le web doivent partager le même token (engine-token.json)" : "";
+      recordSearchLog("error", "search_movie.engine_rejected", `${movie.title} — "${best.title}" refusé par le moteur (${detail})${hint}`);
       logActivity("failed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, releaseTitle: best.title, indexer: best.indexerId, error: "Le moteur a refusé le téléchargement" });
       logActivityV2({ kind: "failed", media, actor: "system", failure: createFailureRef("download_failed", `Le moteur de téléchargement a refusé la release "${best.title}".`) });
       return { error: "engine_rejected" as const, detail: torrent };
     }
     updateMovie(movie.id, { status: "downloading", activeInfoHash: torrent.infoHash });
-    void notifySeerrStatus("movie", movie.tmdbId, "processing").catch(() => {});
+    void notifySeerrProcessingOnce("movie", movie.tmdbId).catch(() => {});
     recordSearchLog("info", "search_movie.grabbed", `${movie.title} — ${best.title} (score:${best.score}, indexeur:${best.indexerId}, infoHash:${torrent.infoHash})`);
     logActivity("grabbed", "system", movie.title, "/library", { libraryRef: `movie:${movie.id}`, releaseTitle: best.title, indexer: best.indexerId, infoHash: torrent.infoHash });
     emitNotification("grab_movie", `${movie.title} — release récupérée, import en cours`, "/library", { title: movie.title });

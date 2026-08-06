@@ -164,6 +164,10 @@ export interface LibrarySeries {
   id: string; // "sr_..."
   tmdbId: number;
   imdbId: string | null;
+  /** TVDB id — needed for tvSearchTvdb-capable indexers (TR4KER only declares
+   *  tvdb search, no tmdb): without it the indexer search falls back to a
+   *  French-title text query that scene releases never match. */
+  tvdbId?: number | null;
   title: string;
   year: number | null;
   releaseDate: string | null;

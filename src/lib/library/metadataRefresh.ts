@@ -28,6 +28,10 @@ export async function refreshLibraryMetadata() {
       // add (which often only has a theatrical date yet) — refreshing this
       // daily is how it ever gets filled in.
       vfReleaseDate: meta.vfReleaseDate,
+      // Backfill: entries added before originalTitle existed (or before
+      // TMDb had it) keep it null forever otherwise.
+      originalTitle: meta.originalTitle,
+      imdbId: meta.imdbId,
     });
     moviesUpdated++;
   }
@@ -43,6 +47,10 @@ export async function refreshLibraryMetadata() {
       rating: meta.rating,
       genres: meta.genres,
       tvStatus: meta.status,
+      originalTitle: meta.originalTitle,
+      imdbId: meta.imdbId,
+      // tvdbId powers tvsearch on TR4KER (which only declares tvdb search).
+      tvdbId: meta.tvdbId,
     });
     seriesUpdated++;
   }

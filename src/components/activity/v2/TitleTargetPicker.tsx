@@ -112,21 +112,26 @@ export function TitleTargetPicker({ onPick, initialQuery }: PickerProps) {
       const data = await res.json();
       // /api/library/movies|series has three distinct success shapes: the
       // added item spread at the top level ({id, ...}), `alreadyInLibrary:
-      // true` (a bare flag, not the item — a race where it got added between
-      // this list rendering and the click), or — for a non-admin/non-auto-
-      // approve user — a pendingRequest with no library id at all yet
-      // (nothing to link to until an admin approves it). There is no
-      // libraryRef that can stand in for a request that doesn't exist yet,
-      // so that case is reported as an error instead of a broken ref.
+      // true` with the existing item attached (`item` — the server returns it
+      // since v1.12.81 so a stale picker list can't lose the link), or — for
+      // a non-admin/non-auto-approve user — a pendingRequest with no library
+      // id at all yet (nothing to link to until an admin approves it). There
+      // is no libraryRef that can stand in for a request that doesn't exist
+      // yet, so that case is reported as an error instead of a broken ref.
       if (data.pendingRequest) {
         setAddError(t("activity.linkAddPending"));
         return;
       }
-      const added: { id: string } | undefined = data.alreadyInLibrary
-        ? libraryTitles.find((lt) => lt.type === hit.type && lt.tmdbId === hit.tmdbId)
-        : data.id
-          ? data
-          : undefined;
+      const existing = data.alreadyInLibrary
+        ? (data.item as { id: string; title?: string; year?: number | null } | undefined)
+        : undefined;
+      const added: { id: string } | undefined = existing
+        ? { id: existing.id }
+        : data.alreadyInLibrary
+          ? libraryTitles.find((lt) => lt.type === hit.type && lt.tmdbId === hit.tmdbId)
+          : data.id
+            ? data
+            : undefined;
       if (!added?.id) {
         setAddError(t("activity.linkAddFailed"));
         return;

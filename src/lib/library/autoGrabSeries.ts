@@ -23,7 +23,7 @@ import { getTvdbEpisodesFor, getTvdbSeasonNames, groupTvdbEpisodesBySeason, tvdb
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
 import { episodeHasAired } from "@/lib/library/releaseSchedule";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
-import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
+import { notifySeerrProcessingOnce } from "@/lib/seerr/mediaMap";
 import { searchTv, searchCompleteSeriesPack, COMPLETE_SERIES_TERMS } from "@/lib/indexers/torznab";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
@@ -539,6 +539,18 @@ async function grabRelease(
     ? `${series.title} S${String(seasonNumber).padStart(2, "0")}E${String(episodeNumber).padStart(2, "0")}`
     : `${series.title} S${String(seasonNumber).padStart(2, "0")} (pack)`;
 
+  // Scene/tracker releases are always named after the ORIGINAL title — a
+  // French title (e.g. "Ma vie avec les Walter Boys" vs the release
+  // "My.Life.With.The.Walter.Boys") never matches anything. The original
+  // title becomes the primary search target; the localized title stays as
+  // an alias (verified live: C411 + TR4KER both return 0 for the FR title,
+  // plenty of hits for the EN one).
+  const searchTitle = series.originalTitle && series.originalTitle !== series.title ? series.originalTitle : series.title;
+  const searchAliases = [
+    ...(series.aliases ?? []),
+    ...(series.originalTitle && series.originalTitle !== series.title ? [series.originalTitle] : []),
+  ];
+
   recordSearchLog("debug", "grab_release.cache_read", `${label} — cache RSS donne ${releases.length} release(s) (${cacheMs}ms)`, cacheMs);
 
   const tS = performance.now();
@@ -549,8 +561,8 @@ async function grabRelease(
   // filtering that needs live store/config state, not worth a round-trip.
   const matched = await getReleaseMatchPool().run({
     releases: releases.map((r) => ({ title: r.title })),
-    targetTitle: series.title,
-    aliases: series.aliases ?? [],
+    targetTitle: searchTitle,
+    aliases: searchAliases,
     seasonNumber,
     episodeNumber: filterPack ? null : (episodeNumber ?? null),
     filterPack,
@@ -624,7 +636,7 @@ async function grabRelease(
   // Sequential: un indexeur à la fois pour éviter les 429 en parallèle.
   const directReleases: IndexerRelease[] = [];
   for (const ix of indexers) {
-    const results = await searchTv(ix, { title: series.title, season: seasonNumber, episode: filterPack ? null : episodeNumber }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
+    const results = await searchTv(ix, { title: searchTitle, season: seasonNumber, episode: filterPack ? null : episodeNumber, tvdbId: series.tvdbId ?? null }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
     directReleases.push(...results);
   }
   const directMs = Math.round(performance.now() - tDirect);
@@ -633,8 +645,8 @@ async function grabRelease(
 
   const dMatched = await getReleaseMatchPool().run({
     releases: directReleases.map((r) => ({ title: r.title })),
-    targetTitle: series.title,
-    aliases: series.aliases ?? [],
+    targetTitle: searchTitle,
+    aliases: searchAliases,
     seasonNumber,
     episodeNumber: filterPack ? null : (episodeNumber ?? null),
     filterPack,
@@ -831,7 +843,7 @@ async function searchAndGrabEpisodeCascade(
     const seriesPack = await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+      void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
       logActivity("grabbed", "system", `${series.title} — intégrale (${seriesPack.targets.length} ép.)`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
         releaseTitle: seriesPack.release.title,
@@ -855,7 +867,7 @@ async function searchAndGrabEpisodeCascade(
     const pack = await tryGrabSeasonPack(series, seasonNumber, profile, missingEpisodeNumbers);
     if (pack) {
       setEpisodesStatus(series, seasonNumber, missingEpisodeNumbers, { status: "downloading", activeInfoHash: pack.torrent.infoHash });
-      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+      void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
       logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber} (${missingEpisodeNumbers.length} ép., via ${seasonNumber}x${String(episodeNumber).padStart(2, "0")})`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
         releaseTitle: pack.release.title,
@@ -885,7 +897,7 @@ async function searchAndGrabEpisodeCascade(
       return sent;
     }
     setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "downloading", activeInfoHash: sent.torrent.infoHash });
-    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+    void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
     logActivity("grabbed", "system", `${series.title} — ${seasonNumber}x${String(episodeNumber).padStart(2, "0")}`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
       releaseTitle: single.release.title,
@@ -1105,7 +1117,7 @@ async function searchAndGrabSeasonCascade(
     const seriesPack = await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+      void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
       logActivity("grabbed", "system", `${series.title} — intégrale (${seriesPack.targets.length} ép.)`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
         releaseTitle: seriesPack.release.title,
@@ -1140,7 +1152,7 @@ async function searchAndGrabSeasonCascade(
       status: "downloading",
       activeInfoHash: pack.torrent.infoHash,
     });
-    void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+    void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
     logActivity("grabbed", "system", `${series.title} — saison ${seasonNumber}`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "season", seriesId, season: seasonNumber }),
       releaseTitle: pack.release.title,
@@ -1355,6 +1367,14 @@ export async function searchCompleteSeriesCandidates(
   const targets = collectMissingTargets(series).filter((t) => !seasonFilter || seasonFilter.has(t.season));
   if (targets.length === 0) return null;
   const targetSeasons = [...new Set(targets.map((t) => t.season))];
+  // Same original-title preference as grabRelease: scene releases are named
+  // after the original (usually English) title — a French title alone never
+  // matches a pack release. The localized title stays as an alias.
+  const searchTitle = series.originalTitle && series.originalTitle !== series.title ? series.originalTitle : series.title;
+  const searchAliases = [
+    ...(series.aliases ?? []),
+    ...(series.originalTitle && series.originalTitle !== series.title ? [series.originalTitle] : []),
+  ];
 
   const t0 = performance.now();
   const releases = searchFromCache(TV_CATEGORY_IDS);
@@ -1365,7 +1385,7 @@ export async function searchCompleteSeriesCandidates(
   const tS = performance.now();
   const candidates: CompleteSeriesCandidate[] = releases
     .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-    .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title, series.aliases ?? []))
+    .filter(({ parsed }) => releaseTitleMatches(parsed.title, searchTitle, searchAliases))
     // A same-titled reboot/remake from a different year (e.g. Avatar: The
     // Last Airbender 2005 animated vs. 2024 live-action) has an identical
     // title — with no season/episode numbers to disambiguate an intégrale
@@ -1403,7 +1423,7 @@ export async function searchCompleteSeriesCandidates(
     // Sequential: un indexeur à la fois pour éviter les 429 en parallèle.
     const directReleases: IndexerRelease[] = [];
     for (const ix of indexers) {
-      const results = await searchCompleteSeriesPack(ix, { title: series.title, seasonCount }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
+      const results = await searchCompleteSeriesPack(ix, { title: searchTitle, seasonCount }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
       directReleases.push(...results);
     }
     const directMs = Math.round(performance.now() - tDirect);
@@ -1412,7 +1432,7 @@ export async function searchCompleteSeriesCandidates(
 
     const directCandidates: CompleteSeriesCandidate[] = directReleases
       .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
-      .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title, series.aliases ?? []))
+      .filter(({ parsed }) => releaseTitleMatches(parsed.title, searchTitle, searchAliases))
     // A same-titled reboot/remake from a different year (e.g. Avatar: The
     // Last Airbender 2005 animated vs. 2024 live-action) has an identical
     // title — with no season/episode numbers to disambiguate an intégrale
@@ -1475,7 +1495,8 @@ async function tryGrabSeriesPackImpl(
   );
   if (!("ok" in sent)) {
     const detail = "detail" in sent ? JSON.stringify(sent.detail) : sent.error;
-    recordSearchLog("error", "series_pack.engine_rejected", `${series.title} — "${top.release.title}" refusé par le moteur (${detail})`);
+    const hint = detail.includes("unauthorized") ? " — TOKEN MOTEUR INVALIDE : le moteur et le web doivent partager le même token (engine-token.json)" : "";
+    recordSearchLog("error", "series_pack.engine_rejected", `${series.title} — "${top.release.title}" refusé par le moteur (${detail})${hint}`);
     return null;
   }
   recordSearchLog("info", "series_pack.grabbed", `${series.title} — "${top.release.title}" envoyé au moteur (${targets.length} ép. ciblés)`);
@@ -1534,7 +1555,7 @@ export async function searchAndGrabCompleteSeries(seriesId: string) {
     const seriesPack = await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+      void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
       logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
         releaseTitle: seriesPack.release.title,
@@ -1599,7 +1620,7 @@ export async function searchAndGrabSeries(seriesId: string, options?: { onSeason
     const seriesPack = await tryGrabSeriesPack(series, profile);
     if (seriesPack) {
       setMultiSeasonEpisodesStatus(series, groupTargetsBySeason(seriesPack.targets), { status: "downloading", activeInfoHash: seriesPack.torrent.infoHash });
-      void notifySeerrStatus("series", series.tmdbId, "processing").catch(() => {});
+      void notifySeerrProcessingOnce("series", series.tmdbId).catch(() => {});
       logActivity("grabbed", "system", `${series.title} — intégrale`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "series", seriesId }),
         releaseTitle: seriesPack.release.title,
@@ -1727,7 +1748,7 @@ export async function searchReleasedMissingEpisodes() {
           status: "downloading",
           activeInfoHash: seriesPack.torrent.infoHash,
         });
-        void notifySeerrStatus("series", fresh.tmdbId, "processing").catch(() => {});
+        void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
         for (const [seasonNumber, episodeNumbers] of freshSeasons) {
           for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
         }
@@ -1743,7 +1764,7 @@ export async function searchReleasedMissingEpisodes() {
             status: "downloading",
             activeInfoHash: pack.torrent.infoHash,
           });
-          void notifySeerrStatus("series", fresh.tmdbId, "processing").catch(() => {});
+          void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
           for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
           continue;
         }
@@ -1846,7 +1867,7 @@ export async function searchMissingEpisodes(maxSeasons = 30) {
           status: "downloading",
           activeInfoHash: seriesPack.torrent.infoHash,
         });
-        void notifySeerrStatus("series", fresh.tmdbId, "processing").catch(() => {});
+        void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
         for (const [seasonNumber, episodeNumbers] of freshSeasons) {
           for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
         }
@@ -1862,7 +1883,7 @@ export async function searchMissingEpisodes(maxSeasons = 30) {
             status: "downloading",
             activeInfoHash: pack.torrent.infoHash,
           });
-          void notifySeerrStatus("series", fresh.tmdbId, "processing").catch(() => {});
+          void notifySeerrProcessingOnce("series", fresh.tmdbId).catch(() => {});
           for (const episodeNumber of episodeNumbers) searched.push(`${fresh.id}.${seasonNumber}.${episodeNumber}`);
           continue;
         }
