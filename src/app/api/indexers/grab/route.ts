@@ -80,6 +80,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "download_failed", detail: resolved.error }, { status: 502 });
   }
 
+  // Mirror autoGrabSeries's episodeTargets: without them the engine has NO
+  // file list to match against, so _import pulls in every file of the pack
+  // and renames anything it can't episode-tag to an empty "S01E" name —
+  // multiple such files then collide on the same destination and silently
+  // overwrite each other (confirmed live: a Noblesse season pack collapsed
+  // into a single "Noblesse - S01E.mkv", 11 episodes never imported). A
+  // manual grab from a library card must behave exactly like an automatic
+  // one for the same season/series.
+  let episodeTarget: { season: number; episode: number } | undefined;
+  let episodeTargets: { season: number; episode: number }[] | undefined;
+  if (decodedRef?.kind === "episode") {
+    episodeTarget = { season: decodedRef.season, episode: decodedRef.episode };
+  } else if (decodedRef?.kind === "season" || decodedRef?.kind === "series") {
+    const series = getSeries(decodedRef.seriesId);
+    if (series) {
+      const targets: { season: number; episode: number }[] = [];
+      for (const s of series.seasons) {
+        if (decodedRef.kind === "season" && s.seasonNumber !== decodedRef.season) continue;
+        if (!s.monitored) continue;
+        for (const ep of s.episodes) {
+          if (ep.monitored && (ep.status === "missing" || ep.status === "searching")) {
+            targets.push({ season: s.seasonNumber, episode: ep.episodeNumber });
+          }
+        }
+      }
+      if (targets.length > 0) episodeTargets = targets;
+    }
+  }
+
   try {
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
       method: "POST",
@@ -90,6 +119,8 @@ export async function POST(req: NextRequest) {
         libraryRef,
         title: body.title ?? null,
         year: body.year ?? null,
+        episodeTarget,
+        episodeTargets,
       }),
     });
     const data = await res.json();

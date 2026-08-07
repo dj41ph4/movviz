@@ -856,8 +856,20 @@ export class AbstractBackend {
           // naming template vary for this one folder the way it can for
           // regular seasons.
           const seasonFolder = ctx.season === 0 ? "Specials" : renderSegment(naming.seasonFolder, ctx, naming.useDotsInsteadOfSpaces);
-          const fileName = renderSegment(naming.episodeFile, ctx, naming.useDotsInsteadOfSpaces) + ext;
-          dest = path.join(this.cfg.completedPath, seriesFolder, seasonFolder, fileName);
+          // A series file whose episode number couldn't be resolved (no target
+          // list on the torrent, filename/release name carrying none, no path
+          // season) would render an EMPTY "S01E" placeholder in the episode
+          // template — and every such file in the same pack would collide on
+          // the SAME destination path, each rename silently overwriting the
+          // previous one (confirmed live: a full season pack collapsed into a
+          // single "Noblesse - S01E.mkv"). Keep the original basename instead:
+          // unique per file, never overwritten, still discoverable by the
+          // rename/rescan tooling once an episode can be identified.
+          const fileName =
+            info.episode == null
+              ? path.basename(file.name)
+              : renderSegment(naming.episodeFile, ctx, naming.useDotsInsteadOfSpaces) + ext;
+          dest = await avoidCollision(path.join(this.cfg.completedPath, seriesFolder, seasonFolder, fileName));
         } else {
           const movieFolder = renderSegment(naming.movieFolder, ctx, naming.useDotsInsteadOfSpaces);
           const fileName = renderSegment(naming.movieFile, ctx, naming.useDotsInsteadOfSpaces) + ext;

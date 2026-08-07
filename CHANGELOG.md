@@ -4,6 +4,17 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.84 — August 2026
+
+### Import fiabilisé des packs de saison/intégrale — plus jamais de "S01E" vide ni de fichiers écrasés
+
+- **Contexte (confirmé en production)** : un pack de saison Noblesse (20,3 Go) téléchargé à 100 % n'a importé que 2 épisodes sur 13. Le grab n'avait pas de `episodeTargets` — le moteur importait alors TOUS les fichiers à l'aveugle, et chaque fichier dont le numéro d'épisode n'était pas identifiable était renommé avec un épisode VIDE (`Noblesse - S01E.mkv`). Plusieurs fichiers d'un même pack arrivaient alors sur le même chemin de destination et s'**écrasaient mutuellement** (le dernier remplaçait les précédents), les épisodes jamais importés restant "manquants".
+- **Corrigé — moteur** (`AbstractBackend.mjs`) : quand le numéro d'épisode reste inconnu après tous les fallbacks (nom de fichier, release, dossier), le fichier garde désormais son nom d'origine au lieu du template `S{season:00}E{episode:00}` vide — nom unique par fichier, plus de collision ni d'écrasement, et fichier toujours découvrable par l'outil de renommage. `avoidCollision()` s'applique maintenant aussi aux séries (comme aux films).
+- **Corrigé — grab manuel** (`/api/indexers/grab`) : un grab depuis une fiche série/saison passe maintenant `episodeTargets` au moteur (épisodes monitorés "manquant"/"recherche"), exactement comme un grab automatique — le moteur ne télécharge/importe alors que les épisodes ciblés.
+- **Précision** : l'import côté bibliothèque n'a pas changé — un fichier sans numéro d'épisode n'est jamais attribué à tort à un épisode ("missing" tant que le lien n'est pas résolu).
+
+---
+
 ## v1.12.83 — August 2026
 
 ### Mots autorisés — un terme présent dans le titre annule le mot interdit
