@@ -1,5 +1,6 @@
 import type { PlexAccount, PlexCollectionSummary, PlexFriend, PlexHomeUser, PlexWatchlistItem, PlexServerConfig, PlexSection, PlexLibraryItem, PlexEpisodeItem, PlexMediaInfo, PlexVideoStream, PlexAudioStream, PlexSubtitleStream, PlexChapter, PlexMediaVersion } from "./types";
 import { loadPlexConfig } from "./store";
+import { findByExternalId } from "@/lib/metadata/tmdb";
 
 /**
  * Plex.tv API v2 client — real endpoints, no external SDK. Every request needs
@@ -233,6 +234,43 @@ function extractTmdbId(guids: { id: string }[] | undefined): number | null {
   return g ? Number(g.id.replace("tmdb://", "")) : null;
 }
 
+/**
+ * Plex GUID → TMDb id, with a fallback for servers whose agent doesn't use
+ * TMDb. `tmdb://` resolves instantly; otherwise the `imdb://`/`tvdb://`
+ * external ids are looked up through TMDb's `/find` endpoint (cached). When
+ * several candidates come back (TMDb duplicate entries for one title), the one
+ * that already exists in the Movviz library wins — that's the record the user
+ * owns. Returns null when nothing usable resolves; callers then skip the item
+ * (same as today, just far rarer).
+ */
+async function resolveTmdbId(guids: { id: string }[] | undefined, kind: "movie" | "series"): Promise<number | null> {
+  const direct = extractTmdbId(guids);
+  if (direct != null) return direct;
+
+  const list = guids ?? [];
+  const imdb = list.find((g) => g.id.startsWith("imdb://"))?.id.slice("imdb://".length);
+  const tvdb = list.find((g) => g.id.startsWith("tvdb://"))?.id.slice("tvdb://".length);
+  if (!imdb && !tvdb) return null;
+
+  const [foundImdb, foundTvdb] = await Promise.all([
+    imdb ? findByExternalId("imdb_id", imdb) : Promise.resolve(null),
+    tvdb ? findByExternalId("tvdb_id", tvdb) : Promise.resolve(null),
+  ]);
+
+  const wanted = kind === "series" ? "series" : "movies";
+  const candidates = [
+    ...(foundTvdb?.[wanted] ?? []),
+    ...(foundImdb?.[wanted] ?? []),
+    ...(kind === "series" ? (foundImdb?.movies ?? []) : (foundTvdb?.series ?? [])),
+  ];
+  const unique = [...new Set(candidates)];
+  if (unique.length === 0) return null;
+
+  const { getMovieByTmdbId, getSeriesByTmdbId } = await import("@/lib/library/store");
+  const owned = unique.find((id) => (kind === "series" ? getSeriesByTmdbId(id) : getMovieByTmdbId(id)));
+  return owned ?? unique[0];
+}
+
 interface RawStream {
   streamType: number;
   codec?: string;
@@ -272,6 +310,7 @@ interface RawLibraryItem {
   ratingKey: string;
   title: string;
   year?: number;
+  type?: string;
   viewCount?: number;
   addedAt?: number;
   updatedAt?: number;
@@ -518,7 +557,7 @@ export async function batchTmdbIds(cfg: PlexServerConfig, token: string, ratingK
         const info = parseStreamInfo(item.Media);
         const mediaVersions = parseAllMediaVersions(item);
         result.set(item.ratingKey, {
-          tmdbId: extractTmdbId(item.Guid),
+          tmdbId: await resolveTmdbId(item.Guid, item.type === "show" ? "series" : "movie"),
           ...info,
           mediaDetail: parseMediaDetail(item),
           mediaVersions: mediaVersions.length > 1 ? mediaVersions : [],

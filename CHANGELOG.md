@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.86 — August 2026
+
+### Liaison Plex corrigée pour les médias sans GUID TMDb + outil de liaison enrichi
+
+- **Corrigé — sync Plex** : la résolution des identifiants ne lisait que les GUID `tmdb://` rapportés par Plex. Les médias matchés par l'agent Plex uniquement en `tvdb://`/`imdb://` (séries canadiennes, anciens agents, etc.) étaient **silencieusement ignorés** — fichiers présents sur le disque et visibles dans Plex, jamais liés dans Movviz, et l'outil de liaison ne trouvait rien à réparer (aucun chemin n'était enregistré). **Corrigé** : les GUID `imdb://`/`tvdb://` sont désormais résolus vers TMDb via `/find` (mis en cache comme les autres appels TMDb), et en cas de doublons TMDb pour un même titre, l'entrée déjà présente dans la bibliothèque Movviz est prioritaire. Confirmé en production sur « Le cœur a ses raisons » : le GUID `tvdb://80741` se résout vers tmdb 2903 (2005), présent dans la bibliothèque.
+- **Amélioré — liaison de fichiers** (`repair-paths`) : quand le nom de fichier enregistré n'existe plus nulle part sur le disque, l'outil propose désormais aussi les fichiers dont le nom contient le même `SxxEyy` (candidats à confirmation manuelle — jamais de reliaison automatique sur ce critère).
+- **Docs** : plan d'architecture « Movviz Federation » archivé dans `docs/federation-plan.md`.
+
+---
+
 ## v1.12.85 — August 2026
 
 ### Bug de renommage moteur corrigé + isolation de la recherche des manquants (quotas + annulation)

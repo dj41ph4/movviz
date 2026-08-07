@@ -172,6 +172,23 @@ export async function scanRepairCandidates(): Promise<RepairCandidate[]> {
     }
   }
 
+  // Secondary index: on-disk files keyed by the (season, episode) numbers
+  // their own name parses to. Used as a manual-confirmation fallback when the
+  // recorded basename no longer exists anywhere (files renamed since the
+  // record was written, e.g. by the engine's naming templates).
+  const bySeasonEpisode = new Map<string, string[]>();
+  for (const root of allRoots) {
+    for (const file of walkVideoFiles(root)) {
+      const parsed = parseRelease(pathFor(file).basename(file));
+      if (parsed.season != null && parsed.episode != null) {
+        const key = `${parsed.season}:${parsed.episode}`;
+        const list = bySeasonEpisode.get(key);
+        if (list) list.push(file);
+        else bySeasonEpisode.set(key, [file]);
+      }
+    }
+  }
+
   const candidates: RepairCandidate[] = [];
 
   for (const movie of loadMovies()) {
@@ -238,7 +255,7 @@ export async function scanRepairCandidates(): Promise<RepairCandidate[]> {
         }
 
         const base = pathFor(ep.file.path).basename(ep.file.path).toLowerCase();
-        const matches = dedupeByFileIdentity(
+        let matches = dedupeByFileIdentity(
           (byBasename.get(base) ?? []).filter((m) => m !== ep.file!.path)
         );
         if (matches.length === 1 && commonSuffixDepth(ep.file.path, matches[0])) {
@@ -259,6 +276,14 @@ export async function scanRepairCandidates(): Promise<RepairCandidate[]> {
             }]])
           );
           continue;
+        }
+        // Exact-basename matching came up empty (the file was renamed since
+        // this record was written). Fall back to a season/episode guess: every
+        // on-disk file whose name parses to the same SxxEyy is offered as a
+        // candidate. Manual confirmation only — never auto-relinked, and never
+        // preferred over a real basename match.
+        if (matches.length === 0) {
+          matches = dedupeByFileIdentity(bySeasonEpisode.get(`${ep.seasonNumber}:${ep.episodeNumber}`) ?? []);
         }
         candidates.push({
           id: series.id, type: "series", title: series.title,

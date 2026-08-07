@@ -453,6 +453,29 @@ export async function getSeason(tmdbId: number, seasonNumber: number): Promise<M
   };
 }
 
+interface RawFindResult {
+  movie_results?: { id?: number }[];
+  tv_results?: { id?: number }[];
+}
+
+/**
+ * Resolves an external id (Plex `tvdb://` / `imdb://` GUID, or any other
+ * source) to TMDb ids via `/find`. Needed because a Plex agent that matches a
+ * title without TMDb only exposes those GUIDs — without this the library sync
+ * silently skipped such movies/series ("files present in Plex, never linked in
+ * Movviz"). Cached like every other TMDb call.
+ */
+export async function findByExternalId(
+  externalSource: "imdb_id" | "tvdb_id",
+  externalId: string
+): Promise<{ movies: number[]; series: number[] } | null> {
+  const data = await tmdbGet<RawFindResult>(`/find/${encodeURIComponent(externalId)}`, { external_source: externalSource });
+  if (!data) return null;
+  const collect = (list: { id?: number }[] | undefined) =>
+    [...new Set((list ?? []).map((r) => r.id).filter((id): id is number => typeof id === "number" && id > 0))];
+  return { movies: collect(data.movie_results), series: collect(data.tv_results) };
+}
+
 export interface MetaGenre {
   id: number;
   name: string;
