@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { searchAllMissing, type SearchMissingScope } from "@/lib/library/searchMissing";
-import { enqueueJob, isSourceActive } from "@/lib/jobs/queue";
+import { enqueueJob, isJobCancelled, isSourceActive } from "@/lib/jobs/queue";
 
 export const dynamic = "force-dynamic";
 
@@ -23,8 +23,14 @@ export async function POST(req: NextRequest) {
     "qualityUpgrade",
     label,
     1,
-    async (setProgress) => {
-      await searchAllMissing((current, total) => setProgress(current, total), scope);
+    async (setProgress, ctx) => {
+      // shouldCancel — cooperative cancellation (see requestCancelJob /
+      // isJobCancelled in queue.ts): the batch polls between every series,
+      // season and episode, so the job stops within a few seconds of the
+      // cancel call even while a single indexer request is in flight.
+      await searchAllMissing((current, total) => setProgress(current, total), scope, {
+        shouldCancel: () => isJobCancelled(ctx.jobId),
+      });
     },
     "search-all-missing"
   );

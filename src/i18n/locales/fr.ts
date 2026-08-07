@@ -1,4 +1,4 @@
-﻿/** Dictionnaire français — langue principale et source de vérité des clés. */
+/** Dictionnaire français — langue principale et source de vérité des clés. */
 export const fr = {
   brand: { tagline: "Media Core" },
 
@@ -872,6 +872,7 @@ export const fr = {
     empty: "Aucune tâche en cours.",
     recent: "Terminées récemment",
     statusQueued: "En attente",
+    statusCancelled: "Annulé",
     prioritiesTitle: "Points de priorité",
     prioritiesHint: "Plus le nombre est élevé, plus la tâche passe devant les autres quand plusieurs sont en attente en même temps.",
     downloadHint: "Pendant un téléchargement actif, les autres tâches ralentissent automatiquement pour lui laisser la place.",

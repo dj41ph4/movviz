@@ -2,6 +2,7 @@ import { loadMovies, loadSeries } from "@/lib/library/store";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { searchAndGrabSeries } from "@/lib/library/autoGrabSeries";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { JobCancelledError } from "@/lib/jobs/queue";
 
 // One at a time on purpose: 3 concurrent items each potentially falling back
 // to a direct indexer search (see grabRelease's fallback) could fire enough
@@ -32,12 +33,18 @@ async function runBatch<T>(
   items: T[],
   fn: (item: T) => Promise<unknown>,
   concurrency: number,
-  onProgress: () => void
+  onProgress: () => void,
+  shouldCancel?: () => boolean
 ) {
   const queue = [...items];
   let i = 0;
   const next = async (): Promise<void> => {
     while (i < queue.length) {
+      // Cooperative cancellation — the bulk job can run for hours, so the
+      // runner polls between items (see requestCancelJob / isJobCancelled in
+      // queue.ts). Remaining items simply stay "missing" and are retried on
+      // a later run.
+      if (shouldCancel?.()) return;
       const idx = i++;
       await fn(queue[idx]).catch(() => {});
       onProgress();
@@ -82,7 +89,11 @@ type QueueItem = { type: "movie"; id: string } | { type: "series"; id: string };
  * series, and the two categories interleaved when scope is "all") so a
  * 429 partway through a run doesn't always strand the same titles.
  */
-export async function searchAllMissing(onProgress?: (current: number, total: number) => void, scope: SearchMissingScope = "all") {
+export async function searchAllMissing(
+  onProgress?: (current: number, total: number) => void,
+  scope: SearchMissingScope = "all",
+  options?: { shouldCancel?: () => boolean }
+) {
   const t0 = performance.now();
   const movies = scope === "series" ? [] : loadMovies().filter((m) => m.monitored && m.status === "missing");
   const series = scope === "movie" ? [] : loadSeries().filter(
@@ -132,7 +143,7 @@ export async function searchAllMissing(onProgress?: (current: number, total: num
       }
       let done = 0;
       try {
-        await searchAndGrabSeries(item.id, { onSeasonDone: () => { done++; tick(); } });
+        await searchAndGrabSeries(item.id, { onSeasonDone: () => { done++; tick(); }, shouldCancel: options?.shouldCancel });
       } finally {
         // Top up whatever the series itself didn't tick — an intégrale found
         // (or nothing left by the time the per-series lock released us, or an
@@ -144,8 +155,14 @@ export async function searchAllMissing(onProgress?: (current: number, total: num
       }
     },
     CONCURRENCY,
-    () => {}
+    () => {},
+    options?.shouldCancel
   );
+
+  if (options?.shouldCancel?.()) {
+    recordSearchLog("info", "search_all_missing.cancelled", "Recherche annulée par l'utilisateur");
+    throw new JobCancelledError();
+  }
 
   const totalMs = Math.round(performance.now() - t0);
   recordSearchLog("info", "search_all_missing.end", `Terminé en ${totalMs}ms — ${movies.length} film(s), ${series.length} série(s)`, totalMs);

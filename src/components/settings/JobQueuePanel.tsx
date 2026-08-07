@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Loader2, Clock, CheckCircle2, XCircle, ListChecks, ListOrdered } from "lucide-react";
+import { Loader2, Clock, CheckCircle2, XCircle, ListChecks, ListOrdered, Ban } from "lucide-react";
 
-type JobStatus = "queued" | "running" | "completed" | "failed";
+type JobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 type JobType =
   | "download"
   | "sagaScan"
@@ -56,12 +56,14 @@ const STATUS_ICON: Record<JobStatus, typeof Clock> = {
   running: Loader2,
   completed: CheckCircle2,
   failed: XCircle,
+  cancelled: Ban,
 };
 const STATUS_TONE: Record<JobStatus, string> = {
   queued: "text-ink-dim",
   running: "text-cyan",
   completed: "text-ok",
   failed: "text-down",
+  cancelled: "text-ink-dim",
 };
 
 export function JobQueuePanel() {
@@ -106,7 +108,7 @@ export function JobQueuePanel() {
   };
 
   const active = jobs.filter((j) => j.status === "queued" || j.status === "running");
-  const recent = jobs.filter((j) => j.status === "completed" || j.status === "failed").slice(0, 10);
+  const recent = jobs.filter((j) => j.status === "completed" || j.status === "failed" || j.status === "cancelled").slice(0, 10);
 
   return (
     <div className="rounded-2xl glass p-5 space-y-6">

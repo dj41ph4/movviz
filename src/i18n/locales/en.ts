@@ -1,4 +1,4 @@
-﻿import type { Dictionary } from "../types";
+import type { Dictionary } from "../types";
 
 /** English dictionary — mirrors the French key structure. */
 export const en: Dictionary = {
@@ -874,6 +874,7 @@ export const en: Dictionary = {
     empty: "No jobs running.",
     recent: "Recently finished",
     statusQueued: "Queued",
+    statusCancelled: "Cancelled",
     prioritiesTitle: "Priority points",
     prioritiesHint: "Higher runs first when several jobs are waiting at the same time.",
     downloadHint: "While a download is active, other jobs automatically slow down to make room for it.",

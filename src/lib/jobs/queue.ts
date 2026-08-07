@@ -27,7 +27,23 @@ const MAX_CONCURRENT_WHILE_DOWNLOADING = 2;
 const MAX_HISTORY = 100;
 
 export type ProgressFn = (current: number, total: number) => void;
-type Runner = (setProgress: ProgressFn) => Promise<unknown>;
+export interface RunnerContext {
+  jobId: string;
+}
+type Runner = (setProgress: ProgressFn, ctx: RunnerContext) => Promise<unknown>;
+
+/**
+ * Throw from a runner to settle the job as "cancelled" (rather than
+ * "completed" or "failed") when its cooperative cancellation flag was set —
+ * used by the bulk "rechercher les manquants" job when it stops at a
+ * checkpoint.
+ */
+export class JobCancelledError extends Error {
+  constructor() {
+    super("Job annulé");
+    this.name = "JobCancelledError";
+  }
+}
 
 interface QueueState {
   jobs: Job[]; // newest first, capped at MAX_HISTORY
@@ -37,6 +53,14 @@ interface QueueState {
 
 const g = globalThis as typeof globalThis & { __movvizJobQueue?: QueueState };
 const state: QueueState = (g.__movvizJobQueue ??= { jobs: [], pending: new Map(), runningCount: 0 });
+
+// Jobs whose cancellation was requested while running — cooperative: the
+// runner checks isJobCancelled(jobId) between items and stops. A running
+// job can't be preempted mid-await, but a bulk search checks every item
+// (~1.5 s), so cancellation lands within a few seconds. Cleared when the
+// job settles (runJob) so the set never grows unbounded.
+const g2 = globalThis as typeof globalThis & { __movvizJobCancellations?: Set<string> };
+const cancelled: Set<string> = (g2.__movvizJobCancellations ??= new Set());
 
 let lastDownloadCheck = 0;
 let lastDownloadActive = false;
@@ -111,6 +135,7 @@ function runJob(job: Job, runner: Runner) {
   const timeoutTimer = setTimeout(() => {
     if (settled) return;
     settled = true;
+    clearCancellation(job.id);
     job.status = "failed";
     job.error = `Délai dépassé (>${Math.round(JOB_TIMEOUT_MS / 60000)} min) — la tâche est restée bloquée, libération de la file`;
     job.completedAt = Date.now();
@@ -118,11 +143,12 @@ function runJob(job: Job, runner: Runner) {
     void dispatch();
   }, JOB_TIMEOUT_MS);
 
-  runner(setProgress)
+  runner(setProgress, { jobId: job.id })
     .then((result) => {
       if (settled) return; // watchdog already freed this slot — a late result must not double-decrement runningCount
       settled = true;
       clearTimeout(timeoutTimer);
+      clearCancellation(job.id);
       job.status = "completed";
       job.result = result;
       job.completedAt = Date.now();
@@ -133,8 +159,13 @@ function runJob(job: Job, runner: Runner) {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutTimer);
-      job.status = "failed";
-      job.error = err instanceof Error ? err.message : String(err);
+      clearCancellation(job.id);
+      if (err instanceof JobCancelledError) {
+        job.status = "cancelled";
+      } else {
+        job.status = "failed";
+        job.error = err instanceof Error ? err.message : String(err);
+      }
       job.completedAt = Date.now();
       state.runningCount--;
       void dispatch();
@@ -157,4 +188,34 @@ export function isTypeActive(type: JobType): boolean {
 /** True if a job from this specific source (e.g. a scheduled task id) is queued or running. */
 export function isSourceActive(sourceId: string): boolean {
   return state.jobs.some((j) => j.sourceId === sourceId && (j.status === "queued" || j.status === "running"));
+}
+
+/**
+ * Cancel a job. Queued jobs are removed from the queue immediately; running
+ * jobs get a cooperative flag the runner polls between items (see
+ * isJobCancelled) and settle on their next checkpoint.
+ */
+export function requestCancelJob(jobId: string): boolean {
+  const job = state.jobs.find((j) => j.id === jobId);
+  if (!job) return false;
+  if (job.status === "queued") {
+    state.pending.delete(jobId);
+    job.status = "cancelled";
+    job.completedAt = Date.now();
+    return true;
+  }
+  if (job.status === "running") {
+    cancelled.add(jobId);
+    return true;
+  }
+  return false;
+}
+
+/** Cooperative cancellation check for a running job's runner. */
+export function isJobCancelled(jobId: string): boolean {
+  return cancelled.has(jobId);
+}
+
+function clearCancellation(jobId: string) {
+  cancelled.delete(jobId);
 }

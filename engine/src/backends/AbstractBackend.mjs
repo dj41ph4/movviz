@@ -820,7 +820,11 @@ export class AbstractBackend {
       let firstDest = null;
       for (const file of targets) {
         const fileInfo = parseRelease(file.name);
-        const info = fileInfo.season != null || fileInfo.episode != null ? fileInfo : releaseInfo;
+        // Clone ! Ne PAS réutiliser releaseInfo directement : la résolution
+        // matchedTarget ci-dessous mute `info` — l'objet partagé corromprait
+        // tous les fichiers suivants (confirmé live : un pack Trigun entier
+        // renommé 25× "S01E03" puis "S01E04").
+        const info = { ...(fileInfo.season != null || fileInfo.episode != null ? fileInfo : releaseInfo) };
         if (m.title) info.title = m.title;
         if (m.year) info.year = String(m.year);
         // Neither the filename nor the overall release name carried a season

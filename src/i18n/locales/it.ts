@@ -1,4 +1,4 @@
-﻿import type { Dictionary } from "../types";
+import type { Dictionary } from "../types";
 
 /** Dizionario italiano — rispecchia la struttura delle chiavi francese/inglese. */
 export const it: Dictionary = {
@@ -874,6 +874,7 @@ export const it: Dictionary = {
     empty: "Nessuna attività in corso.",
     recent: "Completate di recente",
     statusQueued: "In attesa",
+    statusCancelled: "Annullato",
     prioritiesTitle: "Punti di priorità",
     prioritiesHint: "Un valore più alto passa avanti quando più attività sono in attesa contemporaneamente.",
     downloadHint: "Durante un download attivo, le altre attività rallentano automaticamente per lasciargli spazio.",

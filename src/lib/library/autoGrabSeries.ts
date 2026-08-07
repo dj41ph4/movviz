@@ -1068,7 +1068,7 @@ function tryGrabSeasonPack(
 export async function searchAndGrabSeason(
   seriesId: string,
   seasonNumber: number,
-  options?: { skipSeriesPackRetry?: boolean }
+  options?: { skipSeriesPackRetry?: boolean; shouldCancel?: () => boolean }
 ) {
   const series = getSeries(seriesId);
   if (!series) return { error: "series not found" as const };
@@ -1104,7 +1104,7 @@ async function searchAndGrabSeasonCascade(
   seasonNumber: number,
   profile: ReturnType<typeof profileFor>,
   missing: LibraryEpisode[],
-  options?: { skipSeriesPackRetry?: boolean }
+  options?: { skipSeriesPackRetry?: boolean; shouldCancel?: () => boolean }
 ) {
   // RÈGLE ABSOLUE — intégrale d'abord : si elle existe, elle couvre toute la
   // série d'un coup. Skipped when a prior season in this same searchAndGrabSeries
@@ -1175,6 +1175,10 @@ async function searchAndGrabSeasonCascade(
   // episodes took hours under that redundancy.
   const perEpisode = [];
   for (const ep of missing) {
+    // Cancellation checkpoint between episodes — see searchAndGrabSeries's
+    // season loop. Remaining episodes stay "missing" (restored by the
+    // finally in searchAndGrabSeason) and are retried on a later run.
+    if (options?.shouldCancel?.()) break;
     perEpisode.push(await searchAndGrabEpisode(seriesId, seasonNumber, ep.episodeNumber, { skipPackRetry: true }));
     await new Promise<void>((resolve) => setTimeout(resolve, ITEM_DELAY_MS));
   }
@@ -1606,7 +1610,10 @@ export async function searchAndGrabCompleteSeries(seriesId: string) {
  * counter advances season by season instead of freezing on 0/N during a
  * giant show.
  */
-export async function searchAndGrabSeries(seriesId: string, options?: { onSeasonDone?: () => void }) {
+export async function searchAndGrabSeries(
+  seriesId: string,
+  options?: { onSeasonDone?: () => void; shouldCancel?: () => boolean }
+) {
   return withSearchLock(`series:${seriesId}`, async () => {
     const series = getSeries(seriesId);
     if (!series) return { error: "series not found" as const };
@@ -1643,9 +1650,14 @@ export async function searchAndGrabSeries(seriesId: string, options?: { onSeason
     // saisons dans le même run). Ordre chronologique imposé (S01 → S02 → …).
     const orderedSeasons = [...series.seasons].sort((a, b) => a.seasonNumber - b.seasonNumber);
     for (const season of orderedSeasons) {
+      // Cooperative cancellation checkpoint — the bulk "rechercher les
+      // manquants" job polls between series AND between seasons (see
+      // searchMissing.ts runBatch / queue.ts requestCancelJob), so a cancel
+      // lands within a season at worst.
+      if (options?.shouldCancel?.()) break;
       if (!season.monitored) continue;
       if (!season.episodes.some((e) => e.monitored && e.status === "missing")) continue;
-      const result = await searchAndGrabSeason(seriesId, season.seasonNumber, { skipSeriesPackRetry: true });
+      const result = await searchAndGrabSeason(seriesId, season.seasonNumber, { skipSeriesPackRetry: true, shouldCancel: options?.shouldCancel });
       results.push(result);
       options?.onSeasonDone?.();
       // Each search synchronously title-matches against the whole RSS cache —

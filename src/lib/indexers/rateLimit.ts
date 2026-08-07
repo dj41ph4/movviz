@@ -22,15 +22,28 @@ const limits: Map<string, number> = (g.__movvizRateLimit ??= new Map());
  * C411 (https://c411.org): max 15 requests per minute.
  */
 export const INDEXER_REQUEST_QUOTAS: Record<string, number> = {
-  // Désactivé pour ne pas bloquer "rechercher les manquants"
+  "c411.org": 15,
 };
+
+// Quota générique par hôte pour tous les autres indexeurs. "Rechercher les
+// manquants" enchaîne des dizaines de requêtes par indexeur (intégrale →
+// saisons → épisodes) ; sans plafond, une seule grosse série suffit à faire
+// 429 (mesuré live : ~35 requêtes en ~35 s). 20 req/min est invisible pour
+// l'usage normal (RSS horaire, recherches manuelles) et borne la bulk.
+const DEFAULT_INDEXER_QUOTA = 20;
+
+// Cap global tous indexeurs confondus (fenêtre glissante 60 s) — empêche
+// plusieurs jobs en parallèle (recherche manuelle + bulk + tâche planifiée)
+// de saturer ensemble les indexeurs même quand chaque hôte reste sous sa
+// propre quote.
+const GLOBAL_QUOTA_PER_MIN = 40;
 
 interface QuotaState {
   window: number[];
 }
 
 function quotaStateFor(hostname: string): QuotaState {
-  const q = g as typeof globalThis & { __movvizRequestQuotas?: Map<string, QuotaState> };
+  const q = globalThis as typeof globalThis & { __movvizRequestQuotas?: Map<string, QuotaState> };
   const quotas = (q.__movvizRequestQuotas ??= new Map());
   let st = quotas.get(hostname);
   if (!st) {
@@ -38,6 +51,11 @@ function quotaStateFor(hostname: string): QuotaState {
     quotas.set(hostname, st);
   }
   return st;
+}
+
+function globalQuotaState(): QuotaState {
+  const q = globalThis as typeof globalThis & { __movvizGlobalRequestQuota?: QuotaState };
+  return (q.__movvizGlobalRequestQuota ??= { window: [] });
 }
 
 function hostnameOf(baseUrl: string): string {
@@ -49,22 +67,15 @@ function hostnameOf(baseUrl: string): string {
 }
 
 function quotaFor(baseUrl: string): number {
-  return INDEXER_REQUEST_QUOTAS[hostnameOf(baseUrl)] ?? 0;
+  return INDEXER_REQUEST_QUOTAS[hostnameOf(baseUrl)] ?? DEFAULT_INDEXER_QUOTA;
 }
 
-/**
- * Throttle one outgoing request against the indexer's per-minute quota.
- * Waits (async) until a slot is free in the 60s sliding window. No-op when
- * the indexer has no configured quota.
- */
-export async function throttleIndexerRequest(baseUrl: string): Promise<void> {
-  const max = quotaFor(baseUrl);
-  if (max <= 0) return;
-  const st = quotaStateFor(hostnameOf(baseUrl));
-  const now = Date.now();
+/** Wait for a free slot in a 60s sliding window, then consume one. */
+async function waitForSlot(st: QuotaState, max: number): Promise<void> {
   const WINDOW_MS = 60_000;
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    const now = Date.now();
     st.window = st.window.filter((t) => now - t < WINDOW_MS);
     if (st.window.length < max) {
       st.window.push(Date.now());
@@ -73,6 +84,23 @@ export async function throttleIndexerRequest(baseUrl: string): Promise<void> {
     const oldest = st.window[0];
     await new Promise<void>((resolve) => setTimeout(resolve, Math.max(250, oldest + WINDOW_MS - Date.now())));
   }
+}
+
+/**
+ * Throttle one outgoing request against the indexer's per-minute quota.
+ * Waits (async) until a slot is free in the 60s sliding window. Every
+ * indexer gets the default quota (20 req/min) unless it has an entry in
+ * INDEXER_REQUEST_QUOTAS.
+ */
+export async function throttleIndexerRequest(baseUrl: string): Promise<void> {
+  const max = quotaFor(baseUrl);
+  if (max <= 0) return;
+  await waitForSlot(quotaStateFor(hostnameOf(baseUrl)), max);
+}
+
+/** Throttle against the global cross-indexer budget (40 req/min total). */
+export async function throttleGlobalIndexerRequest(): Promise<void> {
+  await waitForSlot(globalQuotaState(), GLOBAL_QUOTA_PER_MIN);
 }
 
 /** Mark an indexer as rate-limited (cooldown starts now + 10 min). */

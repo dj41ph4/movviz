@@ -1,4 +1,4 @@
-﻿import type { Dictionary } from "../types";
+import type { Dictionary } from "../types";
 
 /** Deutsches Wörterbuch — spiegelt die französische/englische Schlüsselstruktur. */
 export const de: Dictionary = {
@@ -874,6 +874,7 @@ export const de: Dictionary = {
     empty: "Keine laufenden Aufgaben.",
     recent: "Kürzlich abgeschlossen",
     statusQueued: "Wartend",
+    statusCancelled: "Abgebrochen",
     prioritiesTitle: "Prioritätspunkte",
     prioritiesHint: "Ein höherer Wert läuft zuerst, wenn mehrere Aufgaben gleichzeitig warten.",
     downloadHint: "Während ein Download aktiv ist, verlangsamen sich andere Aufgaben automatisch, um ihm Platz zu machen.",

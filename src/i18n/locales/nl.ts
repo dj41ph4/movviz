@@ -1,4 +1,4 @@
-﻿import type { Dictionary } from "../types";
+import type { Dictionary } from "../types";
 
 /** Nederlands woordenboek — weerspiegelt de Franse/Engelse sleutelstructuur. */
 export const nl: Dictionary = {
@@ -874,6 +874,7 @@ export const nl: Dictionary = {
     empty: "Geen taken actief.",
     recent: "Recent voltooid",
     statusQueued: "In wachtrij",
+    statusCancelled: "Geannuleerd",
     prioritiesTitle: "Prioriteitspunten",
     prioritiesHint: "Hoe hoger het getal, hoe eerder de taak aan de beurt komt als er meerdere tegelijk wachten.",
     downloadHint: "Tijdens een actieve download vertragen andere taken automatisch om plaats te maken.",
