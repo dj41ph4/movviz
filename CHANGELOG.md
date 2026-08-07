@@ -4,6 +4,17 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.85 — August 2026
+
+### Bug de renommage moteur corrigé + isolation de la recherche des manquants (quotas + annulation)
+
+- **Corrigé — moteur** (`AbstractBackend.mjs`) : bug de renommage des packs — l'objet d'informations partagé (`releaseInfo`) était muté par la résolution du fichier cible, et pour tout fichier sans numéro d'épisode dans le nom, ce même objet était réutilisé pour les suivants : le PREMIER fichier apparié imposait alors son épisode à tous les autres. Confirmé en production sur un pack Trigun intégrale : 25 fichiers renommés `S01E03` (puis `S01E04` au 3ᵉ import), E1 toujours écrasé. **Corrigé** : l'objet est désormais cloné par fichier (`{ ...info }`) — reproduit localement avec les 28 vrais noms de fichiers du pack, chaque fichier obtient son propre épisode (E01-E26, uniques). Le moteur redéployé ne re-renommera plus jamais un pack entier vers le même épisode.
+- **Quotas indexeurs (anti-429)** : quotas par indexeur réactivés (`c411.org` = 15 req/min documentées, 20 req/min par défaut pour tout hôte) + nouveau plafond global de 40 req/min (fenêtre glissante 60 s). Appliqués AVANT l'envoi de chaque requête (`fetchXml`), les quotas documentés ne sont donc jamais dépassés. La recherche groupée « rechercher les manquants » ne peut plus s'auto-infliger des 429 (mesuré en production : ~35 requêtes en ~35 s déclenchait déjà un 429).
+- **Annulation des jobs** : nouvelle route `POST /api/jobs/[id]/cancel` (admin) + `requestCancelJob()`/`isJobCancelled()` dans la file + nouveau statut `"cancelled"` (settle propre via `JobCancelledError`, drapeau purgé à la fin). Points de contrôle coopératifs à tous les niveaux de la recherche groupée : entre items du lot, entre saisons, entre épisodes — les épisodes non encore cherchés restent simplement « manquants » et seront retentés au prochain passage. Un job en file est retiré immédiatement ; un job en cours s'arrête à son prochain point de contrôle (quelques secondes).
+- **UI** : le panneau File d'attente affiche les jobs annulés (icône dédiée + libellés `jobs.statusCancelled` dans les 5 langues).
+
+---
+
 ## v1.12.84 — August 2026
 
 ### Import fiabilisé des packs de saison/intégrale — plus jamais de "S01E" vide ni de fichiers écrasés
