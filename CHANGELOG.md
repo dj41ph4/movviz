@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.87 — August 2026
+
+### Liaison Plex étendue aux GUIDs legacy + diagnostic Plex
+
+- **Corrigé — sync Plex** : les GUIDs au format legacy (`com.plexapp.agents.thetvdb://80741?lang=fr`, agents d'avant 2021) n'étaient pas lus — seul le tableau `Guid[]` moderne l'était. Ces séries ne pouvaient jamais être liées, même avec la résolution `/find` de la v1.12.86. Le champ `guid` legacy est désormais parsé lui aussi (`thetvdb`/`imdb`/`tmdb`).
+- **Ajouté — route diagnostic** `GET /api/plex/diagnostic?title=...` (admin) : affiche pour chaque titre Plex correspondant le type, le ratingKey, le GUID brut, le tableau `Guid[]` et le tmdbId résolu par la même logique que le sync — permet d'expliquer pourquoi un média n'est pas lié.
+
+---
+
 ## v1.12.86 — August 2026
 
 ### Liaison Plex corrigée pour les médias sans GUID TMDb + outil de liaison enrichi

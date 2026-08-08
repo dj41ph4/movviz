@@ -235,21 +235,46 @@ function extractTmdbId(guids: { id: string }[] | undefined): number | null {
 }
 
 /**
- * Plex GUID → TMDb id, with a fallback for servers whose agent doesn't use
- * TMDb. `tmdb://` resolves instantly; otherwise the `imdb://`/`tvdb://`
- * external ids are looked up through TMDb's `/find` endpoint (cached). When
- * several candidates come back (TMDb duplicate entries for one title), the one
- * that already exists in the Movviz library wins — that's the record the user
- * owns. Returns null when nothing usable resolves; callers then skip the item
- * (same as today, just far rarer).
+ * Old-style single `guid` field (legacy Plex agents). Items matched by the
+ * pre-2021 agents never get the new `Guid[]` array — their only external
+ * identifier lives here, e.g. `com.plexapp.agents.thetvdb://80741?lang=fr`.
  */
-async function resolveTmdbId(guids: { id: string }[] | undefined, kind: "movie" | "series"): Promise<number | null> {
+function externalIdsFromLegacyGuid(legacyGuid: string | undefined): { imdb: string | null; tvdb: string | null; tmdb: number | null } {
+  const none = { imdb: null, tvdb: null, tmdb: null };
+  if (!legacyGuid) return none;
+  const m = legacyGuid.match(/^com\.plexapp\.agents\.(thetvdb|imdb|tmdb):\/\/([^?#]+)/);
+  if (!m) return none;
+  const [, agent, rawId] = m;
+  if (agent === "thetvdb") return { imdb: null, tvdb: rawId, tmdb: null };
+  if (agent === "tmdb") return { imdb: null, tvdb: null, tmdb: Number(rawId) || null };
+  return { imdb: rawId, tvdb: null, tmdb: null };
+}
+
+/**
+ * Plex GUID → TMDb id, with fallbacks for servers whose agent doesn't use
+ * TMDb. `tmdb://` resolves instantly (either in the `Guid[]` array or in the
+ * legacy `guid` string); otherwise the `imdb://`/`tvdb://` external ids are
+ * looked up through TMDb's `/find` endpoint (cached). When several candidates
+ * come back (TMDb duplicate entries for one title), the one that already
+ * exists in the Movviz library wins — that's the record the user owns.
+ * Returns null when nothing usable resolves; callers then skip the item.
+ */
+async function resolveTmdbId(
+  guids: { id: string }[] | undefined,
+  legacyGuid: string | undefined,
+  kind: "movie" | "series"
+): Promise<number | null> {
   const direct = extractTmdbId(guids);
   if (direct != null) return direct;
 
+  const legacy = externalIdsFromLegacyGuid(legacyGuid);
+  if (legacy.tmdb != null) return legacy.tmdb;
+
   const list = guids ?? [];
-  const imdb = list.find((g) => g.id.startsWith("imdb://"))?.id.slice("imdb://".length);
-  const tvdb = list.find((g) => g.id.startsWith("tvdb://"))?.id.slice("tvdb://".length);
+  const guidImdb = list.find((g) => g.id.startsWith("imdb://"))?.id.slice("imdb://".length);
+  const guidTvdb = list.find((g) => g.id.startsWith("tvdb://"))?.id.slice("tvdb://".length);
+  const imdb = guidImdb ?? legacy.imdb;
+  const tvdb = guidTvdb ?? legacy.tvdb;
   if (!imdb && !tvdb) return null;
 
   const [foundImdb, foundTvdb] = await Promise.all([
@@ -269,6 +294,15 @@ async function resolveTmdbId(guids: { id: string }[] | undefined, kind: "movie" 
   const { getMovieByTmdbId, getSeriesByTmdbId } = await import("@/lib/library/store");
   const owned = unique.find((id) => (kind === "series" ? getSeriesByTmdbId(id) : getMovieByTmdbId(id)));
   return owned ?? unique[0];
+}
+
+/** Debug hook used by /api/plex/diagnostic — same resolution as the sync. */
+export async function resolveTmdbIdForDebug(
+  guids: { id: string }[] | undefined,
+  legacyGuid: string | undefined,
+  kind: "movie" | "series"
+): Promise<number | null> {
+  return resolveTmdbId(guids, legacyGuid, kind);
 }
 
 interface RawStream {
@@ -557,7 +591,7 @@ export async function batchTmdbIds(cfg: PlexServerConfig, token: string, ratingK
         const info = parseStreamInfo(item.Media);
         const mediaVersions = parseAllMediaVersions(item);
         result.set(item.ratingKey, {
-          tmdbId: await resolveTmdbId(item.Guid, item.type === "show" ? "series" : "movie"),
+          tmdbId: await resolveTmdbId(item.Guid, item.guid, item.type === "show" ? "series" : "movie"),
           ...info,
           mediaDetail: parseMediaDetail(item),
           mediaVersions: mediaVersions.length > 1 ? mediaVersions : [],
@@ -605,19 +639,19 @@ export async function getLibrarySections(cfg: PlexServerConfig, token: string, m
 }
 
 /**
- * Paginated fetch of every item directly in a section (movies, or shows
+ * Paginated fetch of every raw item directly in a section (movies, or shows
  * themselves — not episodes). When `sinceUnixSeconds` is given, sorts newest
  * (by updatedAt — new episodes/file changes bump it, not just new adds) first
  * and stops as soon as a page's items fall behind the watermark instead of
  * paginating the whole library — the classic "recently added" watermark trick.
  */
-export async function getSectionItems(
+export async function getSectionRawItems(
   cfg: PlexServerConfig,
   sectionKey: string,
   token: string,
   opts?: { sinceUnixSeconds?: number },
   managedUserId?: string
-): Promise<PlexLibraryItem[]> {
+): Promise<RawLibraryItem[]> {
   const raw: RawLibraryItem[] = [];
   const pageSize = 200;
   let start = 0;
@@ -657,6 +691,17 @@ export async function getSectionItems(
     start += page.length;
     if (page.length === 0 || start >= total) break;
   }
+  return raw;
+}
+
+export async function getSectionItems(
+  cfg: PlexServerConfig,
+  sectionKey: string,
+  token: string,
+  opts?: { sinceUnixSeconds?: number },
+  managedUserId?: string
+): Promise<PlexLibraryItem[]> {
+  const raw = await getSectionRawItems(cfg, sectionKey, token, opts, managedUserId);
   const infos = await batchTmdbIds(cfg, token, raw.map((i) => i.ratingKey), managedUserId);
   return raw.map((item) => mapItem(item, infos.get(item.ratingKey) ?? null));
 }
