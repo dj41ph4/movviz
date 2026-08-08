@@ -45,6 +45,12 @@ const ALT_SEASON_EPISODE_RE = /\b(\d{1,2})x(\d{1,3})\b/;
 // II"...), not a plain digit — both need to resolve to the same season
 // concept as "Saison"/"Season"/"S07".
 const SEASON_ONLY_RE = /\b(?:Saison|Season|Livre|Arc)\.?\s?(\d{1,2}|[IVX]{1,5})\b|\bS(\d{1,2})\b/i;
+// Part marker of a season-split release ("S01.PART.02", "Part 1", "Partie 2",
+// "S02.S01.PART.02") — a single-season show whose releases were split in the
+// DVD order (e.g. Disjointed: DVD S1 = episodes 1-10, S2 = episodes 11-20).
+// The separator is strictly dot/space/dash/nothing followed by a digit, so
+// plain English words like "Party" or "Departure" can never match.
+const SEASON_PART_RE = /\b(?:PART|Part(?:ie)?)[.\s-]?(\d{1,2})\b/i;
 // Anime specials/OVAs rarely carry a literal S00Exx marker — fansub/scene
 // naming predates and never fully converged on that convention. "OVA1",
 // "OAV 02", "SP03", "Special.04" etc. all mean the same thing: episode N of
@@ -197,6 +203,13 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
     }
   }
 
+  // Independent of the season number: "S01.PART.02" and "S02.S01.PART.02"
+  // both mean "part 2" of the show's (single) season — the season prefix
+  // belongs to the release's own ordering, the part number to the split.
+  let seasonPart: number | null = null;
+  const partMatch = s.match(SEASON_PART_RE);
+  if (partMatch) seasonPart = parseInt(partMatch[1], 10);
+
   const isCompletePack = PACK_DESC_RE.test(s);
 
   const year = s.match(YEAR_RE)?.[0] ?? null;
@@ -205,6 +218,7 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
     SEASON_EPISODE_RE,
     ALT_SEASON_EPISODE_RE,
     SEASON_ONLY_RE,
+    SEASON_PART_RE,
     SPECIAL_EPISODE_RE,
     year ? new RegExp(escapeRegex(year)) : null,
     PACK_DESC_RE,
@@ -229,6 +243,7 @@ function parseReleaseUncached(rawName: string): ReleaseInfo {
     season,
     episode,
     episodeEnd,
+    seasonPart,
     episodeTitle: null,
     resolution,
     source,

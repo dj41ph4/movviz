@@ -35,6 +35,9 @@ const SEASON_EPISODE_RANGE_RE = /\bS(\d{1,2})E(\d{1,3})(?:-E?|E)(\d{1,3})\b/i;
 const SEASON_EPISODE_RE = /\bS(\d{1,2})E(\d{1,3})\b/i;
 const ALT_SEASON_EPISODE_RE = /\b(\d{1,2})x(\d{1,3})\b/;
 const SEASON_ONLY_RE = /\b(?:Saison|Season|Livre|Arc)\.?\s?(\d{1,2}|[IVX]{1,5})\b|\bS(\d{1,2})\b/i;
+// Mirror of naming/parser.ts's SEASON_PART_RE (part marker of a
+// season-split release — see parser.ts for the rationale).
+const SEASON_PART_RE = /\b(?:PART|Part(?:ie)?)[.\s-]?(\d{1,2})\b/i;
 // Keep in sync with SPECIAL_EPISODE_RE in src/lib/naming/parser.ts (trailing
 // number optional for OVA/OAV/OAD/Special — a lot of releases never number
 // their single one; "SP" alone stays digit-required, too collision-prone).
@@ -139,6 +142,10 @@ function parseRelease(rawName) {
     }
   }
 
+  let seasonPart = null;
+  const partMatch = s.match(SEASON_PART_RE);
+  if (partMatch) seasonPart = parseInt(partMatch[1], 10);
+
   const isCompletePack = PACK_DESC_RE.test(s);
   const year = s.match(YEAR_RE)?.[0] ?? null;
 
@@ -146,6 +153,7 @@ function parseRelease(rawName) {
     SEASON_EPISODE_RE,
     ALT_SEASON_EPISODE_RE,
     SEASON_ONLY_RE,
+    SEASON_PART_RE,
     SPECIAL_EPISODE_RE,
     year ? new RegExp(escapeRegex(year)) : null,
     PACK_DESC_RE,
@@ -167,6 +175,7 @@ function parseRelease(rawName) {
     season,
     episode,
     episodeEnd,
+    seasonPart,
     episodeTitle: null,
     resolution,
     source,
@@ -298,8 +307,22 @@ function yearIsCompatible(parsedYear, targetYear) {
   return Math.abs(parseInt(parsedYear, 10) - targetYear) <= 1;
 }
 
-function seasonEpisodeMatches(parsed, seasonNumber, episodeNumber) {
+// Mirror of matching.ts's seasonEpisodeMatches + part-pack fallback — see
+// matching.ts for the full rationale (single-season series split in the DVD
+// order: part P ≥ 2 covers episodes ((P-1)*partSize+1 .. min(total, P*partSize))).
+function partPackEpisodeRange(totalEpisodes, partNumber) {
+  const partSize = Math.ceil(totalEpisodes / partNumber);
+  return { start: (partNumber - 1) * partSize + 1, end: Math.min(totalEpisodes, partNumber * partSize) };
+}
+
+function seasonEpisodeMatches(parsed, seasonNumber, episodeNumber, singleSeasonTotalEpisodes = null) {
   if (parsed.season == null && episodeNumber === null) return true;
+  const partNumber = parsed.seasonPart ?? (parsed.season != null && parsed.season !== seasonNumber ? parsed.season : null);
+  if (partNumber != null && partNumber >= 2 && singleSeasonTotalEpisodes != null) {
+    const { start, end } = partPackEpisodeRange(singleSeasonTotalEpisodes, partNumber);
+    if (episodeNumber != null) return episodeNumber >= start && episodeNumber <= end;
+    return true;
+  }
   if (parsed.season !== seasonNumber) return false;
   if (episodeNumber != null) return parsed.episode === episodeNumber;
   return true;
@@ -312,12 +335,12 @@ function seasonEpisodeMatches(parsed, seasonNumber, episodeNumber) {
  * cached release's parse+match against a single target so the round-trip
  * cost is paid once per item, not once per release.
  */
-function matchReleases({ releases, targetTitle, aliases, targetYear, seasonNumber, episodeNumber, filterPack }) {
+function matchReleases({ releases, targetTitle, aliases, targetYear, seasonNumber, episodeNumber, filterPack, partTotalEpisodes }) {
   const isSeries = seasonNumber != null;
   const step1 = releases.map((r, idx) => ({ idx, parsed: parseRelease(r.title) }));
   const step2 = step1.filter(({ parsed }) => releaseTitleMatches(parsed.title, targetTitle, aliases ?? []));
   const step3 = isSeries
-    ? step2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber))
+    ? step2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber, partTotalEpisodes ?? null))
     : step2.filter(({ parsed }) => yearIsCompatible(parsed.year, targetYear ?? null));
   const step4 = isSeries ? step3.filter(({ parsed }) => (filterPack ? parsed.episode == null : true)) : step3;
 

@@ -42,6 +42,31 @@ function movedFileCoversEpisode(f: ImportedFile, episodeNumber: number): boolean
   return f.episodeEnd != null && episodeNumber > f.episode && episodeNumber <= f.episodeEnd;
 }
 
+/**
+ * Season-part normalization for SINGLE-SEASON series only (DVD-ordering
+ * splits — e.g. Disjointed: a "S02" release covering S1E11-20, matched via
+ * partPackInfo in matching.ts). A file parsed as season N ≥ 2 of a
+ * single-season show has its episode numbers translated into the season's
+ * own numbering: season episode = (N-1)*ceil(total/N) + fileEpisode. This
+ * runs BEFORE every season-consistency guard and episode match below, so
+ * those stay exactly as they were for every normal file. Files that don't
+ * map into the season's range are left untouched and fail the season guard
+ * as before — no behaviour change. Multi-season series are never touched
+ * (their S02 files belong to a real season 2).
+ */
+function normalizePartFiles(series: { seasons: Array<{ episodes: Array<unknown> }> }, files: ImportedFile[]): ImportedFile[] {
+  if (series.seasons.length !== 1) return files;
+  const total = series.seasons[0]?.episodes.length ?? 0;
+  if (total < 2) return files;
+  return files.map((f) => {
+    if (f.season == null || f.season < 2 || f.episode == null) return f;
+    const partSize = Math.ceil(total / f.season);
+    const episode = (f.season - 1) * partSize + f.episode;
+    if (episode < 1 || episode > total) return f;
+    return { ...f, season: 1, episode };
+  });
+}
+
 interface EpisodeLike {
   status: string;
   activeInfoHash: string | null;
@@ -259,6 +284,10 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
   const series = getSeries(ref.seriesId);
   if (!series) return { ok: false as const, error: "series not found" };
 
+  // Season-part normalization (single-season series only) — see
+  // normalizePartFiles. Every branch below works on the normalized list.
+  const normalizedFiles = normalizePartFiles(series, files);
+
   const label = ref.kind === "series" ? `${series.title} — intégrale` : `${series.title} — saison ${ref.season}`;
   const mediaLabel = ref.kind === "series" ? `${series.title} — Intégrale` : `${series.title} — Saison ${ref.season}`;
   const code = ref.kind === "episode" ? `${ref.season}x${String(ref.episode).padStart(2, "0")}` : null;
@@ -272,7 +301,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // line up (e.g. every season starts at episode 1). A season-less file
     // (f.season == null, e.g. a bare "01.mkv" the engine couldn't season-tag)
     // is still accepted — that's a real gap in the filename, not a mismatch.
-    const seasonFiles = files.filter((f) => f.season == null || f.season === ref.season);
+    const seasonFiles = normalizedFiles.filter((f) => f.season == null || f.season === ref.season);
     const seasons = series.seasons.map((season) => {
       if (season.seasonNumber !== ref.season) return season;
       const episodes = season.episodes.map((ep) => {
@@ -304,17 +333,17 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // Before the caller was allowed to reach this branch with files=[], it
     // was unreachable; now that a zero-match season pack calls in here too
     // (see AbstractBackend.mjs's _import), skip the false "available" signal.
-    if (files.length > 0) {
+    if (normalizedFiles.length > 0) {
       emitNotification("import_season_available", `${label} est maintenant disponible`, `/title/series/${series.tmdbId}`, { title: series.title, season: ref.season });
       logActivity("imported", "system", label, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "season", seriesId: series.id, season: ref.season }),
-        quality: files[0]?.quality ?? undefined,
+        quality: normalizedFiles[0]?.quality ?? undefined,
       });
       logActivityV2({
         kind: "imported",
         media: createMediaRef("series", series.id, series.tmdbId, mediaLabel, ref.season),
         actor: "system",
-        release: files[0]?.quality ? createReleaseRef("", "Importé", "torrent", files[0].size, files[0].quality, 0) : undefined,
+        release: normalizedFiles[0]?.quality ? createReleaseRef("", "Importé", "torrent", normalizedFiles[0].size, normalizedFiles[0].quality, 0) : undefined,
       });
       refreshLoose("tv");
       void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
@@ -327,7 +356,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // across multiple seasons. Files without season/episode metadata are
     // skipped (they don't belong to any tracked episode).
     const seasons = series.seasons.map((season) => {
-      const seasonFiles = files.filter((f) => f.season === season.seasonNumber);
+      const seasonFiles = normalizedFiles.filter((f) => f.season === season.seasonNumber);
       const episodes = season.episodes.map((ep) => {
         const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
         if (!match) return releaseIfOrphaned(ep, infoHash);
@@ -351,7 +380,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       return { ...season, episodes };
     });
     updateSeries(series.id, { seasons });
-    const importedCount = files.filter((f) => f.season != null && f.episode != null).length;
+    const importedCount = normalizedFiles.filter((f) => f.season != null && f.episode != null).length;
     // Zero matched episodes means every target was just released back to
     // "missing" above (releaseIfOrphaned) — skip the false "available"
     // signal (see the season branch's matching comment).
@@ -359,13 +388,13 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       emitNotification("import_series_available", `${series.title} — ${importedCount} épisode(s) importés`, `/title/series/${series.tmdbId}`, { title: series.title });
       logActivity("imported", "system", `${series.title} — intégrale (${importedCount} ép.)`, `/title/series/${series.tmdbId}`, {
         libraryRef: encodeLibraryRef({ kind: "series", seriesId: series.id }),
-        quality: files[0]?.quality ?? undefined,
+        quality: normalizedFiles[0]?.quality ?? undefined,
       });
       logActivityV2({
         kind: "imported",
         media: createMediaRef("series", series.id, series.tmdbId, `${series.title} — Intégrale`),
         actor: "system",
-        release: files[0]?.quality ? createReleaseRef("", "Importé", "torrent", files[0].size, files[0].quality, 0) : undefined,
+        release: normalizedFiles[0]?.quality ? createReleaseRef("", "Importé", "torrent", normalizedFiles[0].size, normalizedFiles[0].quality, 0) : undefined,
       });
       refreshLoose("tv");
       void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});
@@ -387,9 +416,9 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
   //    for every targeted episode in the same batch — match each file to its
   //    own episode by parsed number, or every episode past the first would
   //    stay stuck "downloading" forever despite already having a file.
-  const singleFile = files.length === 1 ? files[0] : null;
+  const singleFile = normalizedFiles.length === 1 ? normalizedFiles[0] : null;
   // Same season-consistency guard as the "season" branch above.
-  const seasonFiles = files.filter((f) => f.season == null || f.season === ref.season);
+  const seasonFiles = normalizedFiles.filter((f) => f.season == null || f.season === ref.season);
   const seasons = series.seasons.map((season) => {
     if (season.seasonNumber !== ref.season) return season;
     const episodes = season.episodes.map((ep) => {
@@ -438,17 +467,17 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
   // Zero files means every targeted episode was just released back to
   // "missing" above (releaseIfOrphaned) — skip the false "available" signal
   // (see the season branch's matching comment).
-  if (files.length > 0) {
+  if (normalizedFiles.length > 0) {
     emitNotification("import_episode_available", `${series.title} — ${code} est maintenant disponible`, `/title/series/${series.tmdbId}`, { title: series.title, code: code! });
     logActivity("imported", "system", `${series.title} — ${code}`, `/title/series/${series.tmdbId}`, {
       libraryRef: encodeLibraryRef({ kind: "episode", seriesId: series.id, season: ref.season, episode: ref.episode }),
-      quality: files[0]?.quality ?? undefined,
+      quality: normalizedFiles[0]?.quality ?? undefined,
     });
     logActivityV2({
       kind: "imported",
       media: createMediaRef("series", series.id, series.tmdbId, series.title, ref.season, ref.episode),
       actor: "system",
-      release: files[0]?.quality ? createReleaseRef("", "Importé", "torrent", files[0].size, files[0].quality, 0) : undefined,
+      release: normalizedFiles[0]?.quality ? createReleaseRef("", "Importé", "torrent", normalizedFiles[0].size, normalizedFiles[0].quality, 0) : undefined,
     });
     refreshLoose("tv");
     void notifySeerrStatus("series", series.tmdbId, "available").catch(() => {});

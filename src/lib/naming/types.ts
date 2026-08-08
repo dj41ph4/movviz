@@ -17,6 +17,11 @@ export interface ReleaseInfo {
    *  block for what TMDb still lists as separate episode entries. Undefined/
    *  null for a normal single-episode file. */
   episodeEnd?: number | null;
+  /** Part number of a season-split release ("S01.PART.02", "Part 2",
+   *  "S02.S01.PART.02") — a single-season show whose releases were split in
+   *  the DVD order. Null for a release without a part marker. Used by
+   *  partPackInfo to map part P onto the tail of the season's episode list. */
+  seasonPart?: number | null;
   episodeTitle: string | null;
   resolution: string | null;
   source: string | null;

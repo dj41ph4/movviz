@@ -228,13 +228,58 @@ export function yearIsCompatible(parsedYear: string | null, targetYear: number |
  * Series: the parsed season must match exactly. For a specific-episode search
  * the parsed episode must match too; for a season-pack search the release
  * must not itself be a single unrelated episode.
+ *
+ * Single-season part fallback (series split in the DVD order — e.g.
+ * Disjointed: 1 season of 20 episodes, released as "S01.PART.01" +
+ * "S02.S01.PART.02" or plainly "S01"/"S02"): a release parsed as part P ≥ 2
+ * covers the tail of the season, episodes
+ * ((P-1)*partSize+1 .. min(total, P*partSize)) with partSize = ceil(total/P).
+ * Only active when the caller passes `singleSeasonTotalEpisodes` (i.e. the
+ * series has exactly ONE season) — for any multi-season series the exact
+ * season match below stays the only rule, so a real season 2 is never
+ * reinterpreted as a part.
  */
+export function partPackEpisodeRange(totalEpisodes: number, partNumber: number): { start: number; end: number } {
+  const partSize = Math.ceil(totalEpisodes / partNumber);
+  return { start: (partNumber - 1) * partSize + 1, end: Math.min(totalEpisodes, partNumber * partSize) };
+}
+
+/** Deliberately minimal structural series shape — callers pass a
+ *  LibrarySeries without this module importing the store. */
+export interface PartPackSeriesLike {
+  seasons: Array<{ episodes: Array<unknown> }>;
+}
+
+/** Resolves a parsed release to its season-part mapping, or null when it is
+ *  not a part release of a single-season series. A release parses as part P
+ *  when it carries an explicit PART marker (S01.PART.02 → part 2) or when
+ *  its season number is ≥ 2 while the series has a single season (S02 →
+ *  part 2, the DVD-ordering convention — TMDb/TVDB aired order keeps the
+ *  whole run as one season). Multi-season series always return null. */
+export function partPackInfo(series: PartPackSeriesLike, parsed: ReleaseInfo): { partNumber: number; partSize: number } | null {
+  if (series.seasons.length !== 1) return null;
+  const total = series.seasons[0]?.episodes.length ?? 0;
+  if (total < 2) return null;
+  const partNumber = parsed.seasonPart ?? (parsed.season != null && parsed.season >= 2 ? parsed.season : null);
+  if (partNumber == null || partNumber < 2) return null;
+  const partSize = Math.ceil(total / partNumber);
+  if (partSize < 1) return null;
+  return { partNumber, partSize };
+}
+
 export function seasonEpisodeMatches(
   parsed: ReleaseInfo,
   seasonNumber: number,
-  episodeNumber?: number | null
+  episodeNumber?: number | null,
+  singleSeasonTotalEpisodes?: number | null
 ): boolean {
   if (parsed.season == null && episodeNumber === null) return true;
+  const partNumber = parsed.seasonPart ?? (parsed.season != null && parsed.season !== seasonNumber ? parsed.season : null);
+  if (partNumber != null && partNumber >= 2 && singleSeasonTotalEpisodes != null) {
+    const { start, end } = partPackEpisodeRange(singleSeasonTotalEpisodes, partNumber);
+    if (episodeNumber != null) return episodeNumber >= start && episodeNumber <= end;
+    return true;
+  }
   if (parsed.season !== seasonNumber) return false;
   if (episodeNumber != null) return parsed.episode === episodeNumber;
   return true;

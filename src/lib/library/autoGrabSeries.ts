@@ -8,7 +8,7 @@ import type { IndexerRelease } from "@/lib/indexers/types";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
 import type { ReleaseInfo } from "@/lib/naming/types";
-import { releaseTitleMatches, yearIsCompatible } from "@/lib/library/matching";
+import { releaseTitleMatches, yearIsCompatible, partPackInfo } from "@/lib/library/matching";
 import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules, compareBySizePreference, perceptualSizeBytes, type ReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
@@ -536,6 +536,11 @@ async function grabRelease(
   const cacheMs = Math.round(performance.now() - t0);
   const rules = loadReleaseRules();
 
+  // Part-pack context for single-season series (DVD-ordering splits — see
+  // partPackInfo in matching.ts). Null for multi-season series, so their
+  // exact season matching is completely untouched.
+  const singleSeasonTotalEpisodes = series.seasons.length === 1 ? series.seasons[0].episodes.length : null;
+
   const label = episodeNumber
     ? `${series.title} S${String(seasonNumber).padStart(2, "0")}E${String(episodeNumber).padStart(2, "0")}`
     : `${series.title} S${String(seasonNumber).padStart(2, "0")} (pack)`;
@@ -567,6 +572,7 @@ async function grabRelease(
     seasonNumber,
     episodeNumber: filterPack ? null : (episodeNumber ?? null),
     filterPack,
+    partTotalEpisodes: singleSeasonTotalEpisodes,
   });
   const step4 = matched.survivors.map(({ idx, parsed }) => ({ release: releases[idx], parsed }));
   // Two library entries can share the exact same title with nothing but the
@@ -651,6 +657,7 @@ async function grabRelease(
     seasonNumber,
     episodeNumber: filterPack ? null : (episodeNumber ?? null),
     filterPack,
+    partTotalEpisodes: singleSeasonTotalEpisodes,
   });
   const dStep4 = dMatched.survivors.map(({ idx, parsed }) => ({ release: directReleases[idx], parsed }));
   const dStepYear = dStep4.filter(({ parsed }) => yearIsCompatible(parsed.year, series.year));
@@ -885,12 +892,21 @@ async function searchAndGrabEpisodeCascade(
   // Ni intégrale ni saison — l'épisode seul, en dernier.
   const single = await grabRelease(series, seasonNumber, episodeNumber, profile, false);
   if (single.ok) {
+    // Same season-part translation as tryGrabSeasonPackImpl: a part release
+    // (single-season series, DVD ordering) names its files in its own
+    // numbering — the engine target must follow or no file is selected.
+    const partPack = partPackInfo(series, parseRelease(single.release.title));
+    let episodeTarget = { season: seasonNumber, episode: episodeNumber };
+    if (partPack) {
+      const k = episodeNumber - (partPack.partNumber - 1) * partPack.partSize;
+      if (k >= 1 && k <= partPack.partSize) episodeTarget = { season: partPack.partNumber, episode: k };
+    }
     const sent = await sendToEngine(
       single.release,
       "series",
       encodeLibraryRef({ kind: "episode", seriesId, season: seasonNumber, episode: episodeNumber }),
       series.title,
-      { season: seasonNumber, episode: episodeNumber }
+      episodeTarget
     );
     if ("error" in sent) {
       setEpisodeStatus(series, seasonNumber, episodeNumber, { status: "missing" });
@@ -972,7 +988,21 @@ async function tryGrabSeasonPackImpl(
 ) {
   const packResult = await grabRelease(series, seasonNumber, undefined, profile, true);
   if (!packResult.ok) return null;
-  const episodeTargets = missingEpisodeNumbers.map((episode) => ({ season: seasonNumber, episode }));
+  // A season-split release (single-season series, DVD ordering — e.g. a
+  // "S02" pack of Disjointed covering S1E11-20) carries files named after
+  // the release's OWN season/part numbering. The engine matches files
+  // against episodeTargets by parsed filename, so targets must be sent in
+  // the release's numbering ({ season: part, episode: k } for season
+  // episode (part-1)*partSize + k) or no file would be selected. Targets
+  // outside the part's episode range are dropped — the episodes they cover
+  // aren't in this release; the import side maps the kept files back to the
+  // season's own numbering (see normalizePartFiles in applyImportedFiles).
+  const partPack = partPackInfo(series, parseRelease(packResult.release.title));
+  const episodeTargets = partPack
+    ? missingEpisodeNumbers
+        .map((episode) => ({ season: partPack.partNumber, episode: episode - (partPack.partNumber - 1) * partPack.partSize }))
+        .filter((t) => t.episode >= 1 && t.episode <= partPack.partSize)
+    : missingEpisodeNumbers.map((episode) => ({ season: seasonNumber, episode }));
   const sent = await sendToEngine(
     packResult.release,
     "series",

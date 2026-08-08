@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.90 — August 2026
+
+### Séries à saison unique découpées en « parties » (ordre DVD) — assemblé automatiquement
+
+- **Corrigé** : les releases d'une série à UNE seule saison découpée dans l'ordre DVD en plusieurs parties (ex. Disjointed : 1 saison de 20 épisodes, sortie en « S01.PART.01 » + « S02.S01.PART.02 », ou simplement « S01 » + « S02 ») n'étaient jamais matchées — le numéro de saison annoncé (S02) ne correspondait à aucune saison de la bibliothèque, donc les épisodes 11-20 restaient introuvables sur les indexeurs.
+- **Nouveau** : détection du marqueur « PART.N » dans le nom de la release (`S01.PART.02`, `Partie 2`…) et repli pour les séries à saison unique : une release S02 (ou part 2) couvre les épisodes de la seconde moitié de la saison (11-20 pour 20 épisodes). La sélection des fichiers du moteur et l'import sont traduits dans la même numérotation, pour que les fichiers `S02E01…E10` atterrissent bien sur S1E11-20.
+- **Garde-fous** : uniquement les séries à une seule saison ; toute série multi-saisons garde son matching exact inchangé (une vraie saison 2 n'est jamais réinterprétée comme une partie). Les films ne sont pas concernés.
+
+---
+
 ## v1.12.89 — August 2026
 
 ### Épisodes TBA traités comme « à venir » — les séries avec une saison annoncée mais non datée sont complètes

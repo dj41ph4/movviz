@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import zlib from "node:zlib";
 import { getJsonWritePool } from "./workers/jsonWritePool";
 
 /**
@@ -33,6 +34,7 @@ const g = globalThis as typeof globalThis & {
   __movvizWriteInFlight?: Map<string, boolean>;
   __movvizPendingFileWrites?: Map<string, unknown>;
   __movvizLastKnownSize?: Map<string, number>;
+  __movvizJsonBodyMemo?: Map<string, { version: string; body: string; gzip: Buffer | null }>;
 };
 const cache: Map<string, CacheEntry> = (g.__movvizFsJsonCache ??= new Map());
 export const memoCache: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCache ??= new Map());
@@ -275,4 +277,44 @@ export async function memoizeByFileMtimesAsync<T>(
     });
   memoInFlightAsync.set(key, promise);
   return promise;
+}
+
+const jsonBodyMemo: Map<string, { version: string; body: string; gzip: Buffer | null }> =
+  (g.__movvizJsonBodyMemo ??= new Map());
+
+/**
+ * Memoize a fully serialized JSON response (plain string + optional gzip
+ * buffer) keyed by the mtime/size of the source files it was built from,
+ * plus each file's pending-write flag. Reading back the memoized body costs
+ * only a few statSync calls, so a large-library endpoint (16+ MB of series
+ * JSON on a NAS-class CPU takes seconds to stringify) serves subsequent
+ * requests in milliseconds instead of re-parsing and re-serializing the
+ * whole library on every poll. The `build` callback runs once per data
+ * version — at most once per write burst, never once per request — and the
+ * gzip variant is compressed once per version too, cutting the same payload
+ * from ~16 MB to ~2 MB on the wire without paying zlib per request.
+ */
+export function memoJsonBody(
+  key: string,
+  files: string[],
+  build: () => string,
+  withGzip = false
+): { body: string; gzip: Buffer | null } {
+  const version = files
+    .map((f) => {
+      try {
+        const st = fs.statSync(f);
+        return `${st.mtimeMs}:${st.size}:${cache.get(f)?.pending ? "pending" : "disk"}`;
+      } catch {
+        return "missing";
+      }
+    })
+    .join("|");
+  const hit = jsonBodyMemo.get(key);
+  if (hit && hit.version === version) return hit;
+  const body = build();
+  const gzip = withGzip ? zlib.gzipSync(body) : null;
+  const value = { version, body, gzip };
+  jsonBodyMemo.set(key, value);
+  return value;
 }

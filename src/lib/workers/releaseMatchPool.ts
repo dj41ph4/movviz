@@ -11,6 +11,10 @@ export interface ReleaseMatchInput {
   seasonNumber?: number;
   episodeNumber?: number | null;
   filterPack?: boolean;
+  /** Single-season series only (DVD-ordering part packs): total episode
+   *  count of the sole season, enables the part-pack fallback in the
+   *  worker's seasonEpisodeMatches. Null/absent for multi-season series. */
+  partTotalEpisodes?: number | null;
 }
 
 export interface ReleaseMatchOutput {
