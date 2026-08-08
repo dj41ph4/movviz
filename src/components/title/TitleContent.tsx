@@ -81,10 +81,12 @@ function overallSeriesStatus(
 ): LibraryStatus {
   const episodes = series.seasons.flatMap((s) => s.episodes).filter((e) => e.monitored);
   if (episodes.length === 0) return "missing";
-  if (episodes.every((e) => e.status === "available")) return "available";
+  if (episodes.every((e) => e.status === "upcoming")) return "upcoming";
   if (episodes.some((e) => e.status === "downloading")) return "downloading";
   if (episodes.some((e) => e.status === "searching")) return "searching";
-  if (episodes.every((e) => e.status === "upcoming")) return "upcoming";
+  // "Complete" when everything left is only scheduled (TBA/future dates) —
+  // nothing is actually missing, so the series reads as done.
+  if (episodes.every((e) => e.status === "available" || e.status === "upcoming")) return "available";
   return "missing";
 }
 
@@ -500,7 +502,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       libraryMatch.seasons?.find(
         (s) =>
           s.episodes.some((e) => e.monitored) &&
-          !s.episodes.every((e) => !e.monitored || e.status === "available"),
+          !s.episodes.every((e) => !e.monitored || e.status === "available" || e.status === "upcoming"),
       )?.seasonNumber ?? detail?.seasons?.[0]?.seasonNumber ?? 1;
     openManualSearchSeason(target);
   }, [libraryMatch, type, detail]);

@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.89 — August 2026
+
+### Épisodes TBA traités comme « à venir » — les séries avec une saison annoncée mais non datée sont complètes
+
+- **Corrigé** : un épisode sans date de sortie mais au titre placeholder « TBA » (TVDB/TMDb pré-créent ces épisodes pour les saisons annoncées, ex. Gachiakuta S2) était traité comme sorti → `missing` → recherché sans fin sur les indexeurs. Règle désormais en deux conditions distinctes : date future → « à venir » ; pas de date **et** titre TBA → « à venir » aussi. Un épisode sans date au titre réel garde le comportement historique (recherchable).
+- **Corrigé — calculs de statut série/saison** : une série dont tout ce qui reste est « à venir » (TBA ou dates futures) est désormais **complete** (« disponible ») partout — page bibliothèque, détail, découverte, demandes, calendrier — et disparaît naturellement des recherches des manquants (search all, retries 6h, RSS). Une série entièrement « à venir » reste affichée « à venir ».
+- Appliqué partout : création de série (TMDb + TVDB anime), backfill saison 0, réparation des saisons TMDb, sync Plex (création + mise à jour), tâche quotidienne de transition des dates.
+
+---
+
 ## v1.12.88 — August 2026
 
 ### Diagnostic Plex enrichi + GUIDs externes demandés explicitement à Plex

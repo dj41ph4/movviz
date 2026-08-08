@@ -31,6 +31,37 @@ export function episodeHasAired(airDate: string | null, now = Date.now()): boole
   return t <= now;
 }
 
+/**
+ * Titles that identify an episode as a scheduled-but-undated placeholder
+ * rather than a real name — TVDB/TMDb pre-populate not-yet-announced
+ * episodes as "TBA". Such an episode can't exist anywhere yet, so it must
+ * never be searched as if released.
+ */
+const TBA_TITLE = /^tba(?:\s*[.:;,\-–—]+\s*.*)?$/i;
+
+export function isTbaTitle(title: string | null | undefined): boolean {
+  if (!title) return false;
+  return TBA_TITLE.test(title.trim());
+}
+
+/**
+ * Single source of truth for an episode's pre-release status, with the two
+ * distinct rules for "coming soon":
+ * - the air date exists and is in the future → "upcoming";
+ * - there is no air date at all, but the title is a TBA placeholder → still
+ *   "upcoming" (scheduled, undated — nothing can exist yet).
+ * Everything else keeps the historical behavior: "missing" (no date is not
+ * evidence the content doesn't exist, so it stays searchable).
+ */
+export function episodeStatus(
+  airDate: string | null,
+  title: string | null | undefined,
+  now = Date.now()
+): "upcoming" | "missing" {
+  if (!airDate) return isTbaTitle(title) ? "upcoming" : "missing";
+  return episodeHasAired(airDate, now) ? "missing" : "upcoming";
+}
+
 /** Whole days between now and a future ISO date — null if the date is unknown/invalid/past. */
 export function daysUntil(date: string | null, now = Date.now()): number | null {
   if (!date) return null;

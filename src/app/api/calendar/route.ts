@@ -34,10 +34,11 @@ export interface CalendarEntry {
 function seriesAggregateStatus(series: LibrarySeries): LibraryStatus {
   const monitored = series.seasons.flatMap((s) => s.episodes).filter((e) => e.monitored);
   if (monitored.length === 0) return "missing";
-  if (monitored.every((e) => e.status === "available")) return "available";
+  if (monitored.every((e) => e.status === "upcoming")) return "upcoming";
   if (monitored.some((e) => e.status === "downloading")) return "downloading";
   if (monitored.some((e) => e.status === "searching")) return "searching";
-  if (monitored.every((e) => e.status === "upcoming")) return "upcoming";
+  // "Complete" when everything left is only scheduled (TBA/future dates).
+  if (monitored.every((e) => e.status === "available" || e.status === "upcoming")) return "available";
   return "missing";
 }
 

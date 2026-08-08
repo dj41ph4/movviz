@@ -235,9 +235,11 @@ function LibraryTab() {
   );
   const seriesStatus = (s: LibrarySeries): LibraryStatus => {
     const monitored = s.seasons.flatMap((se) => se.episodes).filter((e) => e.monitored);
-    if (monitored.length > 0 && monitored.every((e) => e.status === "available")) return "available";
+    if (monitored.length > 0 && monitored.every((e) => e.status === "upcoming")) return "upcoming";
     if (monitored.some((e) => e.status === "downloading")) return "downloading";
     if (monitored.some((e) => e.status === "searching")) return "searching";
+    // "Complete" when everything left is only scheduled (TBA/future dates).
+    if (monitored.length > 0 && monitored.every((e) => e.status === "available" || e.status === "upcoming")) return "available";
     return "missing";
   };
   const seriesItems = useMemo(

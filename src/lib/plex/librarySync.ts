@@ -8,6 +8,7 @@ import {
 } from "@/lib/library/store";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import type { LibraryFile, LibraryFileVersion, LibraryMovie, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
+import { episodeStatus } from "@/lib/library/releaseSchedule";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 
@@ -317,7 +318,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
             title: e.title,
             airDate: e.airDate,
             monitored: monitoredByDefault,
-            status: plexEp ? "available" : "missing",
+            status: plexEp ? "available" : episodeStatus(e.airDate, e.title),
             file: plexEp ? toLibraryFile(plexEp) : null,
             activeInfoHash: null,
             plexRatingKey: plexEp?.ratingKey ?? null,
@@ -383,7 +384,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
             return ep;
           }
           if (ep.status === "available" || ep.file || ep.plexRatingKey) {
-            return { ...ep, status: "missing" as const, file: null, activeInfoHash: null, plexRatingKey: null };
+            return { ...ep, status: episodeStatus(ep.airDate, ep.title), file: null, activeInfoHash: null, plexRatingKey: null };
           }
           return ep;
         }),

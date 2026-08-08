@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth/guard";
 import { getSeries, updateSeries } from "@/lib/library/store";
 import { getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import type { LibraryEpisode, LibrarySeason } from "@/lib/library/types";
-import { episodeHasAired } from "@/lib/library/releaseSchedule";
+import { episodeStatus } from "@/lib/library/releaseSchedule";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         title: old?.title || e.title,
         airDate: e.airDate,
         monitored: old?.monitored ?? monitoredByDefault,
-        status: old?.status ?? (episodeHasAired(e.airDate) ? "missing" : "upcoming"),
+        status: old?.status ?? episodeStatus(e.airDate, e.title),
         file: old?.file ?? null,
         activeInfoHash: old?.activeInfoHash ?? null,
         plexRatingKey: old?.plexRatingKey ?? null,

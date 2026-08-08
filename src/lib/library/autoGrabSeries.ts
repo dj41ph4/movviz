@@ -21,7 +21,7 @@ import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createFailureRef, createReleaseRef } from "@/lib/activity/v2/store";
 import { getTvdbEpisodesFor, getTvdbSeasonNames, groupTvdbEpisodesBySeason, tvdbConfigured, specialsEnabled, type TvdbEpisode } from "@/lib/metadata/tvdb";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
-import { episodeHasAired } from "@/lib/library/releaseSchedule";
+import { episodeStatus } from "@/lib/library/releaseSchedule";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { notifySeerrProcessingOnce } from "@/lib/seerr/mediaMap";
 import { searchTv, searchCompleteSeriesPack, COMPLETE_SERIES_TERMS } from "@/lib/indexers/torznab";
@@ -67,7 +67,7 @@ async function buildAnimeSeasonsFromTvdb(
         title: e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`,
         airDate: e.airDate,
         monitored: monitoredByDefault,
-        status: "missing" as const,
+        status: episodeStatus(e.airDate, e.title),
         file: null,
         activeInfoHash: null,
         plexRatingKey: null,
@@ -374,7 +374,7 @@ export async function backfillMissingSeason0FromTmdb(seriesId: string): Promise<
     title: e.title,
     airDate: e.airDate,
     monitored: false,
-    status: episodeHasAired(e.airDate) ? "missing" : "upcoming",
+    status: episodeStatus(e.airDate, e.title),
     file: null,
     activeInfoHash: null,
     plexRatingKey: null,
@@ -427,7 +427,8 @@ export async function addSeriesToLibrary(
       monitored: monitoredByDefault,
       // Unaired episodes start "upcoming" — excluded from every search path
       // until releaseDayTask flips them to "missing" on/after air date.
-      status: episodeHasAired(e.airDate) ? "missing" : "upcoming",
+      // Same for TBA placeholders with no date at all (episodeStatus).
+      status: episodeStatus(e.airDate, e.title),
       file: null,
       activeInfoHash: null,
       plexRatingKey: null,
@@ -1680,7 +1681,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * transitionUpcomingMovies in autoGrab.ts for the full rationale (same idea,
  * per-episode): "upcoming" → "missing" once aired, AND "missing" → "upcoming"
  * for any episode whose air date is still in the future, catching every
- * episode added before the "upcoming" status existed.
+ * episode added before the "upcoming" status existed. The same shared
+ * episodeStatus() rule also catches TBA placeholders with no date at all:
+ * they flip to "upcoming" on the first pass and are never flipped back (an
+ * undated TBA can never "air").
  */
 export function transitionUpcomingEpisodes() {
   const transitioned: string[] = [];
@@ -1689,13 +1693,13 @@ export function transitionUpcomingEpisodes() {
     const seasons = series.seasons.map((season) => {
       const episodes = season.episodes.map((ep) => {
         if (ep.status !== "upcoming" && ep.status !== "missing") return ep;
-        const aired = episodeHasAired(ep.airDate);
-        if (ep.status === "upcoming" && aired) {
+        const target = episodeStatus(ep.airDate, ep.title);
+        if (ep.status === "upcoming" && target === "missing") {
           changed = true;
           transitioned.push(`${series.id}.${season.seasonNumber}.${ep.episodeNumber}`);
           return { ...ep, status: "missing" as const };
         }
-        if (ep.status === "missing" && !aired) {
+        if (ep.status === "missing" && target === "upcoming") {
           changed = true;
           transitioned.push(`${series.id}.${season.seasonNumber}.${ep.episodeNumber}`);
           return { ...ep, status: "upcoming" as const };

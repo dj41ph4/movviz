@@ -120,7 +120,9 @@ function DiscoverPageInner() {
         if (monitored.length === 0) { m.set(`series:${x.tmdbId}`, "missing"); continue; }
         const anyBusy = monitored.some((e) => e.status === "downloading" || e.status === "searching" || e.activeInfoHash);
         if (anyBusy) { m.set(`series:${x.tmdbId}`, "downloading"); continue; }
-        const allAvailable = monitored.every((e) => e.status === "available");
+        if (monitored.every((e) => e.status === "upcoming")) { m.set(`series:${x.tmdbId}`, "upcoming"); continue; }
+        // "Complete" when everything left is only scheduled (TBA/future dates).
+        const allAvailable = monitored.every((e) => e.status === "available" || e.status === "upcoming");
         m.set(`series:${x.tmdbId}`, allAvailable ? "available" : "missing");
       }
     }

@@ -9,10 +9,11 @@ export const dynamic = "force-dynamic";
 function overallSeriesStatus(series: LibrarySeries): LibraryStatus {
   const episodes = series.seasons.flatMap((s) => s.episodes).filter((e) => e.monitored);
   if (episodes.length === 0) return "missing";
-  if (episodes.every((e) => e.status === "available")) return "available";
-  if (episodes.some((e) => e.status === "downloading" || e.status === "searching")) return "downloading";
-  if (episodes.some((e) => e.status === "available")) return "downloading";
   if (episodes.every((e) => e.status === "upcoming")) return "upcoming";
+  if (episodes.some((e) => e.status === "downloading" || e.status === "searching")) return "downloading";
+  // "Complete" when everything left is only scheduled (TBA/future dates).
+  if (episodes.every((e) => e.status === "available" || e.status === "upcoming")) return "available";
+  if (episodes.some((e) => e.status === "available")) return "downloading";
   return "missing";
 }
 

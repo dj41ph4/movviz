@@ -59,9 +59,10 @@ function seasonStatus(librarySeason: LibrarySeasonInfo | undefined): LibraryStat
   if (!librarySeason || !librarySeason.episodes) return "missing";
   const monitored = librarySeason.episodes.filter((e) => e.monitored);
   if (monitored.length === 0) return "missing";
-  if (monitored.every((e) => e.status === "available")) return "available";
-  if (monitored.some((e) => e.status === "downloading" || e.status === "searching")) return "downloading";
   if (monitored.every((e) => e.status === "upcoming")) return "upcoming";
+  if (monitored.some((e) => e.status === "downloading" || e.status === "searching")) return "downloading";
+  // "Complete" when everything left is only scheduled (TBA/future dates).
+  if (monitored.every((e) => e.status === "available" || e.status === "upcoming")) return "available";
   return "missing";
 }
 
