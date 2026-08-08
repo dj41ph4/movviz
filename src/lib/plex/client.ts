@@ -305,6 +305,30 @@ export async function resolveTmdbIdForDebug(
   return resolveTmdbId(guids, legacyGuid, kind);
 }
 
+/**
+ * The detail endpoint is the only one guaranteed to return the `Guid[]`
+ * array (list endpoints only include it with `includeExternalMedia`). Used by
+ * the diagnostic to show what the sync really resolves from.
+ */
+export async function getRawItemDetail(
+  cfg: PlexServerConfig,
+  ratingKey: string,
+  token: string,
+  managedUserId?: string
+): Promise<RawLibraryItem | null> {
+  try {
+    const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${ratingKey}`, {
+      headers: serverHeaders(cfg, token, managedUserId),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.MediaContainer?.Metadata?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
 interface RawStream {
   streamType: number;
   codec?: string;
@@ -665,6 +689,7 @@ export async function getSectionRawItems(
     try {
       const url = new URL(`${serverBase(cfg)}/library/sections/${sectionKey}/all`);
       if (incremental) url.searchParams.set("sort", "updatedAt:desc");
+      url.searchParams.set("includeExternalMedia", "1");
       const res = await fetchWithRetry(url.toString(), {
         headers: {
           ...serverHeaders(cfg, token, managedUserId),

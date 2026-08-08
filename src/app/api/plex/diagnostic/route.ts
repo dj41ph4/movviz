@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
-import { getLibrarySections, getSectionRawItems, resolveTmdbIdForDebug } from "@/lib/plex/client";
+import { getLibrarySections, getRawItemDetail, getSectionRawItems, resolveTmdbIdForDebug } from "@/lib/plex/client";
 
 export const dynamic = "force-dynamic";
 
@@ -30,15 +30,18 @@ export async function GET(req: NextRequest) {
       const raw = await getSectionRawItems(cfg, section.key, cfg.adminToken);
       for (const item of raw) {
         if (!item.title.toLowerCase().includes(title)) continue;
+        const detail = await getRawItemDetail(cfg, item.ratingKey, cfg.adminToken);
         items.push({
           section: section.title,
           type: item.type ?? "unknown",
           title: item.title,
           year: item.year ?? null,
           ratingKey: item.ratingKey,
-          guid: item.guid ?? null,
-          guidArray: (item.Guid ?? []).map((g) => g.id),
-          resolvedTmdbId: await resolveTmdbIdForDebug(item.Guid, item.guid, item.type === "show" ? "series" : "movie"),
+          listGuid: item.guid ?? null,
+          listGuidArray: (item.Guid ?? []).map((g) => g.id),
+          detailGuid: detail?.guid ?? null,
+          detailGuidArray: (detail?.Guid ?? []).map((g) => g.id),
+          resolvedTmdbId: await resolveTmdbIdForDebug(detail?.Guid, detail?.guid, item.type === "show" ? "series" : "movie"),
         });
       }
     } catch {

@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.88 — August 2026
+
+### Diagnostic Plex enrichi + GUIDs externes demandés explicitement à Plex
+
+- **Ajouté** — `GET /api/plex/diagnostic?title=...` affiche maintenant le GUID brut et le tableau `Guid[]` tels que rapportés par la liste ET par le détail (`/library/metadata/{ratingKey}`), plus le tmdbId résolu par la logique du sync — permet d'expliquer pourquoi un média n'est pas lié.
+- **Amélioré — sync Plex** : les requêtes de liste incluent désormais `includeExternalMedia=1`, le paramètre Plex qui peuple le tableau `Guid[]` (tvdb://, imdb://, tmdb://) directement dans les réponses `/all`.
+
+---
+
 ## v1.12.87 — August 2026
 
 ### Liaison Plex étendue aux GUIDs legacy + diagnostic Plex

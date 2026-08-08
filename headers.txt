@@ -1,0 +1,8 @@
+HTTP/1.1 500 Internal Server Error
+Server: nginx
+Date: Sat, 08 Aug 2026 00:17:28 GMT
+Transfer-Encoding: chunked
+Connection: keep-alive
+Keep-Alive: timeout=20
+vary: rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch
+
