@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.09 — August 2026
+
+### The Blood+ matching fix from v1.13.06 never actually took effect — found the real reason
+
+- **Fixed, confirmed live**: v1.13.06 fixed the title-matching function to treat "+" as the word "plus" (so "Blood+" wouldn't be confused with unrelated shows). But manual search still showed "Blood Of Zeus", "Dexter New Blood", "Blood-C" and others as valid candidates for "Blood+" — because a completely different, earlier step (the one that turns a search box query into the actual text sent to indexers) was stripping the "+" before the fixed matching function ever got to see it, silently undoing that fix for every real search. A search for "Blood+" was arriving at the matcher as the bare word "Blood", which of course matches nearly anything with "Blood" in the title.
+- That earlier step now preserves "+" and "&" as words too, the same way the matching function already did — closing the actual gap, not just the one function that looked like the source of the problem.
+
 ## v1.13.08 — August 2026
 
 ### Accordéon saisons — épisodes visibles même sans bibliothèque

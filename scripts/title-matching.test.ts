@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { titleSimilarity, releaseTitleMatches } from "@/lib/library/matching";
+import { sanitizeQuery } from "@/lib/indexers/torznab";
 
 test("un mot entièrement différent rejette le match même si les caractères sont proches (How I Met Your Father != Mother)", () => {
   // Confirmed live: this exact pair scored ~0.91 (well above the 0.72
@@ -37,4 +38,15 @@ test("titre avec + ne matche pas une série différente commençant par le même
 test("release Blood Plus matche bien la cible Blood+", () => {
   assert.equal(releaseTitleMatches("Blood Plus S01E01", "Blood+"), true);
   assert.equal(releaseTitleMatches("Blood+ S01E01", "Blood+"), true);
+});
+
+test("sanitizeQuery préserve le + comme mot (recherche manuelle) — confirmé en direct : « Blood+ » devenait « Blood » avant même d'atteindre normalizeTitle", () => {
+  // La correction du + dans normalizeTitle (matching.ts) était sans effet
+  // tant que sanitizeQuery — utilisée pour construire matchQuery dans
+  // /api/indexers/search AVANT tout appel à titleSimilarity — supprimait le +
+  // en amont. Confirmé en direct : recherche manuelle pour "Blood+" affichait
+  // "Blood Of Zeus", "Dexter New Blood", "Blood-C"... comme candidats
+  // valides, tous scorés "Titre correspondant" via le mot générique "blood".
+  assert.equal(sanitizeQuery("Blood+"), "Blood.plus");
+  assert.equal(sanitizeQuery("Fear & Loathing"), "Fear.and.Loathing");
 });

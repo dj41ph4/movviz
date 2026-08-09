@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.09 — August 2026
+
+### Die Blood+-Matching-Korrektur aus v1.13.06 hatte nie tatsächlich gegriffen — die wahre Ursache gefunden
+
+- **Behoben, live bestätigt**: v1.13.06 hatte die Titel-Matching-Funktion so korrigiert, dass "+" als das Wort "plus" behandelt wird (damit "Blood+" nicht mit nicht verwandten Serien verwechselt wird). Doch die manuelle Suche zeigte weiterhin "Blood Of Zeus", "Dexter New Blood", "Blood-C" und andere als gültige Kandidaten für "Blood+" an — weil ein völlig anderer, früherer Schritt (derjenige, der aus einer Suchfeld-Eingabe den tatsächlich an die Indexer gesendeten Text macht) das "+" entfernte, bevor die korrigierte Matching-Funktion es überhaupt zu sehen bekam, wodurch diese Korrektur bei jeder echten Suche still und leise wieder aufgehoben wurde. Eine Suche nach "Blood+" kam beim Matcher als das nackte Wort "Blood" an, das natürlich fast alles mit "Blood" im Titel trifft.
+- Dieser frühere Schritt bewahrt jetzt ebenfalls "+" und "&" als Wörter, genau so, wie es die Matching-Funktion bereits tat — womit die eigentliche Lücke geschlossen wird, nicht nur die der Funktion, die wie die Quelle des Problems aussah.
+
 ## v1.12.79 — August 2026
 
 ### Die vorherige Korrektur nach einer unabhängigen Überprüfung gehärtet

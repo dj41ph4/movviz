@@ -549,10 +549,25 @@ export function sanitizeQuery(q: string): string {
   // either — "Team.Démolition" returns 0, "Team.Demolition" works.
   // Leading/trailing apostrophes and articles are stripped for broader
   // matching on indexers that treat "L'Arme Fatale" literally.
+  //
+  // "+" and "&" are meaningful WORDS in some real titles ("Blood+", "Fear
+  // the Walking Dead"), not decoration — matching.ts's own normalizeTitle
+  // spells them out as "plus"/"and" for exactly this reason. This function's
+  // result feeds BOTH the literal indexer HTTP query text (searchQuery) AND
+  // local relevance scoring (matchQuery, via titleSimilarity in
+  // matching.ts/torznab.ts's titleRelevance) — confirmed live: dropping "+"
+  // here before matching.ts ever saw it turned a search for "Blood+" into a
+  // bare, generic "Blood" query, which then containment-matched every
+  // unrelated show with "Blood" anywhere in its title ("Blood Of Zeus",
+  // "Dexter New Blood", "Blood-C"...) as a near-perfect "Titre correspondant"
+  // hit. Spelling these out as words before the generic strip below keeps
+  // that distinguishing signal alive for both purposes.
   return q
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")   // strip combining diacritics (accents)
     .replace(/['\u2019\u2018]/g, " ")  // apostrophes / single quotes → space
+    .replace(/\+/g, " plus ")          // "+" is a title word, not punctuation — see note above
+    .replace(/&/g, " and ")            // same for "&"
     .replace(/[^a-zA-Z0-9\s]/g, " ")  // everything else → space
     .replace(/\s+/g, " ")             // collapse spaces
     .trim()

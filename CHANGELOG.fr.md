@@ -4,6 +4,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.09 — août 2026
+
+### Le correctif Blood+ de la v1.13.06 n'a jamais réellement pris effet — trouvé la vraie raison
+
+- **Corrigé, confirmé en conditions réelles** : la v1.13.06 avait corrigé la fonction de correspondance de titres pour traiter le "+" comme le mot "plus" (pour que "Blood+" ne soit plus confondu avec des séries sans rapport). Mais la recherche manuelle continuait d'afficher "Blood Of Zeus", "Dexter New Blood", "Blood-C" et d'autres comme candidats valides pour "Blood+" — parce qu'une étape complètement différente et antérieure (celle qui transforme une requête tapée dans la barre de recherche en texte effectivement envoyé aux indexeurs) supprimait le "+" avant même que la fonction corrigée ne le voie, annulant silencieusement ce correctif pour chaque recherche réelle. Une recherche pour "Blood+" arrivait au comparateur sous la forme du simple mot "Blood", qui bien sûr correspond à quasiment tout ce qui contient "Blood" dans le titre.
+- Cette étape antérieure préserve désormais elle aussi "+" et "&" comme des mots, de la même façon que la fonction de correspondance le faisait déjà — fermant la vraie brèche, pas seulement la fonction qui semblait être la source du problème.
+
 ## v1.12.79 — août 2026
 
 ### Durcissement du correctif précédent après une revue indépendante
