@@ -218,10 +218,12 @@ export function libraryEntriesMatch(a: LibraryTitleLike, b: LibraryTitleLike): b
   return false;
 }
 
-/** Movies: if the release states a year, it must be within 1 of the target — absent year is not disqualifying. */
+/** Movies: if the release states a year, it must be within 2 of the target — absent year is not disqualifying.
+ *  Tolerance is 2 (not 1) to cover physical releases (BD/DVD) that lag up to two years behind the theatrical date,
+ *  e.g. a German film released in 2024 whose French Blu-ray says 2026 in the release name. */
 export function yearIsCompatible(parsedYear: string | null, targetYear: number | null): boolean {
   if (!parsedYear || !targetYear) return true;
-  return Math.abs(parseInt(parsedYear, 10) - targetYear) <= 1;
+  return Math.abs(parseInt(parsedYear, 10) - targetYear) <= 2;
 }
 
 /**

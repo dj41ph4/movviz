@@ -304,7 +304,7 @@ function releaseTitleMatches(parsedTitle, targetTitle, aliases = []) {
 
 function yearIsCompatible(parsedYear, targetYear) {
   if (!parsedYear || !targetYear) return true;
-  return Math.abs(parseInt(parsedYear, 10) - targetYear) <= 1;
+  return Math.abs(parseInt(parsedYear, 10) - targetYear) <= 2;
 }
 
 // Mirror of matching.ts's seasonEpisodeMatches + part-pack fallback — see

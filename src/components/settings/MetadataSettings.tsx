@@ -22,6 +22,10 @@ export function MetadataSettings() {
   const [omdbSaving, setOmdbSaving] = useState(false);
   const [omdbTesting, setOmdbTesting] = useState(false);
   const [omdbTestResult, setOmdbTestResult] = useState<{ ok: boolean; error?: string } | null>(null);
+  const [tvdbConfigured, setTvdbConfigured] = useState(false);
+  const [tvdbHasStoredKey, setTvdbHasStoredKey] = useState(false);
+  const [tvdbApiKey, setTvdbApiKey] = useState("");
+  const [tvdbSaving, setTvdbSaving] = useState(false);
 
   const loadTmdb = () =>
     fetch("/api/metadata/key", { cache: "no-store" })
@@ -45,7 +49,32 @@ export function MetadataSettings() {
         setOmdbHasStoredKey(d.hasStoredKey);
       });
 
-  useEffect(() => { loadTmdb(); loadLayout(); loadOmdb(); }, []);
+  const loadTvdb = () =>
+    fetch("/api/metadata/tvdb", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        setTvdbConfigured(d.configured);
+        setTvdbHasStoredKey(d.hasStoredKey);
+      });
+
+  useEffect(() => { loadTmdb(); loadLayout(); loadOmdb(); loadTvdb(); }, []);
+
+  const saveTvdb = async () => {
+    if (!tvdbApiKey.trim()) return;
+    setTvdbSaving(true);
+    try {
+      await fetch("/api/metadata/tvdb", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ apiKey: tvdbApiKey.trim() }),
+      });
+      setTvdbApiKey("");
+      await loadTvdb();
+    } finally {
+      setTvdbSaving(false);
+    }
+  };
 
   const saveOmdb = async () => {
     if (!omdbApiKey.trim()) return;
@@ -256,6 +285,41 @@ export function MetadataSettings() {
           className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-glow hover:underline"
         >
           {t("metadata.omdbGetKey")} <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+
+      <div className="mt-6 border-t border-white/5 pt-5">
+        <h3 className="text-sm font-bold text-ink">{t("metadata.tvdbTitle")}</h3>
+        <p className="mt-1 mb-3 text-xs text-ink-dim">{t("metadata.tvdbHint")}</p>
+        <div className="mb-3 flex items-center gap-2">
+          <span className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold", tvdbConfigured ? "border-ok/25 bg-ok/12 text-ok" : "border-amber/25 bg-amber/12 text-amber")}>
+            {tvdbConfigured ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+            {tvdbConfigured ? t("metadata.tvdbConfigured") : t("metadata.tvdbNotConfigured")}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={tvdbApiKey}
+            onChange={(e) => setTvdbApiKey(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && saveTvdb()}
+            placeholder={tvdbHasStoredKey ? "••••••••••••••••" : t("metadata.tvdbKeyPlaceholder")}
+            className="flex-1 rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none"
+          />
+          <button
+            onClick={saveTvdb}
+            disabled={tvdbSaving || !tvdbApiKey.trim()}
+            className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center disabled:opacity-40"
+          >
+            {t("discover.saveKey")}
+          </button>
+        </div>
+        <a
+          href="https://thetvdb.com/api-information"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-glow hover:underline"
+        >
+          {t("metadata.tvdbGetKey")} <ExternalLink className="h-3 w-3" />
         </a>
       </div>
 

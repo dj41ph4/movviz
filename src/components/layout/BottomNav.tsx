@@ -42,7 +42,6 @@ export function BottomNav() {
     <>
       <nav
         className="fixed inset-x-0 bottom-0 z-40 flex items-stretch border-t border-white/5 bg-void/85 backdrop-blur-xl lg:hidden"
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
       >
         {primary.map((item) => {
           const Icon = item.icon;
@@ -53,9 +52,10 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ring-focus",
+                "relative flex flex-1 flex-col items-center justify-center gap-0.5 pt-2 text-[10px] font-semibold transition-colors ring-focus",
                 active ? "text-brand-glow" : "text-ink-dim"
               )}
+              style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
             >
               {active && (
                 <span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-brand-glow" />
@@ -73,9 +73,10 @@ export function BottomNav() {
         <button
           onClick={() => setMoreOpen(true)}
           className={cn(
-            "relative flex flex-1 flex-col items-center justify-center gap-0.5 py-2 text-[10px] font-semibold transition-colors ring-focus",
+            "relative flex flex-1 flex-col items-center justify-center gap-0.5 pt-2 text-[10px] font-semibold transition-colors ring-focus",
             moreOpen || rest.some((i) => isActive(i.href)) ? "text-brand-glow" : "text-ink-dim"
           )}
+          style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
         >
           {(moreOpen || rest.some((i) => isActive(i.href))) && (
             <span className="absolute top-0 left-1/4 right-1/4 h-0.5 rounded-b-full bg-brand-glow" />
