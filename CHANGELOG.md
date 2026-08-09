@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.98 — August 2026
+
+### Correction mobile — hitbox barre de navigation inférieure
+
+- **Corrigé — boutons non cliquables en bas de la barre de navigation mobile** : sur iPhone avec indicateur d'accueil (zone safe-area ≈ 34 px), le `paddingBottom` safe-area était appliqué sur le conteneur `nav` plutôt que sur chaque bouton. Avec `items-stretch`, les enfants ne remplissent que la zone de contenu du nav (hors padding) — la zone safe-area en bas était visuellement couverte par le fond de la barre mais n'appartenait à aucun élément cliquable. Le padding est désormais porté par chaque bouton avec `max(0.5rem, env(safe-area-inset-bottom))`, ce qui étend la hitbox jusqu'en bas de l'écran tout en conservant l'icône et le libellé centrés dans la partie visible.
+
+---
+
 ## v1.12.97 — August 2026
 
 ### Correction C411 collision d'ID TMDb + amélioration matching releases scène
