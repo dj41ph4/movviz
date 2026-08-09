@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.03 — August 2026
+
+### Correctif accordéon saisons ARM/QEMU
+
+- **Corrigé — accordéon des saisons bloqué sous ARM Docker** : l'animation d'ouverture des saisons reposait sur `height: "auto"` via Framer Motion, qui mesure la hauteur via `ResizeObserver`. Sous ARM Docker (Mac Apple Silicon / QEMU), `ResizeObserver` retourne 0 au premier rendu, rendant l'animation invisible et la liste d'épisodes inaccessible. L'animation passe désormais sur `gridTemplateRows: "0fr" → "1fr"`, une interpolation CSS pure sans mesure DOM — fonctionne identiquement sur x64 et ARM.
+
+---
+
 ## v1.13.02 — August 2026
 
 ### Information 2FA C411

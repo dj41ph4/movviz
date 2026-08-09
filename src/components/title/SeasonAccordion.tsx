@@ -202,13 +202,13 @@ export function SeasonAccordion({
               {isExpanded && libSeason && (
               <motion.div
                 key="content"
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
+                initial={{ gridTemplateRows: "0fr", opacity: 0 }}
+                animate={{ gridTemplateRows: "1fr", opacity: 1 }}
+                exit={{ gridTemplateRows: "0fr", opacity: 0 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
-                className="overflow-hidden"
+                style={{ display: "grid" }}
               >
-              <div className="border-t border-white/5 px-4 pb-3 pt-2">
+              <div className="overflow-hidden border-t border-white/5 px-4 pb-3 pt-2">
                 {packCount != null && (
                   <div className="mb-2 flex items-center gap-2 rounded-lg border border-cyan/25 bg-cyan/12 px-3 py-2 text-xs font-semibold text-cyan">
                     <HardDriveDownload className="h-3.5 w-3.5" />
