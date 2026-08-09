@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
-import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+
 import { useCroppedBackdrop } from "@/lib/media/useCroppedBackdrop";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -188,7 +188,6 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
 }
 
 export function TrailerHeader({ backdropUrl, trailerKeys, title, trigger, enabled = true, muted: initialMuted = true, className }: TrailerHeaderProps) {
-  const reduceMotion = useShouldReduceMotion();
   const croppedBackdrop = useCroppedBackdrop(backdropUrl);
   const [soundOn, setSoundOn] = useState(!initialMuted);
   const muted = !soundOn;
@@ -199,7 +198,7 @@ export function TrailerHeader({ backdropUrl, trailerKeys, title, trigger, enable
   const [candidateIndex, setCandidateIndex] = useState(0);
   useEffect(() => { setCandidateIndex(0); }, [trailerKeys]);
   const trailerKey = trailerKeys[candidateIndex] ?? null;
-  const canPlay = enabled && !!trailerKey && !reduceMotion;
+  const canPlay = enabled && !!trailerKey;
   const [playing, setPlaying] = useState(trigger === "immediate" && canPlay);
   // YouTube renders its own full "not playing" chrome — title, channel
   // avatar, suggested videos, logo, center play/pause icon — any time the

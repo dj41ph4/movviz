@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.01 — August 2026
+
+### Correctifs animations et TVDB
+
+- **Corrigé — mode cinéma désactivé par le toggle animations** : désactiver les animations dans Réglages → Tableau de bord coupait aussi la lecture vidéo du mode cinéma (hero cinematique + en-tête de titre). Les deux paramètres sont désormais indépendants : couper les animations supprime les transitions/effets décoratifs sans jamais bloquer la lecture de la vidéo d'ambiance, qui est contrôlée uniquement par son propre toggle d'autoplay.
+- **Corrigé — badge d'état TVDB absent dans l'onglet Animé** : après le déplacement de la clé TVDB vers l'onglet Métadonnées en v1.13.00, le badge « TVDB configuré / non configuré » avait disparu de l'onglet Animé — le toggle semblait inactif sans aucun retour visuel sur l'état de la clé. Le badge est restauré dans l'onglet Animé (lecture seule), avec un renvoi vers l'onglet Métadonnées pour saisir ou modifier la clé.
+
+---
+
 ## v1.13.00 — August 2026
 
 ### Historique refonte, matching années, TVDB dans Métadonnées, event loop, bottom nav mobile

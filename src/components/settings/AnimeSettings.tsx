@@ -3,11 +3,12 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Sparkles } from "lucide-react";
+import { Check, X, Sparkles } from "lucide-react";
 import { TvdbSyncAllPanel } from "@/components/settings/TvdbSyncAllPanel";
 
 export function AnimeSettings() {
   const t = useT();
+  const [tvdbConfigured, setTvdbConfigured] = useState(false);
   const [useForAnime, setUseForAnime] = useState(false);
   const [specialsEnabled, setSpecialsEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -17,6 +18,7 @@ export function AnimeSettings() {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!d) return;
+        setTvdbConfigured(d.configured);
         setUseForAnime(d.useForAnime);
         setSpecialsEnabled(d.specialsEnabled);
       });
@@ -48,6 +50,16 @@ export function AnimeSettings() {
             <h3 className="font-bold text-ink">{t("anime.title")}</h3>
             <p className="mt-0.5 text-xs text-ink-dim">{t("anime.intro")}</p>
           </div>
+        </div>
+
+        <div className="mb-4 flex items-center gap-2">
+          <span className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold", tvdbConfigured ? "border-ok/25 bg-ok/12 text-ok" : "border-amber/25 bg-amber/12 text-amber")}>
+            {tvdbConfigured ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+            {tvdbConfigured ? t("metadata.tvdbConfigured") : t("metadata.tvdbNotConfigured")}
+          </span>
+          {!tvdbConfigured && (
+            <span className="text-xs text-ink-dim">{t("settings.tabAnimeHint")}</span>
+          )}
         </div>
 
         <label className="flex items-center gap-3">
