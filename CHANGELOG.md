@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.06 — August 2026
+
+### Correctif matching — titres avec `+` (Blood+, C+C Music Factory…)
+
+- **Corrigé — faux positif de matching sur les titres contenant `+`** : le `+` était supprimé par la normalisation (seuls `a-z0-9` sont conservés), réduisant par exemple `Blood+` à `blood`. Ce mot seul étant contenu dans `Blood of Zeus` → `blood of zeus`, la série obtenait un score de 0.85 (au-dessus du seuil de 0.72) lors d'une recherche manuelle pour Blood+. Le `+` est maintenant converti en ` plus ` avant le nettoyage dans `normalizeTitle`, rendant `Blood+` → `blood plus` et `Blood of Zeus` → `blood of zeus` — deux chaînes distinctes qui ne se confondent plus. Les releases nommées `Blood Plus` matchent correctement `Blood+`. Fix appliqué dans `matching.ts` et `releaseMatchWorker.mjs`. Test de non-régression ajouté.
+
+---
+
 ## v1.13.05 — August 2026
 
 ### Correctif accordéon saisons — bordures rouges et compatibilité navigateur ARM

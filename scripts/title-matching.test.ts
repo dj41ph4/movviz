@@ -25,3 +25,16 @@ test("titre identique après normalisation = 1", () => {
 test("préfixe partagé mais série différente (Dragon Ball Super != Dragon Ball Z)", () => {
   assert.equal(releaseTitleMatches("Dragon Ball Super", "Dragon Ball Z"), false);
 });
+
+test("titre avec + ne matche pas une série différente commençant par le même mot (Blood+ != Blood of Zeus)", () => {
+  // "Blood+" normalisé en "blood" (le + était supprimé) → "blood" est contenu
+  // dans "blood of zeus" → score 0.85, au-dessus du seuil. Le + doit devenir
+  // "plus" pour que les deux titres soient distincts.
+  assert.equal(releaseTitleMatches("Blood of Zeus S01E01", "Blood+"), false);
+  assert.equal(releaseTitleMatches("Blood.of.Zeus.S01E01.1080p", "Blood+"), false);
+});
+
+test("release Blood Plus matche bien la cible Blood+", () => {
+  assert.equal(releaseTitleMatches("Blood Plus S01E01", "Blood+"), true);
+  assert.equal(releaseTitleMatches("Blood+ S01E01", "Blood+"), true);
+});

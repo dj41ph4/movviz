@@ -23,7 +23,8 @@ function normalizeTitle(s: string): string {
     .normalize("NFKD")
     .replace(DIACRITICS_RE, "")
     .replace(/&/g, "and")
-    .replace(/['’]/g, "")
+    .replace(/\+/g, " plus ")
+    .replace(/[‘’]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
     .replace(/^(the|a|an)\s+/, "")
     .trim();
