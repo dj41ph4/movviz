@@ -43,7 +43,7 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
     { revalidateOnFocus: false, dedupingInterval: 10 * 60 * 1000 }
   );
 
-  const trending = rowsData?.rows.find((r) => r.key === "trending")?.results ?? [];
+  const trending = rowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? [];
   const recommended = recData?.results ?? [];
 
   const recentlyAdded = useMemo(

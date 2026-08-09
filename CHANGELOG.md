@@ -4,6 +4,22 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.94 — August 2026
+
+### Découvrir refondu — listes fusionnées, séries et films strictement séparés
+
+- **Corrigé — mélange séries/films** : les listes c411.org (Populaires / Uploads récents / Sorties du jour) affichaient un mélange de films et de séries dans les deux onglets. Elles sont désormais filtrées par l'onglet actif (Films ou Séries), à l'affichage comme dans « Tout voir ».
+- **Nouveau — listes fusionnées** : les sections de la page Découvrir sont regroupées avec dédoublonnage (un titre n'apparaît plus deux fois) :
+  - « Pour vous & meilleurs » (suggestions + mieux notés)
+  - « Tendances & populaires » (layout Movviz)
+  - « En salles » (à l'affiche + box office) et « Prochainement & VOD » (layout Allociné, films)
+  - « Nouvelles & renouvelées » (layout Allociné, séries)
+  - De 11 à 7 sections en layout Movviz, de 14 à 9 en layout Allociné (films) et de 11 à 7 (séries). Chaque section fusionnée a son « Tout voir » paginé (cache 10 min).
+- **Supprimé — tuiles Genres** : la rangée de tuiles genres (doublon du filtre genre de la barre) a été retirée.
+- **Nouveau — builds Docker multi-arch** : les images publiées sur Docker Hub sont de nouveau construites pour `linux/amd64` **et** `linux/arm64` (QEMU + buildx réactivés).
+
+---
+
 ## v1.12.93 — August 2026
 
 ### Indexeurs — statut réel, clé en mémoire et diagnostic de connexion

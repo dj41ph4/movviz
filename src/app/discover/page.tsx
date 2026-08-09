@@ -14,7 +14,6 @@ import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
-import { GENRE_GRADIENTS } from "@/lib/metadata/curated";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, Calendar, Clock, CalendarCheck,
 } from "lucide-react";
@@ -257,6 +256,11 @@ function DiscoverPageInner() {
 
   const rowLabel = (key: string) => {
     switch (key) {
+      case "recommendedTop": return t("discover.rowRecommendedTop");
+      case "trendingPopular": return t("discover.rowTrendingPopular");
+      case "nowPlayingBoxOffice": return t("discover.rowNowPlayingBoxOffice");
+      case "upcomingVod": return t("discover.rowUpcomingVod");
+      case "newSeriesRenewed": return t("discover.rowNewSeriesRenewed");
       case "recommended": return t("discover.rowRecommended");
       case "trending": return t("discover.trending");
       case "popular": return t("discover.rowPopular");
@@ -361,9 +365,13 @@ function DiscoverPageInner() {
 
           {!isBrowsing && (
             <HomeRows
-              rows={[...rows, ...c411Rows]}
+              rows={[
+                ...rows,
+                ...c411Rows
+                  .map((r) => ({ ...r, results: r.results.filter((x) => x.type === mediaType) }))
+                  .filter((r) => r.results.length > 0),
+              ]}
               loading={rowsLoading}
-              genres={genres}
               companyTiles={companyTiles}
               networkTiles={networkTiles}
               libStatus={libStatus}
@@ -372,7 +380,6 @@ function DiscoverPageInner() {
               onAdded={(key) => setLibStatus((m) => new Map(m).set(key, "missing"))}
               rowLabel={rowLabel}
               onSeeAll={seeAllRow}
-              onGenreClick={(g) => setGenre(String(g.id))}
               onCompanyClick={(tile) => {
                 setMediaType("movie");
                 setCompany({ id: String(tile.id), name: tile.name });
@@ -454,11 +461,10 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 }
 
 function HomeRows({
-  rows, loading, genres, companyTiles, networkTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onGenreClick, onCompanyClick, onNetworkClick,
+  rows, loading, companyTiles, networkTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onNetworkClick,
 }: {
   rows: { key: string; results: MetaSearchResult[]; ranked?: boolean }[];
   loading: boolean;
-  genres: MetaGenre[];
   companyTiles: LogoTile[];
   networkTiles: LogoTile[];
   libStatus: Map<string, string>;
@@ -467,7 +473,6 @@ function HomeRows({
   onAdded: (key: string) => void;
   rowLabel: (key: string) => string;
   onSeeAll: (key: string) => void;
-  onGenreClick: (g: MetaGenre) => void;
   onCompanyClick: (tile: LogoTile) => void;
   onNetworkClick: (tile: LogoTile) => void;
 }) {
@@ -519,26 +524,6 @@ function HomeRows({
             onSeeAll={() => onSeeAll(row.key)}
           />
         )
-      )}
-
-      {genres.length > 0 && (
-        <section className="space-y-3">
-          <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{t("discover.genres")}</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {genres.map((g, i) => (
-              <button
-                key={g.id}
-                onClick={() => onGenreClick(g)}
-                className={cn(
-                  "flex h-24 w-48 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br px-4 text-center text-lg font-black text-white shadow-lg transition-transform hover:scale-[1.03]",
-                  GENRE_GRADIENTS[i % GENRE_GRADIENTS.length]
-                )}
-              >
-                {g.name}
-              </button>
-            ))}
-          </div>
-        </section>
       )}
 
       {companyTiles.length > 0 && (

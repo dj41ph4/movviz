@@ -55,16 +55,17 @@ async function buildUpcomingRow(user: User | null, originCountries?: string[]): 
  * in parallel, so the discover home isn't a single flat list.
  *
  * Two row layouts, same TMDb-backed data either way:
- * - "movviz" (default): trending/popular/top-rated/upcoming.
- * - "allocine": mirrors the actual section ORDER on allocine.fr/film — cinema
- *   content first ("Films à l'affiche" → "Prochainement" → "Tendances"
- *   ranked list → "Meilleurs films"), VOD/streaming further down ("Nouveautés
- *   VOD"), then the less prominent "Box office" and "Kids" sections that sit
- *   near the bottom of their homepage. For series: "Nouvelles séries" /
- *   "Séries renouvelées" / "Tops séries" / "Meilleures séries". ("Toutes les
- *   séries"/"Toutes les films" isn't a content row on their site either —
- *   it's the "see everything" link, which is what search/filters already do
- *   here.)
+ * - "movviz" (default): "recommendedTop" (suggestions ∪ best rated),
+ *   "trendingPopular" (trending ∪ popular), upcoming/on-air.
+ * - "allocine": mirrors the actual section ORDER on allocine.fr/film —
+ *   "recommendedTop" first, then "nowPlayingBoxOffice" ("Films à l'affiche" +
+ *   "Box office"), "upcomingVod" ("Prochainement" + "Nouveautés VOD"),
+ *   "Tendances" ranked list, then "Kids". For series: "recommendedTop",
+ *   "newSeriesRenewed" ("Nouvelles séries" + "Séries renouvelées"),
+ *   "Tendances" ranked list.
+ *
+ * Sources are merged with dedupe (first source wins, by tmdbId) so the same
+ * title never appears twice on the page.
  */
 export async function GET(req: NextRequest) {
   if (!tmdbConfigured()) {
@@ -90,13 +91,10 @@ export async function GET(req: NextRequest) {
         getKidsRow("movie", 1, originCountries),
       ]);
       const rows = [
-        { key: "recommended", results: rec },
-        { key: "nowPlaying", results: nowPlaying.results },
-        { key: "upcoming", results: upcomingResults },
+        { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
+        { key: "nowPlayingBoxOffice", results: dedupe([...nowPlaying.results, ...boxOffice.results]) },
+        { key: "upcomingVod", results: dedupe([...upcomingResults, ...newVod.results]) },
         { key: "trending", results: trend.results.slice(0, 10), ranked: true },
-        { key: "topRated", results: topRated.results },
-        { key: "newVod", results: newVod.results },
-        { key: "boxOffice", results: boxOffice.results },
         { key: "kids", results: kids.results },
       ].filter((r) => r.results.length > 0);
       return NextResponse.json({ configured: true, layout, rows });
@@ -110,11 +108,9 @@ export async function GET(req: NextRequest) {
       browseCategory("series", "top_rated", 1, originCountries),
     ]);
     const rows = [
-      { key: "recommended", results: rec },
-      { key: "newSeries", results: newSeries.results },
-      { key: "renewed", results: renewed.results },
+      { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
+      { key: "newSeriesRenewed", results: dedupe([...newSeries.results, ...renewed.results]) },
       { key: "trending", results: trend.results.slice(0, 10), ranked: true },
-      { key: "topRated", results: topRated.results },
     ].filter((r) => r.results.length > 0);
     return NextResponse.json({ configured: true, layout, rows });
   }
@@ -128,12 +124,21 @@ export async function GET(req: NextRequest) {
   ]);
 
   const rows = [
-    { key: "recommended", results: rec },
-    { key: "trending", results: trend.results },
-    { key: "popular", results: popular.results },
-    { key: "topRated", results: topRated.results },
+    { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
+    { key: "trendingPopular", results: dedupe([...trend.results, ...popular.results]) },
     { key: type === "movie" ? "upcoming" : "onAir", results: upcomingResults },
   ].filter((r) => r.results.length > 0);
 
   return NextResponse.json({ configured: true, layout, rows });
+}
+
+function dedupe(list: MetaSearchResult[]): MetaSearchResult[] {
+  const seen = new Set<number>();
+  const out: MetaSearchResult[] = [];
+  for (const item of list) {
+    if (seen.has(item.tmdbId)) continue;
+    seen.add(item.tmdbId);
+    out.push(item);
+  }
+  return out;
 }
