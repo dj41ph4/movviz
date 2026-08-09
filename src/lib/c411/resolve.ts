@@ -23,6 +23,10 @@ const CACHE_FILE = path.join(CONFIG_DIR, "c411-tmdb-cache.json");
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 
 export interface ResolveCacheEntry {
+  /** Cache format version — entries written by older classifyTmdbId (no `v`)
+   *  may hold a WRONG verdict (id-space collision, see classifyTmdbId) and
+   *  are ignored on read so the sticky 30-day TTL can't keep serving them. */
+  v?: 2;
   tmdbId: number;
   type: "movie" | "series";
   title: string;
@@ -181,24 +185,88 @@ export async function resolveReleases(names: string[]): Promise<MetaSearchResult
   return out.filter((r): r is MetaSearchResult => r !== null);
 }
 
-/** Classify a bare tmdbId as movie or series — one TMDb detail call, disk-cached. */
-export async function classifyTmdbId(tmdbId: number): Promise<"movie" | "series" | null> {
+/**
+ * Fuzzy title equality for id-space disambiguation: all words of the shorter
+ * title must appear (word-bound) in the longer one, accents stripped. A
+ * single-word title only matches by exact equality — "Dune" must never
+ * word-match "Dune: Prophecy" the other way round. Titles are the TMDb
+ * titles of the SAME entity in both spaces, so anything less strict would
+ * risk landing on the wrong side of a collision.
+ */
+function titleLooksSame(a: string | null, b: string | null): boolean {
+  const na = a ? normTitle(a) : "";
+  const nb = b ? normTitle(b) : "";
+  if (!na || !nb) return false;
+  if (na === nb) return true;
+  const wa = na.split(" ").filter(Boolean);
+  const wb = nb.split(" ").filter(Boolean);
+  const [shorter, longer] = wa.length <= wb.length ? [wa, wb] : [wb, wa];
+  if (shorter.length < 2) return false;
+  return shorter.every((w) => longer.includes(w));
+}
+
+function yearLooksSame(a: number | null, b: number | null): boolean {
+  if (a == null || b == null) return true;
+  return Math.abs(a - b) <= 1;
+}
+
+/**
+ * Classify a bare tmdbId as movie or series — one or two TMDb detail calls,
+ * disk-cached. TMDb uses SEPARATE, COLLIDING id spaces for movies and TV:
+ * id 260463 is BOTH the anime "Tsugai – Daemons of the Shadow Realm" (TV)
+ * and the 1941 French film "Vénus aveugle" (movie). Probing the movie space
+ * first and accepting whatever exists was enough until a series shared a
+ * number with an unrelated film — then every card for the series was
+ * rendered as the wrong movie. When both spaces DO hold an entry, the hint
+ * (the item's own C411 title/year) decides which side is the real one;
+ * when neither matches the hint, the item is dropped rather than shown
+ * wrong. No hint, or a single space holding the id, keeps the old
+ * movie-then-series behavior.
+ */
+export async function classifyTmdbId(
+  tmdbId: number,
+  hint?: { title: string | null; year: number | null }
+): Promise<"movie" | "series" | null> {
   if (!tmdbId || tmdbId <= 0) return null;
   const cache = loadCache();
   const key = `id:${tmdbId}`;
   const cached = cacheGet(cache, key);
-  if (cached) return cached.tmdbId === 0 ? null : cached.type;
+  // Trust the cache only for v2 verdicts whose stored title still agrees
+  // with the hint — a stale/wrong verdict must never survive the TTL.
+  if (cached && cached.v === 2 && (cached.tmdbId === 0 || !hint?.title || !cached.title || titleLooksSame(cached.title, hint.title))) {
+    return cached.tmdbId === 0 ? null : cached.type;
+  }
   const movie = await getMovie(tmdbId);
+  const series = await getSeries(tmdbId);
+  if (movie && series) {
+    const movieMatch = (!hint?.title || titleLooksSame(movie.title, hint.title)) && yearLooksSame(movie.year, hint?.year ?? null);
+    const seriesMatch = (!hint?.title || titleLooksSame(series.title, hint.title)) && yearLooksSame(series.year, hint?.year ?? null);
+    if (movieMatch && !seriesMatch) {
+      cacheSet(cache, key, { ...resultToEntry({ tmdbId, type: "movie", title: movie.title, year: movie.year, releaseDate: movie.releaseDate, overview: "", posterPath: movie.posterPath, backdropPath: null, rating: movie.rating }), v: 2 });
+      return "movie";
+    }
+    if (seriesMatch && !movieMatch) {
+      cacheSet(cache, key, { ...resultToEntry({ tmdbId, type: "series", title: series.title, year: series.year, releaseDate: series.releaseDate, overview: "", posterPath: series.posterPath, backdropPath: null, rating: series.rating }), v: 2 });
+      return "series";
+    }
+    if (movieMatch && seriesMatch) {
+      cacheSet(cache, key, { ...resultToEntry({ tmdbId, type: "movie", title: movie.title, year: movie.year, releaseDate: movie.releaseDate, overview: "", posterPath: movie.posterPath, backdropPath: null, rating: movie.rating }), v: 2 });
+      return "movie";
+    }
+    // Collision and the hint matches NEITHER side — drop the item instead
+    // of rendering it under the wrong type (the reported Vénus aveugle bug).
+    cacheSet(cache, key, { tmdbId: 0, v: 2, type: "movie", title: "", year: null, posterPath: null, rating: 0, ts: Date.now() });
+    return null;
+  }
   if (movie) {
-    cacheSet(cache, key, resultToEntry({ tmdbId, type: "movie", title: movie.title, year: movie.year, releaseDate: movie.releaseDate, overview: "", posterPath: movie.posterPath, backdropPath: null, rating: movie.rating }));
+    cacheSet(cache, key, { ...resultToEntry({ tmdbId, type: "movie", title: movie.title, year: movie.year, releaseDate: movie.releaseDate, overview: "", posterPath: movie.posterPath, backdropPath: null, rating: movie.rating }), v: 2 });
     return "movie";
   }
-  const series = await getSeries(tmdbId);
   if (series) {
-    cacheSet(cache, key, resultToEntry({ tmdbId, type: "series", title: series.title, year: series.year, releaseDate: series.releaseDate, overview: "", posterPath: series.posterPath, backdropPath: null, rating: series.rating }));
+    cacheSet(cache, key, { ...resultToEntry({ tmdbId, type: "series", title: series.title, year: series.year, releaseDate: series.releaseDate, overview: "", posterPath: series.posterPath, backdropPath: null, rating: series.rating }), v: 2 });
     return "series";
   }
-  cacheSet(cache, key, { tmdbId: 0, type: "movie", title: "", year: null, posterPath: null, rating: 0, ts: Date.now() });
+  cacheSet(cache, key, { tmdbId: 0, v: 2, type: "movie", title: "", year: null, posterPath: null, rating: 0, ts: Date.now() });
   return null;
 }
 

@@ -62,7 +62,7 @@ const MEDIA_SUBCATS = new Set(["films-videos"]);
 async function mapExclusiveItems(items: C411ExclusiveItem[]): Promise<MetaSearchResult[]> {
   const out = await mapWithConcurrency(items.slice(0, 14), 5, async (item): Promise<MetaSearchResult | null> => {
     if (!item.tmdbId) return null;
-    const type = await classifyTmdbId(item.tmdbId);
+    const type = await classifyTmdbId(item.tmdbId, { title: item.tmdbTitle, year: item.tmdbYear });
     if (!type) return null;
     return {
       tmdbId: item.tmdbId,

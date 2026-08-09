@@ -90,8 +90,15 @@ function hasWholesaleWordSubstitution(na: string, nb: string): boolean {
   return false;
 }
 
-/** 0..1 similarity — 1 is identical, accent/case/punctuation-insensitive. */
-export function titleSimilarity(a: string, b: string): number {
+/** 0..1 similarity — 1 is identical, accent/case/punctuation-insensitive.
+ *  Optional `yearInfo` gates the containment bonus on the release year:
+ *  without it (other callers) the bonus applies whenever the title is fully
+ *  contained — they enforce the year themselves right after this call. */
+export function titleSimilarity(
+  a: string,
+  b: string,
+  yearInfo?: { year: string | null; targetYear: number | null }
+): number {
   const na = normalizeTitle(a);
   const nb = normalizeTitle(b);
   if (!na || !nb) return 0;
@@ -115,7 +122,19 @@ export function titleSimilarity(a: string, b: string): number {
     // them so only longer, more distinctive short titles pass.
     const shortWords = shorter.split(" ").filter(Boolean).length;
     const singleWordPenalty = shortWords <= 1 && extraWords > 0 ? 0.15 : 0;
-    return Math.max(0.5, 0.9 - extraWords * 0.15 - singleWordPenalty);
+    const base = Math.max(0.5, 0.9 - extraWords * 0.15 - singleWordPenalty);
+    // Containment bonus: scene releases routinely DROP subtitle words, so
+    // the official title is longer than the release name ("Tafiti" ⊂
+    // "Tafiti - Ab durch die Wüste" — French release "Tafiti 2026 MULTi VFF
+    // 1080p" parsed to the single word "Tafiti"). The extra-words penalty
+    // floors those at 0.5, under the 0.72 threshold, silently rejecting the
+    // only real releases of the movie. When the year agrees (or the release
+    // states none), the year gate can't disambiguate, so full containment
+    // wins. When the release DOES state a year that conflicts (a genuine
+    // different film), the year gate below (or the caller's own
+    // yearIsCompatible right after this call) still rejects it.
+    const yearOk = yearIsCompatible(yearInfo?.year ?? null, yearInfo?.targetYear ?? null);
+    return yearOk ? Math.max(base, 0.85) : base;
   }
   const dist = levenshtein(na, nb);
   const charSim = Math.max(0, 1 - dist / Math.max(na.length, nb.length));
@@ -178,7 +197,12 @@ function matchesConcatenatedAlias(parsedTitle: string, targetTitle: string, alia
 }
 
 /** Does this parsed release's title plausibly refer to the target movie/series? */
-export function releaseTitleMatches(parsedTitle: string, targetTitle: string, aliases: string[] = []): boolean {
+export function releaseTitleMatches(
+  parsedTitle: string,
+  targetTitle: string,
+  aliases: string[] = [],
+  yearInfo?: { year: string | null; targetYear: number | null }
+): boolean {
   const candidates = [targetTitle, ...aliases];
   // A sequel-number conflict is disqualifying on its own — a close name
   // never overrides it, checked before everything below.
@@ -186,7 +210,7 @@ export function releaseTitleMatches(parsedTitle: string, targetTitle: string, al
   // Opt-in exact "official title + alias" concatenation, checked before the
   // fuzzy pass since that's exactly the shape the extra-words penalty rejects.
   if (matchesConcatenatedAlias(parsedTitle, targetTitle, aliases)) return true;
-  return candidates.some((t) => titleSimilarity(parsedTitle, t) >= TITLE_MATCH_THRESHOLD);
+  return candidates.some((t) => titleSimilarity(parsedTitle, t, yearInfo) >= TITLE_MATCH_THRESHOLD);
 }
 
 interface LibraryTitleLike {
