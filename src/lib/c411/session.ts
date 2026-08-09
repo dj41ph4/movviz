@@ -100,6 +100,20 @@ async function login(cfg: C411ListsConfig): Promise<string> {
   return cookie;
 }
 
+/**
+ * Live login probe for the settings screen — performs the real site login with
+ * the currently stored credentials and reports whether it succeeded. Also
+ * warms the shared session cache so the next list fetch starts already logged in.
+ */
+export async function probeC411Login(cfg: C411ListsConfig): Promise<{ ok: boolean; detail: string }> {
+  try {
+    await login(cfg);
+    return { ok: true, detail: "login ok" };
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 function freshSession(): SessionState | null {
   const s = g.__movvizC411Session;
   if (!s || Date.now() - s.at > SESSION_TTL_MS) return null;

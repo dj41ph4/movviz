@@ -343,7 +343,7 @@ export function IndexerManager() {
 }
 
 /** Two-step add flow: pick a predefined indexer (or a generic endpoint), then fill in only what it needs to authenticate. */
-function AddFlow({ t, onDone, onCancel }: { t: (k: string) => string; onDone: () => void; onCancel: () => void }) {
+function AddFlow({ t, onDone, onCancel }: { t: (k: string, params?: Record<string, string | number>) => string; onDone: () => void; onCancel: () => void }) {
   const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
   const [picked, setPicked] = useState<CatalogEntry | null>(null);
 
@@ -412,7 +412,7 @@ function entryFromRow(r: Row): CatalogEntry {
   };
 }
 
-function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string) => string; entry: CatalogEntry; existing?: Row | null; onDone: () => void; onCancel: () => void }) {
+function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, params?: Record<string, string | number>) => string; entry: CatalogEntry; existing?: Row | null; onDone: () => void; onCancel: () => void }) {
   const isEdit = !!existing;
   const isGeneric = existing ? entry.baseUrl === undefined : !entry.baseUrl;
   const isC411 = (existing?.key ?? entry.key) === "c411";
@@ -428,25 +428,29 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string) 
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [realCategories, setRealCategories] = useState<CategoryNode[] | null>(null);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ testing: boolean; ok?: boolean; detail?: string } | null>(null);
+  const [c411Test, setC411Test] = useState<{ testing: boolean; ok?: boolean; detail?: string } | null>(null);
 
   const field = "w-full rounded-xl glass-strong px-3 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim";
 
-  const loadCategories = async () => {
-    if (!baseUrl.trim()) return;
-    // Skip the round trip entirely when the credentials field is empty —
-    // the indexer would just reject with an HTTP 401 that means nothing to
-    // most users ("HTTP 401" isn't self-explanatory; "enter your API key" is).
-    if (authType === "apikey" && !apiKey.trim()) {
-      setCategoriesError(t("indexerMgr.categoriesNeedKey"));
-      return;
-    }
-    if (authType === "x-api-key" && !apiKey.trim()) {
-      setCategoriesError(t("indexerMgr.categoriesNeedKey"));
-      return;
-    }
-    if (authType === "credentials" && (!username.trim() || !password.trim())) {
-      setCategoriesError(t("indexerMgr.categoriesNeedCredentials"));
-      return;
+  // The stored row knows whether the browser was ever handed a secret — the
+  // edit form never shows stored apiKey/password (only "••••"), so "key in
+  // memory" is hasApiKey/hasCredentials on the row, not a non-empty field.
+  const hasStoredKey = isEdit && !!existing && (existing.hasApiKey || existing.hasCredentials);
+  const keyInMemory = isEdit && (apiKey.trim() !== "" || !!existing?.hasApiKey);
+
+  const testDraft = async () => {
+    if (!baseUrl.trim()) return null;
+    // Skip the round trip entirely when the credentials field is empty AND
+    // nothing is stored server-side — the indexer would just reject with an
+    // HTTP 401 that means nothing to most users ("HTTP 401" isn't
+    // self-explanatory; "enter your API key" is).
+    const needsKey = authType === "apikey" || authType === "x-api-key";
+    const hasLocal = needsKey ? apiKey.trim() !== "" : username.trim() !== "" && password !== "";
+    if (!hasLocal && !hasStoredKey) {
+      setCategoriesError(needsKey ? t("indexerMgr.categoriesNeedKey") : t("indexerMgr.categoriesNeedCredentials"));
+      return null;
     }
     setLoadingCategories(true);
     setCategoriesError(null);
@@ -455,6 +459,7 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string) 
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          id: isEdit ? existing.id : undefined,
           kind: entry.kind,
           protocol: entry.protocol,
           baseUrl: baseUrl.trim(),
@@ -462,29 +467,38 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string) 
           apiKey: apiKey.trim(),
           username: username.trim(),
           password,
+          useFlareResolver: existing?.useFlareResolver,
         }),
       });
       const result = await res.json();
-      if (!result.ok) {
-        const detail: string | undefined = result.detail;
-        setCategoriesError(
-          detail === "HTTP 401" || detail === "HTTP 403"
-            ? t("indexerMgr.categoriesInvalidKey")
-            : detail ?? t("indexerMgr.testFail")
-        );
-        return;
-      }
-      setRealCategories(result.caps?.categories ?? []);
+      return result;
     } catch {
       setCategoriesError(t("indexerMgr.testFail"));
+      return null;
     } finally {
       setLoadingCategories(false);
     }
   };
 
+  const loadCategories = async () => {
+    const result = await testDraft();
+    if (!result) return;
+    if (!result.ok) {
+      const detail: string | undefined = result.detail;
+      setCategoriesError(
+        detail === "HTTP 401" || detail === "HTTP 403"
+          ? t("indexerMgr.categoriesInvalidKey")
+          : detail ?? t("indexerMgr.testFail")
+      );
+      return;
+    }
+    setRealCategories(result.caps?.categories ?? []);
+  };
+
   const save = async () => {
     if (!baseUrl.trim() && !isEdit) return;
     setSaving(true);
+    setSaveError(null);
     try {
       const payload: Record<string, unknown> = {
         key: entry.key,
@@ -499,22 +513,20 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string) 
       if (username.trim()) payload.username = username.trim();
       if (password) payload.password = password;
       if (isC411) payload.listsEnabled = listsEnabled;
-      if (isEdit) {
-        // Never send empty secrets on edit — they'd overwrite the stored ones.
-        if (!apiKey.trim()) delete payload.apiKey;
-        if (!username.trim()) delete payload.username;
-        if (!password) delete payload.password;
-        await fetch(`/api/indexers/${existing.id}`, {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        await fetch("/api/indexers", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+      const res = isEdit
+        ? await fetch(`/api/indexers/${existing.id}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          })
+        : await fetch("/api/indexers", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+      if (!res.ok) {
+        setSaveError(t("indexerMgr.saveFailed"));
+        return;
       }
       onDone();
     } finally {
@@ -585,6 +597,54 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string) 
           {listsEnabled && !username.trim() && (
             <p className="mt-2 text-xs text-amber">{t("indexerMgr.listsNeedsLogin")}</p>
           )}
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              onClick={async () => {
+                setC411Test({ testing: true });
+                try {
+                  const res = await fetch("/api/indexers/c411-status", { cache: "no-store" });
+                  const data = await res.json();
+                  if (!res.ok || data.error) {
+                    setC411Test({ testing: false, ok: false, detail: data.error ?? "HTTP " + res.status });
+                    return;
+                  }
+                  if (!data.configured) {
+                    setC411Test({
+                      testing: false,
+                      ok: false,
+                      detail: t("indexerMgr.c411NotConfigured", {
+                        toggle: data.listsEnabled ? "✓" : "✗",
+                        user: data.hasUsername ? "✓" : "✗",
+                        pass: data.hasPassword ? "✓" : "✗",
+                      }),
+                    });
+                    return;
+                  }
+                  setC411Test({ testing: false, ok: data.loginOk, detail: data.detail });
+                } catch {
+                  setC411Test({ testing: false, ok: false, detail: t("indexerMgr.testFail") });
+                }
+              }}
+              disabled={c411Test?.testing}
+              className="flex h-9 items-center gap-1.5 rounded-lg glass-strong px-3 text-xs font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-40"
+            >
+              {c411Test?.testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+              {t("indexerMgr.testC411")}
+            </button>
+            {c411Test && !c411Test.testing && c411Test.ok !== undefined && (
+              <span className={cn("flex items-center gap-1.5 text-xs font-semibold", c411Test.ok ? "text-up" : "text-down")}>
+                <Circle className={cn("h-2 w-2 fill-current", c411Test.ok ? "text-up" : "text-down")} />
+                {c411Test.ok ? t("indexerMgr.c411LoginOk") : c411Test.detail}
+              </span>
+            )}
+            {isEdit && (
+              <span className="ml-auto text-xs text-ink-dim">
+                {existing?.listsEnabled && existing.hasCredentials
+                  ? t("indexerMgr.c411ServerStatusOn", { user: existing.username ?? "" })
+                  : t("indexerMgr.c411ServerStatusOff")}
+              </span>
+            )}
+          </div>
           <p className="mt-2 text-xs text-ink-dim">{t("indexerMgr.listsDesc")}</p>
         </div>
       )}
@@ -592,20 +652,50 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string) 
       <div className="sm:col-span-2">
         <div className="mb-1.5 flex items-center justify-between gap-3">
           <label className="text-xs font-semibold text-ink-soft">{t("indexerMgr.categories")}</label>
-          <button
-            onClick={loadCategories}
-            disabled={loadingCategories || !baseUrl.trim()}
-            className="flex h-8 items-center gap-1.5 rounded-lg glass-strong px-3 text-xs font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-40"
-          >
-            {loadingCategories ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
-            {t("indexerMgr.loadCategories")}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={async () => {
+                setTestResult({ testing: true });
+                const result = await testDraft();
+                if (!result) {
+                  setTestResult({ testing: false, ok: false, detail: categoriesError ?? t("indexerMgr.testFail") });
+                  return;
+                }
+                setTestResult({ testing: false, ok: result.ok, detail: result.detail });
+              }}
+              disabled={testResult?.testing || !baseUrl.trim()}
+              className="flex h-8 items-center gap-1.5 rounded-lg glass-strong px-3 text-xs font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-40"
+            >
+              {testResult?.testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <SlidersHorizontal className="h-3.5 w-3.5" />}
+              {t("indexerMgr.testConnection")}
+            </button>
+            <button
+              onClick={loadCategories}
+              disabled={loadingCategories || !baseUrl.trim()}
+              className="flex h-8 items-center gap-1.5 rounded-lg glass-strong px-3 text-xs font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-40"
+            >
+              {loadingCategories ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wifi className="h-3.5 w-3.5" />}
+              {t("indexerMgr.loadCategories")}
+            </button>
+          </div>
         </div>
+        {keyInMemory && isEdit && <p className="mb-2 text-xs text-ink-dim">{t("indexerMgr.keyInMemory")}</p>}
+        {testResult && !testResult.testing && testResult.ok !== undefined && (
+          <p className={cn("mb-2 flex items-center gap-1.5 text-xs font-semibold", testResult.ok ? "text-up" : "text-down")}>
+            <Circle className={cn("h-2 w-2 fill-current", testResult.ok ? "text-up" : "text-down")} />
+            {testResult.ok
+              ? t("indexerMgr.testOk")
+              : testResult.detail === "HTTP 401" || testResult.detail === "HTTP 403"
+                ? t("indexerMgr.categoriesInvalidKey")
+                : testResult.detail ?? t("indexerMgr.testFail")}
+          </p>
+        )}
         {categoriesError && <p className="mb-2 text-xs text-down">{categoriesError}</p>}
         <CategoryPicker value={categories} onChange={setCategories} indexerCategories={realCategories ?? undefined} />
       </div>
 
       <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:col-span-2">
+        {saveError && <p className="mb-2 text-xs text-down sm:mr-auto sm:mb-0 self-center">{saveError}</p>}
         <button onClick={onCancel} className="glass-strong text-ink-soft h-10 px-4 rounded-xl font-semibold text-sm whitespace-nowrap">{t("common.cancel")}</button>
         <button onClick={save} disabled={saving || !baseUrl.trim()} className="brand-gradient text-white h-10 px-4 rounded-xl font-semibold text-sm flex items-center gap-2 disabled:opacity-40 whitespace-nowrap">
           {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} {t("indexerMgr.save")}

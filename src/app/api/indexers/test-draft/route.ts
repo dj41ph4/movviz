@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { testIndexer } from "@/lib/indexers/torznab";
+import { getIndexer } from "@/lib/indexers/store";
 import type { ConfiguredIndexer } from "@/lib/indexers/types";
 
 export const dynamic = "force-dynamic";
@@ -10,12 +11,19 @@ export const dynamic = "force-dynamic";
  * "add indexer" form so its category picker can show the indexer's real
  * categories (via t=caps) right after the API key is entered, instead of
  * only after the first save+auto-test round trip.
+ *
+ * When editing (body.id set), fields left empty are completed from the
+ * stored row — the browser never sees the stored secrets, so the "load
+ * categories" button works without re-typing a key that is already in memory.
  */
 export async function POST(req: NextRequest) {
   if (!requireAdmin(req)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await req.json();
   const baseUrl = String(body.baseUrl ?? "").trim();
   if (!baseUrl) return NextResponse.json({ error: "baseUrl required" }, { status: 400 });
+
+  const id = String(body.id ?? "").trim();
+  const stored = id ? getIndexer(id) : null;
 
   const draft: ConfiguredIndexer = {
     id: "draft",
@@ -24,14 +32,14 @@ export async function POST(req: NextRequest) {
     protocol: body.protocol === "usenet" ? "usenet" : "torrent",
     baseUrl,
     authType: body.authType === "credentials" ? "credentials" : "apikey",
-    apiKey: String(body.apiKey ?? "").trim(),
-    username: String(body.username ?? "").trim(),
-    password: String(body.password ?? ""),
+    apiKey: (String(body.apiKey ?? "").trim() || stored?.apiKey) ?? "",
+    username: (String(body.username ?? "").trim() || stored?.username) ?? "",
+    password: (String(body.password ?? "") || stored?.password) ?? "",
     categories: [],
     enabled: true,
     priority: 1,
     addedAt: Date.now(),
-    useFlareResolver: !!body.useFlareResolver,
+    useFlareResolver: !!body.useFlareResolver || !!stored?.useFlareResolver,
   };
 
   const result = await testIndexer(draft);

@@ -16,7 +16,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const patch = await req.json();
   // Only mutable operational fields — never let the client rewrite ids.
   const allowed = [
-    "enabled", "priority", "name", "categories",
+    "key", "enabled", "priority", "name", "categories",
     "baseUrl", "authType", "apiKey", "username", "password",
     "minSizeMb", "maxSizeMb", "maxAgeDays",
     "useFlareResolver", "listsEnabled",

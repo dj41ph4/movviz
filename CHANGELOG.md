@@ -4,6 +4,18 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.93 — August 2026
+
+### Indexeurs — statut réel, clé en mémoire et diagnostic de connexion
+
+- **Nouveau — diagnostic C411** : la section « Identifiants du site » du crayon C411 affiche désormais le vrai statut serveur (listes actives ou inactives, avec le login concerné) et un bouton « Tester la connexion C411 » qui exécute un vrai login avec les identifiants enregistrés. En cas de config incomplète, un diagnostic détaillé indique exactement ce qui manque (listes / identifiant / mot de passe). L'échec silencieux « j'ai saisi mes identifiants mais rien ne s'affiche » devient donc visible et identifiable.
+- **Nouveau — clé en mémoire** : le bouton « Afficher les catégories » d'un indexeur déjà configuré ne demande plus de resaisir la clé API — elle est reprise automatiquement depuis le serveur (le navigateur ne la voit jamais), et une mention « Clé enregistrée — utilisée automatiquement » l'indique. Fonctionne aussi pour le mode identifiants.
+- **Nouveau — bouton « Tester la connexion »** sur chaque indexeur : vérifie l'URL et les identifiants en une seconde et affiche le résultat (OK ou l'erreur de l'indexeur).
+- **Corrigé — sauvegarde silencieuse** : le formulaire n'accepte plus d'échouer en silence — si l'enregistrement échoue côté serveur, l'erreur est affichée et le formulaire reste ouvert.
+- **Corrigé** : la clé du catalogue (ex. `c411`) est désormais aussi enregistrée lors d'une modification, pas seulement à l'ajout.
+
+---
+
 ## v1.12.92 — August 2026
 
 ### Crayon C411 : identifiants du site modifiables
