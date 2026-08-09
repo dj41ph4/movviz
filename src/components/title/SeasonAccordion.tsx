@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Check, Clock, HardDriveDownload, Search, Loader2, ListFilter, Eye, Calendar } from "lucide-react";
@@ -198,98 +198,102 @@ export function SeasonAccordion({
               </div>
             </div>
 
-            <AnimatePresence initial={false}>
-              {isExpanded && libSeason && (
-              <motion.div
-                key="content"
-                initial={{ gridTemplateRows: "0fr", opacity: 0 }}
-                animate={{ gridTemplateRows: "1fr", opacity: 1 }}
-                exit={{ gridTemplateRows: "0fr", opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                style={{ display: "grid" }}
-              >
-              <div className="overflow-hidden border-t border-white/5 px-4 pb-3 pt-2">
-                {packCount != null && (
-                  <div className="mb-2 flex items-center gap-2 rounded-lg border border-cyan/25 bg-cyan/12 px-3 py-2 text-xs font-semibold text-cyan">
-                    <HardDriveDownload className="h-3.5 w-3.5" />
-                    {t("library.seasonPackDownloading", { count: packCount })}
-                  </div>
-                )}
-                {libSeason.episodes.length === 0 ? (
-                  <p className="py-4 text-center text-sm text-ink-dim">{t("title.noEpisodes")}</p>
-                ) : (
-                  <div className="space-y-1">
-                    {libSeason.episodes.map((ep, idx) => {
-                      const epNumber = ep.episodeNumber ?? idx + 1;
-                      const epKey = `${season.seasonNumber}.${epNumber}`;
-                      const watched = watchedEpisodes?.has(epKey) ?? false;
-                      const rowContent = (
-                        <>
-      <span className="w-8 text-center text-xs font-bold text-ink-dim">{epNumber}</span>
-      <span className="min-w-0 flex-1 truncate text-sm text-ink">{ep.title ?? `${t("title.episode")} ${epNumber}`}</span>
-      {(ep.status === "available" || ep.status === "downloading") && <MediaBadges file={ep.file} className="relative static" variant="surface" />}
-      {watched && (
-                            <span title={t("watch.watched")} className="flex shrink-0 items-center gap-1 rounded-full border border-ok/25 bg-ok/12 px-2 py-0.5 text-[10px] font-semibold text-ok">
-                              <Eye className="h-2.5 w-2.5" />
-                            </span>
-                          )}
-                          {ep.airDate && (
-                            <span className="flex shrink-0 items-center gap-1 text-[11px] text-ink-dim">
-                              <Calendar className="h-2.5 w-2.5" /> {new Date(ep.airDate).toLocaleDateString()}
-                            </span>
-                          )}
-                          <span className={cn(
-                            "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold",
-                            STATUS_TONE[ep.status]
-                          )}>
-                            {t(`status.${ep.status}`)}
-                          </span>
-                        </>
-                      );
-                      return (
-                        <div key={idx} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/5">
-                          {seriesId && ep.episodeNumber != null ? (
-                            <Link
-                              href={`/library/series/${seriesId}/season/${season.seasonNumber}/episode/${ep.episodeNumber}`}
-                              className="flex min-w-0 flex-1 items-center gap-3"
-                            >
-                              {rowContent}
-                            </Link>
-                          ) : (
-                            <div className="flex min-w-0 flex-1 items-center gap-3">{rowContent}</div>
-                          )}
-                          {ep.status !== "downloading" && ep.status !== "searching" && ep.episodeNumber != null && (
-                            <>
-                              {onSearchEpisode && (
-                                <button
-                                  onClick={() => onSearchEpisode(season.seasonNumber, ep.episodeNumber!)}
-                                  disabled={searchingEpisodeKey === epKey}
-                                  title={t("library.autoSearch")}
-                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong text-brand-glow disabled:opacity-50"
-                                >
-                                  {searchingEpisodeKey === epKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-                                </button>
-                              )}
-                              {onManualSearchEpisode && (
-                                <button
-                                  onClick={() => onManualSearchEpisode(season.seasonNumber, ep.episodeNumber!)}
-                                  title={t("library.manualSearch")}
-                                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong text-ink-soft hover:text-ink"
-                                >
-                                  <ListFilter className="h-3.5 w-3.5" />
-                                </button>
-                              )}
-                            </>
-                          )}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateRows: isExpanded ? "1fr" : "0fr",
+                opacity: isExpanded ? 1 : 0,
+                transition: "grid-template-rows 0.2s ease-in-out, opacity 0.2s ease-in-out",
+              }}
+            >
+              <div className="min-h-0 overflow-hidden">
+                <div className="border-t border-white/5 px-4 pb-3 pt-2">
+                  {!libSeason ? (
+                    <p className="py-4 text-center text-sm text-ink-dim">{t("title.notInLibrary")}</p>
+                  ) : (
+                    <>
+                      {packCount != null && (
+                        <div className="mb-2 flex items-center gap-2 rounded-lg border border-cyan/25 bg-cyan/12 px-3 py-2 text-xs font-semibold text-cyan">
+                          <HardDriveDownload className="h-3.5 w-3.5" />
+                          {t("library.seasonPackDownloading", { count: packCount })}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                      )}
+                      {libSeason.episodes.length === 0 ? (
+                        <p className="py-4 text-center text-sm text-ink-dim">{t("title.noEpisodes")}</p>
+                      ) : (
+                        <div className="space-y-1">
+                          {libSeason.episodes.map((ep, idx) => {
+                            const epNumber = ep.episodeNumber ?? idx + 1;
+                            const epKey = `${season.seasonNumber}.${epNumber}`;
+                            const watched = watchedEpisodes?.has(epKey) ?? false;
+                            const rowContent = (
+                              <>
+                                <span className="w-8 text-center text-xs font-bold text-ink-dim">{epNumber}</span>
+                                <span className="min-w-0 flex-1 truncate text-sm text-ink">{ep.title ?? `${t("title.episode")} ${epNumber}`}</span>
+                                {(ep.status === "available" || ep.status === "downloading") && <MediaBadges file={ep.file} className="relative static" variant="surface" />}
+                                {watched && (
+                                  <span title={t("watch.watched")} className="flex shrink-0 items-center gap-1 rounded-full border border-ok/25 bg-ok/12 px-2 py-0.5 text-[10px] font-semibold text-ok">
+                                    <Eye className="h-2.5 w-2.5" />
+                                  </span>
+                                )}
+                                {ep.airDate && (
+                                  <span className="flex shrink-0 items-center gap-1 text-[11px] text-ink-dim">
+                                    <Calendar className="h-2.5 w-2.5" /> {new Date(ep.airDate).toLocaleDateString()}
+                                  </span>
+                                )}
+                                <span className={cn(
+                                  "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                                  STATUS_TONE[ep.status]
+                                )}>
+                                  {t(`status.${ep.status}`)}
+                                </span>
+                              </>
+                            );
+                            return (
+                              <div key={idx} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/5">
+                                {seriesId && ep.episodeNumber != null ? (
+                                  <Link
+                                    href={`/library/series/${seriesId}/season/${season.seasonNumber}/episode/${ep.episodeNumber}`}
+                                    className="flex min-w-0 flex-1 items-center gap-3"
+                                  >
+                                    {rowContent}
+                                  </Link>
+                                ) : (
+                                  <div className="flex min-w-0 flex-1 items-center gap-3">{rowContent}</div>
+                                )}
+                                {ep.status !== "downloading" && ep.status !== "searching" && ep.episodeNumber != null && (
+                                  <>
+                                    {onSearchEpisode && (
+                                      <button
+                                        onClick={() => onSearchEpisode(season.seasonNumber, ep.episodeNumber!)}
+                                        disabled={searchingEpisodeKey === epKey}
+                                        title={t("library.autoSearch")}
+                                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong text-brand-glow disabled:opacity-50"
+                                      >
+                                        {searchingEpisodeKey === epKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
+                                      </button>
+                                    )}
+                                    {onManualSearchEpisode && (
+                                      <button
+                                        onClick={() => onManualSearchEpisode(season.seasonNumber, ep.episodeNumber!)}
+                                        title={t("library.manualSearch")}
+                                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong text-ink-soft hover:text-ink"
+                                      >
+                                        <ListFilter className="h-3.5 w-3.5" />
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-              </motion.div>
-              )}
-            </AnimatePresence>
+            </div>
           </div>
         );
       })}

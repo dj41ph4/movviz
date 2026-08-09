@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.04 — August 2026
+
+### Correctif accordéon saisons ARM Docker (investigation approfondie)
+
+- **Corrigé — accordéon des saisons bloqué sous ARM Docker** : Framer Motion interprète et anime `gridTemplateRows` via JS, ce qui peut échouer sur des runtimes ARM. L'animation est désormais entièrement gérée par le moteur CSS du navigateur : transition inline sur `gridTemplateRows` + `opacity`, sans aucune dépendance JS externe. L'inner div reçoit `min-h-0` pour garantir que la row CSS Grid collapse réellement à 0. Le contenu est toujours présent dans le DOM (masqué par la grid), ce qui élimine aussi le cas où `libSeason` undefined rendait l'expansion silencieusement vide — quand une série n'est pas en bibliothèque, un message localisé est affiché à la place.
+
 ## v1.13.03 — August 2026
 
 ### Correctif accordéon saisons ARM/QEMU
