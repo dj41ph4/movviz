@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.92 — August 2026
+
+### Crayon C411 : identifiants du site modifiables
+
+- **Corrigé** : au crayon, la section « Identifiants du site (listes Découvrir) » (login, mot de passe, toggle des listes) ne s'affichait jamais sur un indexeur C411 déjà configuré — l'identité « C411 » se perdait à l'enregistrement : seuls `kind: "torznab"` et l'URL étaient conservés, et le formulaire ne reconnaissait l'indexeur que par son `kind`.
+- **Nouveau** : la clé du catalogue (ex. `c411`) est désormais persistée sur l'indexeur à l'ajout, et les indexeurs existants sont reconnus par leur URL de catalogue (repli). La section identifiants apparaît donc aussi en édition, et le toggle « listes Découvrir » n'est plus perdu à l'ajout (il est maintenant enregistré dès le POST initial).
+
+---
+
 ## v1.12.91 — August 2026
 
 ### Intégration c411.org à la page Découvrir

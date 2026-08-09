@@ -44,6 +44,8 @@ export interface ConfiguredIndexer {
   protocol: IndexerProtocol;
   baseUrl: string; // Torznab/Newznab API endpoint
   authType: IndexerAuthType;
+  /** Catalog key this indexer was added from (e.g. "c411") — kept so the UI can show catalog-specific fields (site login, lists toggle) when editing, since `kind` is only ever the generic "torznab"/"newznab". Absent on rows added before this field existed. */
+  key?: string;
   apiKey: string;
   username: string;
   password: string;

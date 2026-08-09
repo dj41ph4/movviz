@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
   const ix: ConfiguredIndexer = {
     id: `ix_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     name: String(body.name ?? entry?.name ?? "Indexer").trim(),
+    key: body.key ?? entry?.key,
     kind: body.kind ?? entry?.kind ?? "torznab",
     protocol: body.protocol ?? entry?.protocol ?? "torrent",
     baseUrl,
@@ -37,6 +38,7 @@ export async function POST(req: NextRequest) {
     categories: body.categories ?? entry?.categories ?? [2000, 5000],
     enabled: body.enabled ?? true,
     useFlareResolver: !!body.useFlareResolver,
+    listsEnabled: body.listsEnabled === undefined ? undefined : !!body.listsEnabled,
     priority: Number(body.priority ?? 1),
     addedAt: Date.now(),
   };

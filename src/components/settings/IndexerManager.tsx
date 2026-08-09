@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { CatalogEntry, IndexerAuthType, IndexerCapabilities } from "@/lib/indexers/types";
+import { INDEXER_CATALOG } from "@/lib/indexers/catalog";
 import type { CategoryNode } from "@/lib/indexers/categories";
 import { CategoryPicker } from "./CategoryPicker";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
@@ -17,6 +18,7 @@ interface Row {
   name: string;
   protocol: "torrent" | "usenet";
   kind: string;
+  key?: string;
   baseUrl: string;
   authType: IndexerAuthType;
   enabled: boolean;
@@ -393,8 +395,12 @@ function AddFlow({ t, onDone, onCancel }: { t: (k: string) => string; onDone: ()
 /** Rebuild a pseudo catalog entry from a stored row so the add form doubles as the edit form. */
 function entryFromRow(r: Row): CatalogEntry {
   const generic = r.kind === "generic-torznab" || r.kind === "generic-newznab";
+  // Rows added before the catalog key was persisted have no `key` — recover
+  // it by matching the stored base URL against the catalog, so catalog-only
+  // fields (C411 site login, lists toggle) still show up when editing them.
+  const known = INDEXER_CATALOG.find((c) => c.baseUrl && r.baseUrl === c.baseUrl);
   return {
-    key: r.kind,
+    key: r.key ?? known?.key ?? r.kind,
     name: r.name,
     kind: r.kind as CatalogEntry["kind"],
     protocol: r.protocol,
@@ -409,7 +415,7 @@ function entryFromRow(r: Row): CatalogEntry {
 function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string) => string; entry: CatalogEntry; existing?: Row | null; onDone: () => void; onCancel: () => void }) {
   const isEdit = !!existing;
   const isGeneric = existing ? entry.baseUrl === undefined : !entry.baseUrl;
-  const isC411 = (existing?.kind ?? entry.key) === "c411";
+  const isC411 = (existing?.key ?? entry.key) === "c411";
   const [name, setName] = useState(existing?.name ?? entry.name);
   const [baseUrl, setBaseUrl] = useState(existing?.baseUrl ?? entry.baseUrl ?? "");
   const [authType, setAuthType] = useState<IndexerAuthType>(existing?.authType ?? entry.authType);
