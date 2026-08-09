@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.10 — Augustus 2026
+
+### Knoppen van de mobiele onderste navigatiebalk werkten alleen bij tikken boven het icoon
+
+- **Opgelost, bevestigd in productie**: op mobiel deed rechtstreeks tikken op de tabknoppen Kalender/Aanvragen/Meer vaak niets — maar tikken net erboven werkte wel. Oorzaak: de toast-meldingscontainer is overal aanwezig en blijft altijd in de pagina staan, zelfs zonder zichtbare meldingen. De mobiele laag ervan beslaat de volledige breedte van het scherm, ligt precies bovenop de onderste tabbalk, en is onzichtbaar — maar een onzichtbaar element blokkeert nog steeds klikken eronder, tenzij expliciet anders aangegeven. Tikken die in dat overlappende gebied terechtkwamen, troffen stilletjes niets in plaats van de tabknop te bereiken.
+- De onzichtbare container blokkeert nu niets meer eronder; alleen een daadwerkelijk zichtbare melding (zeldzaam en kortstondig) blijft tikbaar/afsluitbaar, precies zoals voorheen.
+
 ## v1.13.09 — Augustus 2026
 
 ### De Blood+ matching-fix uit v1.13.06 werkte in de praktijk nooit — de echte oorzaak gevonden

@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.10 — August 2026
+
+### Mobile bottom nav buttons that only worked when tapped above the icon
+
+- **Fixed, confirmed live**: on mobile, tapping the Calendrier/Demandes/Plus tab buttons directly often did nothing — but tapping just above them worked. Root cause: the toast-notification container is mounted everywhere and stays in the page at all times, even with zero notifications showing. Its mobile layer spans the full width of the screen, sits right on top of the bottom tab bar, and is invisible — but an invisible element still blocks clicks underneath it unless explicitly told not to. Taps landing in that overlap silently hit nothing instead of reaching the tab button.
+- The invisible container no longer blocks anything underneath it; only an actual visible notification (which is rare and brief) is still tappable/dismissible, exactly as before.
+
 ## v1.13.09 — August 2026
 
 ### The Blood+ matching fix from v1.13.06 never actually took effect — found the real reason

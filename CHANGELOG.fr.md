@@ -4,6 +4,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.10 — août 2026
+
+### Boutons de la barre de navigation mobile qui ne fonctionnaient que si on tapait au-dessus de l'icône
+
+- **Corrigé, confirmé en conditions réelles** : sur mobile, taper directement sur les boutons Calendrier/Demandes/Plus ne faisait souvent rien — mais taper juste au-dessus fonctionnait. Cause racine : le conteneur des notifications toast est monté partout et reste présent sur la page en permanence, même sans aucune notification affichée. Sa couche mobile s'étend sur toute la largeur de l'écran, se trouve juste au-dessus de la barre d'onglets du bas, et est invisible — mais un élément invisible bloque quand même les clics en dessous de lui, sauf indication contraire explicite. Les taps atterrissant dans cette zone de chevauchement touchaient silencieusement le vide au lieu d'atteindre le bouton d'onglet.
+- Le conteneur invisible ne bloque désormais plus rien en dessous de lui ; seule une notification réellement visible (rare et brève) reste tapable/fermable, exactement comme avant.
+
 ## v1.13.09 — août 2026
 
 ### Le correctif Blood+ de la v1.13.06 n'a jamais réellement pris effet — trouvé la vraie raison

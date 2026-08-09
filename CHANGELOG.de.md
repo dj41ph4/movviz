@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.10 — August 2026
+
+### Schaltflächen der mobilen unteren Navigationsleiste funktionierten nur bei Tippen oberhalb des Symbols
+
+- **Behoben, live bestätigt**: Auf Mobilgeräten passierte beim direkten Tippen auf die Tab-Schaltflächen Kalender/Anfragen/Mehr oft nichts — aber Tippen knapp darüber funktionierte. Ursache: Der Toast-Benachrichtigungscontainer ist überall eingebunden und bleibt jederzeit auf der Seite bestehen, selbst wenn keine Benachrichtigungen angezeigt werden. Seine mobile Ebene erstreckt sich über die gesamte Bildschirmbreite, liegt genau über der unteren Tab-Leiste und ist unsichtbar — aber ein unsichtbares Element blockiert Klicks darunter trotzdem, sofern ihm nicht ausdrücklich das Gegenteil mitgeteilt wird. Taps, die in diesem Überlappungsbereich landeten, trafen still ins Leere, statt die Tab-Schaltfläche zu erreichen.
+- Der unsichtbare Container blockiert jetzt nichts mehr darunter; nur eine tatsächlich sichtbare Benachrichtigung (selten und kurz) bleibt weiterhin antippbar/schließbar, genau wie zuvor.
+
 ## v1.13.09 — August 2026
 
 ### Die Blood+-Matching-Korrektur aus v1.13.06 hatte nie tatsächlich gegriffen — die wahre Ursache gefunden

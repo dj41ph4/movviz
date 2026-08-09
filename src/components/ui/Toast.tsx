@@ -44,8 +44,12 @@ export function ToastContainer() {
 
   return (
     <>
-      {/* Desktop: premium card at bottom-right */}
-      <div className="fixed bottom-6 right-6 z-[200] hidden flex-col gap-2 sm:flex" style={{ maxWidth: "min(360px, calc(100vw - 2rem))" }}>
+      {/* Desktop: premium card at bottom-right. pointer-events-none on the
+       * wrapper + pointer-events-auto on each card: this container is
+       * mounted app-wide and stays in the DOM at z-[200] even with zero
+       * active toasts — without this, its empty area silently sat on top of
+       * whatever UI shares that corner and ate clicks meant for it. */}
+      <div className="pointer-events-none fixed bottom-6 right-6 z-[200] hidden flex-col gap-2 sm:flex" style={{ maxWidth: "min(360px, calc(100vw - 2rem))" }}>
         <AnimatePresence>
           {toasts.map((t) => (
             <ToastCard key={t.id} t={t} dismiss={dismiss} reduceAnimations={reduceAnimations} />
@@ -53,8 +57,14 @@ export function ToastContainer() {
         </AnimatePresence>
       </div>
 
-      {/* Mobile: thin line at bottom center, 1s */}
-      <div className="fixed bottom-0 left-0 right-0 z-[200] flex items-end justify-center pb-8 sm:hidden">
+      {/* Mobile: thin line at bottom center, 1s — same fix, and it mattered
+       * far more here: this wrapper spans the FULL viewport width right
+       * where the bottom tab bar lives (fixed bottom-0 left-0 right-0).
+       * Confirmed live: with zero toasts showing, its invisible full-width
+       * hit area silently intercepted taps on the Calendrier/Demandes/Plus
+       * tab buttons underneath — they only worked when tapped slightly
+       * above this element's actual bounds. */}
+      <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-[200] flex items-end justify-center pb-8 sm:hidden">
         <AnimatePresence>
           {toasts.map((t) => (
             <MobileToast key={t.id} t={t} reduceAnimations={reduceAnimations} />
@@ -75,7 +85,7 @@ function ToastCard({ t, dismiss, reduceAnimations }: { t: ToastItem; dismiss: (i
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={reduceAnimations ? { opacity: 0 } : { opacity: 0, x: 40, scale: 0.9 }}
         transition={reduceAnimations ? { duration: 0.12 } : { type: "spring", stiffness: 350, damping: 24, mass: 0.8 }}
-        className="group relative overflow-hidden rounded-2xl border border-white/10"
+        className="group pointer-events-auto relative overflow-hidden rounded-2xl border border-white/10"
         style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.15) 0%, rgba(30,18,50,0.95) 50%, rgba(30,18,50,0.98) 100%)" }}
       >
         {/* Shimmer (GPU-composited via transform) */}
@@ -113,7 +123,7 @@ function ToastCard({ t, dismiss, reduceAnimations }: { t: ToastItem; dismiss: (i
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={reduceAnimations ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.96 }}
       transition={reduceAnimations ? { duration: 0.12 } : { type: "spring", stiffness: 400, damping: 28 }}
-      className={cn("flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-[13px] font-semibold shadow-lg backdrop-blur-xl", colors[t.type])}
+      className={cn("pointer-events-auto flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-[13px] font-semibold shadow-lg backdrop-blur-xl", colors[t.type])}
     >
       {icons[t.type]}
       <span className="flex-1 leading-tight">{t.message}</span>
@@ -134,7 +144,7 @@ function MobileToast({ t, reduceAnimations }: { t: ToastItem; reduceAnimations: 
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.15 }}
-      className="w-[calc(100vw-2rem)] max-w-sm rounded-xl px-4 py-2.5 backdrop-blur-xl"
+      className="pointer-events-auto w-[calc(100vw-2rem)] max-w-sm rounded-xl px-4 py-2.5 backdrop-blur-xl"
       style={{ background: "linear-gradient(180deg, rgba(30,18,50,0.98) 0%, rgba(20,10,40,0.95) 100%)" }}
     >
       <p className="text-center text-[13px] font-semibold leading-tight text-white">{t.message}</p>
