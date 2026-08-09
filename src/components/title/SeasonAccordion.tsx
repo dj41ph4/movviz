@@ -151,7 +151,7 @@ export function SeasonAccordion({
                   setExpanded(isExpanded ? null : season.seasonNumber);
                 }
               }}
-              className="flex w-full cursor-pointer flex-col gap-2 p-4 transition-colors hover:bg-white/5 sm:flex-row sm:items-center sm:gap-3"
+              className="flex w-full cursor-pointer outline-none flex-col gap-2 p-4 transition-colors hover:bg-white/5 sm:flex-row sm:items-center sm:gap-3"
             >
               {/* Line 1 on mobile (name + status — the two things worth seeing
                   at a glance); on sm+ this and the line below become plain
@@ -200,13 +200,13 @@ export function SeasonAccordion({
 
             <div
               style={{
-                display: "grid",
-                gridTemplateRows: isExpanded ? "1fr" : "0fr",
+                maxHeight: isExpanded ? "9999px" : "0",
+                overflow: "hidden",
                 opacity: isExpanded ? 1 : 0,
-                transition: "grid-template-rows 0.2s ease-in-out, opacity 0.2s ease-in-out",
+                transition: "max-height 0.3s ease-in-out, opacity 0.2s ease-in-out",
               }}
             >
-              <div className="min-h-0 overflow-hidden">
+              <div>
                 <div className="border-t border-white/5 px-4 pb-3 pt-2">
                   {!libSeason ? (
                     <p className="py-4 text-center text-sm text-ink-dim">{t("title.notInLibrary")}</p>
