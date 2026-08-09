@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trending, browseCategory, getBoxOffice, getNewSeries, getKidsRow, tmdbConfigured } from "@/lib/metadata/tmdb";
 import { getAllocineNewVod } from "@/lib/metadata/allocineVod";
+import { getC411RowPage } from "@/lib/c411/catalog";
 import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
@@ -36,6 +37,14 @@ export async function GET(req: NextRequest) {
       case "kids": return getKidsRow(type, page, originCountries);
       case "newSeries": return getNewSeries(page, originCountries);
       case "newVod": return getAllocineNewVod(page);
+      case "c411Popular":
+      case "c411Recent":
+      case "c411Today": {
+        const all = await getC411RowPage(key, 1, PER_PAGE * 10);
+        const totalPages = Math.max(1, Math.ceil(all.length / PER_PAGE));
+        const results = all.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+        return { results, page, totalPages };
+      }
       case "renewed": return browseCategory("series", "on_the_air", page, originCountries);
       case "recommended": {
         const cache = getRecCache();

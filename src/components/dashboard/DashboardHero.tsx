@@ -79,8 +79,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   if (!settings.enabled || slides.length === 0 || !active) return null;
 
   const backdropUrl = active.detail.backdropPath ? `${POSTER_BASE}${active.detail.backdropPath}` : null;
-  const trailerEnabled = settings.trailerAutoplay || settings.playOnHover;
-  const trailerTrigger = settings.trailerAutoplay ? "immediate" : "hover";
+  const trailerEnabled = settings.trailerAutoplay;
 
   const statusLabel =
     active.libraryStatus === "available"
@@ -107,7 +106,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
           backdropUrl={backdropUrl}
           trailerKeys={active.detail.trailerKeys}
           title={active.detail.title}
-          trigger={trailerTrigger}
+          trigger="immediate"
           enabled={trailerEnabled}
           className="absolute inset-0 h-full w-full"
         />

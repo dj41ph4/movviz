@@ -9,7 +9,7 @@ import type { CategoryNode } from "@/lib/indexers/categories";
 import { CategoryPicker } from "./CategoryPicker";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import {
-  Magnet, Server, Plus, Circle, Trash2, Wifi, Loader2, X, Check, ArrowLeft, KeyRound, UserRound, Tags, SlidersHorizontal,
+  Magnet, Server, Plus, Circle, Trash2, Wifi, Loader2, X, Check, ArrowLeft, KeyRound, UserRound, Tags, SlidersHorizontal, Pencil,
 } from "lucide-react";
 
 interface Row {
@@ -18,11 +18,14 @@ interface Row {
   protocol: "torrent" | "usenet";
   kind: string;
   baseUrl: string;
+  authType: IndexerAuthType;
   enabled: boolean;
   priority: number;
   categories: number[];
   hasApiKey: boolean;
   hasCredentials: boolean;
+  username?: string;
+  listsEnabled?: boolean;
   lastTest?: { ok: boolean; at: number; detail?: string };
   minSizeMb?: number;
   maxSizeMb?: number;
@@ -38,6 +41,7 @@ export function IndexerManager() {
   const [testing, setTesting] = useState<string | null>(null);
   const [editingCats, setEditingCats] = useState<string | null>(null);
   const [editingFilters, setEditingFilters] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [resolverUrl, setResolverUrl] = useState("");
   const [resolverSaving, setResolverSaving] = useState(false);
 
@@ -234,6 +238,13 @@ export function IndexerManager() {
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                   CF
                 </button>
+                <button
+                  onClick={() => setEditingId(editingId === r.id ? null : r.id)}
+                  className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors", editingId === r.id ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink")}
+                  title={t("indexerMgr.edit")}
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
                 <Toggle on={r.enabled} onChange={() => toggle(r)} />
                 <button onClick={() => remove(r.id)} className="flex h-9 w-9 items-center justify-center rounded-xl glass text-ink-dim transition-colors hover:bg-down/15 hover:text-down">
                   <Trash2 className="h-4 w-4" />
@@ -278,6 +289,27 @@ export function IndexerManager() {
                         label={t("indexerMgr.maxAge")}
                         value={r.maxAgeDays}
                         onCommit={(v) => saveFilters(r.id, { maxAgeDays: v })}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence>
+                {editingId === r.id && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-4 border-t border-white/8 pt-4">
+                      <IndexerForm
+                        t={t}
+                        entry={entryFromRow(r)}
+                        existing={r}
+                        onDone={() => { setEditingId(null); load(); }}
+                        onCancel={() => setEditingId(null)}
                       />
                     </div>
                   </motion.div>
@@ -358,15 +390,34 @@ function AddFlow({ t, onDone, onCancel }: { t: (k: string) => string; onDone: ()
   );
 }
 
-function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string; entry: CatalogEntry; onDone: () => void; onCancel: () => void }) {
-  const isGeneric = !entry.baseUrl;
-  const [name, setName] = useState(entry.name);
-  const [baseUrl, setBaseUrl] = useState(entry.baseUrl ?? "");
-  const [authType, setAuthType] = useState<IndexerAuthType>(entry.authType);
+/** Rebuild a pseudo catalog entry from a stored row so the add form doubles as the edit form. */
+function entryFromRow(r: Row): CatalogEntry {
+  const generic = r.kind === "generic-torznab" || r.kind === "generic-newznab";
+  return {
+    key: r.kind,
+    name: r.name,
+    kind: r.kind as CatalogEntry["kind"],
+    protocol: r.protocol,
+    authType: r.authType,
+    description: "",
+    categories: r.categories,
+    // Leave baseUrl empty for generic entries so the auth-mode selector stays visible.
+    baseUrl: generic ? undefined : r.baseUrl,
+  };
+}
+
+function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string) => string; entry: CatalogEntry; existing?: Row | null; onDone: () => void; onCancel: () => void }) {
+  const isEdit = !!existing;
+  const isGeneric = existing ? entry.baseUrl === undefined : !entry.baseUrl;
+  const isC411 = (existing?.kind ?? entry.key) === "c411";
+  const [name, setName] = useState(existing?.name ?? entry.name);
+  const [baseUrl, setBaseUrl] = useState(existing?.baseUrl ?? entry.baseUrl ?? "");
+  const [authType, setAuthType] = useState<IndexerAuthType>(existing?.authType ?? entry.authType);
   const [apiKey, setApiKey] = useState("");
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState(existing?.username ?? "");
   const [password, setPassword] = useState("");
-  const [categories, setCategories] = useState<number[]>(entry.categories ?? [2000, 5000]);
+  const [listsEnabled, setListsEnabled] = useState(!!existing?.listsEnabled);
+  const [categories, setCategories] = useState<number[]>(existing?.categories ?? entry.categories ?? [2000, 5000]);
   const [saving, setSaving] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [realCategories, setRealCategories] = useState<CategoryNode[] | null>(null);
@@ -426,25 +477,39 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
   };
 
   const save = async () => {
-    if (!baseUrl.trim()) return;
+    if (!baseUrl.trim() && !isEdit) return;
     setSaving(true);
     try {
-      await fetch("/api/indexers", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          key: entry.key,
-          name: name.trim() || entry.name,
-          kind: entry.kind,
-          protocol: entry.protocol,
-          baseUrl: baseUrl.trim(),
-          authType,
-          apiKey: apiKey.trim(),
-          username: username.trim(),
-          password,
-          categories,
-        }),
-      });
+      const payload: Record<string, unknown> = {
+        key: entry.key,
+        name: name.trim() || entry.name,
+        kind: entry.kind,
+        protocol: entry.protocol,
+        baseUrl: baseUrl.trim() || existing?.baseUrl || "",
+        authType,
+        categories,
+      };
+      if (apiKey.trim()) payload.apiKey = apiKey.trim();
+      if (username.trim()) payload.username = username.trim();
+      if (password) payload.password = password;
+      if (isC411) payload.listsEnabled = listsEnabled;
+      if (isEdit) {
+        // Never send empty secrets on edit — they'd overwrite the stored ones.
+        if (!apiKey.trim()) delete payload.apiKey;
+        if (!username.trim()) delete payload.username;
+        if (!password) delete payload.password;
+        await fetch(`/api/indexers/${existing.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await fetch("/api/indexers", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      }
       onDone();
     } finally {
       setSaving(false);
@@ -479,7 +544,7 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
       {authType === "apikey" || authType === "x-api-key" ? (
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.apiKey")}</label>
-          <input value={apiKey} onChange={(e) => { setApiKey(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" autoComplete="off" className={field} />
+          <input value={apiKey} onChange={(e) => { setApiKey(e.target.value); setRealCategories(null); }} type="password" placeholder={isEdit ? "••••••••" : ""} autoComplete="off" className={field} />
         </div>
       ) : (
         <>
@@ -489,9 +554,33 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.password")}</label>
-              <input value={password} onChange={(e) => { setPassword(e.target.value); setRealCategories(null); }} type="password" placeholder="••••••••" autoComplete="off" className={field} />
+              <input value={password} onChange={(e) => { setPassword(e.target.value); setRealCategories(null); }} type="password" placeholder={isEdit ? "••••••••" : ""} autoComplete="off" className={field} />
           </div>
         </>
+      )}
+
+      {isC411 && (
+        <div className="sm:col-span-2 rounded-xl glass-strong p-4">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-ink-soft">{t("indexerMgr.siteLogin")}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.username")}</label>
+              <input value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off" className={field} />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("indexerMgr.password")}</label>
+              <input value={password} onChange={(e) => setPassword(e.target.value)} type="password" placeholder={isEdit ? "••••••••" : ""} autoComplete="new-password" className={field} />
+            </div>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <Toggle on={listsEnabled} onChange={() => setListsEnabled(!listsEnabled)} />
+            <span className="text-sm font-semibold text-ink">{t("indexerMgr.listsToggle")}</span>
+          </div>
+          {listsEnabled && !username.trim() && (
+            <p className="mt-2 text-xs text-amber">{t("indexerMgr.listsNeedsLogin")}</p>
+          )}
+          <p className="mt-2 text-xs text-ink-dim">{t("indexerMgr.listsDesc")}</p>
+        </div>
       )}
 
       <div className="sm:col-span-2">
@@ -520,8 +609,7 @@ function IndexerForm({ t, entry, onDone, onCancel }: { t: (k: string) => string;
   );
 }
 
-function FilterField({ label, value, onCommit }: { label: string; value: number | undefined; onCommit: (v: number | undefined) => void }) {
-  const [local, setLocal] = useState(value ? String(value) : "");
+function FilterField({ label, value, onCommit }: { label: string; value: number | undefined; onCommit: (v: number | undefined) => void }) {  const [local, setLocal] = useState(value ? String(value) : "");
   useEffect(() => setLocal(value ? String(value) : ""), [value]);
   return (
     <div>

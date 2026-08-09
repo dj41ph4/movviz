@@ -30,7 +30,6 @@ export interface DashboardHeroSettings {
   enabled: boolean;
   slideshowSpeedSec: HeroSlideshowSpeed;
   trailerAutoplay: boolean;
-  playOnHover: boolean;
   /** Whether the Hero can draw from pools of titles already in the library (unwatched, recently added, upcoming, recent activity). */
   includeOwned: boolean;
   /** Whether the Hero can draw from pools of titles NOT in the library (personalized TMDb suggestions, discovery). */
@@ -53,7 +52,6 @@ const DEFAULT_HERO_SETTINGS: DashboardHeroSettings = {
   enabled: true,
   slideshowSpeedSec: 10,
   trailerAutoplay: false,
-  playOnHover: true,
   includeOwned: true,
   includeUnowned: true,
 };
@@ -113,7 +111,6 @@ function sanitizeHero(raw: unknown): DashboardHeroSettings {
     enabled: typeof h.enabled === "boolean" ? h.enabled : DEFAULT_HERO_SETTINGS.enabled,
     slideshowSpeedSec: (HERO_SLIDESHOW_SPEEDS as readonly number[]).includes(speed as number) ? (speed as HeroSlideshowSpeed) : DEFAULT_HERO_SETTINGS.slideshowSpeedSec,
     trailerAutoplay: typeof h.trailerAutoplay === "boolean" ? h.trailerAutoplay : DEFAULT_HERO_SETTINGS.trailerAutoplay,
-    playOnHover: typeof h.playOnHover === "boolean" ? h.playOnHover : DEFAULT_HERO_SETTINGS.playOnHover,
     includeOwned: typeof h.includeOwned === "boolean" ? h.includeOwned : DEFAULT_HERO_SETTINGS.includeOwned,
     includeUnowned: typeof h.includeUnowned === "boolean" ? h.includeUnowned : DEFAULT_HERO_SETTINGS.includeUnowned,
   };

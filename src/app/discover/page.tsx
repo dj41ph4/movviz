@@ -186,6 +186,13 @@ function DiscoverPageInner() {
   );
   const rows = rowsData?.rows ?? [];
 
+  // C411 front-page lists (populaire / uploads récents / sorties du jour) —
+  // only present when the C411 indexer has lists enabled with site credentials.
+  const { data: c411Data } = useSWR<{ configured: boolean; rows: { key: string; results: MetaSearchResult[] }[] }>(
+    configured && !isBrowsing ? "/api/metadata/c411-rows" : null
+  );
+  const c411Rows = c411Data?.rows ?? [];
+
   // Browse grid — search (debounced) or any filter/tile/row selection, page 1.
   useEffect(() => {
     if (!configured || !isBrowsing) return;
@@ -262,6 +269,9 @@ function DiscoverPageInner() {
       case "kids": return t("discover.rowKids");
       case "newSeries": return t("discover.rowNewSeries");
       case "renewed": return t("discover.rowRenewed");
+      case "c411Popular": return t("discover.c411Popular");
+      case "c411Recent": return t("discover.c411Recent");
+      case "c411Today": return t("discover.c411Today");
       default: return key;
     }
   };
@@ -351,7 +361,7 @@ function DiscoverPageInner() {
 
           {!isBrowsing && (
             <HomeRows
-              rows={rows}
+              rows={[...rows, ...c411Rows]}
               loading={rowsLoading}
               genres={genres}
               companyTiles={companyTiles}

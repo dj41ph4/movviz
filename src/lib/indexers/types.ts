@@ -60,6 +60,8 @@ export interface ConfiguredIndexer {
   caps?: IndexerCapabilities | null;
   /** When true, indexer requests are routed through the Cloudflare resolver service to bypass anti-bot challenges. */
   useFlareResolver?: boolean;
+  /** When true (C411 only), the site's front-page lists feed the Discover tab — requires username/password for the site session. */
+  listsEnabled?: boolean;
 }
 
 /** A search result normalized across every indexer. */

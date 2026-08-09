@@ -35,13 +35,11 @@ const SECTION_LABEL_KEY: Record<DashboardSectionId, string> = {
   discover: "dashboard.rowTrending",
 };
 
-/** Video preview is either off, on-hover, or fully autoplaying — never both trailerAutoplay and playOnHover independently toggled, which would produce a confusing state (autoplay already implies "no need to hover"). */
-type PreviewMode = "off" | "hover" | "auto";
+/** Video preview is either off or fully autoplaying — the former "on-hover" mode was removed: it never worked reliably, so the option has been dropped from settings entirely. */
+type PreviewMode = "off" | "auto";
 
 function previewModeOf(hero: DashboardLayout["hero"]): PreviewMode {
-  if (hero.trailerAutoplay) return "auto";
-  if (hero.playOnHover) return "hover";
-  return "off";
+  return hero.trailerAutoplay ? "auto" : "off";
 }
 
 export function DashboardExperiencePanel() {
@@ -87,9 +85,8 @@ export function DashboardExperiencePanel() {
 
   const preview = previewModeOf(layout.hero);
   const setPreview = (mode: PreviewMode) => {
-    if (mode === "off") saveHero({ trailerAutoplay: false, playOnHover: false });
-    else if (mode === "hover") saveHero({ trailerAutoplay: false, playOnHover: true });
-    else saveHero({ trailerAutoplay: true, playOnHover: true });
+    if (mode === "off") saveHero({ trailerAutoplay: false });
+    else saveHero({ trailerAutoplay: true });
   };
 
   return (
@@ -177,7 +174,7 @@ export function DashboardExperiencePanel() {
                 <p className="mb-2 text-sm text-ink">{t("settings.dashboardExperience.videoPreview")}</p>
                 <p className="mb-2 text-xs text-ink-dim">{t("settings.dashboardExperience.videoPreviewHint")}</p>
                 <div className="flex flex-wrap gap-2">
-                  {(["off", "hover", "auto"] as const).map((mode) => (
+                  {(["off", "auto"] as const).map((mode) => (
                     <button
                       key={mode}
                       onClick={() => setPreview(mode)}

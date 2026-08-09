@@ -19,7 +19,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
     "enabled", "priority", "name", "categories",
     "baseUrl", "authType", "apiKey", "username", "password",
     "minSizeMb", "maxSizeMb", "maxAgeDays",
-    "useFlareResolver",
+    "useFlareResolver", "listsEnabled",
   ] as const;
   const clean: Record<string, unknown> = {};
   for (const k of allowed) if (k in patch) clean[k] = patch[k];

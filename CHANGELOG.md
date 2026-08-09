@@ -4,6 +4,28 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.91 — August 2026
+
+### Intégration c411.org à la page Découvrir
+
+- **Nouveau** : trois listes issues du site c411.org s'affichent dans l'onglet Découvrir — « Populaires sur C411 », « Uploads récents sur C411 » et « Sorties du jour sur C411 » (catégorie films/vidéos uniquement). Les identifiants du compte s'enregistrent dans Réglages → Indexeurs → C411 (section « Identifiants du site »), et chaque liste peut être activée ou désactivée indépendamment.
+- Session gérée automatiquement (connexion avec CSRF, TTL 25 min, repli sur un second essai), requêtes espacées pour ne pas se faire bloquer, et résolution TMDb des releases avec cache 30 jours : un titre n'est proposé qu'à partir d'un score minimum (titre exact ou année + type), zéro faux positif.
+- **Corrigé — parsing des noms de releases** : les underscores devenaient des points avant l'analyse des tags, « AD » n'est reconnu qu'en majuscules (les films comme « Ad Astra » ne sont plus mutilés), les canaux « 5.1 » et les groupes de release sont ignorés, « 10.bits » devient 10BIT.
+
+### Crayon de modification sur tous les indexeurs
+
+- **Nouveau** : chaque indexeur configuré (Torznab, Prowlarr, C411…) dispose d'un crayon pour éditer ses réglages sans le recréer — le formulaire affiche les secrets existants masqués et ne les écrase pas si le champ est laissé vide.
+
+### Désinstallateur Windows — choix de suppression des données personnelles
+
+- **Nouveau** : la désinstallation demande explicitement, via une case à cocher, si toutes les données personnelles (bibliothèques, historique, téléchargements, réglages — stockées dans ProgramData) doivent être effacées. Décochée par défaut : une réinstallation conserve tout, comme avant. Si cochée, une confirmation supplémentaire protège contre toute suppression accidentelle. Écran en 5 langues.
+
+### Mode cinéma — option « au survol » retirée
+
+- **Nettoyage** : le déclenchement de la bande-annonce « au survol » du Hero cinématique ne fonctionnait pas de manière fiable ; l'option a été retirée des réglages (il ne reste que « Désactivé » et « Automatique ») et la logique de survol du hero a été supprimée.
+
+---
+
 ## v1.12.90 — August 2026
 
 ### Séries à saison unique découpées en « parties » (ordre DVD) — assemblé automatiquement
