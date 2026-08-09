@@ -443,7 +443,7 @@ export const nl: Dictionary = {
     cardsTopMovies: "Topfilms",
     cardsTopSeries: "Topseries",
     rowRecommended: "Aanbevolen voor jou",
-    rowRecommendedTop: "Voor jou & beste",
+    rowRecommendedTop: "Jouw selectie",
     rowTrendingPopular: "Trending & populair",
     rowNowPlayingBoxOffice: "Nu in de bioscoop",
     rowUpcomingVod: "Binnenkort & VOD",

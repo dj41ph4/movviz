@@ -443,7 +443,7 @@ export const it: Dictionary = {
     cardsTopMovies: "Film migliori",
     cardsTopSeries: "Serie migliori",
     rowRecommended: "Consigliati per te",
-    rowRecommendedTop: "Per te & migliori",
+    rowRecommendedTop: "Selezione per te",
     rowTrendingPopular: "Tendenze & popolari",
     rowNowPlayingBoxOffice: "Ora al cinema",
     rowUpcomingVod: "Prossimamente & VOD",

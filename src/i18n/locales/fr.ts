@@ -441,7 +441,7 @@ export const fr = {
     cardsTopMovies: "Top films",
     cardsTopSeries: "Top séries",
     rowRecommended: "Suggestions pour vous",
-    rowRecommendedTop: "Pour vous & meilleurs",
+    rowRecommendedTop: "Sélection pour vous",
     rowTrendingPopular: "Tendances & populaires",
     rowNowPlayingBoxOffice: "En salles",
     rowUpcomingVod: "Prochainement & VOD",

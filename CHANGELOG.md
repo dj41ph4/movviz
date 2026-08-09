@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.96 — August 2026
+
+### Découvrir — libellé de la section recommandations affiné
+
+- **Affiné — section recommandations** : le libellé de la première ligne de la page Découvrir passe de « Pour vous & meilleurs » à **« Sélection pour vous »** — plus lisible, plus propre, sans conjonction maladroite. Traduit en 5 langues.
+
+---
+
 ## v1.12.95 — August 2026
 
 ### Désinstalleur Windows réparé, conteneur Docker réparé, wizard complété, login C411 clarifié
