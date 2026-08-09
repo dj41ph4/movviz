@@ -1333,6 +1333,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               </div>
               <SeasonAccordion
                 seriesId={libraryMatch?.id}
+                tmdbId={detail.tmdbId}
                 seasons={detail.seasons}
                 librarySeasons={libraryMatch?.seasons}
                 onSearchSeason={

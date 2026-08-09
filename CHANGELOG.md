@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.08 — August 2026
+
+### Accordéon saisons — épisodes visibles même sans bibliothèque
+
+- **Amélioré — liste d'épisodes disponible pour les séries non suivies** : l'accordéon des saisons affichait "Pas encore en bibliothèque" quand la série n'était pas dans la bibliothèque. Les épisodes (numéro, titre, date de diffusion) sont désormais chargés depuis TMDb à la demande (lazy, mis en cache par SWR) dès qu'une saison est ouverte — sans aucun impact sur les séries déjà en bibliothèque dont le rendu reste identique. Un squelette de chargement s'affiche pendant la requête.
+
+---
+
 ## v1.13.07 — August 2026
 
 ### Correction changelog v1.13.05
