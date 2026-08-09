@@ -15,7 +15,7 @@ import { useTheme } from "@/lib/theme/useTheme";
 import type { ThemeMode } from "@/lib/theme/theme";
 import type { WizardTrackedField } from "@/lib/setup/wizardProvenance";
 import {
-  Clapperboard, Languages, KeyRound, Tv, Magnet, HardDrive, Play, PartyPopper,
+  Clapperboard, Languages, KeyRound, Tv, Magnet, HardDrive, Play, PartyPopper, ShieldCheck,
   Check, Loader2, ArrowRight, ExternalLink, ChevronRight, Sun, Moon, MonitorSmartphone,
   Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2,
 } from "lucide-react";
@@ -175,6 +175,13 @@ function SetupWizardPageInner() {
               >
                 {t("setup.goToDashboard")} <ArrowRight className="h-4 w-4" />
               </button>
+              <div className="flex w-full max-w-sm flex-col gap-2.5 rounded-2xl glass p-4 text-left">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 shrink-0 text-brand-glow" />
+                  <h3 className="text-sm font-bold text-ink">{t("setup.doneUsersTitle")}</h3>
+                </div>
+                <p className="text-xs leading-relaxed text-ink-dim">{t("setup.doneUsersHint")}</p>
+              </div>
             </div>
           )}
         </motion.div>

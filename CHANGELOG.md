@@ -4,6 +4,17 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.95 — August 2026
+
+### Désinstalleur Windows réparé, conteneur Docker réparé, wizard complété, login C411 clarifié
+
+- **Corrigé — conteneur Docker en boucle de redémarrage** : au démarrage avec PUID/PGID différents des valeurs par défaut de l'image (le cas standard d'un NAS), le `docker-entrypoint.sh` supprimait le groupe `movviz` **avant** son utilisateur — busybox refuse de supprimer un groupe qui est le groupe principal d'un utilisateur existant (« group in use »), l'`addgroup` qui suivait échouait donc aussi et le conteneur mourait en boucle avec « addgroup: group 'movviz' in use » répété à chaque tentative. L'ordre est corrigé (utilisateur avant groupe, à chaque étape) et le script libère désormais proprement l'UID et le GID demandés, même quand le groupe cible est verrouillé par son utilisateur propriétaire. L'image amd64+arm64 publiée est régénérée avec ce correctif.
+- **Corrigé — désinstalleur Windows en panne** : l'installation se terminait par une erreur d'exécution « Cannot call CreateInputOptionPage » au lancement de la désinstallation (cette fonction n'existe pas dans le runtime du désinstalleur d'Inno Setup, uniquement dans celui de l'installeur — elle avait été introduite avec la question « supprimer les données personnelles ? » en v1.12.91). La question est désormais posée via une boîte de confirmation native à la fin de la désinstallation, **par défaut NON** : rien n'est jamais effacé sans confirmation explicite, toujours en 5 langues, et les données (ProgramData) restent conservées par défaut pour permettre une réinstallation complète.
+- **Nouveau — wizard** : l'étape finale affiche une carte « Activation des comptes » qui explique que le compte administrateur est déjà actif et que les prochains comptes (inscription ou Plex) devront être approuvés dans Réglages → Utilisateurs.
+- **Clarifié — indexeurs C411** : le libellé « Identifiants du site » précise désormais entre parenthèses que le login est optionnel (il ne sert qu'aux listes Découvrir, la recherche fonctionne sans).
+
+---
+
 ## v1.12.94 — August 2026
 
 ### Découvrir refondu — listes fusionnées, séries et films strictement séparés

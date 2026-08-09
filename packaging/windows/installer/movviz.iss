@@ -85,52 +85,27 @@ Name: "{autodesktop}\Movviz"; Filename: "{app}\Movviz.url"; IconFilename: "{app}
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
-; --- Uninstall: optional "delete personal data" checkbox --------------------
+; --- Uninstall: optional "delete personal data" confirmation -----------------
 ; All user data (libraries, history, downloads, settings) lives in ProgramData
 ; and survives an uninstall on purpose, so a reinstall restores everything.
-; The uninstaller asks whether to erase it permanently via the checkbox below.
+; The uninstaller asks whether to erase it permanently via a native MsgBox
+; whose DEFAULT answer is No — so the safe path (keep everything) is the one
+; taken by any misclick or quick "Next > Next >" uninstall. A custom wizard
+; page is NOT an option here: Inno Setup's uninstaller runtime does not
+; support CreateInputOptionPage/CreateCustomPage (only the installer does),
+; which crashed the uninstaller with "Cannot call CreateInputOptionPage".
 [CustomMessages]
-DataDeleteTitle=Delete personal data
-DataDeleteDescription=Your personal data is stored separately from the application.
-DataDeleteCaption=Libraries, history, downloads and settings survive an uninstall and would be kept if you reinstall Movviz. Tick the box below to erase them permanently.
-DataDeleteCheckbox=Delete all my personal data (cannot be undone)
-DataDeleteWarnTitle=Delete personal data
 DataDeleteWarnText=All your personal data (libraries, history, downloads, settings) will be permanently deleted. Continue?
 
-french.DataDeleteTitle=Supprimer les données personnelles
-french.DataDeleteDescription=Vos données personnelles sont stockées séparément de l'application.
-french.DataDeleteCaption=Bibliothèques, historique, téléchargements et réglages survivent à la désinstallation et seraient conservés si vous réinstallez Movviz. Cochez la case ci-dessous pour les effacer définitivement.
-french.DataDeleteCheckbox=Supprimer toutes mes données personnelles (action irréversible)
-french.DataDeleteWarnTitle=Supprimer les données personnelles
 french.DataDeleteWarnText=Toutes vos données personnelles (bibliothèques, historique, téléchargements, réglages) seront définitivement supprimées. Continuer ?
 
-italian.DataDeleteTitle=Elimina i dati personali
-italian.DataDeleteDescription=I tuoi dati personali sono archiviati separatamente dall'applicazione.
-italian.DataDeleteCaption=Librerie, cronologia, download e impostazioni sopravvivono alla disinstallazione e verrebbero conservati se reinstalli Movviz. Spunta la casella qui sotto per cancellarli definitivamente.
-italian.DataDeleteCheckbox=Elimina tutti i miei dati personali (azione irreversibile)
-italian.DataDeleteWarnTitle=Elimina i dati personali
 italian.DataDeleteWarnText=Tutti i tuoi dati personali (librerie, cronologia, download, impostazioni) verranno eliminati definitivamente. Continuare?
 
-dutch.DataDeleteTitle=Persoonlijke gegevens verwijderen
-dutch.DataDeleteDescription=Uw persoonlijke gegevens worden los van de applicatie opgeslagen.
-dutch.DataDeleteCaption=Bibliotheken, geschiedenis, downloads en instellingen overleven een verwijdering en blijven bewaard als u Movviz opnieuw installeert. Vink het vakje hieronder aan om ze definitief te wissen.
-dutch.DataDeleteCheckbox=Verwijder al mijn persoonlijke gegevens (onomkeerbare actie)
-dutch.DataDeleteWarnTitle=Persoonlijke gegevens verwijderen
 dutch.DataDeleteWarnText=Al uw persoonlijke gegevens (bibliotheken, geschiedenis, downloads, instellingen) worden definitief verwijderd. Doorgaan?
 
-german.DataDeleteTitle=Persönliche Daten löschen
-german.DataDeleteDescription=Ihre persönlichen Daten werden getrennt von der Anwendung gespeichert.
-german.DataDeleteCaption=Bibliotheken, Verlauf, Downloads und Einstellungen überstehen eine Deinstallation und bleiben erhalten, wenn Sie Movviz neu installieren. Aktivieren Sie das Kontrollkästchen unten, um sie endgültig zu löschen.
-german.DataDeleteCheckbox=Alle meine persönlichen Daten löschen (unwiderrufliche Aktion)
-german.DataDeleteWarnTitle=Persönliche Daten löschen
 german.DataDeleteWarnText=Alle Ihre persönlichen Daten (Bibliotheken, Verlauf, Downloads, Einstellungen) werden endgültig gelöscht. Fortfahren?
 
 [Code]
-{ Global variable declared at the top of the section, as Pascal Script
-  requires — see the "Data removal at uninstall" block below for its use. }
-var
-  DataDeletePage: TInputOptionWizardPage;
-
 { The web server spawns the download engine as a detached child process
   (see src/lib/engine/bootstrap.ts) so it survives web server restarts - but
   that also means stopping the Windows service does NOT stop the engine's
@@ -195,23 +170,12 @@ end;
 
 { Data removal at uninstall: the app deliberately keeps user data (libraries,
   history, downloads, settings) in ProgramData so a reinstall restores
-  everything. The page created in InitializeUninstall below asks explicitly
-  whether to erase that data for good — the checkbox is UNCHECKED by default,
-  so the safe path (keep everything) is the one taken by any misclick or
-  quick "Next > Next >" uninstall. }
-function InitializeUninstall(): Boolean;
-begin
-  DataDeletePage := CreateInputOptionPage(
-    wpWelcome,
-    CustomMessage('DataDeleteTitle'),
-    CustomMessage('DataDeleteDescription'),
-    CustomMessage('DataDeleteCaption'),
-    True, False);
-  DataDeletePage.Add(CustomMessage('DataDeleteCheckbox'));
-  DataDeletePage.Values[0] := False;
-  Result := True;
-end;
-
+  everything. At the very end of the uninstall, a native confirmation asks
+  whether to erase that data for good — the DEFAULT answer is No, so the safe
+  path (keep everything) is the one taken by any misclick or quick "Next >
+  Next >" uninstall. Note: a custom wizard page cannot be used here because
+  Inno Setup's uninstaller runtime does not support CreateInputOptionPage
+  (installer only) — calling it crashes the uninstaller with a runtime error. }
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   { [UninstallRun] already asks the service to stop/uninstall before files are
@@ -221,9 +185,9 @@ begin
     KillMovvizNodeProcesses();
 
   { Runs after everything else is removed. Only when the user explicitly
-    ticked the checkbox AND confirmed the warning does the data directory
-    (the whole ProgramData\Movviz tree: config, library index, logs) go. }
-  if (CurUninstallStep = usPostUninstall) and DataDeletePage.Values[0] then
+    confirms (No by default) does the data directory — the whole
+    ProgramData\Movviz tree: config, library index, logs — go. }
+  if (CurUninstallStep = usPostUninstall) then
   begin
     if MsgBox(CustomMessage('DataDeleteWarnText'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
       DelTree(ExpandConstant('{commonappdata}\{#AppName}'), True, True, True);

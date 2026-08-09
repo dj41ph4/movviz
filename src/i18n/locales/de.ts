@@ -343,6 +343,8 @@ export const de: Dictionary = {
     doneTitle: "Alles bereit!",
     doneHint: "Movviz ist konfiguriert. Du kannst jede Einstellung später in den Einstellungen anpassen.",
     goToDashboard: "Zur Übersicht",
+    doneUsersTitle: "Kontoaktivierung",
+    doneUsersHint: "Das Administratorkonto ist bereits aktiv. Zukünftige Konten (Registrierung oder Plex) müssen von dir in Einstellungen → Benutzer freigeschaltet werden.",
   },
 
   command: {
@@ -1266,7 +1268,7 @@ export const de: Dictionary = {
     maxAge: "Max. Alter (Tage)",
     flareResolver: "Cloudflare-Resolve (Port 9830)",
     edit: "Bearbeiten",
-    siteLogin: "Site-Login (Entdecken-Listen)",
+    siteLogin: "Site-Login (optional — Entdecken-Listen)",
     listsToggle: "C411-Listen unter Entdecken anzeigen",
     listsNeedsLogin: "Der Site-Login ist erforderlich — Benutzername und Passwort oben eingeben.",
     listsDesc: "Fügt die Reihen Beliebt, Neue Uploads und Heute neu von der C411-Startseite zum Entdecken-Tab hinzu (Site-Zugangsdaten erforderlich).",

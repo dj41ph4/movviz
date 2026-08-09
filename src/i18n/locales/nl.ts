@@ -343,6 +343,8 @@ export const nl: Dictionary = {
     doneTitle: "Helemaal klaar!",
     doneHint: "Movviz is geconfigureerd. Je kunt elke instelling later aanpassen vanuit Instellingen.",
     goToDashboard: "Naar dashboard",
+    doneUsersTitle: "Accountactivering",
+    doneUsersHint: "Het beheerdersaccount is al actief. Toekomstige accounts (registratie of Plex) moeten door jou worden goedgekeurd in Instellingen → Gebruikers.",
   },
 
   command: {
@@ -1249,7 +1251,7 @@ export const nl: Dictionary = {
     maxAge: "Max. leeftijd (dagen)",
     flareResolver: "Cloudflare-resolver (poort 9830)",
     edit: "Bewerken",
-    siteLogin: "Site-login (Ontdek-lijsten)",
+    siteLogin: "Site-login (optioneel — Ontdek-lijsten)",
     listsToggle: "C411-lijsten tonen op Ontdek",
     listsNeedsLogin: "De site-login is vereist — vul gebruikersnaam en wachtwoord hierboven in.",
     listsDesc: "Voegt de rijen Populair, Recente uploads en Nieuw vandaag van de C411-startpagina toe aan het Ontdek-tabblad (site-inloggegevens vereist).",

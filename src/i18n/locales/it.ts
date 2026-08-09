@@ -343,6 +343,8 @@ export const it: Dictionary = {
     doneTitle: "Tutto pronto!",
     doneHint: "Movviz è configurato. Puoi modificare qualsiasi impostazione più tardi dalle Impostazioni.",
     goToDashboard: "Vai alla dashboard",
+    doneUsersTitle: "Attivazione account",
+    doneUsersHint: "L'account amministratore è già attivo. I prossimi account creati (registrazione o Plex) dovranno essere approvati da te in Impostazioni → Utenti.",
   },
 
   command: {
@@ -1248,7 +1250,7 @@ export const it: Dictionary = {
     maxAge: "Età massima (giorni)",
     flareResolver: "Risolutore Cloudflare (porta 9830)",
     edit: "Modifica",
-    siteLogin: "Login al sito (elenchi Scopri)",
+    siteLogin: "Login al sito (opzionale — elenchi Scopri)",
     listsToggle: "Mostra gli elenchi C411 su Scopri",
     listsNeedsLogin: "È richiesto il login al sito — inserisci nome utente e password sopra.",
     listsDesc: "Aggiunge le righe Popolari, Upload recenti e Novità di oggi dalla home di C411 alla scheda Scopri (servono le credenziali del sito).",

@@ -341,6 +341,8 @@ export const fr = {
     doneTitle: "Tout est prêt !",
     doneHint: "Movviz est configuré. Tu peux ajuster n'importe quel réglage plus tard depuis Réglages.",
     goToDashboard: "Aller au tableau de bord",
+    doneUsersTitle: "Activation des comptes",
+    doneUsersHint: "Le compte administrateur est déjà actif. Les prochains comptes créés (inscription ou Plex) devront être approuvés par toi dans Réglages → Utilisateurs.",
   },
 
   command: {
@@ -1247,7 +1249,7 @@ export const fr = {
     maxAge: "Âge max (jours)",
     flareResolver: "Résolveur Cloudflare (port 9830)",
     edit: "Modifier",
-    siteLogin: "Identifiants du site (listes Découvrir)",
+    siteLogin: "Identifiants du site (optionnel — listes Découvrir)",
     listsToggle: "Afficher les listes C411 sur Découvrir",
     listsNeedsLogin: "Le login du site est requis — renseignez identifiant et mot de passe ci-dessus.",
     listsDesc: "Ajoute les rows Populaires, Uploads récents et Sorties du jour de la page d'accueil C411 à l'onglet Découvrir (identifiants du site requis).",
