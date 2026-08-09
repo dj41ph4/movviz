@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.02 — August 2026
+
+### Information 2FA C411
+
+- **Ajouté — avertissement 2FA dans le formulaire C411** : les comptes c411.org avec double authentification (2FA) activée ne peuvent pas utiliser les listes Découvrir (chaque nouvelle session demanderait un code). Une note informative est désormais affichée sous les champs identifiant/mot de passe pour signaler cette limitation. 5 locales.
+
+---
+
 ## v1.13.01 — August 2026
 
 ### Correctifs animations et TVDB

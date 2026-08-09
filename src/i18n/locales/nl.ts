@@ -1254,6 +1254,7 @@ export const nl: Dictionary = {
     siteLogin: "Site-login (optioneel — Ontdek-lijsten)",
     listsToggle: "C411-lijsten tonen op Ontdek",
     listsNeedsLogin: "De site-login is vereist — vul gebruikersnaam en wachtwoord hierboven in.",
+    c411TwoFaUnsupported: "Accounts met tweefactorauthenticatie (2FA) worden niet ondersteund — Ontdek-lijsten vereisen een sitesessie zonder 2FA.",
     listsDesc: "Voegt de rijen Populair, Recente uploads en Nieuw vandaag van de C411-startpagina toe aan het Ontdek-tabblad (site-inloggegevens vereist).",
     testConnection: "Verbinding testen",
     keyInMemory: "Opgeslagen sleutel wordt gebruikt — niet opnieuw invoeren.",

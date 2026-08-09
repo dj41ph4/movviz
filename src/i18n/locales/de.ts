@@ -1271,6 +1271,7 @@ export const de: Dictionary = {
     siteLogin: "Site-Login (optional — Entdecken-Listen)",
     listsToggle: "C411-Listen unter Entdecken anzeigen",
     listsNeedsLogin: "Der Site-Login ist erforderlich — Benutzername und Passwort oben eingeben.",
+    c411TwoFaUnsupported: "Konten mit Zwei-Faktor-Authentifizierung (2FA) werden nicht unterstützt — Discover-Listen erfordern eine Site-Sitzung ohne 2FA.",
     listsDesc: "Fügt die Reihen Beliebt, Neue Uploads und Heute neu von der C411-Startseite zum Entdecken-Tab hinzu (Site-Zugangsdaten erforderlich).",
     testConnection: "Verbindung testen",
     keyInMemory: "Gespeicherter Schlüssel wird verwendet — kein erneutes Eingeben nötig.",

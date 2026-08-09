@@ -1252,6 +1252,7 @@ export const fr = {
     siteLogin: "Identifiants du site (optionnel — listes Découvrir)",
     listsToggle: "Afficher les listes C411 sur Découvrir",
     listsNeedsLogin: "Le login du site est requis — renseignez identifiant et mot de passe ci-dessus.",
+    c411TwoFaUnsupported: "Les comptes avec double authentification (2FA) ne sont pas compatibles — les listes Découvrir nécessitent une session de site sans 2FA.",
     listsDesc: "Ajoute les rows Populaires, Uploads récents et Sorties du jour de la page d'accueil C411 à l'onglet Découvrir (identifiants du site requis).",
     testConnection: "Tester la connexion",
     keyInMemory: "Clé enregistrée — utilisée automatiquement, inutile de la retaper.",

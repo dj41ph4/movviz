@@ -1253,6 +1253,7 @@ export const it: Dictionary = {
     siteLogin: "Login al sito (opzionale — elenchi Scopri)",
     listsToggle: "Mostra gli elenchi C411 su Scopri",
     listsNeedsLogin: "È richiesto il login al sito — inserisci nome utente e password sopra.",
+    c411TwoFaUnsupported: "Gli account con autenticazione a due fattori (2FA) non sono supportati — le liste Scopri richiedono una sessione senza 2FA.",
     listsDesc: "Aggiunge le righe Popolari, Upload recenti e Novità di oggi dalla home di C411 alla scheda Scopri (servono le credenziali del sito).",
     testConnection: "Testa la connessione",
     keyInMemory: "Chiave salvata in uso — non serve reinserirla.",

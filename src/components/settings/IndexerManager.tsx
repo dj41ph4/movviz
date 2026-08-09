@@ -597,6 +597,7 @@ function IndexerForm({ t, entry, existing, onDone, onCancel }: { t: (k: string, 
           {listsEnabled && !username.trim() && (
             <p className="mt-2 text-xs text-amber">{t("indexerMgr.listsNeedsLogin")}</p>
           )}
+          <p className="mt-2 text-xs text-ink-dim">{t("indexerMgr.c411TwoFaUnsupported")}</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
             <button
               onClick={async () => {

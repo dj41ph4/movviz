@@ -1254,6 +1254,7 @@ export const en: Dictionary = {
     siteLogin: "Site login (optional — Discover lists)",
     listsToggle: "Show C411 lists on Discover",
     listsNeedsLogin: "The site login is required — enter your username and password above.",
+    c411TwoFaUnsupported: "Accounts with two-factor authentication (2FA) are not supported — Discover lists require a site session without 2FA.",
     listsDesc: "Adds the Popular, Recent uploads and New today rows from the C411 home page to the Discover tab (needs site credentials).",
     testConnection: "Test connection",
     keyInMemory: "Stored key in use — no need to re-enter it.",
