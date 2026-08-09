@@ -244,7 +244,7 @@ function hasWholesaleWordSubstitution(na, nb) {
   return false;
 }
 
-function titleSimilarity(a, b) {
+function titleSimilarity(a, b, yearInfo = null) {
   const na = normalizeTitle(a);
   const nb = normalizeTitle(b);
   if (!na || !nb) return 0;
@@ -255,7 +255,15 @@ function titleSimilarity(a, b) {
     const extraWords = longer.split(" ").filter(Boolean).length - shorter.split(" ").filter(Boolean).length;
     const shortWords = shorter.split(" ").filter(Boolean).length;
     const singleWordPenalty = shortWords <= 1 && extraWords > 0 ? 0.15 : 0;
-    return Math.max(0.5, 0.9 - extraWords * 0.15 - singleWordPenalty);
+    const base = Math.max(0.5, 0.9 - extraWords * 0.15 - singleWordPenalty);
+    // Containment bonus — see matching.ts for the full rationale. Scene
+    // releases drop subtitle words ("Tafiti" ⊂ "Tafiti - Ab durch die
+    // Wüste"); the extra-words penalty would floor them at 0.5, under the
+    // 0.72 threshold. Full containment + year-compatible → strong signal.
+    // A conflicting stated year (a genuine different film) still kills it
+    // via the year gate in step3 below.
+    const yearOk = yearInfo ? yearIsCompatible(yearInfo.year ?? null, yearInfo.targetYear ?? null) : true;
+    return yearOk ? Math.max(base, 0.85) : base;
   }
   const dist = levenshtein(na, nb);
   const charSim = Math.max(0, 1 - dist / Math.max(na.length, nb.length));
@@ -295,11 +303,11 @@ function matchesConcatenatedAlias(parsedTitle, targetTitle, aliases) {
   return false;
 }
 
-function releaseTitleMatches(parsedTitle, targetTitle, aliases = []) {
+function releaseTitleMatches(parsedTitle, targetTitle, aliases = [], yearInfo = null) {
   const candidates = [targetTitle, ...aliases];
   if (candidates.some((t) => sequelNumbersConflict(parsedTitle, t))) return false;
   if (matchesConcatenatedAlias(parsedTitle, targetTitle, aliases)) return true;
-  return candidates.some((t) => titleSimilarity(parsedTitle, t) >= TITLE_MATCH_THRESHOLD);
+  return candidates.some((t) => titleSimilarity(parsedTitle, t, yearInfo) >= TITLE_MATCH_THRESHOLD);
 }
 
 function yearIsCompatible(parsedYear, targetYear) {
@@ -338,7 +346,9 @@ function seasonEpisodeMatches(parsed, seasonNumber, episodeNumber, singleSeasonT
 function matchReleases({ releases, targetTitle, aliases, targetYear, seasonNumber, episodeNumber, filterPack, partTotalEpisodes }) {
   const isSeries = seasonNumber != null;
   const step1 = releases.map((r, idx) => ({ idx, parsed: parseRelease(r.title) }));
-  const step2 = step1.filter(({ parsed }) => releaseTitleMatches(parsed.title, targetTitle, aliases ?? []));
+  const step2 = step1.filter(({ parsed }) =>
+    releaseTitleMatches(parsed.title, targetTitle, aliases ?? [], { year: parsed.year ?? null, targetYear: targetYear ?? null })
+  );
   const step3 = isSeries
     ? step2.filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, filterPack ? null : episodeNumber, partTotalEpisodes ?? null))
     : step2.filter(({ parsed }) => yearIsCompatible(parsed.year, targetYear ?? null));

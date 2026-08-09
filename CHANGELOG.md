@@ -4,6 +4,23 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.12.98 — August 2026
+
+### Correction mobile — hitbox barre de navigation inférieure
+
+- **Corrigé — boutons non cliquables en bas de la barre de navigation mobile** : sur iPhone avec indicateur d'accueil (zone safe-area ≈ 34 px), le `paddingBottom` safe-area était appliqué sur le conteneur `nav` plutôt que sur chaque bouton. Avec `items-stretch`, les enfants ne remplissent que la zone de contenu du nav (hors padding) — la zone safe-area en bas était visuellement couverte par le fond de la barre mais n'appartenait à aucun élément cliquable. Le padding est désormais porté par chaque bouton avec `max(0.5rem, env(safe-area-inset-bottom))`, ce qui étend la hitbox jusqu'en bas de l'écran tout en conservant l'icône et le libellé centrés dans la partie visible.
+
+---
+
+## v1.12.97 — August 2026
+
+### Correction C411 collision d'ID TMDb + amélioration matching releases scène
+
+- **Corrigé — collision d'espace d'ID TMDb dans les listes C411** : TMDb utilise deux espaces d'identifiants distincts (films et séries) qui se chevauchent — le même numéro peut désigner à la fois un film et une série différente. Jusqu'ici, le premier résultat trouvé (côté film) était retenu sans vérification, ce qui pouvait afficher la fiche d'un film sans rapport à la place d'une série. La résolution passe maintenant par un **hint titre + année** fourni par C411 : quand un ID existe des deux côtés, le titre et l'année stockés dans la liste permettent de choisir le bon espace. Le cache est versionné (v2) ; les anciennes entrées sans version sont ignorées et recalculées pour éviter qu'un verdict erroné survive les 30 jours de TTL.
+- **Amélioré — matching releases scène avec sous-titre tronqué** : les releases de scène omettent souvent le sous-titre officiel (ex. « Tafiti » au lieu de « Tafiti - Ab durch die Wüste »), ce qui les pénalisait à 0,50 sous le seuil de matching. Un bonus de containment ramène le score à 0,85 quand le titre de la release est entièrement contenu dans le titre officiel **et** que l'année est compatible — les films différents homonymes publiés une autre année restent rejetés.
+
+---
+
 ## v1.12.96 — August 2026
 
 ### Découvrir — libellé de la section recommandations affiné
