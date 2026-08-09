@@ -4,6 +4,17 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.00 — August 2026
+
+### Historique refonte, matching années, TVDB dans Métadonnées, event loop, bottom nav mobile
+
+- **Refonte — page Historique** : timeline groupée par date (Aujourd'hui / Hier / Cette semaine / Ce mois / Plus ancien), cartes avec bordure colorée selon le statut, entrées d'échec en rouge avec message d'erreur affiché directement (sans clic), animations décalées à l'entrée, état vide illustré, compteur d'événements, rafraîchissement automatique toutes les 10 secondes. Traduit intégralement en 5 langues (labels de statut, groupes de dates, système, score, détails).
+- **Corrigé — matching : tolérance d'année étendue à ±2** : les releases physiques (Blu-ray/DVD) publiées jusqu'à deux ans après la sortie cinéma originale étaient rejetées par le filtre d'année (ex. Tafiti, film allemand 2024 avec release française Blu-ray 2026). La tolérance passe de ±1 à ±2 dans `releaseMatchWorker.mjs` et `matching.ts`, ce qui active aussi le bonus de containment déjà présent pour les titres tronqués par les releases scène.
+- **Déplacé — clé API TVDB de l'onglet Animé vers l'onglet Métadonnées** : regroupement logique avec TMDb et OMDb. L'onglet Animé conserve les deux bascules (utiliser TVDB / épisodes spéciaux) et le panneau de synchronisation. Les hints de navigation des deux onglets sont mis à jour. 5 locales.
+- **Simplifié — texte event loop dans Performance** : remplacé par une phrase claire en une ligne (latence du thread principal, vert = OK, rouge = surchargé). 5 locales.
+
+---
+
 ## v1.12.98 — August 2026
 
 ### Correction mobile — hitbox barre de navigation inférieure
