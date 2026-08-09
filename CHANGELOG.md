@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.07 — August 2026
+
+### Correction changelog v1.13.05
+
+- Retrait d'une entrée incorrecte : le carré rouge visible dans le screenshot ARM était une annotation dessinée par l'utilisateur pour indiquer la zone problématique, pas un bug visuel réel de l'UI.
+
+---
+
 ## v1.13.06 — August 2026
 
 ### Correctif matching — titres avec `+` (Blood+, C+C Music Factory…)
@@ -14,9 +22,8 @@ All notable changes to Movviz, grouped by development milestone.
 
 ## v1.13.05 — August 2026
 
-### Correctif accordéon saisons — bordures rouges et compatibilité navigateur ARM
+### Correctif accordéon saisons — compatibilité navigateur ARM
 
-- **Corrigé — bordure rouge autour du chevron** : le navigateur appliquait son focus ring par défaut (outline) sur le `div[role="button"]` de chaque saison, visible comme un carré rouge dans certains environnements (ARM Docker). Supprimé via `outline-none`.
 - **Corrigé — accordéon bloqué sous ARM Docker (deuxième passe)** : la transition `gridTemplateRows` CSS n'est pas supportée dans tous les navigateurs ARM. Remplacement par `max-height: 0 → 9999px` avec `overflow: hidden`, technique universelle supportée depuis IE9 — fonctionne sans ResizeObserver, sans JS d'animation, sans Framer Motion.
 
 ---
