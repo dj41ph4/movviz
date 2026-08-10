@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.21 — August 2026
+
+### "Für dich" kann sich jetzt auf die Plex-Historie des ganzen Haushalts stützen, nicht nur auf deine eigene
+
+- **Neu**: wenn die eigene Plex-Sehhistorie eines Accounts dünn oder leer ist, mischt seine Zeile "Für dich" jetzt auch das ein, was andere Accounts auf derselben Instanz gesehen haben (mit geringerer Gewichtung als die eigene Historie des Accounts) — damit ein Account ohne eigene Plex-Verknüpfung trotzdem eine echte, personalisierte Zeile bekommt statt des generischen "Am besten bewertet"-Rückfalls. Das greift erst, sobald mindestens zwei andere Accounts über echte eigene Sehdaten verfügen — der Geschmack eines einzelnen anderen Accounts dient nie als Ersatzsignal für den "Haushalt", um zu vermeiden, dass die Auswahl einer Person heimlich auf jemand anderen übertragen wird. Die eigene Zeile jedes Accounts bleibt genauso persönlich wie zuvor; das fügt nur ein breiteres Signal hinzu und ersetzt nie die eigene Historie des Accounts, wenn sie bereits vorhanden ist.
+
 ## v1.13.20 — August 2026
 
 ### Episodentitel und -beschreibungen kamen unabhängig von der Sprache der Benutzeroberfläche immer auf Französisch zurück

@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.21 — Agosto 2026
+
+### "Per te" può ora basarsi sulla cronologia Plex di tutto il nucleo familiare, non solo sulla tua
+
+- **Nuovo**: quando la cronologia Plex propria di un account è scarsa o vuota, la sua riga "Per te" ora mescola anche ciò che gli altri account della stessa istanza hanno guardato (con un peso inferiore rispetto alla cronologia propria dell'account) — così un account senza collegamento Plex può comunque avere una vera riga personalizzata invece del generico ripiego "più votati". Questo scatta solo a partire dal momento in cui almeno altri due account hanno dati di visione reali — i gusti di un solo altro account non vengono mai usati come segnale "nucleo familiare" sostitutivo, per evitare di clonare silenziosamente le scelte di una persona su qualcun altro. La riga di ogni account resta esattamente personale come prima; questo aggiunge solo un segnale più ampio in più, senza mai sostituire la cronologia propria dell'account quando esiste già.
+
 ## v1.13.20 — Agosto 2026
 
 ### I titoli e i riassunti degli episodi venivano sempre restituiti in francese, indipendentemente dalla lingua dell'interfaccia

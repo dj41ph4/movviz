@@ -1051,7 +1051,7 @@ export const nl: Dictionary = {
     tabIndexSeries: "Serie-indexering",
     tabAbout: "Over",
     aboutVersion: "Versie {version}",
-    aboutCredit: "Met zorg gemaakt door Bottemanne Sébastien.",
+    aboutCredit: "Met zorg gemaakt door DJ41PH4.",
     aboutLicenseTitle: "Licentie",
     aboutLicenseHint: "Movviz is vrije software, uitgebracht onder de GPL-3.0-licentie: je mag het vrij aanpassen en herdistribueren, zolang afgeleide versies ook open source blijven.",
     aboutSupportTitle: "Steun het project",

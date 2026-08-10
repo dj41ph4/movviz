@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.20 — août 2026
+## v1.13.21 — août 2026
+
+### "Pour toi" peut désormais s'appuyer sur l'historique Plex de tout le foyer, pas seulement le tien
+
+- **Nouveau** : quand l'historique Plex propre à un compte est mince ou vide, sa rangée "Pour toi" mélange désormais aussi ce que les autres comptes de l'instance ont regardé (avec un poids plus faible que l'historique propre du compte) — pour qu'un compte sans lien Plex puisse quand même avoir une vraie rangée personnalisée au lieu du repli générique "mieux notés". Ça ne se déclenche qu'à partir du moment où au moins deux autres comptes ont de vraies données de visionnage — les goûts d'un seul autre compte ne servent jamais de signal "foyer" de substitution, pour éviter de cloner discrètement les choix d'une personne sur quelqu'un d'autre. La rangée de chaque compte reste exactement aussi personnelle qu'avant ; ça ne fait qu'ajouter un signal plus large par-dessus, jamais remplacer l'historique propre du compte quand il existe déjà.
 
 ### Titres et résumés d'épisodes toujours renvoyés en français, quelle que soit la langue de l'interface
 

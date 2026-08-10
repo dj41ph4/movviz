@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.21 — Augustus 2026
+
+### "Voor jou" kan nu putten uit de Plex-geschiedenis van het hele huishouden, niet alleen die van jou
+
+- **Nieuw**: wanneer de eigen Plex-kijkgeschiedenis van een account dun of leeg is, mengt de rij "Voor jou" nu ook wat andere accounts op dezelfde instantie hebben bekeken (met een lagere weging dan de eigen geschiedenis van het account) — zodat iemand zonder eigen Plex-koppeling toch een echte, gepersonaliseerde rij krijgt in plaats van de standaard generieke "best beoordeeld"-terugval. Dit treedt pas in werking zodra minstens twee andere accounts over echte kijkdata beschikken — de smaak van één ander account wordt nooit gebruikt als vervangend "huishouden"-signaal, om te voorkomen dat de keuzes van één persoon stilzwijgend op iemand anders worden gekloond. De eigen rij van elk account blijft precies zo persoonlijk als voorheen; dit voegt alleen een breder signaal toe, en vervangt nooit de eigen geschiedenis van het account wanneer die er al is.
+
 ## v1.13.20 — Augustus 2026
 
 ### Afleveringstitels en -beschrijvingen kwamen altijd in het Frans terug, ongeacht de taal van de interface

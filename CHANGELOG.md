@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.20 — August 2026
+## v1.13.21 — August 2026
+
+### "For you" recommendations can now draw on the whole household's Plex history, not just your own
+
+- **New**: when an account's own Plex watch history is thin or empty, its "For you" row now also blends in what other accounts on the same instance have watched (weighted lower than the account's own history) — so someone without their own Plex link can still get a real, personalized row instead of the flat generic "top rated" fallback. This only kicks in once at least two other accounts have real watch data of their own — a single other account's taste is never used as a stand-in "household" signal, to avoid quietly cloning one person's picks onto someone else. Each account's own row stays exactly as personal as before; this only ever adds a broader signal on top, never replaces the account's own history when it's already there.
 
 ### Episode titles and descriptions always came back in French, regardless of the interface language
 

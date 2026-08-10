@@ -1048,7 +1048,7 @@ export const fr = {
     tabIndexSeries: "Indexation Séries",
     tabAbout: "À propos",
     aboutVersion: "Version {version}",
-    aboutCredit: "Développé avec passion par Bottemanne Sébastien.",
+    aboutCredit: "Développé avec passion par DJ41PH4.",
     aboutLicenseTitle: "Licence",
     aboutLicenseHint: "Movviz est un logiciel libre, distribué sous licence GPL-3.0 : tu peux le modifier et le redistribuer librement, à condition que les versions dérivées restent elles aussi open-source.",
     aboutSupportTitle: "Soutenir le projet",

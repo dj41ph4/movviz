@@ -1068,7 +1068,7 @@ export const de: Dictionary = {
     tabIndexSeries: "Serienindizierung",
     tabAbout: "Über",
     aboutVersion: "Version {version}",
-    aboutCredit: "Mit Sorgfalt entwickelt von Bottemanne Sébastien.",
+    aboutCredit: "Mit Sorgfalt entwickelt von DJ41PH4.",
     aboutLicenseTitle: "Lizenz",
     aboutLicenseHint: "Movviz ist freie Software, lizenziert unter GPL-3.0: Du darfst sie frei verändern und weiterverbreiten, solange abgeleitete Versionen ebenfalls Open Source bleiben.",
     aboutSupportTitle: "Projekt unterstützen",
