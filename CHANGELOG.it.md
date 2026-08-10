@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.23 — Agosto 2026
+
+### Più dettaglio nel log di sincronizzazione Plex, per stanare un vero sospetto
+
+- **Modificato**: dopo che la v1.13.22 ha aggiunto la registrazione per account, un primo passaggio reale ha mostrato che tutti gli account amici collegati riportavano esattamente gli stessi numeri di visione — da verificare piuttosto che dare per scontato. La riga di log ora mostra anche l'ID dell'account Plex e una breve impronta non sensibile del token per account, per confermare se si tratta davvero di identità Plex distinte prima di seguire una pista sbagliata.
+
 ## v1.13.22 — Agosto 2026
 
 ### "Per te" torna a essere strettamente individuale, e un errore di sincronizzazione Plex non sembra più "non ha guardato nulla"

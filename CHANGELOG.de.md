@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.23 — August 2026
+
+### Mehr Detail im Plex-Watch-Sync-Log, um einen echten Verdächtigen aufzuspüren
+
+- **Geändert**: nachdem v1.13.22 die Protokollierung pro Konto eingeführt hat, zeigte ein erster echter Durchlauf, dass alle verknüpften Freundeskonten exakt dieselben Wiedergabezahlen meldeten — das verdient eine Überprüfung statt blindes Vertrauen. Die Log-Zeile zeigt jetzt zusätzlich die Plex-Konto-ID und einen kurzen, nicht sicherheitskritischen Fingerabdruck des Tokens pro Konto, um zu bestätigen, ob es sich wirklich um unterschiedliche Plex-Identitäten handelt, bevor man der falschen Ursache nachjagt.
+
 ## v1.13.22 — August 2026
 
 ### „Für dich" ist wieder streng pro Konto, und ein fehlgeschlagener Plex-Watch-Sync sieht nicht mehr aus wie „nichts geschaut"

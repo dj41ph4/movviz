@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.23 — Augustus 2026
+
+### Meer detail in het Plex-kijksync-logboek, om een echte verdachte op te sporen
+
+- **Gewijzigd**: nadat v1.13.22 logging per account toevoegde, liet een eerste echte run zien dat alle gekoppelde vriendenaccounts exact dezelfde kijkcijfers rapporteerden — het loont om dit te onderzoeken in plaats van het klakkeloos te vertrouwen. De logregel toont nu ook het Plex-account-id en een korte, niet-geheime vingerafdruk van het token per account, om te bevestigen of het echt om verschillende Plex-identiteiten gaat voordat de verkeerde oorzaak wordt achtervolgd.
+
 ## v1.13.22 — Augustus 2026
 
 ### "Voor jou" is weer strikt persoonlijk, en een mislukte Plex-synchronisatie ziet er niet langer uit als "niets bekeken"

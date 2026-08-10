@@ -101,10 +101,16 @@ export async function syncUserWatchStatus(user: User) {
     }
 
     saveWatchStatus({ userId: user.id, movies, episodes, updatedAt: Date.now() });
+    // Temporary extra detail (plexId + a non-secret token fingerprint) while
+    // diagnosing why every account came back with IDENTICAL counts on the
+    // first run with this logging — proves whether these are genuinely
+    // distinct Plex accounts/tokens or something is collapsing them onto
+    // the same one before ever reaching Plex.
+    const tokenFingerprint = effectiveToken ? `${effectiveToken.slice(0, 4)}…${effectiveToken.slice(-4)}` : "none";
     recordSearchLog(
       "info",
       "plex.watchSync",
-      `${user.username}: synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s) sur ${sections.length} section(s)`
+      `${user.username} (plexId:${user.plexId ?? "?"}, token:${tokenFingerprint}, managed:${user.plexManagedUserId ?? "non"}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s) sur ${sections.length} section(s)`
     );
   } catch (err: any) {
     recordSearchLog(

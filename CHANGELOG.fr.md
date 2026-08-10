@@ -4,6 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.23 — août 2026
+
+### Plus de détail dans le journal de synchro Plex, pour traquer un vrai suspect
+
+- **Changé** : après que la v1.13.22 a ajouté la journalisation par compte, un premier passage réel a montré que tous les comptes amis liés remontaient exactement les mêmes chiffres de visionnage — à vérifier plutôt qu'à prendre pour argent comptant. La ligne de log affiche désormais aussi l'identifiant du compte Plex et une courte empreinte non sensible du token par compte, pour confirmer s'il s'agit bien d'identités Plex distinctes avant de partir sur une fausse piste.
+
 ## v1.13.22 — août 2026
 
 ### "Pour toi" redevient strictement individuel, et un échec de synchro Plex ne ressemble plus à "n'a rien regardé"

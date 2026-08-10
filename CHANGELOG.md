@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.23 — August 2026
+
+### More detail in the Plex watch-sync log, to track down a real one
+
+- **Changed**: after v1.13.22 added per-account sync logging, a first real run showed every linked friend account reporting the exact same watch counts — worth investigating rather than trusting at face value. The log line now also names the Plex account id and a short, non-secret token fingerprint per account, to confirm whether these are genuinely distinct Plex identities before chasing the wrong cause.
+
 ## v1.13.22 — August 2026
 
 ### "For you" recommendations are strictly per-account again, and a Plex watch-sync failure no longer looks like "watched nothing"
