@@ -10,16 +10,21 @@
  * isUserInteraction() filtre ces endpoints de polling (voir POLL_PREFIXES).
  *
  * Les boucles d'arrière-plan (bulk « Rechercher les manquants », tâches
- * planifiées RSS, upgrades qualité…) consultent isUserActive() / yieldToUser()
- * au début de chaque itération : quand l'utilisateur clique ou navigue, elles
- * cèdent la main et reprennent après quelques secondes d'inactivité — le
- * ralentissement est toujours côté arrière-plan, jamais côté utilisateur.
+ * planifiées RSS, upgrades qualité…) consultent yieldToUser() au début de
+ * chaque itération : quand l'utilisateur clique ou navigue, elles cèdent la
+ * main et reprennent après quelques secondes d'inactivité — le ralentissement
+ * est toujours côté arrière-plan, jamais côté utilisateur. Chaque épisode de
+ * ralentissement est tracé dans le log de diagnostic (priority.yield) avec
+ * l'utilisateur actif responsable (nom + id) et sa durée — lisible dans le
+ * panneau Diagnostics.
  *
  * Ancré sur globalThis (convention AGENTS.md) : partagé entre les bundles
  * Next.js du même processus, survit au HMR. Timestamp en mémoire seulement —
  * rien à persister ; au redémarrage la valeur tombe à zéro, ce qui est
  * exactement le comportement voulu (personne n'est actif à froid).
  */
+
+import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 
 // Fenêtre pendant laquelle une interaction utilisateur est considérée
 // « récente » (isUserActive).
@@ -32,7 +37,12 @@ const IDLE_RESUME_MS = 4_000;
 const MAX_YIELD_MS = 30_000;
 const YIELD_STEP_MS = 1_000;
 
-const g = globalThis as typeof globalThis & { __movvizLastUserActivity?: number };
+interface UserActivity {
+  at: number;
+  user: { id: string; username: string } | null;
+}
+
+const g = globalThis as typeof globalThis & { __movvizLastUserActivity?: UserActivity };
 
 /**
  * Endpoints interrogés en boucle par le frontend (SWR refreshInterval,
@@ -98,16 +108,24 @@ export function isUserInteraction(pathname: string, method: string): boolean {
   return !POLL_PREFIXES.some((p) => pathname.startsWith(p));
 }
 
-/** Enregistre une interaction utilisateur — appelé par requireUser/requireAdmin. */
-export function markUserActivity() {
-  g.__movvizLastUserActivity = Date.now();
+/**
+ * Enregistre une interaction utilisateur — appelé par requireUser/requireAdmin
+ * avec l'utilisateur authentifié (nom + id) : c'est lui que les logs de
+ * ralentissement désigneront.
+ */
+export function markUserActivity(user?: { id: string; username: string }) {
+  g.__movvizLastUserActivity = { at: Date.now(), user: user ?? null };
 }
 
 /** Un utilisateur a-t-il interagi dans les ACTIVE_WINDOW_MS dernières ms ? */
 export function isUserActive(): boolean {
   const last = g.__movvizLastUserActivity;
   if (last == null) return false;
-  return Date.now() - last < ACTIVE_WINDOW_MS;
+  return Date.now() - last.at < ACTIVE_WINDOW_MS;
+}
+
+function formatDuration(ms: number): string {
+  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms}ms`;
 }
 
 /**
@@ -118,16 +136,27 @@ export function isUserActive(): boolean {
  * à MAX_YIELD_MS au total. La condition relit le timestamp à chaque pas :
  * si l'utilisateur continue de cliquer, le yield se prolonge (jusqu'au
  * plafond) au lieu de repartir en pleine activité.
+ *
+ * Un épisode de ralentissement réel (attente > 0) est tracé dans le log de
+ * diagnostic : contexte de la tâche bridée, utilisateur actif et durée.
+ * `context` est un libellé court et lisible (ex: "bulk manquants").
  */
-export async function yieldToUser(): Promise<void> {
+export async function yieldToUser(context?: string): Promise<void> {
   const last = g.__movvizLastUserActivity;
-  if (last == null || Date.now() - last >= IDLE_RESUME_MS) return;
+  if (last == null || Date.now() - last.at >= IDLE_RESUME_MS) return;
   const start = Date.now();
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const now = Date.now();
-    if (now - g.__movvizLastUserActivity! >= IDLE_RESUME_MS) return;
-    if (now - start >= MAX_YIELD_MS) return;
+    if (now - g.__movvizLastUserActivity!.at >= IDLE_RESUME_MS) break;
+    if (now - start >= MAX_YIELD_MS) break;
     await new Promise<void>((resolve) => setTimeout(resolve, YIELD_STEP_MS));
   }
+  const waited = Date.now() - start;
+  const who = last.user ? `${last.user.username} (id:${last.user.id})` : "inconnu";
+  recordSearchLog(
+    "info",
+    "priority.yield",
+    `Arrière-plan bridé${context ? ` [${context}]` : ""} pendant ${formatDuration(waited)} par l'utilisateur actif ${who}`
+  );
 }

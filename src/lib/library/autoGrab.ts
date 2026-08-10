@@ -346,7 +346,7 @@ export async function checkQualityUpgrades() {
 async function checkQualityUpgradesInner() {
   const upgraded: string[] = [];
   for (const movie of loadMovies()) {
-    await yieldToUser();
+    await yieldToUser("upgrades qualité");
     if (movie.status !== "available" || !movie.file || !movie.monitored) continue;
     const profile =
       DEFAULT_QUALITY_PROFILES.find((p) => p.id === movie.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
@@ -448,7 +448,7 @@ async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number
   const candidates = await findUpgradeCandidates();
   let movieCount = 0;
   for (const c of candidates) {
-    await yieldToUser();
+    await yieldToUser("auto-upgrade films");
     if (c.movieId && isUpgradeIgnored(c.movieId)) continue;
     await grabUpgradeCandidate(c.movieId!);
     movieCount++;
@@ -457,7 +457,7 @@ async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number
   const epCandidates = await findEpisodeUpgradeCandidates();
   let epCount = 0;
   for (const c of epCandidates) {
-    await yieldToUser();
+    await yieldToUser("auto-upgrade épisodes");
     const result = await grabEpisodeUpgradeCandidate(c.seriesId, c.seasonNumber, c.episodeNumber);
     if (result.ok) epCount++;
   }
@@ -515,7 +515,7 @@ async function searchReleasedMissingMoviesInner() {
   const now = Date.now();
   const searched: string[] = [];
   for (const movie of loadMovies()) {
-    await yieldToUser();
+    await yieldToUser("recherche films récents");
     if (!movie.monitored || movie.status !== "missing" || !movie.vfReleaseDate) continue;
     const releasedAt = new Date(movie.vfReleaseDate).getTime();
     if (Number.isNaN(releasedAt) || releasedAt > now || now - releasedAt > 14 * DAY_MS) continue;
@@ -551,7 +551,7 @@ async function searchMissingMoviesInner(max: number) {
   const batch = candidates.slice(0, max);
   const searched: string[] = [];
   for (const movie of batch) {
-    await yieldToUser();
+    await yieldToUser("recherche films manquants");
     await searchAndGrabMovie(movie.id);
     searched.push(movie.id);
   }

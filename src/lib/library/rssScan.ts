@@ -62,7 +62,7 @@ async function rssMatchIndexersInner() {
       if (grabbedMovies.has(movie.id)) continue;
       if (!releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []) || !yearIsCompatible(parsed.year, movie.year)) continue;
       grabbedMovies.add(movie.id);
-      await yieldToUser();
+      await yieldToUser("match RSS films");
       const result = await searchAndGrabMovie(movie.id);
       if ("ok" in result && result.ok) grabbed++;
     }
@@ -83,7 +83,7 @@ async function rssMatchIndexersInner() {
       // scheduled retry may be mid-search on this exact series right now —
       // without the lock this RSS hit would run a redundant season search
       // chain against it.
-      await yieldToUser();
+      await yieldToUser("match RSS saisons");
       const result = await withSearchLock(`series:${s.seriesId}`, () =>
         searchAndGrabSeason(s.seriesId, s.season, { skipSeriesPackRetry: skipSeriesPack })
       );

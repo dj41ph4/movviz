@@ -50,7 +50,7 @@ async function runBatch<T>(
       // Yield to the user: if they're navigating/clicking, the batch waits
       // for their inactivity (a few seconds, capped at 30s) before the next
       // item — the bulk slows down, the UI never does.
-      await yieldToUser();
+      await yieldToUser("bulk manquants");
       const idx = i++;
       await fn(queue[idx]).catch(() => {});
       onProgress();

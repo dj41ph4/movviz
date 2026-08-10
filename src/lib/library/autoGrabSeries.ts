@@ -1786,7 +1786,7 @@ async function searchReleasedMissingEpisodesInner() {
   }
 
   for (const { series, seasons } of bySeries.values()) {
-    await yieldToUser();
+    await yieldToUser("recherche épisodes récents");
     await withSearchLock(`series:${series.id}`, async () => {
       // Re-derive from fresh state: an earlier pass on this series (bulk job,
       // manual button) may have grabbed some of it while we waited on the
@@ -1911,7 +1911,7 @@ async function searchMissingEpisodesInner(maxSeasons: number) {
   }
 
   for (const { series, seasons } of entries) {
-    await yieldToUser();
+    await yieldToUser("recherche épisodes manquants");
     await withSearchLock(`series:${series.id}`, async () => {
       // Re-derive from fresh state: an earlier pass on this series (bulk job,
       // manual button) may have grabbed some of it while we waited on the
