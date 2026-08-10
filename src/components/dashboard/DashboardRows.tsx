@@ -2,6 +2,7 @@
 
 import useSWR from "swr";
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { PosterRow } from "@/components/media/PosterRow";
 import { DashboardPosterCard } from "./DashboardPosterCard";
 import { useT } from "@/i18n/provider";
@@ -25,6 +26,7 @@ interface UpgradeCandidate {
  */
 export function DashboardRows({ sections, movies }: { sections: DashboardLayout["sections"]; movies: LibraryMovie[] }) {
   const t = useT();
+  const router = useRouter();
   const visible = useMemo(() => new Set(sections.filter((s) => s.visible).map((s) => s.id)), [sections]);
 
   const { data: rowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[] }[] }>(
@@ -79,7 +81,7 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
 
         if (id === "becauseYouLike" && recommended.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.rowRecommended")}>
+            <PosterRow key={id} title={t("dashboard.rowRecommended")} onSeeAll={() => router.push("/discover?type=movie&row=recommendedTop")}>
               {recommended.map((r) => (
                 <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} />
               ))}
@@ -89,7 +91,7 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
 
         if (id === "availableNow" && recentlyAdded.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.recentlyAdded")}>
+            <PosterRow key={id} title={t("dashboard.recentlyAdded")} onSeeAll={() => router.push("/library?filter=available&sort=recent")}>
               {recentlyAdded.map((m) => (
                 <DashboardPosterCard key={m.id} tmdbId={m.tmdbId} type="movie" title={m.title} posterPath={m.posterPath} rating={m.rating} year={m.year} runtime={m.runtime} genres={m.genres} />
               ))}
@@ -99,7 +101,7 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
 
         if (id === "comingSoon" && upcoming.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.rowUpcoming")}>
+            <PosterRow key={id} title={t("dashboard.rowUpcoming")} onSeeAll={() => router.push("/library?filter=upcoming")}>
               {upcoming.map(({ m, days }) => (
                 <DashboardPosterCard
                   key={m.id}
@@ -139,7 +141,7 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
 
         if (id === "discover" && trending.length > 0) {
           return (
-            <PosterRow key={id} title={t("dashboard.rowTrending")}>
+            <PosterRow key={id} title={t("dashboard.rowTrending")} onSeeAll={() => router.push("/discover?type=movie&row=trendingPopular")}>
               {trending.map((r, i) => (
                 <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} rank={i + 1} />
               ))}

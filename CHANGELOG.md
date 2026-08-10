@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.14 — August 2026
+
+### Dashboard rows can now open a full grid — "See all" was never actually wired up
+
+- **Fixed**: the dashboard's carousels ("For you", "Recently added", "Coming soon", "Trending") had a "See all" affordance built into the row component itself, but no dashboard row was ever passing it a destination — so it silently never appeared, on any row, since this part of the dashboard was first built. Rows stay exactly as compact horizontal strips; "See all" now opens the full set as a real, filterable grid (Discover for recommendation/trending rows, your Library — pre-filtered to match — for rows drawn from what you already own).
+
 ## v1.13.13 — August 2026
 
 ### Beta player is now a personal choice per account, off by default

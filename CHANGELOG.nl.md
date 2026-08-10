@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.14 — Augustus 2026
+
+### Dashboardrijen kunnen nu een volledig grid openen — "Alles bekijken" was nooit echt aangesloten
+
+- **Opgelost**: de carrousels van het dashboard ("Voor jou", "Recent toegevoegd", "Binnenkort", "Trending") hadden een "Alles bekijken"-functie ingebouwd in het rijcomponent zelf, maar geen enkele dashboardrij gaf hier ooit een bestemming aan mee — dus verscheen die stilzwijgend nooit, op geen enkele rij, sinds dit deel van het dashboard voor het eerst is gebouwd. Rijen blijven precies zoals ze zijn: compacte horizontale stroken; "Alles bekijken" opent nu de volledige set als een echt filterbaar grid (Ontdekken voor aanbevelings-/trendingrijen, je Bibliotheek — vooraf gefilterd om te passen — voor rijen die zijn samengesteld uit wat je al bezit).
+
 ## v1.13.13 — Augustus 2026
 
 ### Bèta-player is nu een persoonlijke keuze per account, standaard uit

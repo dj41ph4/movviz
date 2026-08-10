@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.14 — August 2026
+
+### Dashboard-Zeilen können jetzt ein vollständiges Raster öffnen — "Alle anzeigen" war nie wirklich angebunden
+
+- **Behoben**: Die Karussells des Dashboards ("Für dich", "Kürzlich hinzugefügt", "Demnächst", "Trends") hatten eine "Alle anzeigen"-Funktion, die direkt in die Zeilenkomponente eingebaut war, aber keine Dashboard-Zeile übergab ihr jemals ein Ziel — sie erschien deshalb stillschweigend nie, bei keiner Zeile, seit dieser Teil des Dashboards ursprünglich gebaut wurde. Zeilen bleiben genau wie kompakte horizontale Streifen; "Alle anzeigen" öffnet jetzt die vollständige Menge als echtes, filterbares Raster (Entdecken für Empfehlungs-/Trend-Zeilen, deine Bibliothek — passend vorgefiltert — für Zeilen, die aus bereits Vorhandenem stammen).
+
 ## v1.13.13 — August 2026
 
 ### Der Beta-Player ist jetzt eine persönliche Wahl pro Konto, standardmäßig deaktiviert

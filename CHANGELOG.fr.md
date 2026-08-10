@@ -4,6 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.14 — août 2026
+
+### Les rangées du tableau de bord peuvent désormais ouvrir une grille complète — « Voir plus » n'avait en réalité jamais été branché
+
+- **Corrigé** : les carrousels du tableau de bord ("Pour toi", "Récemment ajoutés", "À venir", "Tendances") avaient un affichage « Voir plus » intégré dans le composant de rangée lui-même, mais aucune rangée du tableau de bord ne lui transmettait jamais de destination — donc ça n'apparaissait jamais, sur aucune rangée, depuis que cette partie du tableau de bord a été construite. Les rangées restent exactement les mêmes bandes horizontales compactes ; « Voir plus » ouvre désormais l'ensemble complet sous forme de vraie grille filtrable (Découverte pour les rangées de recommandations/tendances, ta Bibliothèque — pré-filtrée pour correspondre — pour les rangées tirées de ce que tu possèdes déjà).
+
 ## v1.13.13 — août 2026
 
 ### Le lecteur bêta est désormais un choix personnel par compte, désactivé par défaut

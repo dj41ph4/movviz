@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.14 — Agosto 2026
+
+### Le righe della dashboard ora possono aprire una griglia completa — "Vedi tutto" non era mai stato davvero collegato
+
+- **Corretto**: i caroselli della dashboard ("Per te", "Aggiunti di recente", "In arrivo", "Tendenze") avevano un'affordance "Vedi tutto" integrata nel componente riga stesso, ma nessuna riga della dashboard le aveva mai passato una destinazione — quindi non è mai comparsa silenziosamente, su nessuna riga, da quando questa parte della dashboard è stata costruita per la prima volta. Le righe restano esattamente come strisce orizzontali compatte; "Vedi tutto" ora apre l'intero insieme come una vera griglia filtrabile (Scopri per le righe di raccomandazione/tendenze, la tua Libreria — pre-filtrata di conseguenza — per le righe tratte da ciò che già possiedi).
+
 ## v1.13.13 — Agosto 2026
 
 ### Il player Beta è ora una scelta personale per account, disattivato di default
