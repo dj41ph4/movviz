@@ -3,6 +3,8 @@ import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { searchAndGrabSeries } from "@/lib/library/autoGrabSeries";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { JobCancelledError } from "@/lib/jobs/queue";
+import { runBackground } from "@/lib/priority/lane";
+import { yieldToUser } from "@/lib/priority/userActivity";
 
 // One at a time on purpose: 3 concurrent items each potentially falling back
 // to a direct indexer search (see grabRelease's fallback) could fire enough
@@ -45,6 +47,10 @@ async function runBatch<T>(
       // queue.ts). Remaining items simply stay "missing" and are retried on
       // a later run.
       if (shouldCancel?.()) return;
+      // Yield to the user: if they're navigating/clicking, the batch waits
+      // for their inactivity (a few seconds, capped at 30s) before the next
+      // item — the bulk slows down, the UI never does.
+      await yieldToUser();
       const idx = i++;
       await fn(queue[idx]).catch(() => {});
       onProgress();
@@ -127,36 +133,44 @@ export async function searchAllMissing(
     ...shuffle(series).map((s): QueueItem => ({ type: "series", id: s.id })),
   ]);
 
-  await runBatch(
-    queue,
-    async (item) => {
-      if (item.type === "movie") {
-        try {
-          await searchAndGrabMovie(item.id);
-        } finally {
-          // Same contract as the series branch below: the tick must fire
-          // even if the search itself throws (runBatch swallows it) so
-          // current reaches total.
-          tick();
+  // Background lane: every indexer request made inside (searchAndGrabMovie /
+  // searchAndGrabSeries → searchMovie/searchTv/searchIndexer) inherits the
+  // "background" lane via AsyncLocalStorage, so the rate limiter applies the
+  // reduced background quota (user reserve always kept free). Combined with
+  // yieldToUser() per item above, this bulk — launched from the library
+  // button — never starves the user's own searches and clicks.
+  await runBackground(() =>
+    runBatch(
+      queue,
+      async (item) => {
+        if (item.type === "movie") {
+          try {
+            await searchAndGrabMovie(item.id);
+          } finally {
+            // Same contract as the series branch below: the tick must fire
+            // even if the search itself throws (runBatch swallows it) so
+            // current reaches total.
+            tick();
+          }
+          return;
         }
-        return;
-      }
-      let done = 0;
-      try {
-        await searchAndGrabSeries(item.id, { onSeasonDone: () => { done++; tick(); }, shouldCancel: options?.shouldCancel });
-      } finally {
-        // Top up whatever the series itself didn't tick — an intégrale found
-        // (or nothing left by the time the per-series lock released us, or an
-        // error swallowed by runBatch) covers the whole series at once, so
-        // its remaining expected seasons count here so current never stalls
-        // behind total.
-        const expected = seriesSeasonCounts.get(item.id) ?? 0;
-        while (done < expected) { done++; tick(); }
-      }
-    },
-    CONCURRENCY,
-    () => {},
-    options?.shouldCancel
+        let done = 0;
+        try {
+          await searchAndGrabSeries(item.id, { onSeasonDone: () => { done++; tick(); }, shouldCancel: options?.shouldCancel });
+        } finally {
+          // Top up whatever the series itself didn't tick — an intégrale found
+          // (or nothing left by the time the per-series lock released us, or an
+          // error swallowed by runBatch) covers the whole series at once, so
+          // its remaining expected seasons count here so current never stalls
+          // behind total.
+          const expected = seriesSeasonCounts.get(item.id) ?? 0;
+          while (done < expected) { done++; tick(); }
+        }
+      },
+      CONCURRENCY,
+      () => {},
+      options?.shouldCancel
+    )
   );
 
   if (options?.shouldCancel?.()) {

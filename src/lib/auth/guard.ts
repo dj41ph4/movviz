@@ -3,7 +3,7 @@ import { getCurrentUser } from "./session";
 import { getUserById } from "./store";
 import { resolveTokenUserId } from "@/lib/tokens/store";
 import type { User } from "./types";
-import { markUserActivity } from "@/lib/priority/userActivity";
+import { isUserInteraction, markUserActivity } from "@/lib/priority/userActivity";
 
 /**
  * Session cookie first (browser), falling back to a personal API token
@@ -20,10 +20,14 @@ export function requireUser(req: NextRequest): User | null {
   // routes non authentifiées ne doit pas maintenir l'utilisateur « actif ».
   // Le callback d'import du moteur utilise x-movviz-token, pas ce garde —
   // aucun faux positif d'activité côté machine.
+  // isUserInteraction() écarte les pollers frontend (statut moteur 500 ms,
+  // /api/jobs 2 s, /api/perf 5 s…) : sans ce filtre, la simple ouverture
+  // d'une page maintiendrait l'utilisateur « actif » en permanence et
+  // l'arrière-plan ne reprendrait jamais.
   const sessionUser = getCurrentUser(req);
   if (sessionUser) {
     if (sessionUser.status === "pending") return null;
-    markUserActivity();
+    if (isUserInteraction(req.nextUrl.pathname, req.method)) markUserActivity();
     return sessionUser;
   }
 
@@ -32,7 +36,7 @@ export function requireUser(req: NextRequest): User | null {
   const userId = resolveTokenUserId(token);
   const tokenUser = userId ? getUserById(userId) : null;
   if (!tokenUser || tokenUser.status === "pending") return null;
-  markUserActivity();
+  if (isUserInteraction(req.nextUrl.pathname, req.method)) markUserActivity();
   return tokenUser;
 }
 
