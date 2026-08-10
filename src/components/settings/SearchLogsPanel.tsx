@@ -25,6 +25,7 @@ const STEP_COLOR: Record<string, string> = {
   "search_all_missing.end": "text-brand",
   "rss_refresh": "text-sky",
   "cache_search": "text-purple",
+  "priority.": "text-brand-glow",
 };
 
 function stepColor(step: string): string {
@@ -64,6 +65,34 @@ export function SearchLogsPanel() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Live tail : la passe d'arrière-plan écrit ses lignes en continu, un
+  // simple chargement au montage donnait l'impression que le journal était
+  // vide/mort. Rafraîchi toutes les 5s, uniquement si l'onglet est visible,
+  // et sans re-render si rien n'a changé (comparaison longueur + dernier
+  // timestamp). L'endpoint /api/diagnostic est exclu du marquage d'activité
+  // utilisateur, ce poll reste donc silencieux pour l'arrière-plan.
+  useEffect(() => {
+    const id = setInterval(async () => {
+      if (document.hidden) return;
+      try {
+        const res = await fetch("/api/diagnostic/search-logs", { cache: "no-store" });
+        if (!res.ok) return;
+        const next = ((await res.json()) as { logs?: SearchLogLine[] }).logs ?? [];
+        setLogs((prev) => {
+          if (!prev) return next;
+          if (next.length === 0 && prev.length === 0) return prev;
+          const lastPrev = prev[prev.length - 1];
+          const lastNext = next[next.length - 1];
+          if (prev.length === next.length && lastPrev && lastNext && lastPrev.t === lastNext.t) return prev;
+          return next;
+        });
+      } catch {
+        // keep whatever we had — the manual refresh button still works
+      }
+    }, 5000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     if (autoScroll && bottomRef.current) {

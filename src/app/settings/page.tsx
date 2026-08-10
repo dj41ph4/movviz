@@ -278,7 +278,6 @@ function SettingsPageInner() {
             <div className="space-y-6">
               <DoctorPanel />
               <HealthPanel />
-              <TranscodeLogsPanel />
             </div>
           )}
 
@@ -294,6 +293,7 @@ function SettingsPageInner() {
               <SearchLogsPanel />
               <EngineLogsPanel />
               <ResolverLogsPanel />
+              <TranscodeLogsPanel />
             </div>
           )}
 

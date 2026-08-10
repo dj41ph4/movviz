@@ -1,7 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const MAX_LINES = 2000;
+// 4000 : chaque recherche d'épisode écrit ~10 lignes (dont 2-4 en debug) —
+// avec 2000, une grosse passe (bulk, RSS, relance) poussait hors du buffer
+// les lignes info/warn importantes (dont priority.yield) en quelques minutes.
+const MAX_LINES = 4000;
 const WRITE_COALESCE_MS = 5000;
 
 const CONFIG_DIR =

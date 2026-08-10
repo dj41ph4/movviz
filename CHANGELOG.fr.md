@@ -4,6 +4,15 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.17 — août 2026
+
+### Les logs de ralentissement annoncés s'affichent désormais vraiment dans Réglages → Journaux
+
+- **Corrigé** : le journal de diagnostic de recherche pouvait saturer son buffer de 2000 lignes en quelques minutes pendant les grosses passes d'arrière-plan (chaque recherche d'épisode écrit ~10 lignes, dont plusieurs en debug), éjectant silencieusement les lignes info importantes — y compris les nouvelles lignes de ralentissement de l'arrière-plan. Le buffer contient désormais 4000 lignes, les entrées `priority.yield` survivent donc au bruit.
+- **Nouveau** : le panneau de logs de Réglages → Journaux se met à jour en direct — rafraîchissement toutes les 5 secondes tant que l'onglet est visible, les lignes écrites par l'arrière-plan apparaissent donc au fil de l'eau au lieu d'attendre un rafraîchissement manuel. Pas de re-render si rien n'a changé.
+- **Corrigé** : toutes les sources de logs sont désormais regroupées au même endroit — le panneau des logs transcode a été déplacé de l'onglet Diagnostics vers Réglages → Journaux, qui regroupe maintenant search/diagnostic, moteur, resolver et transcode.
+- **Modifié** : les lignes de ralentissement de l'arrière-plan ont leur propre couleur dans le panneau, pour repérer « Arrière-plan bridé [bulk manquants]… » d'un coup d'œil.
+
 ## v1.13.16 — août 2026
 
 ### Les ralentissements de l'arrière-plan sont désormais visibles dans les logs — avec l'utilisateur responsable

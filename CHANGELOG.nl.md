@@ -4,6 +4,15 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.17 — Augustus 2026
+
+### De aangekondigde vertragingslogs zijn nu echt zichtbaar in Instellingen → Logs
+
+- **Opgelost**: het zoekdiagnoselog kon zijn buffer van 2000 regels in een paar minuten vullen tijdens zware achtergrondruns (elke afleveringzoekopdracht schrijft ~10 regels, waarvan meerdere als debug), waardoor belangrijke info-regels stilletjes werden weggeduwd — inclusief de nieuwe regels over achtergrondvertragingen. De buffer bevat nu 4000 regels, dus `priority.yield`-items overleven de ruis.
+- **Nieuw**: het logpaneel in Instellingen → Logs ververst nu live — elke 5 seconden zolang de tab zichtbaar is; regels van achtergrondwerk verschijnen dus meteen in plaats van pas na handmatig verversen. Geen re-render als er niets is veranderd.
+- **Opgelost**: alle logbronnen staan nu op één plek — het transcode-logpaneel is verplaatst van de tab Diagnostiek naar Instellingen → Logs, dat nu zoek-/diagnose-, engine-, resolver- en transcode-logs samen toont.
+- **Gewijzigd**: regels over achtergrondvertragingen hebben nu een eigen kleur in het paneel, zodat "Arrière-plan bridé [bulk manquants]…"-items in één oogopslag opvallen.
+
 ## v1.13.16 — Augustus 2026
 
 ### Vertragingen op de achtergrond zijn nu zichtbaar in de logs — met de verantwoordelijke gebruiker

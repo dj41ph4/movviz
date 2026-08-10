@@ -4,6 +4,15 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.17 — August 2026
+
+### Die angekündigten Verlangsamungs-Logs sind jetzt tatsächlich unter Einstellungen → Logs sichtbar
+
+- **Behoben**: Das Suchdiagnose-Log konnte seinen 2000-Zeilen-Puffer bei schweren Hintergrundläufen in wenigen Minuten füllen (jede Episodensuche schreibt ~10 Zeilen, mehrere davon als Debug) und stieß dabei stillschweigend die wichtigen Info-Zeilen heraus — einschließlich der neuen Zeilen zu Hintergrundverlangsamungen. Der Puffer fasst jetzt 4000 Zeilen, sodass `priority.yield`-Einträge den Lärm überleben.
+- **Neu**: Das Log-Panel unter Einstellungen → Logs aktualisiert sich jetzt live — alle 5 Sekunden, solange der Tab sichtbar ist; Zeilen aus Hintergrundarbeit erscheinen also sofort statt erst nach manueller Aktualisierung. Kein erneutes Rendern, wenn sich nichts geändert hat.
+- **Behoben**: Alle Log-Quellen sind jetzt an einem Ort — das Transcode-Log-Panel wurde vom Tab Diagnose zu Einstellungen → Logs verschoben, das nun Such-/Diagnose-, Engine-, Resolver- und Transcode-Logs zusammen zeigt.
+- **Geändert**: Zeilen zu Hintergrundverlangsamungen haben jetzt eine eigene Farbe im Panel, damit „Arrière-plan bridé [bulk manquants]…“-Einträge sofort ins Auge springen.
+
 ## v1.13.16 — August 2026
 
 ### Verlangsamungen des Hintergrunds sind jetzt in den Logs sichtbar — inklusive des verantwortlichen Benutzers

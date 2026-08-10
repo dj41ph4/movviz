@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.17 — August 2026
+
+### The slowdown logs you were told about now actually show up in Settings → Logs
+
+- **Fixed**: the search-diagnostics log could fill up its 2000-line buffer in a few minutes during heavy background passes (each episode search writes ~10 lines, several of them debug), silently pushing out the important info lines — including the new background-slowdown lines. The buffer now holds 4000 lines, so `priority.yield` entries survive the noise.
+- **New**: the log panel in Settings → Logs now tails live — it refreshes every 5 seconds while the tab is visible, so lines written by background work appear as they happen instead of only after a manual refresh. No re-render when nothing changed.
+- **Fixed**: all log sources now live in one place — the transcode log panel moved from the Diagnostics tab to Settings → Logs, which now shows search/diagnostic, engine, resolver and transcode logs together.
+- **Changed**: background-slowdown log lines now get their own color in the panel, so "Arrière-plan bridé [bulk manquants]…" entries stand out at a glance.
+
 ## v1.13.16 — August 2026
 
 ### Background slowdowns are now visible in the logs — with the user responsible

@@ -4,6 +4,15 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.17 — Agosto 2026
+
+### I log di rallentamento annunciati ora compaiono davvero in Impostazioni → Log
+
+- **Corretto**: il registro diagnostico di ricerca poteva riempire il suo buffer di 2000 righe in pochi minuti durante le pesanti passate in background (ogni ricerca di episodio scrive ~10 righe, molte in debug), spingendo fuori silenziosamente le righe info importanti — incluse le nuove righe di rallentamento del background. Il buffer ora contiene 4000 righe, quindi le voci `priority.yield` sopravvivono al rumore.
+- **Nuovo**: il pannello dei log in Impostazioni → Log si aggiorna ora in tempo reale — ogni 5 secondi finché la scheda è visibile, le righe scritte dal background appaiono man mano invece di attendere un aggiornamento manuale. Nessun re-render se non è cambiato nulla.
+- **Corretto**: tutte le fonti di log sono ora raccolte in un unico posto — il pannello dei log transcode è stato spostato dalla scheda Diagnostica a Impostazioni → Log, che ora mostra insieme log di ricerca/diagnostica, motore, resolver e transcode.
+- **Modificato**: le righe di rallentamento del background hanno ora un colore dedicato nel pannello, così le voci "Arrière-plan bridé [bulk manquants]…" si notano a colpo d'occhio.
+
 ## v1.13.16 — Agosto 2026
 
 ### I rallentamenti dello sfondo ora sono visibili nei log — con l'utente responsabile
