@@ -4,7 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.21 — août 2026
+## v1.13.22 — août 2026
+
+### "Pour toi" redevient strictement individuel, et un échec de synchro Plex ne ressemble plus à "n'a rien regardé"
+
+- **Changé** : retour en arrière sur le mélange "foyer" de la v1.13.21 — après retour, "Pour toi" est de nouveau construit UNIQUEMENT à partir de l'historique Plex propre au compte, sans aucun signal des autres comptes, même minime. Un compte avec seulement quelques titres vus obtient désormais une rangée personnalisée à partir de ceux-ci seuls, au lieu d'exiger un minimum avant d'afficher quoi que ce soit.
+- **Corrigé** : la synchronisation des vues Plex avalait silencieusement toute erreur (coupure réseau, token expiré, section inaccessible) et enregistrait quand même un résultat vide — indiscernable de "ce compte n'a vraiment rien regardé", et capable d'effacer discrètement un vrai historique en cas d'échec passager. Elle laisse désormais les données existantes intactes quand une synchro ne parvient à atteindre aucune section, et chaque tentative — succès ou échec, et pour quel compte — est journalisée dans Réglages → Journaux, pour qu'un compte en échec silencieux soit enfin visible au lieu de simplement paraître vide.
 
 ### "Pour toi" peut désormais s'appuyer sur l'historique Plex de tout le foyer, pas seulement le tien
 

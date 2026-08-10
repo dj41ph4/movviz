@@ -4,7 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.21 — August 2026
+## v1.13.22 — August 2026
+
+### "For you" recommendations are strictly per-account again, and a Plex watch-sync failure no longer looks like "watched nothing"
+
+- **Changed**: reverted v1.13.21's household-blending — after more feedback, "For you" is back to being built ONLY from an account's own Plex watch history, with no signal from any other account, even a small one. An account with just a couple of watched titles now gets a personalized row from those alone, instead of needing a minimum before anything shows.
+- **Fixed**: the Plex watch-status sync silently swallowed every error (network hiccup, expired token, unreachable section) and saved an empty result regardless — indistinguishable from "this account genuinely hasn't watched anything," and capable of quietly erasing real watch history on a transient failure. It now leaves existing data untouched when a sync can't reach any library section, and every sync attempt — success or failure, and for which account — is logged to Réglages → Journaux, so a silently-failing account is finally visible instead of just looking empty.
 
 ### "For you" recommendations can now draw on the whole household's Plex history, not just your own
 

@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.22 — August 2026
+
+### „Für dich" ist wieder streng pro Konto, und ein fehlgeschlagener Plex-Watch-Sync sieht nicht mehr aus wie „nichts geschaut"
+
+- **Geändert**: die "Haushalts"-Vermischung aus v1.13.21 wurde zurückgenommen — nach weiterem Feedback wird „Für dich" wieder AUSSCHLIESSLICH aus der eigenen Plex-Wiedergabehistorie des Kontos aufgebaut, ohne jedes Signal von anderen Konten, auch nicht ein kleines. Ein Konto mit nur ein paar angesehenen Titeln erhält jetzt eine personalisierte Reihe allein daraus, statt vorher ein Minimum erreichen zu müssen, bevor überhaupt etwas angezeigt wird.
+- **Behoben**: die Plex-Wiedergabestatus-Synchronisierung verschluckte jeden Fehler stillschweigend (Netzwerkaussetzer, abgelaufenes Token, nicht erreichbare Sektion) und speicherte trotzdem ein leeres Ergebnis — nicht zu unterscheiden von „dieses Konto hat wirklich nichts geschaut", und in der Lage, bei einem vorübergehenden Fehler unbemerkt eine echte Wiedergabehistorie zu löschen. Sie lässt bestehende Daten jetzt unangetastet, wenn eine Synchronisierung keine einzige Bibliothekssektion erreichen kann, und jeder Sync-Versuch — erfolgreich oder fehlgeschlagen, und für welches Konto — wird in Einstellungen → Logs protokolliert, sodass ein still fehlschlagendes Konto endlich sichtbar ist, statt nur leer zu wirken.
+
 ## v1.13.21 — August 2026
 
 ### "Für dich" kann sich jetzt auf die Plex-Historie des ganzen Haushalts stützen, nicht nur auf deine eigene

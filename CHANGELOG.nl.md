@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.22 — Augustus 2026
+
+### "Voor jou" is weer strikt persoonlijk, en een mislukte Plex-synchronisatie ziet er niet langer uit als "niets bekeken"
+
+- **Gewijzigd**: terugdraaien van de "huishouden"-vermenging uit v1.13.21 — na meer feedback wordt "Voor jou" weer UITSLUITEND opgebouwd uit de eigen Plex-kijkgeschiedenis van het account, zonder enig signaal van andere accounts, hoe klein ook. Een account met slechts een paar bekeken titels krijgt nu een gepersonaliseerde rij op basis van alleen die titels, in plaats van dat er eerst een minimum moet worden gehaald voordat er iets verschijnt.
+- **Opgelost**: de Plex-kijkstatussynchronisatie slikte stilletjes elke fout in (netwerkstoring, verlopen token, onbereikbare sectie) en sloeg toch een leeg resultaat op — niet te onderscheiden van "dit account heeft echt niets bekeken", en in staat om bij een tijdelijke storing ongemerkt een echte kijkgeschiedenis te wissen. Bestaande gegevens blijven nu ongewijzigd wanneer een synchronisatie geen enkele sectie kan bereiken, en elke synchronisatiepoging — geslaagd of mislukt, en voor welk account — wordt gelogd in Instellingen → Logs, zodat een stilletjes falend account eindelijk zichtbaar is in plaats van gewoon leeg te lijken.
+
 ## v1.13.21 — Augustus 2026
 
 ### "Voor jou" kan nu putten uit de Plex-geschiedenis van het hele huishouden, niet alleen die van jou

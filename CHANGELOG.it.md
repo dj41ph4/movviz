@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.22 — Agosto 2026
+
+### "Per te" torna a essere strettamente individuale, e un errore di sincronizzazione Plex non sembra più "non ha guardato nulla"
+
+- **Modificato**: passo indietro sul mix "nucleo familiare" della v1.13.21 — dopo altri riscontri, "Per te" torna a basarsi ESCLUSIVAMENTE sulla cronologia Plex del singolo account, senza alcun segnale dagli altri account, nemmeno minimo. Un account con solo un paio di titoli visti ottiene ora una riga personalizzata basata unicamente su quelli, invece di richiedere un minimo prima di mostrare qualcosa.
+- **Corretto**: la sincronizzazione dello stato di visione Plex ingoiava silenziosamente ogni errore (interruzione di rete, token scaduto, sezione irraggiungibile) e salvava comunque un risultato vuoto — indistinguibile da "questo account non ha davvero guardato nulla", e capace di cancellare silenziosamente una cronologia reale in caso di errore temporaneo. Ora lascia intatti i dati esistenti quando una sincronizzazione non riesce a raggiungere alcuna sezione, e ogni tentativo — riuscito o fallito, e per quale account — viene registrato in Impostazioni → Log, così un account che fallisce silenziosamente diventa finalmente visibile invece di sembrare semplicemente vuoto.
+
 ## v1.13.21 — Agosto 2026
 
 ### "Per te" può ora basarsi sulla cronologia Plex di tutto il nucleo familiare, non solo sulla tua

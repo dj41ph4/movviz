@@ -27,12 +27,6 @@ export function getWatchStatus(userId: string): WatchStatus | null {
   return read().find((w) => w.userId === userId) ?? null;
 }
 
-/** Every account's watch status — used by the recommender to blend in what
- *  the rest of the household is watching, not just the target account alone. */
-export function getAllWatchStatuses(): WatchStatus[] {
-  return read();
-}
-
 export function saveWatchStatus(status: WatchStatus) {
   const list = read();
   const i = list.findIndex((w) => w.userId === status.userId);
