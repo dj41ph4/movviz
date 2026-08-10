@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.23 — August 2026
+## v1.13.24 — August 2026
+
+### Friend accounts were all getting the server owner's own watch history — found the actual Plex API cause and fixed it
+
+- **Fixed**: v1.13.23's diagnostic detail proved every linked friend account carried a genuinely distinct Plex identity and token — yet all of them synced the exact same watch counts as the account that owns the server. Root cause confirmed against Plex's own documented behavior: the endpoints used to sync watch status report `viewCount` from the server owner's perspective only, regardless of which valid account's token makes the request — no request header can change that. Watch-status sync now uses Plex's session-history endpoint instead, queried with the admin token and filtered by each account's own Plex id — the way Plex actually tracks per-account viewing. Works the same for friend accounts and Home-managed profiles now, instead of two separate paths.
 
 ### More detail in the Plex watch-sync log, to track down a real one
 

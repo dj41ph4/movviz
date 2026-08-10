@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.23 — août 2026
+## v1.13.24 — août 2026
+
+### Les comptes amis récupéraient tous l'historique du propriétaire du serveur — vraie cause Plex trouvée et corrigée
+
+- **Corrigé** : le détail de diagnostic de la v1.13.23 a prouvé que chaque compte ami lié avait bien une identité et un token Plex réellement distincts — pourtant tous synchronisaient exactement les mêmes chiffres que le compte propriétaire du serveur. Cause racine confirmée par le comportement documenté de Plex lui-même : les endpoints utilisés pour synchroniser les vues renvoient le `viewCount` du point de vue du propriétaire du serveur uniquement, peu importe quel token de compte valide fait la requête — aucun en-tête de requête ne peut changer ça. La synchro des vues utilise désormais l'endpoint d'historique de session de Plex, interrogé avec le token admin et filtré par l'identifiant Plex propre à chaque compte — la façon dont Plex suit réellement le visionnage par compte. Fonctionne maintenant pareil pour les comptes amis et les profils gérés du Home, au lieu de deux voies séparées.
 
 ### Plus de détail dans le journal de synchro Plex, pour traquer un vrai suspect
 

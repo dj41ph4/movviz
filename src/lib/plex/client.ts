@@ -756,6 +756,85 @@ export async function getShowEpisodes(cfg: PlexServerConfig, showRatingKey: stri
   }
 }
 
+export interface PlexHistoryEntry {
+  ratingKey: string;
+  type: "movie" | "episode";
+  grandparentRatingKey?: string; // show, for episodes
+  season?: number;
+  episode?: number;
+}
+
+interface RawHistoryItem {
+  ratingKey: string;
+  type?: string;
+  grandparentRatingKey?: string;
+  parentIndex?: number;
+  index?: number;
+}
+
+/**
+ * Every playback-history entry for one Plex account (movies + episodes),
+ * paginated, newest first.
+ *
+ * Confirmed against Plex's own documented behavior: `viewCount` on the
+ * regular library-listing endpoints (`/library/sections/.../all`,
+ * `/library/metadata/{id}/allLeaves`) always reflects the SERVER OWNER's
+ * own view state — no matter which valid account's token authenticates the
+ * request. That's not a Movviz bug or a token mix-up (verified live:
+ * several friend accounts each carry a genuinely distinct plexId/token, yet
+ * all came back with the owner's exact counts). The session-history
+ * endpoint is the one that actually tracks per-account viewing and can be
+ * filtered by `accountID` — but it only works with the admin/owner token
+ * (the only credential allowed to see server-wide history at all), never
+ * the target account's own token. This replaces the previous per-token
+ * section-scan approach entirely, for both friend and Home-managed
+ * accounts alike — one mechanism instead of two.
+ */
+export async function getAccountHistory(cfg: PlexServerConfig, adminToken: string, accountId: number): Promise<PlexHistoryEntry[]> {
+  const out: PlexHistoryEntry[] = [];
+  const pageSize = 200;
+  let start = 0;
+  for (;;) {
+    let page: RawHistoryItem[];
+    let total: number;
+    try {
+      const url = new URL(`${serverBase(cfg)}/status/sessions/history/all`);
+      url.searchParams.set("accountID", String(accountId));
+      url.searchParams.set("sort", "viewedAt:desc");
+      const res = await fetchWithRetry(url.toString(), {
+        headers: {
+          ...serverHeaders(cfg, adminToken),
+          "X-Plex-Container-Start": String(start),
+          "X-Plex-Container-Size": String(pageSize),
+        },
+        cache: "no-store",
+      });
+      if (!res.ok) break;
+      const data = await res.json();
+      page = data?.MediaContainer?.Metadata ?? [];
+      total = data?.MediaContainer?.totalSize ?? data?.MediaContainer?.size ?? page.length;
+    } catch {
+      break;
+    }
+    for (const item of page) {
+      if (item.type === "movie") {
+        out.push({ ratingKey: item.ratingKey, type: "movie" });
+      } else if (item.type === "episode" && item.grandparentRatingKey && item.parentIndex != null && item.index != null) {
+        out.push({
+          ratingKey: item.ratingKey,
+          type: "episode",
+          grandparentRatingKey: item.grandparentRatingKey,
+          season: item.parentIndex,
+          episode: item.index,
+        });
+      }
+    }
+    start += page.length;
+    if (page.length === 0 || start >= total) break;
+  }
+  return out;
+}
+
 // ─── Plex native collections ──────────────────────────────────────────────────
 
 interface RawCollectionItem {

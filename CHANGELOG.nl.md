@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.24 — Augustus 2026
+
+### Vriendenaccounts kregen allemaal de kijkgeschiedenis van de servereigenaar — echte Plex-API-oorzaak gevonden en opgelost
+
+- **Opgelost**: het diagnostische detail uit v1.13.23 bewees dat elk gekoppeld vriendenaccount wel degelijk een echte, eigen, onderscheiden Plex-identiteit en token had — toch synchroniseerden ze allemaal exact dezelfde kijkcijfers als het account dat de server bezit. Grondoorzaak bevestigd aan de hand van het gedocumenteerde gedrag van Plex zelf: de endpoints die worden gebruikt om de kijkstatus te synchroniseren, geven de `viewCount` terug vanuit het perspectief van de servereigenaar alleen, ongeacht welk geldig account-token de aanvraag doet — geen enkele request-header kan dat veranderen. De kijkstatussynchronisatie gebruikt nu in plaats daarvan het sessiegeschiedenis-endpoint van Plex, bevraagd met het admin-token en gefilterd op het eigen Plex-id van elk account — de manier waarop Plex kijkgedrag daadwerkelijk per account bijhoudt. Werkt nu hetzelfde voor vriendenaccounts en Home-beheerde profielen, in plaats van twee gescheiden paden.
+
 ## v1.13.23 — Augustus 2026
 
 ### Meer detail in het Plex-kijksync-logboek, om een echte verdachte op te sporen

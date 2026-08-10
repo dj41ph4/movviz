@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.24 — Agosto 2026
+
+### Gli account amici ricevevano tutti la cronologia di visione del proprietario del server — trovata e corretta la vera causa nell'API Plex
+
+- **Corretto**: il dettaglio diagnostico della v1.13.23 aveva dimostrato che ogni account amico collegato aveva effettivamente un'identità e un token Plex realmente distinti — eppure tutti sincronizzavano esattamente gli stessi numeri di visione dell'account proprietario del server. Causa radice confermata dal comportamento documentato di Plex stesso: gli endpoint usati per sincronizzare lo stato di visione restituiscono il `viewCount` dal punto di vista del proprietario del server soltanto, indipendentemente da quale token di account valido effettui la richiesta — nessuna intestazione di richiesta può cambiarlo. La sincronizzazione dello stato di visione ora usa l'endpoint della cronologia di sessione di Plex, interrogato con il token admin e filtrato per l'id Plex proprio di ciascun account — il modo in cui Plex traccia realmente la visione per account. Funziona ora allo stesso modo per gli account amici e per i profili gestiti dell'Home, invece di due percorsi separati.
+
 ## v1.13.23 — Agosto 2026
 
 ### Più dettaglio nel log di sincronizzazione Plex, per stanare un vero sospetto

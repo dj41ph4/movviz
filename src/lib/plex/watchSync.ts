@@ -1,122 +1,92 @@
 import { loadPlexConfig } from "./store";
-import { getLibrarySections, getSectionItems, getShowEpisodes } from "./client";
+import { getAccountHistory, batchTmdbIds } from "./client";
 import { saveWatchStatus, getWatchStatus } from "./watchStore";
-import { mapWithConcurrency } from "@/lib/concurrency";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
 
 /**
- * Read this user's own watch state directly from their Plex account.
+ * Read this user's own watch state directly from Plex.
  *
- * Two modes:
- *   - Managed user (profile within a Plex Home) → use admin token +
- *     X-Plex-Profile header so Plex scopes viewCount to that profile.
- *   - Full/friend account (shared access, own separate Plex login) → use
- *     the user's own plexToken directly against the same server — Plex
- *     scopes viewCount to the requesting token automatically, no special
- *     header needed for this case.
+ * Previously scanned each account's own library sections/episode lists
+ * using THEIR OWN plexToken (or the admin token + X-Plex-Profile for a
+ * Home-managed user), relying on `viewCount` in the response to know what
+ * they'd watched. Confirmed live and against Plex's own documented
+ * behavior: `viewCount` on those endpoints always reflects the SERVER
+ * OWNER's own view state, no matter which valid account's token
+ * authenticates the request — several friend accounts, each carrying a
+ * genuinely distinct plexId and token (verified), all came back with the
+ * exact same counts as the admin. Not a Movviz identity bug — a real Plex
+ * API limitation on that endpoint.
  *
- * Every internal Plex call in client.ts fails silently (bare `catch {
- * return []; }`) so a transient network/auth hiccup for one specific
- * account previously looked IDENTICAL to "this account genuinely watched
- * nothing" — indistinguishable, and for a batch of several users, whichever
- * error surfaced could plausibly wipe out real watch history with an empty
- * result. Confirmed as a real gap when several friend accounts (own Plex
- * login, not a Home-managed profile) turned out to have no watch data
- * despite being properly linked — with zero trace of why. Now: a run that
- * comes back with zero sections is treated as "couldn't reach this
- * account's Plex data" and never overwrites whatever was already saved, and
- * every attempt — success or failure — logs a line to the diagnostic log
- * (Réglages → Journaux) tagged `plex.watchSync`, naming the account, so a
- * silent failure is finally visible instead of just looking like an empty
- * watch history.
+ * Now uses Plex's session-history endpoint instead
+ * (`getAccountHistory`/`/status/sessions/history/all`), which DOES track
+ * per-account viewing — but only when queried with the admin/owner token
+ * and filtered by `accountID`, never the target account's own token. Works
+ * identically for friend accounts and Home-managed profiles alike (no more
+ * two separate code paths), keyed purely by the account's Plex id.
+ *
+ * Every internal Plex call still fails silently in client.ts, so a
+ * transient network/auth hiccup previously looked identical to "watched
+ * nothing" — this function now treats an empty history result as "couldn't
+ * reach this account's Plex data" and never overwrites whatever was
+ * already saved, and every attempt — success or failure — logs a line to
+ * the diagnostic log (Réglages → Journaux) tagged `plex.watchSync`.
  */
 export async function syncUserWatchStatus(user: User) {
   const cfg = loadPlexConfig();
-  const effectiveToken =
-    user.plexManagedUserId && cfg.adminToken
-      ? cfg.adminToken
-      : user.plexToken;
-  if (!cfg.hostname || !effectiveToken) return;
+  if (!cfg.hostname || !cfg.adminToken) return;
+  const accountId = user.plexId ? Number(user.plexId) : null;
+  if (accountId == null || Number.isNaN(accountId)) return;
 
   try {
-    const sections = await getLibrarySections(
-      cfg,
-      effectiveToken,
-      user.plexManagedUserId ?? undefined,
-    );
+    const history = await getAccountHistory(cfg, cfg.adminToken, accountId);
 
-    if (sections.length === 0) {
+    if (history.length === 0) {
       const previous = getWatchStatus(user.id);
       recordSearchLog(
         "warn",
         "plex.watchSync",
-        `${user.username}: 0 section Plex accessible — sync ignorée, données précédentes conservées (${previous ? `${previous.movies.length} films / ${previous.episodes.length} épisodes` : "aucune donnée existante"})`
+        `${user.username} (plexId:${accountId}): aucun historique Plex retourné — sync ignorée, données précédentes conservées (${previous ? `${previous.movies.length} films / ${previous.episodes.length} épisodes` : "aucune donnée existante"})`
       );
       return;
     }
 
-    const movies: number[] = [];
-    const episodes: { tmdbId: number; season: number; episode: number }[] = [];
+    const movieRatingKeys = [...new Set(history.filter((h) => h.type === "movie").map((h) => h.ratingKey))];
+    const episodeEntries = history.filter((h) => h.type === "episode" && h.grandparentRatingKey);
+    const showRatingKeys = [...new Set(episodeEntries.map((h) => h.grandparentRatingKey!))];
 
-    for (const section of sections.filter((s) => s.type === "movie")) {
-      const items = await getSectionItems(
-        cfg,
-        section.key,
-        effectiveToken,
-        undefined,
-        user.plexManagedUserId ?? undefined,
-      );
-      for (const item of items) {
-        if (item.tmdbId != null && item.viewCount > 0) movies.push(item.tmdbId);
-      }
-    }
+    const [movieInfo, showInfo] = await Promise.all([
+      batchTmdbIds(cfg, cfg.adminToken, movieRatingKeys),
+      batchTmdbIds(cfg, cfg.adminToken, showRatingKeys),
+    ]);
 
-    for (const section of sections.filter((s) => s.type === "show")) {
-      const shows = await getSectionItems(
-        cfg,
-        section.key,
-        effectiveToken,
-        undefined,
-        user.plexManagedUserId ?? undefined,
-      );
-      // One Plex round-trip per show, done one at a time, took several minutes
-      // on a library with hundreds of shows — long enough to hold up the whole
-      // job queue (only 1 job runs at a time while a download is active),
-      // stalling anything queued behind it, like a user-triggered library
-      // search. A small bounded concurrency cuts that down without hammering
-      // the media server the way an unbounded Promise.all would.
-      const showsWithTmdb = shows.filter((s) => s.tmdbId != null);
-      await mapWithConcurrency(showsWithTmdb, 5, async (show) => {
-        const eps = await getShowEpisodes(
-          cfg,
-          show.ratingKey,
-          effectiveToken,
-          user.plexManagedUserId ?? undefined,
-        );
-        for (const ep of eps) {
-          if (ep.viewCount > 0) episodes.push({ tmdbId: show.tmdbId!, season: ep.seasonNumber, episode: ep.episodeNumber });
-        }
-      });
+    const movies = [
+      ...new Set(
+        movieRatingKeys
+          .map((k) => movieInfo.get(k)?.tmdbId)
+          .filter((id): id is number => id != null)
+      ),
+    ];
+
+    const episodeMap = new Map<string, { tmdbId: number; season: number; episode: number }>();
+    for (const e of episodeEntries) {
+      const tmdbId = showInfo.get(e.grandparentRatingKey!)?.tmdbId;
+      if (tmdbId == null || e.season == null || e.episode == null) continue;
+      episodeMap.set(`${tmdbId}.${e.season}.${e.episode}`, { tmdbId, season: e.season, episode: e.episode });
     }
+    const episodes = [...episodeMap.values()];
 
     saveWatchStatus({ userId: user.id, movies, episodes, updatedAt: Date.now() });
-    // Temporary extra detail (plexId + a non-secret token fingerprint) while
-    // diagnosing why every account came back with IDENTICAL counts on the
-    // first run with this logging — proves whether these are genuinely
-    // distinct Plex accounts/tokens or something is collapsing them onto
-    // the same one before ever reaching Plex.
-    const tokenFingerprint = effectiveToken ? `${effectiveToken.slice(0, 4)}…${effectiveToken.slice(-4)}` : "none";
     recordSearchLog(
       "info",
       "plex.watchSync",
-      `${user.username} (plexId:${user.plexId ?? "?"}, token:${tokenFingerprint}, managed:${user.plexManagedUserId ?? "non"}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s) sur ${sections.length} section(s)`
+      `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s) (${history.length} évènement(s) d'historique)`
     );
   } catch (err: any) {
     recordSearchLog(
       "error",
       "plex.watchSync",
-      `${user.username}: échec de synchronisation — ${err?.message ?? "erreur inconnue"} — données précédentes conservées`
+      `${user.username} (plexId:${accountId}): échec de synchronisation — ${err?.message ?? "erreur inconnue"} — données précédentes conservées`
     );
   }
 }

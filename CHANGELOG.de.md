@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.24 — August 2026
+
+### Freundeskonten bekamen alle die Wiedergabehistorie des Server-Besitzers — echte Plex-API-Ursache gefunden und behoben
+
+- **Behoben**: das Diagnosedetail aus v1.13.23 bewies, dass jedes verknüpfte Freundeskonto tatsächlich eine echte, eigenständige Plex-Identität und ein eigenes Token hatte — trotzdem synchronisierten sie alle exakt dieselben Wiedergabezahlen wie das Konto, dem der Server gehört. Grundursache bestätigt durch das dokumentierte Verhalten von Plex selbst: die Endpunkte, die zur Synchronisierung des Wiedergabestatus verwendet werden, liefern den `viewCount` nur aus der Perspektive des Server-Besitzers zurück, unabhängig davon, welches gültige Konto-Token die Anfrage stellt — kein Request-Header kann daran etwas ändern. Die Wiedergabestatus-Synchronisierung verwendet jetzt stattdessen den Sitzungshistorie-Endpunkt von Plex, abgefragt mit dem Admin-Token und gefiltert nach der eigenen Plex-ID jedes Kontos — so, wie Plex das Sehverhalten tatsächlich pro Konto verfolgt. Funktioniert jetzt gleich für Freundeskonten und Home-verwaltete Profile, statt zweier getrennter Pfade.
+
 ## v1.13.23 — August 2026
 
 ### Mehr Detail im Plex-Watch-Sync-Log, um einen echten Verdächtigen aufzuspüren
