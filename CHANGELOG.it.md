@@ -4,6 +4,14 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.16 — Agosto 2026
+
+### I rallentamenti dello sfondo ora sono visibili nei log — con l'utente responsabile
+
+- **Nuovo**: il lavoro in background (il bulk manuale "Cerca tutto ciò che manca", il matching RSS pianificato, gli upgrade di qualità, i nuovi tentativi per le uscite mancanti) ora si mette in pausa quando usi attivamente l'app e riprende pochi secondi dopo che ti fermi — non lo senti mai. Ogni volta che un rallentamento avviene davvero, il log diagnostico di ricerca lo registra in una riga pulita e leggibile: quale attività in background è stata limitata, quale utente era attivo (nome + id) e quanto è durata l'attesa (es. "Arrière-plan bridé [bulk manquants] pendant 12.3s par l'utilisateur actif admin (id:1)").
+- **Corretto**: il polling silenzioso del frontend non conta più come attività utente. I sondaggi di stato (torrent del motore ogni 500 ms, job ogni 2 s, metriche perf ogni 5 s, attività Plex ogni 5 s, avanzamento della riproduzione ogni 10 s…) mantenevano l'app marcata come "attiva" per sempre appena una singola pagina restava aperta — quindi il background non riprendeva mai davvero. Ora contano solo le interazioni reali (navigazione, ricerche, clic): lascia l'app aperta e il background riprende pochi secondi dopo il tuo ultimo clic.
+- **Modificato**: la ricerca bulk manuale ora gira nella corsia di background come le attività pianificate — eredita la quota indexer ridotta (le tue ricerche restano prioritarie) e cede la mano tra un elemento e l'altro.
+
 ## v1.13.15 — Agosto 2026
 
 ### La barra di navigazione restava opaca dopo essere tornati in cima alla pagina

@@ -4,6 +4,14 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.16 — Augustus 2026
+
+### Vertragingen op de achtergrond zijn nu zichtbaar in de logs — met de verantwoordelijke gebruiker
+
+- **Nieuw**: achtergrondwerk (de handmatige bulk "Zoek alles wat ontbreekt", gepland RSS-matching, kwaliteitsupgrades, herhalingen voor gemiste releases) pauzeert nu terwijl je de app actief gebruikt en hervat een paar seconden nadat je stopt — je voelt er nooit iets van. Elke keer dat zo'n vertraging echt optreedt, legt het diagnostische zoeklog het vast in één nette, leesbare regel: welke achtergrondtaak werd afgeremd, welke gebruiker was actief (naam + id) en hoe lang het wachten duurde (bijv. "Arrière-plan bridé [bulk manquants] pendant 12.3s par l'utilisateur actif admin (id:1)").
+- **Opgelost**: stil frontend-polling telt niet meer als gebruikersactiviteit. De statuspeilingen (engine-torrents elke 500 ms, jobs elke 2 s, perf-metingen elke 5 s, Plex-activiteit elke 5 s, afspeelvoortgang elke 10 s…) hielden de app voor altijd als "actief" gemarkeerd zodra één enkele pagina open bleef — dus de achtergrond hervatte nooit echt. Nu tellen alleen echte interacties (navigatie, zoekopdrachten, klikken): laat de app open en de achtergrond hervat een paar seconden na je laatste klik.
+- **Gewijzigd**: de handmatige bulkzoekopdracht draait nu in de achtergrondbaan net als de geplande taken — hij erft het verlaagde indexerquotum (je eigen zoekopdrachten blijven prioriteit) en geeft tussen items de beurt af.
+
 ## v1.13.15 — Augustus 2026
 
 ### Navigatiebalk bleef ondoorzichtig na terugscrollen naar boven

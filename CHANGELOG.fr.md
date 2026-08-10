@@ -4,6 +4,14 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.16 — août 2026
+
+### Les ralentissements de l'arrière-plan sont désormais visibles dans les logs — avec l'utilisateur responsable
+
+- **Nouveau** : le travail d'arrière-plan (le bulk manuel « Rechercher les manquants », le matching RSS planifié, les upgrades qualité, les relances des sorties manquantes) se met désormais en pause quand tu utilises activement l'application et reprend quelques secondes après ton arrêt — tu ne le ressens jamais. À chaque ralentissement réel, le journal de diagnostic le consigne en une ligne propre et lisible : quelle tâche d'arrière-plan a été bridée, quel utilisateur était actif (nom + id) et combien de temps l'attente a duré (ex. « Arrière-plan bridé [bulk manquants] pendant 12.3s par l'utilisateur actif admin (id:1) »).
+- **Corrigé** : le polling silencieux du frontend ne compte plus comme activité utilisateur. Les sondes d'état (torrents du moteur toutes les 500 ms, jobs toutes les 2 s, mesures perf toutes les 5 s, activité Plex toutes les 5 s, progression de lecture toutes les 10 s…) maintenaient l'application marquée « active » à vie dès qu'une seule page restait ouverte — donc l'arrière-plan ne reprenait jamais vraiment. Seules les vraies interactions comptent désormais (navigation, recherches, clics) : laisse l'app ouverte et l'arrière-plan reprend quelques secondes après ton dernier clic.
+- **Modifié** : le bulk manuel de recherche passe désormais en voie d'arrière-plan comme les tâches planifiées — il hérite du quota indexeur réduit (tes propres recherches restent prioritaires) et cède la main entre chaque item.
+
 ## v1.13.15 — août 2026
 
 ### La barre de navigation restait opaque après un retour en haut de page

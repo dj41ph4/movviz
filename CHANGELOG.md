@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.16 — August 2026
+
+### Background slowdowns are now visible in the logs — with the user responsible
+
+- **New**: background work (the manual "search everything missing" bulk, scheduled RSS matching, quality upgrades, missing-release retries) now pauses whenever you're actively using the app and resumes a few seconds after you stop — you never feel it. Every time such a slowdown actually happens, the diagnostics search log records it in one clean, readable line: which background task was bridled, which user was active (name + id), and how long the wait lasted (e.g. "Arrière-plan bridé [bulk manquants] pendant 12.3s par l'utilisateur actif admin (id:1)").
+- **Fixed**: silent frontend polling no longer counts as user activity. The status polls (engine torrents every 500ms, jobs every 2s, perf metrics every 5s, Plex activity every 5s, playback progress every 10s…) kept the app marked as "active" forever as soon as a single page was left open — so background work never properly resumed. Only real interactions count now (navigation, searches, clicks): leave the app open and background resumes a few seconds after your last click.
+- **Changed**: the manual bulk search now runs in the background lane like the scheduled tasks — it inherits the reduced indexer quota (your own searches keep priority) and yields between items.
+
 ## v1.13.15 — August 2026
 
 ### Top nav stayed solid after scrolling back to the top

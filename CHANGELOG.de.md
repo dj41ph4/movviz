@@ -4,6 +4,14 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.16 — August 2026
+
+### Verlangsamungen des Hintergrunds sind jetzt in den Logs sichtbar — inklusive des verantwortlichen Benutzers
+
+- **Neu**: Hintergrundarbeiten (der manuelle Bulk "Alle fehlenden suchen", geplantes RSS-Matching, Qualitäts-Upgrades, Wiederholungen für fehlende Veröffentlichungen) pausieren jetzt, solange du die App aktiv benutzt, und setzen einige Sekunden nach deinem Aufhören fort — du spürst es nie. Jedes Mal, wenn eine solche Verlangsamung tatsächlich auftritt, protokolliert das Diagnose-Suchlog sie in einer sauberen, lesbaren Zeile: welche Hintergrundaufgabe gebremst wurde, welcher Benutzer aktiv war (Name + ID) und wie lange die Wartezeit dauerte (z. B. „Arrière-plan bridé [bulk manquants] pendant 12.3s par l'utilisateur actif admin (id:1)").
+- **Behoben**: Stilles Frontend-Polling zählt nicht mehr als Benutzeraktivität. Die Statusabfragen (Engine-Torrents alle 500 ms, Jobs alle 2 s, Perf-Messungen alle 5 s, Plex-Aktivität alle 5 s, Wiedergabefortschritt alle 10 s …) hielten die App für immer als „aktiv“ markiert, sobald eine einzige Seite offen blieb — der Hintergrund konnte also nie richtig fortfahren. Jetzt zählen nur echte Interaktionen (Navigation, Suchen, Klicks): lass die App offen und der Hintergrund setzt einige Sekunden nach deinem letzten Klick fort.
+- **Geändert**: Der manuelle Bulk-Suchlauf läuft jetzt wie die geplanten Aufgaben in der Hintergrund-Spur — er erbt das reduzierte Indexer-Kontingent (deine eigenen Suchen behalten Priorität) und gibt zwischen den Einträgen nach.
+
 ## v1.13.15 — August 2026
 
 ### Navigationsleiste blieb nach dem Zurückscrollen an den Seitenanfang undurchsichtig
