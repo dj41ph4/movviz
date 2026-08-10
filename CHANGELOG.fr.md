@@ -4,6 +4,17 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.12 — août 2026
+
+### Six améliorations de navigation, choisies lors d'une revue de design
+
+- **Nouveau** : les rangées affichent désormais un fin indicateur de position au défilement et des flèches au survol des bords, avec un défilement par page entière au lieu du glissement libre.
+- **Nouveau** : la rangée "Tendances" met désormais en avant son top 10 avec un traitement numéroté, en utilisant le même vrai classement de popularité selon lequel la rangée était déjà triée.
+- **Nouveau** : survoler une carte (bureau) affiche désormais brièvement l'année, la durée et les genres quand ils sont disponibles, au lieu de rien.
+- **Changé** : la barre de navigation du haut est désormais transparente tout en haut de la page et redevient opaque dès qu'on défile.
+- **Changé** : la liste d'épisodes d'un titre pas encore dans ta bibliothèque affiche désormais une vignette et une courte description par épisode, plus une simple ligne. (Les épisodes des titres déjà dans ta bibliothèque n'ont pas encore ça — ça nécessite de nouvelles données collectées au moment de l'import, suivi séparément.)
+- **Nouveau** : sur mobile, le hero du tableau de bord utilise désormais un visuel portrait dédié au lieu d'une version recadrée de la bannière bureau.
+
 ## v1.13.11 — août 2026
 
 ### La personnalisation de l'affichage suit désormais ton compte, pas seulement ton navigateur

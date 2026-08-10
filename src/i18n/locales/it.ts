@@ -175,6 +175,8 @@ export const it: Dictionary = {
     retry: "Riprova",
     error: "Errore",
     goHome: "Home",
+    previous: "Precedente",
+    next: "Successivo",
   },
 
   error: {

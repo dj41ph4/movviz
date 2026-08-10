@@ -46,6 +46,8 @@ interface TmdbEpisode {
   episodeNumber: number;
   title: string;
   airDate: string | null;
+  overview?: string;
+  stillPath?: string | null;
 }
 
 interface TmdbSeasonData {
@@ -284,16 +286,34 @@ function SeasonRow({
               ))}
             </div>
           ) : tmdbSeason?.episodes?.length ? (
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               {tmdbSeason.episodes.map((ep) => (
-                <div key={ep.episodeNumber} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/5">
-                  <span className="w-8 text-center text-xs font-bold text-ink-dim">{ep.episodeNumber}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-ink">{ep.title || `${t("title.episode")} ${ep.episodeNumber}`}</span>
-                  {ep.airDate && (
-                    <span className="flex shrink-0 items-center gap-1 text-[11px] text-ink-dim">
-                      <Calendar className="h-2.5 w-2.5" /> {new Date(ep.airDate).toLocaleDateString()}
-                    </span>
+                <div key={ep.episodeNumber} className="flex items-start gap-3 rounded-lg p-2 hover:bg-white/5">
+                  <span className="w-6 shrink-0 pt-2 text-center text-xs font-bold text-ink-dim">{ep.episodeNumber}</span>
+                  {ep.stillPath ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`/tmdb/w300${ep.stillPath}`}
+                      alt=""
+                      loading="lazy"
+                      className="h-14 w-24 shrink-0 rounded-lg object-cover sm:h-16 sm:w-28"
+                    />
+                  ) : (
+                    <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-lg bg-surface text-ink-dim sm:h-16 sm:w-28">
+                      <Calendar className="h-4 w-4 opacity-40" />
+                    </div>
                   )}
+                  <div className="min-w-0 flex-1 py-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">{ep.title || `${t("title.episode")} ${ep.episodeNumber}`}</span>
+                      {ep.airDate && (
+                        <span className="flex shrink-0 items-center gap-1 text-[11px] text-ink-dim">
+                          <Calendar className="h-2.5 w-2.5" /> {new Date(ep.airDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </div>
+                    {ep.overview && <p className="mt-0.5 line-clamp-2 text-xs text-ink-dim">{ep.overview}</p>}
+                  </div>
                 </div>
               ))}
             </div>

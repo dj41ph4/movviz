@@ -175,6 +175,8 @@ export const de: Dictionary = {
     retry: "Wiederholen",
     error: "Fehler",
     goHome: "Startseite",
+    previous: "Zurück",
+    next: "Weiter",
   },
 
   error: {

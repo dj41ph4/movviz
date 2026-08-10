@@ -173,6 +173,8 @@ export const fr = {
     retry: "Réessayer",
     error: "Erreur",
     goHome: "Accueil",
+    previous: "Précédent",
+    next: "Suivant",
   },
 
   error: {

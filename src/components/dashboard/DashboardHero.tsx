@@ -76,9 +76,28 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
     }
   };
 
+  // A landscape backdrop, cropped down to a narrow portrait phone screen,
+  // tends to lose the actual subject (framed for a wide 16:9 composition).
+  // Poster art is already composed portrait — a dedicated mobile source, not
+  // just a smaller version of the desktop crop, same idea confirmed live on
+  // Netflix's own mobile hero.
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    setIsMobile(mq.matches);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
   if (!settings.enabled || slides.length === 0 || !active) return null;
 
-  const backdropUrl = active.detail.backdropPath ? `${POSTER_BASE}${active.detail.backdropPath}` : null;
+  const backdropUrl =
+    isMobile && active.detail.posterPath
+      ? `/tmdb/w780${active.detail.posterPath}`
+      : active.detail.backdropPath
+        ? `${POSTER_BASE}${active.detail.backdropPath}`
+        : null;
   const trailerEnabled = settings.trailerAutoplay;
 
   const statusLabel =

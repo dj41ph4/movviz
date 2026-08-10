@@ -4,6 +4,17 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.12 — Agosto 2026
+
+### Sei miglioramenti alla navigazione, scelti da una revisione di design
+
+- **Nuovo**: le righe ora mostrano un sottile indicatore di posizione di scorrimento e frecce ai bordi che appaiono al passaggio del mouse, e scorrono di una pagina intera invece che con trascinamento libero.
+- **Nuovo**: la riga "Tendenze" ora evidenzia la sua top 10 con un trattamento di classifica numerata, usando lo stesso ordine di popolarità reale in base al quale la riga era già ordinata.
+- **Nuovo**: passando il mouse su una locandina (desktop) ora vengono mostrati brevemente anno, durata e generi quando disponibili, invece di niente.
+- **Modificato**: la barra di navigazione superiore ora è trasparente in cima alla pagina e diventa solida non appena si scorre.
+- **Modificato**: l'elenco episodi per un titolo non ancora presente nella libreria ora mostra una miniatura e una breve descrizione per episodio, non più una semplice riga vuota. (Gli episodi dei titoli già presenti in libreria non hanno ancora questo trattamento — richiede nuovi dati raccolti al momento dell'importazione, tracciato separatamente.)
+- **Nuovo**: su mobile, l'hero della dashboard ora usa un'illustrazione dedicata in verticale invece di una versione ritagliata del banner desktop.
+
 ## v1.13.11 — Agosto 2026
 
 ### La personalizzazione della visualizzazione ora segue il tuo account, non solo il browser

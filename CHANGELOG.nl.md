@@ -4,6 +4,17 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.12 — Augustus 2026
+
+### Zes browse-verbeteringen, gekozen uit een designreview
+
+- **Nieuw**: rijen tonen nu een dunne scrollpositie-indicator en randpijlen die verschijnen bij hover, en scrollen een volledige pagina tegelijk in plaats van vrij te slepen.
+- **Nieuw**: de rij "Trending" markeert nu de top 10 met een genummerde ranglijstweergave, op basis van dezelfde echte populariteitsvolgorde waarop de rij al gesorteerd was.
+- **Nieuw**: het hoveren over een posterkaart (desktop) toont nu kort jaar, speelduur en genretags indien beschikbaar, in plaats van niets.
+- **Gewijzigd**: de bovenste navigatiebalk is nu transparant bovenaan de pagina en wordt effen zodra je scrolt.
+- **Gewijzigd**: de afleveringenlijst voor een titel die nog niet in je bibliotheek staat, toont nu een thumbnail en een korte beschrijving per aflevering, in plaats van slechts een kale rij. (Afleveringen van titels die al in je bibliotheek staan, hebben dit nog niet — dat vereist nieuwe gegevens die bij import worden verzameld, apart bijgehouden.)
+- **Nieuw**: op mobiel gebruikt de dashboard-hero nu speciale portretillustraties in plaats van een uitgesneden versie van de desktopbanner.
+
 ## v1.13.11 — Augustus 2026
 
 ### Weergavepersonalisatie volgt nu je account, niet alleen je browser

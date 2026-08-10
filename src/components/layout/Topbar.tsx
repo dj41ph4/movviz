@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Search, Command, Heart } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useCommandPalette } from "./CommandPalette";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -15,9 +17,25 @@ export function Topbar() {
   const user = useCurrentUser();
   const t = useT();
 
+  // Transparent at the very top of the page (reads seamlessly over a hero
+  // banner on pages that have one, and blends into the page's own dark
+  // background everywhere else) — becomes the usual glass surface as soon
+  // as there's anything to scroll past, so it never sits ambiguously
+  // translucent over unrelated scrolled content.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <header
-      className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-white/5 bg-void/60 px-4 backdrop-blur-xl sm:gap-4 sm:px-6"
+      className={cn(
+        "sticky top-0 z-30 flex h-16 items-center gap-2 px-4 transition-colors duration-300 sm:gap-4 sm:px-6",
+        scrolled ? "border-b border-white/5 bg-void/60 backdrop-blur-xl" : "border-b border-transparent bg-transparent"
+      )}
     >
       {/* Unified search trigger */}
       <button

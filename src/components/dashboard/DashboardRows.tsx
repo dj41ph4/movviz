@@ -81,7 +81,7 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
           return (
             <PosterRow key={id} title={t("dashboard.rowRecommended")}>
               {recommended.map((r) => (
-                <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} />
+                <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} />
               ))}
             </PosterRow>
           );
@@ -91,7 +91,7 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
           return (
             <PosterRow key={id} title={t("dashboard.recentlyAdded")}>
               {recentlyAdded.map((m) => (
-                <DashboardPosterCard key={m.id} tmdbId={m.tmdbId} type="movie" title={m.title} posterPath={m.posterPath} rating={m.rating} />
+                <DashboardPosterCard key={m.id} tmdbId={m.tmdbId} type="movie" title={m.title} posterPath={m.posterPath} rating={m.rating} year={m.year} runtime={m.runtime} genres={m.genres} />
               ))}
             </PosterRow>
           );
@@ -108,6 +108,9 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
                   title={m.title}
                   posterPath={m.posterPath}
                   badge={days <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: days })}
+                  year={m.year}
+                  runtime={m.runtime}
+                  genres={m.genres}
                 />
               ))}
             </PosterRow>
@@ -125,6 +128,9 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
                   title={movie.title}
                   posterPath={movie.posterPath}
                   badge={candidate.detectedVersion}
+                  year={movie.year}
+                  runtime={movie.runtime}
+                  genres={movie.genres}
                 />
               ))}
             </PosterRow>
@@ -134,8 +140,8 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
         if (id === "discover" && trending.length > 0) {
           return (
             <PosterRow key={id} title={t("dashboard.rowTrending")}>
-              {trending.map((r) => (
-                <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} />
+              {trending.map((r, i) => (
+                <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} rank={i + 1} />
               ))}
             </PosterRow>
           );

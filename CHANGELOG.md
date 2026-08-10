@@ -4,6 +4,17 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.12 — August 2026
+
+### Six browsing improvements, picked from a design review
+
+- **New**: rows now show a thin scroll-position indicator and hover-revealed edge arrows, and scroll by a full page instead of free-dragging.
+- **New**: the "Tendances" row now highlights its top 10 with a numbered ranking treatment, using the same real popularity order the row was already sorted by.
+- **New**: hovering a poster card (desktop) now briefly shows year, runtime, and genre tags when available, instead of nothing.
+- **Changed**: the top navigation bar is now transparent at the very top of the page and becomes solid as soon as you scroll.
+- **Changed**: the episode list for a title not yet in your library now shows a thumbnail and a short description per episode, not just a bare row. (Episodes for titles already in your library don't have this yet — that needs new data collected at import time, tracked separately.)
+- **New**: on mobile, the dashboard hero now uses dedicated portrait artwork instead of a cropped-down version of the desktop banner.
+
 ## v1.13.11 — August 2026
 
 ### Display personalization now follows your account, not just your browser

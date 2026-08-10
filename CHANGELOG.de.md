@@ -4,6 +4,17 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.12 — August 2026
+
+### Sechs Browsing-Verbesserungen aus einem Design-Review
+
+- **Neu**: Zeilen zeigen jetzt eine dünne Scrollpositions-Anzeige und Randpfeile, die bei Hover erscheinen, und scrollen um eine ganze Seite statt frei zu ziehen.
+- **Neu**: Die Reihe "Trends" hebt jetzt ihre Top 10 mit einer nummerierten Ranking-Darstellung hervor, basierend auf derselben echten Popularitätsreihenfolge, nach der die Reihe bereits sortiert war.
+- **Neu**: Beim Hovern über eine Poster-Karte (Desktop) werden nun kurz Jahr, Laufzeit und Genre-Tags angezeigt, sofern verfügbar, statt nichts.
+- **Geändert**: Die obere Navigationsleiste ist jetzt ganz oben auf der Seite transparent und wird beim Scrollen sofort deckend.
+- **Geändert**: Die Episodenliste für einen Titel, der noch nicht in deiner Bibliothek ist, zeigt jetzt ein Vorschaubild und eine kurze Beschreibung pro Episode, statt nur einer nackten Zeile. (Episoden von Titeln, die bereits in deiner Bibliothek sind, haben das noch nicht — das erfordert neue, beim Import erfasste Daten, separat verfolgt.)
+- **Neu**: Auf Mobilgeräten verwendet der Dashboard-Hero jetzt eigens erstellte Hochformat-Grafiken statt einer zugeschnittenen Version des Desktop-Banners.
+
 ## v1.13.11 — August 2026
 
 ### Die Anzeigepersonalisierung folgt jetzt deinem Konto, nicht nur deinem Browser
