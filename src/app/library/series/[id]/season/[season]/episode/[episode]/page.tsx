@@ -3,7 +3,7 @@
 import { use as usePromise } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { useT } from "@/i18n/provider";
+import { useI18n } from "@/i18n/provider";
 import { cn, openPlexLink } from "@/lib/utils";
 import type { LibrarySeries, LibraryEpisode, LibraryStatus } from "@/lib/library/types";
 import type { MetaEpisode } from "@/lib/metadata/types";
@@ -37,7 +37,7 @@ export default function EpisodeDetailPage({
   const { id, season, episode } = usePromise(params);
   const seasonNumber = Number(season);
   const episodeNumber = Number(episode);
-  const t = useT();
+  const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
   const { play } = usePlayer();
   // Same SWR key as the series detail page: navigating from there paints
@@ -47,7 +47,7 @@ export default function EpisodeDetailPage({
   );
   const series = seriesData?.id ? seriesData : null;
   const { data: seasonData } = useSWR<{ episodes: MetaEpisode[] }>(
-    series ? `/api/metadata/season?tmdbId=${series.tmdbId}&season=${seasonNumber}` : null
+    series ? `/api/metadata/season?tmdbId=${series.tmdbId}&season=${seasonNumber}&locale=${locale}` : null
   );
   const meta = (seasonData?.episodes ?? []).find((e) => e.episodeNumber === episodeNumber) ?? null;
   const seasonObj = series?.seasons.find((s) => s.seasonNumber === seasonNumber);

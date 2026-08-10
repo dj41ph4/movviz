@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.20 — August 2026
+
+### Episodentitel und -beschreibungen kamen unabhängig von der Sprache der Benutzeroberfläche immer auf Französisch zurück
+
+- **Behoben**: der Staffel-/Episoden-Datenaufruf (Vorschaubilder, Titel, Beschreibungen — hinzugefügt in v1.13.12, in v1.13.19 auf Serien in der Bibliothek erweitert) teilte TMDb nie mit, in welcher Sprache geantwortet werden soll, sodass für alle Nutzer stillschweigend auf Französisch zurückgefallen wurde, selbst wenn Deutsch (oder eine andere Sprache) als Sprache der Benutzeroberfläche ausgewählt war. Das war exakt derselbe Fehler, der bereits einmal für die Detailseiten behoben wurde — nur eben nie auf diesen speziellen Aufruf angewendet. Er folgt jetzt der in der App gewählten Sprache, wie überall sonst auch.
+
 ## v1.13.19 — August 2026
 
 ### Episoden-Vorschaubilder und -Beschreibungen jetzt überall sichtbar, nicht nur bei Serien, die noch nicht in der Bibliothek sind

@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.20 — Agosto 2026
+
+### I titoli e i riassunti degli episodi venivano sempre restituiti in francese, indipendentemente dalla lingua dell'interfaccia
+
+- **Corretto**: la chiamata dati stagione/episodio (miniature, titoli, riassunti — aggiunta in v1.13.12, estesa alle serie possedute in v1.13.19) non indicava mai a TMDb in quale lingua rispondere, quindi ricadeva silenziosamente sul francese per tutti, anche con l'italiano (o un'altra lingua) selezionato come lingua dell'interfaccia. Era esattamente lo stesso bug già corretto una volta per le pagine di dettaglio — mai applicato a questa chiamata specifica. Ora segue la lingua scelta nell'app, come ovunque altrove.
+
 ## v1.13.19 — Agosto 2026
 
 ### Miniature e riassunti degli episodi visibili ovunque, non solo per le serie non ancora possedute

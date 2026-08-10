@@ -129,7 +129,7 @@ function SeasonRow({
   // owned episodes is merged in live from this same TMDb call rather than
   // requiring a schema change or a separate backfill.
   const tmdbKey = isExpanded && tmdbId
-    ? `/api/metadata/season?tmdbId=${tmdbId}&season=${season.seasonNumber}`
+    ? `/api/metadata/season?tmdbId=${tmdbId}&season=${season.seasonNumber}&locale=${locale}`
     : null;
   const { data: tmdbSeason, isLoading: tmdbLoading } = useSWR<TmdbSeasonData>(tmdbKey, fetcher);
   const tmdbByEpisode = useMemo(() => {

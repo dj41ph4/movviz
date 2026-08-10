@@ -433,8 +433,8 @@ export async function getSeries(tmdbId: number): Promise<MetaSeries | null> {
   };
 }
 
-export async function getSeason(tmdbId: number, seasonNumber: number): Promise<MetaSeason | null> {
-  const data = await tmdbGet<RawSeasonDetail>(`/tv/${tmdbId}/season/${seasonNumber}`);
+export async function getSeason(tmdbId: number, seasonNumber: number, preferLanguage?: string): Promise<MetaSeason | null> {
+  const data = await tmdbGet<RawSeasonDetail>(`/tv/${tmdbId}/season/${seasonNumber}`, {}, toTmdbLanguage(preferLanguage));
   if (!data) return null;
   return {
     seasonNumber: data.season_number,

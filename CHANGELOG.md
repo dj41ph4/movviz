@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.19 — August 2026
+## v1.13.20 — August 2026
+
+### Episode titles and descriptions always came back in French, regardless of the interface language
+
+- **Fixed**: the season/episode data call (thumbnails, titles, descriptions — added in v1.13.12 and extended to owned series in v1.13.19) never told TMDb which language to answer in, so it silently defaulted to French for every user, even with English (or any other) selected as the interface language. This was the exact same bug already fixed once for title detail pages — just never applied to this specific call. It now follows the app's selected language like everywhere else.
 
 ### Episode thumbnails and descriptions now show up everywhere, not just for series you don't own yet
 

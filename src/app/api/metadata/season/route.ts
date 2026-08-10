@@ -10,8 +10,9 @@ export async function GET(req: NextRequest) {
   if (!tmdbId || !Number.isFinite(seasonNumber)) {
     return NextResponse.json({ error: "tmdbId and season required" }, { status: 400 });
   }
+  const locale = req.nextUrl.searchParams.get("locale") ?? undefined;
 
-  const season = await getSeason(tmdbId, seasonNumber);
+  const season = await getSeason(tmdbId, seasonNumber, locale);
   if (!season) return NextResponse.json({ error: "not found" }, { status: 404 });
   return NextResponse.json(season);
 }

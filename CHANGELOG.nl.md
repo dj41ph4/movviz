@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.20 — Augustus 2026
+
+### Afleveringstitels en -beschrijvingen kwamen altijd in het Frans terug, ongeacht de taal van de interface
+
+- **Opgelost**: de seizoen-/afleveringsdata-aanroep (miniaturen, titels, beschrijvingen — toegevoegd in v1.13.12, uitgebreid naar bezeten series in v1.13.19) liet TMDb nooit weten in welke taal er geantwoord moest worden, dus viel die stilzwijgend terug op het Frans voor iedereen, zelfs met Nederlands (of een andere taal) geselecteerd als interfacetaal. Dit was exact dezelfde bug die al eerder was opgelost voor de detailpagina's — alleen nooit toegepast op deze specifieke aanroep. Het volgt nu de in de app gekozen taal, zoals overal elders.
+
 ## v1.13.19 — Augustus 2026
 
 ### Afleveringsminiaturen en -beschrijvingen nu overal zichtbaar, niet alleen voor series die je nog niet bezit

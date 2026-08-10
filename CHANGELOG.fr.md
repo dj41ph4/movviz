@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.19 — août 2026
+## v1.13.20 — août 2026
+
+### Titres et résumés d'épisodes toujours renvoyés en français, quelle que soit la langue de l'interface
+
+- **Corrigé** : l'appel de données saison/épisode (vignettes, titres, résumés — ajouté en v1.13.12, étendu aux séries possédées en v1.13.19) n'indiquait jamais à TMDb dans quelle langue répondre, donc ça retombait silencieusement sur le français pour tout le monde, même avec l'anglais (ou une autre langue) sélectionné comme langue de l'interface. C'était exactement le même bug déjà corrigé une fois pour les pages de détail — jamais appliqué à cet appel précis. Ça suit désormais la langue choisie dans l'app, comme partout ailleurs.
 
 ### Vignettes et résumés d'épisodes visibles partout, pas seulement pour les séries pas encore possédées
 
