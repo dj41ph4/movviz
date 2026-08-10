@@ -4,7 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.18 — août 2026
+## v1.13.19 — août 2026
+
+### Vignettes et résumés d'épisodes visibles partout, pas seulement pour les séries pas encore possédées
+
+- **Corrigé** : la v1.13.12 avait ajouté une vignette et un court résumé à chaque ligne d'épisode, mais uniquement pour les séries pas encore dans ta bibliothèque — les épisodes des séries déjà possédées s'affichaient en simples lignes de texte, sans aperçu. Les deux vues puisent désormais dans les mêmes données TMDb en direct, donc un épisode téléchargé/disponible affiche exactement le même aperçu qu'un épisode pas encore récupéré — sans qu'aucun badge de qualité, marqueur "vu", pastille de statut ou bouton de recherche existant ne disparaisse.
+- **Corrigé** : les dates de diffusion dans cette même liste s'affichaient selon le format de la locale du navigateur, indépendamment de la langue choisie dans Movviz (par exemple l'ordre mois/jour US même avec le français sélectionné) — elles suivent désormais la langue de l'app, comme toutes les autres dates de Movviz.
 
 ### La reprise d'un pack de saison partiellement importé pouvait tenter de renommer son .nfo restant en fichier d'épisode
 

@@ -4,7 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.18 — August 2026
+## v1.13.19 — August 2026
+
+### Episode thumbnails and descriptions now show up everywhere, not just for series you don't own yet
+
+- **Fixed**: v1.13.12 added a thumbnail and short description to each episode row, but only for series not yet in your library — episodes of series you already own showed as plain text rows with no preview at all. Both views now pull from the same live TMDb data, so a downloaded/available episode shows exactly the same preview as one you haven't grabbed yet — with none of the existing quality badges, watched marker, status pill, or search buttons removed.
+- **Fixed**: episode air dates in that same list rendered in your browser's own locale format regardless of Movviz's selected language (e.g. showing the US month/day order even with French selected) — now consistently follows the app's language, like every other date in Movviz.
 
 ### Retrying a partially-imported season pack could try to rename its leftover .nfo into an episode file
 

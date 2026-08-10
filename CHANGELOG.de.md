@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.19 — August 2026
+
+### Episoden-Vorschaubilder und -Beschreibungen jetzt überall sichtbar, nicht nur bei Serien, die noch nicht in der Bibliothek sind
+
+- **Behoben**: v1.13.12 fügte jeder Episodenzeile ein Vorschaubild und eine kurze Beschreibung hinzu, aber nur bei Serien, die noch nicht in der Bibliothek waren — Episoden bereits vorhandener Serien wurden als reine Textzeilen ohne jede Vorschau angezeigt. Beide Ansichten greifen jetzt auf dieselben Live-TMDb-Daten zurück, sodass eine heruntergeladene/verfügbare Episode genau dieselbe Vorschau zeigt wie eine noch nicht geholte — ohne dass vorhandene Qualitäts-Badges, die „gesehen"-Markierung, das Status-Pill oder Suchen-Buttons verschwinden.
+- **Behoben**: die Ausstrahlungsdaten in derselben Liste wurden im Locale-Format des Browsers angezeigt, unabhängig von der in Movviz gewählten Sprache (z. B. die US-Reihenfolge Monat/Tag selbst bei ausgewähltem Deutsch) — sie folgen jetzt konsequent der Sprache der App, wie alle anderen Daten in Movviz.
+
 ## v1.13.18 — August 2026
 
 ### Das erneute Ausführen eines teilweise importierten Staffelpakets konnte versuchen, dessen übrig gebliebene .nfo-Datei in eine Episodendatei umzubenennen

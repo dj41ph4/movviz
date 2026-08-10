@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.19 — Agosto 2026
+
+### Miniature e riassunti degli episodi visibili ovunque, non solo per le serie non ancora possedute
+
+- **Corretto**: la v1.13.12 aveva aggiunto una miniatura e un breve riassunto a ogni riga di episodio, ma solo per le serie non ancora presenti nella tua libreria — gli episodi delle serie già possedute venivano mostrati come semplici righe di testo, senza anteprima. Le due viste ora attingono agli stessi dati TMDb in diretta, quindi un episodio scaricato/disponibile mostra esattamente la stessa anteprima di uno non ancora recuperato — senza che alcun badge di qualità, indicatore "visto", pallino di stato o pulsante di ricerca esistente scompaia.
+- **Corretto**: le date di trasmissione in questa stessa lista venivano mostrate secondo il formato della locale del browser, indipendentemente dalla lingua scelta in Movviz (ad esempio l'ordine mese/giorno statunitense anche con l'italiano selezionato) — ora seguono coerentemente la lingua dell'app, come tutte le altre date di Movviz.
+
 ## v1.13.18 — Agosto 2026
 
 ### La ripresa di un pack di stagione parzialmente importato poteva tentare di rinominare il suo .nfo residuo come file di episodio

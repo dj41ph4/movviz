@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.19 — Augustus 2026
+
+### Afleveringsminiaturen en -beschrijvingen nu overal zichtbaar, niet alleen voor series die je nog niet bezit
+
+- **Opgelost**: v1.13.12 voegde een miniatuur en korte beschrijving toe aan elke afleveringsrij, maar alleen voor series die nog niet in je bibliotheek stonden — afleveringen van series die je al bezat, werden getoond als gewone tekstregels zonder enige voorvertoning. Beide weergaven putten nu uit dezelfde live TMDb-gegevens, zodat een gedownloade/beschikbare aflevering exact dezelfde voorvertoning toont als een aflevering die je nog niet hebt opgehaald — zonder dat bestaande kwaliteitsbadges, de "bekeken"-markering, statuspil of zoekknoppen verdwijnen.
+- **Opgelost**: de uitzenddatums in diezelfde lijst werden weergegeven volgens de locale-indeling van je browser, ongeacht de in Movviz gekozen taal (bijvoorbeeld de Amerikaanse maand/dag-volgorde, zelfs met Nederlands geselecteerd) — ze volgen nu consequent de taal van de app, zoals alle andere datums in Movviz.
+
 ## v1.13.18 — Augustus 2026
 
 ### Het hervatten van een gedeeltelijk geïmporteerd seizoenspack kon proberen om het overgebleven .nfo-bestand als afleveringsbestand te hernoemen
