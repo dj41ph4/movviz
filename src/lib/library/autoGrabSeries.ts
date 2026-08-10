@@ -28,6 +28,8 @@ import { searchTv, searchCompleteSeriesPack, COMPLETE_SERIES_TERMS } from "@/lib
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
 import { withKeyLock } from "@/lib/library/locks";
+import { runBackground } from "@/lib/priority/lane";
+import { yieldToUser } from "@/lib/priority/userActivity";
 
 /**
  * Anime tends to have more reliable episode numbering/titles on TVDB than
@@ -1751,6 +1753,12 @@ export function transitionUpcomingEpisodes() {
  * doesn't degrade into an unbounded retry of every old missing episode.
  */
 export async function searchReleasedMissingEpisodes() {
+  // Voie arrière-plan + cession à l'utilisateur : tâche planifiée, jamais
+  // prioritaire sur une interaction utilisateur.
+  return runBackground(() => searchReleasedMissingEpisodesInner());
+}
+
+async function searchReleasedMissingEpisodesInner() {
   const now = Date.now();
   const searched: string[] = [];
 
@@ -1778,6 +1786,7 @@ export async function searchReleasedMissingEpisodes() {
   }
 
   for (const { series, seasons } of bySeries.values()) {
+    await yieldToUser();
     await withSearchLock(`series:${series.id}`, async () => {
       // Re-derive from fresh state: an earlier pass on this series (bulk job,
       // manual button) may have grabbed some of it while we waited on the
@@ -1861,6 +1870,13 @@ export function hasCjkText(text: string): boolean {
  * Enforces all quality profile rules. Limits batch to avoid hammering indexers.
  */
 export async function searchMissingEpisodes(maxSeasons = 30) {
+  // Voie arrière-plan + cession à l'utilisateur : bulk planifiée (relance
+  // 6h), jamais prioritaire sur une interaction utilisateur. Le bulk MANUEL
+  // passe par searchAllMissing (searchMissing.ts), en voie utilisateur.
+  return runBackground(() => searchMissingEpisodesInner(maxSeasons));
+}
+
+async function searchMissingEpisodesInner(maxSeasons: number) {
   const searched: string[] = [];
   // Group by series — RÈGLE ABSOLUE : l'intégrale est tentée UNE fois par
   // série (limitée aux saisons du budget), avant toute saison/épisode.
@@ -1895,6 +1911,7 @@ export async function searchMissingEpisodes(maxSeasons = 30) {
   }
 
   for (const { series, seasons } of entries) {
+    await yieldToUser();
     await withSearchLock(`series:${series.id}`, async () => {
       // Re-derive from fresh state: an earlier pass on this series (bulk job,
       // manual button) may have grabbed some of it while we waited on the

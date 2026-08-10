@@ -3,6 +3,7 @@ import { getCurrentUser } from "./session";
 import { getUserById } from "./store";
 import { resolveTokenUserId } from "@/lib/tokens/store";
 import type { User } from "./types";
+import { markUserActivity } from "@/lib/priority/userActivity";
 
 /**
  * Session cookie first (browser), falling back to a personal API token
@@ -11,14 +12,28 @@ import type { User } from "./types";
  * /api/auth/me to show the "waiting for approval" screen, but nothing else.
  */
 export function requireUser(req: NextRequest): User | null {
+  // Point de marquage d'activité utilisateur : TOUTES les routes API
+  // authentifiées passent par ce garde (les pages chargent ensuite des
+  // fetchs /api/*). requireAdmin délègue à requireUser, donc un seul appel
+  // couvre les deux. Marqué UNIQUEMENT pour une requête réellement
+  // authentifiée (session ou token valide) — un robot qui martèle des
+  // routes non authentifiées ne doit pas maintenir l'utilisateur « actif ».
+  // Le callback d'import du moteur utilise x-movviz-token, pas ce garde —
+  // aucun faux positif d'activité côté machine.
   const sessionUser = getCurrentUser(req);
-  if (sessionUser) return sessionUser.status === "pending" ? null : sessionUser;
+  if (sessionUser) {
+    if (sessionUser.status === "pending") return null;
+    markUserActivity();
+    return sessionUser;
+  }
 
   const auth = req.headers.get("authorization");
   const token = auth?.startsWith("Bearer ") ? auth.slice(7) : null;
   const userId = resolveTokenUserId(token);
   const tokenUser = userId ? getUserById(userId) : null;
-  return tokenUser && tokenUser.status !== "pending" ? tokenUser : null;
+  if (!tokenUser || tokenUser.status === "pending") return null;
+  markUserActivity();
+  return tokenUser;
 }
 
 export function requireAdmin(req: NextRequest): User | null {

@@ -27,6 +27,8 @@ import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
 import { movieHasReleased } from "@/lib/library/releaseSchedule";
 import { withSearchLock } from "@/lib/library/autoGrabSeries";
+import { runBackground } from "@/lib/priority/lane";
+import { yieldToUser } from "@/lib/priority/userActivity";
 
 const RESOLUTION_ORDER = ["480p", "720p", "1080p", "2160p"];
 const rank = (res: string | null) => (res ? RESOLUTION_ORDER.indexOf(res) : -1);
@@ -336,8 +338,15 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
  */
 export async function checkQualityUpgrades() {
   if (!isQualityUpgradesEnabled()) return;
+  // Voie arrière-plan (quotas indexeurs réduits) + cession à l'utilisateur
+  // actif à chaque item — tâche planifiée, jamais prioritaire sur un clic.
+  return runBackground(() => checkQualityUpgradesInner());
+}
+
+async function checkQualityUpgradesInner() {
   const upgraded: string[] = [];
   for (const movie of loadMovies()) {
+    await yieldToUser();
     if (movie.status !== "available" || !movie.file || !movie.monitored) continue;
     const profile =
       DEFAULT_QUALITY_PROFILES.find((p) => p.id === movie.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
@@ -430,10 +439,16 @@ export async function checkQualityUpgrades() {
 export async function autoUpgradeAll(): Promise<{ movies: number; episodes: number }> {
   const rules = loadReleaseRules();
   if (!rules.autoUpgradeEnabled) return { movies: 0, episodes: 0 };
+  // Voie arrière-plan + cession à l'utilisateur : tâche planifiée 6h, jamais
+  // prioritaire sur une interaction utilisateur.
+  return runBackground(() => autoUpgradeAllInner());
+}
 
+async function autoUpgradeAllInner(): Promise<{ movies: number; episodes: number }> {
   const candidates = await findUpgradeCandidates();
   let movieCount = 0;
   for (const c of candidates) {
+    await yieldToUser();
     if (c.movieId && isUpgradeIgnored(c.movieId)) continue;
     await grabUpgradeCandidate(c.movieId!);
     movieCount++;
@@ -442,6 +457,7 @@ export async function autoUpgradeAll(): Promise<{ movies: number; episodes: numb
   const epCandidates = await findEpisodeUpgradeCandidates();
   let epCount = 0;
   for (const c of epCandidates) {
+    await yieldToUser();
     const result = await grabEpisodeUpgradeCandidate(c.seriesId, c.seasonNumber, c.episodeNumber);
     if (result.ok) epCount++;
   }
@@ -490,9 +506,16 @@ export function transitionUpcomingMovies() {
  * covers those. Meant to run a few times a day.
  */
 export async function searchReleasedMissingMovies() {
+  // Voie arrière-plan + cession à l'utilisateur : tâche planifiée (4x/jour),
+  // jamais prioritaire sur une interaction utilisateur.
+  return runBackground(() => searchReleasedMissingMoviesInner());
+}
+
+async function searchReleasedMissingMoviesInner() {
   const now = Date.now();
   const searched: string[] = [];
   for (const movie of loadMovies()) {
+    await yieldToUser();
     if (!movie.monitored || movie.status !== "missing" || !movie.vfReleaseDate) continue;
     const releasedAt = new Date(movie.vfReleaseDate).getTime();
     if (Number.isNaN(releasedAt) || releasedAt > now || now - releasedAt > 14 * DAY_MS) continue;
@@ -510,6 +533,14 @@ export async function searchReleasedMissingMovies() {
  * hammering indexers on a huge library.
  */
 export async function searchMissingMovies(max = 100) {
+  // Voie arrière-plan + cession à l'utilisateur : bulk planifiée (relance
+  // 6h), jamais prioritaire sur une interaction utilisateur. Le bulk MANUEL
+  // (« Rechercher les manquants » du bouton) passe par searchAllMissing,
+  // qui reste en voie utilisateur par défaut.
+  return runBackground(() => searchMissingMoviesInner(max));
+}
+
+async function searchMissingMoviesInner(max: number) {
   const candidates = loadMovies().filter((m) => m.monitored && m.status === "missing");
   // Randomize to avoid re-searching the same movies every pass — every run
   // targets a different subset of the missing library.
@@ -520,6 +551,7 @@ export async function searchMissingMovies(max = 100) {
   const batch = candidates.slice(0, max);
   const searched: string[] = [];
   for (const movie of batch) {
+    await yieldToUser();
     await searchAndGrabMovie(movie.id);
     searched.push(movie.id);
   }

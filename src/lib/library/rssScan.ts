@@ -4,6 +4,8 @@ import { releaseTitleMatches, yearIsCompatible } from "@/lib/library/matching";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSeries";
+import { runBackground } from "@/lib/priority/lane";
+import { yieldToUser } from "@/lib/priority/userActivity";
 
 /**
  * RSS sync: matches cached RSS feed data against everything Movviz currently
@@ -13,6 +15,12 @@ import { searchAndGrabSeason, withSearchLock } from "@/lib/library/autoGrabSerie
  * are impossible.
  */
 export async function rssMatchIndexers() {
+  // Voie arrière-plan + cession à l'utilisateur : le match RSS est planifié,
+  // jamais prioritaire sur une interaction utilisateur.
+  return runBackground(() => rssMatchIndexersInner());
+}
+
+async function rssMatchIndexersInner() {
   const releases = readRssCache();
   if (releases.length === 0) return { grabbed: 0 };
 
@@ -54,6 +62,7 @@ export async function rssMatchIndexers() {
       if (grabbedMovies.has(movie.id)) continue;
       if (!releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []) || !yearIsCompatible(parsed.year, movie.year)) continue;
       grabbedMovies.add(movie.id);
+      await yieldToUser();
       const result = await searchAndGrabMovie(movie.id);
       if ("ok" in result && result.ok) grabbed++;
     }
@@ -74,6 +83,7 @@ export async function rssMatchIndexers() {
       // scheduled retry may be mid-search on this exact series right now —
       // without the lock this RSS hit would run a redundant season search
       // chain against it.
+      await yieldToUser();
       const result = await withSearchLock(`series:${s.seriesId}`, () =>
         searchAndGrabSeason(s.seriesId, s.season, { skipSeriesPackRetry: skipSeriesPack })
       );

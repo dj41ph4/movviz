@@ -23,6 +23,7 @@ import { searchIndexer } from "./torznab";
 import { withoutRateLimited, clearRateLimit } from "./rateLimit";
 import { readJsonCached } from "@/lib/fsJsonCache";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { runBackground } from "@/lib/priority/lane";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -94,6 +95,12 @@ async function writeRssCache(releases: IndexerRelease[]) {
  * Call this from the scheduled RSS task, NOT from the matching path.
  */
 export async function refreshRssCache(): Promise<{ fetched: number }> {
+  // Voie arrière-plan (quotas indexeurs réduits) : refresh RSS planifié,
+  // jamais prioritaire sur une recherche utilisateur.
+  return runBackground(() => refreshRssCacheInner());
+}
+
+async function refreshRssCacheInner(): Promise<{ fetched: number }> {
   const configured = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
   if (configured.length === 0) {
     recordSearchLog("warn", "rss_refresh.no_indexers", "Aucun indexeur torrent activé — cache vidé");
