@@ -55,6 +55,21 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY) as Locale | null;
     if (stored && LOCALES.includes(stored)) setLocaleState(stored);
+
+    // Account-level preference wins once it loads — confirmed live: the
+    // interface language was device-only, resetting on every new browser or
+    // device. Also writes back to localStorage for instant hydration next
+    // time. Silently ignored when logged out or offline.
+    fetch("/api/settings/preferences", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const locale = d?.prefs?.locale as Locale | undefined;
+        if (locale && LOCALES.includes(locale)) {
+          window.localStorage.setItem(STORAGE_KEY, locale);
+          setLocaleState(locale);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -64,6 +79,11 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
     window.localStorage.setItem(STORAGE_KEY, l);
+    fetch("/api/settings/preferences", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ locale: l }),
+    }).catch(() => {});
   }, []);
 
   const t = useCallback<TFn>(

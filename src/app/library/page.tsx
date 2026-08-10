@@ -487,11 +487,30 @@ function useViewMode(storageKey: string): [ViewMode, (v: ViewMode) => void] {
   useEffect(() => {
     const stored = localStorage.getItem(storageKey) as ViewMode | null;
     if (stored === "large" || stored === "small" || stored === "list") setView(stored);
+
+    // Account-level preference wins once it loads — confirmed live: this was
+    // device-only, resetting on every new browser/device. Silently ignored
+    // when logged out or offline.
+    fetch("/api/settings/preferences", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const mode = d?.prefs?.libraryViewMode as ViewMode | undefined;
+        if (mode === "large" || mode === "small" || mode === "list") {
+          localStorage.setItem(storageKey, mode);
+          setView(mode);
+        }
+      })
+      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const update = (v: ViewMode) => {
     setView(v);
     localStorage.setItem(storageKey, v);
+    fetch("/api/settings/preferences", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ libraryViewMode: v }),
+    }).catch(() => {});
   };
   return [view, update];
 }

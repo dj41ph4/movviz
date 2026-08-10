@@ -4,6 +4,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.11 — août 2026
+
+### La personnalisation de l'affichage suit désormais ton compte, pas seulement ton navigateur
+
+- **Changé** : le profil de performance GPU, les animations, le thème (clair/sombre/auto), la langue de l'interface et la densité d'affichage de la bibliothèque n'étaient enregistrés que dans le navigateur — changer d'appareil ou de navigateur remettait chacun à zéro. Ils sont désormais enregistrés sur ton compte et te suivent partout où tu te connectes, tout en s'appliquant toujours instantanément sur l'appareil utilisé.
+- **Déplacé** : le réglage « Animations » se trouve désormais dans Réglages → Performance GPU, juste à côté du profil qu'il affecte réellement, au lieu d'être sous Tableau de bord.
+
 ## v1.13.10 — août 2026
 
 ### Boutons de la barre de navigation mobile qui ne fonctionnaient que si on tapait au-dessus de l'icône

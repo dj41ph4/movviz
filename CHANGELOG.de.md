@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.11 — August 2026
+
+### Die Anzeigepersonalisierung folgt jetzt deinem Konto, nicht nur deinem Browser
+
+- **Geändert**: Das GPU-Leistungsprofil, Animationen, das Theme (hell/dunkel/automatisch), die Oberflächensprache und die Ansichtsdichte der Bibliothek wurden nur im Browser gespeichert — beim Wechsel von Gerät oder Browser wurde alles auf die Standardwerte zurückgesetzt. Sie werden jetzt in deinem Konto gespeichert und folgen dir überall, wo du dich anmeldest, während sie weiterhin sofort auf dem gerade genutzten Gerät angewendet werden.
+- **Verschoben**: Der Schalter "Animationen" befindet sich jetzt unter Einstellungen → Leistung GPU, direkt neben dem Profil, das er tatsächlich betrifft, statt unter Dashboard.
+
 ## v1.13.10 — August 2026
 
 ### Schaltflächen der mobilen unteren Navigationsleiste funktionierten nur bei Tippen oberhalb des Symbols

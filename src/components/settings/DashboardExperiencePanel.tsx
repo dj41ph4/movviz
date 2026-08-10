@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
-import { useGpu } from "@/lib/gpu/GpuProvider";
+import { Toggle } from "@/components/ui/Toggle";
 import {
   DASHBOARD_MODES,
   DASHBOARD_SECTION_IDS,
@@ -14,18 +14,6 @@ import {
   type DashboardMode,
   type DashboardSectionId,
 } from "@/lib/dashboard/types";
-
-function Toggle({ on, onChange, disabled }: { on: boolean; onChange: () => void; disabled?: boolean }) {
-  return (
-    <button
-      onClick={onChange}
-      disabled={disabled}
-      className={cn("relative h-6 w-11 shrink-0 rounded-full transition-colors", on && !disabled ? "brand-gradient" : "bg-white/10", disabled && "cursor-not-allowed opacity-40")}
-    >
-      <span className={cn("absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform", on && "translate-x-5")} />
-    </button>
-  );
-}
 
 const SECTION_LABEL_KEY: Record<DashboardSectionId, string> = {
   becauseYouLike: "dashboard.rowRecommended",
@@ -44,7 +32,6 @@ function previewModeOf(hero: DashboardLayout["hero"]): PreviewMode {
 
 export function DashboardExperiencePanel() {
   const t = useT();
-  const gpu = useGpu();
   const [layout, setLayout] = useState<DashboardLayout | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -91,18 +78,6 @@ export function DashboardExperiencePanel() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl glass p-5">
-        <h3 className="mb-1 font-bold text-ink">{t("settings.dashboardExperience.animationsTitle")}</h3>
-        <p className="mb-4 text-sm text-ink-dim">{t("settings.dashboardExperience.animationsHint")}</p>
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm text-ink">{t("settings.dashboardExperience.animationsEnabled")}</span>
-          <Toggle
-            on={!gpu.reduceAnimations}
-            onChange={() => gpu.setReduceAnimations(!gpu.reduceAnimations)}
-          />
-        </div>
-      </div>
-
       <div className="rounded-2xl glass p-5">
         <h3 className="mb-1 font-bold text-ink">{t("settings.dashboardExperience.modeTitle")}</h3>
         <p className="mb-4 text-sm text-ink-dim">{t("settings.dashboardExperience.modeHint")}</p>

@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.11 — Augustus 2026
+
+### Weergavepersonalisatie volgt nu je account, niet alleen je browser
+
+- **Gewijzigd**: het GPU-prestatieprofiel, animaties, thema (licht/donker/automatisch), interfacetaal en de weergavedichtheid van de bibliotheek werden alleen in de browser opgeslagen — bij het wisselen van apparaat of browser werd alles teruggezet naar de standaardwaarden. Ze worden nu opgeslagen bij je account en volgen je overal waar je inlogt, terwijl ze nog steeds direct worden toegepast op het apparaat dat je gebruikt.
+- **Verplaatst**: de schakelaar "Animaties" staat nu in Instellingen → Prestaties GPU, naast het profiel waarop hij daadwerkelijk van invloed is, in plaats van onder Dashboard.
+
 ## v1.13.10 — Augustus 2026
 
 ### Knoppen van de mobiele onderste navigatiebalk werkten alleen bij tikken boven het icoon

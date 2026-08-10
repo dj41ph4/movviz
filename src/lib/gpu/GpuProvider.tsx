@@ -89,6 +89,24 @@ export function GpuProvider({ children }: { children: React.ReactNode }) {
     const reduceAnimations = stored !== null ? stored === "1" : false;
     setInfo({ ...gpu, tier, cores, memoryGB, reduceAnimations });
     setHydrated(true);
+
+    // Account-level preference, once it loads, wins over the localStorage
+    // value used for instant first paint above — confirmed live: this used
+    // to be device-only, so the choice reset on every new browser/device.
+    // Silently ignored when logged out (login page etc.) or offline; the
+    // localStorage value from just above stays in effect either way.
+    fetch("/api/settings/preferences", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const prefs = d?.prefs;
+        if (!prefs) return;
+        setInfo((prev) => ({
+          ...prev,
+          tier: prefs.gpuTier ?? prev.tier,
+          reduceAnimations: prefs.reduceAnimations ?? prev.reduceAnimations,
+        }));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -103,14 +121,24 @@ export function GpuProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, info.reduceAnimations ? "1" : "0");
   }, [hydrated, info.reduceAnimations, info.tier]);
 
+  const savePrefs = useCallback((patch: { gpuTier?: GpuTier; reduceAnimations?: boolean }) => {
+    fetch("/api/settings/preferences", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(patch),
+    }).catch(() => {});
+  }, []);
+
   const setReduceAnimations = useCallback((v: boolean) => {
     setInfo((prev) => ({ ...prev, reduceAnimations: v }));
-  }, []);
+    savePrefs({ reduceAnimations: v });
+  }, [savePrefs]);
 
   const setTier = useCallback((tier: GpuTier) => {
     setInfo((prev) => ({ ...prev, tier }));
     try { localStorage.setItem(TIER_STORAGE_KEY, tier); } catch {}
-  }, []);
+    savePrefs({ gpuTier: tier });
+  }, [savePrefs]);
 
   const value = useMemo(
     () => ({ ...info, setReduceAnimations, setTier }),
