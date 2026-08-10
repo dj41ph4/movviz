@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.15 — Agosto 2026
+
+### La barra di navigazione restava opaca dopo essere tornati in cima alla pagina
+
+- **Corretto**: la barra di navigazione trasparente-poi-opaca aggiunta nella v1.13.12 diventava correttamente opaca scorrendo verso il basso, ma non tornava mai trasparente risalendo fino in cima. Passaggio a un metodo di rilevamento più affidabile affinché rifletta correttamente la posizione di scorrimento in entrambe le direzioni.
+
 ## v1.13.14 — Agosto 2026
 
 ### Le righe della dashboard ora possono aprire una griglia completa — "Vedi tutto" non era mai stato davvero collegato

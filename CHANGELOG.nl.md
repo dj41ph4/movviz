@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.15 — Augustus 2026
+
+### Navigatiebalk bleef ondoorzichtig na terugscrollen naar boven
+
+- **Opgelost**: de transparant-naar-ondoorzichtig navigatiebalk die in v1.13.12 werd toegevoegd, werd correct ondoorzichtig bij het naar beneden scrollen, maar werd nooit meer transparant bij het helemaal terugscrollen naar boven. Overgestapt op een betrouwbaardere detectiemethode zodat de scrollpositie in beide richtingen correct wordt weergegeven.
+
 ## v1.13.14 — Augustus 2026
 
 ### Dashboardrijen kunnen nu een volledig grid openen — "Alles bekijken" was nooit echt aangesloten

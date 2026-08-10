@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.15 — August 2026
+
+### Top nav stayed solid after scrolling back to the top
+
+- **Fixed**: the transparent-to-solid top navigation bar added in v1.13.12 correctly turned solid once you scrolled down, but scrolling back up to the very top never reverted it back to transparent. Switched to a more reliable detection method so it now correctly reflects scroll position in both directions.
+
 ## v1.13.14 — August 2026
 
 ### Dashboard rows can now open a full grid — "See all" was never actually wired up

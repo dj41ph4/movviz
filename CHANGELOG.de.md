@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.15 — August 2026
+
+### Navigationsleiste blieb nach dem Zurückscrollen an den Seitenanfang undurchsichtig
+
+- **Behoben**: Die in v1.13.12 hinzugefügte transparent-zu-undurchsichtig-Navigationsleiste wurde beim Herunterscrollen korrekt undurchsichtig, kehrte aber beim Zurückscrollen ganz nach oben nie wieder zur Transparenz zurück. Umstellung auf eine zuverlässigere Erkennungsmethode, damit die Scrollposition nun in beiden Richtungen korrekt wiedergegeben wird.
+
 ## v1.13.14 — August 2026
 
 ### Dashboard-Zeilen können jetzt ein vollständiges Raster öffnen — "Alle anzeigen" war nie wirklich angebunden

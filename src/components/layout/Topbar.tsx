@@ -22,12 +22,26 @@ export function Topbar() {
   // background everywhere else) — becomes the usual glass surface as soon
   // as there's anything to scroll past, so it never sits ambiguously
   // translucent over unrelated scrolled content.
+  //
+  // Driven by IntersectionObserver against a zero-height sentinel placed
+  // right before this header in AppShell, not a raw `window.scrollY`
+  // listener — confirmed live that the scrollY approach was unreliable
+  // in production (it correctly flipped to "scrolled" on the way down,
+  // but never reverted back to transparent on the way back up to the
+  // top, a one-directional bug never seen in local testing). Observing
+  // the sentinel's own visibility sidesteps scroll-event listening
+  // entirely and is the standard, battle-tested pattern for exactly
+  // this "am I at the top of the page" question.
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const sentinel = document.getElementById("topbar-scroll-sentinel");
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setScrolled(!entry.isIntersecting),
+      { threshold: 0 }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
   }, []);
 
   return (

@@ -138,6 +138,10 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
                       </a>
                       <Sidebar version={version} />
                       <div className="flex min-w-0 flex-1 flex-col">
+                        {/* Zero-height marker Topbar watches (IntersectionObserver)
+                         * to know whether the page is scrolled past the very top —
+                         * more reliable than tracking window.scrollY directly. */}
+                        <div id="topbar-scroll-sentinel" />
                         <Topbar />
                         <main id="main-content" className="flex-1 px-4 pt-5 pb-24 sm:px-5 sm:pt-6 md:px-8 md:pt-8 lg:pb-8">
                           <div key={pathname} className={cn(!reduceMotion && "animate-page-fade-in")}>

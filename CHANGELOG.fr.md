@@ -4,6 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.15 — août 2026
+
+### La barre de navigation restait opaque après un retour en haut de page
+
+- **Corrigé** : la barre de navigation transparente-puis-opaque ajoutée en v1.13.12 devenait bien opaque en défilant vers le bas, mais ne redevenait jamais transparente en remontant tout en haut. Passage à une méthode de détection plus fiable pour que ça reflète correctement la position de défilement dans les deux sens.
+
 ## v1.13.14 — août 2026
 
 ### Les rangées du tableau de bord peuvent désormais ouvrir une grille complète — « Voir plus » n'avait en réalité jamais été branché
