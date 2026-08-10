@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.18 — August 2026
+
+### Retrying a partially-imported season pack could try to rename its leftover .nfo into an episode file
+
+- **Fixed**: once every real video file in a season pack had already been matched and moved on an earlier partial run, a retry would find zero video files left and fall back to treating any remaining file — including the release's `.nfo` — as "the episode to import," attempting to rename it to something like `S03E02.nfo` and failing outright once that didn't match what was actually on disk. Leftover `.nfo`/`.txt`/image/checksum files are never episode content and are already cleaned up automatically once import finishes — they're now excluded from that matching entirely instead of causing a failed, user-visible import error.
+
 ## v1.13.17 — August 2026
 
 ### The slowdown logs you were told about now actually show up in Settings → Logs

@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.18 — Augustus 2026
+
+### Het hervatten van een gedeeltelijk geïmporteerd seizoenspack kon proberen om het overgebleven .nfo-bestand als afleveringsbestand te hernoemen
+
+- **Opgelost**: zodra alle echte videobestanden van een seizoenspack in een eerdere gedeeltelijke run al waren gematcht en verplaatst, vond een nieuwe poging geen videobestanden meer en viel dan terug op het eerste overgebleven bestand — inclusief de `.nfo` van de release — door dat te behandelen als "de te importeren aflevering", te proberen het te hernoemen naar iets als `S03E02.nfo` en volledig te falen zodra dat niet overeenkwam met wat er daadwerkelijk op schijf stond. Overgebleven `.nfo`/`.txt`/afbeeldings-/checksumbestanden zijn nooit afleveringscontent en worden al automatisch opgeruimd zodra de import is voltooid — ze worden nu volledig uitgesloten van deze matching in plaats van een mislukte, voor de gebruiker zichtbare importfout te veroorzaken.
+
 ## v1.13.17 — Augustus 2026
 
 ### De aangekondigde vertragingslogs zijn nu echt zichtbaar in Instellingen → Logs

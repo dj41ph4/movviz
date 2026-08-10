@@ -12,6 +12,10 @@ import { WEB_CALLBACK_URL, ENGINE_TOKEN } from "../config.mjs";
 
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 
+// Metadata/scene-tag extras a release can ship alongside the actual video —
+// never meaningful as an import target on their own (see _import below).
+const JUNK_EXT_RE = /\.(nfo|txt|url|torrent|tmp|sfv|md5|jpg|jpeg|png|gif|db)$/i;
+
 /** Règle produit : un torrent sans activité (0 octets reçus, 0 pairs) pendant 2 minutes passe "blocked". */
 const STALL_MS = 120_000;
 
@@ -815,7 +819,20 @@ export class AbstractBackend {
       m.movedTo = firstDest ?? this.cfg.completedPath;
     } else {
       const videoFiles = availableFiles.filter((f) => VIDEO_EXT_RE.test(f.name));
-      const targets = videoFiles.length ? videoFiles : availableFiles;
+      // The empty-videoFiles fallback below exists for genuinely unusual
+      // rips (e.g. ISO) whose extension VIDEO_EXT_RE doesn't cover — but it
+      // must never pick up known junk (nfo/txt/jpg/sfv/...) as "the episode
+      // to rename": confirmed live (Smallville intégrale) — once every real
+      // video file had already been matched/moved on an earlier partial run,
+      // videoFiles came back empty and the fallback tried to rename the
+      // release's leftover .nfo to an episode filename (e.g. "S03E02.nfo"),
+      // failing with ENOENT once that file didn't match what was on disk.
+      // These extras aren't used for anything (Movviz has no .nfo parsing —
+      // TMDb/TVDB drive all metadata) and are already swept up unconditionally
+      // by _cleanupDownloadFolder once the torrent finishes, so simply
+      // leaving them out of `targets` here is enough — no separate delete needed.
+      const nonJunk = availableFiles.filter((f) => !JUNK_EXT_RE.test(f.name));
+      const targets = videoFiles.length ? videoFiles : nonJunk;
       const releaseInfo = parseRelease(snap.name);
       let firstDest = null;
       for (const file of targets) {

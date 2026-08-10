@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.18 — August 2026
+
+### Das erneute Ausführen eines teilweise importierten Staffelpakets konnte versuchen, dessen übrig gebliebene .nfo-Datei in eine Episodendatei umzubenennen
+
+- **Behoben**: Sobald alle echten Videodateien eines Staffelpakets bei einem früheren Teildurchlauf bereits zugeordnet und verschoben worden waren, fand ein erneuter Versuch keine Videodateien mehr vor und griff stattdessen auf die erste verbliebene Datei zurück — einschließlich der `.nfo`-Datei der Release —, behandelte diese als „die zu importierende Episode", versuchte sie in etwas wie `S03E02.nfo` umzubenennen und scheiterte, sobald das nicht mit dem tatsächlichen Inhalt der Festplatte übereinstimmte. Übrig gebliebene `.nfo`-/`.txt`-/Bild-/Checksummendateien sind niemals Episodeninhalt und werden nach Abschluss des Imports ohnehin automatisch bereinigt — sie werden jetzt vollständig von diesem Abgleich ausgeschlossen, statt einen für den Nutzer sichtbaren Importfehler zu verursachen.
+
 ## v1.13.17 — August 2026
 
 ### Die angekündigten Verlangsamungs-Logs sind jetzt tatsächlich unter Einstellungen → Logs sichtbar

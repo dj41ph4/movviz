@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.18 — Agosto 2026
+
+### La ripresa di un pack di stagione parzialmente importato poteva tentare di rinominare il suo .nfo residuo come file di episodio
+
+- **Corretto**: una volta che tutti i file video reali di un pack di stagione erano già stati abbinati e spostati in un passaggio precedente, un tentativo di ripresa non trovava più alcun file video e ripiegava sul primo file rimasto — incluso il `.nfo` della release — trattandolo come "l'episodio da importare", tentando di rinominarlo in qualcosa come `S03E02.nfo` e fallendo non appena non corrispondeva a ciò che era realmente presente sul disco. I file `.nfo`/`.txt`/immagini/checksum residui non sono mai contenuto di episodio e vengono già ripuliti automaticamente al termine dell'import — ora sono esclusi da questo abbinamento invece di causare un errore di import visibile all'utente.
+
 ## v1.13.17 — Agosto 2026
 
 ### I log di rallentamento annunciati ora compaiono davvero in Impostazioni → Log
