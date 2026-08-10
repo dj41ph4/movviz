@@ -1829,7 +1829,10 @@ export const en: Dictionary = {
 
   player: {
     betaToggle: "Beta player",
-    betaToggleHint: "Replaces « Open in Plex » with an embedded video player (beta — some codecs may not play in the browser).",
+    betaToggleHint: "Makes the embedded video player available on this instance (beta — some codecs may not play in the browser). Each user still has to turn it on for their own account from their profile.",
+    betaUserToggle: "Use the beta player",
+    betaUserToggleHint: "Plays videos directly in the browser instead of opening Plex. Personal choice — off by default, tied to your account.",
+    betaUserToggleNeedsAdmin: "An admin needs to enable this feature first, in Settings.",
     betaError: "Cannot play this video in the browser. Open it in Plex instead.",
     betaLoading: "Buffering…",
     betaWebcodecs: "WebCodecs HEVC detected — direct play",

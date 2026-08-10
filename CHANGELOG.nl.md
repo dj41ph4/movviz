@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.13 — Augustus 2026
+
+### Bèta-player is nu een persoonlijke keuze per account, standaard uit
+
+- **Gewijzigd**: voorheen had de Bèta-player één centrale aan/uit-schakelaar voor de hele instantie — als een beheerder hem inschakelde, veranderde stilzwijgend het afspeelgedrag voor elk account. Er zijn nu twee lagen: een beheerdersschakelaar in Instellingen die de functie alleen algemeen beschikbaar maakt, en een persoonlijke schakelaar op de eigen Profielpagina van elke gebruiker die hem daadwerkelijk voor dat account inschakelt — standaard uit, ongeacht wat de beheerder heeft ingesteld.
+
 ## v1.13.12 — Augustus 2026
 
 ### Zes browse-verbeteringen, gekozen uit een designreview

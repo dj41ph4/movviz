@@ -4,6 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.13 — août 2026
+
+### Le lecteur bêta est désormais un choix personnel par compte, désactivé par défaut
+
+- **Changé** : auparavant, le lecteur bêta n'avait qu'un seul interrupteur pour toute l'instance — un admin l'activant changeait silencieusement le comportement de lecture pour tous les comptes. Il y a désormais deux niveaux : un interrupteur admin dans Réglages qui rend simplement la fonctionnalité disponible, et un interrupteur personnel dans la page Profil de chaque utilisateur qui l'active réellement pour son propre compte — désactivé par défaut, quel que soit le réglage de l'admin.
+
 ## v1.13.12 — août 2026
 
 ### Six améliorations de navigation, choisies lors d'une revue de design

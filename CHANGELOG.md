@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.13 — August 2026
+
+### Beta player is now a personal choice per account, off by default
+
+- **Changed**: previously the Beta player had a single on/off switch for the whole instance — one admin turning it on silently switched playback behavior for every account. There are now two layers: an admin toggle in Settings that just makes the feature available at all, and a personal toggle in each user's own Profile page that actually turns it on for their account — off by default, regardless of what the admin has set.
+
 ## v1.13.12 — August 2026
 
 ### Six browsing improvements, picked from a design review

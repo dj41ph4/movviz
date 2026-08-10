@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.13 — Agosto 2026
+
+### Il player Beta è ora una scelta personale per account, disattivato di default
+
+- **Modificato**: in precedenza il player Beta aveva un unico interruttore on/off per l'intera istanza — un admin che lo attivava cambiava silenziosamente il comportamento di riproduzione per ogni account. Ora ci sono due livelli: un interruttore admin in Impostazioni che si limita a rendere la funzione disponibile in generale, e un interruttore personale nella pagina Profilo di ciascun utente che la attiva effettivamente per il proprio account — disattivato di default, indipendentemente da cosa ha impostato l'admin.
+
 ## v1.13.12 — Agosto 2026
 
 ### Sei miglioramenti alla navigazione, scelti da una revisione di design

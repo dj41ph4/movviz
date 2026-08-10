@@ -1828,7 +1828,10 @@ export const it: Dictionary = {
 
   player: {
     betaToggle: "Lettore beta",
-    betaToggleHint: "Sostituisce « Guida su Plex » con un lettore video integrato (beta — alcuni codec potrebbero non funzionare nel browser).",
+    betaToggleHint: "Rende disponibile il lettore video integrato su questa istanza (beta — alcuni codec potrebbero non funzionare nel browser). Ogni utente deve poi attivarlo per il proprio account dal proprio profilo.",
+    betaUserToggle: "Usa il lettore beta",
+    betaUserToggleHint: "Riproduce i video direttamente nel browser invece di aprire Plex. Scelta personale — disattivato per impostazione predefinita, legato al tuo account.",
+    betaUserToggleNeedsAdmin: "Questa funzione deve prima essere attivata da un amministratore in Impostazioni.",
     betaError: "Impossibile riprodurre questo video nel browser. Aprilo su Plex.",
     betaLoading: "Buffering…",
     betaWebcodecs: "WebCodecs HEVC rilevato — riproduzione diretta",

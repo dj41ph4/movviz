@@ -17,7 +17,7 @@ interface PlexConfig {
 
 export function PlexSettings() {
   const t = useT();
-  const { enabled: betaPlayer, streamCacheTtl, playbackEngine, setEnabled: setBetaPlayer, setStreamCacheTtl, setPlaybackEngine } = useBetaPlayer();
+  const { adminEnabled: betaPlayer, streamCacheTtl, playbackEngine, setAdminEnabled: setBetaPlayer, setStreamCacheTtl, setPlaybackEngine } = useBetaPlayer();
   const [cfg, setCfg] = useState<PlexConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);

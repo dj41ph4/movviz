@@ -29,6 +29,13 @@ export interface UserPrefs {
   gpuTier?: GpuTier;
   reduceAnimations?: boolean;
   libraryViewMode?: LibraryViewMode;
+  /** Personal opt-in for the Beta video player — independent of (and gated
+   *  by) the admin's own global "is this feature available at all" toggle in
+   *  beta-player.json. Confirmed live: previously a single global flag meant
+   *  one admin turning it on silently switched playback behavior for every
+   *  account on the instance. Defaults to false/absent for every user
+   *  regardless of the admin flag, so each person has to knowingly opt in. */
+  betaPlayerEnabled?: boolean;
 }
 
 const VALID_TIERS: GpuTier[] = ["high", "medium", "low", "ultraLow"];
@@ -57,6 +64,7 @@ function sanitize(prefs: unknown): UserPrefs {
   if (typeof p.gpuTier === "string" && VALID_TIERS.includes(p.gpuTier as GpuTier)) clean.gpuTier = p.gpuTier as GpuTier;
   if (typeof p.reduceAnimations === "boolean") clean.reduceAnimations = p.reduceAnimations;
   if (typeof p.libraryViewMode === "string" && VALID_VIEW_MODES.includes(p.libraryViewMode as LibraryViewMode)) clean.libraryViewMode = p.libraryViewMode as LibraryViewMode;
+  if (typeof p.betaPlayerEnabled === "boolean") clean.betaPlayerEnabled = p.betaPlayerEnabled;
   return clean;
 }
 

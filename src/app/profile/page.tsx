@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import type { ThemeMode } from "@/lib/theme/theme";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { Toggle } from "@/components/ui/Toggle";
 
 interface TokenRecord {
   id: string;
@@ -35,6 +37,7 @@ export default function ProfilePage() {
   const { locale } = useI18n();
   const user = useCurrentUser();
   const { mode: themeMode, setThemeMode } = useTheme();
+  const { adminEnabled: betaPlayerAvailable, userEnabled: betaPlayerOn, setUserEnabled: setBetaPlayerOn, loaded: betaPlayerLoaded } = useBetaPlayer();
   const { titlePanel } = useTitlePanel();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -185,6 +188,14 @@ export default function ProfilePage() {
           })}
         </div>
       </div>
+
+      {betaPlayerLoaded && betaPlayerAvailable && (
+        <div className="mb-6 rounded-2xl glass p-5">
+          <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("player.betaUserToggle")}</h3>
+          <p className="mb-4 text-xs text-ink-dim">{t("player.betaUserToggleHint")}</p>
+          <Toggle on={betaPlayerOn} onChange={() => setBetaPlayerOn(!betaPlayerOn)} />
+        </div>
+      )}
 
       <div className="mb-6 rounded-2xl glass p-5">
         <h3 className="mb-4 text-sm font-bold text-ink-soft">{t("profile.changePassword")}</h3>

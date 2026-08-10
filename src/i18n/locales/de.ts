@@ -1828,7 +1828,10 @@ export const de: Dictionary = {
 
   player: {
     betaToggle: "Beta-Player",
-    betaToggleHint: "Ersetzt « Auf Plex ansehen » durch einen eingebetteten Videoplayer (Beta — einige Codecs funktionieren möglicherweise nicht im Browser).",
+    betaToggleHint: "Macht den eingebetteten Videoplayer auf dieser Instanz verfügbar (Beta — einige Codecs funktionieren möglicherweise nicht im Browser). Jeder Nutzer muss ihn danach selbst für sein eigenes Konto in seinem Profil aktivieren.",
+    betaUserToggle: "Beta-Player verwenden",
+    betaUserToggleHint: "Spielt Videos direkt im Browser ab, statt Plex zu öffnen. Persönliche Wahl — standardmäßig deaktiviert, an dein Konto gebunden.",
+    betaUserToggleNeedsAdmin: "Diese Funktion muss zuerst von einem Administrator in den Einstellungen aktiviert werden.",
     betaError: "Dieses Video kann nicht im Browser abgespielt werden. Stattdessen in Plex öffnen.",
     betaLoading: "Zwischenspeichern…",
     betaWebcodecs: "WebCodecs HEVC erkannt — Direct Play",

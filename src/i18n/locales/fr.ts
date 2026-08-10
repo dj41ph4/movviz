@@ -1827,7 +1827,10 @@ export const fr = {
 
   player: {
     betaToggle: "Lecteur bêta",
-    betaToggleHint: "Remplace « Ouvrir dans Plex » par un lecteur vidéo intégré (bêta — certains codecs peuvent ne pas fonctionner dans le navigateur).",
+    betaToggleHint: "Rend le lecteur vidéo intégré disponible sur l'instance (bêta — certains codecs peuvent ne pas fonctionner dans le navigateur). Chaque utilisateur doit ensuite l'activer pour son propre compte depuis son profil.",
+    betaUserToggle: "Utiliser le lecteur bêta",
+    betaUserToggleHint: "Lit les vidéos directement dans le navigateur au lieu d'ouvrir Plex. Choix personnel — désactivé par défaut, propre à ton compte.",
+    betaUserToggleNeedsAdmin: "Cette fonctionnalité doit d'abord être activée par un administrateur dans Réglages.",
     betaError: "Impossible de lire cette vidéo dans le navigateur. Ouvrez-la dans Plex à la place.",
     betaLoading: "Mise en mémoire tampon…",
     betaWebcodecs: "WebCodecs HEVC détecté — lecture directe",

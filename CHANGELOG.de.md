@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.13 — August 2026
+
+### Der Beta-Player ist jetzt eine persönliche Wahl pro Konto, standardmäßig deaktiviert
+
+- **Geändert**: Bisher hatte der Beta-Player einen einzigen Ein/Aus-Schalter für die gesamte Instanz — schaltete ein Admin ihn ein, änderte sich stillschweigend das Wiedergabeverhalten für jedes Konto. Jetzt gibt es zwei Ebenen: einen Admin-Schalter in den Einstellungen, der die Funktion nur überhaupt verfügbar macht, und einen persönlichen Schalter auf der eigenen Profilseite jedes Nutzers, der sie tatsächlich für das eigene Konto aktiviert — standardmäßig deaktiviert, unabhängig davon, was der Admin eingestellt hat.
+
 ## v1.13.12 — August 2026
 
 ### Sechs Browsing-Verbesserungen aus einem Design-Review

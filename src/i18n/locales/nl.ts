@@ -1829,7 +1829,10 @@ export const nl: Dictionary = {
 
   player: {
     betaToggle: "Bèta-speler",
-    betaToggleHint: "Vervangt « Bekijken op Plex » door een ingebouwde videospeler (bèta — sommige codecs werken mogelijk niet in de browser).",
+    betaToggleHint: "Maakt de ingebouwde videospeler beschikbaar op deze instantie (bèta — sommige codecs werken mogelijk niet in de browser). Elke gebruiker moet het daarna zelf inschakelen voor zijn eigen account vanaf zijn profiel.",
+    betaUserToggle: "Bèta-speler gebruiken",
+    betaUserToggleHint: "Speelt video's rechtstreeks af in de browser in plaats van Plex te openen. Persoonlijke keuze — standaard uitgeschakeld, gekoppeld aan je account.",
+    betaUserToggleNeedsAdmin: "Deze functie moet eerst door een beheerder worden ingeschakeld in Instellingen.",
     betaError: "Kan deze video niet afspelen in de browser. Open hem in Plex.",
     betaLoading: "Bufferen…",
     betaWebcodecs: "WebCodecs HEVC gedetecteerd — direct afspelen",
