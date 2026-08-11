@@ -45,11 +45,40 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
   const meta = await fetchTmdbMovie(tmdbId);
   if (!meta) return { error: "movie not found on TMDb" as const };
 
-  // Same duplicate-entry guard as series: TMDb sometimes lists the same
-  // film under two ids — reuse the tracked entry instead of duplicating it.
-  const existingByTitle = loadMovies().find((m) =>
-    libraryEntriesMatch({ title: meta.title, year: meta.year, originalTitle: meta.originalTitle }, m)
-  );
+  // TMDb sometimes lists the same film under two ids — reuse the tracked
+  // entry instead of duplicating it. Requires a REAL, confirmed year on
+  // both sides before trusting the title match: libraryEntriesMatch (and
+  // titleSimilarity's containment bonus inside it) treats an absent year as
+  // "not disqualifying" by design, which is right for its other use — a
+  // scene release that simply doesn't state a year — but wrong here, where
+  // it let an unreleased placeholder entry with no confirmed year yet
+  // (e.g. TMDb's "Untitled Jurassic World Rebirth Sequel" stub, no year)
+  // silently match and get folded into an unrelated, already-owned earlier
+  // installment ("Jurassic World", 2015) that merely shares franchise
+  // wording — confirmed live, a real add for a genuinely new movie silently
+  // became a no-op reuse of the wrong existing one. A guard this permissive
+  // needs actual confirmation from both sides, not "couldn't prove it's
+  // wrong".
+  // Tolerance here is deliberately tight (±1 year, not the ±2 used elsewhere
+  // for indexer/release matching, where a scene release's stated year can
+  // lag the real one by up to two years for a physical-media reissue). A
+  // genuine "same film, duplicate TMDb id" situation has the same release
+  // year, full stop — two DIFFERENT sequels of the same franchise routinely
+  // land within 2 years of each other (confirmed live: "Maman j'ai raté
+  // l'avion" 1990 vs "Maman j'ai encore raté l'avion" 1992 — a real ±2
+  // tolerance would have let this exact bug reproduce on those too), so the
+  // wider tolerance would silently reopen the same false-merge bug for any
+  // franchise with back-to-back releases instead of a genuine same-year
+  // duplicate listing.
+  const existingByTitle =
+    meta.year != null
+      ? loadMovies().find(
+          (m) =>
+            m.year != null &&
+            Math.abs(meta.year! - m.year) <= 1 &&
+            libraryEntriesMatch({ title: meta.title, year: meta.year, originalTitle: meta.originalTitle }, m)
+        )
+      : undefined;
   if (existingByTitle) return { movie: existingByTitle, searchResult: null };
 
   const released = movieHasReleased(meta.vfReleaseDate, meta.releaseDate);

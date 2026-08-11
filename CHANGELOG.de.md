@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.27 — August 2026
+
+### Echte Ursache des "Fehlende herunterladen"-Bugs gefunden — eine Duplikatserkennung, kein Cache
+
+- **Behoben**: die tatsächliche Grundursache des Bugs der letzten beiden Versionen hatte in Wirklichkeit nie etwas mit Caching zu tun. Das Hinzufügen eines wirklich neuen Films fragte bereits korrekt nach dem richtigen Titel — aber eine Duplikatsprüfung (gedacht, um den Fall zu erkennen, dass TMDb denselben bereits veröffentlichten Film unter zwei verschiedenen IDs listet) behandelte stillschweigend einen unbestätigten, noch nicht veröffentlichten Platzhaltereintrag (zum Beispiel einen vorläufigen „Untitled [Franchise] Sequel"-Eintrag ohne Jahr) als Titelübereinstimmung mit einem früheren, bereits vorhandenen, aber völlig unabhängigen Eintrag derselben Reihe, und verwendete diesen bestehenden Eintrag stillschweigend wieder, statt den neuen hinzuzufügen — live bestätigt: ein echtes Hinzufügen eines neuen Films wurde stillschweigend zu einem No-op auf dem falschen bestehenden Titel, mit einer Erfolgsmeldung, die das Problem verschleierte. Diese Prüfung verlangt jetzt auf beiden Seiten ein echtes, bestätigtes Erscheinungsjahr, bevor sie einer Titelübereinstimmung vertraut, statt „noch kein Jahr" als „nah genug" zu behandeln.
+
 ## v1.13.26 — August 2026
 
 ### Der Fix aus v1.13.25 für "Fehlende herunterladen" bei Sammlungen reichte nicht aus — auch die eigene Teileliste der Sammlung konnte ebenso veraltet sein

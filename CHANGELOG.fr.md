@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.26 — août 2026
+## v1.13.27 — août 2026
+
+### Vraie cause du bug "télécharger les manquants" trouvée — un garde-fou anti-doublon, pas du cache
+
+- **Corrigé** : la vraie cause racine du bug des deux dernières versions n'était en fait jamais liée au cache. L'ajout d'un film réellement nouveau demandait déjà correctement le bon titre — mais une vérification anti-doublon (censée détecter le cas où TMDb liste le même film déjà sorti sous deux identifiants différents) traitait silencieusement une fiche non confirmée, pas encore sortie (par exemple une fiche provisoire "Untitled [Franchise] Sequel" sans année) comme une correspondance de titre avec une entrée antérieure de la même franchise déjà possédée mais sans rapport, et réutilisait discrètement cette entrée existante au lieu d'ajouter la nouvelle — confirmé en direct : un vrai ajout de film devenait silencieusement un no-op sur le mauvais titre existant, avec une réponse de succès qui masquait le problème. Ce garde-fou exige désormais une vraie année de sortie confirmée des deux côtés avant de faire confiance à une correspondance de titre, au lieu de traiter "pas encore d'année" comme "suffisamment proche".
 
 ### Le correctif de la v1.13.25 pour "télécharger les manquants" n'était pas suffisant — la liste des parties de la collection pouvait être tout aussi périmée
 

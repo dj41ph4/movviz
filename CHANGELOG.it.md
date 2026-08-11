@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.27 — Agosto 2026
+
+### Trovata la vera causa del bug "scarica i mancanti" — un controllo anti-doppione, non la cache
+
+- **Corretto**: la vera causa radice del bug delle ultime due versioni non era in realtà mai legata alla cache. L'aggiunta di un film davvero nuovo richiedeva già correttamente il titolo giusto — ma un controllo anti-doppione (pensato per rilevare il caso in cui TMDb elenca lo stesso film già uscito sotto due identificativi diversi) trattava silenziosamente una scheda non confermata, non ancora uscita (ad esempio una scheda provvisoria "Untitled [Franchise] Sequel" senza anno) come una corrispondenza di titolo con una voce precedente della stessa saga già posseduta ma senza alcun legame, e riutilizzava silenziosamente quella voce esistente invece di aggiungere quella nuova — confermato dal vivo: un'aggiunta reale di un film diventava silenziosamente un no-op sul titolo esistente sbagliato, con una risposta di successo che mascherava il problema. Questo controllo ora richiede un vero anno di uscita confermato su entrambi i lati prima di fidarsi di una corrispondenza di titolo, invece di trattare "nessun anno ancora" come "abbastanza vicino".
+
 ## v1.13.26 — Agosto 2026
 
 ### Il correttivo della v1.13.25 per "scarica i mancanti" non era sufficiente — anche l'elenco delle parti della collezione poteva essere altrettanto obsoleto

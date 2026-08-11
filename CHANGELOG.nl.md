@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.27 — Augustus 2026
+
+### Echte oorzaak van de bug "ontbrekende downloaden" gevonden — een dubbele-detectiecontrole, geen cache
+
+- **Opgelost**: de werkelijke grondoorzaak van de bug uit de laatste twee releases had in feite nooit met caching te maken. Het toevoegen van een echt nieuwe film vroeg al correct om de juiste titel — maar een dubbele-detectiecontrole (bedoeld om te herkennen wanneer TMDb dezelfde al-uitgebrachte film onder twee verschillende id's vermeldt) behandelde stilzwijgend een onbevestigde, nog niet uitgebrachte plaatshouder (bijvoorbeeld een voorlopige "Untitled [Franchise] Sequel"-vermelding zonder jaartal) als een titelmatch met een eerdere, al in bezit zijnde maar totaal ongerelateerde vermelding uit dezelfde franchise, en hergebruikte die bestaande vermelding stilletjes in plaats van de nieuwe toe te voegen — live bevestigd: een echte toevoeging van een nieuwe film werd stilletjes een no-op op de verkeerde bestaande titel, met een succesreactie die het probleem verhulde. Die controle vereist nu aan beide kanten een echt, bevestigd releasejaar voordat een titelmatch wordt vertrouwd, in plaats van "nog geen jaartal" als "dicht genoeg" te behandelen.
+
 ## v1.13.26 — Augustus 2026
 
 ### De fix van v1.13.25 voor "ontbrekende downloaden" bij collecties was niet genoeg — de eigen onderdelenlijst van de collectie kon net zo verouderd zijn

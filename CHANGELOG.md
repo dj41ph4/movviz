@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.26 — August 2026
+## v1.13.27 — August 2026
+
+### Found the real cause of the collection "download missing" bug — a duplicate-detection guard, not caching
+
+- **Fixed**: the actual root cause of the last two releases' bug was never caching at all. Adding a genuinely new movie already correctly asked for the right title — but a duplicate-prevention check (meant to catch TMDb listing the same already-released film under two different ids) silently treated an unconfirmed, not-yet-released placeholder entry (e.g. an "Untitled [Franchise] Sequel" stub with no year yet) as a title match for an unrelated, already-owned earlier entry in the same franchise, and quietly reused that existing entry instead of adding the new one — confirmed live: a real add for a new movie became a silent no-op on the wrong existing title, with a success response that masked it. That guard now requires a real, confirmed release year on both sides before trusting a title match, instead of treating "no year yet" as "close enough."
 
 ### v1.13.25's fix for collection "download missing" wasn't enough — the collection's own part list could be just as stale
 
