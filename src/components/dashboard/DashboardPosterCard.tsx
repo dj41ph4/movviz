@@ -54,7 +54,7 @@ export function DashboardPosterCard({
       {showRank && (
         <span
           aria-hidden
-          className="pointer-events-none relative -mr-6 -translate-y-1 select-none text-[84px] font-black leading-none tracking-tighter text-transparent sm:-mr-8 sm:text-[104px]"
+          className="pointer-events-none relative -mr-2 -translate-y-1 select-none text-[84px] font-black leading-none tracking-tighter text-transparent sm:-mr-3 sm:text-[104px]"
           style={{ WebkitTextStroke: "3px rgba(255,255,255,0.22)" }}
         >
           {rank}

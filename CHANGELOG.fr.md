@@ -4,7 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.28 — août 2026
+## v1.13.29 — août 2026
+
+### Les chiffres du Top 10 de la rangée Tendances chevauchaient trop l'affiche
+
+- **Changé** : le chiffre de classement derrière chaque carte du Top 10 dans la rangée "Tendances" était trop caché sous l'affiche, ne laissant qu'un mince filet visible à gauche. Il chevauche désormais beaucoup moins la carte — la majeure partie du chiffre est visible à gauche, avec juste son bord arrière glissé derrière, suite à ton retour.
+- **Changé** : la rangée "Tendances" s'affiche désormais en premier sur le tableau de bord, au-dessus de "Ajouts récents", suite à ton retour.
 
 ### Le garde-fou anti-doublon se trompait encore sur des featurettes de la même franchise — exige désormais une correspondance de titre exacte
 

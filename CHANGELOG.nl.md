@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.29 — Augustus 2026
+
+### Top-10-cijfers in de Tendances-rij overlapten te veel van de poster
+
+- **Gewijzigd**: het rangcijfer achter elke Top-10-kaart in de "Tendances"-rij zat te ver onder de poster verstopt, waardoor links nog maar een dun streepje zichtbaar bleef. Het overlapt nu veel minder — het grootste deel van het cijfer is links zichtbaar, met alleen de achterrand weggestopt, naar aanleiding van feedback.
+- **Gewijzigd**: de "Tendances"-rij staat nu bovenaan het dashboard, boven "Recent toegevoegd", naar aanleiding van feedback.
+
 ## v1.13.28 — Augustus 2026
 
 ### De dubbele-detectiecontrole ging nog steeds mis bij featurettes uit dezelfde franchise — vereist nu een exacte titelmatch

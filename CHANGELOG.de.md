@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.29 — August 2026
+
+### Top-10-Zahlen in der Tendances-Reihe überlappten das Poster zu stark
+
+- **Geändert**: die Rangzahl hinter jeder Top-10-Karte in der „Tendances"-Reihe saß zu weit unter dem Poster verborgen, sodass links nur ein schmaler Streifen sichtbar blieb. Sie überlappt die Karte jetzt deutlich weniger — der größte Teil der Zahl ist links sichtbar, nur die Hinterkante bleibt dahinter verborgen, laut Rückmeldung.
+- **Geändert**: die „Tendances"-Reihe wird jetzt zuerst im Dashboard angezeigt, über „Kürzlich hinzugefügt", laut Rückmeldung.
+
 ## v1.13.28 — August 2026
 
 ### Die Duplikatserkennung griff bei Featurettes derselben Reihe immer noch daneben — verlangt jetzt eine exakte Titelübereinstimmung

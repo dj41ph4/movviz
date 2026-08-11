@@ -4,7 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.28 — August 2026
+## v1.13.29 — August 2026
+
+### Trending row's Top-10 numerals overlapped too much of the poster
+
+- **Changed**: the ranking numeral behind each Top-10 card in the "Tendances" row sat too far under the poster, leaving only a sliver visible to the left. It now overlaps far less — most of the number is visible to the left of the card, with just its trailing edge tucked behind, per feedback.
+- **Changed**: the "Tendances" row now shows first on the dashboard, above "Ajouts récents", per feedback.
 
 ### The duplicate-detection guard still misfired on same-franchise featurettes — now requires an exact title match
 

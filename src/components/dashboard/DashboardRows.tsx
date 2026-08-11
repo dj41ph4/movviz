@@ -72,7 +72,7 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
       .filter((x): x is { candidate: UpgradeCandidate; movie: LibraryMovie } => !!x.movie);
   }, [upgradeData, movies]);
 
-  const sectionOrder: DashboardSectionId[] = ["becauseYouLike", "availableNow", "comingSoon", "upgradesAvailable", "discover"];
+  const sectionOrder: DashboardSectionId[] = ["discover", "becauseYouLike", "availableNow", "comingSoon", "upgradesAvailable"];
 
   return (
     <div className="space-y-8">

@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.29 — Agosto 2026
+
+### I numeri della Top 10 nella riga Tendenze coprivano troppo il poster
+
+- **Modificato**: il numero di classifica dietro ogni scheda della Top 10 nella riga "Tendenze" restava troppo nascosto sotto il poster, lasciando visibile solo un sottile filo a sinistra. Ora copre molto meno la scheda — la maggior parte del numero è visibile a sinistra, con solo il bordo posteriore infilato dietro, in base al tuo riscontro.
+- **Modificato**: la riga "Tendenze" ora appare per prima nella dashboard, sopra "Aggiunti di recente", in base al tuo riscontro.
+
 ## v1.13.28 — Agosto 2026
 
 ### Il controllo anti-doppione si sbagliava ancora su featurette della stessa saga — ora richiede una corrispondenza esatta del titolo
