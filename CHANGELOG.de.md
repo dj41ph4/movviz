@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.25 — August 2026
+
+### "Fehlende herunterladen" auf einer Sammlungsseite konnte einen bereits vorhandenen Titel statt des wirklich fehlenden erfassen
+
+- **Behoben**: die Schaltfläche "N Fehlende herunterladen" einer Sammlungsseite berechnete die fehlenden Titel anhand eines geteilten, app-weiten zwischengespeicherten Schnappschusses deiner Bibliothek — ein Schnappschuss, der sofort mit Daten einer vorherigen Seite erscheinen kann, statt mit dem tatsächlichen aktuellen Stand, ohne dass auf dem Bildschirm etwas sichtbar falsch aussah. Live über mehrere Sammlungen bestätigt: die Schaltfläche konnte einen bereits vorhandenen Titel hinzufügen, während der tatsächlich fehlende Titel unangetastet blieb, ganz ohne Hinweis. Sie prüft deine Bibliothek jetzt unmittelbar vor dem Herunterladen frisch nach, statt sich auf diesen Schnappschuss zu verlassen.
+
 ## v1.13.24 — August 2026
 
 ### Freundeskonten bekamen alle die Wiedergabehistorie des Server-Besitzers — echte Plex-API-Ursache gefunden und behoben

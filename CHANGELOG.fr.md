@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.24 — août 2026
+## v1.13.25 — août 2026
+
+### "Télécharger les manquants" sur une page de collection pouvait récupérer un titre déjà possédé au lieu du vrai manquant
+
+- **Corrigé** : le bouton "Télécharger N manquant(s)" d'une page de collection calculait les titres manquants à partir d'un instantané de ta bibliothèque mis en cache et partagé dans toute l'app — un instantané qui peut s'afficher instantanément à partir des données d'une page précédente au lieu de l'état réel actuel, sans rien de visiblement faux à l'écran. Confirmé en direct sur plusieurs collections : le bouton pouvait ajouter un titre déjà possédé pendant que celui réellement manquant restait intouché, silencieusement. Il revérifie désormais ta bibliothèque à neuf, juste avant de télécharger, au lieu de faire confiance à cet instantané.
 
 ### Les comptes amis récupéraient tous l'historique du propriétaire du serveur — vraie cause Plex trouvée et corrigée
 

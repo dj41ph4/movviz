@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.25 — Agosto 2026
+
+### "Scarica i mancanti" in una pagina di collezione poteva recuperare un titolo già posseduto invece di quello davvero mancante
+
+- **Corretto**: il pulsante "Scarica N mancante/i" di una pagina di collezione calcolava i titoli mancanti a partire da un'istantanea della tua libreria condivisa e messa in cache in tutta l'app — un'istantanea che può comparire istantaneamente a partire dai dati di una pagina precedente invece dello stato reale attuale, senza nulla di visibilmente sbagliato a schermo. Confermato dal vivo su più collezioni: il pulsante poteva aggiungere un titolo già posseduto mentre quello effettivamente mancante restava intoccato, silenziosamente. Ora riverifica la tua libreria da zero, appena prima di scaricare, invece di fidarsi di quell'istantanea.
+
 ## v1.13.24 — Agosto 2026
 
 ### Gli account amici ricevevano tutti la cronologia di visione del proprietario del server — trovata e corretta la vera causa nell'API Plex

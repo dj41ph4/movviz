@@ -39,7 +39,23 @@ export default function CollectionPage() {
   const downloadMissing = async () => {
     setDownloadingAll(true);
     try {
-      for (const part of missing) {
+      // `missing` above is derived from this page's own useSWR("/api/library/movies")
+      // call, which shares the app-wide SWR cache singleton (see AppShell.tsx) —
+      // it can render instantly from a snapshot fetched by some earlier page/tab
+      // before the true current state, without that being visible to the user.
+      // Confirmed live: this caused a "Télécharger N manquant(s)" click to
+      // re-download an already-owned part while the genuinely missing one was
+      // never touched, silently, with no error. Refetch fresh (no-store) right
+      // before the bulk-download loop instead of trusting that snapshot — the
+      // same pattern already used elsewhere for this exact endpoint
+      // (TitleTargetPicker.tsx, CommandPalette.tsx) for the same reason.
+      const freshLibrary = await fetch("/api/library/movies", { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => null);
+      const freshLibIds = new Set<number>((freshLibrary?.movies ?? []).map((m: { tmdbId: number }) => m.tmdbId));
+      const freshMissing = data.parts.filter((p) => !freshLibIds.has(p.tmdbId));
+
+      for (const part of freshMissing) {
         await fetch("/api/library/movies", {
           method: "POST",
           headers: { "content-type": "application/json" },

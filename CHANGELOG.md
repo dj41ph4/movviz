@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.24 — August 2026
+## v1.13.25 — August 2026
+
+### "Download missing" on a collection page could grab an already-owned title instead of the genuinely missing one
+
+- **Fixed**: a collection page's "Télécharger N manquant(s)" button computed which titles were missing from a shared, app-wide cached snapshot of your library — one that can render instantly from an earlier page's data instead of the true current state, with nothing visibly wrong on screen. Confirmed live across several collections: the button could add a title you already owned while the actually-missing one went untouched, silently. It now re-checks your library fresh, right before downloading, instead of trusting that snapshot.
 
 ### Friend accounts were all getting the server owner's own watch history — found the actual Plex API cause and fixed it
 

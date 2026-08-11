@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.25 — Augustus 2026
+
+### "Ontbrekende downloaden" op een collectiepagina kon een al-bezeten titel ophalen in plaats van de echt ontbrekende
+
+- **Opgelost**: de knop "N ontbrekende(n) downloaden" van een collectiepagina berekende welke titels ontbraken op basis van een gedeelde, app-brede gecachte momentopname van je bibliotheek — een momentopname die direct kan verschijnen met gegevens van een vorige pagina in plaats van de werkelijke actuele status, zonder dat er iets zichtbaar mis was op het scherm. Live bevestigd op meerdere collecties: de knop kon een titel toevoegen die je al bezat, terwijl de daadwerkelijk ontbrekende titel onaangeroerd bleef, zonder enig signaal. Hij controleert je bibliotheek nu vers, vlak voor het downloaden, in plaats van op die momentopname te vertrouwen.
+
 ## v1.13.24 — Augustus 2026
 
 ### Vriendenaccounts kregen allemaal de kijkgeschiedenis van de servereigenaar — echte Plex-API-oorzaak gevonden en opgelost
