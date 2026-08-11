@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.29 — août 2026
+## v1.13.30 — août 2026
+
+### "Réparer les chemins" pouvait suggérer des centaines de fichiers totalement sans rapport comme candidats
+
+- **Corrigé** : quand un fichier d'épisode cassé ne se retrouvait pas par son nom de fichier exact enregistré, le filet de secours en dernier recours le comparait à TOUS les fichiers vidéo de toute la bibliothèque partageant le même numéro de saison/épisode — peu importe à quelle série ils appartenaient réellement. Confirmé en direct : un seul épisode cassé pouvait ressortir avec plus de 500 "candidats" qui étaient en fait juste l'épisode 1, l'épisode 2, etc. de toutes les autres séries. Ce filet de secours ne propose désormais que des fichiers qui appartiennent plausiblement à la vraie série (par nom de fichier ou nom de dossier), donc la liste de suggestions redevient courte et pertinente. Présent depuis la v1.12.86 — pas quelque chose qui a changé dans ce lot récent de correctifs, et aucun autre chemin de correspondance (nom exact, chemin attendu, ou l'avertissement de conflit) n'a été touché.
 
 ### Les chiffres du Top 10 de la rangée Tendances chevauchaient trop l'affiche
 

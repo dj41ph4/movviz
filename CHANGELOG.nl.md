@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.30 — Augustus 2026
+
+### "Paden herstellen" kon honderden totaal ongerelateerde bestanden als kandidaten voorstellen
+
+- **Opgelost**: wanneer een kapot afleveringsbestand niet werd gevonden op basis van zijn exact geregistreerde bestandsnaam, vergeleek het laatste-redmiddel-terugvalmechanisme het met ALLE videobestanden in de hele bibliotheek die hetzelfde seizoen/afleveringsnummer deelden — ongeacht bij welke serie ze eigenlijk hoorden. Live bevestigd: één kapotte aflevering kon terugkomen met 500+ "kandidaten" die eigenlijk gewoon aflevering 1, aflevering 2, enz. van elke andere serie waren. Dit terugvalmechanisme biedt nu alleen nog bestanden aan die aannemelijk bij de echte serie horen (op bestandsnaam of mapnaam), waardoor de suggestielijst weer kort en relevant is. Aanwezig sinds v1.12.86 — geen wijziging uit deze recente reeks fixes, en geen ander matchpad (exacte bestandsnaam, verwacht pad, of de duplicaatwaarschuwing) is aangeraakt.
+
 ## v1.13.29 — Augustus 2026
 
 ### Top-10-cijfers in de Tendances-rij overlapten te veel van de poster

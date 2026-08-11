@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.30 — Agosto 2026
+
+### "Ripara i percorsi" poteva suggerire centinaia di file totalmente scorrelati come candidati
+
+- **Corretto**: quando un file di episodio danneggiato non veniva trovato tramite il suo nome file esatto registrato, il meccanismo di ripiego di ultima istanza lo confrontava con TUTTI i file video dell'intera libreria che condividevano lo stesso numero di stagione/episodio — indipendentemente dalla serie a cui appartenevano davvero. Confermato dal vivo: un solo episodio danneggiato poteva restituire oltre 500 "candidati" che in realtà erano semplicemente l'episodio 1, l'episodio 2, ecc. di tutte le altre serie. Questo ripiego ora propone solo file che appartengono plausibilmente alla vera serie (per nome file o nome cartella), quindi l'elenco dei suggerimenti torna a essere breve e pertinente. Presente sin dalla v1.12.86 — non qualcosa che è cambiato in questo recente gruppo di correzioni, e nessun altro percorso di corrispondenza (nome esatto, percorso previsto, o l'avviso di conflitto duplicato) è stato toccato.
+
 ## v1.13.29 — Agosto 2026
 
 ### I numeri della Top 10 nella riga Tendenze coprivano troppo il poster

@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.29 — August 2026
+## v1.13.30 — August 2026
+
+### "Réparer les chemins" could suggest hundreds of completely unrelated files as candidates
+
+- **Fixed**: when a broken episode file couldn't be found by its exact recorded filename, the last-resort fallback matched it against every video file in the whole library sharing the same season/episode numbers — regardless of which show it actually belonged to. Confirmed live: a single broken episode could come back with 500+ "candidates" that were really just every other show's own episode 1, episode 2, etc. This fallback now only offers files that plausibly belong to the actual series (by filename or folder name), so the suggestion list is short and relevant again. Present since v1.12.86 — not something changed in this recent batch of fixes, and no other matching path (exact filename, expected-path, or the duplicate-conflict warning) was touched.
 
 ### Trending row's Top-10 numerals overlapped too much of the poster
 

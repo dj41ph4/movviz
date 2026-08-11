@@ -6,6 +6,7 @@ import { walkVideoFiles, engineRoots } from "./indexScan";
 import { loadNamingTemplates } from "@/lib/naming/store";
 import { renderSegment } from "@/lib/naming/render";
 import { parseRelease } from "@/lib/naming/parser";
+import { normalizeTitle } from "@/lib/library/matching";
 import type { NamingContext, NamingTemplates } from "@/lib/naming/types";
 import type { LibraryMovie, LibraryEpisode, LibrarySeries } from "./types";
 
@@ -147,6 +148,30 @@ export interface RepairCandidate {
 }
 
 /**
+ * Guards the season/episode fallback below: does this on-disk file plausibly
+ * belong to THIS series, rather than just happening to share the same S/E
+ * numbers with it? Without this check, `bySeasonEpisode` is a GLOBAL index —
+ * every show's own episode 1 lands under the same "0:0" key as every other
+ * show's episode 1 — confirmed live: a library with hundreds of tracked
+ * episodes offered 500+ completely unrelated candidates (Dragon Ball Z's
+ * broken S1E1 offering some other anime's S1E1, a cooking show's S1E1, etc.)
+ * for a single broken episode, useless noise instead of a short, real list.
+ * Checked against both the file's own name and its inferred series folder
+ * (two levels up — `.../<Series Folder>/<Season Folder>/<file>`) since a
+ * file recovered into a flat dump folder (see this function's caller) may
+ * have lost its per-show subfolder but still carries the show's name in the
+ * filename itself, or vice versa.
+ */
+function plausiblyMatchesSeries(filePath: string, series: LibrarySeries): boolean {
+  const p = pathFor(filePath);
+  const fileBase = p.basename(filePath);
+  const seriesFolder = p.basename(p.dirname(p.dirname(filePath)));
+  const targets = [series.title, series.originalTitle].filter((t): t is string => !!t).map(normalizeTitle).filter(Boolean);
+  const candidates = [fileBase, seriesFolder].map(normalizeTitle).filter(Boolean);
+  return targets.some((t) => candidates.some((c) => c.includes(t) || t.includes(c)));
+}
+
+/**
  * Files whose recorded path doesn't exist are matched back to reality by
  * filename alone — moving a batch of files out of their per-title
  * subfolders into one flat folder (e.g. a manual recovery after a botched
@@ -279,11 +304,14 @@ export async function scanRepairCandidates(): Promise<RepairCandidate[]> {
         }
         // Exact-basename matching came up empty (the file was renamed since
         // this record was written). Fall back to a season/episode guess: every
-        // on-disk file whose name parses to the same SxxEyy is offered as a
-        // candidate. Manual confirmation only — never auto-relinked, and never
-        // preferred over a real basename match.
+        // on-disk file whose name parses to the same SxxEyy AND plausibly
+        // belongs to this same series is offered as a candidate. Manual
+        // confirmation only — never auto-relinked, and never preferred over
+        // a real basename match.
         if (matches.length === 0) {
-          matches = dedupeByFileIdentity(bySeasonEpisode.get(`${ep.seasonNumber}:${ep.episodeNumber}`) ?? []);
+          matches = dedupeByFileIdentity(
+            (bySeasonEpisode.get(`${ep.seasonNumber}:${ep.episodeNumber}`) ?? []).filter((m) => plausiblyMatchesSeries(m, series))
+          );
         }
         candidates.push({
           id: series.id, type: "series", title: series.title,

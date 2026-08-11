@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.30 — August 2026
+
+### "Pfade reparieren" konnte Hunderte völlig unabhängiger Dateien als Kandidaten vorschlagen
+
+- **Behoben**: wenn eine defekte Episodendatei nicht anhand ihres exakt gespeicherten Dateinamens gefunden wurde, verglich der letzte Rückfallmechanismus sie mit ALLEN Videodateien der gesamten Bibliothek mit derselben Staffel-/Episodennummer — unabhängig davon, zu welcher Serie sie tatsächlich gehörten. Live bestätigt: eine einzige defekte Episode konnte mit über 500 "Kandidaten" zurückkommen, die in Wirklichkeit einfach Episode 1, Episode 2 usw. jeder anderen Serie waren. Dieser Rückfallmechanismus bietet jetzt nur noch Dateien an, die plausibel zur tatsächlichen Serie gehören (anhand von Datei- oder Ordnername), sodass die Vorschlagsliste wieder kurz und relevant ist. Vorhanden seit v1.12.86 — keine Änderung aus diesem jüngsten Fix-Paket, und kein anderer Abgleichspfad (exakter Dateiname, erwarteter Pfad, oder die Duplikat-Konfliktwarnung) wurde angerührt.
+
 ## v1.13.29 — August 2026
 
 ### Top-10-Zahlen in der Tendances-Reihe überlappten das Poster zu stark
