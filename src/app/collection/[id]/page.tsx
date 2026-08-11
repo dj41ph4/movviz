@@ -39,21 +39,24 @@ export default function CollectionPage() {
   const downloadMissing = async () => {
     setDownloadingAll(true);
     try {
-      // `missing` above is derived from this page's own useSWR("/api/library/movies")
-      // call, which shares the app-wide SWR cache singleton (see AppShell.tsx) —
-      // it can render instantly from a snapshot fetched by some earlier page/tab
-      // before the true current state, without that being visible to the user.
-      // Confirmed live: this caused a "Télécharger N manquant(s)" click to
-      // re-download an already-owned part while the genuinely missing one was
-      // never touched, silently, with no error. Refetch fresh (no-store) right
-      // before the bulk-download loop instead of trusting that snapshot — the
-      // same pattern already used elsewhere for this exact endpoint
+      // `missing` above is derived from this page's own useSWR() calls, which
+      // share the app-wide SWR cache singleton (see AppShell.tsx) — either one
+      // (the library snapshot AND the collection's own part list) can render
+      // instantly from data fetched by some earlier page/tab before the true
+      // current state, with nothing visibly wrong on screen. Confirmed live:
+      // re-fetching only the library side still wasn't enough — the collection
+      // payload itself (`data`) can be equally stale from the same cache, so
+      // both are re-fetched fresh (no-store) right before the bulk-download
+      // loop instead of trusting either cached snapshot. Same pattern already
+      // used elsewhere for the library endpoint specifically
       // (TitleTargetPicker.tsx, CommandPalette.tsx) for the same reason.
-      const freshLibrary = await fetch("/api/library/movies", { cache: "no-store" })
-        .then((r) => r.json())
-        .catch(() => null);
+      const [freshLibrary, freshCollection] = await Promise.all([
+        fetch("/api/library/movies", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+        fetch(`/api/metadata/collection?id=${id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null),
+      ]);
       const freshLibIds = new Set<number>((freshLibrary?.movies ?? []).map((m: { tmdbId: number }) => m.tmdbId));
-      const freshMissing = data.parts.filter((p) => !freshLibIds.has(p.tmdbId));
+      const freshParts = freshCollection?.parts ?? data.parts;
+      const freshMissing = freshParts.filter((p: { tmdbId: number }) => !freshLibIds.has(p.tmdbId));
 
       for (const part of freshMissing) {
         await fetch("/api/library/movies", {

@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.26 — August 2026
+
+### Der Fix aus v1.13.25 für "Fehlende herunterladen" bei Sammlungen reichte nicht aus — auch die eigene Teileliste der Sammlung konnte ebenso veraltet sein
+
+- **Behoben**: live erneut überprüft, und der vorherige Fix hielt nicht vollständig stand — nur den Bibliotheks-Schnappschuss vor dem Herunterladen frisch abzurufen, reichte nicht aus, denn auch die eigene Teileliste der Sammlung (aus demselben geteilten, app-weiten Cache) konnte ebenso veraltet sein. Beide werden jetzt zusammen frisch abgerufen, unmittelbar vor der Download-Schleife, statt nur eine Seite des Vergleichs.
+
 ## v1.13.25 — August 2026
 
 ### "Fehlende herunterladen" auf einer Sammlungsseite konnte einen bereits vorhandenen Titel statt des wirklich fehlenden erfassen

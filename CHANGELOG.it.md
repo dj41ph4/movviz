@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.26 — Agosto 2026
+
+### Il correttivo della v1.13.25 per "scarica i mancanti" non era sufficiente — anche l'elenco delle parti della collezione poteva essere altrettanto obsoleto
+
+- **Corretto**: riverificato dal vivo, il correttivo precedente non reggeva del tutto — riverificare solo l'istantanea della libreria prima di scaricare non bastava, perché anche l'elenco delle parti della collezione (proveniente dalla stessa cache condivisa a livello di app) poteva essere altrettanto obsoleto. Ora entrambi vengono riverificati da zero insieme, subito prima del ciclo di download, invece di un solo lato del confronto.
+
 ## v1.13.25 — Agosto 2026
 
 ### "Scarica i mancanti" in una pagina di collezione poteva recuperare un titolo già posseduto invece di quello davvero mancante

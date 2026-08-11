@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.26 — Augustus 2026
+
+### De fix van v1.13.25 voor "ontbrekende downloaden" bij collecties was niet genoeg — de eigen onderdelenlijst van de collectie kon net zo verouderd zijn
+
+- **Opgelost**: live opnieuw geverifieerd, en de vorige fix hield niet helemaal stand — alleen de bibliotheek-momentopname vers ophalen vóór het downloaden bleek niet genoeg, omdat de eigen onderdelenlijst van de collectie (afkomstig uit dezelfde gedeelde app-brede cache) net zo verouderd kon zijn. Beide worden nu samen vers opgehaald, vlak vóór de downloadlus, in plaats van maar één kant van de vergelijking.
+
 ## v1.13.25 — Augustus 2026
 
 ### "Ontbrekende downloaden" op een collectiepagina kon een al-bezeten titel ophalen in plaats van de echt ontbrekende

@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.25 — August 2026
+## v1.13.26 — August 2026
+
+### v1.13.25's fix for collection "download missing" wasn't enough — the collection's own part list could be just as stale
+
+- **Fixed**: re-verified live and the previous fix didn't fully hold — re-fetching only the library snapshot before downloading still wasn't enough, because the collection's own list of parts (from the same shared app-wide cache) could be equally stale. Both are now re-fetched fresh together right before the download loop, instead of only one side of the comparison.
 
 ### "Download missing" on a collection page could grab an already-owned title instead of the genuinely missing one
 

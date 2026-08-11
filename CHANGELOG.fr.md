@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.25 — août 2026
+## v1.13.26 — août 2026
+
+### Le correctif de la v1.13.25 pour "télécharger les manquants" n'était pas suffisant — la liste des parties de la collection pouvait être tout aussi périmée
+
+- **Corrigé** : revérifié en direct, le correctif précédent ne tenait pas complètement — ne revérifier que l'instantané de bibliothèque avant de télécharger ne suffisait pas, car la liste des parties de la collection elle-même (issue du même cache partagé à l'échelle de l'app) pouvait être tout aussi périmée. Les deux sont désormais revérifiés à neuf ensemble juste avant la boucle de téléchargement, au lieu d'un seul côté de la comparaison.
 
 ### "Télécharger les manquants" sur une page de collection pouvait récupérer un titre déjà possédé au lieu du vrai manquant
 
