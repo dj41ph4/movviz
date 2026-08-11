@@ -22,7 +22,7 @@ import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
 import { notifySeerrProcessingOnce } from "@/lib/seerr/mediaMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { searchMovie, searchIndexer } from "@/lib/indexers/torznab";
-import { libraryEntriesMatch } from "@/lib/library/matching";
+import { normalizeTitle } from "@/lib/library/matching";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
 import { movieHasReleased } from "@/lib/library/releaseSchedule";
@@ -46,38 +46,37 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
   if (!meta) return { error: "movie not found on TMDb" as const };
 
   // TMDb sometimes lists the same film under two ids — reuse the tracked
-  // entry instead of duplicating it. Requires a REAL, confirmed year on
-  // both sides before trusting the title match: libraryEntriesMatch (and
-  // titleSimilarity's containment bonus inside it) treats an absent year as
-  // "not disqualifying" by design, which is right for its other use — a
-  // scene release that simply doesn't state a year — but wrong here, where
-  // it let an unreleased placeholder entry with no confirmed year yet
-  // (e.g. TMDb's "Untitled Jurassic World Rebirth Sequel" stub, no year)
-  // silently match and get folded into an unrelated, already-owned earlier
-  // installment ("Jurassic World", 2015) that merely shares franchise
-  // wording — confirmed live, a real add for a genuinely new movie silently
-  // became a no-op reuse of the wrong existing one. A guard this permissive
-  // needs actual confirmation from both sides, not "couldn't prove it's
-  // wrong".
-  // Tolerance here is deliberately tight (±1 year, not the ±2 used elsewhere
-  // for indexer/release matching, where a scene release's stated year can
-  // lag the real one by up to two years for a physical-media reissue). A
-  // genuine "same film, duplicate TMDb id" situation has the same release
-  // year, full stop — two DIFFERENT sequels of the same franchise routinely
-  // land within 2 years of each other (confirmed live: "Maman j'ai raté
-  // l'avion" 1990 vs "Maman j'ai encore raté l'avion" 1992 — a real ±2
-  // tolerance would have let this exact bug reproduce on those too), so the
-  // wider tolerance would silently reopen the same false-merge bug for any
-  // franchise with back-to-back releases instead of a genuine same-year
-  // duplicate listing.
+  // entry instead of duplicating it. Deliberately NOT using
+  // libraryEntriesMatch/titleSimilarity here: those implement fuzzy,
+  // containment-based matching for a completely different job (matching a
+  // scene release's mangled filename against an official title), and
+  // reusing that logic here caused two separate real false-merges,
+  // confirmed live:
+  //   1. An absent year on either side is "not disqualifying" by that
+  //      logic's own design — fine for a release filename that just
+  //      doesn't state a year, wrong here: it let an unreleased placeholder
+  //      entry with no confirmed year yet ("Untitled Jurassic World Rebirth
+  //      Sequel") match and reuse an unrelated, already-owned earlier
+  //      installment ("Jurassic World", 2015) that merely shares franchise
+  //      wording.
+  //   2. Even with a real, close year on both sides, fuzzy containment
+  //      still folded "X-Men: Le Commencement" (2011, the actual film)
+  //      into "X-Men: Le commencement - 35mm Special" (2012, a 30-minute
+  //      promotional documentary/featurette — same franchise wording, a
+  //      completely different piece of content).
+  // A genuine "same film under two TMDb ids" duplicate has the same title
+  // (once accents/punctuation/case are normalized) AND the same release
+  // year — not just similar-looking ones. Anything short of that — an
+  // extra suffix, a different year — is a distinct entry that deserves its
+  // own library record, not a silent merge.
+  const metaNames = new Set([meta.title, meta.originalTitle].filter(Boolean).map((t) => normalizeTitle(t!)));
   const existingByTitle =
     meta.year != null
-      ? loadMovies().find(
-          (m) =>
-            m.year != null &&
-            Math.abs(meta.year! - m.year) <= 1 &&
-            libraryEntriesMatch({ title: meta.title, year: meta.year, originalTitle: meta.originalTitle }, m)
-        )
+      ? loadMovies().find((m) => {
+          if (m.year == null || meta.year !== m.year) return false;
+          const mNames = [m.title, m.originalTitle].filter(Boolean).map((t) => normalizeTitle(t!));
+          return mNames.some((n) => metaNames.has(n));
+        })
       : undefined;
   if (existingByTitle) return { movie: existingByTitle, searchResult: null };
 

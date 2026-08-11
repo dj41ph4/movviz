@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.27 — août 2026
+## v1.13.28 — août 2026
+
+### Le garde-fou anti-doublon se trompait encore sur des featurettes de la même franchise — exige désormais une correspondance de titre exacte
+
+- **Corrigé** : le correctif de la v1.13.27 n'était pas assez strict non plus — confirmé en direct sur une autre franchise : un vrai long-métrage pouvait encore être silencieusement confondu avec une featurette promotionnelle de 30 minutes sans rapport de la même franchise (un documentaire "35mm Special", décalé d'un an par rapport au vrai film et avec un suffixe de titre en plus), parce que le comparateur sous-jacent avait été conçu pour un tout autre usage — faire correspondre de façon floue le nom de fichier abîmé d'une release au titre officiel — et n'a jamais été adapté à la question "est-ce littéralement la même fiche TMDb en double". Cette vérification anti-doublon n'utilise plus du tout ce comparateur flou : elle exige désormais que le titre (une fois accents/ponctuation/casse normalisés) ET l'année de sortie correspondent exactement des deux côtés, pas juste de façon proche.
 
 ### Vraie cause du bug "télécharger les manquants" trouvée — un garde-fou anti-doublon, pas du cache
 

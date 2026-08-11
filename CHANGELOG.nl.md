@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.28 — Augustus 2026
+
+### De dubbele-detectiecontrole ging nog steeds mis bij featurettes uit dezelfde franchise — vereist nu een exacte titelmatch
+
+- **Opgelost**: de fix van v1.13.27 was ook niet strikt genoeg — live bevestigd op een andere franchise: een echte speelfilm kon nog steeds stilzwijgend worden verward met een ongerelateerde, 30 minuten durende promotionele featurette uit dezelfde franchise (een "35mm Special"-documentaire, één jaar verschoven ten opzichte van de echte film en met een extra titelsuffix), omdat de onderliggende matcher was gebouwd voor een heel andere taak — de verminkte bestandsnaam van een release fuzzy matchen met de officiële titel — en nooit geschikt was gemaakt voor de vraag "is dit letterlijk dezelfde, gedupliceerde TMDb-vermelding". Deze dubbele-detectiecontrole gebruikt die fuzzy matcher nu helemaal niet meer: hij vereist nu dat de titel (na normalisatie van accenten/leestekens/hoofdletters) EN het releasejaar aan beide kanten exact overeenkomen, niet slechts bij benadering.
+
 ## v1.13.27 — Augustus 2026
 
 ### Echte oorzaak van de bug "ontbrekende downloaden" gevonden — een dubbele-detectiecontrole, geen cache

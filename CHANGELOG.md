@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.27 — August 2026
+## v1.13.28 — August 2026
+
+### The duplicate-detection guard still misfired on same-franchise featurettes — now requires an exact title match
+
+- **Fixed**: v1.13.27's fix wasn't tight enough either — confirmed live on a different franchise: a real feature film could still get silently confused with an unrelated 30-minute promotional featurette from the same franchise (a "35mm Special" documentary, one year off from the actual film and with an extra title suffix), because the underlying matcher was built for a different job — fuzzy-matching a scene release's mangled filename against an official title — and was never a good fit for "is this literally the same TMDb entry duplicated." This duplicate check no longer uses that fuzzy matcher at all: it now requires the title (once accents/punctuation/case are normalized) AND the release year to match exactly on both sides, not just closely.
 
 ### Found the real cause of the collection "download missing" bug — a duplicate-detection guard, not caching
 

@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.28 — August 2026
+
+### Die Duplikatserkennung griff bei Featurettes derselben Reihe immer noch daneben — verlangt jetzt eine exakte Titelübereinstimmung
+
+- **Behoben**: auch der Fix aus v1.13.27 war nicht streng genug — live an einer anderen Reihe bestätigt: ein echter Spielfilm konnte immer noch stillschweigend mit einer unabhängigen, 30-minütigen Promo-Featurette derselben Reihe verwechselt werden (eine „35mm Special"-Dokumentation, ein Jahr versetzt zum echten Film und mit einem zusätzlichen Titel-Suffix), weil der zugrunde liegende Abgleicher für eine ganz andere Aufgabe gebaut wurde — den beschädigten Dateinamen einer Release unscharf mit dem offiziellen Titel abzugleichen — und nie darauf ausgelegt war, die Frage „ist das buchstäblich derselbe, doppelt vorhandene TMDb-Eintrag" zu beantworten. Diese Duplikatsprüfung verwendet diesen unscharfen Abgleicher jetzt überhaupt nicht mehr: sie verlangt jetzt, dass der Titel (nach Normalisierung von Akzenten/Zeichensetzung/Groß- und Kleinschreibung) UND das Erscheinungsjahr auf beiden Seiten exakt übereinstimmen, nicht nur annähernd.
+
 ## v1.13.27 — August 2026
 
 ### Echte Ursache des "Fehlende herunterladen"-Bugs gefunden — eine Duplikatserkennung, kein Cache

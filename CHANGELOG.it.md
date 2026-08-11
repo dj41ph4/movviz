@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.28 — Agosto 2026
+
+### Il controllo anti-doppione si sbagliava ancora su featurette della stessa saga — ora richiede una corrispondenza esatta del titolo
+
+- **Corretto**: anche il correttivo della v1.13.27 non era abbastanza rigoroso — confermato dal vivo su un'altra saga: un vero lungometraggio poteva ancora essere confuso silenziosamente con una featurette promozionale di 30 minuti non collegata della stessa saga (un documentario "35mm Special", sfalsato di un anno rispetto al vero film e con un suffisso aggiuntivo nel titolo), perché il comparatore sottostante era stato pensato per un uso completamente diverso — far corrispondere in modo approssimativo il nome file danneggiato di una release al titolo ufficiale — e non era mai stato adattato alla domanda "è letteralmente la stessa scheda TMDb duplicata". Questo controllo anti-doppione non usa più affatto quel comparatore approssimativo: ora richiede che il titolo (una volta normalizzati accenti/punteggiatura/maiuscole) E l'anno di uscita corrispondano esattamente su entrambi i lati, non solo in modo simile.
+
 ## v1.13.27 — Agosto 2026
 
 ### Trovata la vera causa del bug "scarica i mancanti" — un controllo anti-doppione, non la cache

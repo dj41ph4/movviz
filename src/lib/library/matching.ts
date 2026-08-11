@@ -17,7 +17,7 @@ const DIACRITICS_RE = new RegExp(
   "g"
 );
 
-function normalizeTitle(s: string): string {
+export function normalizeTitle(s: string): string {
   return s
     .toLowerCase()
     .normalize("NFKD")
