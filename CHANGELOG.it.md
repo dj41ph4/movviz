@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.38 — Agosto 2026
+
+### Annullato il cambiamento Dolby Digital+ della v1.13.35 — peggiorava il silenzio, non il contrario
+
+- **Annullato**: escludere l'AC-3/E-AC-3 dalla rete di sicurezza anti-silenzio partiva dal presupposto che la riproduzione diretta avesse sempre un audio reale su questi codec — confermato dal vivo che questo non è vero su tutte le macchine. Chromium non integra un proprio decoder AC-3/E-AC-3; dipende da un decoder registrato a livello di sistema operativo, assente su alcune installazioni Windows (varia in base alla macchina, non a Movviz). Rimuovere la rete di sicurezza significava che una macchina priva di questo decoder si ritrovava in silenzio totale senza alcun ripiego, invece del passaggio automatico a un flusso transcodificato (quindi udibile) di cui disponeva prima. La rete di sicurezza è tornata esattamente come prima — un vero correttivo che distingua un fallimento di decodifica reale dal punto cieco della rete su questi codec richiede più cura di quanta ne avesse questo tentativo, ora annullato.
+
 ## v1.13.37 — Agosto 2026
 
 ### I titoli bloccati in "ricerca" facevano salire il riquadro "In download" senza nulla che lo spiegasse

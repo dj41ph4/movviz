@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.37 — août 2026
+## v1.13.38 — août 2026
+
+### Retour en arrière sur le changement Dolby Digital+ de la v1.13.35 — ça aggravait le silence, pas l'inverse
+
+- **Annulé** : exempter l'AC-3/E-AC-3 du filet de sécurité anti-silence partait du principe que la lecture directe avait toujours du vrai son sur ces codecs — confirmé en direct que ce n'est pas vrai sur toutes les machines. Chromium n'embarque pas son propre décodeur AC-3/E-AC-3 ; ça dépend d'un décodeur enregistré au niveau du système, absent sur certaines installations Windows (ça varie selon la machine, pas selon Movviz). Retirer le filet signifiait qu'une machine sans ce décodeur se retrouvait en silence total sans aucun repli, au lieu de la bascule automatique vers un flux transcodé (donc audible) qu'elle avait avant. Le filet est de retour exactement comme avant — un vrai correctif qui distingue un échec de décodage réel de l'angle mort du filet sur ces codecs demande plus de soin que cette tentative annulée n'en avait.
 
 ### Les titres bloqués en "recherche" faisaient monter la tuile "En téléchargement" sans rien pour l'expliquer
 

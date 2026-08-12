@@ -9,7 +9,7 @@ import {
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
   SkipBack, SkipForward, PictureInPicture2, Zap, Monitor, Settings,
 } from "lucide-react";
-import { detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, isDolbyPassthroughCodec, type CodecCapabilities } from "@/lib/player/webcodecs";
+import { detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, type CodecCapabilities } from "@/lib/player/webcodecs";
 import { watchForSilentAudio } from "@/lib/player/silentAudioDetector";
 import { orchestrate } from "@/lib/playback/orchestrator";
 import { detectCapabilities } from "@/lib/playback/capabilities";
@@ -105,7 +105,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const seekingRef = useRef(false);
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const beginRef = useRef<((seekTo?: number) => Promise<void>) | null>(null);
-  const startDirectRef = useRef<((seekTo?: number, audioCodec?: string | null) => void) | null>(null);
+  const startDirectRef = useRef<((seekTo?: number, expectAudio?: boolean) => void) | null>(null);
   const transcodeVideoRef = useRef(true);
   const transcodeAudioRef = useRef(true);
   const transcodeModeRef = useRef<"auto" | "audio" | "video" | "full">("auto");
@@ -316,8 +316,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       }
     };
 
-    const startDirect = (seekTo?: number, audioCodec?: string | null) => {
-      const expectAudio = !!audioCodec;
+    const startDirect = (seekTo?: number, expectAudio?: boolean) => {
       if (seekTo && seekTo > 0) {
         el.addEventListener(
           "loadedmetadata",
@@ -360,11 +359,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // silently. Watch real decoded audio energy for a few seconds and
       // recover through the same direct → MSE → HLS chain if genuinely
       // silent, so HLS stays an automatic last resort, not a manual escape.
-      // AC-3/E-AC-3 are exempt: they're decoded outside the render engine, so
-      // the Web Audio tap this net relies on can never observe them — it
-      // would misfire as a guaranteed false positive, not an occasional one
-      // (confirmed live: direct play always had real audio on these files).
-      if (expectAudio && !isDolbyPassthroughCodec(audioCodec)) {
+      if (expectAudio) {
         stopSilentWatchRef.current?.();
         stopSilentWatchRef.current = watchForSilentAudio(el, () => { void recoverFromDirect(); });
       }
@@ -475,7 +470,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       }
 
       setDirectMode(true);
-      startDirect(seekTo, effectiveAudioCodec);
+      startDirect(seekTo, !!effectiveAudioCodec);
     };
 
     beginRef.current = begin;
@@ -907,7 +902,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     // net) as the default first-attempt path — a manual retry is no longer
     // a weaker, unwired duplicate of it. Resumes from the current position
     // instead of restarting from 0.
-    startDirectRef.current?.(el.currentTime > 0 ? el.currentTime : undefined, infoRef.current.audioCodec);
+    startDirectRef.current?.(el.currentTime > 0 ? el.currentTime : undefined, !!infoRef.current.audioCodec);
   };
 
   const handleReturnToHls = () => {

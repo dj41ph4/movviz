@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.38 — August 2026
+
+### Die Dolby Digital+-Änderung aus v1.13.35 zurückgesetzt — sie verschlimmerte die Stille, nicht umgekehrt
+
+- **Zurückgesetzt**: die AC-3/E-AC-3 vom Anti-Stille-Sicherheitsnetz auszunehmen, ging davon aus, dass die Direktwiedergabe bei diesen Codecs immer echten Ton hatte — live bestätigt, dass das nicht auf jeder Maschine zutrifft. Chromium bringt keinen eigenen AC-3/E-AC-3-Decoder mit; das hängt von einem auf Betriebssystemebene registrierten Decoder ab, der auf manchen Windows-Installationen fehlt (das variiert je nach Maschine, nicht je nach Movviz). Das Sicherheitsnetz zu entfernen bedeutete, dass eine Maschine ohne diesen Decoder in völliger Stille landete, ganz ohne Rückfalloption, statt der automatischen Umschaltung auf einen transkodierten (also hörbaren) Stream, die vorher vorhanden war. Das Sicherheitsnetz ist genau wie zuvor zurück — ein echter Fix, der einen tatsächlichen Dekodierfehler vom blinden Fleck des Sicherheitsnetzes bei diesen Codecs unterscheidet, erfordert mehr Sorgfalt, als dieser jetzt zurückgenommene Versuch hatte.
+
 ## v1.13.37 — August 2026
 
 ### Titel, die in „Suche" feststeckten, ließen die Kachel „Läuft herunter" ansteigen, ohne dass irgendetwas das erklärte

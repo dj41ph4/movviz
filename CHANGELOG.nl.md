@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.38 — Augustus 2026
+
+### De Dolby Digital+ wijziging van v1.13.35 teruggedraaid — die maakte de stilte erger, niet beter
+
+- **Teruggedraaid**: AC-3/E-AC-3 uitsluiten van het anti-stilte vangnet ging ervan uit dat directe weergave op deze codecs altijd echt geluid had — live bevestigd dat dit niet op elke machine klopt. Chromium heeft geen eigen AC-3/E-AC-3-decoder ingebouwd; dat is afhankelijk van een decoder die op besturingssysteemniveau geregistreerd staat, en die ontbreekt op sommige Windows-installaties (dit verschilt per machine, niet per Movviz). Het vangnet weghalen betekende dat een machine zonder deze decoder in totale stilte belandde zonder enige terugval, in plaats van de automatische overschakeling naar een getranscodeerde (dus hoorbare) stream die er voorheen wel was. Het vangnet is exact zoals voorheen terug — een echte fix die een werkelijke decodeerfout onderscheidt van de blinde vlek van het vangnet bij deze codecs vergt meer zorgvuldigheid dan deze teruggedraaide poging had.
+
 ## v1.13.37 — Augustus 2026
 
 ### Titels die vastzaten op "zoeken" lieten de tegel "Bezig met downloaden" oplopen zonder dat daar iets voor uitlegde

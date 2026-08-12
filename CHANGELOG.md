@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.37 — August 2026
+## v1.13.38 — August 2026
+
+### Reverted v1.13.35's Dolby Digital+ direct-play change — it made silence worse, not better
+
+- **Reverted**: exempting AC-3/E-AC-3 from the silent-audio safety net assumed direct play always has real audio on these codecs — confirmed live that's not true on every machine. Chromium doesn't ship its own AC-3/E-AC-3 decoder; it depends on one being registered at the OS level, which isn't present on every Windows install (varies by machine, not by Movviz). Removing the safety net meant a machine without that decoder got total silence with no recovery, instead of the automatic fallback to a transcoded (audible) stream it had before. The safety net is back exactly as it was — a proper fix that tells a genuine decode failure apart from the net's own blind spot on these codecs needs more care than this reverted attempt gave it.
 
 ### Titles stuck "searching" gave the "Downloading" tile a nonzero count with nothing there to explain it
 
