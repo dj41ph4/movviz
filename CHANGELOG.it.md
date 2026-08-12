@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.41 — Agosto 2026
+
+### Lettore beta: i tentativi di copia audio e il ripiego verso una vera transcodifica ricadevano sempre in silenzio sulla stessa sessione Plex bloccata
+
+- **Corretto**: confermato dal vivo — dopo un fallimento passeggero sul primissimo segmento HLS, il lettore avviava effettivamente una nuova istanza `Hls` per riprovare (e per passare a una vera transcodifica audio), ma l'identificatore di sessione inviato a Plex a ogni richiesta era una stringa fissa `movviz-{utente}-{film}`, identica indipendentemente dal numero di tentativi. Plex non avviava quindi mai un nuovo job di transcodifica pulito a ogni nuovo tentativo o ripiego — continuava a riutilizzare quello già registrato sotto quell'identificatore, tanto che un solo segmento bloccato poteva far fallire anche il ripiego, indefinitamente, pur non avendo la ricodifica in sé alcun problema. Ogni tentativo realmente nuovo (prima riproduzione, nuovo tentativo, ripiego, e cambio di qualità/traccia durante la riproduzione) ottiene ora il proprio identificatore di sessione Plex, proprio come fa un vero client Plex.
+
 ## v1.13.40 — Agosto 2026
 
 ### Lettore beta: la riproduzione diretta poteva servire un MKV grezzo di cui il browser non decodificava mai la traccia audio

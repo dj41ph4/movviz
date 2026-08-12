@@ -13,7 +13,12 @@ export async function POST(req: NextRequest, context: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { ratingKey } = await context.params;
-  const sessionId = `movviz-${user.id}-${ratingKey}`;
+  // Must match the sid-suffixed session id the player's current attempt is
+  // actually using (see transcode/route.ts) — otherwise this stops nothing
+  // and Plex keeps the real transcode job running until it times out itself.
+  const rawSid = req.nextUrl.searchParams.get("sid");
+  const sid = rawSid && /^[a-z0-9]{1,16}$/i.test(rawSid) ? rawSid : null;
+  const sessionId = `movviz-${user.id}-${ratingKey}${sid ? `-${sid}` : ""}`;
   const clientId = `movviz-${user.id}`;
 
   unregisterSession(user.id, ratingKey);

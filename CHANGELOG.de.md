@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.41 — August 2026
+
+### Beta-Player: Versuche, den Ton zu kopieren, und der Rückfall auf eine echte Transcodierung fielen bei derselben blockierten Plex-Sitzung immer wieder still zurück
+
+- **Behoben**: live bestätigt — nach einem vorübergehenden Fehlschlag beim allerersten HLS-Segment startete der Player tatsächlich eine neue `Hls`-Instanz für einen erneuten Versuch (und um auf eine echte Audio-Transcodierung umzuschalten), aber die bei jeder Anfrage an Plex gesendete Sitzungs-ID war eine feste Zeichenkette `movviz-{Nutzer}-{Film}`, identisch unabhängig von der Anzahl der Versuche. Plex startete dadurch bei einem erneuten Versuch oder einem Rückfall nie einen neuen, sauberen Transcodierungs-Job — es nutzte weiterhin denjenigen weiter, der bereits unter dieser ID registriert war, sodass ein einziges blockiertes Segment auch den Rückfall auf unbestimmte Zeit zum Scheitern bringen konnte, obwohl die Neucodierung selbst nichts Kaputtes hatte. Jeder wirklich neue Versuch (erste Wiedergabe, erneuter Versuch, Rückfall und Wechsel von Qualität/Spur während der Wiedergabe) erhält jetzt seine eigene Plex-Sitzungs-ID, genau wie es ein echter Plex-Client tut.
+
 ## v1.13.40 — August 2026
 
 ### Beta-Player: die Direktwiedergabe konnte eine rohe MKV-Datei ausliefern, deren Audiospur der Browser nie decodierte

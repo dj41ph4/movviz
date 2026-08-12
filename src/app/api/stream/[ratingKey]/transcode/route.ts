@@ -77,7 +77,14 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   const token = cfg.adminToken;
   const clientId = `movviz-${user.id}`;
-  const sessionId = `movviz-${user.id}-${ratingKey}`;
+  // sid is a per-attempt nonce from the player (first play, network-error
+  // retry, or ta escalation) — without it every request for this user+movie
+  // collapsed onto the exact same Plex session id, so retries/escalation
+  // never actually got a fresh transcode job from Plex, they just kept
+  // hitting whatever (possibly stuck) job Plex already had under that id.
+  const rawSid = req.nextUrl.searchParams.get("sid");
+  const sid = rawSid && /^[a-z0-9]{1,16}$/i.test(rawSid) ? rawSid : null;
+  const sessionId = `movviz-${user.id}-${ratingKey}${sid ? `-${sid}` : ""}`;
   const headers = plexClientHeaders(token, clientId, sessionId);
 
   const metadataUrl = `${base}/library/metadata/${ratingKey}`;

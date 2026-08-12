@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.41 — August 2026
+
+### Beta Player: audio-copy retries and the fallback to a real transcode were silently hitting the same stuck Plex session every time
+
+- **Fixed**: confirmed live — after a transient failure on the very first HLS segment, the player's retry (and its fallback to a real audio transcode) both requested a fresh `Hls` instance, but the Plex session id sent with every request was a fixed `movviz-{user}-{movie}` string, identical no matter how many times the request fired. Plex never actually started a clean transcode job on retry or fallback — it kept reusing whatever job was already registered under that id, so a single stuck segment could make the fallback fail too, forever, even though nothing was actually wrong with re-encoding itself. Every genuinely new attempt (first play, retry, fallback, and mid-playback quality/track switches) now gets its own Plex session id, matching how a real Plex client behaves.
+
+---
+
 ## v1.13.40 — August 2026
 
 ### Beta Player: direct play could serve a raw MKV whose audio track the browser never decoded

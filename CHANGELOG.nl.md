@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.41 — Augustus 2026
+
+### Bèta-speler: pogingen tot audiokopie en de terugval naar echte hercodering bleven altijd stilzwijgend hangen op dezelfde geblokkeerde Plex-sessie
+
+- **Opgelost**: live bevestigd — na een voorbijgaande mislukking op het allereerste HLS-segment startte de speler wel degelijk een nieuwe `Hls`-instantie op om opnieuw te proberen (en om over te schakelen naar echte audiohercodering), maar de sessie-identifier die bij elke aanvraag naar Plex werd gestuurd, was een vaste tekenreeks `movviz-{gebruiker}-{film}`, ongeacht het aantal pogingen. Plex startte daardoor nooit een nieuwe, schone hercoderingstaak bij een nieuwe poging of terugval — het bleef de taak hergebruiken die al onder deze identifier was geregistreerd, waardoor één geblokkeerd segment ook de terugval eindeloos kon laten mislukken, terwijl er aan de hercodering zelf niets mankeerde. Elke werkelijk nieuwe poging (eerste weergave, nieuwe poging, terugval, en wisselen van kwaliteit/track tijdens het afspelen) krijgt nu zijn eigen Plex-sessie-identifier, zoals een echte Plex-client dat ook doet.
+
 ## v1.13.40 — Augustus 2026
 
 ### Bèta-speler: directe weergave kon een ruwe MKV serveren waarvan de browser de audiotrack nooit decodeerde

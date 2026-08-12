@@ -85,6 +85,10 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+function newSessionNonce(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded }: VideoPlayerProps) {
   const t = useT();
   const tRef = useRef(t);
@@ -96,7 +100,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const fallbackGuardRef = useRef(false);
-  const startHlsRef = useRef<((extraParams?: string) => void) | null>(null);
+  const startHlsRef = useRef<((extraParams?: string, isCopyNetworkRetry?: boolean) => void) | null>(null);
   const stopSilentWatchRef = useRef<(() => void) | null>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const infoRef = useRef<StreamInfo>({ videoCodec: null, audioCodec: null, container: null });
@@ -112,6 +116,20 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   // silent and escalated to ta=1 once, never retry ta=0 again for this
   // playback session — prevents a silent-copy → escalate → silent-copy loop.
   const hlsCopyEscalatedRef = useRef(false);
+  // A transient network error (e.g. a 503 on segment 0 during Plex's
+  // transcode spin-up — confirmed to happen even on Plex's own client, see
+  // the v1.13.40 investigation notes) is NOT evidence the copied audio track
+  // doesn't work. One genuine do-over (fresh Hls instance, fresh Plex
+  // session, still ta=0) is allowed before a repeat failure counts as real.
+  const hlsCopyNetworkRetriedRef = useRef(false);
+  // The Plex "session" query param used to be a fixed movviz-{userId}-{ratingKey}
+  // string — identical across EVERY request for the same user+movie, including
+  // retries and ta=0→ta=1 escalation. Plex then never actually started a fresh
+  // transcode job on retry/escalation, it just kept reusing (and getting stuck
+  // on) whatever job it had already associated with that session id — the real
+  // cause behind retries/escalation looping on the same segment-0 failure.
+  // A fresh random suffix per genuinely new transcode attempt fixes this.
+  const sessionNonceRef = useRef("");
   const transcodeModeRef = useRef<"auto" | "audio" | "video" | "full">("auto");
   const codecCapsRef = useRef<CodecCapabilities | null>(null);
   const audioStreamIdRef = useRef<string | null>(null);
@@ -188,6 +206,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     if (qualityMaxWidthRef.current) params.set("maxWidth", String(qualityMaxWidthRef.current));
     if (audioId) params.set("audioStreamID", audioId);
     if (subtitleId) params.set("subtitleStreamID", subtitleId);
+    sessionNonceRef.current = newSessionNonce();
+    params.set("sid", sessionNonceRef.current);
     const qs = params.toString();
     if (qs) url += `?${qs}`;
     setCurrentAudio(audioId);
@@ -204,12 +224,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     const hlsUrl = `/api/stream/${ratingKey}/transcode`;
     const directUrl = `/api/stream/${ratingKey}`;
 
-    const startHls = (extraParams?: string) => {
+    const startHls = (extraParams?: string, isCopyNetworkRetry?: boolean) => {
       startHlsRef.current = startHls;
       const el = videoRef.current;
       if (!el) {
         // Element not mounted yet — schedule retry
-        requestAnimationFrame(() => startHls(extraParams));
+        requestAnimationFrame(() => startHls(extraParams, isCopyNetworkRetry));
         return;
       }
       if (fallbackGuardRef.current) return;
@@ -220,7 +240,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       const mode = transcodeModeRef.current;
       const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "audio" || mode === "full" ? "1" : "0";
       const ta = mode === "auto" ? (transcodeAudioRef.current ? "1" : "0") : mode === "video" || mode === "full" ? "1" : "0";
-      let url = `${hlsUrl}?tv=${tv}&ta=${ta}`;
+      // Every real call here (first attempt, network-error do-over,
+      // ta=0→ta=1 escalation) must get its own Plex session — reusing the
+      // same session id is what let a stuck segment-0 error follow us from
+      // attempt to attempt no matter how many "fresh" Hls instances we made.
+      sessionNonceRef.current = newSessionNonce();
+      let url = `${hlsUrl}?tv=${tv}&ta=${ta}&sid=${sessionNonceRef.current}`;
       if (audioStreamIdRef.current) url += `&audioStreamID=${audioStreamIdRef.current}`;
       if (qualityMaxWidthRef.current) url += `&maxWidth=${qualityMaxWidthRef.current}`;
       if (extraParams) url += `&${extraParams}`;
@@ -238,15 +263,28 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // escalate to a real ta=1 transcode only on a genuine, live silence —
       // never a second guess baked into the request itself.
       const attemptingHlsAudioCopy = mode === "auto" && ta === "0" && !hlsCopyEscalatedRef.current;
-      if (attemptingHlsAudioCopy) {
+      // Only forces a real ta=1 transcode — never touched by a transient
+      // network hiccup, only by a genuine live-silence verdict or by a
+      // second, independent copy attempt also failing at the network level
+      // (see the NETWORK_ERROR branch below).
+      const escalateHlsAudioCopy = () => {
+        if (hlsCopyEscalatedRef.current) return;
+        hlsCopyEscalatedRef.current = true;
+        transcodeAudioRef.current = true;
+        fallbackGuardRef.current = false;
+        startHlsRef.current?.();
+      };
+      // A network-error retry (isCopyNetworkRetry) reuses the SAME live-audio
+      // watch already running from the original attempt instead of installing
+      // a second one on the same <video> element — Web Audio only allows one
+      // MediaElementAudioSourceNode capture per element for its whole
+      // lifetime (see silentAudioDetector.ts), so a second install here would
+      // silently no-op anyway. Letting the original watch keep ticking means
+      // the retry still gets genuinely live-verified, just on whatever time
+      // remains of the original 6s window rather than a fresh one.
+      if (attemptingHlsAudioCopy && !isCopyNetworkRetry) {
         stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(el, () => {
-          if (hlsCopyEscalatedRef.current) return;
-          hlsCopyEscalatedRef.current = true;
-          transcodeAudioRef.current = true;
-          fallbackGuardRef.current = false;
-          startHlsRef.current?.();
-        });
+        stopSilentWatchRef.current = watchForSilentAudio(el, escalateHlsAudioCopy);
       }
 
       if (Hls.isSupported()) {
@@ -304,6 +342,28 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
             case Hls.ErrorTypes.NETWORK_ERROR: {
               networkRetries += 1;
               if (networkRetries > 5) {
+                // hls.js's own in-place retry budget (startLoad() below) is
+                // exhausted — but for a ta=0 copy attempt that's still just
+                // "the network had a bad few seconds" (confirmed: transient
+                // 503s on segment 0 happen even on Plex's own client's
+                // sessions), not "this audio track doesn't work". Give the
+                // exact same request ONE genuine do-over — a brand new Hls
+                // instance and a brand new Plex transcode session — before
+                // treating a repeat failure as real signal. Only a SECOND
+                // independent failure, or a live-silence verdict from the
+                // still-running watch, escalates to a real ta=1 transcode.
+                if (attemptingHlsAudioCopy && !hlsCopyNetworkRetriedRef.current) {
+                  hlsCopyNetworkRetriedRef.current = true;
+                  hls.destroy();
+                  hlsRef.current = null;
+                  fallbackGuardRef.current = false;
+                  startHls(extraParams, true);
+                  break;
+                }
+                if (attemptingHlsAudioCopy && !hlsCopyEscalatedRef.current) {
+                  escalateHlsAudioCopy();
+                  break;
+                }
                 setError(tRef.current("player.betaError"));
                 hls.destroy();
                 hlsRef.current = null;
@@ -392,6 +452,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     const begin = async (seekTo?: number) => {
       setBuffering(true);
       hlsCopyEscalatedRef.current = false;
+      hlsCopyNetworkRetriedRef.current = false;
       // Reset the engine badge — begin() can re-run (resume-with-seek) and
       // the previous run's engine may differ from this one.
       setDirectMode(false);
@@ -616,7 +677,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           body: JSON.stringify({ offset, state: "stopped" }),
           keepalive: true,
         }).catch(() => void 0);
-        void fetch(`/api/stream/${ratingKey}/stop`, {
+        const stopUrl = sessionNonceRef.current
+          ? `/api/stream/${ratingKey}/stop?sid=${sessionNonceRef.current}`
+          : `/api/stream/${ratingKey}/stop`;
+        void fetch(stopUrl, {
           method: "POST",
           keepalive: true,
         }).catch(() => void 0);
