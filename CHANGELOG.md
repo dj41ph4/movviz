@@ -4,27 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.43 — August 2026
+## v1.13.44 — August 2026
 
-### Reverted v1.13.41/v1.13.42's per-attempt Plex session ids — broke playback entirely in production
+### Beta Player: a transient error on the first HLS segment no longer escalates straight to a real transcode, and "Test direct" is no longer a dead button
 
-- **Reverted**: giving every retry/fallback its own Plex session id was meant to stop retries from silently hitting a stuck session — instead, live testing on the real server showed Plex rejects ANY session id that isn't the one exact deterministic value Movviz has always used, with an immediate `400 Bad Request`, regardless of whether the previous session was explicitly stopped first. v1.13.42's fix (stop-before-start) changed nothing — the previous version's "this NAS only allows one active transcode job" explanation was wrong, confirmed: this Plex Pass server handles multiple simultaneous transcodes without issue. The real cause isn't understood yet. Reverted cleanly back to the single deterministic session id that has always worked, keeping the unrelated ta=0→ta=1 escalation timing fix from v1.13.40/41 (a transient error on the first HLS segment no longer escalates immediately — it gets one genuine retry first).
-
----
-
-## v1.13.42 — August 2026
-
-### Beta Player: v1.13.41's per-attempt Plex session ids were rejected outright — this NAS's Plex allows only one live transcode job per file
-
-- **Fixed**: confirmed live — giving every retry/fallback its own Plex session id (v1.13.41) stopped the old bug (retries silently hitting a stuck session) but exposed a different limit: this server's Plex flatly refuses to start a second, genuinely new transcode session for a file that already has one registered, even one the player walked away from without formally ending it — every such request came back `400 Bad Request` instantly, no spin-up, no segments, nothing. The previous session is now explicitly stopped before a new one is requested, freeing the slot Plex needs before it will accept the next attempt.
-
----
-
-## v1.13.41 — August 2026
-
-### Beta Player: audio-copy retries and the fallback to a real transcode were silently hitting the same stuck Plex session every time
-
-- **Fixed**: confirmed live — after a transient failure on the very first HLS segment, the player's retry (and its fallback to a real audio transcode) both requested a fresh `Hls` instance, but the Plex session id sent with every request was a fixed `movviz-{user}-{movie}` string, identical no matter how many times the request fired. Plex never actually started a clean transcode job on retry or fallback — it kept reusing whatever job was already registered under that id, so a single stuck segment could make the fallback fail too, forever, even though nothing was actually wrong with re-encoding itself. Every genuinely new attempt (first play, retry, fallback, and mid-playback quality/track switches) now gets its own Plex session id, matching how a real Plex client behaves.
+- **Fixed**: a transient failure on the very first HLS segment (a brief 503 during Plex's own transcode spin-up, confirmed to happen even on Plex's own client) now gets one genuine retry before the player gives up on the lossless audio copy and falls back to a real re-encode — previously it escalated on the first hiccup.
+- **Fixed**: the manual "Test direct" button did nothing when direct play was already the active engine — it reassigned the `<video>` element's `src` to the exact URL it already had, which the browser correctly treats as a no-op (no reload, no request). The button now forces a real reload every time.
 
 ---
 

@@ -4,27 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.43 — août 2026
+## v1.13.44 — août 2026
 
-### Annulation des identifiants de session Plex par tentative de la v1.13.41/v1.13.42 — ça cassait complètement la lecture en production
+### Lecteur bêta : une erreur passagère sur le premier segment HLS n'escaladait plus immédiatement vers un vrai transcodage, et le bouton « Test direct » ne faisait plus rien
 
-- **Annulé** : donner un identifiant de session Plex propre à chaque tentative devait empêcher les nouvelles tentatives de retomber en silence sur une session bloquée — au lieu de ça, les tests en direct sur le serveur réel ont montré que Plex rejette n'importe quel identifiant de session qui n'est pas exactement la valeur déterministe unique que Movviz a toujours utilisée, avec un `400 Bad Request` immédiat, que l'ancienne session ait été arrêtée explicitement avant ou non. Le correctif de la v1.13.42 (arrêter avant de démarrer) n'a rien changé — l'explication de la version précédente ("ce NAS n'autorise qu'un seul job de transcodage actif") était fausse, confirmé : ce serveur avec Plex Pass gère plusieurs transcodages simultanés sans problème. La vraie cause n'est pas encore comprise. Retour propre à l'identifiant de session déterministe unique qui a toujours fonctionné, en conservant le correctif de timing d'escalade ta=0→ta=1 de la v1.13.40/41 (une erreur passagère sur le premier segment HLS n'escalade plus immédiatement — elle obtient d'abord une vraie nouvelle tentative).
-
----
-
-## v1.13.42 — août 2026
-
-### Lecteur bêta : les identifiants de session Plex distincts par tentative de la v1.13.41 étaient rejetés d'office — ce NAS n'autorise qu'un seul job de transcodage actif par fichier
-
-- **Corrigé** : confirmé en direct — donner un identifiant de session Plex propre à chaque tentative (v1.13.41) a réglé l'ancien bug (les tentatives retombant en silence sur une session bloquée) mais en a révélé un autre : le Plex de ce serveur refuse catégoriquement de démarrer une deuxième session de transcodage réellement nouvelle pour un fichier qui en a déjà une enregistrée, même une que le lecteur a abandonnée sans la terminer proprement — chacune de ces requêtes revenait instantanément en `400 Bad Request`, sans démarrage, sans segment, rien. L'ancienne session est désormais explicitement arrêtée avant qu'une nouvelle soit demandée, libérant la place dont Plex a besoin avant d'accepter la tentative suivante.
-
----
-
-## v1.13.41 — août 2026
-
-### Lecteur bêta : les tentatives de copie audio et le repli vers un vrai transcodage retombaient toujours en silence sur la même session Plex bloquée
-
-- **Corrigé** : confirmé en direct — après un échec passager sur le tout premier segment HLS, le lecteur relançait bien une nouvelle instance `Hls` pour réessayer (et pour basculer vers un vrai transcodage audio), mais l'identifiant de session envoyé à Plex à chaque requête était une chaîne fixe `movviz-{utilisateur}-{film}`, identique quel que soit le nombre de tentatives. Plex ne démarrait donc jamais un nouveau job de transcodage propre lors d'un nouvel essai ou d'un repli — il continuait de réutiliser celui déjà enregistré sous cet identifiant, si bien qu'un seul segment bloqué pouvait faire échouer le repli aussi, indéfiniment, alors que le réencodage en lui-même n'avait rien de cassé. Chaque tentative réellement nouvelle (première lecture, nouvel essai, repli, et changement de qualité/piste en cours de lecture) obtient désormais son propre identifiant de session Plex, comme le fait un vrai client Plex.
+- **Corrigé** : un échec passager sur le tout premier segment HLS (un 503 bref pendant le démarrage du transcodage côté Plex, confirmé même sur le client Plex lui-même) obtient désormais une vraie nouvelle tentative avant que le lecteur abandonne la copie audio sans perte et bascule vers un vrai réencodage — auparavant il escaladait dès le premier accroc.
+- **Corrigé** : le bouton manuel « Test direct » ne faisait rien quand la lecture directe était déjà le moteur actif — il réassignait au `<video>` exactement l'URL qu'il avait déjà, ce que le navigateur traite correctement comme un no-op (pas de rechargement, pas de requête). Le bouton force désormais un vrai rechargement à chaque fois.
 
 ---
 

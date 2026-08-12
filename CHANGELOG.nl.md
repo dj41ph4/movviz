@@ -4,23 +4,14 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
-## v1.13.43 — Augustus 2026
+## v1.13.44 — Augustus 2026
 
-### Teruggedraaid: de per-poging Plex-sessie-identifiers van v1.13.41/v1.13.42 — dat brak de weergave volledig in productie
+### Bèta-speler: een voorbijgaande fout op het eerste HLS-segment escaleerde niet meer meteen naar echte hercodering, en de knop "Directe test" deed niets meer
 
-- **Teruggedraaid**: een eigen, schone sessie-identifier per poging aan Plex meegeven, moest voorkomen dat nieuwe pogingen stilzwijgend terugvielen op een geblokkeerde sessie — in plaats daarvan toonden live tests op de echte server aan dat Plex elke sessie-identifier afwijst die niet exact de unieke, deterministische waarde is die Movviz altijd al gebruikte, met een onmiddellijke `400 Bad Request`, ongeacht of de oude sessie er eerst expliciet was gestopt. De fix van v1.13.42 (eerst stoppen, dan starten) veranderde daar niets aan — de verklaring uit de vorige versie ("deze NAS staat maar één actieve hercoderingstaak toe") bleek onjuist, nu bevestigd: deze server met Plex Pass verwerkt meerdere gelijktijdige hercoderingen zonder enig probleem. De werkelijke oorzaak is nog niet begrepen. Nette terugkeer naar de unieke, deterministische sessie-identifier die altijd al werkte, met behoud van de escalatie-timingfix ta=0→ta=1 uit v1.13.40/41 (een voorbijgaande fout op het eerste HLS-segment escaleert niet meer meteen — er komt eerst een echte nieuwe poging).
+- **Opgelost**: een voorbijgaande mislukking op het allereerste HLS-segment (een korte `503` tijdens het opstarten van de hercodering aan Plex-zijde, bevestigd zelfs op de Plex-client zelf) krijgt nu een echte nieuwe poging voordat de speler de verliesvrije audiokopie opgeeft en overschakelt naar echte hercodering — voorheen escaleerde dit al bij het allereerste hobbeltje.
+- **Opgelost**: de handmatige knop "Directe test" deed niets wanneer directe weergave al de actieve engine was — hij wees het `<video>`-element exact dezelfde URL opnieuw toe die het al had, iets wat de browser terecht als no-op behandelt (geen herlaadactie, geen aanvraag). De knop dwingt nu telkens een echte herlaadactie af.
 
-## v1.13.42 — Augustus 2026
-
-### Bèta-speler: de per-poging Plex-sessie-identifiers van v1.13.41 werden domweg afgewezen — deze NAS staat maar één actieve hercoderingstaak per bestand toe
-
-- **Opgelost**: live bevestigd — een eigen sessie-identifier per poging (v1.13.41) meegeven, verhielp de oude bug (pogingen die stilzwijgend terugvielen op een geblokkeerde sessie), maar bracht een andere aan het licht: de Plex van deze server weigert categorisch een tweede, werkelijk nieuwe hercoderingssessie te starten voor een bestand dat er al één geregistreerd heeft staan — zelfs een sessie die de speler zonder nette afsluiting had verlaten. Elke zo'n aanvraag kwam meteen terug met een `400 Bad Request`, zonder start, zonder segment, niets. De oude sessie wordt nu expliciet gestopt voordat een nieuwe wordt aangevraagd, zodat de ruimte vrijkomt die Plex nodig heeft voordat het de volgende poging accepteert.
-
-## v1.13.41 — Augustus 2026
-
-### Bèta-speler: pogingen tot audiokopie en de terugval naar echte hercodering bleven altijd stilzwijgend hangen op dezelfde geblokkeerde Plex-sessie
-
-- **Opgelost**: live bevestigd — na een voorbijgaande mislukking op het allereerste HLS-segment startte de speler wel degelijk een nieuwe `Hls`-instantie op om opnieuw te proberen (en om over te schakelen naar echte audiohercodering), maar de sessie-identifier die bij elke aanvraag naar Plex werd gestuurd, was een vaste tekenreeks `movviz-{gebruiker}-{film}`, ongeacht het aantal pogingen. Plex startte daardoor nooit een nieuwe, schone hercoderingstaak bij een nieuwe poging of terugval — het bleef de taak hergebruiken die al onder deze identifier was geregistreerd, waardoor één geblokkeerd segment ook de terugval eindeloos kon laten mislukken, terwijl er aan de hercodering zelf niets mankeerde. Elke werkelijk nieuwe poging (eerste weergave, nieuwe poging, terugval, en wisselen van kwaliteit/track tijdens het afspelen) krijgt nu zijn eigen Plex-sessie-identifier, zoals een echte Plex-client dat ook doet.
+---
 
 ## v1.13.40 — Augustus 2026
 

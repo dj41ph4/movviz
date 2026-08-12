@@ -390,7 +390,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           { once: true }
         );
       }
+      // Setting `src` to a value it already holds — the exact case when the
+      // "Test direct" button retries while direct play is already the
+      // active engine — is a no-op per the HTML spec: no reload, no
+      // request, nothing. `load()` forces a genuine re-fetch regardless of
+      // whether the URL string actually changed.
       el.src = directUrl;
+      el.load();
+      void el.play().catch(() => void 0);
 
       // Recovery chain is strictly direct → MSE → HLS: a failed/silent
       // direct play still gets a shot at the bitstream-copy MSE engine

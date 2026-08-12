@@ -4,23 +4,14 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
-## v1.13.43 — Agosto 2026
+## v1.13.44 — Agosto 2026
 
-### Annullato l'identificatore di sessione Plex per tentativo della v1.13.41/v1.13.42 — mandava completamente in tilt la riproduzione in produzione
+### Lettore beta: un errore passeggero sul primo segmento HLS non faceva più escalation immediata verso una vera transcodifica, e il pulsante "Test diretto" non faceva più nulla
 
-- **Annullato**: dare a ogni tentativo un proprio identificatore di sessione Plex doveva impedire ai nuovi tentativi di ricadere in silenzio su una sessione bloccata — invece, i test dal vivo sul server reale hanno mostrato che Plex rifiuta qualsiasi identificatore di sessione che non sia esattamente l'unico valore deterministico che Movviz ha sempre usato, con un `400 Bad Request` immediato, indipendentemente dal fatto che la vecchia sessione fosse stata interrotta esplicitamente prima o meno. Il correttivo della v1.13.42 (interrompere prima di avviare) non ha cambiato nulla — la spiegazione della versione precedente ("questo NAS autorizza un solo job di transcodifica attivo") si è confermata falsa: questo server con Plex Pass gestisce più transcodifiche simultanee senza problemi. La vera causa non è ancora compresa. Ripristino pulito dell'unico identificatore di sessione deterministico che ha sempre funzionato, mantenendo il correttivo di temporizzazione dell'escalation ta=0→ta=1 della v1.13.40/41 (un errore passeggero sul primo segmento HLS non fa più escalation immediata — ottiene prima un vero nuovo tentativo).
+- **Corretto**: un fallimento passeggero sul primissimo segmento HLS (un `503` breve durante l'avvio della transcodifica lato Plex, confermato persino sul client Plex stesso) ottiene ora un vero nuovo tentativo prima che il lettore abbandoni la copia audio senza perdita e passi a una vera ricodifica — in precedenza faceva escalation al primo intoppo.
+- **Corretto**: il pulsante manuale "Test diretto" non faceva nulla quando la riproduzione diretta era già il motore attivo — riassegnava al `<video>` esattamente l'URL che aveva già, cosa che il browser tratta correttamente come un no-op (nessun ricaricamento, nessuna richiesta). Il pulsante ora forza un vero ricaricamento ogni volta.
 
-## v1.13.42 — Agosto 2026
-
-### Lettore beta: gli identificatori di sessione Plex distinti per tentativo della v1.13.41 venivano rifiutati a priori — questo NAS autorizza un solo job di transcodifica attivo per file
-
-- **Corretto**: confermato dal vivo — dare a ogni tentativo un identificatore di sessione Plex proprio (v1.13.41) ha risolto il vecchio bug (i tentativi che ricadevano in silenzio su una sessione bloccata) ma ne ha rivelato un altro: il Plex di questo server rifiuta categoricamente di avviare una seconda sessione di transcodifica realmente nuova per un file che ne ha già una registrata, anche una che il lettore ha abbandonato senza terminarla correttamente — ciascuna di queste richieste tornava istantaneamente con un `400 Bad Request`, senza avvio, senza segmento, nulla. La vecchia sessione viene ora esplicitamente interrotta prima che ne venga richiesta una nuova, liberando lo spazio di cui Plex ha bisogno prima di accettare il tentativo successivo.
-
-## v1.13.41 — Agosto 2026
-
-### Lettore beta: i tentativi di copia audio e il ripiego verso una vera transcodifica ricadevano sempre in silenzio sulla stessa sessione Plex bloccata
-
-- **Corretto**: confermato dal vivo — dopo un fallimento passeggero sul primissimo segmento HLS, il lettore avviava effettivamente una nuova istanza `Hls` per riprovare (e per passare a una vera transcodifica audio), ma l'identificatore di sessione inviato a Plex a ogni richiesta era una stringa fissa `movviz-{utente}-{film}`, identica indipendentemente dal numero di tentativi. Plex non avviava quindi mai un nuovo job di transcodifica pulito a ogni nuovo tentativo o ripiego — continuava a riutilizzare quello già registrato sotto quell'identificatore, tanto che un solo segmento bloccato poteva far fallire anche il ripiego, indefinitamente, pur non avendo la ricodifica in sé alcun problema. Ogni tentativo realmente nuovo (prima riproduzione, nuovo tentativo, ripiego, e cambio di qualità/traccia durante la riproduzione) ottiene ora il proprio identificatore di sessione Plex, proprio come fa un vero client Plex.
+---
 
 ## v1.13.40 — Agosto 2026
 

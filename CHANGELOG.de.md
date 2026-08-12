@@ -4,23 +4,14 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
-## v1.13.43 — August 2026
+## v1.13.44 — August 2026
 
-### Zurücknahme der Plex-Sitzungs-IDs pro Versuch aus v1.13.41/v1.13.42 — das brachte die Wiedergabe im Produktivbetrieb komplett zum Absturz
+### Beta-Player: ein vorübergehender Fehler beim ersten HLS-Segment eskalierte nicht mehr sofort zu einer echten Transcodierung, und der Button „Direkt testen" tat nichts mehr
 
-- **Zurückgenommen**: jedem Versuch eine eigene, saubere Plex-Sitzungs-ID zu geben, sollte verhindern, dass erneute Versuche still auf eine blockierte Sitzung zurückfallen — stattdessen zeigten Live-Tests auf dem echten Server, dass Plex jede Sitzungs-ID ablehnt, die nicht exakt dem einen deterministischen Wert entspricht, den Movviz schon immer verwendet hat, mit einem sofortigen `400 Bad Request`, unabhängig davon, ob die alte Sitzung vorher explizit beendet wurde oder nicht. Der Fix aus v1.13.42 (vor dem Start explizit beenden) änderte daran nichts — die Erklärung der Vorversion („dieses NAS erlaubt nur einen aktiven Transcodierungs-Job") war bestätigt falsch: Dieser Server mit Plex Pass verarbeitet mehrere gleichzeitige Transcodierungen problemlos. Die tatsächliche Ursache ist noch nicht verstanden. Saubere Rückkehr zur einen deterministischen Sitzungs-ID, die immer funktioniert hat, unter Beibehaltung des Timing-Fixes für die Eskalation ta=0→ta=1 aus v1.13.40/41 (ein vorübergehender Fehler beim ersten HLS-Segment eskaliert nicht mehr sofort — er bekommt zuerst einen echten erneuten Versuch).
+- **Behoben**: ein vorübergehender Fehlschlag beim allerersten HLS-Segment (ein kurzer 503 während des Starts der Transcodierung auf Plex-Seite, bestätigt sogar am Plex-Client selbst) bekommt jetzt einen echten erneuten Versuch, bevor der Player die verlustfreie Audiokopie aufgibt und auf eine echte Neucodierung umschaltet — zuvor eskalierte er schon beim ersten Aussetzer.
+- **Behoben**: der manuelle Button „Direkt testen" tat nichts, wenn die Direktwiedergabe bereits die aktive Engine war — er wies dem `<video>`-Element exakt dieselbe URL erneut zu, die es bereits hatte, was der Browser korrekterweise als No-op behandelt (kein Neuladen, keine Anfrage). Der Button erzwingt jetzt bei jedem Klick ein echtes Neuladen.
 
-## v1.13.42 — August 2026
-
-### Beta-Player: die pro Versuch eindeutigen Plex-Sitzungs-IDs aus v1.13.41 wurden grundsätzlich abgelehnt — dieses NAS erlaubt nur einen aktiven Transcodierungs-Job pro Datei
-
-- **Behoben**: live bestätigt — jedem Versuch eine eigene Plex-Sitzungs-ID zu geben (v1.13.41) behob den alten Fehler (Versuche, die still auf eine blockierte Sitzung zurückfielen), deckte aber einen neuen auf: Der Plex dieses Servers weigert sich kategorisch, eine wirklich neue zweite Transcodierungs-Sitzung für eine Datei zu starten, die bereits eine registrierte hat — selbst eine, die der Player abgebrochen hat, ohne sie sauber zu beenden. Jede dieser Anfragen kam sofort mit `400 Bad Request` zurück, ohne Start, ohne Segment, nichts. Die alte Sitzung wird jetzt explizit beendet, bevor eine neue angefordert wird, wodurch der Platz frei wird, den Plex braucht, um den nächsten Versuch zu akzeptieren.
-
-## v1.13.41 — August 2026
-
-### Beta-Player: Versuche, den Ton zu kopieren, und der Rückfall auf eine echte Transcodierung fielen bei derselben blockierten Plex-Sitzung immer wieder still zurück
-
-- **Behoben**: live bestätigt — nach einem vorübergehenden Fehlschlag beim allerersten HLS-Segment startete der Player tatsächlich eine neue `Hls`-Instanz für einen erneuten Versuch (und um auf eine echte Audio-Transcodierung umzuschalten), aber die bei jeder Anfrage an Plex gesendete Sitzungs-ID war eine feste Zeichenkette `movviz-{Nutzer}-{Film}`, identisch unabhängig von der Anzahl der Versuche. Plex startete dadurch bei einem erneuten Versuch oder einem Rückfall nie einen neuen, sauberen Transcodierungs-Job — es nutzte weiterhin denjenigen weiter, der bereits unter dieser ID registriert war, sodass ein einziges blockiertes Segment auch den Rückfall auf unbestimmte Zeit zum Scheitern bringen konnte, obwohl die Neucodierung selbst nichts Kaputtes hatte. Jeder wirklich neue Versuch (erste Wiedergabe, erneuter Versuch, Rückfall und Wechsel von Qualität/Spur während der Wiedergabe) erhält jetzt seine eigene Plex-Sitzungs-ID, genau wie es ein echter Plex-Client tut.
+---
 
 ## v1.13.40 — August 2026
 
