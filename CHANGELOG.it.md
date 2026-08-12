@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.43 — Agosto 2026
+
+### Annullato l'identificatore di sessione Plex per tentativo della v1.13.41/v1.13.42 — mandava completamente in tilt la riproduzione in produzione
+
+- **Annullato**: dare a ogni tentativo un proprio identificatore di sessione Plex doveva impedire ai nuovi tentativi di ricadere in silenzio su una sessione bloccata — invece, i test dal vivo sul server reale hanno mostrato che Plex rifiuta qualsiasi identificatore di sessione che non sia esattamente l'unico valore deterministico che Movviz ha sempre usato, con un `400 Bad Request` immediato, indipendentemente dal fatto che la vecchia sessione fosse stata interrotta esplicitamente prima o meno. Il correttivo della v1.13.42 (interrompere prima di avviare) non ha cambiato nulla — la spiegazione della versione precedente ("questo NAS autorizza un solo job di transcodifica attivo") si è confermata falsa: questo server con Plex Pass gestisce più transcodifiche simultanee senza problemi. La vera causa non è ancora compresa. Ripristino pulito dell'unico identificatore di sessione deterministico che ha sempre funzionato, mantenendo il correttivo di temporizzazione dell'escalation ta=0→ta=1 della v1.13.40/41 (un errore passeggero sul primo segmento HLS non fa più escalation immediata — ottiene prima un vero nuovo tentativo).
+
 ## v1.13.42 — Agosto 2026
 
 ### Lettore beta: gli identificatori di sessione Plex distinti per tentativo della v1.13.41 venivano rifiutati a priori — questo NAS autorizza un solo job di transcodifica attivo per file

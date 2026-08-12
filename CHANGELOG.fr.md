@@ -4,6 +4,14 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.43 — août 2026
+
+### Annulation des identifiants de session Plex par tentative de la v1.13.41/v1.13.42 — ça cassait complètement la lecture en production
+
+- **Annulé** : donner un identifiant de session Plex propre à chaque tentative devait empêcher les nouvelles tentatives de retomber en silence sur une session bloquée — au lieu de ça, les tests en direct sur le serveur réel ont montré que Plex rejette n'importe quel identifiant de session qui n'est pas exactement la valeur déterministe unique que Movviz a toujours utilisée, avec un `400 Bad Request` immédiat, que l'ancienne session ait été arrêtée explicitement avant ou non. Le correctif de la v1.13.42 (arrêter avant de démarrer) n'a rien changé — l'explication de la version précédente ("ce NAS n'autorise qu'un seul job de transcodage actif") était fausse, confirmé : ce serveur avec Plex Pass gère plusieurs transcodages simultanés sans problème. La vraie cause n'est pas encore comprise. Retour propre à l'identifiant de session déterministe unique qui a toujours fonctionné, en conservant le correctif de timing d'escalade ta=0→ta=1 de la v1.13.40/41 (une erreur passagère sur le premier segment HLS n'escalade plus immédiatement — elle obtient d'abord une vraie nouvelle tentative).
+
+---
+
 ## v1.13.42 — août 2026
 
 ### Lecteur bêta : les identifiants de session Plex distincts par tentative de la v1.13.41 étaient rejetés d'office — ce NAS n'autorise qu'un seul job de transcodage actif par fichier

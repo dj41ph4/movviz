@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.43 — Augustus 2026
+
+### Teruggedraaid: de per-poging Plex-sessie-identifiers van v1.13.41/v1.13.42 — dat brak de weergave volledig in productie
+
+- **Teruggedraaid**: een eigen, schone sessie-identifier per poging aan Plex meegeven, moest voorkomen dat nieuwe pogingen stilzwijgend terugvielen op een geblokkeerde sessie — in plaats daarvan toonden live tests op de echte server aan dat Plex elke sessie-identifier afwijst die niet exact de unieke, deterministische waarde is die Movviz altijd al gebruikte, met een onmiddellijke `400 Bad Request`, ongeacht of de oude sessie er eerst expliciet was gestopt. De fix van v1.13.42 (eerst stoppen, dan starten) veranderde daar niets aan — de verklaring uit de vorige versie ("deze NAS staat maar één actieve hercoderingstaak toe") bleek onjuist, nu bevestigd: deze server met Plex Pass verwerkt meerdere gelijktijdige hercoderingen zonder enig probleem. De werkelijke oorzaak is nog niet begrepen. Nette terugkeer naar de unieke, deterministische sessie-identifier die altijd al werkte, met behoud van de escalatie-timingfix ta=0→ta=1 uit v1.13.40/41 (een voorbijgaande fout op het eerste HLS-segment escaleert niet meer meteen — er komt eerst een echte nieuwe poging).
+
 ## v1.13.42 — Augustus 2026
 
 ### Bèta-speler: de per-poging Plex-sessie-identifiers van v1.13.41 werden domweg afgewezen — deze NAS staat maar één actieve hercoderingstaak per bestand toe

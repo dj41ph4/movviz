@@ -85,10 +85,6 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-function newSessionNonce(): string {
-  return Math.random().toString(36).slice(2, 10);
-}
-
 export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded }: VideoPlayerProps) {
   const t = useT();
   const tRef = useRef(t);
@@ -122,14 +118,6 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   // doesn't work. One genuine do-over (fresh Hls instance, fresh Plex
   // session, still ta=0) is allowed before a repeat failure counts as real.
   const hlsCopyNetworkRetriedRef = useRef(false);
-  // The Plex "session" query param used to be a fixed movviz-{userId}-{ratingKey}
-  // string — identical across EVERY request for the same user+movie, including
-  // retries and ta=0→ta=1 escalation. Plex then never actually started a fresh
-  // transcode job on retry/escalation, it just kept reusing (and getting stuck
-  // on) whatever job it had already associated with that session id — the real
-  // cause behind retries/escalation looping on the same segment-0 failure.
-  // A fresh random suffix per genuinely new transcode attempt fixes this.
-  const sessionNonceRef = useRef("");
   const transcodeModeRef = useRef<"auto" | "audio" | "video" | "full">("auto");
   const codecCapsRef = useRef<CodecCapabilities | null>(null);
   const audioStreamIdRef = useRef<string | null>(null);
@@ -206,10 +194,6 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     if (qualityMaxWidthRef.current) params.set("maxWidth", String(qualityMaxWidthRef.current));
     if (audioId) params.set("audioStreamID", audioId);
     if (subtitleId) params.set("subtitleStreamID", subtitleId);
-    const prevSid = sessionNonceRef.current;
-    sessionNonceRef.current = newSessionNonce();
-    params.set("sid", sessionNonceRef.current);
-    if (prevSid) params.set("prevSid", prevSid);
     const qs = params.toString();
     if (qs) url += `?${qs}`;
     setCurrentAudio(audioId);
@@ -242,18 +226,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       const mode = transcodeModeRef.current;
       const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "audio" || mode === "full" ? "1" : "0";
       const ta = mode === "auto" ? (transcodeAudioRef.current ? "1" : "0") : mode === "video" || mode === "full" ? "1" : "0";
-      // Every real call here (first attempt, network-error do-over,
-      // ta=0→ta=1 escalation) must get its own Plex session — reusing the
-      // same session id is what let a stuck segment-0 error follow us from
-      // attempt to attempt no matter how many "fresh" Hls instances we made.
-      // prevSid lets the server stop that old session first — this NAS's
-      // Plex only allows one active transcode job per media Part, so a
-      // brand new session id gets rejected outright while the old one is
-      // still "live" server-side.
-      const prevSid = sessionNonceRef.current;
-      sessionNonceRef.current = newSessionNonce();
-      let url = `${hlsUrl}?tv=${tv}&ta=${ta}&sid=${sessionNonceRef.current}`;
-      if (prevSid) url += `&prevSid=${prevSid}`;
+      let url = `${hlsUrl}?tv=${tv}&ta=${ta}`;
       if (audioStreamIdRef.current) url += `&audioStreamID=${audioStreamIdRef.current}`;
       if (qualityMaxWidthRef.current) url += `&maxWidth=${qualityMaxWidthRef.current}`;
       if (extraParams) url += `&${extraParams}`;
@@ -685,10 +658,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           body: JSON.stringify({ offset, state: "stopped" }),
           keepalive: true,
         }).catch(() => void 0);
-        const stopUrl = sessionNonceRef.current
-          ? `/api/stream/${ratingKey}/stop?sid=${sessionNonceRef.current}`
-          : `/api/stream/${ratingKey}/stop`;
-        void fetch(stopUrl, {
+        void fetch(`/api/stream/${ratingKey}/stop`, {
           method: "POST",
           keepalive: true,
         }).catch(() => void 0);

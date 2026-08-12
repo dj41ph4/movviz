@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.43 — August 2026
+
+### Zurücknahme der Plex-Sitzungs-IDs pro Versuch aus v1.13.41/v1.13.42 — das brachte die Wiedergabe im Produktivbetrieb komplett zum Absturz
+
+- **Zurückgenommen**: jedem Versuch eine eigene, saubere Plex-Sitzungs-ID zu geben, sollte verhindern, dass erneute Versuche still auf eine blockierte Sitzung zurückfallen — stattdessen zeigten Live-Tests auf dem echten Server, dass Plex jede Sitzungs-ID ablehnt, die nicht exakt dem einen deterministischen Wert entspricht, den Movviz schon immer verwendet hat, mit einem sofortigen `400 Bad Request`, unabhängig davon, ob die alte Sitzung vorher explizit beendet wurde oder nicht. Der Fix aus v1.13.42 (vor dem Start explizit beenden) änderte daran nichts — die Erklärung der Vorversion („dieses NAS erlaubt nur einen aktiven Transcodierungs-Job") war bestätigt falsch: Dieser Server mit Plex Pass verarbeitet mehrere gleichzeitige Transcodierungen problemlos. Die tatsächliche Ursache ist noch nicht verstanden. Saubere Rückkehr zur einen deterministischen Sitzungs-ID, die immer funktioniert hat, unter Beibehaltung des Timing-Fixes für die Eskalation ta=0→ta=1 aus v1.13.40/41 (ein vorübergehender Fehler beim ersten HLS-Segment eskaliert nicht mehr sofort — er bekommt zuerst einen echten erneuten Versuch).
+
 ## v1.13.42 — August 2026
 
 ### Beta-Player: die pro Versuch eindeutigen Plex-Sitzungs-IDs aus v1.13.41 wurden grundsätzlich abgelehnt — dieses NAS erlaubt nur einen aktiven Transcodierungs-Job pro Datei

@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.43 — August 2026
+
+### Reverted v1.13.41/v1.13.42's per-attempt Plex session ids — broke playback entirely in production
+
+- **Reverted**: giving every retry/fallback its own Plex session id was meant to stop retries from silently hitting a stuck session — instead, live testing on the real server showed Plex rejects ANY session id that isn't the one exact deterministic value Movviz has always used, with an immediate `400 Bad Request`, regardless of whether the previous session was explicitly stopped first. v1.13.42's fix (stop-before-start) changed nothing — the previous version's "this NAS only allows one active transcode job" explanation was wrong, confirmed: this Plex Pass server handles multiple simultaneous transcodes without issue. The real cause isn't understood yet. Reverted cleanly back to the single deterministic session id that has always worked, keeping the unrelated ta=0→ta=1 escalation timing fix from v1.13.40/41 (a transient error on the first HLS segment no longer escalates immediately — it gets one genuine retry first).
+
+---
+
 ## v1.13.42 — August 2026
 
 ### Beta Player: v1.13.41's per-attempt Plex session ids were rejected outright — this NAS's Plex allows only one live transcode job per file

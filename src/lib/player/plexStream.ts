@@ -51,35 +51,6 @@ export function extractPlexSessionId(pathSegments: string[]): string | undefined
 }
 
 /**
- * This NAS's Plex only accepts ONE active transcode session per media Part —
- * requesting a genuinely new session id for a Part that already has one
- * "live" (even one the player abandoned without explicitly stopping) gets
- * rejected outright with HTTP 400 on start.m3u8, confirmed live: any new
- * session id fails while the original deterministic one keeps succeeding.
- * Best-effort, short-timeout — a failed stop must never block starting the
- * new session, it only frees up the slot faster when it works.
- */
-export async function stopPlexSession(
-  base: string,
-  token: string,
-  clientId: string,
-  sessionId: string
-): Promise<void> {
-  try {
-    await fetch(
-      `${base}${PLEX_UNIVERSAL_BASE}/stop?session=${encodeURIComponent(sessionId)}`,
-      {
-        method: "GET",
-        headers: plexClientHeaders(token, clientId, sessionId),
-        signal: AbortSignal.timeout(3000),
-      }
-    );
-  } catch {
-    /* best-effort — starting the new session proceeds regardless */
-  }
-}
-
-/**
  * Rewrite every media URI inside an m3u8 so the browser hits our same-origin
  * proxy instead of the Plex LAN address (which the browser cannot reach, and
  * which would leak the admin token if embedded).

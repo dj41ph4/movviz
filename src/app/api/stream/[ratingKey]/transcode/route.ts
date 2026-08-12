@@ -9,7 +9,6 @@ import {
   PLEX_UNIVERSAL_BASE,
   plexClientHeaders,
   rewriteM3u8,
-  stopPlexSession,
 } from "@/lib/player/plexStream";
 
 export const dynamic = "force-dynamic";
@@ -78,32 +77,8 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   const token = cfg.adminToken;
   const clientId = `movviz-${user.id}`;
-  // sid is a per-attempt nonce from the player (first play, network-error
-  // retry, or ta escalation) — without it every request for this user+movie
-  // collapsed onto the exact same Plex session id, so retries/escalation
-  // never actually got a fresh transcode job from Plex, they just kept
-  // hitting whatever (possibly stuck) job Plex already had under that id.
-  const rawSid = req.nextUrl.searchParams.get("sid");
-  const sid = rawSid && /^[a-z0-9]{1,16}$/i.test(rawSid) ? rawSid : null;
-  const sessionId = `movviz-${user.id}-${ratingKey}${sid ? `-${sid}` : ""}`;
+  const sessionId = `movviz-${user.id}-${ratingKey}`;
   const headers = plexClientHeaders(token, clientId, sessionId);
-
-  // This NAS's Plex only accepts one active transcode session per media Part
-  // — confirmed live: requesting a genuinely new session id for a Part that
-  // already has one "live" server-side (even one the player abandoned
-  // without an explicit stop) gets rejected outright with HTTP 400 on
-  // start.m3u8, while the old deterministic id kept succeeding because Plex
-  // just treated it as a resume of the same job. Every attempt now needs its
-  // own session id (see sid above), so the slot has to be freed first —
-  // best-effort, must never block starting the new session.
-  const rawPrevSid = req.nextUrl.searchParams.get("prevSid");
-  const prevSid = rawPrevSid && /^[a-z0-9]{1,16}$/i.test(rawPrevSid) ? rawPrevSid : null;
-  const deterministicSessionId = `movviz-${user.id}-${ratingKey}`;
-  const stops = [stopPlexSession(base, token, clientId, deterministicSessionId)];
-  if (prevSid) {
-    stops.push(stopPlexSession(base, token, clientId, `${deterministicSessionId}-${prevSid}`));
-  }
-  await Promise.all(stops);
 
   const metadataUrl = `${base}/library/metadata/${ratingKey}`;
   const metaRes = await fetch(metadataUrl, {
