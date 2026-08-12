@@ -4,6 +4,16 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.34 — Agosto 2026
+
+### La stessa notifica poteva continuare a comparire per un contenuto disponibile da giorni
+
+- **Corretto**: le notifiche non venivano mai deduplicate — un'attività pianificata che rianalizza un contenuto che non riesce a ripulire completamente dopo l'importazione poteva far scattare di nuovo esattamente la stessa notifica "ora disponibile" a ogni passaggio, confermato dal vivo con una notifica di stagione disponibile che si ripeteva ogni ~30 minuti per un titolo disponibile ormai da una settimana. La stessa notifica con gli stessi dettagli ora scatta solo una volta per finestra di un'ora; una vera ripetizione più avanti (ad esempio giorni dopo) passa comunque normalmente.
+
+### La modalità "Classica" della dashboard è stata rifatta per riprendere "Cinema" senza l'hero
+
+- **Modificato**: la modalità Classica ora riprende tutto ciò che offre la modalità Cinema — le pillole di statistiche compatte e il layout completo a righe (Tendenze, Suggerimenti su misura, Aggiunti di recente, ecc.) — semplicemente senza il grande banner hero in alto, in base al tuo riscontro. In precedenza ricadeva su una semplice griglia di riquadri statistici e un elenco piatto "aggiunti di recente" senza nessuna delle righe di Cinema.
+
 ## v1.13.33 — Agosto 2026
 
 ### Aggiunto un pulsante per mettere manualmente in seed i download completati

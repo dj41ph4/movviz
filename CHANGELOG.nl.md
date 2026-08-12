@@ -4,6 +4,16 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.34 — Augustus 2026
+
+### Dezelfde melding kon dagenlang blijven verschijnen voor inhoud die al beschikbaar was
+
+- **Opgelost**: meldingen werden nooit gededupliceerd — een geplande taak die inhoud opnieuw scant die hij na import niet volledig kan opruimen, kon bij elke doorgang precies dezelfde "nu beschikbaar"-melding opnieuw laten afgaan, live bevestigd met een melding over een beschikbaar seizoen die elke ~30 minuten terugkwam voor een titel die al een week beschikbaar was. Dezelfde melding met dezelfde details wordt nu nog maar één keer per uurvenster geactiveerd; een echte herhaling later (bijvoorbeeld dagen erna) verloopt nog steeds gewoon normaal.
+
+### De modus "Klassiek" van het dashboard is herbouwd om "Cinema" over te nemen, zonder de hero
+
+- **Gewijzigd**: de modus Klassiek neemt nu alles over wat de modus Cinema biedt — de compacte statistiekpillen en de volledige rij-lay-out (Tendances, Aanbevelingen op maat, Recent toegevoegd, enz.) — alleen zonder de grote hero-banner bovenaan, naar aanleiding van feedback. Voorheen viel deze terug op een eenvoudig raster van statistiektegels en een platte lijst "recent toegevoegd" zonder enige van de rijen van Cinema.
+
 ## v1.13.33 — Augustus 2026
 
 ### Knop toegevoegd om voltooide downloads handmatig in seed te zetten

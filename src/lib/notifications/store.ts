@@ -23,6 +23,15 @@ export function markAllRead() {
 
 export function clearNotifications() { writeJson(FILE, []); }
 
+const DEDUP_WINDOW_MS = 60 * 60 * 1000; // 1h
+
+function sameParams(a: Record<string, string | number> | undefined, b: Record<string, string | number> | undefined): boolean {
+  const ae = Object.entries(a ?? {});
+  const be = Object.entries(b ?? {});
+  if (ae.length !== be.length) return false;
+  return ae.every(([k, v]) => (b ?? {})[k] === v);
+}
+
 export function emitNotification(
   kind: NotificationKind,
   message: string,
@@ -30,6 +39,17 @@ export function emitNotification(
   params?: Record<string, string | number>
 ) {
   const list = readJson<NotificationItem[]>(FILE, []);
+  // A scheduled job re-scanning already-imported content (e.g. leftover files
+  // it can't clean up) would otherwise re-emit the exact same event every
+  // run — confirmed live: the same "season available" notification firing
+  // every ~30min for content that had been available for a week. Same
+  // kind+params within a short window is treated as the same real-world
+  // event, not a new one; a genuine repeat far later (days) still gets through.
+  const recentDuplicate = list.find(
+    (n) => n.kind === kind && sameParams(n.params, params) && Date.now() - n.createdAt < DEDUP_WINDOW_MS
+  );
+  if (recentDuplicate) return recentDuplicate;
+
   const item: NotificationItem = {
     id: `nt_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     kind, message, params, href, read: false, createdAt: Date.now(),

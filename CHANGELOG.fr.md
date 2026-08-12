@@ -4,6 +4,18 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.34 — août 2026
+
+### La même notification pouvait continuer d'apparaître pour un contenu disponible depuis des jours
+
+- **Corrigé** : les notifications n'étaient jamais dédupliquées — une tâche planifiée qui rescanne un contenu qu'elle n'arrive pas à nettoyer complètement après import pouvait redéclencher exactement la même notification "maintenant disponible" à chaque passage, confirmé en direct avec une notification de saison disponible qui se répétait toutes les ~30 minutes pour un titre pourtant disponible depuis une semaine. La même notification avec les mêmes détails ne se déclenche désormais qu'une fois par fenêtre d'une heure ; une vraie répétition plus tard (par exemple des jours après) passe toujours normalement.
+
+### Le mode "Classique" du tableau de bord a été refait pour reprendre "Cinéma" sans le hero
+
+- **Changé** : le mode Classique reprend désormais tout ce qu'offre le mode Cinéma — les pastilles de statistiques compactes et la mise en page complète en rangées (Tendances, Suggestions adaptées, Ajouts récents, etc.) — simplement sans le grand bandeau hero en haut, suite à ton retour. Il retombait auparavant sur une simple grille de tuiles de statistiques et une liste plate "ajouts récents" sans aucune des rangées de Cinéma.
+
+---
+
 ## v1.13.33 — août 2026
 
 ### Ajout d'un bouton pour mettre manuellement en seed les téléchargements terminés

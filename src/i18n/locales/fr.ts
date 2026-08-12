@@ -1124,7 +1124,7 @@ export const fr = {
       mode: { cinema: "Cinéma", classic: "Classique", compact: "Compact" },
       modeDesc: {
         cinema: "Hero immersif avec bandes-annonces et carrousels personnalisés.",
-        classic: "Le tableau de bord actuel — tuiles de statistiques et ajouts récents.",
+        classic: "Comme Cinéma, mais sans le grand hero en haut.",
         compact: "Comme Classique, sans la file de téléchargement affichée en dessous.",
       },
       sectionsTitle: "Sections affichées",

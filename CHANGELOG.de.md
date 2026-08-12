@@ -4,6 +4,16 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.34 — August 2026
+
+### Dieselbe Benachrichtigung konnte tagelang für bereits verfügbare Inhalte weiter erscheinen
+
+- **Behoben**: Benachrichtigungen wurden nie dedupliziert — eine geplante Aufgabe, die einen Inhalt erneut scannt, den sie nach dem Import nicht vollständig bereinigen kann, konnte bei jedem Durchlauf genau dieselbe „jetzt verfügbar"-Benachrichtigung erneut auslösen, live bestätigt mit einer Benachrichtigung über eine verfügbare Staffel, die sich alle ~30 Minuten für einen Titel wiederholte, der bereits seit einer Woche verfügbar war. Dieselbe Benachrichtigung mit denselben Details löst jetzt nur noch einmal pro Ein-Stunden-Fenster aus; eine echte Wiederholung später (zum Beispiel Tage danach) läuft weiterhin ganz normal durch.
+
+### Der Dashboard-Modus „Klassisch" wurde überarbeitet, um „Kino" ohne den Hero zu übernehmen
+
+- **Geändert**: der Modus Klassisch übernimmt jetzt alles, was der Modus Kino bietet — die kompakten Statistik-Pillen und das vollständige Zeilen-Layout (Tendances, Passende Vorschläge, Kürzlich hinzugefügt usw.) — nur ohne den großen Hero-Banner oben, laut Rückmeldung. Zuvor fiel er auf ein einfaches Raster von Statistikkacheln und eine flache Liste „kürzlich hinzugefügt" ohne jede der Kino-Reihen zurück.
+
 ## v1.13.33 — August 2026
 
 ### Button zum manuellen Seeden abgeschlossener Downloads hinzugefügt

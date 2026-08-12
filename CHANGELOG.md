@@ -4,6 +4,18 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.34 — August 2026
+
+### The same notification could keep firing for content that had been available for days
+
+- **Fixed**: notifications were never deduplicated — a scheduled job re-scanning content it couldn't fully clean up after import could re-emit the exact same "now available" notification every run, confirmed live with a season-available notification repeating every ~30 minutes for a title that had actually been available for a week. The same notification kind with the same details now only fires once within a one-hour window; a genuine repeat further out (e.g. days later) still comes through normally.
+
+### The "Classic" dashboard mode was reworked to match "Cinema" minus the hero
+
+- **Changed**: Classic mode now reuses everything Cinema mode offers — the compact stat pills and the full row layout (Tendances, Suggestions adaptées, Ajouts récents, etc.) — just without the large hero banner at the top, per feedback. It previously fell back to a bare stat-tile grid and a flat "recently added" list with none of Cinema's rows.
+
+---
+
 ## v1.13.33 — August 2026
 
 ### Added a manual seed toggle for completed downloads

@@ -1127,7 +1127,7 @@ export const nl: Dictionary = {
       mode: { cinema: "Cinema", classic: "Klassiek", compact: "Compact" },
       modeDesc: {
         cinema: "Meeslepende hero met trailers en persoonlijke carrousels.",
-        classic: "Het huidige dashboard — statistiektegels en recent toegevoegd.",
+        classic: "Zoals Cinema, maar zonder de grote hero bovenaan.",
         compact: "Zoals Klassiek, zonder de downloadwachtrij eronder.",
       },
       sectionsTitle: "Getoonde secties",

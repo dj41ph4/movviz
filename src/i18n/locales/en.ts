@@ -1127,7 +1127,7 @@ export const en: Dictionary = {
       mode: { cinema: "Cinema", classic: "Classic", compact: "Compact" },
       modeDesc: {
         cinema: "Immersive hero with trailers and personalized carousels.",
-        classic: "The current dashboard — stat tiles and recently added.",
+        classic: "Like Cinema, but without the large hero at the top.",
         compact: "Like Classic, without the download queue shown below.",
       },
       sectionsTitle: "Sections shown",

@@ -188,22 +188,24 @@ export function DashboardExperiencePanel() {
               </div>
             </div>
           </div>
-
-          <div className="rounded-2xl glass p-5">
-            <h3 className="mb-4 font-bold text-ink">{t("settings.dashboardExperience.rowsTitle")}</h3>
-            <div className="space-y-3">
-              {DASHBOARD_SECTION_IDS.map((id) => {
-                const section = layout.sections.find((s) => s.id === id);
-                return (
-                  <div key={id} className="flex items-center justify-between">
-                    <span className="text-sm text-ink">{t(SECTION_LABEL_KEY[id])}</span>
-                    <Toggle on={section?.visible ?? true} onChange={() => toggleSection(id)} />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
         </>
+      )}
+
+      {(layout.mode === "cinema" || layout.mode === "classic") && (
+        <div className="rounded-2xl glass p-5">
+          <h3 className="mb-4 font-bold text-ink">{t("settings.dashboardExperience.rowsTitle")}</h3>
+          <div className="space-y-3">
+            {DASHBOARD_SECTION_IDS.map((id) => {
+              const section = layout.sections.find((s) => s.id === id);
+              return (
+                <div key={id} className="flex items-center justify-between">
+                  <span className="text-sm text-ink">{t(SECTION_LABEL_KEY[id])}</span>
+                  <Toggle on={section?.visible ?? true} onChange={() => toggleSection(id)} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       {saving && <p className="text-xs text-ink-dim">{t("common.saving")}</p>}

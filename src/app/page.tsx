@@ -132,6 +132,10 @@ export default function DashboardPage() {
   };
 
   const hidden = DASHBOARD_WIDGET_IDS.filter((id) => !order.includes(id));
+  // Classic reuses cinema's whole layout (compact stat pills, carousel rows)
+  // minus the hero — only "compact" keeps the older flat stat-grid + simple
+  // recently-added grid.
+  const richMode = layout.mode === "cinema" || layout.mode === "classic";
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-8">
@@ -178,15 +182,15 @@ export default function DashboardPage() {
 
       {layout.showStats && (
         loading ? (
-          <div className={cn("flex flex-wrap", layout.mode === "cinema" ? "gap-2" : "gap-4")}>
+          <div className={cn("flex flex-wrap", richMode ? "gap-2" : "gap-4")}>
             {[...Array(8)].map((_, i) => (
               <div
                 key={i}
                 className={cn(
-                  layout.mode === "cinema" ? "h-[52px] w-[160px] rounded-xl glass" : cn(TILE_CLASS, "rounded-2xl glass p-5")
+                  richMode ? "h-[52px] w-[160px] rounded-xl glass" : cn(TILE_CLASS, "rounded-2xl glass p-5")
                 )}
               >
-                {layout.mode !== "cinema" && (
+                {!richMode && (
                   <>
                     <div className="h-3 w-20 animate-pulse rounded bg-white/10" />
                     <div className="mt-3 h-8 w-16 animate-pulse rounded bg-white/10" />
@@ -224,7 +228,7 @@ export default function DashboardPage() {
               </Reorder.Item>
             ))}
           </Reorder.Group>
-        ) : layout.mode === "cinema" ? (
+        ) : richMode ? (
           <div className="flex flex-wrap gap-2">
             {order.map((id) => (
               <StatTile key={id} compact label={widgetLabels[id]} value={widgetValues[id]} icon={WIDGET_ICONS[id]} accent={WIDGET_ACCENTS[id]} />
@@ -252,7 +256,7 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {layout.mode === "cinema" ? (
+      {richMode ? (
         !loading && !moviesError && movies.length > 0 && <DashboardRows sections={layout.sections} movies={movies} />
       ) : (
         <div className="mt-8">

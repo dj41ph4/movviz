@@ -1126,7 +1126,7 @@ export const it: Dictionary = {
       mode: { cinema: "Cinema", classic: "Classica", compact: "Compatta" },
       modeDesc: {
         cinema: "Hero immersivo con trailer e caroselli personalizzati.",
-        classic: "La dashboard attuale — riquadri statistici e aggiunti di recente.",
+        classic: "Come Cinema, ma senza il grande hero in alto.",
         compact: "Come Classica, senza la coda di download mostrata sotto.",
       },
       sectionsTitle: "Sezioni mostrate",
