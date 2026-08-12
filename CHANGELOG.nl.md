@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.39 — Augustus 2026
+
+### Een instelling toegevoegd om YouTube-zoeken voor trailers in te schakelen — standaard uitgeschakeld, wat verklaart waarom ze in het Engels bleven
+
+- **Toegevoegd**: de terugval via YouTube-zoeken voor trailers (gebruikt wanneer TMDb er geen in jouw taal heeft) is paginascraping, geen officiële API — het is afhankelijk van YouTube dat het IP-adres van de server niet blokkeert, en al één stille mislukking blijft 24 uur in de cache staan. Daarom stond dit standaard uitgeschakeld. Deze standaardinstelling is de reden waarom trailers in het Engels bleven, terwijl het mechanisme bestaat en prima werkt zodra je het rechtstreeks test. Een nieuwe schakelaar bij Instellingen → Dashboard ("Trailers") maakt het mogelijk om dit in te schakelen — nog altijd standaard uit, maar voortaan een expliciete en zichtbare keuze in plaats van een stille.
+
 ## v1.13.38 — Augustus 2026
 
 ### De Dolby Digital+ wijziging van v1.13.35 teruggedraaid — die maakte de stilte erger, niet beter

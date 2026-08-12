@@ -4,7 +4,11 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
-## v1.13.38 — août 2026
+## v1.13.39 — août 2026
+
+### Ajout d'un réglage pour activer la recherche YouTube des bandes-annonces — désactivé par défaut, ce qui explique pourquoi elles restaient en anglais
+
+- **Ajouté** : le repli par recherche YouTube pour les bandes-annonces (utilisé quand TMDb n'en a pas dans ta langue) est du scraping de page, pas une API officielle — ça dépend de YouTube qui ne bloque pas l'IP du serveur, et un seul échec silencieux reste en cache 24h. C'était donc désactivé par défaut. Ce réglage par défaut est la raison pour laquelle les bandes-annonces restaient en anglais alors que le mécanisme existe et fonctionne correctement quand on le teste directement. Un nouveau bouton dans Réglages → Tableau de bord ("Bandes-annonces") permet de l'activer — toujours désactivé par défaut, mais désormais un choix explicite et visible plutôt que silencieux.
 
 ### Retour en arrière sur le changement Dolby Digital+ de la v1.13.35 — ça aggravait le silence, pas l'inverse
 

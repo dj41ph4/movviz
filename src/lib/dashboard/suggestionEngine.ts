@@ -319,7 +319,8 @@ export async function buildHeroSlides(
   userId: string,
   locale?: string,
   targetCount = 6,
-  mix: HeroContentMixOptions = { includeOwned: true, includeUnowned: true }
+  mix: HeroContentMixOptions = { includeOwned: true, includeUnowned: true },
+  youtubeTrailerSearch = false
 ): Promise<HeroSlide[]> {
   const refs = await gatherCandidateRefs(userId, targetCount, mix.includeOwned || mix.includeUnowned ? mix : { includeOwned: true, includeUnowned: true });
   if (refs.length === 0) return [];
@@ -329,7 +330,7 @@ export async function buildHeroSlides(
     buildTasteProfile(movies, series, userId, locale),
     mapWithConcurrency(refs, 4, async (ref) => {
       try {
-        return await getDetail(ref.type, ref.tmdbId, locale);
+        return await getDetail(ref.type, ref.tmdbId, locale, { youtubeTrailerSearch });
       } catch {
         return null;
       }

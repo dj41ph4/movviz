@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.39 — August 2026
+
+### Eine Einstellung hinzugefügt, um die YouTube-Suche für Trailer zu aktivieren — standardmäßig deaktiviert, was erklärt, warum sie auf Englisch blieben
+
+- **Hinzugefügt**: der Rückfall per YouTube-Suche für Trailer (verwendet, wenn TMDb keinen in deiner Sprache hat) ist Seiten-Scraping, keine offizielle API — das hängt davon ab, dass YouTube die IP des Servers nicht blockiert, und schon ein einziger stiller Fehlschlag bleibt 24 Stunden im Cache. Deshalb war das standardmäßig deaktiviert. Diese Standardeinstellung ist der Grund, warum Trailer auf Englisch blieben, obwohl der Mechanismus existiert und einwandfrei funktioniert, wenn man ihn direkt testet. Ein neuer Schalter unter Einstellungen → Übersicht ("Trailer") erlaubt es, ihn zu aktivieren — weiterhin standardmäßig deaktiviert, aber jetzt eine explizite und sichtbare Wahl statt einer stillen.
+
 ## v1.13.38 — August 2026
 
 ### Die Dolby Digital+-Änderung aus v1.13.35 zurückgesetzt — sie verschlimmerte die Stille, nicht umgekehrt

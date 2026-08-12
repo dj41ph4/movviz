@@ -47,6 +47,15 @@ export interface DashboardLayout {
   hero: DashboardHeroSettings;
   sections: { id: DashboardSectionId; visible: boolean }[];
   widgets: DashboardWidgetId[];
+  /**
+   * Off by default — falls back to TMDb's own trailer catalog only, no
+   * outside request. When on, a title/language with no TMDb trailer in the
+   * viewer's language triggers a YouTube search (page scrape, no official
+   * API) for one instead of silently falling back to English. Opt-in since
+   * it's not an official API and depends on YouTube not rate-limiting the
+   * server's IP.
+   */
+  youtubeTrailerSearch: boolean;
 }
 
 const DEFAULT_HERO_SETTINGS: DashboardHeroSettings = {
@@ -78,6 +87,7 @@ export const DEFAULT_DASHBOARD_LAYOUT: DashboardLayout = {
   hero: DEFAULT_HERO_SETTINGS,
   sections: DEFAULT_SECTIONS,
   widgets: [...DASHBOARD_WIDGET_IDS],
+  youtubeTrailerSearch: false,
 };
 
 function isWidgetId(value: unknown): value is DashboardWidgetId {
@@ -158,5 +168,6 @@ export function sanitizeDashboardLayout(input: unknown): DashboardLayout {
     hero: sanitizeHero(obj.hero),
     sections: sanitizeSections(obj.sections),
     widgets: sanitizeWidgets(obj.widgets),
+    youtubeTrailerSearch: typeof obj.youtubeTrailerSearch === "boolean" ? obj.youtubeTrailerSearch : DEFAULT_DASHBOARD_LAYOUT.youtubeTrailerSearch,
   };
 }

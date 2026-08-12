@@ -605,7 +605,7 @@ export async function getNetworkLogo(id: number): Promise<string | null> {
 /** Overview + cast + similar titles + franchise collection, for a detail page. */
 const KEY_CREW_JOBS = new Set(["Director", "Writer", "Screenplay", "Producer", "Editor", "Creator"]);
 
-export async function getDetail(type: "movie" | "series", tmdbId: number, preferLanguage?: string): Promise<MetaDetail | null> {
+export async function getDetail(type: "movie" | "series", tmdbId: number, preferLanguage?: string, opts?: { youtubeTrailerSearch?: boolean }): Promise<MetaDetail | null> {
   const kind = type === "movie" ? "movie" : "tv";
   const [data, watchProviders] = await Promise.all([
     // Previously always fetched in fr-FR regardless of the interface's own
@@ -633,7 +633,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
   const imdbId = data.external_ids?.imdb_id ?? null;
   const omdb = imdbId && omdbConfigured() ? await getOmdbRatings(imdbId) : null;
   const keywords = type === "movie" ? data.keywords?.keywords : data.keywords?.results;
-  const trailerKeys = await pickTrailerCandidates(data.videos?.results, preferLanguage, data.title ?? data.name ?? "", yearOf(data.release_date ?? data.first_air_date));
+  const trailerKeys = await pickTrailerCandidates(data.videos?.results, preferLanguage, data.title ?? data.name ?? "", yearOf(data.release_date ?? data.first_air_date), !!opts?.youtubeTrailerSearch);
   return {
     tmdbId: data.id,
     type,
@@ -756,7 +756,7 @@ interface RawVideo {
  *
  * Priority:
  *  1. TMDb trailer in the user's language
- *  2. YouTube search fallback (title + lang terms, e.g. "bande-annonce VF")
+ *  2. YouTube search fallback (title + lang terms, e.g. "bande-annonce VF") — opt-in, see `youtubeTrailerSearch`
  *  3. Every other TMDb trailer (English first, then any), then teasers
  *
  * Returns a LIST rather than a single pick: TMDb has no reliable signal for
@@ -767,7 +767,7 @@ interface RawVideo {
  * player an ordered fallback list lets it try the next candidate instead of
  * just failing.
  */
-async function pickTrailerCandidates(videos: RawVideo[] | undefined, preferLanguage: string | undefined, title: string, year: number | null): Promise<string[]> {
+async function pickTrailerCandidates(videos: RawVideo[] | undefined, preferLanguage: string | undefined, title: string, year: number | null, youtubeTrailerSearch: boolean): Promise<string[]> {
   const yt = (videos ?? []).filter((v) => v.site === "YouTube");
   const candidates: string[] = [];
   const add = (key: string | null | undefined) => {
@@ -780,20 +780,24 @@ async function pickTrailerCandidates(videos: RawVideo[] | undefined, preferLangu
   }
 
   // ── 2. YouTube search fallback ──────────────────────────────────────
-  // TMDb has no trailer in the user's language — search YouTube directly
-  // with title + year + language-specific terms.
-  const lang = preferLanguage ?? "fr";
-  const cacheKey = `yt:${title}:${year ?? 0}:${lang}`;
-  const cache = getCache("YouTube Search", 24 * 60 * 60 * 1000);
-  const cached = cache.getStale<string>(cacheKey);
-  if (cached !== undefined) {
-    // Cached null just skips this step — a prior failed search doesn't
-    // prevent the TMDb-sourced candidates below from being added.
-    add(cached.value);
-  } else {
-    const ytResult = await searchYouTubeTrailer(title, year, lang);
-    cache.set(cacheKey, ytResult);
-    add(ytResult);
+  // Opt-in (Réglages → Tableau de bord) — this is a page scrape, not an
+  // official API, and depends on YouTube not rate-limiting the server's own
+  // IP, so it stays off unless explicitly enabled instead of silently
+  // degrading everyone's trailers if it gets blocked.
+  if (youtubeTrailerSearch) {
+    const lang = preferLanguage ?? "fr";
+    const cacheKey = `yt:${title}:${year ?? 0}:${lang}`;
+    const cache = getCache("YouTube Search", 24 * 60 * 60 * 1000);
+    const cached = cache.getStale<string>(cacheKey);
+    if (cached !== undefined) {
+      // Cached null just skips this step — a prior failed search doesn't
+      // prevent the TMDb-sourced candidates below from being added.
+      add(cached.value);
+    } else {
+      const ytResult = await searchYouTubeTrailer(title, year, lang);
+      cache.set(cacheKey, ytResult);
+      add(ytResult);
+    }
   }
 
   // ── 3. Every other TMDb trailer, then teasers as a last resort ──────

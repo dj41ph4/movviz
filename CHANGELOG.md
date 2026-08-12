@@ -4,7 +4,11 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.38 — August 2026
+## v1.13.39 — August 2026
+
+### Added an opt-in toggle for YouTube trailer search — off by default explains why trailers stayed in English
+
+- **Added**: the YouTube search fallback for trailers (used whenever TMDb has none in the viewer's language) is a page scrape, not an official API — it depends on YouTube not rate-limiting the server's IP, and a single silent failure gets cached for 24h, so it was always off by default. That default is why trailers kept showing in English despite the mechanism existing and working correctly when tested directly. A new toggle in Réglages → Tableau de bord ("Bandes-annonces") turns it on — off by default still, but now an explicit, visible choice instead of a silent one.
 
 ### Reverted v1.13.35's Dolby Digital+ direct-play change — it made silence worse, not better
 

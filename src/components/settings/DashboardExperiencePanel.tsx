@@ -117,6 +117,15 @@ export function DashboardExperiencePanel() {
         </div>
       </div>
 
+      <div className="rounded-2xl glass p-5">
+        <h3 className="mb-1 font-bold text-ink">{t("settings.dashboardExperience.trailerSearchTitle")}</h3>
+        <p className="mb-4 text-sm text-ink-dim">{t("settings.dashboardExperience.trailerSearchHint")}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-ink">{t("settings.dashboardExperience.trailerSearchEnabled")}</span>
+          <Toggle on={layout.youtubeTrailerSearch} onChange={() => save({ youtubeTrailerSearch: !layout.youtubeTrailerSearch })} />
+        </div>
+      </div>
+
       {layout.mode === "cinema" && (
         <>
           <div className="rounded-2xl glass p-5">

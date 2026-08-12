@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const locale = req.nextUrl.searchParams.get("locale") ?? undefined;
-  const { hero } = loadDashboardLayout(user.id);
-  const slides = await buildHeroSlides(user.id, locale, 6, { includeOwned: hero.includeOwned, includeUnowned: hero.includeUnowned });
+  const { hero, youtubeTrailerSearch } = loadDashboardLayout(user.id);
+  const slides = await buildHeroSlides(user.id, locale, 6, { includeOwned: hero.includeOwned, includeUnowned: hero.includeUnowned }, youtubeTrailerSearch);
 
   const cfg = loadPlexConfig();
   const byTmdbId = new Map(loadMovies().map((m) => [m.tmdbId, m] as const));
