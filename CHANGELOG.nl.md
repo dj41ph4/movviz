@@ -4,6 +4,16 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.33 — Augustus 2026
+
+### Knop toegevoegd om voltooide downloads handmatig in seed te zetten
+
+- **Toegevoegd**: een voltooide download in de wachtrij heeft nu een eigen knop om de seed te starten of te stoppen, los van de pauze/hervat-knoppen die voorbehouden zijn aan actieve downloads. Uitschakelen stopt daadwerkelijk de uploadactiviteit, niet slechts een weergegeven status — bij de standaardengine koppelt dit de torrent volledig los van de peers; opnieuw inschakelen herstelt dit, en bouwt zo nodig de oorspronkelijke bestandsstructuur weer op als de bestanden al naar de bibliotheek zijn verplaatst, zonder ooit de kopie in de bibliotheek aan te raken of opnieuw te downloaden.
+
+### Titels van posterrijen stonden niet gecentreerd onder de kaarten
+
+- **Gewijzigd**: de titel onder elke poster in de rijen van het dashboard (Tendances, Suggesties, Recent toegevoegd) staat nu gecentreerd onder de poster, naar aanleiding van feedback — voorheen kon deze verschoven staan, vooral in de als Top 10 gerangschikte rij.
+
 ## v1.13.32 — Augustus 2026
 
 ### Downloads toonden nooit een resterende tijd

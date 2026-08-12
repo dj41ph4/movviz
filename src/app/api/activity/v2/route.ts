@@ -304,6 +304,7 @@ async function getQueue(user: User): Promise<NextResponse<{ items: QueueItem[] }
         },
         status: t.state === "paused" ? "paused" : t.state === "blocked" || t.state === "stalled" ? "stalled" : t.state === "queued" ? "queued" : t.state === "seeding" ? "seeding" : t.state === "completed" ? "completed" : "downloading",
         priority: t.priority ?? "medium",
+        seeding: t.seeding ?? false,
         addedAt
       };
     });

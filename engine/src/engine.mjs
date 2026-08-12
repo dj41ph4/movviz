@@ -165,6 +165,8 @@ export class MovvizEngine {
     });
     return true;
   }
+  async startSeeding(infoHash) { return (await this.findByInfoHash(infoHash)?.startSeeding(infoHash)) ?? false; }
+  async stopSeeding(infoHash) { return (await this.findByInfoHash(infoHash)?.stopSeeding(infoHash)) ?? false; }
   setSequential(infoHash, on) { return this.findByInfoHash(infoHash)?.setSequential(infoHash, on) ?? false; }
   setFilePriorities(infoHash, p) { return this.findByInfoHash(infoHash)?.setFilePriorities(infoHash, p) ?? false; }
   setPriority(infoHash, priority) { return this.findByInfoHash(infoHash)?.setPriority(infoHash, priority) ?? false; }

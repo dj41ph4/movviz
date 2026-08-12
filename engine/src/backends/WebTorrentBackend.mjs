@@ -182,6 +182,96 @@ export class WebTorrentBackend extends AbstractBackend {
     return false;
   }
 
+  // ─── Manual post-completion seed toggle ───────────────────────────────
+  // t.pause() doesn't stop peers (confirmed WT v2 behaviour, see CLAUDE.md) —
+  // the only real stop is a full client.remove(). Starting again therefore
+  // means re-adding from scratch, not "un-pausing": client.add() needs a
+  // magnet/infoHash (kept on the imported-history record) and a directory
+  // whose on-disk layout matches what the torrent originally had, or WT can't
+  // hash-verify and will try to redownload. If autoMoveOnComplete moved (and
+  // possibly renamed) the files into the library, that layout no longer
+  // exists on disk anywhere — so it's rebuilt as a disposable symlink farm
+  // under downloadPath, pointing at the real (renamed) library files. WT then
+  // hash-verifies through the symlinks and seeds the real bytes without ever
+  // touching, duplicating, or redownloading the library copy.
+
+  _seedScratchDir(infoHash) {
+    return path.join(this.cfg.downloadPath, ".seed", infoHash);
+  }
+
+  async _clientStopSeeding(infoHash) {
+    const t = this.client?.torrents?.find((t2) => t2.infoHash === infoHash);
+    if (t) {
+      // destroyStore:false — only detaches the torrent from the client and
+      // stops peer traffic; never deletes anything, symlink farm included
+      // (unlink() on a symlink removes the link entry, never its target).
+      await new Promise((resolve) => this.client.remove(infoHash, { destroyStore: false }, () => resolve()));
+    }
+    await fsp.rm(this._seedScratchDir(infoHash), { recursive: true, force: true }).catch(() => {});
+    return true;
+  }
+
+  async _clientStartSeeding(infoHash) {
+    const m = this.meta.get(infoHash);
+    if (!m?.completed) return false;
+
+    const existing = this.client?.torrents?.find((t2) => t2.infoHash === infoHash);
+    if (existing && m.seeding) return true; // already active via our own toggle
+    if (existing) {
+      // A stale/legacy handle (e.g. autoMoveOnComplete disabled, so the
+      // torrent was simply never removed after completion) can't be trusted
+      // blindly — rebuild deterministically below instead of assuming it's
+      // still healthy.
+      await new Promise((resolve) => this.client.remove(infoHash, { destroyStore: false }, () => resolve()));
+    }
+
+    const hist = this.importedHistory.get(infoHash);
+    const source = hist?.magnetURI ?? null;
+    if (!source) return false; // no magnet retained — cannot safely re-add
+
+    let seedDir = this.cfg.downloadPath;
+    if (hist.movedTo && hist.movedFiles?.length) {
+      const scratchDir = this._seedScratchDir(infoHash);
+      await fsp.rm(scratchDir, { recursive: true, force: true }).catch(() => {});
+      let linked = 0;
+      for (const f of hist.movedFiles) {
+        if (!f.originalPath || !f.path) continue;
+        const linkPath = path.join(scratchDir, f.originalPath);
+        await ensureDir(path.dirname(linkPath));
+        const ok = await fsp.symlink(f.path, linkPath).then(() => true).catch(() => false);
+        if (ok) linked += 1;
+      }
+      // Refuse rather than let WebTorrent fall back to a blind redownload
+      // into the scratch dir when nothing could be linked (e.g. every
+      // library file went missing since import).
+      if (linked === 0) return false;
+      seedDir = scratchDir;
+    }
+
+    return new Promise((resolve) => {
+      let settled = false;
+      let t;
+      try {
+        t = this.client.add(source, { path: seedDir });
+      } catch {
+        resolve(false);
+        return;
+      }
+      const finish = (ok) => { if (settled) return; settled = true; resolve(ok); };
+      t.on("error", () => finish(false));
+      t.on("ready", () => {
+        this._clientWireEvents(this._wtHandle(t), infoHash);
+        finish(true);
+      });
+      // WT's "ready" can be slow on a large multi-file torrent (full hash
+      // check) — don't leave the API call hanging indefinitely; the handle
+      // is already added at this point regardless, so treat "still has an
+      // infoHash" as good enough to report success and let it finish in
+      // the background.
+      setTimeout(() => finish(!!t.infoHash), 15000);
+    });
+  }
+
   // ─── Snapshot ──────────────────────────────────────────────────────────
 
   _clientSnapshot(infoHash) {

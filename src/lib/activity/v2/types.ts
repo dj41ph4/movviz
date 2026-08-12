@@ -129,6 +129,10 @@ export interface QueueItem {
   download: ActivityDownload;
   status: "queued" | "downloading" | "paused" | "importing" | "seeding" | "completed" | "failed" | "stalled";
   priority?: "high" | "medium" | "low";
+  /** Manual post-completion seed toggle — only meaningful when status === "completed";
+   *  distinct from the transitional "seeding" status above (torrent finished
+   *  downloading but not yet marked completed). Never true for anything else. */
+  seeding?: boolean;
   addedAt: number;
   estimatedCompletion?: number;
 }

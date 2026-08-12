@@ -79,6 +79,8 @@ export const nl: Dictionary = {
     clearAllHint: "Verwijdert echt alles uit de lijst, inclusief actieve downloads — reeds gedownloade bestanden blijven op schijf staan.",
     confirmClearAll: "ALLE downloads uit de lijst verwijderen, inclusief actieve? Dit kan niet ongedaan worden gemaakt. Reeds gedownloade bestanden blijven op schijf staan.",
     restart: "Torrent opnieuw starten",
+    seed: "Seeden starten",
+    unseed: "Seeden stoppen",
     replace: "Andere release zoeken",
     confirmReplace: "Huidige download vervangen door \"{title}\"? De oude wordt geannuleerd en verwijderd.",
     replaceBlocked: "Geblokkeerde vervangen",

@@ -4,6 +4,16 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.33 — Agosto 2026
+
+### Aggiunto un pulsante per mettere manualmente in seed i download completati
+
+- **Aggiunto**: un download completato nella coda ora dispone di un pulsante dedicato per avviare o interrompere il proprio seed, indipendente dai controlli pausa/ripristino riservati ai download attivi. Disattivarlo interrompe davvero l'attività di invio, non solo uno stato visualizzato — per il motore di download predefinito, questo stacca completamente il torrent dai peer; riattivarlo lo ripristina, ricostruendo se necessario la struttura di file originale nel caso i file siano già stati spostati nella libreria, senza mai toccare né riscaricare la copia nella libreria.
+
+### I titoli delle righe di locandine non erano centrati sotto le schede
+
+- **Modificato**: il titolo sotto ogni locandina nelle righe della dashboard (Tendenze, Suggerimenti, Aggiunti di recente) è ora centrato sotto la locandina, in base al tuo riscontro — in precedenza poteva risultare disallineato, soprattutto nella riga classificata Top 10.
+
 ## v1.13.32 — Agosto 2026
 
 ### I download non mostravano mai il tempo rimanente

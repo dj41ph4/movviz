@@ -79,6 +79,8 @@ export const it: Dictionary = {
     clearAllHint: "Rimuove assolutamente tutto dall'elenco, inclusi i download attivi — i file già scaricati restano sul disco.",
     confirmClearAll: "Rimuovere TUTTI i download dall'elenco, inclusi quelli attivi? Azione irreversibile. I file già scaricati resteranno sul disco.",
     restart: "Riavvia torrent",
+    seed: "Avvia il seeding",
+    unseed: "Interrompi il seeding",
     replace: "Cerca un'altra release",
     confirmReplace: "Sostituire il download in corso con \"{title}\"? Quello vecchio verrà annullato ed eliminato.",
     replaceBlocked: "Sostituisci i bloccati",

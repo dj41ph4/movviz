@@ -66,6 +66,13 @@ export class AbstractBackend {
   async _clientRemove(infoHash, deleteData) { throw new Error("_clientRemove not implemented"); }
   async _clientPause(infoHash) { throw new Error("_clientPause not implemented"); }
   async _clientResume(infoHash) { throw new Error("_clientResume not implemented"); }
+  /** Post-completion manual seed toggle — separate concept from pause/resume
+   *  (see startSeeding/stopSeeding below). Default reuses _clientResume/
+   *  _clientPause, which is correct for aria2 and rtorrent: both genuinely
+   *  halt/resume network I/O. WebTorrentBackend overrides both — its pause()
+   *  doesn't stop peers (see CLAUDE.md), so a real stop needs client.remove(). */
+  async _clientStartSeeding(infoHash) { return this._clientResume(infoHash); }
+  async _clientStopSeeding(infoHash) { return this._clientPause(infoHash); }
   _clientList() { throw new Error("_clientList not implemented"); }
   _clientGet(infoHash) { throw new Error("_clientGet not implemented"); }
   /** Return snapshot: { infoHash, name, length, files: [{name,path,length,selected}], magnetURI } */
@@ -160,6 +167,7 @@ export class AbstractBackend {
       sequential: !!opts.sequential,
       completed: false,
       finishing: false,
+      seeding: false,
       movedTo: null,
       libraryRef: opts.libraryRef ?? null,
       title: opts.title ?? null,
@@ -565,6 +573,29 @@ export class AbstractBackend {
     return this._clientResume(infoHash);
   }
 
+  /**
+   * Post-completion manual seed toggle — deliberately separate from pause()/
+   * resume() above (those are "pause the active download", a different
+   * concept). Only valid once a torrent is completed; state only flips on
+   * confirmed success so a failed stop never lies that uploads actually
+   * stopped, and a failed start never claims seeding is active.
+   */
+  async startSeeding(infoHash) {
+    const m = this.meta.get(infoHash);
+    if (!m || !m.completed) return false;
+    const ok = await this._clientStartSeeding(infoHash);
+    if (ok) { m.seeding = true; this.onChange(); }
+    return ok;
+  }
+
+  async stopSeeding(infoHash) {
+    const m = this.meta.get(infoHash);
+    if (!m || !m.completed) return false;
+    const ok = await this._clientStopSeeding(infoHash);
+    if (ok) { m.seeding = false; this.onChange(); }
+    return ok;
+  }
+
   setSequential(infoHash, on) {
     const m = this.meta.get(infoHash);
     if (m) m.sequential = on;
@@ -638,6 +669,11 @@ export class AbstractBackend {
       userPaused: m?.userPaused ?? false,
       queued: m?.queued ?? false,
       stalled: m?.stalled ?? false,
+      // Manual post-completion seed toggle — distinct from `state`, which
+      // stays "completed" forever once m.completed is set regardless of
+      // actual seed activity (see CLAUDE.md gotcha). Only meaningful once
+      // state === "completed"; false everywhere else.
+      seeding: m?.seeding ?? false,
       category: this.cfg.category,
       instanceId: this.cfg.id,
     };
@@ -669,6 +705,12 @@ export class AbstractBackend {
       userPaused: false,
       queued: false,
       stalled: false,
+      // A torrent restored from history after an engine restart has no live
+      // client-side handle behind it (aria2/rtorrent are child processes that
+      // die with the engine, WebTorrent's in-memory client is gone entirely)
+      // — nothing is genuinely seeding until the user explicitly toggles it
+      // back on, so this is never true for an imported/restored record.
+      seeding: false,
       category: this.cfg.category,
       instanceId: this.cfg.id,
       movedTo: rec.movedTo ?? null,
@@ -814,7 +856,12 @@ export class AbstractBackend {
           if (!(await this._swapForSymlink(src, dest))) m.symlinkVerificationFailed = true;
         }
         firstDest ??= path.join(this.cfg.completedPath, snap.name);
-        movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length });
+        // originalPath: the torrent-relative path this file had inside the
+        // download folder before the move — kept so a WebTorrent "start
+        // seeding" re-add can rebuild that exact layout as symlinks pointing
+        // at the (possibly renamed) library copy, without which WT can't
+        // hash-verify against renamed files and would try to redownload.
+        movedFiles.push({ path: dest, quality: null, resolution: null, size: file.length, originalPath: file.path });
       }
       m.movedTo = firstDest ?? this.cfg.completedPath;
     } else {
@@ -908,6 +955,8 @@ export class AbstractBackend {
           hdr: ctx.hdr || null, source: ctx.source || null, size: file.length,
           season: info.season ?? null, episode: info.episode ?? null,
           episodeEnd: info.episodeEnd ?? null,
+          // See the equivalent comment in the !naming.enabled branch above.
+          originalPath: file.path,
         });
       }
       m.movedTo = firstDest ?? this.cfg.completedPath;
@@ -918,6 +967,9 @@ export class AbstractBackend {
       size: snap.length, movedTo: m.movedTo, addedAt: m.addedAt,
       completedAt: m.completedAt, libraryRef: m.libraryRef ?? null,
       title: m.title ?? null, year: m.year ?? null,
+      // Kept only for "start seeding" (see originalPath comment above) — never
+      // used for import/library logic, which is done at this point.
+      movedFiles: movedFiles.map((f) => ({ path: f.path, originalPath: f.originalPath ?? null })),
     });
 
     this.onChange();

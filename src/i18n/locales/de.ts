@@ -79,6 +79,8 @@ export const de: Dictionary = {
     clearAllHint: "Entfernt wirklich alles aus der Liste, auch aktive Downloads — bereits heruntergeladene Dateien bleiben auf der Festplatte.",
     confirmClearAll: "ALLE Downloads aus der Liste entfernen, auch aktive? Das kann nicht rückgängig gemacht werden. Bereits heruntergeladene Dateien bleiben auf der Festplatte.",
     restart: "Torrent neu starten",
+    seed: "Seeding starten",
+    unseed: "Seeding stoppen",
     replace: "Andere Release suchen",
     confirmReplace: "Aktuellen Download durch „{title}“ ersetzen? Der alte wird abgebrochen und gelöscht.",
     replaceBlocked: "Blockierte ersetzen",

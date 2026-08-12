@@ -60,7 +60,7 @@ export function DashboardPosterCard({
           {rank}
         </span>
       )}
-      <div className="min-w-0 flex-1">
+      <div className="w-[150px] shrink-0 sm:w-[170px]">
       <div className="relative aspect-[2/3] w-[150px] shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30 sm:w-[170px]">
         {poster ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -102,7 +102,7 @@ export function DashboardPosterCard({
           </div>
         )}
       </div>
-      <p className="mt-1.5 truncate text-sm font-semibold text-ink">{title}</p>
+      <p className="mt-1.5 truncate text-center text-sm font-semibold text-ink">{title}</p>
       </div>
     </Link>
   );

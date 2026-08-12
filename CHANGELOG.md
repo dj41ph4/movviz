@@ -4,6 +4,18 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.33 — August 2026
+
+### Added a manual seed toggle for completed downloads
+
+- **Added**: a completed download in the queue now has a dedicated button to start or stop seeding it, independent of the pause/resume controls used for active downloads. Turning it off genuinely halts upload activity rather than just hiding a status — for the default download engine this fully detaches the torrent from peers; turning it back on re-establishes it, rebuilding the original file layout as needed if the files were already moved into the library, without ever touching or re-downloading the library copy.
+
+### Poster row titles weren't centered under their cards
+
+- **Changed**: the title under each poster card in the dashboard rows (Tendances, Suggestions, Ajouts récents) is now centered under the poster, per feedback — previously it could sit off-center, especially in the ranked Top-10 row.
+
+---
+
 ## v1.13.32 — August 2026
 
 ### Downloads never showed a time remaining

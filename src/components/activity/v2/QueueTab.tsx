@@ -20,7 +20,7 @@ import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   Film, Tv, Download, Pause, Play, PauseCircle, PlayCircle, RotateCw, Search, Ban, Check,
   Users, AlertCircle, Loader, List, Clock, Trash2, X, RefreshCw, ArrowUpFromLine, Gauge, Wand2,
-  CheckCircle2,
+  CheckCircle2, Share2,
 } from "lucide-react";
 
 /** Builds the libraryRef the manual-search grab needs from a queue item's
@@ -233,6 +233,23 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       }
     } catch (e) {
       console.error(`[queue] action ${action} failed:`, e);
+    } finally {
+      setActionLoading(null);
+      await mutate();
+    }
+  };
+
+  /** Post-completion manual seed toggle — a fully separate action from
+   *  pause/resume above (those target an active download; this targets an
+   *  already-completed, already-imported item's continued upload activity).
+   *  Only ever called for item.status === "completed". */
+  const toggleSeed = async (itemId: string, turnOn: boolean) => {
+    setActionLoading(`seed_${itemId}`);
+    patchLocal(itemId, (i) => ({ ...i, seeding: turnOn }));
+    try {
+      await api(`${BASE}/torrents/${itemId}/seed`, { method: "POST", body: JSON.stringify({ on: turnOn }) });
+    } catch (e) {
+      console.error(`[queue] seed toggle failed:`, e);
     } finally {
       setActionLoading(null);
       await mutate();
@@ -487,6 +504,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
             onToggleExpand={toggleExpand}
             onAction={handleAction}
             onSetPriority={setPriority}
+            onToggleSeed={toggleSeed}
             onRemove={remove}
           />
         ))}
@@ -543,6 +561,7 @@ const areItemEqual = (prev: QueueItemRowProps, next: QueueItemRowProps) => {
   const a = prev.item;
   const b = next.item;
   if (a.status !== b.status) return false;
+  if (a.seeding !== b.seeding) return false;
   if (a.download.progress !== b.download.progress) return false;
   if (a.download.downloadSpeed !== b.download.downloadSpeed) return false;
   if (a.download.uploadSpeed !== b.download.uploadSpeed) return false;
@@ -563,6 +582,7 @@ interface QueueItemRowProps {
   onToggleExpand: (id: string) => void;
   onAction: (id: string, action: "pause" | "resume" | "restart" | "retry" | "search" | "block") => void;
   onSetPriority: (id: string, priority: "high" | "medium" | "low") => void;
+  onToggleSeed: (id: string, turnOn: boolean) => void;
   onRemove: (id: string, withData: boolean) => void;
 }
 
@@ -570,7 +590,7 @@ const PRIORITY_ORDER = ["high", "medium", "low"] as const;
 
 const QueueItemRow = memo(function QueueItemRow({
   item, isExpanded, actionLoading, t, locale,
-  onToggleExpand, onAction, onSetPriority, onRemove,
+  onToggleExpand, onAction, onSetPriority, onToggleSeed, onRemove,
 }: QueueItemRowProps) {
   const reduceMotion = useShouldReduceMotion();
   const displayProgress = useSmoothProgress(item.download.progress, item.release.size, item.download.downloadSpeed);
@@ -804,6 +824,20 @@ const QueueItemRow = memo(function QueueItemRow({
               )}
             >
               <Search className="h-4 w-4" />
+            </motion.button>
+          )}
+          {item.status === "completed" && (
+            <motion.button
+              {...btnSpring}
+              onClick={(e) => { e.stopPropagation(); onToggleSeed(item.id, !item.seeding); }}
+              disabled={actionLoading !== null}
+              title={item.seeding ? t("downloads.unseed") : t("downloads.seed")}
+              className={cn(
+                "flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40",
+                item.seeding && "text-ok"
+              )}
+            >
+              {actionLoading === `seed_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
             </motion.button>
           )}
           <motion.button

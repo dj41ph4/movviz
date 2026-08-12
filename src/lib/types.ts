@@ -106,6 +106,8 @@ export interface EngineTorrent {
   libraryRef: string | null;
   /** True for a torrent restored from history after a restart — already imported, no live transfer behind it. */
   imported?: boolean;
+  /** Manual post-completion seed toggle — only meaningful once state === "completed"; see downloads.seed/unseed in QueueTab. */
+  seeding?: boolean;
 }
 
 /** Live instance summary from the engine. */

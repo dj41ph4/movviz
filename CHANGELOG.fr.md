@@ -4,6 +4,18 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.33 — août 2026
+
+### Ajout d'un bouton pour mettre manuellement en seed les téléchargements terminés
+
+- **Ajouté** : un téléchargement terminé dans la file a désormais un bouton dédié pour démarrer ou arrêter son seed, indépendant des contrôles pause/reprise réservés aux téléchargements actifs. Le désactiver arrête réellement l'activité d'envoi, pas juste un statut affiché — pour le moteur de téléchargement par défaut, ça détache complètement le torrent des pairs ; le réactiver le rétablit, en reconstruisant si besoin la structure de fichiers d'origine si les fichiers ont déjà été déplacés dans la bibliothèque, sans jamais toucher ni retélécharger la copie de la bibliothèque.
+
+### Les titres des rangées d'affiches n'étaient pas centrés sous les cartes
+
+- **Changé** : le titre sous chaque affiche des rangées du tableau de bord (Tendances, Suggestions, Ajouts récents) est désormais centré sous l'affiche, suite à ton retour — il pouvait auparavant être décalé, surtout dans la rangée classée Top 10.
+
+---
+
 ## v1.13.32 — août 2026
 
 ### Les téléchargements n'affichaient jamais de temps restant

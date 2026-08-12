@@ -77,6 +77,8 @@ export const fr = {
     clearAllHint: "Retire absolument tout de la liste, y compris les téléchargements en cours — les fichiers déjà téléchargés restent sur le disque.",
     confirmClearAll: "Supprimer TOUS les téléchargements de la liste, y compris ceux en cours ? Cette action est irréversible. Les fichiers déjà téléchargés resteront sur le disque.",
     restart: "Relancer le torrent",
+    seed: "Mettre en seed",
+    unseed: "Arrêter le seed",
     replace: "Chercher une autre release",
     confirmReplace: "Remplacer le téléchargement en cours par « {title} » ? L'ancien sera annulé et supprimé.",
     replaceBlocked: "Remplacer les bloqués",

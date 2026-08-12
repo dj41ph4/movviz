@@ -4,6 +4,16 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.33 — August 2026
+
+### Button zum manuellen Seeden abgeschlossener Downloads hinzugefügt
+
+- **Hinzugefügt**: ein abgeschlossener Download in der Warteschlange hat jetzt einen eigenen Button, um sein Seeding zu starten oder zu stoppen, unabhängig von den Pause/Fortsetzen-Steuerelementen, die aktiven Downloads vorbehalten sind. Das Deaktivieren stoppt tatsächlich die Upload-Aktivität, nicht nur einen angezeigten Status — bei der Standard-Engine wird der Torrent dabei vollständig von den Peers getrennt; das erneute Aktivieren stellt dies wieder her und baut bei Bedarf die ursprüngliche Dateistruktur neu auf, falls die Dateien bereits in die Bibliothek verschoben wurden, ohne dabei jemals die Kopie in der Bibliothek anzurühren oder erneut herunterzuladen.
+
+### Titel der Poster-Reihen waren nicht unter den Karten zentriert
+
+- **Geändert**: der Titel unter jedem Poster in den Dashboard-Reihen (Tendances, Vorschläge, Kürzlich hinzugefügt) ist jetzt unter dem Poster zentriert, laut Rückmeldung — zuvor konnte er verschoben sein, besonders in der als Top 10 eingestuften Reihe.
+
 ## v1.13.32 — August 2026
 
 ### Downloads zeigten nie eine verbleibende Zeit an

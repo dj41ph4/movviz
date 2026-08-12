@@ -153,6 +153,12 @@ export function createApiServer(engine) {
           if (method === "POST" && parts[2] === "restart") {
             return send(res, 200, { ok: await engine.restart(infoHash) });
           }
+          if (method === "POST" && parts[2] === "seed") {
+            const body = await readBody(req);
+            const on = body.on !== false;
+            const ok = on ? await engine.startSeeding(infoHash) : await engine.stopSeeding(infoHash);
+            return send(res, 200, { ok });
+          }
           if (method === "POST" && parts[2] === "sequential") {
             const body = await readBody(req);
             return send(res, 200, { ok: engine.setSequential(infoHash, body.on ?? true) });

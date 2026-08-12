@@ -79,6 +79,8 @@ export const en: Dictionary = {
     clearAllHint: "Removes absolutely everything from the list, including active downloads — already-downloaded files stay on disk.",
     confirmClearAll: "Remove ALL downloads from the list, including active ones? This can't be undone. Already-downloaded files will stay on disk.",
     restart: "Restart torrent",
+    seed: "Start seeding",
+    unseed: "Stop seeding",
     replace: "Search for another release",
     confirmReplace: "Replace the current download with \"{title}\"? The old one will be cancelled and deleted.",
     replaceBlocked: "Replace blocked",
