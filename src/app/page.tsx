@@ -17,7 +17,7 @@ import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import { DASHBOARD_WIDGET_IDS, DEFAULT_DASHBOARD_LAYOUT, type DashboardWidgetId, type DashboardLayout } from "@/lib/dashboard/types";
 import {
-  Film, Tv, HardDriveDownload, Search as SearchIcon, Clock, Compass, ListVideo, AlertCircle,
+  Film, Tv, HardDriveDownload, Download, Search as SearchIcon, Clock, Compass, ListVideo, AlertCircle,
   Pencil, Check, Plus, X, type LucideIcon,
 } from "lucide-react";
 
@@ -27,7 +27,8 @@ const WIDGET_ICONS: Record<DashboardWidgetId, LucideIcon> = {
   episodes: ListVideo,
   missingEpisodes: AlertCircle,
   available: HardDriveDownload,
-  downloading: SearchIcon,
+  downloading: Download,
+  searching: SearchIcon,
   missing: Clock,
   episodesAvailable: ListVideo,
 };
@@ -39,6 +40,7 @@ const WIDGET_ACCENTS: Record<DashboardWidgetId, "brand" | "cyan" | "magenta" | "
   missingEpisodes: "amber",
   available: "ok",
   downloading: "cyan",
+  searching: "amber",
   missing: "amber",
   episodesAvailable: "ok",
 };
@@ -68,13 +70,20 @@ export default function DashboardPage() {
   const loading = !hasError && !moviesData && !seriesData && !torrentsData;
 
   const available = movies.filter((m) => m.status === "available");
-  const downloadingMovies = movies.filter((m) => m.status === "downloading" || m.status === "searching");
+  // "searching" (actively looking for a release, no torrent grabbed yet) no
+  // longer counts as "downloading" — confirmed live: the "En téléchargement"
+  // tile showed 9 while zero torrents were actually active, because a whole
+  // season stuck in "searching" with activeInfoHash: null was counted as if
+  // it were downloading. It gets its own tile below instead of vanishing.
+  const downloadingMovies = movies.filter((m) => m.status === "downloading");
+  const searchingMovies = movies.filter((m) => m.status === "searching");
   const missing = movies.filter((m) => m.status === "missing");
   const recentlyAdded = [...movies].sort((a, b) => b.addedAt - a.addedAt).slice(0, 12);
 
   const monitoredEpisodes = series.flatMap((s) => s.seasons.flatMap((se) => se.episodes)).filter((e) => e.monitored);
   const availableEpisodes = monitoredEpisodes.filter((e) => e.status === "available");
-  const downloadingEpisodes = monitoredEpisodes.filter((e) => e.status === "downloading" || e.status === "searching");
+  const downloadingEpisodes = monitoredEpisodes.filter((e) => e.status === "downloading");
+  const searchingEpisodes = monitoredEpisodes.filter((e) => e.status === "searching");
   const missingEpisodes = monitoredEpisodes.filter((e) => e.status === "missing");
 
   const progressFor = (movie: LibraryMovie) =>
@@ -87,6 +96,7 @@ export default function DashboardPage() {
     missingEpisodes: missingEpisodes.length,
     available: available.length + availableEpisodes.length,
     downloading: downloadingMovies.length + downloadingEpisodes.length,
+    searching: searchingMovies.length + searchingEpisodes.length,
     missing: missing.length,
     episodesAvailable: availableEpisodes.length,
   };
@@ -98,6 +108,7 @@ export default function DashboardPage() {
     missingEpisodes: t("dashboard.stats.missingEpisodes"),
     available: t("status.available"),
     downloading: t("dashboard.stats.downloading"),
+    searching: t("dashboard.stats.searching"),
     missing: t("status.missing"),
     episodesAvailable: t("dashboard.stats.episodesAvailable"),
   };

@@ -4,6 +4,26 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.37 — Agosto 2026
+
+### I titoli bloccati in "ricerca" facevano salire il riquadro "In download" senza nulla che lo spiegasse
+
+- **Aggiunto**: invece di limitarsi a non contare più gli elementi in "ricerca" come download (versione precedente), ora hanno un proprio riquadro dedicato "Ricerca in corso" sulla dashboard — questo numero non sparisce, va semplicemente dove ha davvero senso che stia.
+
+## v1.13.36 — Agosto 2026
+
+### Il riquadro "In download" della dashboard poteva mostrare un numero anche se in realtà non stava scaricando nulla
+
+- **Corretto**: il riquadro contava anche gli episodi/film in stato "ricerca" (alla ricerca attiva di una release, senza ancora aver recuperato un torrent) come se fossero in download. Confermato dal vivo: un'intera stagione bloccata in "ricerca" senza alcun torrent attivo faceva salire il contatore a 9 anche se nessun download era realmente in corso. Il riquadro ora conta solo gli elementi con un download effettivamente attivo.
+
+### Il pulsante di riproduzione di un titolo poteva sparire del tutto senza spiegazione
+
+- **Corretto**: il pulsante di riproduzione di una pagina titolo dipendeva interamente dal fatto che Plex avesse già collegato il file — un file già pronto lato Movviz ma che Plex non ha ancora scansionato nella propria libreria (un normale ritardo asincrono) non mostrava alcun pulsante invece di qualcosa che spiegasse l'attesa. Ora mostra un segnaposto chiaramente disattivato con un tooltip anziché sparire.
+
+### Due pulsanti non correlati della pagina titolo condividevano esattamente la stessa icona
+
+- **Corretto**: "gestisci versioni" e "vedi la saga/collezione" usavano entrambi la stessa icona a pila, creando confusione su un titolo che ha entrambi. Il link alla collezione ora usa un'icona visivamente distinta.
+
 ## v1.13.35 — Agosto 2026
 
 ### Lettore beta: la riproduzione diretta in Dolby Digital+ aveva perso l'audio dopo un aggiornamento recente
@@ -48,48 +68,18 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 - **Corretto**: quando un file di episodio danneggiato non veniva trovato tramite il suo nome file esatto registrato, il meccanismo di ripiego di ultima istanza lo confrontava con TUTTI i file video dell'intera libreria che condividevano lo stesso numero di stagione/episodio — indipendentemente dalla serie a cui appartenevano davvero. Confermato dal vivo: un solo episodio danneggiato poteva restituire oltre 500 "candidati" che in realtà erano semplicemente l'episodio 1, l'episodio 2, ecc. di tutte le altre serie. Questo ripiego ora propone solo file che appartengono plausibilmente alla vera serie (per nome file o nome cartella), quindi l'elenco dei suggerimenti torna a essere breve e pertinente. Presente sin dalla v1.12.86 — non qualcosa che è cambiato in questo recente gruppo di correzioni, e nessun altro percorso di corrispondenza (nome esatto, percorso previsto, o l'avviso di conflitto duplicato) è stato toccato.
 
-## v1.13.29 — Agosto 2026
-
 ### I numeri della Top 10 nella riga Tendenze coprivano troppo il poster
 
 - **Modificato**: il numero di classifica dietro ogni scheda della Top 10 nella riga "Tendenze" restava troppo nascosto sotto il poster, lasciando visibile solo un sottile filo a sinistra. Ora copre molto meno la scheda — la maggior parte del numero è visibile a sinistra, con solo il bordo posteriore infilato dietro, in base al tuo riscontro.
 - **Modificato**: la riga "Tendenze" ora appare per prima nella dashboard, sopra "Aggiunti di recente", in base al tuo riscontro.
 
-## v1.13.28 — Agosto 2026
+### "Scarica i mancanti" su una collezione poteva recuperare il titolo sbagliato invece di quello davvero mancante
 
-### Il controllo anti-doppione si sbagliava ancora su featurette della stessa saga — ora richiede una corrispondenza esatta del titolo
+- **Corretto**: due bug che si sommavano, entrambi confermati dal vivo su più collezioni. Anzitutto, il pulsante calcolava i titoli mancanti a partire da un'istantanea di libreria/collezione messa in cache e condivisa in tutta l'app, che poteva essere obsoleta senza nulla di visibilmente sbagliato a schermo — ora sia la libreria sia l'elenco delle parti della collezione vengono riverificati da zero appena prima di scaricare. In secondo luogo, e questo era il problema più grave: un controllo anti-doppione pensato per rilevare il caso in cui TMDb elenca lo stesso film già uscito sotto due identificativi diversi usava una corrispondenza di titolo approssimativa senza una vera richiesta sull'anno — poteva silenziosamente riutilizzare una voce già posseduta e senza alcun legame per una scheda provvisoria di franchise non confermata, oppure confondere un vero film con una featurette della stessa saga sfalsata di un anno e con un suffisso aggiuntivo nel titolo. Questo controllo ora richiede un titolo normalizzato esattamente corrispondente E un anno di uscita confermato esattamente corrispondente su entrambi i lati prima di fidarsi di una corrispondenza.
 
-- **Corretto**: anche il correttivo della v1.13.27 non era abbastanza rigoroso — confermato dal vivo su un'altra saga: un vero lungometraggio poteva ancora essere confuso silenziosamente con una featurette promozionale di 30 minuti non collegata della stessa saga (un documentario "35mm Special", sfalsato di un anno rispetto al vero film e con un suffisso aggiuntivo nel titolo), perché il comparatore sottostante era stato pensato per un uso completamente diverso — far corrispondere in modo approssimativo il nome file danneggiato di una release al titolo ufficiale — e non era mai stato adattato alla domanda "è letteralmente la stessa scheda TMDb duplicata". Questo controllo anti-doppione non usa più affatto quel comparatore approssimativo: ora richiede che il titolo (una volta normalizzati accenti/punteggiatura/maiuscole) E l'anno di uscita corrispondano esattamente su entrambi i lati, non solo in modo simile.
+### Gli account amici ricevevano tutti la cronologia di visione del proprietario del server
 
-## v1.13.27 — Agosto 2026
-
-### Trovata la vera causa del bug "scarica i mancanti" — un controllo anti-doppione, non la cache
-
-- **Corretto**: la vera causa radice del bug delle ultime due versioni non era in realtà mai legata alla cache. L'aggiunta di un film davvero nuovo richiedeva già correttamente il titolo giusto — ma un controllo anti-doppione (pensato per rilevare il caso in cui TMDb elenca lo stesso film già uscito sotto due identificativi diversi) trattava silenziosamente una scheda non confermata, non ancora uscita (ad esempio una scheda provvisoria "Untitled [Franchise] Sequel" senza anno) come una corrispondenza di titolo con una voce precedente della stessa saga già posseduta ma senza alcun legame, e riutilizzava silenziosamente quella voce esistente invece di aggiungere quella nuova — confermato dal vivo: un'aggiunta reale di un film diventava silenziosamente un no-op sul titolo esistente sbagliato, con una risposta di successo che mascherava il problema. Questo controllo ora richiede un vero anno di uscita confermato su entrambi i lati prima di fidarsi di una corrispondenza di titolo, invece di trattare "nessun anno ancora" come "abbastanza vicino".
-
-## v1.13.26 — Agosto 2026
-
-### Il correttivo della v1.13.25 per "scarica i mancanti" non era sufficiente — anche l'elenco delle parti della collezione poteva essere altrettanto obsoleto
-
-- **Corretto**: riverificato dal vivo, il correttivo precedente non reggeva del tutto — riverificare solo l'istantanea della libreria prima di scaricare non bastava, perché anche l'elenco delle parti della collezione (proveniente dalla stessa cache condivisa a livello di app) poteva essere altrettanto obsoleto. Ora entrambi vengono riverificati da zero insieme, subito prima del ciclo di download, invece di un solo lato del confronto.
-
-## v1.13.25 — Agosto 2026
-
-### "Scarica i mancanti" in una pagina di collezione poteva recuperare un titolo già posseduto invece di quello davvero mancante
-
-- **Corretto**: il pulsante "Scarica N mancante/i" di una pagina di collezione calcolava i titoli mancanti a partire da un'istantanea della tua libreria condivisa e messa in cache in tutta l'app — un'istantanea che può comparire istantaneamente a partire dai dati di una pagina precedente invece dello stato reale attuale, senza nulla di visibilmente sbagliato a schermo. Confermato dal vivo su più collezioni: il pulsante poteva aggiungere un titolo già posseduto mentre quello effettivamente mancante restava intoccato, silenziosamente. Ora riverifica la tua libreria da zero, appena prima di scaricare, invece di fidarsi di quell'istantanea.
-
-## v1.13.24 — Agosto 2026
-
-### Gli account amici ricevevano tutti la cronologia di visione del proprietario del server — trovata e corretta la vera causa nell'API Plex
-
-- **Corretto**: il dettaglio diagnostico della v1.13.23 aveva dimostrato che ogni account amico collegato aveva effettivamente un'identità e un token Plex realmente distinti — eppure tutti sincronizzavano esattamente gli stessi numeri di visione dell'account proprietario del server. Causa radice confermata dal comportamento documentato di Plex stesso: gli endpoint usati per sincronizzare lo stato di visione restituiscono il `viewCount` dal punto di vista del proprietario del server soltanto, indipendentemente da quale token di account valido effettui la richiesta — nessuna intestazione di richiesta può cambiarlo. La sincronizzazione dello stato di visione ora usa l'endpoint della cronologia di sessione di Plex, interrogato con il token admin e filtrato per l'id Plex proprio di ciascun account — il modo in cui Plex traccia realmente la visione per account. Funziona ora allo stesso modo per gli account amici e per i profili gestiti dell'Home, invece di due percorsi separati.
-
-## v1.13.23 — Agosto 2026
-
-### Più dettaglio nel log di sincronizzazione Plex, per stanare un vero sospetto
-
-- **Modificato**: dopo che la v1.13.22 ha aggiunto la registrazione per account, un primo passaggio reale ha mostrato che tutti gli account amici collegati riportavano esattamente gli stessi numeri di visione — da verificare piuttosto che dare per scontato. La riga di log ora mostra anche l'ID dell'account Plex e una breve impronta non sensibile del token per account, per confermare se si tratta davvero di identità Plex distinte prima di seguire una pista sbagliata.
+- **Corretto**: ogni account amico collegato aveva effettivamente un'identità e un token Plex realmente distinti — eppure tutti sincronizzavano esattamente gli stessi numeri dell'account proprietario del server. Causa radice confermata dal comportamento documentato di Plex stesso: gli endpoint usati per sincronizzare lo stato di visione restituiscono il `viewCount` dal punto di vista del proprietario del server soltanto, indipendentemente da quale token di account valido effettui la richiesta — nessuna intestazione di richiesta può cambiarlo. La sincronizzazione dello stato di visione ora usa l'endpoint della cronologia di sessione di Plex, interrogato con il token admin e filtrato per l'id Plex proprio di ciascun account — il modo in cui Plex traccia realmente la visione per account — e funziona ora allo stesso modo per gli account amici e per i profili gestiti dell'Home, invece di due percorsi separati.
 
 ## v1.13.22 — Agosto 2026
 

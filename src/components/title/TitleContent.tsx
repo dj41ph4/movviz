@@ -31,7 +31,7 @@ import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import {
   Star, Plus, Check, Loader2, Bookmark,
   Clock, HardDriveDownload, Search, SearchCheck, Hash, Play,
-  ListFilter, Layers, ChevronDown, Calendar, X, Trash2, RefreshCw, Pencil,
+  ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, Pencil,
   type LucideIcon,
 } from "lucide-react";
 
@@ -1041,6 +1041,19 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 </button>
               ) : (
                 <>
+                  {libraryStatus === "available" && !libraryMatch?.plexUrl && (
+                    // File is ready in Movviz but Plex hasn't scanned/matched it into
+                    // its own library yet (plexUrl/plexRatingKey populate asynchronously,
+                    // see librarySync.ts) — show a disabled placeholder instead of nothing.
+                    <button
+                      disabled
+                      title={t("library.watchPendingPlexSync")}
+                      className="flex h-11 items-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white/50 backdrop-blur disabled:opacity-50"
+                    >
+                      <Play className="h-4 w-4" />
+                      {t("library.watchPendingPlexSync")}
+                    </button>
+                  )}
                   {libraryStatus === "available" && libraryMatch?.plexUrl && (
                     betaPlayer && libraryMatch?.plexRatingKey ? (
                       <button
@@ -1154,7 +1167,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   title={t("title.saga")}
                   className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white/80 backdrop-blur transition-transform hover:scale-110 hover:text-white active:scale-90"
                 >
-                  <Layers className="h-4 w-4" />
+                  <Boxes className="h-4 w-4" />
                 </Link>
               )}
             </div>

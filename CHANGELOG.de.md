@@ -4,6 +4,26 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.37 — August 2026
+
+### Titel, die in „Suche" feststeckten, ließen die Kachel „Läuft herunter" ansteigen, ohne dass irgendetwas das erklärte
+
+- **Hinzugefügt**: statt Elemente in „Suche" einfach nicht mehr als Download mitzuzählen (vorherige Version), haben sie jetzt ihre eigene dedizierte Kachel „Suche läuft" im Dashboard — diese Zahl verschwindet nicht, sie landet einfach dort, wo sie wirklich hingehört.
+
+## v1.13.36 — August 2026
+
+### Die Kachel „Läuft herunter" im Dashboard konnte eine Zahl anzeigen, obwohl in Wirklichkeit nichts heruntergeladen wurde
+
+- **Behoben**: die Kachel zählte auch Episoden/Filme im Status „Suche" (aktive Suche nach einer Release, ohne dass bereits ein Torrent geholt wurde) so, als würden sie heruntergeladen. Live bestätigt: eine ganze Staffel, die in „Suche" feststeckte, ohne dass ein Torrent aktiv war, ließ den Zähler auf 9 steigen, obwohl tatsächlich kein Download lief. Die Kachel zählt jetzt nur noch Elemente mit einem tatsächlich aktiven Download.
+
+### Der Wiedergabe-Button eines Titels konnte ohne Erklärung vollständig verschwinden
+
+- **Behoben**: der Wiedergabe-Button einer Titelseite hing vollständig davon ab, ob Plex die Datei bereits verknüpft hatte — eine Datei, die auf Movviz-Seite bereits bereit war, die Plex aber noch nicht in seiner eigenen Bibliothek gescannt hatte (eine normale asynchrone Verzögerung), zeigte überhaupt keinen Button an, statt etwas, das die Wartezeit erklärte. Es wird jetzt ein klar deaktivierter Platzhalter mit Tooltip angezeigt, statt zu verschwinden.
+
+### Zwei nicht zusammenhängende Buttons der Titelseite teilten sich exakt dasselbe Symbol
+
+- **Behoben**: „Versionen verwalten" und „Saga/Sammlung ansehen" verwendeten beide dasselbe Stapel-Symbol, was bei einem Titel, der beides hat, verwirrend war. Der Link zur Sammlung verwendet jetzt ein visuell klar unterscheidbares Symbol.
+
 ## v1.13.35 — August 2026
 
 ### Beta-Player: Die Direktwiedergabe in Dolby Digital+ hatte nach einem kürzlichen Update den Ton verloren
@@ -48,48 +68,18 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 - **Behoben**: wenn eine defekte Episodendatei nicht anhand ihres exakt gespeicherten Dateinamens gefunden wurde, verglich der letzte Rückfallmechanismus sie mit ALLEN Videodateien der gesamten Bibliothek mit derselben Staffel-/Episodennummer — unabhängig davon, zu welcher Serie sie tatsächlich gehörten. Live bestätigt: eine einzige defekte Episode konnte mit über 500 "Kandidaten" zurückkommen, die in Wirklichkeit einfach Episode 1, Episode 2 usw. jeder anderen Serie waren. Dieser Rückfallmechanismus bietet jetzt nur noch Dateien an, die plausibel zur tatsächlichen Serie gehören (anhand von Datei- oder Ordnername), sodass die Vorschlagsliste wieder kurz und relevant ist. Vorhanden seit v1.12.86 — keine Änderung aus diesem jüngsten Fix-Paket, und kein anderer Abgleichspfad (exakter Dateiname, erwarteter Pfad, oder die Duplikat-Konfliktwarnung) wurde angerührt.
 
-## v1.13.29 — August 2026
-
 ### Top-10-Zahlen in der Tendances-Reihe überlappten das Poster zu stark
 
 - **Geändert**: die Rangzahl hinter jeder Top-10-Karte in der „Tendances"-Reihe saß zu weit unter dem Poster verborgen, sodass links nur ein schmaler Streifen sichtbar blieb. Sie überlappt die Karte jetzt deutlich weniger — der größte Teil der Zahl ist links sichtbar, nur die Hinterkante bleibt dahinter verborgen, laut Rückmeldung.
 - **Geändert**: die „Tendances"-Reihe wird jetzt zuerst im Dashboard angezeigt, über „Kürzlich hinzugefügt", laut Rückmeldung.
 
-## v1.13.28 — August 2026
+### "Fehlende herunterladen" bei einer Sammlung konnte den falschen Titel statt des wirklich fehlenden erfassen
 
-### Die Duplikatserkennung griff bei Featurettes derselben Reihe immer noch daneben — verlangt jetzt eine exakte Titelübereinstimmung
+- **Behoben**: zwei Bugs, die sich summierten, beide live an mehreren Sammlungen bestätigt. Erstens berechnete die Schaltfläche die fehlenden Titel anhand eines geteilten, app-weiten zwischengespeicherten Schnappschusses von Bibliothek/Sammlung, der veraltet sein konnte, ohne dass auf dem Bildschirm etwas sichtbar falsch aussah — Bibliothek und Teileliste der Sammlung werden jetzt beide unmittelbar vor dem Herunterladen frisch überprüft. Zweitens, und das wog schwerer: eine Duplikatsprüfung, die den Fall erkennen sollte, dass TMDb denselben bereits veröffentlichten Film unter zwei verschiedenen IDs listet, verwendete einen unscharfen Titelabgleich ohne echte Jahresanforderung — sie konnte stillschweigend einen bereits vorhandenen, unabhängigen Eintrag für eine unbestätigte, vorläufige Franchise-Karteikarte wiederverwenden, oder einen echten Film mit einer Featurette derselben Reihe verwechseln, die um ein Jahr versetzt war und ein zusätzliches Titel-Suffix hatte. Diese Prüfung verlangt jetzt auf beiden Seiten einen exakt übereinstimmenden, normalisierten Titel UND ein exakt übereinstimmendes, bestätigtes Erscheinungsjahr, bevor sie einer Übereinstimmung vertraut.
 
-- **Behoben**: auch der Fix aus v1.13.27 war nicht streng genug — live an einer anderen Reihe bestätigt: ein echter Spielfilm konnte immer noch stillschweigend mit einer unabhängigen, 30-minütigen Promo-Featurette derselben Reihe verwechselt werden (eine „35mm Special"-Dokumentation, ein Jahr versetzt zum echten Film und mit einem zusätzlichen Titel-Suffix), weil der zugrunde liegende Abgleicher für eine ganz andere Aufgabe gebaut wurde — den beschädigten Dateinamen einer Release unscharf mit dem offiziellen Titel abzugleichen — und nie darauf ausgelegt war, die Frage „ist das buchstäblich derselbe, doppelt vorhandene TMDb-Eintrag" zu beantworten. Diese Duplikatsprüfung verwendet diesen unscharfen Abgleicher jetzt überhaupt nicht mehr: sie verlangt jetzt, dass der Titel (nach Normalisierung von Akzenten/Zeichensetzung/Groß- und Kleinschreibung) UND das Erscheinungsjahr auf beiden Seiten exakt übereinstimmen, nicht nur annähernd.
+### Freundeskonten bekamen alle die Wiedergabehistorie des Server-Besitzers
 
-## v1.13.27 — August 2026
-
-### Echte Ursache des "Fehlende herunterladen"-Bugs gefunden — eine Duplikatserkennung, kein Cache
-
-- **Behoben**: die tatsächliche Grundursache des Bugs der letzten beiden Versionen hatte in Wirklichkeit nie etwas mit Caching zu tun. Das Hinzufügen eines wirklich neuen Films fragte bereits korrekt nach dem richtigen Titel — aber eine Duplikatsprüfung (gedacht, um den Fall zu erkennen, dass TMDb denselben bereits veröffentlichten Film unter zwei verschiedenen IDs listet) behandelte stillschweigend einen unbestätigten, noch nicht veröffentlichten Platzhaltereintrag (zum Beispiel einen vorläufigen „Untitled [Franchise] Sequel"-Eintrag ohne Jahr) als Titelübereinstimmung mit einem früheren, bereits vorhandenen, aber völlig unabhängigen Eintrag derselben Reihe, und verwendete diesen bestehenden Eintrag stillschweigend wieder, statt den neuen hinzuzufügen — live bestätigt: ein echtes Hinzufügen eines neuen Films wurde stillschweigend zu einem No-op auf dem falschen bestehenden Titel, mit einer Erfolgsmeldung, die das Problem verschleierte. Diese Prüfung verlangt jetzt auf beiden Seiten ein echtes, bestätigtes Erscheinungsjahr, bevor sie einer Titelübereinstimmung vertraut, statt „noch kein Jahr" als „nah genug" zu behandeln.
-
-## v1.13.26 — August 2026
-
-### Der Fix aus v1.13.25 für "Fehlende herunterladen" bei Sammlungen reichte nicht aus — auch die eigene Teileliste der Sammlung konnte ebenso veraltet sein
-
-- **Behoben**: live erneut überprüft, und der vorherige Fix hielt nicht vollständig stand — nur den Bibliotheks-Schnappschuss vor dem Herunterladen frisch abzurufen, reichte nicht aus, denn auch die eigene Teileliste der Sammlung (aus demselben geteilten, app-weiten Cache) konnte ebenso veraltet sein. Beide werden jetzt zusammen frisch abgerufen, unmittelbar vor der Download-Schleife, statt nur eine Seite des Vergleichs.
-
-## v1.13.25 — August 2026
-
-### "Fehlende herunterladen" auf einer Sammlungsseite konnte einen bereits vorhandenen Titel statt des wirklich fehlenden erfassen
-
-- **Behoben**: die Schaltfläche "N Fehlende herunterladen" einer Sammlungsseite berechnete die fehlenden Titel anhand eines geteilten, app-weiten zwischengespeicherten Schnappschusses deiner Bibliothek — ein Schnappschuss, der sofort mit Daten einer vorherigen Seite erscheinen kann, statt mit dem tatsächlichen aktuellen Stand, ohne dass auf dem Bildschirm etwas sichtbar falsch aussah. Live über mehrere Sammlungen bestätigt: die Schaltfläche konnte einen bereits vorhandenen Titel hinzufügen, während der tatsächlich fehlende Titel unangetastet blieb, ganz ohne Hinweis. Sie prüft deine Bibliothek jetzt unmittelbar vor dem Herunterladen frisch nach, statt sich auf diesen Schnappschuss zu verlassen.
-
-## v1.13.24 — August 2026
-
-### Freundeskonten bekamen alle die Wiedergabehistorie des Server-Besitzers — echte Plex-API-Ursache gefunden und behoben
-
-- **Behoben**: das Diagnosedetail aus v1.13.23 bewies, dass jedes verknüpfte Freundeskonto tatsächlich eine echte, eigenständige Plex-Identität und ein eigenes Token hatte — trotzdem synchronisierten sie alle exakt dieselben Wiedergabezahlen wie das Konto, dem der Server gehört. Grundursache bestätigt durch das dokumentierte Verhalten von Plex selbst: die Endpunkte, die zur Synchronisierung des Wiedergabestatus verwendet werden, liefern den `viewCount` nur aus der Perspektive des Server-Besitzers zurück, unabhängig davon, welches gültige Konto-Token die Anfrage stellt — kein Request-Header kann daran etwas ändern. Die Wiedergabestatus-Synchronisierung verwendet jetzt stattdessen den Sitzungshistorie-Endpunkt von Plex, abgefragt mit dem Admin-Token und gefiltert nach der eigenen Plex-ID jedes Kontos — so, wie Plex das Sehverhalten tatsächlich pro Konto verfolgt. Funktioniert jetzt gleich für Freundeskonten und Home-verwaltete Profile, statt zweier getrennter Pfade.
-
-## v1.13.23 — August 2026
-
-### Mehr Detail im Plex-Watch-Sync-Log, um einen echten Verdächtigen aufzuspüren
-
-- **Geändert**: nachdem v1.13.22 die Protokollierung pro Konto eingeführt hat, zeigte ein erster echter Durchlauf, dass alle verknüpften Freundeskonten exakt dieselben Wiedergabezahlen meldeten — das verdient eine Überprüfung statt blindes Vertrauen. Die Log-Zeile zeigt jetzt zusätzlich die Plex-Konto-ID und einen kurzen, nicht sicherheitskritischen Fingerabdruck des Tokens pro Konto, um zu bestätigen, ob es sich wirklich um unterschiedliche Plex-Identitäten handelt, bevor man der falschen Ursache nachjagt.
+- **Behoben**: jedes verknüpfte Freundeskonto hatte tatsächlich eine echte, eigenständige Plex-Identität und ein eigenes Token — trotzdem synchronisierten sie alle exakt dieselben Zahlen wie das Konto, dem der Server gehört. Grundursache bestätigt durch das dokumentierte Verhalten von Plex selbst: die Endpunkte, die zur Synchronisierung des Wiedergabestatus verwendet werden, liefern den `viewCount` nur aus der Perspektive des Server-Besitzers zurück, unabhängig davon, welches gültige Konto-Token die Anfrage stellt — kein Request-Header kann daran etwas ändern. Die Wiedergabestatus-Synchronisierung verwendet jetzt den Sitzungshistorie-Endpunkt von Plex, abgefragt mit dem Admin-Token und gefiltert nach der eigenen Plex-ID jedes Kontos — so, wie Plex das Sehverhalten tatsächlich pro Konto verfolgt — und funktioniert jetzt gleich für Freundeskonten und Home-verwaltete Profile, statt zweier getrennter Pfade.
 
 ## v1.13.22 — August 2026
 

@@ -4,6 +4,30 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.37 — août 2026
+
+### Les titres bloqués en "recherche" faisaient monter la tuile "En téléchargement" sans rien pour l'expliquer
+
+- **Ajouté** : plutôt que de simplement ne plus compter les éléments en "recherche" comme téléchargement (version précédente), ils ont désormais leur propre tuile dédiée "Recherche en cours" sur le tableau de bord — ce chiffre ne disparaît pas, il va simplement là où il a vraiment sa place.
+
+---
+
+## v1.13.36 — août 2026
+
+### La tuile "En téléchargement" du tableau de bord pouvait afficher un nombre alors que rien ne téléchargeait vraiment
+
+- **Corrigé** : la tuile comptait aussi les épisodes/films en statut "recherche" (à la recherche active d'une release, sans torrent encore récupéré) comme s'ils étaient en téléchargement. Confirmé en direct : une saison entière bloquée en "recherche" sans aucun torrent actif faisait monter le compteur à 9 alors qu'aucun téléchargement n'était réellement en cours. La tuile ne compte désormais que les éléments avec un téléchargement réellement actif.
+
+### Le bouton lecture d'un titre pouvait disparaître entièrement sans explication
+
+- **Corrigé** : le bouton de lecture d'une page titre était entièrement conditionné au fait que Plex ait déjà lié le fichier — un fichier déjà prêt côté Movviz mais que Plex n'a pas encore scanné dans sa propre bibliothèque (un délai asynchrone normal) n'affichait aucun bouton du tout au lieu de quelque chose expliquant l'attente. Il affiche désormais un espace réservé clairement désactivé avec une infobulle plutôt que de disparaître.
+
+### Deux boutons sans rapport de la page titre partageaient exactement la même icône
+
+- **Corrigé** : "gérer les versions" et "voir la saga/collection" utilisaient tous deux la même icône de pile, prêtant à confusion sur un titre qui a les deux. Le lien vers la collection utilise désormais une icône visuellement distincte.
+
+---
+
 ## v1.13.35 — août 2026
 
 ### Lecteur bêta : la lecture directe en Dolby Digital+ avait perdu le son après une mise à jour récente
@@ -63,29 +87,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 - **Changé** : le chiffre de classement derrière chaque carte du Top 10 dans la rangée "Tendances" était trop caché sous l'affiche, ne laissant qu'un mince filet visible à gauche. Il chevauche désormais beaucoup moins la carte — la majeure partie du chiffre est visible à gauche, avec juste son bord arrière glissé derrière, suite à ton retour.
 - **Changé** : la rangée "Tendances" s'affiche désormais en premier sur le tableau de bord, au-dessus de "Ajouts récents", suite à ton retour.
 
-### Le garde-fou anti-doublon se trompait encore sur des featurettes de la même franchise — exige désormais une correspondance de titre exacte
+### "Télécharger les manquants" sur une collection pouvait récupérer le mauvais titre au lieu du vrai manquant
 
-- **Corrigé** : le correctif de la v1.13.27 n'était pas assez strict non plus — confirmé en direct sur une autre franchise : un vrai long-métrage pouvait encore être silencieusement confondu avec une featurette promotionnelle de 30 minutes sans rapport de la même franchise (un documentaire "35mm Special", décalé d'un an par rapport au vrai film et avec un suffixe de titre en plus), parce que le comparateur sous-jacent avait été conçu pour un tout autre usage — faire correspondre de façon floue le nom de fichier abîmé d'une release au titre officiel — et n'a jamais été adapté à la question "est-ce littéralement la même fiche TMDb en double". Cette vérification anti-doublon n'utilise plus du tout ce comparateur flou : elle exige désormais que le titre (une fois accents/ponctuation/casse normalisés) ET l'année de sortie correspondent exactement des deux côtés, pas juste de façon proche.
+- **Corrigé** : deux bugs qui se cumulaient, tous deux confirmés en direct sur plusieurs collections. D'abord, le bouton calculait les titres manquants à partir d'un instantané de bibliothèque/collection mis en cache et partagé dans toute l'app, qui pouvait être périmé sans rien de visiblement faux à l'écran — la bibliothèque et la liste des parties de la collection sont désormais toutes deux revérifiées à neuf juste avant de télécharger. Ensuite, et c'était le plus lourd de conséquences : un garde-fou anti-doublon censé détecter le cas où TMDb liste le même film déjà sorti sous deux identifiants différents utilisait une correspondance de titre floue sans vraie exigence d'année — il pouvait silencieusement réutiliser une entrée déjà possédée et sans rapport pour une fiche provisoire de franchise non confirmée, ou confondre un vrai film avec une featurette de la même franchise décalée d'un an et avec un suffixe de titre en plus. Ce garde-fou exige désormais un titre normalisé exact ET une année de sortie confirmée exacte des deux côtés avant de faire confiance à une correspondance.
 
-### Vraie cause du bug "télécharger les manquants" trouvée — un garde-fou anti-doublon, pas du cache
+### Les comptes amis récupéraient tous l'historique de visionnage du propriétaire du serveur
 
-- **Corrigé** : la vraie cause racine du bug des deux dernières versions n'était en fait jamais liée au cache. L'ajout d'un film réellement nouveau demandait déjà correctement le bon titre — mais une vérification anti-doublon (censée détecter le cas où TMDb liste le même film déjà sorti sous deux identifiants différents) traitait silencieusement une fiche non confirmée, pas encore sortie (par exemple une fiche provisoire "Untitled [Franchise] Sequel" sans année) comme une correspondance de titre avec une entrée antérieure de la même franchise déjà possédée mais sans rapport, et réutilisait discrètement cette entrée existante au lieu d'ajouter la nouvelle — confirmé en direct : un vrai ajout de film devenait silencieusement un no-op sur le mauvais titre existant, avec une réponse de succès qui masquait le problème. Ce garde-fou exige désormais une vraie année de sortie confirmée des deux côtés avant de faire confiance à une correspondance de titre, au lieu de traiter "pas encore d'année" comme "suffisamment proche".
-
-### Le correctif de la v1.13.25 pour "télécharger les manquants" n'était pas suffisant — la liste des parties de la collection pouvait être tout aussi périmée
-
-- **Corrigé** : revérifié en direct, le correctif précédent ne tenait pas complètement — ne revérifier que l'instantané de bibliothèque avant de télécharger ne suffisait pas, car la liste des parties de la collection elle-même (issue du même cache partagé à l'échelle de l'app) pouvait être tout aussi périmée. Les deux sont désormais revérifiés à neuf ensemble juste avant la boucle de téléchargement, au lieu d'un seul côté de la comparaison.
-
-### "Télécharger les manquants" sur une page de collection pouvait récupérer un titre déjà possédé au lieu du vrai manquant
-
-- **Corrigé** : le bouton "Télécharger N manquant(s)" d'une page de collection calculait les titres manquants à partir d'un instantané de ta bibliothèque mis en cache et partagé dans toute l'app — un instantané qui peut s'afficher instantanément à partir des données d'une page précédente au lieu de l'état réel actuel, sans rien de visiblement faux à l'écran. Confirmé en direct sur plusieurs collections : le bouton pouvait ajouter un titre déjà possédé pendant que celui réellement manquant restait intouché, silencieusement. Il revérifie désormais ta bibliothèque à neuf, juste avant de télécharger, au lieu de faire confiance à cet instantané.
-
-### Les comptes amis récupéraient tous l'historique du propriétaire du serveur — vraie cause Plex trouvée et corrigée
-
-- **Corrigé** : le détail de diagnostic de la v1.13.23 a prouvé que chaque compte ami lié avait bien une identité et un token Plex réellement distincts — pourtant tous synchronisaient exactement les mêmes chiffres que le compte propriétaire du serveur. Cause racine confirmée par le comportement documenté de Plex lui-même : les endpoints utilisés pour synchroniser les vues renvoient le `viewCount` du point de vue du propriétaire du serveur uniquement, peu importe quel token de compte valide fait la requête — aucun en-tête de requête ne peut changer ça. La synchro des vues utilise désormais l'endpoint d'historique de session de Plex, interrogé avec le token admin et filtré par l'identifiant Plex propre à chaque compte — la façon dont Plex suit réellement le visionnage par compte. Fonctionne maintenant pareil pour les comptes amis et les profils gérés du Home, au lieu de deux voies séparées.
-
-### Plus de détail dans le journal de synchro Plex, pour traquer un vrai suspect
-
-- **Changé** : après que la v1.13.22 a ajouté la journalisation par compte, un premier passage réel a montré que tous les comptes amis liés remontaient exactement les mêmes chiffres de visionnage — à vérifier plutôt qu'à prendre pour argent comptant. La ligne de log affiche désormais aussi l'identifiant du compte Plex et une courte empreinte non sensible du token par compte, pour confirmer s'il s'agit bien d'identités Plex distinctes avant de partir sur une fausse piste.
+- **Corrigé** : chaque compte ami lié avait bien une identité et un token Plex réellement distincts — pourtant tous synchronisaient exactement les mêmes chiffres que le compte propriétaire du serveur. Cause racine confirmée par le comportement documenté de Plex lui-même : les endpoints utilisés pour synchroniser les vues renvoient le `viewCount` du point de vue du propriétaire du serveur uniquement, peu importe quel token de compte valide fait la requête — aucun en-tête de requête ne peut changer ça. La synchro des vues utilise désormais l'endpoint d'historique de session de Plex, interrogé avec le token admin et filtré par l'identifiant Plex propre à chaque compte — la façon dont Plex suit réellement le visionnage par compte — et fonctionne maintenant pareil pour les comptes amis et les profils gérés du Home, au lieu de deux voies séparées.
 
 ## v1.13.22 — août 2026
 

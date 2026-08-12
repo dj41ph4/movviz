@@ -4,6 +4,26 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.37 — Augustus 2026
+
+### Titels die vastzaten op "zoeken" lieten de tegel "Bezig met downloaden" oplopen zonder dat daar iets voor uitlegde
+
+- **Toegevoegd**: in plaats van elementen in "zoeken" gewoon niet meer als download mee te tellen (vorige versie), hebben ze nu hun eigen tegel "Zoeken" op het dashboard — dit getal verdwijnt niet, het verschijnt gewoon waar het daadwerkelijk thuishoort.
+
+## v1.13.36 — Augustus 2026
+
+### De tegel "Bezig met downloaden" van het dashboard kon een getal tonen terwijl er in werkelijkheid niets werd gedownload
+
+- **Opgelost**: de tegel telde ook afleveringen/films met status "zoeken" (actief op zoek naar een release, zonder dat er al een torrent is opgehaald) mee alsof ze aan het downloaden waren. Live bevestigd: een heel seizoen dat vastzat op "zoeken" zonder enige actieve torrent liet de teller oplopen tot 9, terwijl er in werkelijkheid geen enkele download bezig was. De tegel telt nu alleen nog elementen met een daadwerkelijk actieve download.
+
+### De afspeelknop van een titel kon volledig verdwijnen zonder uitleg
+
+- **Opgelost**: de afspeelknop op een titelpagina was volledig afhankelijk van het feit of Plex het bestand al had gekoppeld — een bestand dat aan de kant van Movviz al klaar was, maar dat Plex nog niet had gescand in zijn eigen bibliotheek (een normale asynchrone vertraging), toonde helemaal geen knop in plaats van iets dat de wachttijd uitlegde. Er wordt nu een duidelijk uitgeschakelde placeholder met een tooltip getoond in plaats van dat de knop verdwijnt.
+
+### Twee ongerelateerde knoppen op de titelpagina deelden exact hetzelfde icoon
+
+- **Opgelost**: "versies beheren" en "bekijk de saga/collectie" gebruikten allebei hetzelfde stapelicoon, wat verwarrend was bij een titel die beide heeft. De link naar de collectie gebruikt nu een visueel duidelijk ander icoon.
+
 ## v1.13.35 — Augustus 2026
 
 ### Beta-speler: directe afspelen in Dolby Digital+ was het geluid kwijtgeraakt na een recente update
@@ -48,48 +68,18 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 - **Opgelost**: wanneer een kapot afleveringsbestand niet werd gevonden op basis van zijn exact geregistreerde bestandsnaam, vergeleek het laatste-redmiddel-terugvalmechanisme het met ALLE videobestanden in de hele bibliotheek die hetzelfde seizoen/afleveringsnummer deelden — ongeacht bij welke serie ze eigenlijk hoorden. Live bevestigd: één kapotte aflevering kon terugkomen met 500+ "kandidaten" die eigenlijk gewoon aflevering 1, aflevering 2, enz. van elke andere serie waren. Dit terugvalmechanisme biedt nu alleen nog bestanden aan die aannemelijk bij de echte serie horen (op bestandsnaam of mapnaam), waardoor de suggestielijst weer kort en relevant is. Aanwezig sinds v1.12.86 — geen wijziging uit deze recente reeks fixes, en geen ander matchpad (exacte bestandsnaam, verwacht pad, of de duplicaatwaarschuwing) is aangeraakt.
 
-## v1.13.29 — Augustus 2026
-
 ### Top-10-cijfers in de Tendances-rij overlapten te veel van de poster
 
 - **Gewijzigd**: het rangcijfer achter elke Top-10-kaart in de "Tendances"-rij zat te ver onder de poster verstopt, waardoor links nog maar een dun streepje zichtbaar bleef. Het overlapt nu veel minder — het grootste deel van het cijfer is links zichtbaar, met alleen de achterrand weggestopt, naar aanleiding van feedback.
 - **Gewijzigd**: de "Tendances"-rij staat nu bovenaan het dashboard, boven "Recent toegevoegd", naar aanleiding van feedback.
 
-## v1.13.28 — Augustus 2026
+### "Ontbrekende downloaden" op een collectie kon de verkeerde titel ophalen in plaats van de echt ontbrekende
 
-### De dubbele-detectiecontrole ging nog steeds mis bij featurettes uit dezelfde franchise — vereist nu een exacte titelmatch
+- **Opgelost**: twee bugs die elkaar versterkten, allebei live bevestigd op meerdere collecties. Ten eerste berekende de knop de ontbrekende titels op basis van een gedeelde, app-brede gecachte momentopname van bibliotheek/collectie, die verouderd kon zijn zonder dat er iets zichtbaar mis was op het scherm — de bibliotheek en de onderdelenlijst van de collectie worden nu allebei vers geverifieerd vlak voor het downloaden. Ten tweede, en dit woog het zwaarst: een dubbele-detectiecontrole die bedoeld was om te herkennen wanneer TMDb dezelfde al-uitgebrachte film onder twee verschillende id's vermeldt, gebruikte een vage titelmatch zonder een echte jaarvereiste — hij kon stilzwijgend een al-bezeten, ongerelateerde vermelding hergebruiken voor een onbevestigde, voorlopige franchise-plaatshouder, of een echte film verwarren met een featurette uit dezelfde franchise die een jaar verschoven was en een extra titelsuffix had. Deze controle vereist nu aan beide kanten een exact overeenkomende, genormaliseerde titel ÉN een exact overeenkomend, bevestigd releasejaar voordat een match wordt vertrouwd.
 
-- **Opgelost**: de fix van v1.13.27 was ook niet strikt genoeg — live bevestigd op een andere franchise: een echte speelfilm kon nog steeds stilzwijgend worden verward met een ongerelateerde, 30 minuten durende promotionele featurette uit dezelfde franchise (een "35mm Special"-documentaire, één jaar verschoven ten opzichte van de echte film en met een extra titelsuffix), omdat de onderliggende matcher was gebouwd voor een heel andere taak — de verminkte bestandsnaam van een release fuzzy matchen met de officiële titel — en nooit geschikt was gemaakt voor de vraag "is dit letterlijk dezelfde, gedupliceerde TMDb-vermelding". Deze dubbele-detectiecontrole gebruikt die fuzzy matcher nu helemaal niet meer: hij vereist nu dat de titel (na normalisatie van accenten/leestekens/hoofdletters) EN het releasejaar aan beide kanten exact overeenkomen, niet slechts bij benadering.
+### Vriendenaccounts kregen allemaal de kijkgeschiedenis van de servereigenaar
 
-## v1.13.27 — Augustus 2026
-
-### Echte oorzaak van de bug "ontbrekende downloaden" gevonden — een dubbele-detectiecontrole, geen cache
-
-- **Opgelost**: de werkelijke grondoorzaak van de bug uit de laatste twee releases had in feite nooit met caching te maken. Het toevoegen van een echt nieuwe film vroeg al correct om de juiste titel — maar een dubbele-detectiecontrole (bedoeld om te herkennen wanneer TMDb dezelfde al-uitgebrachte film onder twee verschillende id's vermeldt) behandelde stilzwijgend een onbevestigde, nog niet uitgebrachte plaatshouder (bijvoorbeeld een voorlopige "Untitled [Franchise] Sequel"-vermelding zonder jaartal) als een titelmatch met een eerdere, al in bezit zijnde maar totaal ongerelateerde vermelding uit dezelfde franchise, en hergebruikte die bestaande vermelding stilletjes in plaats van de nieuwe toe te voegen — live bevestigd: een echte toevoeging van een nieuwe film werd stilletjes een no-op op de verkeerde bestaande titel, met een succesreactie die het probleem verhulde. Die controle vereist nu aan beide kanten een echt, bevestigd releasejaar voordat een titelmatch wordt vertrouwd, in plaats van "nog geen jaartal" als "dicht genoeg" te behandelen.
-
-## v1.13.26 — Augustus 2026
-
-### De fix van v1.13.25 voor "ontbrekende downloaden" bij collecties was niet genoeg — de eigen onderdelenlijst van de collectie kon net zo verouderd zijn
-
-- **Opgelost**: live opnieuw geverifieerd, en de vorige fix hield niet helemaal stand — alleen de bibliotheek-momentopname vers ophalen vóór het downloaden bleek niet genoeg, omdat de eigen onderdelenlijst van de collectie (afkomstig uit dezelfde gedeelde app-brede cache) net zo verouderd kon zijn. Beide worden nu samen vers opgehaald, vlak vóór de downloadlus, in plaats van maar één kant van de vergelijking.
-
-## v1.13.25 — Augustus 2026
-
-### "Ontbrekende downloaden" op een collectiepagina kon een al-bezeten titel ophalen in plaats van de echt ontbrekende
-
-- **Opgelost**: de knop "N ontbrekende(n) downloaden" van een collectiepagina berekende welke titels ontbraken op basis van een gedeelde, app-brede gecachte momentopname van je bibliotheek — een momentopname die direct kan verschijnen met gegevens van een vorige pagina in plaats van de werkelijke actuele status, zonder dat er iets zichtbaar mis was op het scherm. Live bevestigd op meerdere collecties: de knop kon een titel toevoegen die je al bezat, terwijl de daadwerkelijk ontbrekende titel onaangeroerd bleef, zonder enig signaal. Hij controleert je bibliotheek nu vers, vlak voor het downloaden, in plaats van op die momentopname te vertrouwen.
-
-## v1.13.24 — Augustus 2026
-
-### Vriendenaccounts kregen allemaal de kijkgeschiedenis van de servereigenaar — echte Plex-API-oorzaak gevonden en opgelost
-
-- **Opgelost**: het diagnostische detail uit v1.13.23 bewees dat elk gekoppeld vriendenaccount wel degelijk een echte, eigen, onderscheiden Plex-identiteit en token had — toch synchroniseerden ze allemaal exact dezelfde kijkcijfers als het account dat de server bezit. Grondoorzaak bevestigd aan de hand van het gedocumenteerde gedrag van Plex zelf: de endpoints die worden gebruikt om de kijkstatus te synchroniseren, geven de `viewCount` terug vanuit het perspectief van de servereigenaar alleen, ongeacht welk geldig account-token de aanvraag doet — geen enkele request-header kan dat veranderen. De kijkstatussynchronisatie gebruikt nu in plaats daarvan het sessiegeschiedenis-endpoint van Plex, bevraagd met het admin-token en gefilterd op het eigen Plex-id van elk account — de manier waarop Plex kijkgedrag daadwerkelijk per account bijhoudt. Werkt nu hetzelfde voor vriendenaccounts en Home-beheerde profielen, in plaats van twee gescheiden paden.
-
-## v1.13.23 — Augustus 2026
-
-### Meer detail in het Plex-kijksync-logboek, om een echte verdachte op te sporen
-
-- **Gewijzigd**: nadat v1.13.22 logging per account toevoegde, liet een eerste echte run zien dat alle gekoppelde vriendenaccounts exact dezelfde kijkcijfers rapporteerden — het loont om dit te onderzoeken in plaats van het klakkeloos te vertrouwen. De logregel toont nu ook het Plex-account-id en een korte, niet-geheime vingerafdruk van het token per account, om te bevestigen of het echt om verschillende Plex-identiteiten gaat voordat de verkeerde oorzaak wordt achtervolgd.
+- **Opgelost**: elk gekoppeld vriendenaccount had wel degelijk een echte, eigen, onderscheiden Plex-identiteit en token — toch synchroniseerden ze allemaal exact dezelfde cijfers als het account dat de server bezit. Grondoorzaak bevestigd aan de hand van het gedocumenteerde gedrag van Plex zelf: de endpoints die worden gebruikt om de kijkstatus te synchroniseren, geven de `viewCount` terug vanuit het perspectief van de servereigenaar alleen, ongeacht welk geldig account-token de aanvraag doet — geen enkele request-header kan dat veranderen. De kijkstatussynchronisatie gebruikt nu het sessiegeschiedenis-endpoint van Plex, bevraagd met het admin-token en gefilterd op het eigen Plex-id van elk account — de manier waarop Plex kijkgedrag daadwerkelijk per account bijhoudt — en werkt nu hetzelfde voor vriendenaccounts en Home-beheerde profielen, in plaats van twee gescheiden paden.
 
 ## v1.13.22 — Augustus 2026
 

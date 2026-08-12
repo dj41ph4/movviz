@@ -5,6 +5,7 @@ export const DASHBOARD_WIDGET_IDS = [
   "missingEpisodes",
   "available",
   "downloading",
+  "searching",
   "missing",
   "episodesAvailable",
 ] as const;

@@ -4,6 +4,30 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.37 — August 2026
+
+### Titles stuck "searching" gave the "Downloading" tile a nonzero count with nothing there to explain it
+
+- **Added**: instead of just no longer counting "searching" items as downloading (last release), they now get their own dedicated "Recherche en cours" dashboard tile — so that number doesn't just disappear, it moves to where it actually belongs.
+
+---
+
+## v1.13.36 — August 2026
+
+### The "Downloading" dashboard tile could show a nonzero count with nothing actually downloading
+
+- **Fixed**: the tile counted episodes/movies still "searching" (actively looking for a release, no torrent grabbed yet) as if they were downloading. Confirmed live: a whole season stuck in "searching" with no active torrent inflated the count to 9 while zero downloads were actually running. The tile now only counts items with a real active download.
+
+### A title's play button could disappear entirely with no explanation
+
+- **Fixed**: the watch button on a title page was gated entirely on Plex having already linked the file — a file Movviz already has ready, but that Plex hasn't scanned into its own library yet (a normal async timing gap), showed no button at all instead of something explaining the wait. It now shows a clearly disabled placeholder with a tooltip instead of vanishing.
+
+### Two unrelated title-page buttons shared the exact same icon
+
+- **Fixed**: "manage versions" and "view saga/collection" both used the same stack icon, confusing on a title that has both. The collection link now uses a visually distinct icon.
+
+---
+
 ## v1.13.35 — August 2026
 
 ### Beta Player: Dolby Digital+ direct play lost its sound after a recent update
@@ -63,29 +87,13 @@ All notable changes to Movviz, grouped by development milestone.
 - **Changed**: the ranking numeral behind each Top-10 card in the "Tendances" row sat too far under the poster, leaving only a sliver visible to the left. It now overlaps far less — most of the number is visible to the left of the card, with just its trailing edge tucked behind, per feedback.
 - **Changed**: the "Tendances" row now shows first on the dashboard, above "Ajouts récents", per feedback.
 
-### The duplicate-detection guard still misfired on same-franchise featurettes — now requires an exact title match
+### Collection "download missing" could grab the wrong title instead of the actually missing one
 
-- **Fixed**: v1.13.27's fix wasn't tight enough either — confirmed live on a different franchise: a real feature film could still get silently confused with an unrelated 30-minute promotional featurette from the same franchise (a "35mm Special" documentary, one year off from the actual film and with an extra title suffix), because the underlying matcher was built for a different job — fuzzy-matching a scene release's mangled filename against an official title — and was never a good fit for "is this literally the same TMDb entry duplicated." This duplicate check no longer uses that fuzzy matcher at all: it now requires the title (once accents/punctuation/case are normalized) AND the release year to match exactly on both sides, not just closely.
+- **Fixed**: two compounding bugs, both confirmed live across several collections. First, the button computed which titles were missing from a shared, app-wide cached library/collection snapshot that could be stale with nothing visibly wrong on screen — both the library and the collection's part list are now re-fetched fresh right before downloading. Second, and the more consequential one: a duplicate-detection guard meant to catch TMDb listing the same released film under two ids used fuzzy title matching with no real year requirement — it could silently reuse an unrelated, already-owned entry for an unconfirmed franchise placeholder, or confuse a real film with a same-franchise featurette a year off with an extra title suffix. That guard now requires an exact normalized title AND an exact, confirmed release year on both sides before ever trusting a match.
 
-### Found the real cause of the collection "download missing" bug — a duplicate-detection guard, not caching
+### Friend accounts were all getting the server owner's own Plex watch history
 
-- **Fixed**: the actual root cause of the last two releases' bug was never caching at all. Adding a genuinely new movie already correctly asked for the right title — but a duplicate-prevention check (meant to catch TMDb listing the same already-released film under two different ids) silently treated an unconfirmed, not-yet-released placeholder entry (e.g. an "Untitled [Franchise] Sequel" stub with no year yet) as a title match for an unrelated, already-owned earlier entry in the same franchise, and quietly reused that existing entry instead of adding the new one — confirmed live: a real add for a new movie became a silent no-op on the wrong existing title, with a success response that masked it. That guard now requires a real, confirmed release year on both sides before trusting a title match, instead of treating "no year yet" as "close enough."
-
-### v1.13.25's fix for collection "download missing" wasn't enough — the collection's own part list could be just as stale
-
-- **Fixed**: re-verified live and the previous fix didn't fully hold — re-fetching only the library snapshot before downloading still wasn't enough, because the collection's own list of parts (from the same shared app-wide cache) could be equally stale. Both are now re-fetched fresh together right before the download loop, instead of only one side of the comparison.
-
-### "Download missing" on a collection page could grab an already-owned title instead of the genuinely missing one
-
-- **Fixed**: a collection page's "Télécharger N manquant(s)" button computed which titles were missing from a shared, app-wide cached snapshot of your library — one that can render instantly from an earlier page's data instead of the true current state, with nothing visibly wrong on screen. Confirmed live across several collections: the button could add a title you already owned while the actually-missing one went untouched, silently. It now re-checks your library fresh, right before downloading, instead of trusting that snapshot.
-
-### Friend accounts were all getting the server owner's own watch history — found the actual Plex API cause and fixed it
-
-- **Fixed**: v1.13.23's diagnostic detail proved every linked friend account carried a genuinely distinct Plex identity and token — yet all of them synced the exact same watch counts as the account that owns the server. Root cause confirmed against Plex's own documented behavior: the endpoints used to sync watch status report `viewCount` from the server owner's perspective only, regardless of which valid account's token makes the request — no request header can change that. Watch-status sync now uses Plex's session-history endpoint instead, queried with the admin token and filtered by each account's own Plex id — the way Plex actually tracks per-account viewing. Works the same for friend accounts and Home-managed profiles now, instead of two separate paths.
-
-### More detail in the Plex watch-sync log, to track down a real one
-
-- **Changed**: after v1.13.22 added per-account sync logging, a first real run showed every linked friend account reporting the exact same watch counts — worth investigating rather than trusting at face value. The log line now also names the Plex account id and a short, non-secret token fingerprint per account, to confirm whether these are genuinely distinct Plex identities before chasing the wrong cause.
+- **Fixed**: every linked friend account carried a genuinely distinct Plex identity and token, yet all of them synced the exact same watch counts as the account that owns the server. Root cause confirmed against Plex's own documented behavior: the endpoints used to sync watch status report `viewCount` from the server owner's perspective only, regardless of which valid account's token makes the request — no request header can change that. Watch-status sync now uses Plex's session-history endpoint instead, queried with the admin token and filtered by each account's own Plex id — the way Plex actually tracks per-account viewing — working the same for friend accounts and Home-managed profiles now, instead of two separate paths.
 
 ## v1.13.22 — August 2026
 
