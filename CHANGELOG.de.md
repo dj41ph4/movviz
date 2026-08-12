@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.35 — August 2026
+
+### Beta-Player: Die Direktwiedergabe in Dolby Digital+ hatte nach einem kürzlichen Update den Ton verloren
+
+- **Behoben**: das Anti-Stille-Sicherheitsnetz (das die tatsächlich dekodierte Audioenergie einige Sekunden lang zu Beginn der Direktwiedergabe überwacht und bei anhaltender Stille auf ein Transkodieren umschaltet) erfasst den Ton über einen an das Video-Element angeschlossenen Web-Audio-Graphen — nur dass AC-3/E-AC-3 (Dolby Digital/Digital+) außerhalb der Rendering-Engine dekodiert wird, sodass dieser Graph diesen Ton schlicht niemals beobachten kann. Das Sicherheitsnetz löste daher bei diesen beiden Codecs systematisch fälschlich aus und erzwang eine Audio-Transkodierung, obwohl die Direktwiedergabe von Anfang an tatsächlich Ton hatte. Eine kürzliche Version hat den manuellen Button „erneut direkt starten" auf denselben Codepfad wie den ersten automatischen Versuch vereinheitlicht, wodurch dieser zuvor seltene Grenzfall systematisch wurde. AC-3/E-AC-3-Spuren sind jetzt vollständig von diesem Sicherheitsnetz ausgenommen — die Direktwiedergabe bleibt direkt, mit echtem Ton, genau wie zuvor.
+
 ## v1.13.34 — August 2026
 
 ### Dieselbe Benachrichtigung konnte tagelang für bereits verfügbare Inhalte weiter erscheinen

@@ -168,6 +168,24 @@ export function isAudioMseTransmuxable(codec: string, caps: CodecCapabilities): 
   return false;
 }
 
+/**
+ * AC-3/E-AC-3 are decoded outside the render engine (system/Dolby decoder,
+ * not exposed as PCM the renderer can read) — a Web Audio tap on the
+ * `<video>` element structurally cannot observe this audio at all, so the
+ * silent-audio safety net (see silentAudioDetector.ts) is guaranteed to
+ * misfire on these two codecs specifically, not just occasionally. Direct
+ * play already confirmed working live on every Dolby file tested — the
+ * safety net's real purpose (catching a genuinely broken default track) is
+ * a threat the browser's own AC-3/E-AC-3 support probe already screens for
+ * upstream, so skipping the net here removes a guaranteed false positive,
+ * not a real protection.
+ */
+export function isDolbyPassthroughCodec(codec: string | null | undefined): boolean {
+  if (!codec) return false;
+  const c = codec.toLowerCase();
+  return c.includes("eac3") || c === "ec-3" || c.includes("ac3") || c === "ac-3" || c.includes("dolby");
+}
+
 export function isVideoCodecSupported(codec: string, caps: CodecCapabilities): boolean {
   const c = codec.toLowerCase();
   if (c.includes("hevc") || c.includes("h265") || c.includes("hev1") || c.includes("hvc1"))

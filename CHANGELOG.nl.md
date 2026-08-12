@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.35 — Augustus 2026
+
+### Beta-speler: directe afspelen in Dolby Digital+ was het geluid kwijtgeraakt na een recente update
+
+- **Opgelost**: het anti-stilte-vangnet (dat de daadwerkelijk gedecodeerde audio-energie gedurende enkele seconden aan het begin van het direct afspelen bewaakt, en overschakelt naar transcoderen als het stil blijft) vangt geluid op via een Web Audio-graaf die is aangesloten op het video-element — behalve dat AC-3/E-AC-3 (Dolby Digital/Digital+) buiten de render-engine om wordt gedecodeerd, waardoor deze graaf dat geluid domweg nooit kan waarnemen. Het vangnet werd daardoor systematisch ten onrechte geactiveerd voor deze twee codecs, wat een audio-transcodering afdwong terwijl het direct afspelen vanaf het begin wel degelijk geluid had. Een recente versie heeft de handmatige knop "opnieuw direct starten" samengevoegd met hetzelfde codepad als de eerste automatische poging, waardoor dit voorheen zeldzame randgeval systematisch werd. AC-3/E-AC-3-sporen zijn nu volledig uitgezonderd van dit vangnet — direct afspelen blijft direct, met echt geluid, precies zoals voorheen.
+
 ## v1.13.34 — Augustus 2026
 
 ### Dezelfde melding kon dagenlang blijven verschijnen voor inhoud die al beschikbaar was

@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.35 — Agosto 2026
+
+### Lettore beta: la riproduzione diretta in Dolby Digital+ aveva perso l'audio dopo un aggiornamento recente
+
+- **Corretto**: la rete di sicurezza anti-silenzio (che monitora l'energia audio effettivamente decodificata per alcuni secondi all'inizio della riproduzione diretta, e passa a un transcoding se resta silenzio) capta l'audio tramite un grafo Web Audio collegato all'elemento video — se non che l'AC-3/E-AC-3 (Dolby Digital/Digital+) viene decodificato al di fuori del motore di rendering, quindi questo grafo non può semplicemente mai osservare quell'audio. La rete di sicurezza scattava quindi sistematicamente a torto su questi due codec, forzando un transcoding audio mentre la riproduzione diretta aveva in realtà l'audio fin dall'inizio. Una versione recente ha unificato il pulsante "riavvia in diretta" manuale sullo stesso percorso di codice del primo tentativo automatico, il che ha fatto passare questo caso limite, prima raro, a sistematico. Le tracce AC-3/E-AC-3 sono ora completamente esentate da questa rete di sicurezza — la riproduzione diretta resta diretta, con audio reale, esattamente come prima.
+
 ## v1.13.34 — Agosto 2026
 
 ### La stessa notifica poteva continuare a comparire per un contenuto disponibile da giorni

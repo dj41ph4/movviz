@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.35 — August 2026
+
+### Beta Player: Dolby Digital+ direct play lost its sound after a recent update
+
+- **Fixed**: the silent-audio safety net (which watches real decoded audio energy for a few seconds after direct play starts, and falls back to a transcode if it stays silent) taps the video element through a Web Audio graph — but AC-3/E-AC-3 (Dolby Digital/Digital+) is decoded outside the render engine, so that graph can never actually observe this audio. The net always misfired on these two codecs, guaranteeing a forced audio transcode even though direct play had real sound the whole time. A recent release unified the manual "direct play" retry button onto the same code path as the automatic first attempt, which is what made this previously-rare edge case hit consistently. AC-3/E-AC-3 tracks are now exempt from this safety net entirely — direct play stays direct, with real audio, exactly like it used to.
+
+---
+
 ## v1.13.34 — August 2026
 
 ### The same notification could keep firing for content that had been available for days

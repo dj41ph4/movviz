@@ -4,6 +4,14 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.35 — août 2026
+
+### Lecteur bêta : la lecture directe en Dolby Digital+ avait perdu le son après une mise à jour récente
+
+- **Corrigé** : le filet de sécurité anti-silence (qui surveille l'énergie audio réellement décodée pendant quelques secondes au début de la lecture directe, et bascule vers un transcodage si ça reste silencieux) capte le son via un graphe Web Audio branché sur l'élément vidéo — sauf que l'AC-3/E-AC-3 (Dolby Digital/Digital+) est décodé en dehors du moteur de rendu, donc ce graphe ne peut tout simplement jamais observer ce son-là. Le filet se déclenchait donc systématiquement à tort sur ces deux codecs, forçant un transcodage audio alors que la lecture directe avait bel et bien du son depuis le début. Une version récente a unifié le bouton "relancer en direct" manuel sur le même chemin de code que la première tentative automatique, ce qui a fait passer ce cas limite auparavant rare à systématique. Les pistes AC-3/E-AC-3 sont désormais totalement exemptées de ce filet — la lecture directe reste directe, avec du vrai son, exactement comme avant.
+
+---
+
 ## v1.13.34 — août 2026
 
 ### La même notification pouvait continuer d'apparaître pour un contenu disponible depuis des jours
