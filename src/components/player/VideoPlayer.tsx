@@ -206,8 +206,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     if (qualityMaxWidthRef.current) params.set("maxWidth", String(qualityMaxWidthRef.current));
     if (audioId) params.set("audioStreamID", audioId);
     if (subtitleId) params.set("subtitleStreamID", subtitleId);
+    const prevSid = sessionNonceRef.current;
     sessionNonceRef.current = newSessionNonce();
     params.set("sid", sessionNonceRef.current);
+    if (prevSid) params.set("prevSid", prevSid);
     const qs = params.toString();
     if (qs) url += `?${qs}`;
     setCurrentAudio(audioId);
@@ -244,8 +246,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // ta=0→ta=1 escalation) must get its own Plex session — reusing the
       // same session id is what let a stuck segment-0 error follow us from
       // attempt to attempt no matter how many "fresh" Hls instances we made.
+      // prevSid lets the server stop that old session first — this NAS's
+      // Plex only allows one active transcode job per media Part, so a
+      // brand new session id gets rejected outright while the old one is
+      // still "live" server-side.
+      const prevSid = sessionNonceRef.current;
       sessionNonceRef.current = newSessionNonce();
       let url = `${hlsUrl}?tv=${tv}&ta=${ta}&sid=${sessionNonceRef.current}`;
+      if (prevSid) url += `&prevSid=${prevSid}`;
       if (audioStreamIdRef.current) url += `&audioStreamID=${audioStreamIdRef.current}`;
       if (qualityMaxWidthRef.current) url += `&maxWidth=${qualityMaxWidthRef.current}`;
       if (extraParams) url += `&${extraParams}`;

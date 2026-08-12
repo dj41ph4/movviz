@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.42 — August 2026
+
+### Beta Player: v1.13.41's per-attempt Plex session ids were rejected outright — this NAS's Plex allows only one live transcode job per file
+
+- **Fixed**: confirmed live — giving every retry/fallback its own Plex session id (v1.13.41) stopped the old bug (retries silently hitting a stuck session) but exposed a different limit: this server's Plex flatly refuses to start a second, genuinely new transcode session for a file that already has one registered, even one the player walked away from without formally ending it — every such request came back `400 Bad Request` instantly, no spin-up, no segments, nothing. The previous session is now explicitly stopped before a new one is requested, freeing the slot Plex needs before it will accept the next attempt.
+
+---
+
 ## v1.13.41 — August 2026
 
 ### Beta Player: audio-copy retries and the fallback to a real transcode were silently hitting the same stuck Plex session every time

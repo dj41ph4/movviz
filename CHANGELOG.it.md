@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.42 — Agosto 2026
+
+### Lettore beta: gli identificatori di sessione Plex distinti per tentativo della v1.13.41 venivano rifiutati a priori — questo NAS autorizza un solo job di transcodifica attivo per file
+
+- **Corretto**: confermato dal vivo — dare a ogni tentativo un identificatore di sessione Plex proprio (v1.13.41) ha risolto il vecchio bug (i tentativi che ricadevano in silenzio su una sessione bloccata) ma ne ha rivelato un altro: il Plex di questo server rifiuta categoricamente di avviare una seconda sessione di transcodifica realmente nuova per un file che ne ha già una registrata, anche una che il lettore ha abbandonato senza terminarla correttamente — ciascuna di queste richieste tornava istantaneamente con un `400 Bad Request`, senza avvio, senza segmento, nulla. La vecchia sessione viene ora esplicitamente interrotta prima che ne venga richiesta una nuova, liberando lo spazio di cui Plex ha bisogno prima di accettare il tentativo successivo.
+
 ## v1.13.41 — Agosto 2026
 
 ### Lettore beta: i tentativi di copia audio e il ripiego verso una vera transcodifica ricadevano sempre in silenzio sulla stessa sessione Plex bloccata

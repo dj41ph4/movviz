@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.42 — August 2026
+
+### Beta-Player: die pro Versuch eindeutigen Plex-Sitzungs-IDs aus v1.13.41 wurden grundsätzlich abgelehnt — dieses NAS erlaubt nur einen aktiven Transcodierungs-Job pro Datei
+
+- **Behoben**: live bestätigt — jedem Versuch eine eigene Plex-Sitzungs-ID zu geben (v1.13.41) behob den alten Fehler (Versuche, die still auf eine blockierte Sitzung zurückfielen), deckte aber einen neuen auf: Der Plex dieses Servers weigert sich kategorisch, eine wirklich neue zweite Transcodierungs-Sitzung für eine Datei zu starten, die bereits eine registrierte hat — selbst eine, die der Player abgebrochen hat, ohne sie sauber zu beenden. Jede dieser Anfragen kam sofort mit `400 Bad Request` zurück, ohne Start, ohne Segment, nichts. Die alte Sitzung wird jetzt explizit beendet, bevor eine neue angefordert wird, wodurch der Platz frei wird, den Plex braucht, um den nächsten Versuch zu akzeptieren.
+
 ## v1.13.41 — August 2026
 
 ### Beta-Player: Versuche, den Ton zu kopieren, und der Rückfall auf eine echte Transcodierung fielen bei derselben blockierten Plex-Sitzung immer wieder still zurück

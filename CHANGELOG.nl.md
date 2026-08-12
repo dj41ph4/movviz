@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.42 — Augustus 2026
+
+### Bèta-speler: de per-poging Plex-sessie-identifiers van v1.13.41 werden domweg afgewezen — deze NAS staat maar één actieve hercoderingstaak per bestand toe
+
+- **Opgelost**: live bevestigd — een eigen sessie-identifier per poging (v1.13.41) meegeven, verhielp de oude bug (pogingen die stilzwijgend terugvielen op een geblokkeerde sessie), maar bracht een andere aan het licht: de Plex van deze server weigert categorisch een tweede, werkelijk nieuwe hercoderingssessie te starten voor een bestand dat er al één geregistreerd heeft staan — zelfs een sessie die de speler zonder nette afsluiting had verlaten. Elke zo'n aanvraag kwam meteen terug met een `400 Bad Request`, zonder start, zonder segment, niets. De oude sessie wordt nu expliciet gestopt voordat een nieuwe wordt aangevraagd, zodat de ruimte vrijkomt die Plex nodig heeft voordat het de volgende poging accepteert.
+
 ## v1.13.41 — Augustus 2026
 
 ### Bèta-speler: pogingen tot audiokopie en de terugval naar echte hercodering bleven altijd stilzwijgend hangen op dezelfde geblokkeerde Plex-sessie
