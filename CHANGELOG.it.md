@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.31 — Agosto 2026
+
+### Un percorso file valido poteva essere sovrascritto silenziosamente dalla visione di Plex del file system
+
+- **Corretto**: a ogni sincronizzazione con Plex, un percorso file già corretto e funzionante per un film o un episodio poteva essere sovrascritto dal percorso così come lo riporta Plex stesso. Quando Plex e Movviz girano in container separati con punti di montaggio diversi per gli stessi file fisici, il percorso riportato da Plex non esiste dal punto di vista del file system di Movviz — un percorso perfettamente funzionante diventava quindi silenziosamente rotto, inondando "Ripara i percorsi" di falsi positivi per titoli che in realtà non avevano mai avuto alcun problema. Movviz ora apprende automaticamente la corrispondenza tra il modo in cui Plex vede i percorsi e il proprio — confrontando, per un titolo già tracciato correttamente, il proprio percorso verificato funzionante con ciò che Plex riporta per quello stesso identico titolo — e traduce i futuri rapporti di Plex attraverso questa mappatura appresa invece di fidarsi ciecamente. Nessuna schermata di impostazioni, nessuna configurazione manuale: Movviz deduce da solo la corrispondenza a partire da dati che già conosce con certezza. Un percorso viene scritto solo se verificato presente su disco in anticipo — una mappatura errata o obsoleta può nella peggiore delle ipotesi produrre una falsa segnalazione "mancante" (recuperabile a mano), mai una perdita silenziosa del riferimento a un file reale.
+
 ## v1.13.30 — Agosto 2026
 
 ### "Ripara i percorsi" poteva suggerire centinaia di file totalmente scorrelati come candidati

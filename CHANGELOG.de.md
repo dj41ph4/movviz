@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.31 — August 2026
+
+### Ein gültiger Dateipfad konnte stillschweigend durch Plex' Sicht des Dateisystems überschrieben werden
+
+- **Behoben**: bei jeder Plex-Synchronisierung konnte ein bereits korrekter und funktionierender Dateipfad für einen Film oder eine Episode durch den von Plex selbst gemeldeten Pfad überschrieben werden. Wenn Plex und Movviz in getrennten Containern mit unterschiedlichen Mount-Punkten für dieselben physischen Dateien laufen, existiert der von Plex gemeldete Pfad aus Sicht des Dateisystems von Movviz nicht — ein einwandfrei funktionierender Pfad wurde dadurch stillschweigend kaputt, was „Pfade reparieren" mit Fehlalarmen für Titel überschwemmte, die eigentlich nie ein Problem hatten. Movviz lernt jetzt automatisch die Zuordnung zwischen der Art, wie Plex Pfade sieht, und seiner eigenen — indem es für einen bereits korrekt erfassten Titel dessen eigenen, verifiziert funktionierenden Pfad mit dem vergleicht, was Plex für genau diesen Titel meldet — und übersetzt künftige Plex-Meldungen anhand dieser gelernten Zuordnung, statt ihnen blind zu vertrauen. Kein Einstellungsbildschirm, keine manuelle Konfiguration: Movviz leitet die Zuordnung selbst aus Daten ab, die es bereits mit Sicherheit kennt. Ein Pfad wird nur geschrieben, wenn zuvor überprüft wurde, dass er tatsächlich auf der Festplatte vorhanden ist — eine fehlerhafte oder veraltete Zuordnung kann im schlimmsten Fall eine falsche „fehlend"-Meldung erzeugen (manuell korrigierbar), aber niemals einen stillen Verlust des Verweises auf eine echte Datei.
+
 ## v1.13.30 — August 2026
 
 ### "Pfade reparieren" konnte Hunderte völlig unabhängiger Dateien als Kandidaten vorschlagen

@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.31 — Augustus 2026
+
+### Een geldig bestandspad kon stilzwijgend worden overschreven door Plex' kijk op het bestandssysteem
+
+- **Opgelost**: bij elke Plex-synchronisatie kon een al correct en werkend bestandspad voor een film of aflevering worden overschreven door het pad zoals Plex dat zelf rapporteert. Wanneer Plex en Movviz in aparte containers draaien met verschillende koppelpunten voor dezelfde fysieke bestanden, bestaat het door Plex gerapporteerde pad niet vanuit het bestandssysteem van Movviz gezien — een prima werkend pad ging zo stilzwijgend stuk, waardoor "Paden herstellen" overspoeld raakte met valse positieven voor titels die eigenlijk nooit een probleem hadden. Movviz leert nu automatisch de koppeling tussen hoe Plex paden ziet en hoe het dat zelf doet — door voor een titel die al correct wordt gevolgd, het eigen geverifieerd werkende pad te vergelijken met wat Plex voor precies diezelfde titel rapporteert — en vertaalt toekomstige Plex-rapportages via deze aangeleerde koppeling in plaats van ze blindelings te vertrouwen. Geen instellingenscherm, geen handmatige configuratie: Movviz leidt de koppeling zelf af uit gegevens die het al met zekerheid kent. Een pad wordt alleen weggeschreven als vooraf is geverifieerd dat het daadwerkelijk op de schijf bestaat — een verkeerde of verouderde koppeling kan in het ergste geval een vals "ontbrekend"-signaal opleveren (handmatig te herstellen), maar nooit een stil verlies van de verwijzing naar een echt bestand.
+
 ## v1.13.30 — Augustus 2026
 
 ### "Paden herstellen" kon honderden totaal ongerelateerde bestanden als kandidaten voorstellen

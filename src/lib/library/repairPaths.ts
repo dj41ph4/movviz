@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { platform } from "node:os";
 import { loadMovies, loadSeries, updateMovie, updateSeriesList } from "./store";
 import { pathFor } from "./renamePath";
+import { commonSuffixDepth } from "./pathSuffix";
 import { walkVideoFiles, engineRoots } from "./indexScan";
 import { loadNamingTemplates } from "@/lib/naming/store";
 import { renderSegment } from "@/lib/naming/render";
@@ -43,27 +44,6 @@ function dedupeByFileIdentity(paths: string[]): string[] {
     }
     return true;
   });
-}
-
-/**
- * Number of trailing path segments that the two paths share (case‑insensitive).
- * Returns 0 when the shortest‑known non‑empty suffix is shorter than 2 — it
- * takes at least a parent folder + filename to call two paths the same file.
- */
-function commonSuffixDepth(a: string, b: string, minDepth = 2): number {
-  const sep = pathFor(a).sep;
-  const aParts = a.split(sep).filter(Boolean);
-  const bParts = b.split(sep).filter(Boolean);
-  let i = aParts.length - 1;
-  let j = bParts.length - 1;
-  let depth = 0;
-  while (i >= 0 && j >= 0) {
-    if (aParts[i].toLowerCase() !== bParts[j].toLowerCase()) break;
-    depth++;
-    i--;
-    j--;
-  }
-  return depth >= minDepth ? depth : 0;
 }
 
 /**

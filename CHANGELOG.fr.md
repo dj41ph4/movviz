@@ -4,6 +4,14 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.31 — août 2026
+
+### Un chemin de fichier valide pouvait être silencieusement écrasé par la vision de Plex du système de fichiers
+
+- **Corrigé** : à chaque synchronisation Plex, un chemin de fichier déjà correct et fonctionnel pour un film ou un épisode pouvait être écrasé par le chemin tel que Plex lui-même le rapporte. Quand Plex et Movviz tournent dans des conteneurs séparés avec des points de montage différents pour les mêmes fichiers physiques, le chemin rapporté par Plex n'existe pas du point de vue du système de fichiers de Movviz — un chemin parfaitement fonctionnel devenait donc silencieusement cassé, inondant "Réparer les chemins" de faux positifs pour des titres qui n'avaient jamais réellement de problème. Movviz apprend désormais automatiquement la correspondance entre la façon dont Plex voit les chemins et la sienne propre — en comparant, pour un titre déjà suivi correctement, son propre chemin vérifié fonctionnel avec ce que Plex rapporte pour ce même titre exact — et traduit les rapports Plex futurs à travers ce mapping appris au lieu de leur faire confiance aveuglément. Aucun écran de réglages, aucune configuration manuelle : Movviz déduit lui-même la correspondance à partir de données qu'il connaît déjà avec certitude. Un chemin n'est écrit que s'il est vérifié présent sur le disque au préalable — un mapping erroné ou périmé peut au pire produire un faux signalement "manquant" (rattrapable à la main), jamais une perte silencieuse de la référence à un fichier réel.
+
+---
+
 ## v1.13.30 — août 2026
 
 ### "Réparer les chemins" pouvait suggérer des centaines de fichiers totalement sans rapport comme candidats

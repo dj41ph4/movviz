@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.31 — August 2026
+
+### A working file path could get silently overwritten by Plex's own view of the filesystem
+
+- **Fixed**: on every Plex sync, an already-correct, working file path for a movie or episode could be overwritten by whatever path Plex itself reports for that file. When Plex and Movviz run in separate containers with different volume mounts for the same physical media, Plex's reported path doesn't exist from Movviz's own filesystem view — so a perfectly good, working path silently turned into a broken one, flooding "Réparer les chemins" with false positives for titles that were never actually broken. Movviz now learns the correspondence between Plex's path layout and its own automatically — by comparing, for a title it already tracks correctly, its own verified working path against what Plex reports for that exact same title — and translates future Plex reports through that learned mapping instead of trusting them blindly. No settings screen, no manual configuration: it deduces the mapping itself from data it already knows for certain. A path is only ever written if it's independently verified to exist on disk first — a wrong or stale mapping can at worst produce a false "missing" flag (recoverable by hand), never a silently lost reference to a real file.
+
+---
+
 ## v1.13.30 — August 2026
 
 ### "Réparer les chemins" could suggest hundreds of completely unrelated files as candidates

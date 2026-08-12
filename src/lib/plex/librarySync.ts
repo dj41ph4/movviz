@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import { loadPlexConfig, savePlexConfig } from "./store";
 import { loadSyncState, saveSyncState } from "./syncState";
 import { getLibrarySections, getSectionItems, getShowEpisodes, getServerIdentity, refreshSection, batchTmdbIds } from "./client";
@@ -11,6 +12,8 @@ import type { LibraryFile, LibraryFileVersion, LibraryMovie, LibrarySeason, Libr
 import { episodeStatus } from "@/lib/library/releaseSchedule";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
+import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
+import { learnPathMapping, applyLearnedPathMapping } from "./pathMappingStore";
 
 // A run does hundreds of sequential awaited TMDb/Plex calls, so two overlapping
 // triggers (manual + scheduled, or a double click) would otherwise interleave
@@ -103,6 +106,54 @@ function toLibraryFile(plex: PlexLibraryItem): LibraryFile | null {
 }
 
 /**
+ * Reconciles a tracked file's recorded path against what Plex reports for
+ * the SAME library entry — this is what protects a working, Movviz-owned
+ * path from being clobbered by Plex's own filesystem view (separate
+ * containers, different volume mounts for the same physical media).
+ *
+ * When the existing path still verifies on disk, Plex's raw report is only
+ * ever used to LEARN a prefix mapping (via the shared suffix-match logic
+ * repairPaths.ts already uses) — never to overwrite directly. Every write
+ * of a translated path, existing or brand-new, is gated on
+ * `fs.existsSync(mapped)` first: a wrong or stale mapping must never
+ * silently store a path to nothing — the worst acceptable outcome is a
+ * false "missing" flag in Réparer les chemins, recoverable by hand.
+ */
+export function reconcileFilePath(existingPath: string | null | undefined, plexPath: string): string {
+  const existingVerified = !!existingPath && fs.existsSync(existingPath);
+
+  if (existingVerified && existingPath !== plexPath) {
+    const depth = commonSuffixDepth(existingPath!, plexPath);
+    if (depth > 0) {
+      const { prefix: movvizPrefix } = splitAtSuffixDepth(existingPath!, depth);
+      const { prefix: plexPrefix } = splitAtSuffixDepth(plexPath, depth);
+      learnPathMapping(plexPrefix, movvizPrefix);
+    }
+  }
+
+  if (existingVerified) {
+    const mapped = applyLearnedPathMapping(plexPath);
+    if (mapped !== existingPath && fs.existsSync(mapped)) return mapped;
+    return existingPath!;
+  }
+
+  // Fresh Plex-only item (never downloaded by Movviz itself, e.g. a plain
+  // library import) — apply any mapping already learned from other titles,
+  // but only if the translated path itself verifies; an unverified guess is
+  // worse than storing Plex's raw (unmapped) path, today's exact behavior.
+  const mapped = applyLearnedPathMapping(plexPath);
+  if (mapped !== plexPath && fs.existsSync(mapped)) return mapped;
+  return plexPath;
+}
+
+function toLibraryFileReconciled(plex: PlexLibraryItem, existingPath: string | null | undefined): LibraryFile | null {
+  const file = toLibraryFile(plex);
+  if (!file) return null;
+  file.path = reconcileFilePath(existingPath, file.path);
+  return file;
+}
+
+/**
  * Merges Plex's `mediaVersions` (LOT6.4 — one entry per `<Media>` Plex
  * reports for this item) into the movie's own `versions[]`, matched by
  * `path` so a version Movviz already knows about keeps its id/history
@@ -125,8 +176,14 @@ function mergePlexVersions(existing: LibraryMovie, item: PlexLibraryItem): { fil
   if (existing.versions === undefined && existing.file) priorByPath.set(existing.file.path, { ...existing.file, id: "legacy_primary", versionSource: "unknown", reason: "Acquisition initiale", primary: true });
 
   const versions: LibraryFileVersion[] = item.mediaVersions.map((v, i) => {
-    const prior = priorByPath.get(v.file.path);
+    // Look up by the raw Plex path first (matches today's behavior when no
+    // mapping has been learned yet), falling back to the mapped path so a
+    // version stored translated in a previous run is still recognized.
+    const mappedRawPath = applyLearnedPathMapping(v.file.path);
+    const prior = priorByPath.get(v.file.path) ?? priorByPath.get(mappedRawPath);
     priorByPath.delete(v.file.path);
+    priorByPath.delete(mappedRawPath);
+    const resolvedPath = reconcileFilePath(prior?.path, v.file.path);
     const versionLang = prior?.language ?? (i === 0 && item.mediaDetail
       ? detectFileLanguage({
           path: v.file.path,
@@ -141,7 +198,7 @@ function mergePlexVersions(existing: LibraryMovie, item: PlexLibraryItem): { fil
         } as LibraryFile, item.mediaDetail)
       : undefined);
     return {
-      path: v.file.path,
+      path: resolvedPath,
       quality: v.file.resolution ?? prior?.quality ?? "",
       resolution: v.file.resolution,
       videoCodec: v.videoCodec,
@@ -205,8 +262,8 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
   for (const item of items) {
     if (item.tmdbId == null) continue;
     seenTmdbIds.add(item.tmdbId);
-    const file = toLibraryFile(item);
     const existing = getMovieByTmdbId(item.tmdbId);
+    const file = toLibraryFileReconciled(item, existing?.file?.path);
 
     if (existing) {
       const patch: Partial<LibraryMovie> = {};
@@ -235,7 +292,7 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
     const initialVersions: LibraryFileVersion[] | undefined = item.mediaVersions?.length
       ? item.mediaVersions.map((v, i) => {
           const base = {
-            path: v.file.path,
+            path: reconcileFilePath(null, v.file.path),
             quality: v.file.resolution ?? "",
             resolution: v.file.resolution,
             videoCodec: v.videoCodec,
@@ -319,7 +376,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
             airDate: e.airDate,
             monitored: monitoredByDefault,
             status: plexEp ? "available" : episodeStatus(e.airDate, e.title),
-            file: plexEp ? toLibraryFile(plexEp) : null,
+            file: plexEp ? toLibraryFileReconciled(plexEp, null) : null,
             activeInfoHash: null,
             plexRatingKey: plexEp?.ratingKey ?? null,
           };
@@ -379,7 +436,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
           const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {
-              return { ...ep, status: "available" as const, file: toLibraryFile(plexEp) ?? ep.file, plexRatingKey: plexEp.ratingKey };
+              return { ...ep, status: "available" as const, file: toLibraryFileReconciled(plexEp, ep.file?.path) ?? ep.file, plexRatingKey: plexEp.ratingKey };
             }
             return ep;
           }
