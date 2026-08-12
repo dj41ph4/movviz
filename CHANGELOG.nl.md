@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.40 — Augustus 2026
+
+### Bèta-speler: directe weergave kon een ruwe MKV serveren waarvan de browser de audiotrack nooit decodeerde
+
+- **Opgelost**: live bevestigd — een ruwe MKV die ongewijzigd van Plex naar de browser werd doorgegeven, kon het beeld perfect afspelen terwijl `webkitAudioDecodedByteCount` de hele weergave lang op nul bleef staan, zonder enige foutmelding, gewoon stilte. Wanneer directe weergave overschakelt naar de HLS-terugval voor een track die hls.js daadwerkelijk kan demultiplexen vanuit MPEG-TS (AAC/MP3/AC-3), vraagt de speler nu een verliesvrije audiokopie aan — dezelfde herverpakking die de Plex-client zelf krijgt, zonder extra kosten voor de server — en controleert aan de hand van de daadwerkelijk gedecodeerde audio-energie, waarbij pas naar echte hercodering wordt overgeschakeld als die kopie echt stil blijft. De browser-codecondersteuningstest waarvan deze beslissing afhing, is verwijderd; die leverde valse negatieven op die onnodige hercoderingen afdwongen. E-AC-3/DTS/TrueHD gaan nog steeds direct naar echte transcodering — de MPEG-TS-demultiplexer van hls.js heeft simpelweg geen parser voor deze formaten, een echte beperking van de bibliotheek, geen aanname.
+- **Opgelost**: Movviz stuurde de header `X-Plex-Session-Identifier` nooit mee bij enige Plex-aanvraag, in tegenstelling tot een echte Plex-client — toegevoegd op het volledige streaming-/transcoderingsaanvraagpad.
+
 ## v1.13.39 — Augustus 2026
 
 ### Een instelling toegevoegd om YouTube-zoeken voor trailers in te schakelen — standaard uitgeschakeld, wat verklaart waarom ze in het Engels bleven

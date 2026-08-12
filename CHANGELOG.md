@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.40 — August 2026
+
+### Beta Player: direct play could serve a raw MKV whose audio track the browser never decoded
+
+- **Fixed**: confirmed live — a raw MKV piped straight from Plex to the browser could play video perfectly while `webkitAudioDecodedByteCount` stayed at zero for the entire playback, no error, just silence. When direct play falls back to the HLS leg for a track hls.js can genuinely demux from MPEG-TS (AAC/MP3/AC-3), the player now requests a lossless audio copy — the same repackaging Plex's own client gets, at no extra cost to the server — and verifies with real decoded audio energy, escalating to an actual re-encode only if that copy genuinely stays silent. The browser codec-support probe this used to depend on for that decision is gone; it was producing false negatives that forced unnecessary re-encodes. E-AC-3/DTS/TrueHD still go straight to a real transcode — hls.js's own MPEG-TS demuxer has no parser for those at all, a real library limit, not a guess.
+- **Fixed**: Movviz never sent `X-Plex-Session-Identifier` on any Plex request, unlike a native Plex client — added throughout the streaming/transcode request path.
+
+---
+
 ## v1.13.39 — August 2026
 
 ### Added an opt-in toggle for YouTube trailer search — off by default explains why trailers stayed in English

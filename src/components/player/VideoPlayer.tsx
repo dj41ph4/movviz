@@ -108,6 +108,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const startDirectRef = useRef<((seekTo?: number, expectAudio?: boolean) => void) | null>(null);
   const transcodeVideoRef = useRef(true);
   const transcodeAudioRef = useRef(true);
+  // Loop-guard: once the HLS-leg's ta=0 (copy) attempt has been live-verified
+  // silent and escalated to ta=1 once, never retry ta=0 again for this
+  // playback session — prevents a silent-copy → escalate → silent-copy loop.
+  const hlsCopyEscalatedRef = useRef(false);
   const transcodeModeRef = useRef<"auto" | "audio" | "video" | "full">("auto");
   const codecCapsRef = useRef<CodecCapabilities | null>(null);
   const audioStreamIdRef = useRef<string | null>(null);
@@ -171,7 +175,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // transcode audio (hls.js can't transmux them from TS), never copy
       const track = audioStreams.find((s) => s.id === audioId);
       const trackCodec = track?.codec ?? infoRef.current?.audioCodec;
-      if (trackCodec && (!codecCapsRef.current || !isAudioMseTransmuxable(trackCodec, codecCapsRef.current))) {
+      if (trackCodec && !isAudioMseTransmuxable(trackCodec)) {
         ta = "1";
       } else {
         ta = transcodeAudioRef.current ? "1" : "0";
@@ -224,6 +228,25 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       if (hlsRef.current) {
         try { hlsRef.current.destroy(); } catch { /* ignore */ }
         hlsRef.current = null;
+      }
+
+      // ta=0 here means Plex is asked to remux (repackage the container,
+      // e.g. MKV → MPEG-TS) without touching the audio bitstream — the same
+      // "copy" Plex's own client gets, cheap for the NAS. Whether hls.js/the
+      // browser actually renders it is unknown until real audio is playing,
+      // so watch decoded energy exactly like the direct-play leg and
+      // escalate to a real ta=1 transcode only on a genuine, live silence —
+      // never a second guess baked into the request itself.
+      const attemptingHlsAudioCopy = mode === "auto" && ta === "0" && !hlsCopyEscalatedRef.current;
+      if (attemptingHlsAudioCopy) {
+        stopSilentWatchRef.current?.();
+        stopSilentWatchRef.current = watchForSilentAudio(el, () => {
+          if (hlsCopyEscalatedRef.current) return;
+          hlsCopyEscalatedRef.current = true;
+          transcodeAudioRef.current = true;
+          fallbackGuardRef.current = false;
+          startHlsRef.current?.();
+        });
       }
 
       if (Hls.isSupported()) {
@@ -368,6 +391,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
 
     const begin = async (seekTo?: number) => {
       setBuffering(true);
+      hlsCopyEscalatedRef.current = false;
       // Reset the engine badge — begin() can re-run (resume-with-seek) and
       // the previous run's engine may differ from this one.
       setDirectMode(false);
@@ -418,7 +442,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
               (t) =>
                 t.id !== selAudio?.id &&
                 !!t.codec &&
-                isAudioMseTransmuxable(t.codec, caps)
+                isAudioMseTransmuxable(t.codec)
             )
             .sort((a, b) => scoreAudioTrack(b, prefLang) - scoreAudioTrack(a, prefLang))[0];
           if (fallback?.codec) {
@@ -433,9 +457,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         // Always compute individual codec flags (feeds the fallback leg's
         // transcode-mode badges/menu regardless of how it was reached).
         transcodeVideoRef.current = info.videoCodec ? !isVideoCodecSupported(info.videoCodec, caps) : false;
-        // HLS gate: ta=0 (copy) ONLY for codecs hls.js can transmux from TS.
+        // HLS gate: ta=0 (copy) for any codec hls.js's TS demuxer structurally
+        // supports (AAC/MP3/AC-3) — a fixed library fact, not a browser probe.
         // E-AC3/DTS/TrueHD/FLAC/Opus in HLS → transcode to AAC, never copy.
-        transcodeAudioRef.current = effectiveAudioCodec ? !isAudioMseTransmuxable(effectiveAudioCodec, caps) : false;
+        // Whether the browser actually renders the copied track is verified
+        // live by startHls's silent-audio watch below, same as direct play.
+        transcodeAudioRef.current = effectiveAudioCodec ? !isAudioMseTransmuxable(effectiveAudioCodec) : false;
 
         // Direct play is now the unconditional first attempt — the manual
         // "lightning bolt" button and this automatic path are the same

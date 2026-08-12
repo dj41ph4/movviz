@@ -11,7 +11,16 @@
 
 export const PLEX_UNIVERSAL_BASE = "/video/:/transcode/universal";
 
-export function plexClientHeaders(token: string, clientId: string): Record<string, string> {
+/**
+ * `sessionId` maps to X-Plex-Session-Identifier — real Plex clients send this
+ * stable per-playback value on the transcode-start request AND every segment/
+ * playlist fetch that follows, so Plex can attribute the whole run to one
+ * viewer/session (priority, "now playing" state). Movviz was omitting it
+ * entirely on every request — harmless for correctness (the transcode job
+ * still runs, keyed off the `session` query param) but a real divergence
+ * from how a native client talks to the same server, worth closing.
+ */
+export function plexClientHeaders(token: string, clientId: string, sessionId?: string): Record<string, string> {
   return {
     "x-plex-token": token,
     "x-plex-client-identifier": clientId,
@@ -23,7 +32,22 @@ export function plexClientHeaders(token: string, clientId: string): Record<strin
     "x-plex-device-name": "Movviz",
     "x-plex-model": "bundled",
     accept: "application/json",
+    ...(sessionId ? { "x-plex-session-identifier": sessionId } : {}),
   };
+}
+
+/**
+ * Plex's rewritten HLS URIs embed its own transcode-job id as the segment
+ * after "session" (e.g. /video/:/transcode/universal/session/{id}/base/...).
+ * Reusing that exact id as X-Plex-Session-Identifier on the proxied
+ * segment/playlist fetches — rather than inventing a second, unrelated one —
+ * keeps every request for this job self-consistent with what Plex itself
+ * already named it.
+ */
+export function extractPlexSessionId(pathSegments: string[]): string | undefined {
+  const idx = pathSegments.indexOf("session");
+  if (idx === -1 || idx + 1 >= pathSegments.length) return undefined;
+  return pathSegments[idx + 1];
 }
 
 /**

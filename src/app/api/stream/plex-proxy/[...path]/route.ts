@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { safePlexUrl } from "@/lib/plex/safeUrl";
 import { getStreamCacheTtl } from "@/lib/settings/betaPlayer";
-import { plexClientHeaders, rewriteM3u8 } from "@/lib/player/plexStream";
+import { plexClientHeaders, rewriteM3u8, extractPlexSessionId } from "@/lib/player/plexStream";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   const plexUrl = `${base}${plexPath}${qs.toString() ? `?${qs.toString()}` : ""}`;
 
   const plexHeaders: Record<string, string> = {
-    ...plexClientHeaders(token, clientId),
+    ...plexClientHeaders(token, clientId, extractPlexSessionId(path)),
   };
   const range = req.headers.get("range");
   if (range) plexHeaders["range"] = range;

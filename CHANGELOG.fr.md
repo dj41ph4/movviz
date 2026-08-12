@@ -4,6 +4,15 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.40 — août 2026
+
+### Lecteur bêta : la lecture directe pouvait servir un MKV brut dont le navigateur ne décodait jamais la piste audio
+
+- **Corrigé** : confirmé en direct — un MKV brut transmis tel quel de Plex au navigateur pouvait lire l'image parfaitement pendant que `webkitAudioDecodedByteCount` restait à zéro pendant toute la lecture, sans aucune erreur, juste du silence. Quand la lecture directe bascule vers le repli HLS pour une piste que hls.js sait vraiment démultiplexer depuis du MPEG-TS (AAC/MP3/AC-3), le lecteur demande désormais une copie audio sans perte — le même réempaquetage que le client Plex lui-même obtient, sans coût supplémentaire pour le serveur — et vérifie avec l'énergie audio réellement décodée, ne basculant vers un vrai réencodage que si cette copie reste vraiment silencieuse. Le test de support codec du navigateur dont dépendait cette décision a été retiré ; il produisait des faux négatifs qui forçaient des réencodages inutiles. L'E-AC-3/DTS/TrueHD partent toujours directement en vrai transcodage — le démultiplexeur MPEG-TS de hls.js n'a tout simplement aucun analyseur pour ces formats, une vraie limite de la bibliothèque, pas une supposition.
+- **Corrigé** : Movviz n'envoyait jamais l'en-tête `X-Plex-Session-Identifier` sur aucune requête Plex, contrairement à un vrai client Plex — ajouté sur tout le chemin de requête streaming/transcodage.
+
+---
+
 ## v1.13.39 — août 2026
 
 ### Ajout d'un réglage pour activer la recherche YouTube des bandes-annonces — désactivé par défaut, ce qui explique pourquoi elles restaient en anglais

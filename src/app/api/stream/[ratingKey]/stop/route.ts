@@ -27,7 +27,7 @@ export async function POST(req: NextRequest, context: Ctx) {
         `${base}/video/:/transcode/universal/stop?session=${encodeURIComponent(sessionId)}`,
         {
           method: "GET",
-          headers: plexClientHeaders(cfg.adminToken, clientId),
+          headers: plexClientHeaders(cfg.adminToken, clientId, sessionId),
           signal: AbortSignal.timeout(5000),
         }
       );

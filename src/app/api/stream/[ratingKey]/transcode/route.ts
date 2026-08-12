@@ -78,7 +78,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   const token = cfg.adminToken;
   const clientId = `movviz-${user.id}`;
   const sessionId = `movviz-${user.id}-${ratingKey}`;
-  const headers = plexClientHeaders(token, clientId);
+  const headers = plexClientHeaders(token, clientId, sessionId);
 
   const metadataUrl = `${base}/library/metadata/${ratingKey}`;
   const metaRes = await fetch(metadataUrl, {

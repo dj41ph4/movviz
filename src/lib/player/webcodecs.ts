@@ -153,18 +153,24 @@ export async function detectCodecs(): Promise<CodecCapabilities> {
 
 /**
  * Whether hls.js can transmux this audio codec from MPEG-TS → fMP4 in the
- * HLS path. hls.js 1.6.16 demuxes AAC, MP3/MP2 and AC-3 from TS only:
+ * HLS path. This is a fixed property of the hls.js version + MPEG-TS
+ * packaging the transcode route requests (protocol=hls) — a structural fact
+ * about the library, NOT a browser capability probe. hls.js 1.6.16 demuxes
+ * AAC, MP3/MP2 and AC-3 from TS only:
  * - E-AC3 (TS stream 0x87) → explicit parsing error, track dropped → SILENT
  * - DTS/TrueHD/PCM/FLAC/Opus/Vorbis → no TS handler at all → track ignored
- * This is the ONLY gate for ta=0 (audio copy) in the HLS path. Browsers may
- * decode more (direct play), but copy means "transmux through hls.js".
+ * Whether the BROWSER can actually render a codec this says "yes" to used to
+ * also gate on MediaSource.isTypeSupported() (caps.mseAc3 etc) — dropped:
+ * confirmed live that probe reports false negatives for AC-3 that play fine
+ * in practice. That question is now answered live (watchForSilentAudio),
+ * not guessed here — mirrors the direct-play lesson from v1.12.73.
  */
-export function isAudioMseTransmuxable(codec: string, caps: CodecCapabilities): boolean {
+export function isAudioMseTransmuxable(codec: string): boolean {
   const c = codec.toLowerCase();
-  if (c.includes("aac") || c.includes("mp4a.40.2")) return caps.aac;
+  if (c.includes("aac") || c.includes("mp4a.40.2")) return true;
   if (c.includes("eac3") || c === "ec-3") return false;
-  if (c.includes("ac3") || c === "ac-3" || c.includes("dolby")) return caps.mseAc3;
-  if (c === "mp3" || c === "mp4a.40.34" || c === "mp2") return caps.mseMp3;
+  if (c.includes("ac3") || c === "ac-3" || c.includes("dolby")) return true;
+  if (c === "mp3" || c === "mp4a.40.34" || c === "mp2") return true;
   return false;
 }
 
