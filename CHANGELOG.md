@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.32 — August 2026
+
+### Downloads never showed a time remaining
+
+- **Fixed**: the queue's "temps restant" (ETA) field was only ever computed by two of the three download-engine backends — the default one (the engine actually used day to day) never passed a `timeRemaining` value through at all, so the field was always empty in the queue view. It's now computed the same way the other backends already do (remaining bytes over current speed), so an active download shows a real estimate.
+
+---
+
 ## v1.13.31 — August 2026
 
 ### A working file path could get silently overwritten by Plex's own view of the filesystem

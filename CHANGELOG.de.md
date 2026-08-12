@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.32 — August 2026
+
+### Downloads zeigten nie eine verbleibende Zeit an
+
+- **Behoben**: das Feld „verbleibende Zeit" der Warteschlange wurde nur von zwei der drei Download-Engines berechnet — die Standard-Engine (diejenige, die im Alltag tatsächlich verwendet wird) übermittelte nie einen `timeRemaining`-Wert, sodass das Feld in der Warteschlange immer leer blieb. Es wird jetzt auf dieselbe Weise berechnet, wie es die anderen Engines bereits tun (verbleibende Bytes geteilt durch die aktuelle Geschwindigkeit), sodass ein laufender Download nun eine echte Schätzung anzeigt.
+
 ## v1.13.31 — August 2026
 
 ### Ein gültiger Dateipfad konnte stillschweigend durch Plex' Sicht des Dateisystems überschrieben werden

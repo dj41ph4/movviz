@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.32 — Agosto 2026
+
+### I download non mostravano mai il tempo rimanente
+
+- **Corretto**: il campo "tempo rimanente" della coda veniva calcolato solo da due dei tre motori di download — il motore predefinito (quello effettivamente usato nella pratica quotidiana) non trasmetteva mai un valore `timeRemaining`, quindi il campo restava sempre vuoto nella coda. Ora viene calcolato allo stesso modo in cui lo fanno già gli altri motori (byte rimanenti divisi per la velocità attuale), quindi un download in corso mostra una stima reale.
+
 ## v1.13.31 — Agosto 2026
 
 ### Un percorso file valido poteva essere sovrascritto silenziosamente dalla visione di Plex del file system

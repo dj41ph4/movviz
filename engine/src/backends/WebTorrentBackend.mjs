@@ -133,6 +133,7 @@ export class WebTorrentBackend extends AbstractBackend {
       numPeers: t.numPeers,
       ratio: t.ratio ?? 0,
       done: t.done,
+      timeRemaining: t.downloadSpeed > 0 ? ((t.length - t.downloaded) / t.downloadSpeed) * 1000 : null,
       magnetURI: t.magnetURI,
       files: (t.files ?? []).map((f, i) => ({
         name: f.name, path: f.path ?? f.name, length: f.length ?? 0,

@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.32 — Augustus 2026
+
+### Downloads toonden nooit een resterende tijd
+
+- **Opgelost**: het veld "resterende tijd" van de wachtrij werd maar door twee van de drie downloadengines berekend — de standaardengine (degene die in de praktijk daadwerkelijk dagelijks wordt gebruikt) gaf nooit een `timeRemaining`-waarde door, waardoor het veld in de wachtrij altijd leeg bleef. Het wordt nu op dezelfde manier berekend als de andere engines dat al doen (resterende bytes gedeeld door de huidige snelheid), zodat een lopende download nu een echte schatting toont.
+
 ## v1.13.31 — Augustus 2026
 
 ### Een geldig bestandspad kon stilzwijgend worden overschreven door Plex' kijk op het bestandssysteem

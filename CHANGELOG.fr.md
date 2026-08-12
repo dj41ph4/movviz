@@ -4,6 +4,14 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.32 — août 2026
+
+### Les téléchargements n'affichaient jamais de temps restant
+
+- **Corrigé** : le champ "temps restant" de la file d'attente n'était calculé que par deux des trois moteurs de téléchargement — le moteur par défaut (celui réellement utilisé au quotidien) ne transmettait jamais de valeur `timeRemaining`, donc le champ restait toujours vide dans la file. Il est désormais calculé de la même façon que les autres moteurs le font déjà (octets restants divisés par la vitesse actuelle), donc un téléchargement en cours affiche une vraie estimation.
+
+---
+
 ## v1.13.31 — août 2026
 
 ### Un chemin de fichier valide pouvait être silencieusement écrasé par la vision de Plex du système de fichiers
