@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.49 — Augustus 2026
+
+### De MDE-beslissingsaanroep faalt niet langer stil — de HTTP-fouten worden gelogd
+
+- **Opgelost**: de in 1.13.48 toegevoegde `/decision`-sonde slikte fouten stil in — bij een foutstatus of onverwachte body verscheen er niets in de logs, waardoor hij als diagnostiek onbruikbaar was. Hij logt nu bij fouten de HTTP-status en de response-body (plus de opgevangen foutmelding), zodat een weigerende Plex-server precies laat zien waarom.
+
 ## v1.13.48 — Augustus 2026
 
 ### De transcode-route vraagt Plex wat het van PLAN is — de MDE-beslissing wordt gelogd vóór de sessiestart

@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.49 — August 2026
+
+### Der MDE-Entscheidungsaufruf schlägt nicht mehr still fehl — seine HTTP-Fehler werden protokolliert
+
+- **Behoben**: Die in 1.13.48 hinzugefügte `/decision`-Sonde schluckte Fehler still — bei einem Fehlerstatus oder unerwartetem Body erschien nichts in den Logs, was sie als Diagnose unbrauchbar machte. Sie protokolliert jetzt bei Fehlern den HTTP-Status und den Antwort-Body (sowie die abgefangene Fehlermeldung), sodass ein ablehnender Plex-Server genau zeigt, warum.
+
 ## v1.13.48 — August 2026
 
 ### Die Transcode-Route fragt Plex nach seinem PLAN — die MDE-Entscheidung wird vor dem Sitzungsstart protokolliert

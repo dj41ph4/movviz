@@ -4,6 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.49 — août 2026
+
+### L'appel de décision MDE n'échoue plus en silence — ses erreurs HTTP sont journalisées
+
+- **Corrigé** : la sonde `/decision` ajoutée en 1.13.48 avalait les échecs silencieusement — en cas de statut d'erreur ou de corps inattendu, rien n'apparaissait dans les journaux, ce qui la rendait inutile comme diagnostic. Elle journalise désormais le statut HTTP et le corps de réponse en cas d'échec (et le message d'erreur capté), donc un serveur Plex qui refuse montre exactement pourquoi.
+
 ## v1.13.48 — août 2026
 
 ### La route transcode interroge Plex sur son PLAN d'exécution — la décision du MDE est journalisée avant le démarrage de session

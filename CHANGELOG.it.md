@@ -4,6 +4,12 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.49 — Agosto 2026
+
+### La chiamata di decisione MDE non fallisce più in silenzio — i suoi errori HTTP vengono registrati
+
+- **Corretto**: la sonda `/decision` aggiunta in 1.13.48 inghiottiva gli errori silenziosamente — in caso di stato di errore o corpo inatteso non appariva nulla nei log, rendendola inutile come diagnostica. Ora registra lo stato HTTP e il corpo della risposta in caso di errore (e il messaggio di errore catturato), quindi un server Plex che rifiuta mostra esattamente perché.
+
 ## v1.13.48 — Agosto 2026
 
 ### La rotta transcode chiede a Plex cosa HA INTENZIONE di fare — la decisione dell'MDE viene registrata prima dell'avvio della sessione

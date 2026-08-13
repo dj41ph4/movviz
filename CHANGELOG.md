@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.49 — August 2026
+
+### The MDE decision call no longer fails silently — its HTTP errors are logged
+
+- **Fixed**: the `/decision` probe added in v1.13.48 swallowed failures silently — when it returned an error status or an unexpected body, nothing appeared in the logs, making it useless as a diagnostic. It now logs the HTTP status and response body on failure (and the caught error message), so a refusing Plex server shows exactly why.
+
 ## v1.13.48 — August 2026
 
 ### The transcode route now asks Plex what it PLANS to do — the MDE decision is logged before the session starts
