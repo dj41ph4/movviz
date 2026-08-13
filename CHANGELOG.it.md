@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.45 — Agosto 2026
+
+### L'opzione "transcodifica solo audio" in realtà ri-codificava il video — i due modi erano invertiti
+
+- **Corretto, confermato dal vivo**: nel menu transcode del player beta, "Transcodificato (audio)" e "Transcodificato (video)" erano invertiti. Scegliendo "Transcodificato (audio)" veniva inviato `tv=1&ta=0` a Plex — il video veniva ri-codificato in H.264 (l'operazione costosa che causa lag, con tetto al bitrate) mentre la traccia audio veniva copiata invariata; "Transcodificato (video)" faceva l'opposto. Selezionare il solo audio ora invia `tv=0&ta=1`: il video viene copiato in bitstream e solo l'audio viene ri-codificato in AAC — l'operazione leggera e senza latenza che Plex stesso esegue per la stessa impostazione.
+- **Modificato**: la correzione copre entrambi i costruttori di URL (avvio iniziale e ricarica al cambio di traccia audio/sottotitoli), quindi il modo scelto corrisponde sempre a ciò che Plex fa davvero.
+
 ## v1.13.44 — Agosto 2026
 
 ### Lettore beta: un errore passeggero sul primo segmento HLS non faceva più escalation immediata verso una vera transcodifica, e il pulsante "Test diretto" non faceva più nulla

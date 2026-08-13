@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.45 — August 2026
+
+### Die Option „Nur Audio transkodieren“ hat tatsächlich das Video neu kodiert — die beiden Modi waren vertauscht
+
+- **Behoben, live bestätigt**: Im Transcode-Menü des Beta-Players waren „Transkodiert (Audio)“ und „Transkodiert (Video)“ vertauscht. Die Wahl von „Transkodiert (Audio)“ sendete `tv=1&ta=0` an Plex — das Video wurde in H.264 neu kodiert (der teure, ruckelverursachende Teil, mit Bitraten-Obergrenze), während die Audiospur unangetastet kopiert wurde; „Transkodiert (Video)“ tat das Gegenteil. Die Wahl des Nur-Audio-Modus sendet jetzt `tv=0&ta=1`: Das Video wird per Bitstream kopiert und nur das Audio in AAC neu kodiert — die günstige, latenzarme Operation, die Plex selbst für dieselbe Einstellung ausführt.
+- **Geändert**: Der Fix deckt beide URL-Ersteller ab (Start und Neuladen beim Wechsel von Audio-/Untertitelspuren), der gewählte Modus entspricht also immer dem, was Plex tatsächlich tut.
+
 ## v1.13.44 — August 2026
 
 ### Beta-Player: ein vorübergehender Fehler beim ersten HLS-Segment eskalierte nicht mehr sofort zu einer echten Transcodierung, und der Button „Direkt testen" tat nichts mehr

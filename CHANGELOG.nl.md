@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.45 — Augustus 2026
+
+### De optie "alleen audio transcoderen" encodeerde eigenlijk de video opnieuw — de twee modi waren omgedraaid
+
+- **Opgelost, live bevestigd**: in het transcode-menu van de bètaplayer waren "Getranscodeerd (audio)" en "Getranscodeerd (video)" verwisseld. Kiezen voor "Getranscodeerd (audio)" stuurde `tv=1&ta=0` naar Plex — de video werd opnieuw gecodeerd naar H.264 (het dure, lag-veroorzakende deel, met bitrate-limiet) terwijl de audiotrack ongemoeid werd gekopieerd; "Getranscodeerd (video)" deed het tegenovergestelde. Het selecteren van alleen audio stuurt nu `tv=0&ta=1`: de video wordt als bitstream gekopieerd en alleen de audio wordt opnieuw gecodeerd naar AAC — de goedkope, lag-arme bewerking die Plex zelf voor dezelfde instelling uitvoert.
+- **Gewijzigd**: de fix dekt beide URL-bouwers (initiële start en herladen bij het wisselen van audio-/ondertitelsporen), zodat de gekozen modus altijd overeenkomt met wat Plex daadwerkelijk doet.
+
 ## v1.13.44 — Augustus 2026
 
 ### Bèta-speler: een voorbijgaande fout op het eerste HLS-segment escaleerde niet meer meteen naar echte hercodering, en de knop "Directe test" deed niets meer
