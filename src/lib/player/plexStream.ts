@@ -58,6 +58,14 @@ export function plexClientHeaders(token: string, clientId: string, sessionId?: s
  * profile's transcode target codecs for HLS — the documented augmentation
  * mechanism — so MDE may honor `videoCodec=copy` inside transcode sessions
  * too.
+ *
+ * CRITICAL (v1.13.59): the declaration MUST cover DASH too. Confirmed live
+ * (Ace Ventura 500751, 2026-08-13): with protocol=hls only, MDE refused
+ * `videoCodec=hevc` in DASH transcode sessions — `demandé hevc → réel
+ * avc1.640028` on BOTH ta=0 and ta=1 sessions — re-encoding 1080p/2160p at
+ * ~20 Mbps on a NAS that can't keep up, so playback never started. Plex Web
+ * copies HEVC in DASH because its own profile declares the DASH target
+ * codecs; we must do the same.
  */
 export function plexWebHeaders(token: string, clientId: string, sessionId?: string): Record<string, string> {
   return {
@@ -69,7 +77,7 @@ export function plexWebHeaders(token: string, clientId: string, sessionId?: stri
     "x-plex-model": "Plex Web",
     "x-plex-client-profile-name": "Plex Web",
     "x-plex-client-profile-extra":
-      "append-transcode-target-codec(type=videoProfile&context=streaming&videoCodec=hevc,av1,h264&audioCodec=aac,ac3,mp3&protocol=hls)",
+      "append-transcode-target-codec(type=videoProfile&context=streaming&videoCodec=hevc,av1,h264&audioCodec=aac,ac3,mp3&protocol=hls,dash)",
   };
 }
 

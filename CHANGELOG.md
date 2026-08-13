@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.59 — August 2026
+
+### DASH : le profil Plex Web déclare enfin l'HEVC pour le protocole DASH — le copy bitstream est honoré par MDE
+
+- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751 — HEVC 1080p + AC-3 5.1) : l'escalade de silence fonctionne (session `ta=0` à 17:21:38 → session `ta=1` à 17:21:44, 6 s pile) MAIS MDE refusait le copy HEVC sur les DEUX sessions — `plex-copy-refused: demandé hevc → réel avc1.640028` — et ré-encodait la vidéo en H.264 à ~20 Mbps, un transcode trop lourd pour le NAS : lecture qui ne démarre pas en 1080p, image sans son en 2160p, et « revenir au HLS » ne montre plus aucun transcode car tout passe en DASH.
+- **Corrigé** : `X-Plex-Client-Profile-Extra` ne déclarait l'HEVC/AV1 comme codec cible de transcode que pour `protocol=hls` — MDE l'ignorait donc en DASH et ré-encodait en H.264 (la v1.13.58 envoyait pourtant `videoCodec=hevc`, sans effet : le profil ne déclarait pas ce codec pour DASH). Le profil couvre désormais `protocol=hls,dash`, comme le profil réel de Plex Web.
+
 ## v1.13.58 — August 2026
 
 ### DASH : le copy HEVC est enfin honoré par MDE — le codec demandé est le codec source réel, plus jamais « copy »
