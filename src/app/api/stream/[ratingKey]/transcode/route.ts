@@ -9,6 +9,7 @@ import {
   PLEX_UNIVERSAL_BASE,
   plexWebHeaders,
   rewriteM3u8,
+  rewriteMpd,
 } from "@/lib/player/plexStream";
 
 export const dynamic = "force-dynamic";
@@ -273,13 +274,18 @@ export async function GET(req: NextRequest, context: Ctx) {
     ? qMaxBitrate
     : selectBitrate(height, clientWidth);
 
-  // directPlay=0 forces HLS packaging (required for hls.js).
+  // directPlay=0 forces Plex-side packaging (HLS for hls.js, DASH for dash.js).
   // directStream=1 allows bitstream copy when codecs already match the target.
+  // fmt=dash → DASH manifest (protocol=dash, start.mpd) : le chemin que Plex
+  // Web utilise et le SEUL où MDE honore le copy HEVC (prouvé en live : les
+  // sessions HLS ré-encodent TOUT source HEVC en libx264 — John Carter,
+  // Tomb Raider — alors que Plex Web en DASH copie l'HEVC bitstream).
+  const fmt = sp.get("fmt") === "dash" ? "dash" : "hls";
   const qs = new URLSearchParams({
     path: `/library/metadata/${ratingKey}`,
     mediaIndex: "0",
     partIndex: "0",
-    protocol: "hls",
+    protocol: fmt === "dash" ? "dash" : "hls",
     videoCodec: transcodeVideoCodec,
     audioCodec: transcodeAudioCodec,
     fastSeek: "1",
@@ -296,6 +302,7 @@ export async function GET(req: NextRequest, context: Ctx) {
     "X-Plex-Device": "Windows",
     "X-Plex-Version": "4.100.0",
     "X-Plex-Model": "Plex Web",
+    ...(fmt === "dash" ? { hasMDE: "1" } : {}),
   });
   // Only set bitrate when video is actually being transcoded (not copied)
   if (transcodeVideoCodec !== "copy") {
@@ -304,7 +311,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (audioStreamID) qs.set("audioStreamID", audioStreamID);
   if (subtitleStreamID) qs.set("subtitleStreamID", subtitleStreamID);
 
-  const transcodeUrl = `${base}${PLEX_UNIVERSAL_BASE}/start.m3u8?${qs.toString()}`;
+  const transcodeUrl = `${base}${PLEX_UNIVERSAL_BASE}/start.${fmt === "dash" ? "mpd" : "m3u8"}?${qs.toString()}`;
 
   // VÉRITÉ DU MOTEUR DE DÉCISION : /decision répond AVANT le démarrage avec ce
   // que MDE compte réellement produire (copy vs ré-encodage). Le maître HLS
@@ -362,8 +369,9 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   try {
     const brLog = transcodeVideoCodec !== "copy" ? ` br=${maxVideoBitrate}k` : "";
-    console.log(`[transcode] ${ratingKey} → start.m3u8 tv=${tv} ta=${ta} v=${transcodeVideoCodec} a=${transcodeAudioCodec}${brLog}`);
-    logTranscode(ratingKey, "plex-fetch", `tv=${tv} ta=${ta} codecs: v=${transcodeVideoCodec} a=${transcodeAudioCodec}${brLog}`, "ok");
+    const startPath = `start.${fmt === "dash" ? "mpd" : "m3u8"}`;
+    console.log(`[transcode] ${ratingKey} → ${startPath} (${fmt}) tv=${tv} ta=${ta} v=${transcodeVideoCodec} a=${transcodeAudioCodec}${brLog}`);
+    logTranscode(ratingKey, "plex-fetch", `fmt=${fmt} tv=${tv} ta=${ta} codecs: v=${transcodeVideoCodec} a=${transcodeAudioCodec}${brLog}`, "ok");
     const m3u8Res = await fetch(transcodeUrl, {
       headers,
       cache: "no-store",
@@ -378,9 +386,10 @@ export async function GET(req: NextRequest, context: Ctx) {
     }
 
     const raw = await m3u8Res.text();
-    if (!raw.includes("#EXTM3U")) {
-      logTranscode(ratingKey, "m3u8", `invalid body: ${raw.slice(0, 120)}`, 502);
-      console.error(`[transcode] ${ratingKey} not an m3u8: ${raw.slice(0, 200)}`);
+    const isDash = fmt === "dash";
+    if ((isDash && !/<MPD/i.test(raw)) || (!isDash && !raw.includes("#EXTM3U"))) {
+      logTranscode(ratingKey, "manifest", `invalid body: ${raw.slice(0, 120)}`, 502);
+      console.error(`[transcode] ${ratingKey} not a ${isDash ? "mpd" : "m3u8"}: ${raw.slice(0, 200)}`);
       return NextResponse.json({ error: "transcode_invalid_playlist" }, { status: 502 });
     }
 
@@ -445,18 +454,22 @@ export async function GET(req: NextRequest, context: Ctx) {
     }
 
     // Master playlist lives at .../universal/start.m3u8 — relative session/ URIs
-    // resolve against .../universal/
+    // resolve against .../universal/. DASH manifests carry absolute BaseURLs
+    // that rewriteMpd() routes through our segment proxy.
     const masterPath = `${PLEX_UNIVERSAL_BASE}/start.m3u8`;
-    const rewritten = rewriteM3u8(raw, masterPath);
+    const rewritten = isDash ? rewriteMpd(raw) : rewriteM3u8(raw, masterPath);
 
     // VÉRITÉ DU TERRAIN : le maître contient les codecs EFFECTIVEMENT produits
-    // par Plex (CODECS="...") — pas ceux qu'on a demandés. Quand on demande un
-    // copy vidéo (tv=0) et que Plex ré-encode quand même (HEVC/AV1 10-bit/HDR
-    // non copiables en HLS-TS, sous-titres PGS/ASS brûlés...), la vidéo est
+    // par Plex (CODECS="..." en HLS, codecs="..." dans les <Representation>
+    // du MPD) — pas ceux qu'on a demandés. Quand on demande un copy vidéo
+    // (tv=0) et que Plex ré-encode quand même (HEVC/AV1 10-bit/HDR non
+    // copiables en HLS-TS, sous-titres PGS/ASS brûlés...), la vidéo est
     // transcodée EN SILENCE : c'est la cause n°1 des « audio seul » qui laguent.
     // On la détecte ici et on la crie dans les logs + en-tête de réponse.
     const streamInf = raw.match(/#EXT-X-STREAM-INF:[^\n]*/)?.[0] ?? "";
-    const actualCodecs = streamInf.match(/CODECS="([^"]+)"/i)?.[1] ?? "";
+    const actualCodecs = isDash
+      ? (raw.match(/<Representation[^>]*\bcodecs="([^"]+)"/i)?.[1] ?? "")
+      : (streamInf.match(/CODECS="([^"]+)"/i)?.[1] ?? "");
     const actualVideo = (actualCodecs.split(",")[0] ?? "").trim().toLowerCase();
     const videoCopyRefused =
       transcodeVideoCodec === "copy" &&
@@ -466,14 +479,14 @@ export async function GET(req: NextRequest, context: Ctx) {
     if (videoCopyRefused) {
       const why = subtitleStreamID
         ? `sous-titres ${subtitleStreamID} (brûlés dans la vidéo)`
-        : `codec source ${videoCodec} non copiable en HLS-TS`;
+        : `codec source ${videoCodec} non copiable en ${isDash ? "DASH" : "HLS-TS"}`;
       console.error(`[transcode] ${ratingKey} ⚠ Plex a IGNORÉ videoCodec=copy (${videoCodec} → ${actualVideo}) : vidéo ré-encodée. Cause probable : ${why}`);
       logTranscode(ratingKey, "plex-copy-refused", `demandé copy → réel ${actualVideo} (${why})`, "warn");
     } else {
       logTranscode(ratingKey, "plex-codecs", `demandé v=${transcodeVideoCodec} a=${transcodeAudioCodec} → réel ${actualCodecs || "?"}`, "ok");
     }
 
-    logTranscode(ratingKey, "m3u8", `ok — ${raw.split("\n").length} lines, rewritten`, "ok");
+    logTranscode(ratingKey, "manifest", `ok — ${raw.split("\n").length} lines (${isDash ? "MPD" : "HLS"}), rewritten`, "ok");
     console.log(`[transcode] ${ratingKey} master rewritten:\n${rewritten.slice(0, 300)}`);
 
     const cacheTtl = getStreamCacheTtl();
@@ -481,16 +494,20 @@ export async function GET(req: NextRequest, context: Ctx) {
     const maxAge = Math.min(cacheTtl > 0 ? cacheTtl : TRANSCODE_CACHE_TTL, TRANSCODE_CACHE_TTL);
 
     // Sonde des segments TS réels (fire-and-forget — n'ajoute aucun délai au
-    // démarrage de la lecture). Répond sans attendre la vérité du flux.
-    void sniffFirstSegment(base, headers, raw, ratingKey, videoCodec).catch(() => undefined);
+    // démarrage de la lecture). Réservée à HLS : les sessions DASH sont
+    // couvertes par /decision + /status/sessions + codecs du MPD.
+    if (!isDash) {
+      void sniffFirstSegment(base, headers, raw, ratingKey, videoCodec).catch(() => undefined);
+    }
 
     return new NextResponse(rewritten, {
       headers: {
-        "content-type": "application/vnd.apple.mpegurl",
+        "content-type": isDash ? "application/dash+xml" : "application/vnd.apple.mpegurl",
         "cache-control": `private, max-age=${maxAge}`,
         "access-control-allow-origin": corsOrigin(req),
         "access-control-allow-credentials": "true",
         "x-movviz-plex-codecs": actualCodecs || "unknown",
+        "x-movviz-fmt": fmt,
       },
     });
   } catch (e) {

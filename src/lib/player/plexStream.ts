@@ -144,6 +144,39 @@ export function rewriteM3u8(raw: string, playlistPath: string): string {
     .join("\n");
 }
 
+/**
+ * Rewrite a Plex DASH manifest (MPD) so every media URL hits our same-origin
+ * proxy instead of the Plex LAN address (unreachable from the browser, and it
+ * would leak the admin token). Plex MPDs carry the transcode session base URL
+ * in <BaseURL> elements — one per AdaptationSet, e.g.
+ * https://host:32400/video/:/transcode/universal/session/{id}/0/ — and the
+ * SegmentTemplate (init-streamN.m4s / chunk-streamN-${Number}.m4s) resolves
+ * against it. Absolute media/initialization attributes are rare but handled
+ * the same way.
+ */
+export function rewriteMpd(raw: string): string {
+  const proxyBase = "/api/stream/plex-proxy";
+  const rewriteUrl = (u: string): string => {
+    const t = u.trim();
+    if (!t || t.startsWith(proxyBase) || t.startsWith("/api/stream/")) return u;
+    // Relative template URLs resolve against the proxied BaseURL — leave them
+    if (!/^https?:\/\//i.test(t)) return u;
+    try {
+      const parsed = new URL(t);
+      return `${proxyBase}${parsed.pathname}${parsed.search}`;
+    } catch {
+      return u;
+    }
+  };
+  return raw
+    .replace(/<BaseURL([^>]*)>([^<]*)<\/BaseURL>/gi, (_m, attrs: string, url: string) => {
+      return `<BaseURL${attrs}>${rewriteUrl(url)}</BaseURL>`;
+    })
+    .replace(/\b(media|initialization)="([^"]+)"/gi, (_m, attr: string, url: string) => {
+      return `${attr}="${rewriteUrl(url)}"`;
+    });
+}
+
 function playlistDir(playlistPath: string): string {
   const bare = playlistPath.split("?")[0] || "/";
   const idx = bare.lastIndexOf("/");

@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.55 — August 2026
+
+### Lecture DASH : les sessions transcode et les sources HEVC/AV1 jouent via dash.js — le seul protocole où MDE honore le copy HEVC
+
+- **Cause racine confirmée et corrigée** : en HLS-TS, MDE refuse le copy vidéo pour TOUTE source HEVC dans une session transcode — prouvé en live via les verdicts `/decision` et les lignes `Job running:` de Plex : John Carter (HEVC Main 10 1080p, sans DoVi) est ré-encodé (`-codec:0 libx264 -crf 16 -maxrate 20000k -preset veryfast`), Tomb Raider (HEVC DoVi 4K) subit `tonemap=hable` + libx264 (transcode 4K temps réel impossible sur le NAS). Plex Web copie le bitstream HEVC des mêmes fichiers en DASH (transcoder ≥6× temps réel). La route transcode accepte désormais `fmt=dash` : `protocol=dash`, `start.mpd`, `hasMDE=1`, codecs réels lus dans le MPD, réponse `application/dash+xml` ; la sonde TS reste HLS-only.
+- **Nouveau** : `rewriteMpd()` réécrit le MPD Plex (`BaseURL` + attributs absolus `media`/`initialization`) pour router les segments via le proxy `/api/stream/plex-proxy` existant.
+- **Nouveau** : le player lit ces sessions avec dash.js (fast switch, 30 s de buffer conservé, retryAttempts/retryIntervals généreux pour les 404/503 de cold-start Plex) : `tv=1`/`ta=1` ou toute source HEVC/AV1/VP9 → DASH ; prébuffer partagé HLS/DASH, veille de silence + escalade en vrai transcode sur les legs copie audio, badge qualité via la `videoHeight` décodée, repli HLS si le navigateur n'a pas de MSE.
+- **Corrigé** : dash.js est chargé dynamiquement — son bundle UMD touche `window` au niveau module, ce qui faisait planter le prerender statique de toutes les pages partageant le layout (`ReferenceError: window is not defined` pendant `next build`).
+
 ## v1.13.54 — August 2026
 
 ### The client identity must be consistent — MDE also reads the query string

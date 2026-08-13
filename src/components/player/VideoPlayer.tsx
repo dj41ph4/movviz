@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
+// dashjs est importé dynamiquement côté navigateur uniquement (window au
+// niveau module — pas SSR-safe) ; seul le TYPE est importé statiquement.
+import type { MediaPlayerClass } from "dashjs";
 import { cn, openPlexLink } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import {
@@ -95,6 +98,9 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const dashRef = useRef<MediaPlayerClass | null>(null);
+  const dashHeightRef = useRef<number | null>(null);
+  const prebufferClearRef = useRef<(() => void) | null>(null);
   const fallbackGuardRef = useRef(false);
   const startHlsRef = useRef<((extraParams?: string, isCopyNetworkRetry?: boolean) => void) | null>(null);
   const stopSilentWatchRef = useRef<(() => void) | null>(null);
@@ -169,10 +175,6 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   }, []);
 
   const reloadHls = (audioId: string | null, subtitleId: string | null) => {
-    const hls = hlsRef.current;
-    if (!hls) return;
-    let url = `/api/stream/${ratingKey}/transcode`;
-    const params = new URLSearchParams();
     const mode = transcodeModeRef.current;
     const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "video" || mode === "full" ? "1" : "0";
     let ta: string;
@@ -189,6 +191,27 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     } else {
       ta = mode === "audio" || mode === "full" ? "1" : "0";
     }
+    // Keep refs in sync — the badge and handleReturnToHls read them
+    setCurrentAudio(audioId);
+    setCurrentSubtitle(subtitleId);
+    audioStreamIdRef.current = audioId;
+    if (mode === "auto") transcodeAudioRef.current = ta === "1";
+    // DASH gate: same rule as the leg dispatcher — any transcode session or
+    // HEVC/AV1 source plays via DASH (the only path where MDE honors the
+    // video copy). Fresh engine + fresh Plex session (in-place dash.js reload
+    // across leg-param changes is brittle). The dispatcher inside startHls
+    // handles the dash.js availability check and the HLS fallback.
+    const srcVideo = (infoRef.current?.videoCodec ?? "").toLowerCase();
+    const needDash = tv === "1" || ta === "1" || /hevc|h265|hev1|hvc1|av1|av01|vp9/.test(srcVideo);
+    if (needDash) {
+      fallbackGuardRef.current = false;
+      startHlsRef.current?.();
+      return;
+    }
+    const hls = hlsRef.current;
+    if (!hls) return;
+    let url = `/api/stream/${ratingKey}/transcode`;
+    const params = new URLSearchParams();
     params.set("tv", tv);
     params.set("ta", ta);
     if (qualityMaxWidthRef.current) params.set("maxWidth", String(qualityMaxWidthRef.current));
@@ -196,11 +219,6 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     if (subtitleId) params.set("subtitleStreamID", subtitleId);
     const qs = params.toString();
     if (qs) url += `?${qs}`;
-    setCurrentAudio(audioId);
-    setCurrentSubtitle(subtitleId);
-    // Keep refs in sync — the badge and handleReturnToHls read them
-    audioStreamIdRef.current = audioId;
-    if (mode === "auto") transcodeAudioRef.current = ta === "1";
     hls.loadSource(url);
   };
 
@@ -209,6 +227,136 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
 
     const hlsUrl = `/api/stream/${ratingKey}/transcode`;
     const directUrl = `/api/stream/${ratingKey}`;
+
+    // --- Prébuffer partagé (legs HLS + DASH) ---
+    const armPrebuffer = () => {
+      prebufferClearRef.current?.();
+      const elv = videoRef.current;
+      if (!elv) return;
+      const prebufSecs = prebufferRef.current;
+      if (prebufSecs <= 0 || !elv.duration || elv.duration <= prebufSecs) {
+        setBuffering(false);
+        void elv.play().catch(() => void 0);
+        return;
+      }
+      setBuffering(true);
+      setCacheProgress({ current: 0, target: prebufSecs });
+      const iv = setInterval(() => {
+        if (elv.buffered.length > 0) {
+          const bufferedSecs = elv.buffered.end(0) - elv.currentTime;
+          const clamped = Math.min(bufferedSecs, prebufSecs);
+          setCacheProgress({ current: clamped, target: prebufSecs });
+          if (bufferedSecs >= prebufSecs || bufferedSecs >= elv.duration - elv.currentTime) {
+            clearInterval(iv);
+            setCacheProgress(null);
+            setBuffering(false);
+            void elv.play().catch(() => void 0);
+          }
+        }
+      }, 300);
+      prebufferClearRef.current = () => clearInterval(iv);
+    };
+
+    // Shared by both legs: only forces a real ta=1 transcode — never touched
+    // by a transient network hiccup, only by a genuine live-silence verdict
+    // or by a second, independent copy attempt also failing at the network
+    // level (see the NETWORK_ERROR branch in the HLS leg).
+    const escalateHlsAudioCopy = () => {
+      if (hlsCopyEscalatedRef.current) return;
+      hlsCopyEscalatedRef.current = true;
+      transcodeAudioRef.current = true;
+      fallbackGuardRef.current = false;
+      startHlsRef.current?.();
+    };
+
+    // --- Leg DASH (dash.js) ---
+    // Plex Web lit exclusivement en DASH, et c'est le SEUL protocole où MDE
+    // honore videoCodec=copy pour les sources HEVC dans une session transcode
+    // (prouvé en live : HLS ré-encode chaque fichier HEVC en libx264 — John
+    // Carter, Tomb Raider — alors que Plex Web copie le bitstream HEVC en
+    // DASH, 6× temps réel). Toute leg qui transcode la vidéo ou l'audio, ou
+    // dont la vidéo source est HEVC/AV1, passe par DASH.
+    // dash.js est chargé dynamiquement : pas SSR-safe (window au niveau
+    // module), ce qui poussait son évaluation dans le graphe des pages
+    // statiques pendant le prerender (ReferenceError: window is not defined).
+    let dashPromise: Promise<typeof import("dashjs")> | null = null;
+    const ensureDashjs = () => (dashPromise ??= import("dashjs"));
+    const startDash = (djs: typeof import("dashjs"), tv: string, ta: string, extraParams?: string, isCopyNetworkRetry?: boolean) => {
+      const elv = videoRef.current;
+      if (!elv) return;
+      prebufferClearRef.current?.();
+      if (hlsRef.current) {
+        try { hlsRef.current.destroy(); } catch { /* ignore */ }
+        hlsRef.current = null;
+      }
+      if (dashRef.current) {
+        try { dashRef.current.reset(); } catch { /* ignore */ }
+        dashRef.current = null;
+      }
+
+      let url = `${hlsUrl}?tv=${tv}&ta=${ta}&fmt=dash`;
+      if (audioStreamIdRef.current) url += `&audioStreamID=${audioStreamIdRef.current}`;
+      if (qualityMaxWidthRef.current) url += `&maxWidth=${qualityMaxWidthRef.current}`;
+      if (extraParams) url += `&${extraParams}`;
+
+      const mode = transcodeModeRef.current;
+      // Les legs DASH en copie audio (AC3/AAC/EAC3 en fMP4) reçoivent la même
+      // veille de silence que les legs HLS : un codec que le navigateur ne
+      // peut pas décoder joue en silence et doit escalader en vrai transcode.
+      const attemptingDashAudioCopy = mode === "auto" && ta === "0" && !hlsCopyEscalatedRef.current;
+      if (attemptingDashAudioCopy && !isCopyNetworkRetry) {
+        stopSilentWatchRef.current?.();
+        stopSilentWatchRef.current = watchForSilentAudio(elv, escalateHlsAudioCopy);
+      }
+
+      const player = djs.MediaPlayer().create();
+      dashRef.current = player;
+      player.updateSettings({
+        streaming: {
+          buffer: { fastSwitchEnabled: true, bufferToKeep: 30 },
+          // Le cold-start Plex peut 404/503 les premiers segments — retries
+          // internes généreux, miroir du backoff de la leg HLS.
+          retryAttempts: {
+            MPD: 6,
+            MediaSegment: 8,
+            InitializationSegment: 8,
+            FragmentInfoSegment: 8,
+            other: 8,
+          },
+          retryIntervals: { MPD: 1200, MediaSegment: 800, InitializationSegment: 800, other: 800 },
+        },
+      });
+      player.initialize(elv, url, false);
+
+      player.on(djs.MediaPlayer.events.MANIFEST_LOADED, () => {
+        armPrebuffer();
+      });
+      player.on(djs.MediaPlayer.events.QUALITY_CHANGE_RENDERED, () => {
+        // dash.js v5 n'expose plus la liste des bitrates — la hauteur
+        // réellement décodée (videoHeight intrinsèque) est plus vraie de toute
+        // façon : c'est ce que le badge qualité doit afficher.
+        if (elv.videoHeight) dashHeightRef.current = elv.videoHeight;
+      });
+      player.on(djs.MediaPlayer.events.PLAYBACK_STARTED, () => {
+        if (elv.videoHeight) dashHeightRef.current = elv.videoHeight;
+      });
+      player.on(djs.MediaPlayer.events.ERROR, (e: { error?: { code?: number } }) => {
+        const code = (e as { error?: { code?: number } })?.error?.code ?? 0;
+        console.error("[VideoPlayer] DASH error", code, e);
+        // Les échecs réseau sont ré-essayés en interne (retryAttempts
+        // ci-dessus) ; si ERROR se déclenche quand même, une leg copie a
+        // droit à une escalade, tout le reste est une erreur fatale.
+        if (attemptingDashAudioCopy && !hlsCopyEscalatedRef.current) {
+          escalateHlsAudioCopy();
+          return;
+        }
+        if (code !== 0) {
+          setError(tRef.current("player.betaError"));
+          try { player.reset(); } catch { /* ignore */ }
+          if (dashRef.current === player) dashRef.current = null;
+        }
+      });
+    };
 
     const startHls = (extraParams?: string, isCopyNetworkRetry?: boolean) => {
       startHlsRef.current = startHls;
@@ -226,6 +374,30 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       const mode = transcodeModeRef.current;
       const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "video" || mode === "full" ? "1" : "0";
       const ta = mode === "auto" ? (transcodeAudioRef.current ? "1" : "0") : mode === "audio" || mode === "full" ? "1" : "0";
+      const srcVideo = (infoRef.current?.videoCodec ?? "").toLowerCase();
+      // DASH gate : les sessions transcode (tv=1/ta=1) et les sources
+      // HEVC/AV1 jouent en DASH — HLS ne honore jamais le copy HEVC sur ce
+      // serveur (prouvé via /decision + Job running : toute source HEVC est
+      // ré-encodé en libx264 en HLS, Plex Web copie le bitstream en DASH).
+      // dash.js se charge en diffé ré ; s'il est indisponible (vieux Safari
+      // sans MSE), on retombe sur la leg HLS (hls.js utilise alors le HLS
+      // natif du navigateur).
+      const wantDash = tv === "1" || ta === "1" || /hevc|h265|hev1|hvc1|av1|av01|vp9/.test(srcVideo);
+      if (wantDash && typeof window !== "undefined") {
+        void ensureDashjs().then((djs) => {
+          if (djs.supportsMediaSource()) {
+            startDash(djs, tv, ta, extraParams, isCopyNetworkRetry);
+            return;
+          }
+          runHlsLeg(tv, ta, extraParams, isCopyNetworkRetry);
+        });
+        return;
+      }
+      runHlsLeg(tv, ta, extraParams, isCopyNetworkRetry);
+    };
+
+    const runHlsLeg = (tv: string, ta: string, extraParams?: string, isCopyNetworkRetry?: boolean) => {
+      const mode = transcodeModeRef.current;
       let url = `${hlsUrl}?tv=${tv}&ta=${ta}`;
       if (audioStreamIdRef.current) url += `&audioStreamID=${audioStreamIdRef.current}`;
       if (qualityMaxWidthRef.current) url += `&maxWidth=${qualityMaxWidthRef.current}`;
@@ -244,17 +416,6 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // escalate to a real ta=1 transcode only on a genuine, live silence —
       // never a second guess baked into the request itself.
       const attemptingHlsAudioCopy = mode === "auto" && ta === "0" && !hlsCopyEscalatedRef.current;
-      // Only forces a real ta=1 transcode — never touched by a transient
-      // network hiccup, only by a genuine live-silence verdict or by a
-      // second, independent copy attempt also failing at the network level
-      // (see the NETWORK_ERROR branch below).
-      const escalateHlsAudioCopy = () => {
-        if (hlsCopyEscalatedRef.current) return;
-        hlsCopyEscalatedRef.current = true;
-        transcodeAudioRef.current = true;
-        fallbackGuardRef.current = false;
-        startHlsRef.current?.();
-      };
       // A network-error retry (isCopyNetworkRetry) reuses the SAME live-audio
       // watch already running from the original attempt instead of installing
       // a second one on the same <video> element — Web Audio only allows one
@@ -292,28 +453,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
 
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           networkRetries = 0;
-          const prebufSecs = prebufferRef.current;
-          if (prebufSecs > 0 && el.duration > prebufSecs) {
-            setBuffering(true);
-            setCacheProgress({ current: 0, target: prebufSecs });
-            const iv = setInterval(() => {
-              if (el.buffered.length > 0) {
-                const bufferedSecs = el.buffered.end(0) - el.currentTime;
-                const clamped = Math.min(bufferedSecs, prebufSecs);
-                setCacheProgress({ current: clamped, target: prebufSecs });
-                if (bufferedSecs >= prebufSecs || bufferedSecs >= el.duration - el.currentTime) {
-                  clearInterval(iv);
-                  setCacheProgress(null);
-                  setBuffering(false);
-                  void el.play().catch(() => void 0);
-                }
-              }
-            }, 300);
-            hls.on(Hls.Events.DESTROYING, () => clearInterval(iv));
-          } else {
-            setBuffering(false);
-            void el.play().catch(() => void 0);
-          }
+          armPrebuffer();
+        });
+        hls.on(Hls.Events.DESTROYING, () => {
+          prebufferClearRef.current?.();
+          prebufferClearRef.current = null;
         });
 
         hls.on(Hls.Events.ERROR, (_event, data) => {
@@ -688,10 +832,16 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       const storedErr = (el as unknown as { __vpOnError?: () => void }).__vpOnError;
       if (storedErr) el.removeEventListener("error", storedErr);
 
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
+    if (hlsRef.current) {
+        try { hlsRef.current.destroy(); } catch { /* ignore */ }
         hlsRef.current = null;
       }
+      if (dashRef.current) {
+        try { dashRef.current.reset(); } catch { /* ignore */ }
+        dashRef.current = null;
+      }
+      prebufferClearRef.current?.();
+      prebufferClearRef.current = null;
     };
   }, [ratingKey, useTranscode]);
 
@@ -765,11 +915,16 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   }, []);
 
   const qualityLabel = (): string | null => {
-    const hls = hlsRef.current;
-    if (!hls || currentLevel === null) return null;
-    const level = hls.levels[currentLevel];
-    if (!level) return null;
-    const h = level.height || 0;
+    let h = 0;
+    if (dashRef.current) {
+      h = dashHeightRef.current ?? 0;
+    } else {
+      const hls = hlsRef.current;
+      if (hls && currentLevel !== null) {
+        const level = hls.levels[currentLevel];
+        if (level) h = level.height || 0;
+      }
+    }
     if (h >= 2000) return "4K";
     if (h >= 1440) return "1440p";
     if (h >= 1000) return "1080p";
@@ -969,6 +1124,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     if (hlsRef.current) {
       try { hlsRef.current.destroy(); } catch { /* ignore */ }
       hlsRef.current = null;
+    }
+    if (dashRef.current) {
+      try { dashRef.current.reset(); } catch { /* ignore */ }
+      dashRef.current = null;
     }
     fallbackGuardRef.current = false;
     setDirectMode(true);

@@ -1,6 +1,6 @@
 {
   "name": "movviz",
-  "version": "1.13.54",
+  "version": "1.13.55",
   "private": true,
   "description": "Movviz â€” centre de commande mÃ©dia unifiÃ©. DÃ©couvrez, demandez, indexez et gÃ©rez films et sÃ©ries depuis une interface unique et cinÃ©matographique.",
   "scripts": {
@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "clsx": "^2.1.1",
+    "dashjs": "^5.2.0",
     "framer-motion": "^12.42.2",
     "hls.js": "^1.6.16",
     "lucide-react": "^1.25.0",
@@ -39,6 +40,3 @@
     "node-windows": "^1.0.0-beta.8"
   }
 }
-
-
-
