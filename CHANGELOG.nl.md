@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.52 — Augustus 2026
+
+### De waarheid zit in de stream zelf — het eerste TS-segment wordt gescand op zijn echte streamtypes
+
+- **Nieuw**: aangezien Movviz-afspeelsessies niet verschijnen in het dashboard/de afspeelanalyse van Plex, en de HLS-master-playlist zijn `CODECS`-attribuut weglaat, snuift de transcode-route nu het daadwerkelijke MPEG-TS-segment na de sessiestart (fire-and-forget, nul latentie toegevoegd aan de afspeelstart): hij leest de PAT/PMT-tabellen en logt de werkelijk aan de browser geleverde streamtypes (`plex-segments`). 0x24 = HEVC als bitstream gekopieerd (copy gehonoreerd, ✓-log), 0x1b = H.264 (video ondanks `tv=0` opnieuw gecodeerd → warn + consolefout), 0x0f = AAC, 0x81 = AC3-kopie, 0x87 = E-AC3... De sonde behandelt de transcode-warmup met herhalingen en blijft altijd best-effort.
+- **Opgelost**: de sonde logt ook `réel` voor direct-stream-sessies waar `videoDecision` niet van toepassing is.
+
 ## v1.13.51 — Augustus 2026
 
 ### De transcode-sondes zijn niet langer stom — elke uitkomst wordt gelogd
