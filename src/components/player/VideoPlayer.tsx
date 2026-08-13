@@ -257,14 +257,26 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       prebufferClearRef.current = () => clearInterval(iv);
     };
 
-    // Shared by both legs: only forces a real ta=1 transcode — never touched
-    // by a transient network hiccup, only by a genuine live-silence verdict
-    // or by a second, independent copy attempt also failing at the network
-    // level (see the NETWORK_ERROR branch in the HLS leg).
-    const escalateHlsAudioCopy = () => {
+    // Shared by every copy leg (HLS, DASH, direct, MSE): only forces a real
+    // ta=1 transcode — never touched by a transient network hiccup, only by
+    // a genuine live-silence verdict or by a second, independent copy
+    // attempt also failing at the network level (see the NETWORK_ERROR
+    // branch in the HLS leg). fromMse=true additionally tears the MSE engine
+    // down first — the MSE leg is a "copy to browser" attempt like the
+    // others, and a silence verdict there means the codec can't be rendered
+    // at all, so the whole copy family is done and a real transcode is the
+    // only way left.
+    const escalateSilentToTranscode = (fromMse: boolean) => {
       if (hlsCopyEscalatedRef.current) return;
       hlsCopyEscalatedRef.current = true;
       transcodeAudioRef.current = true;
+      if (fromMse) {
+        try { mseEngineRef.current?.destroy(); } catch { /* ignore */ }
+        mseEngineRef.current = null;
+        mseSkippedRef.current = true;
+        setMseActive(false);
+        setMseStats(null);
+      }
       fallbackGuardRef.current = false;
       startHlsRef.current?.();
     };
@@ -306,7 +318,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       const attemptingDashAudioCopy = mode === "auto" && ta === "0" && !hlsCopyEscalatedRef.current;
       if (attemptingDashAudioCopy && !isCopyNetworkRetry) {
         stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(elv, escalateHlsAudioCopy);
+        stopSilentWatchRef.current = watchForSilentAudio(elv, () => escalateSilentToTranscode(false));
       }
 
       const player = djs.MediaPlayer().create();
@@ -347,7 +359,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         // ci-dessus) ; si ERROR se déclenche quand même, une leg copie a
         // droit à une escalade, tout le reste est une erreur fatale.
         if (attemptingDashAudioCopy && !hlsCopyEscalatedRef.current) {
-          escalateHlsAudioCopy();
+          escalateSilentToTranscode(false);
           return;
         }
         if (code !== 0) {
@@ -426,7 +438,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // remains of the original 6s window rather than a fresh one.
       if (attemptingHlsAudioCopy && !isCopyNetworkRetry) {
         stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(el, escalateHlsAudioCopy);
+        stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToTranscode(false));
       }
 
       if (Hls.isSupported()) {
@@ -486,7 +498,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                   break;
                 }
                 if (attemptingHlsAudioCopy && !hlsCopyEscalatedRef.current) {
-                  escalateHlsAudioCopy();
+                  escalateSilentToTranscode(false);
                   break;
                 }
                 setError(tRef.current("player.betaError"));
@@ -543,13 +555,13 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       el.load();
       void el.play().catch(() => void 0);
 
-      // Recovery chain is strictly direct → MSE → HLS: a failed/silent
-      // direct play still gets a shot at the bitstream-copy MSE engine
-      // (proven, no server transcode) before falling all the way back to a
-      // real Plex transcode. tryStartMse() itself no-ops for anything it
-      // can't handle (wrong container, active subtitles, seek-resume...)
-      // and returns false, which cascades straight to HLS — same contract
-      // as the strategy==="transcode" branch in begin() already uses.
+      // Recovery chain is strictly direct → MSE → HLS: a failed direct play
+      // (real `error` event) still gets a shot at the bitstream-copy MSE
+      // engine (proven, no server transcode) before falling all the way back
+      // to a real Plex transcode. tryStartMse() itself no-ops for anything it
+      // can't handle (wrong container, active subtitles, seek-resume...) and
+      // returns false, which cascades straight to HLS — same contract as the
+      // strategy==="transcode" branch in begin() already uses.
       let directRecoveryStarted = false;
       const recoverFromDirect = async () => {
         if (directRecoveryStarted || fallbackGuardRef.current || hlsRef.current || mseEngineRef.current) return;
@@ -571,12 +583,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // static pre-playback probes (see webcodecs.ts) — none of them are
       // re-verified once actually playing, and an unroutable/unsupported
       // audio track does not fire the `error` event above, it just plays
-      // silently. Watch real decoded audio energy for a few seconds and
-      // recover through the same direct → MSE → HLS chain if genuinely
-      // silent, so HLS stays an automatic last resort, not a manual escape.
+      // silently. Watch real decoded audio energy for a few seconds. A
+      // genuine silence verdict means the browser can't render the track —
+      // a silence SKIPS the MSE copy leg (same codec, same <video> element
+      // would hit the same wall, and its own source node is already taken)
+      // and escalates straight to a real ta=1 transcode.
       if (expectAudio) {
         stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(el, () => { void recoverFromDirect(); });
+        stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToTranscode(false));
       }
     };
     startDirectRef.current = startDirect;
@@ -762,6 +776,15 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           fallbackFromMse();
           return false;
         }
+        // The MSE leg is a bitstream-copy leg like direct/HLS/DASH: a codec
+        // the browser can't actually render plays silently with no `error`
+        // event. Arm the same live-energy watch — on a genuine silence
+        // verdict the whole copy family is done, so it escalates to a real
+        // ta=1 transcode (destroying this engine first). No-op if the
+        // element's AudioContext source node is already taken by an earlier
+        // direct-leg watch (that verdict already covered this case).
+        stopSilentWatchRef.current?.();
+        stopSilentWatchRef.current = watchForSilentAudio(video, () => escalateSilentToTranscode(true));
         return true;
       } catch {
         return false;

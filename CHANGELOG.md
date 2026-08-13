@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.56 — August 2026
+
+### Dolby Digital (AC-3) : la veille de silence mène enfin à un vrai transcode — plus de leg MSE muette
+
+- **Corrigé** : sur un fichier AC-3 (MP4 ou HEVC), la lecture directe échouait silencieusement (le navigateur ne peut pas rendre l'AC-3 natif), la veille de silence détectait le verdict après 6 s… mais la chaîne de récupération installait ensuite la leg MSE — une autre tentative de « copie » du même codec, qui tombait muette elle aussi, SANS veille : le player redémarrait et restait en lecture directe sans son, au lieu de transcoder. Seul le DD normal était touché : le DD+ (E-AC-3) n'est pas transmuxable, donc ta=1 dès le départ.
+- **Corrigé** : un verdict de silence sur la leg directe (énergie réelle décodée, contexte Web Audio actif) saute désormais la leg MSE et escalade directement en transcode réel `ta=1` — le verdict est de la même nature que celui des legs copie HLS/DASH.
+- **Corrigé** : la leg MSE elle-même arme sa propre veille de silence (elle peut être la première leg, ex. HEVC non supporté par le probe) — sur silence, le moteur MSE est détruit (`mseSkipped`) et le flux repart en transcode `ta=1` (HEVC → DASH copy + AAC).
+
 ## v1.13.55 — August 2026
 
 ### Lecture DASH : les sessions transcode et les sources HEVC/AV1 jouent via dash.js — le seul protocole où MDE honore le copy HEVC
