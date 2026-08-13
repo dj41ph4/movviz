@@ -4,6 +4,18 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.63 — August 2026
+
+### Une série avec un seul épisode "à venir" s'affichait comme manquante — la carte série ignorait le statut "upcoming"
+
+- **Cause racine confirmée** : `LibrarySeriesCard` calculait l'exhaustivité d'une série avec `available === monitored.length`, en comptant les épisodes non encore diffusés ("à venir") comme s'ils devaient déjà être disponibles — une série entièrement téléchargée avec un seul épisode pas encore diffusé retombait donc sur le badge ambre "manquant", alors que `SeasonAccordion`, `TitleContent` et la page Bibliothèque traitent déjà correctement "disponible OU à venir" comme complet.
+- **Corrigé** : la carte série applique désormais la même règle que partout ailleurs dans l'app.
+
+### « Rechercher et remplacer » proposait de remplacer un fichier par un fichier quasi identique quand la langue actuelle était inconnue
+
+- **Cause racine confirmée en direct** : quand la langue du fichier possédé n'est pas connue (non détectée), toute release en cache dans la langue cible (VF) était proposée comme "amélioration", sans jamais vérifier si elle apportait quoi que ce soit de réel — la même résolution, le même codec (x264≈H.264, x265≈HEVC affichés différemment mais identiques) et une taille quasi identique déclenchaient quand même une proposition de remplacement. Le garde-fou existant (`isMeaningfulUpgrade`, écart de taille ≥ 10 %) était explicitement contourné pour ce cas précis ; côté séries, ce garde-fou n'existait tout simplement pas.
+- **Corrigé** : les propositions basées sur la langue exigent désormais le même écart de taille minimum (10 %) que les autres types d'amélioration, côté films comme côté épisodes — les suggestions de résolution/codec réels ne sont pas affectées.
+
 ## v1.13.62 — August 2026
 
 ### FFmpeg remux : un ffmpeg en échec pendant un abandon client faisait planter tout le serveur — plus seulement la lecture en cours

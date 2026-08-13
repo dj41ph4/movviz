@@ -72,12 +72,25 @@ function versionLabel(resolution: string | null, videoCodec: string | null, audi
   return [resolution, videoCodec, audioCodec].filter(Boolean).join(" · ") || "?";
 }
 
-/** True when the candidate is a real upgrade — not just the same file re-downloaded under a different release name. */
+/**
+ * True when the candidate is a real upgrade — not just the same file
+ * re-downloaded under a different release name. A language upgrade is
+ * legitimately independent of resolution/codec (that's the whole point —
+ * same quality, different dub), but it must still clear the size-difference
+ * bar: otherwise an owned file with an unparsed/unknown language (very
+ * common — see `m.language ?? "?"` above) always "needs" a language
+ * upgrade, and any cached release merely matching the target language gets
+ * proposed even when it's the exact same encode already owned (confirmed
+ * live: identical resolution+codec+size, e.g. H.264≈x264, HEVC≈x265,
+ * proposed as a "replacement" for a handful of MB difference).
+ */
 function isMeaningfulUpgrade(candidate: { release: IndexerRelease; parsed: ReturnType<typeof parseRelease> }, movie: { file: { size: number; resolution: string | null; videoCodec: string | null } | null }, isLanguage = false): boolean {
-  if (!movie.file || isLanguage) return true;
+  if (!movie.file) return true;
   const r = candidate.parsed;
-  if (rank(r.resolution) > rank(movie.file.resolution)) return true;
-  if (r.videoCodec && movie.file.videoCodec && normalizeCodec(r.videoCodec) !== normalizeCodec(movie.file.videoCodec)) return true;
+  if (!isLanguage) {
+    if (rank(r.resolution) > rank(movie.file.resolution)) return true;
+    if (r.videoCodec && movie.file.videoCodec && normalizeCodec(r.videoCodec) !== normalizeCodec(movie.file.videoCodec)) return true;
+  }
   const sizeDiff = Math.abs((candidate.release.size - movie.file.size) / Math.max(movie.file.size, 1));
   return sizeDiff >= 0.10; // at least 10% size difference
 }

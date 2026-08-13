@@ -4,6 +4,18 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.63 — August 2026
+
+### Eine Serie mit nur einer "demnächst"-Episode wurde als fehlend angezeigt — die Serienkarte ignorierte den Status "upcoming"
+
+- **Ursache bestätigt**: `LibrarySeriesCard` berechnete die Vollständigkeit einer Serie mit `available === monitored.length` und zählte noch nicht ausgestrahlte Episoden ("demnächst") so, als müssten sie bereits verfügbar sein — eine vollständig heruntergeladene Serie mit nur einer noch nicht ausgestrahlten Episode fiel dadurch auf das gelbe Badge „fehlt" zurück, obwohl `SeasonAccordion`, `TitleContent` und die Bibliotheksseite „verfügbar ODER demnächst" bereits korrekt als vollständig behandeln.
+- **Behoben**: Die Serienkarte wendet nun dieselbe Regel an wie überall sonst in der App.
+
+### „Suchen und ersetzen" schlug vor, eine Datei durch eine nahezu identische Datei zu ersetzen, wenn die aktuelle Sprache unbekannt war
+
+- **Ursache live bestätigt**: Wenn die Sprache der vorhandenen Datei nicht bekannt ist (nicht erkannt), wurde jede zwischengespeicherte Release in der Zielsprache (VF) als „Verbesserung" vorgeschlagen, ohne jemals zu prüfen, ob sie tatsächlich einen echten Mehrwert bot — dieselbe Auflösung, derselbe Codec (x264≈H.264, x265≈HEVC unterschiedlich angezeigt, aber identisch) und eine nahezu identische Dateigröße lösten trotzdem einen Ersetzungsvorschlag aus. Die bestehende Absicherung (`isMeaningfulUpgrade`, Größenunterschied ≥ 10%) wurde für diesen speziellen Fall bewusst umgangen; auf Serienseite gab es diese Absicherung schlicht nicht.
+- **Behoben**: Sprachbasierte Vorschläge erfordern jetzt denselben Mindestgrößenunterschied (10%) wie andere Arten von Verbesserungen, sowohl bei Filmen als auch bei Episoden — echte Auflösungs-/Codec-Vorschläge sind davon nicht betroffen.
+
 ## v1.13.62 — August 2026
 
 ### FFmpeg-Remux: Ein fehlgeschlagenes ffmpeg während eines Client-Abbruchs brachte den gesamten Server zum Absturz — nicht mehr nur die laufende Wiedergabe

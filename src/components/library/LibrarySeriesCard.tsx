@@ -23,7 +23,10 @@ export function LibrarySeriesCard({ series, index = 0, onChange }: { series: Lib
   const available = monitored.filter((e) => e.status === "available").length;
   const downloading = monitored.filter((e) => e.status === "downloading").length;
 
-  const allAvailable = monitored.length > 0 && available === monitored.length;
+  // Un épisode monitoré "à venir" (pas encore diffusé) ne peut pas manquer —
+  // il ne compte donc pas contre l'exhaustivité, comme partout ailleurs
+  // (seasonStatus, overallSeriesStatus, library/page.tsx).
+  const allAvailable = monitored.length > 0 && monitored.every((e) => e.status === "available" || e.status === "upcoming");
   const nothingMonitored = monitored.length === 0;
   const anyBusy = downloading > 0;
   const statusBadge = allAvailable
@@ -132,13 +135,13 @@ export function LibrarySeriesCard({ series, index = 0, onChange }: { series: Lib
         <div className="mt-1 flex items-center gap-2">
           <span className={cn(
             "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold",
-            available === monitored.length && monitored.length > 0
+            allAvailable
               ? "text-ok bg-ok/12 border-ok/25"
               : downloading > 0
                 ? "text-cyan bg-cyan/12 border-cyan/25"
                 : "text-amber bg-amber/12 border-amber/25"
           )}>
-            {available === monitored.length && monitored.length > 0 ? <Check className="h-2.5 w-2.5" /> : <HardDriveDownload className="h-2.5 w-2.5" />}
+            {allAvailable ? <Check className="h-2.5 w-2.5" /> : <HardDriveDownload className="h-2.5 w-2.5" />}
             {available}/{monitored.length} {t("common.episodesShort")}
           </span>
           {formatDate(series.releaseDate, locale) && (

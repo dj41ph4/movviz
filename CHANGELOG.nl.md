@@ -4,6 +4,18 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.63 — Augustus 2026
+
+### Een serie met slechts één "binnenkort"-aflevering werd als ontbrekend weergegeven — de seriekaart negeerde de status "upcoming"
+
+- **Grondoorzaak bevestigd**: `LibrarySeriesCard` berekende de volledigheid van een serie met `available === monitored.length`, waarbij nog niet uitgezonden afleveringen ("binnenkort") werden meegeteld alsof ze al beschikbaar hadden moeten zijn — een volledig gedownloade serie met slechts één nog niet uitgezonden aflevering viel daardoor terug op het amberkleurige badge "ontbreekt", terwijl `SeasonAccordion`, `TitleContent` en de Bibliotheekpagina "beschikbaar OF binnenkort" al correct als compleet behandelen.
+- **Opgelost**: de seriekaart past nu dezelfde regel toe als elders in de app.
+
+### "Zoeken en vervangen" stelde voor een bestand te vervangen door een bijna identiek bestand wanneer de huidige taal onbekend was
+
+- **Grondoorzaak live bevestigd**: wanneer de taal van het bezeten bestand niet bekend is (niet gedetecteerd), werd elke gecachte release in de doeltaal (VF) voorgesteld als "verbetering", zonder ooit te controleren of dit daadwerkelijk iets opleverde — dezelfde resolutie, dezelfde codec (x264≈H.264, x265≈HEVC anders weergegeven maar identiek) en een bijna identieke bestandsgrootte leidden toch tot een vervangingsvoorstel. De bestaande vangrail (`isMeaningfulUpgrade`, groottemarge ≥ 10%) werd voor dit specifieke geval expliciet omzeild; aan seriezijde bestond deze vangrail eenvoudigweg niet.
+- **Opgelost**: op taal gebaseerde voorstellen vereisen nu dezelfde minimale groottemarge (10%) als andere soorten verbeteringen, zowel voor films als afleveringen — echte resolutie-/codecsuggesties blijven ongewijzigd.
+
 ## v1.13.62 — Augustus 2026
 
 ### FFmpeg-remux: een mislukte ffmpeg tijdens een clientafbreking liet de hele server crashen — niet langer alleen de lopende weergave

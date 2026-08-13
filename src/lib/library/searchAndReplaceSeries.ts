@@ -78,6 +78,18 @@ function bestEpisodeLanguageMatch(matches: ReturnType<typeof computeSafeEpisodeM
     .sort((a, b) => rank(b.parsed.resolution) - rank(a.parsed.resolution) || b.release.score - a.release.score)[0];
 }
 
+/**
+ * Same guard as isMeaningfulUpgrade() in searchAndReplace.ts (movie side) —
+ * a language upgrade is legitimate independent of resolution/codec, but an
+ * owned file with an unparsed language always "needs" one, so without this
+ * bar an essentially identical release (same size within 10%) gets proposed
+ * as a "replacement" for no real gain.
+ */
+function isMeaningfulEpisodeUpgrade(candidateSize: number, currentSize: number): boolean {
+  if (!currentSize) return true;
+  return Math.abs((candidateSize - currentSize) / currentSize) >= 0.10;
+}
+
 /** Every monitored, available episode across every series — flattened once, reused by both find and grab. */
 function eligibleEpisodes(seriesList: LibrarySeries[]) {
   const out: { series: LibrarySeries; seasonNumber: number; episodeNumber: number; file: NonNullable<LibrarySeries["seasons"][number]["episodes"][number]["file"]> }[] = [];
@@ -122,8 +134,11 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
 
     // Language upgrade (highest priority)
     if (wantsLanguageUpgrade) {
-      best = bestEpisodeLanguageMatch(safeMatches, targetLanguage);
-      if (best) upgradeKind = "languageUpgrade";
+      const candidate = bestEpisodeLanguageMatch(safeMatches, targetLanguage);
+      if (candidate && isMeaningfulEpisodeUpgrade(candidate.release.size, file.size)) {
+        best = candidate;
+        upgradeKind = "languageUpgrade";
+      }
     }
 
     // Live search fallback for language
@@ -140,8 +155,11 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
           directReleases.push(...results);
         }
         const directMatches = computeSafeEpisodeMatches(directReleases, series, seasonNumber, episodeNumber, file.resolution, rules, profile);
-        best = bestEpisodeLanguageMatch(directMatches, targetLanguage);
-        if (best) upgradeKind = "languageUpgrade";
+        const candidate = bestEpisodeLanguageMatch(directMatches, targetLanguage);
+        if (candidate && isMeaningfulEpisodeUpgrade(candidate.release.size, file.size)) {
+          best = candidate;
+          upgradeKind = "languageUpgrade";
+        }
       }
     }
 

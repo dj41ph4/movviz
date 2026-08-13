@@ -4,6 +4,18 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.63 — Agosto 2026
+
+### Una serie con un solo episodio "in arrivo" veniva mostrata come mancante — la card della serie ignorava lo stato "upcoming"
+
+- **Causa radice confermata**: `LibrarySeriesCard` calcolava la completezza di una serie con `available === monitored.length`, contando gli episodi non ancora trasmessi ("in arrivo") come se dovessero già essere disponibili — una serie interamente scaricata con un solo episodio non ancora trasmesso ricadeva quindi sul badge ambra "mancante", mentre `SeasonAccordion`, `TitleContent` e la pagina Libreria trattano già correttamente "disponibile OPPURE in arrivo" come completo.
+- **Corretto**: la card della serie applica ora la stessa regola usata ovunque altrove nell'app.
+
+### "Cerca e sostituisci" proponeva di sostituire un file con un file quasi identico quando la lingua attuale era sconosciuta
+
+- **Causa radice confermata in diretta**: quando la lingua del file posseduto non è nota (non rilevata), qualsiasi release in cache nella lingua target (VF) veniva proposta come "miglioramento", senza mai verificare se apportasse davvero qualcosa — la stessa risoluzione, lo stesso codec (x264≈H.264, x265≈HEVC mostrati in modo diverso ma identici) e una dimensione quasi identica attivavano comunque una proposta di sostituzione. La protezione esistente (`isMeaningfulUpgrade`, scarto di dimensione ≥ 10%) veniva esplicitamente aggirata per questo caso specifico; lato serie, questa protezione semplicemente non esisteva.
+- **Corretto**: le proposte basate sulla lingua richiedono ora lo stesso scarto di dimensione minimo (10%) degli altri tipi di miglioramento, sia lato film che lato episodi — i suggerimenti di risoluzione/codec reali non sono interessati.
+
 ## v1.13.62 — Agosto 2026
 
 ### Remux FFmpeg: un ffmpeg fallito durante un abbandono del client faceva crashare l'intero server — non più solo la riproduzione in corso
