@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.51 — Agosto 2026
+
+### Le sonde transcode non sono più mute — ogni esito viene registrato
+
+- **Corretto**: la sonda `/status/sessions` poteva terminare senza lasciare una sola riga di log (sessione non trovata, errore HTTP o errore di rete tutti ignorati silenziosamente) — una diagnostica invisibile non è una diagnostica. Ora registra sempre un esito: i codec reali del job quando viene trovato, "trovata senza TranscodeSession" per le sessioni direct-stream pure, "non trovata" con l'elenco delle sessioni attive quando il job non è ancora apparso, lo stato HTTP in caso di errore e il messaggio di errore catturato.
+- **Modificato**: quando `/decision` di Plex risponde con campi di codice di decisione invece di un array `Media[]`, ora viene registrato il corpo completo della risposta (600 caratteri) invece di un estratto di 200 caratteri, così una decisione rifiutata mostra la sua struttura completa.
+
 ## v1.13.50 — Agosto 2026
 
 ### La sessione transcode in corso viene ispezionata — i codec che Plex produce DAVVERO vengono registrati

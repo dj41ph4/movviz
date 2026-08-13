@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.51 — August 2026
+
+### The transcode probes are no longer mute — every outcome is logged
+
+- **Fixed**: the `/status/sessions` probe could complete without leaving a single log line (session not found, HTTP failure or network error were all silently skipped) — invisible diagnostics are no diagnostics. It now always logs an outcome: the running job's real codecs when found, "found without TranscodeSession" for pure direct-stream sessions, "not found" with the list of active sessions when the job hasn't appeared yet, the HTTP status on failure, and the caught error message.
+- **Changed**: when Plex's `/decision` responds with decision-code fields instead of a `Media[]` array, the full response body (600 chars) is now logged instead of a 200-char snippet, so a refusing decision shows its complete structure.
+
 ## v1.13.50 — August 2026
 
 ### The live transcode session is now inspected — the codecs Plex ACTUALLY produces are logged
