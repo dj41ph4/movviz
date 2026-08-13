@@ -147,33 +147,57 @@ export function rewriteM3u8(raw: string, playlistPath: string): string {
 /**
  * Rewrite a Plex DASH manifest (MPD) so every media URL hits our same-origin
  * proxy instead of the Plex LAN address (unreachable from the browser, and it
- * would leak the admin token). Plex MPDs carry the transcode session base URL
- * in <BaseURL> elements — one per AdaptationSet, e.g.
- * https://host:32400/video/:/transcode/universal/session/{id}/0/ — and the
- * SegmentTemplate (init-streamN.m4s / chunk-streamN-${Number}.m4s) resolves
- * against it. Absolute media/initialization attributes are rare but handled
- * the same way.
+ * would leak the admin token).
+ *
+ * Two shapes observed from real PMS responses:
+ *  - A <BaseURL> element per AdaptationSet, e.g.
+ *    https://host:32400/video/:/transcode/universal/session/{id}/0/ — the
+ *    SegmentTemplate's media/initialization then resolve as relative against
+ *    it, so once BaseURL is proxied the browser resolves the rest on its own.
+ *  - NO <BaseURL> at all, with SegmentTemplate carrying relative paths
+ *    directly, e.g. initialization="session/{id}/0/header". Confirmed live
+ *    (Jurassic Park, 2026-08-13): without a BaseURL to anchor against, the
+ *    browser resolves these relative to the MPD's OWN fetch URL
+ *    (/api/stream/{ratingKey}/transcode?...) instead of Plex's real
+ *    transcode path — producing a 404 on every single init-segment request,
+ *    so DASH playback can never start (regardless of tv/ta mode). These must
+ *    be anchored to PLEX_UNIVERSAL_BASE explicitly.
  */
 export function rewriteMpd(raw: string): string {
   const proxyBase = "/api/stream/plex-proxy";
-  const rewriteUrl = (u: string): string => {
+  const templateBase = `${proxyBase}${PLEX_UNIVERSAL_BASE}/`;
+
+  const rewriteAbsoluteOrPath = (u: string): string => {
     const t = u.trim();
     if (!t || t.startsWith(proxyBase) || t.startsWith("/api/stream/")) return u;
-    // Relative template URLs resolve against the proxied BaseURL — leave them
-    if (!/^https?:\/\//i.test(t)) return u;
-    try {
-      const parsed = new URL(t);
-      return `${proxyBase}${parsed.pathname}${parsed.search}`;
-    } catch {
-      return u;
+    if (/^https?:\/\//i.test(t)) {
+      try {
+        const parsed = new URL(t);
+        return `${proxyBase}${parsed.pathname}${parsed.search}`;
+      } catch {
+        return u;
+      }
     }
+    if (t.startsWith("/")) return `${proxyBase}${t}`;
+    return u;
   };
+
+  const hasBaseUrl = /<BaseURL[^>]*>[^<]*<\/BaseURL>/i.test(raw);
+
   return raw
     .replace(/<BaseURL([^>]*)>([^<]*)<\/BaseURL>/gi, (_m, attrs: string, url: string) => {
-      return `<BaseURL${attrs}>${rewriteUrl(url)}</BaseURL>`;
+      return `<BaseURL${attrs}>${rewriteAbsoluteOrPath(url)}</BaseURL>`;
     })
     .replace(/\b(media|initialization)="([^"]+)"/gi, (_m, attr: string, url: string) => {
-      return `${attr}="${rewriteUrl(url)}"`;
+      const t = url.trim();
+      const isAnchored = !t || t.startsWith(proxyBase) || t.startsWith("/api/stream/") || /^https?:\/\//i.test(t) || t.startsWith("/");
+      if (isAnchored) return `${attr}="${rewriteAbsoluteOrPath(url)}"`;
+      // Relative template: safe to leave as-is only if a <BaseURL> above was
+      // rewritten to an absolute proxy path for the browser to resolve
+      // against. Otherwise anchor it to the real Plex universal-transcode
+      // path ourselves.
+      if (hasBaseUrl) return `${attr}="${url}"`;
+      return `${attr}="${templateBase}${t}"`;
     });
 }
 
