@@ -207,10 +207,16 @@ export async function GET(req: NextRequest, context: Ctx) {
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
-    if (decRes.ok) {
+    if (!decRes.ok) {
+      const decBody = await decRes.text().catch(() => "");
+      logTranscode(ratingKey, "plex-decision", `HTTP ${decRes.status}: ${decBody.slice(0, 200)}`, decRes.status);
+      console.error(`[transcode] ${ratingKey} /decision FAIL ${decRes.status}: ${decBody.slice(0, 200)}`);
+    } else {
       const dec = await decRes.json().catch(() => null);
       const m = dec?.MediaContainer?.Media?.[0];
-      if (m) {
+      if (!m) {
+        logTranscode(ratingKey, "plex-decision", `réponse sans Media: ${JSON.stringify(dec)?.slice(0, 200) ?? "null"}`, 502);
+      } else {
         const decision = String(m.Decision ?? "?");
         const decVideo = String(m.videoCodec ?? "?");
         const decAudio = String(m.audioCodec ?? "?");
@@ -228,8 +234,9 @@ export async function GET(req: NextRequest, context: Ctx) {
         }
       }
     }
-  } catch {
+  } catch (err) {
     // /decision est consultatif — ne bloque jamais le démarrage de session
+    console.error(`[transcode] ${ratingKey} /decision error: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   try {
