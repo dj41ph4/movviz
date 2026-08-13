@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.61 — Agosto 2026
+
+### Remux FFmpeg: il muxer MP4 falliva silenziosamente sull'audio AC-3 — `delay_moov`
+
+- **Causa radice confermata in diretta** (Ace Ventura in Africa 500751): `-movflags empty_moov` non può scrivere l'header MP4 prima di aver visto almeno un pacchetto audio quando la traccia viene copiata in AC-3 (dimensione del frame sconosciuta in anticipo) — ffmpeg falliva con `Cannot write moov atom before AC3 packets`, subito dopo aver scritto `ftyp`+`moov` (pochi KB). Lato client, questo non era visibile come alcun errore HTTP: solo un flusso anormalmente corto che termina in modo pulito, una trappola silenziosa.
+- **Corretto**: aggiunto il flag `delay_moov` (`frag_keyframe+empty_moov+delay_moov+default_base_moof+omit_tfhd_offset`). Testato in diretta contro il file reale: copia video+audio a 4-11× la velocità in tempo reale (contro 0,1-0,9× lato transcodifica Plex).
+
 ## v1.13.60 — Agosto 2026
 
 ### Nuovo motore di riproduzione: remux ffmpeg locale — aggira definitivamente il rifiuto di Plex di copiare il bitstream HEVC
