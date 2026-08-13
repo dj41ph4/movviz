@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.50 — Augustus 2026
+
+### De lopende transcode-sessie wordt geïnspecteerd — de codecs die Plex ECHT produceert worden gelogd
+
+- **Nieuw**: direct na de sessiestart bevraagt de transcode-route `/status/sessions` en logt de werkelijke output van de job (`plex-session`: video-/audiocodecs met hun werkelijke beslissingen, broncodec, outputresolutie en jobsnelheid). Dit sluit de cirkel voor het geval "alleen-audio transcode die toch hapert": de video-copy is nu bevestigd als gehonoreerd (remux-sessies zijn vloeiend), en als een sessie de video ondanks `tv=0` opnieuw codeert, worden een warn-item plus een consolefout gegenereerd. Twee pogingen met 400 ms tussenruimte, zodat de job tijd heeft om in de sessielijst te verschijnen.
+- **Gewijzigd**: de sonde blokkeert de weergave nooit — hij is best-effort en stil bij fouten.
+
 ## v1.13.49 — Augustus 2026
 
 ### De MDE-beslissingsaanroep faalt niet langer stil — de HTTP-fouten worden gelogd

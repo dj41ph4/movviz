@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.50 — Agosto 2026
+
+### La sessione transcode in corso viene ispezionata — i codec che Plex produce DAVVERO vengono registrati
+
+- **Nuovo**: subito dopo l'avvio della sessione, la rotta transcode interroga `/status/sessions` e registra l'output reale del job (`plex-session`: codec video/audio con le loro decisioni effettive, codec sorgente, risoluzione di output e velocità del job). Questo chiude il cerchio per il caso "transcodifica solo audio che lagga ancora": la copia video è ora confermata onorata (le sessioni remux sono fluide), e se una sessione ri-codifica il video nonostante `tv=0`, viene emesso un avviso `warn` più un errore console. Due tentativi a 400 ms di distanza per dare al job il tempo di apparire nell'elenco delle sessioni.
+- **Modificato**: la sonda non blocca mai la riproduzione — è best-effort e silenziosa in caso di errore.
+
 ## v1.13.49 — Agosto 2026
 
 ### La chiamata di decisione MDE non fallisce più in silenzio — i suoi errori HTTP vengono registrati
