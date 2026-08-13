@@ -225,6 +225,19 @@ export function startRemux(
     return null;
   }
 
+  // OBLIGATOIRE avant destroy(err) plus bas : un Readable Node relance tout
+  // 'error' émis sans listener en exception NON catchée au tick suivant —
+  // confirmé en prod (Ace Ventura 500751) : ce process Next.js entier a
+  // crashé (uncaughtException "Controller is already closed") sur un
+  // ffmpeg qui sortait en erreur pendant qu'un client abort concurrent
+  // fermait déjà le ReadableStream Web côté route, faisant tomber TOUT le
+  // conteneur en 503 (pas seulement cette requête). Le flux Web
+  // (`Readable.toWeb`) a son propre relais d'erreur vers le consommateur
+  // HTTP — ce listener sert uniquement à empêcher l'EventEmitter Node
+  // sous-jacent de paniquer, l'erreur réelle est déjà loguée par le
+  // handler `exit` ci-dessus.
+  proc.stdout.on("error", () => { /* voir commentaire ci-dessus */ });
+
   const stream = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
 
   // Sur exit anormal AVANT la fin naturelle du flux (EOF), on force une

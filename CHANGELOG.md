@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.62 — August 2026
+
+### FFmpeg remux : un ffmpeg en échec pendant un abandon client faisait planter tout le serveur — plus seulement la lecture en cours
+
+- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751, deux occurrences la même nuit) : quand ffmpeg sortait en erreur (`exit anormal code=255`, souvent provoqué par un client qui coupe la connexion), le code forçait une erreur sur le flux Node sous-jacent pour la signaler côté HTTP — mais ce flux n'avait aucun gestionnaire d'erreur attaché. Node relance alors l'erreur en exception non capturée (`uncaughtException: Controller is already closed`), qui a fait planter le process serveur entier : plus aucune route ne répondait (503 généralisé, y compris sur des pages sans rapport avec la lecture), jusqu'au redémarrage manuel du conteneur.
+- **Corrigé** : gestionnaire d'erreur attaché sur le flux ffmpeg avant sa mise en pipe — l'échec reste correctement signalé au lecteur vidéo, sans plus jamais remonter en crash du serveur.
+
 ## v1.13.59 — August 2026
 
 ### DASH : le profil Plex Web déclare enfin l'HEVC pour le protocole DASH — le copy bitstream est honoré par MDE

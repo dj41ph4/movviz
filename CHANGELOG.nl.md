@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.62 — Augustus 2026
+
+### FFmpeg-remux: een mislukte ffmpeg tijdens een clientafbreking liet de hele server crashen — niet langer alleen de lopende weergave
+
+- **Grondoorzaak live bevestigd** (Ace Ventura in Afrika 500751, twee keer dezelfde nacht): wanneer ffmpeg met een fout afsloot (`exit anormal code=255`, vaak veroorzaakt door een client die de verbinding verbreekt), forceerde de code een fout op de onderliggende Node-stream om dit aan HTTP-zijde te signaleren — maar deze stream had geen enkele foutafhandelaar gekoppeld. Node gooit de fout dan opnieuw als niet-afgevangen uitzondering (`uncaughtException: Controller is already closed`), wat het hele serverproces liet crashen: geen enkele route reageerde nog (algemene 503, ook op pagina's die niets met afspelen te maken hadden), tot aan de handmatige herstart van de container.
+- **Opgelost**: foutafhandelaar gekoppeld aan de ffmpeg-stream vóór het pipen ervan — de fout wordt nu correct gemeld aan de videospeler, zonder ooit nog door te schieten naar een servercrash.
+
 ## v1.13.61 — Augustus 2026
 
 ### FFmpeg-remux: de MP4-muxer faalde stilzwijgend op AC-3-audio — `delay_moov`

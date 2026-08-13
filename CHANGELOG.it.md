@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.62 — Agosto 2026
+
+### Remux FFmpeg: un ffmpeg fallito durante un abbandono del client faceva crashare l'intero server — non più solo la riproduzione in corso
+
+- **Causa radice confermata in diretta** (Ace Ventura in Africa 500751, due occorrenze nella stessa notte): quando ffmpeg usciva in errore (`exit anormal code=255`, spesso provocato da un client che interrompe la connessione), il codice forzava un errore sul flusso Node sottostante per segnalarlo lato HTTP — ma questo flusso non aveva alcun gestore di errore collegato. Node rilancia quindi l'errore come eccezione non catturata (`uncaughtException: Controller is already closed`), che ha fatto crashare l'intero processo server: nessuna rotta rispondeva più (503 generalizzato, anche su pagine non correlate alla riproduzione), fino al riavvio manuale del container.
+- **Corretto**: gestore di errore collegato al flusso ffmpeg prima della sua messa in pipe — l'errore resta correttamente segnalato al lettore video, senza più risalire in crash del server.
+
 ## v1.13.61 — Agosto 2026
 
 ### Remux FFmpeg: il muxer MP4 falliva silenziosamente sull'audio AC-3 — `delay_moov`
