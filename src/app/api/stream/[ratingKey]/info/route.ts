@@ -97,6 +97,12 @@ export async function GET(req: NextRequest, context: Ctx) {
         audioStreams,
         subtitleStreams,
         ffmpegAvailable,
+        // Durée réelle Plex (ms) — le moteur ffmpeg pipe un MP4 fragmenté
+        // (`empty_moov`), le <video> natif ne connaît donc jamais la durée
+        // totale à l'avance et son `.duration` reste bloqué sur la fenêtre
+        // déjà reçue (confirmé en direct : "0:02" figé). Le lecteur préfère
+        // cette valeur pour cette leg précisément.
+        durationMs: typeof metadata?.duration === "number" ? metadata.duration : null,
       },
       {
         headers: {

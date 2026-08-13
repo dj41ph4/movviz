@@ -51,6 +51,7 @@ interface StreamInfo {
   subtitleStreams?: StreamTrack[];
   height?: number | null;
   ffmpegAvailable?: boolean;
+  durationMs?: number | null;
 }
 
 /**
@@ -142,6 +143,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const [mseActive, setMseActive] = useState(false);
   const [mseStats, setMseStats] = useState<MseDebugStats | null>(null);
   const [ffmpegActive, setFfmpegActive] = useState(false);
+  const ffmpegActiveRef = useRef(false);
+  ffmpegActiveRef.current = ffmpegActive;
   const [ffmpegStats, setFfmpegStats] = useState<FfmpegDebugStats | null>(null);
   const [audioStreams, setAudioStreams] = useState<StreamTrack[]>([]);
   const [subtitleStreams, setSubtitleStreams] = useState<StreamTrack[]>([]);
@@ -993,7 +996,13 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       if (!seekingRef.current) setCurrentTime(el.currentTime);
     };
     const onLoadedData = () => {
-      setDuration(el.duration);
+      // Leg ffmpeg : `<video>` natif lit un MP4 fragmenté à `empty_moov`
+      // (durée totale inconnue par construction, pas un vrai live) — sa
+      // `.duration` reste figée sur la portion déjà reçue ("0:02" observé
+      // en direct) plutôt que de refléter la durée réelle du film. La durée
+      // Plex connue à l'avance est toujours la bonne source pour cette leg.
+      const known = infoRef.current?.durationMs;
+      setDuration(ffmpegActiveRef.current && known ? known / 1000 : el.duration);
       setVolume(el.volume);
       setMuted(el.muted);
     };

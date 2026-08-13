@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.66 — August 2026
+
+### FFmpeg remux : la durée affichée restait figée à 0:02 alors que la lecture était correcte
+
+- **Cause racine confirmée en direct** : le `<video>` natif lit un MP4 fragmenté à `empty_moov` — la durée totale n'est jamais connue à l'avance par construction (pas un vrai flux live, juste un conteneur qui ne l'expose pas), donc `.duration` restait bloquée sur la toute petite portion déjà reçue au chargement au lieu de refléter la durée réelle du film.
+- **Corrigé** : la durée réelle (déjà connue côté serveur via les métadonnées Plex) est désormais renvoyée par `/api/stream/[ratingKey]/info` et préférée à `.duration` spécifiquement pour la leg ffmpeg — les autres moteurs ne sont pas concernés.
+
 ## v1.13.65 — August 2026
 
 ### FFmpeg remux : le son AC-3 copié n'était pas décodable par le navigateur — lecture muette
