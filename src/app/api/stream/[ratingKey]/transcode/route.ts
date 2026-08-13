@@ -255,6 +255,11 @@ export async function GET(req: NextRequest, context: Ctx) {
   // AAC / MP3 / AC-3 from MPEG-TS (E-AC3 = parsing error → silent video).
   const tv = sp.get("tv"); // "0" = copy, missing/"1" = transcode
   const ta = sp.get("ta");
+  // fmt=dash → DASH manifest (protocol=dash, start.mpd) : le chemin que Plex
+  // Web utilise et le SEUL où MDE honore le copy HEVC (prouvé en live : les
+  // sessions HLS ré-encodent TOUT source HEVC en libx264 — John Carter,
+  // Tomb Raider — alors que Plex Web en DASH copie l'HEVC bitstream).
+  const fmt = sp.get("fmt") === "dash" ? "dash" : "hls";
   const COPY_SAFE_AUDIO = ["aac", "mp4a", "ac3", "ac-3", "mp3"];
   const COPY_SAFE_VIDEO = ["h264", "h.264", "hevc", "h265", "av1", "vp9"];
   // "eac3" contains "ac3" — exclude it explicitly, hls.js cannot demux E-AC3 from TS
@@ -265,7 +270,40 @@ export async function GET(req: NextRequest, context: Ctx) {
   const copyVideoSafe = COPY_SAFE_VIDEO.some((c) => videoCodec.includes(c));
   const srcIsHevc = /hevc|h265|hev1|hvc1/.test(videoCodec);
   const srcIsAv1 = /av1|av01/.test(videoCodec);
-  const transcodeVideoCodec = tv === "0" && copyVideoSafe ? "copy" : "h264";
+  const srcIsVp9 = /vp9/.test(videoCodec);
+  const srcVideoCanonical = /hevc|h265|hev1|hvc1/.test(videoCodec)
+    ? "hevc"
+    : /av1|av01/.test(videoCodec)
+      ? "av1"
+      : /vp9/.test(videoCodec)
+        ? "vp9"
+        : /h\.?264|avc/.test(videoCodec)
+          ? "h264"
+          : null;
+  // Le codec produit par MDE peut être le nom court (hevc), un fourcc ISOBMFF
+  // (hev1/hvc1) ou un profil complet (avc1.640028, av01.0.08M.08) — les
+  // variantes doivent toutes être lues comme « copy du codec source honoré ».
+  const decVideoMatchesSource = (d: string): boolean => {
+    if (d.includes("copy")) return true;
+    if (srcVideoCanonical === "hevc") return /hevc|hev1|hvc1/.test(d);
+    if (srcVideoCanonical === "av1") return /av1|av01/.test(d);
+    if (srcVideoCanonical === "vp9") return /vp9|vp09/.test(d);
+    if (srcVideoCanonical === "h264") return /h264|avc/.test(d);
+    return false;
+  };
+  const expectVideoCopy = tv === "0" && copyVideoSafe;
+  // Plex Web n'envoie JAMAIS videoCodec=copy en DASH : il passe le codec
+  // cible réel (videoCodec=hevc pour une source HEVC) et c'est directStream=1
+  // qui déclenche le copy bitstream quand source == cible. Avec
+  // videoCodec=copy en DASH, MDE refuse le copy HEVC et ré-encode en h264
+  // (prouvé live : MPD servi avc1.640028 pour Jurassic Park 499959 alors que
+  // Plex Web copie le HEVC avec videoCodec=hevc, transcoder ≥6× temps réel).
+  // HLS conserve "copy" — honoré pour h264 (prouvé, After We Fell 500745).
+  const transcodeVideoCodec = expectVideoCopy
+    ? fmt === "dash" && srcVideoCanonical
+      ? srcVideoCanonical
+      : "copy"
+    : "h264";
   const transcodeAudioCodec = ta === "0" && copyAudioSafe ? "copy" : "aac";
 
   const clientWidth = resolveClientMaxWidth(req);
@@ -276,11 +314,6 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   // directPlay=0 forces Plex-side packaging (HLS for hls.js, DASH for dash.js).
   // directStream=1 allows bitstream copy when codecs already match the target.
-  // fmt=dash → DASH manifest (protocol=dash, start.mpd) : le chemin que Plex
-  // Web utilise et le SEUL où MDE honore le copy HEVC (prouvé en live : les
-  // sessions HLS ré-encodent TOUT source HEVC en libx264 — John Carter,
-  // Tomb Raider — alors que Plex Web en DASH copie l'HEVC bitstream).
-  const fmt = sp.get("fmt") === "dash" ? "dash" : "hls";
   const qs = new URLSearchParams({
     path: `/library/metadata/${ratingKey}`,
     mediaIndex: "0",
@@ -305,7 +338,7 @@ export async function GET(req: NextRequest, context: Ctx) {
     ...(fmt === "dash" ? { hasMDE: "1" } : {}),
   });
   // Only set bitrate when video is actually being transcoded (not copied)
-  if (transcodeVideoCodec !== "copy") {
+  if (!expectVideoCopy) {
     qs.set("maxVideoBitrate", String(maxVideoBitrate));
   }
   if (audioStreamID) qs.set("audioStreamID", audioStreamID);
@@ -348,7 +381,14 @@ export async function GET(req: NextRequest, context: Ctx) {
         const decision = String(m.Decision ?? "?");
         const decVideo = String(m.videoCodec ?? "?");
         const decAudio = String(m.audioCodec ?? "?");
-        const planReencodesVideo = transcodeVideoCodec === "copy" && decision !== "copy" && !String(decVideo).includes("copy");
+        const decV = decVideo.toLowerCase();
+        // En DASH, MDE répond avec le codec cible réel (hevc pour un copy,
+        // h264 pour un ré-encodage) ; en HLS il répond "copy". Les deux cas
+        // doivent être lus comme « copy honoré ».
+        const planReencodesVideo =
+          expectVideoCopy &&
+          decision !== "copy" &&
+          !decVideoMatchesSource(decV);
         logTranscode(
           ratingKey,
           "plex-decision",
@@ -357,7 +397,7 @@ export async function GET(req: NextRequest, context: Ctx) {
         );
         if (planReencodesVideo) {
           console.error(`[transcode] ${ratingKey} ⚠ MDE prévoit de RÉ-ENCODER la vidéo (${decVideo}) malgré tv=0 — profil « Plex Web » ignoré ou codec non copiable`);
-        } else if (transcodeVideoCodec === "copy" && srcIsHevc && String(decVideo).includes("copy")) {
+        } else if (expectVideoCopy && srcIsHevc && decVideoMatchesSource(decV)) {
           console.log(`[transcode] ${ratingKey} ✓ MDE honore le copy HEVC (décision=${decision}) — vidéo copiée en bitstream`);
         }
       }
@@ -368,7 +408,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   }
 
   try {
-    const brLog = transcodeVideoCodec !== "copy" ? ` br=${maxVideoBitrate}k` : "";
+    const brLog = !expectVideoCopy ? ` br=${maxVideoBitrate}k` : "";
     const startPath = `start.${fmt === "dash" ? "mpd" : "m3u8"}`;
     console.log(`[transcode] ${ratingKey} → ${startPath} (${fmt}) tv=${tv} ta=${ta} v=${transcodeVideoCodec} a=${transcodeAudioCodec}${brLog}`);
     logTranscode(ratingKey, "plex-fetch", `fmt=${fmt} tv=${tv} ta=${ta} codecs: v=${transcodeVideoCodec} a=${transcodeAudioCodec}${brLog}`, "ok");
@@ -433,9 +473,9 @@ export async function GET(req: NextRequest, context: Ctx) {
               ratingKey,
               "plex-session",
               `réel: v=${td.videoCodec ?? "?"} (${vDec}) a=${td.audioCodec ?? "?"} (${aDec}) src=${td.sourceVideoCodec ?? "?"}→${videoCodec} ${td.width ?? "?"}x${td.height ?? "?"} speed=${td.speed ?? "?"}${td.transcodeHwFullPipeline ? " hw=plein" : ""}`,
-              vDec !== "copy" && transcodeVideoCodec === "copy" ? "warn" : "ok"
+              vDec !== "copy" && expectVideoCopy ? "warn" : "ok"
             );
-            if (vDec !== "copy" && transcodeVideoCodec === "copy") {
+            if (vDec !== "copy" && expectVideoCopy) {
               console.error(`[transcode] ${ratingKey} ⚠ LA SESSION RÉ-ENCODE LA VIDÉO (videoDecision=${vDec}) malgré tv=0`);
             }
             break;
@@ -460,28 +500,31 @@ export async function GET(req: NextRequest, context: Ctx) {
     const rewritten = isDash ? rewriteMpd(raw) : rewriteM3u8(raw, masterPath);
 
     // VÉRITÉ DU TERRAIN : le maître contient les codecs EFFECTIVEMENT produits
-    // par Plex (CODECS="..." en HLS, codecs="..." dans les <Representation>
-    // du MPD) — pas ceux qu'on a demandés. Quand on demande un copy vidéo
-    // (tv=0) et que Plex ré-encode quand même (HEVC/AV1 10-bit/HDR non
-    // copiables en HLS-TS, sous-titres PGS/ASS brûlés...), la vidéo est
-    // transcodée EN SILENCE : c'est la cause n°1 des « audio seul » qui laguent.
-    // On la détecte ici et on la crie dans les logs + en-tête de réponse.
+    // par Plex (CODECS="..." en HLS, codecs="..." dans les <AdaptationSet> /
+    // <Representation> du MPD) — pas ceux qu'on a demandés. Quand on demande
+    // un copy vidéo (tv=0) et que Plex ré-encode quand même (HEVC/AV1 10-bit/
+    // HDR non copiables en HLS-TS, sous-titres PGS/ASS brûlés...), la vidéo
+    // est transcodée EN SILENCE : c'est la cause n°1 des « audio seul » qui
+    // laguent. On la détecte ici et on la crie dans les logs + en-tête.
     const streamInf = raw.match(/#EXT-X-STREAM-INF:[^\n]*/)?.[0] ?? "";
     const actualCodecs = isDash
-      ? (raw.match(/<Representation[^>]*\bcodecs="([^"]+)"/i)?.[1] ?? "")
+      ? (raw.match(/<AdaptationSet[^>]*contentType="video"[^>]*codecs="([^"]+)"/i)?.[1]
+        ?? raw.match(/<AdaptationSet[^>]*contentType="video"[\s\S]*?<Representation[^>]*codecs="([^"]+)"/i)?.[1]
+        ?? raw.match(/<Representation[^>]*\bcodecs="([^"]+)"/i)?.[1] ?? "")
       : (streamInf.match(/CODECS="([^"]+)"/i)?.[1] ?? "");
     const actualVideo = (actualCodecs.split(",")[0] ?? "").trim().toLowerCase();
     const videoCopyRefused =
-      transcodeVideoCodec === "copy" &&
+      expectVideoCopy &&
       actualVideo !== "" &&
-      ((srcIsHevc && !actualVideo.includes("hev")) ||
-        (srcIsAv1 && !actualVideo.includes("av01")));
+      ((srcIsHevc && !/hev|hvc/.test(actualVideo)) ||
+        (srcIsAv1 && !actualVideo.includes("av01")) ||
+        (srcIsVp9 && !/vp9|vp09/.test(actualVideo)));
     if (videoCopyRefused) {
       const why = subtitleStreamID
         ? `sous-titres ${subtitleStreamID} (brûlés dans la vidéo)`
         : `codec source ${videoCodec} non copiable en ${isDash ? "DASH" : "HLS-TS"}`;
-      console.error(`[transcode] ${ratingKey} ⚠ Plex a IGNORÉ videoCodec=copy (${videoCodec} → ${actualVideo}) : vidéo ré-encodée. Cause probable : ${why}`);
-      logTranscode(ratingKey, "plex-copy-refused", `demandé copy → réel ${actualVideo} (${why})`, "warn");
+      console.error(`[transcode] ${ratingKey} ⚠ Copy vidéo NON honoré (demandé ${transcodeVideoCodec} → réel ${actualVideo}) : vidéo ré-encodée. Cause probable : ${why}`);
+      logTranscode(ratingKey, "plex-copy-refused", `demandé ${transcodeVideoCodec} → réel ${actualVideo} (${why})`, "warn");
     } else {
       logTranscode(ratingKey, "plex-codecs", `demandé v=${transcodeVideoCodec} a=${transcodeAudioCodec} → réel ${actualCodecs || "?"}`, "ok");
     }

@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.58 — August 2026
+
+### DASH : le copy HEVC est enfin honoré par MDE — le codec demandé est le codec source réel, plus jamais « copy »
+
+- **Cause racine confirmée en direct** (Jurassic Park 499959 — MKV HEVC 2160p + AC-3 5.1) : Plex Web n'envoie JAMAIS `videoCodec=copy` en DASH — il passe le codec cible réel (`videoCodec=hevc`) et laisse `directStream=1` déclencher le copy bitstream quand source = cible. Notre session DASH demandait « copy » : MDE ré-encodait quand même la vidéo en H.264 (`avc1.640028`) à ~2× temps réel, pendant que seule la légende audio était copiée.
+- **Corrigé** : en DASH, la route transcode envoie le codec source canonique (`hevc`/`h264`/`av1`/`vp9`) à la place de « copy » ; le cap `maxVideoBitrate` n'est plus appliqué quand un copy vidéo est demandé (il forçait un ré-encodage). Le HLS garde « copy » (honoré pour h264).
+- **Corrigé** : sondes fiabilisées — le codec réel est lu dans l'AdaptationSet vidéo du MPD (fourcc `hev1`/`hvc1` inclus), les variantes de profil (`avc1.*`, `av01.*`) comptent comme copy honoré dans `/decision`, VP9 couvert, alerte avec le codec réellement demandé.
+
 ## v1.13.57 — August 2026
 
 ### DASH : manifeste sans BaseURL — les segments d'initialisation pointaient vers une route inexistante, lecture impossible
