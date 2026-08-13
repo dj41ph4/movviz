@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.48 — Augustus 2026
+
+### De transcode-route vraagt Plex wat het van PLAN is — de MDE-beslissing wordt gelogd vóór de sessiestart
+
+- **Nieuw**: vóór het starten van de sessie roept de transcode-route Plex' `/video/:/transcode/universal/decision`-endpoint aan met exact dezelfde parameters en logt het plan van de Media Decision Engine (`plex-decision`: `Decision=transcode/copy`, video-/audiocodecs, container). De HLS-master-playlist laat het `CODECS`-attribuut weg bij direct-stream-sessies, dus dit is de enige betrouwbare manier om te weten of de video daadwerkelijk als bitstream wordt gekopieerd of stil opnieuw wordt gecodeerd — het geval "alleen-audio transcode die toch hapert" toont nu zijn verdict (warn-item + consolebericht wanneer MDE `tv=0` negeert).
+- **Opgelost**: `videoResolution` wordt door Plex als string gerapporteerd en is niet altijd numeriek ("4k", "8k", "uhd") — `Number("4k")` = NaN, waardoor de video-bitrate-limiet voor 4K-bronnen die transcoderen stil terugviel op de 1080p-standaard (8000). De resolutielabels worden nu genormaliseerd vóór de bitrate-keuze.
+
 ## v1.13.47 — Augustus 2026
 
 ### HEVC-bitstream-copy wordt door Plex nu daadwerkelijk gehonoreerd — de player declareert het Plex Web-clientprofiel voor transcode-sessies
