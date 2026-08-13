@@ -19,6 +19,15 @@ All notable changes to Movviz, grouped by development milestone.
 - **Corrigé** : en DASH, la route transcode envoie le codec source canonique (`hevc`/`h264`/`av1`/`vp9`) à la place de « copy » ; le cap `maxVideoBitrate` n'est plus appliqué quand un copy vidéo est demandé (il forçait un ré-encodage). Le HLS garde « copy » (honoré pour h264).
 - **Corrigé** : sondes fiabilisées — le codec réel est lu dans l'AdaptationSet vidéo du MPD (fourcc `hev1`/`hvc1` inclus), les variantes de profil (`avc1.*`, `av01.*`) comptent comme copy honoré dans `/decision`, VP9 couvert, alerte avec le codec réellement demandé.
 
+## v1.13.60 — August 2026
+
+### Nouveau moteur de lecture : remux ffmpeg local — contourne définitivement le refus de Plex de copier le bitstream HEVC
+
+- **Cause racine confirmée définitivement close** : 12+ requêtes directes contre l'API Plex (`/video/:/transcode/universal/decision`), en faisant varier bitrate, codec cible, profil client, protocole, piste audio, sous-titres — toutes donnent exactement le même résultat : réencodage H.264 forcé, quel que soit le paramètre envoyé. Réglages serveur (limite de débit distant, réseaux LAN) vérifiés aussi : aucun n'explique le refus. C'est une heuristique interne à Plex Media Server, non documentée et non influençable de l'extérieur — plus aucune tentative de correctif côté paramètres client sur ce point.
+- **Nouveau** : plutôt que de demander à Plex de décider, Movviz peut désormais récupérer le fichier source brut directement chez Plex (`/library/parts/{id}/file`, en contournant entièrement `/video/:/transcode/universal`) et le remuxer lui-même avec un ffmpeg local (`-c:v copy` toujours, `-c:a copy` ou `-c:a aac` selon la piste) — copie vidéo à coût CPU nul, audio garanti décodable par le navigateur, zéro dépendance à la décision de Plex. Nouveau moteur `FfmpegRemuxEngine` inséré dans la chaîne de secours du lecteur bêta entre le moteur MSE existant (MP4 progressif uniquement) et le repli transcodage Plex — prend le relais précisément là où le parseur MP4 maison abandonne (MKV en particulier, l'essentiel de la bibliothèque). Disponibilité du binaire vérifiée côté serveur ; repli silencieux et automatique sur le comportement actuel si ffmpeg est absent.
+- **Corrigé** : correction d'une condition de course dans le moteur MSE (`resetBuffers` n'attendait pas la fin des opérations `SourceBuffer.remove()` en cours avant d'en lancer de nouvelles, risquant une `InvalidStateError` lors d'un seek).
+- **Corrigé** : décision de transcodage audio proactive avant lecture (inspirée du profil d'appareil Jellyfin) — évite un transcodage audio inutile quand le navigateur peut réellement décoder la piste copiée, tout en gardant la veille de silence en filet de sécurité pour les cas où la détection se trompe.
+
 ## v1.13.57 — August 2026
 
 ### DASH : manifeste sans BaseURL — les segments d'initialisation pointaient vers une route inexistante, lecture impossible

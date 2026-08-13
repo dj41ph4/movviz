@@ -39,7 +39,7 @@ function rfcVideo(codec: string): string | null {
 }
 
 export async function orchestrate(config: PlaybackConfig): Promise<PlaybackDecision> {
-  const { media, capabilities, engine, subtitleActive } = config;
+  const { media, capabilities, engine, subtitleActive, ffmpegAvailable } = config;
 
   if (engine === "native") {
     return { engine: "transcode", reason: "native engine forced — MSE disabled" };
@@ -74,6 +74,18 @@ export async function orchestrate(config: PlaybackConfig): Promise<PlaybackDecis
     return {
       engine: "transcode",
       reason: `MSE skipped: MP4 codecs not MSE-copyable (${media.videoCodec ?? "?"}+${media.audioCodec ?? "?"})`,
+    };
+  }
+
+  // FFmpeg remux : toute source non-MP4-progressive (MKV/AVI/TS/…) que le
+  // parseur JS maison ne sait pas lire. Disponibilité du binaire vérifiée
+  // côté serveur (champ ffmpegAvailable de /api/stream/[ratingKey]/info) —
+  // jamais tenté sans confirmation, jamais si des sous-titres sont brûlés
+  // (le remux copy ne gère aucun burn-in).
+  if (!subtitleActive && ffmpegAvailable && (engine === "ffmpeg" || engine === "auto")) {
+    return {
+      engine: "ffmpeg",
+      reason: `FFmpeg remux: ${container || media.container || "?"} ${media.videoCodec ?? "?"}+${media.audioCodec ?? "?"} — video copy, audio AAC`,
     };
   }
 

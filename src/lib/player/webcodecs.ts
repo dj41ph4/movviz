@@ -183,6 +183,29 @@ export function isVideoCodecSupported(codec: string, caps: CodecCapabilities): b
   return false;
 }
 
+/**
+ * Decision AVANT lecture (miroir du device profile Jellyfin) : faut-il
+ * transcoder l'audio en AAC plutôt que le copier ?
+ * Ordre strict : "eac3" contient "ac3" → vérifier E-AC3 d'abord.
+ * - codecs que hls.js ne sait pas transmuxer du TS (E-AC3/DTS/TrueHD/PCM/
+ *   FLAC/Opus/Vorbis) → TOUJOURS transcode (fait structurel de la lib)
+ * - AC-3/EC-3 → transcode uniquement si le navigateur affirme ne pas
+ *   pouvoir le décoder en MSE (probe fiable, PAS canPlayType)
+ * - AAC/MP3 → jamais (toujours décodable)
+ * Filet : la veille de silence (watchForSilentAudio) reste armée sur
+ * toutes les legs copy pour les probes positives menteuses (cas déjà
+ * documenté ci-dessus : AC-3 jouable alors que isTypeSupported dit non) —
+ * cette fonction ne force donc le transcode que sur une réponse NÉGATIVE,
+ * jamais l'inverse ; le pire cas est un transcode évitable, pas un silence.
+ */
+export function shouldForceAudioTranscode(codec: string, caps: CodecCapabilities): boolean {
+  const c = codec.toLowerCase();
+  if (!isAudioMseTransmuxable(c)) return true;
+  if (c === "eac3" || c === "ec-3") return !(caps.eac3 || caps.mseEac3);
+  if (c.includes("ac3") || c === "ac-3" || c.includes("dolby")) return !(caps.ac3 || caps.mseAc3);
+  return false;
+}
+
 export function isAudioCodecSupported(codec: string, caps: CodecCapabilities): boolean {
   const c = codec.toLowerCase();
   // Order matters: "eac3" contains "ac3" — check E-AC3 first

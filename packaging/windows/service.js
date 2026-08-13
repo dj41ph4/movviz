@@ -47,6 +47,11 @@ const svc = new Service({
     // path to a data drive if you prefer, e.g. "D:\\Media".
     { name: "MOVVIZ_CONFIG_DIR", value: process.env.ProgramData ? `${process.env.ProgramData}\\Movviz` : "" },
     { name: "MOVVIZ_DATA_DIR", value: process.env.ProgramData ? `${process.env.ProgramData}\\Movviz\\data` : "" },
+    // Local ffmpeg remux engine (MKV/HEVC → AAC audio, video copy). Binary is
+    // NOT bundled/downloaded automatically in v1 — install-service.ps1 warns
+    // if it's missing at this path but installation still succeeds; the app
+    // falls back silently to Plex transcode when the binary is absent.
+    { name: "MOVVIZ_FFMPEG_PATH", value: process.env.ProgramData ? `${process.env.ProgramData}\\Movviz\\bin\\ffmpeg.exe` : "" },
   ],
 });
 

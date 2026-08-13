@@ -41,6 +41,23 @@ if (Test-Path (Join-Path $root "public")) {
   Copy-Item -Recurse -Force (Join-Path $root "public") (Join-Path $standalone "public")
 }
 
+# --- FFmpeg (moteur de remux local, optionnel) ------------------------------
+# Le binaire n'est pas telecharge automatiquement en v1 : on prepare juste le
+# dossier cible et on avertit si le binaire est absent. L'app se rabat en
+# silence sur le transcodage Plex tant qu'il manque, donc ce n'est jamais
+# bloquant pour l'installation.
+$ffmpegDir = Join-Path $env:ProgramData "Movviz\bin"
+$ffmpegPath = Join-Path $ffmpegDir "ffmpeg.exe"
+if (-not (Test-Path $ffmpegDir)) {
+  New-Item -ItemType Directory -Force -Path $ffmpegDir | Out-Null
+}
+if (-not (Test-Path $ffmpegPath)) {
+  Write-Warning "ffmpeg.exe est introuvable dans $ffmpegDir"
+  Write-Host "  Le moteur de lecture 'remux local' restera desactive tant que ce binaire n'est pas installe." -ForegroundColor Yellow
+  Write-Host "  Placez un ffmpeg.exe Windows a cet emplacement pour l'activer (ex. build 'essentials' officiel de gyan.dev : https://www.gyan.dev/ffmpeg/builds/)." -ForegroundColor Yellow
+  Write-Host "  Sans lui, Movviz continue de fonctionner normalement et se rabat sur le transcodage Plex." -ForegroundColor DarkGray
+}
+
 # --- Register the service --------------------------------------------------
 Write-Host "Registering the Movviz Windows service..." -ForegroundColor Cyan
 node packaging\windows\service.js install

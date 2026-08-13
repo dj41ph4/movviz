@@ -12,11 +12,12 @@ import {
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
   SkipBack, SkipForward, PictureInPicture2, Zap, Monitor, Settings,
 } from "lucide-react";
-import { detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, type CodecCapabilities } from "@/lib/player/webcodecs";
+import { detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, shouldForceAudioTranscode, type CodecCapabilities } from "@/lib/player/webcodecs";
 import { watchForSilentAudio } from "@/lib/player/silentAudioDetector";
 import { orchestrate } from "@/lib/playback/orchestrator";
 import { detectCapabilities } from "@/lib/playback/capabilities";
 import { MSEPlaybackEngine, type MseDebugStats } from "@/lib/playback/mse/MSEPlaybackEngine";
+import { FfmpegRemuxEngine, type FfmpegDebugStats } from "@/lib/playback/ffmpeg/FfmpegRemuxEngine";
 import type { MediaInfo } from "@/lib/playback/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 
@@ -49,6 +50,7 @@ interface StreamInfo {
   audioStreams?: StreamTrack[];
   subtitleStreams?: StreamTrack[];
   height?: number | null;
+  ffmpegAvailable?: boolean;
 }
 
 /**
@@ -130,6 +132,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const defaultAudioIdRef = useRef<string | null>(null);
   const mseEngineRef = useRef<MSEPlaybackEngine | null>(null);
   const mseSkippedRef = useRef(false);
+  const ffmpegEngineRef = useRef<FfmpegRemuxEngine | null>(null);
+  const ffmpegSkippedRef = useRef(false);
 
   const [error, setError] = useState<string | null>(null);
   const [usingFallback, setUsingFallback] = useState(false);
@@ -137,6 +141,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const [buffering, setBuffering] = useState(false);
   const [mseActive, setMseActive] = useState(false);
   const [mseStats, setMseStats] = useState<MseDebugStats | null>(null);
+  const [ffmpegActive, setFfmpegActive] = useState(false);
+  const [ffmpegStats, setFfmpegStats] = useState<FfmpegDebugStats | null>(null);
   const [audioStreams, setAudioStreams] = useState<StreamTrack[]>([]);
   const [subtitleStreams, setSubtitleStreams] = useState<StreamTrack[]>([]);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
@@ -183,7 +189,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // transcode audio (hls.js can't transmux them from TS), never copy
       const track = audioStreams.find((s) => s.id === audioId);
       const trackCodec = track?.codec ?? infoRef.current?.audioCodec;
-      if (trackCodec && !isAudioMseTransmuxable(trackCodec)) {
+      const forceAudioTranscode = trackCodec
+        ? (codecCapsRef.current ? shouldForceAudioTranscode(trackCodec, codecCapsRef.current) : !isAudioMseTransmuxable(trackCodec))
+        : false;
+      if (forceAudioTranscode) {
         ta = "1";
       } else {
         ta = transcodeAudioRef.current ? "1" : "0";
@@ -257,25 +266,32 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       prebufferClearRef.current = () => clearInterval(iv);
     };
 
-    // Shared by every copy leg (HLS, DASH, direct, MSE): only forces a real
-    // ta=1 transcode — never touched by a transient network hiccup, only by
-    // a genuine live-silence verdict or by a second, independent copy
-    // attempt also failing at the network level (see the NETWORK_ERROR
-    // branch in the HLS leg). fromMse=true additionally tears the MSE engine
-    // down first — the MSE leg is a "copy to browser" attempt like the
-    // others, and a silence verdict there means the codec can't be rendered
-    // at all, so the whole copy family is done and a real transcode is the
-    // only way left.
-    const escalateSilentToTranscode = (fromMse: boolean) => {
+    // Shared by every copy leg (HLS, DASH, direct, MSE, ffmpeg remux): only
+    // forces a real ta=1 transcode — never touched by a transient network
+    // hiccup, only by a genuine live-silence verdict or by a second,
+    // independent copy attempt also failing at the network level (see the
+    // NETWORK_ERROR branch in the HLS leg). from="mse"/"ffmpeg" additionally
+    // tears that engine down first — both are "copy to browser" attempts
+    // like the others, and a silence verdict there means the codec can't be
+    // rendered at all, so the whole copy family is done and a real
+    // transcode is the only way left.
+    const escalateSilentToTranscode = (from: "mse" | "ffmpeg" | false) => {
       if (hlsCopyEscalatedRef.current) return;
       hlsCopyEscalatedRef.current = true;
       transcodeAudioRef.current = true;
-      if (fromMse) {
+      if (from === "mse") {
         try { mseEngineRef.current?.destroy(); } catch { /* ignore */ }
         mseEngineRef.current = null;
         mseSkippedRef.current = true;
         setMseActive(false);
         setMseStats(null);
+      }
+      if (from === "ffmpeg") {
+        try { void ffmpegEngineRef.current?.destroy(); } catch { /* ignore */ }
+        ffmpegEngineRef.current = null;
+        ffmpegSkippedRef.current = true;
+        setFfmpegActive(false);
+        setFfmpegStats(null);
       }
       fallbackGuardRef.current = false;
       startHlsRef.current?.();
@@ -564,9 +580,9 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // strategy==="transcode" branch in begin() already uses.
       let directRecoveryStarted = false;
       const recoverFromDirect = async () => {
-        if (directRecoveryStarted || fallbackGuardRef.current || hlsRef.current || mseEngineRef.current) return;
+        if (directRecoveryStarted || fallbackGuardRef.current || hlsRef.current || mseEngineRef.current || ffmpegEngineRef.current) return;
         directRecoveryStarted = true;
-        if (!(await tryStartMse(infoRef.current, seekTo))) startHls();
+        if (!(await tryStartMse(infoRef.current, seekTo)) && !(await tryStartFfmpegRemux(infoRef.current, seekTo))) startHls();
       };
 
       // Direct play can now be (re)started more than once per mount — the
@@ -669,7 +685,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         // E-AC3/DTS/TrueHD/FLAC/Opus in HLS → transcode to AAC, never copy.
         // Whether the browser actually renders the copied track is verified
         // live by startHls's silent-audio watch below, same as direct play.
-        transcodeAudioRef.current = effectiveAudioCodec ? !isAudioMseTransmuxable(effectiveAudioCodec) : false;
+        transcodeAudioRef.current = effectiveAudioCodec ? shouldForceAudioTranscode(effectiveAudioCodec, caps) : false;
 
         // Direct play is now the unconditional first attempt — the manual
         // "lightning bolt" button and this automatic path are the same
@@ -699,7 +715,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       }
 
       if (strategy === "transcode") {
-        if (!(await tryStartMse(info, seekTo))) startHls();
+        if (!(await tryStartMse(info, seekTo)) && !(await tryStartFfmpegRemux(info, seekTo))) startHls();
         return;
       }
 
@@ -784,7 +800,92 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         // element's AudioContext source node is already taken by an earlier
         // direct-leg watch (that verdict already covered this case).
         stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(video, () => escalateSilentToTranscode(true));
+        stopSilentWatchRef.current = watchForSilentAudio(video, () => escalateSilentToTranscode("mse"));
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const destroyFfmpeg = () => {
+      if (ffmpegEngineRef.current) {
+        const engine = ffmpegEngineRef.current;
+        ffmpegEngineRef.current = null;
+        void engine.destroy().catch(() => void 0);
+      }
+      setFfmpegActive(false);
+      setFfmpegStats(null);
+    };
+
+    const fallbackFromFfmpeg = () => {
+      destroyFfmpeg();
+      ffmpegSkippedRef.current = true;
+      setBuffering(true);
+      fallbackGuardRef.current = false;
+      startHlsRef.current?.();
+    };
+
+    // FFmpeg remux leg: takes over exactly where the JS-only MSE parser
+    // gives up (non-MP4-progressive containers — MKV in particular, the
+    // vast majority of this library). Movviz pulls the raw file straight
+    // from Plex and remuxes it itself (-c:v copy, -c:a copy|aac), bypassing
+    // Plex's own transcoder entirely — see the plan's "Contexte" section for
+    // why: Plex MDE's refusal to bitstream-copy HEVC for some files is a
+    // confirmed, unfixable-from-outside black box. Deterministic — every
+    // failure falls back to HLS, same contract as tryStartMse.
+    const tryStartFfmpegRemux = async (info: StreamInfo, seekTo?: number): Promise<boolean> => {
+      const video = videoRef.current;
+      if (!video) return false;
+      const b = betaRef.current;
+      if (!b.enabled || ffmpegSkippedRef.current || b.playbackEngine === "native") return false;
+      if (seekTo && seekTo > 0) return false; // resume path stays on proven engines
+      const media: MediaInfo = {
+        ratingKey,
+        container: info.container,
+        videoCodec: info.videoCodec,
+        audioCodec: info.audioCodec,
+      };
+      try {
+        const caps = await detectCapabilities();
+        const decision = await orchestrate({
+          media,
+          capabilities: caps,
+          engine: b.playbackEngine,
+          subtitleActive: !!currentSubtitle,
+          directPossible: false,
+          webcodecsPossible: false,
+          ffmpegAvailable: info.ffmpegAvailable === true,
+        });
+        if (decision.engine !== "ffmpeg") return false;
+
+        const engine = new FfmpegRemuxEngine({
+          onBuffering: (buffering) => setBuffering(buffering),
+          onError: (_msg, fatal) => {
+            if (!fatal) return;
+            if (!ffmpegEngineRef.current) return;
+            fallbackFromFfmpeg();
+          },
+          onDebug: (stats) => setFfmpegStats(stats),
+        });
+        ffmpegEngineRef.current = engine;
+        setFfmpegActive(true);
+        setDirectMode(false);
+        setBuffering(true);
+        engine.attach(video);
+        try {
+          await engine.load(ratingKey, {
+            audioStreamId: audioStreamIdRef.current ? Number(audioStreamIdRef.current) : null,
+            seekTo,
+            debug: b.debug,
+          });
+        } catch {
+          fallbackFromFfmpeg();
+          return false;
+        }
+        // Same contract as every other copy leg: a codec the browser can't
+        // actually render plays silently with no `error` event.
+        stopSilentWatchRef.current?.();
+        stopSilentWatchRef.current = watchForSilentAudio(video, () => escalateSilentToTranscode("ffmpeg"));
         return true;
       } catch {
         return false;
@@ -840,6 +941,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       if (mseEngineRef.current) {
         try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
         mseEngineRef.current = null;
+      }
+      if (ffmpegEngineRef.current) {
+        const engine = ffmpegEngineRef.current;
+        ffmpegEngineRef.current = null;
+        void engine.destroy().catch(() => void 0);
       }
       stopSilentWatchRef.current?.();
       stopSilentWatchRef.current = null;
@@ -1134,6 +1240,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       setMseActive(false);
       setMseStats(null);
     }
+    if (ffmpegEngineRef.current) {
+      const engine = ffmpegEngineRef.current;
+      ffmpegEngineRef.current = null;
+      ffmpegSkippedRef.current = true;
+      setFfmpegActive(false);
+      setFfmpegStats(null);
+      void engine.destroy().catch(() => void 0);
+    }
     // Direct play can't select an audio track — if a fallback track was chosen
     // (audio bypass) or the user picked a non-default track, the browser would
     // play the file's default (undecodable) track → silent video. Stay on HLS.
@@ -1175,6 +1289,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       setMseActive(false);
       setMseStats(null);
     }
+    if (ffmpegEngineRef.current) {
+      const engine = ffmpegEngineRef.current;
+      ffmpegEngineRef.current = null;
+      ffmpegSkippedRef.current = true;
+      setFfmpegActive(false);
+      setFfmpegStats(null);
+      void engine.destroy().catch(() => void 0);
+    }
     startHlsRef.current?.();
   };
 
@@ -1189,8 +1311,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const handleQualityChange = (mw: number | null) => {
     qualityMaxWidthRef.current = mw;
     setMenuOpen(null);
-    if (mseEngineRef.current) {
+    if (mseEngineRef.current || ffmpegEngineRef.current) {
       // Downscaling needs a transcode — deterministic switch to the HLS leg
+      // (both the MSE parser and the ffmpeg remux leg only ever produce the
+      // source resolution — a bitstream copy).
       fallbackGuardRef.current = false;
       handleReturnToHls();
       return;
@@ -1234,6 +1358,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
               <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-cyan/15 px-2 text-[10px] font-semibold text-cyan">
                 <Zap className="h-3 w-3" />
                 {t("player.betaMseStream")}
+              </span>
+            )}
+            {ffmpegActive && (
+              <span className="flex h-6 shrink-0 items-center gap-1 rounded-full bg-purple/15 px-2 text-[10px] font-semibold text-purple">
+                <Zap className="h-3 w-3" />
+                {t("player.betaFfmpegLocal")}
               </span>
             )}
             <p className="truncate text-sm font-semibold text-ink">{title}</p>
@@ -1300,6 +1430,13 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                   <div>{mseStats.networkMbps.toFixed(1)} Mbps · seg {mseStats.segmentMs.toFixed(0)}ms</div>
                   <div>rebuffer {mseStats.rebufferCount} · errors {mseStats.errors} · start {(mseStats.startupMs / 1000).toFixed(1)}s</div>
                   <div>{(mseStats.fetchedBytes / 1048576).toFixed(1)} MB fetched</div>
+                </div>
+              )}
+
+              {ffmpegActive && ffmpegStats && beta.debug && (
+                <div className="pointer-events-none absolute bottom-16 left-3 z-30 rounded-lg bg-black/70 px-3 py-2 font-mono text-[10px] leading-relaxed text-white/80">
+                  <div>FFmpeg remux · actif {ffmpegStats.active ? "oui" : "non"}</div>
+                  <div className="truncate max-w-[220px]">{ffmpegStats.src}</div>
                 </div>
               )}
 

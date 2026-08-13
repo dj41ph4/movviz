@@ -455,15 +455,29 @@ export class MSEPlaybackEngine {
 
   private async resetBuffers(seek: number): Promise<void> {
     for (const w of this.sb) {
-      await w.queue;
+      await w.queue; // attend la fin des appends en cours
     }
     for (const w of this.sb) {
       const b = w.buf;
       try {
-        for (let i = b.buffered.length - 1; i >= 0; i--) {
-          b.remove(b.buffered.start(i), b.buffered.end(i));
+        if (b.updating) {
+          await new Promise<void>((resolve) => {
+            const onDone = () => { b.removeEventListener("updateend", onDone); resolve(); };
+            b.addEventListener("updateend", onDone, { once: true });
+          });
         }
-      } catch { /* ignore */ }
+        for (let i = b.buffered.length - 1; i >= 0; i--) {
+          if (this.destroyed) return;
+          const start = b.buffered.start(i);
+          const end = b.buffered.end(i);
+          if (end - start < 0.001) continue;
+          await new Promise<void>((resolve) => {
+            const onDone = () => { b.removeEventListener("updateend", onDone); resolve(); };
+            b.addEventListener("updateend", onDone, { once: true });
+            try { b.remove(start, end); } catch { resolve(); }
+          });
+        }
+      } catch { /* race — retried next pass */ }
     }
   }
 

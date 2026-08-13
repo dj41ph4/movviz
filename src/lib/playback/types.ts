@@ -6,9 +6,9 @@
  *   → audio-only adaptation (future) → video transcode (last resort)
  */
 
-export type PlaybackEngineKind = "direct" | "webcodecs" | "mse" | "transcode";
+export type PlaybackEngineKind = "direct" | "webcodecs" | "mse" | "ffmpeg" | "transcode";
 
-export type EngineConfig = "auto" | "native" | "mse";
+export type EngineConfig = "auto" | "native" | "mse" | "ffmpeg";
 
 export interface MediaTrackInfo {
   id: string;
@@ -60,6 +60,8 @@ export interface PlaybackConfig {
   directPossible: boolean;
   /** true when WebCodecs can decode video+audio */
   webcodecsPossible: boolean;
+  /** true when the server confirmed an ffmpeg binary is available (from /info) */
+  ffmpegAvailable?: boolean;
 }
 
 export interface PlaybackEngine {

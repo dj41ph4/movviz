@@ -39,7 +39,7 @@ ENV NODE_ENV=production \
 RUN addgroup -g 1001 movviz && adduser -u 1001 -G movviz -S movviz
 # su-exec drops from root (needed at start to chown/switch user) to movviz
 # right before running the app — same pattern as most NAS-friendly images.
-RUN apk add --no-cache su-exec aria2 rtorrent
+RUN apk add --no-cache su-exec aria2 rtorrent ffmpeg
 
 # Standalone server + assets only (small image).
 COPY --from=builder --chown=movviz:movviz /app/.next/standalone ./

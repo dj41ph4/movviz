@@ -14,8 +14,9 @@ interface BetaPlayerConfig {
   streamCacheTtl: number;
   /**
    * Moteur de lecture : "auto" (décision automatique, MSE pour les MP4
-   * compatibles), "native" (moteurs existants uniquement), "mse" (tente MSE
-   * en priorité, fallback automatique). Défaut: "auto".
+   * compatibles, ffmpeg local pour MKV/non-MP4 si disponible), "native"
+   * (moteurs existants uniquement), "mse" (tente MSE en priorité, fallback
+   * automatique), "ffmpeg" (tente le remux local en priorité). Défaut: "auto".
    */
   playbackEngine: EngineConfig;
   /** Affiche le panneau debug playback (mode, codecs, buffer, réseau...). */
@@ -57,12 +58,12 @@ export function setStreamCacheTtl(ttl: number): void {
 
 export function getPlaybackEngine(): EngineConfig {
   const v = load().playbackEngine;
-  return v === "native" || v === "mse" ? v : "auto";
+  return v === "native" || v === "mse" || v === "ffmpeg" ? v : "auto";
 }
 
 export function setPlaybackEngine(engine: EngineConfig): void {
   const cfg = load();
-  save({ ...cfg, playbackEngine: engine === "native" || engine === "mse" ? engine : "auto" });
+  save({ ...cfg, playbackEngine: engine === "native" || engine === "mse" || engine === "ffmpeg" ? engine : "auto" });
 }
 
 export function isPlaybackDebugEnabled(): boolean {

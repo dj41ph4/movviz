@@ -9,12 +9,10 @@
  * Cache lives in globalThis (Next.js bundles routes separately) and expires
  * with the stream cache TTL from settings (default 300s).
  */
-import { loadPlexConfig } from "@/lib/plex/store";
-import { safePlexUrl } from "@/lib/plex/safeUrl";
-import { plexClientHeaders } from "@/lib/player/plexStream";
 import { getStreamCacheTtl } from "@/lib/settings/betaPlayer";
 import { buildManifest } from "@/lib/playback/mp4/segmenter";
 import type { Mp4Manifest } from "@/lib/playback/mp4/segmenter";
+import { resolvePlexPartUrl } from "@/lib/playback/plexSource";
 
 export interface ResolvedMseSource {
   manifest: Mp4Manifest;
@@ -43,30 +41,10 @@ export async function getMseManifest(ratingKey: string, userId: string): Promise
     return { manifest: cached.manifest, headers: cached.headers };
   }
 
-  const cfg = loadPlexConfig();
-  if (!cfg.hostname || !cfg.adminToken) return null;
-  const base = safePlexUrl(`${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`);
-  if (!base) return null;
-  const headers = plexClientHeaders(cfg.adminToken, `movviz-${userId}`);
-
   try {
-    const metaRes = await fetch(`${base}/library/metadata/${ratingKey}`, {
-      headers,
-      cache: "no-store",
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!metaRes.ok) return null;
-    const data = await metaRes.json();
-    const metadata = data?.MediaContainer?.Metadata?.[0];
-    const media = metadata?.Media?.[0];
-    const part = media?.Part?.[0];
-    if (!part?.id && !part?.key) return null;
-
-    const streamPath =
-      typeof part.key === "string" && part.key.startsWith("/")
-        ? part.key
-        : `/library/parts/${part.id}/file.${media.container || "mp4"}`;
-    const sourceUrl = `${base}${streamPath}`;
+    const ref = await resolvePlexPartUrl(ratingKey, userId);
+    if (!ref) return null;
+    const { sourceUrl, headers } = ref;
 
     const manifest = await buildManifest(sourceUrl, headers);
     if (!manifest) return null;

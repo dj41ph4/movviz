@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { safePlexUrl } from "@/lib/plex/safeUrl";
 import { plexClientHeaders } from "@/lib/player/plexStream";
+import { isFfmpegAvailable } from "@/lib/playback/ffmpeg/remuxSession";
 
 export const dynamic = "force-dynamic";
 
@@ -82,6 +83,11 @@ export async function GET(req: NextRequest, context: Ctx) {
         selected: Boolean(s.selected),
       }));
 
+    // FFmpeg remux : disponibilité vérifiée une fois côté serveur, jamais
+    // supposée côté client — l'orchestrateur ne route vers ce moteur que si
+    // ce champ est true.
+    const ffmpegAvailable = await isFfmpegAvailable().catch(() => false);
+
     return NextResponse.json(
       {
         videoCodec,
@@ -90,6 +96,7 @@ export async function GET(req: NextRequest, context: Ctx) {
         height: Number(media?.videoResolution ?? media?.height ?? 0) || null,
         audioStreams,
         subtitleStreams,
+        ffmpegAvailable,
       },
       {
         headers: {
