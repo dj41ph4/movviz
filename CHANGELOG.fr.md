@@ -4,6 +4,18 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.65 — août 2026
+
+### FFmpeg remux : le son AC-3 copié n'était pas décodable par le navigateur — lecture muette
+
+- **Cause racine confirmée** : la whitelist de copie audio du remux incluait `ac3`/`ac-3` (miroir de celle du transcode Plex) — mais le contexte est différent : côté transcode Plex, l'AC-3 copié est transmuxé par hls.js en fMP4 pour MSE (décodé par Chrome avec pack Dolby) ; côté remux, le flux est lu par le décodeur NATIF du `<video>` en MP4 progressif, et Chrome/Edge ne décodent pas l'AC-3 dans ce contexte → image parfaite, zéro son, sans aucune erreur HTTP.
+- **Corrigé** : la whitelist de copie audio du remux est restreinte aux codecs universellement décodables (`aac`/`mp4a`/`mp3`) — tout le reste (AC-3, EC-3, DTS, TrueHD…) est transcodé en AAC 192 kbit/s, la garantie sonore du remux local. La whitelist du transcode Plex reste inchangée (son contexte la justifie).
+- **Corrigé** : condition de course dans `FfmpegRemuxEngine.seek()` — le DELETE de l'ancienne session partait en fire-and-forget ; si le GET de la nouvelle session arrivait au serveur avant, `stopAllForRatingKey` tuait la session fraîchement créée et le seek retombait en HLS. Le DELETE est maintenant attendu avant le chargement.
+
+### Le Hero épinglait toujours les mêmes titres
+
+- **Corrigé** : les pools sans ordre naturel (suggestions personnalisées, découverte, jamais regardés) sont désormais mélangées avec une graine déterministe par jour et par utilisateur — rotation toutes les 24 h au lieu des mêmes 2-3 titres épinglés indéfiniment ; les pools chronologiques (recentlyAdded, upcoming, recentActivity) ne sont pas touchés.
+
 ## v1.13.64 — août 2026
 
 ### Le crash serveur du remux ffmpeg revenait encore — v1.13.62 corrigeait le mauvais listener

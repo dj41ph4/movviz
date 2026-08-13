@@ -229,7 +229,47 @@ export interface HeroContentMixOptions {
  * treating discovery as a last-resort fallback only reached once every
  * owned pool has been exhausted.
  */
+/**
+ * Deterministic per-day, per-user shuffle — pools with no inherent
+ * meaningful order (personalized recs, discovery/trending, unwatched
+ * library) always surfaced their same first N items forever, since nothing
+ * ever reordered them (confirmed live: the same 2-3 titles pinned at the
+ * top of the Hero indefinitely). Seeded on the calendar day so the
+ * selection rotates once every 24h instead of on every page load (which
+ * would make the carousel jump around within a single session) — pools
+ * that already carry real chronological meaning (recentlyAdded, upcoming,
+ * recentActivity) are deliberately left untouched.
+ */
+function dailySeed(userId: string): number {
+  const day = new Date().toISOString().slice(0, 10); // YYYY-MM-DD, UTC
+  let h = 2166136261;
+  for (const c of `${day}:${userId}`) {
+    h ^= c.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function seededShuffle<T>(list: T[], seed: number): T[] {
+  const out = [...list];
+  let s = seed || 1;
+  const next = () => {
+    // mulberry32
+    s |= 0;
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(next() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 async function gatherCandidateRefs(userId: string, targetCount: number, mix: HeroContentMixOptions): Promise<HeroCandidateRef[]> {
+  const seed = dailySeed(userId);
 /** Dedupes within a single list, preserving first-seen order — called once per list, never re-applied to the same list twice. */
   function dedupe(list: HeroCandidateRef[]): HeroCandidateRef[] {
     const seen = new Set<string>();
@@ -250,22 +290,27 @@ async function gatherCandidateRefs(userId: string, targetCount: number, mix: Her
 
   if (mix.includeUnowned) {
     // Pool 1 — priorité 1 (confirmé par l'utilisateur) : suggestions personnalisées.
-    const recs = await getRecommendations(userId, "movie").catch(() => []);
+    // Mélangées (seed du jour) — sans ça, le même sous-ensemble en tête de
+    // liste de recommandations restait épinglé indéfiniment.
+    const recs = seededShuffle(await getRecommendations(userId, "movie").catch(() => []), seed);
     for (const r of recs) unownedRefs.push({ tmdbId: r.tmdbId, type: "movie", poolId: "personalized", libraryStatus: null, daysUntilRelease: null });
 
     // Pool 6 — découverte TMDb (plus un simple repli — une vraie source de contenu non possédé).
     const owned = new Set(movies.map((m) => m.tmdbId));
     const trend = await trending("movie", 1, []).catch(() => ({ results: [] }));
-    for (const r of trend.results) {
+    for (const r of seededShuffle(trend.results, seed + 1)) {
       if (owned.has(r.tmdbId)) continue;
       unownedRefs.push({ tmdbId: r.tmdbId, type: "movie", poolId: "discovery", libraryStatus: null, daysUntilRelease: null });
     }
   }
 
   if (mix.includeOwned) {
-    // Pool 2 — jamais regardés dans la bibliothèque.
+    // Pool 2 — jamais regardés dans la bibliothèque. Mélangé (seed du jour) —
+    // sinon toujours les mêmes premiers films de la bibliothèque en tête
+    // (aucun ordre chronologique naturel ici, contrairement aux pools 3-5).
     const watched = new Set(getWatchStatus(userId)?.movies ?? []);
-    for (const m of movies.filter((m) => m.status === "available" && !watched.has(m.tmdbId))) {
+    const unwatched = seededShuffle(movies.filter((m) => m.status === "available" && !watched.has(m.tmdbId)), seed + 2);
+    for (const m of unwatched) {
       ownedRefs.push({ tmdbId: m.tmdbId, type: "movie", poolId: "unwatchedLibrary", libraryStatus: m.status, daysUntilRelease: null });
     }
 

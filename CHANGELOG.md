@@ -4,6 +4,18 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.65 — August 2026
+
+### FFmpeg remux : le son AC-3 copié n'était pas décodable par le navigateur — lecture muette
+
+- **Cause racine confirmée** : la whitelist de copie audio du remux incluait `ac3`/`ac-3` (miroir de celle du transcode Plex) — mais le contexte est différent : côté transcode Plex, l'AC-3 copié est transmuxé par hls.js en fMP4 pour MSE (décodé par Chrome avec pack Dolby) ; côté remux, le flux est lu par le décodeur NATIF du `<video>` en MP4 progressif, et Chrome/Edge ne décodent pas l'AC-3 dans ce contexte → image parfaite, zéro son, sans aucune erreur HTTP.
+- **Corrigé** : la whitelist de copie audio du remux est restreinte aux codecs universellement décodables (`aac`/`mp4a`/`mp3`) — tout le reste (AC-3, EC-3, DTS, TrueHD…) est transcodé en AAC 192 kbit/s, la garantie sonore du remux local. La whitelist du transcode Plex reste inchangée (son contexte la justifie).
+- **Corrigé** : condition de course dans `FfmpegRemuxEngine.seek()` — le DELETE de l'ancienne session partait en fire-and-forget ; si le GET de la nouvelle session arrivait au serveur avant, `stopAllForRatingKey` tuait la session fraîchement créée et le seek retombait en HLS. Le DELETE est maintenant attendu avant le chargement.
+
+### Le Hero épinglait toujours les mêmes titres
+
+- **Corrigé** : les pools sans ordre naturel (suggestions personnalisées, découverte, jamais regardés) sont désormais mélangées avec une graine déterministe par jour et par utilisateur — rotation toutes les 24 h au lieu des mêmes 2-3 titres épinglés indéfiniment ; les pools chronologiques (recentlyAdded, upcoming, recentActivity) ne sont pas touchés.
+
 ## v1.13.64 — August 2026
 
 ### Le crash serveur du remux ffmpeg revenait encore — v1.13.62 corrigeait le mauvais listener
@@ -35,21 +47,6 @@ All notable changes to Movviz, grouped by development milestone.
 - **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751, deux occurrences la même nuit) : quand ffmpeg sortait en erreur (`exit anormal code=255`, souvent provoqué par un client qui coupe la connexion), le code forçait une erreur sur le flux Node sous-jacent pour la signaler côté HTTP — mais ce flux n'avait aucun gestionnaire d'erreur attaché. Node relance alors l'erreur en exception non capturée (`uncaughtException: Controller is already closed`), qui a fait planter le process serveur entier : plus aucune route ne répondait (503 généralisé, y compris sur des pages sans rapport avec la lecture), jusqu'au redémarrage manuel du conteneur.
 - **Corrigé** : gestionnaire d'erreur attaché sur le flux ffmpeg avant sa mise en pipe — l'échec reste correctement signalé au lecteur vidéo, sans plus jamais remonter en crash du serveur.
 
-## v1.13.59 — August 2026
-
-### DASH : le profil Plex Web déclare enfin l'HEVC pour le protocole DASH — le copy bitstream est honoré par MDE
-
-- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751 — HEVC 1080p + AC-3 5.1) : l'escalade de silence fonctionne (session `ta=0` à 17:21:38 → session `ta=1` à 17:21:44, 6 s pile) MAIS MDE refusait le copy HEVC sur les DEUX sessions — `plex-copy-refused: demandé hevc → réel avc1.640028` — et ré-encodait la vidéo en H.264 à ~20 Mbps, un transcode trop lourd pour le NAS : lecture qui ne démarre pas en 1080p, image sans son en 2160p, et « revenir au HLS » ne montre plus aucun transcode car tout passe en DASH.
-- **Corrigé** : `X-Plex-Client-Profile-Extra` ne déclarait l'HEVC/AV1 comme codec cible de transcode que pour `protocol=hls` — MDE l'ignorait donc en DASH et ré-encodait en H.264 (la v1.13.58 envoyait pourtant `videoCodec=hevc`, sans effet : le profil ne déclarait pas ce codec pour DASH). Le profil couvre désormais `protocol=hls,dash`, comme le profil réel de Plex Web.
-
-## v1.13.58 — August 2026
-
-### DASH : le copy HEVC est enfin honoré par MDE — le codec demandé est le codec source réel, plus jamais « copy »
-
-- **Cause racine confirmée en direct** (Jurassic Park 499959 — MKV HEVC 2160p + AC-3 5.1) : Plex Web n'envoie JAMAIS `videoCodec=copy` en DASH — il passe le codec cible réel (`videoCodec=hevc`) et laisse `directStream=1` déclencher le copy bitstream quand source = cible. Notre session DASH demandait « copy » : MDE ré-encodait quand même la vidéo en H.264 (`avc1.640028`) à ~2× temps réel, pendant que seule la légende audio était copiée.
-- **Corrigé** : en DASH, la route transcode envoie le codec source canonique (`hevc`/`h264`/`av1`/`vp9`) à la place de « copy » ; le cap `maxVideoBitrate` n'est plus appliqué quand un copy vidéo est demandé (il forçait un ré-encodage). Le HLS garde « copy » (honoré pour h264).
-- **Corrigé** : sondes fiabilisées — le codec réel est lu dans l'AdaptationSet vidéo du MPD (fourcc `hev1`/`hvc1` inclus), les variantes de profil (`avc1.*`, `av01.*`) comptent comme copy honoré dans `/decision`, VP9 couvert, alerte avec le codec réellement demandé.
-
 ## v1.13.61 — August 2026
 
 ### FFmpeg remux : le muxer MP4 échouait en silence sur l'audio AC-3 — `delay_moov`
@@ -65,6 +62,21 @@ All notable changes to Movviz, grouped by development milestone.
 - **Nouveau** : plutôt que de demander à Plex de décider, Movviz peut désormais récupérer le fichier source brut directement chez Plex (`/library/parts/{id}/file`, en contournant entièrement `/video/:/transcode/universal`) et le remuxer lui-même avec un ffmpeg local (`-c:v copy` toujours, `-c:a copy` ou `-c:a aac` selon la piste) — copie vidéo à coût CPU nul, audio garanti décodable par le navigateur, zéro dépendance à la décision de Plex. Nouveau moteur `FfmpegRemuxEngine` inséré dans la chaîne de secours du lecteur bêta entre le moteur MSE existant (MP4 progressif uniquement) et le repli transcodage Plex — prend le relais précisément là où le parseur MP4 maison abandonne (MKV en particulier, l'essentiel de la bibliothèque). Disponibilité du binaire vérifiée côté serveur ; repli silencieux et automatique sur le comportement actuel si ffmpeg est absent.
 - **Corrigé** : correction d'une condition de course dans le moteur MSE (`resetBuffers` n'attendait pas la fin des opérations `SourceBuffer.remove()` en cours avant d'en lancer de nouvelles, risquant une `InvalidStateError` lors d'un seek).
 - **Corrigé** : décision de transcodage audio proactive avant lecture (inspirée du profil d'appareil Jellyfin) — évite un transcodage audio inutile quand le navigateur peut réellement décoder la piste copiée, tout en gardant la veille de silence en filet de sécurité pour les cas où la détection se trompe.
+
+## v1.13.59 — August 2026
+
+### DASH : le profil Plex Web déclare enfin l'HEVC pour le protocole DASH — le copy bitstream est honoré par MDE
+
+- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751 — HEVC 1080p + AC-3 5.1) : l'escalade de silence fonctionne (session `ta=0` à 17:21:38 → session `ta=1` à 17:21:44, 6 s pile) MAIS MDE refusait le copy HEVC sur les DEUX sessions — `plex-copy-refused: demandé hevc → réel avc1.640028` — et ré-encodait la vidéo en H.264 à ~20 Mbps, un transcode trop lourd pour le NAS : lecture qui ne démarre pas en 1080p, image sans son en 2160p, et « revenir au HLS » ne montre plus aucun transcode car tout passe en DASH.
+- **Corrigé** : `X-Plex-Client-Profile-Extra` ne déclarait l'HEVC/AV1 comme codec cible de transcode que pour `protocol=hls` — MDE l'ignorait donc en DASH et ré-encodait en H.264 (la v1.13.58 envoyait pourtant `videoCodec=hevc`, sans effet : le profil ne déclarait pas ce codec pour DASH). Le profil couvre désormais `protocol=hls,dash`, comme le profil réel de Plex Web.
+
+## v1.13.58 — August 2026
+
+### DASH : le copy HEVC est enfin honoré par MDE — le codec demandé est le codec source réel, plus jamais « copy »
+
+- **Cause racine confirmée en direct** (Jurassic Park 499959 — MKV HEVC 2160p + AC-3 5.1) : Plex Web n'envoie JAMAIS `videoCodec=copy` en DASH — il passe le codec cible réel (`videoCodec=hevc`) et laisse `directStream=1` déclencher le copy bitstream quand source = cible. Notre session DASH demandait « copy » : MDE ré-encodait quand même la vidéo en H.264 (`avc1.640028`) à ~2× temps réel, pendant que seule la légende audio était copiée.
+- **Corrigé** : en DASH, la route transcode envoie le codec source canonique (`hevc`/`h264`/`av1`/`vp9`) à la place de « copy » ; le cap `maxVideoBitrate` n'est plus appliqué quand un copy vidéo est demandé (il forçait un ré-encodage). Le HLS garde « copy » (honoré pour h264).
+- **Corrigé** : sondes fiabilisées — le codec réel est lu dans l'AdaptationSet vidéo du MPD (fourcc `hev1`/`hvc1` inclus), les variantes de profil (`avc1.*`, `av01.*`) comptent comme copy honoré dans `/decision`, VP9 couvert, alerte avec le codec réellement demandé.
 
 ## v1.13.57 — August 2026
 

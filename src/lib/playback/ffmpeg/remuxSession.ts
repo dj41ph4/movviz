@@ -18,9 +18,14 @@ export const MAX_CONCURRENT = 3;
 export const SESSION_TTL_MS = 5 * 60_000;
 export const AUDIO_BITRATE_K = 192;
 
-// Miroir de COPY_SAFE_AUDIO (transcode/route.ts lignes 263-269) — ne pas
-// réinventer une whitelist différente.
-const COPY_SAFE_AUDIO = ["aac", "mp4a", "ac3", "ac-3", "mp3"];
+// Audio copiable en remux local — VOLONTAIREMENT plus stricte que la
+// whitelist du transcode Plex (qui inclut ac3/ac-3) : ici le flux est lu
+// par le décodeur NATIF du <video> (pas hls.js/MSE), et Chrome/Edge ne
+// décodent pas l'AC-3/EC-3 en lecture directe MP4 — copier l'AC-3
+// produirait un flux muet. Seuls les codecs universellement décodables
+// sont copiés ; tout le reste (ac-3, ec-3, dts, truehd...) est transcodé
+// en AAC, la garantie du remux local.
+const COPY_SAFE_AUDIO = ["aac", "mp4a", "mp3"];
 
 /**
  * Erreur typée : une session avec exactement la MÊME clé

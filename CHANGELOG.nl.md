@@ -4,6 +4,18 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.65 — Augustus 2026
+
+### FFmpeg-remux: gekopieerde AC-3-audio was niet decodeerbaar door de browser — stille weergave
+
+- **Grondoorzaak bevestigd**: de audio-kopieerwhitelist van de remux bevatte `ac3`/`ac-3` (spiegelbeeld van die van de Plex-transcode) — maar de context is anders: aan Plex-transcodezijde wordt gekopieerde AC-3 door hls.js getransmuxt naar fMP4 voor MSE (gedecodeerd door Chrome met Dolby-pack); aan remuxzijde wordt de stream gelezen door de NATIEVE decoder van de `<video>` in progressieve MP4, en Chrome/Edge decoderen AC-3 niet in die context → perfect beeld, geen geluid, zonder enige HTTP-fout.
+- **Opgelost**: de audio-kopieerwhitelist van de remux is nu beperkt tot universeel decodeerbare codecs (`aac`/`mp4a`/`mp3`) — al de rest (AC-3, EC-3, DTS, TrueHD…) wordt getranscodeerd naar AAC 192 kbit/s, de geluidsgarantie van de lokale remux. De whitelist van de Plex-transcode blijft ongewijzigd (de context rechtvaardigt dit).
+- **Opgelost**: race condition in `FfmpegRemuxEngine.seek()` — de DELETE van de oude sessie werd fire-and-forget verstuurd; als de GET van de nieuwe sessie eerder bij de server aankwam, doodde `stopAllForRatingKey` de zojuist aangemaakte sessie en viel de seek terug op HLS. De DELETE wordt nu afgewacht vóór het laden.
+
+### De Hero speelde steeds dezelfde titels uit
+
+- **Opgelost**: pools zonder natuurlijke volgorde (persoonlijke suggesties, ontdekking, nooit bekeken) worden nu gemengd met een deterministische seed per dag en per gebruiker — rotatie elke 24 uur in plaats van dezelfde 2-3 titels die eindeloos vastgepind blijven; de chronologische pools (recentlyAdded, upcoming, recentActivity) blijven ongewijzigd.
+
 ## v1.13.64 — Augustus 2026
 
 ### De servercrash bij ffmpeg-remux kwam nog steeds terug — v1.13.62 verhielp de verkeerde listener

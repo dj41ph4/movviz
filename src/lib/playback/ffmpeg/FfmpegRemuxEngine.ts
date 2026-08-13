@@ -157,10 +157,13 @@ export class FfmpegRemuxEngine {
   async seek(time: number): Promise<void> {
     if (this.destroyed) return;
     // ffmpeg piped stdout can't seek in place — kill the current session
-    // (best-effort DELETE) and restart with a new seekTo, which produces a
-    // different session key server-side.
+    // (DELETE) and restart with a new seekTo, which produces a different
+    // session key server-side. The DELETE MUST be awaited before load():
+    // a fire-and-forget DELETE could arrive at the server AFTER the new
+    // GET, and stopAllForRatingKey would kill the just-created session —
+    // the seek would always fall back to HLS.
     if (this.ratingKey) {
-      fetch(`/api/playback-ffmpeg/${this.ratingKey}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
+      await fetch(`/api/playback-ffmpeg/${this.ratingKey}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
     }
     await this.load(this.ratingKey, { ...this.lastOptions, seekTo: time });
   }
