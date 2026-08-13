@@ -40,6 +40,21 @@ function resolveClientMaxWidth(req: NextRequest): number {
   return 1920;
 }
 
+/**
+ * Plex metadata reports videoResolution as a STRING that is not always
+ * numeric ("4k", "8k", "uhd") — Number("4k") = NaN, which silently reset the
+ * video bitrate cap to the 1080p default (8000) for 4K sources that DO
+ * transcode. Normalize the known labels before falling back to Media.height.
+ */
+function parseSourceHeight(media: Record<string, unknown>): number {
+  const raw = String(media?.videoResolution ?? "").toLowerCase();
+  if (/^\d+$/.test(raw)) return Number(raw);
+  if (raw === "8k") return 4320;
+  if (raw === "4k" || raw === "uhd" || raw === "2160") return 2160;
+  const h = Number(media?.height ?? 0);
+  return Number.isFinite(h) && h > 0 ? h : 0;
+}
+
 function selectBitrate(sourceHeight: number, clientWidth: number): number {
   let cap = DEFAULT_MAX_BITRATE;
   if (sourceHeight >= 2000) cap = 15000;
@@ -103,7 +118,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   }
 
   const media = metadata?.Media?.[0];
-  const height = Number(media?.videoResolution ?? media?.height ?? 0);
+  const height = parseSourceHeight(media ?? {});
   const sp = req.nextUrl.searchParams;
   const audioStreamID = sp.get("audioStreamID");
   const subtitleStreamID = sp.get("subtitleStreamID");
@@ -141,6 +156,8 @@ export async function GET(req: NextRequest, context: Ctx) {
     audioCodec !== "ec-3" &&
     COPY_SAFE_AUDIO.some((c) => audioCodec.includes(c));
   const copyVideoSafe = COPY_SAFE_VIDEO.some((c) => videoCodec.includes(c));
+  const srcIsHevc = /hevc|h265|hev1|hvc1/.test(videoCodec);
+  const srcIsAv1 = /av1|av01/.test(videoCodec);
   const transcodeVideoCodec = tv === "0" && copyVideoSafe ? "copy" : "h264";
   const transcodeAudioCodec = ta === "0" && copyAudioSafe ? "copy" : "aac";
 
@@ -178,6 +195,43 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   const transcodeUrl = `${base}${PLEX_UNIVERSAL_BASE}/start.m3u8?${qs.toString()}`;
 
+  // VÉRITÉ DU MOTEUR DE DÉCISION : /decision répond AVANT le démarrage avec ce
+  // que MDE compte réellement produire (copy vs ré-encodage). Le maître HLS
+  // omet l'attribut CODECS sur les sessions direct-stream (réel ?) — c'est
+  // donc la seule source fiable pour savoir si la vidéo sera copiée ou
+  // ré-encodée malgré tv=0 (le cas « audio seul qui lag »).
+  try {
+    const decisionUrl = `${base}${PLEX_UNIVERSAL_BASE}/decision?${qs.toString()}`;
+    const decRes = await fetch(decisionUrl, {
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (decRes.ok) {
+      const dec = await decRes.json().catch(() => null);
+      const m = dec?.MediaContainer?.Media?.[0];
+      if (m) {
+        const decision = String(m.Decision ?? "?");
+        const decVideo = String(m.videoCodec ?? "?");
+        const decAudio = String(m.audioCodec ?? "?");
+        const planReencodesVideo = transcodeVideoCodec === "copy" && decision !== "copy" && !String(decVideo).includes("copy");
+        logTranscode(
+          ratingKey,
+          "plex-decision",
+          `Decision=${decision} v=${decVideo} a=${decAudio} container=${m.container ?? "?"}${planReencodesVideo ? " — ⚠ MDE IGNORE le copy vidéo" : ""}`,
+          planReencodesVideo ? "warn" : "ok"
+        );
+        if (planReencodesVideo) {
+          console.error(`[transcode] ${ratingKey} ⚠ MDE prévoit de RÉ-ENCODER la vidéo (${decVideo}) malgré tv=0 — profil « Plex Web » ignoré ou codec non copiable`);
+        } else if (transcodeVideoCodec === "copy" && srcIsHevc && String(decVideo).includes("copy")) {
+          console.log(`[transcode] ${ratingKey} ✓ MDE honore le copy HEVC (décision=${decision}) — vidéo copiée en bitstream`);
+        }
+      }
+    }
+  } catch {
+    // /decision est consultatif — ne bloque jamais le démarrage de session
+  }
+
   try {
     const brLog = transcodeVideoCodec !== "copy" ? ` br=${maxVideoBitrate}k` : "";
     console.log(`[transcode] ${ratingKey} → start.m3u8 tv=${tv} ta=${ta} v=${transcodeVideoCodec} a=${transcodeAudioCodec}${brLog}`);
@@ -214,10 +268,8 @@ export async function GET(req: NextRequest, context: Ctx) {
     // transcodée EN SILENCE : c'est la cause n°1 des « audio seul » qui laguent.
     // On la détecte ici et on la crie dans les logs + en-tête de réponse.
     const streamInf = raw.match(/#EXT-X-STREAM-INF:[^\n]*/)?.[0] ?? "";
-    const actualCodecs = streamInf.match(/CODECS="([^"]+)"/)?.[1] ?? "";
+    const actualCodecs = streamInf.match(/CODECS="([^"]+)"/i)?.[1] ?? "";
     const actualVideo = (actualCodecs.split(",")[0] ?? "").trim().toLowerCase();
-    const srcIsHevc = /hevc|h265|hev1|hvc1/.test(videoCodec);
-    const srcIsAv1 = /av1|av01/.test(videoCodec);
     const videoCopyRefused =
       transcodeVideoCodec === "copy" &&
       actualVideo !== "" &&
