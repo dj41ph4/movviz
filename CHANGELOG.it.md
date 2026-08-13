@@ -4,6 +4,18 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.64 — Agosto 2026
+
+### Il crash del server durante il remux ffmpeg si ripresentava ancora — la v1.13.62 aveva corretto il listener sbagliato
+
+- **Causa radice confermata in diretta** (Ace Ventura in Africa 500751, crash riprodotto più volte di seguito dopo il deployment della v1.13.62): il correttivo precedente aggiungeva un gestore `'error'` sul flusso ffmpeg, ma `Readable.toWeb()` registra SEMPRE il proprio gestore interno in aggiunta — il nostro non ne impediva l'esecuzione. Lo scenario reale: quando il client (il lettore video) abbandona per primo la riproduzione, il suo flusso web è già distrutto — il codice segnalava comunque un'altra volta un errore su quello stesso flusso già morto, e l'adattatore interno di Node andava in crash tentando di chiudere un flusso già chiuso (`uncaughtException: Controller is already closed`), facendo cadere l'intero server in un 503 generalizzato, esattamente come prima.
+- **Corretto**: il flusso non viene più rimarcato come errato se è già distrutto — proprio il caso che si verifica ad ogni abbandono del client durante un fallimento ffmpeg.
+
+### La veglia del silenzio interrompeva la riproduzione ffmpeg ~6 secondi dopo l'avvio, su un flusso che riproduceva normalmente
+
+- **Causa radice confermata in diretta** (Ace Ventura in Africa 500751): gli orari del server mostravano un crash quasi esattamente 6 secondi dopo ogni `[remux] start` — la finestra predefinita della veglia del silenzio, armata sul percorso ffmpeg per precauzione. A differenza del motore MSE (dove il browser deve decodificare un codec il cui supporto è solo sondato, mai garantito), l'audio ffmpeg è o una copia bit-esatta di una traccia già whitelisted decodificabile, o transcodificato in AAC — nessuna incertezza da coprire. La veglia si attivava quindi erroneamente, distruggeva il motore e interrompeva la connessione, innescando a sua volta il crash del server descritto sopra.
+- **Corretto**: la veglia del silenzio non è più armata sul percorso ffmpeg.
+
 ## v1.13.63 — Agosto 2026
 
 ### Una serie con un solo episodio "in arrivo" veniva mostrata come mancante — la card della serie ignorava lo stato "upcoming"

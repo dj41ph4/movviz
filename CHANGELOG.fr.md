@@ -4,6 +4,18 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.64 — août 2026
+
+### Le crash serveur du remux ffmpeg revenait encore — v1.13.62 corrigeait le mauvais listener
+
+- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751, crash reproduit plusieurs fois de suite après le déploiement de v1.13.62) : le correctif précédent ajoutait un gestionnaire `'error'` sur le flux ffmpeg, mais `Readable.toWeb()` enregistre TOUJOURS son propre gestionnaire interne en plus — le nôtre ne l'empêchait pas de s'exécuter. Le vrai scénario : quand le client (le lecteur vidéo) abandonne la lecture en premier, son propre flux web est déjà détruit — puis le code renvoyait quand même une seconde fois une erreur sur ce même flux déjà mort, et l'adaptateur interne de Node plantait en tentant de fermer un flux déjà fermé (`uncaughtException: Controller is already closed`), faisant tomber tout le serveur en 503 généralisé, exactement comme avant.
+- **Corrigé** : le flux n'est plus jamais re-signalé en erreur s'il est déjà détruit — le cas exact qui se produit à chaque abandon client pendant un échec ffmpeg.
+
+### La veille de silence coupait la lecture ffmpeg ~6 secondes après le démarrage, sur un flux qui jouait normalement
+
+- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751) : les horodatages serveur montraient un crash quasi exactement 6 secondes après chaque `[remux] start` — la fenêtre par défaut de la veille de silence, armée sur la leg ffmpeg par mesure de précaution. Contrairement au moteur MSE (où le navigateur doit décoder un codec dont le support n'est que probé, jamais garanti), l'audio ffmpeg est soit une copie bit-exacte d'une piste déjà whitelistée décodable, soit transcodé en AAC — aucune incertitude à couvrir. La veille se déclenchait donc à tort, détruisait le moteur et coupait la connexion, déclenchant à son tour le crash serveur ci-dessus.
+- **Corrigé** : la veille de silence n'est plus armée sur la leg ffmpeg.
+
 ## v1.13.63 — août 2026
 
 ### Une série avec un seul épisode "à venir" s'affichait comme manquante — la carte série ignorait le statut "upcoming"

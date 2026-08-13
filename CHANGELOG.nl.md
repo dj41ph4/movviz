@@ -4,6 +4,18 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.64 — Augustus 2026
+
+### De servercrash bij ffmpeg-remux kwam nog steeds terug — v1.13.62 verhielp de verkeerde listener
+
+- **Grondoorzaak live bevestigd** (Ace Ventura in Afrika 500751, crash meerdere keren achter elkaar gereproduceerd na de uitrol van v1.13.62): de vorige oplossing voegde een `'error'`-handler toe aan de ffmpeg-stream, maar `Readable.toWeb()` registreert ALTIJD zijn eigen interne handler daarbovenop — de onze verhinderde niet dat die alsnog werd uitgevoerd. Het echte scenario: wanneer de client (de videospeler) de weergave als eerste afbreekt, is diens eigen webstream al vernietigd — de code signaleerde daarna toch nogmaals een fout op diezelfde, al dode stream, en de interne adapter van Node crashte bij de poging om een reeds gesloten stream te sluiten (`uncaughtException: Controller is already closed`), waardoor de hele server in een algemene 503 viel, precies zoals voorheen.
+- **Opgelost**: de stream wordt niet langer opnieuw als fout gemeld als hij al vernietigd is — precies het geval dat zich voordoet bij elke clientafbreking tijdens een ffmpeg-fout.
+
+### De stiltebewaking onderbrak de ffmpeg-weergave ~6 seconden na de start, bij een stream die normaal afspeelde
+
+- **Grondoorzaak live bevestigd** (Ace Ventura in Afrika 500751): de servertijdstempels toonden een crash bijna precies 6 seconden na elke `[remux] start` — het standaardvenster van de stiltebewaking, uit voorzorg geactiveerd op het ffmpeg-pad. In tegenstelling tot de MSE-engine (waar de browser een codec moet decoderen waarvan de ondersteuning alleen getest, nooit gegarandeerd is), is ffmpeg-audio ofwel een bit-exacte kopie van een reeds whitelisted decodeerbare track, ofwel getranscodeerd naar AAC — geen onzekerheid om te dekken. De bewaking werd dus onterecht geactiveerd, vernietigde de engine en verbrak de verbinding, wat op zijn beurt de bovenstaande servercrash veroorzaakte.
+- **Opgelost**: de stiltebewaking wordt niet langer geactiveerd op het ffmpeg-pad.
+
 ## v1.13.63 — Augustus 2026
 
 ### Een serie met slechts één "binnenkort"-aflevering werd als ontbrekend weergegeven — de seriekaart negeerde de status "upcoming"

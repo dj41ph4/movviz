@@ -225,19 +225,6 @@ export function startRemux(
     return null;
   }
 
-  // OBLIGATOIRE avant destroy(err) plus bas : un Readable Node relance tout
-  // 'error' émis sans listener en exception NON catchée au tick suivant —
-  // confirmé en prod (Ace Ventura 500751) : ce process Next.js entier a
-  // crashé (uncaughtException "Controller is already closed") sur un
-  // ffmpeg qui sortait en erreur pendant qu'un client abort concurrent
-  // fermait déjà le ReadableStream Web côté route, faisant tomber TOUT le
-  // conteneur en 503 (pas seulement cette requête). Le flux Web
-  // (`Readable.toWeb`) a son propre relais d'erreur vers le consommateur
-  // HTTP — ce listener sert uniquement à empêcher l'EventEmitter Node
-  // sous-jacent de paniquer, l'erreur réelle est déjà loguée par le
-  // handler `exit` ci-dessus.
-  proc.stdout.on("error", () => { /* voir commentaire ci-dessus */ });
-
   const stream = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
 
   // Sur exit anormal AVANT la fin naturelle du flux (EOF), on force une
@@ -246,8 +233,22 @@ export function startRemux(
   // propage une erreur du flux Node source comme un reject/erreur du
   // ReadableStream Web correspondant (comportement documenté Node ≥ 17),
   // ce qui évite que la réponse HTTP reste juste tronquée sans signal.
+  //
+  // Le garde `!proc.stdout.destroyed` est CRITIQUE, pas cosmétique — v1.13.62
+  // ajoutait un listener 'error' no-op en pensant éviter le crash, mais
+  // `Readable.toWeb()` enregistre TOUJOURS son propre listener interne (qui
+  // relaie vers le controller du ReadableStream Web) ; notre listener
+  // supplémentaire ne l'empêche pas de s'exécuter. Confirmé en prod (Ace
+  // Ventura 500751, plusieurs occurrences le 13/08) : le vrai crash arrive
+  // quand le CLIENT abandonne en premier — ça détruit déjà `proc.stdout` du
+  // côté web (cancel() implicite), PUIS ce handler `exit` rappelait
+  // `destroy(err)` une seconde fois sur un flux déjà détruit, et
+  // l'adaptateur interne de Node tente `controller.error()` sur un
+  // controller déjà fermé → `uncaughtException: Controller is already
+  // closed`, qui a fait planter tout le process serveur (503 généralisé,
+  // pas seulement cette requête). Ne plus jamais redestroy un flux déjà mort.
   proc.on("exit", (code) => {
-    if (code !== 0 && code !== null && proc.stdout && !proc.stdout.readableEnded) {
+    if (code !== 0 && code !== null && proc.stdout && !proc.stdout.readableEnded && !proc.stdout.destroyed) {
       proc.stdout.destroy(new Error(`ffmpeg exited with code ${code}`));
     }
   });

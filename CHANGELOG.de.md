@@ -4,6 +4,18 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.64 — August 2026
+
+### Der Server-Absturz beim ffmpeg-Remuxing trat weiterhin auf — v1.13.62 behob den falschen Listener
+
+- **Ursache live bestätigt** (Ace Ventura in Afrika 500751, Absturz mehrfach hintereinander reproduziert nach dem Rollout von v1.13.62): Der vorherige Fix fügte dem ffmpeg-Stream einen `'error'`-Handler hinzu, aber `Readable.toWeb()` registriert IMMER zusätzlich seinen eigenen internen Handler — unserer verhinderte nicht, dass dieser trotzdem ausgeführt wurde. Das eigentliche Szenario: Wenn der Client (der Videoplayer) die Wiedergabe zuerst abbricht, ist sein eigener Web-Stream bereits zerstört — der Code meldete dann trotzdem erneut einen Fehler auf demselben, bereits toten Stream, und Nodes interner Adapter stürzte beim Versuch ab, einen bereits geschlossenen Stream zu schließen (`uncaughtException: Controller is already closed`), wodurch der gesamte Server in einen allgemeinen 503-Zustand fiel — genau wie zuvor.
+- **Behoben**: Der Stream wird nicht mehr erneut als fehlerhaft gemeldet, wenn er bereits zerstört ist — genau der Fall, der bei jedem Client-Abbruch während eines ffmpeg-Fehlers auftritt.
+
+### Die Stille-Überwachung unterbrach die ffmpeg-Wiedergabe ~6 Sekunden nach dem Start, bei einem Stream, der normal abspielte
+
+- **Ursache live bestätigt** (Ace Ventura in Afrika 500751): Die Server-Zeitstempel zeigten einen Absturz fast genau 6 Sekunden nach jedem `[remux] start` — das Standardfenster der Stille-Überwachung, vorsorglich auf dem ffmpeg-Pfad aktiviert. Anders als bei der MSE-Engine (wo der Browser einen Codec dekodieren muss, dessen Unterstützung nur geprüft, nie garantiert ist), ist das ffmpeg-Audio entweder eine bit-genaue Kopie einer bereits als dekodierbar gelisteten Spur oder nach AAC transkodiert — keine Unsicherheit abzudecken. Die Überwachung löste daher fälschlicherweise aus, zerstörte die Engine und trennte die Verbindung, was wiederum den oben beschriebenen Serverabsturz auslöste.
+- **Behoben**: Die Stille-Überwachung wird nicht mehr auf dem ffmpeg-Pfad aktiviert.
+
 ## v1.13.63 — August 2026
 
 ### Eine Serie mit nur einer "demnächst"-Episode wurde als fehlend angezeigt — die Serienkarte ignorierte den Status "upcoming"

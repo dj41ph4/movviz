@@ -882,10 +882,15 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           fallbackFromFfmpeg();
           return false;
         }
-        // Same contract as every other copy leg: a codec the browser can't
-        // actually render plays silently with no `error` event.
-        stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(video, () => escalateSilentToTranscode("ffmpeg"));
+        // Contrairement à MSE (où le navigateur doit lui-même décoder un
+        // codec dont le support n'est que probé, jamais garanti), l'audio
+        // ffmpeg est soit une copie bit-exacte d'une piste déjà whitelistée
+        // décodable (`COPY_SAFE_AUDIO`), soit transcodé en AAC — aucune
+        // incertitude à couvrir. Confirmé en direct (Ace Ventura 500751) :
+        // la veille de silence se déclenchait ~6s (sa fenêtre par défaut)
+        // après le démarrage d'un flux ffmpeg qui jouait normalement,
+        // détruisant le moteur et coupant la connexion — ce qui déclenchait
+        // à son tour le crash serveur du double-destroy corrigé plus haut.
         return true;
       } catch {
         return false;
