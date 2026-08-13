@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.47 — Augustus 2026
+
+### HEVC-bitstream-copy wordt door Plex nu daadwerkelijk gehonoreerd — de player declareert het Plex Web-clientprofiel voor transcode-sessies
+
+- **Opgelost**: Plex' Media Decision Engine kiest het clientprofiel op basis van de `X-Plex-*`-headers en weigert video-bitstream-copy (`videoCodec=copy`) voor codecs die het gematche profiel niet declareert. De player meldde zich aan als onbekend product ("Movviz"), wiens standaardprofiel geen HEVC kent — HEVC/H.265-bronnen (4K/1080p-remuxes, 10-bit HDR) werden daarom stil omgecodeerd naar H.264, zelfs wanneer de modus "alleen audio transcoderen" om een video-copy vroeg: die volledige video-transcode met bitrate-limiet was het haperen. Het transcode-startverzoek declareert nu het ingebouwde profiel "Plex Web" (HEVC over HLS ondersteund), waardoor MDE de copy honoreert: de HEVC-video wordt als bitstream gekopieerd en alleen de audio wordt opnieuw gecodeerd — de goedkope bewerking die het had moeten zijn. De apparaatnaam blijft "Movviz" en de sessietoewijzing (`X-Plex-Session-Identifier`) blijft ongewijzigd.
+- **Gewijzigd**: de imitatie is beperkt tot alleen het transcode-startverzoek — daar valt de sessiebeslissing; metadata, segmentophaling en playback-/stop-routes behouden hun normale headers.
+
 ## v1.13.46 — Augustus 2026
 
 ### Transcode-logs onthullen wat Plex ECHT doet — de stille volledige re-encode is niet langer onzichtbaar
