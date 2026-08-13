@@ -174,7 +174,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     let url = `/api/stream/${ratingKey}/transcode`;
     const params = new URLSearchParams();
     const mode = transcodeModeRef.current;
-    const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "audio" || mode === "full" ? "1" : "0";
+    const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "video" || mode === "full" ? "1" : "0";
     let ta: string;
     if (mode === "auto") {
       // Re-evaluate the target track's codec — E-AC3/DTS/TrueHD tracks must
@@ -187,7 +187,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         ta = transcodeAudioRef.current ? "1" : "0";
       }
     } else {
-      ta = mode === "video" || mode === "full" ? "1" : "0";
+      ta = mode === "audio" || mode === "full" ? "1" : "0";
     }
     params.set("tv", tv);
     params.set("ta", ta);
@@ -224,8 +224,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       setDirectMode(false);
 
       const mode = transcodeModeRef.current;
-      const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "audio" || mode === "full" ? "1" : "0";
-      const ta = mode === "auto" ? (transcodeAudioRef.current ? "1" : "0") : mode === "video" || mode === "full" ? "1" : "0";
+      const tv = mode === "auto" ? (transcodeVideoRef.current ? "1" : "0") : mode === "video" || mode === "full" ? "1" : "0";
+      const ta = mode === "auto" ? (transcodeAudioRef.current ? "1" : "0") : mode === "audio" || mode === "full" ? "1" : "0";
       let url = `${hlsUrl}?tv=${tv}&ta=${ta}`;
       if (audioStreamIdRef.current) url += `&audioStreamID=${audioStreamIdRef.current}`;
       if (qualityMaxWidthRef.current) url += `&maxWidth=${qualityMaxWidthRef.current}`;
