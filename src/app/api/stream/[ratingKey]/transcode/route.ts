@@ -215,7 +215,10 @@ export async function GET(req: NextRequest, context: Ctx) {
       const dec = await decRes.json().catch(() => null);
       const m = dec?.MediaContainer?.Media?.[0];
       if (!m) {
-        logTranscode(ratingKey, "plex-decision", `réponse sans Media: ${JSON.stringify(dec)?.slice(0, 200) ?? "null"}`, 502);
+        // PMS répond parfois avec directPlayDecisionCode/generalDecisionCode au
+        // lieu de Media[] — journaliser le corps COMPLET pour comprendre.
+        const body = JSON.stringify(dec) ?? "null";
+        logTranscode(ratingKey, "plex-decision", `réponse sans Media: ${body.slice(0, 600)}`, 502);
       } else {
         const decision = String(m.Decision ?? "?");
         const decVideo = String(m.videoCodec ?? "?");
@@ -268,21 +271,34 @@ export async function GET(req: NextRequest, context: Ctx) {
     // transcode, codecs de sortie, vitesse du job). Le maître HLS n'a pas de
     // CODECS et /decision ne donne que le plan : ici c'est l'exécution.
     // Deux tentatives espacées de 400 ms — le job peut mettre un instant à
-    // apparaître dans la liste des sessions.
+    // apparaître dans la liste des sessions. TOUJOURS journaliser un résultat :
+    // session trouvée (avec ou sans TranscodeSession), introuvable (avec la
+    // liste des sessions actives), échec HTTP ou erreur réseau.
     for (let attempt = 0; attempt < 2; attempt++) {
+      let sessOutcome = "";
       try {
         const sessRes = await fetch(`${base}/status/sessions`, {
           headers,
           cache: "no-store",
           signal: AbortSignal.timeout(8000),
         });
-        if (sessRes.ok) {
-          const sessJson = await sessRes.json().catch(() => null);
-          const meta = sessJson?.MediaContainer?.Metadata ?? [];
-          const mine = meta.find(
-            (s: { Session?: { id?: string } }) => String(s?.Session?.id ?? "") === sessionId
-          );
-          const td = mine?.TranscodeSession;
+        if (!sessRes.ok) {
+          sessOutcome = `HTTP ${sessRes.status}`;
+          logTranscode(ratingKey, "plex-session", `probe HTTP ${sessRes.status}`, sessRes.status);
+          break;
+        }
+        const sessJson = await sessRes.json().catch(() => null);
+        const meta = sessJson?.MediaContainer?.Metadata ?? [];
+        const mine = meta.find(
+          (s: { Session?: { id?: string } }) => String(s?.Session?.id ?? "") === sessionId
+        );
+        if (!mine) {
+          sessOutcome = `introuvable (${meta.length} active(s): ${meta
+            .map((s: { Session?: { id?: string }; Player?: { state?: string } }) => `${String(s?.Session?.id ?? "?")}=${s?.Player?.state ?? "?"}`)
+            .slice(0, 6)
+            .join(", ")})`;
+        } else {
+          const td = mine.TranscodeSession;
           if (td) {
             const vDec = String(td.videoDecision ?? "?");
             const aDec = String(td.audioDecision ?? "?");
@@ -297,9 +313,15 @@ export async function GET(req: NextRequest, context: Ctx) {
             }
             break;
           }
+          sessOutcome = `trouvée SANS TranscodeSession (direct stream)`;
         }
-      } catch {
-        /* la sonde ne bloque jamais la lecture */
+      } catch (err) {
+        sessOutcome = `erreur: ${err instanceof Error ? err.message : String(err)}`;
+      }
+      if (sessOutcome) {
+        logTranscode(ratingKey, "plex-session", sessOutcome, 0);
+        console.log(`[transcode] ${ratingKey} /status/sessions: ${sessOutcome}`);
+        break;
       }
       await new Promise((r) => setTimeout(r, 400));
     }
