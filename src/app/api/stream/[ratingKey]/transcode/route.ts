@@ -263,6 +263,47 @@ export async function GET(req: NextRequest, context: Ctx) {
       return NextResponse.json({ error: "transcode_invalid_playlist" }, { status: 502 });
     }
 
+    // VÉRITÉ DE LA SESSION EN COURS : /status/sessions expose les décisions
+    // RÉELLEMENT appliquées par le job (videoDecision/audioDecision = copy ou
+    // transcode, codecs de sortie, vitesse du job). Le maître HLS n'a pas de
+    // CODECS et /decision ne donne que le plan : ici c'est l'exécution.
+    // Deux tentatives espacées de 400 ms — le job peut mettre un instant à
+    // apparaître dans la liste des sessions.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const sessRes = await fetch(`${base}/status/sessions`, {
+          headers,
+          cache: "no-store",
+          signal: AbortSignal.timeout(8000),
+        });
+        if (sessRes.ok) {
+          const sessJson = await sessRes.json().catch(() => null);
+          const meta = sessJson?.MediaContainer?.Metadata ?? [];
+          const mine = meta.find(
+            (s: { Session?: { id?: string } }) => String(s?.Session?.id ?? "") === sessionId
+          );
+          const td = mine?.TranscodeSession;
+          if (td) {
+            const vDec = String(td.videoDecision ?? "?");
+            const aDec = String(td.audioDecision ?? "?");
+            logTranscode(
+              ratingKey,
+              "plex-session",
+              `réel: v=${td.videoCodec ?? "?"} (${vDec}) a=${td.audioCodec ?? "?"} (${aDec}) src=${td.sourceVideoCodec ?? "?"}→${videoCodec} ${td.width ?? "?"}x${td.height ?? "?"} speed=${td.speed ?? "?"}${td.transcodeHwFullPipeline ? " hw=plein" : ""}`,
+              vDec !== "copy" && transcodeVideoCodec === "copy" ? "warn" : "ok"
+            );
+            if (vDec !== "copy" && transcodeVideoCodec === "copy") {
+              console.error(`[transcode] ${ratingKey} ⚠ LA SESSION RÉ-ENCODE LA VIDÉO (videoDecision=${vDec}) malgré tv=0`);
+            }
+            break;
+          }
+        }
+      } catch {
+        /* la sonde ne bloque jamais la lecture */
+      }
+      await new Promise((r) => setTimeout(r, 400));
+    }
+
     // Master playlist lives at .../universal/start.m3u8 — relative session/ URIs
     // resolve against .../universal/
     const masterPath = `${PLEX_UNIVERSAL_BASE}/start.m3u8`;
