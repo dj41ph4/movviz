@@ -18,6 +18,112 @@ type Ctx = { params: Promise<{ ratingKey: string }> };
 const DEFAULT_MAX_BITRATE = 8000;
 const TRANSCODE_CACHE_TTL = 5; // master playlists must stay short-lived
 
+// --- Sonde TS (fire-and-forget) ---
+// Lit les stream types du premier segment TS produit par Plex : c'est la
+// vérité du flux réellement servi au navigateur, sans dépendre du dashboard
+// Plex (les sessions Movviz n'y apparaissent pas) ni de l'attribut CODECS du
+// maître (omis). 0x24 = HEVC copié en bitstream, 0x1b = H.264 ré-encodé (le
+// cas « copy ignoré »), 0x0f = AAC, 0x81 = AC3 copié, 0x87 = E-AC3...
+const TS_STREAM_TYPE_NAMES: Record<number, string> = {
+  0x01: "mpeg1", 0x02: "mpeg2", 0x03: "mp2", 0x04: "mp2", 0x06: "priv",
+  0x0f: "aac", 0x15: "aac-latm", 0x1b: "h264", 0x24: "hevc", 0x27: "av1",
+  0x81: "ac3", 0x82: "dts", 0x86: "dts-hd", 0x87: "eac3", 0x8a: "dts-hd",
+};
+
+function parseTsStreamTypes(buf: Uint8Array): { video?: number; audio?: number } {
+  let pmtPid: number | null = null;
+  const types: number[] = [];
+  for (let i = 0; i + 187 < buf.length; i += 188) {
+    if (buf[i] !== 0x47) {
+      const idx = buf.indexOf(0x47, i + 1);
+      if (idx === -1) break;
+      i = idx - 188;
+      continue;
+    }
+    const pid = ((buf[i + 1] & 0x1f) << 8) | buf[i + 2];
+    if (pid === 0 && pmtPid === null) {
+      // PAT : pointer_field puis section 0x00 ; boucle program_number + PMT PID
+      const secStart = i + 4 + buf[i + 3];
+      if (buf[secStart] !== 0x00) continue;
+      const pnum = (buf[secStart + 8] << 8) | buf[secStart + 9];
+      if (pnum !== 0) pmtPid = ((buf[secStart + 10] & 0x1f) << 8) | buf[secStart + 11];
+    } else if (pmtPid !== null && pid === pmtPid) {
+      // PMT : section 0x02 ; boucle ES = stream_type + elementary_PID + info_length
+      const secStart = i + 4 + buf[i + 3];
+      if (buf[secStart] !== 0x02) continue;
+      const secLen = ((buf[secStart + 1] & 0x0f) << 8) | buf[secStart + 2];
+      const progInfoLen = ((buf[secStart + 10] & 0x0f) << 8) | buf[secStart + 11];
+      let p = secStart + 12 + progInfoLen;
+      const end = Math.min(secStart + 3 + secLen, buf.length - 4);
+      while (p + 5 <= end) {
+        types.push(buf[p]);
+        const esInfoLen = ((buf[p + 3] & 0x0f) << 8) | buf[p + 4];
+        p += 5 + esInfoLen;
+      }
+      break;
+    }
+  }
+  const video = types.find((t) => t === 0x1b || t === 0x24 || t === 0x27);
+  const audio = types.find((t) => t === 0x0f || t === 0x03 || t === 0x04 || t === 0x81 || t === 0x82 || t === 0x86 || t === 0x87 || t === 0x8a);
+  return { video, audio };
+}
+
+async function sniffFirstSegment(
+  base: string,
+  headers: Record<string, string>,
+  masterRaw: string,
+  ratingKey: string,
+  sourceVideoCodec: string
+): Promise<void> {
+  const m = masterRaw.match(/session\/([^/]+)\/base\/index\.m3u8/);
+  if (!m) return;
+  const sessPath = `/video/:/transcode/universal/session/${m[1]}/base/`;
+  // Le job peut mettre 1-3 s à produire le premier segment (warm-up transcode)
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const plRes = await fetch(`${base}${sessPath}index.m3u8`, {
+        headers,
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!plRes.ok) return;
+      const pl = await plRes.text();
+      const segLine = pl.split(/\r?\n/).map((l) => l.trim()).find((l) => l && !l.startsWith("#"));
+      if (!segLine) return;
+      const segRes = await fetch(`${base}${sessPath}${segLine}`, {
+        headers: { ...headers, range: "bytes=0-524287" },
+        cache: "no-store",
+        signal: AbortSignal.timeout(15000),
+      });
+      if (segRes.status === 404 && attempt < 3) {
+        await new Promise((r) => setTimeout(r, 2500));
+        continue;
+      }
+      if (!segRes.ok) return;
+      const buf = new Uint8Array(await segRes.arrayBuffer());
+      const { video, audio } = parseTsStreamTypes(buf);
+      if (video === undefined && audio === undefined) return;
+      const vName = video !== undefined ? (TS_STREAM_TYPE_NAMES[video] ?? `0x${video.toString(16)}`) : "?";
+      const aName = audio !== undefined ? (TS_STREAM_TYPE_NAMES[audio] ?? `0x${audio.toString(16)}`) : "?";
+      const reencoded = video === 0x1b && /hevc|h265|hev1|hvc1|av1/i.test(sourceVideoCodec);
+      logTranscode(
+        ratingKey,
+        "plex-segments",
+        `TS réel: vidéo=${vName} (0x${(video ?? 0).toString(16)}) audio=${aName} (0x${(audio ?? 0).toString(16)})${reencoded ? " — ⚠ VIDÉO RÉ-ENCODÉE malgré tv=0" : video === 0x24 && /hevc/i.test(sourceVideoCodec) ? " — ✓ HEVC copié en bitstream" : ""}`,
+        reencoded ? "warn" : "ok"
+      );
+      if (reencoded) {
+        console.error(`[transcode] ${ratingKey} ⚠ LE SEGMENT TS CONTIENT H.264 : vidéo ré-encodée malgré videoCodec=copy`);
+      } else if (video === 0x24) {
+        console.log(`[transcode] ${ratingKey} ✓ segments TS en HEVC : copy bitstream honoré`);
+      }
+      return;
+    } catch {
+      return;
+    }
+  }
+}
+
 function corsOrigin(req: NextRequest): string {
   const referer = req.headers.get("referer");
   if (referer) {
@@ -361,6 +467,10 @@ export async function GET(req: NextRequest, context: Ctx) {
     const cacheTtl = getStreamCacheTtl();
     // Master must not be cached long — session paths are per-playback
     const maxAge = Math.min(cacheTtl > 0 ? cacheTtl : TRANSCODE_CACHE_TTL, TRANSCODE_CACHE_TTL);
+
+    // Sonde des segments TS réels (fire-and-forget — n'ajoute aucun délai au
+    // démarrage de la lecture). Répond sans attendre la vérité du flux.
+    void sniffFirstSegment(base, headers, raw, ratingKey, videoCodec).catch(() => undefined);
 
     return new NextResponse(rewritten, {
       headers: {
