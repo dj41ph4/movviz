@@ -289,8 +289,13 @@ export async function GET(req: NextRequest, context: Ctx) {
     session: sessionId,
     "X-Plex-Platform": "Chrome",
     "X-Plex-Client-Identifier": clientId,
-    "X-Plex-Product": "Movviz",
-    "X-Plex-Device": "Web",
+    // MDE lit les X-Plex-* du QUERY STRING en plus des headers : une identité
+    // « Movviz » ici écraserait le profil « Plex Web » des headers et le copy
+    // HEVC serait re-refusé — les deux sources doivent raconter la même chose.
+    "X-Plex-Product": "Plex Web",
+    "X-Plex-Device": "Windows",
+    "X-Plex-Version": "4.100.0",
+    "X-Plex-Model": "Plex Web",
   });
   // Only set bitrate when video is actually being transcoded (not copied)
   if (transcodeVideoCodec !== "copy") {

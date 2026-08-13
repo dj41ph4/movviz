@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.54 — August 2026
+
+### The client identity must be consistent — MDE also reads the query string
+
+- **Fixed**: the `start.m3u8` query string still declared `X-Plex-Product=Movviz` + `X-Plex-Device=Web` while the HTTP headers impersonated "Plex Web" — MDE reads the `X-Plex-*` fields from BOTH sources, so the "Movviz" identity in the URL could override the "Plex Web" profile matched from the headers and refuse the HEVC copy again. The query string now carries the exact same Plex Web identity as the headers (product, device Windows, version 4.100.0, model).
+
 ## v1.13.53 — August 2026
 
 ### The real reason for the lag is on Plex's side: the video is re-encoded inside transcode sessions — the client profile now declares HEVC/AV1 to force the copy
