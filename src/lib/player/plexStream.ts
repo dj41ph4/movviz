@@ -37,6 +37,32 @@ export function plexClientHeaders(token: string, clientId: string, sessionId?: s
 }
 
 /**
+ * Plex Web impersonation for transcode sessions.
+ *
+ * PMS's Media Decision Engine picks the client profile from these headers and
+ * refuses video bitstream-copy (`videoCodec=copy`) for codecs the matched
+ * profile does not declare. For an unknown product like "Movviz" it matches a
+ * profile with NO HEVC support → HEVC/H.265 sources get silently re-encoded
+ * to H.264 even when `tv=0` is requested — the #1 cause of lag on
+ * "audio-only" transcodes (confirmed live: h264 sources copy fine, HEVC
+ * sources don't). Declaring the built-in "Plex Web" profile (which supports
+ * HEVC over HLS) makes MDE honor the copy. Only the transcode-start request
+ * needs it: the session decision happens there, segment fetches reuse the
+ * already-created transcode job.
+ */
+export function plexWebHeaders(token: string, clientId: string, sessionId?: string): Record<string, string> {
+  return {
+    ...plexClientHeaders(token, clientId, sessionId),
+    "x-plex-product": "Plex Web",
+    "x-plex-version": "4.100.0",
+    "x-plex-device": "Windows",
+    "x-plex-device-name": "Movviz",
+    "x-plex-model": "Plex Web",
+    "x-plex-client-profile-name": "Plex Web",
+  };
+}
+
+/**
  * Plex's rewritten HLS URIs embed its own transcode-job id as the segment
  * after "session" (e.g. /video/:/transcode/universal/session/{id}/base/...).
  * Reusing that exact id as X-Plex-Session-Identifier on the proxied

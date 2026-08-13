@@ -7,7 +7,7 @@ import { registerSession } from "@/lib/player/transcodeSessions";
 import { logTranscode } from "@/lib/player/transcodeLogs";
 import {
   PLEX_UNIVERSAL_BASE,
-  plexClientHeaders,
+  plexWebHeaders,
   rewriteM3u8,
 } from "@/lib/player/plexStream";
 
@@ -78,7 +78,11 @@ export async function GET(req: NextRequest, context: Ctx) {
   const token = cfg.adminToken;
   const clientId = `movviz-${user.id}`;
   const sessionId = `movviz-${user.id}-${ratingKey}`;
-  const headers = plexClientHeaders(token, clientId, sessionId);
+  // Plex Web profile impersonation (see plexStream.ts): without it, MDE
+  // matches an unknown "Movviz" client profile that lacks HEVC support and
+  // silently re-encodes HEVC sources to H.264 even when videoCodec=copy is
+  // requested — the exact "audio-only transcode that still lags" case.
+  const headers = plexWebHeaders(token, clientId, sessionId);
 
   const metadataUrl = `${base}/library/metadata/${ratingKey}`;
   const metaRes = await fetch(metadataUrl, {
