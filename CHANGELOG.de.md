@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.57 — August 2026
+
+### DASH: Manifest ohne BaseURL — die Initialisierungssegmente zeigten auf eine nicht existierende Route, Wiedergabe unmöglich
+
+- **Ursache bestätigt und behoben**: Live-Netzwerkaufzeichnung bei einer echten „Transcodé (audio)"-Sitzung — das von Plex für dieses Konto zurückgegebene MPD-Manifest hat KEIN einziges `<BaseURL>`-Tag; `initialization`/`media` des `SegmentTemplate` sind relative Pfade (`session/{id}/0/header`). `rewriteMpd()` schrieb nur die `<BaseURL>`s und absoluten URLs um und ließ relative Pfade unverändert, in der Annahme, dass sie sich gegen eine bereits geproxte `<BaseURL>` auflösen — nur dass es hier keine gibt: Der Browser löste sie gegen die URL des Manifests selbst auf (`/api/stream/{ratingKey}/transcode?...`), was zu einer nicht existierenden Route führte → systematischer 404-Fehler bei JEDEM Initialisierungssegment (Video und Audio), noch vor dem ersten Medien-Byte. DASH konnte in keinem Modus starten (auto, Video, Audio), unabhängig vom Quellcodec.
+- **Behoben**: `rewriteMpd()` erkennt das Fehlen einer `<BaseURL>` und verankert dann die relativen Pfade `initialization`/`media` am tatsächlichen universellen Plex-Transcode-Pfad (`/api/stream/plex-proxy/video/:/transcode/universal/...`); der Fall, dass Plex eine `<BaseURL>` liefert, bleibt unverändert.
+
 ## v1.13.54 — August 2026
 
 ### Die Client-Identität muss konsistent sein — MDE liest auch die Query-String
