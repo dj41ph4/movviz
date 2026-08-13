@@ -322,9 +322,16 @@ export async function GET(req: NextRequest, context: Ctx) {
       const m = dec?.MediaContainer?.Media?.[0];
       if (!m) {
         // PMS répond parfois avec directPlayDecisionCode/generalDecisionCode au
-        // lieu de Media[] — journaliser le corps COMPLET pour comprendre.
+        // lieu de Media[] — le corps contient transcodeDecisionText (la raison
+        // exacte du transcode) : journaliser le corps ENTIER.
         const body = JSON.stringify(dec) ?? "null";
-        logTranscode(ratingKey, "plex-decision", `réponse sans Media: ${body.slice(0, 600)}`, 502);
+        const tt = dec?.MediaContainer?.transcodeDecisionText;
+        logTranscode(
+          ratingKey,
+          "plex-decision",
+          `réponse sans Media: ${typeof tt === "string" ? `transcodeDecisionText="${tt}" | ` : ""}${body}`,
+          502
+        );
       } else {
         const decision = String(m.Decision ?? "?");
         const decVideo = String(m.videoCodec ?? "?");

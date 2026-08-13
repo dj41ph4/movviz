@@ -46,9 +46,18 @@ export function plexClientHeaders(token: string, clientId: string, sessionId?: s
  * to H.264 even when `tv=0` is requested — the #1 cause of lag on
  * "audio-only" transcodes (confirmed live: h264 sources copy fine, HEVC
  * sources don't). Declaring the built-in "Plex Web" profile (which supports
- * HEVC over HLS) makes MDE honor the copy. Only the transcode-start request
- * needs it: the session decision happens there, segment fetches reuse the
- * already-created transcode job.
+ * HEVC over HLS) makes MDE honor the copy in DIRECT-STREAM sessions.
+ *
+ * BUT a direct-stream session is only produced when BOTH codecs copy
+ * (ta=0 & tv=0). As soon as the audio must be re-encoded (ta=1, e.g. DTS/
+ * E-AC-3 → AAC), MDE runs a TRANSCODE session — and there it still refuses
+ * the HEVC copy unless the profile declares HEVC as a transcode target codec
+ * for the HLS protocol (confirmed live: segments 2.4-2.8 MB produced every
+ * 22 s = video re-encoded to H.264 at a capped bitrate on a NAS that can't
+ * keep up). `X-Plex-Client-Profile-Extra` appends HEVC (and AV1) to the
+ * profile's transcode target codecs for HLS — the documented augmentation
+ * mechanism — so MDE may honor `videoCodec=copy` inside transcode sessions
+ * too.
  */
 export function plexWebHeaders(token: string, clientId: string, sessionId?: string): Record<string, string> {
   return {
@@ -59,6 +68,8 @@ export function plexWebHeaders(token: string, clientId: string, sessionId?: stri
     "x-plex-device-name": "Movviz",
     "x-plex-model": "Plex Web",
     "x-plex-client-profile-name": "Plex Web",
+    "x-plex-client-profile-extra":
+      "append-transcode-target-codec(type=videoProfile&context=streaming&videoCodec=hevc,av1,h264&audioCodec=aac,ac3,mp3&protocol=hls)",
   };
 }
 

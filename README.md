@@ -1,17 +1,17 @@
-<div align="center">
+﻿<div align="center">
 
 <br>
 
 <!-- Hero badge - version + brand -->
-<img src="https://img.shields.io/badge/Movviz-1.13.52-7c3aed?style=for-the-badge&labelColor=1a1a2e&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTEyIiBmaWxsPSIjN2MzYWVkIi8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjEwOCIgeT0iMTUyIiB3aWR0aD0iMjk2IiBoZWlnaHQ9IjI0MCIgcng9IjIwIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTUiLz48cGF0aCBkPSJNMCAwaDEyOHYxMDhIMHoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwOCwxMDgpIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIvPjxjaXJjbGUgY3g9IjE2OCIgY3k9IjMwMCIgcj0iMjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC45IiBzdHJva2U9Im5vbmUiLz48Y2lyY2xlIGN4PSIzNDQiIGN5PSIzMDAiIHI9IjI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIgc3Ryb2tlPSJub25lIi8+PC9nPjwvc3ZnPg==" alt="Movviz"/>
+<img src="https://img.shields.io/badge/Movviz-1.13.53-7c3aed?style=for-the-badge&labelColor=1a1a2e&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTEyIiBmaWxsPSIjN2MzYWVkIi8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjEwOCIgeT0iMTUyIiB3aWR0aD0iMjk2IiBoZWlnaHQ9IjI0MCIgcng9IjIwIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTUiLz48cGF0aCBkPSJNMCAwaDEyOHYxMDhIMHoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwOCwxMDgpIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIvPjxjaXJjbGUgY3g9IjE2OCIgY3k9IjMwMCIgcj0iMjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC45IiBzdHJva2U9Im5vbmUiLz48Y2lyY2xlIGN4PSIzNDQiIGN5PSIzMDAiIHI9IjI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIgc3Ryb2tlPSJub25lIi8+PC9nPjwvc3ZnPg==" alt="Movviz"/>
 
 <!-- Primary tagline -->
-<h1>Centre de commande unifié pour films et séries</h1>
-<p><strong>Découvrir, organiser, suivre et gérer</strong> — depuis une interface unique, self-hostée et open-source.</p>
+<h1>Centre de commande unifiÃ© pour films et sÃ©ries</h1>
+<p><strong>DÃ©couvrir, organiser, suivre et gÃ©rer</strong> â€” depuis une interface unique, self-hostÃ©e et open-source.</p>
 
 <!-- CTA buttons row -->
 <a href="https://github.com/dj41ph4/movviz/releases/latest">
-  <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_pour_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1a2e" alt="Télécharger pour Windows"/>
+  <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_pour_Windows-0078D4?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1a2e" alt="TÃ©lÃ©charger pour Windows"/>
 </a>
 <a href="https://hub.docker.com/r/dj41ph4/movviz">
   <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white&labelColor=1a1a2e" alt="Docker"/>
@@ -38,7 +38,7 @@
 
 <br>
 
-## Pour démarrer
+## Pour dÃ©marrer
 
 <table>
 <tr>
@@ -46,15 +46,15 @@
 
 ### Windows
 
-**`Movviz-Setup-X.Y.Z.exe`** — dernière version sur la page des releases
+**`Movviz-Setup-X.Y.Z.exe`** â€” derniÃ¨re version sur la page des releases
 
 <a href="https://github.com/dj41ph4/movviz/releases/latest">
-  <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_l'installeur-0078D4?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1a2e" alt="Télécharger"/>
+  <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_l'installeur-0078D4?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1a2e" alt="TÃ©lÃ©charger"/>
 </a>
 
 <br>
 
-Service Windows automatique · Installeur multilingue · Démarrage au boot
+Service Windows automatique Â· Installeur multilingue Â· DÃ©marrage au boot
 
 </td>
 <td width="50%" align="center">
@@ -71,48 +71,48 @@ Service Windows automatique · Installeur multilingue · Démarrage au boot
 docker pull dj41ph4/movviz:latest
 ```
 
-amd64 · arm64
+amd64 Â· arm64
 
 </td>
 </tr>
 </table>
 
-> **Développement** — `git clone https://github.com/dj41ph4/movviz.git && cd movviz && npm install && npm run dev` — http://localhost:9810
+> **DÃ©veloppement** â€” `git clone https://github.com/dj41ph4/movviz.git && cd movviz && npm install && npm run dev` â€” http://localhost:9810
 
 ---
 
-## Fonctionnalités
+## FonctionnalitÃ©s
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-<img src="https://img.shields.io/badge/D%C3%A9couverte-7c3aed?style=flat-square&labelColor=1a1a2e" alt="Découverte"/>
+<img src="https://img.shields.io/badge/D%C3%A9couverte-7c3aed?style=flat-square&labelColor=1a1a2e" alt="DÃ©couverte"/>
 
-Parcourir les tendances, nouveautés et classements. Filtres par genre, année, studio, plateforme. Ajout en un clic.
+Parcourir les tendances, nouveautÃ©s et classements. Filtres par genre, annÃ©e, studio, plateforme. Ajout en un clic.
 
 <img src="https://img.shields.io/badge/Recherche_unifi%C3%A9e-7c3aed?style=flat-square&labelColor=1a1a2e" alt="Recherche"/>
 
-Interroger tous les indexeurs Torznab en une requête. Résultats notés par qualité, fraîcheur et santé des seeds. Moteur BitTorrent intégré.
+Interroger tous les indexeurs Torznab en une requÃªte. RÃ©sultats notÃ©s par qualitÃ©, fraÃ®cheur et santÃ© des seeds. Moteur BitTorrent intÃ©grÃ©.
 
-<img src="https://img.shields.io/badge/Biblioth%C3%A8que-7c3aed?style=flat-square&labelColor=1a1a2e" alt="Bibliothèque"/>
+<img src="https://img.shields.io/badge/Biblioth%C3%A8que-7c3aed?style=flat-square&labelColor=1a1a2e" alt="BibliothÃ¨que"/>
 
-Films et séries dans une vue unifiée. Suivi des épisodes manquants, renommage automatique, réconciliation disque, intégration Plex.
+Films et sÃ©ries dans une vue unifiÃ©e. Suivi des Ã©pisodes manquants, renommage automatique, rÃ©conciliation disque, intÃ©gration Plex.
 
 </td>
 <td width="50%" valign="top">
 
 <img src="https://img.shields.io/badge/Demandes-ec4899?style=flat-square&labelColor=1a1a2e" alt="Demandes"/>
 
-Chaque membre peut soumettre un titre. Approbation par un administrateur, quotas et délégation configurables.
+Chaque membre peut soumettre un titre. Approbation par un administrateur, quotas et dÃ©lÃ©gation configurables.
 
 <img src="https://img.shields.io/badge/Automatisation-ec4899?style=flat-square&labelColor=1a1a2e" alt="Automatisation"/>
 
-Scan RSS quotidien, upgrade automatique de qualité, synchronisation Plex incrémentale, notifications (Discord, Telegram, Slack, Gotify, Pushbullet).
+Scan RSS quotidien, upgrade automatique de qualitÃ©, synchronisation Plex incrÃ©mentale, notifications (Discord, Telegram, Slack, Gotify, Pushbullet).
 
 <img src="https://img.shields.io/badge/Multilingue-ec4899?style=flat-square&labelColor=1a1a2e" alt="Multilingue"/>
 
-Français, anglais, allemand, italien, néerlandais. Configurable à l'installation et modifiable à tout moment.
+FranÃ§ais, anglais, allemand, italien, nÃ©erlandais. Configurable Ã  l'installation et modifiable Ã  tout moment.
 
 </td>
 </tr>
@@ -122,14 +122,14 @@ Français, anglais, allemand, italien, néerlandais. Configurable à l'installat
 
 ## Architecture
 
-| Module | Rôle | Stack |
+| Module | RÃ´le | Stack |
 | :---: | --- | :---: |
-| **Tableau de bord** | Statistiques, téléchargements, activité en direct | Next.js + API |
-| **Découverte** | Parcourir, filtrer, ajouter des titres | TMDb / Allociné |
+| **Tableau de bord** | Statistiques, tÃ©lÃ©chargements, activitÃ© en direct | Next.js + API |
+| **DÃ©couverte** | Parcourir, filtrer, ajouter des titres | TMDb / AllocinÃ© |
 | **Recherche** | Interrogation multi-indexeur | Torznab / Newznab |
-| **Bibliothèque** | Films, séries, épisodes manquants, renommage | Plex API |
-| **Demandes** | Approbation multi-utilisateurs avec quotas | Base intégrée |
-| **Réglages** | Indexeurs, moteur, profils qualité, notifications | Centralisé |
+| **BibliothÃ¨que** | Films, sÃ©ries, Ã©pisodes manquants, renommage | Plex API |
+| **Demandes** | Approbation multi-utilisateurs avec quotas | Base intÃ©grÃ©e |
+| **RÃ©glages** | Indexeurs, moteur, profils qualitÃ©, notifications | CentralisÃ© |
 
 ---
 
@@ -152,7 +152,7 @@ Français, anglais, allemand, italien, néerlandais. Configurable à l'installat
 
 | Langue | Document |
 | :---: | --- |
-| Français | [`docs/guide-fr.md`](docs/guide-fr.md) |
+| FranÃ§ais | [`docs/guide-fr.md`](docs/guide-fr.md) |
 | English | [`docs/guide-en.md`](docs/guide-en.md) |
 | Deutsch | [`docs/guide-de.md`](docs/guide-de.md) |
 | Italiano | [`docs/guide-it.md`](docs/guide-it.md) |
@@ -165,7 +165,7 @@ Français, anglais, allemand, italien, néerlandais. Configurable à l'installat
 <div align="center">
 
 <a href="https://github.com/dj41ph4/movviz/releases/latest">
-  <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_Movviz-7c3aed?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e" alt="Télécharger"/>
+  <img src="https://img.shields.io/badge/T%C3%A9l%C3%A9charger_Movviz-7c3aed?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e" alt="TÃ©lÃ©charger"/>
 </a>
 
 <br><br>
@@ -174,7 +174,7 @@ Français, anglais, allemand, italien, néerlandais. Configurable à l'installat
 
 ## Soutenir le projet
 
-Movviz est gratuit et le restera. S'il te rend service, un don est toujours apprécié.
+Movviz est gratuit et le restera. S'il te rend service, un don est toujours apprÃ©ciÃ©.
 
 <a href="https://github.com/sponsors/dj41ph4">
   <img src="https://img.shields.io/badge/GitHub_Sponsors-30363D?style=for-the-badge&logo=github&logoColor=white&labelColor=1a1a2e" alt="GitHub Sponsors"/>
@@ -182,7 +182,7 @@ Movviz est gratuit et le restera. S'il te rend service, un don est toujours appr
 
 <br><br>
 
-<sub>Un seul endroit pour tout gérer. · GPL-3.0 · 2026</sub>
+<sub>Un seul endroit pour tout gÃ©rer. Â· GPL-3.0 Â· 2026</sub>
 
 </div>
 

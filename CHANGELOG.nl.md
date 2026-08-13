@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.53 — Augustus 2026
+
+### De echte oorzaak van de lag ligt bij Plex: de video wordt opnieuw gecodeerd in transcode-sessies — het clientprofiel declareert nu HEVC/AV1 om de kopie af te dwingen
+
+- **Opgelost**: de Plex-logs leverden het bewijs — in een "alleen audio"-transcode-sessie (`ta=1`) produceert Plex segmenten van 2,4-2,8 MB om de ~22 seconden: geen leveringsprobleem, maar een hercoderingprobleem. MDE honoreert `videoCodec=copy` voor HEVC in direct-stream-sessies, maar **weigert dit binnen een transcode-sessie** zolang het gekoppelde clientprofiel HEVC niet declareert als transcode-doelcodec voor HLS. De transcode-route stuurt nu `X-Plex-Client-Profile-Extra: append-transcode-target-codec(type=videoProfile&context=streaming&videoCodec=hevc,av1,h264&audioCodec=aac,ac3,mp3&protocol=hls)` (officiële Plex-profiluitbreiding) naast de "Plex Web"-vermomming — MDE kan de HEVC/AV1-bitstreamkopie tijdens alleen-audio-transcodes dan honoreren.
+- **Diagnostiek**: de antwoordtekst van `/decision` wordt nu volledig gelogd (ingekort tot 600 tekens, verborgen het de `transcodeDecisionText` op het hoogste niveau — de exacte reden van MDE), met de beslissingstekst in zijn eigen leesbare veld.
+
 ## v1.13.52 — Augustus 2026
 
 ### De waarheid zit in de stream zelf — het eerste TS-segment wordt gescand op zijn echte streamtypes
