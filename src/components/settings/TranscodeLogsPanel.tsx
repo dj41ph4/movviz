@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { RefreshCw, Trash2, Radio } from "lucide-react";
 
-interface LogEntry { time: number; ratingKey: string; step: string; detail: string; status: number | "ok" }
+interface LogEntry { time: number; ratingKey: string; step: string; detail: string; status: number | "ok" | "warn" }
 
 export function TranscodeLogsPanel() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -45,7 +45,7 @@ export function TranscodeLogsPanel() {
       <div className="space-y-1 max-h-96 overflow-auto rounded-xl glass p-3">
         {logs.map((l, i) => (
           <div key={i} className="flex items-start gap-2 rounded-lg px-2 py-1.5">
-            <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${l.status === "ok" ? "bg-ok" : "bg-down"}`} />
+            <span className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${l.status === "ok" ? "bg-ok" : l.status === "warn" ? "bg-amber" : "bg-down"}`} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="font-mono text-[11px] text-ink-soft">{l.ratingKey}</span>

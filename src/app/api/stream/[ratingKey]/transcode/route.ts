@@ -202,6 +202,33 @@ export async function GET(req: NextRequest, context: Ctx) {
     // resolve against .../universal/
     const masterPath = `${PLEX_UNIVERSAL_BASE}/start.m3u8`;
     const rewritten = rewriteM3u8(raw, masterPath);
+
+    // VÉRITÉ DU TERRAIN : le maître contient les codecs EFFECTIVEMENT produits
+    // par Plex (CODECS="...") — pas ceux qu'on a demandés. Quand on demande un
+    // copy vidéo (tv=0) et que Plex ré-encode quand même (HEVC/AV1 10-bit/HDR
+    // non copiables en HLS-TS, sous-titres PGS/ASS brûlés...), la vidéo est
+    // transcodée EN SILENCE : c'est la cause n°1 des « audio seul » qui laguent.
+    // On la détecte ici et on la crie dans les logs + en-tête de réponse.
+    const streamInf = raw.match(/#EXT-X-STREAM-INF:[^\n]*/)?.[0] ?? "";
+    const actualCodecs = streamInf.match(/CODECS="([^"]+)"/)?.[1] ?? "";
+    const actualVideo = (actualCodecs.split(",")[0] ?? "").trim().toLowerCase();
+    const srcIsHevc = /hevc|h265|hev1|hvc1/.test(videoCodec);
+    const srcIsAv1 = /av1|av01/.test(videoCodec);
+    const videoCopyRefused =
+      transcodeVideoCodec === "copy" &&
+      actualVideo !== "" &&
+      ((srcIsHevc && !actualVideo.includes("hev")) ||
+        (srcIsAv1 && !actualVideo.includes("av01")));
+    if (videoCopyRefused) {
+      const why = subtitleStreamID
+        ? `sous-titres ${subtitleStreamID} (brûlés dans la vidéo)`
+        : `codec source ${videoCodec} non copiable en HLS-TS`;
+      console.error(`[transcode] ${ratingKey} ⚠ Plex a IGNORÉ videoCodec=copy (${videoCodec} → ${actualVideo}) : vidéo ré-encodée. Cause probable : ${why}`);
+      logTranscode(ratingKey, "plex-copy-refused", `demandé copy → réel ${actualVideo} (${why})`, "warn");
+    } else {
+      logTranscode(ratingKey, "plex-codecs", `demandé v=${transcodeVideoCodec} a=${transcodeAudioCodec} → réel ${actualCodecs || "?"}`, "ok");
+    }
+
     logTranscode(ratingKey, "m3u8", `ok — ${raw.split("\n").length} lines, rewritten`, "ok");
     console.log(`[transcode] ${ratingKey} master rewritten:\n${rewritten.slice(0, 300)}`);
 
@@ -215,6 +242,7 @@ export async function GET(req: NextRequest, context: Ctx) {
         "cache-control": `private, max-age=${maxAge}`,
         "access-control-allow-origin": corsOrigin(req),
         "access-control-allow-credentials": "true",
+        "x-movviz-plex-codecs": actualCodecs || "unknown",
       },
     });
   } catch (e) {

@@ -8,7 +8,7 @@ interface LogEntry {
   ratingKey: string;
   step: string;
   detail: string;
-  status: number | "ok";
+  status: number | "ok" | "warn";
 }
 
 const MAX = 50;
@@ -19,7 +19,7 @@ function getBuffer(): LogEntry[] {
   return g.__movvizTranscodeLogs;
 }
 
-export function logTranscode(ratingKey: string, step: string, detail: string, status: number | "ok" = "ok") {
+export function logTranscode(ratingKey: string, step: string, detail: string, status: number | "ok" | "warn" = "ok") {
   const buf = getBuffer();
   buf.push({ time: Date.now(), ratingKey, step, detail, status });
   while (buf.length > MAX) buf.shift();
