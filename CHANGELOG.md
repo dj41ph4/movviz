@@ -19,6 +19,13 @@ All notable changes to Movviz, grouped by development milestone.
 - **Corrigé** : en DASH, la route transcode envoie le codec source canonique (`hevc`/`h264`/`av1`/`vp9`) à la place de « copy » ; le cap `maxVideoBitrate` n'est plus appliqué quand un copy vidéo est demandé (il forçait un ré-encodage). Le HLS garde « copy » (honoré pour h264).
 - **Corrigé** : sondes fiabilisées — le codec réel est lu dans l'AdaptationSet vidéo du MPD (fourcc `hev1`/`hvc1` inclus), les variantes de profil (`avc1.*`, `av01.*`) comptent comme copy honoré dans `/decision`, VP9 couvert, alerte avec le codec réellement demandé.
 
+## v1.13.61 — August 2026
+
+### FFmpeg remux : le muxer MP4 échouait en silence sur l'audio AC-3 — `delay_moov`
+
+- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751) : `-movflags empty_moov` ne peut pas écrire l'entête MP4 avant d'avoir vu au moins un paquet audio quand la piste est copiée en AC-3 (taille de frame inconnue à l'avance) — ffmpeg échouait avec `Cannot write moov atom before AC3 packets`, immédiatement après avoir écrit le `ftyp`+`moov` (quelques Ko). Côté client, ce n'était visible comme aucune erreur HTTP : juste un flux anormalement court qui se termine proprement, un piège silencieux.
+- **Corrigé** : ajout du flag `delay_moov` (`frag_keyframe+empty_moov+delay_moov+default_base_moof+omit_tfhd_offset`). Testé en direct contre le fichier réel : copie vidéo+audio à 4-11× la vitesse temps réel (contre 0,1-0,9× côté transcodage Plex).
+
 ## v1.13.60 — August 2026
 
 ### Nouveau moteur de lecture : remux ffmpeg local — contourne définitivement le refus de Plex de copier le bitstream HEVC

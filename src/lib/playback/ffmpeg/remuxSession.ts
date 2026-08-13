@@ -182,9 +182,16 @@ export function startRemux(
   } else {
     args.push("-c:a", "aac", "-b:a", `${bitrateK}k`);
   }
+  // delay_moov est OBLIGATOIRE avec empty_moov + copie audio : le muxer MP4
+  // ne peut pas écrire le moov avant d'avoir vu au moins un paquet AC3 (taille
+  // de frame inconnue à l'avance) — confirmé en direct (Ace Ventura 500751) :
+  // sans ce flag, ffmpeg écrit le ftyp+moov (quelques Ko) puis échoue
+  // immédiatement sur "Cannot write moov atom before AC3 packets", ce qui
+  // ressemble à un flux qui se termine proprement côté client (aucune
+  // erreur HTTP, juste un stream anormalement court) — piège silencieux.
   args.push(
     "-movflags",
-    "frag_keyframe+empty_moov+default_base_moof+omit_tfhd_offset",
+    "frag_keyframe+empty_moov+delay_moov+default_base_moof+omit_tfhd_offset",
     "-f",
     "mp4",
     "pipe:1"
