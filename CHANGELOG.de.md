@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.46 — August 2026
+
+### Transcode-Logs zeigen, was Plex TATSÄCHLICH tut — die stille vollständige Neukodierung ist nicht mehr unsichtbar
+
+- **Neu**: Die Transcode-Route liest jetzt das `CODECS=`-Attribut aus der von Plex zurückgegebenen Master-Playlist und vergleicht es mit der Anfrage. Wenn ein Bitstream-Kopieren (`tv=0`) angefragt, das Video aber trotzdem neu kodiert wurde (HEVC/AV1 10-Bit- oder HDR-Quellen, die Plex nicht in HLS-TS kopieren will, oder in das Bild gebrannte PGS/ASS-Untertitel), wird eine `plex-copy-refused`-Warnung mit Ursache in den Logs unter Einstellungen → Diagnose geschrieben und auf der Konsole ausgegeben — genau der Fall „Nur-Audio-Transcode, der trotzdem ruckelt“.
+- **Geändert**: Die Logeinträge enthalten jetzt die tatsächlich von Plex erzeugten Codecs (`plex-codecs`), Warnungen erscheinen im Panel amber (statt grün/rot), und die Master-Antwort trägt die tatsächlichen Codecs im `x-movviz-plex-codecs`-Header.
+
 ## v1.13.45 — August 2026
 
 ### Die Option „Nur Audio transkodieren“ hat tatsächlich das Video neu kodiert — die beiden Modi waren vertauscht
