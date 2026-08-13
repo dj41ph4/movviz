@@ -4,6 +4,15 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.60 — Agosto 2026
+
+### Nuovo motore di riproduzione: remux ffmpeg locale — aggira definitivamente il rifiuto di Plex di copiare il bitstream HEVC
+
+- **Causa radice confermata e definitivamente chiusa**: 12+ richieste dirette contro l'API Plex (`/video/:/transcode/universal/decision`), variando bitrate, codec target, profilo client, protocollo, traccia audio, sottotitoli — tutte restituiscono esattamente lo stesso risultato: rieencodifica H.264 forzata, indipendentemente dal parametro inviato. Verificate anche le impostazioni server (limite di banda remoto, reti LAN): nessuna spiega il rifiuto. È un'euristica interna a Plex Media Server, non documentata e non influenzabile dall'esterno — nessun ulteriore tentativo di correzione lato parametri client su questo punto.
+- **Nuovo**: invece di chiedere a Plex di decidere, Movviz può ora recuperare il file sorgente grezzo direttamente da Plex (`/library/parts/{id}/file`, aggirando completamente `/video/:/transcode/universal`) e remuxarlo esso stesso con un ffmpeg locale (`-c:v copy` sempre, `-c:a copy` o `-c:a aac` a seconda della traccia) — copia video a costo CPU nullo, audio garantito decodificabile dal browser, zero dipendenza dalla decisione di Plex. Nuovo motore `FfmpegRemuxEngine` inserito nella catena di fallback del lettore beta tra il motore MSE esistente (solo MP4 progressivo) e il fallback transcodifica Plex — subentra esattamente dove il parser MP4 fatto in casa si arrende (MKV in particolare, la maggior parte della libreria). Disponibilità del binario verificata lato server; fallback silenzioso e automatico al comportamento attuale se ffmpeg è assente.
+- **Corretto**: corretta una race condition nel motore MSE (`resetBuffers` non attendeva il completamento delle operazioni `SourceBuffer.remove()` in corso prima di avviarne di nuove, con rischio di `InvalidStateError` durante un seek).
+- **Corretto**: decisione di transcodifica audio proattiva prima della riproduzione (ispirata al profilo dispositivo di Jellyfin) — evita una transcodifica audio inutile quando il browser può effettivamente decodificare la traccia copiata, mantenendo comunque la veglia di silenzio come rete di sicurezza per i casi in cui il rilevamento sbaglia.
+
 ## v1.13.57 — Agosto 2026
 
 ### DASH: manifest senza BaseURL — i segmenti di inizializzazione puntavano a una rotta inesistente, riproduzione impossibile

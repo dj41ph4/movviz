@@ -4,6 +4,15 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.60 — Augustus 2026
+
+### Nieuwe afspeelengine: lokale ffmpeg-remux — omzeilt definitief de weigering van Plex om de HEVC-bitstream te kopiëren
+
+- **Grondoorzaak definitief bevestigd en gesloten**: 12+ directe verzoeken tegen de Plex-API (`/video/:/transcode/universal/decision`), met variatie in bitrate, doelcodec, clientprofiel, protocol, audiospoor, ondertitels — allemaal leveren exact hetzelfde resultaat op: geforceerde H.264-hercodering, ongeacht de verzonden parameter. Serverinstellingen (externe bandbreedtelimiet, LAN-netwerken) ook gecontroleerd: geen enkele verklaart de weigering. Het is een interne, ongedocumenteerde heuristiek van Plex Media Server, van buitenaf niet te beïnvloeden — geen verdere poging tot correctie aan de clientparameterkant op dit punt.
+- **Nieuw**: in plaats van Plex te laten beslissen, kan Movviz nu het ruwe bronbestand rechtstreeks bij Plex ophalen (`/library/parts/{id}/file`, waarbij `/video/:/transcode/universal` volledig wordt omzeild) en het zelf remuxen met een lokale ffmpeg (`-c:v copy` altijd, `-c:a copy` of `-c:a aac` afhankelijk van het spoor) — videokopie tegen nul CPU-kosten, audio gegarandeerd decodeerbaar door de browser, geen afhankelijkheid meer van de beslissing van Plex. Nieuwe engine `FfmpegRemuxEngine` ingevoegd in de fallbackketen van de bètaspeler tussen de bestaande MSE-engine (alleen progressieve MP4) en de Plex-transcodefallback — neemt het precies over waar de zelfgebouwde MP4-parser het opgeeft (met name MKV, het merendeel van de bibliotheek). Beschikbaarheid van het binary wordt serverzijdig gecontroleerd; stille en automatische terugval op het huidige gedrag als ffmpeg ontbreekt.
+- **Opgelost**: een race condition in de MSE-engine verholpen (`resetBuffers` wachtte niet op het voltooien van lopende `SourceBuffer.remove()`-bewerkingen voordat nieuwe werden gestart, met risico op een `InvalidStateError` bij een seek).
+- **Opgelost**: proactieve audiotranscode-beslissing vóór afspelen (geïnspireerd op het apparaatprofiel van Jellyfin) — voorkomt onnodige audiotranscodering wanneer de browser het gekopieerde spoor daadwerkelijk kan decoderen, terwijl de stiltebewaking als vangnet blijft voor gevallen waarin de detectie het mis heeft.
+
 ## v1.13.57 — Augustus 2026
 
 ### DASH: manifest zonder BaseURL — de initialisatiesegmenten wezen naar een niet-bestaande route, afspelen onmogelijk

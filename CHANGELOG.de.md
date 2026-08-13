@@ -4,6 +4,15 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.60 — August 2026
+
+### Neue Wiedergabe-Engine: lokales ffmpeg-Remuxing — umgeht endgültig die Weigerung von Plex, den HEVC-Bitstream zu kopieren
+
+- **Ursache endgültig bestätigt und geklärt**: 12+ direkte Anfragen an die Plex-API (`/video/:/transcode/universal/decision`), mit Variation von Bitrate, Ziel-Codec, Client-Profil, Protokoll, Audiospur, Untertiteln — alle liefern exakt dasselbe Ergebnis: erzwungene H.264-Neukodierung, unabhängig vom gesendeten Parameter. Servereinstellungen (Remote-Bandbreitenlimit, LAN-Netzwerke) ebenfalls überprüft: keine erklärt die Weigerung. Es handelt sich um eine interne, nicht dokumentierte Heuristik von Plex Media Server, die von außen nicht beeinflussbar ist — kein weiterer Korrekturversuch auf Client-Parameter-Seite zu diesem Punkt.
+- **Neu**: Statt Plex entscheiden zu lassen, kann Movviz jetzt die rohe Quelldatei direkt bei Plex abrufen (`/library/parts/{id}/file`, wobei `/video/:/transcode/universal` vollständig umgangen wird) und sie selbst mit einem lokalen ffmpeg remuxen (`-c:v copy` immer, `-c:a copy` oder `-c:a aac` je nach Spur) — Videokopie ohne CPU-Kosten, Audio garantiert vom Browser dekodierbar, keine Abhängigkeit mehr von der Entscheidung von Plex. Neue Engine `FfmpegRemuxEngine`, eingefügt in die Fallback-Kette des Beta-Players zwischen der bestehenden MSE-Engine (nur progressives MP4) und dem Plex-Transcode-Fallback — übernimmt genau dort, wo der selbstgebaute MP4-Parser aufgibt (insbesondere MKV, der Großteil der Bibliothek). Verfügbarkeit der Binärdatei wird serverseitig geprüft; stiller und automatischer Rückfall auf das aktuelle Verhalten, falls ffmpeg fehlt.
+- **Behoben**: eine Race Condition in der MSE-Engine behoben (`resetBuffers` wartete nicht auf den Abschluss laufender `SourceBuffer.remove()`-Operationen, bevor neue gestartet wurden, mit dem Risiko einer `InvalidStateError` bei einem Seek).
+- **Behoben**: proaktive Audio-Transcode-Entscheidung vor der Wiedergabe (inspiriert vom Geräteprofil von Jellyfin) — vermeidet unnötiges Audio-Transcoding, wenn der Browser die kopierte Spur tatsächlich dekodieren kann, während die Stille-Überwachung als Sicherheitsnetz für Fälle bestehen bleibt, in denen die Erkennung falsch liegt.
+
 ## v1.13.57 — August 2026
 
 ### DASH: Manifest ohne BaseURL — die Initialisierungssegmente zeigten auf eine nicht existierende Route, Wiedergabe unmöglich
