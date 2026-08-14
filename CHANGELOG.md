@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.76 — August 2026
+
+### Smartphone : lecteur niveau Netflix, option « année minimale » pour les carrousels
+
+- **Nouveau — Réglages → Dashboard → Hero → Année minimale des carrousels** : choisis l'année à partir de laquelle les films sont affichés dans les carrousels « Découverte » et « Recommandé pour toi » — fini les vieilleries de 1955. « Toutes les années » par défaut, aucune modification de bibliothèque, filtrage uniquement à l'affichage.
+- **Nouveau — lecteur smartphone (375px/768px)** : double-tap gauche/droite sur la vidéo = recul/avance rapide ±10 s avec retour haptique et toast (comme Netflix), le tap simple affiche les contrôles sans jamais couper la lecture, la barre de contrôles ne déborde plus (boutons transcode/lecture directe repliés sur tablette+, volume réservé au desktop où son curseur apparaît au survol).
+- **Corrigé — iPhone** : bouton plein écran fonctionnel (webkitEnterFullscreen), respect des zones de sécurité (notch et barre d'accueil), surface tactile du slider agrandie (32px), plus de rebond élastique parasite.
+- **Corrigé — mode clair** : boutons du header, badges d'état et menus du lecteur sont désormais forcés en sombre cinématique (noir translucide) — fini les icônes blanches sur fond blanc ; l'auto-masquage des contrôles ne ferme plus un menu en cours de lecture.
+- **Perf mobile** : flou de l'ambiance réduit sur petit GPU (max-sm:blur-2xl), Ken Burns conservé.
+
 ## v1.13.75 — August 2026
 
 ### Lecteur : HLS devient une option manuelle, profils de compression ffmpeg, design premium

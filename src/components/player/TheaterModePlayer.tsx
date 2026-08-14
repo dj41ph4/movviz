@@ -132,7 +132,7 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
           transition={{ duration: reduceMotion ? 0.15 : DURATION, ease: EASE }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={ambienceSrc} alt="" className="h-full w-full scale-110 object-cover opacity-40 blur-3xl animate-kenburns will-change-transform" />
+          <img src={ambienceSrc} alt="" className="h-full w-full scale-110 object-cover opacity-40 max-sm:blur-2xl animate-kenburns will-change-transform" />
           {ambience && (
             <motion.div
               className="absolute inset-0"

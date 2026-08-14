@@ -174,6 +174,26 @@ export function DashboardExperiencePanel() {
               </div>
 
               <div>
+                <p className="mb-1 text-sm text-ink">{t("settings.dashboardExperience.minYearTitle")}</p>
+                <p className="mb-2 text-xs text-ink-dim">{t("settings.dashboardExperience.minYearHint")}</p>
+                <select
+                  value={layout.hero.minYear ?? 0}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    saveHero({ minYear: v === 0 ? null : v });
+                  }}
+                  className="w-full rounded-xl border border-white/8 bg-black/20 px-3 py-2 text-sm font-semibold text-ink outline-none focus:border-brand/50 sm:w-56"
+                >
+                  <option value={0}>{t("settings.dashboardExperience.minYearAll")}</option>
+                  {[1950, 1960, 1970, 1980, 1990, 2000, 2005, 2010, 2015, 2020, 2022, 2024].map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <p className="mb-1 text-sm text-ink">{t("settings.dashboardExperience.contentMixTitle")}</p>
                 <p className="mb-2 text-xs text-ink-dim">{t("settings.dashboardExperience.contentMixHint")}</p>
                 <div className="space-y-2">

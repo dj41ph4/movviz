@@ -24,10 +24,14 @@ interface UpgradeCandidate {
  * Reuses `findUpgradeCandidates`/`getRecommendations` verbatim via their
  * existing API routes — no second scoring/search engine.
  */
-export function DashboardRows({ sections, movies }: { sections: DashboardLayout["sections"]; movies: LibraryMovie[] }) {
+export function DashboardRows({ sections, movies, minYear }: { sections: DashboardLayout["sections"]; movies: LibraryMovie[]; minYear?: number | null }) {
   const t = useT();
   const router = useRouter();
   const visible = useMemo(() => new Set(sections.filter((s) => s.visible).map((s) => s.id)), [sections]);
+  const afterMinYear = useMemo(
+    () => (minYear ? (r: { year?: number | null }) => (r.year ?? 0) >= minYear : () => true),
+    [minYear]
+  );
 
   const { data: rowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[] }[] }>(
     visible.has("discover") ? "/api/metadata/rows?type=movie" : null
@@ -45,8 +49,8 @@ export function DashboardRows({ sections, movies }: { sections: DashboardLayout[
     { revalidateOnFocus: false, dedupingInterval: 10 * 60 * 1000 }
   );
 
-  const trending = rowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? [];
-  const recommended = recData?.results ?? [];
+  const trending = (rowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter(afterMinYear);
+  const recommended = (recData?.results ?? []).filter(afterMinYear);
 
   const recentlyAdded = useMemo(
     () => [...movies].filter((m) => m.status === "available").sort((a, b) => b.addedAt - a.addedAt).slice(0, 20),

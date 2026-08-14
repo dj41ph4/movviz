@@ -268,7 +268,7 @@ export default function DashboardPage() {
       )}
 
       {richMode ? (
-        !loading && !moviesError && movies.length > 0 && <DashboardRows sections={layout.sections} movies={movies} />
+        !loading && !moviesError && movies.length > 0 && <DashboardRows sections={layout.sections} movies={movies} minYear={layout.hero.minYear} />
       ) : (
         <div className="mt-8">
           {loading ? (

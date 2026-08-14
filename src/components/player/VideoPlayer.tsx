@@ -1375,6 +1375,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     const target = Math.max(0, Math.min(duration || el.duration || 0, cur + seconds));
     seekTo(target);
     setSkipToast((prev) => ({ n: (prev?.n ?? 0) + 1, delta: seconds }));
+    try {
+      navigator.vibrate?.(8);
+    } catch {
+      /* noop */
+    }
   }, [duration, seekTo]);
 
   useEffect(() => {
@@ -1460,9 +1465,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     if (document.fullscreenElement) {
       await document.exitFullscreen();
       setFullscreen(false);
-    } else {
+    } else if (document.fullscreenEnabled || (document as Document & { webkitFullscreenEnabled?: boolean }).webkitFullscreenEnabled) {
       await el.requestFullscreen();
       setFullscreen(true);
+    } else {
+      (el as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen?.();
     }
   };
 
@@ -1495,11 +1502,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     setControlsVisible(true);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     hideTimerRef.current = setTimeout(() => {
-      if (!seekingRef.current && playing && !buffering) {
+      if (!seekingRef.current && playing && !buffering && !menuOpen) {
         setControlsVisible(false);
       }
     }, 3000);
-  }, [playing, buffering]);
+  }, [playing, buffering, menuOpen]);
 
   // Sortie du pointeur hors de la vidéo → les contrôles se replient vite
   // (800ms au lieu de 3s, comportement Plex/Netflix).
@@ -1523,6 +1530,30 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     if (!el) return;
     if (el.paused) void el.play();
     else el.pause();
+  };
+
+  // Netflix smartphone : double-tap = seek ±10s, tap simple = contrôles
+  // (jamais de pause surprise). Desktop garde le click play/pause.
+  const lastTapRef = useRef<{ time: number; double: boolean }>({ time: 0, double: false });
+  const handleVideoTouchEnd = (e: React.TouchEvent<HTMLVideoElement>) => {
+    const now = Date.now();
+    const prev = lastTapRef.current;
+    if (now - prev.time < 300) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = e.changedTouches[0].clientX - rect.left;
+      skip(x < rect.width / 2 ? -10 : 10);
+      lastTapRef.current = { time: now, double: true };
+    } else {
+      lastTapRef.current = { time: now, double: false };
+    }
+  };
+  const handleVideoClick = () => {
+    if (lastTapRef.current.double && Date.now() - lastTapRef.current.time < 400) return;
+    if (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches) {
+      resetHideTimer();
+      return;
+    }
+    togglePlay();
   };
 
   const toggleMute = () => {
@@ -1918,12 +1949,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const playedPct = ((seekPreview ?? currentTime) / (duration || 1)) * 100;
 
   return (
-    <div className={cn(!embedded && "fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm", embedded && "h-full w-full")}>
+    <div className={cn(!embedded && "fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm", embedded && "h-full w-full overscroll-none")}>
       <div className={cn("relative flex flex-col overflow-hidden shadow-2xl", embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface", !embedded && fullscreen ? "h-full w-full rounded-none" : !embedded ? "rounded-2xl h-[80vh] w-[90vw] max-w-5xl" : undefined)}>
         <div
           aria-hidden={embedded && !controlsVisible && playing && !buffering ? true : undefined}
           className={cn(
-            "flex items-center justify-between gap-2 px-4 py-3",
+            "flex items-center justify-between gap-2 px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3 pl-[max(env(safe-area-inset-left),1rem)] pr-[max(env(safe-area-inset-right),1rem)]",
             embedded
               ? "absolute inset-x-0 top-0 z-40 pointer-events-none bg-gradient-to-b from-black/70 via-black/35 to-transparent pb-16 transition-opacity duration-300 " +
                 (controlsVisible || !playing || buffering ? "opacity-100" : "opacity-0")
@@ -1932,7 +1963,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         >
           <div className="pointer-events-auto flex items-center gap-2 min-w-0">
             {usingFallback && (
-              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full glass px-2.5 text-[10px] font-semibold text-white/85">
+              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-md">
                 <span className={cn("h-1.5 w-1.5 rounded-full", transcodeVideoRef.current || transcodeAudioRef.current ? "bg-amber" : "bg-ok")} />
                 {transcodeVideoRef.current && transcodeAudioRef.current
                   ? t("player.betaTranscoded")
@@ -1944,19 +1975,19 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
               </span>
             )}
             {directMode && (
-              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full glass px-2.5 text-[10px] font-semibold text-white/85">
+              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-md">
                 <span className="h-1.5 w-1.5 rounded-full bg-ok" />
                 {t("player.betaDirectActive")}
               </span>
             )}
             {mseActive && (
-              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full glass px-2.5 text-[10px] font-semibold text-white/85">
+              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-md">
                 <span className="h-1.5 w-1.5 rounded-full bg-cyan" />
                 {t("player.betaMseStream")}
               </span>
             )}
             {ffmpegActive && (
-              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full glass px-2.5 text-[10px] font-semibold text-white/85">
+              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-md">
                 <span className="h-1.5 w-1.5 rounded-full bg-purple" />
                 {t("player.betaFfmpegLocal")}
               </span>
@@ -1969,14 +2000,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => openPlexLink(e, plexUrl)}
-              className="flex h-11 w-11 items-center justify-center rounded-full glass-strong text-white/80 transition-all duration-150 hover:text-white hover:scale-105 active:scale-95"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white/80 backdrop-blur-xl transition-all duration-150 hover:text-white hover:scale-105 active:scale-95"
               title={t("library.watchOnPlex")}
             >
               <ExternalLink className="h-4 w-4" />
             </a>
             <button
               onClick={onClose}
-              className="flex h-11 w-11 items-center justify-center rounded-full glass-strong text-white/80 transition-all duration-150 hover:text-white hover:scale-105 active:scale-95"
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white/80 backdrop-blur-xl transition-all duration-150 hover:text-white hover:scale-105 active:scale-95"
               aria-label={t("player.betaClose")}
             >
               <X className="h-4 w-4" />
@@ -2016,10 +2047,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
             <>
               <video
                 ref={videoRef}
-                className="h-full w-full cursor-pointer"
+                className="h-full w-full cursor-pointer touch-manipulation"
                 autoPlay
                 playsInline
-                onClick={togglePlay}
+                onClick={handleVideoClick}
+                onTouchEnd={handleVideoTouchEnd}
               />
 
               {buffering && !mseActive && (
@@ -2115,7 +2147,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                 <div
                   aria-hidden={controlsVisible || !playing || buffering ? undefined : true}
                   className={cn(
-                    "absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/80 via-black/45 to-transparent pt-14 pb-1 sm:pb-2 transition-opacity duration-300",
+                    "absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/80 via-black/45 to-transparent pt-14 pb-[max(env(safe-area-inset-bottom),0.25rem)] sm:pb-2 transition-opacity duration-300",
                     controlsVisible || !playing || buffering ? "opacity-100" : "opacity-0 pointer-events-none"
                   )}
                 >
@@ -2146,7 +2178,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                       aria-valuemax={Math.round(duration)}
                       aria-valuenow={Math.round(seekPreview ?? currentTime)}
                       aria-valuetext={formatTime(seekPreview ?? currentTime)}
-                      className="group relative h-6 cursor-pointer select-none touch-none"
+                      className="group relative h-8 sm:h-6 cursor-pointer select-none touch-none"
                       onMouseDown={handleProgressDown}
                       onTouchStart={handleProgressDown}
                       onMouseMove={handleProgressHover}
@@ -2172,7 +2204,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-0.5 px-2 pb-1">
+                  <div className="flex flex-wrap items-center gap-0.5 px-2 pb-1">
                     <button
                       onClick={togglePlay}
                       className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
@@ -2215,7 +2247,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                         }
                       </button>
                       <div className={cn(
-                        "overflow-hidden transition-all duration-200 ease-out",
+                        "overflow-hidden transition-all duration-200 ease-out max-sm:hidden",
                         showVolume ? "w-24 opacity-100 ml-1" : "w-0 opacity-0"
                       )}>
                         <div
@@ -2236,7 +2268,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                     <div className="flex-1" />
 
                     {usingFallback && qualityLabel() && (
-                      <span className="hidden sm:inline-flex h-6 items-center rounded-full glass px-2 text-[10px] font-semibold text-white/70">{qualityLabel()}</span>
+                      <span className="hidden sm:inline-flex h-6 items-center rounded-full bg-black/50 px-2 text-[10px] font-semibold text-white/70 backdrop-blur-md">{qualityLabel()}</span>
                     )}
 
                     <div className="relative">
@@ -2248,14 +2280,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                         <Monitor className="h-5 w-5" />
                       </button>
                       {menuOpen === "quality" && (
-                        <div className="absolute right-0 bottom-full mb-3 w-max min-w-[9.5rem] animate-menu-pop rounded-2xl glass-strong p-1.5 shadow-2xl max-w-[calc(100vw-2rem)]">
+                        <div className="absolute right-0 bottom-full mb-3 w-max min-w-[9.5rem] animate-menu-pop rounded-2xl border border-white/10 bg-black/80 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
                           {QUALITY_PRESETS.map((preset) => (
                             <button
                               key={preset.label}
                               onClick={() => handleQualityChange(preset.maxWidth)}
                               className={cn(
                                 "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors duration-100 hover:bg-white/8",
-                                qualityMaxWidthRef.current === preset.maxWidth ? "font-semibold text-brand-glow" : "text-ink-soft"
+                                qualityMaxWidthRef.current === preset.maxWidth ? "font-semibold text-brand-glow" : "text-white/75"
                               )}
                             >
                               <span>{preset.label}</span>
@@ -2275,14 +2307,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                         <Gauge className="h-5 w-5" />
                       </button>
                       {menuOpen === "speed" && (
-                        <div className="absolute right-0 bottom-full mb-3 w-24 animate-menu-pop rounded-2xl glass-strong p-1.5 shadow-2xl max-w-[calc(100vw-2rem)]">
+                        <div className="absolute right-0 bottom-full mb-3 w-24 animate-menu-pop rounded-2xl border border-white/10 bg-black/80 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
                           {SPEEDS.map((s) => (
                             <button
                               key={s}
                               onClick={() => setSpeed(s)}
                               className={cn(
                                 "flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-[13px] transition-colors duration-100 hover:bg-white/8",
-                                playbackRate === s ? "font-semibold text-brand-glow" : "text-ink-soft"
+                                playbackRate === s ? "font-semibold text-brand-glow" : "text-white/75"
                               )}
                             >
                               <span>{s}x</span>
@@ -2314,7 +2346,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                           <Captions className="h-5 w-5" />
                         </button>
                         {menuOpen && (menuOpen === "audio" || menuOpen === "subtitle") && (
-                          <div className="absolute right-0 bottom-full mb-3 max-h-[50vh] w-56 overflow-y-auto animate-menu-pop rounded-2xl glass-strong p-1.5 shadow-2xl max-w-[calc(100vw-2rem)]">
+                          <div className="absolute right-0 bottom-full mb-3 max-h-[50vh] w-56 overflow-y-auto animate-menu-pop rounded-2xl border border-white/10 bg-black/80 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
                             {menuOpen === "audio" && (
                               <>
                                 {audioStreams.map((s) => (
@@ -2323,7 +2355,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                                     onClick={() => handleAudioSelect(s.id)}
                                     className={cn(
                                       "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors duration-100 hover:bg-white/8",
-                                      currentAudio === s.id ? "font-semibold text-brand-glow" : "text-ink-soft"
+                                      currentAudio === s.id ? "font-semibold text-brand-glow" : "text-white/75"
                                     )}
                                   >
                                     <span className="truncate">{s.language || s.codec || s.id}</span>
@@ -2338,7 +2370,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                                   onClick={handleSubtitleOff}
                                   className={cn(
                                       "flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors duration-100 hover:bg-white/8",
-                                      !currentSubtitle ? "font-semibold text-brand-glow" : "text-ink-soft"
+                                      !currentSubtitle ? "font-semibold text-brand-glow" : "text-white/75"
                                   )}
                                 >
                                   {t("player.betaOff")}
@@ -2349,7 +2381,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                                     onClick={() => handleSubtitleSelect(s.id)}
                                     className={cn(
                                       "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors duration-100 hover:bg-white/8",
-                                      currentSubtitle === s.id ? "font-semibold text-brand-glow" : "text-ink-soft"
+                                      currentSubtitle === s.id ? "font-semibold text-brand-glow" : "text-white/75"
                                     )}
                                   >
                                     <span className="truncate">{s.language || s.codec || s.id}</span>
@@ -2363,13 +2395,13 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                           <div className="relative">
                             <button
                               onClick={() => toggleMenu("transcode")}
-                              className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+                              className="hidden sm:flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
                               title={t("player.betaTranscodeMode")}
                             >
                               <Settings className="h-5 w-5" />
                             </button>
                             {menuOpen === "transcode" && (
-                              <div className="absolute right-0 bottom-full mb-3 w-36 animate-menu-pop rounded-2xl glass-strong p-1.5 shadow-2xl max-w-[calc(100vw-2rem)]">
+                              <div className="absolute right-0 bottom-full mb-3 w-36 animate-menu-pop rounded-2xl border border-white/10 bg-black/80 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
                                 {(["auto", "audio", "video", "full"] as const).map((m) => (
                                   <button
                                     key={m}
@@ -2381,7 +2413,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                                     }}
                                     className={cn(
                                       "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[13px] transition-colors duration-100 hover:bg-white/8",
-                                      transcodeModeRef.current === m ? "font-semibold text-brand-glow" : "text-ink-soft"
+                                      transcodeModeRef.current === m ? "font-semibold text-brand-glow" : "text-white/75"
                                     )}
                                   >
                                     {m === "auto" ? t("player.betaTranscodeAuto")
@@ -2396,7 +2428,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                         )}
                         <button
                           onClick={handleDirectPlay}
-                          className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-green active:scale-90"
+                          className="hidden sm:flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-green active:scale-90"
                           title={t("player.betaDirectPlay")}
                           aria-label={t("player.betaDirectPlay")}
                         >

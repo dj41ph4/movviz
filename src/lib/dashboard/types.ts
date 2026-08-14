@@ -35,6 +35,8 @@ export interface DashboardHeroSettings {
   includeOwned: boolean;
   /** Whether the Hero can draw from pools of titles NOT in the library (personalized TMDb suggestions, discovery). */
   includeUnowned: boolean;
+  /** Minimum release year for the discovery carousels (trending/recommended) — null = show everything. */
+  minYear: number | null;
 }
 
 /** Order = display order; a widget id absent from the array is hidden. */
@@ -64,6 +66,7 @@ const DEFAULT_HERO_SETTINGS: DashboardHeroSettings = {
   trailerAutoplay: false,
   includeOwned: true,
   includeUnowned: true,
+  minYear: null,
 };
 
 const DEFAULT_SECTIONS: DashboardLayout["sections"] = DASHBOARD_SECTION_IDS.map((id) => ({ id, visible: true }));
@@ -124,6 +127,10 @@ function sanitizeHero(raw: unknown): DashboardHeroSettings {
     trailerAutoplay: typeof h.trailerAutoplay === "boolean" ? h.trailerAutoplay : DEFAULT_HERO_SETTINGS.trailerAutoplay,
     includeOwned: typeof h.includeOwned === "boolean" ? h.includeOwned : DEFAULT_HERO_SETTINGS.includeOwned,
     includeUnowned: typeof h.includeUnowned === "boolean" ? h.includeUnowned : DEFAULT_HERO_SETTINGS.includeUnowned,
+    minYear:
+      typeof h.minYear === "number" && h.minYear >= 1900 && h.minYear <= new Date().getFullYear()
+        ? Math.floor(h.minYear)
+        : null,
   };
 }
 
