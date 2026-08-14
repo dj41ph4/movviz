@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.77 — August 2026
+
+### Transcode vidéo optimisé NAS + crash serveur corrigé
+
+- **Optimisé — transcode vidéo local pensé pour le NAS** : l'encodeur passe de `veryfast` à **`ultrafast` + `zerolatency`** (frames livrées dès encodées, pas de lookahead) — sur un NAS ARM/SoC, le premier buffer arrive ~2× plus vite et les reprises après rebuffer repartent immédiatement. Le **GOP est raccourci à 2 s** (`g 48`) : un seek ou un changement de qualité re-synchronise en moins de 2 s au lieu d'attendre un keyframe tiré au hasard (souvent 10 s+ — c'est ce qui donnait « le transcode vidéo rame »). Profil `main` pour un décodage hardware garanti sur tous les clients. Débits sobres inchangés (10/6,5/4/2,2 Mb/s) — la qualité reste correcte, c'est la latence qui chute.
+- **Corrigé — crash serveur « Invalid state: Controller is already closed »** : quand le client abandonnait une session de transcode vidéo (seek, changement de qualité, fermeture du lecteur), la course entre la propagation asynchrone du cancel HTTP et l'arrêt de ffmpeg pouvait détruire un flux dont le controller Web était déjà fermé → exception non rattrapée qui tuait le process serveur (503 généralisé). Les flux abandonnés sont désormais marqués dès l'abort de la requête et ne sont plus jamais détruits avec erreur ; l'erreur reste propagée pour les vrais échecs d'encodage (repli HLS intact).
+
 ## v1.13.76 — August 2026
 
 ### Smartphone : lecteur niveau Netflix, option « année minimale » pour les carrousels

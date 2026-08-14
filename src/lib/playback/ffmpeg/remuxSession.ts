@@ -84,6 +84,7 @@ export interface StartRemuxOptions {
 interface RemuxSession {
   key: string;
   proc: ChildProcess;
+  stream: ReadableStream<Uint8Array>;
   lastAccess: number;
   seq: number;
 }
@@ -104,6 +105,30 @@ function registry(): SessionRegistry {
     g.__movvizFfmpegPurgeTimer = iv;
   }
   return g.__movvizFfmpegSessions;
+}
+
+/**
+ * Flux dont le CLIENT a abandonné la connexion (req.signal abort) — le
+ * consumer du ReadableStream Web est parti, son controller est fermé.
+ * Marquer le flux ici interdit au handler `exit` de faire un
+ * `stdout.destroy(err)` : la course fatale est que ffmpeg meurt (Broken
+ * pipe/Connection reset) pendant la propagation asynchrone du cancel HTTP,
+ * que le guard `!proc.stdout.destroyed` voie le flux encore vivant, et que
+ * notre destroy émette une erreur sur un stdout dont le controller Web est
+ * déjà fermé → `uncaughtException: Invalid state: Controller is already
+ * closed` qui tue le process serveur (v1.13.62 + v1.13.75 : confirmé en
+ * prod à chaque abandon client sur un transcode vidéo).
+ */
+function abortedStreams(): WeakSet<ReadableStream<Uint8Array>> {
+  const g = globalThis as unknown as { __movvizFfmpegAbortedStreams?: WeakSet<ReadableStream<Uint8Array>> };
+  if (!g.__movvizFfmpegAbortedStreams) g.__movvizFfmpegAbortedStreams = new WeakSet();
+  return g.__movvizFfmpegAbortedStreams;
+}
+
+/** À appeler quand le client abandonne (abort de la requête HTTP) — le flux ne doit plus jamais être détruit avec erreur. */
+export function markStreamAborted(key: string): void {
+  const session = registry().get(key);
+  if (session) abortedStreams().add(session.stream);
 }
 
 function ffmpegBin(): string {
@@ -211,18 +236,33 @@ export function startRemux(
   args.push("-map", "0:v:0", "-map", `0:a:${audioIndex}`);
   const preset = FFMPEG_QUALITY_PRESETS[quality];
   if (preset.maxWidth && preset.maxrateK) {
-    // Transcode local : downscale (jamais d'upscale — la source est
-    // plafonnée par min(W,iw)) + libx264 veryfast CRF 23 + débit borné.
-    // La virgule du filtre est échappée (\,) : spawn ne passe par aucun
-    // shell, ffmpeg reçoit le filtre tel quel et la lit comme séparateur
-    // échappé, pas comme séparateur de filtres chaînés.
+    // Transcode local pensé NAS : downscale (jamais d'upscale — la source
+    // est plafonnée par min(W,iw)) + libx264 ULTRAFAST (pas veryfast :
+    // l'encodage logiciel est le goulot d'étranglement d'un NAS ARM/SoC —
+    // ultrafast encodé ~2× plus vite, débit borné par maxrate de toute
+    // façon) + zerolatency (frames livrées dès encodées, pas de lookahead :
+    // le premier buffer arrive plus vite et les rebuffers repartent plus
+    // tôt) + GOP court de 2s (g 48 à 24fps) : seek et changement de qualité
+    // re-synchronisent en moins de 2s au lieu d'attendre un keyframe au
+    // hasard (souvent 10s+) — c'est ce qui donnait « ça rame » en vidéo.
+    // profile main : décodage hardware client garanti partout.
     args.push(
       "-vf",
       `scale=min(${preset.maxWidth}\\,iw):-2`,
       "-c:v",
       "libx264",
       "-preset",
-      "veryfast",
+      "ultrafast",
+      "-tune",
+      "zerolatency",
+      "-profile:v",
+      "main",
+      "-g",
+      "48",
+      "-keyint_min",
+      "48",
+      "-sc_threshold",
+      "0",
       "-crf",
       "23",
       "-maxrate",
@@ -294,26 +334,31 @@ export function startRemux(
   // ReadableStream Web correspondant (comportement documenté Node ≥ 17),
   // ce qui évite que la réponse HTTP reste juste tronquée sans signal.
   //
-  // Le garde `!proc.stdout.destroyed` est CRITIQUE, pas cosmétique — v1.13.62
-  // ajoutait un listener 'error' no-op en pensant éviter le crash, mais
-  // `Readable.toWeb()` enregistre TOUJOURS son propre listener interne (qui
-  // relaie vers le controller du ReadableStream Web) ; notre listener
-  // supplémentaire ne l'empêche pas de s'exécuter. Confirmé en prod (Ace
-  // Ventura 500751, plusieurs occurrences le 13/08) : le vrai crash arrive
-  // quand le CLIENT abandonne en premier — ça détruit déjà `proc.stdout` du
-  // côté web (cancel() implicite), PUIS ce handler `exit` rappelait
-  // `destroy(err)` une seconde fois sur un flux déjà détruit, et
-  // l'adaptateur interne de Node tente `controller.error()` sur un
-  // controller déjà fermé → `uncaughtException: Controller is already
-  // closed`, qui a fait planter tout le process serveur (503 généralisé,
-  // pas seulement cette requête). Ne plus jamais redestroy un flux déjà mort.
+  // Trois gardes (chacun nécessaire, confirmés en prod) :
+  // 1. `!proc.stdout.destroyed` — ne jamais redestroy un flux déjà mort
+  //    (le cancel du client détruit le stdout via l'adaptateur toWeb).
+  // 2. `!abortedStreams().has(stream)` — si le client a abandonné
+  //    (req.signal abort vu par la route → markStreamAborted), le
+  //    controller Web est fermé : TOUTE erreur émise après est un
+  //    uncaughtException « Controller is already closed » qui tue le
+  //    process. La course est réelle : le cancel HTTP se propage de façon
+  //    asynchrone, ffmpeg meurt (Broken pipe) pendant ce délai, et le
+  //    check `destroyed` voit un stdout encore vivant.
+  // 3. `setImmediate` + re-check — laisse la propagation du cancel/abort
+  //    se terminer avant de décider, réduit la fenêtre de course restante
+  //    à zéro dans la pratique (le flag aborted est posé de façon
+  //    synchrone par la route au moment même où le client part).
   proc.on("exit", (code) => {
-    if (code !== 0 && code !== null && proc.stdout && !proc.stdout.readableEnded && !proc.stdout.destroyed) {
-      proc.stdout.destroy(new Error(`ffmpeg exited with code ${code}`));
+    if (code !== 0 && code !== null && proc.stdout && !proc.stdout.readableEnded && !proc.stdout.destroyed && !abortedStreams().has(stream)) {
+      setImmediate(() => {
+        if (proc.stdout && !proc.stdout.readableEnded && !proc.stdout.destroyed && !abortedStreams().has(stream)) {
+          proc.stdout.destroy(new Error(`ffmpeg exited with code ${code}`));
+        }
+      });
     }
   });
 
-  reg.set(key, { key, proc, lastAccess: Date.now(), seq: (existing?.seq ?? 0) + 1 });
+  reg.set(key, { key, proc, stream, lastAccess: Date.now(), seq: (existing?.seq ?? 0) + 1 });
 
   return { proc, stream, key };
 }

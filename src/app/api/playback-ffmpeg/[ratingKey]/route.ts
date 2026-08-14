@@ -8,6 +8,7 @@ import {
   activeSessionCount,
   isFfmpegAvailable,
   isFfmpegQuality,
+  markStreamAborted,
   startRemux,
   stopAllForRatingKey,
   stopRemux,
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest, context: Ctx) {
     if (stopped) return;
     stopped = true;
     console.log(`[remux] abort client — stop ${key}`);
+    markStreamAborted(key);
     stopRemux(key);
   };
   req.signal.addEventListener("abort", onAbort);
