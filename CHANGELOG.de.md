@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.68 — August 2026
+
+### Der Player berücksichtigte bei der Wahl der Standard-Audiospur nie die Sprache der Benutzeroberfläche
+
+- **Neu**: Die Standard-Audiospur folgt nun der Sprache der Movviz-Benutzeroberfläche (dieselbe Regel wie bereits beim Audio-Badge) — Rückgriff auf die von Plex als Standard markierte Spur, falls keine übereinstimmt.
+- **Neu**: Untertitel werden nie mehr erzwungen, wenn das gewählte Audio bereits der Sprache der Benutzeroberfläche entspricht. Sie werden nur automatisch aktiviert, wenn keine Audiospur in dieser Sprache existiert und eine passende Untertitelspur verfügbar ist — der Reflex "fremdsprachiges Audio → Untertitel in meiner Sprache" anderer Player.
+
 ## v1.13.67 — August 2026
 
 ### FFmpeg-Remuxing: Weiter vorne in die Fortschrittsleiste klicken sprang zurück an den Anfang

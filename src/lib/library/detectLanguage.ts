@@ -19,6 +19,26 @@ const LOCALE_LANGUAGE_PREFIXES: Record<string, string[]> = {
 };
 
 /**
+ * Generic locale→track matcher shared by every "pick the stream matching
+ * Movviz's UI language" use site (audio codec badge, player default audio/
+ * subtitle selection) — one prefix table, never reimplemented per caller.
+ */
+export function findTrackForLocale<T extends { language: string | null | undefined }>(
+  tracks: T[] | null | undefined,
+  locale: string
+): T | null {
+  if (!tracks?.length) return null;
+  const prefixes = LOCALE_LANGUAGE_PREFIXES[locale];
+  if (!prefixes) return null;
+  return (
+    tracks.find((s) => {
+      const lang = (s.language ?? "").toLowerCase();
+      return lang && prefixes.some((p) => lang.startsWith(p));
+    }) ?? null
+  );
+}
+
+/**
  * Picks the audio track matching Movviz's own selected UI language — a file
  * can have English EAC3 and French AAC at once, and which one is "the" audio
  * codec badge shouldn't depend on stream order in the source file (Plex/
@@ -31,12 +51,7 @@ export function findAudioStreamForLocale(
   locale: string
 ): { language: string | null; codec?: string } | null {
   if (!info?.audioStreams.length) return null;
-  const prefixes = LOCALE_LANGUAGE_PREFIXES[locale];
-  if (!prefixes) return null;
-  return info.audioStreams.find((s) => {
-    const lang = (s.language ?? "").toLowerCase();
-    return lang && prefixes.some((p) => lang.startsWith(p));
-  }) ?? null;
+  return findTrackForLocale(info.audioStreams, locale);
 }
 
 export function deriveLanguageFromPlex(info: PlexLanguageSource | null | undefined): string | null {

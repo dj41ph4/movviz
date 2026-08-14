@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.68 — Augustus 2026
+
+### De speler hield bij het kiezen van de standaard audiotrack nooit rekening met de interfacetaal
+
+- **Nieuw**: de standaard audiotrack volgt nu de taal van de Movviz-interface (dezelfde regel als reeds gebruikt voor de audiobadge) — terugval op de door Plex als standaard gemarkeerde track als er geen overeenkomst is.
+- **Nieuw**: ondertitels worden nooit meer geforceerd wanneer de gekozen audio al overeenkomt met de interfacetaal. Ze worden alleen automatisch geactiveerd als er geen audiotrack in die taal bestaat en er een bijpassende ondertiteltrack beschikbaar is — de reflex "buitenlandse audio → ondertitels in mijn taal" van andere spelers.
+
 ## v1.13.67 — Augustus 2026
 
 ### FFmpeg-remux: verder klikken in de voortgangsbalk sprong terug naar het begin

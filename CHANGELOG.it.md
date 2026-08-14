@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.68 — Agosto 2026
+
+### Il lettore non teneva mai conto della lingua dell'interfaccia per scegliere la traccia audio predefinita
+
+- **Nuovo**: la traccia audio predefinita segue ora la lingua dell'interfaccia Movviz (stessa regola già in uso per il badge audio) — ripiego sulla traccia contrassegnata come predefinita da Plex se nessuna corrisponde.
+- **Nuovo**: i sottotitoli non vengono più forzati quando l'audio scelto corrisponde già alla lingua dell'interfaccia. Si attivano automaticamente solo se non esiste alcuna traccia audio in quella lingua ed è disponibile una traccia di sottotitoli corrispondente — il riflesso "audio straniero → sottotitoli nella mia lingua" degli altri lettori.
+
 ## v1.13.67 — Agosto 2026
 
 ### Remux FFmpeg: cliccare più avanti nella barra di avanzamento riportava all'inizio

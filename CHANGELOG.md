@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.68 — August 2026
+
+### Le lecteur ne tenait jamais compte de la langue de l'interface pour choisir la piste audio par défaut
+
+- **Nouveau** : la piste audio par défaut suit désormais la langue de l'interface Movviz (même règle que le badge audio déjà en place) — repli sur la piste marquée par défaut par Plex si aucune ne correspond.
+- **Nouveau** : les sous-titres ne sont plus jamais forcés quand l'audio choisi correspond déjà à la langue de l'interface. Ils ne s'activent automatiquement que si aucune piste audio dans cette langue n'existe et qu'une piste de sous-titres correspondante est disponible — le réflexe "audio étranger → sous-titres dans ma langue" des autres lecteurs.
+
 ## v1.13.67 — August 2026
 
 ### FFmpeg remux : cliquer plus loin dans la barre de progression ramenait au début

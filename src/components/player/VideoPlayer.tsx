@@ -6,7 +6,8 @@ import Hls from "hls.js";
 // niveau module — pas SSR-safe) ; seul le TYPE est importé statiquement.
 import type { MediaPlayerClass } from "dashjs";
 import { cn, openPlexLink } from "@/lib/utils";
-import { useT } from "@/i18n/provider";
+import { useI18n } from "@/i18n/provider";
+import { findTrackForLocale } from "@/lib/library/detectLanguage";
 import {
   X, Maximize2, Minimize2, ExternalLink, AlertTriangle, Loader2,
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
@@ -92,9 +93,11 @@ function formatTime(seconds: number): string {
 }
 
 export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded }: VideoPlayerProps) {
-  const t = useT();
+  const { t, locale } = useI18n();
   const tRef = useRef(t);
   tRef.current = t;
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
   const beta = useBetaPlayer();
   const betaRef = useRef(beta);
   betaRef.current = beta;
@@ -625,17 +628,33 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // useTranscode = beta player mode: try direct/WebCodecs first,
       // fall back to HLS transcode if the browser can't handle the codec.
       let info: StreamInfo = { videoCodec: null, audioCodec: null, container: null };
+      // Calculée ici pour être réutilisée par la détection de stratégie
+      // ci-dessous (même piste, jamais recalculée différemment).
+      let localePreferredAudio: StreamTrack | undefined;
       try {
         const res = await fetch(`/api/stream/${ratingKey}/info`, { cache: "no-store" });
         if (res.ok) {
           info = (await res.json()) as StreamInfo;
           info.container = (info as any).container ?? null;
           infoRef.current = info;
-          if (Array.isArray(info.audioStreams)) setAudioStreams(info.audioStreams);
-          if (Array.isArray(info.subtitleStreams)) setSubtitleStreams(info.subtitleStreams);
-          const selAudio = info.audioStreams?.find((s) => s.selected);
-          if (selAudio) setCurrentAudio(selAudio.id);
-          const selSub = info.subtitleStreams?.find((s) => s.selected);
+          const audioTracks = Array.isArray(info.audioStreams) ? info.audioStreams : [];
+          const subTracks = Array.isArray(info.subtitleStreams) ? info.subtitleStreams : [];
+          setAudioStreams(audioTracks);
+          setSubtitleStreams(subTracks);
+
+          // Piste audio par défaut : la langue de l'UI Movviz d'abord (même
+          // règle que le badge, voir findAudioStreamForLocale) — repli sur la
+          // piste marquée "selected" par Plex si aucune ne correspond.
+          const localeAudio = findTrackForLocale(audioTracks, localeRef.current);
+          localePreferredAudio = localeAudio ?? audioTracks.find((s) => s.selected) ?? audioTracks[0];
+          if (localePreferredAudio) setCurrentAudio(localePreferredAudio.id);
+
+          // Sous-titres : jamais forcés quand l'audio choisi correspond déjà
+          // à la langue de l'UI — seulement quand aucune piste audio dans
+          // cette langue n'existe, pour retrouver le réflexe "audio étranger
+          // → sous-titres dans ma langue" des autres lecteurs.
+          const localeSub = localeAudio ? null : findTrackForLocale(subTracks, localeRef.current);
+          const selSub = localeSub ?? subTracks.find((s) => s.selected);
           if (selSub) setCurrentSubtitle(selSub.id);
         }
       } catch { /* ignore */ }
@@ -656,7 +675,9 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         // audioStreamID. Otherwise the browser plays the DTS track and the
         // video is silently muted.
         const audioTracks = Array.isArray(info.audioStreams) ? info.audioStreams : [];
-        const selAudio = audioTracks.find((s) => s.selected) ?? audioTracks[0];
+        // Réutilise le choix déjà fait plus haut (langue UI d'abord) — ne
+        // jamais recalculer une seconde règle qui pourrait diverger.
+        const selAudio = localePreferredAudio ?? audioTracks.find((s) => s.selected) ?? audioTracks[0];
         defaultAudioIdRef.current = selAudio?.id ?? null;
         effectiveAudioCodec = selAudio?.codec ?? info.audioCodec;
         audioStreamIdRef.current = selAudio?.id ?? null;
