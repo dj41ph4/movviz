@@ -16,10 +16,17 @@
 export function watchForSilentAudio(
   el: HTMLMediaElement,
   onSilent: () => void,
-  options?: { windowMs?: number; threshold?: number }
+  options?: { windowMs?: number; threshold?: number; requireStarted?: boolean }
 ): () => void {
   const windowMs = options?.windowMs ?? 6000;
   const threshold = options?.threshold ?? 0.01;
+  // Gate de démarrage : avec une fenêtre < 1s (leg directe, voir VideoPlayer),
+  // un média encore en buffering réseau décoderait 0 échantillon → faux
+  // silence. Ne conclure qu'une fois le décodage réellement commencé
+  // (readyState >= HAVE_CURRENT_DATA et position > 0), avec un plafond au-delà
+  // duquel on abandonne SANS verdict (buffering/erreur, pas notre cas).
+  const requireStarted = options?.requireStarted ?? false;
+  const startTimeoutMs = 12000;
 
   let stopped = false;
   let raf = 0;
@@ -75,13 +82,28 @@ export function watchForSilentAudio(
     };
     raf = requestAnimationFrame(sample);
 
-    timer = setTimeout(() => {
+    const verdict = () => {
       // Never conclude "silent" while the context couldn't even run — that
       // would be a false positive, not a real detection.
       const wasSilent = !stopped && audioCtx.state === "running" && maxLevel < threshold;
       stop();
       if (wasSilent) onSilent();
-    }, windowMs);
+    };
+
+    const armWindow = () => {
+      if (stopped) return;
+      if (
+        requireStarted &&
+        (el.readyState < 2 || el.currentTime <= 0) &&
+        Date.now() - armedAt < startTimeoutMs
+      ) {
+        timer = setTimeout(armWindow, 250);
+        return;
+      }
+      timer = setTimeout(verdict, windowMs);
+    };
+    const armedAt = Date.now();
+    armWindow();
   } catch (err) {
     // Web Audio unavailable/blocked, or createMediaElementSource() already
     // called once for this <video> element (throws InvalidStateError on a

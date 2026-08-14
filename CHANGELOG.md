@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.73 — August 2026
+
+### Lecteur : moteur ffmpeg respecté, détection de son en moins d'une seconde, choix de piste audio en mode ffmpeg
+
+- **Corrigé** : quand le moteur **ffmpeg** est sélectionné dans Réglages → Plex, le lecteur relançait parfois une lecture directe au lieu du remux local — le choix du moteur n'entrait pas dans le calcul de stratégie. Désormais, moteur ffmpeg = remux ffmpeg pour tout fichier (le bouton ⚡ relance aussi le remux plutôt qu'une lecture directe), avec HLS en dernier recours si ffmpeg est indisponible.
+- **Amélioré** : la veille de silence de la lecture directe détecte désormais une piste audio muette en **moins d'une seconde** (fenêtre 800 ms) au lieu de 6 s, puis escalade vers le **remux ffmpeg local** (son transcodé en AAC, vidéo copiée) avant de retomber sur le transcodage Plex. Le verdict ne tombe qu'une fois le décodage réellement commencé, pour ne jamais confondre un démarrage lent avec un vrai silence (aucune régression pour les vidéos compatibles).
+- **Nouveau** : les menus piste audio / sous-titres sont maintenant disponibles quand le moteur ffmpeg est actif — changement de langue audio direct (session remux rechargée avec la bonne piste, position conservée), et bascule automatique vers la leg HLS (Plex) quand un sous-titre est demandé (le remux local ne grave aucun sous-titre).
+
 ## v1.13.72 — August 2026
 
 ### Nouveau : réglage de langue audio préférée pour le lecteur
