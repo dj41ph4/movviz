@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Check, X, Loader2, LinkIcon, RefreshCw, User, Play, MonitorPlay } from "lucide-react";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLanguage";
-import { PREFERRED_AUDIO_LANGUAGES, type PreferredAudioLanguage } from "@/lib/userPrefs/store";
+import { PREFERRED_AUDIO_LANGUAGES, type PreferredAudioLanguage } from "@/lib/userPrefs/languages";
 
 interface PlexConfig {
   hostname: string;

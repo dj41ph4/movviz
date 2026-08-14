@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
+import { PREFERRED_AUDIO_LANGUAGES, type PreferredAudioLanguage } from "@/lib/userPrefs/languages";
 import type { GpuTier } from "@/lib/gpu/GpuProvider";
 import type { ThemeMode } from "@/lib/theme/theme";
 import type { Locale } from "@/i18n/config";
@@ -45,9 +46,6 @@ export interface UserPrefs {
    *  distinction fragile entre null/undefined/absent à travers la route API. */
   preferredAudioLanguage?: PreferredAudioLanguage;
 }
-
-export const PREFERRED_AUDIO_LANGUAGES = ["auto", "fr", "en", "es", "de", "it", "nl"] as const;
-export type PreferredAudioLanguage = (typeof PREFERRED_AUDIO_LANGUAGES)[number];
 
 const VALID_TIERS: GpuTier[] = ["high", "medium", "low", "ultraLow"];
 const VALID_THEMES: ThemeMode[] = ["light", "dark", "auto"];

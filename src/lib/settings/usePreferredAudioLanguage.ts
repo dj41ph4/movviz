@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { useI18n } from "@/i18n/provider";
-import type { PreferredAudioLanguage } from "@/lib/userPrefs/store";
+import type { PreferredAudioLanguage } from "@/lib/userPrefs/languages";
 
 interface PreferencesData {
   prefs?: { preferredAudioLanguage?: PreferredAudioLanguage };
