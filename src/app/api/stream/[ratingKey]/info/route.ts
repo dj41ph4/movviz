@@ -4,6 +4,7 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { safePlexUrl } from "@/lib/plex/safeUrl";
 import { plexClientHeaders } from "@/lib/player/plexStream";
 import { isFfmpegAvailable } from "@/lib/playback/ffmpeg/remuxSession";
+import { isSubtitleToTextCodec } from "@/lib/playback/plexSource";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +81,7 @@ export async function GET(req: NextRequest, context: Ctx) {
         id: String(s.id ?? ""),
         codec: String(s.codec ?? ""),
         language: String(s.language ?? s.languageTag ?? ""),
+        toTextConvertible: isSubtitleToTextCodec(String(s.codec ?? "")),
         selected: Boolean(s.selected),
       }));
 

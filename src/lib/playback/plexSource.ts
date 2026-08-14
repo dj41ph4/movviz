@@ -19,6 +19,27 @@ export interface PlexAudioStreamRef {
   selected: boolean;
 }
 
+export interface PlexSubtitleStreamRef {
+  /** Index de la piste dans la liste des pistes sous-titres de ce Part (ordre = -map 0:s:<index> ffmpeg) */
+  index: number;
+  id: number | null;
+  codec: string | null;
+  language: string | null;
+  /** true si ffmpeg peut convertir la piste en WebVTT texte (srt/ass/ssa/webvtt/mov_text…) */
+  toTextConvertible: boolean;
+  selected: boolean;
+}
+
+/** Codecs de sous-titres TEXTE extractibles en WebVTT par ffmpeg (les pistes
+ *  image — pgs/vobsub — ne sont pas convertibles en texte). */
+export function isSubtitleToTextCodec(codec: string | null | undefined): boolean {
+  const c = (codec ?? "").toLowerCase();
+  return [
+    "srt", "subrip", "ass", "ssa", "webvtt", "vtt",
+    "mov_text", "text", "ttml", "subtext",
+  ].includes(c);
+}
+
 export interface PlexPartRef {
   /** URL brute du fichier chez Plex (/library/parts/{id}/file.{ext}) */
   sourceUrl: string;
@@ -26,6 +47,7 @@ export interface PlexPartRef {
   container: string | null;
   videoCodec: string | null;
   audioStreams: PlexAudioStreamRef[];
+  subtitleStreams: PlexSubtitleStreamRef[];
   /** ID numérique du Part — nécessaire pour /library/parts/{id}/indexes/sd/{ms} (vignettes BIF de scrub). */
   partId: number | null;
   /** Base Plex (`http(s)://host:port`) — pour construire d'autres endpoints (BIF, chapitres) sans re-résoudre la config. */
@@ -73,12 +95,24 @@ export async function resolvePlexPartUrl(
         selected: s.selected === true,
       }));
 
+    const subtitleStreams: PlexSubtitleStreamRef[] = streams
+      .filter((s) => s.streamType === 3)
+      .map((s, index) => ({
+        index,
+        id: typeof s.id === "number" ? s.id : null,
+        codec: s.codec ?? null,
+        language: s.language ?? null,
+        toTextConvertible: isSubtitleToTextCodec(s.codec),
+        selected: s.selected === true,
+      }));
+
     return {
       sourceUrl,
       headers,
       container: media?.container ?? null,
       videoCodec: media?.videoCodec ?? null,
       audioStreams,
+      subtitleStreams,
       partId: typeof part.id === "number" ? part.id : null,
       base,
     };

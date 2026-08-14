@@ -42,7 +42,24 @@ interface StreamTrack {
   codec: string;
   language: string;
   channels?: number;
+  toTextConvertible?: boolean;
   selected?: boolean;
+}
+
+interface SubtitleCue {
+  start: number;
+  end: number;
+  text: string;
+}
+
+/** Regex des lignes de timing WebVTT : `HH:MM:SS.mmm --> HH:MM:SS.mmm`. */
+const CUE_TIME_RE = /(\d{1,2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})\.(\d{3})/;
+function toCueSeconds(h: number, m: number, s: number, ms: number): number {
+  return h * 3600 + m * 60 + s + ms / 1000;
+}
+function getCueCtor(): (typeof VTTCue) | undefined {
+  if (typeof window === "undefined") return undefined;
+  return window.VTTCue ?? (window as unknown as { TextTrackCue?: typeof VTTCue }).TextTrackCue;
 }
 
 interface StreamInfo {
@@ -158,6 +175,16 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const [subtitleStreams, setSubtitleStreams] = useState<StreamTrack[]>([]);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
   const [currentSubtitle, setCurrentSubtitle] = useState<string | null>(null);
+  // Leg ffmpeg : cues WebVTT (temps absolus du fichier) + TextTrack natif
+  // actif. La position du <video> repart de 0 à chaque seek/reload, donc le
+  // track est (re)construit à chaque changement de seekBase avec des cues
+  // décalés (start - base).
+  const subtitleCuesRef = useRef<SubtitleCue[]>([]);
+  const subtitleTrackRef = useRef<{ track: TextTrack; base: number } | null>(null);
+  // Annulation du streaming WebVTT en cours (changement de piste, off,
+  // unmount) — sans ça un abort serait pris pour une erreur d'extraction
+  // et déclencherait un repli HLS non voulu.
+  const subtitleAbortRef = useRef<AbortController | null>(null);
   const [currentLevel, setCurrentLevel] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState<null | "audio" | "subtitle" | "speed" | "quality" | "transcode">(null);
   const [directMode, setDirectMode] = useState(false);
@@ -261,7 +288,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       startHlsRef.current?.();
       return;
     }
-    const pos = videoRef.current?.currentTime ?? 0;
+    // Leg ffmpeg : el.currentTime est relatif au flux (qui part de seekBase)
+    // — la position réelle du film est seekBase + el.currentTime, sinon le
+    // reload audio repartirait du début relatif (0) au lieu de la position.
+    const pos = (videoRef.current?.currentTime ?? 0) + engine.seekBase;
     try {
       setBuffering(true);
       await fetch(`/api/playback-ffmpeg/${ratingKey}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
@@ -286,6 +316,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
    */
   const switchFfmpegToHls = (subtitleId: string | null) => {
     setCurrentSubtitle(subtitleId);
+    clearFfmpegSubtitle();
     if (ffmpegEngineRef.current) {
       const engine = ffmpegEngineRef.current;
       ffmpegEngineRef.current = null;
@@ -300,6 +331,123 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     setBuffering(true);
     startHlsRef.current?.(subtitleId ? `subtitleStreamID=${subtitleId}` : undefined);
   };
+
+  // --- Sous-titres leg ffmpeg (100% local, sans Plex) ---
+  // La piste est extraite en WebVTT par ffmpeg (temps absolus du fichier).
+  // Le <video> ffmpeg repartant de 0 à chaque seek/reload, les cues sont
+  // appliqués avec un décalage `start - base` où base = seekBase du moteur.
+
+  const applyFfmpegSubtitleOffset = useCallback((base: number) => {
+    const el = videoRef.current;
+    if (subtitleTrackRef.current) {
+      subtitleTrackRef.current.track.mode = "disabled";
+      subtitleTrackRef.current = null;
+    }
+    if (!el || subtitleCuesRef.current.length === 0) return;
+    const CueCtor = getCueCtor();
+    if (!CueCtor) return;
+    try {
+      const track = el.addTextTrack("subtitles", "Sous-titres");
+      for (const cue of subtitleCuesRef.current) {
+        if (cue.end <= base) continue;
+        const start = Math.max(0, cue.start - base);
+        try {
+          track.addCue(new CueCtor(start, Math.max(start + 0.05, cue.end - base), cue.text));
+        } catch { /* cue invalide — ignoré */ }
+      }
+      track.mode = "showing";
+      subtitleTrackRef.current = { track, base };
+    } catch { /* addTextTrack peut échouer — sous-titres ignorés */ }
+  }, []);
+
+  const clearFfmpegSubtitle = useCallback(() => {
+    subtitleAbortRef.current?.abort();
+    subtitleAbortRef.current = null;
+    subtitleCuesRef.current = [];
+    if (subtitleTrackRef.current) {
+      subtitleTrackRef.current.track.mode = "disabled";
+      subtitleTrackRef.current = null;
+    }
+  }, []);
+
+  const loadFfmpegSubtitle = useCallback(async (subtitleId: string) => {
+    setCurrentSubtitle(subtitleId);
+    setMenuOpen(null);
+    const engine = ffmpegEngineRef.current;
+    if (!engine) return;
+    // Annule une extraction précédente encore en vol (changement de piste).
+    subtitleAbortRef.current?.abort();
+    const ac = new AbortController();
+    subtitleAbortRef.current = ac;
+    try {
+      const res = await fetch(
+        `/api/playback-ffmpeg/${ratingKey}/subtitle?subtitleStreamID=${encodeURIComponent(subtitleId)}`,
+        { cache: "no-store", signal: ac.signal }
+      );
+      if (!res.ok) throw new Error(`subtitle ${res.status}`);
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("no body");
+      const decoder = new TextDecoder();
+      const CueCtor = getCueCtor();
+      subtitleCuesRef.current = [];
+      clearFfmpegSubtitle();
+      // Parse incrémental : ffmpeg streame le VTT au fil de sa lecture du
+      // fichier — les cues arrivent par paquets, on les ajoute au track au
+      // fur et à mesure (temps absolus décalés de la base courante) au lieu
+      // d'attendre la fin de l'extraction complète du film.
+      let pending: { start: number; end: number; lines: string[] } | null = null;
+      const addCue = (start: number, end: number, text: string) => {
+        subtitleCuesRef.current.push({ start, end, text });
+        const ts = subtitleTrackRef.current;
+        if (!ts || !CueCtor) return;
+        if (end <= ts.base) return;
+        const cueStart = Math.max(0, start - ts.base);
+        try {
+          ts.track.addCue(new CueCtor(cueStart, Math.max(cueStart + 0.05, end - ts.base), text));
+        } catch { /* cue invalide — ignoré */ }
+      };
+      const flushCue = () => {
+        if (pending && pending.lines.length > 0) {
+          addCue(pending.start, pending.end, pending.lines.join("\n"));
+        }
+        pending = null;
+      };
+      const onLine = (line: string) => {
+        const trimmed = line.trim();
+        if (!trimmed) { flushCue(); return; }
+        const m = CUE_TIME_RE.exec(trimmed);
+        if (m) {
+          flushCue();
+          pending = { start: toCueSeconds(+m[1], +m[2], +m[3], +m[4]), end: toCueSeconds(+m[5], +m[6], +m[7], +m[8]), lines: [] };
+          return;
+        }
+        if (pending) pending.lines.push(line);
+      };
+      let buffer = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) onLine(line);
+      }
+      flushCue();
+      if (ffmpegEngineRef.current && engine === ffmpegEngineRef.current && !subtitleTrackRef.current && subtitleCuesRef.current.length > 0) {
+        // Track jamais construit (stream terminé avant un timeupdate) — pose
+        // le track sur la base courante.
+        applyFfmpegSubtitleOffset(ffmpegEngineRef.current.seekBase);
+      }
+    } catch {
+      // Annulation volontaire (changement de piste / off / unmount) — pas
+      // une erreur d'extraction, aucun repli HLS.
+      if (ac.signal.aborted) return;
+      // Extraction impossible (piste image, erreur serveur...) — repli HLS.
+      if (ffmpegEngineRef.current && engine === ffmpegEngineRef.current) {
+        switchFfmpegToHls(subtitleId);
+      }
+    }
+  }, [ratingKey, applyFfmpegSubtitleOffset, clearFfmpegSubtitle]);
 
   // Handlers des menus audio/sous-titres — mode ffmpeg : la langue audio
   // reste sur le moteur local (reload), les sous-titres basculent sur la
@@ -317,7 +465,16 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const handleSubtitleSelect = (id: string) => {
     setMenuOpen(null);
     if (ffmpegActive) {
-      switchFfmpegToHls(id);
+      // Leg ffmpeg : piste TEXTE → extraite en WebVTT localement (aucun
+      // Plex) et rendue via <track> natif décalé par seekBase. Piste IMAGE
+      // (pgs/vobsub, non convertible en texte) → repli HLS comme avant.
+      const track = subtitleStreams.find((s) => s.id === id);
+      const toText = track?.toTextConvertible ?? ["srt", "subrip", "ass", "ssa", "webvtt", "vtt", "mov_text", "text", "ttml", "subtext"].includes((track?.codec ?? "").toLowerCase());
+      if (toText) {
+        void loadFfmpegSubtitle(id);
+      } else {
+        switchFfmpegToHls(id);
+      }
     } else {
       reloadHls(currentAudio, id);
     }
@@ -326,10 +483,9 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const handleSubtitleOff = () => {
     setMenuOpen(null);
     if (ffmpegActive) {
-      // ffmpeg ne brûle jamais de sous-titre : sans choix actif on y est
-      // déjà — rester sur la leg locale ; avec un choix actif, bascule
-      // HLS pour réellement le retirer.
-      if (currentSubtitle) switchFfmpegToHls(null);
+      // Leg ffmpeg : on retire le track local, on reste sur le moteur.
+      clearFfmpegSubtitle();
+      setCurrentSubtitle(null);
     } else {
       reloadHls(currentAudio, null);
     }
@@ -1097,8 +1253,13 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     const saveProgress = () => {
       const ve = videoRef.current;
       if (!ve || !ve.duration || Number.isNaN(ve.duration)) return;
-      const offset = Math.floor(ve.currentTime * 1000);
-      localStorage.setItem(PROGRESS_KEY(ratingKey), String(ve.currentTime));
+      // Leg ffmpeg : la position navigateur repart de 0 à chaque reload
+      // (fMP4 fragmenté sans index) — la position réelle est
+      // seekBase + el.currentTime, voir FfmpegRemuxEngine.seekBase.
+      const base = ffmpegEngineRef.current?.seekBase ?? 0;
+      const displayTime = (ffmpegActiveRef.current ? base + ve.currentTime : ve.currentTime);
+      const offset = Math.floor(displayTime * 1000);
+      localStorage.setItem(PROGRESS_KEY(ratingKey), String(displayTime));
       void fetch(`/api/stream/${ratingKey}/progress`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -1110,7 +1271,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
 
     return () => {
       try {
-        const offset = Math.floor(el.currentTime * 1000);
+        const base = ffmpegEngineRef.current?.seekBase ?? 0;
+        const offset = Math.floor((ffmpegActiveRef.current ? base + el.currentTime : el.currentTime) * 1000);
         void fetch(`/api/stream/${ratingKey}/progress`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -1133,6 +1295,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       }
       stopSilentWatchRef.current?.();
       stopSilentWatchRef.current = null;
+      clearFfmpegSubtitle();
 
       if (progressTimerRef.current) {
         clearInterval(progressTimerRef.current);
@@ -1177,7 +1340,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const skip = useCallback((seconds: number) => {
     const el = videoRef.current;
     if (!el) return;
-    const target = Math.max(0, Math.min(duration || el.duration || 0, el.currentTime + seconds));
+    // Leg ffmpeg : el.currentTime est relatif au flux (qui part de seekBase,
+    // pas de 0) — la position réelle est seekBase + el.currentTime, sinon
+    // un skip(10) après un seek à 45min repartirait à 10s du film.
+    const base = ffmpegEngineRef.current?.seekBase ?? 0;
+    const cur = ffmpegActiveRef.current ? base + el.currentTime : el.currentTime;
+    const target = Math.max(0, Math.min(duration || el.duration || 0, cur + seconds));
     seekTo(target);
   }, [duration, seekTo]);
 
@@ -1186,7 +1354,23 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     if (!el) return;
 
     const onTimeUpdate = () => {
-      if (!seekingRef.current) setCurrentTime(el.currentTime);
+      if (seekingRef.current) return;
+      // Leg ffmpeg : le `<video>` repart de 0 à chaque reload/seek (fMP4
+      // fragmenté sans index) — la position réelle est
+      // seekBase + el.currentTime, pas el.currentTime brut.
+      const base = ffmpegEngineRef.current?.seekBase ?? 0;
+      if (ffmpegActiveRef.current) {
+        setCurrentTime(base + el.currentTime);
+        // Sous-titres WebVTT : le track local est calé sur la base courante
+        // (cues décalés de `base`) — un seek/reload change seekBase, il faut
+        // reconstruire le track avec le nouveau décalage.
+        const trackState = subtitleTrackRef.current;
+        if (trackState && Math.abs(trackState.base - base) > 0.1) {
+          applyFfmpegSubtitleOffset(base);
+        }
+      } else {
+        setCurrentTime(el.currentTime);
+      }
     };
     const onLoadedData = () => {
       // Leg ffmpeg : `<video>` natif lit un MP4 fragmenté à `empty_moov`
@@ -1200,9 +1384,19 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       setMuted(el.muted);
     };
     const onProgress = () => {
-      if (el.buffered.length > 0 && el.duration > 0) {
+      if (el.buffered.length > 0) {
+        // Leg ffmpeg : el.buffered est relatif au flux (qui part de seekBase,
+        // pas de 0) et el.duration est figée sur la portion reçue — la barre
+        // de buffer doit être décalée de seekBase et rapportée à la durée
+        // réelle connue, sinon elle repart de 00:00 après un seek.
         const end = el.buffered.end(el.buffered.length - 1);
-        setBufferedPct((end / el.duration) * 100);
+        const base = ffmpegEngineRef.current?.seekBase ?? 0;
+        const known = infoRef.current?.durationMs;
+        const total = ffmpegActiveRef.current && known ? known / 1000 : el.duration;
+        if (total > 0) {
+          const bufferedEnd = ffmpegActiveRef.current ? base + end : end;
+          setBufferedPct((bufferedEnd / total) * 100);
+        }
       }
     };
     const onPlay = () => setPlaying(true);
@@ -1521,6 +1715,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     // Moteur ffmpeg : la lecture directe est interdite — le clic relance le
     // remux ffmpeg depuis la position courante, HLS en dernier recours.
     if (betaRef.current.playbackEngine === "ffmpeg") {
+      // Position réelle AVANT destruction du moteur : en leg ffmpeg
+      // el.currentTime est relatif au flux, la position du film est
+      // seekBase + el.currentTime.
+      const pos = el.currentTime > 0 ? el.currentTime + (ffmpegEngineRef.current?.seekBase ?? 0) : undefined;
       if (mseEngineRef.current) {
         try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
         mseEngineRef.current = null;
@@ -1547,7 +1745,6 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       fallbackGuardRef.current = false;
       setUsingFallback(false);
       setBuffering(true);
-      const pos = el.currentTime > 0 ? el.currentTime : undefined;
       void (async () => {
         // tryStartFfmpegRemux refuse tout seekTo > 0 (chemin "resume"
         // réservé à HLS) — démarrage sans seek, repositionnement via

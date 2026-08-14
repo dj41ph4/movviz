@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.74 — August 2026
+
+### Lecteur : position de lecture correcte en mode ffmpeg, sous-titres 100 % locaux sans Plex
+
+- **Corrigé** : en mode ffmpeg, la barre de progression se remettait au début après un clic au milieu de la vidéo (le contenu, lui, se positionnait bien). Le flux remuxé est un MP4 fragmenté sans index : le navigateur repart de zéro à chaque seek/rechargement, même si le serveur cherche à la bonne position. Le lecteur affiche et sauvegarde désormais `seekBase + currentTime` (position du dernier seek + temps rejoué), et le repère est aussi conservé quand on change de piste audio ou qu'on coupe le lecteur.
+- **Nouveau** : les sous-titres fonctionnent maintenant **sans passer par Plex** en mode ffmpeg — Movviz extrait lui-même la piste de sous-titres du fichier brut via ffmpeg (conversion en WebVTT) et la rend via la balise `<track>` native du navigateur, avec un décalage recalculé à chaque seek. La vidéo reste copiée bit-exacte, aucun transcode vidéo n'est nécessaire. Les pistes **texte** (SRT, ASS, SSA, WebVTT, mov_text…) restent sur le moteur ffmpeg ; les pistes **image** (PGS/VobSub des remux Blu-ray, non convertibles en texte) basculent sur la leg HLS comme avant. Retirer les sous-titres ne quitte plus le mode ffmpeg.
+
 ## v1.13.73 — August 2026
 
 ### Lecteur : moteur ffmpeg respecté, détection de son en moins d'une seconde, choix de piste audio en mode ffmpeg

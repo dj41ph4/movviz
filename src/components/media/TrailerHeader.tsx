@@ -32,6 +32,13 @@ import { registerAmbientVideo } from "@/lib/player/ambientVideoRegistry";
 
 const HOVER_DELAY_MS = 900; // "survol prolongé" — not an instant trigger on mouse-in
 const MIN_QUALITY = "hd1080";
+// If the iframe_api script is blocked (ad blocker, network failure) the
+// promise must still settle, or every subsequent loadYouTubeApi().then()
+// would hang forever AND — worse — the async YT.Player creation could land
+// on a detached DOM node after unmount/exit-animation, which is the exact
+// recipe for "Failed to execute 'removeChild' on 'Node'" crashing the page
+// into the global-error boundary.
+const API_LOAD_TIMEOUT_MS = 10000;
 
 let apiLoadPromise: Promise<void> | null = null;
 export function loadYouTubeApi(): Promise<void> {
@@ -47,8 +54,36 @@ export function loadYouTubeApi(): Promise<void> {
     const script = document.createElement("script");
     script.src = "https://www.youtube.com/iframe_api";
     document.head.appendChild(script);
+    // Even when the script never fires onYouTubeIframeAPIReady (blocked),
+    // resolve anyway — the callers all guard on window.YT before use. Reset
+    // the cached promise so a LATER mount retries the load instead of being
+    // stuck on a permanently-unresolved API forever.
+    setTimeout(() => {
+      apiLoadPromise = null;
+      resolve();
+    }, API_LOAD_TIMEOUT_MS);
   });
   return apiLoadPromise;
+}
+
+/** Shared guard used by every YT.Player creation site: the container node
+ *  can be detached by framer-motion's exit animation (AnimatePresence
+ *  physically removes leaving nodes) or by a fast panel close while the
+ *  async API load is still in flight. Creating a player on a detached node
+ *  makes YouTube's internal DOM bookkeeping desync from React's, which ends
+ *  in exactly the "removeChild ... is not a child of this node" crash seen
+ *  on the title page. */
+function createSafeYouTubePlayer(
+  containerId: string,
+  options: any
+): any | null {
+  try {
+    const el = document.getElementById(containerId);
+    if (!el?.isConnected) return null;
+    return new (window as any).YT.Player(containerId, options);
+  } catch {
+    return null;
+  }
 }
 
 export interface TrailerHeaderProps {
@@ -86,7 +121,8 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
     loadYouTubeApi().then(() => {
       if (cancelled) return;
       const YT = (window as any).YT;
-      playerRef.current = new YT.Player(containerId, {
+      if (!YT?.Player) return;
+      const player = createSafeYouTubePlayer(containerId, {
         videoId: trailerKey,
         playerVars: {
           autoplay: 1,
@@ -150,6 +186,10 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
           onError: () => onError(),
         },
       });
+      // Container detached or API failed to build the player → try the next
+      // candidate instead of leaving YouTube's dead chrome on screen.
+      if (player) playerRef.current = player;
+      else onError();
     });
 
     return () => {
@@ -343,14 +383,16 @@ export function TrailerModalPlayer({ trailerKeys, title }: { trailerKeys: string
     let cancelled = false;
     loadYouTubeApi().then(() => {
       if (cancelled) return;
-      const YT = (window as any).YT;
-      playerRef.current = new YT.Player(containerId, {
+      if (!(window as any).YT?.Player) return;
+      const player = createSafeYouTubePlayer(containerId, {
         videoId: trailerKey,
         playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
         events: {
           onError: () => setCandidateIndex((i) => i + 1),
         },
       });
+      if (player) playerRef.current = player;
+      else setCandidateIndex((i) => i + 1);
     });
     return () => {
       cancelled = true;

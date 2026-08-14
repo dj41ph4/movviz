@@ -42,6 +42,16 @@ export class FfmpegRemuxEngine {
   private destroyed = false;
   private active = false;
   private debugTimer: ReturnType<typeof setInterval> | null = null;
+  private _seekBase = 0;
+
+  /** Base de temps du flux courant (0 en début normal de lecture). Le fMP4
+   *  servi par le serveur cherche réellement à cette position (option `-ss`),
+   *  mais côté navigateur le flux repart TOUJOURS de 0 (conteneur fragmenté
+   *  sans index — `el.currentTime` redevient 0 après un seek/reload).
+   *  Le lecteur doit afficher/sauvegarder `seekBase + el.currentTime`. */
+  get seekBase(): number {
+    return this._seekBase;
+  }
 
   constructor(callbacks: FfmpegEngineCallbacks) {
     this.cb = callbacks;
@@ -64,6 +74,13 @@ export class FfmpegRemuxEngine {
 
     this.ratingKey = ratingKey;
     this.lastOptions = options;
+
+    // Base de temps du flux courant. Le fMP4 servi par le serveur cherche
+    // réellement à `seekTo` (option `-ss`), mais côté navigateur le flux
+    // repart TOUJOURS de 0 (conteneur fragmenté sans index — `el.currentTime`
+    // redevient 0 après un seek/reload). Le lecteur doit afficher
+    // `seekBase + el.currentTime` pour toute position/sauvegarde.
+    this._seekBase = options.seekTo && options.seekTo > 0.5 ? options.seekTo : 0;
 
     const params = new URLSearchParams();
     if (options.audioStreamId !== undefined && options.audioStreamId !== null) {
