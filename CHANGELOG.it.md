@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.67 — Agosto 2026
+
+### Remux FFmpeg: cliccare più avanti nella barra di avanzamento riportava all'inizio
+
+- **Causa radice confermata in diretta**: la barra di avanzamento e i pulsanti ±10s impostavano direttamente `video.currentTime` — funziona per una sorgente nativamente seekable, ma il flusso ffmpeg in pipe non ha un intervallo seekable lato browser (MP4 frammentato senza indice); impostare `.currentTime` su di esso non produce alcun effetto utile e il lettore torna all'inizio.
+- **Corretto**: per la leg ffmpeg, il clic sulla barra di avanzamento e i pulsanti ±10s passano ora attraverso il motore (`FfmpegRemuxEngine.seek()`), che riavvia la sessione ffmpeg con un `-ss` lato server nel punto corretto — gli altri motori non sono interessati.
+
 ## v1.13.66 — Agosto 2026
 
 ### Remux FFmpeg: la durata visualizzata restava bloccata a 0:02 nonostante la riproduzione fosse corretta

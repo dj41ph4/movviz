@@ -985,8 +985,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const skip = useCallback((seconds: number) => {
     const el = videoRef.current;
     if (!el) return;
-    el.currentTime = Math.max(0, Math.min(el.duration || 0, el.currentTime + seconds));
-  }, []);
+    const target = Math.max(0, Math.min(duration || el.duration || 0, el.currentTime + seconds));
+    if (ffmpegActiveRef.current && ffmpegEngineRef.current) {
+      void ffmpegEngineRef.current.seek(target);
+      setCurrentTime(target);
+    } else {
+      el.currentTime = target;
+    }
+  }, [duration]);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -1180,7 +1186,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       seekingRef.current = false;
       const uc = "changedTouches" in me ? me.changedTouches[0].clientX : me.clientX;
       const time = getSeekTime(uc);
-      if (videoRef.current) {
+      // Leg ffmpeg : le flux pipé n'a pas de plage seekable réelle côté
+      // navigateur (fMP4 fragmenté sans index) — poser `.currentTime`
+      // directement ne fait rien d'utile et ramène au début. Le seek doit
+      // passer par le moteur, qui relance ffmpeg avec un `-ss` serveur.
+      if (ffmpegActiveRef.current && ffmpegEngineRef.current) {
+        void ffmpegEngineRef.current.seek(time);
+        setCurrentTime(time);
+      } else if (videoRef.current) {
         videoRef.current.currentTime = time;
         setCurrentTime(time);
       }

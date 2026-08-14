@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.67 — Augustus 2026
+
+### FFmpeg-remux: verder klikken in de voortgangsbalk sprong terug naar het begin
+
+- **Grondoorzaak live bevestigd**: de voortgangsbalk en de ±10s-knoppen zetten rechtstreeks `video.currentTime` — dat werkt voor een bron die van nature seekable is, maar de doorgesluisde ffmpeg-stream heeft aan browserzijde geen seekable bereik (gefragmenteerde MP4 zonder index); `.currentTime` daarop zetten doet niets nuttigs en de speler springt terug naar het begin.
+- **Opgelost**: voor de ffmpeg-leg lopen een klik op de voortgangsbalk en de ±10s-knoppen nu via de engine (`FfmpegRemuxEngine.seek()`), die de ffmpeg-sessie herstart met een server-side `-ss` op de juiste plek — de andere engines worden niet geraakt.
+
 ## v1.13.66 — Augustus 2026
 
 ### FFmpeg-remux: de weergegeven duur bleef vastzitten op 0:02 terwijl de weergave correct was

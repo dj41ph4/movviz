@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.67 — August 2026
+
+### FFmpeg-Remuxing: Weiter vorne in die Fortschrittsleiste klicken sprang zurück an den Anfang
+
+- **Ursache live bestätigt**: Die Fortschrittsleiste und die ±10s-Schaltflächen setzten direkt `video.currentTime` — das funktioniert bei einer nativ seekbaren Quelle, aber der durchgeleitete ffmpeg-Stream hat browserseitig keinen seekbaren Bereich (fragmentiertes MP4 ohne Index); `.currentTime` darauf zu setzen bewirkt nichts Sinnvolles, und der Player springt zurück an den Anfang.
+- **Behoben**: Für den ffmpeg-Pfad laufen ein Klick auf die Fortschrittsleiste und die ±10s-Schaltflächen nun über die Engine (`FfmpegRemuxEngine.seek()`), die die ffmpeg-Sitzung mit einem serverseitigen `-ss` an der richtigen Stelle neu startet — die anderen Engines sind davon nicht betroffen.
+
 ## v1.13.66 — August 2026
 
 ### FFmpeg-Remuxing: Die angezeigte Dauer blieb bei 0:02 hängen, obwohl die Wiedergabe korrekt war
