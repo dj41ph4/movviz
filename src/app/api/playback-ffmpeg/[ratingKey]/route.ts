@@ -3,12 +3,15 @@ import { requireUser } from "@/lib/auth/guard";
 import { resolvePlexPartUrl } from "@/lib/playback/plexSource";
 import {
   DuplicateSessionError,
+  FFMPEG_QUALITY_PRESETS,
   MAX_CONCURRENT,
   activeSessionCount,
   isFfmpegAvailable,
+  isFfmpegQuality,
   startRemux,
   stopAllForRatingKey,
   stopRemux,
+  type FfmpegQuality,
 } from "@/lib/playback/ffmpeg/remuxSession";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +53,11 @@ export async function GET(req: NextRequest, context: Ctx) {
   const seekToRaw = Number(sp.get("seekTo"));
   const seekToSec = Number.isFinite(seekToRaw) && seekToRaw > 0 ? seekToRaw : 0;
   const audioIndex = resolveAudioIndex(ref.audioStreams, audioStreamID);
+  const qualityRaw = sp.get("quality");
+  const quality: FfmpegQuality = qualityRaw && isFfmpegQuality(qualityRaw) ? qualityRaw : "original";
+  if (!(quality in FFMPEG_QUALITY_PRESETS)) {
+    return NextResponse.json({ error: "invalid_quality" }, { status: 400 });
+  }
 
   // Garde de capacité AVANT de tenter startRemux : évite de tenter un spawn
   // qu'on sait perdant. startRemux() re-vérifie de toute façon en interne
@@ -64,7 +72,7 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   let result: { proc: import("node:child_process").ChildProcess; stream: ReadableStream<Uint8Array>; key: string } | null;
   try {
-    result = startRemux(ratingKey, user.id, ref, { audioIndex, seekToSec });
+    result = startRemux(ratingKey, user.id, ref, { audioIndex, seekToSec, quality });
   } catch (e) {
     if (e instanceof DuplicateSessionError) {
       // Une session avec la même clé (ratingKey:userId:audioIndex:seekSec)

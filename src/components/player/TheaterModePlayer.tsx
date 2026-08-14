@@ -132,16 +132,30 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
           transition={{ duration: reduceMotion ? 0.15 : DURATION, ease: EASE }}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={ambienceSrc} alt="" className="h-full w-full scale-110 object-cover opacity-40 blur-3xl" />
+          <img src={ambienceSrc} alt="" className="h-full w-full scale-110 object-cover opacity-40 blur-3xl animate-kenburns will-change-transform" />
           {ambience && (
-            <div
+            <motion.div
               className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: reduceMotion ? 0.15 : 0.5, ease: EASE }}
               style={{ background: "radial-gradient(120% 100% at 50% 20%, var(--theater-ambience-1) 0%, transparent 55%), radial-gradient(120% 100% at 50% 90%, var(--theater-ambience-2) 0%, transparent 55%)", opacity: 0.7, mixBlendMode: "screen" }}
             />
           )}
           <div className="absolute inset-0 bg-black" style={{ opacity: scrimOpacity }} />
         </motion.div>
       )}
+
+      {/* Vignette cinématique — au-dessus du player (z-[60]), jamais
+       * interactive (pointer-events-none). Opacité réduite sous 640px. */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 z-[60] max-sm:opacity-60"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: reduceMotion ? 0.15 : DURATION, ease: EASE }}
+        style={{ background: "radial-gradient(ellipse 80% 75% at 50% 45%, transparent 55%, rgba(2,3,8,0.5) 100%)" }}
+      />
 
       <motion.div
         className="absolute inset-0 h-full w-full overflow-hidden"

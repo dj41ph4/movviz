@@ -41,8 +41,14 @@ function rfcVideo(codec: string): string | null {
 export async function orchestrate(config: PlaybackConfig): Promise<PlaybackDecision> {
   const { media, capabilities, engine, subtitleActive, ffmpegAvailable } = config;
 
-  if (engine === "native") {
-    return { engine: "transcode", reason: "native engine forced — MSE disabled" };
+  // HLS (Plex transcode) est une option MANUELLE depuis v1.13.75 : jamais
+  // choisie par "auto" — seuls "hls" (forcé) et "native" (legs historiques)
+  // y mènent. Le défaut de lecture est désormais direct ou ffmpeg local.
+  if (engine === "native" || engine === "hls") {
+    return {
+      engine: "transcode",
+      reason: engine === "hls" ? "HLS forced manually (Plex transcode)" : "native engine forced — MSE disabled",
+    };
   }
 
   const container = (media.container ?? "").toLowerCase();
@@ -89,5 +95,11 @@ export async function orchestrate(config: PlaybackConfig): Promise<PlaybackDecis
     };
   }
 
-  return { engine: "transcode", reason: "MSE not applicable (engine/container/subtitles)" };
+  // Aucun moteur local applicable (HLS exclu de l'automatique) : erreur
+  // explicite — l'utilisateur peut l'activer manuellement dans les réglages.
+  return {
+    engine: "transcode",
+    error: "hls-manual-only",
+    reason: "no local engine applicable (direct/MSE/ffmpeg unavailable) — HLS is manual-only",
+  };
 }

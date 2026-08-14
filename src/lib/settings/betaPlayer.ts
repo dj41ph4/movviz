@@ -58,12 +58,12 @@ export function setStreamCacheTtl(ttl: number): void {
 
 export function getPlaybackEngine(): EngineConfig {
   const v = load().playbackEngine;
-  return v === "native" || v === "mse" || v === "ffmpeg" ? v : "auto";
+  return v === "native" || v === "mse" || v === "ffmpeg" || v === "hls" ? v : "auto";
 }
 
 export function setPlaybackEngine(engine: EngineConfig): void {
   const cfg = load();
-  save({ ...cfg, playbackEngine: engine === "native" || engine === "mse" || engine === "ffmpeg" ? engine : "auto" });
+  save({ ...cfg, playbackEngine: engine === "native" || engine === "mse" || engine === "ffmpeg" || engine === "hls" ? engine : "auto" });
 }
 
 export function isPlaybackDebugEnabled(): boolean {

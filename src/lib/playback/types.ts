@@ -8,7 +8,7 @@
 
 export type PlaybackEngineKind = "direct" | "webcodecs" | "mse" | "ffmpeg" | "transcode";
 
-export type EngineConfig = "auto" | "native" | "mse" | "ffmpeg";
+export type EngineConfig = "auto" | "native" | "mse" | "ffmpeg" | "hls";
 
 export interface MediaTrackInfo {
   id: string;
@@ -45,6 +45,8 @@ export interface PlaybackDecision {
   engine: PlaybackEngineKind;
   /** Human-readable reason, surfaced in the debug overlay */
   reason: string;
+  /** Set when no engine could be chosen — the caller must surface the error */
+  error?: string;
   /** Required by the MSE engine (media-source mime types) */
   mse?: { videoMime: string; audioMime: string };
 }

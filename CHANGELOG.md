@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.75 — August 2026
+
+### Lecteur : HLS devient une option manuelle, profils de compression ffmpeg, design premium
+
+- **Nouveau — stratégie de lecture** : le transcode HLS (Plex) n'est plus choisi automatiquement. En mode « Auto », la lecture passe par la **lecture directe ou le remux FFmpeg local** ; si aucun moteur local ne peut lire le fichier, une erreur explicite s'affiche au lieu de basculer silencieusement sur le transcode Plex. HLS reste disponible **manuellement** dans Réglages → Plex → Moteur de lecture (« HLS (transcode Plex) — manuel ») pour les situations où il reste utile (sous-titres image PGS/VobSub, piste audio exotique, réseau limité).
+- **Nouveau — profils de compression ffmpeg** : le menu Qualité du lecteur propose désormais **Original / 4K / 2K / FHD / HD** avec un véritable transcode local (libx264 très rapide, CRF 23, débits sobres pensés NAS : 10 / 6,5 / 4 / 2,2 Mb/s, downscale sans jamais dépasser la source). « Original » conserve la copie bit-exacte actuelle (zéro CPU). Le changement de qualité recharge la session ffmpeg à la position courante ; sur une leg directe/MSE, le lecteur bascule sur le transcode local.
+- **Nouveau — design premium du lecteur** : scrim dégradé en bas de l'écran (fini le bandeau opaque), barre de progression fine qui s'épaissit au survol avec fill dégradé lumineux et vignette de scrub qui zoome, bouton lecture/pause central géant, menus en verre dépoli avec coche sur l'élément actif, toast de feedback sur les skips ±10 s, anneau de chargement à la marque, carte de reprise et écran d'erreur redessinés, header en surimpression dégradée en mode plein écran, vignette cinématique et respiration Ken Burns de l'ambiance, curseur masqué quand les contrôles disparaissent.
+
 ## v1.13.74 — August 2026
 
 ### Lecteur : position de lecture correcte en mode ffmpeg, sous-titres 100 % locaux sans Plex

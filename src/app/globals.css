@@ -212,6 +212,40 @@
   animation: shimmer-progress 1.8s ease-in-out infinite;
 }
 
+/* ── Player premium micro-animations (GPU only: transform + opacity) ──
+   La règle globale `.reduce-motion *` (duration 0) les neutralise toutes. */
+@keyframes player-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.animate-player-pop { animation: player-pop 0.15s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+@keyframes toast-pop {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.92); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -6px) scale(0.98); }
+}
+.animate-toast-pop { animation: toast-pop 0.9s ease-out forwards; }
+
+@keyframes menu-pop {
+  from { opacity: 0; transform: scale(0.95) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-menu-pop { animation: menu-pop 0.12s cubic-bezier(0.22, 1, 0.36, 1); transform-origin: bottom right; }
+
+@keyframes overlay-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-overlay-pop { animation: overlay-pop 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes kenburns {
+  from { transform: scale(1.08) translate(0, 0); }
+  to { transform: scale(1.16) translate(-1.5%, 1%); }
+}
+.animate-kenburns { animation: kenburns 60s ease-in-out infinite alternate; }
+
 /*
  * Light theme — premium experience, not a simple dark-mode inversion.
  *

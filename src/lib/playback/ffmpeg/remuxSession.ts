@@ -18,6 +18,31 @@ export const MAX_CONCURRENT = 3;
 export const SESSION_TTL_MS = 5 * 60_000;
 export const AUDIO_BITRATE_K = 192;
 
+/**
+ * Profils de compression vidéo locale (choix Qualité du player).
+ * original = copie bit-exacte (zéro CPU, bitstream du fichier) ; les autres
+ * presets ré-encodent en libx264 très rapide (veryfast, CRF 23) avec des
+ * débits volontairement sobres — pensés NAS : qualité correcte sans saturer
+ * le CPU ni le réseau. Le downscale ne dépasse jamais la source
+ * (scale=min(W,iw):-2), donc un fichier 1080p en profil 4K reste en 1080p.
+ */
+export type FfmpegQuality = "original" | "4k" | "2k" | "fhd" | "hd";
+
+export const FFMPEG_QUALITY_PRESETS: Record<
+  FfmpegQuality,
+  { maxWidth: number | null; maxrateK: number | null; bufsizeK: number | null }
+> = {
+  original: { maxWidth: null, maxrateK: null, bufsizeK: null },
+  "4k": { maxWidth: 3840, maxrateK: 10000, bufsizeK: 20000 },
+  "2k": { maxWidth: 2560, maxrateK: 6500, bufsizeK: 13000 },
+  fhd: { maxWidth: 1920, maxrateK: 4000, bufsizeK: 8000 },
+  hd: { maxWidth: 1280, maxrateK: 2200, bufsizeK: 4400 },
+};
+
+export function isFfmpegQuality(v: unknown): v is FfmpegQuality {
+  return v === "original" || v === "4k" || v === "2k" || v === "fhd" || v === "hd";
+}
+
 // Audio copiable en remux local — VOLONTAIREMENT plus stricte que la
 // whitelist du transcode Plex (qui inclut ac3/ac-3) : ici le flux est lu
 // par le décodeur NATIF du <video> (pas hls.js/MSE), et Chrome/Edge ne
@@ -52,6 +77,8 @@ export interface StartRemuxOptions {
   audioIndex?: number;
   seekToSec?: number;
   audioBitrateK?: number;
+  /** Profil de compression vidéo — "original" = copie bit-exacte (défaut). */
+  quality?: FfmpegQuality;
 }
 
 interface RemuxSession {
@@ -114,8 +141,8 @@ export async function isFfmpegAvailable(): Promise<boolean> {
   return cachedFfmpeg;
 }
 
-function sessionKey(ratingKey: string, userId: string, audioIndex: number, seekSec: number): string {
-  return `${ratingKey}:${userId}:${audioIndex}:${seekSec}`;
+function sessionKey(ratingKey: string, userId: string, audioIndex: number, seekSec: number, quality: FfmpegQuality): string {
+  return `${ratingKey}:${userId}:${audioIndex}:${seekSec}:${quality}`;
 }
 
 /** Trouve le header Plex token de façon insensible à la casse (plexClientHeaders → "x-plex-token"). */
@@ -147,7 +174,8 @@ export function startRemux(
   const audioIndex = opts.audioIndex ?? 0;
   const seekSec = opts.seekToSec && opts.seekToSec > 0 ? Math.floor(opts.seekToSec) : 0;
   const bitrateK = opts.audioBitrateK ?? AUDIO_BITRATE_K;
-  const key = sessionKey(ratingKey, userId, audioIndex, seekSec);
+  const quality = opts.quality && isFfmpegQuality(opts.quality) ? opts.quality : "original";
+  const key = sessionKey(ratingKey, userId, audioIndex, seekSec, quality);
 
   const reg = registry();
   const existing = reg.get(key);
@@ -181,7 +209,32 @@ export function startRemux(
   if (seekSec > 0) args.push("-ss", String(seekSec));
   args.push("-i", ref.sourceUrl);
   args.push("-map", "0:v:0", "-map", `0:a:${audioIndex}`);
-  args.push("-c:v", "copy");
+  const preset = FFMPEG_QUALITY_PRESETS[quality];
+  if (preset.maxWidth && preset.maxrateK) {
+    // Transcode local : downscale (jamais d'upscale — la source est
+    // plafonnée par min(W,iw)) + libx264 veryfast CRF 23 + débit borné.
+    // La virgule du filtre est échappée (\,) : spawn ne passe par aucun
+    // shell, ffmpeg reçoit le filtre tel quel et la lit comme séparateur
+    // échappé, pas comme séparateur de filtres chaînés.
+    args.push(
+      "-vf",
+      `scale=min(${preset.maxWidth}\\,iw):-2`,
+      "-c:v",
+      "libx264",
+      "-preset",
+      "veryfast",
+      "-crf",
+      "23",
+      "-maxrate",
+      `${preset.maxrateK}k`,
+      "-bufsize",
+      `${preset.bufsizeK}k`,
+      "-pix_fmt",
+      "yuv420p"
+    );
+  } else {
+    args.push("-c:v", "copy");
+  }
   if (copyAudioSafe) {
     args.push("-c:a", "copy");
   } else {
@@ -203,7 +256,9 @@ export function startRemux(
   );
 
   const bin = ffmpegBin();
-  console.log(`[remux] start ${key} — a=${audioCodec || "?"} (${copyAudioSafe ? "copy" : `aac ${bitrateK}k`}) seek=${seekSec}s`);
+  console.log(
+    `[remux] start ${key} — ${preset.maxWidth ? `x264 ${preset.maxWidth}px @ ${preset.maxrateK}k` : "video copy"} a=${audioCodec || "?"} (${copyAudioSafe ? "copy" : `aac ${bitrateK}k`}) seek=${seekSec}s`
+  );
 
   // Jamais shell:true (défaut de spawn) — tous les arguments sont des
   // éléments de tableau séparés, aucune interpolation de chaîne shell.

@@ -18,6 +18,8 @@ export interface FfmpegEngineOptions {
   audioStreamId?: number | null;
   seekTo?: number;
   debug?: boolean;
+  /** Profil de compression vidéo (remuxSession) — "original" = copie bit-exacte. */
+  quality?: "original" | "4k" | "2k" | "fhd" | "hd";
 }
 
 export interface FfmpegDebugStats {
@@ -88,6 +90,9 @@ export class FfmpegRemuxEngine {
     }
     if (options.seekTo && options.seekTo > 0.5) {
       params.set("seekTo", String(options.seekTo));
+    }
+    if (options.quality && options.quality !== "original") {
+      params.set("quality", options.quality);
     }
     const qs = params.toString();
     this.src = `/api/playback-ffmpeg/${ratingKey}${qs ? `?${qs}` : ""}`;
