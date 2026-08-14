@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.71 — augustus 2026
+
+### De audiotrack in de taal van de interface werd correct gekozen... en vervolgens stilzwijgend overschreven door een andere track met dezelfde codec
+
+- **Grondoorzaak live bevestigd** (Jurassic Park 499959, twee AC-3-tracks Frans/Engels): de Franse track werd correct gekozen — zowel door de nieuwe taalregel als door Plex' eigen "selected" — maar een ouder terugvalmechanisme (bedoeld om te ontsnappen aan een echt niet-decodeerbare codec, bijv. DTS → AC-3) controleerde nooit of de reservetrack werkelijk een andere codec had. Omdat beide tracks van deze film in AC-3 waren, "slaagde" deze terugval door over te schakelen naar de andere (Engelse) track simpelweg omdat die niet was uitgesloten — zonder enige extra compatibiliteit te bieden, waarbij de juiste Franse keuze stilzwijgend werd overschreven.
+- **Opgelost**: de terugval vereist nu een daadwerkelijk andere codec dan die van de reeds afgewezen track.
+
 ## v1.13.40 – v1.13.70 — augustus 2026
 
 ### Videoweergave: fallbackketen met meerdere niveaus, lokale ffmpeg-remux, bijgewerkte speler

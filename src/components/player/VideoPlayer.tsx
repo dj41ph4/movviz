@@ -689,6 +689,15 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
               (t) =>
                 t.id !== selAudio?.id &&
                 !!t.codec &&
+                // Le même codec que la piste déjà rejetée ne peut rien
+                // résoudre — confirmé en direct (Jurassic Park 499959,
+                // deux pistes AC-3 FR/EN) : sans ce garde, le bypass
+                // "réussissait" en basculant vers l'AUTRE piste AC-3
+                // (anglaise) simplement parce qu'elle n'était pas exclue,
+                // écrasant silencieusement la piste française déjà
+                // correctement choisie (locale ET défaut Plex) sans
+                // apporter la moindre compatibilité supplémentaire.
+                t.codec.toLowerCase() !== (selAudio?.codec ?? "").toLowerCase() &&
                 isAudioMseTransmuxable(t.codec)
             )
             .sort((a, b) => scoreAudioTrack(b, prefLang) - scoreAudioTrack(a, prefLang))[0];

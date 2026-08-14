@@ -4,6 +4,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.71 — août 2026
+
+### La piste audio dans la langue de l'interface était choisie... puis silencieusement écrasée par une autre piste du même codec
+
+- **Cause racine confirmée en direct** (Jurassic Park 499959, deux pistes AC-3 français/anglais) : la piste française était correctement choisie — à la fois par la nouvelle règle de langue et par le "selected" de Plex lui-même — mais un mécanisme de repli plus ancien (pensé pour fuir un codec vraiment indécodable, ex. DTS → AC-3) ne vérifiait jamais si la piste de secours avait un codec réellement différent. Les deux pistes de ce film étant toutes les deux en AC-3, ce repli "réussissait" en basculant vers l'autre piste (anglaise) simplement parce qu'elle n'était pas exclue — sans apporter la moindre compatibilité supplémentaire, écrasant silencieusement le bon choix français.
+- **Corrigé** : le repli exige désormais un codec réellement différent de celui de la piste déjà rejetée.
+
 ## v1.13.40 – v1.13.70 — août 2026
 
 ### Lecture vidéo : chaîne de secours multi-niveaux, remux ffmpeg local, lecteur mis à niveau

@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.71 — August 2026
+
+### Die Audiospur in der Sprache der Benutzeroberfläche wurde korrekt gewählt... und dann stillschweigend von einer anderen Spur desselben Codecs überschrieben
+
+- **Ursache live bestätigt** (Jurassic Park 499959, zwei AC-3-Spuren Französisch/Englisch): Die französische Spur wurde korrekt gewählt — sowohl durch die neue Sprachregel als auch durch Plex' eigenes „selected" — aber ein älterer Fallback-Mechanismus (gedacht, um einem wirklich nicht dekodierbaren Codec zu entkommen, z. B. DTS → AC-3) prüfte nie, ob die Ausweichspur tatsächlich einen anderen Codec hatte. Da beide Spuren dieses Films in AC-3 vorlagen, „gelang" dieser Fallback durch den Wechsel zur anderen (englischen) Spur einfach deshalb, weil sie nicht ausgeschlossen war — ohne auch nur die geringste zusätzliche Kompatibilität zu bringen, wodurch die korrekte französische Wahl stillschweigend überschrieben wurde.
+- **Behoben**: Der Fallback erfordert nun einen tatsächlich anderen Codec als den der bereits verworfenen Spur.
+
 ## v1.13.40 – v1.13.70 — August 2026
 
 ### Videowiedergabe: mehrstufige Fallback-Kette, lokales ffmpeg-Remuxing, überarbeiteter Player

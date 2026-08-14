@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.71 — Agosto 2026
+
+### La traccia audio nella lingua dell'interfaccia veniva scelta correttamente... poi sovrascritta silenziosamente da un'altra traccia dello stesso codec
+
+- **Causa radice confermata in diretta** (Jurassic Park 499959, due tracce AC-3 francese/inglese): la traccia francese veniva scelta correttamente — sia dalla nuova regola sulla lingua sia dal "selected" di Plex stesso — ma un meccanismo di ripiego più vecchio (pensato per fuggire da un codec davvero indecodificabile, es. DTS → AC-3) non verificava mai se la traccia di riserva avesse un codec realmente diverso. Poiché entrambe le tracce di questo film erano in AC-3, questo ripiego "riusciva" passando all'altra traccia (inglese) semplicemente perché non era esclusa — senza portare alcuna compatibilità aggiuntiva, sovrascrivendo silenziosamente la scelta francese corretta.
+- **Corretto**: il ripiego ora richiede un codec realmente diverso da quello della traccia già scartata.
+
 ## v1.13.40 – v1.13.70 — Agosto 2026
 
 ### Riproduzione video: catena di fallback multilivello, remux ffmpeg locale, lettore aggiornato
