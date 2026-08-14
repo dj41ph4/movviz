@@ -16,6 +16,9 @@ const LOCALE_LANGUAGE_PREFIXES: Record<string, string[]> = {
   it: ["italian", "it", "ita"],
   nl: ["dutch", "nl", "nld", "dut"],
   de: ["german", "de", "ger", "deu"],
+  // Pas une langue d'interface Movviz (5 locales UI) — uniquement une option
+  // de préférence audio (voir preferredAudioLanguage dans userPrefs/store.ts).
+  es: ["spanish", "es", "spa"],
 };
 
 /**

@@ -4,6 +4,12 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.72 — August 2026
+
+### Neu: Einstellung der bevorzugten Audiosprache für den Player
+
+- **Neu**: Einstellungen → Plex bietet nun eine bevorzugte Audiosprache für die Auswahl der Standardspur bei der Wiedergabe an (Französisch, Englisch, Spanisch, Deutsch, Italienisch, Niederländisch) — bei "Automatisch" (Standard) folgt sie weiterhin der Sprache der Benutzeroberfläche wie bisher; ein Konto, das Movviz auf Französisch nutzt, aber englisches Audio bevorzugt, kann dies nun ausdrücklich festlegen, ohne dass sich dadurch die Benutzeroberfläche ändert.
+
 ## v1.13.71 — August 2026
 
 ### Die Audiospur in der Sprache der Benutzeroberfläche wurde korrekt gewählt... und dann stillschweigend von einer anderen Spur desselben Codecs überschrieben

@@ -1834,6 +1834,17 @@ export const it: Dictionary = {
   },
 
   player: {
+    preferredAudioLanguage: "Lingua audio preferita",
+    preferredAudioLanguageHint: "Traccia audio scelta di default all'avvio della riproduzione — su \"Automatica\", segue la lingua dell'interfaccia.",
+    audioLang: {
+      auto: "Automatica (lingua dell'interfaccia)",
+      fr: "Francese",
+      en: "Inglese",
+      es: "Spagnolo",
+      de: "Tedesco",
+      it: "Italiano",
+      nl: "Olandese",
+    },
     betaToggle: "Lettore beta",
     betaToggleHint: "Rende disponibile il lettore video integrato su questa istanza (beta — alcuni codec potrebbero non funzionare nel browser). Ogni utente deve poi attivarlo per il proprio account dal proprio profilo.",
     betaUserToggle: "Usa il lettore beta",

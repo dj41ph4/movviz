@@ -8,6 +8,7 @@ import type { MediaPlayerClass } from "dashjs";
 import { cn, openPlexLink } from "@/lib/utils";
 import { useI18n } from "@/i18n/provider";
 import { findTrackForLocale } from "@/lib/library/detectLanguage";
+import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLanguage";
 import {
   X, Maximize2, Minimize2, ExternalLink, AlertTriangle, Loader2,
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
@@ -96,8 +97,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const { t, locale } = useI18n();
   const tRef = useRef(t);
   tRef.current = t;
-  const localeRef = useRef(locale);
-  localeRef.current = locale;
+  // Langue audio préférée (Réglages → Plex) — distincte de la langue
+  // d'interface, retombe dessus quand non définie ("auto").
+  const { effective: preferredAudioLocale } = usePreferredAudioLanguage();
+  const localeRef = useRef<string>(locale);
+  localeRef.current = preferredAudioLocale;
   const beta = useBetaPlayer();
   const betaRef = useRef(beta);
   betaRef.current = beta;

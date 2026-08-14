@@ -1835,6 +1835,17 @@ export const en: Dictionary = {
   },
 
   player: {
+    preferredAudioLanguage: "Preferred audio language",
+    preferredAudioLanguageHint: "Default audio track picked at playback start — on \"Automatic\", follows the interface language.",
+    audioLang: {
+      auto: "Automatic (interface language)",
+      fr: "French",
+      en: "English",
+      es: "Spanish",
+      de: "German",
+      it: "Italian",
+      nl: "Dutch",
+    },
     betaToggle: "Beta player",
     betaToggleHint: "Makes the embedded video player available on this instance (beta — some codecs may not play in the browser). Each user still has to turn it on for their own account from their profile.",
     betaUserToggle: "Use the beta player",

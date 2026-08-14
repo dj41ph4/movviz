@@ -4,6 +4,12 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.72 — août 2026
+
+### Nouveau : réglage de langue audio préférée pour le lecteur
+
+- **Nouveau** : Réglages → Plex propose désormais une langue audio préférée pour le choix de piste par défaut à la lecture (français, anglais, espagnol, allemand, italien, néerlandais) — sur "Automatique" (par défaut), suit la langue de l'interface comme avant ; un compte qui utilise Movviz en français mais préfère l'audio anglais peut désormais le dire explicitement, sans que ça change son interface.
+
 ## v1.13.71 — août 2026
 
 ### La piste audio dans la langue de l'interface était choisie... puis silencieusement écrasée par une autre piste du même codec

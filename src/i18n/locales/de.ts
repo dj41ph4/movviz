@@ -1834,6 +1834,17 @@ export const de: Dictionary = {
   },
 
   player: {
+    preferredAudioLanguage: "Bevorzugte Audiosprache",
+    preferredAudioLanguageHint: "Standardmäßig gewählte Audiospur beim Wiedergabestart — bei „Automatisch\" wird die Oberflächensprache verwendet.",
+    audioLang: {
+      auto: "Automatisch (Oberflächensprache)",
+      fr: "Französisch",
+      en: "Englisch",
+      es: "Spanisch",
+      de: "Deutsch",
+      it: "Italienisch",
+      nl: "Niederländisch",
+    },
     betaToggle: "Beta-Player",
     betaToggleHint: "Macht den eingebetteten Videoplayer auf dieser Instanz verfügbar (Beta — einige Codecs funktionieren möglicherweise nicht im Browser). Jeder Nutzer muss ihn danach selbst für sein eigenes Konto in seinem Profil aktivieren.",
     betaUserToggle: "Beta-Player verwenden",

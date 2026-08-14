@@ -5,6 +5,8 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Check, X, Loader2, LinkIcon, RefreshCw, User, Play, MonitorPlay } from "lucide-react";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLanguage";
+import { PREFERRED_AUDIO_LANGUAGES, type PreferredAudioLanguage } from "@/lib/userPrefs/store";
 
 interface PlexConfig {
   hostname: string;
@@ -18,6 +20,7 @@ interface PlexConfig {
 export function PlexSettings() {
   const t = useT();
   const { adminEnabled: betaPlayer, streamCacheTtl, playbackEngine, setAdminEnabled: setBetaPlayer, setStreamCacheTtl, setPlaybackEngine } = useBetaPlayer();
+  const { value: preferredAudioLanguage, set: setPreferredAudioLanguage } = usePreferredAudioLanguage();
   const [cfg, setCfg] = useState<PlexConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -252,7 +255,23 @@ export function PlexSettings() {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center justify-between gap-3 pb-4">
+          <div>
+            <p className="text-sm font-semibold text-ink">{t("player.preferredAudioLanguage")}</p>
+            <p className="text-xs text-ink-dim">{t("player.preferredAudioLanguageHint")}</p>
+          </div>
+          <select
+            value={preferredAudioLanguage}
+            onChange={(e) => setPreferredAudioLanguage(e.target.value as PreferredAudioLanguage)}
+            className="h-9 shrink-0 rounded-xl glass px-3 text-xs font-semibold text-ink outline-none focus:border-brand/40"
+          >
+            {PREFERRED_AUDIO_LANGUAGES.map((l) => (
+              <option key={l} value={l}>{t(`player.audioLang.${l}`)}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-white/8 pt-4">
           <div>
             <p className="text-sm font-semibold text-ink">{t("player.betaToggle")}</p>
             <p className="text-xs text-ink-dim">{t("player.betaToggleHint")}</p>

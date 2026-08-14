@@ -1833,6 +1833,17 @@ export const fr = {
   },
 
   player: {
+    preferredAudioLanguage: "Langue audio préférée",
+    preferredAudioLanguageHint: "Piste audio choisie par défaut à la lecture — sur « Automatique », suit la langue de l'interface.",
+    audioLang: {
+      auto: "Automatique (langue de l'interface)",
+      fr: "Français",
+      en: "Anglais",
+      es: "Espagnol",
+      de: "Allemand",
+      it: "Italien",
+      nl: "Néerlandais",
+    },
     betaToggle: "Lecteur bêta",
     betaToggleHint: "Rend le lecteur vidéo intégré disponible sur l'instance (bêta — certains codecs peuvent ne pas fonctionner dans le navigateur). Chaque utilisateur doit ensuite l'activer pour son propre compte depuis son profil.",
     betaUserToggle: "Utiliser le lecteur bêta",

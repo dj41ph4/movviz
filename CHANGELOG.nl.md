@@ -4,6 +4,12 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.72 — augustus 2026
+
+### Nieuw: instelling voor voorkeurstaal audio voor de speler
+
+- **Nieuw**: Instellingen → Plex biedt nu een voorkeurstaal voor audio aan voor de keuze van de standaardtrack bij afspelen (Frans, Engels, Spaans, Duits, Italiaans, Nederlands) — bij "Automatisch" (standaard) volgt dit nog steeds de taal van de interface zoals voorheen; een account dat Movviz in het Frans gebruikt maar Engelse audio verkiest, kan dit nu expliciet aangeven, zonder dat dit de interface verandert.
+
 ## v1.13.71 — augustus 2026
 
 ### De audiotrack in de taal van de interface werd correct gekozen... en vervolgens stilzwijgend overschreven door een andere track met dezelfde codec

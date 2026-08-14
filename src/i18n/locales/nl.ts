@@ -1835,6 +1835,17 @@ export const nl: Dictionary = {
   },
 
   player: {
+    preferredAudioLanguage: "Voorkeurstaal audio",
+    preferredAudioLanguageHint: "Standaard audiotrack bij het starten van afspelen — bij \"Automatisch\" volgt dit de interfacetaal.",
+    audioLang: {
+      auto: "Automatisch (interfacetaal)",
+      fr: "Frans",
+      en: "Engels",
+      es: "Spaans",
+      de: "Duits",
+      it: "Italiaans",
+      nl: "Nederlands",
+    },
     betaToggle: "Bèta-speler",
     betaToggleHint: "Maakt de ingebouwde videospeler beschikbaar op deze instantie (bèta — sommige codecs werken mogelijk niet in de browser). Elke gebruiker moet het daarna zelf inschakelen voor zijn eigen account vanaf zijn profiel.",
     betaUserToggle: "Bèta-speler gebruiken",

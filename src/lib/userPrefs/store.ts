@@ -36,7 +36,18 @@ export interface UserPrefs {
    *  account on the instance. Defaults to false/absent for every user
    *  regardless of the admin flag, so each person has to knowingly opt in. */
   betaPlayerEnabled?: boolean;
+  /** Langue audio préférée pour le choix de piste par défaut du lecteur —
+   *  distincte de la langue d'interface (`locale`) : un utilisateur peut lire
+   *  Movviz en français tout en préférant l'audio anglais, par exemple.
+   *  "auto" (ou absente) → le lecteur retombe sur `locale` ; c'est une
+   *  valeur stockée explicite (pas juste "champ absent") pour rester dans le
+   *  même schéma "merge only known fields" que le reste de ce store — pas de
+   *  distinction fragile entre null/undefined/absent à travers la route API. */
+  preferredAudioLanguage?: PreferredAudioLanguage;
 }
+
+export const PREFERRED_AUDIO_LANGUAGES = ["auto", "fr", "en", "es", "de", "it", "nl"] as const;
+export type PreferredAudioLanguage = (typeof PREFERRED_AUDIO_LANGUAGES)[number];
 
 const VALID_TIERS: GpuTier[] = ["high", "medium", "low", "ultraLow"];
 const VALID_THEMES: ThemeMode[] = ["light", "dark", "auto"];
@@ -65,6 +76,9 @@ function sanitize(prefs: unknown): UserPrefs {
   if (typeof p.reduceAnimations === "boolean") clean.reduceAnimations = p.reduceAnimations;
   if (typeof p.libraryViewMode === "string" && VALID_VIEW_MODES.includes(p.libraryViewMode as LibraryViewMode)) clean.libraryViewMode = p.libraryViewMode as LibraryViewMode;
   if (typeof p.betaPlayerEnabled === "boolean") clean.betaPlayerEnabled = p.betaPlayerEnabled;
+  if (typeof p.preferredAudioLanguage === "string" && (PREFERRED_AUDIO_LANGUAGES as readonly string[]).includes(p.preferredAudioLanguage)) {
+    clean.preferredAudioLanguage = p.preferredAudioLanguage as PreferredAudioLanguage;
+  }
   return clean;
 }
 
