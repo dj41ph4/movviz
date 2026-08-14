@@ -4,6 +4,13 @@ Alle relevanten Änderungen an Movviz, gruppiert nach Entwicklungsmeilenstein.
 
 ---
 
+## v1.13.69 — August 2026
+
+### Neue Tastenkürzel: Lautstärke und direkter Sprung per Prozentsatz
+
+- **Neu**: Pfeiltasten hoch/runter für die Lautstärke, Tasten 0-9 zum direkten Springen zu X0 % der Gesamtdauer (YouTube/Netflix-Konvention) — zusätzlich zu den bereits bestehenden Tastenkürzeln (Leertaste/K Wiedergabe, Pfeiltasten links/rechts ±10s, F Vollbild, M stumm, Escape schließen).
+- **Nebenbei behoben**: Die Fortschrittsleiste und die ±10s-Schaltflächen nutzen nun denselben Seek-Einstiegspunkt wie die neuen Tastenkürzel — ein einziger Pfad, nie mehr zwei doppelte Logiken, die parallel gepflegt werden müssen.
+
 ## v1.13.68 — August 2026
 
 ### Der Player berücksichtigte bei der Wahl der Standard-Audiospur nie die Sprache der Benutzeroberfläche

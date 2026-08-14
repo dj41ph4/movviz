@@ -4,6 +4,13 @@ Tutte le modifiche rilevanti a Movviz, raggruppate per tappa di sviluppo.
 
 ---
 
+## v1.13.69 — Agosto 2026
+
+### Nuove scorciatoie da tastiera: volume e salto diretto per percentuale
+
+- **Nuovo**: frecce su/giù per il volume, tasti 0-9 per saltare direttamente al X0% della durata (convenzione YouTube/Netflix) — in aggiunta alle scorciatoie già esistenti (barra spaziatrice/K riproduzione, frecce sinistra/destra ±10s, F schermo intero, M muto, Esc chiudi).
+- **Corretto** nel frattempo: la barra di avanzamento e i pulsanti ±10s condividono ora lo stesso punto d'ingresso di seek delle nuove scorciatoie — un solo percorso, mai due logiche duplicate da mantenere in parallelo.
+
 ## v1.13.68 — Agosto 2026
 
 ### Il lettore non teneva mai conto della lingua dell'interfaccia per scegliere la traccia audio predefinita

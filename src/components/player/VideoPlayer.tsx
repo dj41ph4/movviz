@@ -1003,17 +1003,28 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     };
   }, [ratingKey, useTranscode]);
 
+  // Point d'entrée unique pour tout seek programmatique (barre de
+  // progression, boutons ±10s, raccourcis clavier) — la leg ffmpeg n'a pas
+  // de plage seekable côté navigateur (fMP4 fragmenté sans index) et doit
+  // toujours passer par le moteur plutôt que par `.currentTime` direct.
+  const seekTo = useCallback((time: number) => {
+    const el = videoRef.current;
+    if (!el) return;
+    if (ffmpegActiveRef.current && ffmpegEngineRef.current) {
+      void ffmpegEngineRef.current.seek(time);
+      setCurrentTime(time);
+    } else {
+      el.currentTime = time;
+      setCurrentTime(time);
+    }
+  }, []);
+
   const skip = useCallback((seconds: number) => {
     const el = videoRef.current;
     if (!el) return;
     const target = Math.max(0, Math.min(duration || el.duration || 0, el.currentTime + seconds));
-    if (ffmpegActiveRef.current && ffmpegEngineRef.current) {
-      void ffmpegEngineRef.current.seek(target);
-      setCurrentTime(target);
-    } else {
-      el.currentTime = target;
-    }
-  }, [duration]);
+    seekTo(target);
+  }, [duration, seekTo]);
 
   useEffect(() => {
     const el = videoRef.current;
@@ -1151,6 +1162,23 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           skip(10);
           resetHideTimer();
           break;
+        case "ArrowUp": {
+          e.preventDefault();
+          const el = videoRef.current;
+          if (el) {
+            el.volume = Math.min(1, el.volume + 0.1);
+            el.muted = false;
+          }
+          resetHideTimer();
+          break;
+        }
+        case "ArrowDown": {
+          e.preventDefault();
+          const el = videoRef.current;
+          if (el) el.volume = Math.max(0, el.volume - 0.1);
+          resetHideTimer();
+          break;
+        }
         case "f":
         case "F":
           e.preventDefault();
@@ -1164,13 +1192,22 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         case "Escape":
           onClose();
           break;
+        case "0": case "1": case "2": case "3": case "4":
+        case "5": case "6": case "7": case "8": case "9":
+          // Convention YouTube/Netflix : saute au X0% de la durée totale.
+          if (duration > 0) {
+            e.preventDefault();
+            seekTo((Number(e.key) / 10) * duration);
+            resetHideTimer();
+          }
+          break;
         default:
           break;
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, skip, resetHideTimer]);
+  }, [onClose, skip, seekTo, resetHideTimer, duration]);
 
   const togglePiP = async () => {
     const el = videoRef.current;
@@ -1207,17 +1244,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       seekingRef.current = false;
       const uc = "changedTouches" in me ? me.changedTouches[0].clientX : me.clientX;
       const time = getSeekTime(uc);
-      // Leg ffmpeg : le flux pipé n'a pas de plage seekable réelle côté
-      // navigateur (fMP4 fragmenté sans index) — poser `.currentTime`
-      // directement ne fait rien d'utile et ramène au début. Le seek doit
-      // passer par le moteur, qui relance ffmpeg avec un `-ss` serveur.
-      if (ffmpegActiveRef.current && ffmpegEngineRef.current) {
-        void ffmpegEngineRef.current.seek(time);
-        setCurrentTime(time);
-      } else if (videoRef.current) {
-        videoRef.current.currentTime = time;
-        setCurrentTime(time);
-      }
+      seekTo(time);
       setSeekPreview(null);
       document.removeEventListener("mousemove", onMove as EventListener);
       document.removeEventListener("mouseup", onUp as EventListener);

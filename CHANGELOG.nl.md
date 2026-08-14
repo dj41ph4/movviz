@@ -4,6 +4,13 @@ Alle noemenswaardige wijzigingen aan Movviz, gegroepeerd per ontwikkelmijlpaal.
 
 ---
 
+## v1.13.69 — Augustus 2026
+
+### Nieuwe sneltoetsen: volume en direct springen per percentage
+
+- **Nieuw**: pijltjes omhoog/omlaag voor het volume, toetsen 0-9 om direct naar X0% van de duur te springen (YouTube/Netflix-conventie) — bovenop de reeds bestaande sneltoetsen (spatie/K afspelen, pijltjes links/rechts ±10s, F volledig scherm, M dempen, Escape sluiten).
+- **Opgelost** in het voorbijgaan: de voortgangsbalk en de ±10s-knoppen delen nu hetzelfde seek-instappunt als de nieuwe sneltoetsen — één pad, nooit twee dubbele logica's om parallel te onderhouden.
+
 ## v1.13.68 — Augustus 2026
 
 ### De speler hield bij het kiezen van de standaard audiotrack nooit rekening met de interfacetaal

@@ -4,6 +4,13 @@ Toutes les nouveautés notables de Movviz, regroupées par étape de développem
 
 ---
 
+## v1.13.69 — août 2026
+
+### Nouveaux raccourcis clavier : volume et saut direct par pourcentage
+
+- **Nouveau** : flèches haut/bas pour le volume, touches 0-9 pour sauter directement au X0 % de la durée (convention YouTube/Netflix) — en plus des raccourcis déjà existants (espace/K lecture, flèches gauche/droite ±10s, F plein écran, M muet, Échap fermer).
+- **Corrigé** au passage : la barre de progression et les boutons ±10s partagent désormais le même point d'entrée de seek que les nouveaux raccourcis — un seul chemin, jamais deux logiques dupliquées à maintenir en parallèle.
+
 ## v1.13.68 — août 2026
 
 ### Le lecteur ne tenait jamais compte de la langue de l'interface pour choisir la piste audio par défaut
