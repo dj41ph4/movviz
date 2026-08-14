@@ -1221,12 +1221,54 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     } catch { /* PiP not supported or denied */ }
   };
 
-  const getSeekTime = (clientX: number): number => {
+  const getSeekRatio = (clientX: number): number => {
     const rect = progressRef.current?.getBoundingClientRect();
-    if (!rect || !rect.width || !duration) return 0;
-    const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    return ratio * duration;
+    if (!rect || !rect.width) return 0;
+    return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   };
+
+  const getSeekTime = (clientX: number): number => {
+    if (!duration) return 0;
+    return getSeekRatio(clientX) * duration;
+  };
+
+  // Vignette de survol — proxy des index BIF que Plex génère déjà pour son
+  // propre lecteur (voir scrub-thumb/route.ts). Granularité 1s (largement
+  // suffisant pour un aperçu), résultats mis en cache en mémoire (Blob URL)
+  // pour ne jamais re-fetcher la même seconde en scrubant sur place, et
+  // débattus (150ms) pour ne pas spammer le serveur à chaque pixel de
+  // mouvement de souris.
+  const scrubCacheRef = useRef<Map<number, string>>(new Map());
+  const scrubAbortRef = useRef<AbortController | null>(null);
+  const scrubDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [scrubPreview, setScrubPreview] = useState<{ time: number; ratio: number; url: string | null } | null>(null);
+
+  useEffect(() => () => {
+    scrubCacheRef.current.forEach((url) => URL.revokeObjectURL(url));
+    scrubCacheRef.current.clear();
+  }, []);
+
+  const requestScrubThumb = useCallback((time: number, ratio: number) => {
+    const key = Math.floor(time);
+    const cached = scrubCacheRef.current.get(key);
+    setScrubPreview({ time, ratio, url: cached ?? null });
+    if (cached) return;
+    if (scrubDebounceRef.current) clearTimeout(scrubDebounceRef.current);
+    scrubDebounceRef.current = setTimeout(() => {
+      scrubAbortRef.current?.abort();
+      const ac = new AbortController();
+      scrubAbortRef.current = ac;
+      fetch(`/api/stream/${ratingKey}/scrub-thumb?t=${key * 1000}`, { signal: ac.signal })
+        .then((res) => (res.ok ? res.blob() : null))
+        .then((blob) => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          scrubCacheRef.current.set(key, url);
+          setScrubPreview((cur) => (cur && Math.floor(cur.time) === key ? { ...cur, url } : cur));
+        })
+        .catch(() => void 0);
+    }, 150);
+  }, [ratingKey]);
 
   const handleProgressDown = (e: React.MouseEvent | React.TouchEvent) => {
     if (!duration) return;
@@ -1235,10 +1277,12 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
 
     const cx = "touches" in e ? e.touches[0].clientX : e.clientX;
     setSeekPreview(getSeekTime(cx));
+    requestScrubThumb(getSeekTime(cx), getSeekRatio(cx));
 
     const onMove = (me: MouseEvent | TouchEvent) => {
       const mc = "touches" in me ? me.touches[0].clientX : me.clientX;
       setSeekPreview(getSeekTime(mc));
+      requestScrubThumb(getSeekTime(mc), getSeekRatio(mc));
     };
     const onUp = (me: MouseEvent | TouchEvent) => {
       seekingRef.current = false;
@@ -1246,6 +1290,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       const time = getSeekTime(uc);
       seekTo(time);
       setSeekPreview(null);
+      setScrubPreview(null);
       document.removeEventListener("mousemove", onMove as EventListener);
       document.removeEventListener("mouseup", onUp as EventListener);
       document.removeEventListener("touchmove", onMove as EventListener);
@@ -1256,6 +1301,16 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     document.addEventListener("mouseup", onUp as EventListener);
     document.addEventListener("touchmove", onMove as EventListener);
     document.addEventListener("touchend", onUp as EventListener);
+  };
+
+  // Survol seul (sans clic) — même aperçu que pendant un drag, pour pouvoir
+  // repérer un moment avant de s'engager sur un clic.
+  const handleProgressHover = (e: React.MouseEvent) => {
+    if (!duration || seekingRef.current) return;
+    requestScrubThumb(getSeekTime(e.clientX), getSeekRatio(e.clientX));
+  };
+  const handleProgressLeave = () => {
+    if (!seekingRef.current) setScrubPreview(null);
   };
 
   const getVolumeFromEvent = (clientX: number): number => {
@@ -1562,12 +1617,32 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                     controlsVisible || !playing || buffering ? "opacity-100" : "opacity-0 pointer-events-none"
                   )}
                 >
-                  <div className="px-3">
+                  <div className="px-3 relative">
+                    {scrubPreview && (
+                      <div
+                        className="pointer-events-none absolute bottom-full mb-2 -translate-x-1/2 flex flex-col items-center"
+                        style={{ left: `${Math.min(94, Math.max(6, scrubPreview.ratio * 100))}%` }}
+                      >
+                        <div className="flex h-[90px] w-[160px] items-center justify-center overflow-hidden rounded-lg border border-white/15 bg-black/80 shadow-lg">
+                          {scrubPreview.url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={scrubPreview.url} alt="" className="h-full w-full object-cover" />
+                          ) : (
+                            <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+                          )}
+                        </div>
+                        <span className="mt-1 rounded-full bg-black/80 px-2 py-0.5 text-[10px] font-bold text-white">
+                          {formatTime(scrubPreview.time)}
+                        </span>
+                      </div>
+                    )}
                     <div
                       ref={progressRef}
                       className="group relative h-1 hover:h-2 transition-[height] cursor-pointer origin-bottom"
                       onMouseDown={handleProgressDown}
                       onTouchStart={handleProgressDown}
+                      onMouseMove={handleProgressHover}
+                      onMouseLeave={handleProgressLeave}
                     >
                       <div className="absolute inset-y-0 left-0 right-0 rounded-full bg-white/10" />
                       <div className="absolute inset-y-0 left-0 rounded-full bg-white/20" style={{ width: `${bufferedPct}%` }} />

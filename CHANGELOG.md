@@ -4,57 +4,21 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.13.69 — August 2026
+## v1.13.40 – v1.13.70 — August 2026
 
-### Nouveaux raccourcis clavier : volume et saut direct par pourcentage
+### Lecture vidéo : chaîne de secours multi-niveaux, remux ffmpeg local, lecteur mis à niveau
 
-- **Nouveau** : flèches haut/bas pour le volume, touches 0-9 pour sauter directement au X0 % de la durée (convention YouTube/Netflix) — en plus des raccourcis déjà existants (espace/K lecture, flèches gauche/droite ±10s, F plein écran, M muet, Échap fermer).
-- **Corrigé** au passage : la barre de progression et les boutons ±10s partagent désormais le même point d'entrée de seek que les nouveaux raccourcis — un seul chemin, jamais deux logiques dupliquées à maintenir en parallèle.
-
-## v1.13.68 — August 2026
-
-### Le lecteur ne tenait jamais compte de la langue de l'interface pour choisir la piste audio par défaut
-
-- **Nouveau** : la piste audio par défaut suit désormais la langue de l'interface Movviz (même règle que le badge audio déjà en place) — repli sur la piste marquée par défaut par Plex si aucune ne correspond.
-- **Nouveau** : les sous-titres ne sont plus jamais forcés quand l'audio choisi correspond déjà à la langue de l'interface. Ils ne s'activent automatiquement que si aucune piste audio dans cette langue n'existe et qu'une piste de sous-titres correspondante est disponible — le réflexe "audio étranger → sous-titres dans ma langue" des autres lecteurs.
-
-## v1.13.67 — August 2026
-
-### FFmpeg remux : cliquer plus loin dans la barre de progression ramenait au début
-
-- **Cause racine confirmée en direct** : la barre de progression et les boutons ±10s posaient directement `video.currentTime` — ça fonctionne pour une source nativement seekable, mais le flux ffmpeg pipé n'a pas de plage seekable côté navigateur (MP4 fragmenté sans index) ; poser `.currentTime` dessus ne fait rien d'utile et le lecteur revient au début.
-- **Corrigé** : pour la leg ffmpeg, le clic sur la barre de progression et les boutons ±10s passent désormais par le moteur (`FfmpegRemuxEngine.seek()`), qui relance la session ffmpeg avec un `-ss` serveur au bon endroit — les autres moteurs ne sont pas concernés.
-
-## v1.13.66 — August 2026
-
-### FFmpeg remux : la durée affichée restait figée à 0:02 alors que la lecture était correcte
-
-- **Cause racine confirmée en direct** : le `<video>` natif lit un MP4 fragmenté à `empty_moov` — la durée totale n'est jamais connue à l'avance par construction (pas un vrai flux live, juste un conteneur qui ne l'expose pas), donc `.duration` restait bloquée sur la toute petite portion déjà reçue au chargement au lieu de refléter la durée réelle du film.
-- **Corrigé** : la durée réelle (déjà connue côté serveur via les métadonnées Plex) est désormais renvoyée par `/api/stream/[ratingKey]/info` et préférée à `.duration` spécifiquement pour la leg ffmpeg — les autres moteurs ne sont pas concernés.
+- **Nouveau** : la lecture d'un fichier passe désormais par une chaîne de secours à plusieurs niveaux, chacun essayé automatiquement selon ce que le navigateur peut réellement décoder — lecture directe → MSE (copie bit-exacte, parseur MP4 maison) → **remux ffmpeg local** (nouveau moteur, prend le relais pour tout conteneur/codec que le parseur MSE ne gère pas, MKV en particulier) → DASH/HLS (transcodage Plex, dernier recours). Le remux ffmpeg récupère le fichier source brut directement chez Plex et le remuxe lui-même (copie vidéo à coût CPU nul, audio copié ou transcodé en AAC selon le codec) — zéro dépendance à la décision de transcodage de Plex, qui s'est révélée être une heuristique interne non documentée et non influençable de l'extérieur (refus de copier le bitstream HEVC en HLS quel que soit le paramètre envoyé côté client, quelle que soit la variante testée).
+- **Corrigé** : le protocole DASH est désormais utilisé pour toute source HEVC/AV1 ou toute session de transcodage — c'est le seul protocole où Plex honore la copie du bitstream HEVC (le HLS ré-encode systématiquement ces sources, y compris en mode "audio seul", ce qui était la vraie cause du lag ressenti). Le profil client déclaré à Plex ("Plex Web") couvre désormais HEVC/AV1 pour HLS ET DASH, et les deux modes "Transcodé (audio)"/"Transcodé (vidéo)" du menu — un temps inversés — pointent vers le bon comportement Plex.
+- **Corrigé** : plusieurs pièges de décodage audio identifiés et résolus en conditions réelles — l'AC-3 copié dans un MP4 progressif n'est pas décodé nativement par Chrome/Edge (contexte différent du transmux hls.js/MSE, corrigé en restreignant la copie du remux aux codecs universellement décodables et en transcodant le reste en AAC), et Dolby Digital(+) ne peut pas être observé par la veille de silence (elle se base sur le graphe Web Audio, hors de portée pour ces codecs) — chacun de ces cas est maintenant détecté ou évité correctement plutôt que de produire une lecture silencieuse sans erreur visible.
+- **Corrigé** : robustesse du pipeline durcie au fil de tests en conditions réelles — conditions de course dans le moteur MSE et dans les sessions ffmpeg (buffers, seek, arrêt propre du flux serveur quand le client abandonne, y compris un cas qui pouvait faire planter tout le serveur), durée et position de lecture fiabilisées pour le flux ffmpeg (conteneur fragmenté sans durée connue à l'avance côté navigateur).
+- **Nouveau** : le lecteur choisit désormais la piste audio par défaut selon la langue de l'interface Movviz (même règle que le badge audio), n'active des sous-titres automatiquement que si aucune piste audio ne correspond à cette langue, affiche une vignette d'aperçu au survol de la barre de progression (relayée depuis Plex, qui la génère déjà pour son propre lecteur), et gère de nouveaux raccourcis clavier (volume, saut direct par pourcentage) en plus des raccourcis existants (lecture, ±10s, plein écran, muet, fermer).
 
 ## v1.13.65 — August 2026
-
-### FFmpeg remux : le son AC-3 copié n'était pas décodable par le navigateur — lecture muette
-
-- **Cause racine confirmée** : la whitelist de copie audio du remux incluait `ac3`/`ac-3` (miroir de celle du transcode Plex) — mais le contexte est différent : côté transcode Plex, l'AC-3 copié est transmuxé par hls.js en fMP4 pour MSE (décodé par Chrome avec pack Dolby) ; côté remux, le flux est lu par le décodeur NATIF du `<video>` en MP4 progressif, et Chrome/Edge ne décodent pas l'AC-3 dans ce contexte → image parfaite, zéro son, sans aucune erreur HTTP.
-- **Corrigé** : la whitelist de copie audio du remux est restreinte aux codecs universellement décodables (`aac`/`mp4a`/`mp3`) — tout le reste (AC-3, EC-3, DTS, TrueHD…) est transcodé en AAC 192 kbit/s, la garantie sonore du remux local. La whitelist du transcode Plex reste inchangée (son contexte la justifie).
-- **Corrigé** : condition de course dans `FfmpegRemuxEngine.seek()` — le DELETE de l'ancienne session partait en fire-and-forget ; si le GET de la nouvelle session arrivait au serveur avant, `stopAllForRatingKey` tuait la session fraîchement créée et le seek retombait en HLS. Le DELETE est maintenant attendu avant le chargement.
 
 ### Le Hero épinglait toujours les mêmes titres
 
 - **Corrigé** : les pools sans ordre naturel (suggestions personnalisées, découverte, jamais regardés) sont désormais mélangées avec une graine déterministe par jour et par utilisateur — rotation toutes les 24 h au lieu des mêmes 2-3 titres épinglés indéfiniment ; les pools chronologiques (recentlyAdded, upcoming, recentActivity) ne sont pas touchés.
-
-## v1.13.64 — August 2026
-
-### Le crash serveur du remux ffmpeg revenait encore — v1.13.62 corrigeait le mauvais listener
-
-- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751, crash reproduit plusieurs fois de suite après le déploiement de v1.13.62) : le correctif précédent ajoutait un gestionnaire `'error'` sur le flux ffmpeg, mais `Readable.toWeb()` enregistre TOUJOURS son propre gestionnaire interne en plus — le nôtre ne l'empêchait pas de s'exécuter. Le vrai scénario : quand le client (le lecteur vidéo) abandonne la lecture en premier, son propre flux web est déjà détruit — puis le code renvoyait quand même une seconde fois une erreur sur ce même flux déjà mort, et l'adaptateur interne de Node plantait en tentant de fermer un flux déjà fermé (`uncaughtException: Controller is already closed`), faisant tomber tout le serveur en 503 généralisé, exactement comme avant.
-- **Corrigé** : le flux n'est plus jamais re-signalé en erreur s'il est déjà détruit — le cas exact qui se produit à chaque abandon client pendant un échec ffmpeg.
-
-### La veille de silence coupait la lecture ffmpeg ~6 secondes après le démarrage, sur un flux qui jouait normalement
-
-- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751) : les horodatages serveur montraient un crash quasi exactement 6 secondes après chaque `[remux] start` — la fenêtre par défaut de la veille de silence, armée sur la leg ffmpeg par mesure de précaution. Contrairement au moteur MSE (où le navigateur doit décoder un codec dont le support n'est que probé, jamais garanti), l'audio ffmpeg est soit une copie bit-exacte d'une piste déjà whitelistée décodable, soit transcodé en AAC — aucune incertitude à couvrir. La veille se déclenchait donc à tort, détruisait le moteur et coupait la connexion, déclenchant à son tour le crash serveur ci-dessus.
-- **Corrigé** : la veille de silence n'est plus armée sur la leg ffmpeg.
 
 ## v1.13.63 — August 2026
 
@@ -68,163 +32,11 @@ All notable changes to Movviz, grouped by development milestone.
 - **Cause racine confirmée en direct** : quand la langue du fichier possédé n'est pas connue (non détectée), toute release en cache dans la langue cible (VF) était proposée comme "amélioration", sans jamais vérifier si elle apportait quoi que ce soit de réel — la même résolution, le même codec (x264≈H.264, x265≈HEVC affichés différemment mais identiques) et une taille quasi identique déclenchaient quand même une proposition de remplacement. Le garde-fou existant (`isMeaningfulUpgrade`, écart de taille ≥ 10 %) était explicitement contourné pour ce cas précis ; côté séries, ce garde-fou n'existait tout simplement pas.
 - **Corrigé** : les propositions basées sur la langue exigent désormais le même écart de taille minimum (10 %) que les autres types d'amélioration, côté films comme côté épisodes — les suggestions de résolution/codec réels ne sont pas affectées.
 
-## v1.13.62 — August 2026
-
-### FFmpeg remux : un ffmpeg en échec pendant un abandon client faisait planter tout le serveur — plus seulement la lecture en cours
-
-- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751, deux occurrences la même nuit) : quand ffmpeg sortait en erreur (`exit anormal code=255`, souvent provoqué par un client qui coupe la connexion), le code forçait une erreur sur le flux Node sous-jacent pour la signaler côté HTTP — mais ce flux n'avait aucun gestionnaire d'erreur attaché. Node relance alors l'erreur en exception non capturée (`uncaughtException: Controller is already closed`), qui a fait planter le process serveur entier : plus aucune route ne répondait (503 généralisé, y compris sur des pages sans rapport avec la lecture), jusqu'au redémarrage manuel du conteneur.
-- **Corrigé** : gestionnaire d'erreur attaché sur le flux ffmpeg avant sa mise en pipe — l'échec reste correctement signalé au lecteur vidéo, sans plus jamais remonter en crash du serveur.
-
-## v1.13.61 — August 2026
-
-### FFmpeg remux : le muxer MP4 échouait en silence sur l'audio AC-3 — `delay_moov`
-
-- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751) : `-movflags empty_moov` ne peut pas écrire l'entête MP4 avant d'avoir vu au moins un paquet audio quand la piste est copiée en AC-3 (taille de frame inconnue à l'avance) — ffmpeg échouait avec `Cannot write moov atom before AC3 packets`, immédiatement après avoir écrit le `ftyp`+`moov` (quelques Ko). Côté client, ce n'était visible comme aucune erreur HTTP : juste un flux anormalement court qui se termine proprement, un piège silencieux.
-- **Corrigé** : ajout du flag `delay_moov` (`frag_keyframe+empty_moov+delay_moov+default_base_moof+omit_tfhd_offset`). Testé en direct contre le fichier réel : copie vidéo+audio à 4-11× la vitesse temps réel (contre 0,1-0,9× côté transcodage Plex).
-
-## v1.13.60 — August 2026
-
-### Nouveau moteur de lecture : remux ffmpeg local — contourne définitivement le refus de Plex de copier le bitstream HEVC
-
-- **Cause racine confirmée définitivement close** : 12+ requêtes directes contre l'API Plex (`/video/:/transcode/universal/decision`), en faisant varier bitrate, codec cible, profil client, protocole, piste audio, sous-titres — toutes donnent exactement le même résultat : réencodage H.264 forcé, quel que soit le paramètre envoyé. Réglages serveur (limite de débit distant, réseaux LAN) vérifiés aussi : aucun n'explique le refus. C'est une heuristique interne à Plex Media Server, non documentée et non influençable de l'extérieur — plus aucune tentative de correctif côté paramètres client sur ce point.
-- **Nouveau** : plutôt que de demander à Plex de décider, Movviz peut désormais récupérer le fichier source brut directement chez Plex (`/library/parts/{id}/file`, en contournant entièrement `/video/:/transcode/universal`) et le remuxer lui-même avec un ffmpeg local (`-c:v copy` toujours, `-c:a copy` ou `-c:a aac` selon la piste) — copie vidéo à coût CPU nul, audio garanti décodable par le navigateur, zéro dépendance à la décision de Plex. Nouveau moteur `FfmpegRemuxEngine` inséré dans la chaîne de secours du lecteur bêta entre le moteur MSE existant (MP4 progressif uniquement) et le repli transcodage Plex — prend le relais précisément là où le parseur MP4 maison abandonne (MKV en particulier, l'essentiel de la bibliothèque). Disponibilité du binaire vérifiée côté serveur ; repli silencieux et automatique sur le comportement actuel si ffmpeg est absent.
-- **Corrigé** : correction d'une condition de course dans le moteur MSE (`resetBuffers` n'attendait pas la fin des opérations `SourceBuffer.remove()` en cours avant d'en lancer de nouvelles, risquant une `InvalidStateError` lors d'un seek).
-- **Corrigé** : décision de transcodage audio proactive avant lecture (inspirée du profil d'appareil Jellyfin) — évite un transcodage audio inutile quand le navigateur peut réellement décoder la piste copiée, tout en gardant la veille de silence en filet de sécurité pour les cas où la détection se trompe.
-
-## v1.13.59 — August 2026
-
-### DASH : le profil Plex Web déclare enfin l'HEVC pour le protocole DASH — le copy bitstream est honoré par MDE
-
-- **Cause racine confirmée en direct** (Ace Ventura en Afrique 500751 — HEVC 1080p + AC-3 5.1) : l'escalade de silence fonctionne (session `ta=0` à 17:21:38 → session `ta=1` à 17:21:44, 6 s pile) MAIS MDE refusait le copy HEVC sur les DEUX sessions — `plex-copy-refused: demandé hevc → réel avc1.640028` — et ré-encodait la vidéo en H.264 à ~20 Mbps, un transcode trop lourd pour le NAS : lecture qui ne démarre pas en 1080p, image sans son en 2160p, et « revenir au HLS » ne montre plus aucun transcode car tout passe en DASH.
-- **Corrigé** : `X-Plex-Client-Profile-Extra` ne déclarait l'HEVC/AV1 comme codec cible de transcode que pour `protocol=hls` — MDE l'ignorait donc en DASH et ré-encodait en H.264 (la v1.13.58 envoyait pourtant `videoCodec=hevc`, sans effet : le profil ne déclarait pas ce codec pour DASH). Le profil couvre désormais `protocol=hls,dash`, comme le profil réel de Plex Web.
-
-## v1.13.58 — August 2026
-
-### DASH : le copy HEVC est enfin honoré par MDE — le codec demandé est le codec source réel, plus jamais « copy »
-
-- **Cause racine confirmée en direct** (Jurassic Park 499959 — MKV HEVC 2160p + AC-3 5.1) : Plex Web n'envoie JAMAIS `videoCodec=copy` en DASH — il passe le codec cible réel (`videoCodec=hevc`) et laisse `directStream=1` déclencher le copy bitstream quand source = cible. Notre session DASH demandait « copy » : MDE ré-encodait quand même la vidéo en H.264 (`avc1.640028`) à ~2× temps réel, pendant que seule la légende audio était copiée.
-- **Corrigé** : en DASH, la route transcode envoie le codec source canonique (`hevc`/`h264`/`av1`/`vp9`) à la place de « copy » ; le cap `maxVideoBitrate` n'est plus appliqué quand un copy vidéo est demandé (il forçait un ré-encodage). Le HLS garde « copy » (honoré pour h264).
-- **Corrigé** : sondes fiabilisées — le codec réel est lu dans l'AdaptationSet vidéo du MPD (fourcc `hev1`/`hvc1` inclus), les variantes de profil (`avc1.*`, `av01.*`) comptent comme copy honoré dans `/decision`, VP9 couvert, alerte avec le codec réellement demandé.
-
-## v1.13.57 — August 2026
-
-### DASH : manifeste sans BaseURL — les segments d'initialisation pointaient vers une route inexistante, lecture impossible
-
-- **Cause racine confirmée et corrigée** : capture réseau en direct sur une vraie session « Transcodé (audio) » — le manifeste MPD retourné par Plex pour ce compte n'a AUCUNE balise `<BaseURL>` ; `initialization`/`media` du `SegmentTemplate` sont des chemins relatifs (`session/{id}/0/header`). `rewriteMpd()` ne réécrivait que les `<BaseURL>` et les URLs absolues, laissant les chemins relatifs intacts en supposant qu'ils se résolvent contre une `<BaseURL>` déjà proxifiée — sauf qu'ici il n'y en a pas : le navigateur les résolvait contre l'URL du manifeste lui-même (`/api/stream/{ratingKey}/transcode?...`), donnant une route qui n'existe pas → 404 systématique sur CHAQUE segment d'initialisation (vidéo et audio), avant même le premier octet de média. DASH ne pouvait démarrer dans aucun mode (auto, vidéo, audio), quel que soit le codec source.
-- **Corrigé** : `rewriteMpd()` détecte l'absence de `<BaseURL>` et ancre alors les chemins relatifs `initialization`/`media` sur le vrai chemin de transcodage universel Plex (`/api/stream/plex-proxy/video/:/transcode/universal/...`) ; le cas où Plex fournit une `<BaseURL>` reste inchangé.
-
-## v1.13.56 — August 2026
-
-### Dolby Digital (AC-3) : la veille de silence mène enfin à un vrai transcode — plus de leg MSE muette
-
-- **Corrigé** : sur un fichier AC-3 (MP4 ou HEVC), la lecture directe échouait silencieusement (le navigateur ne peut pas rendre l'AC-3 natif), la veille de silence détectait le verdict après 6 s… mais la chaîne de récupération installait ensuite la leg MSE — une autre tentative de « copie » du même codec, qui tombait muette elle aussi, SANS veille : le player redémarrait et restait en lecture directe sans son, au lieu de transcoder. Seul le DD normal était touché : le DD+ (E-AC-3) n'est pas transmuxable, donc ta=1 dès le départ.
-- **Corrigé** : un verdict de silence sur la leg directe (énergie réelle décodée, contexte Web Audio actif) saute désormais la leg MSE et escalade directement en transcode réel `ta=1` — le verdict est de la même nature que celui des legs copie HLS/DASH.
-- **Corrigé** : la leg MSE elle-même arme sa propre veille de silence (elle peut être la première leg, ex. HEVC non supporté par le probe) — sur silence, le moteur MSE est détruit (`mseSkipped`) et le flux repart en transcode `ta=1` (HEVC → DASH copy + AAC).
-
-## v1.13.55 — August 2026
-
-### Lecture DASH : les sessions transcode et les sources HEVC/AV1 jouent via dash.js — le seul protocole où MDE honore le copy HEVC
-
-- **Cause racine confirmée et corrigée** : en HLS-TS, MDE refuse le copy vidéo pour TOUTE source HEVC dans une session transcode — prouvé en live via les verdicts `/decision` et les lignes `Job running:` de Plex : John Carter (HEVC Main 10 1080p, sans DoVi) est ré-encodé (`-codec:0 libx264 -crf 16 -maxrate 20000k -preset veryfast`), Tomb Raider (HEVC DoVi 4K) subit `tonemap=hable` + libx264 (transcode 4K temps réel impossible sur le NAS). Plex Web copie le bitstream HEVC des mêmes fichiers en DASH (transcoder ≥6× temps réel). La route transcode accepte désormais `fmt=dash` : `protocol=dash`, `start.mpd`, `hasMDE=1`, codecs réels lus dans le MPD, réponse `application/dash+xml` ; la sonde TS reste HLS-only.
-- **Nouveau** : `rewriteMpd()` réécrit le MPD Plex (`BaseURL` + attributs absolus `media`/`initialization`) pour router les segments via le proxy `/api/stream/plex-proxy` existant.
-- **Nouveau** : le player lit ces sessions avec dash.js (fast switch, 30 s de buffer conservé, retryAttempts/retryIntervals généreux pour les 404/503 de cold-start Plex) : `tv=1`/`ta=1` ou toute source HEVC/AV1/VP9 → DASH ; prébuffer partagé HLS/DASH, veille de silence + escalade en vrai transcode sur les legs copie audio, badge qualité via la `videoHeight` décodée, repli HLS si le navigateur n'a pas de MSE.
-- **Corrigé** : dash.js est chargé dynamiquement — son bundle UMD touche `window` au niveau module, ce qui faisait planter le prerender statique de toutes les pages partageant le layout (`ReferenceError: window is not defined` pendant `next build`).
-
-## v1.13.54 — August 2026
-
-### The client identity must be consistent — MDE also reads the query string
-
-- **Fixed**: the `start.m3u8` query string still declared `X-Plex-Product=Movviz` + `X-Plex-Device=Web` while the HTTP headers impersonated "Plex Web" — MDE reads the `X-Plex-*` fields from BOTH sources, so the "Movviz" identity in the URL could override the "Plex Web" profile matched from the headers and refuse the HEVC copy again. The query string now carries the exact same Plex Web identity as the headers (product, device Windows, version 4.100.0, model).
-
-## v1.13.53 — August 2026
-
-### The real reason for the lag is on Plex's side: the video is re-encoded inside transcode sessions — the client profile now declares HEVC/AV1 to force the copy
-
-- **Fixed**: Plex's logs revealed the smoking gun — in an "audio-only" transcode session (`ta=1`), Plex produces 2.4-2.8 MB segments every ~22 seconds: not a delivery problem, a re-encode problem. MDE honors `videoCodec=copy` for HEVC in direct-stream sessions but **refuses it inside a transcode session** unless the matched client profile declares HEVC as a transcode target codec for HLS. The transcode route now sends `X-Plex-Client-Profile-Extra: append-transcode-target-codec(type=videoProfile&context=streaming&videoCodec=hevc,av1,h264&audioCodec=aac,ac3,mp3&protocol=hls)` (official Plex profile augmentation) on top of the "Plex Web" impersonation — MDE can then honor the HEVC/AV1 bitstream copy during audio-only transcodes.
-- **Diagnostics**: the `/decision` response body is now logged in full (was truncated at 600 chars, hiding the top-level `transcodeDecisionText` — the MDE's exact reason), with the decision text extracted into its own readable field.
-
-## v1.13.52 — August 2026
-
-### The truth is now in the stream itself — the first TS segment is sniffed for its real stream types
-
-- **New**: since Movviz playback sessions don't show up in Plex's dashboard/playback analysis, and the HLS master omits its `CODECS` attribute, the transcode route now sniffs the actual MPEG-TS segment after the session starts (fire-and-forget, zero latency added to playback start): it reads the PAT/PMT tables and logs the real stream types served to the browser (`plex-segments`). 0x24 = HEVC bitstream-copied (copy honored, with a ✓ log), 0x1b = H.264 (video re-encoded despite `tv=0` → warn + console error), 0x0f = AAC, 0x81 = AC3 copy, 0x87 = E-AC3... The probe handles transcode warm-up with retries and is always best-effort.
-- **Fixed**: the probe also logs `réel` for direct-stream sessions where `videoDecision` isn't applicable.
-
-## v1.13.51 — August 2026
-
-### The transcode probes are no longer mute — every outcome is logged
-
-- **Fixed**: the `/status/sessions` probe could complete without leaving a single log line (session not found, HTTP failure or network error were all silently skipped) — invisible diagnostics are no diagnostics. It now always logs an outcome: the running job's real codecs when found, "found without TranscodeSession" for pure direct-stream sessions, "not found" with the list of active sessions when the job hasn't appeared yet, the HTTP status on failure, and the caught error message.
-- **Changed**: when Plex's `/decision` responds with decision-code fields instead of a `Media[]` array, the full response body (600 chars) is now logged instead of a 200-char snippet, so a refusing decision shows its complete structure.
-
-## v1.13.50 — August 2026
-
-### The live transcode session is now inspected — the codecs Plex ACTUALLY produces are logged
-
-- **New**: right after the session starts, the transcode route queries `/status/sessions` and logs the running job's real output (`plex-session`: video/audio codecs with their actual decisions, source codec, output resolution and job speed). This closes the loop for the "audio-only transcode that still lags" case: the video copy is now confirmed honored (remux sessions are smooth), and if a session re-encodes the video despite `tv=0`, a `warn` entry plus a console error is raised. Two attempts, 400 ms apart, so the job has time to appear in the session list.
-- **Changed**: the probe never blocks playback — it is best-effort and silently skipped on failure.
-
-## v1.13.49 — August 2026
-
-### The MDE decision call no longer fails silently — its HTTP errors are logged
-
-- **Fixed**: the `/decision` probe added in v1.13.48 swallowed failures silently — when it returned an error status or an unexpected body, nothing appeared in the logs, making it useless as a diagnostic. It now logs the HTTP status and response body on failure (and the caught error message), so a refusing Plex server shows exactly why.
-
-## v1.13.48 — August 2026
-
-### The transcode route now asks Plex what it PLANS to do — the MDE decision is logged before the session starts
-
-- **New**: before starting the session, the transcode route calls Plex's `/video/:/transcode/universal/decision` endpoint with the exact same parameters and logs the Media Decision Engine's plan (`plex-decision`: `Decision=transcode/copy`, video/audio codecs, container). The HLS master playlist omits the `CODECS` attribute on direct-stream sessions, so this is the only reliable way to know whether the video will actually be bitstream-copied or silently re-encoded — the "audio-only transcode that still lags" case now shows its verdict (with a `warn` entry and a console message when MDE ignores `tv=0`).
-- **Fixed**: `videoResolution` is reported by Plex as a string and is not always numeric ("4k", "8k", "uhd") — `Number("4k")` = NaN, which silently reset the video bitrate cap to the 1080p default (8000) for 4K sources that do transcode. Resolution labels are now normalized before the bitrate selection.
-
-## v1.13.47 — August 2026
-
-### HEVC bitstream copy now actually honored by Plex — the player declares the Plex Web client profile for transcode sessions
-
-- **Fixed**: Plex's Media Decision Engine picks the client profile from the `X-Plex-*` headers and refuses video bitstream-copy (`videoCodec=copy`) for codecs the matched profile does not declare. The player announced itself as an unknown product ("Movviz"), whose default profile has no HEVC support — so HEVC/H.265 sources (4K/1080p remuxes, 10-bit HDR) were silently re-encoded to H.264 even when the "audio-only" transcode mode asked for a video copy: the full video transcode at a capped bitrate was the lag. The transcode-start request now declares the built-in "Plex Web" profile (HEVC over HLS supported), which makes MDE honor the copy: HEVC video is bitstream-copied and only the audio is re-encoded — the cheap operation it should have been. The device name stays "Movviz" and the session attribution (`X-Plex-Session-Identifier`) is unchanged.
-- **Changed**: the impersonation is scoped to the transcode-start request only — the session decision happens there; metadata, segment fetches and playback/stop routes keep their normal headers.
-
-## v1.13.46 — August 2026
-
-### Transcode logs now reveal what Plex ACTUALLY does — the silent full re-encode is no longer invisible
-
-- **New**: the transcode route now reads the `CODECS=` attribute from the master playlist Plex returns and compares it with what was requested. When a bitstream copy (`tv=0`) was asked but Plex re-encoded the video anyway (HEVC/AV1 10-bit or HDR sources that Plex refuses to copy into HLS-TS, or PGS/ASS subtitles burned into the picture), a `plex-copy-refused` warning with the cause is written to Settings → Diagnostics logs and printed to the console — this is the exact "audio-only transcode that still lags" case.
-- **Changed**: the log entries now include the real codecs Plex produced (`plex-codecs`), the log panel colors warnings amber (vs green/red), and the master response carries the actual codecs in the `x-movviz-plex-codecs` header.
-
-## v1.13.45 — August 2026
-
-### The "audio-only transcode" option was actually re-encoding the video — the two modes were inverted
-
-- **Fixed, confirmed live**: in the beta player's transcode menu, "Transcoded (audio)" and "Transcoded (video)" were swapped. Picking "Transcoded (audio)" sent `tv=1&ta=0` to Plex — the video was re-encoded to H.264 (the expensive, lag-inducing part, with a bitrate cap) while the audio track was copied untouched; and "Transcoded (video)" did the opposite. Selecting the audio-only mode now sends `tv=0&ta=1`: the video is bitstream-copied and only the audio is re-encoded to AAC — the cheap, low-lag operation Plex itself performs for the same setting.
-- **Changed**: the fix covers both URL builders (initial start and the reload when switching audio/subtitle tracks), so the chosen mode now always matches what Plex actually does.
-
-## v1.13.44 — August 2026
-
-### Beta Player: a transient error on the first HLS segment no longer escalates straight to a real transcode, and "Test direct" is no longer a dead button
-
-- **Fixed**: a transient failure on the very first HLS segment (a brief 503 during Plex's own transcode spin-up, confirmed to happen even on Plex's own client) now gets one genuine retry before the player gives up on the lossless audio copy and falls back to a real re-encode — previously it escalated on the first hiccup.
-- **Fixed**: the manual "Test direct" button did nothing when direct play was already the active engine — it reassigned the `<video>` element's `src` to the exact URL it already had, which the browser correctly treats as a no-op (no reload, no request). The button now forces a real reload every time.
-
----
-
-## v1.13.40 — August 2026
-
-### Beta Player: direct play could serve a raw MKV whose audio track the browser never decoded
-
-- **Fixed**: confirmed live — a raw MKV piped straight from Plex to the browser could play video perfectly while `webkitAudioDecodedByteCount` stayed at zero for the entire playback, no error, just silence. When direct play falls back to the HLS leg for a track hls.js can genuinely demux from MPEG-TS (AAC/MP3/AC-3), the player now requests a lossless audio copy — the same repackaging Plex's own client gets, at no extra cost to the server — and verifies with real decoded audio energy, escalating to an actual re-encode only if that copy genuinely stays silent. The browser codec-support probe this used to depend on for that decision is gone; it was producing false negatives that forced unnecessary re-encodes. E-AC-3/DTS/TrueHD still go straight to a real transcode — hls.js's own MPEG-TS demuxer has no parser for those at all, a real library limit, not a guess.
-- **Fixed**: Movviz never sent `X-Plex-Session-Identifier` on any Plex request, unlike a native Plex client — added throughout the streaming/transcode request path.
-
----
-
 ## v1.13.39 — August 2026
 
 ### Added an opt-in toggle for YouTube trailer search — off by default explains why trailers stayed in English
 
 - **Added**: the YouTube search fallback for trailers (used whenever TMDb has none in the viewer's language) is a page scrape, not an official API — it depends on YouTube not rate-limiting the server's IP, and a single silent failure gets cached for 24h, so it was always off by default. That default is why trailers kept showing in English despite the mechanism existing and working correctly when tested directly. A new toggle in Réglages → Tableau de bord ("Bandes-annonces") turns it on — off by default still, but now an explicit, visible choice instead of a silent one.
-
-### Reverted v1.13.35's Dolby Digital+ direct-play change — it made silence worse, not better
-
-- **Reverted**: exempting AC-3/E-AC-3 from the silent-audio safety net assumed direct play always has real audio on these codecs — confirmed live that's not true on every machine. Chromium doesn't ship its own AC-3/E-AC-3 decoder; it depends on one being registered at the OS level, which isn't present on every Windows install (varies by machine, not by Movviz). Removing the safety net meant a machine without that decoder got total silence with no recovery, instead of the automatic fallback to a transcoded (audible) stream it had before. The safety net is back exactly as it was — a proper fix that tells a genuine decode failure apart from the net's own blind spot on these codecs needs more care than this reverted attempt gave it.
 
 ### Titles stuck "searching" gave the "Downloading" tile a nonzero count with nothing there to explain it
 
@@ -245,14 +57,6 @@ All notable changes to Movviz, grouped by development milestone.
 ### Two unrelated title-page buttons shared the exact same icon
 
 - **Fixed**: "manage versions" and "view saga/collection" both used the same stack icon, confusing on a title that has both. The collection link now uses a visually distinct icon.
-
----
-
-## v1.13.35 — August 2026
-
-### Beta Player: Dolby Digital+ direct play lost its sound after a recent update
-
-- **Fixed**: the silent-audio safety net (which watches real decoded audio energy for a few seconds after direct play starts, and falls back to a transcode if it stays silent) taps the video element through a Web Audio graph — but AC-3/E-AC-3 (Dolby Digital/Digital+) is decoded outside the render engine, so that graph can never actually observe this audio. The net always misfired on these two codecs, guaranteeing a forced audio transcode even though direct play had real sound the whole time. A recent release unified the manual "direct play" retry button onto the same code path as the automatic first attempt, which is what made this previously-rare edge case hit consistently. AC-3/E-AC-3 tracks are now exempt from this safety net entirely — direct play stays direct, with real audio, exactly like it used to.
 
 ---
 
@@ -295,7 +99,6 @@ All notable changes to Movviz, grouped by development milestone.
 - **Fixed**: on every Plex sync, an already-correct, working file path for a movie or episode could be overwritten by whatever path Plex itself reports for that file. When Plex and Movviz run in separate containers with different volume mounts for the same physical media, Plex's reported path doesn't exist from Movviz's own filesystem view — so a perfectly good, working path silently turned into a broken one, flooding "Réparer les chemins" with false positives for titles that were never actually broken. Movviz now learns the correspondence between Plex's path layout and its own automatically — by comparing, for a title it already tracks correctly, its own verified working path against what Plex reports for that exact same title — and translates future Plex reports through that learned mapping instead of trusting them blindly. No settings screen, no manual configuration: it deduces the mapping itself from data it already knows for certain. A path is only ever written if it's independently verified to exist on disk first — a wrong or stale mapping can at worst produce a false "missing" flag (recoverable by hand), never a silently lost reference to a real file.
 
 ---
-
 ## v1.13.30 — August 2026
 
 ### "Réparer les chemins" could suggest hundreds of completely unrelated files as candidates

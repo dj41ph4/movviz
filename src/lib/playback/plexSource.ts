@@ -26,6 +26,10 @@ export interface PlexPartRef {
   container: string | null;
   videoCodec: string | null;
   audioStreams: PlexAudioStreamRef[];
+  /** ID numérique du Part — nécessaire pour /library/parts/{id}/indexes/sd/{ms} (vignettes BIF de scrub). */
+  partId: number | null;
+  /** Base Plex (`http(s)://host:port`) — pour construire d'autres endpoints (BIF, chapitres) sans re-résoudre la config. */
+  base: string;
 }
 
 export async function resolvePlexPartUrl(
@@ -75,6 +79,8 @@ export async function resolvePlexPartUrl(
       container: media?.container ?? null,
       videoCodec: media?.videoCodec ?? null,
       audioStreams,
+      partId: typeof part.id === "number" ? part.id : null,
+      base,
     };
   } catch (e) {
     console.error("[plexSource] resolve failed", ratingKey, e);
