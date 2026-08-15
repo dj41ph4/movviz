@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import useSWR from "swr";
+import useSWR, { mutate as mutateAll } from "swr";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { toast } from "@/components/ui/Toast";
-import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink, Sparkles, RotateCcw } from "lucide-react";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { RefreshCcw, Download, Loader2, CheckCircle2, ExternalLink, Sparkles, RotateCcw, Trash2 } from "lucide-react";
 import { useVersion } from "@/lib/version/VersionContext";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
 
@@ -29,9 +31,11 @@ function fetcher(url: string) {
 export function AboutPanel() {
   const t = useT();
   const version = useVersion();
+  const router = useRouter();
   const { data, mutate, isLoading } = useSWR<UpdateCheck>("/api/system/update", fetcher);
   const [checking, setChecking] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const autoUpdate = useAutoUpdate();
 
   const checkNow = async () => {
@@ -55,6 +59,27 @@ export function AboutPanel() {
       toast("error", t("update.failed", { error: "network" }));
     } finally {
       setInstalling(false);
+    }
+  };
+
+  const factoryReset = async () => {
+    if (!(await confirmDialog(t("settings.factoryResetConfirm"), { tone: "danger", confirmLabel: t("settings.factoryResetConfirmLabel") }))) return;
+    setResetting(true);
+    try {
+      const res = await fetch("/api/system/reset", { method: "POST" });
+      if (!res.ok) {
+        toast("error", t("settings.factoryResetFailed"));
+        return;
+      }
+      // Même correction que le logout : purge du SWR cache partagé avant la
+      // navigation, sinon AppShell garde le user en cache 30 s (deduping).
+      await mutateAll("/api/auth/me");
+      router.push("/setup");
+      router.refresh();
+    } catch {
+      toast("error", t("settings.factoryResetFailed"));
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -118,6 +143,21 @@ export function AboutPanel() {
             <Sparkles className="h-4 w-4" />
             {t("settings.smartConfigSmart")}
           </Link>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-down/25 bg-down/5 p-4">
+          <h4 className="flex items-center gap-1.5 text-sm font-bold text-down">
+            <Trash2 className="h-4 w-4" /> {t("settings.factoryReset")}
+          </h4>
+          <p className="mt-1 mb-4 text-sm text-ink-dim">{t("settings.factoryResetHint")}</p>
+          <button
+            onClick={factoryReset}
+            disabled={resetting}
+            className="flex h-10 items-center gap-2 rounded-xl border border-down/30 px-4 text-sm font-bold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
+          >
+            {resetting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            {resetting ? t("settings.factoryResetInProgress") : t("settings.factoryReset")}
+          </button>
         </div>
       </div>
 

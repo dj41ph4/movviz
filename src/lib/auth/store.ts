@@ -6,7 +6,7 @@ import type { User } from "./types";
 import { getRawSigningKey } from "./signing";
 import { eventBus } from "@/lib/events/EventBus";
 
-const CONFIG_DIR =
+export const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
   process.env.MOVVIZ_DATA_DIR ??
   path.join(process.cwd(), ".movviz-data");

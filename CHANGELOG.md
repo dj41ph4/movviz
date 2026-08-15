@@ -4,6 +4,24 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.86 — August 2026
+
+### Priorité au clic : désormais garantie côté client
+
+- **Cause** : le marquage d'activité au re-rendu du layout serveur ne couvrait pas les navigations client — l'App Router ne re-rend pas les layouts à chaque navigation (ils sortent du cache routeur). Un clic de lien restait donc invisible de l'arrière-plan, qui ne cédait pas la main pendant le chargement de la page.
+- **Correctif** : un nouveau composant client (UserActivityPing) écoute chaque clic réel (pointerdown en phase capture, limité à ~1/s, keepalive) et envoie un ping POST à `/api/activity/ping` qui marque l'activité dans le processus serveur. L'arrière-plan cède maintenant dès le clic, quel que soit le chemin de navigation — clic, chargement de page et recherche restent prioritaires pendant les scans, bulk et téléchargements.
+
+### Ré-téléchargement : l'ancienne version est réellement remplacée
+
+- **Cause** : la lecture est résolue via Plex (ratingKey → version primaire du film). Après un ré-téléchargement, l'ancien fichier restait sur disque → Plex conservait deux versions du même film et servait toujours l'ANCIENNE (observé en direct : Alita en SBS, version non-SBS téléchargée, lecture encore en SBS).
+- **Correctif** : tout import de remplacement (sélection manuelle, mise à niveau qualité) supprime l'ancien fichier du disque dès qu'un fichier primaire existait — sauf choix explicite « Ajouter comme version supplémentaire ». Suppression gardée (jamais le fichier importé lui-même, jamais hors racine bibliothèque) ; Plex rescanne ensuite et ne voit plus qu'une seule version : la lecture sert la nouvelle.
+
+### Réinitialisation d'usine — plus de dossier config, retour au wizard
+
+- **Problème** : supprimer le dossier config à chaud ne servait à rien — le serveur en cours d'exécution régénère les fichiers depuis sa mémoire (cache globalThis, écritures coalescées 300 ms) et la session cookie reste valide ; l'app continuait de s'afficher normalement, sans wizard.
+- **Correctif 1 — détection automatique** : si plus aucun compte n'existe (dossier config supprimé), l'AppShell redirige automatiquement vers le wizard (`/setup`) au lieu d'afficher une app cassée.
+- **Correctif 2 — bouton « Réinitialisation complète »** dans Réglages → À propos (admin) : purge tous les caches mémoire du serveur, supprime le dossier config (suppression validée : chemin absolu + profondeur), efface le cookie de session, puis ouvre le wizard au rechargement.
+
 ## v1.13.85 — August 2026
 
 ### Correction : le plafond de 10 cartes ne concerne que la rangée tendance à classement

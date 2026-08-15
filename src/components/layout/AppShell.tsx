@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { SWRConfig, mutate } from "swr";
@@ -19,6 +19,7 @@ import { PageLoaderProvider } from "@/components/ui/PageLoader";
 import { I18nProvider, useT } from "@/i18n/provider";
 import { VersionProvider } from "@/lib/version/VersionContext";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { useSetupRequired } from "@/lib/auth/useSetupRequired";
 import { GpuProvider } from "@/lib/gpu/GpuProvider";
 import { PlayerProvider } from "@/lib/player/PlayerProvider";
 
@@ -82,9 +83,22 @@ function PendingApprovalScreen({ username }: { username: string }) {
 
 export function AppShell({ children, version }: { children: React.ReactNode; version: string }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isAuthPage = pathname === "/login" || pathname === "/setup";
   const currentUser = useCurrentUser();
+  const setupRequired = useSetupRequired();
   const isPending = !!currentUser && currentUser.status === "pending";
+
+  // Plus aucun compte valide (dossier config supprimé, reset d'usine) →
+  // l'app n'a pas à s'afficher « cassée » : rediriger vers le wizard quand
+  // aucun utilisateur n'existe encore, sinon vers la page de login.
+  useEffect(() => {
+    if (isAuthPage) return;
+    if (currentUser === undefined || setupRequired === undefined) return; // encore en chargement
+    if (currentUser !== null) return;
+    router.replace(setupRequired ? "/setup" : "/login");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, setupRequired, isAuthPage]);
 
   // Every hook must run on every render regardless of which branch below
   // ends up returned — currentUser can flip (unauthenticated → signed in,

@@ -81,7 +81,6 @@ const LARGE_FILE_WORKER_THRESHOLD_BYTES = 1_000_000;
  * opens, and re-stringifying a few KB costs nothing.
  */
 const PRETTY_MAX_BYTES = 256 * 1024;
-
 export function readJsonCached<T>(file: string, fallback: T): T {
   const hit = cache.get(file);
   if (hit?.pending) return hit.value as T;
@@ -102,6 +101,26 @@ export function readJsonCached<T>(file: string, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+/**
+ * Purge totale des caches mémoire (utilisée par la réinitialisation
+ * d'usine). Annule les écritures coalescées en attente et vide toutes les
+ * Maps ancrées sur globalThis — partagées entre les bundles Next.js, un
+ * seul appel suffit pour tout le processus. À appeler AVANT la suppression
+ * des fichiers, pour qu'aucune écriture en attente ne les recrée ensuite.
+ */
+export function resetAllCaches(): void {
+  for (const { timer } of pendingWrites.values()) clearTimeout(timer);
+  pendingWrites.clear();
+  cache.clear();
+  memoCache.clear();
+  memoCacheAsync.clear();
+  memoInFlightAsync.clear();
+  jsonBodyMemo.clear();
+  writeInFlight.clear();
+  pendingFileWrites.clear();
+  lastKnownSize.clear();
 }
 
 /**

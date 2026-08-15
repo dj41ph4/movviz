@@ -95,10 +95,20 @@ function refreshLoose(kind: "movie" | "tv") {
 }
 
 /**
- * Delete the old library file for a quality-upgrade "optimize" import. Only
- * ever deletes a file that (a) is not the just-imported file itself and (b)
- * lives under one of the engine's completed folders (the library root) —
- * never an arbitrary path derived from a substring check.
+ * Supprime l'ancien fichier bibliothèque lors d'un import de remplacement
+ * (ré-téléchargement manuel ou mise à niveau qualité). Seulement si :
+ * (a) un fichier primaire existait déjà, (b) l'utilisateur n'a PAS choisi
+ * « Ajouter comme version supplémentaire » (pendingMode === "add" garde
+ * explicitement les deux versions), (c) le fichier n'est pas le fichier
+ * fraîchement importé lui-même, (d) il vit sous une racine de bibliothèque
+ * du moteur — jamais un chemin arbitraire.
+ *
+ * Sans cette suppression, l'ancien fichier reste dans Plex comme une
+ * seconde version du même film : la lecture est résolue via Plex
+ * (ratingKey → /library/metadata → version primaire), qui continue de
+ * servir l'ANCIENNE version — le bug « le fichier ne change pas » après un
+ * ré-téléchargement (observé en direct : Alita SBS → version non-SBS
+ * téléchargée, lecture encore en SBS).
  */
 async function deleteOptimizedOldFile(oldPath: string, newFilePath: string): Promise<void> {
   const resolvedOld = path.resolve(oldPath);
@@ -252,9 +262,13 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       ? addVersion(movie, newFile, { versionSource: "indexer", reason: "Version supplémentaire" })
       : setPrimaryFile(movie, newFile, { versionSource: "indexer", reason: movie.file ? "Mise à niveau qualité" : "Acquisition initiale" });
 
-    // "optimize" — delete the old file from disk, keep only the new version.
-    // Guarded: never the just-imported file, never outside the library root.
-    if (pendingMode === "optimize" && movie.file) {
+    // Un ré-téléchargement REMPLACE l'ancienne version : dès qu'un fichier
+    // primaire existait déjà (et sans intention « version supplémentaire »),
+    // l'ancien fichier est supprimé du disque (gardes de sécurité ci-dessus)
+    // afin que Plex ne conserve qu'une seule version du film et que la
+    // lecture serve la nouvelle. Même sémantique que le mode "optimize",
+    // désormais appliquée à tout import de remplacement.
+    if (pendingMode !== "add" && movie.file) {
       await deleteOptimizedOldFile(movie.file.path, newFile.path);
     }
 

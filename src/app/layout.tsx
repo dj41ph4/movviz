@@ -5,6 +5,7 @@ import "./globals.css";
 import { AppShell } from "@/components/layout/AppShell";
 import { ScrollRestoration } from "@/components/layout/ScrollRestoration";
 import { ServiceWorkerRegistration } from "@/components/layout/ServiceWorkerRegistration";
+import { UserActivityPing } from "@/components/layout/UserActivityPing";
 import { PerfReporter } from "@/components/system/PerfReporter";
 import { getAppVersion } from "@/lib/updates/version";
 import { THEME_INIT_SCRIPT } from "@/lib/theme/theme";
@@ -75,6 +76,10 @@ export default async function RootLayout({
         <Script id="reduce-motion-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: REDUCE_MOTION_INIT_SCRIPT }} />
         <ScrollRestoration />
         <ServiceWorkerRegistration />
+        {/* Marqueur d'activité : chaque clic réel ping le serveur (voir
+            UserActivityPing) — l'arrière-plan cède la main au clic, même
+            quand la navigation client ne re-rend pas le layout serveur. */}
+        <UserActivityPing />
         <PerfReporter />
         <AppShell version={getAppVersion()}>{children}</AppShell>
       </body>
