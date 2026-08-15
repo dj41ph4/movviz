@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.78 — August 2026
+
+### Plein écran : les contrôles Movviz restent maîtres
+
+- **Corrigé** : le bouton plein écran passait le `<video>` seul en fullscreen natif → le navigateur imposait ses propres contrôles, qui affichaient le temps du **flux** (repart de 0, relatif au seek) au lieu de la position réelle du film, et dont le seek natif ne rechargeait pas la session serveur — le « temps du buffer au lieu du film, impossible d'avancer » signalé en plein écran. Le plein écran s'applique désormais au **conteneur du player** : nos contrôles (barre de progression avec `seekBase + currentTime`, menus, header, double-tap, gestes) restent affichés et fonctionnels, fond noir cinématique. iPhone conservé sur le plein écran natif du `<video>` (la Fullscreen API n'existe pas sur un conteneur iOS — limite navigateur, inévitable).
+
 ## v1.13.77 — August 2026
 
 ### Transcode vidéo optimisé NAS + crash serveur corrigé

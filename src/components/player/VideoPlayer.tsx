@@ -125,6 +125,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   betaRef.current = beta;
 
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const dashRef = useRef<MediaPlayerClass | null>(null);
   const dashHeightRef = useRef<number | null>(null);
@@ -1460,7 +1461,15 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   }, []);
 
   const toggleFullscreen = async () => {
-    const el = videoRef.current;
+    // Le plein écran s'applique au CONTENEUR du player, jamais au <video> :
+    // en fullscreen natif du video, le navigateur impose ses propres
+    // contrôles, qui affichent le temps du FLUX (repart de 0, relatif au
+    // seekBase) au lieu de la position réelle du film (seekBase +
+    // currentTime), et son seek natif ne recharge pas la session serveur —
+    // exactement « on voit le temps du buffer, on sait pas avancer ».
+    // Avec le conteneur en fullscreen, nos overlays (barre, menus, header,
+    // gestes double-tap) restent affichés et tout passe par notre pipeline.
+    const el = playerRef.current ?? videoRef.current;
     if (!el) return;
     if (document.fullscreenElement) {
       await document.exitFullscreen();
@@ -1469,7 +1478,9 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       await el.requestFullscreen();
       setFullscreen(true);
     } else {
-      (el as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen?.();
+      // iPhone : pas de Fullscreen API sur un <div> — seul le <video>
+      // supporte le plein écran natif (UI navigateur imposée, inévitable).
+      (videoRef.current as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen?.();
     }
   };
 
@@ -1950,7 +1961,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
 
   return (
     <div className={cn(!embedded && "fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm", embedded && "h-full w-full overscroll-none")}>
-      <div className={cn("relative flex flex-col overflow-hidden shadow-2xl", embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface", !embedded && fullscreen ? "h-full w-full rounded-none" : !embedded ? "rounded-2xl h-[80vh] w-[90vw] max-w-5xl" : undefined)}>
+      <div
+        ref={playerRef}
+        className={cn(
+          "relative flex flex-col overflow-hidden shadow-2xl fullscreen:rounded-none fullscreen:h-full fullscreen:w-full fullscreen:max-w-none fullscreen:bg-black",
+          embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface",
+          !embedded && fullscreen ? "h-full w-full rounded-none" : !embedded ? "rounded-2xl h-[80vh] w-[90vw] max-w-5xl" : undefined
+        )}
+      >
         <div
           aria-hidden={embedded && !controlsVisible && playing && !buffering ? true : undefined}
           className={cn(
