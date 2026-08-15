@@ -12,6 +12,9 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { Readable } from "node:stream";
+import { existsSync, unlinkSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import type { PlexPartRef } from "@/lib/playback/plexSource";
 
 export const MAX_CONCURRENT = 3;
@@ -87,6 +90,70 @@ interface RemuxSession {
   stream: ReadableStream<Uint8Array>;
   lastAccess: number;
   seq: number;
+  /**
+   * Sortie secondaire WebVTT : pendant que le process de remux lit le fichier
+   * pour produire le MP4 (pipe:1), il écrit AUSSI la piste de sous-titres
+   * texte pré-extraite en WebVTT dans ce fichier temp — au même rythme que
+   * la lecture du film. Zéro lecture disque/réseau supplémentaire : la route
+   * subtitle tail-e ce fichier et streame les cues au client quasi en temps
+   * réel (au lieu d'une extraction séparée qui doit relire tout le fichier,
+   * ~1 min d'attente sur NAS). Null si aucune piste texte convertible.
+   */
+  subtitleVttPath: string | null;
+  subtitleVttIndex: number | null;
+}
+
+/**
+ * Chemin du fichier WebVTT temp d'une session — nom dérivé de la clé de
+ * session, unique, restreint (base64url) pour un nettoyage sûr.
+ */
+function vttPathFor(key: string): string {
+  return path.join(os.tmpdir(), `movviz-sub-${Buffer.from(key).toString("base64url")}.vtt`);
+}
+
+/**
+ * Suppression sûre du fichier WebVTT temp : unlink ciblé uniquement, jamais
+ * de suppression récursive ; le chemin doit être strictement dans le
+ * répertoire temp du système et le nom strictement notre préfixe (garde
+ * anti-suppression, cf. AGENTS.md).
+ */
+function removeVttFile(p: string | null | undefined): void {
+  if (!p) return;
+  try {
+    const dir = path.dirname(p);
+    if (dir !== os.tmpdir()) return;
+    if (!/^movviz-sub-[A-Za-z0-9_-]+\.vtt$/.test(path.basename(p))) return;
+    if (existsSync(p)) unlinkSync(p);
+  } catch { /* déjà supprimé ou verrouillé — non bloquant */ }
+}
+
+/**
+ * Index de la piste de sous-titres texte à pré-extraire avec le remux :
+ * la piste sélectionnée par Plex si elle est convertible en texte, sinon la
+ * première piste texte. Null si aucune piste texte (pistes image uniquement).
+ */
+function pickSubtitleIndex(ref: PlexPartRef): number | null {
+  if (!ref.subtitleStreams || ref.subtitleStreams.length === 0) return null;
+  const selected = ref.subtitleStreams.find((s) => s.selected && s.toTextConvertible);
+  if (selected) return selected.index;
+  const first = ref.subtitleStreams.find((s) => s.toTextConvertible);
+  return first ? first.index : null;
+}
+
+/**
+ * Retrouve le fichier WebVTT live de la session de remux active pour ce
+ * ratingKey/userId dont la piste pré-extraite est `subtitleIndex` — la route
+ * subtitle tail-e ce fichier au lieu de lancer une extraction ffmpeg séparée.
+ */
+export function findRemuxSubtitleVtt(ratingKey: string, userId: string, subtitleIndex: number): string | null {
+  const prefix = `${ratingKey}:${userId}:`;
+  let best: RemuxSession | null = null;
+  for (const s of registry().values()) {
+    if (!s.key.startsWith(prefix)) continue;
+    if (s.proc.exitCode !== null || s.proc.killed) continue;
+    if (s.subtitleVttPath && s.subtitleVttIndex === subtitleIndex && (!best || s.seq > best.seq)) best = s;
+  }
+  return best?.subtitleVttPath ?? null;
 }
 
 type SessionRegistry = Map<string, RemuxSession>;
@@ -295,6 +362,19 @@ export function startRemux(
     "pipe:1"
   );
 
+  // Sortie secondaire : la piste de sous-titres texte pré-extraite en WebVTT.
+  // Le process démultiplexe déjà le fichier pour le MP4 — les paquets de la
+  // piste s passent en copie (coût ~nul) et sont écrits dans un fichier temp
+  // AU RYTHME DE LA LECTURE du film. La route subtitle tail-e ce fichier :
+  // les cues arrivent quasi en temps réel, sans extraction séparée (qui
+  // relisait tout le fichier depuis le début, ~1 min d'attente sur NAS).
+  const subIdx = pickSubtitleIndex(ref);
+  let vttPath: string | null = null;
+  if (subIdx !== null) {
+    vttPath = vttPathFor(key);
+    args.push("-map", `0:s:${subIdx}`, "-c:s", "webvtt", "-f", "webvtt", vttPath);
+  }
+
   const bin = ffmpegBin();
   console.log(
     `[remux] start ${key} — ${preset.maxWidth ? `x264 ${preset.maxWidth}px @ ${preset.maxrateK}k` : "video copy"} a=${audioCodec || "?"} (${copyAudioSafe ? "copy" : `aac ${bitrateK}k`}) seek=${seekSec}s`
@@ -316,6 +396,7 @@ export function startRemux(
     } else {
       console.log(`[remux] ${key} exit code=${code} signal=${signal}`);
     }
+    removeVttFile(vttPath);
     reg.delete(key);
   });
 
@@ -358,7 +439,7 @@ export function startRemux(
     }
   });
 
-  reg.set(key, { key, proc, stream, lastAccess: Date.now(), seq: (existing?.seq ?? 0) + 1 });
+  reg.set(key, { key, proc, stream, lastAccess: Date.now(), seq: (existing?.seq ?? 0) + 1, subtitleVttPath: vttPath, subtitleVttIndex: subIdx });
 
   return { proc, stream, key };
 }

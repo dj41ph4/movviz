@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.81 — August 2026
+
+### Sous-titres mode ffmpeg : quasi instantanés (0,5 s au lieu de ~1 min)
+
+- **Nouveau fast path** : le process de remux (qui lit déjà le fichier pour produire la vidéo) écrit **aussi** la piste de sous-titres texte en WebVTT dans un fichier temp, en sortie secondaire — au rythme de la lecture du film, sans aucune lecture disque/réseau supplémentaire. La route des sous-titres tail-e ce fichier et streame les cues au lecteur : **le premier cue arrive en ~0,4 s** (vérifié par reproduction locale), au lieu d'attendre qu'une extraction séparée relise tout le fichier depuis le début (~1 min sur NAS).
+- **Bascule automatique de session** : au seek, au changement de qualité ou d'audio, le remux redémarre avec un nouveau fichier temp — le stream de sous-titres bascule seul dessus (temps absolus identiques, aucun trou dans les cues), sans interruption pour le lecteur. En pause, l'extraction suit la vidéo (backpressure) et reprend seule.
+- **Fallback conservé** : piste texte non pré-extraite (autre langue que la piste par défaut) → extraction ffmpeg dédiée comme avant ; pistes image (PGS/VobSub) → repli transcode Plex (HLS) inchangé.
+- **Sécurité** : fichiers WebVTT temporaires supprimés à la mort de la session (unlink ciblé, nom restreint dans le répertoire temp système uniquement — jamais de suppression récursive).
+
 ## v1.13.80 — August 2026
 
 ### Sous-titres mode ffmpeg : 2e bug racine — le parseur ne comprenait pas le format de ffmpeg

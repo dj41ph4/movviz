@@ -421,10 +421,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     }
     const ac = new AbortController();
     subtitleAbortRef.current = ac;
-    // Track construit IMMÉDIATEMENT sur la base courante : les cues du
-    // stream WebVTT s'ajoutent au fil de l'arrivée des paquets ffmpeg au
-    // lieu d'attendre la fin de l'extraction complète du film (longue sur
-    // NAS — ffmpeg lit tout le fichier pour extraire la piste).
+    // Track neuf construit IMMÉDIATEMENT (la piste change toujours ici —
+    // purge des cues de l'ancienne piste). Le stream WebVTT est le fichier
+    // live écrit par le remux en sortie secondaire : les cues s'ajoutent au
+    // fil de l'arrivée des paquets (quelques secondes, pas 1 minute) et le
+    // tail bascule seul de session en session au seek/changement de qualité.
     const CueCtor = getCueCtor();
     const el = videoRef.current;
     if (el && CueCtor) {
