@@ -53,8 +53,13 @@ interface SubtitleCue {
   text: string;
 }
 
-/** Regex des lignes de timing WebVTT : `HH:MM:SS.mmm --> HH:MM:SS.mmm`. */
-const CUE_TIME_RE = /(\d{1,2}):(\d{2}):(\d{2})\.(\d{3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})\.(\d{3})/;
+/**
+ * Regex des lignes de timing WebVTT. ATTENTION : ffmpeg (muxer webvtt) écrit
+ * `MM:SS.mmm` quand les heures valent 0 et `HH:MM:SS.mmm` sinon — les heures
+ * sont donc optionnelles, sinon tous les cues d'un film de moins d'1h (et
+ * tous ceux avant la 1ère heure) ne sont jamais parsés.
+ */
+const CUE_TIME_RE = /(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\.(\d{3})\s*-->\s*(?:(\d{1,2}):)?(\d{1,2}):(\d{2})\.(\d{3})/;
 function toCueSeconds(h: number, m: number, s: number, ms: number): number {
   return h * 3600 + m * 60 + s + ms / 1000;
 }
@@ -464,7 +469,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
         const m = CUE_TIME_RE.exec(trimmed);
         if (m) {
           flushCue();
-          pending = { start: toCueSeconds(+m[1], +m[2], +m[3], +m[4]), end: toCueSeconds(+m[5], +m[6], +m[7], +m[8]), lines: [] };
+          pending = {
+            start: toCueSeconds(m[1] ? +m[1] : 0, +m[2], +m[3], +m[4]),
+            end: toCueSeconds(m[5] ? +m[5] : 0, +m[6], +m[7], +m[8]),
+            lines: [],
+          };
           return;
         }
         if (pending) pending.lines.push(line);

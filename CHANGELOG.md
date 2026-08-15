@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.80 — August 2026
+
+### Sous-titres mode ffmpeg : 2e bug racine — le parseur ne comprenait pas le format de ffmpeg
+
+- **Corrigé** : les sous-titres restaient invisibles même après le fix du double-annulation — cause confirmée par reproduction locale de l'extraction : le muxer WebVTT de ffmpeg écrit les lignes de timing en `MM:SS.mmm` quand les heures valent 0 (film de moins d'1h → **aucun** cue parsé ; film plus long → seulement les cues après la 1ère heure). Le parseur exigeait `HH:MM:SS.mmm` : les heures sont désormais optionnelles dans la regex, les deux formats sont acceptés et les temps restent corrects (0h36m12s → 2172s).
+- **Vérifié par reproduction** : fichier MKV de test avec 3 cues (1s, 5.5s, 1h02m) → ancienne regex : 1 cue sur 3 ; nouvelle regex : 3 sur 3, secondes exactes.
+
 ## v1.13.79 — August 2026
 
 ### Sous-titres du mode ffmpeg : bug racine corrigé (ils ne chargeaient jamais)
