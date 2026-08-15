@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.79 — August 2026
+
+### Sous-titres du mode ffmpeg : bug racine corrigé (ils ne chargeaient jamais)
+
+- **Corrigé** : en mode ffmpeg, les sous-titres textes (SRT/ASS/SSA/WebVTT) ne s'affichaient jamais — cause racine confirmée en direct : au chargement d'une piste, la fonction de nettoyage annulait le fetch de sous-titres qu'on venait tout juste de lancer (double `abort()` sur le même AbortController), et le gestionnaire d'erreur considérait cette annulation volontaire comme un cas normal → retour silencieux, aucun repli, aucun message. Les pistes sont désormais chargées sans être sabotées : extraction WebVTT locale (méthode Plex : sous-titres servis à part et rendus par le client, jamais incrustés dans la vidéo), rendu via la balise `<track>` native, temps réels du film (décalage `seekBase` recalculé à chaque seek).
+- **Amélioré** : le track est construit **immédiatement** au chargement de la piste — les sous-titres apparaissent au fil de l'arrivée des paquets d'extraction au lieu d'attendre la fin de lecture du fichier entier (long sur NAS, ffmpeg lit tout le film pour extraire la piste).
+- **Rappel** : pistes image (PGS/VobSub, non convertibles en texte) → bascule automatique sur le transcode Plex (HLS) comme avant.
+
 ## v1.13.78 — August 2026
 
 ### Plein écran : les contrôles Movviz restent maîtres

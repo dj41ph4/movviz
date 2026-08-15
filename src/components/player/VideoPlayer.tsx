@@ -403,9 +403,32 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     const engine = ffmpegEngineRef.current;
     if (!engine) return;
     // Annule une extraction précédente encore en vol (changement de piste).
+    // ATTENTION : ce reset ne doit PAS toucher le nouveau controller créé
+    // juste après — clearFfmpegSubtitle() abortait le fetch fraîchement
+    // lancé (silencieux : catch sur ac.signal.aborted), donc les
+    // sous-titres ne chargeaient JAMAIS en mode ffmpeg. Confirmé en direct.
     subtitleAbortRef.current?.abort();
+    subtitleAbortRef.current = null;
+    subtitleCuesRef.current = [];
+    if (subtitleTrackRef.current) {
+      subtitleTrackRef.current.track.mode = "disabled";
+      subtitleTrackRef.current = null;
+    }
     const ac = new AbortController();
     subtitleAbortRef.current = ac;
+    // Track construit IMMÉDIATEMENT sur la base courante : les cues du
+    // stream WebVTT s'ajoutent au fil de l'arrivée des paquets ffmpeg au
+    // lieu d'attendre la fin de l'extraction complète du film (longue sur
+    // NAS — ffmpeg lit tout le fichier pour extraire la piste).
+    const CueCtor = getCueCtor();
+    const el = videoRef.current;
+    if (el && CueCtor) {
+      try {
+        const track = el.addTextTrack("subtitles", "Sous-titres");
+        track.mode = "showing";
+        subtitleTrackRef.current = { track, base: engine.seekBase };
+      } catch { /* addTextTrack peut échouer — sous-titres ignorés */ }
+    }
     try {
       const res = await fetch(
         `/api/playback-ffmpeg/${ratingKey}/subtitle?subtitleStreamID=${encodeURIComponent(subtitleId)}`,
@@ -415,13 +438,9 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       const reader = res.body?.getReader();
       if (!reader) throw new Error("no body");
       const decoder = new TextDecoder();
-      const CueCtor = getCueCtor();
-      subtitleCuesRef.current = [];
-      clearFfmpegSubtitle();
       // Parse incrémental : ffmpeg streame le VTT au fil de sa lecture du
       // fichier — les cues arrivent par paquets, on les ajoute au track au
-      // fur et à mesure (temps absolus décalés de la base courante) au lieu
-      // d'attendre la fin de l'extraction complète du film.
+      // fur et à mesure (temps absolus décalés de la base courante).
       let pending: { start: number; end: number; lines: string[] } | null = null;
       const addCue = (start: number, end: number, text: string) => {
         subtitleCuesRef.current.push({ start, end, text });
