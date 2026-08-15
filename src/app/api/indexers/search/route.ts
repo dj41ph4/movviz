@@ -12,6 +12,58 @@ import type { MediaType } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 /**
+ * Recherche directe = gros consommateur (N indexeurs × fetch HTTP en
+ * parallèle). Sans limite, quelques recherches simultanées (plusieurs
+ * onglets, plusieurs utilisateurs, ou une recherche pendant une bulk)
+ * multiplient les sockets et ralentissent TOUT le serveur — y compris les
+ * clics et le chargement des pages. Sémaphore global : 2 recherches directes
+ * simultanées au plus ; la suivante attend un slot (≤ 15 s, ensuite elle
+ * passe quand même — priorité au résultat utilisateur plutôt qu'à un timeout).
+ */
+const MAX_MANUAL_SEARCHES = 2;
+const MANUAL_SEARCH_WAIT_MS = 15_000;
+
+interface ManualSearchGate {
+  active: number;
+  waiters: Array<() => void>;
+}
+
+const gate =
+  (globalThis as typeof globalThis & { __movvizManualSearchGate?: ManualSearchGate }).__movvizManualSearchGate ??= {
+    active: 0,
+    waiters: [],
+  };
+
+function acquireManualSearchSlot(): Promise<() => void> {
+  return new Promise((resolve) => {
+    let timer: NodeJS.Timeout | null = null;
+    const release = () => {
+      if (timer) clearTimeout(timer);
+      gate.active--;
+      const next = gate.waiters.shift();
+      if (next) next();
+    };
+    const tryAcquire = () => {
+      if (gate.active < MAX_MANUAL_SEARCHES) {
+        const idx = gate.waiters.indexOf(tryAcquire);
+        if (idx >= 0) gate.waiters.splice(idx, 1);
+        gate.active++;
+        resolve(release);
+        return;
+      }
+      timer = setTimeout(() => {
+        const idx = gate.waiters.indexOf(tryAcquire);
+        if (idx >= 0) gate.waiters.splice(idx, 1);
+        gate.active++;
+        resolve(release);
+      }, MANUAL_SEARCH_WAIT_MS);
+    };
+    gate.waiters.push(tryAcquire);
+    tryAcquire();
+  });
+}
+
+/**
  * Manual search — reads from the RSS cache first (instant), and for an
  * actual typed query (not the query-less "recent releases" browse) falls
  * back to a live direct search when the cache comes up empty. The cache only
@@ -90,14 +142,20 @@ export async function GET(req: NextRequest) {
       // searchMovie (t=movie&tmdbid=XXX with text fallback) — far more
       // accurate than a plain text query for titles with accents or special
       // chars like "Team Démolition".
-      const directResults = await Promise.all(
-        indexers.map((ix) =>
-          (category === "movie" && tmdbId
-            ? searchMovie(ix, { title: refTitle || qRaw, year, tmdbId, imdbId: imdbIdParam }, scope)
-            : searchIndexer(ix, searchQuery, scope, matchQuery)
-          ).catch(() => [] as IndexerRelease[])
-        )
-      );
+      const releaseSlot = await acquireManualSearchSlot();
+      let directResults: IndexerRelease[][] = [];
+      try {
+        directResults = await Promise.all(
+          indexers.map((ix) =>
+            (category === "movie" && tmdbId
+              ? searchMovie(ix, { title: refTitle || qRaw, year, tmdbId, imdbId: imdbIdParam }, scope)
+              : searchIndexer(ix, searchQuery, scope, matchQuery)
+            ).catch(() => [] as IndexerRelease[])
+          )
+        );
+      } finally {
+        releaseSlot();
+      }
       const newlyLimited = countNewlyRateLimited(indexers);
       const direct = directResults.flat().filter((r) => r.score >= 10);
       const seen = new Set<string>();

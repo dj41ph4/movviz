@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.83 — August 2026
+
+### Priorité absolue au clic et au chargement de page
+
+- **Navigation et chargement marquent désormais l'activité utilisateur** : le layout racine (re-rendu serveur à chaque navigation App Router) marque l'activité dès qu'une session est présente — avant, une navigation pure (sans appel API derrière) restait invisible du système de priorité, et l'arrière-plan ne cédait pas la main pendant le chargement de la page. Chaque clic de lien fait donc céder l'arrière-plan immédiatement (yieldToUser), qui reprend 4 s après la dernière interaction.
+- **Le sync Plex cède maintenant la main** : c'était le dernier gros consommateur sans cession — ses boucles (films, séries, sections) faisaient des centaines de fetch Plex/TMDb séquentiels sans jamais s'interrompre pendant que vous cliquiez. `yieldToUser("sync Plex films/séries")` est désormais appelé à chaque item et à chaque section ; une navigation le met en pause jusqu'à 30 s, puis il reprend.
+- **Recherches manuelles plafonnées** : la recherche en direct (fallback indexeurs) lançait `Promise.all` sur tous les indexeurs sans aucune limite — 3 onglets + un grab pendant une bulk = des dizaines de sockets ouverts, et tout le serveur (clics inclus) ralentissait. Un sémaphore global limite à **2 recherches directes simultanées** (la suivante attend un slot ≤ 15 s puis passe quand même) : le chargement de page reste fluide pendant les pics.
+- **Rappel** : le reste du mécanisme était déjà en place — lanes (`runBackground`), rate-limit indexeur avec réserve garantie à l'utilisateur (5 slots/hôte + 10 global), file de jobs avec watchdog 10 min et concurrency réduite pendant les téléchargements.
+
 ## v1.13.82 — August 2026
 
 ### Logs de diagnostic sous-titres (mode ffmpeg)

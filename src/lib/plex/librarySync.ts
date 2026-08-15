@@ -14,6 +14,7 @@ import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { learnPathMapping, applyLearnedPathMapping } from "./pathMappingStore";
+import { yieldToUser } from "@/lib/priority/userActivity";
 
 // A run does hundreds of sequential awaited TMDb/Plex calls, so two overlapping
 // triggers (manual + scheduled, or a double click) would otherwise interleave
@@ -60,6 +61,7 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
   const seenMovieTmdbIds = new Set<number>();
   const moviesSince = force ? undefined : state.moviesLastSyncedAt || undefined;
   for (const section of sections.filter((s) => s.type === "movie")) {
+    await yieldToUser("sync Plex films");
     const r = await syncMovieSection(cfg, adminToken, section, moviesSince, seenMovieTmdbIds);
     moviesAdded += r.added;
     moviesMatched += r.matched;
@@ -68,6 +70,7 @@ async function runSync(cfg: PlexServerConfig, adminToken: string, force: boolean
   const seenSeriesTmdbIds = new Set<number>();
   const seriesSince = force ? undefined : state.seriesLastSyncedAt || undefined;
   for (const section of sections.filter((s) => s.type === "show")) {
+    await yieldToUser("sync Plex séries");
     const r = await syncShowSection(cfg, adminToken, section, seriesSince, seenSeriesTmdbIds);
     seriesAdded += r.added;
     seriesMatched += r.matched;
@@ -260,6 +263,10 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
   let added = 0, matched = 0;
 
   for (const item of items) {
+    // Priorité absolue au clic/navigation : un sync Plex en cours (des
+    // centaines d'items, chaque item = fetch Plex/TMDb séquentiel) cède la
+    // main dès que l'utilisateur interagit, puis reprend 4 s après.
+    await yieldToUser("sync Plex films");
     if (item.tmdbId == null) continue;
     seenTmdbIds.add(item.tmdbId);
     const existing = getMovieByTmdbId(item.tmdbId);
@@ -353,6 +360,8 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
   let added = 0, matched = 0;
 
   for (const show of shows) {
+    // Priorité absolue au clic/navigation — même règle que les films.
+    await yieldToUser("sync Plex séries");
     if (show.tmdbId == null) continue;
     seenTmdbIds.add(show.tmdbId);
     const episodes = await getShowEpisodes(cfg, show.ratingKey, token);
