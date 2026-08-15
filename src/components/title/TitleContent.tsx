@@ -1201,7 +1201,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                       href={`/person/${c.id}`}
                       className="group w-24 shrink-0 text-center"
                     >
-                      <div className="mx-auto h-24 w-24 overflow-hidden rounded-full bg-surface transition-transform group-hover:scale-105">
+                      <div className="mx-auto h-24 w-24 overflow-hidden rounded-xl bg-surface transition-transform group-hover:scale-105">
                         {c.profilePath ? (
                           <img
                             src={`/tmdb/w185${c.profilePath}`}

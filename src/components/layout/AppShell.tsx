@@ -57,9 +57,10 @@ function PendingApprovalScreen({ username }: { username: string }) {
   const logout = async () => {
     await fetch("/api/auth/logout", { method: "POST" });
     // Same stale-SWR-cache fix as UserMenu's logout / the login page.
+    // No router.refresh() after push — see the comment in UserMenu.logout:
+    // a refresh right after push cancels the pending navigation.
     await mutate("/api/auth/me");
     router.push("/login");
-    router.refresh();
   };
 
   return (

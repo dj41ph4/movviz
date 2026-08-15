@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.88 — August 2026
+
+### Déconnexion : la redirection vers /login fonctionne enfin
+
+- **Cause** : dans `UserMenu.logout`, `router.refresh()` était appelé immédiatement après `router.push("/login")`. Un refresh émis juste après une navigation vers une autre page annule la navigation en cours (il re-synchronise la page courante) — la requête RSC de `/login` partait, répondait 200, mais l'URL ne changeait jamais. Reproduit en Edge headless : cookie de session bien supprimé, back sain, mais l'utilisateur restait sur le dashboard jusqu'au rechargement manuel.
+- **Correctif** : plus de `router.refresh()` après le push dans les 3 navigations de fin de session (`UserMenu.logout`, `PendingApprovalScreen.logout` et le factory reset d'`AboutPanel` — même pattern, même risque). La page de login revalide déjà `/api/auth/me` elle-même au montage, le refresh était inutile.
+- **Bonus** : `destroySession()` comparait le cookie complet (`raw.sig`) aux sessions stockées (`raw`) — la session n'était jamais réellement supprimée de `sessions.json` (elle moisissait jusqu'à l'expiration). Il extrait maintenant le `raw` comme `resolveSession()`.
+- Photos des acteurs en carrés arrondis (cohérent avec les posters, au lieu des ronds).
+
 ## v1.13.87 — August 2026
 
 ### « Rechercher et remplacer » : les remplacements de codec (x264 → x265/AV1) enfin suggérés

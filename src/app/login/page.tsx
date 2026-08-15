@@ -129,7 +129,6 @@ export default function LoginPage() {
           // Same stale-SWR-cache fix as the password login path above.
           await mutate("/api/auth/me");
           router.push(setupRequired ? "/setup" : "/");
-          router.refresh();
           return;
         }
         if (pollRes.status === 403) {

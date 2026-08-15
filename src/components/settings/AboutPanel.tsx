@@ -73,9 +73,11 @@ export function AboutPanel() {
       }
       // Même correction que le logout : purge du SWR cache partagé avant la
       // navigation, sinon AppShell garde le user en cache 30 s (deduping).
+      // Pas de router.refresh() après le push : un refresh émis juste après
+      // une navigation vers une autre page annule la navigation en cours
+      // (voir commentaire dans UserMenu.logout).
       await mutateAll("/api/auth/me");
       router.push("/setup");
-      router.refresh();
     } catch {
       toast("error", t("settings.factoryResetFailed"));
     } finally {

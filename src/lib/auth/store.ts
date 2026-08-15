@@ -141,7 +141,12 @@ export function resolveSession(cookie: string | undefined | null): User | null {
 
 export function destroySession(token: string | undefined | null) {
   if (!token) return;
-  saveSessions(loadSessions().filter((s) => s.token !== token));
+  // The cookie value is "raw.sig", but sessions are stored under the raw
+  // token only — compare like resolveSession() does, otherwise the session
+  // is never actually removed (it lingers until purgeExpiredSessions).
+  const dot = token.indexOf(".");
+  const raw = dot > 0 ? token.slice(0, dot) : token;
+  saveSessions(loadSessions().filter((s) => s.token !== raw));
 }
 
 /** Drop every session past its expiry — real maintenance, run by the scheduler. */

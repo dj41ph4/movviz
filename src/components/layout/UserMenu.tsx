@@ -32,9 +32,13 @@ export function UserMenu() {
     // Same stale-SWR-cache fix as the login page — otherwise the cached
     // "/api/auth/me" result keeps reporting the old user for up to 30s
     // (dedupingInterval) after the session cookie is already cleared.
+    // NOTE: no router.refresh() after push — a refresh issued right after
+    // push("/login") cancels the navigation (confirmed live: the RSC request
+    // for /login returned 200 but the URL never changed). The login page
+    // revalidates "/api/auth/me" itself on mount, so the refresh is useless
+    // here anyway.
     await mutate("/api/auth/me");
     router.push("/login");
-    router.refresh();
   };
 
   return (
