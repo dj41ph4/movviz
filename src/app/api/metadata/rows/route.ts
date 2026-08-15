@@ -96,7 +96,7 @@ export async function GET(req: NextRequest) {
         { key: "upcomingVod", results: dedupe([...upcomingResults, ...newVod.results]) },
         { key: "trending", results: trend.results.slice(0, 10), ranked: true },
         { key: "kids", results: kids.results },
-      ].filter((r) => r.results.length > 0);
+      ].filter((r) => r.results.length > 0).map(capRowAtTen);
       return NextResponse.json({ configured: true, layout, rows });
     }
 
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
       { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
       { key: "newSeriesRenewed", results: dedupe([...newSeries.results, ...renewed.results]) },
       { key: "trending", results: trend.results.slice(0, 10), ranked: true },
-    ].filter((r) => r.results.length > 0);
+    ].filter((r) => r.results.length > 0).map(capRowAtTen);
     return NextResponse.json({ configured: true, layout, rows });
   }
 
@@ -127,9 +127,20 @@ export async function GET(req: NextRequest) {
     { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
     { key: "trendingPopular", results: dedupe([...trend.results, ...popular.results]) },
     { key: type === "movie" ? "upcoming" : "onAir", results: upcomingResults },
-  ].filter((r) => r.results.length > 0);
+  ].filter((r) => r.results.length > 0).map(capRowAtTen);
 
   return NextResponse.json({ configured: true, layout, rows });
+}
+
+/**
+ * Toutes les rangées du Dashboard/accueil Découverte affichent au plus 10
+ * cartes (le bouton « Voir tout » ouvre la version paginée). Sans ce plafond,
+ * les rangées fusionnées (tendances ∪ populaires, recommandé ∪ mieux notés…)
+ * peuvent atteindre 20-40 cartes — observé en direct : la rangée « Tendances
+ * Movviz » affichait plus de 10 cartes et provoquait des problèmes d'affichage.
+ */
+function capRowAtTen(row: { key: string; results: unknown[] }): { key: string; results: unknown[] } {
+  return { ...row, results: row.results.slice(0, 10) };
 }
 
 function dedupe(list: MetaSearchResult[]): MetaSearchResult[] {

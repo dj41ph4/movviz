@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.84 — August 2026
+
+### Rangées « Tendances Movviz » : toujours 10 cartes maximum
+
+- **Cause** : la rangée fusionnée « tendances ∪ populaires » n'était pas plafonnée — contrairement à la rangée « Tendances » simple (10 max) — et le Dashboard affichait la liste complète (jusqu'à ~40 cartes) dès que la fusion dépassait 10. Résultat : des rangées surchargées avec cartes sans rang, chargement lourd et affichage problématique (observé notamment sur Mac ARM).
+- **Correctif** : toutes les rangées de `/api/metadata/rows` sont désormais plafonnées à 10 cartes (même règle que « Tendances »), et le Dashboard applique aussi la limite en ceinture de sécurité. Le bouton « Voir tout » ouvre toujours la version paginée complète.
+
 ## v1.13.83 — August 2026
 
 ### Priorité absolue au clic et au chargement de page
