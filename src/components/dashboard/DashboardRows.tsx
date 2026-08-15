@@ -50,7 +50,7 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
   );
 
   const trending = (rowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter(afterMinYear).slice(0, 10);
-  const recommended = (recData?.results ?? []).filter(afterMinYear).slice(0, 10);
+  const recommended = (recData?.results ?? []).filter(afterMinYear);
 
   const recentlyAdded = useMemo(
     () => [...movies].filter((m) => m.status === "available").sort((a, b) => b.addedAt - a.addedAt).slice(0, 20),

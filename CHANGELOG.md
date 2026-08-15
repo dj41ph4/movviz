@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.85 — August 2026
+
+### Correction : le plafond de 10 cartes ne concerne que la rangée tendance à classement
+
+- **Rappel du problème** : seule la rangée « Tendances Movviz » (celle avec les chiffres du top 10) affichait plus de 10 cartes — les autres rangées fonctionnaient parfaitement avec leur longueur d'origine.
+- **Correctif v1.13.84 ajusté** : la limite de 10 cartes est restreinte à la seule rangée tendance fusionnée (tendances ∪ populaires), à la source. Toutes les autres rangées — recommandé pour toi, nouveautés, kids, etc. — reprennent exactement leur longueur d'origine ; aucune régression d'affichage sur les rangées qui n'étaient pas concernées.
+
 ## v1.13.84 — August 2026
 
 ### Rangées « Tendances Movviz » : toujours 10 cartes maximum
