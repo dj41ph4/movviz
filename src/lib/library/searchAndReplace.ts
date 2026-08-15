@@ -49,7 +49,7 @@ export interface UpgradeCandidate {
 }
 
 /** Score of a file's video codec against the user's own configured `codecScores` (Settings → Qualité) — unknown/undetected codecs are treated as the neutral baseline (0), same as score() in torznab.ts. */
-function codecScore(videoCodec: string | null, rules: ReturnType<typeof loadReleaseRules>): number {
+export function codecScore(videoCodec: string | null, rules: ReturnType<typeof loadReleaseRules>): number {
   const codec = normalizeCodec(videoCodec);
   return codec ? rules.codecScores[codec] ?? 0 : 0;
 }
@@ -156,7 +156,8 @@ function bestLanguageMatch(
  *   target language, so this stays a handful of extra searches rather than
  *   one per monitored movie.
  * - Custom-format upgrade: a release scores higher than the owned file
- *   against the user's own configured favorite/forbidden terms. Cache-only.
+ *   against the user's own configured favorite/forbidden terms. Cache-first,
+ *   with a bounded live direct fallback when the cache misses.
  * - Codec upgrade: a release at the same or better resolution scores higher
  *   on the user's own configured `codecScores` (Settings → Qualité, e.g.
  *   x265/AV1 over x264) than the file currently owned. Neither
@@ -164,7 +165,8 @@ function bestLanguageMatch(
  *   above (regex terms, not codec) ever catch this — a library already at
  *   its resolution cutoff with only the default French-audio custom format
  *   configured would otherwise never surface anything to replace, even with
- *   codec preferences explicitly set. Cache-only, same as custom-format.
+ *   codec preferences explicitly set. Cache-first, with the same bounded live
+ *   direct fallback when the cache misses.
  */
 /** Language group mappings for languageSatisfies. */
 const LANGUAGE_GROUPS: Record<string, Set<string>> = {
@@ -203,6 +205,19 @@ function normLang(s: string): string {
  * panel is opened) instead of never being searched at all.
  */
 export const MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN = 25;
+
+/**
+ * Same per-run budget for the direct codec/format fallback in
+ * findUpgradeCandidates() (and the episode side in searchAndReplaceSeries.ts).
+ * The RSS cache only holds the ~50-150 most recent site-wide releases, so
+ * older catalog titles (hundreds of x264 movies) almost never appear in it —
+ * without a live fallback those would never surface a codec/format upgrade
+ * at all, while the "Remplacer" click (grabUpgradeCandidate) would find one.
+ * Bounded the same way as the language constant above: one run adds a bounded
+ * request burst, and the rest is picked up on the next run (the route also
+ * caches its result for 10 minutes).
+ */
+export const MAX_LIVE_CODEC_SEARCHES_PER_RUN = 25;
 
 /** True when `current` already satisfies `target` (e.g. VF satisfies MULTI·VF, ITA satisfies MULTI·ITA). */
 export function languageSatisfies(target: string, current: string | null | undefined): boolean {
@@ -251,6 +266,7 @@ export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
   const candidates: UpgradeCandidate[] = [];
   const cachedReleases = searchFromCache(MOVIE_CATEGORY_IDS);
   let liveSearchesUsed = 0;
+  let liveCodecSearchesUsed = 0;
   const index = getMediaIndex();
 
   for (const m of index.movies) {
@@ -312,16 +328,56 @@ export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
       ? safeMatches.find(({ parsed }) => rank(parsed.resolution) >= rank(rules.preferredResolution!))
       : undefined;
 
-    const formatUpgrade = safeMatches
+    let formatUpgrade = safeMatches
       .filter(({ release }) => applyCustomFormats(release.title) > m.formatScore)
       .sort((a, b) => applyCustomFormats(b.release.title) - applyCustomFormats(a.release.title) || b.release.score - a.release.score)[0];
 
     const currentCodecScore = codecScore(m.videoCodec, rules);
-    const codecUpgrade = !formatUpgrade
+    let codecUpgrade = !formatUpgrade
       ? safeMatches
           .filter(({ parsed }) => codecScore(parsed.videoCodec, rules) > currentCodecScore)
           .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0]
       : undefined;
+
+    // Live fallback for codec/format: the RSS cache holds only the ~50-150
+    // most recent site-wide releases, so older catalog titles (hundreds of
+    // x264 movies, for example) almost never show up in it. The cache-only
+    // check above then finds nothing while grabUpgradeCandidate() below WOULD
+    // find a candidate on a direct search — the panel would say "nothing to
+    // replace" for movies the "Remplacer" click can actually replace. Mirror
+    // the grab's fallback here, bounded to the same style of per-run budget
+    // as the language fallback above. Only reached for movies that could
+    // still gain from a search (codec score below the best configured one).
+    const bestPossibleCodecScore = Math.max(0, ...Object.values(rules.codecScores ?? {}));
+    if (
+      !languageUpgrade && !audioCodecUpgrade && !videoCodecUpgrade && !resolutionUpgrade &&
+      !formatUpgrade && !codecUpgrade && currentCodecScore < bestPossibleCodecScore &&
+      liveCodecSearchesUsed < MAX_LIVE_CODEC_SEARCHES_PER_RUN
+    ) {
+      const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
+      const indexers = withoutRateLimited(configuredIndexers);
+      if (indexers.length > 0) {
+        liveCodecSearchesUsed++;
+        recordSearchLog("info", "search_and_replace.codec_fallback_direct", `${m.title} — cache sans meilleur codec, recherche directe sur ${indexers.length} indexeur(s)`);
+        const directReleases: IndexerRelease[] = [];
+        const fullMovie = loadMovies().find((x) => x.id === m.movieId);
+        for (const ix of indexers) {
+          const results = await searchMovie(ix, { title: m.title, year: m.year, imdbId: fullMovie?.imdbId, tmdbId: fullMovie?.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
+          directReleases.push(...results);
+        }
+        const directMatches = computeSafeMatches(directReleases, { title: m.title, year: m.year }, m.resolution, rules, profile);
+        if (!formatUpgrade) {
+          formatUpgrade = directMatches
+            .filter(({ release }) => applyCustomFormats(release.title) > m.formatScore)
+            .sort((a, b) => applyCustomFormats(b.release.title) - applyCustomFormats(a.release.title) || b.release.score - a.release.score)[0];
+        }
+        if (!formatUpgrade && !codecUpgrade) {
+          codecUpgrade = directMatches
+            .filter(({ parsed }) => codecScore(parsed.videoCodec, rules) > currentCodecScore)
+            .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0];
+        }
+      }
+    }
 
     const best = languageUpgrade ?? audioCodecUpgrade ?? videoCodecUpgrade ?? resolutionUpgrade ?? formatUpgrade ?? codecUpgrade; if (best && !isMeaningfulUpgrade(best as never, { file: { size: m.size, resolution: m.resolution, videoCodec: m.videoCodec } } as never, !!languageUpgrade)) continue;
     if (!best) continue;

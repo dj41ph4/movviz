@@ -15,7 +15,7 @@ import { emitNotification } from "@/lib/notifications/store";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited } from "@/lib/indexers/rateLimit";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
-import { languageSatisfies, MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN, yieldToEventLoop } from "@/lib/library/searchAndReplace";
+import { languageSatisfies, MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN, MAX_LIVE_CODEC_SEARCHES_PER_RUN, yieldToEventLoop, codecScore } from "@/lib/library/searchAndReplace";
 import type { IndexerRelease } from "@/lib/indexers/types";
 
 /**
@@ -112,6 +112,7 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
   const candidates: EpisodeUpgradeCandidate[] = [];
   const cachedReleases = searchFromCache(TV_CATEGORY_IDS);
   let liveSearchesUsed = 0;
+  let liveCodecSearchesUsed = 0;
 
   for (const { series, seasonNumber, episodeNumber, file } of eligibleEpisodes(loadSeries())) {
     await yieldToEventLoop();
@@ -123,7 +124,12 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
     const wantsLanguageUpgrade = !!targetLanguage && !languageSatisfies(targetLanguage, currentLanguage);
     const wantsAudioUpgrade = !!rules.preferredAudioCodec && (file.audioCodec ?? "").toLowerCase() !== rules.preferredAudioCodec.toLowerCase();
     const wantsVideoUpgrade = !!rules.preferredVideoCodec && normalizeCodec(file.videoCodec) !== normalizeCodec(rules.preferredVideoCodec);
-    if (!wantsLanguageUpgrade && !wantsAudioUpgrade && !wantsVideoUpgrade) continue;
+    // Codec-score upgrades (x264 → x265/AV1, same `codecScores` as the movie
+    // side) need no preferredVideoCodec — the configured scores alone decide.
+    const currentCodecScore = codecScore(file.videoCodec ?? parseRelease(currentBasename).videoCodec, rules);
+    const bestPossibleCodecScore = Math.max(0, ...Object.values(rules.codecScores ?? {}));
+    const wantsCodecScoreUpgrade = currentCodecScore < bestPossibleCodecScore;
+    if (!wantsLanguageUpgrade && !wantsAudioUpgrade && !wantsVideoUpgrade && !wantsCodecScoreUpgrade) continue;
 
     const profile = DEFAULT_QUALITY_PROFILES.find((p) => p.id === series.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
 
@@ -180,13 +186,53 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
       }
     }
 
+    // Codec-score upgrade — same `codecScores` from Settings → Qualité as the
+    // movie side (x264 → x265/AV1), no preferredVideoCodec needed.
+    if (!best && wantsCodecScoreUpgrade) {
+      const candidate = safeMatches
+        .filter(({ parsed }) => codecScore(parsed.videoCodec, rules) > currentCodecScore)
+        .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0];
+      if (candidate && isMeaningfulEpisodeUpgrade(candidate.release.size, file.size)) {
+        best = candidate;
+        upgradeKind = "videoCodecUpgrade";
+      }
+    }
+
+    // Live fallback for codec score — the RSS cache holds only the ~50-150
+    // most recent site-wide releases, so episodes of older catalog series
+    // almost never appear in it; the direct search below mirrors the grab
+    // side so the panel doesn't stay empty while "Remplacer" would find one.
+    // Bounded the same way as the language fallback above.
+    if (!best && wantsCodecScoreUpgrade && liveCodecSearchesUsed < MAX_LIVE_CODEC_SEARCHES_PER_RUN) {
+      const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
+      const indexers = withoutRateLimited(configuredIndexers);
+      if (indexers.length > 0) {
+        liveCodecSearchesUsed++;
+        const label = `${series.title} S${String(seasonNumber).padStart(2, "0")}E${String(episodeNumber).padStart(2, "0")}`;
+        recordSearchLog("info", "search_and_replace_series.codec_fallback_direct", `${label} — cache sans meilleur codec, recherche directe sur ${indexers.length} indexeur(s)`);
+        const directReleases: IndexerRelease[] = [];
+        for (const ix of indexers) {
+          const results = await searchTv(ix, { title: series.title, season: seasonNumber, episode: episodeNumber }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
+          directReleases.push(...results);
+        }
+        const directMatches = computeSafeEpisodeMatches(directReleases, series, seasonNumber, episodeNumber, file.resolution, rules, profile);
+        const candidate = directMatches
+          .filter(({ parsed }) => codecScore(parsed.videoCodec, rules) > currentCodecScore)
+          .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0];
+        if (candidate && isMeaningfulEpisodeUpgrade(candidate.release.size, file.size)) {
+          best = candidate;
+          upgradeKind = "videoCodecUpgrade";
+        }
+      }
+    }
+
     if (!best || !upgradeKind) continue;
 
     const reasonParams: Record<string, string> = upgradeKind === "languageUpgrade"
       ? { from: currentLanguage ?? "?", to: targetLanguage! }
       : upgradeKind === "audioCodecUpgrade"
         ? { from: file.audioCodec ?? "?", to: rules.preferredAudioCodec! }
-        : { from: file.videoCodec ?? "?", to: rules.preferredVideoCodec! }; 
+        : { from: file.videoCodec ?? "?", to: best.parsed.videoCodec ?? "?" }; 
 
     candidates.push({
       seriesId: series.id,

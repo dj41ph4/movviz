@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.87 — August 2026
+
+### « Rechercher et remplacer » : les remplacements de codec (x264 → x265/AV1) enfin suggérés
+
+- **Cause** : les upgrades de codec et de formats personnalisés n'étaient cherchées que dans le cache RSS (~50-150 releases les plus récentes) — seule l'upgrade de langue déclenchait une recherche directe chez les indexeurs. Avec un cache ne couvrant presque jamais le catalogue (710 films en x264 alors que x265/AV1 sont préférés, constaté sur les données réelles), le panneau affichait « Aucun remplacement suggéré » alors que des versions meilleures existent — et que le bouton « Remplacer » en trouvait une.
+- **Correctif** : les scans films et épisodes répliquent maintenant le fallback du grab — si le cache ne contient aucun candidat et que le film/épisode peut gagner au score de codec (score inférieur au meilleur codec configuré), une recherche directe bornée (25 par run, même budget que le fallback langue) est lancée sur les indexeurs non rate-limités. Les épisodes gagnent aussi les upgrades par score de codec (jusqu'ici réservées aux films), sans nécessiter `preferredVideoCodec`.
+- Le bouton « Remplacer » est inchangé : il refait sa propre recherche directe, comme avant.
+
 ## v1.13.86 — August 2026
 
 ### Priorité au clic : désormais garantie côté client
