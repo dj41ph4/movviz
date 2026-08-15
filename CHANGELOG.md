@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.82 — August 2026
+
+### Logs de diagnostic sous-titres (mode ffmpeg)
+
+- Le démarrage du remux logue la sortie WebVTT ajoutée (`[remux] sortie WebVTT piste=0:s:N`) ; la route des sous-titres logue le chemin emprunté à chaque demande (`[subtitle] FAST PATH fichier=...` vs `[subtitle] pas de session live — extraction dédiée`). Permet de trancher immédiatement dans `docker logs` si le lecteur instantané est utilisé.
+
 ## v1.13.81 — August 2026
 
 ### Sous-titres mode ffmpeg : quasi instantanés (0,5 s au lieu de ~1 min)

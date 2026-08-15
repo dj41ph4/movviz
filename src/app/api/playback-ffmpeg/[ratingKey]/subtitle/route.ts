@@ -70,8 +70,10 @@ export async function GET(req: NextRequest, context: Ctx) {
   // sur l'extraction ffmpeg dédiée (plus lente, mais complète).
   const liveVtt = findRemuxSubtitleVtt(ratingKey, user.id, match.index);
   if (liveVtt) {
+    console.log(`[subtitle] ${ratingKey} piste=${match.id} index=${match.index} FAST PATH fichier=${liveVtt}`);
     return streamLiveVttFile(req, ratingKey, user.id, match.index, liveVtt);
   }
+  console.log(`[subtitle] ${ratingKey} piste=${match.id} index=${match.index} pas de session live — extraction dédiée`);
 
   const args = [
     "-v", "error",

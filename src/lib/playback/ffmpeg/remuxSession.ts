@@ -373,6 +373,9 @@ export function startRemux(
   if (subIdx !== null) {
     vttPath = vttPathFor(key);
     args.push("-map", `0:s:${subIdx}`, "-c:s", "webvtt", "-f", "webvtt", vttPath);
+    console.log(`[remux] ${key} sortie WebVTT piste=0:s:${subIdx} fichier=${vttPath}`);
+  } else {
+    console.log(`[remux] ${key} pas de piste sous-titres texte — pas de sortie WebVTT`);
   }
 
   const bin = ffmpegBin();
