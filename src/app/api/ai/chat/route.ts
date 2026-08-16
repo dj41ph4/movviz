@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
+import { buildFeedbackContext, buildFactsContext, rememberFact } from "@/lib/ai/tasteProfile";
+import { scoreCandidates } from "@/lib/ai/recommendationScore";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { recordAiCall } from "@/lib/ai/debugLog";
 import type { AiActionOutcome, AiChatMessage, AiAddItem } from "@/lib/ai/types";
@@ -64,7 +66,9 @@ export async function POST(req: NextRequest) {
   const userContext = buildUserContext(user.id);
   const memoryContext = buildMemoryContext(user.id);
   const usageContext = formatUsageProfile(buildUsageProfile(user.id));
-  let system = buildSystemPrompt(userContext, memoryContext, usageContext);
+  const feedbackContext = buildFeedbackContext(user.id);
+  const factsContext = buildFactsContext(user.id);
+  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext);
   if (pageContext) {
     system += `\n\nRÉFÉRENCE COURANTE — l'utilisateur regarde actuellement ${pageContext.type === "movie" ? "le film" : "la série"} « ${pageContext.title} » (${pageContext.tmdbId}). Quand il dit « dans le même genre », « quelque chose comme ça », « moins sérieux »…, c'est CE titre qui est la référence.`;
   }
@@ -90,7 +94,9 @@ export async function POST(req: NextRequest) {
   console.log(`[ai] chat ok user=${user.username} provider=${providerName} model=${usedModel} latency=${latency}ms`);
 
   const intent = parseIntent(text);
-  const assistant: AiChatMessage = { role: "assistant", content: intent.rawText || "…" };
+  const { facts, cleaned } = extractFacts(intent.rawText);
+  for (const fact of facts) rememberFact(user.id, fact);
+  const assistant: AiChatMessage = { role: "assistant", content: cleaned || "…" };
 
   let itemCount: number | undefined;
   if (intent.action === "add_media" && intent.items.length) {
@@ -101,11 +107,16 @@ export async function POST(req: NextRequest) {
     itemCount = outcomes.length;
     console.log(`[ai] action=add_media items=${outcomes.length} user=${user.username}`);
   } else if (intent.action === "recommend" && intent.items.length) {
-    const recos = await recommendMedia(intent.items);
-    const recommendations = recos.map((r, i) => ({ ...r, reason: intent.items[i]?.reason }));
+    const pairs = await recommendMedia(intent.items);
+    // The LLM is prompted to over-generate candidates (buildSystemPrompt) —
+    // Movviz does the actual ranking/filtering here (AI.MD §2.D/§2.E), not
+    // the model.
+    const reasons = new Map(pairs.map((p) => [`${p.item.type}:${p.item.tmdbId}`, p.source.reason]));
+    const recommendations = scoreCandidates(user.id, pairs.map((p) => p.item), reasons)
+      .map((r) => ({ ...r, reason: reasons.get(`${r.type}:${r.tmdbId}`) }));
     assistant.recommendations = recommendations;
     itemCount = recommendations.length;
-    console.log(`[ai] action=recommend items=${recommendations.length} user=${user.username}`);
+    console.log(`[ai] action=recommend candidates=${pairs.length} shown=${recommendations.length} user=${user.username}`);
   }
   recordAiCall({
     username: user.username, kind: intent.action ?? "chat", provider: providerName,

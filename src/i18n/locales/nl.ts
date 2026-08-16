@@ -487,7 +487,6 @@ export const nl: Dictionary = {
     seeAll: "Alles bekijken",
     genres: "Genres",
     studios: "Studio's",
-    networks: "Netwerken",
     watchProviders: "Platformen",
     tmdbSetupTitle: "TMDb koppelen",
     tmdbSetupHint: "Gratis API-sleutel van themoviedb.org → Instellingen → API. Nodig om titels te ontdekken en toe te voegen.",
@@ -2002,6 +2001,8 @@ export const nl: Dictionary = {
     addFailed: "Toevoegen mislukt",
     inLibrary: "In bibliotheek",
     add: "Toevoegen",
+    feedbackLike: "Goede aanbeveling",
+    feedbackDislike: "Slechte aanbeveling",
     empty: "Vraag me om films toe te voegen, iets in dezelfde sfeer aan te bevelen, of stel een vraag over je bibliotheek.",
     status: {
       added: "Toegevoegd",

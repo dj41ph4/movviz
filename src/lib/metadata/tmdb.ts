@@ -13,6 +13,7 @@ import { getCache } from "@/lib/cache/registry";
 import { omdbConfigured, getOmdbRatings } from "./omdb";
 import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
 import { translateStatus } from "./statusTranslations";
+import { STREAMING_PLATFORMS } from "./curated";
 
 /**
  * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
@@ -492,8 +493,7 @@ export interface DiscoverFilters {
   year?: string;
   sort?: string; // TMDb sort_by value, e.g. "popularity.desc"
   company?: string; // with_companies — studio filter (movies only, TMDb has no movie equivalent for TV networks)
-  network?: string; // with_networks — broadcaster filter (series only)
-  /** with_watch_providers — streaming service filter (Netflix, Prime Video...). Unlike company/network, the SAME provider id works for both movies and series, so this is the one filter that survives a Films/Séries tab switch. */
+  /** with_watch_providers — streaming service filter (Netflix, Prime Video...). Unlike company, the SAME provider id works for both movies and series, so this is the one filter that survives a Films/Séries tab switch. */
   watchProvider?: string;
   originCountries?: string[]; // with_origin_country — user's Discover continent preference
 }
@@ -519,7 +519,6 @@ export async function discoverByFilters(
   if (filters.genre) params.with_genres = filters.genre;
   if (filters.year) params[type === "movie" ? "primary_release_year" : "first_air_date_year"] = filters.year;
   if (filters.company) params.with_companies = filters.company;
-  if (filters.network && type === "series") params.with_networks = filters.network;
   if (filters.watchProvider) {
     params.with_watch_providers = filters.watchProvider;
     params.watch_region = "FR";
@@ -597,14 +596,9 @@ export async function getPerson(personId: number): Promise<MetaPerson | null> {
   };
 }
 
-/** Logo art for a studio (company) or broadcaster (network) tile — best-effort, null if TMDb has none. */
+/** Logo art for a studio (company) tile — best-effort, null if TMDb has none. */
 export async function getCompanyLogo(id: number): Promise<string | null> {
   const data = await tmdbGet<{ logo_path?: string | null }>(`/company/${id}`);
-  return data?.logo_path ?? null;
-}
-
-export async function getNetworkLogo(id: number): Promise<string | null> {
-  const data = await tmdbGet<{ logo_path?: string | null }>(`/network/${id}`);
   return data?.logo_path ?? null;
 }
 
@@ -898,25 +892,22 @@ interface RawWatchProviderListEntry {
   logo_path: string | null;
 }
 
-/** Popular streaming services worth their own Discover tile — matched by
- *  name substring rather than a hardcoded TMDb provider id, so a slightly
- *  different display name ("Disney Plus" vs "Disney+") never silently drops
- *  a tile. */
-const CURATED_WATCH_PROVIDER_PATTERNS = ["Netflix", "Prime Video", "Disney Plus", "Apple TV Plus", "Max", "Hulu", "Canal+", "OCS"];
-
-/** Curated watch-provider tiles for the Discover "Plateformes" row — unlike
- *  company/network ids, a TMDb watch-provider id is the SAME for movies and
- *  series, so this list (fetched once from the movie catalog) is valid for
- *  filtering either type. */
+/** Curated watch-provider tiles for the Discover "Plateformes" row — looked
+ *  up by the fixed TMDb provider ids in STREAMING_PLATFORMS (metadata/
+ *  curated.ts), not by name matching (see that file's comment for why: a
+ *  bare substring like "Max" or "OCS" against TMDb's live FR list matches
+ *  obscure Amazon-channel add-ons, not the real service). Unlike company/
+ *  network ids, a watch-provider id is the SAME for movies and series, so
+ *  this list (fetched once from the movie catalog) is valid for filtering
+ *  either type. Order follows STREAMING_PLATFORMS, not the API response. */
 export async function getWatchProviderTiles(): Promise<{ id: number; name: string; logoPath: string | null }[]> {
   const data = await tmdbGet<{ results: RawWatchProviderListEntry[] }>("/watch/providers/movie", { watch_region: "FR" });
   const results = data?.results ?? [];
-  const tiles: { id: number; name: string; logoPath: string | null }[] = [];
-  for (const pattern of CURATED_WATCH_PROVIDER_PATTERNS) {
-    const match = results.find((p) => p.provider_name.toLowerCase().includes(pattern.toLowerCase()));
-    if (match) tiles.push({ id: match.provider_id, name: match.provider_name, logoPath: match.logo_path ?? null });
-  }
-  return tiles;
+  const byId = new Map(results.map((p) => [p.provider_id, p]));
+  return STREAMING_PLATFORMS.map((platform) => {
+    const match = byId.get(platform.id);
+    return { id: platform.id, name: platform.name, logoPath: match?.logo_path ?? null };
+  });
 }
 
 interface RawCollection {

@@ -9,6 +9,7 @@ import { searchAndGrabSeries } from "@/lib/library/autoGrabSeries";
 import { rememberAiEntry } from "@/lib/ai/memory";
 import type { User } from "@/lib/auth/types";
 import type { AiActionOutcome, AiAddItem } from "./types";
+import type { AiRecommendIntentItem } from "./intentParser";
 
 export interface ResolvedAiItem {
   title: string;
@@ -110,10 +111,19 @@ export async function addMedia(user: User, items: AiAddItem[]): Promise<AiAction
 }
 
 /** Pure recommendation resolution — the AI suggests titles, TMDb resolves
- *  them, the chat renders them as cards the user can add/download. */
-export async function recommendMedia(items: AiAddItem[]): Promise<ResolvedAiItem[]> {
+ *  them, the chat renders them as cards the user can add/download. Pairs
+ *  each resolved item with its original AiAddItem (carries `reason`)
+ *  instead of returning a plain filtered array: a candidate TMDb fails to
+ *  resolve shifts every later index, so reconstructing the reason by
+ *  position after the fact silently mismatches it to the wrong title. */
+export async function recommendMedia(items: AiRecommendIntentItem[]): Promise<{ item: ResolvedAiItem; source: AiRecommendIntentItem }[]> {
   const resolved = await mapWithConcurrency(items, 4, resolveAiItem);
-  return resolved.filter((r): r is ResolvedAiItem => !!r);
+  const pairs: { item: ResolvedAiItem; source: AiRecommendIntentItem }[] = [];
+  for (let i = 0; i < items.length; i++) {
+    const r = resolved[i];
+    if (r) pairs.push({ item: r, source: items[i] });
+  }
+  return pairs;
 }
 
 /** Relative French time ("aujourd'hui", "hier", "il y a X jours") for the
@@ -161,7 +171,7 @@ export function buildUserContext(userId: string): string {
   return parts.join(" ; ");
 }
 
-export function buildSystemPrompt(userContext: string, memoryContext = "", usageContext = ""): string {
+export function buildSystemPrompt(userContext: string, memoryContext = "", usageContext = "", feedbackContext = "", factsContext = ""): string {
   const context = userContext
     ? `\n\nCONTEXTE UTILISATEUR (strictement personnel) — ${userContext}. Utilise-le pour affiner tes recommandations ; ne propose jamais à nouveau quelque chose que l'utilisateur a déjà regardé ou déjà demandé (sauf s'il le redemande explicitement).`
     : "";
@@ -179,11 +189,13 @@ CAPACITÉS — trois modes de réponse, UN SEUL par message :
 
 2. RECOMMANDER (même mood). Quand l'utilisateur parle de ce qu'il regarde ou demande une suggestion ("je viens de regarder X", "quelque chose dans le même mood", "fais-moi découvrir"), propose des titres qui partagent le TON PROFOND de ce qu'il a vu — pas seulement la même catégorie. Analyse le mood dominant (humour absurde, dark comedy, thriller psychologique, feel-good, tension lente, parodie...). Exemple : après Scary Movie, propose Naked Gun (même humour absurde), pas une comédie lambda. Réponds UNIQUEMENT avec :
 {"action":"recommend","items":[{"title":"Naked Gun","year":1988,"type":"movie","reason":"Même humour absurde, enchaînement de gags parodiques"}]}
-- 3 à 6 titres, mélange de films et séries selon ce qui matche le mieux
+- 8 à 12 titres (candidats), mélange de films et séries selon ce qui matche le mieux — Movviz sélectionne et classe ensuite les meilleurs pour l'affichage final, propose donc largement plutôt que de te limiter toi-même à une petite liste
 - reason : UNE phrase expliquant le lien profond avec ce qu'il regarde
 - l'utilisateur pourra les ajouter à la bibliothèque et les télécharger : propose librement des titres pas encore dans sa bibliothèque${context}
 
-3. TOUTE AUTRE DEMANDE : réponds en texte normal, bref et utile.${memoryContext}${usageContext ? `\n\nPROFIL D'USAGE QUANTIFIÉ (chiffres réels de l'activité de l'utilisateur dans Movviz) — ${usageContext}. Base tes recommandations sur ces chiffres : une série très regardée est un signal fort, une demande refusée est un signal d'évitement.` : ""}
+3. TOUTE AUTRE DEMANDE : réponds en texte normal, bref et utile.${memoryContext}${usageContext ? `\n\nPROFIL D'USAGE QUANTIFIÉ (chiffres réels de l'activité de l'utilisateur dans Movviz) — ${usageContext}. Base tes recommandations sur ces chiffres : une série très regardée est un signal fort, une demande refusée est un signal d'évitement.` : ""}${feedbackContext}${factsContext}
+
+MÉMORISER UN FAIT NOUVEAU (uniquement en mode 3, texte normal) : quand l'utilisateur t'apprend quelque chose de personnel et durable (son prénom, une préférence explicite qu'il formule lui-même, une contrainte récurrente — PAS une question ponctuelle ni un fait déjà présent dans les faits retenus ci-dessus), termine ta réponse par une ou plusieurs lignes strictement au format \`[[FAIT: contenu court]]\` (une par fait, jamais plus de 2, jamais dans les modes JSON, jamais si ce n'est pas vraiment nouveau). Ces lignes ne sont jamais montrées à l'utilisateur — écris-les uniquement quand c'est justifié, ne force jamais un fait à chaque réponse.
 
 RÈGLES :
 - Le JSON doit être valide et être LA SEULE chose dans ta réponse (jamais de \`\`\`json, jamais de texte autour).

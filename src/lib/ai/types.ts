@@ -92,3 +92,38 @@ export interface AiUserMemory {
 }
 
 export type AiMemoryStore = Record<string, AiUserMemory>;
+
+/** A user's reaction to a specific recommendation card — the raw signal the
+ *  future taste engine (contrastive learning, mood weights) will train on.
+ *  Kept as a flat append-only log here: this brick only captures and
+ *  surfaces the signal, it does not yet interpret it. */
+export interface AiFeedbackEntry {
+  tmdbId: number;
+  type: "movie" | "series";
+  title: string;
+  liked: boolean;
+  /** The reason the assistant originally gave for this recommendation —
+   *  kept alongside the vote so a later pass can learn WHY a title landed
+   *  or missed, not just that it did. */
+  reason?: string;
+  at: number;
+}
+
+/** A freeform fact the assistant picked up from conversation (first name,
+ *  an explicit stated preference, a constraint) — distinct from the
+ *  structured `AiMemoryEntry` events (added/accepted titles). Extracted by
+ *  the model itself via an inline marker in its own reply (no extra LLM
+ *  call), so this stays free within "no background analysis" (AI.MD). */
+export interface AiFactEntry {
+  fact: string;
+  at: number;
+}
+
+export interface AiUserProfile {
+  feedback: AiFeedbackEntry[];
+  facts: AiFactEntry[];
+}
+
+/** Strictly per-user — ai-user-profiles.json, never cross-referenced between
+ *  users (AGENTS.md profile separation). */
+export type AiProfileStore = Record<string, AiUserProfile>;

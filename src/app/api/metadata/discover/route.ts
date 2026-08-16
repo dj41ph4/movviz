@@ -14,7 +14,6 @@ export async function GET(req: NextRequest) {
       year: searchParams.get("year") ?? undefined,
       sort: searchParams.get("sort") ?? undefined,
       company: searchParams.get("company") ?? undefined,
-      network: searchParams.get("network") ?? undefined,
       watchProvider: searchParams.get("watchProvider") ?? undefined,
     },
     page

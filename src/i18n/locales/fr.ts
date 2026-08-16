@@ -485,7 +485,6 @@ export const fr = {
     seeAll: "Tout voir",
     genres: "Genres",
     studios: "Studios",
-    networks: "Diffuseurs",
     watchProviders: "Plateformes",
     tmdbSetupTitle: "Connecter TMDb",
     tmdbSetupHint: "Clé API gratuite sur themoviedb.org → Paramètres → API. Nécessaire pour découvrir et ajouter des titres.",
@@ -2000,6 +1999,8 @@ export const fr = {
     addFailed: "Échec de l'ajout",
     inLibrary: "Dans la bibliothèque",
     add: "Ajouter",
+    feedbackLike: "Bonne recommandation",
+    feedbackDislike: "Mauvaise recommandation",
     empty: "Demande-moi d'ajouter des films, de te recommander quelque chose dans le même mood, ou pose une question sur ta bibliothèque.",
     status: {
       added: "Ajouté",

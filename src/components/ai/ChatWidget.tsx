@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { getPageTitleContext } from "@/lib/ai/pageContext";
 import type { AiActionOutcome, AiChatMessage, AiMemoryEntry, AiRecommendation } from "@/lib/ai/types";
 import {
-  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2,
+  Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown,
 } from "lucide-react";
 
 interface MemoryView {
@@ -50,11 +50,13 @@ function ActionList({ actions, t }: { actions: AiActionOutcome[]; t: (k: string)
 }
 
 function RecommendationCards({
-  cards, adding, onAdd, t,
+  cards, adding, onAdd, votes, onVote, t,
 }: {
   cards: AiRecommendation[];
   adding: Record<string, "adding" | "added">;
   onAdd: (card: AiRecommendation) => void;
+  votes: Record<string, "like" | "dislike">;
+  onVote: (card: AiRecommendation, liked: boolean) => void;
   t: (k: string) => string;
 }) {
   return (
@@ -62,6 +64,7 @@ function RecommendationCards({
       {cards.map((card) => {
         const key = `${card.type}-${card.tmdbId}`;
         const state = adding[key];
+        const vote = votes[key];
         return (
           <div key={key} className="flex gap-3 rounded-xl glass p-3">
             {card.posterPath ? (
@@ -88,7 +91,7 @@ function RecommendationCards({
               {card.reason ? (
                 <p className="mt-1 text-xs italic leading-snug text-ink-soft">« {card.reason} »</p>
               ) : null}
-              <div className="mt-1.5">
+              <div className="mt-1.5 flex items-center gap-1.5">
                 {card.inLibrary ? (
                   <span className="inline-flex items-center gap-1 rounded-lg bg-white/6 px-2 py-1 text-[11px] font-bold text-ink-soft">
                     <Check className="h-3 w-3" /> {t("ai.inLibrary")}
@@ -107,6 +110,28 @@ function RecommendationCards({
                     {t("ai.add")}
                   </button>
                 )}
+                <button
+                  onClick={() => onVote(card, true)}
+                  title={t("ai.feedbackLike")}
+                  aria-label={t("ai.feedbackLike")}
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                    vote === "like" ? "bg-ok/15 text-ok" : "text-ink-dim hover:bg-white/8 hover:text-ink-soft"
+                  )}
+                >
+                  <ThumbsUp className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => onVote(card, false)}
+                  title={t("ai.feedbackDislike")}
+                  aria-label={t("ai.feedbackDislike")}
+                  className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                    vote === "dislike" ? "bg-red/15 text-red" : "text-ink-dim hover:bg-white/8 hover:text-ink-soft"
+                  )}
+                >
+                  <ThumbsDown className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
           </div>
@@ -124,6 +149,7 @@ export function ChatWidget() {
   const [busy, setBusy] = useState(false);
   const [provider, setProvider] = useState<string | null>(null);
   const [adding, setAdding] = useState<Record<string, "adding" | "added">>({});
+  const [votes, setVotes] = useState<Record<string, "like" | "dislike">>({});
   const [memory, setMemory] = useState<MemoryView | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -223,6 +249,16 @@ export function ChatWidget() {
     }
   }, [adding, t]);
 
+  const voteCard = useCallback((card: AiRecommendation, liked: boolean) => {
+    const key = `${card.type}-${card.tmdbId}`;
+    setVotes((p) => ({ ...p, [key]: liked ? "like" : "dislike" }));
+    fetch("/api/ai/feedback", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tmdbId: card.tmdbId, title: card.title, type: card.type, liked, reason: card.reason }),
+    }).catch(() => {});
+  }, []);
+
   const memoryLines = memory
     ? (() => {
         const lines: string[] = [];
@@ -303,7 +339,7 @@ export function ChatWidget() {
                     <div className="whitespace-pre-wrap">{msg.content}</div>
                     {msg.actions && msg.actions.length ? <ActionList actions={msg.actions} t={t} /> : null}
                     {msg.recommendations && msg.recommendations.length ? (
-                      <RecommendationCards cards={msg.recommendations} adding={adding} onAdd={addCard} t={t} />
+                      <RecommendationCards cards={msg.recommendations} adding={adding} onAdd={addCard} votes={votes} onVote={voteCard} t={t} />
                     ) : null}
                   </div>
                 </div>

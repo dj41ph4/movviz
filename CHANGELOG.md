@@ -4,6 +4,20 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.3 — August 2026
+
+### Découverte
+
+- Correction du fond : la rangée « Plateformes » utilisait une correspondance approximative par nom sur le catalogue TMDb, qui pouvait accrocher un service obscur au lieu du bon (ex. un module complémentaire méconnu au lieu du vrai service attendu). Remplacée par une liste fixe et vérifiée des 10 plateformes les plus utilisées en France, avec leurs vrais logos en meilleure qualité.
+- Suppression de la rangée « Diffuseurs », qui faisait doublon avec « Plateformes » (mêmes marques, en moins bien : limitée aux séries).
+- Sur mobile, les tuiles Plateformes/Studios passent en icônes rondes et compactes au lieu du grand format rectangulaire pensé pour desktop.
+
+### Movviz AI
+
+- L'assistant retient maintenant les faits que tu lui donnes en conversation (prénom, préférence explicite…) d'une session à l'autre, en plus de ses souvenirs déjà existants (titres ajoutés, recommandations acceptées).
+- Nouveau retour 👍/👎 sur chaque recommandation — sert de base à un classement plus pertinent des futures suggestions.
+- Le modèle propose maintenant davantage de candidats en coulisses ; Movviz les filtre et les classe lui-même (qualité, nouveauté, retours passés, déjà demandé) avant de n'afficher que les meilleurs — et exclut désormais purement et simplement tout titre déjà entièrement vu.
+
 ## v1.14.2 — August 2026
 
 ### Découverte

@@ -50,15 +50,12 @@ function DiscoverPageInner() {
     const name = searchParams.get("companyName");
     return id && name ? { id, name } : null;
   });
-  const [network, setNetwork] = useState<{ id: string; name: string } | null>(() => {
-    const id = searchParams.get("network");
-    const name = searchParams.get("networkName");
-    return id && name ? { id, name } : null;
-  });
   const [rowCategory, setRowCategory] = useState<string | null>(() => searchParams.get("row") ?? null);
-  // Unlike company/network, a TMDb watch-provider id is valid for BOTH
-  // movies and series — this filter survives a Films/Séries tab switch
-  // instead of being cleared with the rest.
+  // Unlike company, a TMDb watch-provider id is valid for BOTH movies and
+  // series — this filter survives a Films/Séries tab switch instead of
+  // being cleared with the rest. (The old "Diffuseurs"/TV-network filter —
+  // literally the same streaming brands, series-only — was removed as a
+  // pure duplicate of this once watchProvider existed.)
   const [watchProvider, setWatchProvider] = useState<{ id: string; name: string } | null>(() => {
     const id = searchParams.get("watchProvider");
     const name = searchParams.get("watchProviderName");
@@ -72,7 +69,7 @@ function DiscoverPageInner() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!network || !!watchProvider || !!rowCategory;
+  const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!watchProvider || !!rowCategory;
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Panel titre coulissant (remplace la navigation vers /title/...) — partagé
@@ -88,7 +85,6 @@ function DiscoverPageInner() {
     if (year) p.set("year", year); else p.delete("year");
     if (sort !== "popularity.desc") p.set("sort", sort); else p.delete("sort");
     if (company) { p.set("company", company.id); p.set("companyName", company.name); } else { p.delete("company"); p.delete("companyName"); }
-    if (network) { p.set("network", network.id); p.set("networkName", network.name); } else { p.delete("network"); p.delete("networkName"); }
     if (watchProvider) { p.set("watchProvider", watchProvider.id); p.set("watchProviderName", watchProvider.name); } else { p.delete("watchProvider"); p.delete("watchProviderName"); }
     if (rowCategory) p.set("row", rowCategory); else p.delete("row");
     const qs = p.toString();
@@ -96,7 +92,7 @@ function DiscoverPageInner() {
       router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, mediaType, genre, year, sort, company, network, watchProvider, rowCategory, router, pathname]);
+  }, [q, mediaType, genre, year, sort, company, watchProvider, rowCategory, router, pathname]);
 
   // Every fetch below is SWR-cached by URL — instant render from whatever was
   // last seen for that key (even by another page, e.g. Bibliothèque already
@@ -150,7 +146,6 @@ function DiscoverPageInner() {
     setYear("");
     setSort("popularity.desc");
     setCompany(null);
-    setNetwork(null);
     setWatchProvider(null);
     setRowCategory(null);
   };
@@ -161,7 +156,6 @@ function DiscoverPageInner() {
     setYear("");
     setSort("popularity.desc");
     setCompany(null);
-    setNetwork(null);
     setWatchProvider(null);
     setRowCategory(key);
   };
@@ -172,13 +166,11 @@ function DiscoverPageInner() {
   );
   const genres = genresData?.genres ?? [];
 
-  // Studio and network tiles are both shown at all times (not tied to the
+  // Studio and platform tiles are both shown at all times (not tied to the
   // active Films/Séries tab).
   const { data: companyData } = useSWR<{ tiles: LogoTile[] }>(configured ? "/api/metadata/logos?kind=company" : null);
-  const { data: networkData } = useSWR<{ tiles: LogoTile[] }>(configured ? "/api/metadata/logos?kind=network" : null);
   const { data: watchProviderData } = useSWR<{ tiles: LogoTile[] }>(configured ? "/api/metadata/logos?kind=watchProvider" : null);
   const companyTiles = companyData?.tiles ?? [];
-  const networkTiles = networkData?.tiles ?? [];
   const watchProviderTiles = watchProviderData?.tiles ?? [];
 
   // Manual Films/Séries switch — start browsing that type from a clean filter
@@ -191,7 +183,6 @@ function DiscoverPageInner() {
     setYear("");
     setSort("popularity.desc");
     setCompany(null);
-    setNetwork(null);
     setRowCategory(null);
     setMediaType(mt);
   };
@@ -233,7 +224,7 @@ function DiscoverPageInner() {
     }, q.trim() ? 350 : 0);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, network, watchProvider, rowCategory]);
+  }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, watchProvider, rowCategory]);
 
   const loadPage = async (targetPage: number) => {
     if (targetPage === 1) setLoading(true); else setLoadingMore(true);
@@ -249,7 +240,6 @@ function DiscoverPageInner() {
         if (year) params.set("year", year);
         if (sort) params.set("sort", sort);
         if (company) params.set("company", company.id);
-        if (network) params.set("network", network.id);
         if (watchProvider) params.set("watchProvider", watchProvider.id);
         url = `/api/metadata/discover?${params.toString()}`;
       }
@@ -378,9 +368,6 @@ function DiscoverPageInner() {
             {company && (
               <FilterChip label={company.name} onClear={() => setCompany(null)} />
             )}
-            {network && (
-              <FilterChip label={network.name} onClear={() => setNetwork(null)} />
-            )}
             {watchProvider && (
               <FilterChip label={watchProvider.name} onClear={() => setWatchProvider(null)} />
             )}
@@ -407,7 +394,6 @@ function DiscoverPageInner() {
               ]}
               loading={rowsLoading}
               companyTiles={companyTiles}
-              networkTiles={networkTiles}
               watchProviderTiles={watchProviderTiles}
               libStatus={libStatus}
               libLoaded={libLoaded}
@@ -418,10 +404,6 @@ function DiscoverPageInner() {
               onCompanyClick={(tile) => {
                 setMediaType("movie");
                 setCompany({ id: String(tile.id), name: tile.name });
-              }}
-              onNetworkClick={(tile) => {
-                setMediaType("series");
-                setNetwork({ id: String(tile.id), name: tile.name });
               }}
               onWatchProviderClick={(tile) => {
                 // No forced media-type switch — the same provider id works
@@ -502,12 +484,11 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 }
 
 function HomeRows({
-  rows, loading, companyTiles, networkTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onNetworkClick, onWatchProviderClick,
+  rows, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onWatchProviderClick,
 }: {
   rows: { key: string; results: MetaSearchResult[]; ranked?: boolean }[];
   loading: boolean;
   companyTiles: LogoTile[];
-  networkTiles: LogoTile[];
   watchProviderTiles: LogoTile[];
   libStatus: Map<string, string>;
   libLoaded: boolean;
@@ -516,7 +497,6 @@ function HomeRows({
   rowLabel: (key: string) => string;
   onSeeAll: (key: string) => void;
   onCompanyClick: (tile: LogoTile) => void;
-  onNetworkClick: (tile: LogoTile) => void;
   onWatchProviderClick: (tile: LogoTile) => void;
 }) {
   const t = useT();
@@ -576,10 +556,6 @@ function HomeRows({
       {companyTiles.length > 0 && (
         <LogoRow title={t("discover.studios")} tiles={companyTiles} onClick={onCompanyClick} />
       )}
-
-      {networkTiles.length > 0 && (
-        <LogoRow title={t("discover.networks")} tiles={networkTiles} onClick={onNetworkClick} />
-      )}
     </div>
   );
 }
@@ -593,19 +569,23 @@ function LogoRow({ title, tiles, onClick }: { title: string; tiles: LogoTile[]; 
           <button
             key={tile.id}
             onClick={() => onClick(tile)}
-            className="flex h-24 w-48 shrink-0 items-center justify-center rounded-2xl glass p-4 transition-transform hover:scale-[1.03] hover:border-brand/40"
+            title={tile.name}
+            // Round icon on phones (a wide oval reads as a broken card at
+            // that width) — reverts to the wider rounded rectangle from sm:
+            // up, where there's room for it to look intentional.
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full glass p-2.5 transition-transform hover:scale-[1.03] hover:border-brand/40 sm:h-24 sm:w-48 sm:rounded-2xl sm:p-4"
           >
             {tile.logoPath ? (
-              <div className="flex h-full w-full items-center justify-center rounded-xl bg-white/95 p-3">
+              <div className="flex h-full w-full items-center justify-center rounded-full bg-white/95 p-2 sm:rounded-xl sm:p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/tmdb/w300${tile.logoPath}`}
+                  src={`/tmdb/w500${tile.logoPath}`}
                   alt={tile.name}
                   className="h-full w-full object-contain"
                 />
               </div>
             ) : (
-              <span className="text-center text-sm font-bold text-ink">{tile.name}</span>
+              <span className="line-clamp-2 text-center text-[9px] font-bold leading-tight text-ink sm:text-sm sm:leading-normal">{tile.name}</span>
             )}
           </button>
         ))}

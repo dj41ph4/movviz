@@ -487,7 +487,6 @@ export const it: Dictionary = {
     seeAll: "Vedi tutti",
     genres: "Generi",
     studios: "Studi",
-    networks: "Reti",
     watchProviders: "Piattaforme",
     tmdbSetupTitle: "Collega TMDb",
     tmdbSetupHint: "Chiave API gratuita da themoviedb.org → Impostazioni → API. Necessaria per scoprire e aggiungere titoli.",
@@ -2001,6 +2000,8 @@ export const it: Dictionary = {
     addFailed: "Aggiunta fallita",
     inLibrary: "In libreria",
     add: "Aggiungi",
+    feedbackLike: "Buon consiglio",
+    feedbackDislike: "Consiglio sbagliato",
     empty: "Chiedimi di aggiungere film, di consigliarti qualcosa nello stesso stile, o fai una domanda sulla tua libreria.",
     status: {
       added: "Aggiunto",

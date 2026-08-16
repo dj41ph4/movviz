@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCompanyLogo, getNetworkLogo, getWatchProviderTiles, tmdbConfigured } from "@/lib/metadata/tmdb";
-import { MOVIE_STUDIOS, TV_NETWORKS } from "@/lib/metadata/curated";
+import { getCompanyLogo, getWatchProviderTiles, tmdbConfigured } from "@/lib/metadata/tmdb";
+import { MOVIE_STUDIOS } from "@/lib/metadata/curated";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +10,11 @@ export async function GET(req: NextRequest) {
   if (kind === "watchProvider") {
     return NextResponse.json({ tiles: await getWatchProviderTiles() });
   }
-  const source = kind === "network" ? TV_NETWORKS : MOVIE_STUDIOS;
   const tiles = await Promise.all(
-    source.map(async (s) => ({
+    MOVIE_STUDIOS.map(async (s) => ({
       id: s.id,
       name: s.name,
-      logoPath: await (kind === "network" ? getNetworkLogo(s.id) : getCompanyLogo(s.id)),
+      logoPath: await getCompanyLogo(s.id),
     }))
   );
   return NextResponse.json({ tiles });

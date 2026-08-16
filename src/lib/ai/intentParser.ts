@@ -97,3 +97,26 @@ export function parseIntent(text: string): ParsedIntent {
   const stripped = (start >= 0 && end > start ? text.slice(0, start) + text.slice(end + 1) : text).trim();
   return { action, items, rawText: stripped };
 }
+
+const FACT_MAX_LEN = 150;
+const FACT_MAX_COUNT = 3;
+const FACT_RE = /^\[\[FAIT:\s*(.+?)\]\]\s*$/gim;
+
+/** Pulls the model's own inline `[[FAIT: ...]]` markers out of a plain-text
+ *  reply — piggybacks on the chat call already made instead of a separate
+ *  "analyze this conversation" LLM round-trip (AI.MD: no background work,
+ *  only what the user's own request triggers). Markers are stripped from
+ *  the text the user actually sees either way, even outside mode 3 — the
+ *  model is only INSTRUCTED to use them there, but nothing enforces it. */
+export function extractFacts(text: string): { facts: string[]; cleaned: string } {
+  const facts: string[] = [];
+  const cleaned = text
+    .replace(FACT_RE, (_, raw: string) => {
+      const fact = raw.trim().slice(0, FACT_MAX_LEN);
+      if (fact && facts.length < FACT_MAX_COUNT) facts.push(fact);
+      return "";
+    })
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { facts, cleaned };
+}
