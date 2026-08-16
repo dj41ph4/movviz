@@ -14,6 +14,7 @@ import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
+import type { DashboardLayout } from "@/lib/dashboard/types";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, Calendar, Clock, CalendarCheck,
 } from "lucide-react";
@@ -192,6 +193,15 @@ function DiscoverPageInner() {
   );
   const c411Rows = c411Data?.rows ?? [];
 
+  // "Année minimale des carrousels" (Réglages → Expérience dashboard) — the
+  // same layout.hero.minYear the dashboard's rows honor. Applied to the
+  // home carousels AND the "see all" row pages (they show the same content),
+  // never to an explicit search (q) — a user searching for a 1931 title
+  // means exactly that.
+  const { data: layoutData } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
+  const minYear = layoutData?.layout?.hero?.minYear ?? null;
+  const afterMinYear = (r: { year?: number | null }) => (minYear ? (r.year ?? 0) >= minYear : true);
+
   // Browse grid — search (debounced) or any filter/tile/row selection, page 1.
   useEffect(() => {
     if (!configured || !isBrowsing) return;
@@ -229,7 +239,11 @@ function DiscoverPageInner() {
       const res = await fetch(url, { cache: "no-store" });
       const d = res.ok ? await res.json() : { results: [] };
       const raw: MetaSearchResult[] = Array.isArray(d.results) ? d.results : [];
-      const list: MetaSearchResult[] = rowCategory || q.trim() ? raw : raw.map((r: MetaSearchResult) => ({ ...r, type: mediaType }));
+      // "See all" of a home carousel (rowCategory) shows the exact same
+      // content as the carousel — honor minYear there too. Explicit searches
+      // (q) and manual filters (genre/year/sort) stay untouched.
+      const filtered: MetaSearchResult[] = rowCategory && !q.trim() ? raw.filter(afterMinYear) : raw;
+      const list: MetaSearchResult[] = rowCategory || q.trim() ? filtered : filtered.map((r: MetaSearchResult) => ({ ...r, type: mediaType }));
       setResults((prev) => (targetPage === 1 ? list : [...prev, ...list]));
       setPage(d.page ?? targetPage);
       setTotalPages(d.totalPages ?? 0);
@@ -366,9 +380,9 @@ function DiscoverPageInner() {
           {!isBrowsing && (
             <HomeRows
               rows={[
-                ...rows,
+                ...rows.map((r) => ({ ...r, results: r.results.filter(afterMinYear) })),
                 ...c411Rows
-                  .map((r) => ({ ...r, results: r.results.filter((x) => x.type === mediaType) }))
+                  .map((r) => ({ ...r, results: r.results.filter((x) => x.type === mediaType).filter(afterMinYear) }))
                   .filter((r) => r.results.length > 0),
               ]}
               loading={rowsLoading}

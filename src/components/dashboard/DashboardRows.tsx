@@ -53,19 +53,19 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
   const recommended = (recData?.results ?? []).filter(afterMinYear);
 
   const recentlyAdded = useMemo(
-    () => [...movies].filter((m) => m.status === "available").sort((a, b) => b.addedAt - a.addedAt).slice(0, 20),
-    [movies]
+    () => [...movies].filter((m) => m.status === "available" && afterMinYear(m)).sort((a, b) => b.addedAt - a.addedAt).slice(0, 20),
+    [movies, afterMinYear]
   );
 
   const upcoming = useMemo(
     () =>
       movies
-        .filter((m) => m.status === "upcoming")
+        .filter((m) => m.status === "upcoming" && afterMinYear(m))
         .map((m) => ({ m, days: daysUntil(m.vfReleaseDate ?? m.releaseDate) }))
         .filter((x): x is { m: LibraryMovie; days: number } => x.days !== null)
         .sort((a, b) => a.days - b.days)
         .slice(0, 20),
-    [movies]
+    [movies, afterMinYear]
   );
 
   const upgrades = useMemo(() => {
@@ -73,8 +73,8 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
     const byId = new Map(movies.map((m) => [m.id, m] as const));
     return upgradeData.candidates
       .map((c) => ({ candidate: c, movie: byId.get(c.movieId) }))
-      .filter((x): x is { candidate: UpgradeCandidate; movie: LibraryMovie } => !!x.movie);
-  }, [upgradeData, movies]);
+      .filter((x): x is { candidate: UpgradeCandidate; movie: LibraryMovie } => !!x.movie && afterMinYear(x.movie));
+  }, [upgradeData, movies, afterMinYear]);
 
   const sectionOrder: DashboardSectionId[] = ["discover", "becauseYouLike", "availableNow", "comingSoon", "upgradesAvailable"];
 

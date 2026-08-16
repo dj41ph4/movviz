@@ -365,7 +365,8 @@ export async function buildHeroSlides(
   locale?: string,
   targetCount = 6,
   mix: HeroContentMixOptions = { includeOwned: true, includeUnowned: true },
-  youtubeTrailerSearch = false
+  youtubeTrailerSearch = false,
+  minYear: number | null = null
 ): Promise<HeroSlide[]> {
   const refs = await gatherCandidateRefs(userId, targetCount, mix.includeOwned || mix.includeUnowned ? mix : { includeOwned: true, includeUnowned: true });
   if (refs.length === 0) return [];
@@ -404,6 +405,9 @@ export async function buildHeroSlides(
   refs.forEach((ref, i) => {
     const detail = details[i];
     if (!detail) return;
+    // "Année minimale des carrousels" — same rule as the rows below the
+    // Hero: release before minYear (or unknown year) never makes the slate.
+    if (minYear && (detail.year ?? 0) < minYear) return;
     const score = scoreCandidate(detail, ref, { taste, locale, recentlyActiveTmdbIds, requestedKeys });
     const libraryFile = ref.type === "movie" ? byTmdbId.get(ref.tmdbId)?.file ?? null : null;
     slides.push({ poolId: ref.poolId, libraryStatus: ref.libraryStatus, daysUntilRelease: ref.daysUntilRelease, libraryFile, detail, score });

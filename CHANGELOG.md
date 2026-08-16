@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.90 — August 2026
+
+### « Année minimale des carrousels » enfin respectée partout
+
+- **Cause** : le réglage `minYear` (Réglages → Expérience dashboard) n'était appliqué qu'aux rangées « Découverte » et « Recommandé pour toi » du dashboard — le Hero cinématique, « Récemment ajoutés », « Prochainement », les upgrades, et TOUTE la page Découverte (carrousels + « Tout voir ») ignoraient le filtre : un film de 1931 pouvait apparaître malgré une limite à 1985.
+- **Correctif** : le filtre est maintenant appliqué partout de façon uniforme :
+  - Hero cinématique : `buildHeroSlides` reçoit `minYear` et n'inclut aucun slide sorti avant.
+  - Dashboard : toutes les rangées (Découverte, Recommandé, Récemment ajoutés, Prochainement, Upgrades) passent par le même filtre.
+  - Découverte : carrousels TMDb + rangées C411 + pages « Tout voir » filtrés ; une recherche explicite (ou un filtre année manuel) reste non filtrée.
+
 ## v1.13.89 — August 2026
 
 ### Plus jamais de crash « removeChild » (erreur d'affichage globale)

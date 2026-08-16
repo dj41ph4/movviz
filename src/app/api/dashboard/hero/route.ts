@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
   const locale = req.nextUrl.searchParams.get("locale") ?? undefined;
   const { hero, youtubeTrailerSearch } = loadDashboardLayout(user.id);
-  const slides = await buildHeroSlides(user.id, locale, 6, { includeOwned: hero.includeOwned, includeUnowned: hero.includeUnowned }, youtubeTrailerSearch);
+  const slides = await buildHeroSlides(user.id, locale, 6, { includeOwned: hero.includeOwned, includeUnowned: hero.includeUnowned }, youtubeTrailerSearch, hero.minYear);
 
   const cfg = loadPlexConfig();
   const byTmdbId = new Map(loadMovies().map((m) => [m.tmdbId, m] as const));
