@@ -1137,7 +1137,7 @@ export const fr = {
     netflix: {
       title: "Import Netflix",
       description: "Netflix n'a pas d'API publique — télécharge ton propre historique depuis ton compte Netflix, puis importe-le ici pour marquer ces titres vus dans Movviz (et sur ton compte Plex s'il est lié).",
-      howTo: "Sur Netflix : Compte → Profil et contrôle parental → Activité de visionnage → Télécharger tout. Dépose ensuite le fichier .csv obtenu ici.",
+      howTo: "Ouvre ton activité de visionnage Netflix (lien ci-dessous), clique « Télécharger tout » en bas de page, puis dépose le fichier .csv obtenu ici.",
       chooseFile: "Choisir un fichier CSV",
       import: "Importer",
       importDone: "{movies} film(s), {episodes} épisode(s) marqués vus",

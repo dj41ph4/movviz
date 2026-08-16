@@ -4,7 +4,11 @@ import { useRef, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
-import { Upload, Loader2, Check, AlertTriangle, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, Loader2, Check, AlertTriangle, ChevronDown, ChevronUp, ExternalLink } from "lucide-react";
+
+// Netflix's own "download your viewing activity" page — plain URL, no
+// translation needed (same pattern as AiSettingsPanel's provider key links).
+const NETFLIX_ACTIVITY_URL = "https://www.netflix.com/viewingactivity";
 
 interface NetflixImportResult {
   totalRows: number;
@@ -74,7 +78,16 @@ export function NetflixImportPanel() {
       </div>
 
       <div className="mt-5 rounded-xl border border-white/8 bg-black/20 p-4">
-        <p className="mb-3 text-xs text-ink-dim">{t("settings.netflix.howTo")}</p>
+        <p className="mb-2 text-xs text-ink-dim">{t("settings.netflix.howTo")}</p>
+        <a
+          href={NETFLIX_ACTIVITY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mb-3 inline-flex items-center gap-1.5 text-xs font-semibold text-brand-glow hover:underline"
+        >
+          <ExternalLink className="h-3 w-3" />
+          {NETFLIX_ACTIVITY_URL.replace(/^https?:\/\//, "")}
+        </a>
 
         <input ref={fileInputRef} type="file" accept=".csv,text/csv" onChange={onFileChange} className="hidden" />
 

@@ -1140,7 +1140,7 @@ export const nl: Dictionary = {
     netflix: {
       title: "Netflix-import",
       description: "Netflix heeft geen publieke API — download je eigen geschiedenis vanuit je Netflix-account en importeer die hier om die titels als bekeken te markeren in Movviz (en op je Plex-account als dat gekoppeld is).",
-      howTo: "Op Netflix: Account → Profiel en ouderlijk toezicht → Kijkactiviteit → Alles downloaden. Sleep daarna het verkregen .csv-bestand hierheen.",
+      howTo: "Open je Netflix-kijkactiviteit (link hieronder), klik onderaan de pagina op \"Alles downloaden\" en sleep daarna het verkregen .csv-bestand hierheen.",
       chooseFile: "Kies een CSV-bestand",
       import: "Importeren",
       importDone: "{movies} film(s), {episodes} aflevering(en) als bekeken gemarkeerd",

@@ -1139,7 +1139,7 @@ export const it: Dictionary = {
     netflix: {
       title: "Importazione Netflix",
       description: "Netflix non ha un'API pubblica — scarica la tua cronologia dal tuo account Netflix, poi importala qui per segnare questi titoli come visti in Movviz (e sul tuo account Plex se collegato).",
-      howTo: "Su Netflix: Account → Profilo e controllo genitori → Attività di visione → Scarica tutto. Poi trascina qui il file .csv ottenuto.",
+      howTo: "Apri la tua attività di visione Netflix (link qui sotto), clicca \"Scarica tutto\" in fondo alla pagina, poi trascina qui il file .csv ottenuto.",
       chooseFile: "Scegli un file CSV",
       import: "Importa",
       importDone: "{movies} film, {episodes} episodi segnati come visti",

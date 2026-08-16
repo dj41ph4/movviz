@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.21 — August 2026
+
+### Netflix
+
+- Réglages → Netflix propose maintenant un lien direct vers ta page d'activité de visionnage Netflix (bouton « Télécharger tout »), pour ne plus avoir à chercher où trouver le fichier à importer.
+
 ## v1.14.20 — August 2026
 
 ### Nouveau : intégration Netflix

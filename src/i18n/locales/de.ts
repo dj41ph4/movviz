@@ -1157,7 +1157,7 @@ export const de: Dictionary = {
     netflix: {
       title: "Netflix-Import",
       description: "Netflix hat keine öffentliche API — lade deinen eigenen Verlauf aus deinem Netflix-Konto herunter und importiere ihn hier, um diese Titel in Movviz als gesehen zu markieren (und in deinem Plex-Konto, falls verknüpft).",
-      howTo: "Bei Netflix: Konto → Profil & Kindersicherung → Wiedergabeaktivität → Alle herunterladen. Danach die erhaltene .csv-Datei hier ablegen.",
+      howTo: "Öffne deine Netflix-Wiedergabeaktivität (Link unten), klicke unten auf der Seite auf \"Alle herunterladen\" und lege dann die erhaltene .csv-Datei hier ab.",
       chooseFile: "CSV-Datei auswählen",
       import: "Importieren",
       importDone: "{movies} Film(e), {episodes} Episode(n) als gesehen markiert",
