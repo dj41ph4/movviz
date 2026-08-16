@@ -127,3 +127,23 @@ export interface AiUserProfile {
 /** Strictly per-user — ai-user-profiles.json, never cross-referenced between
  *  users (AGENTS.md profile separation). */
 export type AiProfileStore = Record<string, AiUserProfile>;
+
+/** Hierarchical mood profile for ONE title (AI.MD §2.B/C) — deliberately a
+ *  free-form nested map, not a fixed set of ten properties: whatever
+ *  categories/traits are actually relevant to a given title (a thriller has
+ *  no "humour" category, a parody has no "tension" one). Values are 0..1. */
+export type AiMoodCategories = Record<string, Record<string, number>>;
+
+export interface AiMoodProfile {
+  tmdbId: number;
+  type: "movie" | "series";
+  title: string;
+  categories: AiMoodCategories;
+  analyzedAt: number;
+}
+
+/** GLOBAL cache (ai-title-analysis.json) — a title's mood is a fact about
+ *  the title, not about any one user, so unlike ai-user-profiles.json this
+ *  is intentionally shared across everyone (AI.MD §2.P/§2.U: cache global
+ *  Movie → MoodProfile only, never personal data here). Keyed "type:tmdbId". */
+export type AiTitleAnalysisStore = Record<string, AiMoodProfile>;

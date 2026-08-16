@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.4 — August 2026
+
+### Movviz AI
+
+- Nouveau moteur de mood : quand tu demandes une recommandation depuis une fiche, Movviz analyse le ton profond du titre de référence et de chaque candidat (humour, énergie, tonalité...) pour classer les suggestions selon la vraie proximité d'ambiance, pas juste le genre TMDb.
+- Première conversation avec l'assistant : il se présente et pose jusqu'à 3 petites questions (prénom, ce que tu aimes regarder en ce moment...) pour commencer à te connaître — jamais plus, jamais un formulaire.
+- Personnalité affirmée : toujours content de te retrouver, une pointe d'humour bien placée (ex. un film d'horreur), et parfois une anecdote sur un titre — toujours formulée avec prudence, jamais présentée comme une certitude absolue.
+- Garde-fou permanent : l'assistant ne peut et ne pourra jamais supprimer quoi que ce soit dans Movviz, quelle que soit la façon dont on le lui demande.
+
 ## v1.14.3 — August 2026
 
 ### Découverte

@@ -3,13 +3,15 @@ import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
 import { parseIntent, extractFacts } from "@/lib/ai/intentParser";
-import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt } from "@/lib/ai/actions";
+import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
-import { buildFeedbackContext, buildFactsContext, rememberFact } from "@/lib/ai/tasteProfile";
-import { scoreCandidates } from "@/lib/ai/recommendationScore";
+import { buildFeedbackContext, buildFactsContext, rememberFact, getFacts } from "@/lib/ai/tasteProfile";
+import { scoreCandidates, type MoodContext } from "@/lib/ai/recommendationScore";
+import { getOrAnalyzeMoodProfile } from "@/lib/ai/titleAnalysis";
+import { getMovie, getSeries } from "@/lib/metadata/tmdb";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { recordAiCall } from "@/lib/ai/debugLog";
-import type { AiActionOutcome, AiChatMessage, AiAddItem } from "@/lib/ai/types";
+import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +70,11 @@ export async function POST(req: NextRequest) {
   const usageContext = formatUsageProfile(buildUsageProfile(user.id));
   const feedbackContext = buildFeedbackContext(user.id);
   const factsContext = buildFactsContext(user.id);
-  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext);
+  // "First ever interaction" = no prior session AND no fact learned about
+  // this user yet — not just "empty session" (a cleared chat shouldn't
+  // re-trigger onboarding for someone Movviz already knows).
+  const isFirstInteraction = session.messages.length === 0 && getFacts(user.id).length === 0;
+  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction);
   if (pageContext) {
     system += `\n\nRÉFÉRENCE COURANTE — l'utilisateur regarde actuellement ${pageContext.type === "movie" ? "le film" : "la série"} « ${pageContext.title} » (${pageContext.tmdbId}). Quand il dit « dans le même genre », « quelque chose comme ça », « moins sérieux »…, c'est CE titre qui est la référence.`;
   }
@@ -103,7 +109,7 @@ export async function POST(req: NextRequest) {
     const outcomes = await addMedia(user, intent.items as AiAddItem[]);
     assistant.actions = outcomes;
     const summary = summarizeAdd(outcomes);
-    assistant.content = [intent.rawText, ...summary].filter(Boolean).join("\n\n");
+    assistant.content = [cleaned, ...summary].filter(Boolean).join("\n\n");
     itemCount = outcomes.length;
     console.log(`[ai] action=add_media items=${outcomes.length} user=${user.username}`);
   } else if (intent.action === "recommend" && intent.items.length) {
@@ -112,11 +118,33 @@ export async function POST(req: NextRequest) {
     // Movviz does the actual ranking/filtering here (AI.MD §2.D/§2.E), not
     // the model.
     const reasons = new Map(pairs.map((p) => [`${p.item.type}:${p.item.tmdbId}`, p.source.reason]));
-    const recommendations = scoreCandidates(user.id, pairs.map((p) => p.item), reasons)
+
+    // Mood Engine (AI.MD §2.B/C) — only when there's a clear reference title
+    // (the page the user is currently on): analyzing/comparing mood for a
+    // recommendation with no anchor at all wouldn't mean anything. Every
+    // analysis call here is cache-first (titleAnalysis.ts) — the LLM is only
+    // actually invoked the FIRST time a given title is ever seen.
+    let mood: MoodContext | undefined;
+    if (pageContext) {
+      const refDetail = pageContext.type === "movie" ? await getMovie(pageContext.tmdbId) : await getSeries(pageContext.tmdbId);
+      const refProfile = refDetail
+        ? await getOrAnalyzeMoodProfile(config, pageContext.type, pageContext.tmdbId, pageContext.title, refDetail.overview, refDetail.genres)
+        : null;
+      if (refProfile) {
+        const candidateMoods = new Map<string, AiMoodCategories>();
+        await mapWithConcurrency(pairs, 3, async (p) => {
+          const profile = await getOrAnalyzeMoodProfile(config, p.item.type, p.item.tmdbId, p.item.title, p.item.overview);
+          if (profile) candidateMoods.set(`${p.item.type}:${p.item.tmdbId}`, profile.categories);
+        });
+        mood = { reference: refProfile.categories, candidates: candidateMoods };
+      }
+    }
+
+    const recommendations = scoreCandidates(user.id, pairs.map((p) => p.item), reasons, 6, mood)
       .map((r) => ({ ...r, reason: reasons.get(`${r.type}:${r.tmdbId}`) }));
     assistant.recommendations = recommendations;
     itemCount = recommendations.length;
-    console.log(`[ai] action=recommend candidates=${pairs.length} shown=${recommendations.length} user=${user.username}`);
+    console.log(`[ai] action=recommend candidates=${pairs.length} shown=${recommendations.length} mood=${!!mood} user=${user.username}`);
   }
   recordAiCall({
     username: user.username, kind: intent.action ?? "chat", provider: providerName,

@@ -1,18 +1,21 @@
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadRequests } from "@/lib/requests/store";
 import { getFeedback } from "@/lib/ai/tasteProfile";
+import { moodSimilarity } from "@/lib/ai/titleAnalysis";
 import type { ResolvedAiItem } from "@/lib/ai/actions";
+import type { AiMoodCategories } from "@/lib/ai/types";
 
 /**
- * Recommendation Score (AI.MD §2.D/§2.E) — first pragmatic pass: separates
- * candidate GENERATION (the LLM proposes more titles than will be shown,
- * see the widened prompt guidance in actions.ts) from RANKING (Movviz
- * scores and orders them). No embeddings, no vector DB, no ML — every term
- * below is a plain, inspectable heuristic over data Movviz already has:
- * TMDb rating, library/request state, watch history, and the 👍/👎
- * feedback log this brick's predecessor started recording. Mood/taste
- * compatibility terms from the full spec formula are NOT implemented yet
- * (they need the Mood Engine brick) — this is intentionally a subset.
+ * Recommendation Score (AI.MD §2.D/§2.E) — separates candidate GENERATION
+ * (the LLM proposes more titles than will be shown, see the widened prompt
+ * guidance in actions.ts) from RANKING (Movviz scores and orders them). No
+ * embeddings, no vector DB, no ML — every term below is a plain, inspectable
+ * heuristic over data Movviz already has: TMDb rating, library/request
+ * state, watch history, the 👍/👎 feedback log, and — when a reference
+ * title is available (see MoodContext) — mood similarity from the Mood
+ * Engine (titleAnalysis.ts). TasteCompatibility/FranchiseAffinity from the
+ * full spec formula are still not implemented (they need a longer feedback
+ * history than this early stage has to work with).
  */
 
 export interface ScoredCandidate extends ResolvedAiItem {
@@ -52,11 +55,23 @@ function overlapCount(a: Set<string>, b: Set<string>): number {
  * LLM gave for that specific candidate, used both for display and for the
  * feedback-overlap term below.
  */
+export interface MoodContext {
+  /** The mood profile of the title the user is currently referencing
+   *  (e.g. the page they're browsing) — absent when there's no clear
+   *  reference, in which case the mood term is simply omitted. */
+  reference: AiMoodCategories;
+  /** Each candidate's own analyzed mood profile, keyed "type:tmdbId" —
+   *  only entries that were actually analyzed/cached in time are present;
+   *  a missing entry just skips the mood term for that one candidate. */
+  candidates: Map<string, AiMoodCategories>;
+}
+
 export function scoreCandidates(
   userId: string,
   candidates: ResolvedAiItem[],
   reasons: Map<string, string | undefined>,
-  topN = 6
+  topN = 6,
+  mood?: MoodContext
 ): ScoredCandidate[] {
   const watch = getWatchStatus(userId);
   const watchedMovies = new Set(watch?.movies ?? []);
@@ -87,6 +102,11 @@ export function scoreCandidates(
     if (reasonTokens) {
       for (const liked of likedTokens) score += Math.min(6, overlapCount(reasonTokens, liked) * 3);
       for (const disliked of dislikedTokens) score -= Math.min(6, overlapCount(reasonTokens, disliked) * 3);
+    }
+
+    if (mood) {
+      const candidateMood = mood.candidates.get(key);
+      if (candidateMood) score += moodSimilarity(mood.reference, candidateMood) * 25; // MoodSimilarity — up to 25, the dominant term when available (matches the spec's own example weighting)
     }
 
     if (pendingOrApproved.has(key)) score -= 15; // AlreadyRequested
