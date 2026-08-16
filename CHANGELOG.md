@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.7 — August 2026
+
+### Movviz AI
+
+- Pour une demande vague ou générale ("un truc de nana", "un film pour toute la famille"...), Movviz AI se base désormais explicitement sur le vécu réel de la personne qui demande (ses propres vues, ses propres demandes — jamais celles d'un autre compte du foyer) plutôt que sur un cliché générique ; sans indice exploitable, il pose une question plutôt que de deviner au hasard.
+
 ## v1.14.6 — August 2026
 
 ### Movviz AI
