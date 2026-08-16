@@ -1,8 +1,9 @@
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadRequests } from "@/lib/requests/store";
-import { getFeedback, getFacts, getContextProfile } from "@/lib/ai/tasteProfile";
+import { getFeedback, getFacts, getContextProfile, saveContextInsights } from "@/lib/ai/tasteProfile";
 import { buildUsageProfile } from "@/lib/ai/profile";
 import { callAi } from "@/lib/ai/providers";
+import { loadAiConfig } from "@/lib/ai/store";
 import { extractJsonObject } from "@/lib/ai/intentParser";
 import type { AiConfig, AiContextInsight } from "./types";
 
@@ -118,15 +119,26 @@ export function buildIncrementalContext(config: AiConfig, userId: string): Promi
   return synthesize(config, userId, "incremental");
 }
 
-const INCREMENTAL_MIN_NEW_ACTIVITY = 3;
-const INCREMENTAL_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+// Demande explicite user ("auto learning... apprendre de CHAQUE action sans
+// rien demander") — lowered from the original 3 signals / 24h so the
+// consolidated context reacts close to "every action" in practice, not once
+// a day. Still never truly "per action": a single new signal is enough to
+// qualify, but the cooldown coalesces a burst (e.g. bingeing 6 episodes in
+// an hour) into ONE LLM call instead of six — the actual restraint this
+// codebase cares about (AI.MD: never a permanent/continuous LLM process)
+// was always the "one call, not one per event" part, never the specific
+// numbers. 30 min still means a normal viewing session gets topped up
+// before it's even over, while a burst of activity in the same minute
+// doesn't fire the model six times in a row.
+const INCREMENTAL_MIN_NEW_ACTIVITY = 1;
+const INCREMENTAL_COOLDOWN_MS = 30 * 60 * 1000;
 
 /** Cheap, synchronous-ish gate for whether an incremental pass is due —
  *  only counts timestamps that are already in memory (no extra fs reads
  *  beyond what getWatchStatus/loadRequests already do), so this is safe to
- *  call opportunistically on a real request (session/route.ts) without
- *  turning into a poller. Requires a bootstrap to already exist — this
- *  never substitutes for the user's own first "Créer mon contexte" click. */
+ *  call opportunistically on a real request without turning into a poller.
+ *  Requires a bootstrap to already exist — this never substitutes for the
+ *  user's own first "Créer mon contexte" click. */
 export function isIncrementalContextDue(userId: string): boolean {
   const context = getContextProfile(userId);
   if (!context || context.builtAt === 0) return false;
@@ -134,5 +146,28 @@ export function isIncrementalContextDue(userId: string): boolean {
   const watch = getWatchStatus(userId);
   const newWatched = (watch?.recent ?? []).filter((r) => r.at > context.builtAt).length;
   const newRequests = loadRequests().filter((r) => r.userId === userId && r.createdAt > context.builtAt).length;
-  return newWatched + newRequests >= INCREMENTAL_MIN_NEW_ACTIVITY;
+  const newFeedback = getFeedback(userId).filter((f) => f.at > context.builtAt).length;
+  return newWatched + newRequests + newFeedback >= INCREMENTAL_MIN_NEW_ACTIVITY;
+}
+
+/**
+ * Shared trigger, callable from every real write-path that represents "the
+ * user just did something" (watch toggle, direct playback, 👍/👎 feedback,
+ * a finished Netflix import) — not just the chat/session endpoints, so the
+ * consolidated context actually reacts to an action the moment it happens
+ * instead of waiting for the user to next open the chat widget. Still just
+ * a gate check + at most one LLM call, still fire-and-forget from every
+ * caller, still best-effort (never throws, never blocks the caller's own
+ * response).
+ */
+export async function triggerIncrementalContextIfDue(userId: string): Promise<void> {
+  if (!isIncrementalContextDue(userId)) return;
+  const config = loadAiConfig();
+  if (!config.enabled) return;
+  try {
+    const insights = await buildIncrementalContext(config, userId);
+    if (insights) saveContextInsights(userId, insights, true);
+  } catch {
+    // Best-effort — a missed top-up just means the next due check retries.
+  }
 }

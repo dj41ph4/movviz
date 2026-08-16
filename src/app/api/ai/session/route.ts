@@ -6,10 +6,10 @@ import { callAi } from "@/lib/ai/providers";
 import { parseIntent, extractFacts } from "@/lib/ai/intentParser";
 import { buildUserContext, buildSystemPrompt, buildProactiveNudgeTrigger } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
-import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, rememberFact, getFacts, saveContextInsights } from "@/lib/ai/tasteProfile";
+import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, rememberFact, getFacts } from "@/lib/ai/tasteProfile";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { checkProactivePulse } from "@/lib/ai/presence";
-import { isIncrementalContextDue, buildIncrementalContext } from "@/lib/ai/contextBuilder";
+import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import type { AiChatMessage } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
@@ -64,18 +64,6 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
  * model on the rare occasions the gate opens. Best-effort, same as the
  * proactive nudge above — never breaks the session response.
  */
-async function maybeUpdateContextIncrementally(userId: string): Promise<void> {
-  if (!isIncrementalContextDue(userId)) return;
-  const config = loadAiConfig();
-  if (!config.enabled) return;
-  try {
-    const insights = await buildIncrementalContext(config, userId);
-    if (insights) saveContextInsights(userId, insights, true);
-  } catch {
-    // Best-effort — a missed top-up just means the next due check retries.
-  }
-}
-
 /** Returns the user's in-memory chat session so the widget can restore its
  *  history after a navigation/remount, plus whether the AI feature is
  *  enabled at all (the widget hides itself when it isn't). May also fire a
@@ -87,7 +75,7 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const before = loadAiSession(user.id).messages.length;
   await maybeSendProactiveNudge(user.id, user.username);
-  await maybeUpdateContextIncrementally(user.id);
+  await triggerIncrementalContextIfDue(user.id);
   const messages = loadAiSession(user.id).messages;
   return NextResponse.json({
     messages,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
 import { pushMovieWatchedToPlex, pushEpisodesWatchedToPlex } from "@/lib/plex/watchWrite";
+import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,11 @@ export async function POST(req: NextRequest) {
     // blocks the toggle response. Best-effort inside (no key/link → no-op),
     // so a Plex hiccup never breaks the local toggle.
     pushMovieWatchedToPlex(user, tmdbId, watched).catch(() => {});
+    // Auto-learning réactif (demande explicite user) — le contexte
+    // consolidé se met à jour près de chaque action réelle, pas seulement
+    // quand le chat est ouvert (voir contextBuilder.ts pour le vrai gate :
+    // toujours au plus un appel LLM, jamais un par action individuelle).
+    triggerIncrementalContextIfDue(user.id).catch(() => {});
     return NextResponse.json({ ok: true });
   }
 
@@ -62,5 +68,6 @@ export async function POST(req: NextRequest) {
 
   setWatchedEpisodes(user.id, episodes, watched, title);
   pushEpisodesWatchedToPlex(user, episodes, watched).catch(() => {});
+  triggerIncrementalContextIfDue(user.id).catch(() => {});
   return NextResponse.json({ ok: true });
 }

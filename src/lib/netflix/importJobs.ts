@@ -1,4 +1,5 @@
 import { importNetflixHistory, type NetflixImportResult } from "./importHistory";
+import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import type { User } from "@/lib/auth/types";
 
 /**
@@ -52,6 +53,11 @@ export function startNetflixImportJob(user: User, csv: string): boolean {
     .then((result) => {
       job.status = "done";
       job.result = result;
+      // Auto-learning réactif — un import Netflix peut à lui seul apporter
+      // des dizaines de nouveaux titres vus d'un coup, largement plus que
+      // le seuil minimal ; sans ça, le contexte consolidé n'aurait été
+      // rafraîchi qu'à la prochaine ouverture du chat.
+      triggerIncrementalContextIfDue(user.id).catch(() => {});
     })
     .catch((err: unknown) => {
       job.status = "error";

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { recordFeedback } from "@/lib/ai/tasteProfile";
+import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 
 export const dynamic = "force-dynamic";
 
@@ -23,5 +24,6 @@ export async function POST(req: NextRequest) {
   }
 
   recordFeedback(user.id, { tmdbId, type, title, liked, reason, at: Date.now() });
+  triggerIncrementalContextIfDue(user.id).catch(() => {});
   return NextResponse.json({ ok: true });
 }

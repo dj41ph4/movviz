@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.27 — August 2026
+
+### Movviz AI
+
+- Le contexte consolidé (« ce que Movviz AI sait de toi ») se met désormais à jour près de chaque action réelle (film/épisode marqué vu, vote 👍/👎, import Netflix terminé) plutôt que seulement en ouvrant le chat — toujours au plus un seul calcul à la fois, jamais un traitement continu.
+
 ## v1.14.26 — August 2026
 
 ### Correctifs Movviz AI

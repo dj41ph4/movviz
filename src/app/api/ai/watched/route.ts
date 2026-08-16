@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { recordWatched } from "@/lib/plex/watchStore";
+import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 
 export const dynamic = "force-dynamic";
 
@@ -27,5 +28,6 @@ export async function POST(req: NextRequest) {
   if (type !== "movie" && type !== "series") return NextResponse.json({ error: "invalid_type" }, { status: 400 });
 
   recordWatched(user.id, { tmdbId, type, title, at: Date.now() });
+  triggerIncrementalContextIfDue(user.id).catch(() => {});
   return NextResponse.json({ ok: true });
 }
