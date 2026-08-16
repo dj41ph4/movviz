@@ -12,6 +12,7 @@ import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { ENGINE_BASE, engineHeaders, ENGINE_TIMEOUT_MS } from "@/lib/engine/server";
 import { encodeLibraryRef } from "@/lib/library/types";
 import { markPendingVersionIntent, type VersionGrabMode } from "@/lib/library/pendingVersionIntent";
+import { markManualGrab } from "@/lib/library/manualGrab";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited } from "@/lib/indexers/rateLimit";
 import { searchMovie } from "@/lib/indexers/torznab";
@@ -162,6 +163,9 @@ export async function grabAlternateVersion(movieId: string, candidate: VersionCa
     });
     if (!res.ok) return { ok: false, error: "engine_unreachable" };
     const torrent = await res.json();
+    // User explicitly picked this release for an extra version — manual
+    // choice, the blocklist rule doesn't veto it at import time.
+    if (typeof torrent.infoHash === "string") markManualGrab(torrent.infoHash);
     updateMovie(movie.id, { status: "downloading", activeInfoHash: torrent.infoHash });
     recordSearchLog("info", "additional_version.grabbed", `${movie.title} — ${candidate.release.title} (version supplémentaire, infoHash:${torrent.infoHash})`);
     return { ok: true, release: candidate.release };

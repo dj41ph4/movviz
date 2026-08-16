@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.92 — August 2026
+
+### Téléchargement manuel : la règle des mots interdits ne s'applique plus
+
+- **Cause** : le contrôle « terme interdit » post-téléchargement (`checkPostImportBlockedWord`) s'appliquait à TOUS les imports, y compris ceux lancés manuellement par l'utilisateur. Un téléchargement manuel dont le nom contenait un mot interdit (ex. VOSTFR) était supprimé et la bibliothèque remise en « missing » au lieu d'être renommé/déplacé.
+- **Correctif** : un grab manuel (page recherche, fiche film, panneau « Ajouter une version ») marque désormais son infoHash comme manuel (`manualGrab.ts`, mémoire TTL 6 h) dès que le moteur l'accepte. À l'import, ce torrent est exempté du contrôle des mots interdits : il est renommé, déplacé et importé normalement. Seuls les grabs automatiques gardent la règle.
+- Première acquisition automatique, séries, épisodes : comportement inchangé.
+
 ## v1.13.91 — August 2026
 
 ### « Mise à jour par qualité » ne crée plus de doublons (2) (3) (4)

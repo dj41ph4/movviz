@@ -6,6 +6,7 @@ import { getMovie, updateMovie, getSeries, updateSeries } from "@/lib/library/st
 import { logActivityV2, createReleaseRef, createDownloadRef } from "@/lib/activity/v2/store";
 import { requireUser } from "@/lib/auth/guard";
 import { markPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
+import { markManualGrab } from "@/lib/library/manualGrab";
 
 export const dynamic = "force-dynamic";
 
@@ -140,6 +141,12 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
     const replacingInfoHash = typeof body.replacingInfoHash === "string" ? body.replacingInfoHash : null;
     if (res.ok && libraryRef && data.infoHash) applyDownloadingStatus(libraryRef, data.infoHash, replacingInfoHash);
+
+    // Manual grab = user picked this release with their own eyes; the
+    // blocklist ("mots interdits") is an AUTOMATIC-search rule and must not
+    // veto it. Mark the engine-resolved infoHash so the import callback
+    // skips its post-download blocked-word check for this torrent.
+    if (res.ok && typeof data.infoHash === "string") markManualGrab(data.infoHash);
 
     // Log the grab event when the engine accepted the torrent
     if (res.ok && data.infoHash) {

@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createReleaseRef, createImportRef } from "@/lib/activity/v2/store";
 import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { takePendingVersionIntent } from "@/lib/library/pendingVersionIntent";
+import { takeManualGrab } from "@/lib/library/manualGrab";
 import { addVersion, setPrimaryFile } from "@/lib/library/versions";
 import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules";
@@ -304,7 +305,13 @@ export async function applyImportedFiles(ref: LibraryImportRef, files: ImportedF
 }
 
 async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFile[], infoHash?: string) {
-  const blockedTerm = await checkPostImportBlockedWord(infoHash);
+  // A MANUAL grab (user picked the release themselves — search page, film
+  // card, add-version panel) is exempt from the post-import blocklist: the
+  // user saw the name with the "forbidden word" and chose it anyway, so the
+  // download must still be renamed/moved into the library instead of being
+  // quarantined. Only AUTOMATIC grabs keep the blocked-word veto.
+  const manualGrab = takeManualGrab(infoHash);
+  const blockedTerm = manualGrab ? null : await checkPostImportBlockedWord(infoHash);
   if (blockedTerm) {
     for (const f of files) await deleteQuarantinedFile(f.path);
     const label = revertBlockedImport(ref, infoHash);
