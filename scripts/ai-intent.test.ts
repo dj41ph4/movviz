@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractSelfIntroName } from "@/lib/ai/intentParser";
 
 test("add_media JSON seul dans la réponse", () => {
   const got = parseIntent('{"action":"add_media","items":[{"title":"Justice League: War","year":2014,"type":"movie"}]}');
@@ -69,4 +69,53 @@ test("title trop long ( > 200) est écarté", () => {
   const got = parseIntent(JSON.stringify({ action: "add_media", items: [{ title: long }] }));
   assert.equal(got.items.length, 0);
   assert.equal(got.action, null);
+});
+
+test("extractFacts: marqueur sur sa propre ligne, extrait et retiré", () => {
+  const got = extractFacts("Ah super, Seb !\n[[FAIT: Prénom : Seb]]");
+  assert.deepEqual(got.facts, ["Prénom : Seb"]);
+  assert.equal(got.cleaned, "Ah super, Seb !");
+});
+
+test("extractFacts: marqueur collé en fin de phrase (pas sur sa propre ligne) — extrait quand même, pas de fuite visible", () => {
+  const got = extractFacts("Tu as préféré lequel ? [[FAIT: prénom inconnu]]");
+  assert.ok(!got.cleaned.includes("[[FAIT"));
+});
+
+test("extractFacts: un 'fait' qui note une ignorance (prénom inconnu) est filtré, jamais stocké", () => {
+  const got = extractFacts("Je ne sais pas encore. [[FAIT: prénom inconnu]]");
+  assert.deepEqual(got.facts, []);
+  assert.ok(!got.cleaned.includes("[[FAIT"));
+});
+
+test("extractFacts: réponse composée uniquement de marqueurs => cleaned vide", () => {
+  const got = extractFacts("[[FAIT: aime les comédies]]");
+  assert.deepEqual(got.facts, ["aime les comédies"]);
+  assert.equal(got.cleaned, "");
+});
+
+test("extractFacts: aucun marqueur => texte inchangé, aucun fait", () => {
+  const got = extractFacts("Salut, comment ça va ?");
+  assert.deepEqual(got.facts, []);
+  assert.equal(got.cleaned, "Salut, comment ça va ?");
+});
+
+test("extractSelfIntroName: 'je m'appelle X'", () => {
+  assert.equal(extractSelfIntroName("je m'appelle Seb"), "Prénom : Seb");
+});
+
+test("extractSelfIntroName: variantes (nomme, moi c'est, mon prénom, appelle-moi)", () => {
+  assert.equal(extractSelfIntroName("je me nomme Léa"), "Prénom : Léa");
+  assert.equal(extractSelfIntroName("moi c'est Max"), "Prénom : Max");
+  assert.equal(extractSelfIntroName("mon prénom est Alex"), "Prénom : Alex");
+  assert.equal(extractSelfIntroName("appelle-moi Théo"), "Prénom : Théo");
+});
+
+test("extractSelfIntroName: aucune intro => null", () => {
+  assert.equal(extractSelfIntroName("tu as quoi comme bon film d'horreur ?"), null);
+  assert.equal(extractSelfIntroName("donne mon nom"), null);
+});
+
+test("extractSelfIntroName: mot-piège capté par l'alternance mais rejeté (pas un prénom plausible)", () => {
+  assert.equal(extractSelfIntroName("moi c'est cool"), null);
 });

@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.9 — August 2026
+
+### Movviz AI
+
+- Correction d'un bug de fond : un prénom donné en conversation ne survivait pas à un « vider la conversation » — une erreur de calcul faisait que la détection de première conversation ne se déclenchait en réalité jamais correctement.
+- Le prénom d'un utilisateur est maintenant aussi capté directement au niveau du code (plusieurs formulations reconnues), sans dépendre uniquement de la bonne volonté du modèle de langage à le noter.
+- Correction d'une fuite d'affichage où un texte technique interne pouvait apparaître en clair dans une réponse, et d'un cas où l'assistant notait une absence d'information comme si c'était un souvenir.
+- Movviz AI demande maintenant explicitement le prénom dès la première conversation si tu ne le lui as pas donné, et relance naturellement tant qu'il ne le connaît pas.
+- Il évite désormais de reposer la même question d'ouverture à chaque message.
+
 ## v1.14.8 — August 2026
 
 ### Movviz AI

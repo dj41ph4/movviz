@@ -66,6 +66,15 @@ export function getFacts(userId: string): AiFactEntry[] {
   return profileForUser(read(), userId).facts;
 }
 
+/** Whether the user's first name is already known — checked loosely (any
+ *  stored fact mentioning "prénom", not just the exact "Prénom : X" format
+ *  extractSelfIntroName writes) since an LLM-tagged fact could phrase it
+ *  differently. Used to decide whether the prompt should nudge the model
+ *  to actually ask for it, rather than leaving that to chance. */
+export function hasKnownName(userId: string): boolean {
+  return getFacts(userId).some((f) => /pr[ée]nom/i.test(f.fact));
+}
+
 /** Compact context for the system prompt — read-and-consolidate only, never
  *  a trigger for background work (AI.MD closing note). */
 export function buildFactsContext(userId: string): string {

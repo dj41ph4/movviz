@@ -100,7 +100,17 @@ export function parseIntent(text: string): ParsedIntent {
 
 const FACT_MAX_LEN = 150;
 const FACT_MAX_COUNT = 3;
-const FACT_RE = /^\[\[FAIT:\s*(.+?)\]\]\s*$/gim;
+// No line anchors (^...$) — the model doesn't reliably put the marker on
+// its own line (observed in practice tacked onto the end of a sentence),
+// and an anchored regex silently fails to match/strip it there, leaking
+// the raw "[[FAIT: ...]]" text into what the user sees.
+const FACT_RE = /\[\[FAIT:\s*(.+?)\]\]/gi;
+// The model sometimes uses the marker to note its own IGNORANCE ("prénom
+// inconnu", "je ne sais pas encore son prénom") instead of only for new
+// information it was actually just given — that's the opposite of a fact
+// worth remembering. Filtered out defensively rather than trusted to the
+// prompt instruction alone.
+const NEGATIVE_FACT_RE = /\b(inconnu|je ne sais pas|pas encore|aucune idée|n['e]a pas|ignore)\b/i;
 
 /** Pulls the model's own inline `[[FAIT: ...]]` markers out of a plain-text
  *  reply — piggybacks on the chat call already made instead of a separate
@@ -113,10 +123,38 @@ export function extractFacts(text: string): { facts: string[]; cleaned: string }
   const cleaned = text
     .replace(FACT_RE, (_, raw: string) => {
       const fact = raw.trim().slice(0, FACT_MAX_LEN);
-      if (fact && facts.length < FACT_MAX_COUNT) facts.push(fact);
+      if (fact && !NEGATIVE_FACT_RE.test(fact) && facts.length < FACT_MAX_COUNT) facts.push(fact);
       return "";
     })
+    .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   return { facts, cleaned };
+}
+
+// "je m'appelle Seb", "je me nomme Léa", "moi c'est Max", "mon prénom
+// est/c'est Alex", "appelle-moi Théo" — one alternation, name in the
+// capture group. Accented/hyphenated first names allowed (Léa, Jean-Paul),
+// capped at a plausible first-name length.
+const NAME_INTRO_RE =
+  /\b(?:je\s+m[e']\s*(?:appelle|nomme)|moi\s*,?\s*c'?est|mon\s+pr[ée]nom\s*(?:est|c'?est)|appelle[- ]moi)\s+([a-zà-öø-ÿ][a-zà-öø-ÿ'-]{1,29})\b/i;
+
+/** Reliable, code-level fallback for the single most common durable fact —
+ *  the user's first name — instead of depending entirely on the model
+ *  choosing to emit a `[[FAIT: ...]]` marker for it (LLM instruction-
+ *  following on a small/free-tier model isn't 100% reliable in practice;
+ *  a user's own introduction should never silently fail to be remembered).
+ *  Runs on the USER's raw message, not the model's reply. Returns a
+ *  ready-to-store fact string, or null if no introduction pattern matched. */
+export function extractSelfIntroName(userMessage: string): string | null {
+  const match = userMessage.match(NAME_INTRO_RE);
+  if (!match) return null;
+  const raw = match[1];
+  // A verb/filler word can end up captured by the loose alternation above
+  // ("moi c'est cool" → "cool") — reject anything that isn't plausibly a
+  // first name rather than store noise as someone's identity.
+  const NOT_A_NAME = new Set(["qui", "quoi", "cool", "ok", "bon", "super", "genial", "génial", "sympa", "gentil", "gentille"]);
+  if (NOT_A_NAME.has(raw.toLowerCase())) return null;
+  const name = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
+  return `Prénom : ${name}`;
 }

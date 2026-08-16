@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractSelfIntroName } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
-import { buildFeedbackContext, buildFactsContext, rememberFact, getFacts } from "@/lib/ai/tasteProfile";
+import { buildFeedbackContext, buildFactsContext, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
 import { scoreCandidates, type MoodContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile } from "@/lib/ai/titleAnalysis";
 import { getMovie, getSeries } from "@/lib/metadata/tmdb";
@@ -62,8 +62,19 @@ export async function POST(req: NextRequest) {
   if (last?.role === "user" && last.content === message) {
     return NextResponse.json({ message: last, provider: null });
   }
+  // Captured BEFORE pushAiMessage below — loadAiSession returns the SAME
+  // mutable session object every time (in-process store), so checking
+  // session.messages.length AFTER the push would always see the message
+  // that was just added and never detect a first-ever interaction.
+  const wasEmptySession = session.messages.length === 0;
 
   pushAiMessage(user.id, { role: "user", content: message });
+
+  // Reliable, code-level capture of the single most common durable fact —
+  // never depends on the model choosing to emit a [[FAIT: ...]] marker for
+  // it (small/free-tier models don't always follow that instruction).
+  const introName = extractSelfIntroName(message);
+  if (introName) rememberFact(user.id, introName);
 
   const userContext = buildUserContext(user.id);
   const memoryContext = buildMemoryContext(user.id);
@@ -73,8 +84,11 @@ export async function POST(req: NextRequest) {
   // "First ever interaction" = no prior session AND no fact learned about
   // this user yet — not just "empty session" (a cleared chat shouldn't
   // re-trigger onboarding for someone Movviz already knows).
-  const isFirstInteraction = session.messages.length === 0 && getFacts(user.id).length === 0;
-  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction);
+  const isFirstInteraction = wasEmptySession && getFacts(user.id).length === 0;
+  // Checked AFTER the introName capture above, so telling it your name IN
+  // THIS message already counts — no double-ask in the same reply.
+  const needsName = !hasKnownName(user.id);
+  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName);
   if (pageContext) {
     system += `\n\nRÉFÉRENCE COURANTE — l'utilisateur regarde actuellement ${pageContext.type === "movie" ? "le film" : "la série"} « ${pageContext.title} » (${pageContext.tmdbId}). Quand il dit « dans le même genre », « quelque chose comme ça », « moins sérieux »…, c'est CE titre qui est la référence.`;
   }
