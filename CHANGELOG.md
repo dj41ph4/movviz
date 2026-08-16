@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.89 — August 2026
+
+### Plus jamais de crash « removeChild » (erreur d'affichage globale)
+
+- **Cause** : `NotFoundError: Failed to execute 'removeChild' on 'Node'` envoyait l'app entière dans l'écran d'erreur global. Le déclencheur : le menu utilisateur ouvert (dropdown framer-motion/AnimatePresence) au clic « Déconnexion » — la navigation vers `/login` démontait le shell pendant que l'animation de fermeture était encore en cours, et framer-motion/React se disputaient le même noeud DOM pendant la phase de commit.
+- **Correctif 1 (cause)** : `UserMenu.logout` ferme le dropdown immédiatement et laisse son exit animation se terminer (~300 ms) avant le fetch de déconnexion et la navigation — le shell n'est plus jamais démonté avec une animation en vol.
+- **Correctif 2 (filet)** : nouvel `AppErrorBoundary` (React error boundary) autour de tout l'arbre AppShell — une erreur de commit (manipulation DOM externe concurrente : hls.js/dash.js/YouTube pendant un unmount) ne peut plus tuer la session dans le global-error par défaut : écran de récupération + remontage propre via « Réessayer ».
+- Testé en Edge headless : login → logout avec dropdown ouvert → redirection `/login` sans aucune erreur console.
+
 ## v1.13.88 — August 2026
 
 ### Déconnexion : la redirection vers /login fonctionne enfin

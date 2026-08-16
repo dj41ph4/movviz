@@ -22,6 +22,7 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useSetupRequired } from "@/lib/auth/useSetupRequired";
 import { GpuProvider } from "@/lib/gpu/GpuProvider";
 import { PlayerProvider } from "@/lib/player/PlayerProvider";
+import { AppErrorBoundary } from "@/components/ui/AppErrorBoundary";
 
 /**
  * Shared data-fetch cache for the whole session. SWR keeps its cache keyed
@@ -113,8 +114,10 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
   useLibrarySSE(!isAuthPage && !isPending);
   const reduceMotion = useShouldReduceMotion();
 
+  let content: React.ReactNode;
+
   if (isAuthPage) {
-    return (
+    content = (
       <GpuProvider>
         <I18nProvider>
           <AuroraBackground />
@@ -122,10 +125,8 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
         </I18nProvider>
       </GpuProvider>
     );
-  }
-
-  if (isPending) {
-    return (
+  } else if (isPending) {
+    content = (
       <GpuProvider>
         <I18nProvider>
           <AuroraBackground />
@@ -135,9 +136,8 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
         </I18nProvider>
       </GpuProvider>
     );
-  }
-
-  return (
+  } else {
+    content = (
       <GpuProvider>
       <SWRConfig value={swrConfig}>
         <I18nProvider>
@@ -177,5 +177,12 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
         </I18nProvider>
       </SWRConfig>
       </GpuProvider>
-  );
+    );
+  }
+
+  // Catches commit-phase crashes (e.g. the removeChild race with external
+  // DOM libraries during unmount) that would otherwise kill the whole app
+  // into Next's global-error screen — a recover screen + clean remount
+  // instead.
+  return <AppErrorBoundary>{content}</AppErrorBoundary>;
 }

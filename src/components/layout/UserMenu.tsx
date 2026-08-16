@@ -28,6 +28,14 @@ export function UserMenu() {
 
   const initials = user.username.slice(0, 2).toUpperCase();
   const logout = async () => {
+    // Close the dropdown FIRST and let its exit animation finish before any
+    // navigation: AppShell swaps to the auth branch on push("/login"), which
+    // unmounts this whole component tree. If the AnimatePresence dropdown is
+    // still mid-exit at that moment, framer-motion and React race on the same
+    // DOM node — "NotFoundError: Failed to execute 'removeChild' on 'Node'"
+    // crashed the app into the global-error boundary (seen live).
+    setOpen(false);
+    await new Promise((r) => setTimeout(r, 300));
     await fetch("/api/auth/logout", { method: "POST" });
     // Same stale-SWR-cache fix as the login page — otherwise the cached
     // "/api/auth/me" result keeps reporting the old user for up to 30s
