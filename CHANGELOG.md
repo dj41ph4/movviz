@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.23 — August 2026
+
+### Nouveau
+
+- Un titre bloqué sur « En attente de synchronisation Plex » (fichier présent mais pas encore repéré par Plex) propose maintenant un bouton pour forcer la synchronisation immédiatement (admin), au lieu d'attendre le prochain passage automatique (jusqu'à 5 minutes).
+
 ## v1.14.22 — August 2026
 
 ### Correctif : import Netflix

@@ -32,6 +32,7 @@ import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { getSavedProgressSeconds, formatResumeTime } from "@/lib/player/watchProgress";
 import { setPageTitleContext } from "@/lib/ai/pageContext";
+import { toast } from "@/components/ui/Toast";
 import {
   Star, Plus, Check, Loader2, Bookmark,
   Clock, HardDriveDownload, Search, SearchCheck, Hash, Play,
@@ -402,6 +403,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const logoUrl = logoPath ? `/tmdb/w500${logoPath}` : null;
   const [resyncingAnime, setResyncingAnime] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
+  const [forcingPlexSync, setForcingPlexSync] = useState(false);
 
   const inLibrary = added || libraryStatus !== null;
   const canSearch =
@@ -590,6 +592,35 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       setResyncingAnime(false);
     }
   }, [libraryMatch?.id, t]);
+
+  // "en attente de synchronisation Plex" (plexRatingKey/plexUrl not
+  // populated yet) — admin-only manual trigger instead of waiting for the
+  // automatic incremental sync (every 5 min, see scheduler/tasks.ts).
+  // Nudges Plex's own filesystem scan first (refreshPlexLibraryFor, same
+  // mechanism already used right after a fresh grab lands), then runs
+  // Movviz's incremental sync so it actually picks up whatever Plex just
+  // found — /api/plex/library-sync already does both when given nudgeType.
+  const forcePlexSync = useCallback(async () => {
+    if (forcingPlexSync) return;
+    setForcingPlexSync(true);
+    try {
+      const res = await fetch("/api/plex/library-sync", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ nudgeType: type === "movie" ? "movie" : "series" }),
+      });
+      if (res.ok) {
+        toast("success", t("library.forcePlexSyncDone"));
+        mutateLibrary();
+      } else {
+        toast("error", t("library.forcePlexSyncFailed"));
+      }
+    } catch {
+      toast("error", t("library.forcePlexSyncFailed"));
+    } finally {
+      setForcingPlexSync(false);
+    }
+  }, [forcingPlexSync, type, t, mutateLibrary]);
 
   const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -1187,15 +1218,27 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   {libraryStatus === "available" && !libraryMatch?.plexUrl && (
                     // File is ready in Movviz but Plex hasn't scanned/matched it into
                     // its own library yet (plexUrl/plexRatingKey populate asynchronously,
-                    // see librarySync.ts) — show a disabled placeholder instead of nothing.
-                    <button
-                      disabled
-                      title={t("library.watchPendingPlexSync")}
-                      className="flex h-11 items-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white/50 backdrop-blur disabled:opacity-50"
-                    >
-                      <Play className="h-4 w-4" />
-                      {t("library.watchPendingPlexSync")}
-                    </button>
+                    // see librarySync.ts — automatic incremental sync every 5 min).
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled
+                        title={t("library.watchPendingPlexSync")}
+                        className="flex h-11 items-center gap-2 rounded-xl bg-white/10 px-5 text-sm font-bold text-white/50 backdrop-blur disabled:opacity-50"
+                      >
+                        <Play className="h-4 w-4" />
+                        {t("library.watchPendingPlexSync")}
+                      </button>
+                      {user?.role === "admin" && (
+                        <button
+                          onClick={forcePlexSync}
+                          disabled={forcingPlexSync}
+                          title={t("library.forcePlexSync")}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/70 backdrop-blur transition-colors hover:bg-white/15 hover:text-white disabled:opacity-50"
+                        >
+                          {forcingPlexSync ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                        </button>
+                      )}
+                    </div>
                   )}
                   {libraryStatus === "available" && libraryMatch?.plexUrl && (
                     betaPlayer && libraryMatch?.plexRatingKey ? (
