@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.10 — August 2026
+
+### Movviz AI
+
+- L'humour de l'assistant s'adapte maintenant à n'importe quel genre (pas seulement l'horreur) et ne réutilise jamais la même blague deux fois.
+- Les anecdotes restent désormais toujours courtes — une phrase glissée naturellement, jamais un pavé.
+
 ## v1.14.9 — August 2026
 
 ### Movviz AI
