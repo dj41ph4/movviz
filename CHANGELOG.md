@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.20 — August 2026
+
+### Nouveau : intégration Netflix
+
+- Réglages → Netflix : importe ton historique Netflix (fichier téléchargé depuis ton propre compte Netflix, aucun mot de passe requis) pour marquer ces films et épisodes vus dans Movviz — strictement propre à chaque compte.
+- Le statut « Vu » coché manuellement, ou importé depuis Netflix, est désormais répercuté vers ton compte Plex lié (film, série, saison, épisode) — jusqu'ici la synchronisation ne marchait que dans l'autre sens (Plex vers Movviz).
+
 ## v1.14.19 — August 2026
 
 ### Correctif

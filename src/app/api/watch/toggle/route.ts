@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
+import { pushMovieWatchedToPlex, pushEpisodesWatchedToPlex } from "@/lib/plex/watchWrite";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,10 @@ export async function POST(req: NextRequest) {
 
   if (type === "movie") {
     setWatchedMovies(user.id, [tmdbId], watched, title);
+    // Bidirectional sync (demande explicite user) — fire-and-forget, never
+    // blocks the toggle response. Best-effort inside (no key/link → no-op),
+    // so a Plex hiccup never breaks the local toggle.
+    pushMovieWatchedToPlex(user, tmdbId, watched).catch(() => {});
     return NextResponse.json({ ok: true });
   }
 
@@ -56,5 +61,6 @@ export async function POST(req: NextRequest) {
   }
 
   setWatchedEpisodes(user.id, episodes, watched, title);
+  pushEpisodesWatchedToPlex(user, episodes, watched).catch(() => {});
   return NextResponse.json({ ok: true });
 }

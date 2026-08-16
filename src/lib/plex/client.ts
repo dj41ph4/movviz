@@ -642,6 +642,34 @@ export async function refreshSection(cfg: PlexServerConfig, token: string, secti
   }
 }
 
+/**
+ * Marks a single library item watched/unwatched — Plex's real scrobble API
+ * (`/:/scrobble` and `/:/unscrobble`, both GET requests despite the verb-
+ * like names). Whichever account authenticates the request (this call's
+ * `token`, or the admin token + `managedUserId` for a Home-managed profile)
+ * is the one whose watched state changes — this is how every real Plex
+ * client (web/mobile/TV) reports per-account playback, DIFFERENT from the
+ * read-side `viewCount` quirk documented in watchSync.ts (which always
+ * reflects the server owner regardless of token). Expected to scope
+ * correctly per-account on Plex's side, but this codebase has never called
+ * it before this feature — verify against a real secondary Plex account
+ * before trusting it fully (see plex/watchWrite.ts's logging). Best-effort:
+ * returns false on any failure, never throws.
+ */
+export async function setPlexWatched(cfg: PlexServerConfig, token: string, ratingKey: string, watched: boolean, managedUserId?: string): Promise<boolean> {
+  try {
+    const params = new URLSearchParams({ key: ratingKey, identifier: "com.plexapp.plugins.library" });
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/:/${watched ? "scrobble" : "unscrobble"}?${params}`, {
+      method: "GET",
+      headers: serverHeaders(cfg, token, managedUserId),
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Movie and show sections configured on the server — the entry point for a library scan. */
 export async function getLibrarySections(cfg: PlexServerConfig, token: string, managedUserId?: string): Promise<PlexSection[]> {
   try {

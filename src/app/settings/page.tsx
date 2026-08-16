@@ -42,6 +42,7 @@ import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
 import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
 import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
 import { GpuSettingsPanel } from "@/components/settings/GpuSettingsPanel";
+import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
 import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT } from "@/lib/settingsNav";
 
 const TABS = SETTINGS_TABS;
@@ -226,6 +227,7 @@ function SettingsPageInner() {
           {tab === "dashboard" && <DashboardExperiencePanel />}
           {tab === "experience" && <ExperiencePanel />}
           {tab === "gpu" && <GpuSettingsPanel />}
+          {tab === "netflix" && <NetflixImportPanel />}
 
           {tab === "clients" && <DownloadClients />}
 

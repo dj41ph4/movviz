@@ -21,6 +21,7 @@ import {
   Ban,
   Bot,
   Wand2,
+  Clapperboard,
   type LucideIcon,
 } from "lucide-react";
 
@@ -51,6 +52,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
   { id: "dashboard", labelKey: "settings.tabDashboard", hintKey: "settings.tabDashboardHint", icon: LayoutGrid, group: "personal" },
   { id: "experience", labelKey: "settings.tabExperience", hintKey: "settings.tabExperienceHint", icon: Wand2, group: "personal" },
   { id: "gpu", labelKey: "settings.tabGpu", hintKey: "settings.tabGpuHint", icon: Zap, group: "personal" },
+  { id: "netflix", labelKey: "settings.tabNetflix", hintKey: "settings.tabNetflixHint", icon: Clapperboard, group: "personal" },
   // Téléchargement
   { id: "clients", labelKey: "settings.tabClients", hintKey: "settings.tabClientsHint", icon: HardDrive, group: "download" },
   { id: "indexers", labelKey: "settings.tabIndexers", hintKey: "settings.tabIndexersHint", icon: Magnet, group: "download" },
