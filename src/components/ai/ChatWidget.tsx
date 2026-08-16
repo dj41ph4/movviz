@@ -6,24 +6,10 @@ import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { getPageTitleContext } from "@/lib/ai/pageContext";
-import type { AiActionOutcome, AiChatMessage, AiMemoryEntry, AiRecommendation } from "@/lib/ai/types";
+import type { AiActionOutcome, AiChatMessage, AiRecommendation } from "@/lib/ai/types";
 import {
   Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown,
 } from "lucide-react";
-
-interface MemoryView {
-  added: AiMemoryEntry[];
-  accepted: AiMemoryEntry[];
-  usage: {
-    watchedMovies: number;
-    watchedSeries: number;
-    watchedEpisodes: number;
-    requestsTotal: number;
-    aiAdded: number;
-    aiAccepted: number;
-    topSeries: { title: string; episodes: number }[];
-  };
-}
 
 const STATUS_STYLES: Record<AiActionOutcome["status"], string> = {
   added: "bg-ok/12 text-ok",
@@ -150,15 +136,7 @@ export function ChatWidget() {
   const [provider, setProvider] = useState<string | null>(null);
   const [adding, setAdding] = useState<Record<string, "adding" | "added">>({});
   const [votes, setVotes] = useState<Record<string, "like" | "dislike">>({});
-  const [memory, setMemory] = useState<MemoryView | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const refreshMemory = useCallback(async () => {
-    try {
-      const r = await fetch("/api/ai/memory", { cache: "no-store" });
-      if (r.ok) setMemory(await r.json());
-    } catch { /* panel stays hidden */ }
-  }, []);
 
   // SWR (not a one-off fetch) so the button appears/disappears the moment an
   // admin flips the toggle in Settings — AiSettingsPanel calls the shared
@@ -172,8 +150,7 @@ export function ChatWidget() {
     if (!sessionData || seededRef.current) return;
     seededRef.current = true;
     setMessages(sessionData.messages ?? []);
-    if (sessionData.enabled) refreshMemory();
-  }, [sessionData, refreshMemory]);
+  }, [sessionData]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -233,7 +210,6 @@ export function ChatWidget() {
       if (r.ok) {
         setAdding((p) => ({ ...p, [key]: "added" }));
         toast("success", t("ai.added"));
-        refreshMemory();
         fetch("/api/ai/memory", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -258,22 +234,6 @@ export function ChatWidget() {
       body: JSON.stringify({ tmdbId: card.tmdbId, title: card.title, type: card.type, liked, reason: card.reason }),
     }).catch(() => {});
   }, []);
-
-  const memoryLines = memory
-    ? (() => {
-        const lines: string[] = [];
-        if (memory.usage.aiAdded > 0) lines.push(t("ai.memory.added", { n: String(memory.usage.aiAdded) }));
-        if (memory.usage.aiAccepted > 0) lines.push(t("ai.memory.accepted", { n: String(memory.usage.aiAccepted) }));
-        if (memory.usage.watchedEpisodes > 0) {
-          lines.push(t("ai.memory.watched", { movies: String(memory.usage.watchedMovies), episodes: String(memory.usage.watchedEpisodes) }));
-        }
-        if (memory.usage.topSeries.length) {
-          const top = memory.usage.topSeries[0];
-          lines.push(t("ai.memory.topSeries", { title: top.title, episodes: String(top.episodes) }));
-        }
-        return lines;
-      })()
-    : [];
 
   if (enabled === false || enabled === null) return null;
 
@@ -312,14 +272,6 @@ export function ChatWidget() {
           </div>
 
           <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-            {memoryLines.length > 0 ? (
-              <div className="rounded-xl glass px-3.5 py-3">
-                <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-brand-glow uppercase">
-                  <Sparkles className="h-3 w-3" /> {t("ai.memory.title")}
-                </p>
-                <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">{memoryLines.join(" · ")}</p>
-              </div>
-            ) : null}
             {messages.length === 0 && !busy ? (
               <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
                 <Sparkles className="h-6 w-6 text-brand-glow" />

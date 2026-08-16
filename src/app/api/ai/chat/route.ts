@@ -102,7 +102,11 @@ export async function POST(req: NextRequest) {
   const intent = parseIntent(text);
   const { facts, cleaned } = extractFacts(intent.rawText);
   for (const fact of facts) rememberFact(user.id, fact);
-  const assistant: AiChatMessage = { role: "assistant", content: cleaned || "…" };
+  // A bare "…" here (the old fallback) reads as broken, not thoughtful —
+  // this branch only fires when the model's ENTIRE reply was [[FAIT:...]]
+  // marker lines with no actual sentence (a prompt-following miss on the
+  // model's part, now discouraged more explicitly in buildSystemPrompt).
+  const assistant: AiChatMessage = { role: "assistant", content: cleaned || "D'accord !" };
 
   let itemCount: number | undefined;
   if (intent.action === "add_media" && intent.items.length) {

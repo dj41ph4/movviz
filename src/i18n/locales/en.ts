@@ -1982,13 +1982,6 @@ export const en: Dictionary = {
     error: "The AI couldn't respond",
     disabled: "AI is disabled",
     viaProvider: "via {provider}",
-    memory: {
-      title: "I remember you",
-      added: "{n} titles added through me",
-      accepted: "{n} recommendations accepted",
-      watched: "{movies} movies watched · {episodes} episodes watched",
-      topSeries: "Most watched: {title} ({episodes} eps.)",
-    },
     provider: {
       mistral: "Mistral",
       mistralHint: "Fast and reliable — default primary",

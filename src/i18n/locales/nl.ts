@@ -1982,13 +1982,6 @@ export const nl: Dictionary = {
     error: "De AI kon niet antwoorden",
     disabled: "AI is uitgeschakeld",
     viaProvider: "via {provider}",
-    memory: {
-      title: "Ik herinner me jou",
-      added: "{n} titels via mij toegevoegd",
-      accepted: "{n} aanbevelingen geaccepteerd",
-      watched: "{movies} films bekeken · {episodes} afleveringen bekeken",
-      topSeries: "Meest bekeken: {title} ({episodes} afl.)",
-    },
     provider: {
       mistral: "Mistral",
       mistralHint: "Snel en betrouwbaar — standaard primair",

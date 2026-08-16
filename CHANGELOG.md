@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.8 — August 2026
+
+### Movviz AI
+
+- Panneau « Je me souviens de toi » retiré du chat.
+- Correction d'un bug où l'assistant répondait par de simples points de suspension au lieu d'une vraie réponse — notamment quand tu réagissais à une recommandation déjà proposée (une question, une blague) au lieu d'en demander une nouvelle.
+- L'assistant ne prétend plus avoir mémorisé quelque chose qu'il n'a en réalité jamais reçu (ex. ton prénom avant que tu l'aies donné).
+
 ## v1.14.7 — August 2026
 
 ### Movviz AI

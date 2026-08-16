@@ -1980,13 +1980,6 @@ export const fr = {
     error: "L'IA n'a pas pu répondre",
     disabled: "L'IA est désactivée",
     viaProvider: "via {provider}",
-    memory: {
-      title: "Je me souviens de toi",
-      added: "{n} titres ajoutés via moi",
-      accepted: "{n} recommandations acceptées",
-      watched: "{movies} films vus · {episodes} épisodes regardés",
-      topSeries: "Le plus regardé : {title} ({episodes} ép.)",
-    },
     provider: {
       mistral: "Mistral",
       mistralHint: "Rapide et fiable — principal par défaut",

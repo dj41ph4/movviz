@@ -1981,13 +1981,6 @@ diskScan: {
     error: "Die KI konnte nicht antworten",
     disabled: "KI ist deaktiviert",
     viaProvider: "über {provider}",
-    memory: {
-      title: "Ich erinnere mich an dich",
-      added: "{n} Titel über mich hinzugefügt",
-      accepted: "{n} Empfehlungen angenommen",
-      watched: "{movies} Filme gesehen · {episodes} Episoden gesehen",
-      topSeries: "Am meisten gesehen: {title} ({episodes} Folgen)",
-    },
     provider: {
       mistral: "Mistral",
       mistralHint: "Schnell und zuverlässig — Standard-Primär",
