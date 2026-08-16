@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { LOCALES, DEFAULT_LOCALE, type Locale } from "@/i18n/config";
 
 export interface ChangelogSection {
   heading: string;
@@ -14,31 +13,22 @@ export interface ChangelogEntry {
 }
 
 /**
- * English (CHANGELOG.md) is the canonical, GitHub-facing file. Each other
- * locale has its own CHANGELOG.<locale>.md — same version headers, same
- * structure, translated content — so the in-app "what's new" popup follows
- * whichever language the user has the interface set to instead of always
- * showing the GitHub-canonical English. Falls back to the English file for
- * any locale whose file is missing or doesn't (yet) have a given version.
+ * CHANGELOG.md is the single source, in French, for every audience (GitHub
+ * and the in-app "what's new" popup alike — AGENTS.md: everything
+ * GitHub-visible is French). There used to be a per-locale
+ * CHANGELOG.<locale>.md translation set, but CHANGELOG.md itself drifted to
+ * French directly (matching the repo-wide French rule) while the
+ * translated files silently stopped being updated after v1.13.72 — meaning
+ * every non-French interface language actually fell back to raw French
+ * text anyway. Removed rather than resurrected: one file, always in
+ * French, is simpler and matches what was already true in practice.
  */
-function fileFor(locale: Locale): string {
-  return locale === "en" || !LOCALES.includes(locale)
-    ? path.join(process.cwd(), "CHANGELOG.md")
-    : path.join(process.cwd(), `CHANGELOG.${locale}.md`);
-}
 const DEFAULT_FILE = path.join(process.cwd(), "CHANGELOG.md");
 const VERSION_HEADER = /^##\s+(?:v|\[)?([\d.]+)(?:\])?(?:\s+—\s+(.+))?/;
 
-/**
- * Pulls the "for humans" release notes for one version straight out of the
- * changelog file matching `locale` — falls back to the canonical English
- * file when the localized one is missing or doesn't have this version yet,
- * so the in-app "what's new" popup and the file people read on GitHub never
- * silently show nothing.
- */
-export function getChangelogEntry(version: string, locale: Locale = DEFAULT_LOCALE): ChangelogEntry | null {
-  const localized = readEntry(fileFor(locale), version);
-  if (localized) return localized;
+/** Pulls the "for humans" release notes for one version straight out of
+ *  CHANGELOG.md. */
+export function getChangelogEntry(version: string): ChangelogEntry | null {
   return readEntry(DEFAULT_FILE, version);
 }
 
@@ -133,22 +123,12 @@ function readRange(FILE: string): { version: string; date: string | null; sectio
  * while and should see everything they missed, not just the latest release.
  * `since === null` (never seen a version before) returns just `upTo`, same
  * as the single-entry behavior this replaces.
- *
- * Reads from the changelog file matching `locale`; any version missing there
- * (localized file doesn't exist yet, or hasn't caught up to the latest
- * release) falls back to the canonical English entry for that same version
- * rather than silently dropping it.
  */
-export function getChangelogRange(since: string | null, upTo: string, locale: Locale = DEFAULT_LOCALE): ChangelogEntry[] {
-  const localized = readRange(fileFor(locale));
-  const fallback = locale === "en" ? [] : readRange(DEFAULT_FILE);
-  const byVersion = new Map(localized.filter((e) => e.sections.length > 0).map((e) => [e.version, e]));
-  for (const e of fallback) {
-    if (!byVersion.has(e.version) && e.sections.length > 0) byVersion.set(e.version, e);
-  }
+export function getChangelogRange(since: string | null, upTo: string): ChangelogEntry[] {
+  const all = readRange(DEFAULT_FILE).filter((e) => e.sections.length > 0);
 
   const entries: ChangelogEntry[] = [];
-  for (const e of byVersion.values()) {
+  for (const e of all) {
     if (compareVersions(e.version, upTo) > 0) continue;
     if (since !== null && compareVersions(e.version, since) <= 0) continue;
     entries.push(e);

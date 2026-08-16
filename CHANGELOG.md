@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.19 — August 2026
+
+### Correctif
+
+- Le popup « nouveautés » affichait parfois du texte non traduit pour les interfaces non françaises — la traduction par langue de ce popup avait cessé d'être maintenue depuis plusieurs versions sans que le mécanisme de repli s'en aperçoive. Simplifié : une seule source de vérité, en français, cohérente avec le reste du dépôt.
+
 ## v1.14.18 — August 2026
 
 ### Movviz AI

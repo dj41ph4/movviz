@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, X } from "lucide-react";
-import { useI18n, useT } from "@/i18n/provider";
+import { useT } from "@/i18n/provider";
 import { useVersion } from "@/lib/version/VersionContext";
 
 interface ChangelogSection {
@@ -34,13 +34,11 @@ function renderBold(text: string) {
  * Shown once per browser whenever the running app version doesn't match the
  * last one this browser saw — covers a Windows one-click update just as much
  * as a Docker/NAS re-pull, since both just change the version the server
- * reports. Content comes from /api/system/changelog, which reads the
- * changelog file matching the current UI language (falling back to English
- * for anything not yet translated) — see src/lib/changelog.ts.
+ * reports. Content comes from /api/system/changelog, always French
+ * (CHANGELOG.md — see src/lib/changelog.ts).
  */
 export function WhatsNewModal() {
   const t = useT();
-  const { locale } = useI18n();
   const version = useVersion();
   const [entries, setEntries] = useState<ChangelogEntry[]>([]);
   const [visible, setVisible] = useState(false);
@@ -55,7 +53,7 @@ export function WhatsNewModal() {
     // Passing `since` pulls every version missed since the last time this
     // browser was open, not just the latest — someone who skipped several
     // releases sees the full story, not only the newest entry.
-    const params = new URLSearchParams({ locale });
+    const params = new URLSearchParams();
     if (lastSeen) params.set("since", lastSeen);
     fetch(`/api/system/changelog?${params}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
