@@ -56,7 +56,7 @@ export interface ActivityDownload {
   eta: number; // seconds
   ratio: number;
   peers: number;
-  state: "downloading" | "paused" | "queued" | "completed" | "seeding" | "stalled";
+  state: "downloading" | "paused" | "queued" | "completed" | "seeding" | "stalled" | "verifying";
 }
 
 export interface ActivityImport {
@@ -127,7 +127,7 @@ export interface QueueItem {
   media: ActivityMedia;
   release: ActivityRelease;
   download: ActivityDownload;
-  status: "queued" | "downloading" | "paused" | "importing" | "seeding" | "completed" | "failed" | "stalled";
+  status: "queued" | "downloading" | "paused" | "importing" | "seeding" | "completed" | "failed" | "stalled" | "verifying";
   priority?: "high" | "medium" | "low";
   /** Manual post-completion seed toggle — only meaningful when status === "completed";
    *  distinct from the transitional "seeding" status above (torrent finished

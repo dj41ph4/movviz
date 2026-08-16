@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,7 @@ import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { IntegralSearchModal } from "@/components/search/IntegralSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
 import { EditTitleModal } from "@/components/title/EditTitleModal";
+import { ImagePickerModal } from "@/components/title/ImagePickerModal";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import { BrandIcon } from "@/components/ui/BrandIcon";
 import { TagEditor } from "@/components/library/TagEditor";
@@ -28,10 +29,13 @@ import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
+import { getSavedProgressSeconds, formatResumeTime } from "@/lib/player/watchProgress";
+import { setPageTitleContext } from "@/lib/ai/pageContext";
 import {
   Star, Plus, Check, Loader2, Bookmark,
   Clock, HardDriveDownload, Search, SearchCheck, Hash, Play,
-  ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, Pencil,
+  ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, Pencil, Eye, Images,
   type LucideIcon,
 } from "lucide-react";
 
@@ -147,6 +151,8 @@ type LibraryListItem = {
   plexRatingKey?: string | null;
   tags?: string[];
   aliases?: string[];
+  customBackdropPath?: string | null;
+  customLogoPath?: string | null;
   plexMediaInfo?: {
     container: string | null;
     bitrate: number | null;
@@ -190,6 +196,16 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   );
   const detail = detailData?.tmdbId ? detailData : null;
 
+  /* ── AI page context ────────────────────────────────────────────────── */
+
+  // Lets the AI chat know what the user is looking at ("same mood, darker")
+  // — the chat widget reads this store and sends it along with each request.
+  useEffect(() => {
+    if (detailData?.title) {
+      setPageTitleContext({ tmdbId, type, title: detailData.title });
+    }
+  }, [detailData, tmdbId, type]);
+
   const libEndpoint =
     type === "movie" ? "/api/library/movies" : "/api/library/series";
 
@@ -209,7 +225,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     (x) => x.tmdbId === tmdbId && x.type === type,
   );
 
-  const { data: watchData } = useSWR<{
+  const { data: watchData, mutate: mutateWatch } = useSWR<{
+    movies: number[];
     episodes: { tmdbId: number; season: number; episode: number }[];
   }>("/api/watch-status", fetcher);
 
@@ -233,9 +250,59 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       .map((e) => `${e.season}.${e.episode}`),
   );
 
-  const backdrop = detail?.backdropPath
-    ? `/tmdb/original${detail.backdropPath}`
-    : null;
+  /* ── manual "watched" toggle (film / série complète) ─────────────────── */
+
+  const watchedMovie = (watchData?.movies ?? []).includes(tmdbId);
+  const seriesEpisodes = useMemo(() => {
+    if (type !== "series" || !libraryMatch) return [];
+    const out: { season: number; episode: number }[] = [];
+    for (const s of libraryMatch.seasons ?? []) {
+      for (const e of s.episodes ?? []) {
+        if (s.seasonNumber != null && e.episodeNumber != null) {
+          out.push({ season: s.seasonNumber, episode: e.episodeNumber });
+        }
+      }
+    }
+    return out;
+  }, [type, libraryMatch]);
+  const allSeriesWatched =
+    seriesEpisodes.length > 0 &&
+    seriesEpisodes.every((e) => watchedEpisodes.has(`${e.season}.${e.episode}`));
+  const watched = type === "movie" ? watchedMovie : allSeriesWatched;
+  const watchedToggleVisible =
+    type === "movie" ? !!detail : seriesEpisodes.length > 0;
+  const [togglingWatched, setTogglingWatched] = useState(false);
+
+  const toggleWatched = useCallback(async () => {
+    if (togglingWatched) return;
+    setTogglingWatched(true);
+    try {
+      const body =
+        type === "movie"
+          ? { tmdbId, type, watched: !watchedMovie, title: detail?.title ?? "" }
+          : {
+              tmdbId,
+              type,
+              watched: !allSeriesWatched,
+              title: detail?.title ?? "",
+              episodes: seriesEpisodes,
+            };
+      await fetch("/api/watch/toggle", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      await mutateWatch();
+    } finally {
+      setTogglingWatched(false);
+    }
+  }, [togglingWatched, type, tmdbId, watchedMovie, allSeriesWatched, seriesEpisodes, detail?.title, mutateWatch]);
+
+  const backdrop = libraryMatch?.customBackdropPath
+    ? `/tmdb/original${libraryMatch.customBackdropPath}`
+    : detail?.backdropPath
+      ? `/tmdb/original${detail.backdropPath}`
+      : null;
   const poster = detail?.posterPath
     ? `/tmdb/w500${detail.posterPath}`
     : null;
@@ -291,8 +358,38 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       if (document.fullscreenElement) { try { document.exitFullscreen(); } catch { /* unsupported */ } }
     };
   }, [showTrailer]);
-  const { play } = usePlayer();
+  const { play, request: playerRequest } = usePlayer();
   const usePlayLabelResult = usePlayLabel(libraryMatch?.plexRatingKey);
+  const { enabled: titlePageVideoEnabled } = useTitlePageVideo();
+
+  // Resume position for the primary CTA (Netflix-style "Reprendre à
+  // 00:09:24" pill instead of a plain "Lire" button). Re-read whenever the
+  // theater player closes (playerRequest going back to null) — the player
+  // stays mounted above this page (PlayerProvider), so this component never
+  // remounts on its own after a watch session ends.
+  const [resumeSeconds, setResumeSeconds] = useState<number | null>(null);
+  useEffect(() => {
+    if (playerRequest) return;
+    if (!betaPlayer || !libraryMatch?.plexRatingKey) {
+      setResumeSeconds(null);
+      return;
+    }
+    setResumeSeconds(getSavedProgressSeconds(libraryMatch.plexRatingKey));
+  }, [playerRequest, betaPlayer, libraryMatch?.plexRatingKey]);
+  const resumePercent = resumeSeconds != null && detail?.runtime
+    ? Math.min(100, Math.max(0, (resumeSeconds / (detail.runtime * 60)) * 100))
+    : null;
+
+  const [artworkOpen, setArtworkOpen] = useState(false);
+  // Auto-picked logo (best-rated TMDb logo in the viewer's language, English,
+  // or language-less) — the artwork picker lets a user override it, but the
+  // hero always tries to show SOME logo over text when TMDb has one at all.
+  const { data: imagesData } = useSWR<{ logos: { filePath: string }[] }>(
+    detail?.tmdbId ? `/api/metadata/images?tmdbId=${detail.tmdbId}&type=${type}&locale=${locale}` : null,
+    fetcher
+  );
+  const logoPath = libraryMatch?.customLogoPath ?? imagesData?.logos?.[0]?.filePath ?? null;
+  const logoUrl = logoPath ? `/tmdb/w500${logoPath}` : null;
   const [resyncingAnime, setResyncingAnime] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
 
@@ -802,6 +899,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 plexUrl: libraryMatch.plexUrl!,
                 title: detail?.title ?? "",
                 useTranscode: betaPlayer,
+                tmdbId: detail?.tmdbId,
+                type,
                 originRect: e.currentTarget.getBoundingClientRect(),
                 backdropUrl: backdrop,
                 posterUrl: poster,
@@ -893,6 +992,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               trailerKeys={detail.trailerKeys}
               title={detail.title}
               trigger="immediate"
+              enabled={titlePageVideoEnabled}
               className="h-full w-full"
             />
           </ErrorBoundary>
@@ -905,6 +1005,13 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 libraryId={libraryMatch.id}
                 className="h-10 w-10 backdrop-blur"
               />
+              <button
+                onClick={() => setArtworkOpen(true)}
+                title={t("title.artwork.button")}
+                className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
+              >
+                <Images className="h-4 w-4" />
+              </button>
               {user?.role === "admin" && (
                 <button
                   onClick={() => setEditOpen(true)}
@@ -946,7 +1053,20 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               </span>
             )}
             <h1 className="max-w-2xl text-3xl font-black tracking-tight text-white drop-shadow-lg sm:text-5xl">
-              {detail.title}
+              {logoUrl ? (
+                <>
+                  <span className="sr-only">{detail.title}</span>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoUrl}
+                    alt=""
+                    loading="lazy"
+                    className="max-h-20 max-w-[70vw] object-contain object-left align-middle sm:max-h-28 sm:max-w-md"
+                  />
+                </>
+              ) : (
+                detail.title
+              )}
               {detail.year ? (
                 <span className="ml-2 inline-block align-baseline font-normal text-ink-dim text-lg sm:text-xl">
                   {detail.year}
@@ -1056,12 +1176,47 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   )}
                   {libraryStatus === "available" && libraryMatch?.plexUrl && (
                     betaPlayer && libraryMatch?.plexRatingKey ? (
+                      resumeSeconds != null ? (
+                        // Resume pill (Netflix-style) — same play() call as the
+                        // plain CTA below, just a different label/shape. The
+                        // resume-vs-restart choice itself is never decided
+                        // here: VideoPlayer always shows that dialog on its
+                        // own whenever a saved position exists, so clicking
+                        // this never silently jumps ahead.
+                        <button
+                          onClick={(e) => play({
+                            ratingKey: libraryMatch.plexRatingKey!,
+                            plexUrl: libraryMatch.plexUrl!,
+                            title: detail?.title ?? "",
+                            useTranscode: betaPlayer,
+                            tmdbId: detail?.tmdbId,
+                            type,
+                            originRect: e.currentTarget.getBoundingClientRect(),
+                            backdropUrl: backdrop,
+                            posterUrl: poster,
+                          })}
+                          className="group relative flex h-11 min-w-[200px] items-center justify-center overflow-hidden rounded-xl bg-white/12 text-sm font-bold text-white backdrop-blur transition-transform hover:scale-105 active:scale-95"
+                        >
+                          {resumePercent != null && (
+                            <span
+                              className="absolute inset-y-0 left-0 bg-white/25 transition-colors group-hover:bg-white/30"
+                              style={{ width: `${resumePercent}%` }}
+                            />
+                          )}
+                          <span className="relative z-10 flex items-center gap-2 px-5">
+                            <Play className="h-4 w-4 shrink-0 fill-white" />
+                            <span className="truncate">{t("player.betaResumeFrom")} {formatResumeTime(resumeSeconds)}</span>
+                          </span>
+                        </button>
+                      ) : (
                       <button
                         onClick={(e) => play({
                           ratingKey: libraryMatch.plexRatingKey!,
                           plexUrl: libraryMatch.plexUrl!,
                           title: detail?.title ?? "",
                           useTranscode: betaPlayer,
+                          tmdbId: detail?.tmdbId,
+                          type,
                           originRect: e.currentTarget.getBoundingClientRect(),
                           backdropUrl: backdrop,
                           posterUrl: poster,
@@ -1071,6 +1226,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         <Play className="h-4 w-4 fill-black" />
                         {usePlayLabelResult.label}
                       </button>
+                      )
                     ) : (
                       <a
                         href={libraryMatch.plexUrl}
@@ -1131,6 +1287,23 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                     </button>
                   )}
                 </>
+              )}
+              {watchedToggleVisible && (
+                <button
+                  onClick={toggleWatched}
+                  disabled={togglingWatched}
+                  title={watched ? t("watch.markUnwatched") : t("watch.markWatched")}
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-transform hover:scale-110 active:scale-90",
+                    watched ? "text-ok" : "text-white/80 hover:text-white",
+                  )}
+                >
+                  {togglingWatched ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Eye className={cn("h-4 w-4", watched && "fill-ok/40")} />
+                  )}
+                </button>
               )}
               <button
                 onClick={toggleWatchlist}
@@ -1349,6 +1522,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 tmdbId={detail.tmdbId}
                 seasons={detail.seasons}
                 librarySeasons={libraryMatch?.seasons}
+                seriesTitle={detail?.title ?? ""}
+                onWatchedChanged={mutateWatch}
                 onSearchSeason={
                   libraryMatch?.id ? searchSeason : undefined
                 }
@@ -1505,6 +1680,18 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           aliases={libraryMatch.aliases ?? []}
           filePath={libraryMatch.file?.path}
           onClose={() => setEditOpen(false)}
+          onChange={() => mutateLibrary()}
+        />
+      )}
+
+      {artworkOpen && libraryMatch?.id && (
+        <ImagePickerModal
+          type={type}
+          id={libraryMatch.id}
+          tmdbId={tmdbId}
+          currentBackdropPath={libraryMatch.customBackdropPath}
+          currentLogoPath={libraryMatch.customLogoPath}
+          onClose={() => setArtworkOpen(false)}
           onChange={() => mutateLibrary()}
         />
       )}

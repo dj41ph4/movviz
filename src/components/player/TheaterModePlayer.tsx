@@ -8,6 +8,8 @@ import { getDominantColor, type DominantColorResult } from "@/lib/media/dominant
 import { VideoPlayer, type VideoPlayerProps } from "./VideoPlayer";
 
 type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "plexUrl" | "title" | "useTranscode" | "prebufferSeconds"> & {
+  tmdbId?: number;
+  type?: "movie" | "series";
   originRect?: Rect;
   onClose: () => void;
   /** Backdrop wins for ambience extraction; poster is the fallback for
@@ -32,10 +34,22 @@ const DURATION = 0.45;
  * difference from TitlePanel: the end geometry is always true fullscreen,
  * never a bounded modal.
  */
-export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl, ...playerProps }: TheaterModePlayerProps) {
+export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl, tmdbId, type, title, ...playerProps }: TheaterModePlayerProps) {
   const reduceMotion = useShouldReduceMotion();
   const ambienceSrc = backdropUrl ?? posterUrl ?? null;
   const [ambience, setAmbience] = useState<DominantColorResult | null>(null);
+
+  // Record "quoi + quand" for direct Movviz playback — fire-and-forget, the
+  // player must never be blocked by the network. Only fires when the caller
+  // actually knows the TMDb identity of the watched item.
+  useEffect(() => {
+    if (tmdbId == null || !type) return;
+    fetch("/api/ai/watched", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ tmdbId, type, title }),
+    }).catch(() => {});
+  }, [tmdbId, type, title]);
 
   // Runs once per unique image (module-level cache in dominantColor.ts makes
   // repeat opens of the same title instant) — never on a playback tick, per
@@ -165,7 +179,7 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
         transition={{ duration: reduceMotion ? 0.15 : DURATION, ease: EASE }}
         style={{ transformOrigin: "center center" }}
       >
-        <VideoPlayer {...playerProps} onClose={onClose} embedded />
+        <VideoPlayer {...playerProps} title={title} onClose={onClose} embedded />
       </motion.div>
     </div>
   );

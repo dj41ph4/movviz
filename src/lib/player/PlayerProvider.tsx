@@ -18,6 +18,10 @@ export interface PlayNowRequest {
   plexUrl: string;
   title: string;
   useTranscode: boolean;
+  /** TMDb identity of the watched item — lets Movviz record "quoi + quand"
+   *  for direct playback (feeds the AI's recent-watches memory). */
+  tmdbId?: number;
+  type?: "movie" | "series";
   /** Clicked element's getBoundingClientRect() — feeds Theater Mode's expand-from-origin animation (Phase B). Undefined for a programmatic play with no click origin. */
   originRect?: OriginRect;
   backdropUrl?: string | null;
@@ -67,6 +71,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             ratingKey={request.ratingKey}
             plexUrl={request.plexUrl}
             title={request.title}
+            tmdbId={request.tmdbId}
+            type={request.type}
             onClose={close}
             useTranscode={request.useTranscode}
             prebufferSeconds={PREBUFFER_SECONDS}

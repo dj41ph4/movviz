@@ -1,6 +1,6 @@
 import { loadPlexConfig } from "./store";
 import { getAccountHistory, batchTmdbIds } from "./client";
-import { saveWatchStatus, getWatchStatus } from "./watchStore";
+import { saveWatchStatus, getWatchStatus, type RecentWatch } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
 
@@ -76,11 +76,35 @@ export async function syncUserWatchStatus(user: User) {
     }
     const episodes = [...episodeMap.values()];
 
-    saveWatchStatus({ userId: user.id, movies, episodes, updatedAt: Date.now() });
+    // "Quoi + quand" : recent keeps the last watched entries with their real
+    // timestamps from Plex history (newest first), merged with any direct
+    // Movviz playback entries so nothing previously recorded is lost.
+    const plexRecent: RecentWatch[] = history
+      .map((h): RecentWatch | null => {
+        if (h.type === "movie") {
+          const tmdbId = movieInfo.get(h.ratingKey)?.tmdbId;
+          if (tmdbId == null || !h.viewedAt) return null;
+          return { tmdbId, type: "movie", title: h.title ?? "", at: h.viewedAt };
+        }
+        if (h.type === "episode" && h.grandparentRatingKey) {
+          const tmdbId = showInfo.get(h.grandparentRatingKey)?.tmdbId;
+          if (tmdbId == null || !h.viewedAt) return null;
+          return { tmdbId, type: "series", title: h.grandparentTitle ?? "", at: h.viewedAt };
+        }
+        return null;
+      })
+      .filter((r): r is RecentWatch => r != null);
+
+    const previous = getWatchStatus(user.id);
+    const merged = new Map<string, RecentWatch>();
+    for (const r of [...(previous?.recent ?? []), ...plexRecent]) merged.set(`${r.tmdbId}.${r.type}`, r);
+    const recent = [...merged.values()].sort((a, b) => b.at - a.at).slice(0, 30);
+
+    saveWatchStatus({ userId: user.id, movies, episodes, recent, updatedAt: Date.now() });
     recordSearchLog(
       "info",
       "plex.watchSync",
-      `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s) (${history.length} évènement(s) d'historique)`
+      `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s), ${recent.length} entrée(s) récente(s) datée(s) (${history.length} évènement(s) d'historique)`
     );
   } catch (err: any) {
     recordSearchLog(

@@ -645,7 +645,11 @@ export class AbstractBackend {
   summary(t, detail = false) {
     const m = this.meta.get(t.infoHash);
     const isSeeding = this._isDone(t) && !m?.completed;
-    const state = m?.completed ? "completed" : m?.importAbandoned ? "blocked" : isSeeding ? "seeding" : m?.userPaused ? "paused" : m?.stalled ? "blocked" : m?.queued ? "queued" : "downloading";
+    // Re-hash phase after a restart (rtorrent "checking files") — reported by
+    // the backend as t.verifying. Must win over stalled/queued so a torrent
+    // mid-verification never shows as blocked or stuck in the queue.
+    const verifying = !!t.verifying || !!m?.verifying;
+    const state = m?.completed ? "completed" : m?.importAbandoned ? "blocked" : isSeeding ? "seeding" : m?.userPaused ? "paused" : verifying ? "verifying" : m?.stalled ? "blocked" : m?.queued ? "queued" : "downloading";
     const base = {
       infoHash: t.infoHash,
       name: t.name ?? t.infoHash,
@@ -1279,6 +1283,9 @@ export class AbstractBackend {
   _checkStall(t) {
     const m = this.meta.get(t.infoHash);
     if (!m || m.completed || m.userPaused || m.finishing || this._isDone(t)) return;
+    // Hash verification after a restart shows no download activity — not a
+    // stall, never flag it as blocked.
+    if (t.verifying || m.verifying) return;
     const now = Date.now();
     const speed = t.downloadSpeed ?? 0;
     const peers = t.numPeers ?? 0;

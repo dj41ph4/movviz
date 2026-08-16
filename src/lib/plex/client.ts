@@ -762,14 +762,20 @@ export interface PlexHistoryEntry {
   grandparentRatingKey?: string; // show, for episodes
   season?: number;
   episode?: number;
+  title?: string; // movie title
+  grandparentTitle?: string; // show title, for episodes
+  viewedAt?: number; // epoch ms — "quoi + quand"
 }
 
 interface RawHistoryItem {
   ratingKey: string;
   type?: string;
   grandparentRatingKey?: string;
+  grandparentTitle?: string;
   parentIndex?: number;
   index?: number;
+  title?: string;
+  viewedAt?: number;
 }
 
 /**
@@ -818,14 +824,16 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
     }
     for (const item of page) {
       if (item.type === "movie") {
-        out.push({ ratingKey: item.ratingKey, type: "movie" });
+        out.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, viewedAt: item.viewedAt });
       } else if (item.type === "episode" && item.grandparentRatingKey && item.parentIndex != null && item.index != null) {
         out.push({
           ratingKey: item.ratingKey,
           type: "episode",
           grandparentRatingKey: item.grandparentRatingKey,
+          grandparentTitle: item.grandparentTitle,
           season: item.parentIndex,
           episode: item.index,
+          viewedAt: item.viewedAt,
         });
       }
     }

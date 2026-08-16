@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn, formatBytes, formatSpeed, formatEtaMs } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import type { EngineTorrent } from "@/lib/types";
-import { Download, Pause, CheckCircle2, AlertTriangle, Clock, WifiOff } from "lucide-react";
+import { Download, Pause, CheckCircle2, AlertTriangle, Clock, WifiOff, RefreshCw } from "lucide-react";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 
 const VISIBLE_LIMIT = 3;
@@ -20,6 +20,7 @@ const STATUS = {
   stalled: { icon: AlertTriangle, tone: "text-down", key: "downloads.states.stalled" },
   blocked: { icon: AlertTriangle, tone: "text-down", key: "downloads.states.blocked" },
   metadata: { icon: Clock, tone: "text-brand-glow", key: "downloads.states.metadata" },
+  verifying: { icon: RefreshCw, tone: "text-magenta", key: "downloads.states.verifying" },
 } as const;
 
 export function DownloadQueue() {

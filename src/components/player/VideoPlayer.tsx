@@ -23,6 +23,7 @@ import { FfmpegRemuxEngine, type FfmpegDebugStats } from "@/lib/playback/ffmpeg/
 import type { FfmpegQuality } from "@/lib/playback/ffmpeg/remuxSession";
 import type { MediaInfo } from "@/lib/playback/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { PROGRESS_STORAGE_KEY } from "@/lib/player/watchProgress";
 
 export interface VideoPlayerProps {
   ratingKey: string;
@@ -94,7 +95,7 @@ function scoreAudioTrack(t: StreamTrack, prefLang: string): number {
   return score;
 }
 
-const PROGRESS_KEY = (ratingKey: string) => `movviz:progress:${ratingKey}`;
+const PROGRESS_KEY = PROGRESS_STORAGE_KEY;
 const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
 /**

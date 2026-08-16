@@ -602,6 +602,43 @@ export async function getNetworkLogo(id: number): Promise<string | null> {
   return data?.logo_path ?? null;
 }
 
+export interface TitleImageOption {
+  filePath: string;
+  width: number;
+  height: number;
+  language: string | null;
+  voteAverage: number;
+}
+
+interface RawTitleImage {
+  file_path: string;
+  width: number;
+  height: number;
+  iso_639_1: string | null;
+  vote_average?: number;
+}
+
+interface RawTitleImages {
+  backdrops?: RawTitleImage[];
+  logos?: RawTitleImage[];
+}
+
+function mapTitleImages(list: RawTitleImage[] | undefined): TitleImageOption[] {
+  return (list ?? [])
+    .map((i) => ({ filePath: i.file_path, width: i.width, height: i.height, language: i.iso_639_1, voteAverage: i.vote_average ?? 0 }))
+    .sort((a, b) => b.voteAverage - a.voteAverage);
+}
+
+/** Alternate backdrops/logos for a title, best-rated first — feeds the "customize this title's artwork" picker. `include_image_language` keeps the viewer's language plus English and language-less (most logos) art in scope, matching how TMDb's own website presents the choice. */
+export async function getTitleImages(tmdbId: number, type: "movie" | "series", locale?: string): Promise<{ backdrops: TitleImageOption[]; logos: TitleImageOption[] }> {
+  const lang = toTmdbLanguage(locale).split("-")[0];
+  const data = await tmdbGet<RawTitleImages>(
+    `/${type === "movie" ? "movie" : "tv"}/${tmdbId}/images`,
+    { include_image_language: `${lang},en,null` }
+  );
+  return { backdrops: mapTitleImages(data?.backdrops), logos: mapTitleImages(data?.logos) };
+}
+
 /** Overview + cast + similar titles + franchise collection, for a detail page. */
 const KEY_CREW_JOBS = new Set(["Director", "Writer", "Screenplay", "Producer", "Editor", "Creator"]);
 

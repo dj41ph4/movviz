@@ -37,6 +37,7 @@ import { RecoverDownloadsPanel } from "@/components/settings/RecoverDownloadsPan
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { ChevronDown, X, Search } from "lucide-react";
 import { AboutPanel } from "@/components/settings/AboutPanel";
+import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
 import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
 import { GpuSettingsPanel } from "@/components/settings/GpuSettingsPanel";
@@ -309,6 +310,8 @@ function SettingsPageInner() {
           )}
 
           {tab === "danger" && user?.role === "admin" && <DangerZonePanel />}
+
+          {tab === "ai" && user?.role === "admin" && <AiSettingsPanel />}
         </div>
       </div>
     </div>

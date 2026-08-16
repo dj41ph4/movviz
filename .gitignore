@@ -9,6 +9,8 @@
 # engine runtime data
 /.movviz-data
 /engine/.movviz-data
+/data
+/dta
 
 # next.js
 /.next/
@@ -27,6 +29,7 @@ packaging/windows/installer/movviz.ico
 /UX-CLAIR.md
 /RECO-AGENT.md
 /AGENTS.md
+/AI.MD
 
 # misc
 .DS_Store

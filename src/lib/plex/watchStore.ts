@@ -8,11 +8,91 @@ const CONFIG_DIR =
   path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "plex-watch-status.json");
 
+export interface RecentWatch {
+  tmdbId: number;
+  type: "movie" | "series";
+  title: string;
+  at: number; // epoch ms
+}
+
 export interface WatchStatus {
   userId: string;
   movies: number[]; // tmdbIds this user has watched
   episodes: { tmdbId: number; season: number; episode: number }[]; // tmdbId = series
+  recent?: RecentWatch[]; // last watched entries with timestamp ("quoi + quand")
   updatedAt: number;
+}
+
+const MAX_RECENT = 30;
+
+function findOrCreate(list: WatchStatus[], userId: string): WatchStatus {
+  let status = list.find((w) => w.userId === userId);
+  if (!status) {
+    status = { userId, movies: [], episodes: [], recent: [], updatedAt: Date.now() };
+    list.push(status);
+  }
+  return status;
+}
+
+function upsertRecent(status: WatchStatus, entry: RecentWatch) {
+  const recent = [...(status.recent ?? [])].filter((r) => !(r.tmdbId === entry.tmdbId && r.type === entry.type));
+  recent.push(entry);
+  recent.sort((a, b) => b.at - a.at);
+  status.recent = recent.slice(0, MAX_RECENT);
+}
+
+/** Record one "watched" event (Plex history or direct Movviz playback),
+ *  deduped by (tmdbId + type) keeping the most recent, newest first. */
+export function recordWatched(userId: string, entry: RecentWatch) {
+  const list = read();
+  const status = findOrCreate(list, userId);
+  upsertRecent(status, entry);
+  status.updatedAt = Date.now();
+  write(list);
+}
+
+/** Manual watched toggle — movies. Watched adds the tmdbId (and a dated
+ *  "recent" entry), unwatched removes it. Read-modify-write so the Plex
+ *  sync and manual marking coexist safely. */
+export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boolean, title = "") {
+  const list = read();
+  const status = findOrCreate(list, userId);
+  if (watched) {
+    for (const tmdbId of tmdbIds) {
+      if (!status.movies.includes(tmdbId)) status.movies.push(tmdbId);
+      upsertRecent(status, { tmdbId, type: "movie", title, at: Date.now() });
+    }
+  } else {
+    const remove = new Set(tmdbIds);
+    status.movies = status.movies.filter((m) => !remove.has(m));
+  }
+  status.updatedAt = Date.now();
+  write(list);
+}
+
+/** Manual watched toggle — episodes (tmdbId = series). Watched adds each
+ *  episode (and one dated "recent" entry per series), unwatched removes. */
+export function setWatchedEpisodes(
+  userId: string,
+  entries: { tmdbId: number; season: number; episode: number }[],
+  watched: boolean,
+  title = ""
+) {
+  const list = read();
+  const status = findOrCreate(list, userId);
+  const key = (e: { tmdbId: number; season: number; episode: number }) => `${e.tmdbId}.${e.season}.${e.episode}`;
+  if (watched) {
+    const existing = new Set(status.episodes.map(key));
+    for (const e of entries) {
+      if (!existing.has(key(e))) status.episodes.push(e);
+      upsertRecent(status, { tmdbId: e.tmdbId, type: "series", title, at: Date.now() });
+    }
+  } else {
+    const remove = new Set(entries.map(key));
+    status.episodes = status.episodes.filter((e) => !remove.has(key(e)));
+  }
+  status.updatedAt = Date.now();
+  write(list);
 }
 
 function read(): WatchStatus[] {

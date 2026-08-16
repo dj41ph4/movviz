@@ -4,6 +4,34 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.0 — August 2026
+
+### Movviz AI — chatbox intelligente (nouveau)
+
+- Nouvel assistant conversationnel (bulle flottante, désactivé par défaut) : comprend les demandes en langage naturel, ajoute des films/séries à la bibliothèque, recommande dans le même ton (« après Scary Movie, propose Naked Gun » plutôt qu'une comédie au hasard), répond aux questions courantes.
+- Multi-fournisseur (Mistral, OpenRouter, Gemini) avec plusieurs clés par fournisseur, rotation automatique en cas de quota atteint, et bascule vers le fournisseur suivant si besoin — configurable depuis Réglages (admin).
+- Mémoire par utilisateur : l'assistant se souvient des titres ajoutés et des recommandations acceptées, et connaît un résumé chiffré de l'activité (films/séries/épisodes vus, demandes, séries les plus regardées) — strictement isolée par compte, jamais mélangée entre utilisateurs.
+- N'appelle jamais le modèle de langage sans une demande explicite de l'utilisateur : aucune analyse en arrière-plan, aucun impact sur le fonctionnement normal de Movviz si l'IA reste désactivée.
+
+### Suivi « vu » enrichi
+
+- Les fiches film/série et les épisodes affichent désormais un historique daté (« vu hier », « il y a 3 jours »…), combinant Plex et la lecture directe depuis Movviz.
+- Nouveau bouton « marquer comme vu / non vu » manuel sur les films, les saisons et les épisodes — complète Plex pour tout ce qui a été regardé ailleurs.
+
+### Fiches film/série
+
+- Bouton de reprise repensé : quand une lecture est en cours, la fiche propose directement « Reprendre à HH:MM:SS » (avec l'avancement visible) au lieu d'un bouton « Lire » générique — le choix « reprendre ou recommencer » reste toujours proposé à l'ouverture du lecteur.
+- Nouveau réglage (Réglages → Expérience) pour désactiver la bande-annonce en fond animé sur les fiches et garder une image fixe.
+- Le fond et le logo d'une fiche peuvent maintenant être personnalisés : un nouveau bouton ouvre un sélecteur d'images alternatives issues de TMDb (tout utilisateur peut ajuster, comme pour les tags).
+
+### File d'attente
+
+- Nouvel état « En attente » et « Vérification » dans le suivi des téléchargements, pour mieux distinguer une recherche qui traîne d'un import en cours de contrôle.
+
+### Fiabilité
+
+- Correction d'un bug de configuration de build qui pouvait, sur une machine de développement, faire gonfler démesurément la sortie de compilation — sans impact sur les images Docker/l'installeur Windows.
+
 ## v1.13.92 — August 2026
 
 ### Téléchargement manuel : la règle des mots interdits ne s'applique plus

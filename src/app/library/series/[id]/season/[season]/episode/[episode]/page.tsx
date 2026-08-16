@@ -108,6 +108,8 @@ export default function EpisodeDetailPage({
                 plexUrl: ep.plexUrl!,
                 title: ep.title,
                 useTranscode: betaPlayer,
+                tmdbId: series.tmdbId,
+                type: "series",
                 originRect: e.currentTarget.getBoundingClientRect(),
                 backdropUrl: still,
               })}

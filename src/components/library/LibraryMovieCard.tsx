@@ -64,11 +64,27 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
   const [deleteFiles, setDeleteFiles] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+  const [togglingWatched, setTogglingWatched] = useState(false);
   const poster = useMemo(
     () => movie.posterPath ? `/tmdb/w500${movie.posterPath}` : null,
     [movie.posterPath]
   );
   const Icon = STATUS_ICON[movie.status];
+
+  const toggleWatched = async () => {
+    if (togglingWatched) return;
+    setTogglingWatched(true);
+    try {
+      await fetch("/api/watch/toggle", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tmdbId: movie.tmdbId, type: "movie", watched: !watched, title: movie.title }),
+      });
+      onChange();
+    } finally {
+      setTogglingWatched(false);
+    }
+  };
 
   const setTags = async (tags: string[]) => {
     await fetch(`/api/library/movies/${movie.id}`, {
@@ -198,10 +214,18 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
             <statusBadge.icon className={cn("h-3.5 w-3.5", isDownloading && "animate-spin")} />
           </div>
         )}
-        {watched && !statusBadge && (
-          <div title={t("watch.watched")} className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-white/15 bg-ok/90 text-white backdrop-blur-sm pointer-events-none absolute right-2 top-2">
-            <Eye className="h-3.5 w-3.5" />
-          </div>
+        {!statusBadge && (
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleWatched(); }}
+            disabled={togglingWatched}
+            title={watched ? t("watch.markUnwatched") : t("watch.markWatched")}
+            className={cn(
+              "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border border-white/15 bg-black/70 backdrop-blur-sm absolute right-2 top-2 transition-colors",
+              watched ? "bg-ok/90 text-white" : "text-white/60 hover:text-white"
+            )}
+          >
+            {togglingWatched ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
         )}
 
         <MediaBadges file={movie.file} plexMediaInfo={movie.plexMediaInfo} year={movie.year} className="absolute bottom-2 left-2 right-2" compactOnMobile hideTypes={["resolution", "year", "hdr"]} />
@@ -224,6 +248,8 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
                   plexUrl: movie.plexUrl!,
                   title: movie.title,
                   useTranscode: betaPlayer,
+                  tmdbId: movie.tmdbId,
+                  type: "movie",
                   originRect: e.currentTarget.getBoundingClientRect(),
                   posterUrl: poster,
                 })}
@@ -301,6 +327,8 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
                 plexUrl: movie.plexUrl!,
                 title: movie.title,
                 useTranscode: betaPlayer,
+                tmdbId: movie.tmdbId,
+                type: "movie",
                 originRect: e.currentTarget.getBoundingClientRect(),
                 posterUrl: poster,
               })} className="flex w-full h-10 items-center justify-center gap-1.5 rounded-xl bg-amber text-xs font-bold text-black active:bg-amber/80">

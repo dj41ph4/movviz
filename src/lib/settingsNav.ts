@@ -19,6 +19,7 @@ import {
   Skull,
   Sparkles,
   Ban,
+  Bot,
   type LucideIcon,
 } from "lucide-react";
 
@@ -69,6 +70,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
   { id: "performance", labelKey: "settings.tabPerformance", hintKey: "settings.tabPerformanceHint", icon: Zap, group: "system", adminOnly: true },
   { id: "logs", labelKey: "settings.tabLogs", hintKey: "settings.tabLogsHint", icon: ScrollText, group: "system", adminOnly: true },
   { id: "automation", labelKey: "settings.tabAutomation", hintKey: "settings.tabAutomationHint", icon: ListOrdered, group: "system", adminOnly: true },
+  { id: "ai", labelKey: "settings.tabAi", hintKey: "settings.tabAiHint", icon: Bot, group: "system", adminOnly: true },
   { id: "cache", labelKey: "cache.title", hintKey: "settings.tabCacheHint", icon: Database, group: "system", adminOnly: true },
   { id: "about", labelKey: "settings.tabAbout", hintKey: "settings.tabAboutHint", icon: Info, group: "system", adminOnly: true },
   { id: "danger", labelKey: "dangerZone.title", hintKey: "settings.tabDangerHint", icon: Skull, group: "system", adminOnly: true, dangerous: true },

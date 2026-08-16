@@ -175,6 +175,8 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
                     plexUrl: active.plexUrl!,
                     title: active.detail.title,
                     useTranscode: betaPlayer,
+                    tmdbId: active.detail.tmdbId,
+                    type: active.detail.type,
                     originRect: e.currentTarget.getBoundingClientRect(),
                     backdropUrl,
                   })}

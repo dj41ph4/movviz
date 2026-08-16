@@ -309,6 +309,7 @@ export class LibtorrentBackend extends AbstractBackend {
       "d.get_down_rate=", "d.get_up_rate=", "d.get_peers_accounted=", "d.get_ratio=",
       "d.get_state=", "d.is_active=", "d.get_complete=", "d.get_up_total=",
       "d.get_base_path=", "d.is_multi_file=",
+      "d.get_chunks_hashed=", "d.get_chunks_size=",
     ];
     try { const rows = await this._doMulticall("main", fields); return Array.isArray(rows) ? rows : []; }
     catch { return []; }
@@ -328,6 +329,14 @@ export class LibtorrentBackend extends AbstractBackend {
     const total = sizeBytes;
     const completed = completedBytes;
     const done = complete === 1 || (total > 0 && completed >= total);
+
+    // After an engine/server restart, rtorrent re-hashes the already-downloaded
+    // pieces before resuming ("checking files") — chunks_hashed < chunks_size
+    // while that phase runs. Exposed as "verifying" so the UI can show a
+    // verification badge instead of a stalled/zero-speed download.
+    const chunksHashed = Number(row[14]) || 0;
+    const chunksSize = Number(row[15]) || 0;
+    const verifying = !done && chunksSize > 0 && chunksHashed < chunksSize;
 
     const rHash = String(hash ?? "").toUpperCase();
     const infoHash = (hash ?? "").toString().toLowerCase();
@@ -353,9 +362,10 @@ export class LibtorrentBackend extends AbstractBackend {
       done,
       timeRemaining: downRate > 0 ? ((total - completed) / downRate) * 1000 : null,
       magnetURI: null, files,
-      status: done ? "complete" : state === 0 ? "paused" : (active === 0 ? "stalled" : "active"),
+      status: verifying ? "verifying" : done ? "complete" : state === 0 ? "paused" : (active === 0 ? "stalled" : "active"),
       isPaused: state === 0,
       isWaiting: false,
+      verifying,
       _raw: row,
     };
   }

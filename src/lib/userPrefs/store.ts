@@ -45,6 +45,12 @@ export interface UserPrefs {
    *  même schéma "merge only known fields" que le reste de ce store — pas de
    *  distinction fragile entre null/undefined/absent à travers la route API. */
   preferredAudioLanguage?: PreferredAudioLanguage;
+  /** Ambient trailer video on movie/series detail pages — absent/true keeps
+   *  today's behavior (video plays immediately), false falls back to the
+   *  static backdrop image. Independent of the dashboard hero's own
+   *  trailerAutoplay (dashboard-layout.json) — two different screens, two
+   *  different toggles, same "video vs static image" idea. */
+  titlePageVideoEnabled?: boolean;
 }
 
 const VALID_TIERS: GpuTier[] = ["high", "medium", "low", "ultraLow"];
@@ -77,6 +83,7 @@ function sanitize(prefs: unknown): UserPrefs {
   if (typeof p.preferredAudioLanguage === "string" && (PREFERRED_AUDIO_LANGUAGES as readonly string[]).includes(p.preferredAudioLanguage)) {
     clean.preferredAudioLanguage = p.preferredAudioLanguage as PreferredAudioLanguage;
   }
+  if (typeof p.titlePageVideoEnabled === "boolean") clean.titlePageVideoEnabled = p.titlePageVideoEnabled;
   return clean;
 }
 

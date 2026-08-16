@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const patch = await req.json();
-  const allowed = ["monitored", "qualityProfileId", "tags", "aliases"] as const;
+  const allowed = ["monitored", "qualityProfileId", "tags", "aliases", "customBackdropPath", "customLogoPath"] as const;
   const clean: Record<string, unknown> = {};
   for (const k of allowed) if (k in patch) clean[k] = patch[k];
   // See the movie route: aliases feeds release matching, so it's validated
@@ -39,6 +39,12 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   if ("aliases" in clean) {
     if (!Array.isArray(clean.aliases)) delete clean.aliases;
     else clean.aliases = (clean.aliases as unknown[]).filter((a): a is string => typeof a === "string" && a.trim() !== "").map((a) => a.trim());
+  }
+  // TMDb image file_path only ("/abc123.jpg") — see the movie route for why.
+  for (const k of ["customBackdropPath", "customLogoPath"] as const) {
+    if (k in clean && clean[k] !== null && !(typeof clean[k] === "string" && /^\/[\w.-]+\.(jpg|jpeg|png|svg)$/i.test(clean[k] as string))) {
+      delete clean[k];
+    }
   }
   const updated = updateSeries((await params).id, clean);
   return updated ? NextResponse.json(updated) : NextResponse.json({ error: "not found" }, { status: 404 });

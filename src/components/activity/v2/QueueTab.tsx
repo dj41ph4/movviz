@@ -110,17 +110,18 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const resumeAllMode = pausableItems.length === 0 && pausedItems.length > 0;
 
   const statusPriority = (s: string): number => {
-    if (s === "downloading" || s === "importing") return 0;
-    if (s === "stalled") return 1;
-    if (s === "paused") return 2;
-    if (s === "seeding") return 3;
-    if (s === "completed") return 4;
-    return 5;
+    if (s === "downloading" || s === "importing" || s === "verifying") return 0;
+    if (s === "queued") return 1;
+    if (s === "stalled") return 2;
+    if (s === "paused") return 3;
+    if (s === "seeding") return 4;
+    if (s === "completed") return 5;
+    return 6;
   };
 
   const filtered = useMemo(() => items
     .filter((item) => {
-      if (filter === "downloading") return item.status === "downloading" || item.status === "importing";
+      if (filter === "downloading") return item.status === "downloading" || item.status === "importing" || item.status === "verifying";
       if (filter === "seeding") return item.status === "seeding";
       if (filter === "stalled") return item.status === "stalled";
       if (filter === "completed") return item.status === "completed";
@@ -132,6 +133,24 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       if (pa !== pb) return pa - pb;
       return new Date(b.addedAt).getTime() - new Date(a.addedAt).getTime();
     }), [items, filter]);
+
+  // Visual sections: active downloads first, then WAITING (queued — the
+  // user can force-start them), then stalled/paused, completed last.
+  const sectionOf = (s: string): "active" | "waiting" | "blocked" | "paused" | "done" => {
+    if (s === "downloading" || s === "importing" || s === "verifying") return "active";
+    if (s === "queued") return "waiting";
+    if (s === "stalled") return "blocked";
+    if (s === "paused") return "paused";
+    return "done";
+  };
+  const sectionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of filtered) {
+      const section = sectionOf(item.status);
+      counts[section] = (counts[section] ?? 0) + 1;
+    }
+    return counts;
+  }, [filtered]);
 
   // Progressive rendering — a queue with hundreds of completed/seeding items
   // crashed the tab when every row was painted on every 500ms poll. Paint the
@@ -493,21 +512,42 @@ export function QueueTab({ active = true }: { active?: boolean }) {
       </div>
 
       <div className="space-y-3">
-        {visibleItems.map((item) => (
-          <QueueItemRow
-            key={item.id}
-            item={item}
-            isExpanded={expandedItem === item.id}
-            actionLoading={actionLoading}
-            t={t}
-            locale={locale}
-            onToggleExpand={toggleExpand}
-            onAction={handleAction}
-            onSetPriority={setPriority}
-            onToggleSeed={toggleSeed}
-            onRemove={remove}
-          />
-        ))}
+        {(() => {
+          let lastSection: string | null = null;
+          const rows: React.ReactNode[] = [];
+          for (const item of visibleItems) {
+            const section = sectionOf(item.status);
+            if (section !== lastSection) {
+              rows.push(
+                <div key={`section-${section}`} className="flex items-center gap-2 pt-2 first:pt-0">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-ink-dim">
+                    {t(`activity.section.${section}`)}
+                  </h3>
+                  <span className="rounded-full bg-white/8 px-1.5 py-0.5 text-[10px] font-bold text-ink-dim">
+                    {sectionCounts[section] ?? 0}
+                  </span>
+                </div>
+              );
+              lastSection = section;
+            }
+            rows.push(
+              <QueueItemRow
+                key={item.id}
+                item={item}
+                isExpanded={expandedItem === item.id}
+                actionLoading={actionLoading}
+                t={t}
+                locale={locale}
+                onToggleExpand={toggleExpand}
+                onAction={handleAction}
+                onSetPriority={setPriority}
+                onToggleSeed={toggleSeed}
+                onRemove={remove}
+              />
+            );
+          }
+          return rows;
+        })()}
       </div>
 
       {filtered.length > visibleItems.length && (
@@ -611,7 +651,7 @@ const QueueItemRow = memo(function QueueItemRow({
     transition: { type: "spring" as const, stiffness: 400, damping: 17 },
   };
 
-  const isActive = item.status === "downloading" || item.status === "importing";
+  const isActive = item.status === "downloading" || item.status === "importing" || item.status === "verifying";
   const parsed = parseRelease(item.release.releaseTitle);
   const badgeItems = buildMediaBadgeItems(
     { resolution: parsed.resolution, videoCodec: parsed.videoCodec, audioCodec: parsed.audioCodec, hdr: parsed.hdr, source: parsed.source, language: parsed.language },
@@ -676,10 +716,12 @@ const QueueItemRow = memo(function QueueItemRow({
               <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-bold",
                 item.status === "downloading" ? "border-cyan/30 bg-cyan/12 text-cyan" :
                 item.status === "importing" ? "border-brand/30 bg-brand/12 text-brand-glow" :
+                item.status === "verifying" ? "border-magenta/30 bg-magenta/12 text-magenta" :
                 item.status === "paused" ? "border-amber/30 bg-amber/12 text-amber" :
                 item.status === "stalled" ? "border-down/30 bg-down/12 text-down" :
                 item.status === "seeding" ? "border-ok/30 bg-ok/12 text-ok" :
                 item.status === "completed" ? "border-ok/30 bg-ok/12 text-ok" :
+                item.status === "queued" ? "border-white/20 bg-white/10 text-ink-soft" :
                 "border-white/10 bg-white/5 text-ink-dim")}>
                 {item.status === "stalled" ? t("downloads.states.stalled") : t(`activity.status.${item.status}`)}
               </span>
@@ -759,6 +801,17 @@ const QueueItemRow = memo(function QueueItemRow({
               onClick={(e) => { e.stopPropagation(); onAction(item.id, "resume"); }}
               disabled={actionLoading !== null}
               title={t("downloads.resume")}
+              className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
+            >
+              {actionLoading === `resume_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+            </motion.button>
+          )}
+          {item.status === "queued" && (
+            <motion.button
+              {...btnSpring}
+              onClick={(e) => { e.stopPropagation(); onAction(item.id, "resume"); }}
+              disabled={actionLoading !== null}
+              title={t("downloads.startNow")}
               className="flex h-11 w-11 items-center justify-center rounded-lg glass transition-colors hover:bg-white/10 disabled:opacity-40"
             >
               {actionLoading === `resume_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}

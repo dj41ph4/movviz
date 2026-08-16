@@ -11,6 +11,7 @@ import { AuroraBackground } from "@/components/fx/AuroraBackground";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { BottomNav } from "./BottomNav";
+import { ChatWidget } from "@/components/ai/ChatWidget";
 import { CommandPaletteProvider } from "./CommandPalette";
 import { WhatsNewModal } from "./WhatsNewModal";
 import { ToastContainer } from "@/components/ui/Toast";
@@ -166,6 +167,7 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
                       </div>
                       <BottomNav />
                     </div>
+                    <ChatWidget />
                     <WhatsNewModal />
                     <ToastContainer />
                     <ConfirmDialogHost />

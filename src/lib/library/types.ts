@@ -138,6 +138,11 @@ export interface LibraryMovie {
    * the TVDB/anime sync-all pass for series; not yet for movies).
    */
   originalTitle?: string | null;
+  /** User-picked alternate backdrop/logo (TMDb file_path, not a full URL) —
+   *  absent falls back to the auto-picked TMDb artwork. Cosmetic only, same
+   *  edit permission as tags (any authenticated user, not admin-gated). */
+  customBackdropPath?: string | null;
+  customLogoPath?: string | null;
 }
 
 export interface LibraryEpisode {
@@ -188,6 +193,9 @@ export interface LibrarySeries {
   plexRatingKey: string | null;
   /** See the identical field on LibraryMovie for why this exists. */
   originalTitle?: string | null;
+  /** See the identical fields on LibraryMovie. */
+  customBackdropPath?: string | null;
+  customLogoPath?: string | null;
 }
 
 /**
