@@ -1160,6 +1160,8 @@ export const de: Dictionary = {
       howTo: "Öffne deine Netflix-Wiedergabeaktivität (Link unten), klicke unten auf der Seite auf \"Alle herunterladen\" und lege dann die erhaltene .csv-Datei hier ab.",
       chooseFile: "CSV-Datei auswählen",
       import: "Importieren",
+      importProgress: "Import läuft… {current}/{total}",
+      alreadyRunning: "Ein Import läuft bereits",
       importDone: "{movies} Film(e), {episodes} Episode(n) als gesehen markiert",
       importFailed: "Import fehlgeschlagen",
       moviesMatched: "{count} Film(e) erkannt",

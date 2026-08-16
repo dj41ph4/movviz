@@ -1143,6 +1143,8 @@ export const en: Dictionary = {
       howTo: "Open your Netflix viewing activity (link below), click \"Download all\" at the bottom of the page, then drop the .csv file here.",
       chooseFile: "Choose a CSV file",
       import: "Import",
+      importProgress: "Importing… {current}/{total}",
+      alreadyRunning: "An import is already running",
       importDone: "{movies} movie(s), {episodes} episode(s) marked watched",
       importFailed: "Import failed",
       moviesMatched: "{count} movie(s) recognized",

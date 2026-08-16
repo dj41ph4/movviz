@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.22 — August 2026
+
+### Correctif : import Netflix
+
+- **Cause racine confirmée en direct** (export réel de 3217 lignes) : l'import tenait dans une seule requête HTTP, qui expirait avant la fin sur un historique volumineux — chaque titre/épisode nécessite une recherche en ligne, et un historique de plusieurs années en accumule des centaines.
+- **Corrigé** : l'import tourne maintenant en arrière-plan sur le serveur avec une barre de progression directement dans le bouton — tu peux quitter la page Réglages pendant l'import, il continue et reprend son affichage si tu reviens dessus.
+- Deux bugs de reconnaissance corrigés au passage : la date d'un visionnage était mal interprétée (jour/mois inversés selon les exports), et les séries dont le titre contient lui-même un « : » (ex. minisérie) étaient mal découpées.
+
 ## v1.14.21 — August 2026
 
 ### Netflix

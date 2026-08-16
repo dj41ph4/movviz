@@ -1143,6 +1143,8 @@ export const nl: Dictionary = {
       howTo: "Open je Netflix-kijkactiviteit (link hieronder), klik onderaan de pagina op \"Alles downloaden\" en sleep daarna het verkregen .csv-bestand hierheen.",
       chooseFile: "Kies een CSV-bestand",
       import: "Importeren",
+      importProgress: "Bezig met importeren… {current}/{total}",
+      alreadyRunning: "Er loopt al een import",
       importDone: "{movies} film(s), {episodes} aflevering(en) als bekeken gemarkeerd",
       importFailed: "Import mislukt",
       moviesMatched: "{count} film(s) herkend",

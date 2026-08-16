@@ -39,7 +39,9 @@ interface ResolvedEpisode {
   watchedAt: number | null;
 }
 
-export async function importNetflixHistory(user: User, csv: string): Promise<NetflixImportResult> {
+export type NetflixImportProgress = (current: number, total: number) => void;
+
+export async function importNetflixHistory(user: User, csv: string, onProgress?: NetflixImportProgress): Promise<NetflixImportResult> {
   const rows = parseNetflixCsv(csv);
   const classified = rows.map((r) => ({ ...classifyNetflixTitle(r.title), watchedAt: r.watchedAt, raw: r.title }));
 
@@ -48,12 +50,24 @@ export async function importNetflixHistory(user: User, csv: string): Promise<Net
 
   const unmatched: string[] = [];
 
+  // Progress covers the three network-bound resolution phases (movie
+  // titles, series titles, season fetches) — these dominate the wall-clock
+  // time on a real multi-thousand-row export; local store writes and the
+  // (fire-and-forget) Plex push afterward are comparatively instant.
+  const movieTitles = [...new Set(movieRows.map((r) => r.movieTitle!))];
+  const seriesTitles = [...new Set(episodeRows.map((r) => r.seriesTitle!))];
+  let progressDone = 0;
+  const progressTotal = movieTitles.length + seriesTitles.length; // season count added once known, below
+  let seasonCountEstimate = 0;
+  const tick = () => onProgress?.(++progressDone, progressTotal + seasonCountEstimate);
+  onProgress?.(0, Math.max(1, progressTotal));
+
   // Movies: one TMDb resolution per distinct title (bounded concurrency,
   // same helper add_media already uses).
-  const movieTitles = [...new Set(movieRows.map((r) => r.movieTitle!))];
   const movieResolutions = new Map(
     (await mapWithConcurrency(movieTitles, RESOLVE_CONCURRENCY, async (title) => {
       const resolved = await resolveTitleAgainstTmdb({ title, type: "movie" });
+      tick();
       return [title, resolved] as const;
     })).map(([title, resolved]) => [title, resolved])
   );
@@ -72,10 +86,10 @@ export async function importNetflixHistory(user: User, csv: string): Promise<Net
   // by fuzzy title similarity (same matcher used for release↔library
   // matching), never trusting a raw episode number from the model or the
   // file itself (there isn't one — Netflix's export never includes one).
-  const seriesTitles = [...new Set(episodeRows.map((r) => r.seriesTitle!))];
   const seriesResolutions = new Map(
     (await mapWithConcurrency(seriesTitles, RESOLVE_CONCURRENCY, async (title) => {
       const resolved = await resolveTitleAgainstTmdb({ title, type: "series" });
+      tick();
       return [title, resolved] as const;
     })).map(([title, resolved]) => [title, resolved])
   );
@@ -88,10 +102,14 @@ export async function importNetflixHistory(user: User, csv: string): Promise<Net
       })
       .filter((k): k is string => k != null)
   )];
+  seasonCountEstimate = seasonKeys.length;
+  onProgress?.(progressDone, progressTotal + seasonCountEstimate);
+
   const seasonCache = new Map(
     (await mapWithConcurrency(seasonKeys, RESOLVE_CONCURRENCY, async (key) => {
       const [tmdbId, season] = key.split(".").map(Number);
       const data = await getSeason(tmdbId, season).catch(() => null);
+      tick();
       return [key, data] as const;
     })).map(([key, data]) => [key, data])
   );
@@ -121,12 +139,14 @@ export async function importNetflixHistory(user: User, csv: string): Promise<Net
     });
   }
 
-  // Apply — same local store Plex sync already writes to, then push
-  // onward to this user's own Plex account (best-effort, no-op if not
-  // linked/synced — see watchWrite.ts).
+  // Apply — same local store Plex sync already writes to (fast, local).
+  // Plex push is fire-and-forget (never awaited here): on a large import,
+  // waiting for a real network round-trip to Plex per movie/series in
+  // sequence would dwarf the TMDb resolution time above. watchWrite.ts logs
+  // every attempt (plex.watchWrite in Journaux) regardless.
   for (const m of resolvedMovies) {
     setWatchedMovies(user.id, [m.tmdbId], true, m.title);
-    await pushMovieWatchedToPlex(user, m.tmdbId, true).catch(() => {});
+    pushMovieWatchedToPlex(user, m.tmdbId, true).catch(() => {});
   }
   const bySeries = new Map<number, { tmdbId: number; season: number; episode: number; title: string }[]>();
   for (const e of resolvedEpisodes) {
@@ -136,7 +156,7 @@ export async function importNetflixHistory(user: User, csv: string): Promise<Net
   }
   for (const [tmdbId, entries] of bySeries) {
     setWatchedEpisodes(user.id, entries, true, entries[0].title);
-    await pushEpisodesWatchedToPlex(user, entries, true).catch(() => {});
+    pushEpisodesWatchedToPlex(user, entries, true).catch(() => {});
   }
 
   return {

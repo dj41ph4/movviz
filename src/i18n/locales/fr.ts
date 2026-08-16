@@ -1140,6 +1140,8 @@ export const fr = {
       howTo: "Ouvre ton activité de visionnage Netflix (lien ci-dessous), clique « Télécharger tout » en bas de page, puis dépose le fichier .csv obtenu ici.",
       chooseFile: "Choisir un fichier CSV",
       import: "Importer",
+      importProgress: "Import en cours… {current}/{total}",
+      alreadyRunning: "Un import est déjà en cours",
       importDone: "{movies} film(s), {episodes} épisode(s) marqués vus",
       importFailed: "Échec de l'import",
       moviesMatched: "{count} film(s) reconnus",

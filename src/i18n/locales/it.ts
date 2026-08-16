@@ -1142,6 +1142,8 @@ export const it: Dictionary = {
       howTo: "Apri la tua attività di visione Netflix (link qui sotto), clicca \"Scarica tutto\" in fondo alla pagina, poi trascina qui il file .csv ottenuto.",
       chooseFile: "Scegli un file CSV",
       import: "Importa",
+      importProgress: "Importazione in corso… {current}/{total}",
+      alreadyRunning: "Un'importazione è già in corso",
       importDone: "{movies} film, {episodes} episodi segnati come visti",
       importFailed: "Importazione fallita",
       moviesMatched: "{count} film riconosciuti",

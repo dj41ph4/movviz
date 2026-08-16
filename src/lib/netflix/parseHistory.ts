@@ -52,10 +52,13 @@ function parseCsvLine(line: string): string[] {
   return cells;
 }
 
-/** Netflix's export date is locale-dependent (dd/mm/yy, mm/dd/yy, yyyy-mm-dd
- *  depending on account region/language) — tries the unambiguous ISO form
- *  first, then falls back to dd/mm/yyyy (the most common real-world case
- *  for a French-first userbase), then gives up rather than guess wrong. */
+/** Netflix's export date column is ALWAYS month/day/year, confirmed against
+ *  a real French-account export ("7/27/26" — 27 can't be a month, so this
+ *  is M/D/Y regardless of the account's own interface language). Falls back
+ *  to day/month if the second number can't possibly be a month (>12), so a
+ *  genuinely D/M/Y file (older exports, other regions) still parses instead
+ *  of silently producing a wrong date. ISO (yyyy-mm-dd) tried first since
+ *  it's unambiguous. */
 function parseNetflixDate(raw: string): number | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
@@ -63,9 +66,12 @@ function parseNetflixDate(raw: string): number | null {
   if (!Number.isNaN(iso) && /^\d{4}-\d{2}-\d{2}/.test(trimmed)) return iso;
   const m = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
   if (m) {
-    const day = Number(m[1]);
-    const month = Number(m[2]);
+    const a = Number(m[1]);
+    const b = Number(m[2]);
     const year = Number(m[3]) < 100 ? 2000 + Number(m[3]) : Number(m[3]);
+    // Default M/D/Y (a=month, b=day); if `a` can't be a month (>12), it must
+    // actually be the day, so swap to D/M/Y instead.
+    const [month, day] = a > 12 ? [b, a] : [a, b];
     const d = new Date(Date.UTC(year, month - 1, day));
     if (!Number.isNaN(d.getTime())) return d.getTime();
   }
@@ -101,20 +107,28 @@ export interface ClassifiedTitle {
 /** Splits a Netflix title into a movie OR a series/season/episode. Netflix
  *  always separates hierarchy levels with ": " (colon-space) — a title with
  *  fewer than 3 segments is a movie (a bare title, or a 2-segment title we
- *  don't try to guess at rather than risk misclassifying). For 3+ segments:
- *  segment 0 = series, segment 1 = season label (a number is extracted from
- *  it, defaulting to season 1 if none found — some Netflix exports label
- *  the first season just "Series" style), and everything after that
- *  (rejoined with ": ") is the episode title — episode titles can
- *  themselves legitimately contain a colon. */
+ *  don't try to guess at rather than risk misclassifying). For 3+ segments,
+ *  segment 1 (the would-be season label) is checked for a digit:
+ *  - has a digit ("Saison 5", "Season 5", "Volume 4") → segment 0 = series,
+ *    segment 1 = season number, everything after = episode title.
+ *  - no digit → segment 1 usually isn't a season label at all, it's part of
+ *    a limited-series title that itself contains a colon (real example:
+ *    "Monstre : L'histoire d'Ed Gein: Radioamateur" — the SHOW is "Monstre :
+ *    L'histoire d'Ed Gein", there's no season label, Netflix went straight
+ *    from title to episode). Segments 0..n-2 are rejoined as the series
+ *    title, only the LAST segment is the episode, season defaults to 1
+ *    (limited series are single-season). Either way, episode titles can
+ *    themselves legitimately contain a colon (only the segments actually
+ *    consumed as series/season are ever removed from it). */
 export function classifyNetflixTitle(raw: string): ClassifiedTitle {
   const parts = raw.split(": ");
   if (parts.length < 3) return { kind: "movie", movieTitle: raw.trim() };
-  const seriesTitle = parts[0].trim();
-  const seasonLabel = parts[1].trim();
-  const episodeTitle = parts.slice(2).join(": ").trim();
-  const seasonMatch = seasonLabel.match(/(\d+)/);
+
+  const seasonMatch = parts[1].trim().match(/(\d+)/);
+  const seriesTitle = seasonMatch ? parts[0].trim() : parts.slice(0, -1).join(": ").trim();
   const seasonNumber = seasonMatch ? parseInt(seasonMatch[1], 10) : 1;
+  const episodeTitle = (seasonMatch ? parts.slice(2) : parts.slice(-1)).join(": ").trim();
+
   if (!seriesTitle || !episodeTitle) return { kind: "movie", movieTitle: raw.trim() };
   return { kind: "episode", seriesTitle, seasonNumber, episodeTitle };
 }
