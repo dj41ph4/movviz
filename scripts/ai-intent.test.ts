@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -199,4 +199,28 @@ test("buildEpisodeListContext: liste réelle avec statut vu, jamais tronquée po
   assert.ok(ctx.includes("S1E1 — Pilote (vu)"));
   assert.ok(ctx.includes("S1E2 — Suite"));
   assert.ok(!ctx.includes("S1E2 — Suite (vu)"));
+});
+
+test("extractSelfIntroName: 'c'est Seb' sans 'moi' est maintenant reconnu (bug confirmé en direct)", () => {
+  assert.equal(extractSelfIntroName("c'est Seb"), "Prénom : Seb");
+});
+
+test("extractNameFromDirectAnswer: réponse en un mot à la question du prénom posée par l'assistant", () => {
+  const got = extractNameFromDirectAnswer("Au fait, comment tu t'appelles ?", "Seb");
+  assert.equal(got, "Prénom : Seb");
+});
+
+test("extractNameFromDirectAnswer: ignore un mot isolé si l'assistant n'a PAS demandé le prénom juste avant", () => {
+  const got = extractNameFromDirectAnswer("Tu as regardé quoi récemment ?", "Seb");
+  assert.equal(got, null);
+});
+
+test("extractNameFromDirectAnswer: n'accepte pas une phrase complète comme réponse directe (déjà couvert par extractSelfIntroName si applicable)", () => {
+  const got = extractNameFromDirectAnswer("Comment tu t'appelles ?", "je sais pas trop pourquoi tu demandes");
+  assert.equal(got, null);
+});
+
+test("extractNameFromDirectAnswer: filtre les mots courants qui ne sont pas des prénoms", () => {
+  const got = extractNameFromDirectAnswer("Comment tu t'appelles ?", "ok");
+  assert.equal(got, null);
 });

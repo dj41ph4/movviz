@@ -210,12 +210,43 @@ export function extractWatched(text: string): { watched: { title: string; type: 
   return { watched, cleaned };
 }
 
-// "je m'appelle Seb", "je me nomme Léa", "moi c'est Max", "mon prénom
-// est/c'est Alex", "appelle-moi Théo" — one alternation, name in the
+// "je m'appelle Seb", "je me nomme Léa", "moi c'est Max"/"c'est Max", "mon
+// prénom est/c'est Alex", "appelle-moi Théo" — one alternation, name in the
 // capture group. Accented/hyphenated first names allowed (Léa, Jean-Paul),
-// capped at a plausible first-name length.
+// capped at a plausible first-name length. "moi" is optional in "c'est X"
+// — bug fix (confirmed live): a bare "c'est Seb" reply (no "moi") to the
+// assistant's own "comment tu t'appelles ?" didn't match, the fact never
+// got stored, and needsName stayed true forever — while the model still
+// "saw" the name in its own conversation history (session.messages),
+// producing a self-contradictory reply ("tu ne m'as pas donné ton
+// prénom... Seb !").
 const NAME_INTRO_RE =
-  /\b(?:je\s+m[e']\s*(?:appelle|nomme)|moi\s*,?\s*c'?est|mon\s+pr[ée]nom\s*(?:est|c'?est)|appelle[- ]moi)\s+([a-zà-öø-ÿ][a-zà-öø-ÿ'-]{1,29})\b/i;
+  /\b(?:je\s+m[e']\s*(?:appelle|nomme)|(?:moi\s*,?\s*)?c'?est|mon\s+pr[ée]nom\s*(?:est|c'?est)|appelle[- ]moi)\s+([a-zà-öø-ÿ][a-zà-öø-ÿ'-]{1,29})\b/i;
+const NOT_A_NAME = new Set(["qui", "quoi", "cool", "ok", "bon", "super", "genial", "génial", "sympa", "gentil", "gentille", "parti", "fini", "bon", "clair", "sûr", "sur", "vrai", "faux"]);
+
+// "comment tu t'appelles", "quel est ton prénom", "ton prénom ?" — the
+// assistant's own onboarding question (buildProactiveNudgeTrigger/
+// buildSystemPrompt's needsName instruction always phrases it this way).
+// Used to recognize a BARE one-word reply ("Seb") as a name answer even
+// when it doesn't match any of NAME_INTRO_RE's sentence patterns — only
+// fires when the assistant's immediately preceding turn actually asked,
+// so a random one-word message elsewhere in the conversation is never
+// misread as a name.
+const NAME_QUESTION_RE = /pr[ée]nom|t'appelles|appelles-tu/i;
+
+/** Bare-word reply to the assistant's own "what's your name" question —
+ *  companion to extractSelfIntroName, which only catches a self-contained
+ *  sentence pattern. `previousAssistantMessage` is the turn right before
+ *  the current user message (session.messages[length-2] at the call site,
+ *  since the current user message is already pushed by then). */
+export function extractNameFromDirectAnswer(previousAssistantMessage: string | undefined, userMessage: string): string | null {
+  if (!previousAssistantMessage || !NAME_QUESTION_RE.test(previousAssistantMessage)) return null;
+  const trimmed = userMessage.trim().replace(/[.!?]+$/, "");
+  if (!/^[a-zà-öø-ÿ][a-zà-öø-ÿ'-]{1,29}$/i.test(trimmed)) return null;
+  if (NOT_A_NAME.has(trimmed.toLowerCase())) return null;
+  const name = trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+  return `Prénom : ${name}`;
+}
 
 /** Reliable, code-level fallback for the single most common durable fact —
  *  the user's first name — instead of depending entirely on the model
@@ -231,7 +262,6 @@ export function extractSelfIntroName(userMessage: string): string | null {
   // A verb/filler word can end up captured by the loose alternation above
   // ("moi c'est cool" → "cool") — reject anything that isn't plausibly a
   // first name rather than store noise as someone's identity.
-  const NOT_A_NAME = new Set(["qui", "quoi", "cool", "ok", "bon", "super", "genial", "génial", "sympa", "gentil", "gentille"]);
   if (NOT_A_NAME.has(raw.toLowerCase())) return null;
   const name = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   return `Prénom : ${name}`;

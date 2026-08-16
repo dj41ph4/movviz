@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
@@ -97,7 +97,17 @@ export async function POST(req: NextRequest) {
   // Reliable, code-level capture of the single most common durable fact —
   // never depends on the model choosing to emit a [[FAIT: ...]] marker for
   // it (small/free-tier models don't always follow that instruction).
-  const introName = extractSelfIntroName(message);
+  // Bug fix (confirmed live): a bare one-word reply ("Seb") to the
+  // assistant's own "comment tu t'appelles ?" matched neither
+  // extractSelfIntroName's sentence patterns nor a [[FAIT:...]] marker —
+  // the fact never got stored, needsName stayed true forever, and the
+  // model (still "seeing" the name in its own session history) produced a
+  // self-contradictory reply ("tu ne m'as pas donné ton prénom... Seb !").
+  // previousAssistant = the turn right before the user message just
+  // pushed above (session.messages now ends [...,assistant,user]).
+  const previousAssistant = session.messages[session.messages.length - 2];
+  const introName = extractSelfIntroName(message)
+    ?? extractNameFromDirectAnswer(previousAssistant?.role === "assistant" ? previousAssistant.content : undefined, message);
   if (introName) rememberFact(user.id, introName);
 
   const userContext = buildUserContext(user.id);

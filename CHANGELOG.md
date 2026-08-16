@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.25 — August 2026
+
+### Correctif Movviz AI
+
+- **Cause racine confirmée en direct** : répondre en un seul mot (« Seb ») à sa propre question « comment tu t'appelles ? » ne suffisait pas — le prénom n'était jamais retenu, alors qu'il continuait à l'utiliser normalement dans la conversation en cours. Résultat : il pouvait affirmer « tu ne m'as pas donné ton prénom » tout en l'utilisant dans la même phrase. Corrigé : une réponse courte à sa propre question sur le prénom est désormais bien reconnue et retenue.
+
 ## v1.14.24 — August 2026
 
 ### Correctifs Movviz AI
