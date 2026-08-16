@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.6 — August 2026
+
+### Movviz AI
+
+- Nouveau mode « Surprends-moi » : demande explicitement d'être surpris ou de sortir de tes habitudes, et l'assistant privilégie des titres compatibles avec ton goût mais volontairement différents du choix évident — en te disant pourquoi.
+- L'assistant nuance désormais ses recommandations : il distingue ce dont il est sûr de ce qui est plus exploratoire, plutôt que de présenter chaque suggestion comme une certitude.
+
 ## v1.14.5 — August 2026
 
 ### Réglages
