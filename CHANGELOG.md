@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.15 — August 2026
+
+### Movviz AI
+
+- Correction d'une dernière subtilité de mémoire : l'assistant ne dit plus « je vais noter ça » sans le faire réellement dans le même message — soit il utilise directement ce qu'il sait déjà, soit il dit clairement qu'il ne le sait pas encore.
+
 ## v1.14.14 — August 2026
 
 ### Movviz AI
