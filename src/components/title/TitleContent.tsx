@@ -1085,11 +1085,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               ) : (
                 detail.title
               )}
-              {detail.year ? (
-                <span className="ml-2 inline-block align-baseline font-normal text-ink-dim text-lg sm:text-xl">
-                  {detail.year}
-                </span>
-              ) : null}
               {libraryMatch?.file?.hdr ? (
                 <span className="ml-2 inline-flex items-center gap-1 align-middle">
                   {buildMediaBadgeItems(

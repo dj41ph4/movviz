@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.12 — August 2026
+
+### Fiches film/série
+
+- Retiré le doublon d'année à côté du titre — l'année reste affichée une seule fois, à côté de la durée.
+
 ## v1.14.11 — August 2026
 
 ### Movviz AI
