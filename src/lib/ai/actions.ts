@@ -1,4 +1,4 @@
-import { searchMulti } from "@/lib/metadata/tmdb";
+import { searchMulti, getMovieRecommendations, getTvRecommendations } from "@/lib/metadata/tmdb";
 import { requestMedia } from "@/lib/requests/requestMedia";
 import { getMovieByTmdbId, getSeriesByTmdbId, loadMovies, loadSeries } from "@/lib/library/store";
 import { getWatchStatus } from "@/lib/plex/watchStore";
@@ -124,6 +124,42 @@ export async function recommendMedia(items: AiRecommendIntentItem[]): Promise<{ 
     if (r) pairs.push({ item: r, source: items[i] });
   }
   return pairs;
+}
+
+/** Candidate Engine, first source beyond the LLM (AI.MD §2.D) — TMDb's own
+ *  "recommendations" endpoint for a reference title is a free, well-tested
+ *  similarity signal Movviz doesn't have to invent: the LLM's candidates
+ *  are creative but occasionally miss an obvious, objectively similar
+ *  title. Both sources feed the SAME scoring/ranking pass afterward
+ *  (recommendationScore.ts) — this function only resolves and filters,
+ *  never itself decides what looks good. `exclude` (already-collected
+ *  "type:tmdbId" keys) avoids duplicate cards with the LLM's own list.
+ *  Best-effort: returns [] on any failure rather than breaking the
+ *  surrounding recommend flow. */
+export async function getSimilarCandidates(
+  type: "movie" | "series",
+  tmdbId: number,
+  exclude: Set<string>,
+  limit = 8
+): Promise<ResolvedAiItem[]> {
+  try {
+    const paged = type === "movie" ? await getMovieRecommendations(tmdbId) : await getTvRecommendations(tmdbId);
+    const out: ResolvedAiItem[] = [];
+    for (const r of paged.results) {
+      if (out.length >= limit) break;
+      const key = `${r.type}:${r.tmdbId}`;
+      if (exclude.has(key)) continue;
+      exclude.add(key); // TMDb's own list can repeat an id across pages/types in rare cases
+      const inLibrary = r.type === "movie" ? !!getMovieByTmdbId(r.tmdbId) : !!getSeriesByTmdbId(r.tmdbId);
+      out.push({
+        title: r.title, year: r.year ?? undefined, type: r.type, tmdbId: r.tmdbId,
+        overview: r.overview, posterPath: r.posterPath, rating: r.rating, inLibrary,
+      });
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }
 
 /** Relative French time ("aujourd'hui", "hier", "il y a X jours") for the

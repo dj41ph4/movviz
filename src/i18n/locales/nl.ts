@@ -1996,6 +1996,11 @@ export const nl: Dictionary = {
     add: "Toevoegen",
     feedbackLike: "Goede aanbeveling",
     feedbackDislike: "Slechte aanbeveling",
+    recoIntro1: "Kijk, ik denk dat je dit wel gaat waarderen:",
+    recoIntro2: "Anders is er dit, misschien iets voor jou:",
+    recoIntro3: "Nog eentje die zou kunnen passen:",
+    recoIntro4: "Of je zou dit kunnen proberen:",
+    recoIntro5: "Nog een optie:",
     empty: "Vraag me om films toe te voegen, iets in dezelfde sfeer aan te bevelen, of stel een vraag over je bibliotheek.",
     status: {
       added: "Toegevoegd",

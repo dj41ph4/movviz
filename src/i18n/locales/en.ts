@@ -1996,6 +1996,11 @@ export const en: Dictionary = {
     add: "Add",
     feedbackLike: "Good recommendation",
     feedbackDislike: "Bad recommendation",
+    recoIntro1: "Here, I think you'll like this one:",
+    recoIntro2: "Otherwise there's this, might be your thing:",
+    recoIntro3: "Another one that could fit:",
+    recoIntro4: "Or you could try this instead:",
+    recoIntro5: "Another lead:",
     empty: "Ask me to add movies, recommend something in the same mood, or ask about your library.",
     status: {
       added: "Added",

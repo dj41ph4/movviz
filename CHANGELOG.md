@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.11 — August 2026
+
+### Movviz AI
+
+- Nouvelle source de suggestions : en plus de ses propres idées, Movviz AI puise maintenant aussi dans les recommandations TMDb pour le titre que tu regardes — les deux sources passent par le même tri final (qualité, mood, historique, retours).
+- Les recommandations ne s'affichent plus comme un bloc de cartes silencieux : chaque suggestion est maintenant introduite par une petite phrase différente ("Tiens, je pense que ça devrait te plaire", "Sinon il y a ça"...), pour une vraie sensation d'échange plutôt qu'une liste brute.
+
 ## v1.14.10 — August 2026
 
 ### Movviz AI

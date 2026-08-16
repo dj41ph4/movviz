@@ -47,12 +47,21 @@ function RecommendationCards({
 }) {
   return (
     <div className="mt-3 space-y-2">
-      {cards.map((card) => {
+      {cards.map((card, i) => {
         const key = `${card.type}-${card.tmdbId}`;
         const state = adding[key];
         const vote = votes[key];
         return (
-          <div key={key} className="flex gap-3 rounded-xl glass p-3">
+          <div key={key}>
+            {/* A connector line before each card instead of a silent wall
+                of cards — cycles through varied phrasing (i18n, not
+                LLM-generated: reliable and consistent regardless of what
+                the model did with its own text this time) so it reads as
+                a real back-and-forth rather than a dumped list. */}
+            <p className="mb-1.5 text-xs font-semibold text-ink-soft">
+              {t(`ai.recoIntro${(i % 5) + 1}`)}
+            </p>
+            <div className="flex gap-3 rounded-xl glass p-3">
             {card.posterPath ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -119,6 +128,7 @@ function RecommendationCards({
                   <ThumbsDown className="h-3.5 w-3.5" />
                 </button>
               </div>
+            </div>
             </div>
           </div>
         );

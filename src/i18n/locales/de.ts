@@ -1995,6 +1995,11 @@ diskScan: {
     add: "Hinzufügen",
     feedbackLike: "Gute Empfehlung",
     feedbackDislike: "Schlechte Empfehlung",
+    recoIntro1: "Ich glaube, das hier könnte dir gefallen:",
+    recoIntro2: "Sonst gäbe es noch das hier, vielleicht was für dich:",
+    recoIntro3: "Noch etwas, das passen könnte:",
+    recoIntro4: "Oder du probierst stattdessen das hier:",
+    recoIntro5: "Noch eine Idee:",
     empty: "Bitte mich, Filme hinzuzufügen, etwas im gleichen Stil zu empfehlen oder frage nach deiner Bibliothek.",
     status: {
       added: "Hinzugefügt",

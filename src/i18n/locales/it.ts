@@ -1995,6 +1995,11 @@ export const it: Dictionary = {
     add: "Aggiungi",
     feedbackLike: "Buon consiglio",
     feedbackDislike: "Consiglio sbagliato",
+    recoIntro1: "Tieni, penso che questo potrebbe piacerti:",
+    recoIntro2: "Altrimenti c'è questo, magari fa per te:",
+    recoIntro3: "Un altro che potrebbe andare bene:",
+    recoIntro4: "Oppure potresti provare questo:",
+    recoIntro5: "Un'altra pista:",
     empty: "Chiedimi di aggiungere film, di consigliarti qualcosa nello stesso stile, o fai una domanda sulla tua libreria.",
     status: {
       added: "Aggiunto",

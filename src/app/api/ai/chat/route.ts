@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractSelfIntroName } from "@/lib/ai/intentParser";
-import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency } from "@/lib/ai/actions";
+import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
 import { scoreCandidates, type MoodContext } from "@/lib/ai/recommendationScore";
@@ -136,6 +136,24 @@ export async function POST(req: NextRequest) {
     // Movviz does the actual ranking/filtering here (AI.MD §2.D/§2.E), not
     // the model.
     const reasons = new Map(pairs.map((p) => [`${p.item.type}:${p.item.tmdbId}`, p.source.reason]));
+    let allItems = pairs.map((p) => p.item);
+
+    // Candidate Engine, source #2 (AI.MD §2.D) — TMDb's own "similar to X"
+    // catalog data, added alongside the LLM's picks rather than instead of
+    // them. Only when there's a clear reference (the page the user is on):
+    // TMDb's recommendations are FOR a specific title, there's no sane
+    // reference-less version of this. A generic reason is attached since
+    // these weren't proposed by the model — never invents one for TMDb's
+    // pick, just names the mechanism honestly.
+    if (pageContext) {
+      const exclude = new Set(allItems.map((i) => `${i.type}:${i.tmdbId}`));
+      exclude.add(`${pageContext.type}:${pageContext.tmdbId}`);
+      const similar = await getSimilarCandidates(pageContext.type, pageContext.tmdbId, exclude, 8);
+      for (const s of similar) {
+        reasons.set(`${s.type}:${s.tmdbId}`, `Similaire à « ${pageContext.title} » selon TMDb`);
+      }
+      allItems = [...allItems, ...similar];
+    }
 
     // Mood Engine (AI.MD §2.B/C) — only when there's a clear reference title
     // (the page the user is currently on): analyzing/comparing mood for a
@@ -150,19 +168,19 @@ export async function POST(req: NextRequest) {
         : null;
       if (refProfile) {
         const candidateMoods = new Map<string, AiMoodCategories>();
-        await mapWithConcurrency(pairs, 3, async (p) => {
-          const profile = await getOrAnalyzeMoodProfile(config, p.item.type, p.item.tmdbId, p.item.title, p.item.overview);
-          if (profile) candidateMoods.set(`${p.item.type}:${p.item.tmdbId}`, profile.categories);
+        await mapWithConcurrency(allItems, 3, async (item) => {
+          const profile = await getOrAnalyzeMoodProfile(config, item.type, item.tmdbId, item.title, item.overview);
+          if (profile) candidateMoods.set(`${item.type}:${item.tmdbId}`, profile.categories);
         });
         mood = { reference: refProfile.categories, candidates: candidateMoods };
       }
     }
 
-    const recommendations = scoreCandidates(user.id, pairs.map((p) => p.item), reasons, 6, mood)
+    const recommendations = scoreCandidates(user.id, allItems, reasons, 6, mood)
       .map((r) => ({ ...r, reason: reasons.get(`${r.type}:${r.tmdbId}`) }));
     assistant.recommendations = recommendations;
     itemCount = recommendations.length;
-    console.log(`[ai] action=recommend candidates=${pairs.length} shown=${recommendations.length} mood=${!!mood} user=${user.username}`);
+    console.log(`[ai] action=recommend candidates=${allItems.length} (llm=${pairs.length}) shown=${recommendations.length} mood=${!!mood} user=${user.username}`);
   }
   recordAiCall({
     username: user.username, kind: intent.action ?? "chat", provider: providerName,

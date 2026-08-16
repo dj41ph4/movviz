@@ -1994,6 +1994,11 @@ export const fr = {
     add: "Ajouter",
     feedbackLike: "Bonne recommandation",
     feedbackDislike: "Mauvaise recommandation",
+    recoIntro1: "Tiens, je pense que ça devrait te plaire :",
+    recoIntro2: "Sinon il y a ça, peut-être à ton goût :",
+    recoIntro3: "Un autre qui pourrait coller :",
+    recoIntro4: "Et si tu essayais plutôt ça :",
+    recoIntro5: "Autre piste :",
     empty: "Demande-moi d'ajouter des films, de te recommander quelque chose dans le même mood, ou pose une question sur ta bibliothèque.",
     status: {
       added: "Ajouté",
