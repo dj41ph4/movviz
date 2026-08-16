@@ -1,4 +1,5 @@
 import { searchMulti, getMovieRecommendations, getTvRecommendations } from "@/lib/metadata/tmdb";
+import { titleSimilarity } from "@/lib/library/matching";
 import { requestMedia } from "@/lib/requests/requestMedia";
 import { getMovieByTmdbId, getSeriesByTmdbId, loadMovies, loadSeries } from "@/lib/library/store";
 import { getWatchStatus } from "@/lib/plex/watchStore";
@@ -36,8 +37,21 @@ export async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (i
   return results;
 }
 
-/** Resolves a raw AI-provided title against TMDb. Best hit: matches the
- *  requested type and year (±1) first, then falls back to the top result. */
+// Below this, TMDb's own relevance ranking isn't trusted enough to grab the
+// title automatically — confirmed live: searching "un homme un vrai"
+// returned the unrelated Spanish film "Todo un hombre" as TMDb's own TOP
+// hit (a coincidental cross-language near-match TMDb's ranking doesn't
+// discount). "Not found" is a far better outcome than silently downloading
+// the wrong movie under the right-sounding title.
+const MIN_AI_MATCH_SCORE = 0.45;
+
+/** Resolves a raw AI-provided title against TMDb. Scores EVERY hit against
+ *  the requested title (reusing the same fuzzy matcher already proven for
+ *  release-to-library matching, matching.ts) instead of trusting TMDb's own
+ *  top result — its relevance ranking can legitimately rank an unrelated,
+ *  lexically-similar title above the real one. Best-scoring hit wins; a
+ *  requested year then reorders within the confidently-matched pool only
+ *  (never overrides title confidence with a year-only coincidence). */
 export async function resolveAiItem(item: AiAddItem): Promise<ResolvedAiItem | null> {
   try {
     const res = await searchMulti(item.title, 1);
@@ -45,9 +59,16 @@ export async function resolveAiItem(item: AiAddItem): Promise<ResolvedAiItem | n
     let hits = res.results;
     if (item.type) hits = hits.filter((r) => r.type === item.type);
     if (!hits.length) hits = res.results;
-    let pick = hits[0];
+
+    const scored = hits
+      .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
+      .sort((a, b) => b.score - a.score);
+    if (scored[0].score < MIN_AI_MATCH_SCORE) return null;
+    const confident = scored.filter((s) => s.score >= MIN_AI_MATCH_SCORE).map((s) => s.hit);
+
+    let pick = confident[0];
     if (item.year) {
-      const yearMatch = hits.find((r) => Math.abs((r.year ?? 0) - (item.year ?? 0)) <= 1);
+      const yearMatch = confident.find((r) => Math.abs((r.year ?? 0) - (item.year ?? 0)) <= 1);
       if (yearMatch) pick = yearMatch;
     }
     const inLibrary = pick.type === "movie" ? !!getMovieByTmdbId(pick.tmdbId) : !!getSeriesByTmdbId(pick.tmdbId);

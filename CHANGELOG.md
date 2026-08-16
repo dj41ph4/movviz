@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.13 — August 2026
+
+### Movviz AI
+
+- Correction d'un bug où l'assistant pouvait ajouter le mauvais film en cas de faux ami entre langues (ex. « un homme un vrai » ajoutait un film espagnol sans rapport) — il vérifie désormais la vraie ressemblance du titre avant d'ajouter quoi que ce soit, et préfère dire « introuvable » plutôt que de se tromper de film.
+
 ## v1.14.12 — August 2026
 
 ### Fiches film/série

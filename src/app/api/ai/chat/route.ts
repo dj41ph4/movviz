@@ -28,7 +28,7 @@ function summarizeAdd(outcomes: AiActionOutcome[]): string[] {
     if (o.status === "added") lines.push(`• Ajouté, recherche lancée — ${name}`);
     else if (o.status === "requested") lines.push(`• Demande envoyée — ${name}`);
     else if (o.status === "already") lines.push(`• Déjà dans la bibliothèque — ${name}`);
-    else if (o.status === "not_found") lines.push(`• Introuvable sur TMDb — ${name}`);
+    else if (o.status === "not_found") lines.push(`• Introuvable ou pas de correspondance fiable sur TMDb — ${name} (essaie avec l'année ou le titre original si tu le connais)`);
     else if (o.status === "blocked") lines.push(`• Non autorisé (règle existante) — ${name}`);
     else if (o.status === "error") lines.push(`• Échec — ${name}${o.detail && o.detail !== "quota_reached" ? ` (${o.detail})` : ""}`);
   }

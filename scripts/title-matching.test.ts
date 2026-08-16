@@ -19,6 +19,15 @@ test("une variante orthographique/typo d'un mot reste acceptée", () => {
   assert.equal(releaseTitleMatches("Naruto Shippuden", "Naruto Shippuuden"), true);
 });
 
+test("faux ami inter-langue rejeté même en similarité de mots (confirmé en direct : demander 'un homme un vrai' à l'assistant IA résolvait vers le film espagnol non lié 'Todo un hombre')", () => {
+  // Movviz's AI add_media resolver (resolveAiItem, actions.ts) requires >=
+  // 0.45 to accept a TMDb search hit — well under the stricter 0.72 release
+  // threshold (AI-provided titles are looser/translated), but this pair
+  // must still fail it: "homme" and "hombre" are different words, not a
+  // spelling variant of each other.
+  assert.equal(titleSimilarity("un homme un vrai", "todo un hombre") < 0.45, true);
+});
+
 test("titre identique après normalisation = 1", () => {
   assert.equal(titleSimilarity("Grey's Anatomy", "Grey's Anatomy"), 1);
 });
