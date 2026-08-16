@@ -16,6 +16,16 @@ import { AI_PROVIDER_ORDER } from "./types";
  */
 
 const TIMEOUT_MS = 45_000;
+// Bug fix (confirmed live): a bulk add_media request (~100 titles pasted at
+// once, e.g. straight from a Netflix history export) produced JSON the
+// model tried to fill for every title — the old 1024-token ceiling cut the
+// response off mid-object, and the repair-tolerant JSON parser can't
+// recover an unterminated array. Every retry hit the exact same wall and
+// fell through to the generic "j'ai eu un souci" apology, no matter how the
+// user rephrased. Raised well past what the prompt's own 25-item cap
+// (intentParser.ts) actually needs, so hitting this ceiling should now mean
+// something is genuinely wrong rather than a routine long list.
+const MAX_RESPONSE_TOKENS = 4096;
 const QUOTA_RE = /quota|rate limit|resource exhausted|insufficient_quota|429|too many requests|403|forbidden|invalid api key|api key not valid/i;
 
 export class AiCallError extends Error {
@@ -95,7 +105,7 @@ async function callProvider(config: AiConfig, providerId: AiProviderId, system: 
         return await callWithKey(providerId, url, { "content-type": "application/json" }, {
           systemInstruction: { parts: [{ text: system }] },
           contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-          generationConfig: { temperature: 0.2, maxOutputTokens: 1024 },
+          generationConfig: { temperature: 0.2, maxOutputTokens: MAX_RESPONSE_TOKENS },
         });
       }
       const url = providerId === "mistral"
@@ -110,7 +120,7 @@ async function callProvider(config: AiConfig, providerId: AiProviderId, system: 
         model,
         messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
         temperature: 0.2,
-        max_tokens: 1024,
+        max_tokens: MAX_RESPONSE_TOKENS,
       });
     } catch (e) {
       lastError = e instanceof AiCallError ? e : new AiCallError(providerId, (e as Error).message, false);

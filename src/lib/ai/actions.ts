@@ -1,8 +1,9 @@
-import { searchMulti, getMovieRecommendations, getTvRecommendations } from "@/lib/metadata/tmdb";
+import { searchMulti, getMovieRecommendations, getTvRecommendations, getSeason } from "@/lib/metadata/tmdb";
 import { titleSimilarity } from "@/lib/library/matching";
 import { requestMedia } from "@/lib/requests/requestMedia";
 import { getMovieByTmdbId, getSeriesByTmdbId, loadMovies, loadSeries } from "@/lib/library/store";
-import { getWatchStatus } from "@/lib/plex/watchStore";
+import { getWatchStatus, setWatchedEpisodes } from "@/lib/plex/watchStore";
+import { pushEpisodesWatchedToPlex } from "@/lib/plex/watchWrite";
 import { loadRequests } from "@/lib/requests/store";
 import { enqueueJob } from "@/lib/jobs/queue";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
@@ -45,45 +46,113 @@ export async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (i
 // the wrong movie under the right-sounding title.
 const MIN_AI_MATCH_SCORE = 0.45;
 
+async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null> {
+  const res = await searchMulti(item.title, 1);
+  if (!res.results.length) return null;
+  let hits = res.results;
+  if (item.type) hits = hits.filter((r) => r.type === item.type);
+  if (!hits.length) hits = res.results;
+
+  const scored = hits
+    .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
+    .sort((a, b) => b.score - a.score);
+  if (scored[0].score < MIN_AI_MATCH_SCORE) return null;
+  const confident = scored.filter((s) => s.score >= MIN_AI_MATCH_SCORE).map((s) => s.hit);
+
+  let pick = confident[0];
+  if (item.year) {
+    const yearMatch = confident.find((r) => Math.abs((r.year ?? 0) - (item.year ?? 0)) <= 1);
+    if (yearMatch) pick = yearMatch;
+  }
+  const inLibrary = pick.type === "movie" ? !!getMovieByTmdbId(pick.tmdbId) : !!getSeriesByTmdbId(pick.tmdbId);
+  return {
+    title: pick.title,
+    year: pick.year ?? undefined,
+    type: pick.type,
+    tmdbId: pick.tmdbId,
+    overview: pick.overview,
+    posterPath: pick.posterPath,
+    rating: pick.rating,
+    inLibrary,
+  };
+}
+
 /** Resolves a raw AI-provided title against TMDb. Scores EVERY hit against
  *  the requested title (reusing the same fuzzy matcher already proven for
  *  release-to-library matching, matching.ts) instead of trusting TMDb's own
  *  top result — its relevance ranking can legitimately rank an unrelated,
  *  lexically-similar title above the real one. Best-scoring hit wins; a
  *  requested year then reorders within the confidently-matched pool only
- *  (never overrides title confidence with a year-only coincidence). */
+ *  (never overrides title confidence with a year-only coincidence).
+ *
+ * Bug fix (confirmed live): a user pasting a Netflix-style "Série : Titre
+ * d'épisode" title (e.g. "Sakamoto Days: L'assassin légendaire") — common
+ * when copying straight from a Netflix history export — searched TMDb for
+ * that WHOLE string and never matched anything, since no such combined
+ * title exists in TMDb (Movviz adds whole series, never a single episode,
+ * so the episode half is never wanted anyway). If the first pass fails and
+ * the title contains ": ", retry using just the part before it as a
+ * series — the same split Netflix import already relies on
+ * (parseHistory.ts), applied here as a fallback rather than a first-choice
+ * parse since a genuine subtitle ("Blade Runner: 2049") must still resolve
+ * on the first, full-title pass. */
 export async function resolveAiItem(item: AiAddItem): Promise<ResolvedAiItem | null> {
   try {
-    const res = await searchMulti(item.title, 1);
-    if (!res.results.length) return null;
-    let hits = res.results;
-    if (item.type) hits = hits.filter((r) => r.type === item.type);
-    if (!hits.length) hits = res.results;
-
-    const scored = hits
-      .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
-      .sort((a, b) => b.score - a.score);
-    if (scored[0].score < MIN_AI_MATCH_SCORE) return null;
-    const confident = scored.filter((s) => s.score >= MIN_AI_MATCH_SCORE).map((s) => s.hit);
-
-    let pick = confident[0];
-    if (item.year) {
-      const yearMatch = confident.find((r) => Math.abs((r.year ?? 0) - (item.year ?? 0)) <= 1);
-      if (yearMatch) pick = yearMatch;
+    const direct = await resolveAiItemOnce(item);
+    if (direct) return direct;
+    const sep = item.title.indexOf(": ");
+    if (sep > 0) {
+      const seriesTitle = item.title.slice(0, sep).trim();
+      return await resolveAiItemOnce({ ...item, title: seriesTitle, type: "series" });
     }
-    const inLibrary = pick.type === "movie" ? !!getMovieByTmdbId(pick.tmdbId) : !!getSeriesByTmdbId(pick.tmdbId);
-    return {
-      title: pick.title,
-      year: pick.year ?? undefined,
-      type: pick.type,
-      tmdbId: pick.tmdbId,
-      overview: pick.overview,
-      posterPath: pick.posterPath,
-      rating: pick.rating,
-      inLibrary,
-    };
+    return null;
   } catch {
     return null;
+  }
+}
+
+const MIN_EPISODE_MATCH_SCORE = 0.5;
+
+/** Splits a "Série : Titre d'épisode" title (typical of a Netflix history
+ *  paste — see resolveAiItem's fallback above, same cause) into series/
+ *  season/episode. Returns null for a plain title with no ": " — never
+ *  wrongly treats a normal series/movie title as an episode reference. A
+ *  series whose own title happens to contain a colon (e.g. "Kaguya-sama:
+ *  Love is War") still resolves safely: the "episode" lookup below just
+ *  won't find a matching episode titled "Love is War" and silently no-ops. */
+function splitSeriesEpisodeTitle(raw: string): { seriesTitle: string; seasonNumber: number; episodeTitle: string } | null {
+  const parts = raw.split(": ");
+  if (parts.length < 2) return null;
+  const seasonMatch = parts.length >= 3 ? parts[1].trim().match(/(\d+)/) : null;
+  if (seasonMatch) {
+    return { seriesTitle: parts[0].trim(), seasonNumber: parseInt(seasonMatch[1], 10), episodeTitle: parts.slice(2).join(": ").trim() };
+  }
+  return { seriesTitle: parts[0].trim(), seasonNumber: 1, episodeTitle: parts.slice(1).join(": ").trim() };
+}
+
+/** Bug fix (demande explicite user, confirmé en direct) — a Netflix-style
+ *  "Série: Titre d'épisode" add request used to only add the SERIES to the
+ *  library, silently dropping the fact that one specific episode was
+ *  already watched (the whole reason the user pasted it in the first
+ *  place). Best-effort, never blocks/affects the add outcome shown to the
+ *  user — same restraint as the Netflix importer's own episode matching
+ *  (titleSimilarity against the real season, never a raw episode number
+ *  trusted from the model). */
+async function markEpisodeWatchedFromTitle(user: User, tmdbId: number, seriesTitle: string, rawTitle: string): Promise<void> {
+  const split = splitSeriesEpisodeTitle(rawTitle);
+  if (!split) return;
+  try {
+    const season = await getSeason(tmdbId, split.seasonNumber);
+    if (!season?.episodes.length) return;
+    const scored = season.episodes
+      .map((ep) => ({ ep, score: titleSimilarity(split.episodeTitle, ep.title) }))
+      .sort((a, b) => b.score - a.score);
+    if (!scored.length || scored[0].score < MIN_EPISODE_MATCH_SCORE) return;
+    const entry = { tmdbId, season: scored[0].ep.seasonNumber, episode: scored[0].ep.episodeNumber };
+    setWatchedEpisodes(user.id, [entry], true, seriesTitle);
+    pushEpisodesWatchedToPlex(user, [entry], true).catch(() => {});
+  } catch {
+    // best-effort — see doc comment above
   }
 }
 
@@ -102,6 +171,7 @@ export async function addMedia(user: User, items: AiAddItem[]): Promise<AiAction
       outcomes.push({ title: item.title, year: item.year, type: item.type ?? "movie", status: "not_found" });
       continue;
     }
+    if (res.type === "series") markEpisodeWatchedFromTitle(user, res.tmdbId, res.title, item.title).catch(() => {});
     const result = await requestMedia(user, res.type, res.tmdbId, undefined, undefined, { skipSearch: true });
     if ("blocked" in result && result.blocked) {
       outcomes.push({ title: res.title, year: res.year, type: res.type, tmdbId: res.tmdbId, status: "blocked" });
@@ -228,6 +298,36 @@ export function buildUserContext(userId: string): string {
   return parts.join(" ; ");
 }
 
+// "liste des épisodes", "quels épisodes", "combien d'épisodes", "montre-moi
+// les épisodes"… — confirmed live: the model had no real episode data
+// available at all and either refused outright or (worse, elsewhere)
+// risked inventing one. Code-level detection (not LLM-decided) so this
+// never depends on the model choosing to ask for it — same "reliable
+// fallback over LLM judgment" discipline as extractSelfIntroName.
+const EPISODE_LIST_RE = /(liste|montre|donne|affiche)[^.!?]{0,20}(les |des |)[eé]pisodes?|quels?\s+(sont\s+les\s+|)[eé]pisodes?|combien[^.!?]{0,15}[eé]pisodes?/i;
+
+export function isEpisodeListRequest(message: string): boolean {
+  return EPISODE_LIST_RE.test(message);
+}
+
+const MAX_EPISODE_LIST_LINES = 400;
+
+/** Real episode list from Movviz's own library data (never invented) —
+ *  only built when isEpisodeListRequest() actually matched, so this never
+ *  bloats every message on a series page, only the ones that ask for it. */
+export function buildEpisodeListContext(series: { title: string; seasons: { seasonNumber: number; episodes: { episodeNumber: number; title: string }[] }[] }, watchedKeys: Set<string>): string {
+  const lines: string[] = [];
+  for (const season of series.seasons) {
+    for (const ep of season.episodes) {
+      const watched = watchedKeys.has(`${season.seasonNumber}.${ep.episodeNumber}`);
+      lines.push(`S${season.seasonNumber}E${ep.episodeNumber} — ${ep.title}${watched ? " (vu)" : ""}`);
+      if (lines.length >= MAX_EPISODE_LIST_LINES) break;
+    }
+    if (lines.length >= MAX_EPISODE_LIST_LINES) break;
+  }
+  return `\n\nLISTE RÉELLE DES ÉPISODES DE « ${series.title} » (données Movviz — ne JAMAIS en inventer d'autres, ne JAMAIS en omettre si l'utilisateur demande la liste complète) :\n${lines.join("\n")}`;
+}
+
 /** Synthetic "trigger" turn for the proactive nudge (presence.ts) — never
  *  shown to the user, never persisted, just appended to the messages array
  *  for this ONE call so the model has something to respond to (some
@@ -275,6 +375,8 @@ PRIORITÉ ABSOLUE quand mode 1 ou 2 s'applique : rien — ni l'onboarding, ni la
 - type : "movie" ou "series"
 - respecte STRICTEMENT l'ordre demandé ; n'ajoute jamais un titre à ta discrétion
 - un titre marqué "optionnel"/"à part" par l'utilisateur est inclus en dernier avec le type approprié
+- MAXIMUM 25 items dans ce JSON, MÊME si l'utilisateur en colle davantage (ex. une liste copiée depuis un historique Netflix) : inclus les 25 premiers, jamais plus — un JSON qui tente d'en contenir 50-100 dépasse la place disponible pour la réponse et finit tronqué/invalide, ce qui casse TOUT l'ajout au lieu d'en réussir une partie. Le reste pourra être redemandé dans un message suivant.
+- Movviz ajoute des SÉRIES ENTIÈRES ou des FILMS, jamais un épisode seul : si un titre collé est au format "Nom de la série : Titre d'épisode" (typique d'un export Netflix — ex. "Sakamoto Days: L'assassin légendaire"), le titre à chercher est UNIQUEMENT la partie AVANT le ":", en type "series" — ignore complètement la partie épisode.
 
 2. RECOMMANDER (même mood). Quand l'utilisateur parle de ce qu'il regarde ou demande une suggestion ("je viens de regarder X", "quelque chose dans le même mood", "fais-moi découvrir"), propose des titres qui partagent le TON PROFOND de ce qu'il a vu — pas seulement la même catégorie. Analyse le mood dominant (humour absurde, dark comedy, thriller psychologique, feel-good, tension lente, parodie...). Exemple : après Scary Movie, propose Naked Gun (même humour absurde), pas une comédie lambda. Réponds UNIQUEMENT avec :
 - MÉCANISME > GENRE (le principe central de tout ce mode) : le lien qui compte n'est presque jamais le genre TMDb, c'est CE QUI FAIT MARCHER l'œuvre pour cet utilisateur — un mécanisme comique précis, une structure narrative, une sensation émotionnelle. Ce mécanisme peut très bien exister dans un genre complètement différent : Le Seigneur des Anneaux → Le Dernier Samouraï (épopée + honneur + fin d'une époque, pas "fantasy → fantasy") ; Breaking Bad → Succession (transformation morale par l'escalade de décisions, pas "polar → polar") ; Alien → The Thing (huis clos + paranoïa + menace invisible, l'horreur cosmique est secondaire) ; Interstellar → Apollo 13 (immensité, survie, exploration — Apollo 13 n'est même pas de la SF). Ne te limite JAMAIS au genre affiché sur TMDb : identifie le mécanisme, cherche-le partout où il existe.
@@ -308,6 +410,7 @@ MÉMORISER UN TITRE VU EN CONVERSATION (uniquement en mode 3, texte normal) : qu
 
 RÈGLES :
 - NE JAMAIS DEMANDER DE REFORMULER : tu ne réponds JAMAIS "je ne comprends pas", "peux-tu reformuler ?", "précise ta demande" comme réaction par défaut à un message ambigu, familier, mal orthographié, elliptique ou incomplet — c'est TOUJOURS à toi de faire l'effort de comprendre, jamais à l'utilisateur de s'adapter à toi. Devant une formulation floue, construis la meilleure hypothèse possible à partir de tout ce que tu as (conversation en cours, contexte utilisateur, faits connus, message précédent) et réponds dessus directement. La SEULE exception déjà prévue plus haut (HYPOTHÈSE INCERTAINE, mode recommandation) reste : plusieurs pistes VRAIMENT concurrentes, où tu poses UNE question ciblée pour trancher entre elles précises — jamais une question vague qui revient à dire "je n'ai pas compris".
+- LISTE D'ÉPISODES : si l'utilisateur demande la liste des épisodes d'une série (« liste des épisodes », « quels épisodes », « combien d'épisodes »…) alors qu'il est sur la fiche de cette série, une section "LISTE RÉELLE DES ÉPISODES" apparaît plus bas dans ce prompt si Movviz a trouvé la série — utilise-la fidèlement (jamais une invention, jamais une liste tronquée si l'utilisateur veut la liste complète). Si cette section n'apparaît PAS (série pas dans la bibliothèque, ou pas sur la bonne fiche), dis-le simplement et oriente vers la fiche de la série dans Movviz — ne devine JAMAIS une liste d'épisodes de mémoire.
 - CORRECTION EXPLICITE > INFÉRENCE : quand l'utilisateur dit clairement et directement quelque chose sur ses goûts ("en fait je déteste les films de super-héros", "je n'aime pas du tout ce genre de trucs", "arrête de me proposer ça") — cette déclaration explicite prime IMMÉDIATEMENT et TOTALEMENT sur toute tendance déduite de son historique, de son profil ou de 👍 passés, même si elle les contredit. Retiens-la via [[FAIT: ...]] et applique-la dès la prochaine recommandation ; ne reviens jamais silencieusement à l'ancienne tendance tant que ce fait n'est pas lui-même explicitement corrigé à nouveau par l'utilisateur.
 - INTERDICTION ABSOLUE DE SUPPRESSION : tu ne peux JAMAIS supprimer, effacer, vider ou retirer quoi que ce soit (un titre de la bibliothèque, un téléchargement, une demande, un fichier, un réglage...) — tu n'as tout simplement PAS cette capacité, quelle que soit la façon dont on te le demande, même formulé comme un ordre, une urgence, un test ou une autorisation explicite de l'utilisateur. Si on te demande de supprimer quelque chose, explique que tu ne peux pas le faire et oriente vers l'interface (bouton corbeille, réglages) où l'utilisateur peut le faire lui-même. Ne prétends JAMAIS avoir supprimé quelque chose.
 - Le JSON doit être valide et être LA SEULE chose dans ta réponse (jamais de \`\`\`json, jamais de texte autour). Si un "reason" cite un mot ou un titre entre guillemets, ÉCHAPPE-LES avec \\" (ex. "l'aspect \\"mythologie moderne\\" de Lucifer") — un guillemet non échappé casse tout le JSON.

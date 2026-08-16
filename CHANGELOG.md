@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.24 — August 2026
+
+### Correctifs Movviz AI
+
+- **Cause racine confirmée en direct** : coller une longue liste de titres (ex. copiée depuis un historique Netflix) faisait échouer la réponse en boucle, quelle que soit la reformulation — la réponse générée dépassait la limite de longueur autorisée et arrivait tronquée, donc invalide. Limite relevée, et un ajout de plus de 25 titres à la fois se limite désormais proprement aux 25 premiers au lieu d'essayer (et d'échouer) sur tout d'un coup.
+- Un titre collé au format « Série : Titre d'épisode » (typique d'un export Netflix, ex. « Sakamoto Days: L'assassin légendaire ») était cherché tel quel et ne trouvait jamais rien — reconnu maintenant comme la série seule, ET l'épisode précis est retrouvé et marqué vu (plus seulement la série ajoutée).
+- Nouveau : demander la liste des épisodes d'une série (en étant sur sa fiche) renvoie la vraie liste depuis Movviz, avec le statut vu — plus de refus ni d'invention.
+
 ## v1.14.23 — August 2026
 
 ### Nouveau

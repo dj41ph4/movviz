@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseIntent, extractFacts, extractWatched, extractSelfIntroName } from "@/lib/ai/intentParser";
+import { isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
   const got = parseIntent('{"action":"add_media","items":[{"title":"Justice League: War","year":2014,"type":"movie"}]}');
@@ -173,4 +174,29 @@ test("extractWatched: plafonné à 2 par réponse", () => {
   const got = extractWatched("[[VU: A|movie]] [[VU: B|movie]] [[VU: C|movie]]");
   assert.equal(got.watched.length, 2);
   assert.deepEqual(got.watched.map((w) => w.title), ["A", "B"]);
+});
+
+test("isEpisodeListRequest: reconnaît les formulations courantes", () => {
+  assert.ok(isEpisodeListRequest("donne moi la liste des episodes"));
+  assert.ok(isEpisodeListRequest("quels sont les épisodes ?"));
+  assert.ok(isEpisodeListRequest("combien d'épisodes il y a ?"));
+  assert.ok(isEpisodeListRequest("montre-moi les épisodes de cette saison"));
+});
+
+test("isEpisodeListRequest: ne se déclenche pas sur un message sans rapport", () => {
+  assert.equal(isEpisodeListRequest("télécharge sakamoto days"), false);
+  assert.equal(isEpisodeListRequest("recommande-moi un truc similaire"), false);
+});
+
+test("buildEpisodeListContext: liste réelle avec statut vu, jamais tronquée pour une petite série", () => {
+  const series = {
+    title: "Ma Série",
+    seasons: [
+      { seasonNumber: 1, episodes: [{ episodeNumber: 1, title: "Pilote" }, { episodeNumber: 2, title: "Suite" }] },
+    ],
+  };
+  const ctx = buildEpisodeListContext(series, new Set(["1.1"]));
+  assert.ok(ctx.includes("S1E1 — Pilote (vu)"));
+  assert.ok(ctx.includes("S1E2 — Suite"));
+  assert.ok(!ctx.includes("S1E2 — Suite (vu)"));
 });

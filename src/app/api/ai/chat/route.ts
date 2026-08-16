@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractSelfIntroName } from "@/lib/ai/intentParser";
-import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem } from "@/lib/ai/actions";
+import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
 import { scoreCandidates, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
@@ -12,7 +12,7 @@ import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
 import { getMovie, getSeries, getCollection } from "@/lib/metadata/tmdb";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
-import { getMovieByTmdbId } from "@/lib/library/store";
+import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { getOrFetchScene } from "@/lib/ai/sceneCache";
 import { recordAiCall } from "@/lib/ai/debugLog";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
@@ -116,6 +116,19 @@ export async function POST(req: NextRequest) {
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext);
   if (pageContext) {
     system += `\n\nRÉFÉRENCE COURANTE — l'utilisateur regarde actuellement ${pageContext.type === "movie" ? "le film" : "la série"} « ${pageContext.title} » (${pageContext.tmdbId}). Quand il dit « dans le même genre », « quelque chose comme ça », « moins sérieux »…, c'est CE titre qui est la référence.`;
+
+    // Liste d'épisodes (demande explicite user — confirmé en direct que
+    // l'IA n'avait aucune donnée réelle pour répondre à ça). Détection
+    // côté code (pas laissée à l'appréciation du modèle), injectée
+    // UNIQUEMENT quand vraiment demandé — jamais à chaque message sur une
+    // fiche série, pour ne pas gonfler le prompt inutilement.
+    if (pageContext.type === "series" && isEpisodeListRequest(message)) {
+      const series = getSeriesByTmdbId(pageContext.tmdbId);
+      if (series) {
+        const watchedKeys = new Set((getWatchStatus(user.id)?.episodes ?? []).filter((e) => e.tmdbId === pageContext.tmdbId).map((e) => `${e.season}.${e.episode}`));
+        system += buildEpisodeListContext(series, watchedKeys);
+      }
+    }
 
     // Scène mémorable (demande explicite user, Mistral web_search UNIQUEMENT
     // — voir sceneCache.ts/providers.ts). Seulement pour un titre CONFIRMÉ

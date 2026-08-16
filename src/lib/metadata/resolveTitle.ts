@@ -52,40 +52,55 @@ export async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (i
 // "un homme un vrai" → the unrelated Spanish film "Todo un hombre").
 const MIN_MATCH_SCORE = 0.45;
 
+async function resolveOnce(item: TitleQuery): Promise<ResolvedTitleItem | null> {
+  const res = await searchMulti(item.title, 1);
+  if (!res.results.length) return null;
+  let hits = res.results;
+  if (item.type) hits = hits.filter((r) => r.type === item.type);
+  if (!hits.length) hits = res.results;
+
+  const scored = hits
+    .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
+    .sort((a, b) => b.score - a.score);
+  if (scored[0].score < MIN_MATCH_SCORE) return null;
+  const confident = scored.filter((s) => s.score >= MIN_MATCH_SCORE).map((s) => s.hit);
+
+  let pick = confident[0];
+  if (item.year) {
+    const yearMatch = confident.find((r) => Math.abs((r.year ?? 0) - (item.year ?? 0)) <= 1);
+    if (yearMatch) pick = yearMatch;
+  }
+  const inLibrary = pick.type === "movie" ? !!getMovieByTmdbId(pick.tmdbId) : !!getSeriesByTmdbId(pick.tmdbId);
+  return {
+    title: pick.title,
+    year: pick.year ?? undefined,
+    type: pick.type,
+    tmdbId: pick.tmdbId,
+    overview: pick.overview,
+    posterPath: pick.posterPath,
+    rating: pick.rating,
+    inLibrary,
+  };
+}
+
 /** Resolves a raw title against TMDb, scoring EVERY hit against the
  *  requested title instead of trusting TMDb's own top result. Returns null
  *  when nothing scores confidently — "not found" beats silently matching
- *  the wrong title. */
+ *  the wrong title. Falls back to just the part before ": " as a series if
+ *  the full string doesn't match — defense in depth for a "Série : Titre
+ *  d'épisode"-shaped title slipping through unclassified (parseHistory.ts
+ *  should already have split these for Netflix import, but a genuine
+ *  subtitle like "Blade Runner: 2049" still resolves on the first pass). */
 export async function resolveTitleAgainstTmdb(item: TitleQuery): Promise<ResolvedTitleItem | null> {
   try {
-    const res = await searchMulti(item.title, 1);
-    if (!res.results.length) return null;
-    let hits = res.results;
-    if (item.type) hits = hits.filter((r) => r.type === item.type);
-    if (!hits.length) hits = res.results;
-
-    const scored = hits
-      .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
-      .sort((a, b) => b.score - a.score);
-    if (scored[0].score < MIN_MATCH_SCORE) return null;
-    const confident = scored.filter((s) => s.score >= MIN_MATCH_SCORE).map((s) => s.hit);
-
-    let pick = confident[0];
-    if (item.year) {
-      const yearMatch = confident.find((r) => Math.abs((r.year ?? 0) - (item.year ?? 0)) <= 1);
-      if (yearMatch) pick = yearMatch;
+    const direct = await resolveOnce(item);
+    if (direct) return direct;
+    const sep = item.title.indexOf(": ");
+    if (sep > 0) {
+      const seriesTitle = item.title.slice(0, sep).trim();
+      return await resolveOnce({ ...item, title: seriesTitle, type: "series" });
     }
-    const inLibrary = pick.type === "movie" ? !!getMovieByTmdbId(pick.tmdbId) : !!getSeriesByTmdbId(pick.tmdbId);
-    return {
-      title: pick.title,
-      year: pick.year ?? undefined,
-      type: pick.type,
-      tmdbId: pick.tmdbId,
-      overview: pick.overview,
-      posterPath: pick.posterPath,
-      rating: pick.rating,
-      inLibrary,
-    };
+    return null;
   } catch {
     return null;
   }
