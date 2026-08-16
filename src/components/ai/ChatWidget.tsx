@@ -22,6 +22,16 @@ const STATUS_STYLES: Record<AiActionOutcome["status"], string> = {
   error: "bg-red/12 text-red",
 };
 
+// Recommendation distance tiers (recommendationScore.ts) — same pill trio
+// as everywhere else in Movviz (border + bg/12 + text on a semantic color).
+const DISTANCE_STYLES: Record<NonNullable<AiRecommendation["distance"]>, string> = {
+  very_close: "border-brand-glow/30 bg-brand-glow/12 text-brand-glow",
+  close: "border-ok/30 bg-ok/12 text-ok",
+  mood_match: "border-cyan/30 bg-cyan/12 text-cyan",
+  conceptual_match: "border-purple/30 bg-purple/12 text-purple",
+  discovery: "border-amber/30 bg-amber/12 text-amber",
+};
+
 function ActionList({
   actions, isAdmin, deleteState, onRequestDelete, onConfirmDelete, onCancelDelete, t,
 }: {
@@ -144,6 +154,16 @@ function RecommendationCards({
                 {card.rating > 0 ? (
                   <span className="text-xs font-bold text-brand-glow">{card.rating.toFixed(1)}</span>
                 ) : null}
+                {card.distance ? (
+                  <span
+                    className={cn(
+                      "rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                      DISTANCE_STYLES[card.distance]
+                    )}
+                  >
+                    {t(`ai.distance.${card.distance}`)}
+                  </span>
+                ) : null}
               </div>
               {card.reason ? (
                 <p className="mt-1 text-xs italic leading-snug text-ink-soft">« {card.reason} »</p>
@@ -216,15 +236,33 @@ export function ChatWidget() {
   // admin flips the toggle in Settings — AiSettingsPanel calls the shared
   // `mutate("/api/ai/session")` after a successful save, which revalidates
   // this same key here without needing a page reload.
-  const { data: sessionData, mutate: mutateSession } = useSWR<{ messages: AiChatMessage[]; enabled: boolean }>("/api/ai/session");
+  const { data: sessionData, mutate: mutateSession } = useSWR<{ messages: AiChatMessage[]; enabled: boolean; proactive?: boolean }>("/api/ai/session");
   const enabled = sessionData?.enabled ?? null;
   const seededRef = useRef(false);
+  const [pulse, setPulse] = useState(false);
 
   useEffect(() => {
     if (!sessionData || seededRef.current) return;
     seededRef.current = true;
     setMessages(sessionData.messages ?? []);
   }, [sessionData]);
+
+  // Proactive nudge (demande explicite user — "quand l'utilisateur revient
+  // sur Movviz après un moment, le chat pop en clignotant et pose une
+  // question"). GET /api/ai/session revalidates on window focus (global
+  // SWRConfig), which is exactly "the user came back" — the server decides
+  // whether a real nudge fired (presence.ts, its own cooldown), this just
+  // reacts when it did. Authoritative replace, not append: this can only
+  // land while the widget is idle (no in-flight send racing it).
+  useEffect(() => {
+    if (!sessionData?.proactive || !seededRef.current) return;
+    setMessages(sessionData.messages ?? []);
+    setOpen(true);
+    setPulse(true);
+    const timer = setTimeout(() => setPulse(false), 2600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionData?.proactive]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -464,9 +502,12 @@ export function ChatWidget() {
       )}
 
       <button
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => { setOpen((o) => !o); setPulse(false); }}
         title={open ? t("ai.close") : t("ai.open")}
-        className="flex h-12 w-12 items-center justify-center rounded-full glass-strong text-brand-glow shadow-xl transition-transform hover:scale-105"
+        className={cn(
+          "flex h-12 w-12 items-center justify-center rounded-full glass-strong text-brand-glow shadow-xl transition-transform hover:scale-105",
+          pulse && "animate-badge-pulse"
+        )}
       >
         {open ? <X className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
       </button>

@@ -35,6 +35,7 @@ interface ConfigDraft {
   enabled: boolean;
   primary: AiProviderId;
   fallback: boolean;
+  webSearchEnabled: boolean;
   providers: Record<AiProviderId, ProviderDraft>;
 }
 
@@ -79,7 +80,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
             keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
           };
         }
-        setDraft({ enabled: !!d.enabled, primary: d.primary ?? "mistral", fallback: d.fallback ?? true, providers });
+        setDraft({ enabled: !!d.enabled, primary: d.primary ?? "mistral", fallback: d.fallback ?? true, webSearchEnabled: !!d.webSearchEnabled, providers });
       } catch { /* leave unloaded */ }
       setLoaded(true);
     })();
@@ -101,6 +102,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
         enabled: draft.enabled,
         primary: draft.primary,
         fallback: draft.fallback,
+        webSearchEnabled: draft.webSearchEnabled,
         providers: Object.fromEntries(
           PROVIDERS.map((id) => [
             id,
@@ -125,7 +127,7 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
             keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
           };
         }
-        setDraft({ enabled: d.enabled, primary: d.primary, fallback: d.fallback, providers });
+        setDraft({ enabled: d.enabled, primary: d.primary, fallback: d.fallback, webSearchEnabled: !!d.webSearchEnabled, providers });
         setTestResult(null);
         toast("success", t("ai.settings.saved"));
         // The floating chat button reads its own "enabled" via SWR on
@@ -247,6 +249,13 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
           onChange={(v) => setDraft({ ...draft, fallback: v })}
           label={t("ai.settings.fallback")}
           hint={t("ai.settings.fallbackHint")}
+        />
+
+        <Switch
+          checked={draft.webSearchEnabled}
+          onChange={(v) => setDraft({ ...draft, webSearchEnabled: v })}
+          label={t("ai.settings.webSearch")}
+          hint={t("ai.settings.webSearchHint")}
         />
 
         <div className="border-t border-white/5 pt-5">

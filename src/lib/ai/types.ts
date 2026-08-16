@@ -17,6 +17,14 @@ export interface AiConfig {
   /** When true (and enabled), a provider that fails (quota/error) falls back to the next one in order. */
   fallback: boolean;
   providers: Record<AiProviderId, AiProviderConfig>;
+  /** Demande explicite user — recherche web pour les scènes mémorables
+   *  (contextBuilder.ts n'utilise jamais ceci ; c'est providers.ts
+   *  searchTitleScene). Mistral UNIQUEMENT (seul fournisseur dont l'API
+   *  supporte le connecteur web_search côté Movviz aujourd'hui) — quel que
+   *  soit le fournisseur PRIMARY, OpenRouter/Gemini n'ont jamais accès au
+   *  web. Off par défaut (AGENTS.md : toute future fonctionnalité IA reste
+   *  invisible tant qu'elle n'est pas explicitement activée). */
+  webSearchEnabled: boolean;
 }
 
 export const AI_PROVIDER_ORDER: AiProviderId[] = ["mistral", "openrouter", "gemini"];
@@ -30,6 +38,7 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
     openrouter: { model: "deepseek/deepseek-chat", keys: [] },
     gemini: { model: "gemini-2.5-flash-lite", keys: [] },
   },
+  webSearchEnabled: false,
 };
 
 export interface AiAddItem {
@@ -66,6 +75,10 @@ export interface AiRecommendation {
   rating: number;
   inLibrary: boolean;
   reason?: string;
+  /** Recommendation distance tier (vague 2) — how close this candidate is
+   *  to the reference title/franchise, computed by recommendationScore.ts,
+   *  never by the LLM. Absent for older cached sessions (optional). */
+  distance?: "very_close" | "close" | "mood_match" | "conceptual_match" | "discovery";
 }
 
 export interface AiChatMessage {
@@ -127,9 +140,45 @@ export interface AiFactEntry {
   at: number;
 }
 
+/** One durable, synthesized insight about the user's taste/habits — built by
+ *  a dedicated one-off LLM analysis pass over REAL Movviz data (watched
+ *  titles, requests, feedback), not extracted from conversation like
+ *  AiFactEntry. `source` distinguishes the initial deep pass from later
+ *  incremental top-ups (both shown the same way in the UI, but useful to
+ *  tell apart in the raw store). */
+export interface AiContextInsight {
+  text: string;
+  /** Self-reported by the model, same trust level as the Mood Engine's
+   *  trait weights (titleAnalysis.ts) — clamped 0..1, never treated as
+   *  ground truth (spec: "ne jamais confondre profil et vérité"). */
+  confidence: number;
+  /** How many distinct data points (titles/requests/feedback) the model
+   *  says support this — clamped to a sane range, purely explanatory. */
+  evidenceCount: number;
+  trend: "emergente" | "stable" | "en_baisse";
+  at: number;
+  source: "bootstrap" | "incremental";
+}
+
+/** The consolidated "what Movviz AI has figured out about you" context
+ *  (demande explicite user — profile page button). Distinct from the raw
+ *  feedback/facts logs above: this is a SYNTHESIS over them plus watch/
+ *  request history, built once on demand then topped up incrementally as
+ *  new activity accumulates (contextBuilder.ts owns the thresholds/cooldown
+ *  — never a background daemon, always gated to a real request). */
+export interface AiContextProfile {
+  insights: AiContextInsight[];
+  /** 0 = never built (bootstrap button not used yet). Incremental passes
+   *  compare this against dated activity (watch.recent[].at, request
+   *  createdAt) to find what's genuinely NEW since the last synthesis —
+   *  no separate event journal needed. */
+  builtAt: number;
+}
+
 export interface AiUserProfile {
   feedback: AiFeedbackEntry[];
   facts: AiFactEntry[];
+  context?: AiContextProfile;
 }
 
 /** Strictly per-user — ai-user-profiles.json, never cross-referenced between

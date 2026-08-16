@@ -16,6 +16,19 @@ import type { AiMoodCategories } from "@/lib/ai/types";
 export interface TasteVector {
   liked: AiMoodCategories;
   disliked: AiMoodCategories;
+  /** How much weight this vector deserves (0..1) — grows with the amount of
+   *  analyzed feedback behind it. A single 👍/👎 with a cached mood profile
+   *  is a weak signal (spec §16/§2.F: "never a single action = absolute
+   *  truth"), so the contrastive term in recommendationScore.ts is scaled by
+   *  this instead of always applying at full strength. Saturates at 6
+   *  analyzed titles on either side — plenty to trust the average without
+   *  requiring an unrealistic amount of feedback first. */
+  confidence: number;
+  /** Titles that actually contributed to each side — lets an explanation
+   *  reference real evidence instead of an unfalsifiable "you seem to
+   *  like X" (spec §2.T/§39). Capped, most recent-looking first isn't
+   *  tracked here (feedback order is preserved as-is). */
+  evidence: { liked: string[]; disliked: string[] };
 }
 
 export function averageProfiles(profiles: AiMoodCategories[]): AiMoodCategories {
@@ -44,15 +57,32 @@ export function averageProfiles(profiles: AiMoodCategories[]): AiMoodCategories 
  *  recommend usage, the vector quietly gets richer on its own. Returns
  *  null when there isn't enough signal yet (no feedback with an analyzed
  *  title on either side). */
+const CONFIDENCE_SATURATION = 6;
+const MAX_EVIDENCE = 5;
+
 export function buildTasteVector(userId: string): TasteVector | null {
   const feedback = getFeedback(userId);
   const likedProfiles: AiMoodCategories[] = [];
   const dislikedProfiles: AiMoodCategories[] = [];
+  const likedTitles: string[] = [];
+  const dislikedTitles: string[] = [];
   for (const entry of feedback) {
     const profile = getCachedMoodProfile(entry.type, entry.tmdbId);
     if (!profile) continue;
-    (entry.liked ? likedProfiles : dislikedProfiles).push(profile.categories);
+    if (entry.liked) {
+      likedProfiles.push(profile.categories);
+      if (likedTitles.length < MAX_EVIDENCE) likedTitles.push(entry.title);
+    } else {
+      dislikedProfiles.push(profile.categories);
+      if (dislikedTitles.length < MAX_EVIDENCE) dislikedTitles.push(entry.title);
+    }
   }
-  if (likedProfiles.length === 0 && dislikedProfiles.length === 0) return null;
-  return { liked: averageProfiles(likedProfiles), disliked: averageProfiles(dislikedProfiles) };
+  const contributing = likedProfiles.length + dislikedProfiles.length;
+  if (contributing === 0) return null;
+  return {
+    liked: averageProfiles(likedProfiles),
+    disliked: averageProfiles(dislikedProfiles),
+    confidence: Math.min(1, contributing / CONFIDENCE_SATURATION),
+    evidence: { liked: likedTitles, disliked: dislikedTitles },
+  };
 }

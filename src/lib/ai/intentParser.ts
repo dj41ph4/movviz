@@ -180,6 +180,36 @@ export function extractFacts(text: string): { facts: string[]; cleaned: string }
   return { facts, cleaned };
 }
 
+const WATCHED_MAX_COUNT = 2;
+const WATCHED_TITLE_MAX_LEN = 200;
+// No line anchors, same reasoning as FACT_RE — the model doesn't reliably
+// isolate the marker on its own line.
+const WATCHED_RE = /\[\[VU:\s*(.+?)\]\]/gi;
+
+/** Pulls the model's own inline `[[VU: titre|type]]` markers — mirrors
+ *  extractFacts exactly (same "piggyback on the reply already generated,
+ *  never a separate LLM round-trip" discipline). Emitted when the user
+ *  states in conversation that they've watched/finished something ("j'ai
+ *  regardé X hier", "je viens de finir la saison 2 de Y") — resolved
+ *  against TMDb by the caller (actions.ts resolveAiItem, same matching used
+ *  for add_media) and recorded via watchStore, never trusted as a raw
+ *  title/tmdbId pair from the model itself. */
+export function extractWatched(text: string): { watched: { title: string; type: "movie" | "series" }[]; cleaned: string } {
+  const watched: { title: string; type: "movie" | "series" }[] = [];
+  const cleaned = text
+    .replace(WATCHED_RE, (_, raw: string) => {
+      const [titlePart, typePart] = raw.split("|").map((s) => s.trim());
+      const title = (titlePart ?? "").slice(0, WATCHED_TITLE_MAX_LEN);
+      const type = typePart?.toLowerCase() === "series" ? "series" : "movie";
+      if (title && watched.length < WATCHED_MAX_COUNT) watched.push({ title, type });
+      return "";
+    })
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { watched, cleaned };
+}
+
 // "je m'appelle Seb", "je me nomme Léa", "moi c'est Max", "mon prénom
 // est/c'est Alex", "appelle-moi Théo" — one alternation, name in the
 // capture group. Accented/hyphenated first names allowed (Léa, Jean-Paul),

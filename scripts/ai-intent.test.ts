@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractSelfIntroName } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName } from "@/lib/ai/intentParser";
 
 test("add_media JSON seul dans la réponse", () => {
   const got = parseIntent('{"action":"add_media","items":[{"title":"Justice League: War","year":2014,"type":"movie"}]}');
@@ -151,4 +151,26 @@ test("extractFacts: un vrai fait négatif n'est plus filtré à tort (audit #6 �
 test("extractFacts: un vrai marqueur d'ignorance reste filtré", () => {
   const got = extractFacts("[[FAIT: prénom inconnu]]");
   assert.deepEqual(got.facts, []);
+});
+
+test("extractWatched: parse titre + type, retire le marqueur du texte affiché", () => {
+  const got = extractWatched("Ah cool, tu vas adorer la suite ! [[VU: The Batman|movie]]");
+  assert.deepEqual(got.watched, [{ title: "The Batman", type: "movie" }]);
+  assert.equal(got.cleaned, "Ah cool, tu vas adorer la suite !");
+});
+
+test("extractWatched: type absent ou invalide retombe sur movie par défaut", () => {
+  const got = extractWatched("[[VU: Un titre sans type]]");
+  assert.deepEqual(got.watched, [{ title: "Un titre sans type", type: "movie" }]);
+});
+
+test("extractWatched: series explicite reconnue", () => {
+  const got = extractWatched("[[VU: The Boys|series]]");
+  assert.deepEqual(got.watched, [{ title: "The Boys", type: "series" }]);
+});
+
+test("extractWatched: plafonné à 2 par réponse", () => {
+  const got = extractWatched("[[VU: A|movie]] [[VU: B|movie]] [[VU: C|movie]]");
+  assert.equal(got.watched.length, 2);
+  assert.deepEqual(got.watched.map((w) => w.title), ["A", "B"]);
 });

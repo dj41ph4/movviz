@@ -20,8 +20,19 @@ import type { AiMoodCategories } from "@/lib/ai/types";
  * reference).
  */
 
+/** Recommendation distance tiers (spec's "franchise tree" idea, §2/vague 2)
+ *  — surfaced alongside the score so a caller (chat/route.ts, and
+ *  eventually the UI) can explain the KIND of link, not just its rank.
+ *  very_close = same franchise (continuation gets its own priority below,
+ *  everything else in the collection still counts as very close). close/
+ *  mood_match/conceptual_match are plain moodSimilarity(reference, candidate)
+ *  bands. discovery = no usable reference at all (profile-only recommend) or
+ *  a candidate whose mood has drifted far from the reference. */
+export type RecommendationDistance = "very_close" | "close" | "mood_match" | "conceptual_match" | "discovery";
+
 export interface ScoredCandidate extends ResolvedAiItem {
   score: number;
+  distance: RecommendationDistance;
 }
 
 const STOPWORDS = new Set([
@@ -87,6 +98,28 @@ export interface MoodContext {
   candidates: Map<string, AiMoodCategories>;
 }
 
+/** Same TMDb collection as the reference, PLUS which of its tmdbIds is the
+ *  next installment the user hasn't seen/owned yet (spec: franchise
+ *  continuation is an important signal, but it's the NEXT one that should
+ *  actually jump the queue — not just "any entry in this saga"). */
+export interface FranchiseContext {
+  tmdbIds: Set<number>;
+  nextTmdbId?: number;
+}
+
+/** Content fatigue (spec §2/vague 2 "recentExposure") — a mood profile
+ *  averaged over the user's own recently watched titles (cache-only, same
+ *  restraint as TasteCompatibility: never triggers a new LLM analysis just
+ *  to build this) plus how much weight to give it. A candidate whose mood
+ *  strongly resembles what's already been binged very recently gets a small
+ *  temporary nudge down — never excluded, never a hard rule, just a light
+ *  thumb on the scale (spec §16: a handful of recent watches is still a
+ *  weak signal on its own). */
+export interface FatigueContext {
+  profile: AiMoodCategories;
+  strength: number;
+}
+
 export function scoreCandidates(
   userId: string,
   candidates: ResolvedAiItem[],
@@ -94,7 +127,8 @@ export function scoreCandidates(
   topN = 6,
   mood?: MoodContext,
   tasteVector?: TasteVector | null,
-  franchiseTmdbIds?: Set<number>
+  franchise?: FranchiseContext,
+  fatigue?: FatigueContext
 ): ScoredCandidate[] {
   const watch = getWatchStatus(userId);
   const watchedMovies = new Set(watch?.movies ?? []);
@@ -145,8 +179,10 @@ export function scoreCandidates(
     }
 
     const candidateMood = mood?.candidates.get(key);
+    let moodSim: number | null = null;
     if (mood && candidateMood) {
-      score += moodSimilarity(mood.reference, candidateMood) * 25; // MoodSimilarity — up to 25, the dominant term when available (matches the spec's own example weighting)
+      moodSim = moodSimilarity(mood.reference, candidateMood);
+      score += moodSim * 25; // MoodSimilarity — up to 25, the dominant term when available (matches the spec's own example weighting)
     }
 
     if (tasteVector && candidateMood) {
@@ -155,16 +191,41 @@ export function scoreCandidates(
       // closeness to what they've explicitly rejected — the same trait can
       // score very differently depending on which side of past feedback it
       // resembles more, which is the whole point of contrastive signal
-      // over a flat "likes X genre" summary.
-      score += moodSimilarity(tasteVector.liked, candidateMood) * 15;
-      score -= moodSimilarity(tasteVector.disliked, candidateMood) * 15;
+      // over a flat "likes X genre" summary. Scaled by confidence (vague 2):
+      // a vector built from one or two analyzed titles shouldn't swing the
+      // score as hard as one built from a dozen.
+      score += moodSimilarity(tasteVector.liked, candidateMood) * 15 * tasteVector.confidence;
+      score -= moodSimilarity(tasteVector.disliked, candidateMood) * 15 * tasteVector.confidence;
     }
 
-    if (franchiseTmdbIds?.has(c.tmdbId) && c.type === "movie") score += 12; // FranchiseAffinity — same TMDb collection as the reference
+    // Franchise continuation (vague 2) — the NEXT unwatched installment
+    // gets its own, stronger bonus than just "somewhere in this saga",
+    // matching the spec's Scary Movie worked example (recognize continuity,
+    // never force it — this only ever ADDS score, it can't exclude anything).
+    let franchiseBonus = 0;
+    if (c.type === "movie" && franchise?.tmdbIds.has(c.tmdbId)) {
+      franchiseBonus = franchise.nextTmdbId === c.tmdbId ? 20 : 10;
+      score += franchiseBonus;
+    }
+
+    // Content fatigue (vague 2, spec "recentExposure") — light, never a hard
+    // exclusion, and only applied once there's at least a real mood profile
+    // to compare against.
+    if (fatigue && candidateMood && fatigue.strength > 0) {
+      score -= moodSimilarity(fatigue.profile, candidateMood) * fatigue.strength * 8;
+    }
 
     if (pendingOrApproved.has(key)) score -= 15; // AlreadyRequested
 
-    scored.push({ ...c, score });
+    let distance: RecommendationDistance;
+    if (franchiseBonus > 0) distance = "very_close";
+    else if (moodSim == null) distance = "discovery";
+    else if (moodSim >= 0.72) distance = "close";
+    else if (moodSim >= 0.5) distance = "mood_match";
+    else if (moodSim >= 0.3) distance = "conceptual_match";
+    else distance = "discovery";
+
+    scored.push({ ...c, score, distance });
   }
 
   scored.sort((a, b) => b.score - a.score);

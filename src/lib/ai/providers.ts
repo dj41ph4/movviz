@@ -119,6 +119,68 @@ async function callProvider(config: AiConfig, providerId: AiProviderId, system: 
   throw lastError ?? new AiCallError(providerId, "Échec inconnu", false);
 }
 
+/** Extracts the assistant text from a Mistral Conversations API response —
+ *  a different shape than Chat Completions (`outputs[]` mixing tool-
+ *  execution entries and message entries, not a `choices[]` array). Only
+ *  `message.output` entries are ever assistant-facing text; `content` can
+ *  be a plain string or an array of `{type,text}` parts depending on the
+ *  connector, so both are handled. */
+function extractConversationText(json: unknown): string {
+  const outputs = (json as { outputs?: unknown[] })?.outputs ?? [];
+  const parts: string[] = [];
+  for (const raw of outputs) {
+    const out = raw as { type?: string; content?: unknown };
+    if (out.type !== "message.output") continue;
+    if (typeof out.content === "string") {
+      parts.push(out.content);
+    } else if (Array.isArray(out.content)) {
+      for (const piece of out.content) {
+        const p = piece as { text?: string };
+        if (typeof p.text === "string") parts.push(p.text);
+      }
+    }
+  }
+  return parts.join("\n").trim();
+}
+
+/**
+ * Web-grounded scene lookup (demande explicite user) — Mistral's
+ * `web_search` built-in connector, which ONLY exists on the Conversations
+ * API (`/v1/conversations`), a different endpoint/shape from the plain
+ * Chat Completions API every other call in this file uses. Deliberately
+ * Mistral-only: OpenRouter/Gemini have no equivalent wired here, and this
+ * function is never used as a fallback target — callers gate on
+ * `config.webSearchEnabled` AND a configured Mistral key before calling.
+ * Returns null on ANY failure (no key, quota, empty result) — the caller
+ * (contextBuilder.ts's scene cache) degrades to simply not having a scene
+ * to reference, never a broken chat reply.
+ */
+export async function searchTitleScene(config: AiConfig, prompt: string): Promise<string | null> {
+  if (!config.webSearchEnabled) return null;
+  const provider = config.providers.mistral;
+  const model = provider.model.trim() || "mistral-small-latest";
+  const keys = provider.keys.filter((k) => k.key.trim().length > 0);
+  if (keys.length === 0) return null;
+
+  for (const entry of keys) {
+    try {
+      const json = await jsonFetch("mistral", "https://api.mistral.ai/v1/conversations", {
+        "content-type": "application/json",
+        authorization: `Bearer ${entry.key.trim()}`,
+      }, {
+        model,
+        inputs: [{ role: "user", content: prompt }],
+        tools: [{ type: "web_search" }],
+      });
+      const text = extractConversationText(json);
+      if (text) return text;
+    } catch {
+      // try the next key — same key-rotation spirit as callProvider above
+    }
+  }
+  return null;
+}
+
 /**
  * Calls the configured chain: primary provider first, then the others in
  * order (Mistral → OpenRouter → Gemini) when fallback is enabled. Returns

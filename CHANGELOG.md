@@ -4,6 +4,18 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.18 — August 2026
+
+### Movviz AI
+
+- L'assistant s'adapte maintenant au style de chacun (direct, familier, avec humour...) au lieu d'un ton figé, et varie ses formulations pour ne jamais se répéter.
+- Quand tu reviens sur Movviz après un moment d'absence, l'assistant peut ouvrir la conversation tout seul avec une question sur le cinéma — jamais plus d'une fois toutes les quelques heures.
+- Nouveau bouton « Créer le contexte » sur ta page de profil : une analyse de ton activité réelle (vues, demandes, retours) construit une compréhension durable de tes goûts — le mécanisme qui te plaît, pas juste le genre — et continue de s'enrichir toute seule au fil de l'usage, sans jamais tourner en continu.
+- Les recommandations reconnaissent mieux la logique de franchise : le prochain épisode non vu d'une saga passe désormais en priorité, et plusieurs pistes peuvent être proposées (continuer la saga / même énergie ailleurs / encore plus extrême) plutôt qu'un seul choix imposé.
+- Nouveau, optionnel et désactivé par défaut : recherche web (via Mistral uniquement) pour évoquer avec parcimonie une scène marquante d'un titre déjà vu — jamais de spoiler sur une série en cours, activable dans Réglages.
+- L'assistant peut retenir qu'un titre a été vu simplement en te lisant le dire en conversation, sans devoir passer par sa fiche.
+- Plusieurs affinages du moteur de recommandation (confiance pondérée sur les goûts appris, légère lassitude après un enchaînement du même type de contenu) et une consigne claire : ne jamais demander de reformuler, toujours essayer de comprendre.
+
 ## v1.14.17 — August 2026
 
 ### Movviz AI

@@ -13,6 +13,7 @@ function deepMerge(base: AiConfig, patch: unknown): AiConfig {
     enabled: p.enabled ?? base.enabled,
     primary: (p.primary as AiConfig["primary"]) ?? base.primary,
     fallback: p.fallback ?? base.fallback,
+    webSearchEnabled: p.webSearchEnabled ?? base.webSearchEnabled,
     providers: {
       mistral: { model: p.providers?.mistral?.model ?? base.providers.mistral.model, keys: p.providers?.mistral?.keys ?? base.providers.mistral.keys },
       openrouter: { model: p.providers?.openrouter?.model ?? base.providers.openrouter.model, keys: p.providers?.openrouter?.keys ?? base.providers.openrouter.keys },

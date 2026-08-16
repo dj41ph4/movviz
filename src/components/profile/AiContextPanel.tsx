@@ -3,7 +3,15 @@
 import { useState } from "react";
 import useSWR from "swr";
 import { useT } from "@/i18n/provider";
-import { Sparkles, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown } from "lucide-react";
+import { toast } from "@/components/ui/Toast";
+import { Sparkles, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Brain, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface AiContextInsight {
+  text: string;
+  confidence: number;
+  trend: "emergente" | "stable" | "en_baisse";
+}
 
 interface AiContextData {
   facts: string[];
@@ -18,6 +26,7 @@ interface AiContextData {
     aiAccepted: number;
     topSeries: { title: string; episodes: number }[];
   };
+  context: { insights: AiContextInsight[]; builtAt: number } | null;
 }
 
 /**
@@ -32,12 +41,31 @@ interface AiContextData {
 export function AiContextPanel() {
   const t = useT();
   const [open, setOpen] = useState(false);
+  const [building, setBuilding] = useState(false);
   const { data: sessionData } = useSWR<{ enabled: boolean }>("/api/ai/session");
-  const { data } = useSWR<AiContextData>(open ? "/api/ai/context" : null);
+  const { data, mutate } = useSWR<AiContextData>(open ? "/api/ai/context" : null);
 
   if (sessionData?.enabled !== true) return null;
 
-  const hasAnything = data && (data.facts.length > 0 || data.liked.length > 0 || data.disliked.length > 0 || data.usage.watchedMovies > 0 || data.usage.watchedSeries > 0);
+  const buildContext = async () => {
+    if (building) return;
+    setBuilding(true);
+    try {
+      const r = await fetch("/api/ai/context", { method: "POST" });
+      if (r.ok) {
+        mutate();
+        toast("success", t("profile.aiContext.buildDone"));
+      } else {
+        toast("error", t("profile.aiContext.buildFailed"));
+      }
+    } catch {
+      toast("error", t("profile.aiContext.buildFailed"));
+    } finally {
+      setBuilding(false);
+    }
+  };
+
+  const hasAnything = data && (data.facts.length > 0 || data.liked.length > 0 || data.disliked.length > 0 || data.usage.watchedMovies > 0 || data.usage.watchedSeries > 0 || !!data.context);
 
   return (
     <div className="mb-6 rounded-2xl glass p-5">
@@ -54,6 +82,44 @@ export function AiContextPanel() {
 
       {open && (
         <div className="mt-4 space-y-4 border-t border-white/8 pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-ink-dim">
+              {data?.context ? t("profile.aiContext.contextBuiltAt", { date: new Date(data.context.builtAt).toLocaleDateString() }) : t("profile.aiContext.contextNeverBuilt")}
+            </p>
+            <button
+              onClick={buildContext}
+              disabled={building}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl brand-gradient px-3 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {building ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brain className="h-3.5 w-3.5" />}
+              {data?.context ? t("profile.aiContext.rebuildContext") : t("profile.aiContext.buildContext")}
+            </button>
+          </div>
+
+          {data?.context && data.context.insights.length > 0 && (
+            <div>
+              <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink-dim">
+                <Brain className="h-3 w-3" /> {t("profile.aiContext.consolidated")}
+              </p>
+              <ul className="space-y-1.5">
+                {data.context.insights.map((i, idx) => (
+                  <li key={idx} className="flex items-start gap-2 text-sm text-ink">
+                    <span
+                      className={cn(
+                        "mt-0.5 shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-bold",
+                        i.confidence >= 0.6 ? "border-ok/30 bg-ok/12 text-ok" : "border-amber/30 bg-amber/12 text-amber"
+                      )}
+                      title={t(`profile.aiContext.trend.${i.trend}`)}
+                    >
+                      {Math.round(i.confidence * 100)}%
+                    </span>
+                    <span>{i.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {!data ? (
             <p className="text-sm text-ink-dim">{t("common.loading")}</p>
           ) : !hasAnything ? (

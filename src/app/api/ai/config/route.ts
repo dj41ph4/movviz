@@ -10,6 +10,7 @@ function redactConfig(config: AiConfig) {
     enabled: config.enabled,
     primary: config.primary,
     fallback: config.fallback,
+    webSearchEnabled: config.webSearchEnabled,
     providers: Object.fromEntries(
       AI_PROVIDER_ORDER.map((id) => [
         id,
@@ -55,6 +56,7 @@ export async function PUT(req: NextRequest) {
     enabled: typeof body.enabled === "boolean" ? body.enabled : current.enabled,
     primary,
     fallback: typeof body.fallback === "boolean" ? body.fallback : current.fallback,
+    webSearchEnabled: typeof body.webSearchEnabled === "boolean" ? body.webSearchEnabled : current.webSearchEnabled,
     providers,
   });
   return NextResponse.json(redactConfig(next));

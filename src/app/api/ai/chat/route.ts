@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractSelfIntroName } from "@/lib/ai/intentParser";
-import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName } from "@/lib/ai/intentParser";
+import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
-import { buildFeedbackContext, buildFactsContext, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
-import { scoreCandidates, type MoodContext } from "@/lib/ai/recommendationScore";
-import { getOrAnalyzeMoodProfile } from "@/lib/ai/titleAnalysis";
-import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
+import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
+import { scoreCandidates, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
+import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
+import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
 import { getMovie, getSeries, getCollection } from "@/lib/metadata/tmdb";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
+import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
+import { getMovieByTmdbId } from "@/lib/library/store";
+import { getOrFetchScene } from "@/lib/ai/sceneCache";
 import { recordAiCall } from "@/lib/ai/debugLog";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
 
@@ -102,6 +105,7 @@ export async function POST(req: NextRequest) {
   const usageContext = formatUsageProfile(buildUsageProfile(user.id));
   const feedbackContext = buildFeedbackContext(user.id);
   const factsContext = buildFactsContext(user.id);
+  const contextInsightsContext = buildContextInsightsSection(user.id);
   // "First ever interaction" = no prior session AND no fact known about
   // this user BEFORE this message — not just "empty session" (a cleared
   // chat shouldn't re-trigger onboarding for someone Movviz already knows).
@@ -109,9 +113,29 @@ export async function POST(req: NextRequest) {
   // Checked AFTER the introName capture above, so telling it your name IN
   // THIS message already counts — no double-ask in the same reply.
   const needsName = !hasKnownName(user.id);
-  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName);
+  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext);
   if (pageContext) {
     system += `\n\nRÉFÉRENCE COURANTE — l'utilisateur regarde actuellement ${pageContext.type === "movie" ? "le film" : "la série"} « ${pageContext.title} » (${pageContext.tmdbId}). Quand il dit « dans le même genre », « quelque chose comme ça », « moins sérieux »…, c'est CE titre qui est la référence.`;
+
+    // Scène mémorable (demande explicite user, Mistral web_search UNIQUEMENT
+    // — voir sceneCache.ts/providers.ts). Seulement pour un titre CONFIRMÉ
+    // vu (jamais pour un titre juste consulté) — cache-first, donc coût
+    // réel seulement la toute première fois que ce titre est référencé,
+    // tous utilisateurs confondus. La règle "SCÈNE MÉMORABLE" (actions.ts)
+    // décide seule si/comment l'utiliser ; ceci ne fait que fournir la
+    // matière première trouvée sur le web, jamais une instruction de l'imposer.
+    if (config.webSearchEnabled) {
+      const watchStatus = getWatchStatus(user.id);
+      const confirmedWatched = pageContext.type === "movie"
+        ? (watchStatus?.movies ?? []).includes(pageContext.tmdbId)
+        : (watchStatus?.episodes ?? []).some((e) => e.tmdbId === pageContext.tmdbId);
+      if (confirmedWatched) {
+        const scene = await getOrFetchScene(config, pageContext.type, pageContext.tmdbId, pageContext.title);
+        if (scene) {
+          system += `\n\nSCÈNES TROUVÉES VIA RECHERCHE WEB pour « ${pageContext.title} » (Mistral web_search, à utiliser seulement si pertinent et seulement selon la règle SCÈNE MÉMORABLE ci-dessus — ignore complètement si ça ne sert pas ce message précis) :\n${scene.findings}`;
+        }
+      }
+    }
   }
 
   const t0 = Date.now();
@@ -135,8 +159,25 @@ export async function POST(req: NextRequest) {
   console.log(`[ai] chat ok user=${user.username} provider=${providerName} model=${usedModel} latency=${latency}ms`);
 
   const intent = parseIntent(text);
-  const { facts, cleaned } = extractFacts(intent.rawText);
+  const { facts, cleaned: afterFacts } = extractFacts(intent.rawText);
   for (const fact of facts) rememberFact(user.id, fact);
+  const { watched, cleaned } = extractWatched(afterFacts);
+  if (watched.length) {
+    // Best-effort — the same TMDb title matching add_media already trusts
+    // (resolveAiItem, titleSimilarity-gated), never a raw title/tmdbId pair
+    // taken from the model. A resolution miss just means this one title
+    // isn't recorded, never a broken chat reply.
+    for (const w of watched) {
+      try {
+        const resolved = await resolveAiItem({ title: w.title, type: w.type });
+        if (!resolved) continue;
+        if (resolved.type === "movie") setWatchedMovies(user.id, [resolved.tmdbId], true, resolved.title);
+        else recordWatched(user.id, { tmdbId: resolved.tmdbId, type: "series", title: resolved.title, at: Date.now() });
+      } catch {
+        // best-effort, see comment above
+      }
+    }
+  }
   // A bare "…" here (the old fallback) reads as broken, not thoughtful —
   // this branch only fires when the model's ENTIRE reply was [[FAIT:...]]
   // marker lines with no actual sentence (a prompt-following miss on the
@@ -188,7 +229,7 @@ export async function POST(req: NextRequest) {
     // costly" assessment was for a per-candidate collectionId lookup, which
     // this sidesteps entirely). Movies only — TMDb collections don't exist
     // for series.
-    let franchiseTmdbIds: Set<number> | undefined;
+    let franchise: FranchiseContext | undefined;
     if (pageContext) {
       const refDetail = pageContext.type === "movie" ? await getMovie(pageContext.tmdbId) : await getSeries(pageContext.tmdbId);
       const refProfile = refDetail
@@ -204,7 +245,21 @@ export async function POST(req: NextRequest) {
       }
       if (pageContext.type === "movie" && refDetail && "collectionId" in refDetail && refDetail.collectionId) {
         const collection = await getCollection(refDetail.collectionId).catch(() => null);
-        if (collection) franchiseTmdbIds = new Set(collection.parts.map((p) => p.tmdbId));
+        if (collection) {
+          const tmdbIds = new Set(collection.parts.map((p) => p.tmdbId));
+          // Franchise continuation (vague 2, spec's Scary Movie walkthrough):
+          // the next installment the user hasn't seen/owned yet, following
+          // the reference in the collection's own release order — never
+          // just "any entry in this saga". Parts are already sorted by
+          // releaseDate ascending (getCollection).
+          const watchStatus = getWatchStatus(user.id);
+          const watchedMovies = new Set(watchStatus?.movies ?? []);
+          const refIndex = collection.parts.findIndex((p) => p.tmdbId === pageContext.tmdbId);
+          const nextTmdbId = refIndex >= 0
+            ? collection.parts.slice(refIndex + 1).find((p) => !watchedMovies.has(p.tmdbId) && !getMovieByTmdbId(p.tmdbId))?.tmdbId
+            : undefined;
+          franchise = { tmdbIds, nextTmdbId };
+        }
       }
     }
 
@@ -216,7 +271,20 @@ export async function POST(req: NextRequest) {
     // also ran, since that's what populates candidate profiles.
     const tasteVector = buildTasteVector(user.id);
 
-    const recommendations = scoreCandidates(user.id, allItems, reasons, 6, mood, tasteVector, franchiseTmdbIds)
+    // Content fatigue (vague 2, spec "recentExposure") — averaged mood of
+    // the user's own last few watched titles, cache-only (never triggers a
+    // new analysis just for this). Requires at least 3 recently watched
+    // titles with an already-cached profile — a weaker signal than that
+    // isn't worth acting on (spec §16: a single observation is weak).
+    const recentWatched = (getWatchStatus(user.id)?.recent ?? []).slice(0, 8);
+    const recentProfiles = recentWatched
+      .map((r) => getCachedMoodProfile(r.type, r.tmdbId)?.categories)
+      .filter((p): p is AiMoodCategories => !!p);
+    const fatigue: FatigueContext | undefined = recentProfiles.length >= 3
+      ? { profile: averageProfiles(recentProfiles), strength: Math.min(1, recentProfiles.length / 6) }
+      : undefined;
+
+    const recommendations = scoreCandidates(user.id, allItems, reasons, 6, mood, tasteVector, franchise, fatigue)
       .map((r) => ({ ...r, reason: reasons.get(`${r.type}:${r.tmdbId}`) }));
     assistant.recommendations = recommendations;
     itemCount = recommendations.length;

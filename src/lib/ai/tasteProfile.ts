@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import type { AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile } from "./types";
+import type { AiContextInsight, AiContextProfile, AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile } from "./types";
 
 /**
  * Foundation of the AI v2 taste engine (AI.MD §2.A/§2.G): a strictly
@@ -33,7 +33,7 @@ function write(store: AiProfileStore): void {
 function profileForUser(store: AiProfileStore, userId: string): AiUserProfile {
   const existing = store[userId];
   // facts is newer than feedback — old on-disk profiles may predate it.
-  return { feedback: existing?.feedback ?? [], facts: existing?.facts ?? [] };
+  return { feedback: existing?.feedback ?? [], facts: existing?.facts ?? [], context: existing?.context };
 }
 
 export function recordFeedback(userId: string, entry: AiFeedbackEntry): void {
@@ -87,6 +87,50 @@ export function getFacts(userId: string): AiFactEntry[] {
  *  to actually ask for it, rather than leaving that to chance. */
 export function hasKnownName(userId: string): boolean {
   return getFacts(userId).some((f) => /pr[ée]nom/i.test(f.fact));
+}
+
+const MAX_CONTEXT_INSIGHTS = 15;
+
+export function getContextProfile(userId: string): AiContextProfile | null {
+  return profileForUser(read(), userId).context ?? null;
+}
+
+/** Replaces the insight list wholesale (bootstrap) or merges new ones in
+ *  (incremental, `merge: true`) — see contextBuilder.ts for which mode
+ *  callers use. On merge, an incoming insight whose text matches an
+ *  existing one (normalized) UPDATES it in place (fresh confidence/trend/
+ *  evidenceCount, same spirit as the spec's "une préférence peut évoluer ou
+ *  diminuer") instead of duplicating; a genuinely new one is appended.
+ *  Bounded the same way as facts/feedback: oldest evicted first once the
+ *  cap is hit. */
+export function saveContextInsights(userId: string, newInsights: AiContextInsight[], merge: boolean): void {
+  const store = read();
+  const profile = profileForUser(store, userId);
+  const norm = (s: string) => s.trim().toLowerCase();
+  let combined = merge ? [...(profile.context?.insights ?? [])] : [];
+  for (const incoming of newInsights) {
+    const idx = combined.findIndex((e) => norm(e.text) === norm(incoming.text));
+    if (idx >= 0) combined[idx] = incoming;
+    else combined.push(incoming);
+  }
+  combined = combined.slice(-MAX_CONTEXT_INSIGHTS);
+  const context: AiContextProfile = { insights: combined, builtAt: Date.now() };
+  store[userId] = { ...profile, context };
+  write(store);
+}
+
+/** Compact context for the system prompt — the synthesized "what Movviz AI
+ *  has figured out about you" (contextBuilder.ts), separate from the raw
+ *  facts/feedback logs already injected elsewhere. Read-and-consolidate
+ *  only, same restraint as buildFactsContext below. */
+export function buildContextInsightsSection(userId: string): string {
+  const context = getContextProfile(userId);
+  if (!context || context.insights.length === 0) return "";
+  // Confidence-aware phrasing (spec: "ne jamais confondre profil et
+  // vérité") — a low-confidence insight is labeled as a hypothesis, not
+  // presented with the same weight as an established pattern.
+  const fmt = (i: (typeof context.insights)[number]) => i.confidence >= 0.6 ? i.text : `${i.text} (hypothèse, pas encore confirmée)`;
+  return `\n\nCONTEXTE CONSOLIDÉ (synthèse déjà construite à partir de l'historique réel de cet utilisateur — vues, demandes, retours ; PAS une simple liste de genres, cherche déjà les mécanismes) — ${context.insights.map(fmt).join(" ; ")}. Traite ceci comme une tendance de fond, pas une certitude absolue : une demande explicite de l'utilisateur prime toujours dessus (voir CORRECTION EXPLICITE > INFÉRENCE).`;
 }
 
 /** Compact context for the system prompt — read-and-consolidate only, never
