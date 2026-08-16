@@ -51,6 +51,13 @@ export interface UserPrefs {
    *  trailerAutoplay (dashboard-layout.json) — two different screens, two
    *  different toggles, same "video vs static image" idea. */
   titlePageVideoEnabled?: boolean;
+  /** Season-0 "specials" episodes in the completion/watched-tracking logic —
+   *  absent/false (default) EXCLUDES them: a series with every real season
+   *  watched counts as fully watched even if a special was never released/
+   *  watched. Confirmed live: most series never showed as "fully watched"
+   *  because a missing/unwatched special always blocked it. true opts back
+   *  into counting specials like any other episode. */
+  specialEpisodesEnabled?: boolean;
 }
 
 const VALID_TIERS: GpuTier[] = ["high", "medium", "low", "ultraLow"];
@@ -84,6 +91,7 @@ function sanitize(prefs: unknown): UserPrefs {
     clean.preferredAudioLanguage = p.preferredAudioLanguage as PreferredAudioLanguage;
   }
   if (typeof p.titlePageVideoEnabled === "boolean") clean.titlePageVideoEnabled = p.titlePageVideoEnabled;
+  if (typeof p.specialEpisodesEnabled === "boolean") clean.specialEpisodesEnabled = p.specialEpisodesEnabled;
   return clean;
 }
 

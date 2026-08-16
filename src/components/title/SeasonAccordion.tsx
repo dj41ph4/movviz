@@ -146,8 +146,12 @@ function SeasonRow({
   // "Known" episodes of this season — library data wins (source of truth),
   // TMDb data covers seasons not in the library (only once expanded).
   const knownEpisodes = useMemo(() => {
+    // An episode that hasn't aired yet (TBA/upcoming) can't have been
+    // watched — it must never block this season from showing as fully
+    // watched (confirmed live: e.g. season 3 still TBA shouldn't keep an
+    // already-fully-watched season 1+2 series from reading as complete).
     const fromLib = (libSeason?.episodes ?? [])
-      .filter((e) => e.episodeNumber != null)
+      .filter((e) => e.episodeNumber != null && e.status !== "upcoming")
       .map((e) => ({ season: season.seasonNumber, episode: e.episodeNumber! }));
     if (fromLib.length) return fromLib;
     return (tmdbSeason?.episodes ?? []).map((e) => ({ season: season.seasonNumber, episode: e.episodeNumber }));

@@ -5,7 +5,6 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { Toggle } from "@/components/ui/Toggle";
-import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import {
   DASHBOARD_MODES,
   DASHBOARD_SECTION_IDS,
@@ -35,7 +34,6 @@ export function DashboardExperiencePanel() {
   const t = useT();
   const [layout, setLayout] = useState<DashboardLayout | null>(null);
   const [saving, setSaving] = useState(false);
-  const titlePageVideo = useTitlePageVideo();
 
   useEffect(() => {
     fetch("/api/dashboard/layout", { cache: "no-store" })
@@ -125,15 +123,6 @@ export function DashboardExperiencePanel() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.dashboardExperience.trailerSearchEnabled")}</span>
           <Toggle on={layout.youtubeTrailerSearch} onChange={() => save({ youtubeTrailerSearch: !layout.youtubeTrailerSearch })} />
-        </div>
-      </div>
-
-      <div className="rounded-2xl glass p-5">
-        <h3 className="mb-1 font-bold text-ink">{t("settings.dashboardExperience.titlePageVideoTitle")}</h3>
-        <p className="mb-4 text-sm text-ink-dim">{t("settings.dashboardExperience.titlePageVideoHint")}</p>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-ink">{t("settings.dashboardExperience.titlePageVideoEnabled")}</span>
-          <Toggle on={titlePageVideo.enabled} onChange={() => titlePageVideo.setEnabled(!titlePageVideo.enabled)} />
         </div>
       </div>
 

@@ -4,6 +4,24 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.16 — August 2026
+
+### Movviz AI
+
+- Correction d'un bug sérieux : une recommandation citant un mot entre guillemets pouvait s'afficher en JSON brut au lieu de cartes — corrigé à la racine, plus aucun risque de fuite quoi qu'il arrive.
+- Les conversations survivent maintenant à un redémarrage du serveur — seul le bouton corbeille les vide.
+- Poster et titre d'une recommandation sont cliquables et ouvrent la fiche.
+- Ajouter une recommandation déclenche maintenant une vraie réaction de l'assistant sur ce titre.
+- Nouveaux modes de recommandation reconnus : « plus sombre », « moins violent », « propose-moi un truc » sans référence précise, ou volontairement méconnu.
+- Les recommandations tiennent compte de tes retours 👍/👎 passés de façon plus fine (ce qui a plu ET ce qui a été rejeté, pas juste un des deux) et de l'appartenance à une même franchise que ce que tu regardes.
+- Un besoin exprimé clairement dans l'instant ("là j'ai besoin de plus léger") passe désormais devant tes habitudes générales plutôt que d'être ignoré.
+- L'assistant comprend mieux les demandes qui sortent du genre évident (« comme tel film, mais sans tel élément ») et pose une question ciblée plutôt que deviner au hasard quand ta demande est vraiment ambiguë.
+
+### Réglages
+
+- Nouvel onglet « Expérience » (vidéo sur les fiches, épisodes spéciaux) séparé du Tableau de bord.
+- Nouveau réglage : les épisodes spéciaux ne comptent plus dans le statut « série vue complètement » (désactivé par défaut), et une saison pas encore sortie ne bloque plus ce statut non plus.
+
 ## v1.14.15 — August 2026
 
 ### Movviz AI

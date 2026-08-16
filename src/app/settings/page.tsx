@@ -40,6 +40,7 @@ import { AboutPanel } from "@/components/settings/AboutPanel";
 import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
 import { DashboardExperiencePanel } from "@/components/settings/DashboardExperiencePanel";
+import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
 import { GpuSettingsPanel } from "@/components/settings/GpuSettingsPanel";
 import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT } from "@/lib/settingsNav";
 
@@ -223,6 +224,7 @@ function SettingsPageInner() {
 
         <div className="min-w-0">
           {tab === "dashboard" && <DashboardExperiencePanel />}
+          {tab === "experience" && <ExperiencePanel />}
           {tab === "gpu" && <GpuSettingsPanel />}
 
           {tab === "clients" && <DownloadClients />}

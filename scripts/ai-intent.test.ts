@@ -71,6 +71,23 @@ test("title trop long ( > 200) est écarté", () => {
   assert.equal(got.action, null);
 });
 
+test("recommend : guillemets internes non échappés dans une reason sont réparés (confirmé en direct : cassait le parsing et affichait le JSON brut à l'utilisateur)", () => {
+  const raw = '{"action":"recommend","items":[{"title":"American Gods","year":2017,"type":"series","reason":"Un univers riche, parfait si tu as aimé l\'aspect "mythologie moderne" de Lucifer."},{"title":"Good Omens","year":2019,"type":"series","reason":"Duo charismatique, humour noir."}]}';
+  const got = parseIntent(raw);
+  assert.equal(got.action, "recommend");
+  assert.equal(got.items.length, 2);
+  assert.equal(got.items[0].title, "American Gods");
+  assert.ok(got.items[0].reason?.includes("mythologie moderne"));
+  assert.equal(got.items[1].title, "Good Omens");
+});
+
+test("recommend : JSON toujours invalide même après réparation ne fuit jamais en clair — remplacé par un message générique", () => {
+  const got = parseIntent('{"action":"recommend","items":[}}}broken');
+  assert.equal(got.action, null);
+  assert.ok(!got.rawText.includes("{"));
+  assert.ok(!got.rawText.includes("action"));
+});
+
 test("extractFacts: marqueur sur sa propre ligne, extrait et retiré", () => {
   const got = extractFacts("Ah super, Seb !\n[[FAIT: Prénom : Seb]]");
   assert.deepEqual(got.facts, ["Prénom : Seb"]);

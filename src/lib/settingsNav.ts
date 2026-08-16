@@ -20,6 +20,7 @@ import {
   Sparkles,
   Ban,
   Bot,
+  Wand2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -48,6 +49,7 @@ export interface SettingsTab {
 export const SETTINGS_TABS: SettingsTab[] = [
   // Personnel
   { id: "dashboard", labelKey: "settings.tabDashboard", hintKey: "settings.tabDashboardHint", icon: LayoutGrid, group: "personal" },
+  { id: "experience", labelKey: "settings.tabExperience", hintKey: "settings.tabExperienceHint", icon: Wand2, group: "personal" },
   { id: "gpu", labelKey: "settings.tabGpu", hintKey: "settings.tabGpuHint", icon: Zap, group: "personal" },
   // Téléchargement
   { id: "clients", labelKey: "settings.tabClients", hintKey: "settings.tabClientsHint", icon: HardDrive, group: "download" },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import useSWR from "swr";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
@@ -113,22 +114,32 @@ function RecommendationCards({
               {t(`ai.recoIntro${(i % 5) + 1}`)}
             </p>
             <div className="flex gap-3 rounded-xl glass p-3">
-            {card.posterPath ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`https://image.tmdb.org/t/p/w92${card.posterPath}`}
-                alt={card.title}
-                className="h-[72px] w-12 shrink-0 rounded-lg object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <div className="flex h-[72px] w-12 shrink-0 items-center justify-center rounded-lg bg-white/6 text-ink-dim">
-                <Film className="h-5 w-5" />
-              </div>
-            )}
+            {/* Real /title/{type}/{tmdbId} link — pages that mount
+                useTitlePanel() (Discover, Library, Calendar…) intercept
+                this exact href pattern and open it as the sliding
+                contextual panel instead of a full navigation; pages
+                without that hook mounted just navigate there normally.
+                Either way the poster/title are never a dead end. */}
+            <Link href={`/title/${card.type}/${card.tmdbId}`} className="shrink-0">
+              {card.posterPath ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`https://image.tmdb.org/t/p/w92${card.posterPath}`}
+                  alt={card.title}
+                  className="h-[72px] w-12 rounded-lg object-cover"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="flex h-[72px] w-12 items-center justify-center rounded-lg bg-white/6 text-ink-dim">
+                  <Film className="h-5 w-5" />
+                </div>
+              )}
+            </Link>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-baseline gap-x-2">
-                <span className="truncate text-sm font-bold text-ink">{card.title}</span>
+                <Link href={`/title/${card.type}/${card.tmdbId}`} className="truncate text-sm font-bold text-ink hover:underline">
+                  {card.title}
+                </Link>
                 {card.year ? <span className="text-xs text-ink-soft">{card.year}</span> : null}
                 {card.rating > 0 ? (
                   <span className="text-xs font-bold text-brand-glow">{card.rating.toFixed(1)}</span>
@@ -220,10 +231,8 @@ export function ChatWidget() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages, busy, open]);
 
-  const send = useCallback(async () => {
-    const text = input.trim();
+  const sendText = useCallback(async (text: string) => {
     if (!text || busy) return;
-    setInput("");
     setMessages((m) => [...m, { role: "user", content: text }]);
     setBusy(true);
     try {
@@ -246,7 +255,14 @@ export function ChatWidget() {
     } finally {
       setBusy(false);
     }
-  }, [input, busy, t, mutateSession]);
+  }, [busy, t, mutateSession]);
+
+  const send = useCallback(() => {
+    const text = input.trim();
+    if (!text || busy) return;
+    setInput("");
+    sendText(text);
+  }, [input, busy, sendText]);
 
   const clear = useCallback(async () => {
     setMessages([]);
@@ -278,6 +294,12 @@ export function ChatWidget() {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ tmdbId: card.tmdbId, title: card.title, type: card.type }),
         }).catch(() => {});
+        // Clicking "Ajouter" on a card used to be a dead end conversation-
+        // wise — a toast, then silence. Feeding it back in as a normal chat
+        // turn lets the assistant react naturally (personality/anecdote
+        // rules already in the system prompt apply here exactly as they
+        // would to anything the user typed themselves).
+        sendText(t("ai.addedTrigger", { title: card.title }));
       } else {
         toast("error", t("ai.addFailed"));
         setAdding((p) => { const n = { ...p }; delete n[key]; return n; });
@@ -286,7 +308,7 @@ export function ChatWidget() {
       toast("error", t("ai.addFailed"));
       setAdding((p) => { const n = { ...p }; delete n[key]; return n; });
     }
-  }, [adding, t]);
+  }, [adding, t, sendText]);
 
   const voteCard = useCallback((card: AiRecommendation, liked: boolean) => {
     const key = `${card.type}-${card.tmdbId}`;

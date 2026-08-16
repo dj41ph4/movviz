@@ -25,28 +25,51 @@ const MAX_REASON_LEN = 500;
 
 /** Extracts the first balanced JSON object from a model reply. The models
  *  sometimes wrap the intent in prose or code fences — we only take the
- *  object, validate it, and ignore the rest. */
+ *  object, validate it, and ignore the rest.
+ *
+ *  Also repairs the single most common real-world break: a `reason` string
+ *  quoting a word or title inline (`"...l'aspect "mythologie moderne" de
+ *  Lucifer."`) without escaping those inner quotes — confirmed live, this
+ *  silently broke the strict version of this parser (it treated the first
+ *  inner quote as the string's end, desynced the whole object, JSON.parse
+ *  threw, and the ENTIRE raw JSON dumped to the user as if it were a normal
+ *  reply instead of rendering as recommendation cards). While scanning a
+ *  string, a `"` is only treated as the real terminator when the next
+ *  non-space character is a JSON structural one (`,`/`:`/`}`/`]`/end of
+ *  text); anything else is a stray literal quote, escaped on the fly so the
+ *  final JSON.parse succeeds instead of failing on it. */
 export function extractJsonObject(text: string): unknown | null {
   const start = text.indexOf("{");
   if (start === -1) return null;
   let depth = 0;
   let inString = false;
   let escaped = false;
+  let repaired = "";
   for (let i = start; i < text.length; i++) {
     const ch = text[i];
     if (inString) {
-      if (escaped) escaped = false;
-      else if (ch === "\\") escaped = true;
-      else if (ch === '"') inString = false;
+      if (escaped) { repaired += ch; escaped = false; continue; }
+      if (ch === "\\") { repaired += ch; escaped = true; continue; }
+      if (ch === '"') {
+        let j = i + 1;
+        while (j < text.length && /\s/.test(text[j])) j++;
+        const next = text[j];
+        const isTerminator = next === undefined || ",:}]".includes(next);
+        if (isTerminator) { inString = false; repaired += ch; continue; }
+        repaired += '\\"';
+        continue;
+      }
+      repaired += ch;
       continue;
     }
-    if (ch === '"') { inString = true; continue; }
+    if (ch === '"') { inString = true; repaired += ch; continue; }
+    repaired += ch;
     if (ch === "{") depth++;
     else if (ch === "}") {
       depth--;
       if (depth === 0) {
         try {
-          return JSON.parse(text.slice(start, i + 1));
+          return JSON.parse(repaired);
         } catch {
           return null;
         }
@@ -73,23 +96,37 @@ function validItem(raw: unknown): AiRecommendIntentItem | null {
   return item;
 }
 
+// The repair in extractJsonObject handles the common case (an unescaped
+// inner quote), but the model can still occasionally emit JSON broken in
+// some other way — this must never fall through to showing raw `{"action":
+// "recommend","items":[...]}` syntax to the user as if it were a normal
+// reply, confirmed live as a real failure mode. Whenever the text clearly
+// ATTEMPTED a structured action but nothing usable came out of it, swap in
+// a short apology instead of the broken JSON.
+const ACTION_JSON_HINT_RE = /"action"\s*:\s*"(?:add_media|recommend)"/;
+const BROKEN_ACTION_FALLBACK = "Désolé, j'ai eu un souci pour formuler ma réponse — tu peux reformuler ta demande ?";
+
+function fallbackRawText(text: string, rawText: string): string {
+  return ACTION_JSON_HINT_RE.test(text) ? BROKEN_ACTION_FALLBACK : rawText;
+}
+
 export function parseIntent(text: string): ParsedIntent {
   const rawText = text.trim();
   const json = extractJsonObject(text);
-  if (!json || typeof json !== "object") return { action: null, items: [], rawText };
+  if (!json || typeof json !== "object") return { action: null, items: [], rawText: fallbackRawText(text, rawText) };
 
   const obj = json as Record<string, unknown>;
   const action = obj.action;
-  if (action !== "add_media" && action !== "recommend") return { action: null, items: [], rawText };
+  if (action !== "add_media" && action !== "recommend") return { action: null, items: [], rawText: fallbackRawText(text, rawText) };
 
-  if (!Array.isArray(obj.items)) return { action: null, items: [], rawText };
+  if (!Array.isArray(obj.items)) return { action: null, items: [], rawText: fallbackRawText(text, rawText) };
   const items: AiRecommendIntentItem[] = [];
   for (const raw of obj.items) {
     if (items.length >= MAX_ITEMS) break;
     const item = validItem(raw);
     if (item) items.push(item);
   }
-  if (!items.length) return { action: null, items: [], rawText };
+  if (!items.length) return { action: null, items: [], rawText: fallbackRawText(text, rawText) };
 
   // Strip the JSON block from the reply so rawText keeps only the prose.
   const start = text.indexOf("{");

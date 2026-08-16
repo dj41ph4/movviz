@@ -8,7 +8,8 @@ import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
 import { scoreCandidates, type MoodContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile } from "@/lib/ai/titleAnalysis";
-import { getMovie, getSeries } from "@/lib/metadata/tmdb";
+import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
+import { getMovie, getSeries, getCollection } from "@/lib/metadata/tmdb";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { recordAiCall } from "@/lib/ai/debugLog";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
@@ -161,6 +162,13 @@ export async function POST(req: NextRequest) {
     // analysis call here is cache-first (titleAnalysis.ts) — the LLM is only
     // actually invoked the FIRST time a given title is ever seen.
     let mood: MoodContext | undefined;
+    // FranchiseAffinity (§2.E) — same TMDb collection as the reference.
+    // Cheap by construction: getCollection() returns every part's tmdbId in
+    // ONE call, so no per-candidate fetch is needed (the earlier "too
+    // costly" assessment was for a per-candidate collectionId lookup, which
+    // this sidesteps entirely). Movies only — TMDb collections don't exist
+    // for series.
+    let franchiseTmdbIds: Set<number> | undefined;
     if (pageContext) {
       const refDetail = pageContext.type === "movie" ? await getMovie(pageContext.tmdbId) : await getSeries(pageContext.tmdbId);
       const refProfile = refDetail
@@ -174,9 +182,21 @@ export async function POST(req: NextRequest) {
         });
         mood = { reference: refProfile.categories, candidates: candidateMoods };
       }
+      if (pageContext.type === "movie" && refDetail && "collectionId" in refDetail && refDetail.collectionId) {
+        const collection = await getCollection(refDetail.collectionId).catch(() => null);
+        if (collection) franchiseTmdbIds = new Set(collection.parts.map((p) => p.tmdbId));
+      }
     }
 
-    const recommendations = scoreCandidates(user.id, allItems, reasons, 6, mood)
+    // TasteCompatibility (§2.H) — independent of pageContext: it's built
+    // purely from the user's own past 👍/👎 log + whatever those titles'
+    // Mood Engine profiles already are (cache-only lookup, no new LLM
+    // call), so it applies whenever there IS a candidate mood profile to
+    // compare against — which today means whenever the mood term above
+    // also ran, since that's what populates candidate profiles.
+    const tasteVector = buildTasteVector(user.id);
+
+    const recommendations = scoreCandidates(user.id, allItems, reasons, 6, mood, tasteVector, franchiseTmdbIds)
       .map((r) => ({ ...r, reason: reasons.get(`${r.type}:${r.tmdbId}`) }));
     assistant.recommendations = recommendations;
     itemCount = recommendations.length;

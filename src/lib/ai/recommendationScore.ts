@@ -2,6 +2,7 @@ import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadRequests } from "@/lib/requests/store";
 import { getFeedback } from "@/lib/ai/tasteProfile";
 import { moodSimilarity } from "@/lib/ai/titleAnalysis";
+import type { TasteVector } from "@/lib/ai/contrastiveProfile";
 import type { ResolvedAiItem } from "@/lib/ai/actions";
 import type { AiMoodCategories } from "@/lib/ai/types";
 
@@ -11,11 +12,11 @@ import type { AiMoodCategories } from "@/lib/ai/types";
  * guidance in actions.ts) from RANKING (Movviz scores and orders them). No
  * embeddings, no vector DB, no ML — every term below is a plain, inspectable
  * heuristic over data Movviz already has: TMDb rating, library/request
- * state, watch history, the 👍/👎 feedback log, and — when a reference
- * title is available (see MoodContext) — mood similarity from the Mood
- * Engine (titleAnalysis.ts). TasteCompatibility/FranchiseAffinity from the
- * full spec formula are still not implemented (they need a longer feedback
- * history than this early stage has to work with).
+ * state, watch history, the 👍/👎 feedback log, mood similarity from the
+ * Mood Engine (titleAnalysis.ts) when a reference title is available,
+ * TasteCompatibility (contrastive learning over the feedback log,
+ * contrastiveProfile.ts) and FranchiseAffinity (same TMDb collection as the
+ * reference).
  */
 
 export interface ScoredCandidate extends ResolvedAiItem {
@@ -71,7 +72,9 @@ export function scoreCandidates(
   candidates: ResolvedAiItem[],
   reasons: Map<string, string | undefined>,
   topN = 6,
-  mood?: MoodContext
+  mood?: MoodContext,
+  tasteVector?: TasteVector | null,
+  franchiseTmdbIds?: Set<number>
 ): ScoredCandidate[] {
   const watch = getWatchStatus(userId);
   const watchedMovies = new Set(watch?.movies ?? []);
@@ -104,10 +107,23 @@ export function scoreCandidates(
       for (const disliked of dislikedTokens) score -= Math.min(6, overlapCount(reasonTokens, disliked) * 3);
     }
 
-    if (mood) {
-      const candidateMood = mood.candidates.get(key);
-      if (candidateMood) score += moodSimilarity(mood.reference, candidateMood) * 25; // MoodSimilarity — up to 25, the dominant term when available (matches the spec's own example weighting)
+    const candidateMood = mood?.candidates.get(key);
+    if (mood && candidateMood) {
+      score += moodSimilarity(mood.reference, candidateMood) * 25; // MoodSimilarity — up to 25, the dominant term when available (matches the spec's own example weighting)
     }
+
+    if (tasteVector && candidateMood) {
+      // TasteCompatibility (§2.H, real contrastive learning): reward
+      // closeness to what the user has ACTUALLY liked before, penalize
+      // closeness to what they've explicitly rejected — the same trait can
+      // score very differently depending on which side of past feedback it
+      // resembles more, which is the whole point of contrastive signal
+      // over a flat "likes X genre" summary.
+      score += moodSimilarity(tasteVector.liked, candidateMood) * 15;
+      score -= moodSimilarity(tasteVector.disliked, candidateMood) * 15;
+    }
+
+    if (franchiseTmdbIds?.has(c.tmdbId) && c.type === "movie") score += 12; // FranchiseAffinity — same TMDb collection as the reference
 
     if (pendingOrApproved.has(key)) score -= 15; // AlreadyRequested
 

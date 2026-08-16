@@ -29,6 +29,7 @@ import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
+import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { getSavedProgressSeconds, formatResumeTime } from "@/lib/player/watchProgress";
 import { setPageTitleContext } from "@/lib/ai/pageContext";
 import {
@@ -186,6 +187,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const router = useRouter();
   const user = useCurrentUser();
   const { enabled: betaPlayer } = useBetaPlayer();
+  const { enabled: specialEpisodesEnabled } = useSpecialEpisodes();
 
   /* ── data fetching ──────────────────────────────────────────────────── */
 
@@ -256,14 +258,22 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     if (type !== "series" || !libraryMatch) return [];
     const out: { season: number; episode: number }[] = [];
     for (const s of libraryMatch.seasons ?? []) {
+      // Specials (season 0) are excluded from "fully watched" unless the
+      // user opted back in — confirmed live: a missing/unwatched special
+      // was silently keeping otherwise-complete series stuck as unwatched.
+      if (!specialEpisodesEnabled && s.seasonNumber === 0) continue;
       for (const e of s.episodes ?? []) {
+        // An episode that hasn't aired yet (TBA/upcoming) can't possibly
+        // have been watched — it must never block "fully watched" either,
+        // regardless of the specials setting.
+        if (e.status === "upcoming") continue;
         if (s.seasonNumber != null && e.episodeNumber != null) {
           out.push({ season: s.seasonNumber, episode: e.episodeNumber });
         }
       }
     }
     return out;
-  }, [type, libraryMatch]);
+  }, [type, libraryMatch, specialEpisodesEnabled]);
   const allSeriesWatched =
     seriesEpisodes.length > 0 &&
     seriesEpisodes.every((e) => watchedEpisodes.has(`${e.season}.${e.episode}`));
