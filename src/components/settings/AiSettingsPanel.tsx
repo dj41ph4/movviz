@@ -186,14 +186,29 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
   return (
     <div className="space-y-5">
     <div className="rounded-2xl glass p-5">
-      <div className="mb-5 flex items-start gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
-          <Bot className="h-5 w-5" />
-        </span>
-        <div>
-          <h3 className="font-bold text-ink">{t("ai.settings.title")}</h3>
-          <p className="mt-0.5 text-xs text-ink-dim">{t("ai.settings.intro")}</p>
+      {/* Save button ALSO up here, not just at the bottom of the provider
+          list — after just flipping the enable switch or pasting a key,
+          the user shouldn't have to scroll past 3 provider cards to find
+          it. The bottom one stays too (useful once you're already down
+          there after configuring a provider). */}
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
+            <Bot className="h-5 w-5" />
+          </span>
+          <div>
+            <h3 className="font-bold text-ink">{t("ai.settings.title")}</h3>
+            <p className="mt-0.5 text-xs text-ink-dim">{t("ai.settings.intro")}</p>
+          </div>
         </div>
+        <button
+          onClick={save}
+          disabled={saving || !draft.enabled || !hasAnyKey}
+          className="brand-gradient flex h-10 shrink-0 items-center gap-2 rounded-xl px-5 text-sm font-bold text-white disabled:opacity-40"
+        >
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {t("ai.settings.save")}
+        </button>
       </div>
 
       <div className="space-y-6">

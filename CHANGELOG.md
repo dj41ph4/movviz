@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.5 — August 2026
+
+### Réglages
+
+- Bouton « Enregistrer » de Movviz AI dupliqué en haut du panneau : après avoir activé l'IA ou collé une clé API, plus besoin de faire défiler toute la liste des fournisseurs pour sauvegarder.
+
+### Movviz AI
+
+- Correction : le champ de message du chat rognait le bas du texte d'exemple (placeholder) au lieu de l'afficher en entier sur deux lignes.
+
 ## v1.14.4 — August 2026
 
 ### Movviz AI

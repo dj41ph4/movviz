@@ -366,8 +366,13 @@ export function ChatWidget() {
                 }
               }}
               placeholder={t("ai.placeholder")}
-              rows={1}
-              className="max-h-24 min-h-[44px] flex-1 resize-none rounded-xl glass px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim"
+              // The placeholder text wraps onto two lines at this panel's
+              // width in every locale — a 44px (1-line) box was clipping
+              // the second line at the bottom edge instead of wrapping it
+              // visibly. Sized for two full lines instead of shortening
+              // the text.
+              rows={2}
+              className="max-h-24 min-h-[60px] flex-1 resize-none rounded-xl glass px-3.5 py-2.5 text-sm text-ink outline-none placeholder:text-ink-dim placeholder:leading-snug"
             />
             <button
               onClick={send}
