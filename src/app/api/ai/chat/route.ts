@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, isDegenerateReply } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
@@ -201,11 +201,58 @@ export async function POST(req: NextRequest) {
       }
     }
   }
-  // A bare "…" here (the old fallback) reads as broken, not thoughtful —
-  // this branch only fires when the model's ENTIRE reply was [[FAIT:...]]
-  // marker lines with no actual sentence (a prompt-following miss on the
-  // model's part, now discouraged more explicitly in buildSystemPrompt).
-  const assistant: AiChatMessage = { role: "assistant", content: cleaned || "D'accord !" };
+  // Bug fix (confirmed live via two screenshots): when the model's ENTIRE
+  // mode-3 reply was `[[FAIT:...]]`/`[[VU:...]]` marker lines with no real
+  // sentence, `cleaned` comes back empty — the old fallback ("D'accord !")
+  // then landed as a bizarre non-answer to a direct question or callout
+  // ("tu me donne mon prenom et tu dis que je te l'ai pas donner" → "D'accord
+  // !"; "quoi d'autre" → "D'accord !"). The prompt already instructs the
+  // model never to reply with ONLY marker lines (actions.ts) — that
+  // instruction alone isn't reliably followed by a small/free-tier model.
+  // Only mode 3 (intent.action === null) can ever be empty like this —
+  // add_media/recommend always assemble their own content below regardless
+  // of `cleaned`, so this retry never touches those.
+  let finalCleaned = cleaned;
+  if (intent.action === null && isDegenerateReply(cleaned)) {
+    try {
+      const retrySystem = `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message ne contenait AUCUNE phrase réelle${facts.length ? ` (seulement ${facts.length > 1 ? "des lignes" : "une ligne"} interne${facts.length > 1 ? "s" : ""} de mémorisation, ex. ${facts.map((f) => `« ${f} »`).join(", ")})` : ""} — c'est une erreur, jamais une réponse acceptable. Réponds cette fois avec une vraie phrase, en français, qui répond concrètement à ce que l'utilisateur vient de dire — garde ta personnalité habituelle. Tu peux toujours ajouter une ligne \`[[FAIT: ...]]\` APRÈS cette phrase si pertinent, mais ta réponse ne peut plus être vide de texte réel.`;
+      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryIntent = parseIntent(retryRes.text);
+      // Only trust the retry if it stayed in mode 3 — a retry that suddenly
+      // emits add_media/recommend JSON would be a mode switch mid-repair,
+      // not the "same reply, just with actual text" repair this is for.
+      if (retryIntent.action === null) {
+        const { facts: retryFacts, cleaned: retryAfterFacts } = extractFacts(retryIntent.rawText);
+        for (const fact of retryFacts) rememberFact(user.id, fact);
+        const { watched: retryWatched, cleaned: retryCleaned } = extractWatched(retryAfterFacts);
+        if (retryWatched.length) {
+          for (const w of retryWatched) {
+            try {
+              const resolved = await resolveAiItem({ title: w.title, type: w.type });
+              if (!resolved) continue;
+              if (resolved.type === "movie") setWatchedMovies(user.id, [resolved.tmdbId], true, resolved.title);
+              else recordWatched(user.id, { tmdbId: resolved.tmdbId, type: "series", title: resolved.title, at: Date.now() });
+            } catch {
+              // best-effort, see comment above
+            }
+          }
+        }
+        if (!isDegenerateReply(retryCleaned)) finalCleaned = retryCleaned;
+      }
+    } catch {
+      // Best-effort, bounded to exactly one attempt — if the retry itself
+      // fails (network/quota/timeout) or also comes back empty, fall
+      // through to the informative fallback string below rather than a
+      // second retry or a throw that would break the whole request.
+    }
+  }
+  // Last-resort fallback (retry above also came back empty, or wasn't
+  // attempted because it isn't mode 3): admits the difficulty plainly
+  // instead of a cheerful non-sequitur, without asking the user to
+  // reformulate (explicit prompt rule elsewhere in buildSystemPrompt — kept
+  // consistent here too).
+  const FALLBACK_TEXT = "Désolé, j'ai un vrai blocage pour te répondre correctement là tout de suite — donne-moi un instant, ça devrait aller au prochain message.";
+  const assistant: AiChatMessage = { role: "assistant", content: finalCleaned || FALLBACK_TEXT };
 
   let itemCount: number | undefined;
   if (intent.action === "add_media" && intent.items.length) {

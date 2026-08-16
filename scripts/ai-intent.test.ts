@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, isDegenerateReply } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -223,4 +223,13 @@ test("extractNameFromDirectAnswer: n'accepte pas une phrase complète comme rép
 test("extractNameFromDirectAnswer: filtre les mots courants qui ne sont pas des prénoms", () => {
   const got = extractNameFromDirectAnswer("Comment tu t'appelles ?", "ok");
   assert.equal(got, null);
+});
+
+test("isDegenerateReply: vrai quand la réponse nettoyée est vide (uniquement des marqueurs)", () => {
+  assert.equal(isDegenerateReply(""), true);
+  assert.equal(isDegenerateReply("   "), true);
+});
+
+test("isDegenerateReply: faux dès qu'une vraie phrase reste après extraction", () => {
+  assert.equal(isDegenerateReply("Ah super, Seb !"), false);
 });

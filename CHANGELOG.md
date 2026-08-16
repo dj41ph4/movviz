@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.26 — August 2026
+
+### Correctifs Movviz AI
+
+- **Cause racine confirmée en direct** : quand le modèle de langage répondait sans une seule vraie phrase (par exemple parce que toute sa réponse ne servait qu'à mémoriser une information en interne), le chat Movviz renvoyait un « D'accord ! » complètement hors sujet — y compris face à une remarque directe de l'utilisateur ou à une vraie question comme « quoi d'autre ? ». Une nouvelle vérification détecte ce cas et redemande aussitôt une vraie réponse avant de l'afficher, sans que ça se voie ni ne ralentisse la conversation ; en dernier recours seulement, un message reconnaît honnêtement la difficulté au lieu d'un « D'accord ! » incongru.
+- **Cause racine confirmée en direct** : demander « qu'est-ce qu'il me manque de [tel humoriste/acteur/réalisateur] ? » pouvait produire une liste de titres complètement inventés, présentée à tort comme vérifiée dans la bibliothèque (« d'après ton historique ») — au point d'affirmer qu'un titre manquait alors qu'il était déjà présent. Ce type de question n'a désormais plus le droit d'inventer une liste : le chat explique honnêtement qu'il ne peut pas vérifier ça de façon fiable ici et oriente vers la recherche Movviz, où chaque titre affiche vraiment s'il est déjà dans la bibliothèque.
+
 ## v1.14.25 — August 2026
 
 ### Correctif Movviz AI

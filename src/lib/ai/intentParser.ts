@@ -248,6 +248,16 @@ export function extractNameFromDirectAnswer(previousAssistantMessage: string | u
   return `Prénom : ${name}`;
 }
 
+/** True when a mode-3 reply has no real sentence left after `[[FAIT:...]]`/
+ *  `[[VU:...]]` markers are stripped — either the model's ENTIRE reply was
+ *  marker lines (a documented prompt-following miss on small/free-tier
+ *  models, confirmed live), or some other degenerate/empty output. Pure
+ *  check, used by chat/route.ts to trigger a single bounded retry instead
+ *  of silently falling back to a non-responsive placeholder. */
+export function isDegenerateReply(cleaned: string): boolean {
+  return cleaned.trim().length === 0;
+}
+
 /** Reliable, code-level fallback for the single most common durable fact —
  *  the user's first name — instead of depending entirely on the model
  *  choosing to emit a `[[FAIT: ...]]` marker for it (LLM instruction-
