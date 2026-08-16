@@ -4,6 +4,22 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.2 — August 2026
+
+### Découverte
+
+- Les filtres de plateforme de streaming (Prime Video, Netflix, Disney+, etc.) sont maintenant de vraies plateformes reconnues par TMDb, valables pour films ET séries à la fois — aucune clé API supplémentaire requise.
+- Correctif : choisir une plateforme repassait de force sur « Séries » même en étant sur « Films », et rebasculer sur « Films » supprimait le filtre plateforme en revenant au tableau de bord. Le filtre reste maintenant actif quel que soit le type parcouru.
+- Nouvelle rangée « Plateformes » sur la page Découverte.
+
+### Movviz AI
+
+- Correction : l'assistant confondait le nombre de films vus par l'utilisateur avec le nombre total de films dans la bibliothèque, donnant des réponses fausses sur la taille de la collection.
+
+### Fiabilité
+
+- Correctif d'un plantage aléatoire du carrousel du tableau de bord (Hero) et des fiches à vidéo d'ambiance : deux animations de transition imbriquées pouvaient entrer en conflit pour retirer les mêmes éléments de la page au même moment, provoquant occasionnellement une erreur générale de l'application.
+
 ## v1.14.1 — August 2026
 
 ### Movviz AI

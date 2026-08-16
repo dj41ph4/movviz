@@ -491,8 +491,10 @@ export interface DiscoverFilters {
   genre?: string;
   year?: string;
   sort?: string; // TMDb sort_by value, e.g. "popularity.desc"
-  company?: string; // with_companies — studio filter (movies)
+  company?: string; // with_companies — studio filter (movies only, TMDb has no movie equivalent for TV networks)
   network?: string; // with_networks — broadcaster filter (series only)
+  /** with_watch_providers — streaming service filter (Netflix, Prime Video...). Unlike company/network, the SAME provider id works for both movies and series, so this is the one filter that survives a Films/Séries tab switch. */
+  watchProvider?: string;
   originCountries?: string[]; // with_origin_country — user's Discover continent preference
 }
 
@@ -518,6 +520,10 @@ export async function discoverByFilters(
   if (filters.year) params[type === "movie" ? "primary_release_year" : "first_air_date_year"] = filters.year;
   if (filters.company) params.with_companies = filters.company;
   if (filters.network && type === "series") params.with_networks = filters.network;
+  if (filters.watchProvider) {
+    params.with_watch_providers = filters.watchProvider;
+    params.watch_region = "FR";
+  }
   if (filters.originCountries && filters.originCountries.length > 0) {
     params.with_origin_country = filters.originCountries.join("|");
   }
@@ -884,6 +890,33 @@ export async function getWatchProviders(type: "movie" | "series", tmdbId: number
   return providers
     .filter((p) => (seen.has(p.provider_id) ? false : (seen.add(p.provider_id), true)))
     .map((p) => ({ providerId: p.provider_id, name: p.provider_name, logoPath: p.logo_path ?? null }));
+}
+
+interface RawWatchProviderListEntry {
+  provider_id: number;
+  provider_name: string;
+  logo_path: string | null;
+}
+
+/** Popular streaming services worth their own Discover tile — matched by
+ *  name substring rather than a hardcoded TMDb provider id, so a slightly
+ *  different display name ("Disney Plus" vs "Disney+") never silently drops
+ *  a tile. */
+const CURATED_WATCH_PROVIDER_PATTERNS = ["Netflix", "Prime Video", "Disney Plus", "Apple TV Plus", "Max", "Hulu", "Canal+", "OCS"];
+
+/** Curated watch-provider tiles for the Discover "Plateformes" row — unlike
+ *  company/network ids, a TMDb watch-provider id is the SAME for movies and
+ *  series, so this list (fetched once from the movie catalog) is valid for
+ *  filtering either type. */
+export async function getWatchProviderTiles(): Promise<{ id: number; name: string; logoPath: string | null }[]> {
+  const data = await tmdbGet<{ results: RawWatchProviderListEntry[] }>("/watch/providers/movie", { watch_region: "FR" });
+  const results = data?.results ?? [];
+  const tiles: { id: number; name: string; logoPath: string | null }[] = [];
+  for (const pattern of CURATED_WATCH_PROVIDER_PATTERNS) {
+    const match = results.find((p) => p.provider_name.toLowerCase().includes(pattern.toLowerCase()));
+    if (match) tiles.push({ id: match.provider_id, name: match.provider_name, logoPath: match.logo_path ?? null });
+  }
+  return tiles;
 }
 
 interface RawCollection {

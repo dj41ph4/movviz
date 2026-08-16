@@ -488,6 +488,7 @@ export const it: Dictionary = {
     genres: "Generi",
     studios: "Studi",
     networks: "Reti",
+    watchProviders: "Piattaforme",
     tmdbSetupTitle: "Collega TMDb",
     tmdbSetupHint: "Chiave API gratuita da themoviedb.org → Impostazioni → API. Necessaria per scoprire e aggiungere titoli.",
     tmdbKeyPlaceholder: "Chiave API TMDb",

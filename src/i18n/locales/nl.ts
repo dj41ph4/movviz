@@ -488,6 +488,7 @@ export const nl: Dictionary = {
     genres: "Genres",
     studios: "Studio's",
     networks: "Netwerken",
+    watchProviders: "Platformen",
     tmdbSetupTitle: "TMDb koppelen",
     tmdbSetupHint: "Gratis API-sleutel van themoviedb.org → Instellingen → API. Nodig om titels te ontdekken en toe te voegen.",
     tmdbKeyPlaceholder: "TMDb API-sleutel",

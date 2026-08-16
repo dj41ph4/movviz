@@ -56,6 +56,14 @@ function DiscoverPageInner() {
     return id && name ? { id, name } : null;
   });
   const [rowCategory, setRowCategory] = useState<string | null>(() => searchParams.get("row") ?? null);
+  // Unlike company/network, a TMDb watch-provider id is valid for BOTH
+  // movies and series — this filter survives a Films/Séries tab switch
+  // instead of being cleared with the rest.
+  const [watchProvider, setWatchProvider] = useState<{ id: string; name: string } | null>(() => {
+    const id = searchParams.get("watchProvider");
+    const name = searchParams.get("watchProviderName");
+    return id && name ? { id, name } : null;
+  });
 
   // Browse view — paginated grid, used for search and any active filter/tile selection.
   const [results, setResults] = useState<MetaSearchResult[]>([]);
@@ -64,7 +72,7 @@ function DiscoverPageInner() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!network || !!rowCategory;
+  const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!network || !!watchProvider || !!rowCategory;
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Panel titre coulissant (remplace la navigation vers /title/...) — partagé
@@ -81,13 +89,14 @@ function DiscoverPageInner() {
     if (sort !== "popularity.desc") p.set("sort", sort); else p.delete("sort");
     if (company) { p.set("company", company.id); p.set("companyName", company.name); } else { p.delete("company"); p.delete("companyName"); }
     if (network) { p.set("network", network.id); p.set("networkName", network.name); } else { p.delete("network"); p.delete("networkName"); }
+    if (watchProvider) { p.set("watchProvider", watchProvider.id); p.set("watchProviderName", watchProvider.name); } else { p.delete("watchProvider"); p.delete("watchProviderName"); }
     if (rowCategory) p.set("row", rowCategory); else p.delete("row");
     const qs = p.toString();
     if (qs !== searchParams.toString()) {
       router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, mediaType, genre, year, sort, company, network, rowCategory, router, pathname]);
+  }, [q, mediaType, genre, year, sort, company, network, watchProvider, rowCategory, router, pathname]);
 
   // Every fetch below is SWR-cached by URL — instant render from whatever was
   // last seen for that key (even by another page, e.g. Bibliothèque already
@@ -142,6 +151,7 @@ function DiscoverPageInner() {
     setSort("popularity.desc");
     setCompany(null);
     setNetwork(null);
+    setWatchProvider(null);
     setRowCategory(null);
   };
 
@@ -152,6 +162,7 @@ function DiscoverPageInner() {
     setSort("popularity.desc");
     setCompany(null);
     setNetwork(null);
+    setWatchProvider(null);
     setRowCategory(key);
   };
 
@@ -165,10 +176,15 @@ function DiscoverPageInner() {
   // active Films/Séries tab).
   const { data: companyData } = useSWR<{ tiles: LogoTile[] }>(configured ? "/api/metadata/logos?kind=company" : null);
   const { data: networkData } = useSWR<{ tiles: LogoTile[] }>(configured ? "/api/metadata/logos?kind=network" : null);
+  const { data: watchProviderData } = useSWR<{ tiles: LogoTile[] }>(configured ? "/api/metadata/logos?kind=watchProvider" : null);
   const companyTiles = companyData?.tiles ?? [];
   const networkTiles = networkData?.tiles ?? [];
+  const watchProviderTiles = watchProviderData?.tiles ?? [];
 
-  // Manual Films/Séries switch — start browsing that type from a clean filter state.
+  // Manual Films/Séries switch — start browsing that type from a clean filter
+  // state, EXCEPT watchProvider: a streaming service (Netflix, Prime Video…)
+  // uses the same TMDb id for movies and series, so it stays active across
+  // the tab switch instead of being silently dropped.
   const switchMediaType = (mt: "movie" | "series") => {
     setQ("");
     setGenre("");
@@ -217,7 +233,7 @@ function DiscoverPageInner() {
     }, q.trim() ? 350 : 0);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, network, rowCategory]);
+  }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, network, watchProvider, rowCategory]);
 
   const loadPage = async (targetPage: number) => {
     if (targetPage === 1) setLoading(true); else setLoadingMore(true);
@@ -234,6 +250,7 @@ function DiscoverPageInner() {
         if (sort) params.set("sort", sort);
         if (company) params.set("company", company.id);
         if (network) params.set("network", network.id);
+        if (watchProvider) params.set("watchProvider", watchProvider.id);
         url = `/api/metadata/discover?${params.toString()}`;
       }
       const res = await fetch(url, { cache: "no-store" });
@@ -364,6 +381,9 @@ function DiscoverPageInner() {
             {network && (
               <FilterChip label={network.name} onClear={() => setNetwork(null)} />
             )}
+            {watchProvider && (
+              <FilterChip label={watchProvider.name} onClear={() => setWatchProvider(null)} />
+            )}
             {rowCategory && (
               <FilterChip label={rowLabel(rowCategory)} onClear={() => setRowCategory(null)} />
             )}
@@ -388,6 +408,7 @@ function DiscoverPageInner() {
               loading={rowsLoading}
               companyTiles={companyTiles}
               networkTiles={networkTiles}
+              watchProviderTiles={watchProviderTiles}
               libStatus={libStatus}
               libLoaded={libLoaded}
               watchedSet={watchedSet}
@@ -401,6 +422,12 @@ function DiscoverPageInner() {
               onNetworkClick={(tile) => {
                 setMediaType("series");
                 setNetwork({ id: String(tile.id), name: tile.name });
+              }}
+              onWatchProviderClick={(tile) => {
+                // No forced media-type switch — the same provider id works
+                // for movies and series, so it stays valid whichever tab
+                // the user is already on.
+                setWatchProvider({ id: String(tile.id), name: tile.name });
               }}
             />
           )}
@@ -475,12 +502,13 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 }
 
 function HomeRows({
-  rows, loading, companyTiles, networkTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onNetworkClick,
+  rows, loading, companyTiles, networkTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onNetworkClick, onWatchProviderClick,
 }: {
   rows: { key: string; results: MetaSearchResult[]; ranked?: boolean }[];
   loading: boolean;
   companyTiles: LogoTile[];
   networkTiles: LogoTile[];
+  watchProviderTiles: LogoTile[];
   libStatus: Map<string, string>;
   libLoaded: boolean;
   watchedSet: Set<number>;
@@ -489,6 +517,7 @@ function HomeRows({
   onSeeAll: (key: string) => void;
   onCompanyClick: (tile: LogoTile) => void;
   onNetworkClick: (tile: LogoTile) => void;
+  onWatchProviderClick: (tile: LogoTile) => void;
 }) {
   const t = useT();
 
@@ -538,6 +567,10 @@ function HomeRows({
             onSeeAll={() => onSeeAll(row.key)}
           />
         )
+      )}
+
+      {watchProviderTiles.length > 0 && (
+        <LogoRow title={t("discover.watchProviders")} tiles={watchProviderTiles} onClick={onWatchProviderClick} />
       )}
 
       {companyTiles.length > 0 && (

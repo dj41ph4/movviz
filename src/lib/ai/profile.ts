@@ -8,6 +8,9 @@ import type { AiMemoryStore } from "./types";
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 
 export interface UsageProfile {
+  /** Whole-instance library size (shared across every user — not a "watched" count). Distinct on purpose: a user asking "j'ai 2284 films" means the library total, not how many they've watched. */
+  libraryMovies: number;
+  librarySeries: number;
   watchedMovies: number;
   watchedSeries: number;
   watchedEpisodes: number;
@@ -43,6 +46,8 @@ export function buildUsageProfile(userId: string): UsageProfile {
   const memory = readJsonCached<AiMemoryStore | null>(path.join(CONFIG_DIR, "ai-memory.json"), null) ?? {};
 
   return {
+    libraryMovies: loadMovies().length,
+    librarySeries: loadSeries().length,
     watchedMovies: status?.movies.length ?? 0,
     watchedSeries: episodeCount.size,
     watchedEpisodes: status?.episodes.length ?? 0,
@@ -58,7 +63,8 @@ export function buildUsageProfile(userId: string): UsageProfile {
 
 export function formatUsageProfile(p: UsageProfile): string {
   const parts: string[] = [];
-  parts.push(`films vus : ${p.watchedMovies}`);
+  parts.push(`bibliothèque Movviz (tous utilisateurs) : ${p.libraryMovies} films, ${p.librarySeries} séries au total`);
+  parts.push(`films vus (cet utilisateur) : ${p.watchedMovies}`);
   parts.push(`séries suivies : ${p.watchedSeries} (${p.watchedEpisodes} épisodes vus)`);
   if (p.topSeries.length) {
     parts.push(`le plus regardées : ${p.topSeries.map((s) => `${s.title} (${s.episodes} ép.)`).join(", ")}`);

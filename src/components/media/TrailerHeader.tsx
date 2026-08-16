@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
 
 import { useCroppedBackdrop } from "@/lib/media/useCroppedBackdrop";
@@ -300,70 +299,68 @@ export function TrailerHeader({ backdropUrl, trailerKeys, title, trigger, enable
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
-      <AnimatePresence mode="wait">
-        {playing && canPlay ? (
-          // "Cover" trick using container-query units: the player is always
-          // sized to at least fill the container's width AND height (never
-          // letterboxed), cropping top/bottom or sides as needed.
-          // `overflow-hidden` on the wrapper guarantees it can never bleed
-          // outside the header into neighboring layout (e.g. the sidebar).
-          <motion.div
-            key="trailer"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5 }}
-            className="relative h-full w-full"
+      {/* Backdrop is always mounted as the base layer — never unmounted/
+          re-mounted by a framer-motion AnimatePresence exit here. The outer
+          slideshow (HeroSlideshow) already owns its own AnimatePresence
+          crossfade over this entire component when the active slide changes;
+          nesting a second AnimatePresence in here that could still be mid
+          exit-removal at the exact moment the outer one unmounts this whole
+          subtree was the recipe for React's "removeChild ... not a child of
+          this node" crash (two independent framer-motion instances racing
+          to remove overlapping DOM). Plain conditional rendering below
+          removes/creates nodes synchronously within React's own commit, so
+          there is only ever one exit-removal in flight for this subtree. */}
+      {croppedBackdrop ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={croppedBackdrop} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 h-full w-full bg-surface" />
+      )}
+
+      {playing && canPlay && trailerKey && (
+        // "Cover" trick using container-query units: the player is always
+        // sized to at least fill the container's width AND height (never
+        // letterboxed), cropping top/bottom or sides as needed.
+        // `overflow-hidden` on the wrapper guarantees it can never bleed
+        // outside the header into neighboring layout (e.g. the sidebar). The
+        // cover div below shows the same backdrop already visible on the
+        // base layer, so this layer appearing is imperceptible — the video
+        // reveal itself is what actually crossfades in, via videoPlaying.
+        <div className="absolute inset-0 h-full w-full">
+          <YouTubePlayer key={trailerKey} trailerKey={trailerKey} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} />
+          <div
+            className={cn(
+              "absolute inset-0 transition-opacity duration-500",
+              videoPlaying ? "pointer-events-none opacity-0" : "opacity-100"
+            )}
           >
-            <YouTubePlayer key={trailerKey} trailerKey={trailerKey!} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} />
-            <div
-              className={cn(
-                "absolute inset-0 transition-opacity duration-500",
-                videoPlaying ? "pointer-events-none opacity-0" : "opacity-100"
-              )}
-            >
-              {croppedBackdrop ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={croppedBackdrop} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full bg-surface" />
-              )}
-            </div>
-            {/* Son — bascule muet/sonore, visible seulement quand la vidéo joue.
-                Top-left, at every width — the bottom-right corner is where
-                every consumer (TitleContent, DashboardHero) anchors its
-                title/actions block, which can grow tall enough (wrapping
-                onto more lines, more badges/buttons than usual) to sit on
-                top of and swallow clicks on that corner even on a wide
-                screen; top-left is never contested by either consumer,
-                regardless of width. */}
-            <button
-              onClick={() => setSoundOn((s) => !s)}
-              className={cn(
-                "absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition-all duration-200",
-                "bg-black/40 text-white/80 hover:bg-white/20 hover:text-white hover:scale-110 active:scale-95"
-              )}
-              aria-label={muted ? "Activer le son" : "Couper le son"}
-            >
-              {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-            </button>
-          </motion.div>
-        ) : croppedBackdrop ? (
-          <motion.img
-            key="backdrop"
-            src={croppedBackdrop}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover"
-            initial={{ opacity: 0, scale: 1.05 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
-          />
-        ) : (
-          <div key="empty" className="h-full w-full bg-surface" />
-        )}
-      </AnimatePresence>
+            {croppedBackdrop ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={croppedBackdrop} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full bg-surface" />
+            )}
+          </div>
+          {/* Son — bascule muet/sonore, visible seulement quand la vidéo joue.
+              Top-left, at every width — the bottom-right corner is where
+              every consumer (TitleContent, DashboardHero) anchors its
+              title/actions block, which can grow tall enough (wrapping
+              onto more lines, more badges/buttons than usual) to sit on
+              top of and swallow clicks on that corner even on a wide
+              screen; top-left is never contested by either consumer,
+              regardless of width. */}
+          <button
+            onClick={() => setSoundOn((s) => !s)}
+            className={cn(
+              "absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition-all duration-200",
+              "bg-black/40 text-white/80 hover:bg-white/20 hover:text-white hover:scale-110 active:scale-95"
+            )}
+            aria-label={muted ? "Activer le son" : "Couper le son"}
+          >
+            {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

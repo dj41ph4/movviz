@@ -486,6 +486,7 @@ export const fr = {
     genres: "Genres",
     studios: "Studios",
     networks: "Diffuseurs",
+    watchProviders: "Plateformes",
     tmdbSetupTitle: "Connecter TMDb",
     tmdbSetupHint: "Clé API gratuite sur themoviedb.org → Paramètres → API. Nécessaire pour découvrir et ajouter des titres.",
     tmdbKeyPlaceholder: "Clé API TMDb",
