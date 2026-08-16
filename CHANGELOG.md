@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.13.91 — August 2026
+
+### « Mise à jour par qualité » ne crée plus de doublons (2) (3) (4)
+
+- **Cause** : la décision « remplacer la vidéo existante » n'était marquée que par le flux « Ajout de version » (LOT6). Tous les autres chemins de grab d'un film déjà disponible — bouton loupe de la fiche (recherche qualité), upgrade automatique 6 h, upgrade-candidates, recherche manuelle — ne marquaient aucune intention : le moteur renommait le nouveau fichier avec un suffixe de collision « (2) »/« (3) » dès que le nom final était occupé par l'ancien fichier, qui n'était jamais supprimé.
+- **Correctif** : toute nouvelle version grabée pour un film déjà disponible (`movie.file`) marque désormais une intention « replace » sur l'infoHash avant le grab (`autoGrab`, `searchAndReplace`, route grab avec recherche manuelle). À l'import, l'ancien fichier primaire est supprimé du disque (gardes de sécurité : racine moteur validée, profondeur ≥ 2, nom assaini, unlink non-récursif) puis le nouveau fichier est renommé vers son nom final — plus aucun doublon « (n) » dans Plex.
+- Première acquisition, séries et épisodes : comportement inchangé.
+
 ## v1.13.90 — August 2026
 
 ### « Année minimale des carrousels » enfin respectée partout

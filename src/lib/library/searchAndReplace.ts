@@ -18,6 +18,7 @@ import { withoutRateLimited } from "@/lib/indexers/rateLimit";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { isUpgradeIgnored } from "@/lib/library/ignoredUpgrades";
 import { getMediaIndex, type MediaIndexEntry } from "@/lib/library/mediaIndex";
+import { markPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
 import type { IndexerRelease } from "@/lib/indexers/types";
 
 /**
@@ -512,6 +513,12 @@ export async function grabUpgradeCandidate(movieId: string): Promise<GrabUpgrade
 
   const payload = await buildGrabPayload({ magnetUrl: best.magnetUrl, downloadUrl: best.downloadUrl, indexerId: best.indexerId });
   if ("error" in payload) return { ok: false, error: "engine_unreachable" };
+
+  // Remplacement d'un film DÉJÀ disponible (movie.file garanti ici) : marquer
+  // l'intention "replace" sur l'infoHash grabé AVANT le grab (même mécanique
+  // que searchAndGrabMovie / addVersionSearch) — sinon avoidCollision (moteur)
+  // crée " (2)"/" (3)" et finalizeReplacePath ne nettoie pas l'ancien fichier.
+  if (best.infoHash) markPendingVersionIntent(best.infoHash, "replace");
 
   try {
     const res = await fetch(`${ENGINE_BASE}/torrents`, {

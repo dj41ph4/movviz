@@ -82,6 +82,7 @@ export function ManualSearchModal({
           magnetUrl: r.magnetUrl,
           downloadUrl: r.downloadUrl,
           indexerId: r.indexerId,
+          infoHash: r.infoHash,
           category,
           libraryRef,
           title: refTitle,

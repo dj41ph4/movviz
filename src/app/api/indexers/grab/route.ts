@@ -5,6 +5,7 @@ import { decodeLibraryRef } from "@/lib/library/types";
 import { getMovie, updateMovie, getSeries, updateSeries } from "@/lib/library/store";
 import { logActivityV2, createReleaseRef, createDownloadRef } from "@/lib/activity/v2/store";
 import { requireUser } from "@/lib/auth/guard";
+import { markPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +70,19 @@ export async function POST(req: NextRequest) {
   const category = decodedRef ? (decodedRef.kind === "movie" ? "movie" : "series") : body.category;
   if (category !== "movie" && category !== "series") {
     return NextResponse.json({ error: "invalid_category" }, { status: 400 });
+  }
+
+  // Grab manuel sur un film DÉJÀ disponible (movie.file) : c'est un
+  // REMPLACEMENT — marquer l'intention "replace" sur l'infoHash de la release
+  // grabée AVANT le grab, pour que le callback d'import (applyImportedFiles →
+  // finalizeReplacePath) supprime l'ancien fichier et renomme le nouveau vers
+  // son nom final au lieu de laisser le moteur créer " (2)"/" (3)". Première
+  // acquisition (movie.file === null) : aucune intention, rien à remplacer.
+  // Les séries/épisodes ne sont jamais concernés.
+  const versionInfoHash = typeof body.infoHash === "string" ? body.infoHash : null;
+  if (versionInfoHash && decodedRef?.kind === "movie") {
+    const movie = getMovie(decodedRef.movieId);
+    if (movie?.file) markPendingVersionIntent(versionInfoHash, "replace");
   }
 
   const resolved = await buildGrabPayload({

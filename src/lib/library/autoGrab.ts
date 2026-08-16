@@ -15,6 +15,7 @@ import { emitNotification } from "@/lib/notifications/store";
 import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createFailureRef } from "@/lib/activity/v2/store";
 import { isQualityUpgradesEnabled } from "@/lib/settings/qualityUpgrades";
+import { markPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
 import { findUpgradeCandidates, grabUpgradeCandidate } from "@/lib/library/searchAndReplace";
 import { findEpisodeUpgradeCandidates, grabEpisodeUpgradeCandidate } from "@/lib/library/searchAndReplaceSeries";
 import { isUpgradeIgnored } from "@/lib/library/ignoredUpgrades";
@@ -321,6 +322,15 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
       : [{ type: "profile_match", message: "Correspond au profil de qualité" }],
   });
 
+  // Film DÉJÀ disponible (movie.file) : cette nouvelle acquisition est un
+  // REMPLACEMENT de l'ancien fichier. Marquer l'intention "replace" sur
+  // l'infoHash de la release grabée AVANT le grab, pour que le callback
+  // d'import (applyImportedFiles → finalizeReplacePath) supprime l'ancien
+  // fichier et renomme le nouveau vers son nom final — sans quoi le moteur
+  // renomme en " (2)"/" (3)" (avoidCollision) et le doublon reste. Première
+  // acquisition (movie.file === null) : aucune intention, rien à remplacer.
+  if (movie.file && best.infoHash) markPendingVersionIntent(best.infoHash, "replace");
+
   try {
     const res = await fetch(`${ENGINE_BASE}/torrents`, {
       method: "POST",
@@ -429,6 +439,11 @@ async function checkQualityUpgradesInner() {
         ? best.scoreBreakdown.map((b) => ({ type: "score", message: `${b.label} (${b.delta >= 0 ? "+" : ""}${b.delta})` }))
         : [{ type: "quality_upgrade", message: "Meilleure résolution disponible" }],
     });
+
+    // Upgrade qualité : le film est forcément disponible ici (filtre
+    // movie.file ci-dessus) — marquer l'intention "replace" sur l'infoHash
+    // grabé AVANT le grab (même mécanique que searchAndGrabMovie).
+    if (movie.file && best.infoHash) markPendingVersionIntent(best.infoHash, "replace");
 
     try {
       const res = await fetch(`${ENGINE_BASE}/torrents`, {

@@ -1,5 +1,6 @@
 import { getMovie, updateMovie, getSeries, updateSeries } from "@/lib/library/store";
-import { encodeLibraryRef } from "@/lib/library/types";
+import { encodeLibraryRef, type LibraryFile } from "@/lib/library/types";
+import { pathFor } from "@/lib/library/renamePath";
 import { emitNotification } from "@/lib/notifications/store";
 import { refreshPlexLibraryFor } from "@/lib/plex/librarySync";
 import { logActivity } from "@/lib/activity/store";
@@ -95,40 +96,124 @@ function refreshLoose(kind: "movie" | "tv") {
 }
 
 /**
- * Supprime l'ancien fichier bibliothèque lors d'un import de remplacement
- * (ré-téléchargement manuel ou mise à niveau qualité). Seulement si :
- * (a) un fichier primaire existait déjà, (b) l'utilisateur n'a PAS choisi
- * « Ajouter comme version supplémentaire » (pendingMode === "add" garde
- * explicitement les deux versions), (c) le fichier n'est pas le fichier
- * fraîchement importé lui-même, (d) il vit sous une racine de bibliothèque
- * du moteur — jamais un chemin arbitraire.
- *
- * Sans cette suppression, l'ancien fichier reste dans Plex comme une
- * seconde version du même film : la lecture est résolue via Plex
- * (ratingKey → /library/metadata → version primaire), qui continue de
- * servir l'ANCIENNE version — le bug « le fichier ne change pas » après un
- * ré-téléchargement (observé en direct : Alita SBS → version non-SBS
+ * Remplacement d'une version (ré-téléchargement manuel, mise à niveau
+ * qualité, LOT6 « remplacer la version actuelle ») — jamais pour une
+ * « version supplémentaire » (pendingMode === "add" garde explicitement les
+ * deux fichiers). Sans la suppression de l'ancien fichier, celui-ci reste
+ * dans Plex comme une seconde version du même film : la lecture est résolue
+ * via Plex (ratingKey → /library/metadata → version primaire), qui continue
+ * de servir l'ANCIENNE version — le bug « le fichier ne change pas » après
+ * un ré-téléchargement (observé en direct : Alita SBS → version non-SBS
  * téléchargée, lecture encore en SBS).
  */
-async function deleteOptimizedOldFile(oldPath: string, newFilePath: string): Promise<void> {
-  const resolvedOld = path.resolve(oldPath);
-  if (resolvedOld === path.resolve(newFilePath)) return; // self-delete guard
+
+/** Racines bibliothèque du moteur (completedPath de chaque instance) —
+ *  tout chemin supprimé/renommé doit vivre sous l'une d'elles. */
+async function engineLibraryRoots(): Promise<string[]> {
   try {
     const res = await fetch(`${ENGINE_BASE}/instances`, {
       headers: engineHeaders(),
       signal: AbortSignal.timeout(10_000),
     });
-    if (!res.ok) return;
+    if (!res.ok) return [];
     const { instances } = await res.json() as { instances?: Array<{ completedPath?: string }> };
-    const roots = (instances ?? []).map((i) => path.resolve(i.completedPath ?? "")).filter(Boolean);
-    if (!roots.some((root) => resolvedOld.startsWith(root + path.sep))) return;
-    await import("node:fs/promises").then((fsp) => fsp.unlink(resolvedOld)).catch(() => {});
+    return (instances ?? [])
+      .map((i) => i.completedPath ?? "")
+      .filter(Boolean)
+      .map((p) => pathFor(p).resolve(p));
   } catch {
-    // Engine unreachable — keep the old file rather than delete anything.
+    return [];
   }
 }
 
-/** Same root-validated deletion pattern as deleteOptimizedOldFile — never an
+/** Vrai si `resolved` (déjà résolu) vit sous l'une des racines — comparaison
+ *  insensible à la casse sur Windows (le chemin enregistré peut différer du
+ *  completedPath configuré par la casse). `resolved` n'est jamais la racine
+ *  elle-même. */
+function isUnderLibraryRoot(resolved: string, sep: string, roots: string[], caseSensitive: boolean): boolean {
+  const needle = caseSensitive ? resolved : resolved.toLowerCase();
+  return roots.some((root) => {
+    const candidate = caseSensitive ? root : root.toLowerCase();
+    return needle.startsWith(candidate + sep) && needle.length > candidate.length + sep.length;
+  });
+}
+
+/** Suppression d'un fichier bibliothèque — JAMAIS récursive (unlink simple),
+ *  uniquement sous une racine completedPath du moteur, profondeur ≥ 2 et nom
+ *  de base assaini (AGENTS.md — gardes de suppression obligatoires). */
+async function deleteLibraryFile(filePath: string, roots: string[]): Promise<void> {
+  const p = pathFor(filePath);
+  const resolved = p.resolve(filePath);
+  if (!isUnderLibraryRoot(resolved, p.sep, roots, process.platform !== "win32")) return;
+  const depth = resolved.split(p.sep).filter(Boolean).length;
+  if (depth < 2) return;
+  const name = p.basename(resolved).replace(/[/\\:]/g, "_").replace(/\.\.+/g, "_");
+  if (!name || name === "." || name === "..") return;
+  await fsp.unlink(resolved).catch(() => {});
+}
+
+/** Suffixe de collision ajouté par le moteur (AbstractBackend.avoidCollision) :
+ *  « (2) », « (3) »… collé juste avant l'extension quand le nom final attendu
+ *  est déjà occupé sur disque au moment du renommage. */
+function stripCollisionSuffix(basename: string): string {
+  return basename.replace(/ \((\d+)\)$/, "");
+}
+
+/**
+ * Finalisation d'un import de REMPLACEMENT (mode "replace"/"optimize"/
+ * ré-import simple — tout sauf "add") :
+ * 1. L'ANCIEN fichier primaire est supprimé du disque (deleteLibraryFile,
+ *    gardes de sécurité complètes) AVANT toute manipulation du nouveau.
+ * 2. Le moteur renomme le nouveau fichier AVANT de connaître l'intention
+ *    (avoidCollision) : si le nom final attendu était occupé par l'ancien
+ *    fichier, le nouveau a reçu un suffixe « (2) »/« (3) »…. Une fois
+ *    l'ancien fichier supprimé, le nouveau fichier est ramené vers ce nom
+ *    final — plus aucun doublon « (n) » dans Plex. Le renommage n'écrase
+ *    JAMAIS un fichier existant et ne touche que des fichiers sous une
+ *    racine bibliothèque du moteur.
+ */
+async function finalizeReplacePath<T extends { path: string }>(movie: { file: LibraryFile | null }, newFile: T, roots: string[]): Promise<T> {
+  if (!movie.file) return newFile;
+  const oldPath = movie.file.path;
+  const newPath = newFile.path;
+  if (!oldPath || !newPath) return newFile;
+  const op = pathFor(oldPath);
+  const np = pathFor(newPath);
+  const resolvedOld = op.resolve(oldPath);
+  const resolvedNew = np.resolve(newPath);
+  if (resolvedOld === resolvedNew) return newFile; // self-delete guard
+
+  // 1. Supprimer l'ancien fichier AVANT de renommer le nouveau.
+  await deleteLibraryFile(oldPath, roots);
+
+  // 2. Ramener le nouveau fichier vers son nom final attendu.
+  const newBase = np.basename(resolvedNew);
+  const stripped = stripCollisionSuffix(newBase);
+  if (stripped === newBase) return newFile; // pas de suffixe de collision — nom déjà final
+  // Les noms canoniques (sans suffixe) doivent correspondre — sinon ce n'est
+  // pas le même nom final que l'ancien fichier, on ne renomme pas.
+  if (stripCollisionSuffix(op.basename(resolvedOld)) !== stripped) return newFile;
+  if (!isUnderLibraryRoot(resolvedNew, np.sep, roots, process.platform !== "win32")) return newFile;
+
+  const expected = np.join(np.dirname(resolvedNew), stripped + np.extname(resolvedNew));
+  if (np.resolve(expected) === resolvedNew) return newFile;
+  try {
+    await fsp.access(expected);
+    return newFile; // nom final occupé par un autre fichier — ne jamais écraser
+  } catch {
+    // libre — on peut renommer
+  }
+  try {
+    await fsp.rename(resolvedNew, expected);
+    console.log(`[import] version remplacée renommée vers le nom final: ${expected}`);
+    return { ...newFile, path: expected };
+  } catch (err) {
+    console.warn(`[import] renommage vers le nom final impossible (${(err as Error).message}) — nom actuel conservé`);
+    return newFile;
+  }
+}
+
+/** Same root-validated deletion pattern as deleteLibraryFile — never an
  *  arbitrary path, only one confirmed to sit under a known completed-library
  *  root. Used to remove a file quarantined by checkPostImportBlockedWord. */
 async function deleteQuarantinedFile(filePath: string): Promise<void> {
@@ -256,21 +341,19 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     };
 
     // A pending "add" intent (LOT6.2/6.10 — user explicitly chose "Ajouter
-    // comme version supplémentaire") never overwrites the primary file.
+    // comme version supplémentaire") never overwrites the primary file. Any
+    // other mode (replace/optimize/re-import) is a REPLACEMENT: the old
+    // primary file is deleted from disk and the new file is brought back to
+    // its final expected name (see finalizeReplacePath) so no " (2)"/" (3)"
+    // collision duplicates ever accumulate in Plex.
     const pendingMode = takePendingVersionIntent(infoHash);
-    const versioned = pendingMode === "add"
-      ? addVersion(movie, newFile, { versionSource: "indexer", reason: "Version supplémentaire" })
-      : setPrimaryFile(movie, newFile, { versionSource: "indexer", reason: movie.file ? "Mise à niveau qualité" : "Acquisition initiale" });
-
-    // Un ré-téléchargement REMPLACE l'ancienne version : dès qu'un fichier
-    // primaire existait déjà (et sans intention « version supplémentaire »),
-    // l'ancien fichier est supprimé du disque (gardes de sécurité ci-dessus)
-    // afin que Plex ne conserve qu'une seule version du film et que la
-    // lecture serve la nouvelle. Même sémantique que le mode "optimize",
-    // désormais appliquée à tout import de remplacement.
-    if (pendingMode !== "add" && movie.file) {
-      await deleteOptimizedOldFile(movie.file.path, newFile.path);
+    let finalFile = newFile;
+    if (pendingMode !== "add") {
+      finalFile = await finalizeReplacePath(movie, newFile, await engineLibraryRoots());
     }
+    const versioned = pendingMode === "add"
+      ? addVersion(movie, finalFile, { versionSource: "indexer", reason: "Version supplémentaire" })
+      : setPrimaryFile(movie, finalFile, { versionSource: "indexer", reason: movie.file ? "Mise à niveau qualité" : "Acquisition initiale" });
 
     updateMovie(movie.id, {
       status: "available",
@@ -288,7 +371,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       media: createMediaRef("movie", movie.id, movie.tmdbId, movie.title),
       actor: "system",
       release: best.quality ? createReleaseRef("", "Importé", "torrent", best.size, best.quality, 0) : undefined,
-      import: createImportRef(best.path, best.size, movie.title, best.quality ?? "—"),
+      import: createImportRef(finalFile.path, best.size, movie.title, best.quality ?? "—"),
     });
     refreshLoose("movie");
     void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});

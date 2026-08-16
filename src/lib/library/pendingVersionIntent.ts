@@ -6,6 +6,13 @@
  * the final file (resolution/codec/size) is the import callback. Keyed by
  * infoHash since that's the one identifier both sides share.
  *
+ * Keys are normalized to lowercase: the indexer-advertised infoHash (set at
+ * grab time) and the engine-resolved one (AbstractBackend.add lowercases the
+ * magnet's btih; a .torrent file resolves its own) routinely differ in case.
+ * Without normalization the intent lookup missed, "add" silently degraded
+ * into a destructive replace (old primary file deleted) and "replace" lost
+ * its rename-to-final-name behaviour — the LOT6.10 choice was simply gone.
+ *
  * Deliberately NOT persisted to disk — a pending entry only matters for the
  * few minutes between grab and import completion; if the app restarts
  * mid-download the worst case is the import callback falls back to the
@@ -38,14 +45,15 @@ const pending = (g.__movvizPendingVersionIntent ??= new Map<string, PendingEntry
 
 /** `mode` is the user's explicit replace-vs-add choice (LOT6.10) made at confirmation time. */
 export function markPendingVersionIntent(infoHash: string, mode: VersionGrabMode) {
-  pending.set(infoHash, { mode, setAt: Date.now() });
+  pending.set(infoHash.toLowerCase(), { mode, setAt: Date.now() });
 }
 
 /** Reads AND clears — a one-shot check, consumed exactly once by the import callback. Returns null if this infoHash has no pending (and still fresh) additional-version intent — the normal case, and also the outcome for a stale/expired entry. */
 export function takePendingVersionIntent(infoHash: string | undefined): VersionGrabMode | null {
   if (!infoHash) return null;
-  const entry = pending.get(infoHash);
-  pending.delete(infoHash);
+  const key = infoHash.toLowerCase();
+  const entry = pending.get(key);
+  pending.delete(key);
   if (!entry) return null;
   if (Date.now() - entry.setAt > MAX_AGE_MS) return null;
   return entry.mode;
