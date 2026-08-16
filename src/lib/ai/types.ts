@@ -45,6 +45,14 @@ export interface AiActionOutcome {
   status: "added" | "requested" | "already" | "blocked" | "not_found" | "error";
   tmdbId?: number;
   detail?: string;
+  /** The existing library entry's own id (movie/series, distinct from
+   *  tmdbId) — only set for status "already". Lets the chat UI offer a
+   *  one-click delete of a wrong entry (via the normal admin-only DELETE
+   *  route, USER-triggered) instead of leaving a dead-end "already in
+   *  library" message when it turns out to be the wrong title. The
+   *  assistant itself never deletes anything — this is the human clicking
+   *  the button, same as the trash icon anywhere else in Movviz. */
+  libraryId?: string;
 }
 
 /** A recommendation card resolved against TMDb, rendered in the chat. */

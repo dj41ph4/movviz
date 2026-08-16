@@ -2000,6 +2000,10 @@ diskScan: {
     recoIntro3: "Noch etwas, das passen könnte:",
     recoIntro4: "Oder du probierst stattdessen das hier:",
     recoIntro5: "Noch eine Idee:",
+    deleteEntry: "Falscher Titel? Aus der Bibliothek entfernen",
+    deleteConfirm: "Löschen bestätigen",
+    deleteEntryDone: "Eintrag gelöscht",
+    deleteEntryFailed: "Löschen fehlgeschlagen",
     empty: "Bitte mich, Filme hinzuzufügen, etwas im gleichen Stil zu empfehlen oder frage nach deiner Bibliothek.",
     status: {
       added: "Hinzugefügt",

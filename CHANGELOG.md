@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.14 — August 2026
+
+### Movviz AI
+
+- Nouveau bouton corbeille directement dans le chat sur une entrée « déjà présente » : si c'est en fait la mauvaise entrée, tu peux la supprimer toi-même en deux clics sans quitter la conversation (réservé aux admins, comme partout ailleurs dans Movviz — l'assistant ne supprime jamais rien lui-même).
+- Ton prénom reste fixe une fois connu — il ne le redemande plus, et ne le change que si tu lui en donnes explicitement un autre.
+- L'assistant peut désormais accorder naturellement ses phrases selon ton prénom, avec prudence et sans jamais insister si le contexte suggère autre chose.
+
 ## v1.14.13 — August 2026
 
 ### Movviz AI

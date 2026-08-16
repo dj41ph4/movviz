@@ -2001,6 +2001,10 @@ export const en: Dictionary = {
     recoIntro3: "Another one that could fit:",
     recoIntro4: "Or you could try this instead:",
     recoIntro5: "Another lead:",
+    deleteEntry: "Not the right title? Remove from library",
+    deleteConfirm: "Confirm deletion",
+    deleteEntryDone: "Entry deleted",
+    deleteEntryFailed: "Deletion failed",
     empty: "Ask me to add movies, recommend something in the same mood, or ask about your library.",
     status: {
       added: "Added",

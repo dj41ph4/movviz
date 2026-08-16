@@ -49,6 +49,12 @@ export function getFeedback(userId: string): AiFeedbackEntry[] {
   return profileForUser(read(), userId).feedback;
 }
 
+// A first name is a single fixed value, not a growing list — if the user
+// gives a new one, that REPLACES the old one (a correction, a name change,
+// or the same person clarifying) rather than piling up two contradictory
+// "Prénom : X" facts that would both get fed into the prompt at once.
+const NAME_FACT_RE = /pr[ée]nom/i;
+
 /** Stores a freeform fact the model extracted from conversation (see
  *  intentParser.extractFacts) — deduped case-insensitively so a repeated
  *  "I'm called Alex" doesn't pile up, bounded so the prompt this feeds back
@@ -56,7 +62,8 @@ export function getFeedback(userId: string): AiFeedbackEntry[] {
 export function rememberFact(userId: string, fact: string): void {
   const store = read();
   const profile = profileForUser(store, userId);
-  const deduped = profile.facts.filter((f) => f.fact.toLowerCase() !== fact.toLowerCase());
+  let deduped = profile.facts.filter((f) => f.fact.toLowerCase() !== fact.toLowerCase());
+  if (NAME_FACT_RE.test(fact)) deduped = deduped.filter((f) => !NAME_FACT_RE.test(f.fact));
   deduped.push({ fact, at: Date.now() });
   store[userId] = { ...profile, facts: deduped.slice(-MAX_FACT_ENTRIES) };
   write(store);

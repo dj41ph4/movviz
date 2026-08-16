@@ -6,6 +6,7 @@ import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import { getPageTitleContext } from "@/lib/ai/pageContext";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { AiActionOutcome, AiChatMessage, AiRecommendation } from "@/lib/ai/types";
 import {
   Bot, Send, Sparkles, X, Trash2, Plus, Check, Film, Loader2, ThumbsUp, ThumbsDown,
@@ -20,17 +21,67 @@ const STATUS_STYLES: Record<AiActionOutcome["status"], string> = {
   error: "bg-red/12 text-red",
 };
 
-function ActionList({ actions, t }: { actions: AiActionOutcome[]; t: (k: string) => string }) {
+function ActionList({
+  actions, isAdmin, deleteState, onRequestDelete, onConfirmDelete, onCancelDelete, t,
+}: {
+  actions: AiActionOutcome[];
+  isAdmin: boolean;
+  deleteState: Record<string, "confirm" | "deleting" | "done">;
+  onRequestDelete: (outcome: AiActionOutcome) => void;
+  onConfirmDelete: (outcome: AiActionOutcome) => void;
+  onCancelDelete: (outcome: AiActionOutcome) => void;
+  t: (k: string) => string;
+}) {
   return (
     <div className="mt-2 space-y-1">
-      {actions.map((a, i) => (
-        <div key={i} className="flex items-start gap-2 text-xs">
-          <span className={cn("mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 font-bold", STATUS_STYLES[a.status])}>
-            {t(`ai.status.${a.status}`)}
-          </span>
-          <span className="min-w-0 flex-1 text-ink-soft">{a.title}{a.year ? ` (${a.year})` : ""}</span>
-        </div>
-      ))}
+      {actions.map((a, i) => {
+        // Only "already in library" outcomes can be wrong (the AI resolved
+        // to an existing entry that doesn't match what the user meant) —
+        // delete requires admin, same gate as the trash icon everywhere
+        // else in Movviz. The assistant never deletes anything itself: this
+        // is the human clicking a button, identical in spirit to any other
+        // delete control in the app.
+        const canDelete = isAdmin && a.status === "already" && a.libraryId;
+        const dKey = a.libraryId ? `${a.type}-${a.libraryId}` : "";
+        const dState = deleteState[dKey];
+        return (
+          <div key={i} className="flex items-start gap-2 text-xs">
+            <span className={cn("mt-0.5 shrink-0 rounded-md px-1.5 py-0.5 font-bold", STATUS_STYLES[a.status])}>
+              {t(`ai.status.${a.status}`)}
+            </span>
+            <span className="min-w-0 flex-1 text-ink-soft">{a.title}{a.year ? ` (${a.year})` : ""}</span>
+            {canDelete && dState !== "done" ? (
+              dState === "confirm" ? (
+                <span className="flex shrink-0 items-center gap-1">
+                  <button
+                    onClick={() => onConfirmDelete(a)}
+                    title={t("ai.deleteConfirm")}
+                    className="flex h-8 w-8 items-center justify-center rounded-md bg-red/15 text-red hover:bg-red/25"
+                  >
+                    <Check className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => onCancelDelete(a)}
+                    title={t("common.cancel")}
+                    className="flex h-8 w-8 items-center justify-center rounded-md text-ink-dim hover:bg-white/8 hover:text-ink"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => onRequestDelete(a)}
+                  disabled={dState === "deleting"}
+                  title={t("ai.deleteEntry")}
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink-dim hover:bg-red/12 hover:text-red disabled:opacity-40"
+                >
+                  {dState === "deleting" ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                </button>
+              )
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -139,6 +190,7 @@ function RecommendationCards({
 
 export function ChatWidget() {
   const t = useT();
+  const user = useCurrentUser();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<AiChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -146,6 +198,7 @@ export function ChatWidget() {
   const [provider, setProvider] = useState<string | null>(null);
   const [adding, setAdding] = useState<Record<string, "adding" | "added">>({});
   const [votes, setVotes] = useState<Record<string, "like" | "dislike">>({});
+  const [deleteState, setDeleteState] = useState<Record<string, "confirm" | "deleting" | "done">>({});
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // SWR (not a one-off fetch) so the button appears/disappears the moment an
@@ -245,6 +298,37 @@ export function ChatWidget() {
     }).catch(() => {});
   }, []);
 
+  // Deleting a wrong "already in library" entry — the human clicks Trash
+  // then confirms, exactly like any other delete control in Movviz; the
+  // assistant itself never triggers this. Default (trash if configured,
+  // matches the app's normal delete behavior elsewhere).
+  const requestDeleteEntry = useCallback((outcome: AiActionOutcome) => {
+    if (!outcome.libraryId) return;
+    setDeleteState((p) => ({ ...p, [`${outcome.type}-${outcome.libraryId}`]: "confirm" }));
+  }, []);
+  const cancelDeleteEntry = useCallback((outcome: AiActionOutcome) => {
+    if (!outcome.libraryId) return;
+    setDeleteState((p) => { const n = { ...p }; delete n[`${outcome.type}-${outcome.libraryId}`]; return n; });
+  }, []);
+  const confirmDeleteEntry = useCallback(async (outcome: AiActionOutcome) => {
+    if (!outcome.libraryId) return;
+    const key = `${outcome.type}-${outcome.libraryId}`;
+    setDeleteState((p) => ({ ...p, [key]: "deleting" }));
+    try {
+      const r = await fetch(`/api/library/${outcome.type === "movie" ? "movies" : "series"}/${outcome.libraryId}`, { method: "DELETE" });
+      if (r.ok) {
+        setDeleteState((p) => ({ ...p, [key]: "done" }));
+        toast("success", t("ai.deleteEntryDone"));
+      } else {
+        setDeleteState((p) => { const n = { ...p }; delete n[key]; return n; });
+        toast("error", t("ai.deleteEntryFailed"));
+      }
+    } catch {
+      setDeleteState((p) => { const n = { ...p }; delete n[key]; return n; });
+      toast("error", t("ai.deleteEntryFailed"));
+    }
+  }, [t]);
+
   if (enabled === false || enabled === null) return null;
 
   return (
@@ -299,7 +383,17 @@ export function ChatWidget() {
                 <div key={i} className="flex justify-start">
                   <div className="max-w-[92%] rounded-2xl rounded-bl-md glass px-3.5 py-2.5 text-sm text-ink">
                     <div className="whitespace-pre-wrap">{msg.content}</div>
-                    {msg.actions && msg.actions.length ? <ActionList actions={msg.actions} t={t} /> : null}
+                    {msg.actions && msg.actions.length ? (
+                      <ActionList
+                        actions={msg.actions}
+                        isAdmin={user?.role === "admin"}
+                        deleteState={deleteState}
+                        onRequestDelete={requestDeleteEntry}
+                        onConfirmDelete={confirmDeleteEntry}
+                        onCancelDelete={cancelDeleteEntry}
+                        t={t}
+                      />
+                    ) : null}
                     {msg.recommendations && msg.recommendations.length ? (
                       <RecommendationCards cards={msg.recommendations} adding={adding} onAdd={addCard} votes={votes} onVote={voteCard} t={t} />
                     ) : null}

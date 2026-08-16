@@ -2000,6 +2000,10 @@ export const it: Dictionary = {
     recoIntro3: "Un altro che potrebbe andare bene:",
     recoIntro4: "Oppure potresti provare questo:",
     recoIntro5: "Un'altra pista:",
+    deleteEntry: "Non è il titolo giusto? Rimuovi dalla libreria",
+    deleteConfirm: "Conferma eliminazione",
+    deleteEntryDone: "Voce eliminata",
+    deleteEntryFailed: "Eliminazione fallita",
     empty: "Chiedimi di aggiungere film, di consigliarti qualcosa nello stesso stile, o fai una domanda sulla tua libreria.",
     status: {
       added: "Aggiunto",

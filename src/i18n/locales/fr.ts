@@ -1999,6 +1999,10 @@ export const fr = {
     recoIntro3: "Un autre qui pourrait coller :",
     recoIntro4: "Et si tu essayais plutôt ça :",
     recoIntro5: "Autre piste :",
+    deleteEntry: "Ce n'est pas le bon titre ? Supprimer de la bibliothèque",
+    deleteConfirm: "Confirmer la suppression",
+    deleteEntryDone: "Entrée supprimée",
+    deleteEntryFailed: "Échec de la suppression",
     empty: "Demande-moi d'ajouter des films, de te recommander quelque chose dans le même mood, ou pose une question sur ta bibliothèque.",
     status: {
       added: "Ajouté",

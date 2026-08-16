@@ -2001,6 +2001,10 @@ export const nl: Dictionary = {
     recoIntro3: "Nog eentje die zou kunnen passen:",
     recoIntro4: "Of je zou dit kunnen proberen:",
     recoIntro5: "Nog een optie:",
+    deleteEntry: "Niet de juiste titel? Verwijderen uit bibliotheek",
+    deleteConfirm: "Verwijderen bevestigen",
+    deleteEntryDone: "Item verwijderd",
+    deleteEntryFailed: "Verwijderen mislukt",
     empty: "Vraag me om films toe te voegen, iets in dezelfde sfeer aan te bevelen, of stel een vraag over je bibliotheek.",
     status: {
       added: "Toegevoegd",
