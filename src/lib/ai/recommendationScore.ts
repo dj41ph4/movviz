@@ -1,5 +1,6 @@
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadRequests } from "@/lib/requests/store";
+import { getSeriesByTmdbId } from "@/lib/library/store";
 import { getFeedback } from "@/lib/ai/tasteProfile";
 import { moodSimilarity } from "@/lib/ai/titleAnalysis";
 import type { TasteVector } from "@/lib/ai/contrastiveProfile";
@@ -48,6 +49,25 @@ function overlapCount(a: Set<string>, b: Set<string>): number {
   return n;
 }
 
+// Bug fix (audit finding #2, confirmed live): the old check excluded a
+// series from ALL future recommendations after a single watched episode —
+// contradicting this file's own "already fully watched" doc comment below.
+// Mirrors the exact same principle already used for the manual "watched"
+// toggle (TitleContent.tsx's seriesEpisodes/allSeriesWatched): only known
+// (non-upcoming) episodes count, and ALL of them must be watched. Only
+// applies to series already in the LIBRARY — Movviz doesn't know a
+// non-library series's true episode count, and "possibly excluded because
+// we can't tell" is worse than "not excluded, may resurface once" (spec
+// §16: a single observation is weak signal, never a hard rule on its own).
+function isSeriesFullyWatched(tmdbId: number, watchedEpisodeKeys: Set<string>): boolean {
+  const series = getSeriesByTmdbId(tmdbId);
+  if (!series) return false;
+  const known = series.seasons.flatMap((s) =>
+    s.episodes.filter((e) => e.status !== "upcoming" && e.episodeNumber != null).map((e) => `${s.seasonNumber}.${e.episodeNumber}`)
+  );
+  return known.length > 0 && known.every((k) => watchedEpisodeKeys.has(k));
+}
+
 /**
  * Scores and ranks resolved candidates for one user, EXCLUDING titles
  * already fully watched (the spec's explicit rule: never re-propose
@@ -78,7 +98,12 @@ export function scoreCandidates(
 ): ScoredCandidate[] {
   const watch = getWatchStatus(userId);
   const watchedMovies = new Set(watch?.movies ?? []);
-  const watchedSeries = new Set((watch?.episodes ?? []).map((e) => e.tmdbId));
+  const watchedEpisodesBySeries = new Map<number, Set<string>>();
+  for (const e of watch?.episodes ?? []) {
+    const set = watchedEpisodesBySeries.get(e.tmdbId) ?? new Set<string>();
+    set.add(`${e.season}.${e.episode}`);
+    watchedEpisodesBySeries.set(e.tmdbId, set);
+  }
 
   const pendingOrApproved = new Set(
     loadRequests()
@@ -93,7 +118,10 @@ export function scoreCandidates(
   const scored: ScoredCandidate[] = [];
   for (const c of candidates) {
     const key = `${c.type}:${c.tmdbId}`;
-    if (c.type === "movie" ? watchedMovies.has(c.tmdbId) : watchedSeries.has(c.tmdbId)) continue; // AlreadySeen — hard exclude, per spec
+    const alreadySeen = c.type === "movie"
+      ? watchedMovies.has(c.tmdbId)
+      : isSeriesFullyWatched(c.tmdbId, watchedEpisodesBySeries.get(c.tmdbId) ?? new Set());
+    if (alreadySeen) continue; // AlreadySeen — hard exclude, per spec (series: fully watched only, see isSeriesFullyWatched)
 
     const reason = reasons.get(key);
     const reasonTokens = reason ? tokenize(reason) : null;
@@ -103,8 +131,17 @@ export function scoreCandidates(
     if (!c.inLibrary) score += 8; // Novelty — favors real discoveries over what's already owned
 
     if (reasonTokens) {
-      for (const liked of likedTokens) score += Math.min(6, overlapCount(reasonTokens, liked) * 3);
-      for (const disliked of dislikedTokens) score -= Math.min(6, overlapCount(reasonTokens, disliked) * 3);
+      // Bug fix (audit finding #3, confirmed live): each individual match
+      // was capped at ±6, but the sum across the WHOLE feedback log (up to
+      // 200 entries) had no overall ceiling — contradicting the documented
+      // ±18 cap and letting this term silently dwarf Quality/MoodSimilarity
+      // as feedback history grows. Now capped exactly like AI.MD describes.
+      let likedBonus = 0;
+      let dislikedPenalty = 0;
+      for (const liked of likedTokens) likedBonus += Math.min(6, overlapCount(reasonTokens, liked) * 3);
+      for (const disliked of dislikedTokens) dislikedPenalty += Math.min(6, overlapCount(reasonTokens, disliked) * 3);
+      score += Math.min(18, likedBonus);
+      score -= Math.min(18, dislikedPenalty);
     }
 
     const candidateMood = mood?.candidates.get(key);

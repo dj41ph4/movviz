@@ -46,8 +46,10 @@ export function rememberAiEntry(userId: string, kind: "added" | "accepted", entr
   write(store);
 }
 
-/** Readable long-term memory for the user — feeds the chat's "I remember
- *  you" panel so the assistant's knowledge is visible and grows with usage. */
+/** Readable long-term memory for the user — the visible "I remember you"
+ *  chat panel that used to consume this was removed (users found it
+ *  unsettling); this stays as the read API for GET /api/ai/memory and the
+ *  future context-transparency view on /profile. */
 export function getAiMemory(userId: string): AiUserMemory {
   return entryForUser(read(), userId);
 }

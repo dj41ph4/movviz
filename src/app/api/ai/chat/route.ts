@@ -61,7 +61,18 @@ export async function POST(req: NextRequest) {
   const session = loadAiSession(user.id);
   const last = session.messages[session.messages.length - 1];
   if (last?.role === "user" && last.content === message) {
-    return NextResponse.json({ message: last, provider: null });
+    // Bug fix (audit finding #7, confirmed live): this used to return
+    // `last` itself — a role:"user" message — to a client that always
+    // expects an assistant reply in this shape (ChatWidget.sendText just
+    // appends whatever comes back with no role check). A rapid double-
+    // submit landing here produced a second right-aligned user bubble with
+    // no visible reply, reading exactly like the bot ignored the message.
+    // Re-serve the real assistant reply to this exact message if one
+    // already exists; if not (very first message duplicated before any
+    // reply landed), fall through and process normally instead of
+    // echoing the user's own text back as if it were the answer.
+    const lastAssistant = [...session.messages].reverse().find((m) => m.role === "assistant");
+    if (lastAssistant) return NextResponse.json({ message: lastAssistant, provider: null });
   }
   // Captured BEFORE pushAiMessage below — loadAiSession returns the SAME
   // mutable session object every time (in-process store), so checking
@@ -70,6 +81,15 @@ export async function POST(req: NextRequest) {
   const wasEmptySession = session.messages.length === 0;
 
   pushAiMessage(user.id, { role: "user", content: message });
+
+  // Bug fix (audit finding #5, confirmed live — same class as the brique-9
+  // fix, just relocated): this MUST be read before extractSelfIntroName's
+  // rememberFact() below mutates the facts store, or a genuinely first-ever
+  // message that happens to be a self-introduction ("Salut, je m'appelle
+  // Seb") would already show 1 fact by the time isFirstInteraction is
+  // computed, silently skipping onboarding for exactly the user who
+  // volunteered their name upfront.
+  const hadNoFactsBefore = getFacts(user.id).length === 0;
 
   // Reliable, code-level capture of the single most common durable fact —
   // never depends on the model choosing to emit a [[FAIT: ...]] marker for
@@ -82,10 +102,10 @@ export async function POST(req: NextRequest) {
   const usageContext = formatUsageProfile(buildUsageProfile(user.id));
   const feedbackContext = buildFeedbackContext(user.id);
   const factsContext = buildFactsContext(user.id);
-  // "First ever interaction" = no prior session AND no fact learned about
-  // this user yet — not just "empty session" (a cleared chat shouldn't
-  // re-trigger onboarding for someone Movviz already knows).
-  const isFirstInteraction = wasEmptySession && getFacts(user.id).length === 0;
+  // "First ever interaction" = no prior session AND no fact known about
+  // this user BEFORE this message — not just "empty session" (a cleared
+  // chat shouldn't re-trigger onboarding for someone Movviz already knows).
+  const isFirstInteraction = wasEmptySession && hadNoFactsBefore;
   // Checked AFTER the introName capture above, so telling it your name IN
   // THIS message already counts — no double-ask in the same reply.
   const needsName = !hasKnownName(user.id);

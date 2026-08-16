@@ -136,3 +136,19 @@ test("extractSelfIntroName: aucune intro => null", () => {
 test("extractSelfIntroName: mot-piège capté par l'alternance mais rejeté (pas un prénom plausible)", () => {
   assert.equal(extractSelfIntroName("moi c'est cool"), null);
 });
+
+test("extractFacts: un vrai fait négatif n'est plus filtré à tort (audit #6 — 'n'a pas'/'pas encore' étaient trop larges)", () => {
+  const disliked = extractFacts("[[FAIT: n'a pas aimé Interstellar]]");
+  assert.deepEqual(disliked.facts, ["n'a pas aimé Interstellar"]);
+
+  const noAccount = extractFacts("[[FAIT: n'a pas de compte Netflix]]");
+  assert.deepEqual(noAccount.facts, ["n'a pas de compte Netflix"]);
+
+  const notYetSeen = extractFacts("[[FAIT: pas encore vu la saison 2]]");
+  assert.deepEqual(notYetSeen.facts, ["pas encore vu la saison 2"]);
+});
+
+test("extractFacts: un vrai marqueur d'ignorance reste filtré", () => {
+  const got = extractFacts("[[FAIT: prénom inconnu]]");
+  assert.deepEqual(got.facts, []);
+});

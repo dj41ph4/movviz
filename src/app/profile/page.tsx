@@ -18,6 +18,7 @@ import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { Toggle } from "@/components/ui/Toggle";
+import { AiContextPanel } from "@/components/profile/AiContextPanel";
 
 interface TokenRecord {
   id: string;
@@ -188,6 +189,8 @@ export default function ProfilePage() {
           })}
         </div>
       </div>
+
+      <AiContextPanel />
 
       {betaPlayerLoaded && betaPlayerAvailable && (
         <div className="mb-6 rounded-2xl glass p-5">

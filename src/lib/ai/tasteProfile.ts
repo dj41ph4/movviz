@@ -65,7 +65,14 @@ export function rememberFact(userId: string, fact: string): void {
   let deduped = profile.facts.filter((f) => f.fact.toLowerCase() !== fact.toLowerCase());
   if (NAME_FACT_RE.test(fact)) deduped = deduped.filter((f) => !NAME_FACT_RE.test(f.fact));
   deduped.push({ fact, at: Date.now() });
-  store[userId] = { ...profile, facts: deduped.slice(-MAX_FACT_ENTRIES) };
+  // Audit finding #6 (minor, confirmed): a plain trailing slice() could let
+  // the name fact age out after 30 later facts, silently breaking the
+  // "prénom fixe" guarantee (brique 14) for a long-term chatty user. The
+  // name (if any survived the push above) is pinned separately from the
+  // FIFO trim of everything else.
+  const nameFact = deduped.find((f) => NAME_FACT_RE.test(f.fact));
+  const rest = deduped.filter((f) => f !== nameFact).slice(-(nameFact ? MAX_FACT_ENTRIES - 1 : MAX_FACT_ENTRIES));
+  store[userId] = { ...profile, facts: nameFact ? [...rest, nameFact] : rest };
   write(store);
 }
 

@@ -136,7 +136,9 @@ export function parseIntent(text: string): ParsedIntent {
 }
 
 const FACT_MAX_LEN = 150;
-const FACT_MAX_COUNT = 3;
+// Matches the prompt's own "jamais plus de 2 par réponse" (actions.ts) —
+// audit finding #5 (minor): these had drifted apart (2 vs 3).
+const FACT_MAX_COUNT = 2;
 // No line anchors (^...$) — the model doesn't reliably put the marker on
 // its own line (observed in practice tacked onto the end of a sentence),
 // and an anchored regex silently fails to match/strip it there, leaking
@@ -147,7 +149,16 @@ const FACT_RE = /\[\[FAIT:\s*(.+?)\]\]/gi;
 // information it was actually just given — that's the opposite of a fact
 // worth remembering. Filtered out defensively rather than trusted to the
 // prompt instruction alone.
-const NEGATIVE_FACT_RE = /\b(inconnu|je ne sais pas|pas encore|aucune idée|n['e]a pas|ignore)\b/i;
+//
+// Bug fix (audit finding #6, confirmed live): the original alternation
+// included bare "n['e]a pas" and "pas encore", which also match perfectly
+// legitimate NEW negative facts the model correctly wants to remember —
+// "n'a pas aimé Interstellar", "n'a pas de compte Netflix", "pas encore vu
+// la saison 2" — silently dropping real dislikes/constraints, exactly the
+// kind of fact a user expects retained. Narrowed to genuine
+// ignorance-markers only (the actual predicate is "I don't know", not any
+// negation anywhere in the sentence).
+const NEGATIVE_FACT_RE = /\b(inconnu|je ne sais pas|aucune idée|j'ignore)\b/i;
 
 /** Pulls the model's own inline `[[FAIT: ...]]` markers out of a plain-text
  *  reply — piggybacks on the chat call already made instead of a separate

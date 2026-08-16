@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.17 — August 2026
+
+### Movviz AI
+
+- Deux audits complets ont trouvé et corrigé 7 bugs réels de compréhension : le moteur d'ambiance comparait des noms de traits qui ne correspondaient plus toujours d'une analyse à l'autre, une série était exclue des recommandations dès un seul épisode vu (au lieu de toute la série), un excès de contradictions internes dans les instructions de conversation, et une poignée d'autres corrections plus discrètes autour de la mémoire.
+- Nouveau : « Ce que Movviz AI sait de toi », un panneau sur ta page de profil qui montre en clair (jamais du code brut) ce que l'assistant a retenu — faits, activité, recommandations aimées ou rejetées.
+
 ## v1.14.16 — August 2026
 
 ### Movviz AI

@@ -39,9 +39,28 @@ export function getCachedMoodProfile(type: "movie" | "series", tmdbId: number): 
   return read()[cacheKey(type, tmdbId)] ?? null;
 }
 
+// Bug fix (audit finding #1, confirmed live): moodSimilarity() only compares
+// traits under IDENTICAL category+trait key strings across two profiles
+// analyzed in SEPARATE LLM calls — with fully free-form naming, two
+// genuinely similar titles calling the same idea "humour"/"comedie" or
+// "wtf"/"degre_wtf" scored 0 similarity purely from vocabulary drift,
+// silently zeroing the two score terms documented as "dominant"
+// (MoodSimilarity, TasteCompatibility). Normalizing case/accent/punctuation
+// closes the trivial half of this; it does NOT fix true synonyms (that
+// needs the prompt to actually reuse a shared vocabulary — see
+// SUGGESTED_VOCABULARY below).
+function normalizeKey(raw: string): string {
+  return raw
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+}
+
 function sanitizeKey(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
-  const key = raw.trim().slice(0, MAX_KEY_LEN);
+  const key = normalizeKey(raw.trim().slice(0, MAX_KEY_LEN));
   return key || null;
 }
 
@@ -72,12 +91,30 @@ function validateCategories(raw: unknown): AiMoodCategories | null {
   return catCount > 0 ? categories : null;
 }
 
+// A starter vocabulary the model is instructed to REUSE when it applies —
+// this is the actual fix for cross-call naming drift (normalizeKey above
+// only catches trivial case/accent variants of the SAME word choice). Not
+// a hard-coded fixed dimension list (extension stays allowed, per AI.MD
+// §2.B "extensible"): a shared default is what makes two independently
+// analyzed titles land on the same key for the same underlying idea most
+// of the time, which is the whole precondition for moodSimilarity() to
+// mean anything.
+const SUGGESTED_VOCABULARY = `humour: absurde, parodie, second_degre, humour_noir, slapstick, ironie, reference_pop, humour_visuel, degre_wtf
+energie: rythme, chaos, contemplatif, propulsif
+tonalite: leger, sombre, cynique, emotionnel, oppressant, nostalgique
+tension: suspense, paranoia, huis_clos, menace_invisible
+profondeur: complexite, realisme, surrealisme, reflexion_philosophique
+personnages: dynamique_groupe, protagoniste_competent, transformation_morale, ambiguite_morale`;
+
 const ANALYSIS_SYSTEM_PROMPT = `Tu analyses le "mood" d'un film ou d'une série pour un moteur de recommandation. Réponds UNIQUEMENT avec un objet JSON de la forme {"categories":{"nom_categorie":{"trait":0.8}}} — aucun texte autour, aucune balise de code.
 
+VOCABULAIRE DE RÉFÉRENCE (réutilise ces noms de catégories/traits EN PRIORITÉ quand ils s'appliquent à ce titre — c'est ce qui permet à deux titres analysés séparément d'être comparés correctement ensuite ; n'invente un nom hors de cette liste QUE si vraiment rien ne convient, en gardant le même style : français, minuscules, underscore) :
+${SUGGESTED_VOCABULARY}
+
 RÈGLES :
-- Choisis 3 à 5 catégories PERTINENTES pour CE titre précis (ex. humour/énergie/tonalité pour une comédie, tension/violence/ambiguïté morale pour un thriller — jamais les mêmes catégories imposées à tout) — le modèle n'est PAS figé à une liste fixe.
+- Choisis 3 à 5 catégories PERTINENTES pour CE titre précis (ex. humour/énergie/tonalité pour une comédie, tension/profondeur pour un thriller — jamais les mêmes catégories imposées à tout) — le vocabulaire ci-dessus n'est PAS une liste fixe obligatoire, seulement un point de départ à privilégier.
 - 3 à 6 traits par catégorie, valeurs entre 0 et 1, deux décimales.
-- Sois précis et différenciant : le but est de distinguer ce titre d'un autre du même genre TMDb, pas de décrire le genre lui-même. Exemple pour Scary Movie : humour: {absurde:0.94, parodie:0.99, humour_visuel:0.86, degre_wtf:0.95}, energie: {rapide:0.89, chaotique:0.91}, tonalite: {leger:0.92, seriosite:0.08}.`;
+- Sois précis et différenciant : le but est de distinguer ce titre d'un autre du même genre TMDb, pas de décrire le genre lui-même. Exemple pour Scary Movie : humour: {absurde:0.94, parodie:0.99, humour_visuel:0.86, degre_wtf:0.95}, energie: {rythme:0.89, chaos:0.91}, tonalite: {leger:0.92}.`;
 
 /** Calls the model once for this title, validates the response, caches it,
  *  and returns it. Returns null on ANY failure (no key, quota, malformed
