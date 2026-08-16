@@ -810,6 +810,7 @@ export const nl: Dictionary = {
       usage: "Jouw activiteit",
       usageLine: "{movies} films bekeken, {series} series gevolgd ({episodes} afleveringen).",
       topSeries: "Meest bekeken: {title} ({episodes} afl.)",
+      lastWatchedLine: "Laatst bekeken: {date} · {days7} keer in de laatste 7 dagen, {days30} in de laatste 30 dagen.",
       liked: "Gewaardeerde aanbevelingen",
       disliked: "Afgewezen aanbevelingen",
       buildContext: "Context aanmaken",

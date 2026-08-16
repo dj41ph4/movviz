@@ -808,6 +808,7 @@ export const fr = {
       usage: "Ton activité",
       usageLine: "{movies} films vus, {series} séries suivies ({episodes} épisodes).",
       topSeries: "Le plus regardé : {title} ({episodes} ép.)",
+      lastWatchedLine: "Dernière vue : {date} · {days7} vue(s) sur 7 jours, {days30} sur 30 jours.",
       liked: "Recommandations appréciées",
       disliked: "Recommandations rejetées",
       buildContext: "Créer le contexte",

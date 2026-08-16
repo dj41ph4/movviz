@@ -255,7 +255,7 @@ export async function getSimilarCandidates(
 
 /** Relative French time ("aujourd'hui", "hier", "il y a X jours") for the
  *  recent-watches section — the AI must know WHEN, not just WHAT. */
-function relativeFr(at: number): string {
+export function relativeFr(at: number): string {
   const diff = Date.now() - at;
   if (diff < 0 || diff < 24 * 60 * 60 * 1000) return "aujourd'hui";
   if (diff < 2 * 24 * 60 * 60 * 1000) return "hier";

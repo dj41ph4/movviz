@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.30 — August 2026
+
+### Movviz AI
+
+- Movviz AI sait désormais depuis quand tu n'as rien regardé et à quel rythme tu regardes en ce moment (nombre de visionnages sur les 7 et 30 derniers jours) — un signal réel, basé sur tes vues datées, pour des réponses mieux ajustées à ton activité récente plutôt que de simples compteurs bruts. Ces informations sont aussi visibles dans le panneau « Ce que Movviz AI sait de toi » du profil.
+
 ## v1.14.29 — August 2026
 
 ### Correctif

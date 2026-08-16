@@ -25,6 +25,9 @@ interface AiContextData {
     aiAdded: number;
     aiAccepted: number;
     topSeries: { title: string; episodes: number }[];
+    lastWatchedAt: number | null;
+    watchesLast7Days: number;
+    watchesLast30Days: number;
   };
   context: { insights: AiContextInsight[]; builtAt: number } | null;
 }
@@ -150,6 +153,15 @@ export function AiContextPanel() {
                   {data.usage.topSeries.length > 0 && (
                     <p className="mt-1 text-sm text-ink-soft">
                       {t("profile.aiContext.topSeries", { title: data.usage.topSeries[0].title, episodes: String(data.usage.topSeries[0].episodes) })}
+                    </p>
+                  )}
+                  {data.usage.lastWatchedAt !== null && (
+                    <p className="mt-1 text-sm text-ink-soft">
+                      {t("profile.aiContext.lastWatchedLine", {
+                        date: new Date(data.usage.lastWatchedAt).toLocaleDateString(),
+                        days7: String(data.usage.watchesLast7Days),
+                        days30: String(data.usage.watchesLast30Days),
+                      })}
                     </p>
                   )}
                 </div>

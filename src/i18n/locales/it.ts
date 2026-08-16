@@ -810,6 +810,7 @@ export const it: Dictionary = {
       usage: "La tua attività",
       usageLine: "{movies} film visti, {series} serie seguite ({episodes} episodi).",
       topSeries: "Più visto: {title} ({episodes} ep.)",
+      lastWatchedLine: "Ultima visione: {date} · {days7} visione/i negli ultimi 7 giorni, {days30} negli ultimi 30 giorni.",
       liked: "Raccomandazioni apprezzate",
       disliked: "Raccomandazioni rifiutate",
       buildContext: "Crea il contesto",

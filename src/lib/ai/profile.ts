@@ -4,6 +4,7 @@ import { loadRequests } from "@/lib/requests/store";
 import { readJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import type { AiMemoryStore } from "./types";
+import { relativeFr } from "./actions";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 
@@ -23,6 +24,19 @@ export interface UsageProfile {
   /** Series with the most watched episodes — the strongest "you binge this"
    *  signal Movviz has. */
   topSeries: { title: string; episodes: number }[];
+  /** Epoch ms of the most recent dated watch event, or null if none —
+   *  demande explicite user ("date de visionnage aussi"). Only ever derived
+   *  from `recent` (bounded to the last 30 dated entries, Plex sync +
+   *  direct playback + manual toggle), never a guess — a real timestamp or
+   *  nothing. */
+  lastWatchedAt: number | null;
+  /** How many of those last 30 dated entries fall within the last 7/30
+   *  days — a real, bounded "viewing rhythm" signal (not the user's whole
+   *  history, just what's covered by the dated window Movviz actually
+   *  keeps), letting the assistant distinguish "watches constantly" from
+   *  "hasn't opened Movviz in weeks" without guessing. */
+  watchesLast7Days: number;
+  watchesLast30Days: number;
 }
 
 /** Quantified usage profile derived from REAL Movviz data — the assistant's
@@ -45,6 +59,13 @@ export function buildUsageProfile(userId: string): UsageProfile {
   const requests = loadRequests().filter((r) => r.userId === userId);
   const memory = readJsonCached<AiMemoryStore | null>(path.join(CONFIG_DIR, "ai-memory.json"), null) ?? {};
 
+  const recent = status?.recent ?? [];
+  const lastWatchedAt = recent.length ? Math.max(...recent.map((r) => r.at)) : null;
+  const now = Date.now();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const watchesLast7Days = recent.filter((r) => now - r.at <= 7 * DAY_MS).length;
+  const watchesLast30Days = recent.filter((r) => now - r.at <= 30 * DAY_MS).length;
+
   return {
     libraryMovies: loadMovies().length,
     librarySeries: loadSeries().length,
@@ -58,6 +79,9 @@ export function buildUsageProfile(userId: string): UsageProfile {
     aiAdded: memory[userId]?.added.length ?? 0,
     aiAccepted: memory[userId]?.accepted.length ?? 0,
     topSeries,
+    lastWatchedAt,
+    watchesLast7Days,
+    watchesLast30Days,
   };
 }
 
@@ -74,5 +98,9 @@ export function formatUsageProfile(p: UsageProfile): string {
   }
   if (p.aiAdded > 0) parts.push(`ajouts via l'assistant : ${p.aiAdded}`);
   if (p.aiAccepted > 0) parts.push(`recommandations acceptées : ${p.aiAccepted}`);
+  if (p.lastWatchedAt !== null) {
+    parts.push(`dernière vue : ${relativeFr(p.lastWatchedAt)}`);
+    parts.push(`rythme récent : ${p.watchesLast7Days} vue(s) sur 7 jours, ${p.watchesLast30Days} sur 30 jours`);
+  }
   return parts.join(" · ");
 }
