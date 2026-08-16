@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { IndexerManager } from "@/components/settings/IndexerManager";
 import { DownloadClients } from "@/components/settings/DownloadClients";
 import { PlexSettings } from "@/components/settings/PlexSettings";
+import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { useTheme } from "@/lib/theme/useTheme";
 import type { ThemeMode } from "@/lib/theme/theme";
@@ -17,12 +18,12 @@ import type { WizardTrackedField } from "@/lib/setup/wizardProvenance";
 import {
   Clapperboard, Languages, KeyRound, Tv, Magnet, HardDrive, Play, PartyPopper, ShieldCheck,
   Check, Loader2, ArrowRight, ExternalLink, ChevronRight, Sun, Moon, MonitorSmartphone,
-  Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2,
+  Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2, Bot,
 } from "lucide-react";
 import { DASHBOARD_MODES, DEFAULT_DASHBOARD_LAYOUT, type DashboardLayout } from "@/lib/dashboard/types";
 import { DEVICE_TYPES, type DeviceType } from "@/lib/setup/deviceTypes";
 
-const STEPS = ["language", "appearance", "hardware", "personalization", "tmdb", "tvdb", "indexers", "downloads", "plex", "done"] as const;
+const STEPS = ["language", "appearance", "hardware", "personalization", "tmdb", "tvdb", "ai", "indexers", "downloads", "plex", "done"] as const;
 type Step = (typeof STEPS)[number];
 
 const STEP_ICON: Record<Step, React.ElementType> = {
@@ -32,6 +33,7 @@ const STEP_ICON: Record<Step, React.ElementType> = {
   personalization: MonitorSmartphone,
   tmdb: KeyRound,
   tvdb: Tv,
+  ai: Bot,
   indexers: Magnet,
   downloads: HardDrive,
   plex: Play,
@@ -149,6 +151,11 @@ function SetupWizardPageInner() {
           {step === "personalization" && <PersonalizationStep />}
           {step === "tmdb" && <TmdbStep />}
           {step === "tvdb" && <TvdbStep />}
+          {step === "ai" && (
+            <StepShell title={t("setup.aiTitle")} hint={t("setup.aiHint")}>
+              <AiSettingsPanel showDebugLog={false} />
+            </StepShell>
+          )}
           {step === "indexers" && (
             <StepShell title={t("setup.indexersTitle")} hint={t("setup.indexersHint")}>
               <IndexerManager />

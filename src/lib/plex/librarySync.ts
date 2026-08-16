@@ -21,6 +21,26 @@ import { yieldToUser } from "@/lib/priority/userActivity";
 // and both see "not in library yet" for the same title, creating duplicates.
 let syncInFlight = false;
 
+// Debounced "sync soon" trigger for right after a fresh import — Plex needs
+// a few seconds to actually scan the file it was just told to refresh
+// (refreshPlexLibraryFor) before its own API reports a ratingKey for it, so
+// firing syncPlexLibrary() immediately would just find nothing yet. A single
+// delayed timer, coalesced across bursts (a season pack finishing several
+// episodes within the same few seconds only pays for one extra sync instead
+// of one per file) — anchored on globalThis since Next bundles routes
+// separately. The regular 5-minute scheduled sync (src/lib/scheduler/tasks.ts)
+// stays as the safety net if this fires too early and Plex is still scanning.
+const gSync = globalThis as typeof globalThis & { __movvizPlexSyncSoonTimer?: ReturnType<typeof setTimeout> | null };
+const SYNC_SOON_DELAY_MS = 20_000;
+
+export function scheduleLibrarySyncSoon(): void {
+  if (gSync.__movvizPlexSyncSoonTimer) return;
+  gSync.__movvizPlexSyncSoonTimer = setTimeout(() => {
+    gSync.__movvizPlexSyncSoonTimer = null;
+    syncPlexLibrary().catch(() => { /* best-effort — the 5-minute scheduled sync still covers it */ });
+  }, SYNC_SOON_DELAY_MS);
+}
+
 /**
  * Match/import a real Plex library into Movviz — an "import existing"
  * root-folder scan: anything already in Movviz's library

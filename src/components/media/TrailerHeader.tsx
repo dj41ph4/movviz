@@ -151,6 +151,12 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
             if (muted) e.target.mute();
             else e.target.unMute();
             e.target.setPlaybackQuality(MIN_QUALITY);
+            // cc_load_policy: 0 above only sets the DEFAULT captions state —
+            // YouTube can still force them on for some videos/viewers
+            // regardless. unloadModule is undocumented but the only way to
+            // actually guarantee no captions ever render on this decorative,
+            // sound-off ambient background.
+            try { e.target.unloadModule?.("captions"); } catch { /* best-effort */ }
             e.target.playVideo();
             loopTimer = setInterval(() => {
               const player = playerRef.current;
@@ -175,6 +181,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
             onPlayingChange(isPlaying);
             if (isPlaying) {
               e.target.setPlaybackQuality(MIN_QUALITY);
+              try { e.target.unloadModule?.("captions"); } catch { /* best-effort */ }
             }
           },
           // Fires for a removed/private video (100) or one the owner has

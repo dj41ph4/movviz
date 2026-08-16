@@ -4,6 +4,26 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.1 — August 2026
+
+### Movviz AI
+
+- Correction : le bouton de chat n'apparaissait qu'après un rechargement complet de la page une fois Movviz AI activé dans Réglages — il apparaît maintenant immédiatement.
+- Nouveau journal (Réglages → Movviz AI, admin) : historique des derniers appels au chat avec fournisseur utilisé, succès/échec, latence — pour comprendre ce qui s'est passé sans deviner.
+- Chaque fournisseur affiche maintenant où obtenir une clé API gratuite directement dans Réglages.
+- Détection de quota/clé invalide élargie (403 en plus de 429) pour une bascule plus fiable entre les clés d'un même fournisseur.
+- Nouvelle étape, entièrement optionnelle, pour activer Movviz AI et ajouter une clé dès la première configuration de Movviz.
+- Le fond et le logo personnalisés d'une fiche privilégient maintenant la langue de l'interface (logo français si disponible pour un utilisateur en français, etc.) plutôt que la simple popularité.
+- Le logo s'affiche aussi dans le carrousel Hero du tableau de bord, pas seulement sur la fiche.
+
+### Fiabilité et confirmations
+
+- Suppression d'une fiche (bouton corbeille) et suppression définitive depuis la Corbeille : une confirmation est désormais toujours demandée, plus aucune suppression accidentelle en un clic.
+- Synchronisation Plex accélérée après un téléchargement : Movviz déclenche sa propre synchro quelques secondes après un import au lieu d'attendre jusqu'à 5 minutes.
+- Correctif de plein écran : le conteneur du lecteur avait des classes CSS de mise en page inertes (variante non enregistrée), remplacées par une logique fiable.
+- Éditeur d'image de fiche fusionné avec « Modifier la fiche » (un seul bouton crayon) — la personnalisation d'image reste ouverte à tout utilisateur, les réglages structurels restent réservés aux admins.
+- Sous-titres YouTube désormais bien désactivés sur les vidéos d'ambiance (fiches et carrousel).
+
 ## v1.14.0 — August 2026
 
 ### Movviz AI — chatbox intelligente (nouveau)

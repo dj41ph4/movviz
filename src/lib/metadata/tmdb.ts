@@ -623,20 +623,29 @@ interface RawTitleImages {
   logos?: RawTitleImage[];
 }
 
-function mapTitleImages(list: RawTitleImage[] | undefined): TitleImageOption[] {
+/** Viewer's language first (best-rated among those), then everything else
+ *  by rating — a French viewer gets French logos/backdrops ahead of a
+ *  higher-voted English one, matching how TMDb's own site lets you filter
+ *  by language rather than just sorting by score. */
+function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string): TitleImageOption[] {
   return (list ?? [])
     .map((i) => ({ filePath: i.file_path, width: i.width, height: i.height, language: i.iso_639_1, voteAverage: i.vote_average ?? 0 }))
-    .sort((a, b) => b.voteAverage - a.voteAverage);
+    .sort((a, b) => {
+      const aMatch = a.language === preferredLang ? 1 : 0;
+      const bMatch = b.language === preferredLang ? 1 : 0;
+      if (aMatch !== bMatch) return bMatch - aMatch;
+      return b.voteAverage - a.voteAverage;
+    });
 }
 
-/** Alternate backdrops/logos for a title, best-rated first — feeds the "customize this title's artwork" picker. `include_image_language` keeps the viewer's language plus English and language-less (most logos) art in scope, matching how TMDb's own website presents the choice. */
+/** Alternate backdrops/logos for a title, viewer's language first then best-rated — feeds the "customize this title's artwork" picker. `include_image_language` keeps the viewer's language plus English and language-less (most logos) art in scope, matching how TMDb's own website presents the choice. */
 export async function getTitleImages(tmdbId: number, type: "movie" | "series", locale?: string): Promise<{ backdrops: TitleImageOption[]; logos: TitleImageOption[] }> {
   const lang = toTmdbLanguage(locale).split("-")[0];
   const data = await tmdbGet<RawTitleImages>(
     `/${type === "movie" ? "movie" : "tv"}/${tmdbId}/images`,
     { include_image_language: `${lang},en,null` }
   );
-  return { backdrops: mapTitleImages(data?.backdrops), logos: mapTitleImages(data?.logos) };
+  return { backdrops: mapTitleImages(data?.backdrops, lang), logos: mapTitleImages(data?.logos, lang) };
 }
 
 /** Overview + cast + similar titles + franchise collection, for a detail page. */

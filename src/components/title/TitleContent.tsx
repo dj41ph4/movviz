@@ -15,7 +15,6 @@ import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { IntegralSearchModal } from "@/components/search/IntegralSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
 import { EditTitleModal } from "@/components/title/EditTitleModal";
-import { ImagePickerModal } from "@/components/title/ImagePickerModal";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import { BrandIcon } from "@/components/ui/BrandIcon";
 import { TagEditor } from "@/components/library/TagEditor";
@@ -35,7 +34,7 @@ import { setPageTitleContext } from "@/lib/ai/pageContext";
 import {
   Star, Plus, Check, Loader2, Bookmark,
   Clock, HardDriveDownload, Search, SearchCheck, Hash, Play,
-  ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, Pencil, Eye, Images,
+  ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, Pencil, Eye,
   type LucideIcon,
 } from "lucide-react";
 
@@ -312,6 +311,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const [adding, setAdding] = useState(false);
   const [added, setAdded] = useState(!!libraryMatch);
   const [watching, setWatching] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchingSeason, setSearchingSeason] = useState<number | null>(null);
   const [searchingEpisode, setSearchingEpisode] = useState<string | null>(null);
@@ -380,7 +381,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     ? Math.min(100, Math.max(0, (resumeSeconds / (detail.runtime * 60)) * 100))
     : null;
 
-  const [artworkOpen, setArtworkOpen] = useState(false);
   // Auto-picked logo (best-rated TMDb logo in the viewer's language, English,
   // or language-less) — the artwork picker lets a user override it, but the
   // hero always tries to show SOME logo over text when TMDb has one at all.
@@ -654,8 +654,13 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
   const remove = useCallback(async () => {
     if (!libraryMatch?.id) return;
-    await fetch(`${libEndpoint}/${libraryMatch.id}`, { method: "DELETE" });
-    router.push("/library");
+    setRemoving(true);
+    try {
+      await fetch(`${libEndpoint}/${libraryMatch.id}`, { method: "DELETE" });
+      router.push("/library");
+    } finally {
+      setRemoving(false);
+    }
   }, [libraryMatch?.id, libEndpoint, router]);
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -1006,27 +1011,40 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 className="h-10 w-10 backdrop-blur"
               />
               <button
-                onClick={() => setArtworkOpen(true)}
-                title={t("title.artwork.button")}
+                onClick={() => setEditOpen(true)}
+                title={t("title.edit.title")}
                 className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
               >
-                <Images className="h-4 w-4" />
+                <Pencil className="h-4 w-4" />
               </button>
-              {user?.role === "admin" && (
+              {confirmRemove ? (
+                <div className="flex items-center gap-1 rounded-xl glass backdrop-blur p-1">
+                  <button
+                    onClick={remove}
+                    disabled={removing}
+                    title={t("title.edit.removeConfirm")}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-down text-white transition-transform hover:scale-110 active:scale-90 disabled:opacity-50"
+                  >
+                    {removing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                  </button>
+                  <button
+                    onClick={() => setConfirmRemove(false)}
+                    disabled={removing}
+                    title={t("common.cancel")}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
                 <button
-                  onClick={() => setEditOpen(true)}
-                  title={t("title.edit.title")}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-              )}
-              <button
-                onClick={remove}
-                className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-down transition-transform hover:scale-110 active:scale-90"
+                  onClick={() => setConfirmRemove(true)}
+                  title={t("title.edit.remove")}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-down transition-transform hover:scale-110 active:scale-90"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
+              )}
               </div>
             )}
 
@@ -1674,24 +1692,16 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
         <EditTitleModal
           type={type}
           id={libraryMatch.id}
+          tmdbId={tmdbId}
           title={detail.title}
           monitored={libraryMatch.monitored ?? true}
           qualityProfileId={libraryMatch.qualityProfileId ?? defaultQualityProfile().id}
           aliases={libraryMatch.aliases ?? []}
           filePath={libraryMatch.file?.path}
+          customBackdropPath={libraryMatch.customBackdropPath}
+          customLogoPath={libraryMatch.customLogoPath}
+          isAdmin={user?.role === "admin"}
           onClose={() => setEditOpen(false)}
-          onChange={() => mutateLibrary()}
-        />
-      )}
-
-      {artworkOpen && libraryMatch?.id && (
-        <ImagePickerModal
-          type={type}
-          id={libraryMatch.id}
-          tmdbId={tmdbId}
-          currentBackdropPath={libraryMatch.customBackdropPath}
-          currentLogoPath={libraryMatch.customLogoPath}
-          onClose={() => setArtworkOpen(false)}
           onChange={() => mutateLibrary()}
         />
       )}

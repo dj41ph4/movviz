@@ -1,13 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { mutate } from "swr";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/Toast";
 import { Bot, Check, Loader2, Plus, X, Trash2 } from "lucide-react";
 import type { AiProviderId } from "@/lib/ai/types";
+import { AiDebugLogPanel } from "@/components/settings/AiDebugLogPanel";
 
 const PROVIDERS: AiProviderId[] = ["mistral", "openrouter", "gemini"];
+
+/** Where to grab a free key for each provider — plain URLs, no translation needed. */
+const PROVIDER_KEY_URL: Record<AiProviderId, string> = {
+  mistral: "https://console.mistral.ai/api-keys",
+  openrouter: "https://openrouter.ai/keys",
+  gemini: "https://aistudio.google.com/apikey",
+};
 
 interface KeyRow {
   id: string;
@@ -49,7 +58,7 @@ function Switch({ checked, onChange, label, hint }: { checked: boolean; onChange
   );
 }
 
-export function AiSettingsPanel() {
+export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolean } = {}) {
   const t = useT();
   const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState<ConfigDraft | null>(null);
@@ -119,6 +128,10 @@ export function AiSettingsPanel() {
         setDraft({ enabled: d.enabled, primary: d.primary, fallback: d.fallback, providers });
         setTestResult(null);
         toast("success", t("ai.settings.saved"));
+        // The floating chat button reads its own "enabled" via SWR on
+        // /api/ai/session — without this, toggling AI on/off here would
+        // only take effect for the widget after a full page reload.
+        mutate("/api/ai/session");
       } else {
         toast("error", t("ai.settings.saveFailed"));
       }
@@ -171,6 +184,7 @@ export function AiSettingsPanel() {
   const hasAnyKey = PROVIDERS.some((id) => draft.providers[id].keys.length > 0);
 
   return (
+    <div className="space-y-5">
     <div className="rounded-2xl glass p-5">
       <div className="mb-5 flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand/12 text-brand-glow">
@@ -240,6 +254,18 @@ export function AiSettingsPanel() {
                       {t("ai.settings.test")}
                     </button>
                   </div>
+
+                  <p className="mb-3 text-xs text-ink-dim">
+                    {t(`ai.provider.${id}Hint`)} — {t("ai.settings.getKeyPrefix")}{" "}
+                    <a
+                      href={PROVIDER_KEY_URL[id]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-brand-glow hover:underline"
+                    >
+                      {PROVIDER_KEY_URL[id].replace(/^https?:\/\//, "")}
+                    </a>
+                  </p>
 
                   <div className="mb-3">
                     <label className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-ink-dim">
@@ -324,6 +350,9 @@ export function AiSettingsPanel() {
           {!hasAnyKey && <p className="text-xs text-ink-dim">{t("ai.settings.saveHint")}</p>}
         </div>
       </div>
+    </div>
+
+    {showDebugLog && <AiDebugLogPanel />}
     </div>
   );
 }

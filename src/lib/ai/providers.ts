@@ -16,7 +16,7 @@ import { AI_PROVIDER_ORDER } from "./types";
  */
 
 const TIMEOUT_MS = 45_000;
-const QUOTA_RE = /quota|rate limit|resource exhausted|insufficient_quota|429|too many requests/i;
+const QUOTA_RE = /quota|rate limit|resource exhausted|insufficient_quota|429|too many requests|403|forbidden|invalid api key|api key not valid/i;
 
 export class AiCallError extends Error {
   readonly provider: AiProviderId;
@@ -53,7 +53,7 @@ async function jsonFetch(providerId: AiProviderId, url: string, headers: Record<
     } catch { return null; }
   })();
   if (!res.ok) {
-    if (res.status === 429 || (errorMessage && QUOTA_RE.test(errorMessage))) {
+    if (res.status === 429 || res.status === 403 || (errorMessage && QUOTA_RE.test(errorMessage))) {
       throw new AiCallError(providerId, errorMessage ?? `HTTP ${res.status}`, true);
     }
     throw new AiCallError(providerId, errorMessage ?? `HTTP ${res.status} (${res.statusText})`, false);

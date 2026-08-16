@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import useSWR from "swr";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
@@ -122,7 +123,6 @@ export function ChatWidget() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [provider, setProvider] = useState<string | null>(null);
-  const [enabled, setEnabled] = useState<boolean | null>(null);
   const [adding, setAdding] = useState<Record<string, "adding" | "added">>({});
   const [memory, setMemory] = useState<MemoryView | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -134,18 +134,20 @@ export function ChatWidget() {
     } catch { /* panel stays hidden */ }
   }, []);
 
+  // SWR (not a one-off fetch) so the button appears/disappears the moment an
+  // admin flips the toggle in Settings — AiSettingsPanel calls the shared
+  // `mutate("/api/ai/session")` after a successful save, which revalidates
+  // this same key here without needing a page reload.
+  const { data: sessionData, mutate: mutateSession } = useSWR<{ messages: AiChatMessage[]; enabled: boolean }>("/api/ai/session");
+  const enabled = sessionData?.enabled ?? null;
+  const seededRef = useRef(false);
+
   useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch("/api/ai/session", { cache: "no-store" });
-        if (!r.ok) return;
-        const data = await r.json();
-        setMessages(data.messages ?? []);
-        setEnabled(!!data.enabled);
-        if (data.enabled) refreshMemory();
-      } catch { /* keep widget hidden */ }
-    })();
-  }, [refreshMemory]);
+    if (!sessionData || seededRef.current) return;
+    seededRef.current = true;
+    setMessages(sessionData.messages ?? []);
+    if (sessionData.enabled) refreshMemory();
+  }, [sessionData, refreshMemory]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -166,7 +168,7 @@ export function ChatWidget() {
       });
       const data = await r.json().catch(() => null);
       if (!r.ok) {
-        if (data?.error === "ai_disabled") setEnabled(false);
+        if (data?.error === "ai_disabled") mutateSession();
         const detail = data?.detail && typeof data.detail === "string" ? ` — ${data.detail}` : "";
         setMessages((m) => [...m, { role: "assistant", content: `${t("ai.error")}${detail}` }]);
       } else if (data?.message) {
@@ -178,7 +180,7 @@ export function ChatWidget() {
     } finally {
       setBusy(false);
     }
-  }, [input, busy, t]);
+  }, [input, busy, t, mutateSession]);
 
   const clear = useCallback(async () => {
     setMessages([]);

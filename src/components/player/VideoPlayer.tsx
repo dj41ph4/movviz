@@ -1994,9 +1994,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       <div
         ref={playerRef}
         className={cn(
-          "relative flex flex-col overflow-hidden shadow-2xl fullscreen:rounded-none fullscreen:h-full fullscreen:w-full fullscreen:max-w-none fullscreen:bg-black",
-          embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface",
-          !embedded && fullscreen ? "h-full w-full rounded-none" : !embedded ? "rounded-2xl h-[80vh] w-[90vw] max-w-5xl" : undefined
+          "relative flex flex-col overflow-hidden shadow-2xl",
+          // `fullscreen:*` isn't a registered Tailwind variant in this
+          // project (no @custom-variant for :fullscreen) — those classes
+          // were always dead CSS. Driven from the real `fullscreen` state
+          // instead: true browser fullscreen always gets a solid black,
+          // unrounded, unconstrained box regardless of embedded/panel mode.
+          fullscreen ? "h-full w-full rounded-none max-w-none bg-black" : embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface",
+          !fullscreen && !embedded ? "rounded-2xl h-[80vh] w-[90vw] max-w-5xl" : undefined
         )}
       >
         <div

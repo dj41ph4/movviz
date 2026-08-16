@@ -5,7 +5,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Trash2, RotateCcw, Loader2, AlertTriangle, Film, Tv } from "lucide-react";
+import { Trash2, RotateCcw, Loader2, AlertTriangle, Film, Tv, Check, X } from "lucide-react";
 import type { TrashItem } from "@/lib/library/trashStore";
 
 function fetcher(url: string) { return fetch(url, { cache: "no-store" }).then((r) => r.json()); }
@@ -16,6 +16,7 @@ export default function TrashPage() {
   const [restoring, setRestoring] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
   const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
 
   const items = data?.items ?? [];
 
@@ -32,6 +33,7 @@ export default function TrashPage() {
 
   const permanentlyDelete = async (item: TrashItem) => {
     const key = `${item.type}_${item.tmdbId}`;
+    setConfirmDeleteKey(null);
     setDeleting((s) => new Set(s).add(key));
     try {
       await fetch(`/api/library/trash/${key}`, { method: "DELETE" });
@@ -92,6 +94,7 @@ export default function TrashPage() {
               const key = `${item.type}_${item.tmdbId}`;
               const isRestoring = restoring.has(key);
               const isDeleting = deleting.has(key);
+              const isConfirming = confirmDeleteKey === key;
               return (
                 <motion.div
                   key={key}
@@ -122,35 +125,76 @@ export default function TrashPage() {
                       >
                         {isRestoring ? <Loader2 className="h-5 w-5 animate-spin" /> : <RotateCcw className="h-5 w-5" />}
                       </button>
-                      <button
-                        onClick={() => permanentlyDelete(item)}
-                        disabled={isDeleting}
-                        title={t("trash.deleteForever")}
-                        className="flex h-11 w-11 items-center justify-center rounded-xl bg-down/80 text-white shadow-lg transition-transform hover:scale-110 disabled:opacity-50"
-                      >
-                        {isDeleting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Trash2 className="h-5 w-5" />}
-                      </button>
+                      {isConfirming ? (
+                        <>
+                          <button
+                            onClick={() => permanentlyDelete(item)}
+                            disabled={isDeleting}
+                            title={t("trash.deleteForeverConfirm")}
+                            className="flex h-11 w-11 items-center justify-center rounded-xl bg-down text-white shadow-lg transition-transform hover:scale-110 disabled:opacity-50"
+                          >
+                            {isDeleting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteKey(null)}
+                            disabled={isDeleting}
+                            title={t("common.cancel")}
+                            className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-white shadow-lg transition-transform hover:scale-110"
+                          >
+                            <X className="h-5 w-5" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setConfirmDeleteKey(key)}
+                          title={t("trash.deleteForever")}
+                          className="flex h-11 w-11 items-center justify-center rounded-xl bg-down/80 text-white shadow-lg transition-transform hover:scale-110"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {/* Actions mobiles (toujours visibles) */}
                   <div className="mt-2 flex gap-2 lg:hidden">
-                    <button
-                      onClick={() => restore(item)}
-                      disabled={isRestoring}
-                      className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-ok/20 text-sm font-bold text-ok transition-colors hover:bg-ok/30 disabled:opacity-50"
-                    >
-                      {isRestoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
-                      {t("trash.restore")}
-                    </button>
-                    <button
-                      onClick={() => permanentlyDelete(item)}
-                      disabled={isDeleting}
-                      className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-down/20 text-sm font-bold text-down transition-colors hover:bg-down/30 disabled:opacity-50"
-                    >
-                      {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                      {t("trash.deleteForever")}
-                    </button>
+                    {isConfirming ? (
+                      <>
+                        <button
+                          onClick={() => permanentlyDelete(item)}
+                          disabled={isDeleting}
+                          className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-down text-sm font-bold text-white transition-colors disabled:opacity-50"
+                        >
+                          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                          {t("trash.deleteForeverConfirm")}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteKey(null)}
+                          disabled={isDeleting}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-ink-soft transition-colors hover:bg-white/15"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => restore(item)}
+                          disabled={isRestoring}
+                          className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-ok/20 text-sm font-bold text-ok transition-colors hover:bg-ok/30 disabled:opacity-50"
+                        >
+                          {isRestoring ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                          {t("trash.restore")}
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteKey(key)}
+                          className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-xl bg-down/20 text-sm font-bold text-down transition-colors hover:bg-down/30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          {t("trash.deleteForever")}
+                        </button>
+                      </>
+                    )}
                   </div>
 
                   <p className="mt-1.5 truncate text-xs font-semibold text-ink">{item.title}</p>

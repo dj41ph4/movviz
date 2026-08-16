@@ -7,6 +7,7 @@ import { X, Loader2, FolderOpen, Save } from "lucide-react";
 import { QualityProfileSelect } from "@/components/library/QualityProfileSelect";
 import { RepairFileBrowserModal } from "@/components/settings/RepairFileBrowserModal";
 import { AliasEditor } from "@/components/library/AliasEditor";
+import { ArtworkFields } from "@/components/title/ArtworkFields";
 
 /**
  * "Modifier la fiche" — fixes a mistake made when the title was first added
@@ -17,16 +18,24 @@ import { AliasEditor } from "@/components/library/AliasEditor";
  * and the season/episode views.
  */
 export function EditTitleModal({
-  type, id, title, monitored, qualityProfileId, aliases, filePath,
+  type, id, tmdbId, title, monitored, qualityProfileId, aliases, filePath,
+  customBackdropPath, customLogoPath, isAdmin,
   onClose, onChange,
 }: {
   type: "movie" | "series";
   id: string;
+  tmdbId: number;
   title: string;
   monitored: boolean;
   qualityProfileId: string;
   aliases?: string[];
   filePath?: string | null;
+  customBackdropPath?: string | null;
+  customLogoPath?: string | null;
+  /** Structural fields (monitored, quality profile, aliases, file location)
+   *  stay admin-only, same as before — only the artwork picker below is open
+   *  to every user (cosmetic edit, same permission as tags). */
+  isAdmin: boolean;
   onClose: () => void;
   onChange: () => void;
 }) {
@@ -116,55 +125,73 @@ export function EditTitleModal({
           </div>
 
           <div className="space-y-5 p-6">
-            <label className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/20 px-4 py-3">
-              <span className="text-sm font-semibold text-ink">{t("title.edit.monitored")}</span>
-              <input
-                type="checkbox"
-                checked={localMonitored}
-                onChange={(e) => setLocalMonitored(e.target.checked)}
-                className="h-5 w-5 accent-brand"
-              />
-            </label>
+            {isAdmin && (
+              <>
+                <label className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-black/20 px-4 py-3">
+                  <span className="text-sm font-semibold text-ink">{t("title.edit.monitored")}</span>
+                  <input
+                    type="checkbox"
+                    checked={localMonitored}
+                    onChange={(e) => setLocalMonitored(e.target.checked)}
+                    className="h-5 w-5 accent-brand"
+                  />
+                </label>
 
-            <div>
-              <p className="mb-1.5 text-sm font-semibold text-ink">{t("title.edit.qualityProfile")}</p>
-              <QualityProfileSelect value={localProfile} onChange={setLocalProfile} />
-            </div>
-
-            <div>
-              <p className="mb-1 text-sm font-semibold text-ink">{t("title.edit.aliases")}</p>
-              <p className="mb-2 text-xs leading-relaxed text-ink-dim">{t("title.edit.aliasesHint")}</p>
-              <AliasEditor aliases={localAliases} onChange={setLocalAliases} />
-            </div>
-
-            {type === "movie" && (
-              <div>
-                <p className="mb-1.5 text-sm font-semibold text-ink">{t("title.edit.location")}</p>
-                <div className="flex items-center gap-2">
-                  <code className="min-w-0 flex-1 truncate rounded-xl border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-ink-soft">
-                    {filePath || t("title.edit.noFile")}
-                  </code>
-                  <button
-                    onClick={openBrowser}
-                    disabled={locationBusy}
-                    className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl glass px-3 text-xs font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
-                  >
-                    {locationBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderOpen className="h-3.5 w-3.5" />}
-                    {t("title.edit.browse")}
-                  </button>
+                <div>
+                  <p className="mb-1.5 text-sm font-semibold text-ink">{t("title.edit.qualityProfile")}</p>
+                  <QualityProfileSelect value={localProfile} onChange={setLocalProfile} />
                 </div>
-                {locationError && <p className="mt-1.5 text-xs text-down">{t("title.edit.locationError")}</p>}
-              </div>
+
+                <div>
+                  <p className="mb-1 text-sm font-semibold text-ink">{t("title.edit.aliases")}</p>
+                  <p className="mb-2 text-xs leading-relaxed text-ink-dim">{t("title.edit.aliasesHint")}</p>
+                  <AliasEditor aliases={localAliases} onChange={setLocalAliases} />
+                </div>
+
+                {type === "movie" && (
+                  <div>
+                    <p className="mb-1.5 text-sm font-semibold text-ink">{t("title.edit.location")}</p>
+                    <div className="flex items-center gap-2">
+                      <code className="min-w-0 flex-1 truncate rounded-xl border border-white/8 bg-black/30 px-3 py-2.5 text-xs text-ink-soft">
+                        {filePath || t("title.edit.noFile")}
+                      </code>
+                      <button
+                        onClick={openBrowser}
+                        disabled={locationBusy}
+                        className="flex h-10 shrink-0 items-center gap-1.5 rounded-xl glass px-3 text-xs font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+                      >
+                        {locationBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FolderOpen className="h-3.5 w-3.5" />}
+                        {t("title.edit.browse")}
+                      </button>
+                    </div>
+                    {locationError && <p className="mt-1.5 text-xs text-down">{t("title.edit.locationError")}</p>}
+                  </div>
+                )}
+
+                <button
+                  onClick={save}
+                  disabled={saving || !dirty}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {t("title.edit.save")}
+                </button>
+
+                <div className="border-t border-white/8 pt-5" />
+              </>
             )}
 
-            <button
-              onClick={save}
-              disabled={saving || !dirty}
-              className="flex w-full items-center justify-center gap-2 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white disabled:opacity-40"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {t("title.edit.save")}
-            </button>
+            <div>
+              <p className="mb-3 text-sm font-semibold text-ink">{t("title.artwork.sectionTitle")}</p>
+              <ArtworkFields
+                type={type}
+                id={id}
+                tmdbId={tmdbId}
+                currentBackdropPath={customBackdropPath}
+                currentLogoPath={customLogoPath}
+                onChange={onChange}
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@ import { getMovie, updateMovie, getSeries, updateSeries } from "@/lib/library/st
 import { encodeLibraryRef, type LibraryFile } from "@/lib/library/types";
 import { pathFor } from "@/lib/library/renamePath";
 import { emitNotification } from "@/lib/notifications/store";
-import { refreshPlexLibraryFor } from "@/lib/plex/librarySync";
+import { refreshPlexLibraryFor, scheduleLibrarySyncSoon } from "@/lib/plex/librarySync";
 import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createReleaseRef, createImportRef } from "@/lib/activity/v2/store";
 import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
@@ -94,6 +94,11 @@ function releaseIfOrphaned<T extends EpisodeLike>(ep: T, infoHash: string | unde
 
 function refreshLoose(kind: "movie" | "tv") {
   void refreshPlexLibraryFor(kind).catch(() => {});
+  // Tells Plex to scan; this schedules Movviz's OWN sync (the one that
+  // actually picks up plexRatingKey/plexUrl) shortly after, instead of
+  // leaving a freshly-available title stuck on "En attente de synchronisation
+  // Plex" until the next 5-minute scheduled pass.
+  scheduleLibrarySyncSoon();
 }
 
 /**

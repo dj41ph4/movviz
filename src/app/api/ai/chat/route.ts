@@ -6,6 +6,7 @@ import { parseIntent } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
+import { recordAiCall } from "@/lib/ai/debugLog";
 import type { AiActionOutcome, AiChatMessage, AiAddItem } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
@@ -78,6 +79,10 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     const err = e as { message?: string; provider?: string; quota?: boolean };
     console.log(`[ai] chat fail user=${user.username} provider=${err.provider ?? "?"} quota=${!!err.quota} err=${err.message ?? "?"}`);
+    recordAiCall({
+      username: user.username, kind: "chat", provider: err.provider ?? null,
+      success: false, durationMs: Date.now() - t0, error: err.message ?? "?", message,
+    });
     return NextResponse.json({ error: "ai_call_failed", detail: err.message ?? null }, { status: 502 });
   }
   const latency = Date.now() - t0;
@@ -87,18 +92,25 @@ export async function POST(req: NextRequest) {
   const intent = parseIntent(text);
   const assistant: AiChatMessage = { role: "assistant", content: intent.rawText || "…" };
 
+  let itemCount: number | undefined;
   if (intent.action === "add_media" && intent.items.length) {
     const outcomes = await addMedia(user, intent.items as AiAddItem[]);
     assistant.actions = outcomes;
     const summary = summarizeAdd(outcomes);
     assistant.content = [intent.rawText, ...summary].filter(Boolean).join("\n\n");
+    itemCount = outcomes.length;
     console.log(`[ai] action=add_media items=${outcomes.length} user=${user.username}`);
   } else if (intent.action === "recommend" && intent.items.length) {
     const recos = await recommendMedia(intent.items);
     const recommendations = recos.map((r, i) => ({ ...r, reason: intent.items[i]?.reason }));
     assistant.recommendations = recommendations;
+    itemCount = recommendations.length;
     console.log(`[ai] action=recommend items=${recommendations.length} user=${user.username}`);
   }
+  recordAiCall({
+    username: user.username, kind: intent.action ?? "chat", provider: providerName,
+    success: true, durationMs: latency, itemCount, message,
+  });
 
   pushAiMessage(user.id, assistant);
   return NextResponse.json({ message: assistant, provider: providerName });
