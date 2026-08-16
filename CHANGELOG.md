@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.28 — August 2026
+
+### Movviz AI
+
+- Quand tu corriges l'assistant parce qu'il a affirmé à tort qu'un titre n'est pas dans ta bibliothèque, cette correction est désormais retenue — si la même erreur se reproduit plusieurs fois, l'assistant devient nettement plus prudent avant d'affirmer une absence, plutôt que de répéter la même erreur à chaque conversation.
+
 ## v1.14.27 — August 2026
 
 ### Movviz AI

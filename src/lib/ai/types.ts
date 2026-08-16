@@ -175,10 +175,28 @@ export interface AiContextProfile {
   builtAt: number;
 }
 
+/** A user correcting the assistant on a wrong claim it just made — logged so
+ *  a REPEATED same-shape mistake can escalate the prompt's own honesty rule
+ *  for that specific user (tasteProfile.buildCorrectionEscalationContext),
+ *  instead of each correction only ever living as a one-off in-context
+ *  apology that's forgotten the moment the session ends. Deliberately not a
+ *  large taxonomy (AI.MD "simplest thing that actually works") — only the
+ *  one category that's confirmed live and reliably detectable from regex
+ *  alone; "other" exists so the shape doesn't need to change the day a
+ *  second reliably-detectable category shows up, but nothing writes it yet. */
+export interface AiCorrectionEntry {
+  category: "library_false_negative" | "other";
+  /** Short excerpt of the user's correcting message — just enough to see
+   *  what was said, never a full transcript. */
+  note: string;
+  at: number;
+}
+
 export interface AiUserProfile {
   feedback: AiFeedbackEntry[];
   facts: AiFactEntry[];
   context?: AiContextProfile;
+  corrections?: AiCorrectionEntry[];
 }
 
 /** Strictly per-user — ai-user-profiles.json, never cross-referenced between

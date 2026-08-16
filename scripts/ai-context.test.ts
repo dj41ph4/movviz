@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { saveContextInsights, getContextProfile } from "@/lib/ai/tasteProfile";
+import { saveContextInsights, getContextProfile, recordCorrection, getCorrections, buildCorrectionEscalationContext } from "@/lib/ai/tasteProfile";
 import type { AiContextInsight } from "@/lib/ai/types";
 
 /**
@@ -41,4 +41,54 @@ test("saveContextInsights: incrémental (merge=true) ajoute un insight vraiment 
     context.insights.map((i) => i.text).sort(),
     ["Préfère les séries courtes", "Suit ses franchises jusqu'au bout"]
   );
+});
+
+/**
+ * Round-trip proof for `corrections` (write → read survives) — same class
+ * of bug a previous session found for `context` (silently dropped by
+ * profileForUser because it wasn't copied through). Writing a correction
+ * then reading it back through a SEPARATE call must return it unchanged,
+ * or this exact bug has recurred.
+ */
+test("recordCorrection/getCorrections: une correction survit à un aller-retour écriture/lecture", () => {
+  const userId = "test-user-corrections-roundtrip";
+  recordCorrection(userId, { category: "library_false_negative", note: "ben si, j'ai les duo impossible" });
+  const corrections = getCorrections(userId);
+  assert.equal(corrections.length, 1);
+  assert.equal(corrections[0].category, "library_false_negative");
+  assert.equal(corrections[0].note, "ben si, j'ai les duo impossible");
+  assert.ok(typeof corrections[0].at === "number" && corrections[0].at > 0);
+});
+
+test("recordCorrection: n'écrase pas les faits/feedback/context déjà présents pour cet utilisateur (garde-fou anti-régression du bug 'context perdu')", () => {
+  const userId = "test-user-corrections-preserves-siblings";
+  saveContextInsights(userId, [{ text: "Suit ses franchises", confidence: 0.7, evidenceCount: 3, trend: "stable", at: Date.now(), source: "bootstrap" }], false);
+  recordCorrection(userId, { category: "library_false_negative", note: "c'est faux" });
+  const context = getContextProfile(userId);
+  assert.ok(context && context.insights.length === 1, "le context posé avant doit survivre à l'écriture d'une correction");
+});
+
+test("buildCorrectionEscalationContext: vide sous le seuil (1-2 corrections)", () => {
+  const userId = "test-user-corrections-below-threshold";
+  recordCorrection(userId, { category: "library_false_negative", note: "a" });
+  recordCorrection(userId, { category: "library_false_negative", note: "b" });
+  assert.equal(buildCorrectionEscalationContext(userId), "");
+});
+
+test("buildCorrectionEscalationContext: non vide dès le seuil atteint (3 corrections), cite le compte", () => {
+  const userId = "test-user-corrections-at-threshold";
+  recordCorrection(userId, { category: "library_false_negative", note: "a" });
+  recordCorrection(userId, { category: "library_false_negative", note: "b" });
+  recordCorrection(userId, { category: "library_false_negative", note: "c" });
+  const escalation = buildCorrectionEscalationContext(userId);
+  assert.ok(escalation.length > 0);
+  assert.ok(escalation.includes("3"));
+});
+
+test("buildCorrectionEscalationContext: une correction de catégorie 'other' ne compte pas vers le seuil library_false_negative", () => {
+  const userId = "test-user-corrections-other-category-excluded";
+  recordCorrection(userId, { category: "other", note: "a" });
+  recordCorrection(userId, { category: "other", note: "b" });
+  recordCorrection(userId, { category: "other", note: "c" });
+  assert.equal(buildCorrectionEscalationContext(userId), "");
 });

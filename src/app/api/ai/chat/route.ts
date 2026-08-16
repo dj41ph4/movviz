@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, isDegenerateReply } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, isDegenerateReply } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
-import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
+import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
+import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { scoreCandidates, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
 import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
@@ -110,12 +111,27 @@ export async function POST(req: NextRequest) {
     ?? extractNameFromDirectAnswer(previousAssistant?.role === "assistant" ? previousAssistant.content : undefined, message);
   if (introName) rememberFact(user.id, introName);
 
+  // Correction-detection (confirmed live bug: "il me manque quoi de X" →
+  // invented absence → user corrects it, but the assistant never actually
+  // learns from it beyond that one apology). Code-level, deterministic —
+  // never trusts the LLM's own judgment of whether it was wrong (see
+  // intentParser.detectLibraryFalseNegativeCorrection doc).
+  const libraryCorrectionNote = detectLibraryFalseNegativeCorrection(previousAssistant?.role === "assistant" ? previousAssistant.content : undefined, message);
+  if (libraryCorrectionNote) {
+    recordCorrection(user.id, { category: "library_false_negative", note: libraryCorrectionNote });
+    // Additive write-path, same fire-and-forget pattern used at every other
+    // call site (watch/toggle, ai/watched, ai/feedback, netflix import) —
+    // not a new mechanism, just one more producer of "real activity".
+    triggerIncrementalContextIfDue(user.id).catch(() => {});
+  }
+
   const userContext = buildUserContext(user.id);
   const memoryContext = buildMemoryContext(user.id);
   const usageContext = formatUsageProfile(buildUsageProfile(user.id));
   const feedbackContext = buildFeedbackContext(user.id);
   const factsContext = buildFactsContext(user.id);
   const contextInsightsContext = buildContextInsightsSection(user.id);
+  const correctionEscalationContext = buildCorrectionEscalationContext(user.id);
   // "First ever interaction" = no prior session AND no fact known about
   // this user BEFORE this message — not just "empty session" (a cleared
   // chat shouldn't re-trigger onboarding for someone Movviz already knows).
@@ -123,7 +139,7 @@ export async function POST(req: NextRequest) {
   // Checked AFTER the introName capture above, so telling it your name IN
   // THIS message already counts — no double-ask in the same reply.
   const needsName = !hasKnownName(user.id);
-  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext);
+  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext);
   if (pageContext) {
     system += `\n\nRÉFÉRENCE COURANTE — l'utilisateur regarde actuellement ${pageContext.type === "movie" ? "le film" : "la série"} « ${pageContext.title} » (${pageContext.tmdbId}). Quand il dit « dans le même genre », « quelque chose comme ça », « moins sérieux »…, c'est CE titre qui est la référence.`;
 

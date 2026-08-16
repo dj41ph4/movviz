@@ -248,6 +248,35 @@ export function extractNameFromDirectAnswer(previousAssistantMessage: string | u
   return `Prénom : ${name}`;
 }
 
+// Matches the assistant's PRIOR turn claiming a title is absent from the
+// user's library — the exact confirmed-live failure shape ("tu n'as encore
+// rien ajouté de X", "Les Duos Impossible n'est pas dans ta bibliothèque",
+// "tu n'as jamais regardé ça"). Deliberately narrow to the "absence of a
+// title" claim shape, not any assistant mistake — a large taxonomy isn't
+// reliably detectable from regex alone (see tasteProfile.ts module doc).
+const LIBRARY_ABSENCE_CLAIM_RE = /\b(tu n'as (?:pas|jamais|rien|encore rien)|n'(?:est|êtes?) pas dans ta biblioth[eè]que|ne (?:figure|figurent|sont?) pas dans ta biblioth[eè]que|pas encore ajout[ée]|il te manque)\b/i;
+
+// User disagreeing with that claim right after it was made — "ben si",
+// "mais si", "en fait si", "je l'ai déjà", "c'est faux", "tu te trompes"...
+// Confirmed-live example: "ben si, j'ai les duo impossible".
+const LIBRARY_CORRECTION_RE = /\b(ben si|mais si|en fait si|si,? (?:je|j')|c'est faux|tu te trompes|tu as tort|non c'est pas vrai|je (?:l'|les )?ai (?:d[ée]j[aà]|deja)?)\b/i;
+
+/** Companion to extractNameFromDirectAnswer: same shape (previous assistant
+ *  turn + current user message, checked against a fixed claim pattern),
+ *  different purpose — detects when the user is correcting the assistant on
+ *  a library-presence claim ("tu n'as pas X") it just made, so the mistake
+ *  can be logged (tasteProfile.recordCorrection) instead of only ever
+ *  surviving as an in-context apology the model forgets next session.
+ *  `previousAssistantMessage` is session.messages[length-2] at the call
+ *  site, exactly like extractNameFromDirectAnswer. Returns a short excerpt
+ *  of the user's correction (for the log), or null if this doesn't look
+ *  like that specific correction shape. */
+export function detectLibraryFalseNegativeCorrection(previousAssistantMessage: string | undefined, userMessage: string): string | null {
+  if (!previousAssistantMessage || !LIBRARY_ABSENCE_CLAIM_RE.test(previousAssistantMessage)) return null;
+  if (!LIBRARY_CORRECTION_RE.test(userMessage)) return null;
+  return userMessage.trim().slice(0, 200);
+}
+
 /** True when a mode-3 reply has no real sentence left after `[[FAIT:...]]`/
  *  `[[VU:...]]` markers are stripped — either the model's ENTIRE reply was
  *  marker lines (a documented prompt-following miss on small/free-tier

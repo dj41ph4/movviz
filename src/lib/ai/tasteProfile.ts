@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import type { AiContextInsight, AiContextProfile, AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile } from "./types";
+import type { AiContextInsight, AiContextProfile, AiCorrectionEntry, AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile } from "./types";
 
 /**
  * Foundation of the AI v2 taste engine (AI.MD §2.A/§2.G): a strictly
@@ -33,7 +33,11 @@ function write(store: AiProfileStore): void {
 function profileForUser(store: AiProfileStore, userId: string): AiUserProfile {
   const existing = store[userId];
   // facts is newer than feedback — old on-disk profiles may predate it.
-  return { feedback: existing?.feedback ?? [], facts: existing?.facts ?? [], context: existing?.context };
+  // corrections is newer still — a previous session already found and fixed
+  // a real bug here once (the `context` field silently dropped because it
+  // wasn't copied through) so every field added to AiUserProfile MUST be
+  // copied through here explicitly, never assumed to "just work" via spread.
+  return { feedback: existing?.feedback ?? [], facts: existing?.facts ?? [], context: existing?.context, corrections: existing?.corrections ?? [] };
 }
 
 export function recordFeedback(userId: string, entry: AiFeedbackEntry): void {
@@ -139,6 +143,45 @@ export function buildFactsContext(userId: string): string {
   const facts = getFacts(userId);
   if (!facts.length) return "";
   return `\n\nFAITS RETENUS SUR CET UTILISATEUR (dits en conversation, à travers les sessions) — ${facts.map((f) => f.fact).join(" ; ")}. Utilise-les naturellement quand c'est pertinent (ex. l'appeler par son prénom s'il en a donné un), jamais comme une liste récitée.`;
+}
+
+const MAX_CORRECTION_ENTRIES = 50;
+// 1 occurrence = weak signal, worth logging but not worth changing the
+// model's behavior over (could be a genuine one-off mistake). 3 is where the
+// spec's own "reinforced rule" language starts to apply — a plain count
+// crossing a small threshold, surfaced as stronger prompt language, is the
+// honest ceiling of what a prompt-based system (no real weights/training)
+// can actually do with "this kept happening" (see module doc below).
+const CORRECTION_ESCALATION_THRESHOLD = 3;
+
+export function recordCorrection(userId: string, entry: Omit<AiCorrectionEntry, "at">): void {
+  const store = read();
+  const profile = profileForUser(store, userId);
+  const corrections = [...(profile.corrections ?? []), { ...entry, at: Date.now() }].slice(-MAX_CORRECTION_ENTRIES);
+  store[userId] = { ...profile, corrections };
+  write(store);
+}
+
+export function getCorrections(userId: string): AiCorrectionEntry[] {
+  return profileForUser(read(), userId).corrections ?? [];
+}
+
+/** Escalation rule injected into the system prompt (chat/route.ts) when a
+ *  user has corrected the assistant on the SAME kind of mistake enough
+ *  times to be a real pattern, not a one-off (spec: "ne jamais confondre
+ *  une correction ponctuelle d'un vrai pattern"). Deliberately just a count
+ *  crossing CORRECTION_ESCALATION_THRESHOLD — no fake per-category
+ *  confidence score, no root-cause classification (that would need a second
+ *  LLM call diagnosing the first LLM's mistake, unreliable and explicitly
+ *  out of scope here). Composes with, rather than replaces, the existing
+ *  "NE JAMAIS INVENTER UNE SOURCE DE DONNÉES" rule already in
+ *  buildSystemPrompt — this only makes that rule more insistent for THIS
+ *  user, on THIS specific claim shape, once it's demonstrably a repeat
+ *  problem for them. Empty (no prompt bloat) below the threshold. */
+export function buildCorrectionEscalationContext(userId: string): string {
+  const count = getCorrections(userId).filter((c) => c.category === "library_false_negative").length;
+  if (count < CORRECTION_ESCALATION_THRESHOLD) return "";
+  return `\n\nRAPPEL RENFORCÉ — CET UTILISATEUR T'A DÉJÀ CORRIGÉ ${count} FOIS sur le même type d'erreur : affirmer qu'un titre n'est PAS dans sa bibliothèque ("tu n'as pas X", "X n'est pas dans ta bibliothèque", "tu n'as jamais regardé X") alors que c'était faux. Ce n'est plus un incident isolé pour cet utilisateur précis — sois strictement plus prudent que la normale sur CE type d'affirmation précis (voir aussi la règle NE JAMAIS INVENTER UNE SOURCE DE DONNÉES ci-dessus) : si tu n'as pas, dans le contexte fourni plus haut, une donnée réelle et vérifiée sur ce titre précis pour CET utilisateur, ne présente JAMAIS son absence comme un fait établi — dis explicitement que tu ne peux pas le vérifier ici et oriente-le vers sa bibliothèque/recherche Movviz, plutôt que de risquer une nouvelle affirmation fausse.`;
 }
 
 /** Compact human-readable feedback summary for the system prompt — the

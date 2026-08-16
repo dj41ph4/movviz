@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, isDegenerateReply } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, isDegenerateReply } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -232,4 +232,30 @@ test("isDegenerateReply: vrai quand la réponse nettoyée est vide (uniquement d
 
 test("isDegenerateReply: faux dès qu'une vraie phrase reste après extraction", () => {
   assert.equal(isDegenerateReply("Ah super, Seb !"), false);
+});
+
+test("detectLibraryFalseNegativeCorrection: cas confirmé en direct (jeremy ferrari / duo impossible)", () => {
+  const got = detectLibraryFalseNegativeCorrection(
+    "D'après ton historique, tu n'as encore rien ajouté de Jeremy Ferrari dans ta bibliothèque Movviz.",
+    "ben si, j'ai les duo impossible"
+  );
+  assert.equal(got, "ben si, j'ai les duo impossible");
+});
+
+test("detectLibraryFalseNegativeCorrection: reconnaît d'autres formulations de la même affirmation d'absence", () => {
+  assert.ok(detectLibraryFalseNegativeCorrection("Les Duos Impossible n'est pas dans ta bibliothèque.", "mais si, je l'ai déjà"));
+  assert.ok(detectLibraryFalseNegativeCorrection("Tu n'as jamais regardé ça.", "c'est faux"));
+  assert.ok(detectLibraryFalseNegativeCorrection("Il te manque plusieurs films de lui.", "en fait si"));
+});
+
+test("detectLibraryFalseNegativeCorrection: ne se déclenche pas sans affirmation d'absence préalable", () => {
+  assert.equal(detectLibraryFalseNegativeCorrection("Tu as regardé quoi récemment ?", "ben si, j'ai ça"), null);
+});
+
+test("detectLibraryFalseNegativeCorrection: ne se déclenche pas si le message suivant n'est pas une correction", () => {
+  assert.equal(detectLibraryFalseNegativeCorrection("Tu n'as pas encore vu Anesthésie Générale.", "ok je vais regarder ça"), null);
+});
+
+test("detectLibraryFalseNegativeCorrection: ignore un message précédent qui n'est pas de l'assistant", () => {
+  assert.equal(detectLibraryFalseNegativeCorrection(undefined, "ben si, je l'ai"), null);
 });
