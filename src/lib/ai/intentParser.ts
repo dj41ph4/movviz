@@ -287,6 +287,63 @@ export function isDegenerateReply(cleaned: string): boolean {
   return cleaned.trim().length === 0;
 }
 
+// "il me manque quel film/série de X", "il me manque quoi de X", "il me
+// manque quoi comme film de X", "qu'est-ce qu'il me manque de X", "j'ai pas
+// quoi comme film de X" — the entity (franchise/actor/director/character,
+// one or several words) is captured in group 1. Each alternative anchors on
+// a fixed French opener before "de X" so this stays narrow: a message that
+// merely mentions a franchise name in passing never matches, only the
+// explicit "what am I missing" question shape.
+const MISSING_FROM_ENTITY_PATTERNS: RegExp[] = [
+  /il me manque\s+(?:quels?|quoi)\s*(?:comme\s+)?(?:films?|s[ée]ries?)?\s*(?:de\s+|d')([^.!?\n]+)/i,
+  /qu'est[- ]ce qu'il me manque\s*(?:comme\s+)?(?:films?|s[ée]ries?)?\s*(?:de\s+|d')([^.!?\n]+)/i,
+  /j'ai pas\s+(?:quoi|quels?)\s*(?:comme\s+)?(?:films?|s[ée]ries?)?\s*(?:de\s+|d')([^.!?\n]+)/i,
+];
+// "quels films de X j'ai pas encore" — the entity sits BEFORE the "j'ai
+// pas"/"je n'ai pas" clause instead of after "de", so it needs its own
+// pattern shape (can't share the trailing-capture form above).
+const MISSING_FROM_ENTITY_TRAILING_RE = /quels?\s+(?:films?|s[ée]ries?)\s+de\s+([^.!?\n]+?)\s+(?:j'ai pas|je n'ai pas)(?:\s+encore)?/i;
+
+const MAX_ENTITY_LEN = 60;
+// Pronouns/fillers the loose alternation above can still capture ("il me
+// manque quoi de lui") — useless as a TMDb search query, and this exact
+// phrasing already showed up in the confirmed-live Jeremy Ferrari
+// conversation as a follow-up referring back to a name mentioned earlier,
+// not a fresh entity. Rejected here so it falls back to the existing
+// honesty prompt rule instead of firing a TMDb search on "lui".
+const NOT_AN_ENTITY = new Set(["lui", "elle", "eux", "elles", "ça", "ca", "cela", "ce", "moi", "toi", "ici", "la"]);
+
+/** Detects "what [film/series] of/from X am I missing" in its common French
+ *  phrasings and extracts X. Companion to the "FILMOGRAPHIE D'UNE PERSONNE"
+ *  honesty rule in actions.ts's buildSystemPrompt: that rule alone (a purely
+ *  textual "don't invent, don't claim false grounding" instruction) was
+ *  confirmed live to NOT reliably hold on a small/free-tier model — "Il me
+ *  manque quel film de pokemon" still produced an invented "aucun film
+ *  Pokémon" answer the user then had to correct ("j'ai énormément de
+ *  pokemon"), the same failure shape as the earlier Jeremy Ferrari
+ *  incident the rule was written for. When this returns a non-null entity,
+ *  the caller runs a REAL search and injects verified results instead of
+ *  leaving the model to guess — see buildMissingFromFranchiseContext
+ *  (actions.ts). Returns null on no match (falls back to the honesty rule,
+ *  a safety net) or on a pronoun/filler capture that isn't a usable query. */
+export function extractMissingFromEntity(message: string): string | null {
+  const normalized = message.replace(/[’‘]/g, "'");
+  let raw: string | undefined;
+  for (const re of MISSING_FROM_ENTITY_PATTERNS) {
+    const m = normalized.match(re);
+    if (m) { raw = m[1]; break; }
+  }
+  if (!raw) {
+    const m = normalized.match(MISSING_FROM_ENTITY_TRAILING_RE);
+    if (m) raw = m[1];
+  }
+  if (!raw) return null;
+  const entity = raw.trim().replace(/^(de |d')/i, "").trim().slice(0, MAX_ENTITY_LEN).trim();
+  if (entity.length < 2) return null;
+  if (NOT_AN_ENTITY.has(entity.toLowerCase())) return null;
+  return entity;
+}
+
 /** Reliable, code-level fallback for the single most common durable fact —
  *  the user's first name — instead of depending entirely on the model
  *  choosing to emit a `[[FAIT: ...]]` marker for it (LLM instruction-

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, isDegenerateReply } from "@/lib/ai/intentParser";
-import { isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, isDegenerateReply } from "@/lib/ai/intentParser";
+import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
   const got = parseIntent('{"action":"add_media","items":[{"title":"Justice League: War","year":2014,"type":"movie"}]}');
@@ -258,4 +258,49 @@ test("detectLibraryFalseNegativeCorrection: ne se déclenche pas si le message s
 
 test("detectLibraryFalseNegativeCorrection: ignore un message précédent qui n'est pas de l'assistant", () => {
   assert.equal(detectLibraryFalseNegativeCorrection(undefined, "ben si, je l'ai"), null);
+});
+
+test("extractMissingFromEntity: cas confirmé en direct (pokemon)", () => {
+  assert.equal(extractMissingFromEntity("Il me manque quel film de pokemon"), "pokemon");
+});
+
+test("extractMissingFromEntity: reconnaît les formulations courantes", () => {
+  assert.equal(extractMissingFromEntity("il me manque quoi comme film de star wars"), "star wars");
+  assert.equal(extractMissingFromEntity("qu'est-ce qu'il me manque de harry potter"), "harry potter");
+  assert.equal(extractMissingFromEntity("j'ai pas quoi comme film de jeremy ferrari"), "jeremy ferrari");
+  assert.equal(extractMissingFromEntity("quels films de pokemon j'ai pas encore"), "pokemon");
+});
+
+test("extractMissingFromEntity: entité multi-mots, ponctuation finale retirée", () => {
+  assert.equal(extractMissingFromEntity("il me manque quels films de fast and furious ?"), "fast and furious");
+});
+
+test("extractMissingFromEntity: ne se déclenche pas sur un message sans rapport", () => {
+  assert.equal(extractMissingFromEntity("télécharge sakamoto days"), null);
+  assert.equal(extractMissingFromEntity("recommande-moi un truc similaire"), null);
+  assert.equal(extractMissingFromEntity("liste des épisodes de cette série"), null);
+});
+
+test("extractMissingFromEntity: pronom/filler capté par l'alternance mais rejeté (pas une entité exploitable)", () => {
+  assert.equal(extractMissingFromEntity("il me manque quoi de lui"), null);
+});
+
+test("buildMissingFromFranchiseContext: sépare bibliothèque / pas bibliothèque, jamais présenté comme exhaustif", () => {
+  const ctx = buildMissingFromFranchiseContext("pokemon", [
+    { title: "Pokémon, le film", year: 1998, type: "movie", tmdbId: 1, inLibrary: true },
+    { title: "Pokémon Détective Pikachu", year: 2019, type: "movie", tmdbId: 2, inLibrary: false },
+  ]);
+  assert.ok(ctx.includes("RECHERCHE RÉELLE"));
+  assert.ok(ctx.includes("Pokémon, le film (1998) [film, tmdb:1]"));
+  assert.ok(ctx.includes("Pokémon Détective Pikachu (2019) [film, tmdb:2]"));
+  assert.ok(ctx.indexOf("Déjà dans ta bibliothèque") < ctx.indexOf("Pokémon, le film"));
+  assert.ok(ctx.indexOf("Pas dans ta bibliothèque") < ctx.indexOf("Pokémon Détective Pikachu"));
+  assert.ok(/pas forc[ée]ment exhaustif/i.test(ctx));
+});
+
+test("buildMissingFromFranchiseContext: liste vide d'un côté annoncée explicitement, jamais silencieuse", () => {
+  const ctx = buildMissingFromFranchiseContext("pokemon", [
+    { title: "Pokémon Détective Pikachu", year: 2019, type: "movie", tmdbId: 2, inLibrary: false },
+  ]);
+  assert.ok(ctx.includes("Déjà dans ta bibliothèque : aucun parmi ces résultats"));
 });

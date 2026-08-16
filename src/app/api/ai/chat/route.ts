@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, isDegenerateReply } from "@/lib/ai/intentParser";
-import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, isDegenerateReply } from "@/lib/ai/intentParser";
+import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, type FranchiseSearchHit } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { scoreCandidates, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
 import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
-import { getMovie, getSeries, getCollection } from "@/lib/metadata/tmdb";
+import { getMovie, getSeries, getCollection, searchMulti } from "@/lib/metadata/tmdb";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
@@ -140,6 +140,34 @@ export async function POST(req: NextRequest) {
   // THIS message already counts — no double-ask in the same reply.
   const needsName = !hasKnownName(user.id);
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext);
+
+  // "Qu'est-ce qu'il me manque de X" (franchise/acteur/réalisateur) —
+  // confirmed live TWICE (Jeremy Ferrari, then Pokémon) that the prompt-only
+  // honesty rule above isn't reliably followed by a small/free-tier model:
+  // it invented an absence ("aucun film Pokémon dans ta bibliothèque") the
+  // user then had to correct. Code-level detection + a REAL TMDb search
+  // cross-checked against the real library, injected only for this one
+  // message — never on every message (real network call, kept gated behind
+  // extractMissingFromEntity's narrow regex match).
+  const missingFromEntity = extractMissingFromEntity(message);
+  if (missingFromEntity) {
+    try {
+      const searchRes = await searchMulti(missingFromEntity, 1);
+      const hits: FranchiseSearchHit[] = searchRes.results.slice(0, MAX_FRANCHISE_HITS).map((r) => ({
+        title: r.title,
+        year: r.year ?? undefined,
+        type: r.type,
+        tmdbId: r.tmdbId,
+        inLibrary: r.type === "movie" ? !!getMovieByTmdbId(r.tmdbId) : !!getSeriesByTmdbId(r.tmdbId),
+      }));
+      if (hits.length) system += buildMissingFromFranchiseContext(missingFromEntity, hits);
+    } catch {
+      // Best-effort — a TMDb failure here just means no RECHERCHE RÉELLE
+      // block gets injected; the honesty-rule fallback in buildSystemPrompt
+      // is the safety net for exactly this case.
+    }
+  }
+
   if (pageContext) {
     system += `\n\nRÉFÉRENCE COURANTE — l'utilisateur regarde actuellement ${pageContext.type === "movie" ? "le film" : "la série"} « ${pageContext.title} » (${pageContext.tmdbId}). Quand il dit « dans le même genre », « quelque chose comme ça », « moins sérieux »…, c'est CE titre qui est la référence.`;
 

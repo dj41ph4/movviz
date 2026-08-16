@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.31 — August 2026
+
+### Correctif
+
+- **Cause racine confirmée en direct** : quand tu demandes ce qui te manque d'un acteur, d'un réalisateur ou d'une franchise ("il me manque quel film de..."), Movviz AI pouvait encore inventer une réponse fausse ("tu n'as aucun film Pokémon") malgré un correctif précédent sur ce même type d'erreur — la consigne seule ne suffisait pas à empêcher ça de façon fiable. Pour cette formulation précise, Movviz AI lance désormais une vraie recherche dans le catalogue et vérifie réellement, titre par titre, ce qui est déjà dans ta bibliothèque avant de répondre, au lieu de deviner.
+
 ## v1.14.30 — August 2026
 
 ### Movviz AI

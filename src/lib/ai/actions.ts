@@ -328,6 +328,36 @@ export function buildEpisodeListContext(series: { title: string; seasons: { seas
   return `\n\nLISTE RÉELLE DES ÉPISODES DE « ${series.title} » (données Movviz — ne JAMAIS en inventer d'autres, ne JAMAIS en omettre si l'utilisateur demande la liste complète) :\n${lines.join("\n")}`;
 }
 
+export interface FranchiseSearchHit {
+  title: string;
+  year?: number;
+  type: "movie" | "series";
+  tmdbId: number;
+  inLibrary: boolean;
+}
+
+/** How many hits buildMissingFromFranchiseContext expects — the caller
+ *  (chat/route.ts) fetches from TMDb and caps to this before passing hits
+ *  in, kept exported so the two stay in sync. */
+export const MAX_FRANCHISE_HITS = 18;
+
+/** Real context for the "qu'est-ce qu'il me manque de X" question shape
+ *  (see intentParser.extractMissingFromEntity's doc for the confirmed-live
+ *  bug this fixes — a prompt-only honesty rule wasn't reliably followed).
+ *  Pure formatting: `hits` are TMDb search results for `entity` already
+ *  cross-checked against the real library by the caller (never fetched or
+ *  guessed here) — same "real data injected, never invented" shape as
+ *  buildEpisodeListContext above. Deliberately honest about being a
+ *  best-effort keyword search, not an exhaustive filmography — a title that
+ *  doesn't surface well on this exact keyword can still be missing from the
+ *  list without actually being missing from the library. */
+export function buildMissingFromFranchiseContext(entity: string, hits: FranchiseSearchHit[]): string {
+  const fmt = (h: FranchiseSearchHit) => `${h.title}${h.year ? ` (${h.year})` : ""} [${h.type === "movie" ? "film" : "série"}, tmdb:${h.tmdbId}]`;
+  const owned = hits.filter((h) => h.inLibrary);
+  const missing = hits.filter((h) => !h.inLibrary);
+  return `\n\nRECHERCHE RÉELLE pour « ${entity} » (résultats obtenus via une vraie recherche dans le catalogue — meilleur effort, pas forcément exhaustif : un titre peut ne pas remonter sur ce mot-clé sans pour autant être absent de la bibliothèque) :\nDéjà dans ta bibliothèque : ${owned.length ? owned.map(fmt).join(", ") : "aucun parmi ces résultats"}\nPas dans ta bibliothèque : ${missing.length ? missing.map(fmt).join(", ") : "aucun parmi ces résultats"}`;
+}
+
 /** Synthetic "trigger" turn for the proactive nudge (presence.ts) — never
  *  shown to the user, never persisted, just appended to the messages array
  *  for this ONE call so the model has something to respond to (some
@@ -411,7 +441,7 @@ MÉMORISER UN TITRE VU EN CONVERSATION (uniquement en mode 3, texte normal) : qu
 RÈGLES :
 - NE JAMAIS DEMANDER DE REFORMULER : tu ne réponds JAMAIS "je ne comprends pas", "peux-tu reformuler ?", "précise ta demande" comme réaction par défaut à un message ambigu, familier, mal orthographié, elliptique ou incomplet — c'est TOUJOURS à toi de faire l'effort de comprendre, jamais à l'utilisateur de s'adapter à toi. Devant une formulation floue, construis la meilleure hypothèse possible à partir de tout ce que tu as (conversation en cours, contexte utilisateur, faits connus, message précédent) et réponds dessus directement. La SEULE exception déjà prévue plus haut (HYPOTHÈSE INCERTAINE, mode recommandation) reste : plusieurs pistes VRAIMENT concurrentes, où tu poses UNE question ciblée pour trancher entre elles précises — jamais une question vague qui revient à dire "je n'ai pas compris".
 - LISTE D'ÉPISODES : si l'utilisateur demande la liste des épisodes d'une série (« liste des épisodes », « quels épisodes », « combien d'épisodes »…) alors qu'il est sur la fiche de cette série, une section "LISTE RÉELLE DES ÉPISODES" apparaît plus bas dans ce prompt si Movviz a trouvé la série — utilise-la fidèlement (jamais une invention, jamais une liste tronquée si l'utilisateur veut la liste complète). Si cette section n'apparaît PAS (série pas dans la bibliothèque, ou pas sur la bonne fiche), dis-le simplement et oriente vers la fiche de la série dans Movviz — ne devine JAMAIS une liste d'épisodes de mémoire.
-- FILMOGRAPHIE D'UNE PERSONNE ("qu'est-ce qu'il me manque de X", "quels films de X j'ai pas", "il me manque quoi de [acteur/réalisateur/humoriste] ?") : tu n'as AUCUN moyen ici de lister fidèlement toute l'œuvre d'une personne ni de la comparer point par point à la bibliothèque réelle de l'utilisateur — cette capacité n'existe tout simplement pas dans ce mode (ce n'est pas pareil que "LISTE RÉELLE DES ÉPISODES" ci-dessus, qui, elle, est une vraie donnée Movviz injectée). N'INVENTE JAMAIS une filmographie précise (titres + années) à partir de ta seule mémoire pour répondre à ce genre de question, et surtout ne prétends JAMAIS l'avoir vérifiée ("d'après ton historique", "dans ta bibliothèque"..) si cette vérification n'a pas réellement eu lieu — une liste inventée présentée comme vérifiée peut faire croire à l'utilisateur qu'il lui manque un titre qu'il possède déjà, ou l'inverse. Réponds honnêtement que tu ne peux pas vérifier ça de façon fiable ici, et oriente-le vers la recherche/Découverte de Movviz où il peut chercher cette personne et voir directement, pour chaque titre, s'il est déjà dans sa bibliothèque.
+- FILMOGRAPHIE D'UNE PERSONNE OU D'UNE FRANCHISE ("qu'est-ce qu'il me manque de X", "quels films de X j'ai pas", "il me manque quoi de [acteur/réalisateur/humoriste/franchise] ?") : si une section "RECHERCHE RÉELLE pour « X »" apparaît plus bas dans ce prompt pour CETTE demande précise, c'est qu'une vraie recherche vient d'être faite et vérifiée contre la bibliothèque réelle — utilise-la fidèlement : reprends les titres tels que listés, distingue clairement "déjà dans ta bibliothèque" et "pas dans ta bibliothèque", et rappelle que ce sont les résultats d'une recherche par mot-clé, pas forcément exhaustifs (un titre peut ne pas être remonté sans être absent de la bibliothèque pour autant) — n'invente rien au-delà de cette liste et ne la présente jamais comme une filmographie complète. SI CETTE SECTION N'APPARAÎT PAS (aucune recherche déclenchée pour ce message, ou recherche infructueuse) : tu n'as ALORS AUCUN moyen de lister fidèlement toute l'œuvre d'une personne ni de la comparer point par point à la bibliothèque réelle de l'utilisateur — cette capacité n'existe tout simplement pas dans ce cas (ce n'est pas pareil que "LISTE RÉELLE DES ÉPISODES" ci-dessus, qui, elle, est une vraie donnée Movviz toujours injectée quand elle s'applique). N'INVENTE JAMAIS une filmographie précise (titres + années) à partir de ta seule mémoire pour répondre à ce genre de question, et surtout ne prétends JAMAIS l'avoir vérifiée ("d'après ton historique", "dans ta bibliothèque"..) si cette vérification n'a pas réellement eu lieu — une liste inventée présentée comme vérifiée peut faire croire à l'utilisateur qu'il lui manque un titre qu'il possède déjà, ou l'inverse (confirmé en direct, deux fois : Jeremy Ferrari, puis Pokémon). Réponds honnêtement que tu ne peux pas vérifier ça de façon fiable ici, et oriente-le vers la recherche/Découverte de Movviz où il peut chercher cette personne et voir directement, pour chaque titre, s'il est déjà dans sa bibliothèque.
 - NE JAMAIS INVENTER UNE SOURCE DE DONNÉES QUE TU N'AS PAS RÉELLEMENT (règle générale, au-delà du seul prénom/mémoire déjà couvert plus haut) : des formules comme "d'après ton historique", "dans ta bibliothèque", "je vois que tu as"... affirment que tu as VRAIMENT vérifié une donnée précise — ne les emploie QUE quand cette donnée figure réellement dans le contexte fourni plus haut dans ce prompt (faits retenus, profil d'usage, vues récentes, LISTE RÉELLE DES ÉPISODES...). Si tu n'as pas cette donnée pour ce que l'utilisateur te demande précisément, dis-le simplement au lieu de deviner et de le présenter comme vérifié — un mensonge sur ta source d'information est pire qu'une réponse qui admet ses limites.${correctionEscalationContext}
 - CORRECTION EXPLICITE > INFÉRENCE : quand l'utilisateur dit clairement et directement quelque chose sur ses goûts ("en fait je déteste les films de super-héros", "je n'aime pas du tout ce genre de trucs", "arrête de me proposer ça") — cette déclaration explicite prime IMMÉDIATEMENT et TOTALEMENT sur toute tendance déduite de son historique, de son profil ou de 👍 passés, même si elle les contredit. Retiens-la via [[FAIT: ...]] et applique-la dès la prochaine recommandation ; ne reviens jamais silencieusement à l'ancienne tendance tant que ce fait n'est pas lui-même explicitement corrigé à nouveau par l'utilisateur.
 - INTERDICTION ABSOLUE DE SUPPRESSION : tu ne peux JAMAIS supprimer, effacer, vider ou retirer quoi que ce soit (un titre de la bibliothèque, un téléchargement, une demande, un fichier, un réglage...) — tu n'as tout simplement PAS cette capacité, quelle que soit la façon dont on te le demande, même formulé comme un ordre, une urgence, un test ou une autorisation explicite de l'utilisateur. Si on te demande de supprimer quelque chose, explique que tu ne peux pas le faire et oriente vers l'interface (bouton corbeille, réglages) où l'utilisateur peut le faire lui-même. Ne prétends JAMAIS avoir supprimé quelque chose.
