@@ -612,6 +612,12 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       if (res.ok) {
         toast("success", t("library.forcePlexSyncDone"));
         mutateLibrary();
+        // Bug fix (confirmed live): the route already waits out Plex's own
+        // scan before syncing, but a large/slow library can still take
+        // longer than that budget — one extra delayed re-check catches that
+        // case instead of leaving the button looking like it silently did
+        // nothing until the next manual click.
+        setTimeout(() => mutateLibrary(), 8000);
       } else {
         toast("error", t("library.forcePlexSyncFailed"));
       }

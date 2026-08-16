@@ -15,6 +15,15 @@ function insight(text: string, confidence = 0.7, trend: AiContextInsight["trend"
   return { text, confidence, evidenceCount: 3, trend, at: Date.now(), source: "bootstrap" };
 }
 
+// Bug fix: the correction tests below use recordCorrection(), which APPENDS
+// to the on-disk store rather than replacing it (unlike saveContextInsights
+// with merge=false, which wipes first and is naturally idempotent across
+// repeated `npm test` runs). A fixed userId here would silently accumulate
+// corrections across every prior run in this dev session, eventually
+// pushing "below threshold" tests past the threshold for reasons that have
+// nothing to do with the code under test. Suffixed so every run starts clean.
+const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
 test("saveContextInsights: bootstrap (merge=false) remplace tout contexte précédent", () => {
   const userId = "test-user-context-bootstrap";
   saveContextInsights(userId, [insight("A")], false);
@@ -51,7 +60,7 @@ test("saveContextInsights: incrémental (merge=true) ajoute un insight vraiment 
  * or this exact bug has recurred.
  */
 test("recordCorrection/getCorrections: une correction survit à un aller-retour écriture/lecture", () => {
-  const userId = "test-user-corrections-roundtrip";
+  const userId = `test-user-corrections-roundtrip-${runId}`;
   recordCorrection(userId, { category: "library_false_negative", note: "ben si, j'ai les duo impossible" });
   const corrections = getCorrections(userId);
   assert.equal(corrections.length, 1);
@@ -61,7 +70,7 @@ test("recordCorrection/getCorrections: une correction survit à un aller-retour 
 });
 
 test("recordCorrection: n'écrase pas les faits/feedback/context déjà présents pour cet utilisateur (garde-fou anti-régression du bug 'context perdu')", () => {
-  const userId = "test-user-corrections-preserves-siblings";
+  const userId = `test-user-corrections-preserves-siblings-${runId}`;
   saveContextInsights(userId, [{ text: "Suit ses franchises", confidence: 0.7, evidenceCount: 3, trend: "stable", at: Date.now(), source: "bootstrap" }], false);
   recordCorrection(userId, { category: "library_false_negative", note: "c'est faux" });
   const context = getContextProfile(userId);
@@ -69,14 +78,14 @@ test("recordCorrection: n'écrase pas les faits/feedback/context déjà présent
 });
 
 test("buildCorrectionEscalationContext: vide sous le seuil (1-2 corrections)", () => {
-  const userId = "test-user-corrections-below-threshold";
+  const userId = `test-user-corrections-below-threshold-${runId}`;
   recordCorrection(userId, { category: "library_false_negative", note: "a" });
   recordCorrection(userId, { category: "library_false_negative", note: "b" });
   assert.equal(buildCorrectionEscalationContext(userId), "");
 });
 
 test("buildCorrectionEscalationContext: non vide dès le seuil atteint (3 corrections), cite le compte", () => {
-  const userId = "test-user-corrections-at-threshold";
+  const userId = `test-user-corrections-at-threshold-${runId}`;
   recordCorrection(userId, { category: "library_false_negative", note: "a" });
   recordCorrection(userId, { category: "library_false_negative", note: "b" });
   recordCorrection(userId, { category: "library_false_negative", note: "c" });
@@ -86,7 +95,7 @@ test("buildCorrectionEscalationContext: non vide dès le seuil atteint (3 correc
 });
 
 test("buildCorrectionEscalationContext: une correction de catégorie 'other' ne compte pas vers le seuil library_false_negative", () => {
-  const userId = "test-user-corrections-other-category-excluded";
+  const userId = `test-user-corrections-other-category-excluded-${runId}`;
   recordCorrection(userId, { category: "other", note: "a" });
   recordCorrection(userId, { category: "other", note: "b" });
   recordCorrection(userId, { category: "other", note: "c" });

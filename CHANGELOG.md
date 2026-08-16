@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.29 — August 2026
+
+### Correctif
+
+- **Cause racine confirmée en direct** : le bouton « Forcer la synchronisation Plex » demandait bien à Plex de rescanner, mais enchaînait immédiatement la synchronisation Movviz — avant que Plex ait fini son propre scan en arrière-plan. Résultat : le bouton affichait un succès sans jamais résoudre le blocage « en attente de synchronisation Plex ». Corrigé : un vrai délai est respecté avant de vérifier, avec une seconde vérification automatique quelques secondes plus tard pour les bibliothèques plus lentes à scanner.
+
 ## v1.14.28 — August 2026
 
 ### Movviz AI
