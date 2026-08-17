@@ -4,7 +4,7 @@ import path from "node:path";
 import { eventBus } from "@/lib/events/EventBus";
 import { addToTrash } from "@/lib/library/trashStore";
 import { recordStatusTransition } from "@/lib/library/statusTransitions";
-import type { LibraryMovie, LibrarySeries, LibraryStatus } from "./types";
+import type { LibraryMovie, LibrarySeries, LibraryStatus, LibrarySeason, LibraryEpisode } from "./types";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -127,6 +127,14 @@ export function getMovie(id: string): LibraryMovie | null {
 export function getMovieByTmdbId(tmdbId: number): LibraryMovie | null {
   ensureMovieMaps();
   return _moviesByTmdbId!.get(tmdbId) ?? null;
+}
+/** Reverse lookup for a Plex on-deck item's ratingKey (Continue Watching row)
+ *  — a plain scan, not a cached map like the two lookups above: on-deck
+ *  lists are always small (a handful of items), called once per dashboard
+ *  refresh, so a per-item index isn't worth the extra cache-invalidation
+ *  surface. */
+export function getMovieByPlexRatingKey(ratingKey: string): LibraryMovie | null {
+  return loadMovies().find((m) => m.plexRatingKey === ratingKey) ?? null;
 }
 export function addMovie(movie: LibraryMovie): LibraryMovie {
   ensureMovieMaps();
@@ -285,6 +293,19 @@ export function getSeries(id: string): LibrarySeries | null {
 export function getSeriesByTmdbId(tmdbId: number): LibrarySeries | null {
   ensureSeriesMaps();
   return _seriesByTmdbId!.get(tmdbId) ?? null;
+}
+/** Reverse lookup for a Plex on-deck item's episode ratingKey (Continue
+ *  Watching row) — same plain-scan rationale as getMovieByPlexRatingKey. */
+export function findEpisodeByPlexRatingKey(
+  ratingKey: string
+): { series: LibrarySeries; season: LibrarySeason; episode: LibraryEpisode } | null {
+  for (const series of loadSeries()) {
+    for (const season of series.seasons) {
+      const episode = season.episodes.find((e) => e.plexRatingKey === ratingKey);
+      if (episode) return { series, season, episode };
+    }
+  }
+  return null;
 }
 export function addSeries(series: LibrarySeries): LibrarySeries {
   ensureSeriesMaps();

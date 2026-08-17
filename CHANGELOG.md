@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.38 — August 2026
+
+### Nouveauté : rangée « Continuer à regarder »
+
+- Le tableau de bord affiche désormais une rangée « Continuer à regarder », entre « Tendances Movviz » et « Suggestions adaptées » — les films et épisodes en cours, avec la barre de progression réelle, qu'ils aient été repris depuis une appli Plex classique ou directement depuis le lecteur intégré de Movviz. Activable/désactivable dans Réglages comme les autres rangées.
+- **Cause racine corrigée en même temps** : le lecteur intégré de Movviz signalait bien sa progression à Plex à chaque lecture, mais un paramètre technique manquant faisait que Plex ignorait silencieusement ce signal — la progression n'était donc jamais réellement prise en compte côté serveur. Corrigé, avec en prime l'attribution au bon compte quand plusieurs utilisateurs partagent le même Plex.
+
 ## v1.14.37 — August 2026
 
 ### Correctif : Movviz AI

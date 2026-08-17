@@ -21,7 +21,7 @@ import type { User } from "@/lib/auth/types";
  * sync yet (no known ratingKey) — never blocks or breaks the local toggle
  * either way (callers fire-and-forget this).
  */
-function resolveToken(user: User, cfg: { adminToken: string | null }): { token: string; managedUserId?: string } | null {
+export function resolveToken(user: User, cfg: { adminToken: string | null }): { token: string; managedUserId?: string } | null {
   if (user.plexToken) return { token: user.plexToken };
   if (user.plexManagedUserId && cfg.adminToken) return { token: cfg.adminToken, managedUserId: user.plexManagedUserId };
   return null;

@@ -10,6 +10,7 @@ import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { LibraryMovie } from "@/lib/library/types";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
+import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
 
 interface UpgradeCandidate {
   movieId: string;
@@ -39,6 +40,16 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
   const { data: recData } = useSWR<{ results: MetaSearchResult[] }>(
     visible.has("becauseYouLike") ? "/api/metadata/recommendations?type=movie" : null
   );
+  // Reflects Plex's own "on deck" state, which Movviz's own player also
+  // reports into (see /api/stream/[ratingKey]/progress) — one row, one
+  // source of truth, rather than a separate localStorage-only list that
+  // could disagree with what Plex itself shows. Revalidates on focus like
+  // every other row here (default SWR behavior) so resuming a title in
+  // another tab updates this one without a manual refresh.
+  const { data: onDeckData } = useSWR<{ items: OnDeckEntry[] }>(
+    visible.has("continueWatching") ? "/api/plex/on-deck" : null
+  );
+  const continueWatching = onDeckData?.items ?? [];
   // This endpoint runs a real multi-minute scan (up to 25 movies + 25
   // episodes falling back to live indexer searches) — never revalidate it
   // just because the window regained focus, unlike every other row here.
@@ -76,12 +87,32 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
       .filter((x): x is { candidate: UpgradeCandidate; movie: LibraryMovie } => !!x.movie && afterMinYear(x.movie));
   }, [upgradeData, movies, afterMinYear]);
 
-  const sectionOrder: DashboardSectionId[] = ["discover", "becauseYouLike", "availableNow", "comingSoon", "upgradesAvailable"];
+  const sectionOrder: DashboardSectionId[] = ["discover", "continueWatching", "becauseYouLike", "availableNow", "comingSoon", "upgradesAvailable"];
 
   return (
     <div className="space-y-8">
       {sectionOrder.map((id) => {
         if (!visible.has(id)) return null;
+
+        if (id === "continueWatching" && continueWatching.length > 0) {
+          return (
+            <PosterRow key={id} title={t("dashboard.continueWatching")}>
+              {continueWatching.map((item, i) => (
+                <DashboardPosterCard
+                  key={`${item.type}:${item.tmdbId}:${i}`}
+                  tmdbId={item.tmdbId}
+                  type={item.type === "movie" ? "movie" : "series"}
+                  title={item.title}
+                  posterPath={item.posterPath}
+                  rating={item.rating}
+                  year={item.year ?? undefined}
+                  progressPercent={item.progressPercent}
+                  subtitle={item.type === "episode" ? `S${item.seasonNumber} E${item.episodeNumber} — ${item.episodeTitle}` : undefined}
+                />
+              ))}
+            </PosterRow>
+          );
+        }
 
         if (id === "becauseYouLike" && recommended.length > 0) {
           return (

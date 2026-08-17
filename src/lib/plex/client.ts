@@ -671,6 +671,47 @@ export async function setPlexWatched(cfg: PlexServerConfig, token: string, ratin
 }
 
 /** Movie and show sections configured on the server — the entry point for a library scan. */
+export interface PlexOnDeckItem {
+  ratingKey: string;
+  type: "movie" | "episode";
+  /** The show's own ratingKey, present only on an episode item — this is
+   *  what actually maps back to Movviz's library (a series is looked up by
+   *  its episode's plexRatingKey, not the show's, since that's what
+   *  identifies which single episode is "next up"). */
+  grandparentRatingKey?: string;
+  viewOffset: number;
+  duration: number;
+}
+
+/**
+ * Server-wide "Continue Watching" list — reflects whatever Plex itself
+ * considers in-progress, updated both by real Plex clients AND by Movviz's
+ * own player (see /api/stream/[ratingKey]/progress, which reports back to
+ * this same server-side state via `/:/progress`). Deliberately returns only
+ * the bare fields needed to cross-reference against Movviz's own library
+ * (by plexRatingKey) — richer metadata (poster, title, tmdbId) always comes
+ * from Movviz's own store once matched, never duplicated here.
+ */
+export async function getPlexOnDeck(cfg: PlexServerConfig, token: string, managedUserId?: string): Promise<PlexOnDeckItem[]> {
+  try {
+    const res = await fetchWithRetry(`${serverBase(cfg)}/library/onDeck`, { headers: serverHeaders(cfg, token, managedUserId), cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw: { ratingKey: string; type?: string; grandparentRatingKey?: string; viewOffset?: number; duration?: number }[] = data?.MediaContainer?.Metadata ?? [];
+    return raw
+      .filter((item): item is typeof item & { type: "movie" | "episode" } => item.type === "movie" || item.type === "episode")
+      .map((item) => ({
+        ratingKey: item.ratingKey,
+        type: item.type,
+        grandparentRatingKey: item.grandparentRatingKey,
+        viewOffset: item.viewOffset ?? 0,
+        duration: item.duration ?? 0,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getLibrarySections(cfg: PlexServerConfig, token: string, managedUserId?: string): Promise<PlexSection[]> {
   try {
     // The one Plex server call left on a plain fetch() with no timeout —

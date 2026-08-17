@@ -16,6 +16,7 @@ export const DASHBOARD_MODES = ["cinema", "classic", "compact"] as const;
 export type DashboardMode = (typeof DASHBOARD_MODES)[number];
 
 export const DASHBOARD_SECTION_IDS = [
+  "continueWatching",
   "becauseYouLike",
   "availableNow",
   "comingSoon",

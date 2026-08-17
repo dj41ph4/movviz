@@ -16,6 +16,7 @@ import {
 } from "@/lib/dashboard/types";
 
 const SECTION_LABEL_KEY: Record<DashboardSectionId, string> = {
+  continueWatching: "dashboard.continueWatching",
   becauseYouLike: "dashboard.rowRecommended",
   availableNow: "dashboard.recentlyAdded",
   comingSoon: "dashboard.rowUpcoming",

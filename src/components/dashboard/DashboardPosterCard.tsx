@@ -28,6 +28,8 @@ export function DashboardPosterCard({
   runtime,
   genres,
   rank,
+  progressPercent,
+  subtitle,
 }: {
   tmdbId: number;
   type: "movie" | "series";
@@ -42,9 +44,17 @@ export function DashboardPosterCard({
    *  TMDb's own trending order), never invented client-side. Only 1-10
    *  render the numeral treatment; anything past that is a plain card. */
   rank?: number;
+  /** 0-100 — Continue Watching only. Drawn as a track across the bottom
+   *  edge of the poster, same visual language as every other progress bar
+   *  in the app (h-1 track + brand-gradient fill). */
+  progressPercent?: number;
+  /** Continue Watching only — the episode label ("S2 E5") under the title,
+   *  in place of the hover-only year/runtime/genres strip which doesn't
+   *  make sense for a specific in-progress episode. */
+  subtitle?: string;
 }) {
   const poster = posterPath ? `${POSTER_BASE}${posterPath}` : null;
-  const hasMeta = !!year || !!runtime || (genres && genres.length > 0);
+  const hasMeta = !subtitle && (!!year || !!runtime || (genres && genres.length > 0));
   const showRank = !!rank && rank >= 1 && rank <= 10;
   return (
     <Link
@@ -101,8 +111,14 @@ export function DashboardPosterCard({
             )}
           </div>
         )}
+        {typeof progressPercent === "number" && (
+          <div className="absolute inset-x-0 bottom-0 h-1 bg-white/8">
+            <div className="h-full brand-gradient" style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} />
+          </div>
+        )}
       </div>
       <p className="mt-1.5 truncate text-center text-sm font-semibold text-ink">{title}</p>
+      {subtitle && <p className="truncate text-center text-xs text-ink-dim">{subtitle}</p>}
       </div>
     </Link>
   );
