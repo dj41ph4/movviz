@@ -104,30 +104,67 @@ export interface ClassifiedTitle {
   episodeTitle?: string;
 }
 
+// Bug fix (confirmed live against a real export): the original rule ("any
+// digit in segment 1 = season number") wrongly treated "Épisode 24"/
+// "Episode 24" as SEASON 24 — Netflix uses that exact shape for shows with
+// no real season structure ("Gloutons & Dragons: Épisode 24 : Raviolis...")
+// where the digit is an episode number, not a season, and TMDb obviously
+// has no season 24. Only a recognized season-ish KEYWORD next to the digit
+// ("Saison"/"Season"/"Partie"/"Part"/"Volume", all real Netflix season-
+// grouping labels) is trusted as an actual season number now; a bare
+// "Épisode N"/"Episode N" segment is treated the same as a no-digit
+// anthology segment (see below) instead.
+const SEASON_LABEL_RE = /(?:saison|season|partie|part|volume|vol)\.?\s*(\d+)/i;
+const BARE_EPISODE_LABEL_RE = /^[eé]pisode\s*\d+$/i;
+
 /** Splits a Netflix title into a movie OR a series/season/episode. Netflix
  *  always separates hierarchy levels with ": " (colon-space) — a title with
  *  fewer than 3 segments is a movie (a bare title, or a 2-segment title we
- *  don't try to guess at rather than risk misclassifying). For 3+ segments,
- *  segment 1 (the would-be season label) is checked for a digit:
- *  - has a digit ("Saison 5", "Season 5", "Volume 4") → segment 0 = series,
- *    segment 1 = season number, everything after = episode title.
- *  - no digit → segment 1 usually isn't a season label at all, it's part of
- *    a limited-series title that itself contains a colon (real example:
- *    "Monstre : L'histoire d'Ed Gein: Radioamateur" — the SHOW is "Monstre :
- *    L'histoire d'Ed Gein", there's no season label, Netflix went straight
- *    from title to episode). Segments 0..n-2 are rejoined as the series
- *    title, only the LAST segment is the episode, season defaults to 1
- *    (limited series are single-season). Either way, episode titles can
+ *  don't try to guess at rather than risk misclassifying — a real 2-segment
+ *  "Series: Episode" with no season label at all, e.g. "Batman: The
+ *  Animated Series: L'homme invisible" collapsed to 2 parts, is instead
+ *  recovered downstream when the movie search fails and the title resolver
+ *  itself retries as a series, see resolveTitle.ts / importHistory.ts).
+ *  For 3+ segments, segment 1 (the would-be season label) is checked:
+ *  - a recognized season keyword + digit ("Saison 5", "Partie 2") → segment
+ *    0 = series, segment 1 = season number, everything after = episode.
+ *  - a BARE "Épisode N" with nothing else → not a season at all: segment 0
+ *    = series, season defaults to 1, everything AFTER "Épisode N" is the
+ *    episode title (matching against the real TMDb episode title works
+ *    better without the literal "Épisode 24" prefix baked in).
+ *  - anything else (no digit, or a digit that isn't a recognized season/
+ *    episode label) → segment 1 usually isn't a season label at all, it's
+ *    part of a limited-series title that itself contains a colon (real
+ *    example: "Monstre : L'histoire d'Ed Gein: Radioamateur" — the SHOW is
+ *    "Monstre : L'histoire d'Ed Gein", there's no season label). Segments
+ *    0..n-2 are rejoined as the series title, only the LAST segment is the
+ *    episode, season defaults to 1. Either way, episode titles can
  *    themselves legitimately contain a colon (only the segments actually
  *    consumed as series/season are ever removed from it). */
 export function classifyNetflixTitle(raw: string): ClassifiedTitle {
   const parts = raw.split(": ");
   if (parts.length < 3) return { kind: "movie", movieTitle: raw.trim() };
 
-  const seasonMatch = parts[1].trim().match(/(\d+)/);
-  const seriesTitle = seasonMatch ? parts[0].trim() : parts.slice(0, -1).join(": ").trim();
-  const seasonNumber = seasonMatch ? parseInt(seasonMatch[1], 10) : 1;
-  const episodeTitle = (seasonMatch ? parts.slice(2) : parts.slice(-1)).join(": ").trim();
+  const seasonLabel = parts[1].trim();
+  const seasonMatch = seasonLabel.match(SEASON_LABEL_RE);
+  const bareEpisode = !seasonMatch && BARE_EPISODE_LABEL_RE.test(seasonLabel);
+
+  let seriesTitle: string;
+  let seasonNumber: number;
+  let episodeTitle: string;
+  if (seasonMatch) {
+    seriesTitle = parts[0].trim();
+    seasonNumber = parseInt(seasonMatch[1], 10);
+    episodeTitle = parts.slice(2).join(": ").trim();
+  } else if (bareEpisode) {
+    seriesTitle = parts[0].trim();
+    seasonNumber = 1;
+    episodeTitle = parts.slice(2).join(": ").trim();
+  } else {
+    seriesTitle = parts.slice(0, -1).join(": ").trim();
+    seasonNumber = 1;
+    episodeTitle = parts[parts.length - 1].trim();
+  }
 
   if (!seriesTitle || !episodeTitle) return { kind: "movie", movieTitle: raw.trim() };
   return { kind: "episode", seriesTitle, seasonNumber, episodeTitle };

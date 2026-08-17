@@ -55,11 +55,9 @@ export async function importNetflixHistory(user: User, csv: string, onProgress?:
   // time on a real multi-thousand-row export; local store writes and the
   // (fire-and-forget) Plex push afterward are comparatively instant.
   const movieTitles = [...new Set(movieRows.map((r) => r.movieTitle!))];
-  const seriesTitles = [...new Set(episodeRows.map((r) => r.seriesTitle!))];
   let progressDone = 0;
-  const progressTotal = movieTitles.length + seriesTitles.length; // season count added once known, below
-  let seasonCountEstimate = 0;
-  const tick = () => onProgress?.(++progressDone, progressTotal + seasonCountEstimate);
+  let progressTotal = movieTitles.length; // series/season counts added once known, below
+  const tick = () => onProgress?.(++progressDone, progressTotal);
   onProgress?.(0, Math.max(1, progressTotal));
 
   // Movies: one TMDb resolution per distinct title (bounded concurrency,
@@ -78,8 +76,31 @@ export async function importNetflixHistory(user: User, csv: string, onProgress?:
       unmatched.push(row.raw);
       continue;
     }
+    // Bug fix (confirmed live against a real export): resolveTitleAgainstTmdb
+    // has its own built-in fallback — when a "movie" title (a 2-segment
+    // Netflix title with no season label, e.g. "Batman: The Animated
+    // Series: L'homme invisible") fails as a movie, it retries the part
+    // before the first ": " as a SERIES. That fallback can legitimately
+    // return a series match even though this row was classified as a
+    // movie — blindly trusting it as a movie used to write the wrong
+    // tmdbId into watch.movies and silently lose the episode entirely.
+    // Redirect it into the episode pipeline instead (season defaults to 1
+    // — Netflix gave no season label — episode title = whatever follows
+    // the first ": ").
+    if (resolved.type === "series") {
+      const sep = row.movieTitle!.indexOf(": ");
+      const episodeTitle = sep > 0 ? row.movieTitle!.slice(sep + 2).trim() : row.movieTitle!;
+      if (episodeTitle) {
+        episodeRows.push({ kind: "episode", seriesTitle: resolved.title, seasonNumber: 1, episodeTitle, watchedAt: row.watchedAt, raw: row.raw });
+        continue;
+      }
+    }
     resolvedMovies.push({ tmdbId: resolved.tmdbId, title: resolved.title, watchedAt: row.watchedAt });
   }
+
+  const seriesTitles = [...new Set(episodeRows.map((r) => r.seriesTitle!))];
+  progressTotal += seriesTitles.length;
+  onProgress?.(progressDone, progressTotal);
 
   // Series: one TMDb resolution + one season fetch per distinct
   // (series, season) pair — episode titles within that season are matched
@@ -102,8 +123,8 @@ export async function importNetflixHistory(user: User, csv: string, onProgress?:
       })
       .filter((k): k is string => k != null)
   )];
-  seasonCountEstimate = seasonKeys.length;
-  onProgress?.(progressDone, progressTotal + seasonCountEstimate);
+  progressTotal += seasonKeys.length;
+  onProgress?.(progressDone, progressTotal);
 
   const seasonCache = new Map(
     (await mapWithConcurrency(seasonKeys, RESOLVE_CONCURRENCY, async (key) => {

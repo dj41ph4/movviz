@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.33 — August 2026
+
+### Correctif : import Netflix
+
+- **Cause racine confirmée sur un vrai export** : deux bugs de reconnaissance faisaient rater une grosse partie des titres. D'abord, un numéro d'épisode isolé (« Épisode 24 ») était pris à tort pour un numéro de saison — recherché comme "saison 24" d'une série qui n'en a que 2 ou 3, forcément introuvable. Ensuite, une série sans étiquette de saison du tout (juste « Série : Titre d'épisode ») pouvait être mal aiguillée pendant la recherche et perdre l'épisode précis au passage.
+- Les libellés « Partie N » et « Volume N » sont maintenant reconnus comme des saisons au même titre que « Saison N ».
+
 ## v1.14.32 — August 2026
 
 ### Movviz AI

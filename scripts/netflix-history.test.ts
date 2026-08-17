@@ -94,3 +94,43 @@ test("classifyNetflixTitle: libellé de saison en français ('Saison N') reconnu
   assert.equal(got.seasonNumber, 2);
   assert.equal(got.episodeTitle, "Épisode 3");
 });
+
+test("classifyNetflixTitle: 'Épisode N' seul en 2e segment n'est PAS une saison (bug confirmé sur un vrai export)", () => {
+  // "Gloutons & Dragons: Épisode 24 : Raviolis, partie 2 / Œufs au bacon" —
+  // l'ancienne règle ("un chiffre dans le 2e segment = numéro de saison")
+  // cherchait à tort la saison 24 d'une série qui n'en a que 2 ou 3. "Épisode
+  // N" n'est jamais un vrai libellé de saison chez Netflix.
+  const got = classifyNetflixTitle("Gloutons & Dragons: Épisode 24 : Raviolis, partie 2 / Œufs au bacon");
+  assert.equal(got.kind, "episode");
+  assert.equal(got.seriesTitle, "Gloutons & Dragons");
+  assert.equal(got.seasonNumber, 1);
+  assert.equal(got.episodeTitle, "Raviolis, partie 2 / Œufs au bacon");
+});
+
+test("classifyNetflixTitle: 'Partie N' reconnu comme libellé de saison, au même titre que 'Saison N'", () => {
+  const got = classifyNetflixTitle("Inside Job: Partie 2: Appleton");
+  assert.equal(got.kind, "episode");
+  assert.equal(got.seriesTitle, "Inside Job");
+  assert.equal(got.seasonNumber, 2);
+  assert.equal(got.episodeTitle, "Appleton");
+});
+
+test("classifyNetflixTitle: 'Volume N' reconnu comme libellé de saison", () => {
+  const got = classifyNetflixTitle("Love, Death & Robots: Volume 4: Le complot des objets connectés");
+  assert.equal(got.kind, "episode");
+  assert.equal(got.seriesTitle, "Love, Death & Robots");
+  assert.equal(got.seasonNumber, 4);
+  assert.equal(got.episodeTitle, "Le complot des objets connectés");
+});
+
+test("classifyNetflixTitle: anthologie à 4 segments (titre de série contenant lui-même un ':' + nom d'arc) — tout sauf le dernier segment forme le titre de la série", () => {
+  // "Demon Slayer: Kimetsu no Yaiba" est le titre réel (avec son propre
+  // ':'), "Le quartier des plaisirs" est un nom d'arc, pas une saison
+  // numérotée — ni SEASON_LABEL_RE ni BARE_EPISODE_LABEL_RE ne doivent
+  // matcher ici, on retombe sur le repli anthologie existant.
+  const got = classifyNetflixTitle("Demon Slayer: Kimetsu no Yaiba: Le quartier des plaisirs: À chaque réincarnation");
+  assert.equal(got.kind, "episode");
+  assert.equal(got.seriesTitle, "Demon Slayer: Kimetsu no Yaiba: Le quartier des plaisirs");
+  assert.equal(got.seasonNumber, 1);
+  assert.equal(got.episodeTitle, "À chaque réincarnation");
+});
