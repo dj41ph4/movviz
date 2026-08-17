@@ -15,7 +15,7 @@ import { emitNotification } from "@/lib/notifications/store";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited } from "@/lib/indexers/rateLimit";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
-import { languageSatisfies, MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN, MAX_LIVE_CODEC_SEARCHES_PER_RUN, yieldToEventLoop, codecScore } from "@/lib/library/searchAndReplace";
+import { languageSatisfies, MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN, MAX_LIVE_CODEC_SEARCHES_PER_RUN, yieldToEventLoop, codecScore, parseReleases } from "@/lib/library/searchAndReplace";
 import type { IndexerRelease } from "@/lib/indexers/types";
 
 /**
@@ -52,7 +52,7 @@ function versionLabel(resolution: string | null, videoCodec: string | null, audi
 }
 
 function computeSafeEpisodeMatches(
-  releases: IndexerRelease[],
+  parsedReleases: ReturnType<typeof parseReleases>,
   series: { title: string; aliases?: string[] },
   seasonNumber: number,
   episodeNumber: number,
@@ -60,8 +60,7 @@ function computeSafeEpisodeMatches(
   rules: ReturnType<typeof loadReleaseRules>,
   profile: { allowedResolutions: string[] }
 ) {
-  return releases
-    .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
+  return parsedReleases
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, series.title, series.aliases ?? []))
     .filter(({ parsed }) => seasonEpisodeMatches(parsed, seasonNumber, episodeNumber))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, series.title).blocked)
@@ -110,7 +109,7 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
   if (!targetLanguage) return [];
 
   const candidates: EpisodeUpgradeCandidate[] = [];
-  const cachedReleases = searchFromCache(TV_CATEGORY_IDS);
+  const cachedReleases = parseReleases(searchFromCache(TV_CATEGORY_IDS));
   let liveSearchesUsed = 0;
   let liveCodecSearchesUsed = 0;
 
@@ -160,7 +159,7 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
           const results = await searchTv(ix, { title: series.title, season: seasonNumber, episode: episodeNumber }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
           directReleases.push(...results);
         }
-        const directMatches = computeSafeEpisodeMatches(directReleases, series, seasonNumber, episodeNumber, file.resolution, rules, profile);
+        const directMatches = computeSafeEpisodeMatches(parseReleases(directReleases), series, seasonNumber, episodeNumber, file.resolution, rules, profile);
         const candidate = bestEpisodeLanguageMatch(directMatches, targetLanguage);
         if (candidate && isMeaningfulEpisodeUpgrade(candidate.release.size, file.size)) {
           best = candidate;
@@ -215,7 +214,7 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
           const results = await searchTv(ix, { title: series.title, season: seasonNumber, episode: episodeNumber }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
           directReleases.push(...results);
         }
-        const directMatches = computeSafeEpisodeMatches(directReleases, series, seasonNumber, episodeNumber, file.resolution, rules, profile);
+        const directMatches = computeSafeEpisodeMatches(parseReleases(directReleases), series, seasonNumber, episodeNumber, file.resolution, rules, profile);
         const candidate = directMatches
           .filter(({ parsed }) => codecScore(parsed.videoCodec, rules) > currentCodecScore)
           .sort((a, b) => codecScore(b.parsed.videoCodec, rules) - codecScore(a.parsed.videoCodec, rules) || b.release.score - a.release.score)[0];
@@ -265,7 +264,7 @@ export async function grabEpisodeUpgradeCandidate(seriesId: string, seasonNumber
   if (!targetLanguage) return { ok: false, error: "no_candidate" };
   const profile = DEFAULT_QUALITY_PROFILES.find((p) => p.id === series.qualityProfileId) ?? DEFAULT_QUALITY_PROFILES[0];
 
-  let matches = computeSafeEpisodeMatches(searchFromCache(TV_CATEGORY_IDS), series, seasonNumber, episodeNumber, episode.file.resolution, rules, profile);
+  let matches = computeSafeEpisodeMatches(parseReleases(searchFromCache(TV_CATEGORY_IDS)), series, seasonNumber, episodeNumber, episode.file.resolution, rules, profile);
   let best = bestEpisodeLanguageMatch(matches, targetLanguage);
 
   if (!best) {
@@ -277,7 +276,7 @@ export async function grabEpisodeUpgradeCandidate(seriesId: string, seasonNumber
         const results = await searchTv(ix, { title: series.title, season: seasonNumber, episode: episodeNumber }, TV_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
         directReleases.push(...results);
       }
-      matches = computeSafeEpisodeMatches(directReleases, series, seasonNumber, episodeNumber, episode.file.resolution, rules, profile);
+      matches = computeSafeEpisodeMatches(parseReleases(directReleases), series, seasonNumber, episodeNumber, episode.file.resolution, rules, profile);
       best = bestEpisodeLanguageMatch(matches, targetLanguage);
     }
   }

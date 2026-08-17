@@ -108,15 +108,28 @@ function isMeaningfulUpgrade(candidate: { release: IndexerRelease; parsed: Retur
  * - Custom-format upgrade (unchanged): a release scores higher than the
  *   owned file against the user's own configured favorite/forbidden terms.
  */
+/** Parses every release's title ONCE — hoisted out of computeSafeMatches so
+ *  a caller looping over hundreds/thousands of movies against the SAME
+ *  cached release list (findUpgradeCandidates below) parses each release
+ *  exactly once instead of once per movie. Confirmed live as a real
+ *  performance bug: with N cached releases and M monitored movies,
+ *  computeSafeMatches used to re-run parseRelease() N×M times — on a large
+ *  library this single-threadedly blocked the Node event loop for tens of
+ *  seconds, stalling every other concurrent request on the server (visible
+ *  in the app's own Performance panel as a shared latency spike across
+ *  totally unrelated endpoints). */
+export function parseReleases(releases: IndexerRelease[]) {
+  return releases.map((r) => ({ release: r, parsed: parseRelease(r.title) }));
+}
+
 function computeSafeMatches(
-  releases: IndexerRelease[],
+  parsedReleases: ReturnType<typeof parseReleases>,
   movie: { title: string; year: number | null; aliases?: string[] },
   currentResolution: string | null,
   rules: ReturnType<typeof loadReleaseRules>,
   profile: { allowedResolutions: string[] }
 ) {
-  return releases
-    .map((r) => ({ release: r, parsed: parseRelease(r.title) }))
+  return parsedReleases
     .filter(({ parsed }) => releaseTitleMatches(parsed.title, movie.title, movie.aliases ?? []))
     .filter(({ parsed }) => yearIsCompatible(parsed.year, movie.year))
     .filter(({ release }) => !isBlockedForAutoGrab(release.title, rules, movie.title).blocked)
@@ -265,7 +278,7 @@ export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
   const rules = loadReleaseRules();
   const targetLanguage = rules.preferredLanguageUpgrade;
   const candidates: UpgradeCandidate[] = [];
-  const cachedReleases = searchFromCache(MOVIE_CATEGORY_IDS);
+  const cachedReleases = parseReleases(searchFromCache(MOVIE_CATEGORY_IDS));
   let liveSearchesUsed = 0;
   let liveCodecSearchesUsed = 0;
   const index = getMediaIndex();
@@ -307,7 +320,7 @@ export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
           const results = await searchMovie(ix, { title: m.title, year: m.year, imdbId: fullMovie?.imdbId, tmdbId: fullMovie?.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
           directReleases.push(...results);
         }
-        const directMatches = computeSafeMatches(directReleases, { title: m.title, year: m.year }, m.resolution, rules, profile);
+        const directMatches = computeSafeMatches(parseReleases(directReleases), { title: m.title, year: m.year }, m.resolution, rules, profile);
         languageUpgrade = bestLanguageMatch(directMatches, targetLanguage!);
       }
     }
@@ -366,7 +379,7 @@ export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
           const results = await searchMovie(ix, { title: m.title, year: m.year, imdbId: fullMovie?.imdbId, tmdbId: fullMovie?.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
           directReleases.push(...results);
         }
-        const directMatches = computeSafeMatches(directReleases, { title: m.title, year: m.year }, m.resolution, rules, profile);
+        const directMatches = computeSafeMatches(parseReleases(directReleases), { title: m.title, year: m.year }, m.resolution, rules, profile);
         if (!formatUpgrade) {
           formatUpgrade = directMatches
             .filter(({ release }) => applyCustomFormats(release.title) > m.formatScore)
@@ -448,7 +461,7 @@ export async function grabUpgradeCandidate(movieId: string): Promise<GrabUpgrade
   const currentLanguage = movie.file.language ?? parseRelease(currentBasename).language;
   const wantsLanguageUpgrade = !!targetLanguage && !languageSatisfies(targetLanguage, currentLanguage);
 
-  let safeMatches = computeSafeMatches(searchFromCache(MOVIE_CATEGORY_IDS), movie, movie.file.resolution, rules, profile)
+  let safeMatches = computeSafeMatches(parseReleases(searchFromCache(MOVIE_CATEGORY_IDS)), movie, movie.file.resolution, rules, profile)
     .filter(({ release }) => withinSizeLimit(release.size, "movie"));
 
   let languageUpgrade = wantsLanguageUpgrade ? bestLanguageMatch(safeMatches, targetLanguage!) : undefined;
@@ -462,7 +475,7 @@ export async function grabUpgradeCandidate(movieId: string): Promise<GrabUpgrade
         const results = await searchMovie(ix, { title: movie.title, year: movie.year, imdbId: movie.imdbId, tmdbId: movie.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
         directReleases.push(...results);
       }
-      const directMatches = computeSafeMatches(directReleases, movie, movie.file.resolution, rules, profile)
+      const directMatches = computeSafeMatches(parseReleases(directReleases), movie, movie.file.resolution, rules, profile)
         .filter(({ release }) => withinSizeLimit(release.size, "movie"));
       languageUpgrade = bestLanguageMatch(directMatches, targetLanguage!);
       if (languageUpgrade) safeMatches = directMatches;
@@ -492,7 +505,7 @@ export async function grabUpgradeCandidate(movieId: string): Promise<GrabUpgrade
         const results = await searchMovie(ix, { title: movie.title, year: movie.year, imdbId: movie.imdbId, tmdbId: movie.tmdbId }, MOVIE_CATEGORY_IDS).catch(() => [] as IndexerRelease[]);
         directReleases.push(...results);
       }
-      const directMatches = computeSafeMatches(directReleases, movie, movie.file.resolution, rules, profile)
+      const directMatches = computeSafeMatches(parseReleases(directReleases), movie, movie.file.resolution, rules, profile)
           .filter(({ release }) => withinSizeLimit(release.size, "movie"));
       if (wantsLanguageUpgrade) languageUpgrade = bestLanguageMatch(directMatches, targetLanguage!) ?? languageUpgrade;
       if (!formatUpgrade) {

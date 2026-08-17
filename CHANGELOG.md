@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.41 — August 2026
+
+### Correctif : lenteur générale de l'application
+
+- **Cause racine confirmée en direct** (panneau Réglages > Performance) : la recherche d'optimisations disponibles (rangée « Optimisations disponibles » du tableau de bord, et le panneau « Rechercher et remplacer ») réanalysait l'intégralité des releases en cache pour CHAQUE film et CHAQUE épisode de la bibliothèque, au lieu de le faire une seule fois puis réutiliser le résultat — sur une grosse bibliothèque, ce travail répété saturait le serveur pendant plusieurs dizaines de secondes et ralentissait TOUTES les autres pages en même temps (chargement du tableau de bord, de la bibliothèque, des demandes...), même sans rapport avec les optimisations. Le calcul se fait désormais une seule fois, avec un résultat strictement identique.
+
 ## v1.14.40 — August 2026
 
 ### Correctif : Movviz AI
