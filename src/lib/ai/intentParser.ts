@@ -38,10 +38,24 @@ const MAX_REASON_LEN = 500;
  *  non-space character is a JSON structural one (`,`/`:`/`}`/`]`/end of
  *  text); anything else is a stray literal quote, escaped on the fly so the
  *  final JSON.parse succeeds instead of failing on it. */
-export function extractJsonObject(text: string): unknown | null {
+/** Same as {@link extractJsonObject} but also reports how much of the
+ *  ORIGINAL text was consumed by the match — `end` is the index right
+ *  after the last original character that's part of the JSON (the
+ *  original text may run past `end` when the model kept writing prose
+ *  after the JSON; `end` sits at `text.length` when the JSON itself was
+ *  the thing that got cut off). `parseIntent` needs this to correctly
+ *  strip the JSON out of a truncated reply — `text.lastIndexOf("}")`
+ *  doesn't work once the JSON never got its closing brace. */
+function extractJsonObjectSpan(text: string): { value: unknown; end: number } | null {
   const start = text.indexOf("{");
   if (start === -1) return null;
-  let depth = 0;
+  const stack: string[] = [];
+  // Checkpoint = a point where some nested `{...}`/`[...]` just fully
+  // closed (e.g. one completed item in an "items" array) while the object
+  // as a whole is still open — recorded so a token-limit cutoff mid-list
+  // (confirmed live on a long "recommend" reply) can roll back to the last
+  // complete item instead of discarding the entire reply.
+  const checkpoints: { text: string; stack: string[]; end: number }[] = [];
   let inString = false;
   let escaped = false;
   let repaired = "";
@@ -64,19 +78,38 @@ export function extractJsonObject(text: string): unknown | null {
     }
     if (ch === '"') { inString = true; repaired += ch; continue; }
     repaired += ch;
-    if (ch === "{") depth++;
-    else if (ch === "}") {
-      depth--;
-      if (depth === 0) {
+    if (ch === "{" || ch === "[") { stack.push(ch); continue; }
+    if (ch === "}" || ch === "]") {
+      stack.pop();
+      if (stack.length === 0) {
         try {
-          return JSON.parse(repaired);
+          return { value: JSON.parse(repaired), end: i + 1 };
         } catch {
           return null;
         }
       }
+      checkpoints.push({ text: repaired, stack: [...stack], end: i + 1 });
+    }
+  }
+  // Reached the end of the text with the object still open — try the most
+  // recent checkpoint first (closest to what the model actually finished),
+  // closing whatever brackets were still open at that point. The JSON was
+  // itself the thing that got cut off, so it consumes the rest of `text`.
+  for (let k = checkpoints.length - 1; k >= 0; k--) {
+    const { text: partial, stack: openStack } = checkpoints[k];
+    let attempt = partial.replace(/,\s*$/, "");
+    for (let j = openStack.length - 1; j >= 0; j--) attempt += openStack[j] === "{" ? "}" : "]";
+    try {
+      return { value: JSON.parse(attempt), end: text.length };
+    } catch {
+      // try an earlier checkpoint
     }
   }
   return null;
+}
+
+export function extractJsonObject(text: string): unknown | null {
+  return extractJsonObjectSpan(text)?.value ?? null;
 }
 
 function validItem(raw: unknown): AiRecommendIntentItem | null {
@@ -112,7 +145,8 @@ function fallbackRawText(text: string, rawText: string): string {
 
 export function parseIntent(text: string): ParsedIntent {
   const rawText = text.trim();
-  const json = extractJsonObject(text);
+  const span = extractJsonObjectSpan(text);
+  const json = span?.value ?? null;
   if (!json || typeof json !== "object") return { action: null, items: [], rawText: fallbackRawText(text, rawText) };
 
   const obj = json as Record<string, unknown>;
@@ -129,9 +163,11 @@ export function parseIntent(text: string): ParsedIntent {
   if (!items.length) return { action: null, items: [], rawText: fallbackRawText(text, rawText) };
 
   // Strip the JSON block from the reply so rawText keeps only the prose.
+  // Uses the span's own consumed range rather than text.lastIndexOf("}") —
+  // a truncated reply never has a trailing "}" in the original text at all.
   const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  const stripped = (start >= 0 && end > start ? text.slice(0, start) + text.slice(end + 1) : text).trim();
+  const end = span!.end;
+  const stripped = (start >= 0 && end > start ? text.slice(0, start) + text.slice(end) : text).trim();
   return { action, items, rawText: stripped };
 }
 

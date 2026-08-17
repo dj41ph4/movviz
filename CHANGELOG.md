@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.34 — August 2026
+
+### Movviz AI
+
+- **Cause racine confirmée en direct** : quand une vérification réelle était faite pour répondre à une question précise (possession, visionnage, casting, statut d'une série, ce qu'il manque d'une franchise), Movviz AI recopiait parfois telle quelle la note technique interne au lieu de formuler une vraie phrase — une réponse qui sonnait comme un extrait de base de données plutôt qu'une conversation. Corrigé : les faits vérifiés restent exacts, mais sont désormais toujours reformulés naturellement.
+- Personnalité renforcée de façon plus générale : consigne explicite pour ne plus jamais laisser transparaître de formatage ou de structure technique interne dans une réponse, quel que soit le type de question.
+- **Cause racine confirmée en direct** : une recommandation ou un ajout un peu long pouvait, sur certains modèles, être coupé en plein milieu avant la fin — jusqu'ici, la moindre coupure faisait tout perdre et affichait un message d'erreur générique à la place. Movviz AI récupère désormais les éléments déjà complets d'une réponse coupée au lieu de tout jeter.
+
 ## v1.14.33 — August 2026
 
 ### Correctif : import Netflix

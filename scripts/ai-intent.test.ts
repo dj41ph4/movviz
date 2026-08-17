@@ -89,6 +89,23 @@ test("recommend : JSON toujours invalide même après réparation ne fuit jamais
   assert.ok(!got.rawText.includes("action"));
 });
 
+test("recommend : réponse tronquée par une limite de tokens (item final coupé en plein milieu) récupère les items complets au lieu de tout jeter (bug confirmé en direct : réponse à 'même mood qu'Alien' → message générique d'erreur)", () => {
+  const truncated = '{"action":"recommend","items":[{"title":"The Thing","year":1982,"type":"movie","reason":"Huis clos et paranoïa, menace invisible"},{"title":"Event Horizon","year":1997,"type":"movie","reason":"Horreur cosmiqu';
+  const got = parseIntent(truncated);
+  assert.equal(got.action, "recommend");
+  assert.equal(got.items.length, 1);
+  assert.equal(got.items[0].title, "The Thing");
+  assert.equal(got.rawText, "");
+});
+
+test("add_media : réponse tronquée après le premier item complet reste utilisable", () => {
+  const truncated = '{"action":"add_media","items":[{"title":"Dune","year":2021,"type":"movie"},{"title":"Dune: Pa';
+  const got = parseIntent(truncated);
+  assert.equal(got.action, "add_media");
+  assert.equal(got.items.length, 1);
+  assert.equal(got.items[0].title, "Dune");
+});
+
 test("extractFacts: marqueur sur sa propre ligne, extrait et retiré", () => {
   const got = extractFacts("Ah super, Seb !\n[[FAIT: Prénom : Seb]]");
   assert.deepEqual(got.facts, ["Prénom : Seb"]);
