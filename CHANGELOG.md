@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.10 — August 2026
+
+### Movviz AI — badge discret au lieu d'une ouverture forcée
+
+- Quand Movviz relance spontanément la conversation après une absence, le chat ne s'ouvre plus automatiquement — le bouton flottant affiche désormais un badge numéroté avec une brève pulsation, jusqu'à ce que l'utilisateur l'ouvre lui-même.
+
 ## v1.15.9 — August 2026
 
 ### Movviz AI — la relance spontanée peut désormais porter sur une note

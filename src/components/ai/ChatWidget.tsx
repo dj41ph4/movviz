@@ -240,6 +240,7 @@ export function ChatWidget() {
   const enabled = sessionData?.enabled ?? null;
   const seededRef = useRef(false);
   const [pulse, setPulse] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     if (!sessionData || seededRef.current) return;
@@ -247,17 +248,20 @@ export function ChatWidget() {
     setMessages(sessionData.messages ?? []);
   }, [sessionData]);
 
-  // Proactive nudge (demande explicite user — "quand l'utilisateur revient
-  // sur Movviz après un moment, le chat pop en clignotant et pose une
-  // question"). GET /api/ai/session revalidates on window focus (global
-  // SWRConfig), which is exactly "the user came back" — the server decides
-  // whether a real nudge fired (presence.ts, its own cooldown), this just
-  // reacts when it did. Authoritative replace, not append: this can only
-  // land while the widget is idle (no in-flight send racing it).
+  // Proactive nudge (demande explicite user — un signal discret plutôt
+  // qu'une ouverture forcée : "jamais forcer l'ouverture sur mobile, juste
+  // un badge/pulsation"). GET /api/ai/session revalidates on window focus
+  // (global SWRConfig), which is exactly "the user came back" — the server
+  // decides whether a real nudge fired (presence.ts, its own cooldown),
+  // this just reacts when it did. Authoritative replace, not append: this
+  // can only land while the widget is idle (no in-flight send racing it).
+  // The widget itself is never force-opened — only a numbered badge + a
+  // brief pulse on the closed button, cleared the moment the user opens it.
   useEffect(() => {
     if (!sessionData?.proactive || !seededRef.current) return;
     setMessages(sessionData.messages ?? []);
-    setOpen(true);
+    if (open) return; // already looking at it — nothing to signal
+    setUnreadCount((c) => c + 1);
     setPulse(true);
     const timer = setTimeout(() => setPulse(false), 2600);
     return () => clearTimeout(timer);
@@ -502,14 +506,26 @@ export function ChatWidget() {
       )}
 
       <button
-        onClick={() => { setOpen((o) => !o); setPulse(false); }}
+        onClick={() => {
+          setOpen((o) => {
+            const next = !o;
+            if (next) setUnreadCount(0);
+            return next;
+          });
+          setPulse(false);
+        }}
         title={open ? t("ai.close") : t("ai.open")}
         className={cn(
-          "flex h-12 w-12 items-center justify-center rounded-full glass-strong text-brand-glow shadow-xl transition-transform hover:scale-105",
+          "relative flex h-12 w-12 items-center justify-center rounded-full glass-strong text-brand-glow shadow-xl transition-transform hover:scale-105",
           pulse && "animate-badge-pulse"
         )}
       >
         {open ? <X className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
+        {!open && unreadCount > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border border-white/20 bg-brand-glow px-1 text-[10px] font-bold text-white">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
       </button>
     </div>
   );
