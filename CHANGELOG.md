@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.6 — August 2026
+
+### Movviz AI — distinction entre un avis ponctuel et une note globale
+
+- Un commentaire sur un élément précis ("j'adore cette scène", "cet acteur est excellent", "la fin est ratée") ne fait plus déduire une note globale du titre entier — seul un avis exprimé sur l'ensemble du film ou de la série est traduit en note.
+
 ## v1.15.5 — August 2026
 
 ### Movviz AI — identité de compagnon cinéphile renforcée
