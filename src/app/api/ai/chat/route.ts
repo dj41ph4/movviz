@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating, getRating } from "@/lib/ai/tasteProfile";
@@ -518,10 +518,23 @@ export async function POST(req: NextRequest) {
   const hasRealVerification = !!(watchStatusTitle || presenceTitle || castCrewTitle || statusTitle || statusIsCurrentPage || bareTitleCandidate);
   const unresolvedPromise = intent.action === null && !isDegenerateReply(cleaned) && !leaked && !falseNameDenial && !falseInternetDenial
     && isUnresolvedCheckPromise(cleaned);
-  if (intent.action === null && (isDegenerateReply(cleaned) || leaked || falseNameDenial || falseInternetDenial || unresolvedPromise)) {
+  // Confirmed live: for a bare title mention, the reply came back as
+  // "• Déjà dans la bibliothèque — The Nice Guys (2016)" — mode 3 (no JSON,
+  // so the add_media guard above never sees it), and not a literal copy of
+  // the "VÉRIFICATION RÉELLE" label either (so `leaked` misses it too), but
+  // a mechanical imitation of the UNRELATED summarizeAdd() bullet format
+  // this same conversation had used earlier for actual adds — the model
+  // pattern-matched the wrong internal format instead of writing a real
+  // reaction. Same underlying problem as `leaked` (internal formatting
+  // shown raw), different shape, so it gets the same retry treatment.
+  const mechanicalBullet = intent.action === null && !isDegenerateReply(cleaned) && !leaked && !falseNameDenial && !falseInternetDenial && !unresolvedPromise
+    && isMechanicalBulletReply(cleaned);
+  if (intent.action === null && (isDegenerateReply(cleaned) || leaked || falseNameDenial || falseInternetDenial || unresolvedPromise || mechanicalBullet)) {
     try {
       const retrySystem = leaked
         ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a recopié TEL QUEL le bloc technique interne (le texte commençant par "VÉRIFICATION RÉELLE" ou "RECHERCHE RÉELLE", avec ses flèches →, ses crochets [film, tmdb:...] et ses OUI/NON en majuscules) — c'est une erreur, cette note est réservée à un usage interne, jamais à afficher telle quelle. Réponds cette fois en une ou deux phrases naturelles et chaleureuses qui donnent EXACTEMENT la même information (les faits doivent rester identiques, ne change ni n'invente rien), sans jamais réutiliser le libellé "VÉRIFICATION RÉELLE"/"RECHERCHE RÉELLE" ni sa structure. Exemple : au lieu de "VÉRIFICATION RÉELLE pour « Dune » → identifié comme Dune (2021) [film, tmdb:438631] : OUI, déjà dans la bibliothèque.", réponds quelque chose comme "Ouais, tu l'as déjà ! Dune (2021) est bien dans ta bibliothèque."`
+        : mechanicalBullet
+        ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message ("${cleaned.trim().slice(0, 200)}") n'était qu'une ligne technique en style base de données (puce "•", format "Champ — Valeur"), pas une vraie phrase — ce format est réservé aux résultats d'ajout, jamais à une réaction sur un titre mentionné. Réponds cette fois avec une vraie phrase naturelle et chaleureuse (garde ta personnalité, emojis avec modération), en te basant sur les mêmes faits réels donnés plus haut dans ce prompt — jamais sous forme de puce ou de liste technique.`
         : falseNameDenial
         ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a PRÉTENDU ne pas connaître le prénom de l'utilisateur ("je ne sais pas", "dis-le-moi"...) alors qu'il figure bien dans les faits retenus fournis plus haut dans ce prompt (${knownNameFact}). C'est un mensonge sur ta propre mémoire — exactement le genre d'erreur que tu dois éviter absolument. Réponds cette fois en confirmant directement et naturellement que tu t'en souviens, en utilisant ce prénom exact.`
         : falseInternetDenial

@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.3 — August 2026
+
+### Correctif : mention d'un titre parfois répondue par une ligne technique au lieu d'une vraie phrase
+
+- **Cause racine confirmée en direct** : le correctif v1.15.2 empêchait bien l'ajout silencieux, mais dans certains cas l'assistant répondait quand même par une seule ligne au format "• Déjà dans la bibliothèque — Titre (année)" — une imitation du format technique utilisé en interne pour les résultats d'ajout, recopiée par erreur au lieu d'une vraie réaction naturelle. Ce format mécanique est désormais détecté et corrigé automatiquement pour toujours obtenir une vraie phrase.
+
 ## v1.15.2 — August 2026
 
 ### Correctif : mention d'un titre parfois traitée comme un ajout silencieux

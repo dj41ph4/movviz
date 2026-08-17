@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -404,6 +404,22 @@ test("containsLeakedActionJson / sanitizeLeakedActionJson: détecte et retire un
   const leaked = 'Voilà : {"action":"add_media","items":[{"title":"Zootopia 2","year":2025,"type":"movie"}]}';
   assert.ok(containsLeakedActionJson(leaked));
   assert.equal(sanitizeLeakedActionJson(leaked), "Voilà :");
+});
+
+test("isMechanicalBulletReply: vrai pour une ligne unique imitant le format d'ajout", () => {
+  assert.ok(isMechanicalBulletReply("• Déjà dans la bibliothèque — The Nice Guys (2016)"));
+});
+
+test("isMechanicalBulletReply: vrai pour plusieurs puces sans phrase réelle", () => {
+  assert.ok(isMechanicalBulletReply("• Déjà dans la bibliothèque — X\n• Pas encore vu(e)"));
+});
+
+test("isMechanicalBulletReply: faux dès qu'une vraie phrase accompagne la puce", () => {
+  assert.equal(isMechanicalBulletReply("Ah tiens, tu l'as déjà !\n• Déjà dans la bibliothèque — X"), false);
+});
+
+test("isMechanicalBulletReply: faux sur une réponse normale sans puce", () => {
+  assert.equal(isMechanicalBulletReply("Ah cool, tu l'as déjà vu !"), false);
 });
 
 test("containsLeakedActionJson: faux sur une réponse normale", () => {

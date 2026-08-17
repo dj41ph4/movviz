@@ -363,6 +363,25 @@ export function isDegenerateReply(cleaned: string): boolean {
   return cleaned.trim().length === 0;
 }
 
+// Confirmed live : pour une mention de titre déjà présent/déjà vu, le
+// modèle a répondu en mode 3 (pas de JSON, pas de fuite du libellé
+// "VÉRIFICATION RÉELLE" littéral — donc ni isDegenerateReply ni
+// containsLeakedInternalBlock ne l'attrapent) mais avec une ligne unique
+// au format "• Déjà dans la bibliothèque — X (année)" — une IMITATION du
+// format technique interne (summarizeAdd, dans chat/route.ts) que le
+// modèle a manifestement repris du style de ses propres tours précédents
+// dans la même conversation, au lieu d'une vraie phrase. Même famille de
+// bug que "NE JAMAIS PARLER COMME UNE BASE DE DONNÉES", sous une forme que
+// la détection de fuite littérale ne couvre pas.
+const MECHANICAL_BULLET_LINE_RE = /^[•\-*]\s/;
+
+/** True when EVERY non-empty line of a mode-3 reply looks like a mechanical
+ *  "• Field — Value" bullet rather than a real sentence — see doc above. */
+export function isMechanicalBulletReply(cleaned: string): boolean {
+  const lines = cleaned.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+  return lines.length > 0 && lines.every((l) => MECHANICAL_BULLET_LINE_RE.test(l));
+}
+
 // Confirmed live: a genuine recommend-shaped request ("surprends-moi, sors
 // moi de ma zone de confort") got a mode-3 prose reply that TALKS as if a
 // list follows ("Voici ce qui devrait te surprendre...") but the model
