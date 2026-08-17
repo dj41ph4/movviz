@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.44 — August 2026
+
+### Correctif : deuxième filet de sécurité pour « Continuer à regarder »
+
+- La rangée « Continuer à regarder » vérifie désormais, en plus des données renvoyées par Plex, que le titre concerné figure réellement dans l'historique de vue propre au compte qui consulte la page avant de l'afficher — un titre sans aucune trace dans cet historique n'est jamais montré, quoi que Plex ait pu renvoyer. Cette double vérification protège contre une éventuelle confusion de compte côté Plex, indépendamment de la cause exacte.
+
 ## v1.14.43 — August 2026
 
 ### Correctif majeur : isolation des comptes utilisateurs
