@@ -491,6 +491,10 @@ export async function POST(req: NextRequest) {
     }
   }
   const { ratings, cleaned } = extractRatings(afterWatched);
+  // Titres dont la note a RÉELLEMENT été enregistrée (résolus + écrits) —
+  // sert à construire une confirmation honnête si le modèle n'a produit
+  // aucune phrase autour de ses marqueurs (voir plus bas).
+  const appliedRatings: { title: string; stars: number }[] = [];
   if (ratings.length) {
     // Always stored as source "inferred" (setRating never lets this
     // override an existing explicit rating — see tasteProfile.ts) — same
@@ -503,6 +507,7 @@ export async function POST(req: NextRequest) {
           tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title,
           rating: r.stars, source: "inferred", confidence: 0.6, opinion: r.opinion,
         });
+        appliedRatings.push({ title: resolved.title, stars: r.stars });
         // Same fire-and-forget pattern as every other real-activity
         // producer (watch/toggle, ai/watched, ai/feedback, netflix import,
         // and now the ratings widget itself) — a rating is exactly the
@@ -631,6 +636,9 @@ export async function POST(req: NextRequest) {
                 tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title,
                 rating: r.stars, source: "inferred", confidence: 0.6, opinion: r.opinion,
               });
+              if (!appliedRatings.some((a) => a.title === resolved.title)) {
+                appliedRatings.push({ title: resolved.title, stars: r.stars });
+              }
               triggerIncrementalContextIfDue(user.id).catch(() => {});
             } catch {
               // best-effort, see comment above
@@ -670,6 +678,21 @@ export async function POST(req: NextRequest) {
   // instead of a cheerful non-sequitur, without asking the user to
   // reformulate (explicit prompt rule elsewhere in buildSystemPrompt — kept
   // consistent here too).
+  // Confirmé en direct : sur une demande de notation ("mets 5 étoiles à X, Y
+  // et Z"), le modèle répond parfois UNIQUEMENT avec ses marqueurs
+  // `[[NOTE: ...]]` et aucune phrase autour. Les notes SONT alors bien
+  // enregistrées, mais l'utilisateur voyait "j'ai un vrai blocage" — le
+  // pire des deux mondes : une action réussie annoncée comme un échec.
+  // Quand des notes ont réellement été posées, la confirmation est
+  // construite ici, côté code, à partir de ce qui a VRAIMENT été écrit en
+  // base (jamais de ce que le modèle prétend) — même discipline que
+  // sanitizeMechanicalBulletReply.
+  if (!finalCleaned && appliedRatings.length) {
+    const list = appliedRatings.map((r) => `${r.title} (${r.stars}/5)`).join(", ");
+    finalCleaned = appliedRatings.length === 1
+      ? `C'est noté ⭐ ${list}.`
+      : `C'est noté ⭐ ${list} — ${appliedRatings.length} titres mis à jour.`;
+  }
   const FALLBACK_TEXT = "Désolé, j'ai un vrai blocage pour te répondre correctement là tout de suite — donne-moi un instant, ça devrait aller au prochain message.";
   const assistant: AiChatMessage = { role: "assistant", content: finalCleaned || FALLBACK_TEXT };
 

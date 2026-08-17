@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.15 — August 2026
+
+### Correctif : un mot ordinaire pouvait être enregistré comme ton prénom
+
+- **Cause racine confirmée en direct** : écrire une phrase du type « je l'ai pas vu, c'est avec DiCaprio ? » faisait enregistrer « Avec » comme prénom, en écrasant le vrai. Le détecteur prenait n'importe quel mot suivant un « c'est » au fil d'une phrase. Cette forme n'est désormais reconnue qu'en tout début de message (la réponse « c'est Seb » à la question du prénom reste captée), et une liste élargie de mots courants ne peut plus jamais devenir un prénom.
+
+### Correctif : une notation réussie s'affichait comme un échec
+
+- **Cause racine confirmée en direct** : sur une demande du type « mets 5 étoiles à X, Y et Z », les notes étaient bien enregistrées mais la réponse affichée était « j'ai un vrai blocage » — l'assistant n'avait produit aucune phrase autour de ses notes. La confirmation est maintenant construite à partir des notes réellement enregistrées, avec la liste des titres et leur note.
+
 ## v1.15.14 — August 2026
 
 ### Correctif : les notes annoncées en lot n'étaient pas réellement enregistrées

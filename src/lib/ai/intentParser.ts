@@ -305,9 +305,35 @@ export function extractRatings(text: string): {
 // "saw" the name in its own conversation history (session.messages),
 // producing a self-contradictory reply ("tu ne m'as pas donné ton
 // prénom... Seb !").
+// Bug confirmé en direct : la variante "c'est X" SANS "moi" devant capturait
+// n'importe quel mot suivant un "c'est" au fil d'une phrase ordinaire — la
+// phrase « The Northman, non j'ai pas vu, c'est avec dicaprio ? » a enregistré
+// « Prénom : Avec » et ÉCRASÉ le vrai prénom (les faits "prénom" se
+// remplacent, voir rememberFact/NAME_FACT_RE). "moi" est donc redevenu
+// OBLIGATOIRE pour cette forme : le cas légitime "c'est Seb" en réponse
+// directe à « comment tu t'appelles ? » reste couvert, mais par
+// extractNameFromDirectAnswer (qui, lui, exige que la question ait
+// réellement été posée au tour précédent) — pas par ce détecteur-ci, qui
+// s'applique à n'importe quelle phrase.
 const NAME_INTRO_RE =
-  /\b(?:je\s+m[e']\s*(?:appelle|nomme)|(?:moi\s*,?\s*)?c'?est|mon\s+pr[ée]nom\s*(?:est|c'?est)|appelle[- ]moi)\s+([a-zà-öø-ÿ][a-zà-öø-ÿ'-]{1,29})\b/i;
-const NOT_A_NAME = new Set(["qui", "quoi", "cool", "ok", "bon", "super", "genial", "génial", "sympa", "gentil", "gentille", "parti", "fini", "bon", "clair", "sûr", "sur", "vrai", "faux"]);
+  /\b(?:je\s+m[e']\s*(?:appelle|nomme)|moi\s*,?\s*c'?est|mon\s+pr[ée]nom\s*(?:est|c'?est)|appelle[- ]moi)\s+([a-zà-öø-ÿ][a-zà-öø-ÿ'-]{1,29})\b/i;
+// La forme "c'est X" SANS "moi" reste acceptée — mais UNIQUEMENT quand elle
+// constitue tout le début du message ("c'est Seb" en réponse à « comment tu
+// t'appelles ? »), jamais au fil d'une phrase où "c'est" est un simple verbe
+// ("...je l'ai pas vu, c'est avec DiCaprio ?" → capturait "Avec").
+const NAME_INTRO_BARE_RE = /^\s*c'?est\s+([a-zà-öø-ÿ][a-zà-öø-ÿ'-]{1,29})\b/i;
+// Filet de sécurité complémentaire : même avec "moi c'est", un mot purement
+// grammatical n'est jamais un prénom.
+const NOT_A_NAME = new Set([
+  "qui", "quoi", "cool", "ok", "bon", "super", "genial", "génial", "sympa", "gentil", "gentille",
+  "parti", "fini", "clair", "sûr", "sur", "vrai", "faux",
+  "avec", "sans", "pour", "dans", "chez", "vers", "par", "pas", "plus", "moins", "trop", "très",
+  "juste", "quand", "comme", "aussi", "encore", "déjà", "jamais", "toujours", "bien", "mal",
+  "un", "une", "le", "la", "les", "du", "des", "ce", "cette", "ces", "mon", "ma", "mes",
+  "son", "sa", "ses", "leur", "leurs", "tout", "toute", "tous", "toutes", "rien", "quelque",
+  "moi", "toi", "lui", "elle", "nous", "vous", "eux", "ça", "cela", "celui", "celle",
+  "peut", "doit", "va", "vais", "fait", "dit", "vu", "pareil", "dommage", "marrant", "drôle",
+]);
 
 // "comment tu t'appelles", "quel est ton prénom", "ton prénom ?" — the
 // assistant's own onboarding question (buildProactiveNudgeTrigger/
@@ -698,7 +724,7 @@ export function extractFilmographyQuestion(message: string): string | null {
  *  Runs on the USER's raw message, not the model's reply. Returns a
  *  ready-to-store fact string, or null if no introduction pattern matched. */
 export function extractSelfIntroName(userMessage: string): string | null {
-  const match = userMessage.match(NAME_INTRO_RE);
+  const match = userMessage.match(NAME_INTRO_RE) ?? userMessage.match(NAME_INTRO_BARE_RE);
   if (!match) return null;
   const raw = match[1];
   // A verb/filler word can end up captured by the loose alternation above

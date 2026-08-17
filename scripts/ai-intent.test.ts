@@ -494,6 +494,18 @@ test("extractSelfIntroName: 'c'est Seb' sans 'moi' est maintenant reconnu (bug c
   assert.equal(extractSelfIntroName("c'est Seb"), "Prénom : Seb");
 });
 
+test("extractSelfIntroName: un 'c'est' EN MILIEU de phrase n'est jamais un prénom (bug confirmé en direct : « Prénom : Avec »)", () => {
+  assert.equal(extractSelfIntroName("The Northman, non j'ai pas vu, c'est avec dicaprio ?"), null);
+  assert.equal(extractSelfIntroName("j'ai adoré ce film, c'est vraiment excellent"), null);
+  assert.equal(extractSelfIntroName("celui-là c'est pour plus tard"), null);
+});
+
+test("extractSelfIntroName: rejette les mots grammaticaux même avec 'moi c'est'", () => {
+  for (const m of ["moi c'est pareil", "moi c'est pour plus tard", "moi c'est trop"]) {
+    assert.equal(extractSelfIntroName(m), null, `"${m}" ne doit pas devenir un prénom`);
+  }
+});
+
 test("extractNameFromDirectAnswer: réponse en un mot à la question du prénom posée par l'assistant", () => {
   const got = extractNameFromDirectAnswer("Au fait, comment tu t'appelles ?", "Seb");
   assert.equal(got, "Prénom : Seb");
