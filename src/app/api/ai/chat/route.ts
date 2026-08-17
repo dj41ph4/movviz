@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, isFalseInternetDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
@@ -426,12 +426,23 @@ export async function POST(req: NextRequest) {
     ? getFacts(user.id).find((f) => /pr[ée]nom/i.test(f.fact))?.fact
     : undefined;
   const falseNameDenial = intent.action === null && isFalseNameDenial(message, cleaned, knownNameFact);
-  if (intent.action === null && (isDegenerateReply(cleaned) || leaked || falseNameDenial)) {
+  // Confirmed live, TWICE: with "Recherche web" ON in Réglages, the model
+  // still flatly denied any internet access at all when asked directly —
+  // false while the toggle is on (a real search does happen for the
+  // memorable-scene feature). The prompt already carries the real toggle
+  // state (buildSystemPrompt's webAccess block) but that alone wasn't
+  // reliably followed, same as every other "prompt-only fact about the
+  // model's own state" bug fixed this session.
+  const falseInternetDenial = intent.action === null && !isDegenerateReply(cleaned) && !leaked && !falseNameDenial
+    && isFalseInternetDenial(message, cleaned, config.webSearchEnabled);
+  if (intent.action === null && (isDegenerateReply(cleaned) || leaked || falseNameDenial || falseInternetDenial)) {
     try {
       const retrySystem = leaked
         ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a recopié TEL QUEL le bloc technique interne (le texte commençant par "VÉRIFICATION RÉELLE" ou "RECHERCHE RÉELLE", avec ses flèches →, ses crochets [film, tmdb:...] et ses OUI/NON en majuscules) — c'est une erreur, cette note est réservée à un usage interne, jamais à afficher telle quelle. Réponds cette fois en une ou deux phrases naturelles et chaleureuses qui donnent EXACTEMENT la même information (les faits doivent rester identiques, ne change ni n'invente rien), sans jamais réutiliser le libellé "VÉRIFICATION RÉELLE"/"RECHERCHE RÉELLE" ni sa structure. Exemple : au lieu de "VÉRIFICATION RÉELLE pour « Dune » → identifié comme Dune (2021) [film, tmdb:438631] : OUI, déjà dans la bibliothèque.", réponds quelque chose comme "Ouais, tu l'as déjà ! Dune (2021) est bien dans ta bibliothèque."`
         : falseNameDenial
         ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a PRÉTENDU ne pas connaître le prénom de l'utilisateur ("je ne sais pas", "dis-le-moi"...) alors qu'il figure bien dans les faits retenus fournis plus haut dans ce prompt (${knownNameFact}). C'est un mensonge sur ta propre mémoire — exactement le genre d'erreur que tu dois éviter absolument. Réponds cette fois en confirmant directement et naturellement que tu t'en souviens, en utilisant ce prénom exact.`
+        : falseInternetDenial
+        ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a nié CATÉGORIQUEMENT tout accès à internet ("je n'ai pas accès", "Movviz ne me donne pas cette capacité"...) — c'est FAUX en ce moment précis : la recherche web EST activée sur ce compte (Réglages → section IA), une vraie recherche a bien lieu en coulisses pour certaines fonctionnalités précises (comme retrouver une scène mémorable), même si toi-même tu ne la déclenches jamais à la demande en pleine conversation. Réponds cette fois en expliquant cette nuance précise et honnête — ni un déni catégorique, ni une prétention d'avoir un accès web général à la demande.`
         : `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message ne contenait AUCUNE phrase réelle${facts.length ? ` (seulement ${facts.length > 1 ? "des lignes" : "une ligne"} interne${facts.length > 1 ? "s" : ""} de mémorisation, ex. ${facts.map((f) => `« ${f} »`).join(", ")})` : ""} — c'est une erreur, jamais une réponse acceptable. Réponds cette fois avec une vraie phrase, en français, qui répond concrètement à ce que l'utilisateur vient de dire — garde ta personnalité habituelle. Tu peux toujours ajouter une ligne \`[[FAIT: ...]]\` APRÈS cette phrase si pertinent, mais ta réponse ne peut plus être vide de texte réel.`;
       const retryRes = await callAi(config, retrySystem, session.messages);
       const retryIntent = parseIntent(retryRes.text);

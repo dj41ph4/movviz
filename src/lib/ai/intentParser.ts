@@ -398,6 +398,29 @@ export function isFalseNameDenial(userMessage: string, reply: string, knownName:
   return !!knownName && REMEMBERS_NAME_QUESTION_RE.test(userMessage) && NAME_DENIAL_RE.test(reply);
 }
 
+// Confirmed live, TWICE, even after the prompt was given the real toggle
+// state (buildSystemPrompt's webAccess block): with "Recherche web" ON in
+// Réglages, the user asked "tu as accès à internet à présent ?" and the
+// model still flatly denied any access at all ("je n'ai toujours pas accès
+// à internet... Movviz ne me donne pas cette capacité") — a categorical
+// denial that's simply false while the toggle is on (a real web search DOES
+// happen for the memorable-scene feature). Same class of bug as the name-
+// memory denial above: a prompt-only instruction about the model's own
+// state isn't reliably followed, so it gets the same detect-and-retry
+// treatment instead of staying a prompt-only hope.
+const INTERNET_ACCESS_QUESTION_RE = /\b(tu|t')\s*(as|a)\s+(accès|acces)\s+(à\s+|a\s+)?internet\b|\baccès\s+(à\s+|a\s+)?internet\b[^.!?\n]*\?/i;
+const INTERNET_ACCESS_DENIAL_RE = /\bpas\s+(d['e])?\s*accès\s+(à\s+|a\s+)?internet\b|\bne\s+(me\s+)?donne\s+pas\s+(cette\s+)?(capacit[ée]|option|acc[èe]s)\b/i;
+
+/** True when the user asked about internet access and the reply denied it
+ *  categorically, even though `webSearchEnabled` says a real (narrowly-
+ *  scoped) web search capability does exist right now. Caller only needs
+ *  to pass the real, current toggle value — a true result here is always a
+ *  false denial while the toggle is on, never a legitimate "no" (when the
+ *  toggle is off, a plain denial is correct and this returns false). */
+export function isFalseInternetDenial(userMessage: string, reply: string, webSearchEnabled: boolean): boolean {
+  return webSearchEnabled && INTERNET_ACCESS_QUESTION_RE.test(userMessage) && INTERNET_ACCESS_DENIAL_RE.test(reply);
+}
+
 // "il me manque quel film/série de X", "il me manque quoi de X", "il me
 // manque quoi comme film de X", "qu'est-ce qu'il me manque de X", "j'ai pas
 // quoi comme film de X" — the entity (franchise/actor/director/character,

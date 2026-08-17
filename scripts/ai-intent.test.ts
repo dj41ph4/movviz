@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, isFalseInternetDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -151,6 +151,39 @@ test("promisesListWithNothing: ne se déclenche pas sur une vraie réponse en te
 test("promisesListWithNothing: ne se déclenche pas sur une réponse vide (déjà couvert par isDegenerateReply)", () => {
   assert.equal(promisesListWithNothing(""), false);
   assert.equal(promisesListWithNothing("   "), false);
+});
+
+test("isFalseInternetDenial: détecte le déni catégorique alors que la recherche web est activée (bug confirmé en direct, deux fois : le toggle 'Recherche web' était sur ON mais l'assistant niait tout accès)", () => {
+  assert.equal(isFalseInternetDenial(
+    "tu as acces a internet a present, vas y",
+    "Je n'ai toujours pas accès à internet en direct, même après ta demande — même Movviz ne me donne pas cette capacité.",
+    true
+  ), true);
+  assert.equal(isFalseInternetDenial(
+    "tu as accès à internet ?",
+    "Non, je n'ai pas accès à internet en temps réel.",
+    true
+  ), true);
+});
+
+test("isFalseInternetDenial: ne se déclenche jamais quand la recherche web est réellement désactivée (un déni reste alors légitime)", () => {
+  assert.equal(isFalseInternetDenial(
+    "tu as accès à internet ?",
+    "Non, je n'ai pas accès à internet en temps réel.",
+    false
+  ), false);
+});
+
+test("isFalseInternetDenial: ne se déclenche pas sur une réponse qui ne nie rien", () => {
+  assert.equal(isFalseInternetDenial(
+    "tu as accès à internet ?",
+    "Pas pour une recherche libre à la demande, non — seulement pour certaines fonctionnalités précises comme les scènes mémorables.",
+    true
+  ), false);
+});
+
+test("isFalseInternetDenial: ne se déclenche pas sur un message sans rapport", () => {
+  assert.equal(isFalseInternetDenial("télécharge sakamoto days", "D'accord, c'est parti !", true), false);
 });
 
 test("extractFilmographyQuestion: reconnaît les formulations courantes (bug confirmé en direct : 'donne moi la filmographie de brad pitt' recevait le même refus mot pour mot à chaque relance, sans aucune donnée réelle derrière)", () => {

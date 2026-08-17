@@ -4,8 +4,6 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { getPlexOnDeck } from "@/lib/plex/client";
 import { resolveToken } from "@/lib/plex/watchWrite";
 import { getMovieByPlexRatingKey, findEpisodeByPlexRatingKey } from "@/lib/library/store";
-import { getWatchStatus } from "@/lib/plex/watchStore";
-import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 
 export const dynamic = "force-dynamic";
 
@@ -40,27 +38,22 @@ export async function GET(req: NextRequest) {
   if (!auth) return NextResponse.json({ items: [] });
 
   const onDeck = await getPlexOnDeck(cfg, auth.token, auth.managedUserId);
-  // Second, independent layer of per-user isolation (confirmed live: a
-  // report of one account's Continue Watching row showing on a completely
-  // different device/account raised real doubt about trusting Plex's own
-  // per-token scoping for /library/onDeck here). This codebase has ALREADY
-  // documented, elsewhere (watchSync.ts), a real Plex API quirk where
-  // certain endpoints return the SERVER OWNER's state no matter which
-  // account's token authenticates the request — /library/onDeck is not
-  // proven safe from the same quirk. Rather than trust it blindly, cross-
-  // check every item against this user's OWN watch data, which IS already
-  // independently confirmed correctly per-account-scoped (synced via
-  // /status/sessions/history/all?accountID=, watchSync.ts) — an on-deck
-  // item only survives if this exact user has some real record of having
-  // watched/started it. A mismatch is logged rather than silently dropped,
-  // so a recurrence has real evidence instead of another guess.
-  const status = getWatchStatus(user.id);
-  const ownedMovieIds = new Set(status?.movies ?? []);
-  const ownedSeriesIds = new Set((status?.episodes ?? []).map((e) => e.tmdbId));
-  const recentIds = new Set((status?.recent ?? []).map((r) => `${r.type}:${r.tmdbId}`));
-  const belongsToUser = (type: "movie" | "series", tmdbId: number) =>
-    (type === "movie" ? ownedMovieIds.has(tmdbId) : ownedSeriesIds.has(tmdbId)) || recentIds.has(`${type}:${tmdbId}`);
-
+  // Bug fix (confirmed live, reverted): a v1.14.44 safety net cross-checked
+  // every on-deck item against this user's own SYNCED watch history
+  // (watchSync.ts, refreshed only every 2h from Plex's own history log)
+  // before trusting it — meant to guard against a suspected Plex API quirk,
+  // but it silently dropped perfectly legitimate, currently-in-progress
+  // items: something just started (a few % in) hasn't crossed Plex's own
+  // history-logging threshold yet, so it has no "recent" entry there even
+  // though it's genuinely this user's own on-deck item. Confirmed live: the
+  // admin's own Continue Watching row dropped from 10 real items to 3
+  // after that fix shipped. The theoretical leak this guarded against was
+  // never actually confirmed to be this specific endpoint's fault (a
+  // different, unrelated bug — the SWR client cache never being cleared on
+  // login/logout — already explains the reported cross-account symptom on
+  // its own), so trading away real functionality for an unconfirmed
+  // protection isn't the right call. Back to trusting resolveToken's own
+  // per-account token scoping, same as every other per-user Plex read here.
   const items: OnDeckEntry[] = [];
   for (const d of onDeck) {
     // Bug fix (confirmed live): Plex's on-deck list mixes two different
@@ -75,10 +68,6 @@ export async function GET(req: NextRequest) {
     if (d.type === "movie") {
       const movie = getMovieByPlexRatingKey(d.ratingKey);
       if (!movie) continue;
-      if (!belongsToUser("movie", movie.tmdbId)) {
-        recordSearchLog("warn", "plex.onDeck", `${user.username}: item on-deck « ${movie.title} » ignoré — aucune trace dans l'historique de vue propre à ce compte (Plex a peut-être renvoyé les données du propriétaire du serveur au lieu de ce compte)`);
-        continue;
-      }
       items.push({
         type: "movie",
         tmdbId: movie.tmdbId,
@@ -91,10 +80,6 @@ export async function GET(req: NextRequest) {
     } else {
       const found = findEpisodeByPlexRatingKey(d.ratingKey);
       if (!found) continue;
-      if (!belongsToUser("series", found.series.tmdbId)) {
-        recordSearchLog("warn", "plex.onDeck", `${user.username}: item on-deck « ${found.series.title} » ignoré — aucune trace dans l'historique de vue propre à ce compte (Plex a peut-être renvoyé les données du propriétaire du serveur au lieu de ce compte)`);
-        continue;
-      }
       items.push({
         type: "episode",
         tmdbId: found.series.tmdbId,

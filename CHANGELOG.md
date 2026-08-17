@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.47 — August 2026
+
+### Correctif : rangée « Continuer à regarder » vidée à tort
+
+- **Cause racine confirmée en direct** : la double vérification ajoutée en v1.14.44 (par précaution, sans certitude que c'était nécessaire) comparait chaque titre "en cours" avec l'historique de vue déjà synchronisé — historique qui ne se met à jour que toutes les 2 heures. Un titre commencé récemment n'y figure pas encore, donc il disparaissait à tort de la rangée alors qu'il t'appartenait bien. Résultat : la rangée est passée de 10 titres réels à seulement 3. Cette double vérification est retirée ; la protection d'origine (le jeton propre à chaque compte) reste en place.
+
+### Correctif : Movviz AI et l'accès web (suite)
+
+- **Cause racine confirmée en direct, deux fois** : malgré le correctif de la version précédente, Movviz AI continuait parfois à nier catégoriquement tout accès à internet même quand la recherche web était bien activée dans les réglages — la consigne seule ne suffisait pas à empêcher ça de façon fiable. Movviz AI détecte désormais ce déni erroné et se corrige immédiatement avant d'afficher quoi que ce soit, la même approche que pour les autres corrections automatiques déjà en place.
+
 ## v1.14.46 — August 2026
 
 ### Correctif : Movviz AI et l'accès web
