@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
+import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
@@ -254,6 +254,7 @@ export async function POST(req: NextRequest) {
         recentAt = status?.recent?.find((r) => r.tmdbId === resolved.tmdbId && r.type === resolved.type)?.at;
       }
       system += buildWatchStatusContext(watchStatusTitle, resolved, result, recentAt);
+      if (resolved) setActiveSubject(user.id, { tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title });
     } catch {
       // Best-effort — same safety net as the franchise-search block: no
       // block gets injected, the honesty rule tells the model to admit it
@@ -270,6 +271,7 @@ export async function POST(req: NextRequest) {
     try {
       const resolved = await resolveTitleAgainstTmdb({ title: presenceTitle });
       system += buildLibraryPresenceContext(presenceTitle, resolved);
+      if (resolved) setActiveSubject(user.id, { tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title });
     } catch {
       // Best-effort, see comment above.
     }
@@ -343,12 +345,27 @@ export async function POST(req: NextRequest) {
         if (existingRating) rating = { rating: existingRating.rating, source: existingRating.source };
       }
       system += buildTitleMentionContext(bareTitleCandidate, resolved, watchResult, rating);
+      if (resolved) setActiveSubject(user.id, { tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title });
     } catch {
       // Best-effort, see comment above.
     }
   }
 
+  // SUJET ACTIF (audit : sans ça, hors page de titre, le modèle devait
+  // deviner de quoi on parle en relisant jusqu'à 40 messages d'historique —
+  // exactement le point de rupture des scénarios "Solo Leveling → j'adore →
+  // le top c'est contre Beru", où le 3e message repartait en recherche TMDb).
+  // Suivi côté code à partir des titres RÉELLEMENT résolus, jamais deviné.
+  // Expiré au bout d'un moment : un sujet vieux de plusieurs heures n'est
+  // plus "actif", et le forcer ferait plus de mal que de bien.
+  const ACTIVE_SUBJECT_TTL_MS = 45 * 60 * 1000;
+  const activeSubject = session.activeSubject;
+  if (activeSubject && !pageContext && Date.now() - activeSubject.at < ACTIVE_SUBJECT_TTL_MS) {
+    system += `\n\nSUJET ACTIF DE LA CONVERSATION — vous parlez actuellement de ${activeSubject.type === "movie" ? "le film" : "la série"} « ${activeSubject.title} ». Toute réaction courte ("j'adore", "c'était nul", "le meilleur c'est..."), toute référence implicite ("celui-là", "le deuxième") et tout nom de personnage/scène/acteur évoqué SANS préciser d'où il vient se rapportent À CE TITRE par défaut — jamais à un nouveau titre à rechercher. Ne pars chercher autre chose QUE si l'utilisateur nomme explicitement une autre œuvre.`;
+  }
+
   if (pageContext) {
+    setActiveSubject(user.id, { tmdbId: pageContext.tmdbId, type: pageContext.type, title: pageContext.title });
     system += `\n\nRÉFÉRENCE COURANTE — l'utilisateur regarde actuellement ${pageContext.type === "movie" ? "le film" : "la série"} « ${pageContext.title} » (${pageContext.tmdbId}). Quand il dit « dans le même genre », « quelque chose comme ça », « moins sérieux »…, c'est CE titre qui est la référence.`;
 
     // Liste d'épisodes (demande explicite user — confirmé en direct que

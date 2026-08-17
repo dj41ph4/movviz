@@ -93,6 +93,13 @@ export interface AiChatMessage {
 export interface AiChatSession {
   messages: AiChatMessage[];
   updatedAt: number;
+  /** Dernier titre RÉELLEMENT résolu dans cette conversation (mention
+   *  casuelle, question de présence/visionnage, fiche consultée...) — le
+   *  "sujet actif" de la discussion, suivi côté code plutôt que laissé à la
+   *  déduction du modèle dans 40 messages d'historique. Injecté au message
+   *  suivant pour que "j'adore", "le top c'est contre X", "celui-là" se
+   *  résolvent contre CE titre au lieu de partir en recherche TMDb. */
+  activeSubject?: { tmdbId: number; type: "movie" | "series"; title: string; at: number };
 }
 
 /** Long-term memory entries — facts about what the user asked the assistant

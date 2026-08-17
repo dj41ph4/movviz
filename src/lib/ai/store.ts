@@ -103,6 +103,16 @@ export function pushAiMessage(userId: string, message: AiChatSession["messages"]
   return session;
 }
 
+/** Enregistre le titre qui vient d'être réellement résolu comme sujet actif
+ *  de la conversation (voir AiChatSession.activeSubject). Appelé UNIQUEMENT
+ *  après une vraie résolution TMDb/bibliothèque — jamais sur une supposition,
+ *  sinon le sujet actif deviendrait lui-même une source d'erreur. */
+export function setActiveSubject(userId: string, subject: { tmdbId: number; type: "movie" | "series"; title: string }): void {
+  const session = loadAiSession(userId);
+  session.activeSubject = { ...subject, at: Date.now() };
+  scheduleSessionsFlush();
+}
+
 /** The only thing that should ever empty a session — the trash icon in the
  *  chat UI. Flushed immediately (not debounced): this is a rare, explicit
  *  user action, not a hot request-path write, and a restart landing inside

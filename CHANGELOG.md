@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.13 — August 2026
+
+### Movviz AI — le sujet de la conversation est désormais suivi explicitement
+
+- **Cause racine identifiée à l'audit** : en dehors d'une fiche film/série ouverte, rien n'indiquait à l'assistant de quel titre vous étiez en train de parler — il devait le deviner en relisant l'historique, ce qui échouait sur les enchaînements naturels ("Solo Leveling" → "j'adore" → "le top c'est contre X") et pouvait relancer une recherche inutile au troisième message. Le titre en cours de discussion est maintenant mémorisé dès qu'il a été réellement identifié, et rappelé à chaque message suivant : les réactions courtes, les références implicites et les noms de personnages se rapportent par défaut à ce titre, sans repartir en recherche.
+
 ## v1.15.12 — August 2026
 
 ### Movviz AI — filmographie et notes croisées pour prioriser un titre manquant
