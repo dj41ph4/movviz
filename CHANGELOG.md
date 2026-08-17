@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.2 — August 2026
+
+### Correctif : mention d'un titre parfois traitée comme un ajout silencieux
+
+- **Cause racine confirmée en direct** : la vérification ajoutée en v1.15.1 (bibliothèque/historique/note avant de réagir à un titre mentionné) ne se déclenchait en réalité jamais dans certains cas, car l'assistant interprétait parfois une simple mention de titre ("Hurlevent", "the nice guys") comme une demande d'ajout implicite — résultat : une ligne technique ("Déjà dans la bibliothèque — X") sans aucune réaction, au lieu d'une vraie réponse. Corrigé : une mention de titre sans verbe d'action explicite (ajoute, mets, télécharge...) ne déclenche plus jamais d'ajout silencieux et passe désormais bien par la réponse naturelle attendue.
+
 ## v1.15.1 — August 2026
 
 ### Correctif : Movviz AI ne consultait pas ce qu'il savait déjà avant de répondre

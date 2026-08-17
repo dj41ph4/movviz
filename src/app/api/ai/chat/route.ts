@@ -382,6 +382,30 @@ export async function POST(req: NextRequest) {
   console.log(`[ai] chat ok user=${user.username} provider=${providerName} model=${usedModel} latency=${latency}ms`);
 
   let intent = parseIntent(text);
+  // Confirmed live: a bare title mention with no action verb ("Hurlevent",
+  // "the nice guys") sometimes gets read by the model as an implicit
+  // add_media request — the prompt already says mode 1/2 requires an
+  // EXPLICIT add request, but a small model doesn't reliably respect that
+  // for this ambiguous shape. Left alone, this silently calls addMedia and
+  // the user only ever sees a bare outcome line ("Déjà dans la
+  // bibliothèque — X") with ZERO reaction/personality — exactly the
+  // "cold, robotic" complaint this whole item-5 mechanism exists to fix,
+  // and worse, a genuinely NEW title could get silently added without the
+  // user ever having asked for that. Retried the same bounded way as the
+  // promise-list fix below: force mode 3 for THIS message only, so the
+  // VÉRIFICATION RÉELLE data already injected above actually gets used.
+  if (bareTitleCandidate && intent.action === "add_media") {
+    try {
+      const retrySystem = `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a traité une simple mention de titre ("${bareTitleCandidate}") comme une DEMANDE D'AJOUT explicite (JSON add_media) — c'est une erreur, l'utilisateur n'a employé aucun verbe d'action (ajoute, mets, télécharge, prends...), il a juste mentionné le titre. Réponds cette fois en MODE 3 UNIQUEMENT (texte normal, jamais de JSON), en réagissant naturellement à ce titre avec ta personnalité habituelle et en utilisant la section "VÉRIFICATION RÉELLE — titre mentionné" fournie plus haut dans ce prompt — ne l'ajoute PAS toi-même à la bibliothèque sans demande explicite.`;
+      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryIntent = parseIntent(retryRes.text);
+      if (retryIntent.action === null) intent = retryIntent;
+    } catch {
+      // Best-effort, single bounded retry — falls through to the original
+      // add_media outcome if this also fails, same as every other retry
+      // in this file.
+    }
+  }
   // Confirmed live: a genuine recommend-shaped request ("surprends-moi,
   // sors moi de ma zone de confort") got a mode-3 prose reply that PROMISED
   // a list ("Voici ce qui devrait te surprendre...") but never actually
