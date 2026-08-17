@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.43 — August 2026
+
+### Correctif majeur : isolation des comptes utilisateurs
+
+- **Cause racine confirmée** : sur un appareil partagé, se déconnecter puis se reconnecter avec un autre compte ne réinitialisait jamais les données déjà affichées en mémoire (vues, préférences, demandes, tout ce qui est personnel) — un correctif précédent n'avait réinitialisé qu'un seul élément technique (l'état de connexion), pas le reste. Résultat : le compte suivant pouvait voir un instant, ou parfois durablement, les données du compte précédent avant qu'elles ne se rafraîchissent d'elles-mêmes. Toutes les données personnelles sont désormais intégralement réinitialisées à chaque connexion et déconnexion — plus aucune fuite d'un compte à l'autre.
+- **Deuxième cause trouvée en creusant** : un profil Plex secondaire (compte "maison"/enfant rattaché par l'admin, sans connexion Plex qui lui soit propre) ne voyait jamais ses films/épisodes vus se synchroniser depuis Plex — la tâche de fond ignorait purement et simplement ces profils. Corrigé : chaque profil, y compris les profils secondaires, a maintenant ses propres vues synchronisées indépendamment.
+
 ## v1.14.42 — August 2026
 
 ### Correctif : rangée « Optimisations disponibles » en erreur

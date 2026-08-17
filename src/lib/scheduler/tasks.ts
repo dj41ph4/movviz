@@ -165,7 +165,15 @@ export const TASKS: ScheduledTask[] = [
     name: "Synchronisation des vues Plex",
     intervalMs: 2 * 60 * 60 * 1000, // every 2 hours
     run: async () => {
-      const users = loadUsers().filter((u) => u.plexToken);
+      // Bug fix (confirmed live — "chaque profil doit être indépendant"):
+      // this used to require the user's OWN `plexToken`, which only exists
+      // for someone who logged into Movviz via Plex OAuth directly. A Plex
+      // Home-managed profile (assigned by the admin via PlexSettings →
+      // /api/plex/assign-profile, `plexManagedUserId` set, `plexToken`
+      // null) was silently excluded from every single sync run — their
+      // watch status simply never populated from Plex, forever. Also
+      // covers watchSync.ts's own fix for the same field.
+      const users = loadUsers().filter((u) => u.plexToken || u.plexManagedUserId);
       // Was one user at a time — combined with the per-show sequential calls
       // this fixed in watchSync.ts, a library with several Plex users could
       // hold the single active job slot for many minutes straight.

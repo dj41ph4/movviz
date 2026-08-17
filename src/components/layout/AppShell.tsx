@@ -4,7 +4,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { Suspense, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
-import { SWRConfig, mutate } from "swr";
+import { SWRConfig } from "swr";
+import { resetSwrCache } from "@/lib/swrCacheReset";
 import { useLibrarySSE } from "@/lib/events/useLibrarySSE";
 import { Hourglass, LogOut } from "lucide-react";
 import { AuroraBackground } from "@/components/fx/AuroraBackground";
@@ -61,7 +62,7 @@ function PendingApprovalScreen({ username }: { username: string }) {
     // Same stale-SWR-cache fix as UserMenu's logout / the login page.
     // No router.refresh() after push — see the comment in UserMenu.logout:
     // a refresh right after push cancels the pending navigation.
-    await mutate("/api/auth/me");
+    await resetSwrCache();
     router.push("/login");
   };
 

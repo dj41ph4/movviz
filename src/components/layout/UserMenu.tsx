@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { LogOut, ShieldCheck, UserCog } from "lucide-react";
-import { mutate } from "swr";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { resetSwrCache } from "@/lib/swrCacheReset";
 import { useT } from "@/i18n/provider";
 
 export function UserMenu() {
@@ -39,13 +39,17 @@ export function UserMenu() {
     await fetch("/api/auth/logout", { method: "POST" });
     // Same stale-SWR-cache fix as the login page — otherwise the cached
     // "/api/auth/me" result keeps reporting the old user for up to 30s
-    // (dedupingInterval) after the session cookie is already cleared.
+    // (dedupingInterval) after the session cookie is already cleared. Clears
+    // the WHOLE SWR cache, not just this one key — a narrower fix here left
+    // every other per-user cache entry (watch status, preferences,
+    // requests...) showing the outgoing account's data to whoever logs in
+    // next on the same browser (confirmed live). See swrCacheReset.ts.
     // NOTE: no router.refresh() after push — a refresh issued right after
     // push("/login") cancels the navigation (confirmed live: the RSC request
     // for /login returned 200 but the URL never changed). The login page
     // revalidates "/api/auth/me" itself on mount, so the refresh is useless
     // here anyway.
-    await mutate("/api/auth/me");
+    await resetSwrCache();
     router.push("/login");
   };
 

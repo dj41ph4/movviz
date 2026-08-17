@@ -35,7 +35,18 @@ import type { User } from "@/lib/auth/types";
 export async function syncUserWatchStatus(user: User) {
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) return;
-  const accountId = user.plexId ? Number(user.plexId) : null;
+  // Bug fix (confirmed live — "chaque profil doit être indépendant"):
+  // `plexManagedUserId` is set by the admin's "assign a Plex Home profile"
+  // flow (PlexSettings.tsx → /api/plex/assign-profile) for a Movviz account
+  // that isn't its own separate Plex.tv login — it never HAD a `plexId` of
+  // its own. This function only ever read `plexId`, so every Home-managed
+  // profile silently never synced at all (this branch returned immediately,
+  // no error, no log) — their "regardé" state simply never populated from
+  // Plex. Both fields are the same kind of value (a numeric Plex account id,
+  // confirmed via getPlexHomeUsers/PlexSettings.tsx assigning `homeUsers[].id`
+  // straight into `plexManagedUserId`), so either one works here.
+  const rawAccountId = user.plexId ?? user.plexManagedUserId;
+  const accountId = rawAccountId ? Number(rawAccountId) : null;
   if (accountId == null || Number.isNaN(accountId)) return;
 
   try {
