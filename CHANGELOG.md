@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.35 — August 2026
+
+### Correctif : Movviz AI
+
+- **Cause racine confirmée en direct, après le correctif de la version précédente** : la consigne seule ne suffisait pas à empêcher certains modèles de recopier telle quelle la note technique interne au lieu de la reformuler — le problème persistait malgré une consigne renforcée. Movviz AI détecte désormais lui-même quand ça arrive et redemande immédiatement une vraie reformulation avant d'afficher quoi que ce soit ; si même cette relance échoue, la note est nettoyée automatiquement de tout ce qui la trahissait comme technique. Le libellé interne ne peut plus apparaître dans une réponse, quel que soit le modèle utilisé.
+
 ## v1.14.34 — August 2026
 
 ### Movviz AI

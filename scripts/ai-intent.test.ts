@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -104,6 +104,21 @@ test("add_media : réponse tronquée après le premier item complet reste utilis
   assert.equal(got.action, "add_media");
   assert.equal(got.items.length, 1);
   assert.equal(got.items[0].title, "Dune");
+});
+
+test("containsLeakedInternalBlock: détecte les deux libellés internes (bug confirmé en direct : le modèle recopiait le bloc tel quel malgré la consigne)", () => {
+  assert.equal(containsLeakedInternalBlock('VÉRIFICATION RÉELLE pour « Dune » → identifié comme Dune (2021) [film, tmdb:438631] : OUI, déjà dans la bibliothèque.'), true);
+  assert.equal(containsLeakedInternalBlock('RECHERCHE RÉELLE pour « pokemon » (résultats obtenus...) :\nDéjà dans ta bibliothèque : Pokémon (1998)'), true);
+  assert.equal(containsLeakedInternalBlock("Ouais, tu l'as déjà, Dune (2021) est bien dans ta bibliothèque !"), false);
+});
+
+test("sanitizeLeakedBlock: retire le libellé interne et sa structure sans changer les faits sous-jacents", () => {
+  const got = sanitizeLeakedBlock('VÉRIFICATION RÉELLE pour « Dune » → identifié comme Dune (2021) [film, tmdb:438631] : OUI, déjà dans la bibliothèque.');
+  assert.equal(containsLeakedInternalBlock(got), false);
+  assert.ok(got.includes("Dune (2021)"));
+  assert.ok(got.includes("OUI, déjà dans la bibliothèque"));
+  assert.ok(!got.includes("tmdb:438631"));
+  assert.ok(!got.includes("→"));
 });
 
 test("extractFacts: marqueur sur sa propre ligne, extrait et retiré", () => {

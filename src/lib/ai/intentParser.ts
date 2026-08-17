@@ -323,6 +323,37 @@ export function isDegenerateReply(cleaned: string): boolean {
   return cleaned.trim().length === 0;
 }
 
+// The prompt tells the model to reformulate the "VÉRIFICATION RÉELLE"/
+// "RECHERCHE RÉELLE" blocks (actions.ts) into a natural sentence and never
+// surface their internal label/structure — confirmed live, a small/
+// free-tier model can still just copy the block verbatim into its reply
+// (the exact same failure mode as isDegenerateReply above: a prompt-only
+// instruction that isn't reliably followed). Detected here so chat/route.ts
+// can retry once with an explicit correction, same shape as the degenerate-
+// reply retry, before falling back to sanitizeLeakedBlock as a last resort.
+const LEAKED_BLOCK_RE = /VÉRIFICATION RÉELLE|RECHERCHE RÉELLE/;
+
+export function containsLeakedInternalBlock(text: string): boolean {
+  return LEAKED_BLOCK_RE.test(text);
+}
+
+/** Last-resort safety net when even the corrective retry still leaked the
+ *  raw block (chat/route.ts) — strips the internal label and structural
+ *  markers so the user never sees "VÉRIFICATION RÉELLE"/"RECHERCHE RÉELLE"
+ *  literally, even though the resulting sentence is rougher than a real
+ *  paraphrase. The underlying facts are left untouched — only the
+ *  formatting that reveals this was a technical note gets removed. */
+export function sanitizeLeakedBlock(text: string): string {
+  return text
+    .replace(/VÉRIFICATION RÉELLE\s*(—\s*[^:«]+)?\s*pour\s*«[^»]*»\s*/gi, "")
+    .replace(/RECHERCHE RÉELLE\s*pour\s*«[^»]*»\s*(\([^)]*\))?\s*:?\s*/gi, "")
+    .replace(/→\s*identifié comme\s*/gi, "")
+    .replace(/\[(?:film|série),\s*tmdb:\d+\]/gi, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/^\s*[:—-]\s*/, "")
+    .trim();
+}
+
 // "il me manque quel film/série de X", "il me manque quoi de X", "il me
 // manque quoi comme film de X", "qu'est-ce qu'il me manque de X", "j'ai pas
 // quoi comme film de X" — the entity (franchise/actor/director/character,
