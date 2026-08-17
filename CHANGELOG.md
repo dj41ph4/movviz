@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.46 — August 2026
+
+### Correctif : Movviz AI et l'accès web
+
+- **Cause racine confirmée** : Movviz AI répondait "je n'ai pas accès à internet" comme une impossibilité technique fixe, sans jamais tenir compte du réglage "Recherche web" réellement activé ou non sur le compte (section IA des Réglages). Il connaît désormais l'état réel de ce réglage : s'il est désactivé, il l'explique comme un choix de configuration réversible plutôt qu'une limite définitive ; s'il est activé, il ne prétend plus n'avoir aucun accès alors qu'une vraie recherche a bien lieu pour certaines fonctionnalités précises (comme retrouver une scène mémorable). Pour rappel, ce réglage prend effet immédiatement au prochain message, sans recharger la page ni se reconnecter.
+
 ## v1.14.45 — August 2026
 
 ### Nouveauté : Movviz AI peut enfin répondre à "donne-moi la filmographie de X"

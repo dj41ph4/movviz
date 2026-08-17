@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
   // Checked AFTER the introName capture above, so telling it your name IN
   // THIS message already counts — no double-ask in the same reply.
   const needsName = !hasKnownName(user.id);
-  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext);
+  let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
 
   // "Qu'est-ce qu'il me manque de X" (franchise/acteur/réalisateur) —
   // confirmed live TWICE (Jeremy Ferrari, then Pokémon) that the prompt-only
