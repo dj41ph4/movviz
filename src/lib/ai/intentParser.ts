@@ -246,7 +246,16 @@ export function extractWatched(text: string): { watched: { title: string; type: 
   return { watched, cleaned };
 }
 
-const RATING_MAX_COUNT = 2;
+// Volontairement PLUS ÉLEVÉ que FACT/WATCHED_MAX_COUNT (2) — confirmé en
+// direct : à la demande "passe en revue mes vues récentes et demande-moi si
+// j'ai aimé", puis "j'ai adoré, mets 5 étoiles à tous", un plafond de 2
+// rendait la notation en lot structurellement impossible. Le modèle
+// listait les 8 titres en texte, affirmait "c'est noté", et rien n'était
+// réellement enregistré — exactement le mensonge sur action que le prompt
+// interdit par ailleurs. 12 couvre une passe complète de vues récentes
+// (buildUserContext en expose au plus une dizaine) sans ouvrir la porte à
+// une réponse entièrement composée de marqueurs.
+const RATING_MAX_COUNT = 10;
 const RATING_TITLE_MAX_LEN = 200;
 const RATING_OPINION_MAX_LEN = 200;
 // No line anchors, same reasoning as FACT_RE/WATCHED_RE.
@@ -550,6 +559,36 @@ export function isUnresolvedCheckPromise(reply: string): boolean {
   if (!trimmed || !UNRESOLVED_CHECK_PROMISE_RE.test(trimmed)) return false;
   const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
   return wordCount <= UNRESOLVED_CHECK_PROMISE_MAX_WORDS;
+}
+
+// Confirmé en direct (huit titres, zéro note réellement enregistrée) : à la
+// demande "mets 5 étoiles à tous", le modèle a affiché une belle liste
+// "Titre : 5/5" et affirmé "voici les notes mises à jour" — sans émettre un
+// seul marqueur [[NOTE: ...]]. Rien n'était noté, et l'utilisateur a dû
+// vérifier lui-même pour s'en rendre compte. Même classe de bug que
+// isUnresolvedCheckPromise (annoncer une action non exécutée), donc même
+// traitement : détection code-level + retry, jamais une règle prompt seule.
+const RATING_CLAIM_RE = /\b(c'est not[ée]|bien not[ée]|notes? (?:mise|mises) à jour|voici (?:les|tes) notes|j(?:e|')(?:ai|) ?(?:mis|mets|attribue|ajoute)\s+(?:un\s+)?\d\s*(?:\/\s*5|étoiles?)|je (?:vais )?(?:les? )?(?:mettre|noter) (?:à|en) \d)/i;
+// Rappeler une note DÉJÀ existante ("tu lui avais mis 4/5") est parfaitement
+// légitime et ne doit jamais déclencher de retry — c'est l'utilisateur qui
+// a noté, pas le modèle qui prétend le faire maintenant.
+const RATING_RECALL_RE = /\btu (?:lui )?(?:avais|as|avait) (?:mis|donn[ée]|attribu[ée])\b/i;
+// Une liste "Titre : 5/5" / "Titre — 4/5" sur plusieurs lignes : la forme
+// exacte prise par la fausse notation en lot observée en direct.
+const RATING_LIST_LINE_RE = /^.{2,80}?\s*[:—-]\s*\d\s*\/\s*5\b/gim;
+
+/** True quand la réponse ANNONCE avoir noté (ou liste des titres avec leur
+ *  note) alors qu'AUCUN marqueur `[[NOTE: ...]]` n'a été émis — donc que
+ *  rien n'a réellement été enregistré. `extractedCount` est le nombre de
+ *  notes réellement extraites de cette même réponse (extractRatings). */
+export function claimsRatingWithoutMarker(cleaned: string, extractedCount: number): boolean {
+  if (extractedCount > 0) return false;
+  const text = cleaned.trim();
+  if (!text || RATING_RECALL_RE.test(text)) return false;
+  if (RATING_CLAIM_RE.test(text)) return true;
+  // Deux lignes ou plus au format "Titre : N/5" = une liste de notation,
+  // jamais une simple mention en passant.
+  return (text.match(RATING_LIST_LINE_RE) ?? []).length >= 2;
 }
 
 // "il me manque quel film/série de X", "il me manque quoi de X", "il me

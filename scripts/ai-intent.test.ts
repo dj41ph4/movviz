@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -337,10 +337,32 @@ test("extractRatings: étoiles non numériques sont ignorées", () => {
   assert.deepEqual(got.ratings, []);
 });
 
-test("extractRatings: plafonné à 2 par réponse", () => {
-  const got = extractRatings("[[NOTE: A|movie|5]] [[NOTE: B|movie|4]] [[NOTE: C|movie|3]]");
-  assert.equal(got.ratings.length, 2);
-  assert.deepEqual(got.ratings.map((r) => r.title), ["A", "B"]);
+test("extractRatings: notation en lot jusqu'à 10 titres dans une seule réponse", () => {
+  const markers = Array.from({ length: 12 }, (_, i) => `[[NOTE: T${i}|movie|5]]`).join(" ");
+  const got = extractRatings(markers);
+  assert.equal(got.ratings.length, 10, "10 notes simultanées acceptées, le surplus est ignoré");
+  assert.deepEqual(got.ratings.map((r) => r.title), Array.from({ length: 10 }, (_, i) => `T${i}`));
+});
+
+test("claimsRatingWithoutMarker: vrai quand la réponse annonce des notes sans aucun marqueur", () => {
+  assert.ok(claimsRatingWithoutMarker("C'est noté ! Movviz va affiner ses recommandations.", 0));
+  assert.ok(claimsRatingWithoutMarker("Voici les notes mises à jour pour tes vues récentes.", 0));
+  assert.ok(claimsRatingWithoutMarker("Solo Leveling : 5/5\nJurassic Park : 5/5\nStranger Things : 5/5", 0));
+});
+
+test("claimsRatingWithoutMarker: faux dès qu'au moins un marqueur a réellement été émis", () => {
+  assert.equal(claimsRatingWithoutMarker("C'est noté !", 1), false);
+  assert.equal(claimsRatingWithoutMarker("Solo Leveling : 5/5\nJurassic Park : 5/5", 2), false);
+});
+
+test("claimsRatingWithoutMarker: faux quand la réponse RAPPELLE une note existante (pas une annonce)", () => {
+  assert.equal(claimsRatingWithoutMarker("Tu lui avais mis 4/5 à l'époque 😄", 0), false);
+  assert.equal(claimsRatingWithoutMarker("Tu as mis 5/5 à Solo Leveling la dernière fois.", 0), false);
+});
+
+test("claimsRatingWithoutMarker: faux sur une réponse conversationnelle normale", () => {
+  assert.equal(claimsRatingWithoutMarker("Ah ouais, celui-là est vraiment excellent 😄", 0), false);
+  assert.equal(claimsRatingWithoutMarker("Le combat contre Beru est un sommet de la série !", 0), false);
 });
 
 test("extractBareTitleMention: un titre isolé sans question est reconnu", () => {

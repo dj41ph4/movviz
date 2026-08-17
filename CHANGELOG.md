@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.14 — August 2026
+
+### Correctif : les notes annoncées en lot n'étaient pas réellement enregistrées
+
+- **Cause racine confirmée en direct** : après avoir passé en revue les titres vus un par un, répondre "j'ai adoré, mets 5 étoiles à tous" affichait une liste soignée ("Solo Leveling : 5/5", "Jurassic Park : 5/5"…) et annonçait "voici les notes mises à jour" — alors qu'**aucune note n'était enregistrée**. Deux causes cumulées : un plafond interne de 2 notes maximum par réponse rendait la notation groupée structurellement impossible, et rien n'empêchait d'annoncer des notes sans les poser réellement.
+- La notation en lot accepte désormais jusqu'à 10 titres d'un coup, et toute réponse qui annonce des notes sans les enregistrer réellement est détectée et corrigée automatiquement — plus jamais de note annoncée mais absente.
+
 ## v1.15.13 — August 2026
 
 ### Movviz AI — le sujet de la conversation est désormais suivi explicitement
