@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.37 — August 2026
+
+### Correctif : Movviz AI
+
+- **Cause racine confirmée en direct** : chaque recommandation affichait un message d'excuse générique ("j'ai un vrai blocage...") juste au-dessus des suggestions, alors même que la recommandation avait parfaitement réussi — un vrai problème de confiance sur le chemin le plus utilisé de la fonctionnalité. La phrase d'accompagnement d'une recommandation n'était en réalité jamais construite, et retombait donc par défaut sur le message d'erreur générique. Une vraie phrase d'introduction s'affiche désormais à chaque recommandation.
+
 ## v1.14.36 — August 2026
 
 ### Correctif : Movviz AI

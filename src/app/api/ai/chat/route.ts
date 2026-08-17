@@ -529,6 +529,17 @@ export async function POST(req: NextRequest) {
       .map((r) => ({ ...r, reason: reasons.get(`${r.type}:${r.tmdbId}`) }));
     assistant.recommendations = recommendations;
     itemCount = recommendations.length;
+    // Bug fix (confirmed live): unlike add_media just above, this branch
+    // never reassigned `assistant.content` — a "recommend" reply is pure
+    // JSON by prompt design (buildSystemPrompt), so `cleaned` is virtually
+    // always empty, which meant EVERY recommendation reply fell through to
+    // the generic FALLBACK_TEXT ("j'ai un vrai blocage...") set way above,
+    // shown right on top of the recommendation cards it had just built
+    // successfully — a false "something's wrong" message on the single
+    // most common successful path in the whole feature.
+    assistant.content = [cleaned, recommendations.length
+      ? "Voici ce qui devrait bien coller :"
+      : "Je n'ai rien trouvé qui corresponde vraiment cette fois — essaie de préciser un peu ta demande."].filter(Boolean).join("\n\n");
     console.log(`[ai] action=recommend candidates=${allItems.length} (llm=${pairs.length}) shown=${recommendations.length} mood=${!!mood} user=${user.username}`);
   }
   recordAiCall({
