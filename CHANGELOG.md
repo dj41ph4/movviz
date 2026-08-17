@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.48 — August 2026
+
+### Correctif : bouton corbeille visible par tout le monde dans la bibliothèque
+
+- **Cause racine confirmée en direct** : le bouton de suppression d'un film (carte bibliothèque et fiche film) s'affichait pour n'importe quel utilisateur, alors que le serveur, lui, refusait déjà correctement la suppression aux comptes non-administrateurs — aucune donnée n'était donc en danger, mais un utilisateur normal voyait un bouton qui échouait silencieusement au clic. Le bouton n'apparaît désormais que pour les comptes administrateur, comme partout ailleurs dans l'app.
+
 ## v1.14.47 — August 2026
 
 ### Correctif : rangée « Continuer à regarder » vidée à tort

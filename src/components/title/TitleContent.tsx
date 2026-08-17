@@ -1064,33 +1064,35 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               >
                 <Pencil className="h-4 w-4" />
               </button>
-              {confirmRemove ? (
-                <div className="flex items-center gap-1 rounded-xl glass backdrop-blur p-1">
+              {user?.role === "admin" && (
+                confirmRemove ? (
+                  <div className="flex items-center gap-1 rounded-xl glass backdrop-blur p-1">
+                    <button
+                      onClick={remove}
+                      disabled={removing}
+                      title={t("title.edit.removeConfirm")}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-down text-white transition-transform hover:scale-110 active:scale-90 disabled:opacity-50"
+                    >
+                      {removing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    </button>
+                    <button
+                      onClick={() => setConfirmRemove(false)}
+                      disabled={removing}
+                      title={t("common.cancel")}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    onClick={remove}
-                    disabled={removing}
-                    title={t("title.edit.removeConfirm")}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg bg-down text-white transition-transform hover:scale-110 active:scale-90 disabled:opacity-50"
+                    onClick={() => setConfirmRemove(true)}
+                    title={t("title.edit.remove")}
+                    className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-down transition-transform hover:scale-110 active:scale-90"
                   >
-                    {removing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                    <Trash2 className="h-4 w-4" />
                   </button>
-                  <button
-                    onClick={() => setConfirmRemove(false)}
-                    disabled={removing}
-                    title={t("common.cancel")}
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-soft transition-transform hover:scale-110 hover:text-ink active:scale-90"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setConfirmRemove(true)}
-                  title={t("title.edit.remove")}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl glass backdrop-blur text-down transition-transform hover:scale-110 active:scale-90"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                )
               )}
               </div>
             )}

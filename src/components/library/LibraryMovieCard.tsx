@@ -291,22 +291,24 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
             {movie.status === "available" && (
               <ReportIssueButton libraryType="movie" libraryId={movie.id} />
             )}
-            {!confirmDelete ? (
-              <motion.button {...btnSpring} onClick={() => setConfirmDelete(true)} disabled={deleting} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-down disabled:opacity-50">
-                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-              </motion.button>
-            ) : (
-              <div className="flex gap-1">
-                <motion.button {...btnSpring} onClick={() => { remove(true); setConfirmDelete(false); }} className="flex h-9 items-center gap-1 rounded-xl bg-down px-2.5 text-[10px] font-bold text-white">
-                  {t("downloads.removeData")}
+            {user?.role === "admin" && (
+              !confirmDelete ? (
+                <motion.button {...btnSpring} onClick={() => setConfirmDelete(true)} disabled={deleting} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-down disabled:opacity-50">
+                  {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                 </motion.button>
-                <motion.button {...btnSpring} onClick={() => { remove(false); setConfirmDelete(false); }} className="flex h-9 items-center gap-1 rounded-xl glass-strong px-2 text-[10px] font-bold text-ink-soft">
-                  {t("common.remove")}
-                </motion.button>
-                <motion.button {...btnSpring} onClick={() => setConfirmDelete(false)} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-ink-dim">
-                  <X className="h-3 w-3" />
-                </motion.button>
-              </div>
+              ) : (
+                <div className="flex gap-1">
+                  <motion.button {...btnSpring} onClick={() => { remove(true); setConfirmDelete(false); }} className="flex h-9 items-center gap-1 rounded-xl bg-down px-2.5 text-[10px] font-bold text-white">
+                    {t("downloads.removeData")}
+                  </motion.button>
+                  <motion.button {...btnSpring} onClick={() => { remove(false); setConfirmDelete(false); }} className="flex h-9 items-center gap-1 rounded-xl glass-strong px-2 text-[10px] font-bold text-ink-soft">
+                    {t("common.remove")}
+                  </motion.button>
+                  <motion.button {...btnSpring} onClick={() => setConfirmDelete(false)} className="flex h-9 w-9 items-center justify-center rounded-xl glass-strong text-ink-dim">
+                    <X className="h-3 w-3" />
+                  </motion.button>
+                </div>
+              )
             )}
           </div>
         </div>
