@@ -323,6 +323,23 @@ export function isDegenerateReply(cleaned: string): boolean {
   return cleaned.trim().length === 0;
 }
 
+// Confirmed live: a genuine recommend-shaped request ("surprends-moi, sors
+// moi de ma zone de confort") got a mode-3 prose reply that TALKS as if a
+// list follows ("Voici ce qui devrait te surprendre...") but the model
+// never actually switched to mode 1/2's JSON format — no items were ever
+// generated, so no recommendation cards ever render and the user is left
+// with an unfulfilled promise instead of an error OR real results. A short
+// reply ending in ":" with nothing after it is the signature of this
+// specific failure (a real prose reply essentially never ends there) —
+// narrow enough not to fire on legitimate short answers.
+const PROMISED_LIST_RE = /:\s*$/;
+const PROMISED_LIST_MAX_LEN = 200;
+
+export function promisesListWithNothing(cleaned: string): boolean {
+  const t = cleaned.trim();
+  return t.length > 0 && t.length <= PROMISED_LIST_MAX_LEN && PROMISED_LIST_RE.test(t);
+}
+
 // The prompt tells the model to reformulate the "VÉRIFICATION RÉELLE"/
 // "RECHERCHE RÉELLE" blocks (actions.ts) into a natural sentence and never
 // surface their internal label/structure — confirmed live, a small/

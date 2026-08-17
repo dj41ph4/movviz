@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.40 — August 2026
+
+### Correctif : Movviz AI
+
+- **Cause racine confirmée en direct** : une demande de recommandation ("surprends-moi") pouvait recevoir une réponse qui annonce une liste ("Voici ce qui devrait te surprendre...") sans qu'aucun titre ne suive — une promesse jamais tenue, sans carte de recommandation ni message d'erreur. Movviz AI détecte désormais ce cas et redemande immédiatement une vraie liste avant d'afficher quoi que ce soit.
+
 ## v1.14.39 — August 2026
 
 ### Correctif : rangée « Continuer à regarder »

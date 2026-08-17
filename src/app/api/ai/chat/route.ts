@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
@@ -321,7 +321,31 @@ export async function POST(req: NextRequest) {
   const usedModel = (config.providers as Record<string, { model?: string }>)[providerName]?.model ?? "?";
   console.log(`[ai] chat ok user=${user.username} provider=${providerName} model=${usedModel} latency=${latency}ms`);
 
-  const intent = parseIntent(text);
+  let intent = parseIntent(text);
+  // Confirmed live: a genuine recommend-shaped request ("surprends-moi,
+  // sors moi de ma zone de confort") got a mode-3 prose reply that PROMISED
+  // a list ("Voici ce qui devrait te surprendre...") but never actually
+  // switched to the JSON format behind it — no items, no cards, just an
+  // unfulfilled promise. Retried BEFORE any of the mode-3-specific
+  // processing below (extractFacts/extractWatched all read from `intent`),
+  // replacing it wholesale when the retry does better, so the existing
+  // add_media/recommend branches further down handle a genuine mode switch
+  // exactly like a normal first-try success — unlike the retries below
+  // (leaked block / false name denial / degenerate reply), which
+  // deliberately stay mode-3-only repairs.
+  if (intent.action === null && promisesListWithNothing(intent.rawText)) {
+    try {
+      const retrySystem = `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message annonçait une liste ("${intent.rawText.trim()}") mais ne contenait ensuite AUCUN élément réel — tu as répondu en texte libre au lieu du format JSON attendu pour une vraie recommandation ou un vrai ajout. Réponds cette fois avec le VRAI format JSON décrit plus haut dans ce prompt (mode 1 ou 2), avec de vrais titres dedans — jamais une simple promesse de liste sans contenu derrière.`;
+      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryIntent = parseIntent(retryRes.text);
+      if (retryIntent.action !== null || !promisesListWithNothing(retryIntent.rawText)) {
+        intent = retryIntent;
+      }
+    } catch {
+      // Best-effort, single bounded retry — falls through to the original
+      // (unfulfilled-promise) reply if this also fails.
+    }
+  }
   const { facts, cleaned: afterFacts } = extractFacts(intent.rawText);
   for (const fact of facts) rememberFact(user.id, fact);
   const { watched, cleaned } = extractWatched(afterFacts);

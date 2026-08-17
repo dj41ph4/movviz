@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -136,6 +136,21 @@ test("isFalseNameDenial: ne se déclenche pas si la réponse ne nie rien (cas no
 
 test("isFalseNameDenial: ne se déclenche pas sur une question sans rapport", () => {
   assert.equal(isFalseNameDenial("Tu as quoi comme film d'horreur ?", "Je ne sais pas trop, plein de choix !", "Prénom : Seb"), false);
+});
+
+test("promisesListWithNothing: détecte une réponse qui annonce une liste sans rien derrière (bug confirmé en direct : 'surprends-moi' répondait en texte libre sans jamais basculer en JSON, aucune carte de recommandation affichée)", () => {
+  assert.equal(promisesListWithNothing("Voici ce qui devrait te surprendre tout en gardant un lien avec ce que tu as aimé :"), true);
+  assert.equal(promisesListWithNothing("Voici quelques idées :"), true);
+});
+
+test("promisesListWithNothing: ne se déclenche pas sur une vraie réponse en texte normal", () => {
+  assert.equal(promisesListWithNothing("Ouais, tu l'as déjà, Dune (2021) est bien dans ta bibliothèque !"), false);
+  assert.equal(promisesListWithNothing("Salut ! Comment ça va aujourd'hui ?"), false);
+});
+
+test("promisesListWithNothing: ne se déclenche pas sur une réponse vide (déjà couvert par isDegenerateReply)", () => {
+  assert.equal(promisesListWithNothing(""), false);
+  assert.equal(promisesListWithNothing("   "), false);
 });
 
 test("extractFacts: marqueur sur sa propre ligne, extrait et retiré", () => {
