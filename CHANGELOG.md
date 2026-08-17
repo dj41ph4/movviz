@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.11 — August 2026
+
+### Movviz AI — hiérarchie de décision unifiée
+
+- Les nombreuses règles ajoutées séparément (réponses courtes, corrections, mentions de titre, avis ponctuel...) sont désormais rassemblées sous un ordre de priorité explicite et unique, pour éviter que des règles isolées se contredisent : réaction à la conversation en cours > référence au sujet actif (un personnage, une scène, "le deuxième"...) > correction de la réponse précédente > intention conversationnelle > œuvre déjà connue > œuvre potentiellement nouvelle > recherche externe en dernier recours.
+- L'avis sur un personnage précis (ex. "Beru est clairement le meilleur") est désormais traité comme les avis sur une scène/un acteur/une fin déjà couverts : mémorisé pour ce qu'il est, jamais transformé en note globale du titre.
+
 ## v1.15.10 — August 2026
 
 ### Movviz AI — badge discret au lieu d'une ouverture forcée
