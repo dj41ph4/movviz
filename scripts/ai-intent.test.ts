@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -119,6 +119,23 @@ test("sanitizeLeakedBlock: retire le libellé interne et sa structure sans chang
   assert.ok(got.includes("OUI, déjà dans la bibliothèque"));
   assert.ok(!got.includes("tmdb:438631"));
   assert.ok(!got.includes("→"));
+});
+
+test("isFalseNameDenial: détecte le déni alors qu'un prénom connu existe (bug confirmé en direct : l'assistant avait utilisé « Seb » plus tôt dans la MÊME conversation puis a nié le connaître)", () => {
+  assert.equal(isFalseNameDenial("Au fait, tu te souviens de mon prénom ?", "Je ne sais pas encore, dis-le-moi !", "Prénom : Seb"), true);
+  assert.equal(isFalseNameDenial("Tu te souviens de moi ?", "Tu ne me l'as pas donné pour l'instant", "Prénom : Seb"), true);
+});
+
+test("isFalseNameDenial: ne se déclenche jamais sans prénom connu (un vrai 'je ne sais pas' reste légitime)", () => {
+  assert.equal(isFalseNameDenial("Tu te souviens de mon prénom ?", "Je ne sais pas encore, dis-le-moi !", undefined), false);
+});
+
+test("isFalseNameDenial: ne se déclenche pas si la réponse ne nie rien (cas normal, prénom bien utilisé)", () => {
+  assert.equal(isFalseNameDenial("Tu te souviens de mon prénom ?", "Bien sûr, Seb !", "Prénom : Seb"), false);
+});
+
+test("isFalseNameDenial: ne se déclenche pas sur une question sans rapport", () => {
+  assert.equal(isFalseNameDenial("Tu as quoi comme film d'horreur ?", "Je ne sais pas trop, plein de choix !", "Prénom : Seb"), false);
 });
 
 test("extractFacts: marqueur sur sa propre ligne, extrait et retiré", () => {

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
@@ -361,10 +361,23 @@ export async function POST(req: NextRequest) {
   // above, so it gets the exact same code-level retry-then-sanitize
   // treatment instead of staying a prompt-only hope.
   const leaked = intent.action === null && containsLeakedInternalBlock(cleaned);
-  if (intent.action === null && (isDegenerateReply(cleaned) || leaked)) {
+  // Mirror-image of the leak/degenerate checks above: the user asks "do you
+  // remember my name?" and the reply denies it even though a real "Prénom :
+  // X" fact was already in the facts injected into THIS same request
+  // (confirmed live — the model had used that exact name earlier in the
+  // same conversation, then denied knowing it two messages later). Only
+  // computed when actually needed (mode 3, and only once we already know
+  // cleaned isn't degenerate/leaked) since it re-reads the facts store.
+  const knownNameFact = intent.action === null && !isDegenerateReply(cleaned) && !leaked
+    ? getFacts(user.id).find((f) => /pr[ée]nom/i.test(f.fact))?.fact
+    : undefined;
+  const falseNameDenial = intent.action === null && isFalseNameDenial(message, cleaned, knownNameFact);
+  if (intent.action === null && (isDegenerateReply(cleaned) || leaked || falseNameDenial)) {
     try {
       const retrySystem = leaked
         ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a recopié TEL QUEL le bloc technique interne (le texte commençant par "VÉRIFICATION RÉELLE" ou "RECHERCHE RÉELLE", avec ses flèches →, ses crochets [film, tmdb:...] et ses OUI/NON en majuscules) — c'est une erreur, cette note est réservée à un usage interne, jamais à afficher telle quelle. Réponds cette fois en une ou deux phrases naturelles et chaleureuses qui donnent EXACTEMENT la même information (les faits doivent rester identiques, ne change ni n'invente rien), sans jamais réutiliser le libellé "VÉRIFICATION RÉELLE"/"RECHERCHE RÉELLE" ni sa structure. Exemple : au lieu de "VÉRIFICATION RÉELLE pour « Dune » → identifié comme Dune (2021) [film, tmdb:438631] : OUI, déjà dans la bibliothèque.", réponds quelque chose comme "Ouais, tu l'as déjà ! Dune (2021) est bien dans ta bibliothèque."`
+        : falseNameDenial
+        ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a PRÉTENDU ne pas connaître le prénom de l'utilisateur ("je ne sais pas", "dis-le-moi"...) alors qu'il figure bien dans les faits retenus fournis plus haut dans ce prompt (${knownNameFact}). C'est un mensonge sur ta propre mémoire — exactement le genre d'erreur que tu dois éviter absolument. Réponds cette fois en confirmant directement et naturellement que tu t'en souviens, en utilisant ce prénom exact.`
         : `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message ne contenait AUCUNE phrase réelle${facts.length ? ` (seulement ${facts.length > 1 ? "des lignes" : "une ligne"} interne${facts.length > 1 ? "s" : ""} de mémorisation, ex. ${facts.map((f) => `« ${f} »`).join(", ")})` : ""} — c'est une erreur, jamais une réponse acceptable. Réponds cette fois avec une vraie phrase, en français, qui répond concrètement à ce que l'utilisateur vient de dire — garde ta personnalité habituelle. Tu peux toujours ajouter une ligne \`[[FAIT: ...]]\` APRÈS cette phrase si pertinent, mais ta réponse ne peut plus être vide de texte réel.`;
       const retryRes = await callAi(config, retrySystem, session.messages);
       const retryIntent = parseIntent(retryRes.text);

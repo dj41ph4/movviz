@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.36 — August 2026
+
+### Correctif : Movviz AI
+
+- **Cause racine confirmée en direct** : demander « tu te souviens de mon prénom ? » pouvait recevoir un « je ne sais pas encore » alors que Movviz AI l'avait pourtant déjà utilisé quelques messages plus tôt dans la même conversation — le prénom était bien retenu, mais la réponse le niait quand même. Movviz AI détecte désormais ce genre de faux déni et se corrige immédiatement avant d'afficher quoi que ce soit.
+
 ## v1.14.35 — August 2026
 
 ### Correctif : Movviz AI

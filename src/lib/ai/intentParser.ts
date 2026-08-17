@@ -354,6 +354,33 @@ export function sanitizeLeakedBlock(text: string): string {
     .trim();
 }
 
+// The prompt already forbids CLAIMING to have memorized something never
+// received (buildSystemPrompt's "NE JAMAIS PRÉTENDRE AVOIR MÉMORISÉ..."
+// rule) — this is the mirror-image failure, confirmed live: the user asks
+// "tu te souviens de mon prénom ?" and the model denies knowing it ("je ne
+// sais pas encore, dis-le-moi") even though a real "Prénom : X" fact IS
+// present in the facts actually injected into this same request's system
+// prompt (the model had used that exact name earlier in the SAME
+// conversation). A false denial of real memory is just as dishonest as a
+// fabricated one, so it gets the same code-level detect-and-retry
+// treatment rather than staying a prompt-only hope.
+const REMEMBERS_NAME_QUESTION_RE = /\btu\s+(?:te\s+souviens|sais|connais)\b[^.!?\n]*\b(?:mon\s+pr[ée]nom|moi|comment\s+je\s+m'appelle)\b|\bje\s+m'appelle\s+comment\b/i;
+// No trailing \b after "dit"/"donn[ée]" — JS regex \b treats accented
+// letters as non-word characters, so a boundary right after "donné" never
+// matches (confirmed with a failing test: \b silently broke the whole
+// alternative). The words themselves are distinctive enough not to need it.
+const NAME_DENIAL_RE = /\bje\s+ne\s+(?:sais|connais)\s+pas(?:\s+encore)?\b|\btu\s+ne\s+(?:me\s+l['e]|m['e])\s*(?:l['e])?\s*as\s+pas\s+(?:dit|donn[ée])/i;
+
+/** True when the user just asked "do you remember me/my name" and the
+ *  reply denied it, even though `knownName` (the real "Prénom : ..." fact
+ *  string already present in this user's profile) says otherwise. Pure
+ *  check — chat/route.ts only calls this when a name fact genuinely
+ *  exists, so a true result here is always a false denial, never a
+ *  legitimate "I don't know". */
+export function isFalseNameDenial(userMessage: string, reply: string, knownName: string | undefined): boolean {
+  return !!knownName && REMEMBERS_NAME_QUESTION_RE.test(userMessage) && NAME_DENIAL_RE.test(reply);
+}
+
 // "il me manque quel film/série de X", "il me manque quoi de X", "il me
 // manque quoi comme film de X", "qu'est-ce qu'il me manque de X", "j'ai pas
 // quoi comme film de X" — the entity (franchise/actor/director/character,
