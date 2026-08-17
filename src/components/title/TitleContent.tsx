@@ -14,6 +14,7 @@ import { SeasonAccordion } from "@/components/title/SeasonAccordion";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { IntegralSearchModal } from "@/components/search/IntegralSearchModal";
 import { VersionsPanel } from "@/components/title/VersionsPanel";
+import { StarRating } from "@/components/title/StarRating";
 import { EditTitleModal } from "@/components/title/EditTitleModal";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import { BrandIcon } from "@/components/ui/BrandIcon";
@@ -1206,6 +1207,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 />
               </div>
             )}
+            <StarRating tmdbId={tmdbId} type={type} title={detail?.title ?? ""} className="mt-1" />
             {/* Action row */}
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {!inLibrary ? (

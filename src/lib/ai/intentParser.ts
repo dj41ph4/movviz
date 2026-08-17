@@ -246,6 +246,46 @@ export function extractWatched(text: string): { watched: { title: string; type: 
   return { watched, cleaned };
 }
 
+const RATING_MAX_COUNT = 2;
+const RATING_TITLE_MAX_LEN = 200;
+const RATING_OPINION_MAX_LEN = 200;
+// No line anchors, same reasoning as FACT_RE/WATCHED_RE.
+const RATING_RE = /\[\[NOTE:\s*(.+?)\]\]/gi;
+
+/** Pulls the model's own inline `[[NOTE: titre|type|étoiles|opinion]]`
+ *  markers — mirrors extractFacts/extractWatched exactly (same "piggyback
+ *  on the reply already generated" discipline, no separate LLM call).
+ *  Emitted when the user gives a clear conversational opinion the model can
+ *  confidently translate to a 1-5 intensity ("j'ai adoré" → 5, "quelle
+ *  merde" → 1) — the model is instructed (actions.ts) to NEVER emit this
+ *  when genuinely unsure, so `stars` here is trusted as the model's best
+ *  read, but always stored as source "inferred" (tasteProfile.setRating),
+ *  never able to override an explicit widget/chat rating the user already
+ *  gave. `opinion` (optional) is the snippet that justified the number —
+ *  kept for the "why", separate from the number itself. */
+export function extractRatings(text: string): {
+  ratings: { title: string; type: "movie" | "series"; stars: number; opinion?: string }[];
+  cleaned: string;
+} {
+  const ratings: { title: string; type: "movie" | "series"; stars: number; opinion?: string }[] = [];
+  const cleaned = text
+    .replace(RATING_RE, (_, raw: string) => {
+      const parts = raw.split("|").map((s) => s.trim());
+      const title = (parts[0] ?? "").slice(0, RATING_TITLE_MAX_LEN);
+      const type = parts[1]?.toLowerCase() === "series" ? "series" : "movie";
+      const stars = Math.round(Number(parts[2]));
+      const opinion = parts[3] ? parts[3].slice(0, RATING_OPINION_MAX_LEN) : undefined;
+      if (title && Number.isInteger(stars) && stars >= 1 && stars <= 5 && ratings.length < RATING_MAX_COUNT) {
+        ratings.push({ title, type, stars, opinion });
+      }
+      return "";
+    })
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { ratings, cleaned };
+}
+
 // "je m'appelle Seb", "je me nomme Léa", "moi c'est Max"/"c'est Max", "mon
 // prénom est/c'est Alex", "appelle-moi Théo" — one alternation, name in the
 // capture group. Accented/hyphenated first names allowed (Léa, Jean-Paul),

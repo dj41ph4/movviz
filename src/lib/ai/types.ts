@@ -192,11 +192,66 @@ export interface AiCorrectionEntry {
   at: number;
 }
 
+/**
+ * 1-5 star ratings — a richer, deliberately DIFFERENT signal from the
+ * binary 👍/👎 feedback log above (AiFeedbackEntry, kept as-is, still used
+ * by recommendation-card voting). A rating always belongs to exactly one
+ * title (tmdbId+type) per user; every change is appended to `history`
+ * rather than overwriting it, so "how has my opinion of this changed over
+ * time" stays answerable.
+ *
+ * Only two priority tiers are tracked, on purpose — not the mega-spec's
+ * full 6-level source hierarchy. A small/free-tier LLM (this whole
+ * session's own established pattern) can't reliably distinguish "explicit
+ * chatbot rating" from "explicit widget click" from "clear opinion" from
+ * "correction" as separate confidence bands; collapsing to "explicit"
+ * (a real number the user stated or clicked, always wins) vs "inferred"
+ * (a qualitative opinion the model interpreted, always loses to any
+ * explicit rating, past or future) is the honest ceiling of what's
+ * reliably enforceable, same reasoning as buildCorrectionEscalationContext
+ * above choosing a plain count over a fake fine-grained taxonomy.
+ */
+export type RatingSource = "explicit" | "inferred";
+
+export interface RatingHistoryEntry {
+  rating: number; // 1-5
+  source: RatingSource;
+  /** 0..1 — self-reported by the model for an inferred rating (never
+   *  fabricated ground truth), always 1 for an explicit one. */
+  confidence: number;
+  at: number;
+  /** The opinion text that justified an inferred rating, or a short user
+   *  comment attached to an explicit one — kept separate from the numeric
+   *  rating itself (spec: "distinguer opinion et note", the note is HOW
+   *  MUCH, the opinion is WHY). Never required. */
+  opinion?: string;
+}
+
+export interface TitleRating {
+  tmdbId: number;
+  type: "movie" | "series";
+  /** Denormalized for display/logs only — never the source of truth for
+   *  what the title actually is (that's always tmdbId+type). */
+  title: string;
+  /** The CURRENT rating — always the most recent entry unless a lower-
+   *  priority (inferred) rating tried to override a higher-priority
+   *  (explicit) one, in which case the explicit one is kept as current
+   *  even though the inferred attempt is still appended to `history` for
+   *  transparency (see setRating in ratingStore.ts). */
+  rating: number;
+  source: RatingSource;
+  confidence: number;
+  opinion?: string;
+  history: RatingHistoryEntry[];
+  updatedAt: number;
+}
+
 export interface AiUserProfile {
   feedback: AiFeedbackEntry[];
   facts: AiFactEntry[];
   context?: AiContextProfile;
   corrections?: AiCorrectionEntry[];
+  ratings?: TitleRating[];
 }
 
 /** Strictly per-user — ai-user-profiles.json, never cross-referenced between

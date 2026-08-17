@@ -2,6 +2,8 @@ import { getMovieRecommendations, getTvRecommendations } from "@/lib/metadata/tm
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
+import { getCachedMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
 // Strictly per-account: this row is built ONLY from the target account's own
@@ -52,14 +54,33 @@ export async function getRecommendations(
   const entries = [...score.values()];
   const maxCount = Math.max(1, ...entries.map((s) => s.count));
 
+  // Same TasteCompatibility signal chat recommendations already use
+  // (contrastiveProfile.ts/recommendationScore.ts) — reusing it here is the
+  // whole point of "une seule source de vérité" (Discover must consume the
+  // Context Engine, never grow its own separate taste model). Only cached
+  // Mood Engine profiles are read (getCachedMoodProfile), so this never
+  // triggers a new LLM analysis just to rank a Discover row — a candidate
+  // without a cached profile simply gets no taste term, never a penalty.
+  const tasteVector = buildTasteVector(userId);
+
   return entries
-    .map((s) => ({
-      item: s.item,
-      composite:
-        (s.count / maxCount) * 0.3
-        + (Math.min(s.item.rating ?? 0, 10) / 10) * 0.35
-        + (Math.min(Math.max((s.item.year ?? 2000) - 2000, 0), 30) / 30) * 0.35,
-    }))
+    .map((s) => {
+      let taste = 0;
+      if (tasteVector) {
+        const candidateMood = getCachedMoodProfile(type, s.item.tmdbId)?.categories;
+        if (candidateMood) {
+          taste = (moodSimilarity(tasteVector.liked, candidateMood) - moodSimilarity(tasteVector.disliked, candidateMood)) * tasteVector.confidence;
+        }
+      }
+      return {
+        item: s.item,
+        composite:
+          (s.count / maxCount) * 0.25
+          + (Math.min(s.item.rating ?? 0, 10) / 10) * 0.3
+          + (Math.min(Math.max((s.item.year ?? 2000) - 2000, 0), 30) / 30) * 0.25
+          + Math.max(0, taste) * 0.2,
+      };
+    })
     .sort((a, b) => b.composite - a.composite)
     .slice(0, 200)
     .map((s) => s.item);

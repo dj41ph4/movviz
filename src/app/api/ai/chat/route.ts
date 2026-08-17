@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, isFalseInternetDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, isFalseInternetDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
-import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
+import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { scoreCandidates, isSeriesFullyWatched, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
@@ -141,6 +141,7 @@ export async function POST(req: NextRequest) {
   // THIS message already counts — no double-ask in the same reply.
   const needsName = !hasKnownName(user.id);
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
+  system += buildRatingsContext(user.id);
 
   // "Qu'est-ce qu'il me manque de X" (franchise/acteur/réalisateur) —
   // confirmed live TWICE (Jeremy Ferrari, then Pokémon) that the prompt-only
@@ -378,7 +379,7 @@ export async function POST(req: NextRequest) {
   }
   const { facts, cleaned: afterFacts } = extractFacts(intent.rawText);
   for (const fact of facts) rememberFact(user.id, fact);
-  const { watched, cleaned } = extractWatched(afterFacts);
+  const { watched, cleaned: afterWatched } = extractWatched(afterFacts);
   if (watched.length) {
     // Best-effort — the same TMDb title matching add_media already trusts
     // (resolveAiItem, titleSimilarity-gated), never a raw title/tmdbId pair
@@ -390,6 +391,24 @@ export async function POST(req: NextRequest) {
         if (!resolved) continue;
         if (resolved.type === "movie") setWatchedMovies(user.id, [resolved.tmdbId], true, resolved.title);
         else recordWatched(user.id, { tmdbId: resolved.tmdbId, type: "series", title: resolved.title, at: Date.now() });
+      } catch {
+        // best-effort, see comment above
+      }
+    }
+  }
+  const { ratings, cleaned } = extractRatings(afterWatched);
+  if (ratings.length) {
+    // Always stored as source "inferred" (setRating never lets this
+    // override an existing explicit rating — see tasteProfile.ts) — same
+    // best-effort resolution as the watched-titles block above.
+    for (const r of ratings) {
+      try {
+        const resolved = await resolveAiItem({ title: r.title, type: r.type });
+        if (!resolved) continue;
+        setRating(user.id, {
+          tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title,
+          rating: r.stars, source: "inferred", confidence: 0.6, opinion: r.opinion,
+        });
       } catch {
         // best-effort, see comment above
       }
@@ -452,7 +471,7 @@ export async function POST(req: NextRequest) {
       if (retryIntent.action === null) {
         const { facts: retryFacts, cleaned: retryAfterFacts } = extractFacts(retryIntent.rawText);
         for (const fact of retryFacts) rememberFact(user.id, fact);
-        const { watched: retryWatched, cleaned: retryCleaned } = extractWatched(retryAfterFacts);
+        const { watched: retryWatched, cleaned: retryAfterWatched } = extractWatched(retryAfterFacts);
         if (retryWatched.length) {
           for (const w of retryWatched) {
             try {
@@ -460,6 +479,21 @@ export async function POST(req: NextRequest) {
               if (!resolved) continue;
               if (resolved.type === "movie") setWatchedMovies(user.id, [resolved.tmdbId], true, resolved.title);
               else recordWatched(user.id, { tmdbId: resolved.tmdbId, type: "series", title: resolved.title, at: Date.now() });
+            } catch {
+              // best-effort, see comment above
+            }
+          }
+        }
+        const { ratings: retryRatings, cleaned: retryCleaned } = extractRatings(retryAfterWatched);
+        if (retryRatings.length) {
+          for (const r of retryRatings) {
+            try {
+              const resolved = await resolveAiItem({ title: r.title, type: r.type });
+              if (!resolved) continue;
+              setRating(user.id, {
+                tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title,
+                rating: r.stars, source: "inferred", confidence: 0.6, opinion: r.opinion,
+              });
             } catch {
               // best-effort, see comment above
             }

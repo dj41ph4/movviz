@@ -1,6 +1,6 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import type { AiContextInsight, AiContextProfile, AiCorrectionEntry, AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile } from "./types";
+import type { AiContextInsight, AiContextProfile, AiCorrectionEntry, AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile, TitleRating, RatingSource } from "./types";
 
 /**
  * Foundation of the AI v2 taste engine (AI.MD §2.A/§2.G): a strictly
@@ -37,7 +37,7 @@ function profileForUser(store: AiProfileStore, userId: string): AiUserProfile {
   // a real bug here once (the `context` field silently dropped because it
   // wasn't copied through) so every field added to AiUserProfile MUST be
   // copied through here explicitly, never assumed to "just work" via spread.
-  return { feedback: existing?.feedback ?? [], facts: existing?.facts ?? [], context: existing?.context, corrections: existing?.corrections ?? [] };
+  return { feedback: existing?.feedback ?? [], facts: existing?.facts ?? [], context: existing?.context, corrections: existing?.corrections ?? [], ratings: existing?.ratings ?? [] };
 }
 
 export function recordFeedback(userId: string, entry: AiFeedbackEntry): void {
@@ -198,4 +198,104 @@ export function buildFeedbackContext(userId: string): string {
   if (liked.length) parts.push(`recommandations appréciées : ${fmt(liked)}`);
   if (disliked.length) parts.push(`recommandations rejetées : ${fmt(disliked)}`);
   return `\n\nRETOURS SUR RECOMMANDATIONS PASSÉES (👍/👎 de cet utilisateur) — ${parts.join(" ; ")}. N'insiste jamais sur un titre déjà rejeté ni sur un axe de recommandation explicitement écarté ; les titres appréciés indiquent le TYPE de lien à rechercher (mécanique d'humour, tension, ton), pas juste le genre.`;
+}
+
+// ---------------------------------------------------------------------------
+// 1-5 star ratings (distinct from the binary 👍/👎 feedback log above — see
+// TitleRating's own doc comment in types.ts for why only two priority tiers
+// exist here, not the full source hierarchy a larger spec might describe).
+
+const MAX_RATING_ENTRIES = 500;
+
+export function getRating(userId: string, tmdbId: number, type: "movie" | "series"): TitleRating | null {
+  const ratings = profileForUser(read(), userId).ratings ?? [];
+  return ratings.find((r) => r.tmdbId === tmdbId && r.type === type) ?? null;
+}
+
+export function getAllRatings(userId: string): TitleRating[] {
+  return profileForUser(read(), userId).ratings ?? [];
+}
+
+/**
+ * Records a rating. An `explicit` rating (the star widget, or an
+ * unambiguous number stated in conversation — "je lui mets 4/5") always
+ * becomes the current rating, overwriting whatever was there before. An
+ * `inferred` one (the model interpreting a qualitative opinion —
+ * "j'ai adoré") only becomes current when there's no EXISTING explicit
+ * rating for this title: the attempt is still appended to `history` either
+ * way (so a rejected inference is never silently lost, just not trusted
+ * as the displayed number) — this is what "une note explicite prime
+ * toujours sur une note déduite" (confirmed user requirement) means in
+ * practice: it's not that inferred ratings are ignored, it's that they
+ * never get to overrule a number the user actually chose.
+ */
+export function setRating(
+  userId: string,
+  entry: { tmdbId: number; type: "movie" | "series"; title: string; rating: number; source: RatingSource; confidence: number; opinion?: string }
+): TitleRating {
+  const clampedRating = Math.min(5, Math.max(1, Math.round(entry.rating)));
+  const clampedConfidence = entry.source === "explicit" ? 1 : Math.min(1, Math.max(0, entry.confidence));
+  const store = read();
+  const profile = profileForUser(store, userId);
+  const ratings = profile.ratings ?? [];
+  const idx = ratings.findIndex((r) => r.tmdbId === entry.tmdbId && r.type === entry.type);
+  const historyEntry = { rating: clampedRating, source: entry.source, confidence: clampedConfidence, at: Date.now(), opinion: entry.opinion };
+
+  let updated: TitleRating;
+  if (idx === -1) {
+    updated = {
+      tmdbId: entry.tmdbId,
+      type: entry.type,
+      title: entry.title,
+      rating: clampedRating,
+      source: entry.source,
+      confidence: clampedConfidence,
+      opinion: entry.opinion,
+      history: [historyEntry],
+      updatedAt: Date.now(),
+    };
+  } else {
+    const existing = ratings[idx];
+    // An inferred rating never overwrites an existing explicit one — still
+    // logged to history (below) so the attempt isn't silently discarded,
+    // just not surfaced as the title's current rating.
+    const keepsExisting = existing.source === "explicit" && entry.source === "inferred";
+    updated = keepsExisting
+      ? { ...existing, history: [...existing.history, historyEntry].slice(-MAX_RATING_ENTRIES) }
+      : {
+          ...existing,
+          title: entry.title,
+          rating: clampedRating,
+          source: entry.source,
+          confidence: clampedConfidence,
+          opinion: entry.opinion,
+          history: [...existing.history, historyEntry].slice(-MAX_RATING_ENTRIES),
+          updatedAt: Date.now(),
+        };
+  }
+
+  const nextRatings = idx === -1 ? [...ratings, updated] : ratings.map((r, i) => (i === idx ? updated : r));
+  store[userId] = { ...profile, ratings: nextRatings };
+  write(store);
+  return updated;
+}
+
+/** Compact context for the system prompt — same restraint as
+ *  buildFeedbackContext above (read-and-consolidate only). Only the
+ *  clearly-rated extremes (4-5 and 1-2 stars) are surfaced by name; 3-star
+ *  ("correct, sans plus") ratings are summarized as a count rather than
+ *  listed, since they carry the least signal about what to recommend
+ *  more/less of. */
+export function buildRatingsContext(userId: string): string {
+  const ratings = getAllRatings(userId);
+  if (!ratings.length) return "";
+  const loved = ratings.filter((r) => r.rating >= 4).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 10);
+  const disliked = ratings.filter((r) => r.rating <= 2).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 10);
+  const neutralCount = ratings.filter((r) => r.rating === 3).length;
+  const fmt = (r: TitleRating) => `${r.title} (${r.rating}/5${r.source === "inferred" ? ", déduit" : ""})`;
+  const parts: string[] = [];
+  if (loved.length) parts.push(`très appréciés : ${loved.map(fmt).join(", ")}`);
+  if (disliked.length) parts.push(`peu appréciés : ${disliked.map(fmt).join(", ")}`);
+  if (neutralCount) parts.push(`${neutralCount} titre(s) noté(s) 3/5 (correct, sans plus)`);
+  return `\n\nNOTES ATTRIBUÉES PAR CET UTILISATEUR (1 à 5 étoiles, sur ses propres titres — "déduit" = interprété d'une opinion en conversation, moins certain qu'une note explicite) — ${parts.join(" ; ")}. Une note ne dit pas seulement SI un titre a plu, mais À QUEL POINT — pondère tes recommandations et déductions de goût en conséquence (un 5/5 pèse plus qu'un 4/5), et ne présente jamais une note "déduite" comme si l'utilisateur l'avait lui-même choisie.`;
 }

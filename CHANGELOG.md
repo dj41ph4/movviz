@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.0 — August 2026
+
+### Notes 1 à 5 étoiles (nouveau)
+
+- Chaque film et série peut désormais recevoir une note de 1 à 5 étoiles, directement depuis sa fiche — une seule note par titre et par utilisateur, jamais partagée entre comptes.
+- Movviz AI comprend aussi une note donnée en conversation ("j'ai adoré", "quelle déception", "je lui mets 4 étoiles") et l'enregistre automatiquement, sans jamais deviner quand ce n'est pas assez clair — une note posée manuellement sur la fiche prime toujours sur une note déduite d'une phrase.
+- Ces notes affinent à la fois les recommandations du chatbot et les suggestions de la page Découverte, qui partagent désormais la même compréhension de tes goûts au lieu de deux logiques séparées.
+- Le panneau « Ce que Movviz AI sait de toi » (page Profil) affiche désormais tes notes récentes, en distinguant celles posées à la main de celles déduites d'une conversation.
+
 ## v1.14.48 — August 2026
 
 ### Correctif : bouton corbeille visible par tout le monde dans la bibliothèque

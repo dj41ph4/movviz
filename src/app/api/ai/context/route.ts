@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { getFacts, getFeedback, getContextProfile, saveContextInsights } from "@/lib/ai/tasteProfile";
+import { getFacts, getFeedback, getContextProfile, saveContextInsights, getAllRatings } from "@/lib/ai/tasteProfile";
 import { buildUsageProfile } from "@/lib/ai/profile";
 import { loadAiConfig } from "@/lib/ai/store";
 import { buildContext } from "@/lib/ai/contextBuilder";
@@ -25,9 +25,13 @@ export async function GET(req: NextRequest) {
   const disliked = feedback.filter((f) => !f.liked).slice(-8).map((f) => ({ title: f.title, reason: f.reason ?? null }));
   const usage = buildUsageProfile(user.id);
   const context = getContextProfile(user.id);
+  const ratings = getAllRatings(user.id)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(0, 30)
+    .map((r) => ({ tmdbId: r.tmdbId, type: r.type, title: r.title, rating: r.rating, source: r.source, opinion: r.opinion ?? null }));
 
   return NextResponse.json({
-    facts, liked, disliked, usage,
+    facts, liked, disliked, usage, ratings,
     context: context ? { insights: context.insights.map((i) => ({ text: i.text, confidence: i.confidence, trend: i.trend })), builtAt: context.builtAt } : null,
   });
 }

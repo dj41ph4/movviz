@@ -1,4 +1,4 @@
-import { getFeedback } from "@/lib/ai/tasteProfile";
+import { getFeedback, getAllRatings } from "@/lib/ai/tasteProfile";
 import { getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
 import type { AiMoodCategories } from "@/lib/ai/types";
 
@@ -66,7 +66,30 @@ export function buildTasteVector(userId: string): TasteVector | null {
   const dislikedProfiles: AiMoodCategories[] = [];
   const likedTitles: string[] = [];
   const dislikedTitles: string[] = [];
+  // Titles with a 1-5 rating are a richer signal than the binary 👍/👎 log
+  // (spec: "une note ne dit pas seulement SI un titre a plu, mais À QUEL
+  // POINT") — a 5/5 or 1/5 counts twice toward the average, a 4/5 or 2/5
+  // once, a 3/5 (neutral) contributes to neither side. Deduped against
+  // `feedback` by tmdbId+type below so the same title never double-counts
+  // through both signals — the rating wins when both exist, since it's the
+  // more informative one.
+  const ratedKeys = new Set<string>();
+  for (const rating of getAllRatings(userId)) {
+    if (rating.rating === 3) continue;
+    const profile = getCachedMoodProfile(rating.type, rating.tmdbId);
+    if (!profile) continue;
+    ratedKeys.add(`${rating.type}:${rating.tmdbId}`);
+    const weight = rating.rating === 5 || rating.rating === 1 ? 2 : 1;
+    if (rating.rating >= 4) {
+      for (let i = 0; i < weight; i++) likedProfiles.push(profile.categories);
+      if (likedTitles.length < MAX_EVIDENCE) likedTitles.push(rating.title);
+    } else {
+      for (let i = 0; i < weight; i++) dislikedProfiles.push(profile.categories);
+      if (dislikedTitles.length < MAX_EVIDENCE) dislikedTitles.push(rating.title);
+    }
+  }
   for (const entry of feedback) {
+    if (ratedKeys.has(`${entry.type}:${entry.tmdbId}`)) continue;
     const profile = getCachedMoodProfile(entry.type, entry.tmdbId);
     if (!profile) continue;
     if (entry.liked) {

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { saveContextInsights, getContextProfile, recordCorrection, getCorrections, buildCorrectionEscalationContext } from "@/lib/ai/tasteProfile";
+import { saveContextInsights, getContextProfile, recordCorrection, getCorrections, buildCorrectionEscalationContext, setRating, getRating, getAllRatings, buildRatingsContext } from "@/lib/ai/tasteProfile";
 import type { AiContextInsight } from "@/lib/ai/types";
 
 /**
@@ -100,4 +100,66 @@ test("buildCorrectionEscalationContext: une correction de catégorie 'other' ne 
   recordCorrection(userId, { category: "other", note: "b" });
   recordCorrection(userId, { category: "other", note: "c" });
   assert.equal(buildCorrectionEscalationContext(userId), "");
+});
+
+test("setRating/getRating: une note explicite survit à un aller-retour écriture/lecture", () => {
+  const userId = `test-user-rating-roundtrip-${runId}`;
+  setRating(userId, { tmdbId: 438631, type: "movie", title: "Dune", rating: 5, source: "explicit", confidence: 1 });
+  const rating = getRating(userId, 438631, "movie");
+  assert.ok(rating);
+  assert.equal(rating!.rating, 5);
+  assert.equal(rating!.source, "explicit");
+  assert.equal(rating!.history.length, 1);
+});
+
+test("setRating: une note explicite écrase une note explicite précédente et journalise l'historique", () => {
+  const userId = `test-user-rating-explicit-overwrite-${runId}`;
+  setRating(userId, { tmdbId: 1, type: "movie", title: "X", rating: 3, source: "explicit", confidence: 1 });
+  setRating(userId, { tmdbId: 1, type: "movie", title: "X", rating: 5, source: "explicit", confidence: 1 });
+  const rating = getRating(userId, 1, "movie")!;
+  assert.equal(rating.rating, 5);
+  assert.equal(rating.history.length, 2);
+});
+
+test("setRating: une note déduite ne peut jamais écraser une note explicite existante, mais reste journalisée", () => {
+  const userId = `test-user-rating-inferred-never-overrides-explicit-${runId}`;
+  setRating(userId, { tmdbId: 2, type: "movie", title: "Y", rating: 5, source: "explicit", confidence: 1 });
+  setRating(userId, { tmdbId: 2, type: "movie", title: "Y", rating: 1, source: "inferred", confidence: 0.6, opinion: "quelle merde" });
+  const rating = getRating(userId, 2, "movie")!;
+  assert.equal(rating.rating, 5, "la note affichée reste la note explicite");
+  assert.equal(rating.source, "explicit");
+  assert.equal(rating.history.length, 2, "la tentative déduite est quand même journalisée");
+  assert.equal(rating.history[1].rating, 1);
+});
+
+test("setRating: une note déduite s'applique normalement en l'absence de note explicite précédente", () => {
+  const userId = `test-user-rating-inferred-applies-${runId}`;
+  setRating(userId, { tmdbId: 3, type: "series", title: "Z", rating: 4, source: "inferred", confidence: 0.6 });
+  const rating = getRating(userId, 3, "series")!;
+  assert.equal(rating.rating, 4);
+  assert.equal(rating.source, "inferred");
+});
+
+test("setRating: la note est bornée à 1-5 et arrondie", () => {
+  const userId = `test-user-rating-clamped-${runId}`;
+  setRating(userId, { tmdbId: 4, type: "movie", title: "W", rating: 8, source: "explicit", confidence: 1 });
+  assert.equal(getRating(userId, 4, "movie")!.rating, 5);
+});
+
+test("getAllRatings: retourne toutes les notes d'un utilisateur, aucune autre", () => {
+  const userId = `test-user-rating-getall-${runId}`;
+  setRating(userId, { tmdbId: 10, type: "movie", title: "A", rating: 5, source: "explicit", confidence: 1 });
+  setRating(userId, { tmdbId: 11, type: "series", title: "B", rating: 2, source: "explicit", confidence: 1 });
+  const ratings = getAllRatings(userId);
+  assert.equal(ratings.length, 2);
+});
+
+test("buildRatingsContext: vide sans notes, non vide dès qu'une note existe et cite le titre", () => {
+  const emptyUserId = `test-user-rating-context-empty-${runId}`;
+  assert.equal(buildRatingsContext(emptyUserId), "");
+
+  const userId = `test-user-rating-context-nonempty-${runId}`;
+  setRating(userId, { tmdbId: 20, type: "movie", title: "Interstellar", rating: 5, source: "explicit", confidence: 1 });
+  const context = buildRatingsContext(userId);
+  assert.ok(context.includes("Interstellar"));
 });

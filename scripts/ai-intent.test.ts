@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, isFalseInternetDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, isFalseInternetDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -308,6 +308,39 @@ test("extractWatched: plafonné à 2 par réponse", () => {
   const got = extractWatched("[[VU: A|movie]] [[VU: B|movie]] [[VU: C|movie]]");
   assert.equal(got.watched.length, 2);
   assert.deepEqual(got.watched.map((w) => w.title), ["A", "B"]);
+});
+
+test("extractRatings: parse titre + type + étoiles, retire le marqueur du texte affiché", () => {
+  const got = extractRatings("Ah génial, un classique ! [[NOTE: The Batman|movie|5]]");
+  assert.deepEqual(got.ratings, [{ title: "The Batman", type: "movie", stars: 5, opinion: undefined }]);
+  assert.equal(got.cleaned, "Ah génial, un classique !");
+});
+
+test("extractRatings: opinion optionnelle capturée", () => {
+  const got = extractRatings("[[NOTE: The Boys|series|4|humour noir très apprécié]]");
+  assert.deepEqual(got.ratings, [{ title: "The Boys", type: "series", stars: 4, opinion: "humour noir très apprécié" }]);
+});
+
+test("extractRatings: type absent ou invalide retombe sur movie par défaut", () => {
+  const got = extractRatings("[[NOTE: Un titre sans type|x|3]]");
+  assert.deepEqual(got.ratings, [{ title: "Un titre sans type", type: "movie", stars: 3, opinion: undefined }]);
+});
+
+test("extractRatings: étoiles hors 1-5 sont ignorées (marqueur retiré quand même)", () => {
+  const got = extractRatings("[[NOTE: X|movie|8]]");
+  assert.deepEqual(got.ratings, []);
+  assert.equal(got.cleaned, "");
+});
+
+test("extractRatings: étoiles non numériques sont ignorées", () => {
+  const got = extractRatings("[[NOTE: X|movie|beaucoup]]");
+  assert.deepEqual(got.ratings, []);
+});
+
+test("extractRatings: plafonné à 2 par réponse", () => {
+  const got = extractRatings("[[NOTE: A|movie|5]] [[NOTE: B|movie|4]] [[NOTE: C|movie|3]]");
+  assert.equal(got.ratings.length, 2);
+  assert.deepEqual(got.ratings.map((r) => r.title), ["A", "B"]);
 });
 
 test("isEpisodeListRequest: reconnaît les formulations courantes", () => {

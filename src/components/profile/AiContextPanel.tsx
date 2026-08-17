@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
-import { Sparkles, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Brain, Loader2 } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Brain, Loader2, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AiContextInsight {
@@ -29,6 +29,7 @@ interface AiContextData {
     watchesLast7Days: number;
     watchesLast30Days: number;
   };
+  ratings: { tmdbId: number; type: "movie" | "series"; title: string; rating: number; source: "explicit" | "inferred"; opinion: string | null }[];
   context: { insights: AiContextInsight[]; builtAt: number } | null;
 }
 
@@ -68,7 +69,7 @@ export function AiContextPanel() {
     }
   };
 
-  const hasAnything = data && (data.facts.length > 0 || data.liked.length > 0 || data.disliked.length > 0 || data.usage.watchedMovies > 0 || data.usage.watchedSeries > 0 || !!data.context);
+  const hasAnything = data && (data.facts.length > 0 || data.liked.length > 0 || data.disliked.length > 0 || data.usage.watchedMovies > 0 || data.usage.watchedSeries > 0 || data.ratings.length > 0 || !!data.context);
 
   return (
     <div className="mb-6 rounded-2xl glass p-5">
@@ -164,6 +165,28 @@ export function AiContextPanel() {
                       })}
                     </p>
                   )}
+                </div>
+              )}
+
+              {data.ratings.length > 0 && (
+                <div>
+                  <p className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-ink-dim">
+                    <Star className="h-3 w-3" /> {t("profile.aiContext.ratings")}
+                  </p>
+                  <ul className="space-y-1.5">
+                    {data.ratings.map((r) => (
+                      <li key={`${r.type}:${r.tmdbId}`} className="flex items-start gap-2 text-sm text-ink-soft">
+                        <span className="mt-0.5 inline-flex shrink-0 items-center gap-0.5 rounded-full border border-amber/25 bg-amber/12 px-2 py-0.5 text-[10px] font-bold text-amber">
+                          {r.rating}<Star className="h-2.5 w-2.5 fill-amber" />
+                        </span>
+                        <span>
+                          <span className="font-semibold text-ink">{r.title}</span>
+                          {r.source === "inferred" && <span className="ml-1 text-xs text-ink-dim">({t("profile.aiContext.ratingInferred")})</span>}
+                          {r.opinion ? ` — ${r.opinion}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 
