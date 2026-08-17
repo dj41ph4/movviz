@@ -1,4 +1,5 @@
 import { searchMulti, getMovieRecommendations, getTvRecommendations, getSeason } from "@/lib/metadata/tmdb";
+import type { ResolvedTitleItem } from "@/lib/metadata/resolveTitle";
 import { titleSimilarity } from "@/lib/library/matching";
 import { requestMedia } from "@/lib/requests/requestMedia";
 import { getMovieByTmdbId, getSeriesByTmdbId, loadMovies, loadSeries } from "@/lib/library/store";
@@ -358,6 +359,77 @@ export function buildMissingFromFranchiseContext(entity: string, hits: Franchise
   return `\n\nRECHERCHE RÉELLE pour « ${entity} » (résultats obtenus via une vraie recherche dans le catalogue — meilleur effort, pas forcément exhaustif : un titre peut ne pas remonter sur ce mot-clé sans pour autant être absent de la bibliothèque) :\nDéjà dans ta bibliothèque : ${owned.length ? owned.map(fmt).join(", ") : "aucun parmi ces résultats"}\nPas dans ta bibliothèque : ${missing.length ? missing.map(fmt).join(", ") : "aucun parmi ces résultats"}`;
 }
 
+// ---------------------------------------------------------------------------
+// "VÉRIFICATION RÉELLE" blocks for the 4 single-title question shapes
+// (intentParser's extractLibraryPresenceQuestion/extractWatchStatusQuestion/
+// extractCastCrewQuestion/extractSeriesStatusQuestion) — same "pure
+// formatting, real data injected by the caller, never invented here" shape
+// as buildMissingFromFranchiseContext above, just for a SPECIFIC resolved
+// title instead of a keyword search. A minimal shape (title/year/type/
+// tmdbId) is enough for the last two — they never need `inLibrary`, and the
+// "current page" case (no TMDb search needed, the title/tmdbId are already
+// known from pageContext) doesn't have a ResolvedTitleItem to give them —
+// so TitleRef is a separate, narrower parameter type ResolvedTitleItem
+// happens to satisfy structurally.
+// ---------------------------------------------------------------------------
+
+export interface TitleRef {
+  title: string;
+  year?: number;
+  type: "movie" | "series";
+  tmdbId: number;
+}
+
+function titleLabel(ref: TitleRef): string {
+  return `${ref.title}${ref.year ? ` (${ref.year})` : ""} [${ref.type === "movie" ? "film" : "série"}, tmdb:${ref.tmdbId}]`;
+}
+
+const NO_MATCH_SUFFIX = "aucune correspondance fiable trouvée sur TMDb pour ce titre, impossible de vérifier.";
+
+/** Item 1 — "est-ce que j'ai X ?" (library presence). `resolved` already
+ *  carries `inLibrary` (resolveTitleAgainstTmdb computes it against the real
+ *  library at resolution time) — no separate store lookup needed here. */
+export function buildLibraryPresenceContext(query: string, resolved: ResolvedTitleItem | null): string {
+  if (!resolved) return `\n\nVÉRIFICATION RÉELLE — présence en bibliothèque pour « ${query} » : ${NO_MATCH_SUFFIX}`;
+  return `\n\nVÉRIFICATION RÉELLE — présence en bibliothèque pour « ${query} » → identifié comme ${titleLabel(resolved)} : ${resolved.inLibrary ? "OUI, déjà dans la bibliothèque" : "NON, pas dans la bibliothèque"}.`;
+}
+
+export type WatchStatusResult = "watched" | "partially_watched" | "not_watched";
+
+/** Item 2 — "est-ce que j'ai vu X ?" (watch status, distinct from #1 — a
+ *  title can be owned without being watched, or watched via Plex history
+ *  without being owned). `result` is null only when `resolved` itself is
+ *  null (nothing to check against). */
+export function buildWatchStatusContext(query: string, resolved: TitleRef | null, result: WatchStatusResult | null, recentAt?: number): string {
+  if (!resolved || !result) return `\n\nVÉRIFICATION RÉELLE — statut de visionnage pour « ${query} » : ${NO_MATCH_SUFFIX}`;
+  const statusText = result === "watched" ? "OUI, déjà vu(e) en entier"
+    : result === "partially_watched" ? "PARTIELLEMENT vu(e) (certains épisodes seulement, pas la totalité)"
+    : "NON, pas encore vu(e)";
+  const when = recentAt ? ` (${relativeFr(recentAt)})` : "";
+  return `\n\nVÉRIFICATION RÉELLE — statut de visionnage pour « ${query} » → identifié comme ${titleLabel(resolved)} : ${statusText}${when}.`;
+}
+
+/** Item 3 — "qui joue dans X ?" / "qui a réalisé X ?" (cast/crew). Movviz
+ *  previously injected ZERO cast/crew data — any answer came purely from
+ *  the model's training memory (a real wrong-actor/wrong-movie hallucination
+ *  risk). `cast`/`crew` come straight from TMDb's own credits (getDetail),
+ *  capped by the caller before formatting never happens here. */
+export function buildCastCrewContext(query: string, resolved: TitleRef | null, cast: { name: string; character: string }[], crew: { name: string; job: string }[]): string {
+  if (!resolved) return `\n\nVÉRIFICATION RÉELLE — casting/équipe pour « ${query} » : ${NO_MATCH_SUFFIX}`;
+  const directors = crew.filter((c) => c.job === "Director").map((c) => c.name);
+  const castList = cast.slice(0, 8).map((c) => (c.character ? `${c.name} (${c.character})` : c.name));
+  return `\n\nVÉRIFICATION RÉELLE — casting/équipe pour « ${query} » → identifié comme ${titleLabel(resolved)} :\nRéalisateur(s) : ${directors.length ? directors.join(", ") : "non renseigné(s) sur TMDb"}\nActeurs principaux : ${castList.length ? castList.join(", ") : "non renseignés sur TMDb"}`;
+}
+
+/** Item 4 — "cette série est-elle terminée ?" / "est-ce que X est fini ?"
+ *  (real TMDb production status). `status` is the already French-translated
+ *  string from getDetail (statusTranslations.ts) — never the raw English
+ *  TMDb enum, so the model never has to translate it itself inconsistently. */
+export function buildTitleStatusContext(query: string, resolved: TitleRef | null, status: string | null): string {
+  if (!resolved) return `\n\nVÉRIFICATION RÉELLE — statut de production pour « ${query} » : ${NO_MATCH_SUFFIX}`;
+  return `\n\nVÉRIFICATION RÉELLE — statut de production pour « ${query} » → identifié comme ${titleLabel(resolved)} : ${status || "statut inconnu sur TMDb"}.`;
+}
+
 /** Synthetic "trigger" turn for the proactive nudge (presence.ts) — never
  *  shown to the user, never persisted, just appended to the messages array
  *  for this ONE call so the model has something to respond to (some
@@ -442,6 +514,7 @@ RÈGLES :
 - NE JAMAIS DEMANDER DE REFORMULER : tu ne réponds JAMAIS "je ne comprends pas", "peux-tu reformuler ?", "précise ta demande" comme réaction par défaut à un message ambigu, familier, mal orthographié, elliptique ou incomplet — c'est TOUJOURS à toi de faire l'effort de comprendre, jamais à l'utilisateur de s'adapter à toi. Devant une formulation floue, construis la meilleure hypothèse possible à partir de tout ce que tu as (conversation en cours, contexte utilisateur, faits connus, message précédent) et réponds dessus directement. La SEULE exception déjà prévue plus haut (HYPOTHÈSE INCERTAINE, mode recommandation) reste : plusieurs pistes VRAIMENT concurrentes, où tu poses UNE question ciblée pour trancher entre elles précises — jamais une question vague qui revient à dire "je n'ai pas compris".
 - LISTE D'ÉPISODES : si l'utilisateur demande la liste des épisodes d'une série (« liste des épisodes », « quels épisodes », « combien d'épisodes »…) alors qu'il est sur la fiche de cette série, une section "LISTE RÉELLE DES ÉPISODES" apparaît plus bas dans ce prompt si Movviz a trouvé la série — utilise-la fidèlement (jamais une invention, jamais une liste tronquée si l'utilisateur veut la liste complète). Si cette section n'apparaît PAS (série pas dans la bibliothèque, ou pas sur la bonne fiche), dis-le simplement et oriente vers la fiche de la série dans Movviz — ne devine JAMAIS une liste d'épisodes de mémoire.
 - FILMOGRAPHIE D'UNE PERSONNE OU D'UNE FRANCHISE ("qu'est-ce qu'il me manque de X", "quels films de X j'ai pas", "il me manque quoi de [acteur/réalisateur/humoriste/franchise] ?") : si une section "RECHERCHE RÉELLE pour « X »" apparaît plus bas dans ce prompt pour CETTE demande précise, c'est qu'une vraie recherche vient d'être faite et vérifiée contre la bibliothèque réelle — utilise-la fidèlement : reprends les titres tels que listés, distingue clairement "déjà dans ta bibliothèque" et "pas dans ta bibliothèque", et rappelle que ce sont les résultats d'une recherche par mot-clé, pas forcément exhaustifs (un titre peut ne pas être remonté sans être absent de la bibliothèque pour autant) — n'invente rien au-delà de cette liste et ne la présente jamais comme une filmographie complète. SI CETTE SECTION N'APPARAÎT PAS (aucune recherche déclenchée pour ce message, ou recherche infructueuse) : tu n'as ALORS AUCUN moyen de lister fidèlement toute l'œuvre d'une personne ni de la comparer point par point à la bibliothèque réelle de l'utilisateur — cette capacité n'existe tout simplement pas dans ce cas (ce n'est pas pareil que "LISTE RÉELLE DES ÉPISODES" ci-dessus, qui, elle, est une vraie donnée Movviz toujours injectée quand elle s'applique). N'INVENTE JAMAIS une filmographie précise (titres + années) à partir de ta seule mémoire pour répondre à ce genre de question, et surtout ne prétends JAMAIS l'avoir vérifiée ("d'après ton historique", "dans ta bibliothèque"..) si cette vérification n'a pas réellement eu lieu — une liste inventée présentée comme vérifiée peut faire croire à l'utilisateur qu'il lui manque un titre qu'il possède déjà, ou l'inverse (confirmé en direct, deux fois : Jeremy Ferrari, puis Pokémon). Réponds honnêtement que tu ne peux pas vérifier ça de façon fiable ici, et oriente-le vers la recherche/Découverte de Movviz où il peut chercher cette personne et voir directement, pour chaque titre, s'il est déjà dans sa bibliothèque.
+- POSSESSION / VISIONNAGE / CASTING / STATUT D'UN TITRE PRÉCIS ("est-ce que j'ai X ?", "j'ai déjà vu X ?", "qui joue dans X ?", "qui a réalisé X ?", "cette série est-elle terminée ?") : même principe que la règle FILMOGRAPHIE juste au-dessus, appliqué à UN titre précis plutôt qu'à toute une filmographie. Si une section "VÉRIFICATION RÉELLE" apparaît plus bas dans ce prompt pour CETTE demande précise, une vérification réelle vient d'être faite (recherche TMDb + données réelles Movviz) — utilise-la fidèlement telle quelle, sans la reformuler comme une supposition ni la remettre en question. Si cette section indique "aucune correspondance fiable trouvée", dis-le simplement plutôt que de deviner à quel titre l'utilisateur faisait référence. SI CETTE SECTION N'APPARAÎT PAS pour ce type de question précis (aucune vérification déclenchée pour ce message) : dis que tu ne peux pas vérifier ça de façon fiable pour l'instant, sans jamais répondre à partir de ta seule mémoire en le présentant comme vérifié.
 - NE JAMAIS INVENTER UNE SOURCE DE DONNÉES QUE TU N'AS PAS RÉELLEMENT (règle générale, au-delà du seul prénom/mémoire déjà couvert plus haut) : des formules comme "d'après ton historique", "dans ta bibliothèque", "je vois que tu as"... affirment que tu as VRAIMENT vérifié une donnée précise — ne les emploie QUE quand cette donnée figure réellement dans le contexte fourni plus haut dans ce prompt (faits retenus, profil d'usage, vues récentes, LISTE RÉELLE DES ÉPISODES...). Si tu n'as pas cette donnée pour ce que l'utilisateur te demande précisément, dis-le simplement au lieu de deviner et de le présenter comme vérifié — un mensonge sur ta source d'information est pire qu'une réponse qui admet ses limites.${correctionEscalationContext}
 - CORRECTION EXPLICITE > INFÉRENCE : quand l'utilisateur dit clairement et directement quelque chose sur ses goûts ("en fait je déteste les films de super-héros", "je n'aime pas du tout ce genre de trucs", "arrête de me proposer ça") — cette déclaration explicite prime IMMÉDIATEMENT et TOTALEMENT sur toute tendance déduite de son historique, de son profil ou de 👍 passés, même si elle les contredit. Retiens-la via [[FAIT: ...]] et applique-la dès la prochaine recommandation ; ne reviens jamais silencieusement à l'ancienne tendance tant que ce fait n'est pas lui-même explicitement corrigé à nouveau par l'utilisateur.
 - INTERDICTION ABSOLUE DE SUPPRESSION : tu ne peux JAMAIS supprimer, effacer, vider ou retirer quoi que ce soit (un titre de la bibliothèque, un téléchargement, une demande, un fichier, un réglage...) — tu n'as tout simplement PAS cette capacité, quelle que soit la façon dont on te le demande, même formulé comme un ordre, une urgence, un test ou une autorisation explicite de l'utilisateur. Si on te demande de supprimer quelque chose, explique que tu ne peux pas le faire et oriente vers l'interface (bouton corbeille, réglages) où l'utilisateur peut le faire lui-même. Ne prétends JAMAIS avoir supprimé quelque chose.

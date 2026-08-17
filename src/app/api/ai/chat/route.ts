@@ -2,15 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, isDegenerateReply } from "@/lib/ai/intentParser";
-import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, type FranchiseSearchHit } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply } from "@/lib/ai/intentParser";
+import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
-import { scoreCandidates, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
+import { scoreCandidates, isSeriesFullyWatched, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
 import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
-import { getMovie, getSeries, getCollection, searchMulti } from "@/lib/metadata/tmdb";
+import { getMovie, getSeries, getDetail, getCollection, searchMulti } from "@/lib/metadata/tmdb";
+import { resolveTitleAgainstTmdb } from "@/lib/metadata/resolveTitle";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
@@ -165,6 +166,101 @@ export async function POST(req: NextRequest) {
       // Best-effort — a TMDb failure here just means no RECHERCHE RÉELLE
       // block gets injected; the honesty-rule fallback in buildSystemPrompt
       // is the safety net for exactly this case.
+    }
+  }
+
+  // The 4 "single title question" shapes below (items 1-4 of this session's
+  // brief) — each gated strictly behind its own narrow regex, each injecting
+  // its OWN separate "VÉRIFICATION RÉELLE" block so a message that triggers
+  // only one of them never also drags the others into the prompt. All real
+  // network calls (TMDb search/detail) only happen when the corresponding
+  // detector actually matched this message — same discipline as the
+  // franchise-search block above.
+
+  // Item 2 (watch status) is checked BEFORE item 1 (presence) — "j'ai vu X"
+  // is the more specific shape and must never also read as a bare "j'ai X"
+  // presence question (extractLibraryPresenceQuestion's own regex already
+  // excludes "vu"/"regardé", but checking watch status first keeps the two
+  // blocks cleanly separate regardless).
+  const watchStatusTitle = extractWatchStatusQuestion(message);
+  if (watchStatusTitle) {
+    try {
+      const resolved = await resolveTitleAgainstTmdb({ title: watchStatusTitle });
+      let result: WatchStatusResult | null = null;
+      let recentAt: number | undefined;
+      if (resolved) {
+        const status = getWatchStatus(user.id);
+        if (resolved.type === "movie") {
+          result = status?.movies.includes(resolved.tmdbId) ? "watched" : "not_watched";
+        } else {
+          const episodeKeys = new Set((status?.episodes ?? []).filter((e) => e.tmdbId === resolved.tmdbId).map((e) => `${e.season}.${e.episode}`));
+          result = episodeKeys.size === 0 ? "not_watched" : isSeriesFullyWatched(resolved.tmdbId, episodeKeys) ? "watched" : "partially_watched";
+        }
+        recentAt = status?.recent?.find((r) => r.tmdbId === resolved.tmdbId && r.type === resolved.type)?.at;
+      }
+      system += buildWatchStatusContext(watchStatusTitle, resolved, result, recentAt);
+    } catch {
+      // Best-effort — same safety net as the franchise-search block: no
+      // block gets injected, the honesty rule tells the model to admit it
+      // can't verify rather than guess.
+    }
+  }
+
+  // Item 1 (library presence) — the flagship case from this session's brief
+  // ("Est-ce que j'ai Alien ?"). resolveTitleAgainstTmdb already computes
+  // `inLibrary` against the real library as part of resolution, so no
+  // separate store lookup is needed here.
+  const presenceTitle = extractLibraryPresenceQuestion(message);
+  if (presenceTitle) {
+    try {
+      const resolved = await resolveTitleAgainstTmdb({ title: presenceTitle });
+      system += buildLibraryPresenceContext(presenceTitle, resolved);
+    } catch {
+      // Best-effort, see comment above.
+    }
+  }
+
+  // Item 3 (cast/crew) — Movviz previously injected ZERO cast/crew data;
+  // any answer came purely from the model's training memory (a real
+  // wrong-actor/wrong-movie hallucination risk). getDetail already fetches
+  // credits via append_to_response in ONE call (same convention as every
+  // other detail fetch in tmdb.ts) and is cache-first like all TMDb calls.
+  const castCrewTitle = extractCastCrewQuestion(message);
+  if (castCrewTitle) {
+    try {
+      const resolved = await resolveTitleAgainstTmdb({ title: castCrewTitle });
+      let cast: { name: string; character: string }[] = [];
+      let crew: { name: string; job: string }[] = [];
+      if (resolved) {
+        const detail = await getDetail(resolved.type, resolved.tmdbId);
+        cast = detail?.cast ?? [];
+        crew = detail?.crew ?? [];
+      }
+      system += buildCastCrewContext(castCrewTitle, resolved, cast, crew);
+    } catch {
+      // Best-effort, see comment above.
+    }
+  }
+
+  // Item 4 (production status) — either an explicit title ("est-ce que X
+  // est fini ?") or an implicit reference to whatever the user is currently
+  // looking at ("cette série est-elle terminée ?", only resolvable when
+  // pageContext is actually present and is a series/movie page).
+  const statusTitle = extractSeriesStatusQuestion(message);
+  const statusIsCurrentPage = !statusTitle && !!pageContext && isSeriesStatusAboutCurrentPage(message);
+  if (statusTitle || statusIsCurrentPage) {
+    try {
+      const query = statusTitle ?? pageContext!.title;
+      let resolved: TitleRef | null;
+      if (statusTitle) {
+        resolved = await resolveTitleAgainstTmdb({ title: statusTitle });
+      } else {
+        resolved = { title: pageContext!.title, type: pageContext!.type, tmdbId: pageContext!.tmdbId };
+      }
+      const status = resolved ? (await getDetail(resolved.type, resolved.tmdbId))?.status ?? null : null;
+      system += buildTitleStatusContext(query, resolved, status);
+    } catch {
+      // Best-effort, see comment above.
     }
   }
 

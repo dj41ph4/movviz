@@ -362,3 +362,183 @@ export function extractSelfIntroName(userMessage: string): string | null {
   const name = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase();
   return `Prénom : ${name}`;
 }
+
+// ---------------------------------------------------------------------------
+// "Single title question" detectors — presence / watch status / cast-crew /
+// production status about ONE specific title. Same discipline as
+// extractMissingFromEntity above (code-level regex, never LLM-decided), but
+// these feed resolveTitleAgainstTmdb (a SPECIFIC title, fuzzy-scored) rather
+// than a keyword search — a different resolution shape, so kept as separate
+// detectors rather than forced into extractMissingFromEntity's pattern. They
+// DO share one helper (cleanCapturedTitle) so trimming/false-positive
+// filtering for a captured title string doesn't get duplicated four times.
+// ---------------------------------------------------------------------------
+
+const MAX_QUESTION_TITLE_LEN = 100;
+// Pronoun/filler captures a loose alternation can still pick up ("j'ai ça ?")
+// — useless as a TMDb title query, same reasoning as intentParser's
+// NOT_AN_ENTITY guard above.
+const NOT_A_QUESTION_TITLE = new Set(["ça", "ca", "cela", "ce", "lui", "elle", "eux", "elles", "moi", "toi", "ici", "la", "le", "les", "un", "une", "quoi", "ça ?"]);
+
+function cleanCapturedTitle(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const title = raw.trim().replace(/[?!.]+$/, "").trim().slice(0, MAX_QUESTION_TITLE_LEN).trim();
+  if (title.length < 2) return null;
+  if (NOT_A_QUESTION_TITLE.has(title.toLowerCase())) return null;
+  return title;
+}
+
+// WATCH STATUS ("est-ce que j'ai vu X ?", "j'ai déjà vu X ?", "j'ai regardé
+// X ?") — checked BEFORE the presence detector below in route.ts, since
+// "j'ai vu X" is the more specific shape and must never also read as a bare
+// presence question. The opener form ("est-ce que j'ai vu...") is
+// unambiguous enough to not require a trailing "?"; the bare "j'ai vu X"
+// form does, to avoid matching a plain statement ("j'ai vu X hier, c'était
+// nul") that isn't a question at all.
+const WATCHED_QUESTION_PATTERNS: RegExp[] = [
+  /\best[- ]ce que j'ai\s+(?:d[ée]j[aà]\s+)?(?:vu|regard[ée])\s+([^?.!\n]+)/i,
+  /\bj'ai\s+(?:d[ée]j[aà]\s+)?(?:vu|regard[ée])\s+([^?.!\n]+)\?/i,
+];
+
+/** Detects "have I watched X" and extracts X. Companion to
+ *  extractLibraryPresenceQuestion below — a title can be OWNED without being
+ *  WATCHED (or watched via Plex history without being owned), so this is a
+ *  deliberately separate question shape/injected block, never merged with
+ *  presence. Returns null on no match (falls back to the honesty rule). */
+export function extractWatchStatusQuestion(message: string): string | null {
+  const normalized = message.replace(/[’‘]/g, "'");
+  for (const re of WATCHED_QUESTION_PATTERNS) {
+    const m = normalized.match(re);
+    if (m) return cleanCapturedTitle(m[1]);
+  }
+  return null;
+}
+
+// LIBRARY PRESENCE ("est-ce que j'ai X ?", "j'ai déjà X ?", "je possède
+// X ?") — the flagship case ("Est-ce que j'ai Alien ?"). Excludes "vu"/
+// "regardé" right after the verb so this never also fires for the WATCHED
+// shape above (two separate questions: owning vs. having watched).
+// Bug fix (caught by this module's own tests before shipping): the
+// negative lookahead used to sit AFTER the optional "déjà " group
+// ((?:d[ée]j[aà]\s+)?(?!vu\b|regard[ée])) — since that group is optional,
+// the regex engine could skip matching "déjà" entirely and re-check the
+// lookahead right after "j'ai ", where "déjà vu Dune" doesn't start with
+// "vu"/"regard" and so wrongly PASSED, letting "j'ai déjà vu Dune ?" slip
+// through as a presence question instead of being correctly rejected in
+// favor of the watched-status shape. The lookahead now sits BEFORE the
+// optional "déjà " group so it always checks the true verb position,
+// regardless of whether "déjà" is present or backtracked away.
+const PRESENCE_OPENER_PATTERNS: RegExp[] = [
+  /\best[- ]ce que j'ai\s+(?!(?:d[ée]j[aà]\s+)?(?:vu\b|regard[ée]))(?:d[ée]j[aà]\s+)?([^?.!\n]+)/i,
+  /\best[- ]ce que je poss[eè]de\s+(?:d[ée]j[aà]\s+)?([^?.!\n]+)/i,
+];
+// No unambiguous opener in these two forms — a trailing "?" is REQUIRED,
+// since "j'ai X" without one is far more often an ordinary statement
+// ("j'ai adoré X", "j'ai fini X hier soir") than a question about
+// possession — confirmed risk: "j'ai" appears in a huge share of ordinary
+// sentences, unlike "il me manque" (extractMissingFromEntity) which is
+// already unambiguous on its own.
+const PRESENCE_QUESTION_MARK_PATTERNS: RegExp[] = [
+  /\bj'ai\s+(?!(?:d[ée]j[aà]\s+)?(?:vu\b|regard[ée]))(?:d[ée]j[aà]\s+)?([^?.!\n]+)\?/i,
+  /\bje poss[eè]de\s+(?:d[ée]j[aà]\s+)?([^?.!\n]+)\?/i,
+];
+
+/** Detects "do I own X" and extracts X. Returns null on no match. */
+export function extractLibraryPresenceQuestion(message: string): string | null {
+  const normalized = message.replace(/[’‘]/g, "'");
+  for (const re of PRESENCE_OPENER_PATTERNS) {
+    const m = normalized.match(re);
+    if (m) return cleanCapturedTitle(m[1]);
+  }
+  for (const re of PRESENCE_QUESTION_MARK_PATTERNS) {
+    const m = normalized.match(re);
+    if (m) return cleanCapturedTitle(m[1]);
+  }
+  return null;
+}
+
+// CAST/CREW ("qui joue dans X ?", "qui a réalisé X ?", "qui est le
+// réalisateur de X ?") — Movviz injects ZERO cast/crew data today, so any
+// answer here currently comes purely from the model's own training memory
+// (a real wrong-actor/wrong-movie hallucination risk, distinct from the
+// library-presence class already fixed this session).
+const CAST_CREW_PATTERNS: RegExp[] = [
+  /\bqui joue dans\s+([^?.!\n]+)/i,
+  /\bqui (?:sont les acteurs|fait partie du casting)\s*(?:de |d')([^?.!\n]+)/i,
+  /\bqui a r[ée]alis[ée]\s+([^?.!\n]+)/i,
+  /\bqui r[ée]alise\s+([^?.!\n]+)/i,
+  /\bqui est le r[ée]alisateur (?:de |d')([^?.!\n]+)/i,
+];
+
+/** Detects "who's in/directed X" and extracts X. Returns null on no match. */
+export function extractCastCrewQuestion(message: string): string | null {
+  const normalized = message.replace(/[’‘]/g, "'");
+  for (const re of CAST_CREW_PATTERNS) {
+    const m = normalized.match(re);
+    if (m) return cleanCapturedTitle(m[1]);
+  }
+  return null;
+}
+
+// PRODUCTION STATUS ("X est-il terminé ?", "est-ce que X est fini ?") —
+// explicit-title form. ".+?" is non-greedy so a leading "est-ce que" clause
+// doesn't get swallowed into the captured title.
+//
+// Bug fix (caught by this module's own tests before shipping): the
+// masculine forms ("terminé", "annulé", "renouvelé") end in an accented "é"
+// — under JS's default (non-Unicode) \b, an accented letter isn't a "word"
+// character, so a trailing \b right after it sees a non-word→non-word
+// transition (é → space) and never matches, silently rejecting every
+// masculine-adjective phrasing ("Dune est-il terminé ?") while the feminine
+// forms ("terminée", ending in plain ASCII "e") worked fine. Replaced with
+// an explicit lookahead for whitespace/punctuation/end-of-string, which
+// doesn't depend on \w's ASCII-only definition of a "word" character.
+const STATUS_END_RE = "(?=[\\s?.!,]|$)";
+const STATUS_EXPLICIT_PATTERNS: RegExp[] = [
+  new RegExp(`\\best[- ]ce que\\s+(.+?)\\s+est\\s+(?:fini(?:e)?|termin[ée]e?|annul[ée]e?|renouvel[ée]e?)${STATUS_END_RE}`, "i"),
+  new RegExp(`\\b(.+?)\\s+est[- ](?:il|elle)\\s+(?:fini(?:e)?|termin[ée]e?|annul[ée]e?|renouvel[ée]e?)${STATUS_END_RE}`, "i"),
+];
+// A captured title that's actually just a reference to "the thing I'm
+// looking at right now" rather than a real title — handled separately by
+// isSeriesStatusAboutCurrentPage below (needs the caller's page context,
+// never a TMDb search on the literal words "cette série").
+const CURRENT_PAGE_REFERENCE_RE = /^(cette s[ée]rie|ce film|la s[ée]rie|le film|c'est|[çc]a)$/i;
+
+/** Detects "is X finished/renewed/cancelled" with an EXPLICIT title and
+ *  extracts it. Returns null when there's no explicit title (either no
+ *  match at all, or the captured text is just "cette série"/"ce film" —
+ *  see isSeriesStatusAboutCurrentPage for that case instead). */
+export function extractSeriesStatusQuestion(message: string): string | null {
+  const normalized = message.replace(/[’‘]/g, "'");
+  for (const re of STATUS_EXPLICIT_PATTERNS) {
+    const m = normalized.match(re);
+    if (m) {
+      const cleaned = cleanCapturedTitle(m[1]);
+      if (cleaned && !CURRENT_PAGE_REFERENCE_RE.test(cleaned)) return cleaned;
+    }
+  }
+  return null;
+}
+
+// Implicit form — "cette série est-elle terminée ?", "est-ce que ce film est
+// fini ?" — no explicit title at all, refers to whatever title the caller's
+// page context says the user is currently looking at. Deliberately narrow
+// to "cette/la série|ce/le film" so a generic "c'est fini ?" (which could
+// mean almost anything in conversation) never fires this.
+// Same accent/\b fix as STATUS_END_RE above — a raw \b right after
+// "terminé"/"annulé"/"renouvelé" (masculine, ends in accented "é") never
+// matches under JS's ASCII-only \w.
+const STATUS_CURRENT_PAGE_RE = new RegExp(
+  `\\b(?:cette s[ée]rie|ce film|la s[ée]rie|le film)\\s+est[- ](?:il|elle)?\\s*(?:fini(?:e)?|termin[ée]e?|annul[ée]e?|renouvel[ée]e?)${STATUS_END_RE}` +
+  `|\\best[- ]ce que\\s+(?:cette s[ée]rie|ce film|la s[ée]rie|le film)\\s+est\\s+(?:fini(?:e)?|termin[ée]e?|annul[ée]e?|renouvel[ée]e?)${STATUS_END_RE}`,
+  "i"
+);
+
+/** True for the implicit "is THIS one finished" shape (see doc above) — the
+ *  caller must combine this with actual page context (pageContext in
+ *  chat/route.ts) to know which title it refers to; this function alone
+ *  only tells the shape matched, never resolves a title itself. */
+export function isSeriesStatusAboutCurrentPage(message: string): boolean {
+  const normalized = message.replace(/[’‘]/g, "'");
+  return STATUS_CURRENT_PAGE_RE.test(normalized);
+}

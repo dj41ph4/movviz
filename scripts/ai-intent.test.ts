@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, isDegenerateReply } from "@/lib/ai/intentParser";
-import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply } from "@/lib/ai/intentParser";
+import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
   const got = parseIntent('{"action":"add_media","items":[{"title":"Justice League: War","year":2014,"type":"movie"}]}');
@@ -303,4 +303,133 @@ test("buildMissingFromFranchiseContext: liste vide d'un côté annoncée explici
     { title: "Pokémon Détective Pikachu", year: 2019, type: "movie", tmdbId: 2, inLibrary: false },
   ]);
   assert.ok(ctx.includes("Déjà dans ta bibliothèque : aucun parmi ces résultats"));
+});
+
+// --- Item 1 : présence en bibliothèque ---------------------------------
+
+test("extractLibraryPresenceQuestion: cas confirmé (exemple flagship user)", () => {
+  assert.equal(extractLibraryPresenceQuestion("Est-ce que j'ai Alien ?"), "Alien");
+});
+
+test("extractLibraryPresenceQuestion: variantes reconnues", () => {
+  assert.equal(extractLibraryPresenceQuestion("j'ai déjà Dune ?"), "Dune");
+  assert.equal(extractLibraryPresenceQuestion("est-ce que je possède Interstellar"), "Interstellar");
+  assert.equal(extractLibraryPresenceQuestion("je possède The Batman ?"), "The Batman");
+});
+
+test("extractLibraryPresenceQuestion: ne se déclenche pas sur une simple affirmation ('j'ai adoré X') sans marqueur de question", () => {
+  assert.equal(extractLibraryPresenceQuestion("j'ai adoré Interstellar."), null);
+  assert.equal(extractLibraryPresenceQuestion("j'ai fini la saison 2 hier soir"), null);
+});
+
+test("extractLibraryPresenceQuestion: ne se déclenche jamais sur la forme 'j'ai vu X' (c'est le statut de visionnage, pas la possession)", () => {
+  assert.equal(extractLibraryPresenceQuestion("est-ce que j'ai vu Alien ?"), null);
+  assert.equal(extractLibraryPresenceQuestion("j'ai déjà vu Dune ?"), null);
+});
+
+test("extractLibraryPresenceQuestion: rejette un pronom capté sans intérêt comme titre", () => {
+  assert.equal(extractLibraryPresenceQuestion("j'ai ça ?"), null);
+});
+
+test("buildLibraryPresenceContext: résolution réussie, présent en bibliothèque", () => {
+  const ctx = buildLibraryPresenceContext("Alien", { title: "Alien", year: 1979, type: "movie", tmdbId: 348, overview: "", posterPath: null, rating: 8, inLibrary: true });
+  assert.ok(ctx.includes("VÉRIFICATION RÉELLE"));
+  assert.ok(ctx.includes("Alien (1979)"));
+  assert.ok(ctx.includes("OUI, déjà dans la bibliothèque"));
+});
+
+test("buildLibraryPresenceContext: résolution réussie, absent de la bibliothèque", () => {
+  const ctx = buildLibraryPresenceContext("Alien", { title: "Alien", year: 1979, type: "movie", tmdbId: 348, overview: "", posterPath: null, rating: 8, inLibrary: false });
+  assert.ok(ctx.includes("NON, pas dans la bibliothèque"));
+});
+
+test("buildLibraryPresenceContext: pas de correspondance fiable, honnête plutôt que silencieux", () => {
+  const ctx = buildLibraryPresenceContext("Un Titre Bidon Introuvable", null);
+  assert.ok(ctx.includes("aucune correspondance fiable trouvée"));
+});
+
+// --- Item 2 : statut de visionnage ---------------------------------------
+
+test("extractWatchStatusQuestion: variantes reconnues", () => {
+  assert.equal(extractWatchStatusQuestion("est-ce que j'ai vu Alien ?"), "Alien");
+  assert.equal(extractWatchStatusQuestion("j'ai déjà vu Dune ?"), "Dune");
+  assert.equal(extractWatchStatusQuestion("j'ai regardé The Boys ?"), "The Boys");
+});
+
+test("extractWatchStatusQuestion: ne se déclenche pas sur une affirmation sans question ('j'ai vu X hier')", () => {
+  assert.equal(extractWatchStatusQuestion("j'ai vu Alien hier soir, c'était nul"), null);
+});
+
+test("buildWatchStatusContext: vu en entier, avec date relative", () => {
+  const ctx = buildWatchStatusContext("Alien", { title: "Alien", year: 1979, type: "movie", tmdbId: 348 }, "watched", Date.now());
+  assert.ok(ctx.includes("OUI, déjà vu(e) en entier"));
+  assert.ok(ctx.includes("aujourd'hui"));
+});
+
+test("buildWatchStatusContext: série partiellement vue, distincte de 'vue en entier'", () => {
+  const ctx = buildWatchStatusContext("The Boys", { title: "The Boys", type: "series", tmdbId: 76479 }, "partially_watched");
+  assert.ok(ctx.includes("PARTIELLEMENT vu(e)"));
+});
+
+test("buildWatchStatusContext: pas de correspondance fiable, honnête plutôt que silencieux", () => {
+  const ctx = buildWatchStatusContext("Titre Introuvable", null, null);
+  assert.ok(ctx.includes("aucune correspondance fiable trouvée"));
+});
+
+// --- Item 3 : casting / équipe --------------------------------------------
+
+test("extractCastCrewQuestion: variantes reconnues", () => {
+  assert.equal(extractCastCrewQuestion("qui joue dans Alien ?"), "Alien");
+  assert.equal(extractCastCrewQuestion("qui a réalisé Dune ?"), "Dune");
+  assert.equal(extractCastCrewQuestion("qui est le réalisateur de Dune ?"), "Dune");
+  assert.equal(extractCastCrewQuestion("qui réalise Oppenheimer"), "Oppenheimer");
+});
+
+test("extractCastCrewQuestion: ne se déclenche pas sur un message sans rapport", () => {
+  assert.equal(extractCastCrewQuestion("télécharge sakamoto days"), null);
+});
+
+test("buildCastCrewContext: réalisateur + top acteurs formatés, jamais plus de 8 acteurs", () => {
+  const cast = Array.from({ length: 12 }, (_, i) => ({ name: `Acteur ${i}`, character: `Perso ${i}` }));
+  const ctx = buildCastCrewContext("Dune", { title: "Dune", year: 2021, type: "movie", tmdbId: 438631 }, cast, [{ name: "Denis Villeneuve", job: "Director" }]);
+  assert.ok(ctx.includes("Denis Villeneuve"));
+  assert.ok(ctx.includes("Acteur 0 (Perso 0)"));
+  assert.ok(!ctx.includes("Acteur 8"));
+});
+
+test("buildCastCrewContext: pas de correspondance fiable, honnête plutôt que silencieux", () => {
+  const ctx = buildCastCrewContext("Titre Introuvable", null, [], []);
+  assert.ok(ctx.includes("aucune correspondance fiable trouvée"));
+});
+
+// --- Item 4 : statut de production ----------------------------------------
+
+test("extractSeriesStatusQuestion: variantes reconnues avec titre explicite", () => {
+  assert.equal(extractSeriesStatusQuestion("est-ce que Breaking Bad est fini ?"), "Breaking Bad");
+  assert.equal(extractSeriesStatusQuestion("Dune est-il terminé ?"), "Dune");
+});
+
+test("extractSeriesStatusQuestion: ne capture jamais 'cette série'/'ce film' comme un vrai titre (géré séparément)", () => {
+  assert.equal(extractSeriesStatusQuestion("cette série est-elle terminée ?"), null);
+  assert.equal(extractSeriesStatusQuestion("est-ce que ce film est fini ?"), null);
+});
+
+test("isSeriesStatusAboutCurrentPage: reconnaît la forme implicite", () => {
+  assert.ok(isSeriesStatusAboutCurrentPage("cette série est-elle terminée ?"));
+  assert.ok(isSeriesStatusAboutCurrentPage("est-ce que ce film est fini ?"));
+});
+
+test("isSeriesStatusAboutCurrentPage: ne se déclenche pas sur une phrase générique sans référence claire à une série/un film", () => {
+  assert.equal(isSeriesStatusAboutCurrentPage("c'est fini entre nous"), false);
+  assert.equal(isSeriesStatusAboutCurrentPage("télécharge sakamoto days"), false);
+});
+
+test("buildTitleStatusContext: statut réel injecté tel quel (déjà traduit par l'appelant)", () => {
+  const ctx = buildTitleStatusContext("Breaking Bad", { title: "Breaking Bad", type: "series", tmdbId: 1396 }, "Terminée");
+  assert.ok(ctx.includes("Terminée"));
+});
+
+test("buildTitleStatusContext: pas de correspondance fiable, honnête plutôt que silencieux", () => {
+  const ctx = buildTitleStatusContext("Titre Introuvable", null, null);
+  assert.ok(ctx.includes("aucune correspondance fiable trouvée"));
 });

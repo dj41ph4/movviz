@@ -70,7 +70,7 @@ function overlapCount(a: Set<string>, b: Set<string>): number {
 // non-library series's true episode count, and "possibly excluded because
 // we can't tell" is worse than "not excluded, may resurface once" (spec
 // §16: a single observation is weak signal, never a hard rule on its own).
-function isSeriesFullyWatched(tmdbId: number, watchedEpisodeKeys: Set<string>): boolean {
+export function isSeriesFullyWatched(tmdbId: number, watchedEpisodeKeys: Set<string>): boolean {
   const series = getSeriesByTmdbId(tmdbId);
   if (!series) return false;
   const known = series.seasons.flatMap((s) =>

@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.32 — August 2026
+
+### Movviz AI
+
+- Movviz AI vérifie désormais réellement, avant de répondre, quatre types de questions sur un titre précis plutôt que de deviner à partir de sa seule mémoire : si tu possèdes déjà un titre ("est-ce que j'ai Alien ?"), si tu l'as déjà vu (en entier ou seulement en partie), qui joue dedans et qui l'a réalisé, et si une série est terminée ou toujours en cours. Quand la question ne peut pas être vérifiée de façon fiable (titre introuvable), il le dit clairement au lieu d'inventer une réponse.
+
 ## v1.14.31 — August 2026
 
 ### Correctif
