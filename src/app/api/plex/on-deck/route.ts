@@ -40,7 +40,14 @@ export async function GET(req: NextRequest) {
   const onDeck = await getPlexOnDeck(cfg, auth.token, auth.managedUserId);
   const items: OnDeckEntry[] = [];
   for (const d of onDeck) {
-    if (!d.duration) continue;
+    // Bug fix (confirmed live): Plex's on-deck list mixes two different
+    // things — content actually paused mid-playback, AND the "next episode
+    // up" for any show with watch history, queued at 0% before anyone has
+    // even started it. Only the first one is "Continue Watching" — the
+    // second flooded this row with dozens of never-started episodes, each
+    // showing an empty progress bar, on a real account (Plex itself keeps
+    // these separate in its own UI, this list just doesn't).
+    if (!d.duration || d.viewOffset <= 0) continue;
     const progressPercent = Math.min(100, Math.round((d.viewOffset / d.duration) * 100));
     if (d.type === "movie") {
       const movie = getMovieByPlexRatingKey(d.ratingKey);

@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.39 — August 2026
+
+### Correctif : rangée « Continuer à regarder »
+
+- **Cause racine confirmée en direct** : Plex mélange dans sa liste « on deck » deux choses différentes — ce qui est vraiment en pause en cours de lecture, et le prochain épisode d'une série jamais commencé mais mise en avant parce qu'un épisode précédent a été vu. La rangée affichait donc des dizaines de vignettes avec une barre de progression à 0%, jamais réellement démarrées. Seul le contenu réellement repris s'affiche désormais.
+
 ## v1.14.38 — August 2026
 
 ### Nouveauté : rangée « Continuer à regarder »
