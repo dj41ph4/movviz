@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, isFalseInternetDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
-import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
   const got = parseIntent('{"action":"add_media","items":[{"title":"Justice League: War","year":2014,"type":"movie"}]}');
@@ -341,6 +341,73 @@ test("extractRatings: plafonné à 2 par réponse", () => {
   const got = extractRatings("[[NOTE: A|movie|5]] [[NOTE: B|movie|4]] [[NOTE: C|movie|3]]");
   assert.equal(got.ratings.length, 2);
   assert.deepEqual(got.ratings.map((r) => r.title), ["A", "B"]);
+});
+
+test("extractBareTitleMention: un titre isolé sans question est reconnu", () => {
+  assert.equal(extractBareTitleMention("zootopie 2"), "zootopie 2");
+  assert.equal(extractBareTitleMention("Zootopia 2"), "Zootopia 2");
+});
+
+test("extractBareTitleMention: rejette le bavardage courant", () => {
+  for (const m of ["salut", "bonjour", "merci", "ok", "cool", "ça va", "lol", "d'accord"]) {
+    assert.equal(extractBareTitleMention(m), null, `"${m}" ne devrait pas être traité comme un titre`);
+  }
+});
+
+test("extractBareTitleMention: rejette les questions (déjà couvertes par un autre détecteur)", () => {
+  assert.equal(extractBareTitleMention("est-ce que j'ai Dune ?"), null);
+});
+
+test("extractBareTitleMention: rejette les phrases longues/construites", () => {
+  assert.equal(extractBareTitleMention("j'ai regardé ce film hier soir avec des amis et c'était vraiment sympa"), null);
+});
+
+test("extractBareTitleMention: rejette un message trop long ou vide", () => {
+  assert.equal(extractBareTitleMention(""), null);
+  assert.equal(extractBareTitleMention("a".repeat(61)), null);
+});
+
+test("buildTitleMentionContext: titre non résolu renvoie le message d'absence de correspondance", () => {
+  const ctx = buildTitleMentionContext("zzzzzznotreal", null, null, null);
+  assert.ok(ctx.includes("aucune correspondance fiable trouvée"));
+});
+
+test("buildTitleMentionContext: combine présence/visionnage/note dans un seul bloc", () => {
+  const resolved = { title: "Zootopia 2", year: 2025, type: "movie" as const, tmdbId: 123, overview: "", posterPath: null, rating: 7, inLibrary: true };
+  const ctx = buildTitleMentionContext("zootopie 2", resolved, "watched", { rating: 5, source: "explicit" });
+  assert.ok(ctx.includes("déjà dans la bibliothèque"));
+  assert.ok(ctx.includes("déjà vu(e) en entier"));
+  assert.ok(ctx.includes("noté(e) 5/5"));
+});
+
+test("buildTitleMentionContext: titre vu mais jamais noté encourage à demander l'avis", () => {
+  const resolved = { title: "X", type: "movie" as const, tmdbId: 1, overview: "", posterPath: null, rating: 0, inLibrary: true };
+  const ctx = buildTitleMentionContext("x", resolved, "watched", null);
+  assert.ok(ctx.includes("jamais noté"));
+  assert.ok(ctx.includes("occasion naturelle"));
+});
+
+test("isUnresolvedCheckPromise: vrai quand la réponse entière n'est qu'une promesse de vérification", () => {
+  assert.ok(isUnresolvedCheckPromise("Tu as raison, je vais vérifier ça tout de suite !"));
+  assert.ok(isUnresolvedCheckPromise("Laisse-moi regarder ça."));
+});
+
+test("isUnresolvedCheckPromise: faux quand la promesse fait partie d'une réponse substantielle", () => {
+  assert.equal(isUnresolvedCheckPromise("Ouais, Zootopie 2 est déjà dans ta bibliothèque et tu l'as déjà vu, je vais vérifier si tu l'as noté aussi pour être sûr de bien comprendre ton avis complet dessus."), false);
+});
+
+test("isUnresolvedCheckPromise: faux sur une réponse normale sans promesse", () => {
+  assert.equal(isUnresolvedCheckPromise("Ah cool, Zootopie 2 ! Tu l'as adoré ?"), false);
+});
+
+test("containsLeakedActionJson / sanitizeLeakedActionJson: détecte et retire un bloc JSON d'action qui aurait fuité", () => {
+  const leaked = 'Voilà : {"action":"add_media","items":[{"title":"Zootopia 2","year":2025,"type":"movie"}]}';
+  assert.ok(containsLeakedActionJson(leaked));
+  assert.equal(sanitizeLeakedActionJson(leaked), "Voilà :");
+});
+
+test("containsLeakedActionJson: faux sur une réponse normale", () => {
+  assert.equal(containsLeakedActionJson("Ah cool, Zootopie 2 ! Tu veux que je te le trouve ?"), false);
 });
 
 test("isEpisodeListRequest: reconnaît les formulations courantes", () => {

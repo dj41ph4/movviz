@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.1 — August 2026
+
+### Correctif : Movviz AI ne consultait pas ce qu'il savait déjà avant de répondre
+
+- **Cause racine confirmée en direct** : à la simple mention d'un titre ("zootopie 2"), l'assistant demandait "tu veux l'ajouter ?" pour un titre déjà présent, ou "tu l'as vu ?" alors que l'historique le savait déjà — il n'avait tout simplement aucune vérification réelle à consulter pour une mention casuelle (seules les questions explicites en déclenchaient une). Il consulte désormais systématiquement la bibliothèque, l'historique de visionnage et la note existante avant de réagir à un titre mentionné, et ne repose plus une question dont il connaît déjà la réponse.
+- Quand un titre mentionné est vu mais jamais noté, l'assistant en profite naturellement pour demander l'avis, en une phrase, sans en faire un interrogatoire.
+- Correctif d'une promesse sans suite : l'assistant pouvait répondre "je vais vérifier ça tout de suite !" puis ne jamais revenir avec la réponse — une conversation n'ayant pas de second temps automatique, ce genre de promesse est désormais bannie ; soit la vérification a lieu dans le message même, soit l'assistant dit honnêtement qu'il ne peut pas vérifier.
+- Personnalité resserrée : usage plus régulier du prénom connu, emojis plus présents mais sans excès, réaction avant question plutôt que l'inverse.
+- Filet de sécurité supplémentaire pour qu'un format technique interne ne s'affiche jamais tel quel dans une réponse.
+
 ## v1.15.0 — August 2026
 
 ### Notes 1 à 5 étoiles (nouveau)

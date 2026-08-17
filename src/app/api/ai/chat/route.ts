@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, isFalseInternetDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
-import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
-import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating } from "@/lib/ai/tasteProfile";
+import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating, getRating } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { scoreCandidates, isSeriesFullyWatched, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
@@ -295,6 +295,35 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Item 5 (mention casuelle, sans question) — voir buildTitleMentionContext.
+  // Gardé APRÈS les 4 détecteurs "question" ci-dessus et les recherches
+  // franchise/filmographie plus haut, pour ne jamais faire un second appel
+  // TMDb sur un message qui a déjà déclenché un des blocs plus spécifiques.
+  const bareTitleCandidate = (!watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
+    ? extractBareTitleMention(message)
+    : null;
+  if (bareTitleCandidate) {
+    try {
+      const resolved = await resolveTitleAgainstTmdb({ title: bareTitleCandidate });
+      let watchResult: WatchStatusResult | null = null;
+      let rating: { rating: number; source: "explicit" | "inferred" } | null = null;
+      if (resolved) {
+        const status = getWatchStatus(user.id);
+        if (resolved.type === "movie") {
+          watchResult = status?.movies.includes(resolved.tmdbId) ? "watched" : "not_watched";
+        } else {
+          const episodeKeys = new Set((status?.episodes ?? []).filter((e) => e.tmdbId === resolved.tmdbId).map((e) => `${e.season}.${e.episode}`));
+          watchResult = episodeKeys.size === 0 ? "not_watched" : isSeriesFullyWatched(resolved.tmdbId, episodeKeys) ? "watched" : "partially_watched";
+        }
+        const existingRating = getRating(user.id, resolved.tmdbId, resolved.type);
+        if (existingRating) rating = { rating: existingRating.rating, source: existingRating.source };
+      }
+      system += buildTitleMentionContext(bareTitleCandidate, resolved, watchResult, rating);
+    } catch {
+      // Best-effort, see comment above.
+    }
+  }
+
   if (pageContext) {
     system += `\n\nRÉFÉRENCE COURANTE — l'utilisateur regarde actuellement ${pageContext.type === "movie" ? "le film" : "la série"} « ${pageContext.title} » (${pageContext.tmdbId}). Quand il dit « dans le même genre », « quelque chose comme ça », « moins sérieux »…, c'est CE titre qui est la référence.`;
 
@@ -454,7 +483,18 @@ export async function POST(req: NextRequest) {
   // model's own state" bug fixed this session.
   const falseInternetDenial = intent.action === null && !isDegenerateReply(cleaned) && !leaked && !falseNameDenial
     && isFalseInternetDenial(message, cleaned, config.webSearchEnabled);
-  if (intent.action === null && (isDegenerateReply(cleaned) || leaked || falseNameDenial || falseInternetDenial)) {
+  // Confirmed live: "je vais vérifier ça tout de suite !" as the entire
+  // reply, then nothing — Movviz has no async follow-up, so a promise like
+  // this is either resolved IN THIS SAME reply or it's a dead end the user
+  // has to notice and re-prompt around. `hasRealVerification` tells the
+  // retry whether real data was actually injected this turn (one of the 5
+  // VÉRIFICATION RÉELLE detectors above matched) — if so, the model has
+  // everything it needs to answer directly instead of promising to check;
+  // if not, it should honestly say it can't verify rather than promise.
+  const hasRealVerification = !!(watchStatusTitle || presenceTitle || castCrewTitle || statusTitle || statusIsCurrentPage || bareTitleCandidate);
+  const unresolvedPromise = intent.action === null && !isDegenerateReply(cleaned) && !leaked && !falseNameDenial && !falseInternetDenial
+    && isUnresolvedCheckPromise(cleaned);
+  if (intent.action === null && (isDegenerateReply(cleaned) || leaked || falseNameDenial || falseInternetDenial || unresolvedPromise)) {
     try {
       const retrySystem = leaked
         ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a recopié TEL QUEL le bloc technique interne (le texte commençant par "VÉRIFICATION RÉELLE" ou "RECHERCHE RÉELLE", avec ses flèches →, ses crochets [film, tmdb:...] et ses OUI/NON en majuscules) — c'est une erreur, cette note est réservée à un usage interne, jamais à afficher telle quelle. Réponds cette fois en une ou deux phrases naturelles et chaleureuses qui donnent EXACTEMENT la même information (les faits doivent rester identiques, ne change ni n'invente rien), sans jamais réutiliser le libellé "VÉRIFICATION RÉELLE"/"RECHERCHE RÉELLE" ni sa structure. Exemple : au lieu de "VÉRIFICATION RÉELLE pour « Dune » → identifié comme Dune (2021) [film, tmdb:438631] : OUI, déjà dans la bibliothèque.", réponds quelque chose comme "Ouais, tu l'as déjà ! Dune (2021) est bien dans ta bibliothèque."`
@@ -462,6 +502,10 @@ export async function POST(req: NextRequest) {
         ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a PRÉTENDU ne pas connaître le prénom de l'utilisateur ("je ne sais pas", "dis-le-moi"...) alors qu'il figure bien dans les faits retenus fournis plus haut dans ce prompt (${knownNameFact}). C'est un mensonge sur ta propre mémoire — exactement le genre d'erreur que tu dois éviter absolument. Réponds cette fois en confirmant directement et naturellement que tu t'en souviens, en utilisant ce prénom exact.`
         : falseInternetDenial
         ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message a nié CATÉGORIQUEMENT tout accès à internet ("je n'ai pas accès", "Movviz ne me donne pas cette capacité"...) — c'est FAUX en ce moment précis : la recherche web EST activée sur ce compte (Réglages → section IA), une vraie recherche a bien lieu en coulisses pour certaines fonctionnalités précises (comme retrouver une scène mémorable), même si toi-même tu ne la déclenches jamais à la demande en pleine conversation. Réponds cette fois en expliquant cette nuance précise et honnête — ni un déni catégorique, ni une prétention d'avoir un accès web général à la demande.`
+        : unresolvedPromise
+        ? (hasRealVerification
+            ? `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message s'est contentée de PROMETTRE de vérifier quelque chose ("je vais vérifier", "laisse-moi regarder"...) alors qu'une vraie vérification (section "VÉRIFICATION RÉELLE" plus haut dans ce prompt) est DÉJÀ disponible dans ce même message — tu n'as aucune raison d'attendre, réponds directement et maintenant avec cette information réelle, dans ta personnalité habituelle (naturel, chaleureux, avec des emojis avec modération).`
+            : `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message s'est contentée de PROMETTRE de vérifier quelque chose ("je vais vérifier"...) — c'est une erreur, Movviz n'a pas de mécanisme pour revenir vers l'utilisateur après coup, une promesse comme ça reste sans suite pour toujours. Réponds cette fois soit avec l'information si tu l'as réellement, soit en disant honnêtement que tu ne peux pas vérifier ça pour l'instant — jamais une promesse d'action que tu ne peux pas tenir dans ce même message.`)
         : `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message ne contenait AUCUNE phrase réelle${facts.length ? ` (seulement ${facts.length > 1 ? "des lignes" : "une ligne"} interne${facts.length > 1 ? "s" : ""} de mémorisation, ex. ${facts.map((f) => `« ${f} »`).join(", ")})` : ""} — c'est une erreur, jamais une réponse acceptable. Réponds cette fois avec une vraie phrase, en français, qui répond concrètement à ce que l'utilisateur vient de dire — garde ta personnalité habituelle. Tu peux toujours ajouter une ligne \`[[FAIT: ...]]\` APRÈS cette phrase si pertinent, mais ta réponse ne peut plus être vide de texte réel.`;
       const retryRes = await callAi(config, retrySystem, session.messages);
       const retryIntent = parseIntent(retryRes.text);
@@ -516,6 +560,12 @@ export async function POST(req: NextRequest) {
   // RÉELLE" text never reaches the user, even if the sentence that comes
   // out is rougher than a real paraphrase would have been.
   if (containsLeakedInternalBlock(finalCleaned)) finalCleaned = sanitizeLeakedBlock(finalCleaned);
+  // Same belt-and-suspenders idea, for a raw `{"action":"add_media"...}`
+  // JSON block ending up in what's shown to the user (reported live) —
+  // mode 3 only, since a genuine add_media/recommend reply never reaches
+  // `finalCleaned` with its JSON intact (parseIntent strips it before this
+  // point). Only fires here as an unconditional last resort.
+  if (containsLeakedActionJson(finalCleaned)) finalCleaned = sanitizeLeakedActionJson(finalCleaned);
   // Last-resort fallback (retry above also came back empty, or wasn't
   // attempted because it isn't mode 3): admits the difficulty plainly
   // instead of a cheerful non-sequitur, without asking the user to

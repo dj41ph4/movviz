@@ -400,6 +400,24 @@ export function containsLeakedInternalBlock(text: string): boolean {
  *  literally, even though the resulting sentence is rougher than a real
  *  paraphrase. The underlying facts are left untouched — only the
  *  formatting that reveals this was a technical note gets removed. */
+// Belt-and-suspenders alongside parseIntent's own fallbackRawText (which
+// already swaps a malformed add_media/recommend JSON for a friendly apology
+// when extractJsonObjectSpan can't parse it): this catches the case where a
+// VALID JSON action block somehow still ends up inside a mode-3 `cleaned`
+// string after all the marker-stripping above (never reproduced against
+// current code, but confirmed by the user as something they've actually
+// seen — kept as a cheap final safety net rather than assuming it can't
+// happen again). Never shown to the user under any circumstance.
+const RAW_ACTION_JSON_RE = /\{[\s\S]*?"action"\s*:\s*"(?:add_media|recommend)"[\s\S]*\}/;
+
+export function containsLeakedActionJson(text: string): boolean {
+  return RAW_ACTION_JSON_RE.test(text);
+}
+
+export function sanitizeLeakedActionJson(text: string): string {
+  return text.replace(RAW_ACTION_JSON_RE, "").trim();
+}
+
 export function sanitizeLeakedBlock(text: string): string {
   return text
     .replace(/VÉRIFICATION RÉELLE\s*(—\s*[^:«]+)?\s*pour\s*«[^»]*»\s*/gi, "")
@@ -459,6 +477,32 @@ const INTERNET_ACCESS_DENIAL_RE = /\bpas\s+(d['e])?\s*accès\s+(à\s+|a\s+)?inte
  *  toggle is off, a plain denial is correct and this returns false). */
 export function isFalseInternetDenial(userMessage: string, reply: string, webSearchEnabled: boolean): boolean {
   return webSearchEnabled && INTERNET_ACCESS_QUESTION_RE.test(userMessage) && INTERNET_ACCESS_DENIAL_RE.test(reply);
+}
+
+// Confirmed live : "je vais vérifier ça tout de suite !" comme réponse
+// ENTIÈRE — une promesse d'action que le modèle ne tient jamais, puisqu'un
+// message de chat n'a pas de "deuxième temps" automatique : soit la
+// vérification a vraiment lieu DANS ce même message (une "VÉRIFICATION
+// RÉELLE"/"RECHERCHE RÉELLE" est déjà injectée plus haut dans le prompt à ce
+// moment-là), soit elle n'aura jamais lieu et la promesse est un mensonge
+// par omission. Même classe de bug que isFalseInternetDenial/
+// isFalseNameDenial ci-dessus : une règle prompt-only ("ne promets jamais
+// une action que tu ne tiens pas") ne suffit pas sur ce modèle, donc
+// détection + retry côté code.
+const UNRESOLVED_CHECK_PROMISE_RE = /\b(je (?:vais|dois)|laisse[- ]moi|un instant,?\s+je|attends?,?\s+je)\s+(v[ée]rifier?|regarder?|check(?:er)?|jette un [œoe]il)\b/i;
+
+/** True when the reply's ONLY real content is a promise to go check
+ *  something (no other substantial sentence) — never a legitimate answer,
+ *  since Movviz has no async follow-up mechanism: the check must happen in
+ *  THIS same reply or not at all. A promise mixed into a longer reply that
+ *  already contains real content is left alone (not degenerate). */
+const UNRESOLVED_CHECK_PROMISE_MAX_WORDS = 12;
+
+export function isUnresolvedCheckPromise(reply: string): boolean {
+  const trimmed = reply.trim();
+  if (!trimmed || !UNRESOLVED_CHECK_PROMISE_RE.test(trimmed)) return false;
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  return wordCount <= UNRESOLVED_CHECK_PROMISE_MAX_WORDS;
 }
 
 // "il me manque quel film/série de X", "il me manque quoi de X", "il me
@@ -757,4 +801,35 @@ const STATUS_CURRENT_PAGE_RE = new RegExp(
 export function isSeriesStatusAboutCurrentPage(message: string): boolean {
   const normalized = message.replace(/[’‘]/g, "'");
   return STATUS_CURRENT_PAGE_RE.test(normalized);
+}
+
+// MENTION CASUELLE D'UN TITRE ("zootopie 2" tout seul, sans question ni
+// phrase construite) — confirmé en direct : le modèle demandait "tu veux
+// l'ajouter ?" ou "tu l'as vu ?" pour un titre déjà connu de Movviz, faute de
+// vérification réelle disponible pour cette forme de message (les 4
+// détecteurs ci-dessus exigent tous une QUESTION formulée, jamais une simple
+// mention). Volontairement une whitelist HEURISTIQUE plutôt qu'une regex de
+// titre (un titre de film n'a pas de forme grammaticale fixe) — le vrai
+// filtre anti-faux-positif est resolveTitleAgainstTmdb lui-même (score de
+// similarité ≥ 0.45, déjà éprouvé contre les faux amis, ex. "un homme un
+// vrai" → rejeté). Cette fonction se contente d'écarter en amont ce qui
+// coûterait un appel TMDb pour rien : salutations, accusés de réception,
+// phrases longues/construites (probablement pas un titre isolé).
+const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|coucou|yo|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|haha|hihi|oui|non|ouais|ouep|nan|ça va|ca va|comment ça va|comment tu vas|à bientôt|a bientot|bye|au revoir|stop|arrête|arrete)[\s!.?]*$/i;
+const BARE_TITLE_MAX_LEN = 60;
+const BARE_TITLE_MAX_WORDS = 8;
+
+/** Détecte une mention casuelle de titre (voir doc ci-dessus). Retourne le
+ *  message nettoyé (candidat à résoudre contre TMDb) ou null si ça ressemble
+ *  plutôt à du bavardage/une phrase construite. Le caller ne doit l'appeler
+ *  que si AUCUN des détecteurs plus spécifiques (question) n'a déjà matché,
+ *  pour ne jamais dupliquer le travail. */
+export function extractBareTitleMention(message: string): string | null {
+  const trimmed = message.trim();
+  if (trimmed.length < 2 || trimmed.length > BARE_TITLE_MAX_LEN) return null;
+  if (trimmed.includes("?")) return null;
+  if (CHITCHAT_ONLY_RE.test(trimmed)) return null;
+  const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  if (wordCount > BARE_TITLE_MAX_WORDS) return null;
+  return trimmed.replace(/[.!]+$/, "").trim();
 }
