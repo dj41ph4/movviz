@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { loadPlexConfig, savePlexConfig } from "@/lib/plex/store";
+import { safePlexUrl } from "@/lib/plex/safeUrl";
 
 export const dynamic = "force-dynamic";
 
@@ -23,9 +24,13 @@ export async function PUT(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const body = await req.json();
   const cfg = loadPlexConfig();
+  const hostname = String(body.hostname ?? cfg.hostname).trim();
+  if (!safePlexUrl(hostname)) {
+    return NextResponse.json({ error: "invalid hostname (localhost / loopback / link-local are rejected)" }, { status: 400 });
+  }
   savePlexConfig({
     ...cfg,
-    hostname: String(body.hostname ?? cfg.hostname),
+    hostname,
     port: Number(body.port) || cfg.port,
     useSsl: !!body.useSsl,
     syncLibrary: body.syncLibrary ?? cfg.syncLibrary,

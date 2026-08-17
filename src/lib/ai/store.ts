@@ -4,7 +4,7 @@ import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { DEFAULT_AI_CONFIG, type AiChatSession, type AiConfig } from "./types";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
-const FILE = path.join(CONFIG_DIR, "ai.json");
+export const AI_CONFIG_FILE = path.join(CONFIG_DIR, "ai.json");
 const SESSIONS_FILE = path.join(CONFIG_DIR, "ai-sessions.json");
 
 function deepMerge(base: AiConfig, patch: unknown): AiConfig {
@@ -23,14 +23,14 @@ function deepMerge(base: AiConfig, patch: unknown): AiConfig {
 }
 
 export function loadAiConfig(): AiConfig {
-  const raw = readJsonCached<unknown>(FILE, null);
+  const raw = readJsonCached<unknown>(AI_CONFIG_FILE, null);
   if (!raw || typeof raw !== "object") return DEFAULT_AI_CONFIG;
   return deepMerge(DEFAULT_AI_CONFIG, raw);
 }
 
 export function saveAiConfig(config: AiConfig): AiConfig {
   const next = deepMerge(DEFAULT_AI_CONFIG, config);
-  writeJsonCached(FILE, next);
+  writeJsonCached(AI_CONFIG_FILE, next);
   return next;
 }
 

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import type { AiMemoryEntry, AiMemoryStore, AiUserMemory } from "./types";
@@ -11,18 +12,19 @@ import type { AiMemoryEntry, AiMemoryStore, AiUserMemory } from "./types";
  * the LLM prompt never grows unbounded.
  */
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
-const FILE = path.join(CONFIG_DIR, "ai-memory.json");
+export const AI_MEMORY_FILE = path.join(CONFIG_DIR, "ai-memory.json");
 
 const MAX_ENTRIES = 20;
 
 function read(): AiMemoryStore {
-  const raw = readJsonCached<AiMemoryStore | null>(FILE, null);
-  if (!raw || typeof raw !== "object") return {};
+  const raw = readJsonCached<AiMemoryStore | null>(AI_MEMORY_FILE, null);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
   return raw;
 }
 
 function write(store: AiMemoryStore): void {
-  writeJsonCached(FILE, store);
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  writeJsonCached(AI_MEMORY_FILE, store);
 }
 
 function entryForUser(store: AiMemoryStore, userId: string): AiUserMemory {

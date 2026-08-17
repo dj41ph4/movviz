@@ -2,11 +2,9 @@ import { loadMovies, loadSeries } from "@/lib/library/store";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadRequests } from "@/lib/requests/store";
 import { readJsonCached } from "@/lib/fsJsonCache";
-import path from "node:path";
 import type { AiMemoryStore } from "./types";
+import { AI_MEMORY_FILE } from "./memory";
 import { relativeFr } from "./actions";
-
-const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 
 export interface UsageProfile {
   /** Whole-instance library size (shared across every user — not a "watched" count). Distinct on purpose: a user asking "j'ai 2284 films" means the library total, not how many they've watched. */
@@ -57,7 +55,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
     .slice(0, 5);
 
   const requests = loadRequests().filter((r) => r.userId === userId);
-  const memory = readJsonCached<AiMemoryStore | null>(path.join(CONFIG_DIR, "ai-memory.json"), null) ?? {};
+  const memory = readJsonCached<AiMemoryStore | null>(AI_MEMORY_FILE, null) ?? {};
 
   const recent = status?.recent ?? [];
   const lastWatchedAt = recent.length ? Math.max(...recent.map((r) => r.at)) : null;

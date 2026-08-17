@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
+import { jsonCacheReadFailed, readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 
 const CONFIG_DIR =
@@ -65,6 +65,7 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
   } else {
     const remove = new Set(tmdbIds);
     status.movies = status.movies.filter((m) => !remove.has(m));
+    status.recent = (status.recent ?? []).filter((r) => !(r.type === "movie" && remove.has(r.tmdbId)));
   }
   status.updatedAt = Date.now();
   write(list);
@@ -84,12 +85,20 @@ export function setWatchedEpisodes(
   if (watched) {
     const existing = new Set(status.episodes.map(key));
     for (const e of entries) {
-      if (!existing.has(key(e))) status.episodes.push(e);
+      if (!existing.has(key(e))) {
+        status.episodes.push(e);
+        existing.add(key(e));
+      }
       upsertRecent(status, { tmdbId: e.tmdbId, type: "series", title, at: Date.now() });
     }
   } else {
     const remove = new Set(entries.map(key));
     status.episodes = status.episodes.filter((e) => !remove.has(key(e)));
+    for (const tmdbId of new Set(entries.map((e) => e.tmdbId))) {
+      if (!status.episodes.some((e) => e.tmdbId === tmdbId)) {
+        status.recent = (status.recent ?? []).filter((r) => !(r.tmdbId === tmdbId && r.type === "series"));
+      }
+    }
   }
   status.updatedAt = Date.now();
   write(list);
@@ -99,6 +108,16 @@ function read(): WatchStatus[] {
   return readJsonCached<WatchStatus[]>(FILE, []);
 }
 function write(list: WatchStatus[]) {
+  // Garde anti-écrasement (même classe de bug que la perte des 20 TB) : si
+  // la dernière lecture du fichier a échoué (JSON corrompu, NAS
+  // temporairement inaccessible), readJsonCached retourne le fallback [] —
+  // le réécrire effacerait le watch status de TOUS les utilisateurs. On
+  // refuse l'écriture et on loggue ; les données existantes restent intactes
+  // et la prochaine écriture passera une fois la lecture redevenue saine.
+  if (jsonCacheReadFailed(FILE)) {
+    console.error("[watchStore] refus d'écrire " + FILE + " : lecture précédente en échec, données existantes conservées");
+    return;
+  }
   fs.mkdirSync(CONFIG_DIR, { recursive: true });
   writeJsonCached(FILE, list);
 }

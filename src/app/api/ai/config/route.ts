@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
-import { loadAiConfig, saveAiConfig } from "@/lib/ai/store";
+import { jsonCacheReadFailed } from "@/lib/fsJsonCache";
+import { AI_CONFIG_FILE, loadAiConfig, saveAiConfig } from "@/lib/ai/store";
 import { AI_PROVIDER_ORDER, type AiConfig, type AiProviderId, type AiProviderKey } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,12 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "invalid body" }, { status: 400 });
   }
 
+  // Garde anti-écrasement : si la lecture de ai.json a échoué (transitoire),
+  // loadAiConfig() retourne DEFAULT_AI_CONFIG (clés vides) — sauvegarder
+  // effacerait les clés API stockées. On refuse plutôt que de détruire.
+  if (jsonCacheReadFailed(AI_CONFIG_FILE)) {
+    return NextResponse.json({ error: "config temporarily unreadable — save refused, API keys preserved" }, { status: 503 });
+  }
   const current = loadAiConfig();
   const incomingPrimary = String(body.primary ?? current.primary);
   const primary = (AI_PROVIDER_ORDER.includes(incomingPrimary as AiProviderId) ? incomingPrimary : current.primary) as AiProviderId;

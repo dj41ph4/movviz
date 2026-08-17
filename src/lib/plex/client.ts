@@ -1,5 +1,6 @@
 import type { PlexAccount, PlexCollectionSummary, PlexFriend, PlexHomeUser, PlexWatchlistItem, PlexServerConfig, PlexSection, PlexLibraryItem, PlexEpisodeItem, PlexMediaInfo, PlexVideoStream, PlexAudioStream, PlexSubtitleStream, PlexChapter, PlexMediaVersion } from "./types";
 import { loadPlexConfig } from "./store";
+import { safePlexUrl } from "./safeUrl";
 import { findByExternalId } from "@/lib/metadata/tmdb";
 
 /**
@@ -156,9 +157,8 @@ export async function getPlexHomeUsers(adminToken: string): Promise<PlexHomeUser
 
 export async function testPlexServer(cfg: PlexServerConfig): Promise<boolean> {
   if (!cfg.hostname) return false;
-  const scheme = cfg.useSsl ? "https" : "http";
   try {
-    const res = await fetch(`${scheme}://${cfg.hostname}:${cfg.port}/identity`, {
+    const res = await fetch(`${serverBase(cfg)}/identity`, {
       headers: cfg.adminToken ? { "x-plex-token": cfg.adminToken } : {},
       cache: "no-store",
     });
@@ -219,6 +219,14 @@ interface RawWatchlistItem {
 // ---------------------------------------------------------------------------
 
 function serverBase(cfg: PlexServerConfig): string {
+  // safePlexUrl blocks loopback/link-local (SSRF rule in AGENTS.md) —
+  // identical to the stream/activity call sites; a config pointing at
+  // localhost gets rejected here instead of being fetched.
+  const origin = safePlexUrl(cfg.hostname);
+  if (origin) {
+    if (new URL(origin).port) return origin;
+    return `${origin}:${cfg.port}`;
+  }
   return `${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`;
 }
 

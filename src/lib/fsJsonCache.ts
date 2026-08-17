@@ -35,6 +35,7 @@ const g = globalThis as typeof globalThis & {
   __movvizPendingFileWrites?: Map<string, unknown>;
   __movvizLastKnownSize?: Map<string, number>;
   __movvizJsonBodyMemo?: Map<string, { version: string; body: string; gzip: Buffer | null }>;
+  __movvizJsonReadFailures?: Set<string>;
 };
 const cache: Map<string, CacheEntry> = (g.__movvizFsJsonCache ??= new Map());
 export const memoCache: Map<string, { version: string; value: unknown }> = (g.__movvizMemoCache ??= new Map());
@@ -58,6 +59,19 @@ const WRITE_COALESCE_MS = 300;
  * answer "was this file already large" at the moment startFileWrite needs it.
  */
 const lastKnownSize: Map<string, number> = (g.__movvizLastKnownSize ??= new Map());
+/**
+ * Files whose last read hit a parse error (corrupt JSON, transient NAS
+ * I/O failure). Stores can refuse to write back the fallback value after
+ * such a read — writing `[]` over a file that merely FAILED to read would
+ * silently wipe every user's data (the "20 TB" class of bug). Cleared on
+ * any successful read or write.
+ */
+const readFailures: Set<string> = (g.__movvizJsonReadFailures ??= new Set());
+
+/** True if the last read of `file` hit a parse error instead of the file being absent. */
+export function jsonCacheReadFailed(file: string): boolean {
+  return readFailures.has(file);
+}
 /**
  * Above this size, a write's JSON.stringify is expensive enough (tens of ms
  * on a dev machine, measured several times that on NAS-class CPUs — see
@@ -83,7 +97,10 @@ const LARGE_FILE_WORKER_THRESHOLD_BYTES = 1_000_000;
 const PRETTY_MAX_BYTES = 256 * 1024;
 export function readJsonCached<T>(file: string, fallback: T): T {
   const hit = cache.get(file);
-  if (hit?.pending) return hit.value as T;
+  if (hit?.pending) {
+    readFailures.delete(file);
+    return hit.value as T;
+  }
   let stat: fs.Stats;
   try {
     stat = fs.statSync(file);
@@ -91,14 +108,17 @@ export function readJsonCached<T>(file: string, fallback: T): T {
     return fallback;
   }
   if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) {
+    readFailures.delete(file);
     return hit.value as T;
   }
   try {
     const value = JSON.parse(fs.readFileSync(file, "utf8")) as T;
     cache.set(file, { mtimeMs: stat.mtimeMs, size: stat.size, value });
     lastKnownSize.set(file, stat.size);
+    readFailures.delete(file);
     return value;
   } catch {
+    readFailures.add(file);
     return fallback;
   }
 }
@@ -114,6 +134,7 @@ export function resetAllCaches(): void {
   for (const { timer } of pendingWrites.values()) clearTimeout(timer);
   pendingWrites.clear();
   cache.clear();
+  readFailures.clear();
   memoCache.clear();
   memoCacheAsync.clear();
   memoInFlightAsync.clear();
@@ -157,6 +178,7 @@ export function resetAllCaches(): void {
  */
 export function writeJsonCached(file: string, value: unknown): void {
   cache.set(file, { mtimeMs: -1, size: -1, value, pending: true });
+  readFailures.delete(file);
 
   const existing = pendingWrites.get(file);
   if (existing) {

@@ -117,11 +117,12 @@ export async function syncUserWatchStatus(user: User) {
       "plex.watchSync",
       `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s), ${recent.length} entrée(s) récente(s) datée(s) (${history.length} évènement(s) d'historique)`
     );
-  } catch (err: any) {
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "erreur inconnue";
     recordSearchLog(
       "error",
       "plex.watchSync",
-      `${user.username} (plexId:${accountId}): échec de synchronisation — ${err?.message ?? "erreur inconnue"} — données précédentes conservées`
+      `${user.username} (plexId:${accountId}): échec de synchronisation — ${msg} — données précédentes conservées`
     );
   }
 }

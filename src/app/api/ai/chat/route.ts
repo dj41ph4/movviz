@@ -399,7 +399,7 @@ export async function POST(req: NextRequest) {
       username: user.username, kind: "chat", provider: err.provider ?? null,
       success: false, durationMs: Date.now() - t0, error: err.message ?? "?", message,
     });
-    return NextResponse.json({ error: "ai_call_failed", detail: err.message ?? null }, { status: 502 });
+    return NextResponse.json({ error: "ai_call_failed", detail: (err.message ?? null)?.slice(0, 200) ?? null }, { status: 502 });
   }
   const latency = Date.now() - t0;
   const usedModel = (config.providers as Record<string, { model?: string }>)[providerName]?.model ?? "?";

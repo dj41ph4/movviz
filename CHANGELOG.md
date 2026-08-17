@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.12 — August 2026
+
+### Movviz AI — filmographie et notes croisées pour prioriser un titre manquant
+
+- Quand une recherche de filmographie révèle des titres manquants et que l'utilisateur a des notes attribuées, l'assistant peut désormais croiser les deux pour suggérer lequel des titres manquants a le plus de chances de plaire, en s'appuyant sur des caractéristiques réellement partagées (ton, genre, structure) — jamais une intuition inventée.
+
 ## v1.15.11 — August 2026
 
 ### Movviz AI — hiérarchie de décision unifiée
