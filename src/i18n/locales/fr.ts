@@ -816,6 +816,7 @@ export const fr = {
       disliked: "Recommandations rejetées",
       ratings: "Tes notes",
       ratingInferred: "déduit",
+      removeFeedback: "Retirer ce retour du contexte",
       buildContext: "Créer le contexte",
       rebuildContext: "Régénérer le contexte",
       buildDone: "Contexte mis à jour",

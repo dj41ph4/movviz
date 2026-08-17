@@ -818,6 +818,7 @@ export const nl: Dictionary = {
       disliked: "Afgewezen aanbevelingen",
       ratings: "Jouw beoordelingen",
       ratingInferred: "afgeleid",
+      removeFeedback: "Deze feedback uit de context verwijderen",
       buildContext: "Context aanmaken",
       rebuildContext: "Context opnieuw opbouwen",
       buildDone: "Context bijgewerkt",

@@ -5,7 +5,7 @@ import { callAi } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
-import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating, getRating } from "@/lib/ai/tasteProfile";
+import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating, getRating, getAllRatings, getLastProactiveRatingAskAt, markProactiveRatingAsked } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { scoreCandidates, isSeriesFullyWatched, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
@@ -20,6 +20,42 @@ import { recordAiCall } from "@/lib/ai/debugLog";
 import type { AiActionOutcome, AiChatMessage, AiAddItem, AiMoodCategories } from "@/lib/ai/types";
 
 export const dynamic = "force-dynamic";
+
+// Proactive rating nudge tuning — see the call site's doc for the full
+// reasoning. 6h cooldown + 30% chance even when eligible keeps this rare
+// enough to never feel like an interrogation (spec: "ne jamais bombarder").
+const PROACTIVE_RATING_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const PROACTIVE_RATING_CHANCE = 0.3;
+
+/** Picks ONE random watched-but-unrated title (movie fully watched, or
+ *  series with every known episode watched) — never the same shortlist
+ *  logic as recommendations, this only needs "what could Movviz still
+ *  learn a rating for". Returns null when there's nothing eligible. */
+function pickProactiveRatingCandidate(userId: string): { title: string; type: "movie" | "series"; tmdbId: number } | null {
+  const status = getWatchStatus(userId);
+  if (!status) return null;
+  const ratedKeys = new Set(getAllRatings(userId).map((r) => `${r.type}:${r.tmdbId}`));
+  const candidates: { title: string; type: "movie" | "series"; tmdbId: number }[] = [];
+  for (const tmdbId of status.movies) {
+    if (ratedKeys.has(`movie:${tmdbId}`)) continue;
+    const movie = getMovieByTmdbId(tmdbId);
+    if (movie) candidates.push({ title: movie.title, type: "movie", tmdbId });
+  }
+  const episodesBySeries = new Map<number, Set<string>>();
+  for (const e of status.episodes ?? []) {
+    const set = episodesBySeries.get(e.tmdbId) ?? new Set<string>();
+    set.add(`${e.season}.${e.episode}`);
+    episodesBySeries.set(e.tmdbId, set);
+  }
+  for (const [tmdbId, keys] of episodesBySeries) {
+    if (ratedKeys.has(`series:${tmdbId}`)) continue;
+    if (!isSeriesFullyWatched(tmdbId, keys)) continue;
+    const series = getSeriesByTmdbId(tmdbId);
+    if (series) candidates.push({ title: series.title, type: "series", tmdbId });
+  }
+  if (!candidates.length) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
 
 function summarizeAdd(outcomes: AiActionOutcome[]): string[] {
   const counts = { added: 0, already: 0, requested: 0, not_found: 0, blocked: 0, error: 0 };
@@ -142,6 +178,24 @@ export async function POST(req: NextRequest) {
   const needsName = !hasKnownName(user.id);
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
   system += buildRatingsContext(user.id);
+
+  // Proactive rating nudge (demande explicite user) — occasional, never
+  // systematic: gated by BOTH a cooldown (never twice within the window,
+  // regardless of how many messages happen) AND a random chance even once
+  // eligible, so it doesn't fire on every eligible message and start
+  // feeling mechanical. The model is only ever given the OPPORTUNITY — it
+  // decides whether the moment actually fits (mode 3, and only if it flows
+  // naturally), same restraint as every other optional personality beat in
+  // buildSystemPrompt. If the user actually answers with a star count, the
+  // EXISTING [[NOTE: ...]] marker mechanism (extractRatings) picks it up
+  // like any other conversational rating — no separate handling needed.
+  if (Date.now() - getLastProactiveRatingAskAt(user.id) > PROACTIVE_RATING_COOLDOWN_MS && Math.random() < PROACTIVE_RATING_CHANCE) {
+    const candidate = pickProactiveRatingCandidate(user.id);
+    if (candidate) {
+      system += `\n\nOCCASION (facultative, jamais obligatoire) — « ${candidate.title} » (${candidate.type === "movie" ? "film" : "série"}) a été entièrement vu mais jamais noté. UNIQUEMENT SI TU RÉPONDS EN MODE 3 (texte normal) ET que ça s'intègre naturellement dans ce que dit l'utilisateur (jamais un non-sequitur hors sujet, jamais une question sèche en dehors de tout contexte), tu PEUX en profiter pour demander en une phrase courte et chaleureuse la note qu'il lui donnerait (ex. "Au fait, tu lui mettrais combien à « ${candidate.title} » ? ⭐"). Si le moment ne s'y prête vraiment pas, ignore complètement cette occasion — ne force jamais la question.`;
+      markProactiveRatingAsked(user.id);
+    }
+  }
 
   // "Qu'est-ce qu'il me manque de X" (franchise/acteur/réalisateur) —
   // confirmed live TWICE (Jeremy Ferrari, then Pokémon) that the prompt-only
@@ -462,6 +516,12 @@ export async function POST(req: NextRequest) {
           tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title,
           rating: r.stars, source: "inferred", confidence: 0.6, opinion: r.opinion,
         });
+        // Same fire-and-forget pattern as every other real-activity
+        // producer (watch/toggle, ai/watched, ai/feedback, netflix import,
+        // and now the ratings widget itself) — a rating is exactly the
+        // kind of signal the consolidated context should pick up on its
+        // own, without waiting for a manual "Régénérer le contexte".
+        triggerIncrementalContextIfDue(user.id).catch(() => {});
       } catch {
         // best-effort, see comment above
       }
@@ -575,6 +635,7 @@ export async function POST(req: NextRequest) {
                 tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title,
                 rating: r.stars, source: "inferred", confidence: 0.6, opinion: r.opinion,
               });
+              triggerIncrementalContextIfDue(user.id).catch(() => {});
             } catch {
               // best-effort, see comment above
             }

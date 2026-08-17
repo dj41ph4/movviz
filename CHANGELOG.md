@@ -4,6 +4,20 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.8 — August 2026
+
+### Correctif : une note ne mettait pas à jour le contexte en temps réel
+
+- **Cause racine confirmée en direct** : contrairement à toute autre activité réelle (vue, retour 👍/👎, import Netflix), poser une note — via le widget étoiles ou en conversation — ne déclenchait pas la mise à jour du contexte consolidé ("Ce que Movviz AI sait de toi"). Il fallait cliquer manuellement sur "Régénérer le contexte" pour que les notes soient prises en compte. Une note se propage désormais automatiquement, comme le reste.
+
+### Movviz AI — question occasionnelle sur un titre vu mais jamais noté
+
+- De temps en temps, quand la conversation s'y prête naturellement, l'assistant peut désormais demander la note d'un titre entièrement vu mais jamais évalué — jamais systématique (limité à une occasion toutes les quelques heures, jamais imposé si le moment ne convient pas).
+
+### Panneau profil — retirer un retour 👍/👎
+
+- Chaque titre apprécié/rejeté du panneau "Ce que Movviz AI sait de toi" a maintenant un bouton pour le retirer du contexte (utile pour un vote posé par erreur).
+
 ## v1.15.7 — August 2026
 
 ### Movviz AI — un titre déjà rejeté n'est plus jamais reproposé

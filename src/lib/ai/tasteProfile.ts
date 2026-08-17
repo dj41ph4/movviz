@@ -37,7 +37,7 @@ function profileForUser(store: AiProfileStore, userId: string): AiUserProfile {
   // a real bug here once (the `context` field silently dropped because it
   // wasn't copied through) so every field added to AiUserProfile MUST be
   // copied through here explicitly, never assumed to "just work" via spread.
-  return { feedback: existing?.feedback ?? [], facts: existing?.facts ?? [], context: existing?.context, corrections: existing?.corrections ?? [], ratings: existing?.ratings ?? [] };
+  return { feedback: existing?.feedback ?? [], facts: existing?.facts ?? [], context: existing?.context, corrections: existing?.corrections ?? [], ratings: existing?.ratings ?? [], lastProactiveRatingAskAt: existing?.lastProactiveRatingAskAt };
 }
 
 export function recordFeedback(userId: string, entry: AiFeedbackEntry): void {
@@ -51,6 +51,21 @@ export function recordFeedback(userId: string, entry: AiFeedbackEntry): void {
 
 export function getFeedback(userId: string): AiFeedbackEntry[] {
   return profileForUser(read(), userId).feedback;
+}
+
+/** Retire un retour 👍/👎 du contexte (demande explicite — bouton "×" du
+ *  panneau profil sur un titre apprécié/rejeté). Contrairement à
+ *  recordFeedback (dédoublonnage automatique), c'est ici une suppression
+ *  volontaire : l'utilisateur ne veut plus que ce titre influence ses
+ *  recommandations (ex. un 👎 posé par erreur). Silencieux si l'entrée
+ *  n'existe déjà plus (idempotent). */
+export function removeFeedback(userId: string, tmdbId: number, type: "movie" | "series"): void {
+  const store = read();
+  const profile = profileForUser(store, userId);
+  const filtered = profile.feedback.filter((e) => !(e.tmdbId === tmdbId && e.type === type));
+  if (filtered.length === profile.feedback.length) return;
+  store[userId] = { ...profile, feedback: filtered };
+  write(store);
 }
 
 // A first name is a single fixed value, not a growing list — if the user
@@ -298,4 +313,18 @@ export function buildRatingsContext(userId: string): string {
   if (disliked.length) parts.push(`peu appréciés : ${disliked.map(fmt).join(", ")}`);
   if (neutralCount) parts.push(`${neutralCount} titre(s) noté(s) 3/5 (correct, sans plus)`);
   return `\n\nNOTES ATTRIBUÉES PAR CET UTILISATEUR (1 à 5 étoiles, sur ses propres titres — "déduit" = interprété d'une opinion en conversation, moins certain qu'une note explicite) — ${parts.join(" ; ")}. Une note ne dit pas seulement SI un titre a plu, mais À QUEL POINT — pondère tes recommandations et déductions de goût en conséquence (un 5/5 pèse plus qu'un 4/5), et ne présente jamais une note "déduite" comme si l'utilisateur l'avait lui-même choisie.`;
+}
+
+/** Cooldown for the proactive rating nudge (chat/route.ts
+ *  pickProactiveRatingCandidate) — read/write pair, same shape as every
+ *  other per-user timestamp in this file. */
+export function getLastProactiveRatingAskAt(userId: string): number {
+  return profileForUser(read(), userId).lastProactiveRatingAskAt ?? 0;
+}
+
+export function markProactiveRatingAsked(userId: string): void {
+  const store = read();
+  const profile = profileForUser(store, userId);
+  store[userId] = { ...profile, lastProactiveRatingAskAt: Date.now() };
+  write(store);
 }

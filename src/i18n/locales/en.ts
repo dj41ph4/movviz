@@ -818,6 +818,7 @@ export const en: Dictionary = {
       disliked: "Rejected recommendations",
       ratings: "Your ratings",
       ratingInferred: "inferred",
+      removeFeedback: "Remove this feedback from the context",
       buildContext: "Build context",
       rebuildContext: "Rebuild context",
       buildDone: "Context updated",

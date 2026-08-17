@@ -252,6 +252,11 @@ export interface AiUserProfile {
   context?: AiContextProfile;
   corrections?: AiCorrectionEntry[];
   ratings?: TitleRating[];
+  /** Cooldown for the proactive "tu lui mettrais combien ?" nudge
+   *  (chat/route.ts pickProactiveRatingCandidate) — never a scheduled job,
+   *  just a timestamp checked each time a chat message comes in so the
+   *  question stays occasional (spec: "ne jamais bombarder l'utilisateur"). */
+  lastProactiveRatingAskAt?: number;
 }
 
 /** Strictly per-user — ai-user-profiles.json, never cross-referenced between

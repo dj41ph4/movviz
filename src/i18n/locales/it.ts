@@ -818,6 +818,7 @@ export const it: Dictionary = {
       disliked: "Raccomandazioni rifiutate",
       ratings: "I tuoi voti",
       ratingInferred: "dedotto",
+      removeFeedback: "Rimuovi questo feedback dal contesto",
       buildContext: "Crea il contesto",
       rebuildContext: "Rigenera il contesto",
       buildDone: "Contesto aggiornato",

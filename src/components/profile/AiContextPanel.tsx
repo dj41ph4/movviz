@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
-import { Sparkles, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Brain, Loader2, Star } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Brain, Loader2, Star, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AiContextInsight {
@@ -15,8 +15,8 @@ interface AiContextInsight {
 
 interface AiContextData {
   facts: string[];
-  liked: { title: string; reason: string | null }[];
-  disliked: { title: string; reason: string | null }[];
+  liked: { tmdbId: number; type: "movie" | "series"; title: string; reason: string | null }[];
+  disliked: { tmdbId: number; type: "movie" | "series"; title: string; reason: string | null }[];
   usage: {
     watchedMovies: number;
     watchedSeries: number;
@@ -70,6 +70,16 @@ export function AiContextPanel() {
   };
 
   const hasAnything = data && (data.facts.length > 0 || data.liked.length > 0 || data.disliked.length > 0 || data.usage.watchedMovies > 0 || data.usage.watchedSeries > 0 || data.ratings.length > 0 || !!data.context);
+
+  const removeFeedback = async (tmdbId: number, type: "movie" | "series") => {
+    try {
+      const r = await fetch(`/api/ai/feedback?tmdbId=${tmdbId}&type=${type}`, { method: "DELETE" });
+      if (r.ok) mutate();
+      else toast("error", t("common.error"));
+    } catch {
+      toast("error", t("common.error"));
+    }
+  };
 
   return (
     <div className="mb-6 rounded-2xl glass p-5">
@@ -196,9 +206,16 @@ export function AiContextPanel() {
                     <ThumbsUp className="h-3 w-3" /> {t("profile.aiContext.liked")}
                   </p>
                   <ul className="space-y-1">
-                    {data.liked.map((f, i) => (
-                      <li key={i} className="text-sm text-ink-soft">
-                        <span className="font-semibold text-ink">{f.title}</span>{f.reason ? ` — ${f.reason}` : ""}
+                    {data.liked.map((f) => (
+                      <li key={`${f.type}:${f.tmdbId}`} className="group flex items-start justify-between gap-2 text-sm text-ink-soft">
+                        <span><span className="font-semibold text-ink">{f.title}</span>{f.reason ? ` — ${f.reason}` : ""}</span>
+                        <button
+                          onClick={() => removeFeedback(f.tmdbId, f.type)}
+                          title={t("profile.aiContext.removeFeedback")}
+                          className="shrink-0 rounded-full p-0.5 text-ink-dim opacity-0 transition-opacity hover:text-down group-hover:opacity-100"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </li>
                     ))}
                   </ul>
@@ -211,9 +228,16 @@ export function AiContextPanel() {
                     <ThumbsDown className="h-3 w-3" /> {t("profile.aiContext.disliked")}
                   </p>
                   <ul className="space-y-1">
-                    {data.disliked.map((f, i) => (
-                      <li key={i} className="text-sm text-ink-soft">
-                        <span className="font-semibold text-ink">{f.title}</span>{f.reason ? ` — ${f.reason}` : ""}
+                    {data.disliked.map((f) => (
+                      <li key={`${f.type}:${f.tmdbId}`} className="group flex items-start justify-between gap-2 text-sm text-ink-soft">
+                        <span><span className="font-semibold text-ink">{f.title}</span>{f.reason ? ` — ${f.reason}` : ""}</span>
+                        <button
+                          onClick={() => removeFeedback(f.tmdbId, f.type)}
+                          title={t("profile.aiContext.removeFeedback")}
+                          className="shrink-0 rounded-full p-0.5 text-ink-dim opacity-0 transition-opacity hover:text-down group-hover:opacity-100"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
                       </li>
                     ))}
                   </ul>

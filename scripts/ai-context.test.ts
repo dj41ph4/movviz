@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { saveContextInsights, getContextProfile, recordCorrection, getCorrections, buildCorrectionEscalationContext, setRating, getRating, getAllRatings, buildRatingsContext } from "@/lib/ai/tasteProfile";
+import { saveContextInsights, getContextProfile, recordCorrection, getCorrections, buildCorrectionEscalationContext, setRating, getRating, getAllRatings, buildRatingsContext, recordFeedback, getFeedback, removeFeedback, getLastProactiveRatingAskAt, markProactiveRatingAsked } from "@/lib/ai/tasteProfile";
 import type { AiContextInsight } from "@/lib/ai/types";
 
 /**
@@ -162,4 +162,33 @@ test("buildRatingsContext: vide sans notes, non vide dès qu'une note existe et 
   setRating(userId, { tmdbId: 20, type: "movie", title: "Interstellar", rating: 5, source: "explicit", confidence: 1 });
   const context = buildRatingsContext(userId);
   assert.ok(context.includes("Interstellar"));
+});
+
+test("removeFeedback: retire un retour existant, silencieux si déjà absent", () => {
+  const userId = `test-user-remove-feedback-${runId}`;
+  recordFeedback(userId, { tmdbId: 50, type: "movie", title: "Hot Fuzz", liked: false, at: Date.now() });
+  assert.equal(getFeedback(userId).length, 1);
+  removeFeedback(userId, 50, "movie");
+  assert.equal(getFeedback(userId).length, 0);
+  removeFeedback(userId, 50, "movie"); // idempotent, ne doit pas jeter
+  assert.equal(getFeedback(userId).length, 0);
+});
+
+test("removeFeedback: ne retire que l'entrée ciblée, jamais les autres", () => {
+  const userId = `test-user-remove-feedback-selective-${runId}`;
+  recordFeedback(userId, { tmdbId: 51, type: "movie", title: "A", liked: true, at: Date.now() });
+  recordFeedback(userId, { tmdbId: 52, type: "movie", title: "B", liked: false, at: Date.now() });
+  removeFeedback(userId, 51, "movie");
+  const remaining = getFeedback(userId);
+  assert.equal(remaining.length, 1);
+  assert.equal(remaining[0].tmdbId, 52);
+});
+
+test("getLastProactiveRatingAskAt/markProactiveRatingAsked : 0 par défaut, met bien à jour un timestamp récent", () => {
+  const userId = `test-user-proactive-rating-cooldown-${runId}`;
+  assert.equal(getLastProactiveRatingAskAt(userId), 0);
+  const before = Date.now();
+  markProactiveRatingAsked(userId);
+  const after = getLastProactiveRatingAskAt(userId);
+  assert.ok(after >= before);
 });
