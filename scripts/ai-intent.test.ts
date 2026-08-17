@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
-import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
   const got = parseIntent('{"action":"add_media","items":[{"title":"Justice League: War","year":2014,"type":"movie"}]}');
@@ -151,6 +151,43 @@ test("promisesListWithNothing: ne se déclenche pas sur une vraie réponse en te
 test("promisesListWithNothing: ne se déclenche pas sur une réponse vide (déjà couvert par isDegenerateReply)", () => {
   assert.equal(promisesListWithNothing(""), false);
   assert.equal(promisesListWithNothing("   "), false);
+});
+
+test("extractFilmographyQuestion: reconnaît les formulations courantes (bug confirmé en direct : 'donne moi la filmographie de brad pitt' recevait le même refus mot pour mot à chaque relance, sans aucune donnée réelle derrière)", () => {
+  assert.equal(extractFilmographyQuestion("donne moi la filmographie de brad pitt"), "brad pitt");
+  assert.equal(extractFilmographyQuestion("la filmographie de Tom Hanks"), "Tom Hanks");
+  assert.equal(extractFilmographyQuestion("quels films a fait Denis Villeneuve"), "Denis Villeneuve");
+  assert.equal(extractFilmographyQuestion("tous les films de Meryl Streep"), "Meryl Streep");
+});
+
+test("extractFilmographyQuestion: ne se déclenche pas sur la formulation 'manque' (déjà couverte par extractMissingFromEntity, les deux détecteurs restent exclusifs)", () => {
+  assert.equal(extractFilmographyQuestion("il me manque quel film de brad pitt"), null);
+  assert.equal(extractFilmographyQuestion("j'ai pas quoi comme film de brad pitt"), null);
+});
+
+test("extractFilmographyQuestion: ne se déclenche pas sur un message sans rapport", () => {
+  assert.equal(extractFilmographyQuestion("télécharge sakamoto days"), null);
+  assert.equal(extractFilmographyQuestion("recommande-moi un truc similaire"), null);
+});
+
+test("buildFilmographyContext: sépare bibliothèque / pas bibliothèque, signale la troncature quand la liste est plafonnée", () => {
+  const ctx = buildFilmographyContext("brad pitt", "Brad Pitt", [
+    { title: "Fight Club", year: 1999, type: "movie", tmdbId: 550, inLibrary: true },
+    { title: "Se7en", year: 1995, type: "movie", tmdbId: 807, inLibrary: false },
+  ], 120);
+  assert.ok(ctx.includes("RECHERCHE RÉELLE"));
+  assert.ok(ctx.includes("Brad Pitt"));
+  assert.ok(ctx.includes("Fight Club (1999)"));
+  assert.ok(ctx.indexOf("Déjà dans ta bibliothèque") < ctx.indexOf("Fight Club"));
+  assert.ok(ctx.indexOf("Pas dans ta bibliothèque") < ctx.indexOf("Se7en"));
+  assert.ok(/plafonn[ée]e/i.test(ctx));
+});
+
+test("buildFilmographyContext: pas de troncature quand tous les crédits réels sont inclus", () => {
+  const ctx = buildFilmographyContext("un acteur obscur", "Un Acteur Obscur", [
+    { title: "Seul Film", year: 2010, type: "movie", tmdbId: 1, inLibrary: false },
+  ], 1);
+  assert.ok(!/plafonn[ée]e/i.test(ctx));
 });
 
 test("extractFacts: marqueur sur sa propre ligne, extrait et retiré", () => {

@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
-import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, isSeriesStatusAboutCurrentPage, isDegenerateReply, containsLeakedInternalBlock, sanitizeLeakedBlock, isFalseNameDenial, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { scoreCandidates, isSeriesFullyWatched, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
 import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
-import { getMovie, getSeries, getDetail, getCollection, searchMulti } from "@/lib/metadata/tmdb";
+import { getMovie, getSeries, getDetail, getCollection, searchMulti, searchPerson, getPerson } from "@/lib/metadata/tmdb";
 import { resolveTitleAgainstTmdb } from "@/lib/metadata/resolveTitle";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
@@ -166,6 +166,36 @@ export async function POST(req: NextRequest) {
       // Best-effort — a TMDb failure here just means no RECHERCHE RÉELLE
       // block gets injected; the honesty-rule fallback in buildSystemPrompt
       // is the safety net for exactly this case.
+    }
+  }
+
+  // "Donne-moi la filmographie de X" — confirmed live: with no real data
+  // path for this exact question shape, the model repeated the identical
+  // canned refusal verbatim across five retries in the same conversation,
+  // even after being told (falsely) "tu as accès à internet" — it had
+  // nothing to say differently because nothing ever gave it real data to
+  // work with. searchMulti (used by the "manque" block above) can't help
+  // here: it filters OUT person results entirely, so a bare name like
+  // "Brad Pitt" matched nothing. searchPerson keeps exactly those results.
+  const filmographyQuery = extractFilmographyQuestion(message);
+  if (filmographyQuery) {
+    try {
+      const person = await searchPerson(filmographyQuery);
+      if (person) {
+        const full = await getPerson(person.id);
+        if (full) {
+          const hits: FranchiseSearchHit[] = full.credits.slice(0, MAX_FILMOGRAPHY_HITS).map((c) => ({
+            title: c.title,
+            year: c.year ?? undefined,
+            type: c.type,
+            tmdbId: c.tmdbId,
+            inLibrary: c.type === "movie" ? !!getMovieByTmdbId(c.tmdbId) : !!getSeriesByTmdbId(c.tmdbId),
+          }));
+          if (hits.length) system += buildFilmographyContext(filmographyQuery, full.name, hits, full.credits.length);
+        }
+      }
+    } catch {
+      // Best-effort, same safety net as the franchise-search block above.
     }
   }
 

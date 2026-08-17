@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.45 — August 2026
+
+### Nouveauté : Movviz AI peut enfin répondre à "donne-moi la filmographie de X"
+
+- **Cause racine confirmée en direct** : demander la filmographie d'un acteur ou réalisateur ("donne-moi la filmographie de Brad Pitt") recevait toujours le même refus, mot pour mot, même en insistant plusieurs fois de suite — Movviz AI n'avait tout simplement aucune donnée réelle pour ce type de question précis, contrairement à "qu'est-ce qu'il me manque de X" qui, lui, était déjà branché sur une vraie recherche. Une vraie recherche de la personne sur TMDb (avec sa filmographie réelle, croisée avec ta bibliothèque) est désormais déclenchée pour cette question précise.
+- Movviz AI ne répète plus une réponse mot pour mot d'un message à l'autre dans la même conversation — la formulation varie toujours, même quand la réponse de fond reste la même.
+
 ## v1.14.44 — August 2026
 
 ### Correctif : deuxième filet de sécurité pour « Continuer à regarder »

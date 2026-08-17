@@ -455,6 +455,48 @@ export function extractMissingFromEntity(message: string): string | null {
   return entity;
 }
 
+// "donne-moi la filmographie de X", "la filmographie de X", "quels films a
+// fait/tourné/joué X", "tous les films de X" — a genuine "list everything
+// this person made" request, distinct from extractMissingFromEntity's "what
+// am I missing" framing above (that one requires "manque"/"j'ai pas"; this
+// one is the plain listing request that was confirmed live to get an
+// endlessly repeated, identical refusal — the model has no real data for
+// it and no code path ever gave it any, so every retry landed on the exact
+// same canned "je ne peux pas vérifier ça" line, word for word, even after
+// being told "tu as accès à internet"). Deliberately does NOT match the
+// "manque"/"pas encore" framing so the two detectors stay mutually
+// exclusive rather than double-firing on the same message.
+const FILMOGRAPHY_PATTERNS: RegExp[] = [
+  /(?:donne[- ]moi|montre[- ]moi)\s+la\s+filmographie\s+(?:de\s+|d')([^.!?\n]+)/i,
+  /\bla\s+filmographie\s+(?:complète\s+)?(?:de\s+|d')([^.!?\n]+)/i,
+  /quels?\s+(?:films?|s[ée]ries?)\s+a\s+(?:fait|tourn[ée]|jou[ée]|r[ée]alis[ée])\s+([^.!?\n]+)/i,
+  /(?:tous|toute)\s+les\s+films?\s+(?:de\s+|d')([^.!?\n]+)/i,
+];
+
+/** Detects a plain "give me X's filmography" request (X = actor/director/
+ *  person) and extracts X. Companion to extractMissingFromEntity, same
+ *  "code-level detection, real search injected, never left to the model to
+ *  guess" shape — but this one resolves the entity as a TMDb PERSON
+ *  specifically (searchMulti only ever returns movie/tv results, filtering
+ *  people out entirely, so a bare name like "Brad Pitt" matched nothing
+ *  there) and lists their real, cross-referenced-against-the-library
+ *  filmography instead of just a "missing" search. See
+ *  buildFilmographyContext (actions.ts). */
+export function extractFilmographyQuestion(message: string): string | null {
+  const normalized = message.replace(/[’‘]/g, "'");
+  if (/manque|j'ai pas|je n'ai pas/i.test(normalized)) return null;
+  let raw: string | undefined;
+  for (const re of FILMOGRAPHY_PATTERNS) {
+    const m = normalized.match(re);
+    if (m) { raw = m[1]; break; }
+  }
+  if (!raw) return null;
+  const entity = raw.trim().replace(/^(de |d')/i, "").trim().slice(0, MAX_ENTITY_LEN).trim();
+  if (entity.length < 2) return null;
+  if (NOT_AN_ENTITY.has(entity.toLowerCase())) return null;
+  return entity;
+}
+
 /** Reliable, code-level fallback for the single most common durable fact —
  *  the user's first name — instead of depending entirely on the model
  *  choosing to emit a `[[FAIT: ...]]` marker for it (LLM instruction-

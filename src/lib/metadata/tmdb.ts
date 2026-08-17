@@ -191,6 +191,21 @@ export async function searchMulti(query: string, page = 1): Promise<PagedResults
   return mapPaged(filtered);
 }
 
+/** Finds a real person (actor/director/etc.) by name — same `/search/multi`
+ *  call searchMulti makes, but keeping the `person` results that one
+ *  deliberately filters out. Returns the single most popular match (TMDb's
+ *  own `popularity` score) or null, since a chat-triggered lookup needs one
+ *  confident answer, not a page of candidates — a bare name like "Brad
+ *  Pitt" is unambiguous enough in practice that the top popularity hit is
+ *  reliably the right person. */
+export async function searchPerson(query: string): Promise<{ id: number; name: string } | null> {
+  const data = await tmdbGet<{ results: RawMultiResult[] }>("/search/multi", { query });
+  const people = (data?.results ?? []).filter((r) => r.media_type === "person" && r.name);
+  if (!people.length) return null;
+  people.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+  return { id: people[0].id, name: people[0].name! };
+}
+
 /**
  * Movie-only search that keeps the original title alongside the localized
  * one — needed when matching titles scraped from a French source, where the
