@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { scoreCandidates, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
 import type { TasteVector } from "@/lib/ai/contrastiveProfile";
 import type { ResolvedAiItem } from "@/lib/ai/actions";
+import { recordFeedback } from "@/lib/ai/tasteProfile";
 
 /**
  * The "Scary Movie → Naked Gun" reference case from AI.MD §2.X: the moment
@@ -138,4 +139,15 @@ test("TasteCompatibility : la confiance du TasteVector module l'ampleur de l'eff
 
   assert.ok(low > baseline, "même une confiance faible ajoute un peu de signal");
   assert.ok(high > low, "une confiance plus forte doit peser plus lourd");
+});
+
+test("AlreadyRejected : un titre déjà noté 👎 n'est plus jamais reproposé, même si le modèle le suggère à nouveau", () => {
+  const userId = "test-user-already-rejected";
+  const rejected: ResolvedAiItem = { title: "Rejeté", type: "movie", tmdbId: 998040, overview: "", posterPath: null, rating: 8, inLibrary: false };
+  const other: ResolvedAiItem = { title: "Autre", type: "movie", tmdbId: 998041, overview: "", posterPath: null, rating: 7, inLibrary: false };
+  recordFeedback(userId, { tmdbId: 998040, type: "movie", title: "Rejeté", liked: false, at: Date.now() });
+
+  const ranked = scoreCandidates(userId, [rejected, other], new Map());
+  assert.equal(ranked.length, 1, "le titre rejeté est exclu, jamais juste pénalisé");
+  assert.equal(ranked[0].tmdbId, 998041);
 });

@@ -148,6 +148,14 @@ export function scoreCandidates(
   const feedback = getFeedback(userId);
   const likedTokens = feedback.filter((f) => f.liked && f.reason).map((f) => tokenize(f.reason!));
   const dislikedTokens = feedback.filter((f) => !f.liked && f.reason).map((f) => tokenize(f.reason!));
+  // This EXACT title (tmdbId+type), previously 👎'd — a hard exclude,
+  // distinct from the soft reason-token penalty above (which only
+  // discourages SIMILAR candidates, and does nothing if the model's new
+  // "reason" happens to share no wording with the old one). Confirmed live
+  // pattern this session: relying on the model's own memory of what it
+  // already proposed isn't reliable — this makes "never re-propose a
+  // rejected title" an actual guarantee instead of a prompt hope.
+  const dislikedExactKeys = new Set(feedback.filter((f) => !f.liked).map((f) => `${f.type}:${f.tmdbId}`));
 
   const scored: ScoredCandidate[] = [];
   for (const c of candidates) {
@@ -156,6 +164,7 @@ export function scoreCandidates(
       ? watchedMovies.has(c.tmdbId)
       : isSeriesFullyWatched(c.tmdbId, watchedEpisodesBySeries.get(c.tmdbId) ?? new Set());
     if (alreadySeen) continue; // AlreadySeen — hard exclude, per spec (series: fully watched only, see isSeriesFullyWatched)
+    if (dislikedExactKeys.has(key)) continue; // AlreadyRejected — hard exclude, never re-propose the same rejected title
 
     const reason = reasons.get(key);
     const reasonTokens = reason ? tokenize(reason) : null;

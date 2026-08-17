@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.7 — August 2026
+
+### Movviz AI — un titre déjà rejeté n'est plus jamais reproposé
+
+- Un titre marqué "mauvaise recommandation" (👎) est désormais définitivement exclu des futures recommandations — jusqu'ici, seule une pénalité légère s'appliquait aux titres au ton similaire, ce qui n'empêchait pas le titre exact déjà rejeté de revenir.
+
 ## v1.15.6 — August 2026
 
 ### Movviz AI — distinction entre un avis ponctuel et une note globale
