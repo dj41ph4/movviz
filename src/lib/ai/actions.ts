@@ -59,8 +59,27 @@ async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null
   const scored = hits
     .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
     .sort((a, b) => b.score - a.score);
-  if (scored[0].score < MIN_AI_MATCH_SCORE) return null;
-  const confident = scored.filter((s) => s.score >= MIN_AI_MATCH_SCORE).map((s) => s.hit);
+
+  // Le `type` vient du LLM : c'est une SUPPOSITION, jamais une certitude.
+  // Bug confirmé en direct : "télécharge lanterns" a été émis en
+  // type:"movie", le filtre ci-dessus a donc écarté « Lanterns (2026) »
+  // (une SÉRIE, pourtant premier résultat TMDb et correspondance exacte)
+  // et retenu « Human Lanterns (1982) », un film d'arts martiaux sans
+  // aucun rapport, ajouté pour de bon à la bibliothèque. Quand un candidat
+  // d'un AUTRE type colle nettement mieux au titre demandé, il l'emporte
+  // sur la supposition de type du modèle.
+  const scoredAll = res.results
+    .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
+    .sort((a, b) => b.score - a.score);
+  const bestTyped = scored[0];
+  const bestAny = scoredAll[0];
+  const TYPE_OVERRIDE_MARGIN = 0.12;
+  const effective = (bestAny && (!bestTyped || bestAny.score >= bestTyped.score + TYPE_OVERRIDE_MARGIN))
+    ? scoredAll
+    : scored;
+
+  if (effective[0].score < MIN_AI_MATCH_SCORE) return null;
+  const confident = effective.filter((s) => s.score >= MIN_AI_MATCH_SCORE).map((s) => s.hit);
 
   let pick = confident[0];
   if (item.year) {

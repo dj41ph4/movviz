@@ -328,6 +328,7 @@ const NOT_A_NAME = new Set([
   "qui", "quoi", "cool", "ok", "bon", "super", "genial", "génial", "sympa", "gentil", "gentille",
   "parti", "fini", "clair", "sûr", "sur", "vrai", "faux",
   "avec", "sans", "pour", "dans", "chez", "vers", "par", "pas", "plus", "moins", "trop", "très",
+  "de", "du", "en", "au", "aux", "sur", "sous", "entre", "depuis", "après", "avant", "et", "ou",
   "juste", "quand", "comme", "aussi", "encore", "déjà", "jamais", "toujours", "bien", "mal",
   "un", "une", "le", "la", "les", "du", "des", "ce", "cette", "ces", "mon", "ma", "mes",
   "son", "sa", "ses", "leur", "leurs", "tout", "toute", "tous", "toutes", "rien", "quelque",

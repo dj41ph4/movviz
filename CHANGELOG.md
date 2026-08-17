@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.16 — August 2026
+
+### Correctif : un mauvais titre pouvait être ajouté quand film et série se ressemblent
+
+- **Cause racine confirmée en direct** : demander « télécharge Lanterns » ajoutait « Human Lanterns » (film de 1982 sans aucun rapport) alors que la série « Lanterns » (2026) était pourtant le tout premier résultat de la recherche. L'assistant avait supposé qu'il s'agissait d'un film, et cette supposition écartait d'office toutes les séries — y compris la correspondance exacte. Un titre qui correspond nettement mieux l'emporte désormais sur cette supposition, qu'il s'agisse d'un film ou d'une série.
+- Quelques mots courants supplémentaires (« de », « en », « et »…) ne peuvent plus être pris pour un prénom.
+
 ## v1.15.15 — August 2026
 
 ### Correctif : un mot ordinaire pouvait être enregistré comme ton prénom
