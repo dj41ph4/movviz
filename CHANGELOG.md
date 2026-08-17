@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.5 — August 2026
+
+### Movviz AI — identité de compagnon cinéphile renforcée
+
+- L'assistant raisonne désormais explicitement comme un compagnon cinéphile qui cherche à comprendre l'utilisateur (pourquoi il aime un titre, pas seulement quel genre) plutôt qu'un moteur de recherche avec du texte autour.
+- Les réponses courtes ("pourtant si", "celui-là", "je l'ai déjà vu"...) ne déclenchent plus jamais de recherche inutile — elles sont désormais reconnues comme des réactions/corrections à comprendre par rapport au message précédent, jamais comme un nouveau titre à chercher.
+- Quand la conversation est une simple discussion cinéphile, la collecte de préférences et les relances passent au second plan au profit de l'échange naturel.
+- Formulations d'assistant générique ("Voulez-vous que je vous aide ?"...) explicitement bannies.
+
 ## v1.15.4 — August 2026
 
 ### Correctif : garantie renforcée contre la ligne technique brute (suite du correctif précédent)

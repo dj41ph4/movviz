@@ -358,6 +358,12 @@ test("extractBareTitleMention: rejette les questions (déjà couvertes par un au
   assert.equal(extractBareTitleMention("est-ce que j'ai Dune ?"), null);
 });
 
+test("extractBareTitleMention: rejette les réponses courtes / références implicites au message précédent", () => {
+  for (const m of ["pourtant si", "mais si", "exactement", "celui-là", "le premier", "pareil", "je l'ai déjà vu", "je ne l'ai pas vu"]) {
+    assert.equal(extractBareTitleMention(m), null, `"${m}" ne devrait pas déclencher une recherche TMDb`);
+  }
+});
+
 test("extractBareTitleMention: rejette les phrases longues/construites", () => {
   assert.equal(extractBareTitleMention("j'ai regardé ce film hier soir avec des amis et c'était vraiment sympa"), null);
 });

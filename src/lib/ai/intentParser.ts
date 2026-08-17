@@ -863,6 +863,13 @@ export function isSeriesStatusAboutCurrentPage(message: string): boolean {
 // coûterait un appel TMDb pour rien : salutations, accusés de réception,
 // phrases longues/construites (probablement pas un titre isolé).
 const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|coucou|yo|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|haha|hihi|oui|non|ouais|ouep|nan|ça va|ca va|comment ça va|comment tu vas|à bientôt|a bientot|bye|au revoir|stop|arrête|arrete)[\s!.?]*$/i;
+// Réponses courtes / références implicites à ce qui vient d'être dit —
+// jamais un titre, toujours une réaction/correction à résoudre par rapport
+// au message précédent de Movviz et au sujet actif de la conversation (voir
+// la règle "RÉPONSES COURTES ET RÉFÉRENCES IMPLICITES" du prompt système).
+// Écarté ici pour ne jamais gaspiller une recherche TMDb dessus — le modèle
+// garde l'historique complet de la conversation pour les résoudre lui-même.
+const CONTEXTUAL_REFERENCE_RE = /^(pourtant si|mais si|en fait si|si,? (?:je|j'|c'est)|exactement|celui[- ]l[àa]|celle[- ]l[àa]|le premier|la première|le deuxième|la deuxième|le troisième|le dernier|celui d'avant|celui|celle|lui|elle|pareil|pas celui[- ]l[àa]|pas celle[- ]l[àa]|je l'ai d[ée]j[aà] vu|je l'ai d[ée]j[aà]|je ne l'ai pas vu|je ne l'ai pas)[\s!.?]*$/i;
 const BARE_TITLE_MAX_LEN = 60;
 const BARE_TITLE_MAX_WORDS = 8;
 
@@ -876,6 +883,7 @@ export function extractBareTitleMention(message: string): string | null {
   if (trimmed.length < 2 || trimmed.length > BARE_TITLE_MAX_LEN) return null;
   if (trimmed.includes("?")) return null;
   if (CHITCHAT_ONLY_RE.test(trimmed)) return null;
+  if (CONTEXTUAL_REFERENCE_RE.test(trimmed)) return null;
   const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
   if (wordCount > BARE_TITLE_MAX_WORDS) return null;
   return trimmed.replace(/[.!]+$/, "").trim();
