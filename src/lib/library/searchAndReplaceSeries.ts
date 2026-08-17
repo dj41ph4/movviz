@@ -103,7 +103,10 @@ function eligibleEpisodes(seriesList: LibrarySeries[]) {
   return out;
 }
 
-export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCandidate[]> {
+/** See findUpgradeCandidates (searchAndReplace.ts) for why this flag exists
+ *  — the eager dashboard row needs to stay cache-only/fast, the manually
+ *  triggered panel keeps the full live-indexer fallback. */
+export async function findEpisodeUpgradeCandidates(liveSearch = true): Promise<EpisodeUpgradeCandidate[]> {
   const rules = loadReleaseRules();
   const targetLanguage = rules.preferredLanguageUpgrade;
   if (!targetLanguage) return [];
@@ -147,7 +150,7 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
     }
 
     // Live search fallback for language
-    if (wantsLanguageUpgrade && !best && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN) {
+    if (liveSearch && wantsLanguageUpgrade && !best && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN) {
       const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
       const indexers = withoutRateLimited(configuredIndexers);
       if (indexers.length > 0) {
@@ -202,7 +205,7 @@ export async function findEpisodeUpgradeCandidates(): Promise<EpisodeUpgradeCand
     // almost never appear in it; the direct search below mirrors the grab
     // side so the panel doesn't stay empty while "Remplacer" would find one.
     // Bounded the same way as the language fallback above.
-    if (!best && wantsCodecScoreUpgrade && liveCodecSearchesUsed < MAX_LIVE_CODEC_SEARCHES_PER_RUN) {
+    if (liveSearch && !best && wantsCodecScoreUpgrade && liveCodecSearchesUsed < MAX_LIVE_CODEC_SEARCHES_PER_RUN) {
       const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
       const indexers = withoutRateLimited(configuredIndexers);
       if (indexers.length > 0) {

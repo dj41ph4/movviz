@@ -50,13 +50,17 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
     visible.has("continueWatching") ? "/api/plex/on-deck" : null
   );
   const continueWatching = onDeckData?.items ?? [];
-  // This endpoint runs a real multi-minute scan (up to 25 movies + 25
-  // episodes falling back to live indexer searches) — never revalidate it
-  // just because the window regained focus, unlike every other row here.
-  // The server-side cache in the route also bounds the cost of whatever
-  // revalidations do happen (mount, manual refresh).
+  // Without `liveSearch=0` this endpoint runs a real multi-minute scan (up
+  // to 25 movies + 25 episodes falling back to live indexer searches) —
+  // confirmed live, that eager per-mount cost alone could run past a
+  // minute and hit the reverse proxy's own timeout. The dashboard row only
+  // ever needs the cheap cache-only pass (the manual "Rechercher et
+  // remplacer" panel is where the full live-search behavior belongs — a
+  // user consciously clicking it expects to wait). Never revalidate on
+  // focus, unlike every other row here; the server-side cache in the route
+  // also bounds the cost of whatever revalidations do happen.
   const { data: upgradeData } = useSWR<{ candidates: UpgradeCandidate[] }>(
-    visible.has("upgradesAvailable") ? "/api/library/upgrade-candidates" : null,
+    visible.has("upgradesAvailable") ? "/api/library/upgrade-candidates?liveSearch=0" : null,
     { revalidateOnFocus: false, dedupingInterval: 10 * 60 * 1000 }
   );
 

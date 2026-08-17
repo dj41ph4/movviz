@@ -274,7 +274,18 @@ function audioCodecSatisfies(target: string, parsed: ReturnType<typeof parseRele
   return (parsed.audioCodec ?? "").toLowerCase() === target.toLowerCase();
 }
 
-export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
+/** `liveSearch` (default true) gates the per-movie live-indexer fallback —
+ *  up to 25 language + 25 codec live searches, run SEQUENTIALLY, each a
+ *  real network round-trip. That's fine for the manual "Rechercher et
+ *  remplacer" panel (a user consciously clicked it, expects to wait), but
+ *  the dashboard's "Optimisations disponibles" row calls this route
+ *  eagerly on every mount — confirmed live, that eager call alone could
+ *  run past a minute and hit the reverse proxy's own timeout (visible in
+ *  the app's own Performance panel as a hard error at ~60s, independent of
+ *  the event-loop-blocking bug fixed alongside this). Passing `false`
+ *  keeps the dashboard row fast and cache-only; the panel still gets the
+ *  full live-search behavior by not passing the flag at all. */
+export async function findUpgradeCandidates(liveSearch = true): Promise<UpgradeCandidate[]> {
   const rules = loadReleaseRules();
   const targetLanguage = rules.preferredLanguageUpgrade;
   const candidates: UpgradeCandidate[] = [];
@@ -307,7 +318,7 @@ export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
 
     let languageUpgrade = wantsLanguageUpgrade ? bestLanguageMatch(safeMatches, targetLanguage!) : undefined;
 
-    if (wantsLanguageUpgrade && !languageUpgrade && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN) {
+    if (liveSearch && wantsLanguageUpgrade && !languageUpgrade && liveSearchesUsed < MAX_LIVE_LANGUAGE_SEARCHES_PER_RUN) {
       const configuredIndexers = loadIndexers().filter((i) => i.enabled && i.protocol === "torrent");
       const indexers = withoutRateLimited(configuredIndexers);
       if (indexers.length > 0) {
@@ -364,6 +375,7 @@ export async function findUpgradeCandidates(): Promise<UpgradeCandidate[]> {
     // still gain from a search (codec score below the best configured one).
     const bestPossibleCodecScore = Math.max(0, ...Object.values(rules.codecScores ?? {}));
     if (
+      liveSearch &&
       !languageUpgrade && !audioCodecUpgrade && !videoCodecUpgrade && !resolutionUpgrade &&
       !formatUpgrade && !codecUpgrade && currentCodecScore < bestPossibleCodecScore &&
       liveCodecSearchesUsed < MAX_LIVE_CODEC_SEARCHES_PER_RUN

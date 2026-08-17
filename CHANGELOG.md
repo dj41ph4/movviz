@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.14.42 — August 2026
+
+### Correctif : rangée « Optimisations disponibles » en erreur
+
+- **Cause racine confirmée en direct** (panneau Réglages > Performance) : même après le correctif précédent, la rangée « Optimisations disponibles » du tableau de bord échouait systématiquement au bout d'une minute — elle lançait, à chaque ouverture du tableau de bord, jusqu'à 50 recherches en direct sur les indexeurs (une par film/épisode concerné), l'une après l'autre, largement de quoi dépasser le délai d'attente du serveur. Cette rangée se limite désormais au cache déjà en mémoire, rapide par nature ; la recherche complète en direct reste entièrement disponible dans le panneau « Rechercher et remplacer », déclenchée volontairement.
+
 ## v1.14.41 — August 2026
 
 ### Correctif : lenteur générale de l'application
