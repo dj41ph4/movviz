@@ -376,6 +376,17 @@ test("extractBareTitleMention: rejette le bavardage courant", () => {
   }
 });
 
+test("extractBareTitleMention: rejette les interjections (bug confirmé en direct : « hep » → film tchèque)", () => {
+  for (const m of ["hep", "hé", "eh", "ho", "wesh", "slt", "hmm", "bref", "ciao", "attends"]) {
+    assert.equal(extractBareTitleMention(m), null, `"${m}" ne devrait pas déclencher une recherche de titre`);
+  }
+});
+
+test("extractBareTitleMention: un vrai titre court reste reconnu malgré la liste d'interjections", () => {
+  assert.equal(extractBareTitleMention("300"), "300");
+  assert.equal(extractBareTitleMention("Up"), "Up");
+});
+
 test("extractBareTitleMention: rejette les questions (déjà couvertes par un autre détecteur)", () => {
   assert.equal(extractBareTitleMention("est-ce que j'ai Dune ?"), null);
 });

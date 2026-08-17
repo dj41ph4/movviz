@@ -928,7 +928,13 @@ export function isSeriesStatusAboutCurrentPage(message: string): boolean {
 // vrai" → rejeté). Cette fonction se contente d'écarter en amont ce qui
 // coûterait un appel TMDb pour rien : salutations, accusés de réception,
 // phrases longues/construites (probablement pas un titre isolé).
-const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|coucou|yo|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|haha|hihi|oui|non|ouais|ouep|nan|ça va|ca va|comment ça va|comment tu vas|à bientôt|a bientot|bye|au revoir|stop|arrête|arrete)[\s!.?]*$/i;
+// Bug confirmé en direct : "hep" (une simple interpellation) a été résolu en
+// « Hep! Hep! The Slap », un obscur film tchèque, et présenté comme si
+// l'utilisateur en parlait. Les interjections/salutations sont donc
+// listées largement — un titre de film ne se cache quasiment jamais
+// derrière un de ces mots, alors qu'ils reviennent constamment en
+// conversation.
+const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|hé|he|hep|ho|oh|ah|eh|coucou|yo|wesh|slt|cc|hola|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|ptdr|haha|hihi|oui|non|ouais|ouep|nan|si|ça va|ca va|comment ça va|comment tu vas|quoi de neuf|à bientôt|a bientot|bye|ciao|au revoir|bonne nuit|stop|arrête|arrete|attends|attend|hmm|hum|bref|voilà|voila)[\s!.?]*$/i;
 // Réponses courtes / références implicites à ce qui vient d'être dit —
 // jamais un titre, toujours une réaction/correction à résoudre par rapport
 // au message précédent de Movviz et au sujet actif de la conversation (voir

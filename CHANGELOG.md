@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.17 — August 2026
+
+### Correctif : une simple interpellation prise pour un titre de film
+
+- **Cause racine confirmée en direct** : écrire « hep » pour attirer l'attention déclenchait une recherche, et Movviz enchaînait sur un obscur film tchèque de 2013 comme si c'était le sujet de la conversation. La liste des salutations et interjections reconnues comme telles (hep, hé, eh, ho, wesh, hmm, bref, ciao…) a été nettement élargie — les vrais titres courts comme « 300 » ou « Up » restent bien reconnus.
+
 ## v1.15.16 — August 2026
 
 ### Correctif : un mauvais titre pouvait être ajouté quand film et série se ressemblent
