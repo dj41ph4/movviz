@@ -4,9 +4,9 @@ import { loadAiSession, clearAiSession, pushAiMessage } from "@/lib/ai/store";
 import { loadAiConfig } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
 import { parseIntent, extractFacts } from "@/lib/ai/intentParser";
-import { buildUserContext, buildSystemPrompt, buildProactiveNudgeTrigger } from "@/lib/ai/actions";
+import { buildUserContext, buildSystemPrompt, buildProactiveNudgeTrigger, buildProactiveRatingNudgeTrigger, pickProactiveRatingCandidate } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
-import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, rememberFact, getFacts } from "@/lib/ai/tasteProfile";
+import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, rememberFact, getFacts, getLastProactiveRatingAskAt, markProactiveRatingAsked } from "@/lib/ai/tasteProfile";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { checkProactivePulse } from "@/lib/ai/presence";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
@@ -40,7 +40,22 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
     const factsContext = buildFactsContext(userId);
     const contextInsightsContext = buildContextInsightsSection(userId);
     const system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, false, false, contextInsightsContext);
-    const trigger: AiChatMessage = { role: "user", content: buildProactiveNudgeTrigger() };
+    // Prefer the rating nudge over the generic opener when a real
+    // watched-but-unrated candidate exists AND its own cooldown (shared
+    // with the mid-conversation opportunity in chat/route.ts, so a rating
+    // question is never asked twice through two different channels within
+    // the same window) has elapsed. Falls back to the generic opener
+    // otherwise — this is still just an opportunity, never forced.
+    const RATING_NUDGE_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+    let triggerText = buildProactiveNudgeTrigger();
+    if (Date.now() - getLastProactiveRatingAskAt(userId) > RATING_NUDGE_COOLDOWN_MS) {
+      const candidate = pickProactiveRatingCandidate(userId);
+      if (candidate) {
+        triggerText = buildProactiveRatingNudgeTrigger(candidate);
+        markProactiveRatingAsked(userId);
+      }
+    }
+    const trigger: AiChatMessage = { role: "user", content: triggerText };
     const res = await callAi(config, system, [...session.messages, trigger]);
     const intent = parseIntent(res.text);
     if (intent.action) return; // a stray JSON reply here would be a worse UX than no nudge at all

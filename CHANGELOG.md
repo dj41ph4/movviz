@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.9 — August 2026
+
+### Movviz AI — la relance spontanée peut désormais porter sur une note
+
+- Quand Movviz relance spontanément la conversation après une absence (mécanisme déjà existant, avec son propre temps d'attente), il peut désormais, à l'occasion, demander directement la note d'un titre vu mais jamais évalué plutôt qu'une question générique — jamais deux fois via deux canaux différents dans la même fenêtre de temps.
+
 ## v1.15.8 — August 2026
 
 ### Correctif : une note ne mettait pas à jour le contexte en temps réel

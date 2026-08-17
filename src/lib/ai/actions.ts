@@ -10,6 +10,8 @@ import { enqueueJob } from "@/lib/jobs/queue";
 import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { searchAndGrabSeries } from "@/lib/library/autoGrabSeries";
 import { rememberAiEntry } from "@/lib/ai/memory";
+import { getAllRatings } from "@/lib/ai/tasteProfile";
+import { isSeriesFullyWatched } from "@/lib/ai/recommendationScore";
 import type { User } from "@/lib/auth/types";
 import type { AiActionOutcome, AiAddItem } from "./types";
 import type { AiRecommendIntentItem } from "./intentParser";
@@ -494,6 +496,47 @@ export function buildTitleMentionContext(
  *  in the system prompt. */
 export function buildProactiveNudgeTrigger(): string {
   return "(Reprise spontanée — l'utilisateur vient de revenir sur Movviz après un moment d'absence, il n'a rien demandé.) Lance TOI-MÊME une question d'ouverture courte et chaleureuse sur le cinéma pour amorcer une vraie conversation — par exemple sur ce qu'il est allé voir récemment en salle, ou ce qu'il compte regarder ce soir. Appuie-toi sur son contexte réel si tu y trouves quelque chose de concret (vues récentes, faits connus) plutôt qu'une question totalement générique. Réponds en MODE 3 (texte normal, une seule question courte, jamais de JSON, jamais une liste).";
+}
+
+/** Picks ONE random watched-but-unrated title (movie fully watched, or
+ *  series with every known episode watched) — the raw material for the
+ *  proactive rating nudge, shared between the mid-conversation opportunity
+ *  (chat/route.ts) and the "reprise spontanée" nudge below (session.ts).
+ *  Returns null when there's nothing eligible. */
+export function pickProactiveRatingCandidate(userId: string): { title: string; type: "movie" | "series"; tmdbId: number } | null {
+  const status = getWatchStatus(userId);
+  if (!status) return null;
+  const ratedKeys = new Set(getAllRatings(userId).map((r) => `${r.type}:${r.tmdbId}`));
+  const candidates: { title: string; type: "movie" | "series"; tmdbId: number }[] = [];
+  for (const tmdbId of status.movies) {
+    if (ratedKeys.has(`movie:${tmdbId}`)) continue;
+    const movie = getMovieByTmdbId(tmdbId);
+    if (movie) candidates.push({ title: movie.title, type: "movie", tmdbId });
+  }
+  const episodesBySeries = new Map<number, Set<string>>();
+  for (const e of status.episodes ?? []) {
+    const set = episodesBySeries.get(e.tmdbId) ?? new Set<string>();
+    set.add(`${e.season}.${e.episode}`);
+    episodesBySeries.set(e.tmdbId, set);
+  }
+  for (const [tmdbId, keys] of episodesBySeries) {
+    if (ratedKeys.has(`series:${tmdbId}`)) continue;
+    if (!isSeriesFullyWatched(tmdbId, keys)) continue;
+    const series = getSeriesByTmdbId(tmdbId);
+    if (series) candidates.push({ title: series.title, type: "series", tmdbId });
+  }
+  if (!candidates.length) return null;
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+/** Same synthetic-trigger idea as buildProactiveNudgeTrigger, but for the
+ *  "reprise spontanée" moment when a real watched-but-unrated candidate
+ *  exists (session.ts prefers this over the generic opener when both the
+ *  return-gap AND the rating-specific cooldown have elapsed — see
+ *  maybeSendProactiveNudge). Still just an opportunity: the model can
+ *  fall back to a normal opener if asking immediately would feel abrupt. */
+export function buildProactiveRatingNudgeTrigger(candidate: { title: string; type: "movie" | "series"; tmdbId: number }): string {
+  return `(Reprise spontanée — l'utilisateur vient de revenir sur Movviz après un moment d'absence, il n'a rien demandé.) « ${candidate.title} » (${candidate.type === "movie" ? "film" : "série"}) a été entièrement vu mais jamais noté. Lance TOI-MÊME, en une phrase courte et chaleureuse, une question sur la note qu'il lui donnerait — sans en faire un interrogatoire, comme un ami qui repense à un film qu'il t'a recommandé. Si ça sonne artificiel de commencer directement là-dessus, tu peux aussi juste amorcer une conversation normale sur le cinéma et garder ça pour un autre moment. Réponds en MODE 3 (texte normal, une seule question courte, jamais de JSON, jamais une liste).`;
 }
 
 export function buildSystemPrompt(userContext: string, memoryContext = "", usageContext = "", feedbackContext = "", factsContext = "", isFirstInteraction = false, needsName = false, contextInsightsContext = "", correctionEscalationContext = "", webSearchEnabled = false): string {
