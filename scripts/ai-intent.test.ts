@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, promisesListWithNothing } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -420,6 +420,17 @@ test("isMechanicalBulletReply: faux dès qu'une vraie phrase accompagne la puce"
 
 test("isMechanicalBulletReply: faux sur une réponse normale sans puce", () => {
   assert.equal(isMechanicalBulletReply("Ah cool, tu l'as déjà vu !"), false);
+});
+
+test("sanitizeMechanicalBulletReply: reformule une ligne 'déjà dans la bibliothèque' en vraie phrase", () => {
+  const got = sanitizeMechanicalBulletReply("• Déjà dans la bibliothèque — The Nice Guys (2016)");
+  assert.ok(got.includes("The Nice Guys (2016)"));
+  assert.ok(!got.startsWith("•"));
+});
+
+test("sanitizeMechanicalBulletReply: reformule chaque type de ligne connu", () => {
+  assert.ok(sanitizeMechanicalBulletReply("• Ajouté, recherche lancée — X (2020)").includes("X (2020)"));
+  assert.ok(sanitizeMechanicalBulletReply("• Introuvable ou pas de correspondance fiable sur TMDb — X").includes("X"));
 });
 
 test("containsLeakedActionJson: faux sur une réponse normale", () => {

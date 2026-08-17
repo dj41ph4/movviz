@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.15.4 — August 2026
+
+### Correctif : garantie renforcée contre la ligne technique brute (suite du correctif précédent)
+
+- **Cause racine confirmée en direct** : le correctif v1.15.3 reposait sur une nouvelle tentative de réponse de Movviz, qui pouvait reproduire la même ligne technique au lieu d'une vraie phrase. Une reformulation automatique déterministe (sans dépendre d'une nouvelle tentative du modèle de langage) est désormais en place pour garantir qu'aucune ligne technique brute n'atteint jamais l'utilisateur.
+
 ## v1.15.3 — August 2026
 
 ### Correctif : mention d'un titre parfois répondue par une ligne technique au lieu d'une vraie phrase

@@ -382,6 +382,34 @@ export function isMechanicalBulletReply(cleaned: string): boolean {
   return lines.length > 0 && lines.every((l) => MECHANICAL_BULLET_LINE_RE.test(l));
 }
 
+// Confirmed live: the retry above (chat/route.ts) doesn't reliably fix
+// this — a small model can reproduce the exact same mechanical bullet even
+// after being told explicitly not to. Rather than a second LLM round-trip
+// (against this session's own "bounded retry, then a deterministic
+// fallback" discipline), this deterministically reformats the KNOWN bullet
+// shapes (mirrors summarizeAdd's own templates in chat/route.ts) into a
+// plain sentence — never as warm as a real model reply, but always a real
+// sentence instead of raw internal formatting shown to the user.
+const BULLET_LINE_CAPTURE_RE = /^[•\-*]\s*(.+?)\s*—\s*(.+)$/;
+
+export function sanitizeMechanicalBulletReply(text: string): string {
+  const lines = text.trim().split("\n").map((l) => l.trim()).filter(Boolean);
+  const sentences = lines.map((line) => {
+    const m = line.match(BULLET_LINE_CAPTURE_RE);
+    if (!m) return line.replace(/^[•\-*]\s*/, "");
+    const [, label, value] = m;
+    const l = label.toLowerCase();
+    if (l.includes("déjà dans la bibliothèque")) return `Tu l'as déjà — ${value} est dans ta bibliothèque.`;
+    if (l.includes("ajouté")) return `${value} est ajouté(e), la recherche démarre.`;
+    if (l.includes("demande envoyée")) return `Demande envoyée pour ${value}.`;
+    if (l.includes("introuvable")) return `Je n'ai pas trouvé de correspondance fiable pour ${value}.`;
+    if (l.includes("non autorisé")) return `Pas possible pour ${value} — une règle existante l'en empêche.`;
+    if (l.includes("échec")) return `Ça a échoué pour ${value}.`;
+    return `${label} — ${value}.`;
+  });
+  return sentences.join(" ");
+}
+
 // Confirmed live: a genuine recommend-shaped request ("surprends-moi, sors
 // moi de ma zone de confort") got a mode-3 prose reply that TALKS as if a
 // list follows ("Voici ce qui devrait te surprendre...") but the model
