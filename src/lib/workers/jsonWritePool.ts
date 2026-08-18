@@ -1,4 +1,5 @@
 import { WorkerPool } from "./workerPool";
+import { resolveWorkerUrl } from "./workerPath";
 
 interface JsonWriteTaskInput {
   file: string;
@@ -19,7 +20,7 @@ const g = globalThis as typeof globalThis & {
 export function getJsonWritePool(): WorkerPool<JsonWriteTaskInput, JsonWriteTaskOutput> {
   if (!g.__movvizJsonWritePool) {
     g.__movvizJsonWritePool = new WorkerPool<JsonWriteTaskInput, JsonWriteTaskOutput>(
-      new URL("./jsonWriteWorker.mjs", import.meta.url)
+      resolveWorkerUrl("jsonWriteWorker.mjs", import.meta.url)
     );
   }
   return g.__movvizJsonWritePool;

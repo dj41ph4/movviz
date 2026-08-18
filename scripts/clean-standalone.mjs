@@ -24,6 +24,8 @@ if (!fs.existsSync(standalone)) {
 
 const resolvedStandalone = path.resolve(standalone);
 const keep = new Set([".next", "node_modules", "server.js", "package.json"]);
+const workersSource = path.join(root, "src", "lib", "workers");
+const workersDestination = path.join(resolvedStandalone, "workers");
 
 let removed = 0;
 for (const entry of fs.readdirSync(resolvedStandalone)) {
@@ -41,4 +43,14 @@ for (const entry of fs.readdirSync(resolvedStandalone)) {
   removed += 1;
 }
 
-console.log(`clean-standalone: removed ${removed} entry(ies) from .next/standalone`);
+// Worker threads are loaded dynamically and are therefore invisible to
+// Next's output tracer. Copy every plain-JS worker explicitly after cleanup;
+// resolveWorkerUrl() selects these files in the standalone runtime.
+const workerFiles = fs.readdirSync(workersSource).filter((file) => file.endsWith("Worker.mjs"));
+if (workerFiles.length === 0) throw new Error("clean-standalone: no worker assets found");
+fs.mkdirSync(workersDestination, { recursive: true });
+for (const file of workerFiles) {
+  fs.copyFileSync(path.join(workersSource, file), path.join(workersDestination, file));
+}
+
+console.log(`clean-standalone: removed ${removed} entry(ies); staged ${workerFiles.length} worker asset(s)`);

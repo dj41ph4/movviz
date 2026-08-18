@@ -1,4 +1,5 @@
 import { WorkerPool } from "./workerPool";
+import { resolveWorkerUrl } from "./workerPath";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import type { HashIndexResult } from "@/lib/library/hashIndexCompute";
 
@@ -16,7 +17,7 @@ const g = globalThis as typeof globalThis & {
 export function getHashIndexPool(): WorkerPool<HashIndexTaskInput, HashIndexResult> {
   if (!g.__movvizHashIndexPool) {
     g.__movvizHashIndexPool = new WorkerPool<HashIndexTaskInput, HashIndexResult>(
-      new URL("./hashIndexWorker.mjs", import.meta.url)
+      resolveWorkerUrl("hashIndexWorker.mjs", import.meta.url)
     );
   }
   return g.__movvizHashIndexPool;

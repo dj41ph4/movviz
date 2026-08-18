@@ -1,4 +1,5 @@
 import { WorkerPool } from "./workerPool";
+import { resolveWorkerUrl } from "./workerPath";
 import type { ReleaseInfo } from "@/lib/naming/types";
 import { parseRelease } from "@/lib/naming/parser";
 import {
@@ -109,7 +110,7 @@ export function getReleaseMatchPool(): ReleaseMatchRunner {
   if (!g.__movvizReleaseMatchPool) {
     g.__movvizReleaseMatchPool = new ReleaseMatchRunner(
       new WorkerPool<ReleaseMatchInput, ReleaseMatchOutput>(
-        new URL("./releaseMatchWorker.mjs", import.meta.url)
+        resolveWorkerUrl("releaseMatchWorker.mjs", import.meta.url)
       )
     );
   }

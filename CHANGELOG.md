@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.5 — August 2026
+
+### Correctif : worker de matching embarqué dans les installations standalone
+
+- Le nettoyage du bundle standalone supprimait les fichiers `*Worker.mjs` après le build : les recherches automatiques pouvaient donc échouer juste après la lecture du cache RSS sur les installations packagées depuis v1.16.1.
+- Le build copie maintenant explicitement tous les workers dans le runtime standalone et les pools les résolvent depuis cet emplacement. Le matching parallèle fonctionne à nouveau ; le repli local de sécurité reste actif.
+
 ## v1.16.4 — August 2026
 
 ### Correctif : demandes et auto-recherche découplées
