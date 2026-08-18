@@ -35,11 +35,3 @@ val MovvizFlowInk = Color(0xFFEEF1FF)
 val MovvizFlowGlow = Color(0xFFA06BFF)
 val MovvizFlowMagenta = Color(0xFFFF4BD0)
 val MovvizFlowCyan = Color(0xFF34E2FF)
-
-// Couleurs sémantiques (--color-ok/amber/down/cyan en thème sombre dans
-// globals.css) — pour les pastilles de statut (téléchargement en cours,
-// en pause, en erreur...), jamais du texte coloré brut (voir CLAUDE.md).
-val MovvizOk = Color(0xFF43E6A0)
-val MovvizAmber = Color(0xFFFFB84B)
-val MovvizDown = Color(0xFFFF5B78)
-val MovvizCyan = Color(0xFF34E2FF)
