@@ -91,6 +91,10 @@ internal data class TvTitleCard(
     /** Non-null uniquement pour une carte "Continuer à regarder" — affiche
      *  une fine barre de progression en bas du poster. */
     val progressPercent: Int? = null,
+    /** "4K"/"1080p"/... — voir resolutionLabel(). Absent pour tout ce qui
+     *  n'a pas de fichier réel en bibliothèque (séries, découverte). */
+    val qualityLabel: String? = null,
+    val hasHdr: Boolean = false,
 )
 
 @Composable
@@ -121,7 +125,11 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
 
     val recentMovies = remember(movies) {
         movies.take(20).map {
-            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true, year = it.year, rating = it.rating, genres = it.genres, status = it.status)
+            TvTitleCard(
+                it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true,
+                year = it.year, rating = it.rating, genres = it.genres, status = it.status,
+                qualityLabel = resolutionLabel(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(),
+            )
         }
     }
     val recentSeries = remember(series) {
@@ -288,6 +296,18 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
             }
         }
     }
+}
+
+/** Même mapping que la pastille résolution desktop (MediaBadges.tsx) : 2160→4K,
+ *  4320→8K, 1080/720 en toutes lettres, sinon la valeur brute — jamais le
+ *  "2160p" cru. null si aucun fichier réel (pas encore en bibliothèque). */
+private fun resolutionLabel(resolution: String?): String? = when {
+    resolution == null -> null
+    resolution.startsWith("2160") -> "4K"
+    resolution.startsWith("4320") -> "8K"
+    resolution.startsWith("1080") -> "1080p"
+    resolution.startsWith("720") -> "720p"
+    else -> resolution
 }
 
 /** Fusion en alternance ([a1,b1,a2,b2,...]) — pas d'appariement strict par
@@ -580,6 +600,20 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
                     StatusPill(
                         status = status,
                         modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
+                    )
+                }
+                // Qualité réelle du fichier (pas TMDb) — même donnée que les
+                // badges FHD/4K/HDR de la grille bibliothèque desktop
+                // (MediaBadges.tsx), jusqu'ici jamais mappée côté TV.
+                if (card.qualityLabel != null) {
+                    Text(
+                        text = if (card.hasHdr) "${card.qualityLabel} HDR" else card.qualityLabel,
+                        style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(6.dp)
+                            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
+                            .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
                 if (card.progressPercent != null) {

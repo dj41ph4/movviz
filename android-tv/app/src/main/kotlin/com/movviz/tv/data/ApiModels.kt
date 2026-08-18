@@ -60,9 +60,19 @@ data class LibrarySeriesDto(
     val genres: List<String> = emptyList(),
 )
 
+// Champs qualité confirmés en direct contre /api/library/movies (RoboCop :
+// resolution="2160p", videoCodec="HEVC", hdr="HDR10") — jamais mappés côté TV
+// jusqu'ici alors que le badge desktop (LibraryMovieCard.tsx/MediaBadges.tsx)
+// les affiche déjà. hdr est absent (null) sur un fichier SDR, pas une chaîne
+// vide — distinct de source (release scene: "web-dl"/"bluray"/... ou null).
 @JsonClass(generateAdapter = true)
 data class LibraryFileDto(
     val plexRatingKey: String?,
+    val resolution: String? = null,
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val hdr: String? = null,
+    val source: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
