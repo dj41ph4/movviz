@@ -11,6 +11,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
@@ -33,13 +34,19 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.ui.theme.MovvizSurfaceStrong
+import com.movviz.tv.ui.theme.RatingBadge
+import com.movviz.tv.ui.theme.StatusPill
 import com.movviz.tv.ui.theme.tvPointerClick
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
 private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original"
 
 /** Titre unifié film/série pour l'affichage des rangées — évite de dupliquer
- *  la Card pour deux types quasi identiques à l'écran. */
+ *  la Card pour deux types quasi identiques à l'écran. `status` est null
+ *  pour les séries : contrairement aux films, l'API ne renvoie aucun champ
+ *  de statut au niveau série (voir le commentaire sur LibrarySeriesDto) donc
+ *  la pastille de statut ne s'affiche que sur les posters film. */
 private data class TvTitleCard(
     val id: String,
     val title: String,
@@ -47,6 +54,8 @@ private data class TvTitleCard(
     val backdropPath: String?,
     val tmdbId: Int,
     val isMovie: Boolean,
+    val rating: Double,
+    val status: String?,
 )
 
 @Composable
@@ -58,12 +67,12 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
 
     val recentMovies = remember(movies) {
         movies.take(20).map {
-            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true)
+            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true, rating = it.rating, status = it.status)
         }
     }
     val recentSeries = remember(series) {
         series.take(20).map {
-            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = false)
+            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = false, rating = it.rating, status = null)
         }
     }
     // Même idée que le hero cinématique du dashboard desktop (backdrop plein
@@ -229,11 +238,14 @@ private fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: F
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .scale(if (focused) 1.12f else 1f)
+                // Même intensité de zoom que la carte résultat de recherche
+                // (SearchResultCard) — avant, l'accueil grossissait plus fort
+                // (1.12) que la recherche (1.08) pour la même carte poster.
+                .scale(if (focused) 1.08f else 1f)
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
-            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1D1D2B)),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
                     border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
@@ -241,14 +253,31 @@ private fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: F
                 ),
             ),
         ) {
-            if (posterUrl != null) {
-                val painter = rememberAsyncImagePainter(model = posterUrl)
-                Image(
-                    painter = painter,
-                    contentDescription = card.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (posterUrl != null) {
+                    val painter = rememberAsyncImagePainter(model = posterUrl)
+                    Image(
+                        painter = painter,
+                        contentDescription = card.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                // Même paire de pastilles que la grille bibliothèque desktop
+                // (note ★ en haut-gauche, statut en bas-gauche) — voir
+                // ui/theme/Badges.kt. Le statut n'existe que pour les films
+                // (LibrarySeriesDto n'a pas ce champ côté API, voir plus
+                // haut) donc absent pour une carte série.
+                RatingBadge(
+                    rating = card.rating,
+                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
                 )
+                card.status?.let { status ->
+                    StatusPill(
+                        status = status,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
+                    )
+                }
             }
         }
         Text(

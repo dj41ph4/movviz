@@ -30,6 +30,11 @@ import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.SearchResultDto
+import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkDim
+import com.movviz.tv.ui.theme.MovvizSurface
+import com.movviz.tv.ui.theme.MovvizSurfaceStrong
+import com.movviz.tv.ui.theme.RatingBadge
 import com.movviz.tv.ui.theme.tvPointerClick
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
@@ -71,11 +76,11 @@ fun SearchScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: In
         when {
             searching -> Text(
                 text = "Recherche…",
-                style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f)),
+                style = TextStyle(fontSize = 14.sp, color = MovvizInkDim),
             )
             hasSearched && results.isEmpty() -> Text(
                 text = "Aucun résultat pour « $query »",
-                style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f)),
+                style = TextStyle(fontSize = 14.sp, color = MovvizInkDim),
             )
             results.isNotEmpty() -> TvLazyVerticalGrid(
                 columns = TvGridCells.Fixed(6),
@@ -101,26 +106,29 @@ private fun SearchField(value: String, onValueChange: (String) -> Unit, onSearch
     // contrôleur du clavier logiciel.
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    // Même rayon/bordure/palette que les champs de connexion et d'assistant
+    // (TvTextField/LoginField) — avant, ce champ était seul à utiliser 8dp et
+    // un gris de bordure ad hoc au lieu du même vocabulaire "champ TV".
     Box(
         modifier = Modifier
             .fillMaxWidth(0.5f)
             .border(
                 width = if (focused) 2.dp else 1.dp,
-                color = if (focused) MaterialTheme.colorScheme.primary else Color(0xFF3A3A4A),
-                shape = RoundedCornerShape(8.dp),
+                color = if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = 0.12f),
+                shape = RoundedCornerShape(12.dp),
             )
-            .background(Color(0xFF15151F), RoundedCornerShape(8.dp))
+            .background(MovvizSurface, RoundedCornerShape(12.dp))
             .onFocusChanged { focused = it.isFocused }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         if (value.isEmpty()) {
-            Text(text = "Titre d'un film ou d'une série…", style = TextStyle(fontSize = 18.sp, color = Color(0xFF7A7A8C)))
+            Text(text = "Titre d'un film ou d'une série…", style = TextStyle(fontSize = 18.sp, color = MovvizInkDim))
         }
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            textStyle = TextStyle(fontSize = 18.sp, color = Color(0xFFF5F5FA)),
+            textStyle = TextStyle(fontSize = 18.sp, color = MovvizInk),
             singleLine = true,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
@@ -149,7 +157,7 @@ private fun SearchResultCard(result: SearchResultDto, onClick: () -> Unit) {
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(shape = shape),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1D1D2B)),
+            colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
                     border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
@@ -157,13 +165,25 @@ private fun SearchResultCard(result: SearchResultDto, onClick: () -> Unit) {
                 ),
             ),
         ) {
-            if (posterUrl != null) {
-                Image(
-                    painter = rememberAsyncImagePainter(model = posterUrl),
-                    contentDescription = result.title,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (posterUrl != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = posterUrl),
+                        contentDescription = result.title,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+                // Même pastille note ★ que les posters de l'accueil — pas de
+                // pastille de statut ici : un résultat de recherche est un
+                // titre TMDb pas encore forcément en bibliothèque, l'API de
+                // recherche ne renvoie d'ailleurs aucun champ de statut.
+                if (result.rating > 0) {
+                    RatingBadge(
+                        rating = result.rating,
+                        modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
+                    )
+                }
             }
         }
         Text(
