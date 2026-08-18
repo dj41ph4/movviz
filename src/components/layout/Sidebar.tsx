@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
+import { usePathname, useSearchParams } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import useSWR from "swr";
 import { NAV } from "@/lib/nav";
@@ -15,7 +15,7 @@ import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
-import { Download, Loader2, X } from "lucide-react";
+import { ChevronDown, Download, Loader2, X } from "lucide-react";
 
 interface UpdateInfo {
   currentVersion: string;
@@ -119,6 +119,13 @@ export function Sidebar({ version }: { version: string }) {
       {/* Nav */}
       <nav className="flex flex-1 flex-col gap-1">
         {items.map((item) => {
+          // Bibliothèque renders as a collapsible group (Tout / Films /
+          // Séries) — the Library page already reads `?type=` from the URL
+          // (and fully dissociates the two types), so the submenu only
+          // builds links, it doesn't know the page's own filter logic.
+          if (item.href === "/library") {
+            return <LibraryNavItem key={item.href} item={item} pathname={pathname} />;
+          }
           const active =
             item.href === "/"
               ? pathname === "/"
@@ -253,5 +260,112 @@ export function Sidebar({ version }: { version: string }) {
         </div>
       )}
     </aside>
+  );
+}
+
+/** Item de navigation à sous-menu (Bibliothèque : Tout / Films / Séries).
+ *  Le clic sur le label navigue comme avant ET déroule le sous-menu ; le
+ *  chevron ne fait que dérouler/replier sans naviguer. Le sous-menu suit
+ *  l'URL : il s'ouvre quand on est sur /library, se replie en quittant,
+ *  l'entrée active est déduite du paramètre `type`, et les autres
+ *  paramètres (filter/sort/tag) sont conservés quand on change de type.
+ *  Les libellés réutilisent les clés des chips de la page Bibliothèque
+ *  (common.all/common.movies/common.series) — aucune nouvelle clé i18n. */
+function LibraryNavItem({ item, pathname }: { item: (typeof NAV)[number]; pathname: string }) {
+  const t = useT();
+  const searchParams = useSearchParams();
+  const onLibrary = pathname.startsWith(item.href);
+  const [open, setOpen] = useState(onLibrary);
+
+  useEffect(() => {
+    setOpen(onLibrary);
+  }, [onLibrary]);
+
+  const typeParam = searchParams.get("type");
+  const subs: { id: "all" | "movie" | "series"; labelKey: string }[] = [
+    { id: "all", labelKey: "common.all" },
+    { id: "movie", labelKey: "common.movies" },
+    { id: "series", labelKey: "common.series" },
+  ];
+  const hrefWithType = (id: "all" | "movie" | "series") => {
+    const p = new URLSearchParams(searchParams.toString());
+    if (id === "all") p.delete("type");
+    else p.set("type", id);
+    const qs = p.toString();
+    return item.href + (qs ? `?${qs}` : "");
+  };
+  const isActive = (id: "all" | "movie" | "series") =>
+    id === "all" ? !typeParam || typeParam === "all" : typeParam === id;
+  const Icon = item.icon;
+
+  return (
+    <div>
+      <div
+        className={cn(
+          "group relative flex items-center rounded-xl ring-focus",
+          onLibrary ? "text-brand-glow" : "text-ink-soft hover:text-ink"
+        )}
+      >
+        {onLibrary && (
+          <motion.span
+            layoutId="nav-active"
+            className="absolute inset-0 -z-10 rounded-xl border border-brand/30 bg-brand/12"
+            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+          />
+        )}
+        <Link
+          href={item.href}
+          onClick={() => setOpen(true)}
+          className="flex flex-1 items-center gap-3 px-3 py-2.5 text-base font-semibold ring-focus"
+        >
+          <Icon
+            className={cn(
+              "h-[18px] w-[18px] transition-colors",
+              onLibrary ? "text-brand-glow" : "text-ink-dim group-hover:text-ink-soft"
+            )}
+          />
+          <span className="flex-1">{t(item.labelKey)}</span>
+        </Link>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-label={t(item.labelKey)}
+          aria-expanded={open}
+          className="mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-dim ring-focus transition-colors hover:text-ink"
+        >
+          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")} />
+        </button>
+      </div>
+
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 380, damping: 32 }}
+            className="overflow-hidden"
+          >
+            <div className="flex flex-col gap-0.5 pb-1 pt-0.5">
+              {subs.map((s) => {
+                const active = isActive(s.id);
+                return (
+                  <Link
+                    key={s.id}
+                    href={hrefWithType(s.id)}
+                    className={cn(
+                      "ml-2.5 mr-1.5 flex items-center gap-2 rounded-lg px-3 py-2 pl-8 text-sm font-semibold transition-colors ring-focus",
+                      active ? "bg-brand/12 text-brand-glow" : "text-ink-soft hover:text-ink"
+                    )}
+                  >
+                    <span className={cn("h-1.5 w-1.5 rounded-full", active ? "bg-brand-glow" : "bg-ink-dim/40")} />
+                    {t(s.labelKey)}
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }

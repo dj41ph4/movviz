@@ -5,7 +5,7 @@
   "description": "Movviz — centre de commande média unifié. Découvrez, demandez, indexez et gérez films et séries depuis une interface unique et cinématographique.",
   "scripts": {
     "dev": "next dev -p 9810",
-    "build": "next build",
+    "build": "next build --webpack && node scripts/clean-standalone.mjs",
     "start": "next start -p 9810",
     "engine": "node engine/src/index.mjs",
     "lint": "next lint",

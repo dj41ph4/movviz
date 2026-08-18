@@ -19,14 +19,14 @@ const nextConfig: NextConfig = {
   // (src/instrumentation.ts spawns it) and library data is read at runtime,
   // never imported/bundled.
   outputFileTracingExcludes: {
-    "*": [
-      "data/**",
-      "dta/**",
-      ".movviz-data/**",
+    "/*": [
+      "./data/**",
+      "./dta/**",
+      "./.movviz-data/**",
       "**/.movviz-data/**",
-      "engine/**",
+      "./engine/**",
       "**/engine/**",
-      "resolver/**",
+      "./resolver/**",
       "**/resolver/**",
     ],
   },
