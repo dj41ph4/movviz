@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.2 — August 2026
+
+### Nouveau : bibliothèque dissociée — pages dédiées Films et Séries
+
+- La bibliothèque est désormais scindée en **trois pages fixes** : `/library` (Tout, les deux types mélangés), `/movies` (films uniquement) et `/series` (séries uniquement) — accessibles depuis le sous-menu « Bibliothèque » de la sidebar.
+- Les pages Films et Séries n'ont plus de boutons de filtrage par type (c'est leur nature fixe) ; tri, filtre de statut et tags restent disponibles. Les anciens liens `?type=movie|series` redirigent automatiquement vers les nouvelles pages.
+
 ## v1.16.1 — August 2026
 
 ### Nouveau : sous-menu Bibliothèque dans la sidebar (desktop)
