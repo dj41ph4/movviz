@@ -32,6 +32,10 @@ import androidx.tv.material3.Text
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.ui.theme.AnimatedLogo
+import com.movviz.tv.ui.theme.MovvizDown
+import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkDim
+import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.wizard.GradientButton
 import kotlinx.coroutines.launch
@@ -73,7 +77,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "Connexion",
-                style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f)),
+                style = TextStyle(fontSize = 13.sp, color = MovvizInkDim),
             )
             Spacer(Modifier.height(24.dp))
 
@@ -96,7 +100,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
 
             if (error != null) {
                 Spacer(Modifier.height(12.dp))
-                Text(text = error!!, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFEF4444)))
+                Text(text = error!!, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizDown))
             }
 
             Spacer(Modifier.height(20.dp))
@@ -127,7 +131,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
 private fun FieldLabel(text: String) {
     Text(
         text = text,
-        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f)),
+        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
         modifier = Modifier.fillMaxWidth().padding(bottom = 6.dp),
     )
 }
@@ -147,7 +151,7 @@ private fun LoginField(
             .fillMaxWidth()
             .border(
                 width = if (focused) 2.dp else 1.dp,
-                color = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f),
+                color = if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = 0.12f),
                 shape = RoundedCornerShape(12.dp),
             )
             .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
@@ -158,7 +162,7 @@ private fun LoginField(
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            textStyle = TextStyle(fontSize = 16.sp, color = Color.White),
+            textStyle = TextStyle(fontSize = 16.sp, color = MovvizInk),
             singleLine = true,
             visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(
