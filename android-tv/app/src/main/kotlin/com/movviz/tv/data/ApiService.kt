@@ -91,4 +91,23 @@ interface MovvizApiService {
     // terminé, coche sur les épisodes déjà regardés).
     @GET("api/watch-status")
     suspend fun watchStatus(): Response<WatchStatusDto>
+
+    // Préférences de compte persistées côté serveur (voir
+    // src/app/api/settings/preferences/route.ts) — écran Paramètres, section
+    // Lecture (langue audio par défaut). Même route que le desktop, PATCH
+    // fusionne côté serveur donc envoyer UserPrefsDto seul ne touche jamais
+    // les autres champs (theme/gpuTier/...) déjà enregistrés par le client
+    // web du même compte.
+    @GET("api/settings/preferences")
+    suspend fun preferences(): Response<PreferencesResponseDto>
+
+    @retrofit2.http.PATCH("api/settings/preferences")
+    suspend fun savePreferences(@Body body: UserPrefsDto): Response<PreferencesResponseDto>
+
+    // Détruit la session côté serveur (voir src/app/api/auth/logout/route.ts)
+    // en plus de vider le cookie jar local (ApiClient.clearSession) — sans
+    // cet appel, la session restait valide côté serveur (sessions.json)
+    // après une "déconnexion" purement locale.
+    @POST("api/auth/logout")
+    suspend fun logout(): Response<Map<String, Any?>>
 }

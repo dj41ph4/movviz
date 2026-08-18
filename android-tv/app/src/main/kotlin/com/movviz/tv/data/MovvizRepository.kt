@@ -166,6 +166,27 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun watchStatus(): ApiResult<WatchStatusDto> =
         safeCall { api.watchStatus() }
 
+    /** Identité du compte connecté — écran Paramètres, section Compte. Même
+     *  route que hasValidSession() mais on garde cette fois l'utilisateur
+     *  plutôt que de le jeter, car AppViewModel ne le charge sinon qu'au
+     *  login (jamais après un redémarrage sur session persistée). */
+    suspend fun me(): ApiResult<MovvizUserDto?> =
+        safeCall { api.me() }.map { it.user }
+
+    suspend fun preferences(): ApiResult<UserPrefsDto> =
+        safeCall { api.preferences() }.map { it.prefs }
+
+    suspend fun savePreferredAudioLanguage(language: String): ApiResult<UserPrefsDto> =
+        safeCall { api.savePreferences(UserPrefsDto(preferredAudioLanguage = language)) }.map { it.prefs }
+
+    /** Détruit la session côté serveur — best-effort, une erreur réseau ne
+     *  doit jamais empêcher la déconnexion locale (le cookie jar est de
+     *  toute façon vidé juste après par AppViewModel.logout, voir
+     *  ApiClient.clearSession). */
+    suspend fun logoutServer() {
+        runCatching { api.logout() }
+    }
+
     private fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
         is ApiResult.Success -> ApiResult.Success(transform(data))
         is ApiResult.Failure -> this

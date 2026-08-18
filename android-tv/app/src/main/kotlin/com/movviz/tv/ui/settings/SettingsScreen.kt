@@ -1,12 +1,21 @@
 package com.movviz.tv.ui.settings
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -18,64 +27,230 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.BuildConfig
+import com.movviz.tv.ui.theme.MovvizBrand
+import com.movviz.tv.ui.theme.MovvizDown
+import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkDim
+import com.movviz.tv.ui.theme.MovvizInkSoft
+import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
+
+/** Langue → libellé affiché — mêmes 7 valeurs que PREFERRED_AUDIO_LANGUAGES
+ *  côté serveur (src/lib/userPrefs/languages.ts), traduites une fois ici
+ *  puisque l'app TV n'a pas de système i18n (voir NavRail/LoginScreen —
+ *  chaînes françaises en dur partout). */
+private val AUDIO_LANGUAGE_LABELS = listOf(
+    "auto" to "Auto",
+    "fr" to "Français",
+    "en" to "Anglais",
+    "es" to "Espagnol",
+    "de" to "Allemand",
+    "it" to "Italien",
+    "nl" to "Néerlandais",
+)
 
 @Composable
 fun SettingsScreen(viewModel: AppViewModel, onLoggedOut: () -> Unit) {
     val serverUrl by viewModel.serverUrl.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
+    val userPrefs by viewModel.userPrefs.collectAsState()
+
+    // Chargés à l'entrée sur l'écran plutôt qu'au niveau de MainScreen — ni
+    // l'identité du compte ni les préférences de lecture ne sont utiles
+    // ailleurs (Accueil/Recherche), pas la peine de les garder à jour en
+    // permanence en arrière-plan.
+    LaunchedEffect(Unit) {
+        viewModel.loadCurrentUser()
+        viewModel.loadUserPrefs()
+    }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(start = 48.dp, top = 40.dp, end = 48.dp),
+            .verticalScroll(rememberScrollState())
+            .padding(start = 48.dp, top = 40.dp, end = 48.dp, bottom = 40.dp),
     ) {
         Text(
             text = "Paramètres",
             style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(28.dp))
 
-        Text(
-            text = "Serveur",
-            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.5f)),
-        )
-        Text(
-            text = serverUrl ?: "—",
-            style = TextStyle(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
-        )
+        SettingsSection(title = "Compte") {
+            InfoRow(label = "Utilisateur", value = currentUser?.username ?: "—")
+            Spacer(modifier = Modifier.height(10.dp))
+            Row {
+                Text(
+                    text = "Rôle",
+                    style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
+                    modifier = Modifier.width(160.dp),
+                )
+                RolePill(role = currentUser?.role)
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            InfoRow(label = "Serveur", value = serverUrl ?: "—")
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        SettingsSection(title = "Lecture") {
+            Text(
+                text = "Langue audio par défaut",
+                style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            // horizontalScroll plutôt qu'un Row nu : les 7 langues dépassent
+            // la largeur de la carte (0.72f de l'écran), et un Row sans
+            // scroll ni wrap laisse Compose écraser le dernier chip à une
+            // largeur quasi nulle — son texte finit par passer à la ligne
+            // caractère par caractère (bug confirmé en direct sur "Allemand").
+            // Même pattern que la rangée de genres de la fiche titre
+            // (TitleDetailScreen) qui déborde déjà horizontalement.
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(bottom = 2.dp),
+            ) {
+                AUDIO_LANGUAGE_LABELS.forEach { (code, label) ->
+                    LanguageChip(
+                        label = label,
+                        selected = (userPrefs?.preferredAudioLanguage ?: "auto") == code,
+                        onClick = { viewModel.setPreferredAudioLanguage(code) },
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        SettingsSection(title = "À propos") {
+            InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
+            Spacer(modifier = Modifier.height(10.dp))
+            InfoRow(label = "Application", value = "Movviz TV")
+        }
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        SettingsButton(text = "Se déconnecter") {
+        SettingsButton(text = "Se déconnecter", dangerous = true) {
             viewModel.logout()
             onLoggedOut()
         }
     }
 }
 
+/** Carte glass standard — même trio surface/bordure que le reste de l'app
+ *  (voir NavRail, StatusPill) : fond sombre translucide + liseré blanc
+ *  8-10%, jamais un aplat opaque. */
 @Composable
-private fun SettingsButton(text: String, onClick: () -> Unit) {
+private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column {
+        Text(
+            text = title.uppercase(),
+            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizBrand, letterSpacing = 1.sp),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth(0.72f)
+                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
+                .padding(horizontal = 22.dp, vertical = 20.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row {
+        Text(
+            text = label,
+            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
+            modifier = Modifier.width(160.dp),
+        )
+        Text(
+            text = value,
+            style = TextStyle(fontSize = 14.sp, color = MovvizInk),
+        )
+    }
+}
+
+@Composable
+private fun RolePill(role: String?) {
+    val (label, color) = when (role) {
+        "admin" -> "Administrateur" to MovvizOk
+        "user" -> "Utilisateur" to MovvizInkSoft
+        else -> "—" to MovvizInkDim
+    }
+    Text(
+        text = label,
+        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = color),
+        modifier = Modifier
+            .background(color.copy(alpha = 0.13f), RoundedCornerShape(50))
+            .border(1.dp, color.copy(alpha = 0.28f), RoundedCornerShape(50))
+            .padding(horizontal = 10.dp, vertical = 3.dp),
+    )
+}
+
+/** Chip de sélection focusable — même lift que les cartes posters
+ *  (tvFocusLift), l'état "sélectionné" (pas juste focusé) reprend le
+ *  dégradé de marque plein comme l'onglet actif du rail de navigation. */
+@Composable
+private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
         modifier = Modifier
-            // tvFocusLift (Theme.kt) au lieu d'un scale() isolé — même lift
-            // Apple TV que le reste de l'appli.
-            .tvFocusLift(focused, shape = shape)
+            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.06f, maxElevation = 12.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.1f), contentColor = Color.White),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (selected) MovvizBrand.copy(alpha = 0.9f) else Color.White.copy(alpha = 0.08f),
+            contentColor = if (selected) Color.White else MovvizInkSoft,
+        ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
                 border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary),
+                shape = shape,
+            ),
+        ),
+    ) {
+        Text(
+            text = label,
+            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold),
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+        )
+    }
+}
+
+@Composable
+private fun SettingsButton(text: String, dangerous: Boolean = false, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    val baseColor = if (dangerous) MovvizDown else Color.White
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .scale(if (focused) 1.05f else 1f)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = baseColor.copy(alpha = 0.12f),
+            contentColor = baseColor,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, baseColor),
                 shape = shape,
             ),
         ),

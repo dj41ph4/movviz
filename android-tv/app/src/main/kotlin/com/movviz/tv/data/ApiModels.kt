@@ -376,3 +376,20 @@ data class WatchStatusDto(
     val movies: List<Int> = emptyList(),
     val episodes: List<WatchedEpisodeDto> = emptyList(),
 )
+
+// Miroir (partiel) de UserPrefs (src/lib/userPrefs/store.ts) — la TV n'a
+// besoin que du champ qui affecte réellement la lecture, pas de gpuTier/
+// theme/libraryViewMode qui n'ont pas de sens sur ce client (TV = un seul
+// thème sombre, pas de vue liste). Le PATCH ne renvoie que ce champ, la
+// route serveur fusionne (voir saveUserPrefs, "merge only known fields") —
+// envoyer un objet partiel ne touche jamais reduceAnimations/theme/etc. des
+// autres clients (desktop/mobile) du même compte.
+@JsonClass(generateAdapter = true)
+data class UserPrefsDto(
+    val preferredAudioLanguage: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PreferencesResponseDto(
+    val prefs: UserPrefsDto = UserPrefsDto(),
+)

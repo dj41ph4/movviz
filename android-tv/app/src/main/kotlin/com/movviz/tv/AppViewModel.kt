@@ -14,6 +14,7 @@ import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.data.ServerPrefs
 import com.movviz.tv.data.SeriesSeasonDto
+import com.movviz.tv.data.UserPrefsDto
 import com.movviz.tv.data.WatchStatusDto
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -96,6 +97,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // recherche). MainActivity observe ce flag pour renvoyer au login.
     private val _sessionExpired = MutableStateFlow(false)
     val sessionExpired: StateFlow<Boolean> = _sessionExpired.asStateFlow()
+
+    // Préférences de compte persistées côté serveur (voir UserPrefsDto) —
+    // écran Paramètres, section Lecture. null = pas encore chargées.
+    private val _userPrefs = MutableStateFlow<UserPrefsDto?>(null)
+    val userPrefs: StateFlow<UserPrefsDto?> = _userPrefs.asStateFlow()
 
     fun consumeSessionExpired() {
         _sessionExpired.value = false
@@ -335,8 +341,60 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
      *  encore valide d'une session précédente. */
     suspend fun hasValidSession(): Boolean = repository?.hasValidSession() ?: false
 
+    /** Recharge l'utilisateur connecté — nécessaire après un redémarrage sur
+     *  session persistée : login() est le seul autre endroit qui remplit
+     *  currentUser, et il ne tourne jamais dans ce cas (hasValidSession()
+     *  saute directement à l'accueil). Appelé par SettingsScreen, section
+     *  Compte. */
+    fun loadCurrentUser() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val r = repo.me()) {
+                is ApiResult.Success -> if (r.data != null) _currentUser.value = r.data
+                else -> Unit
+            }
+        }
+    }
+
+    /** Charge les préférences de compte (langue audio par défaut) — écran
+     *  Paramètres, section Lecture. Best-effort comme le reste des lectures
+     *  de préférences : un échec laisse le sélecteur sur "Auto" plutôt que
+     *  de bloquer l'écran. */
+    fun loadUserPrefs() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val r = repo.preferences()) {
+                is ApiResult.Success -> _userPrefs.value = r.data
+                else -> Unit
+            }
+        }
+    }
+
+    fun setPreferredAudioLanguage(language: String) {
+        val repo = repository ?: return
+        // Optimiste — l'écran reflète le choix immédiatement (pas d'attente
+        // réseau perceptible sur un simple bouton radio), la vraie réponse
+        // serveur écrase ensuite avec la valeur confirmée.
+        _userPrefs.value = (_userPrefs.value ?: UserPrefsDto()).copy(preferredAudioLanguage = language)
+        viewModelScope.launch {
+            when (val r = repo.savePreferredAudioLanguage(language)) {
+                is ApiResult.Success -> _userPrefs.value = r.data
+                else -> Unit
+            }
+        }
+    }
+
     fun logout() {
-        com.movviz.tv.data.ApiClient.clearSession()
-        _currentUser.value = null
+        val repo = repository
+        // Best-effort côté serveur (voir MovvizRepository.logoutServer) puis
+        // nettoyage local systématique, même si l'appel serveur échoue (pas
+        // de réseau, serveur down...) — jamais bloquer la déconnexion locale
+        // sur un aller-retour réseau.
+        viewModelScope.launch {
+            repo?.logoutServer()
+            com.movviz.tv.data.ApiClient.clearSession()
+            _currentUser.value = null
+            _userPrefs.value = null
+        }
     }
 }
