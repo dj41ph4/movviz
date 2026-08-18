@@ -12,6 +12,7 @@ import com.movviz.tv.data.MovvizUserDto
 import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.data.ServerPrefs
 import com.movviz.tv.data.SeriesSeasonDto
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -163,12 +164,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun loadLibrary() {
         val repo = repository ?: return
         viewModelScope.launch {
-            when (val m = repo.movies()) {
+            // Les deux appels sont indépendants — les lancer en parallèle
+            // (async/await) plutôt qu'en séquence coupe en deux le temps
+            // avant que l'accueil affiche quoi que ce soit, notable sur un
+            // NAS/serveur distant où chaque aller-retour coûte cher.
+            val moviesDeferred = async { repo.movies() }
+            val seriesDeferred = async { repo.series() }
+            when (val m = moviesDeferred.await()) {
                 is ApiResult.Success -> _movies.value = m.data
                 ApiResult.Unauthorized -> _sessionExpired.value = true
                 is ApiResult.Failure -> Unit // best-effort — l'écran affiche une liste vide plutôt que de planter
             }
-            when (val s = repo.series()) {
+            when (val s = seriesDeferred.await()) {
                 is ApiResult.Success -> _series.value = s.data
                 ApiResult.Unauthorized -> _sessionExpired.value = true
                 is ApiResult.Failure -> Unit

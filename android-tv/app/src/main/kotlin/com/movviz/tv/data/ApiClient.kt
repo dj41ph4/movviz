@@ -23,10 +23,12 @@ import java.util.concurrent.TimeUnit
  */
 object ApiClient {
     private lateinit var cookieJar: PersistentCookieJar
+    private var debuggable: Boolean = false
 
     fun initialize(context: Context) {
         if (::cookieJar.isInitialized) return
         cookieJar = PersistentCookieJar(context)
+        debuggable = (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
     }
 
     private val okHttpClient: OkHttpClient by lazy {
@@ -34,13 +36,21 @@ object ApiClient {
             .cookieJar(cookieJar)
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
-            .addInterceptor(
-                HttpLoggingInterceptor().apply {
-                    // BASIC seulement : ne jamais logguer le corps des requêtes
-                    // (identifiants en clair dans /api/auth/login).
-                    level = HttpLoggingInterceptor.Level.BASIC
+            .apply {
+                // L'interception + la construction des lignes de log a un coût
+                // réel sur CHAQUE requête (flux vidéo compris, en polling
+                // toutes les 500ms côté lecteur) — inutile de le payer sur un
+                // boîtier TV en production, seulement utile en debug local.
+                if (debuggable) {
+                    addInterceptor(
+                        HttpLoggingInterceptor().apply {
+                            // BASIC seulement : ne jamais logguer le corps des requêtes
+                            // (identifiants en clair dans /api/auth/login).
+                            level = HttpLoggingInterceptor.Level.BASIC
+                        }
+                    )
                 }
-            )
+            }
             .build()
     }
 
