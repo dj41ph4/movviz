@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -23,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 
 @Composable
@@ -66,7 +66,9 @@ private fun SettingsButton(text: String, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .scale(if (focused) 1.05f else 1f)
+            // tvFocusLift (Theme.kt) au lieu d'un scale() isolé — même lift
+            // Apple TV que le reste de l'appli.
+            .tvFocusLift(focused, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

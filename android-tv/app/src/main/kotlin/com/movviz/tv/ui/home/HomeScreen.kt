@@ -438,7 +438,11 @@ private fun HeroCarousel(
                     onClick = { onOpen(current) },
                     modifier = Modifier
                         .focusRequester(ctaFocusRequester)
-                        .scale(if (focused) 1.06f else 1f)
+                        // tvFocusLift (Theme.kt) plutôt qu'un scale() isolé —
+                        // même lift Apple TV (scale + ombre) que toute autre
+                        // carte/bouton focusable de l'appli ; c'était le
+                        // dernier CTA à n'avoir qu'un zoom plat sans ombre.
+                        .tvFocusLift(focused, shape = RoundedCornerShape(50))
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
                     // rounded-full (pill), pas un simple rectangle arrondi —

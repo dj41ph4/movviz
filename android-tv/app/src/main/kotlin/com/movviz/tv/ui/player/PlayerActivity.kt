@@ -37,7 +37,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -83,6 +82,7 @@ import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizSurface
 import com.movviz.tv.ui.theme.MovvizTvTheme
+import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -934,7 +934,11 @@ private fun ControlButton(
         modifier = Modifier
             .size(size)
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .scale(if (focused) 1.12f else 1f)
+            // tvFocusLift (Theme.kt) au lieu d'un scale() isolé — même lift
+            // "profondeur" que les cartes posters, maxScale un peu plus
+            // marqué (1.12) : un petit bouton rond a besoin d'un delta plus
+            // visible qu'une grande carte pour rester lisible au focus.
+            .tvFocusLift(focused, shape = CircleShape, maxScale = 1.12f)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),

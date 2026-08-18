@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -38,6 +37,7 @@ import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizWordmark
+import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.launch
 
@@ -215,11 +215,12 @@ fun GradientButton(text: String, enabled: Boolean = true, focusRequester: FocusR
         modifier = Modifier
             .fillMaxWidth()
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            // tvFocusLift (Theme.kt) avant le .background() : l'ombre portée
+            // du lift doit apparaître SOUS le dégradé, pas par-dessus — même
+            // pattern que le reste de l'appli, plus le simple scale() isolé
+            // d'avant qui ne donnait aucune impression de profondeur.
+            .tvFocusLift(focused, shape = shape)
             .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
-            // Manquait ici alors que tous les autres boutons focusables
-            // (PrimaryPill, SettingsButton, ControlButton) grossissent au
-            // focus — même état de focus "scale + bordure" partout.
-            .scale(if (focused) 1.06f else 1f)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
