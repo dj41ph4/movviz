@@ -122,6 +122,17 @@ class MovvizRepository(private val baseUrl: String) {
         return (durationMs * match.progressPercent) / 100
     }
 
+    /** Déclenche une recherche indexeurs manuelle pour un film déjà en
+     *  bibliothèque (ex: statut "missing"/"searching" bloqué). Réponse
+     *  immédiate côté serveur, le vrai grab tourne en tâche de fond — voir
+     *  SearchTriggerResponseDto. Pas encore branché à l'UI, pour l'agent
+     *  découverte/téléchargement. */
+    suspend fun searchMovieNow(libraryId: String): ApiResult<Unit> =
+        safeCall { api.searchMovieNow(libraryId) }.map { }
+
+    suspend fun searchSeriesNow(libraryId: String): ApiResult<Unit> =
+        safeCall { api.searchSeriesNow(libraryId) }.map { }
+
     private fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
         is ApiResult.Success -> ApiResult.Success(transform(data))
         is ApiResult.Failure -> this

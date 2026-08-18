@@ -9,6 +9,19 @@ import com.squareup.moshi.JsonClass
 // JSON serveur non déclarés ici, donc rien ne casse si le serveur en
 // renvoie davantage.
 
+// Bug corrigé (audit contrat Plex/TV) : plexRatingKey était déclaré à
+// l'intérieur de LibraryFileDto (imbriqué dans "file"), calqué sur le nom
+// mais pas sur la vraie forme JSON. Le vrai LibraryFile (src/lib/library/types.ts,
+// ligne ~32) n'a JAMAIS de champ plexRatingKey — c'est un champ séparé au
+// niveau racine de LibraryMovie (ligne ~119 : "Plex library item id — set by
+// the Plex library sync"). Résultat : LibraryMovieDto.file?.plexRatingKey
+// désérialisait toujours à null (String? nullable, donc pas de crash Moshi,
+// juste une valeur silencieusement fausse), ce qui cassait
+// AppViewModel.libraryPlexRatingKey() pour TOUS les films — plus aucun film
+// ne pouvait démarrer la lecture côté TV. Confirmé en lisant
+// src/app/api/library/movies/route.ts : "movies: all.map(m => ({...m,
+// plexUrl}))" — m est LibraryMovie tel quel, plexRatingKey est bien un
+// champ frère de "file", pas un enfant.
 @JsonClass(generateAdapter = true)
 data class LibraryMovieDto(
     val id: String,
@@ -22,6 +35,7 @@ data class LibraryMovieDto(
     val genres: List<String> = emptyList(),
     val status: String,
     val file: LibraryFileDto?,
+    val plexRatingKey: String? = null,
 )
 
 // status absent du DTO volontairement : contrairement aux films, l'API ne
@@ -216,4 +230,20 @@ data class OnDeckEntryDto(
 @JsonClass(generateAdapter = true)
 data class OnDeckResponseDto(
     val items: List<OnDeckEntryDto> = emptyList(),
+)
+
+// Réponse de POST /api/library/movies/{id}/search et
+// POST /api/library/series/{id}/search (src/app/api/library/movies/[id]/search/route.ts,
+// src/app/api/library/series/[id]/search/route.ts) — déclenche manuellement
+// une recherche indexeurs + grab automatique pour un titre déjà en
+// bibliothèque (ex: statut "missing" ou pour forcer une nouvelle recherche).
+// Réponse immédiate ({"queued": true}), le vrai travail est mis en file
+// d'attente côté serveur — le statut du titre (déjà exposé via
+// LibraryMovieDto.status / SeriesEpisodeDto.status) passe à "searching" puis
+// "available" au fil du polling normal de la bibliothèque, pas besoin de
+// suivre ce job explicitement. Pas encore branché à l'UI TV — prévu pour
+// l'écran de découverte/téléchargement.
+@JsonClass(generateAdapter = true)
+data class SearchTriggerResponseDto(
+    val queued: Boolean = false,
 )

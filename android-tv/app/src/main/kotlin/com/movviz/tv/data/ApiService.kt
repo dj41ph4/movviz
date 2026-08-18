@@ -63,4 +63,13 @@ interface MovvizApiService {
 
     @GET("api/plex/on-deck")
     suspend fun onDeck(): Response<OnDeckResponseDto>
+
+    // Recherche manuelle "maintenant" pour un titre déjà en bibliothèque —
+    // voir SearchTriggerResponseDto. Pas encore branché à l'UI TV, disponible
+    // pour l'écran de découverte/téléchargement.
+    @POST("api/library/movies/{id}/search")
+    suspend fun searchMovieNow(@Path("id") libraryId: String): Response<SearchTriggerResponseDto>
+
+    @POST("api/library/series/{id}/search")
+    suspend fun searchSeriesNow(@Path("id") libraryId: String): Response<SearchTriggerResponseDto>
 }
