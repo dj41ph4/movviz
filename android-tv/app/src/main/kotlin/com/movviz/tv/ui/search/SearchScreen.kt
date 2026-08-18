@@ -9,7 +9,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -83,9 +82,17 @@ fun SearchScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: In
                 text = "Aucun résultat pour « $query »",
                 style = TextStyle(fontSize = 14.sp, color = MovvizInkDim),
             )
+            // FixedSize(112.dp) plutôt que Fixed(6) : Fixed(6) donnait des
+            // cartes ~92dp (mesuré : 720dp de contenu / 6 colonnes moins
+            // padding/gaps) contre 112dp partout ailleurs (TitleRow/
+            // PosterCard sur l'accueil) — même cible de densité "Standard"
+            // (~5-7 visibles, poster ~180-220px physiques) que les rangées
+            // de l'accueil, colonnes calculées automatiquement selon la
+            // largeur dispo au lieu d'un compte fixe qui dérive de la taille
+            // cible dès que la largeur d'écran change.
             results.isNotEmpty() -> TvLazyVerticalGrid(
-                columns = TvGridCells.Fixed(6),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                columns = TvGridCells.FixedSize(112.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
