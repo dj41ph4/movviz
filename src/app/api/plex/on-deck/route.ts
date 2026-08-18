@@ -15,6 +15,12 @@ export interface OnDeckEntry {
   year: number | null;
   rating: number;
   progressPercent: number;
+  /** Position exacte de reprise en ms (viewOffset Plex brut) — le client
+   *  Android TV s'en sert directement plutôt que de reconstituer un offset
+   *  approximatif à partir de progressPercent × durée (voir
+   *  MovvizRepository.resumeOffsetMs côté android-tv). progressPercent reste
+   *  exposé pour les usages existants (barres de progression web). */
+  offsetMs: number;
   seasonNumber?: number;
   episodeNumber?: number;
   episodeTitle?: string;
@@ -76,6 +82,7 @@ export async function GET(req: NextRequest) {
         year: movie.year,
         rating: movie.rating,
         progressPercent,
+        offsetMs: d.viewOffset,
       });
     } else {
       const found = findEpisodeByPlexRatingKey(d.ratingKey);
@@ -88,6 +95,7 @@ export async function GET(req: NextRequest) {
         year: found.series.year,
         rating: found.series.rating,
         progressPercent,
+        offsetMs: d.viewOffset,
         seasonNumber: found.season.seasonNumber,
         episodeNumber: found.episode.episodeNumber,
         episodeTitle: found.episode.title,

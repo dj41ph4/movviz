@@ -95,13 +95,14 @@ class MovvizRepository(private val baseUrl: String) {
         runCatching { api.streamStop(plexRatingKey) }
     }
 
-    /** Position de reprise approximative (ms) — voir OnDeckEntryDto : l'API
-     *  ne renvoie qu'un progressPercent déjà arrondi, pas d'offset direct
-     *  par ratingKey. On retrouve l'entrée par tmdbId (+ saison/épisode pour
-     *  une série) puis on l'applique à la durée réelle (obtenue séparément
-     *  via streamInfo). Retourne null si rien à reprendre (< 2%, jamais
-     *  commencé, ou terminé à plus de 95% — pas la peine de "reprendre" un
-     *  film déjà fini). */
+    /** Position de reprise (ms) — l'entrée on-deck expose désormais offsetMs
+     *  (viewOffset Plex brut, exact) en plus de progressPercent, donc plus
+     *  besoin de reconstituer un offset approximatif à partir du pourcentage
+     *  et de la durée réelle obtenue via streamInfo. durationMs (optionnel)
+     *  ne sert plus qu'à ignorer une reprise aberrante (offset ≥ durée,
+     *  fichier remplacé entre-temps par exemple). Retourne null si rien à
+     *  reprendre (< 2%, jamais commencé, ou terminé à plus de 95% — pas la
+     *  peine de "reprendre" un film déjà fini). */
     suspend fun resumeOffsetMs(
         type: String,
         tmdbId: Int,
@@ -109,7 +110,6 @@ class MovvizRepository(private val baseUrl: String) {
         seasonNumber: Int? = null,
         episodeNumber: Int? = null,
     ): Long? {
-        if (durationMs == null || durationMs <= 0) return null
         val result = safeCall { api.onDeck() }
         val items = (result as? ApiResult.Success)?.data?.items ?: return null
         val match = items.firstOrNull { entry ->
@@ -119,7 +119,9 @@ class MovvizRepository(private val baseUrl: String) {
                         entry.seasonNumber == seasonNumber && entry.episodeNumber == episodeNumber)
         } ?: return null
         if (match.progressPercent < 2 || match.progressPercent > 95) return null
-        return (durationMs * match.progressPercent) / 100
+        if (match.offsetMs <= 0) return null
+        if (durationMs != null && durationMs > 0 && match.offsetMs >= durationMs) return null
+        return match.offsetMs
     }
 
     private fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {

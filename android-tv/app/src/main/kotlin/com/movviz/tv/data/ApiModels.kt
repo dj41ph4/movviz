@@ -198,17 +198,17 @@ data class ProgressRequest(
     val state: String,
 )
 
-// Miroir de OnDeckEntry (src/app/api/plex/on-deck/route.ts) — sert
-// uniquement à retrouver un pourcentage de progression approximatif pour la
-// reprise de lecture (l'API ne renvoie pas de ratingKey ni d'offset en ms,
-// seulement un progressPercent déjà calculé côté serveur ; combiné à la
-// durée réelle obtenue via /info, ça suffit à reprendre au bon endroit sans
-// route serveur supplémentaire — voir MovvizRepository.resumeOffsetMs).
+// Miroir de OnDeckEntry (src/app/api/plex/on-deck/route.ts) — sert à
+// retrouver la position de reprise pour la lecture. offsetMs est le
+// viewOffset Plex brut (exact, en ms) ; progressPercent reste présent en
+// repli pour compatibilité mais n'est plus utilisé côté Android depuis que
+// le serveur expose offsetMs directement (voir MovvizRepository.resumeOffsetMs).
 @JsonClass(generateAdapter = true)
 data class OnDeckEntryDto(
     val type: String,
     val tmdbId: Int,
     val progressPercent: Int = 0,
+    val offsetMs: Long = 0L,
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
 )
