@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.0 — August 2026
+
+### Nouveau : client Android TV
+
+- **Premier client natif Movviz** pour Android TV / Fire TV (télécommande, clavier et souris tous pris en charge) : connexion à un serveur Movviz existant, bibliothèque Films/Séries, fiche titre, lecture des épisodes, recherche, réglages — se télécharge en APK depuis les Releases GitHub, à côté de l'installeur Windows.
+- Session conservée entre les lancements, comme sur Plex ou Netflix — plus besoin de se reconnecter à chaque fois.
+
 ## v1.15.17 — August 2026
 
 ### Correctif : une simple interpellation prise pour un titre de film
