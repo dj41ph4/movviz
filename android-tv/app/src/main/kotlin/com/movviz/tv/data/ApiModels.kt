@@ -24,6 +24,15 @@ data class LibraryMovieDto(
     val file: LibraryFileDto?,
 )
 
+// status absent du DTO volontairement : contrairement aux films, l'API ne
+// renvoie jamais de champ "status" au niveau série (voir LibrarySeries dans
+// src/lib/library/types.ts — seul "tvStatus" existe, un statut TMDb/TVDB
+// global, différent). Le statut affiché côté desktop est calculé à partir
+// des épisodes (overallSeriesStatus() dans TitleContent.tsx), jamais envoyé
+// tel quel. Le décrire ici comme obligatoire faisait planter l'app avec un
+// JsonDataException dès qu'une vraie bibliothèque contenait une série sans
+// ce champ (confirmé en direct : "Required value 'status' missing at
+// $.series[1]").
 @JsonClass(generateAdapter = true)
 data class LibrarySeriesDto(
     val id: String,
@@ -35,7 +44,6 @@ data class LibrarySeriesDto(
     val backdropPath: String?,
     val rating: Double,
     val genres: List<String> = emptyList(),
-    val status: String,
 )
 
 @JsonClass(generateAdapter = true)
