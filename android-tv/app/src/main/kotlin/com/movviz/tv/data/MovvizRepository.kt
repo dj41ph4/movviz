@@ -98,6 +98,15 @@ class MovvizRepository(private val baseUrl: String) {
      *  s'applique automatiquement (même OkHttpClient/CookieJar partagé). */
     fun streamUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey"
 
+    /** URL de repli quand le direct-play échoue (codec non décodable
+     *  nativement par ExoPlayer) — démarre une session de transcodage Plex
+     *  côté serveur et renvoie un manifeste HLS (.m3u8). tv=1&ta=1 = le
+     *  serveur ré-encode vidéo ET audio dans un format universellement lisible
+     *  (h264/aac), le repli le plus sûr possible (voir transcode/route.ts —
+     *  ne PAS toucher cette route, elle contient déjà toute la logique de
+     *  décision copy/transcode). */
+    fun transcodeUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey/transcode?tv=1&ta=1"
+
     suspend fun streamInfo(plexRatingKey: String): ApiResult<StreamInfoDto> =
         safeCall { api.streamInfo(plexRatingKey) }
 
