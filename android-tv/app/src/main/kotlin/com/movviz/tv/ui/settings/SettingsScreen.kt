@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.ui.theme.tvPointerClick
 
 @Composable
 fun SettingsScreen(viewModel: AppViewModel, onLoggedOut: () -> Unit) {
@@ -66,7 +67,8 @@ private fun SettingsButton(text: String, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier
             .scale(if (focused) 1.05f else 1f)
-            .onFocusChanged { focused = it.isFocused },
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.1f), contentColor = Color.White),
         border = ClickableSurfaceDefaults.border(

@@ -18,6 +18,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.tv.ui.theme.AnimatedLogo
+import com.movviz.tv.ui.theme.tvPointerClick
 
 enum class HomeTab(val label: String, val glyph: String) {
     HOME("Accueil", "⌂"),
@@ -71,7 +72,8 @@ private fun RailItem(tab: HomeTab, active: Boolean, expanded: Boolean, onFocusCh
             .onFocusChanged {
                 focused = it.isFocused
                 onFocusChange(it.isFocused)
-            },
+            }
+            .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = when {

@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -24,13 +26,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.itemsIndexed
 import androidx.tv.material3.Border
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.ui.theme.tvPointerClick
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
 private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original"
@@ -70,6 +73,20 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
         (recentMovies + recentSeries).firstOrNull { it.backdropPath != null }?.backdropPath
     }
 
+    // Focus initial explicite sur la toute première carte poster — pas de
+    // LaunchedEffect(Unit) ici car les rangées se peuplent après la réponse
+    // réseau de loadLibrary() : on attend que la première rangée existe
+    // réellement, une seule fois (hasRequestedInitialFocus), pour ne jamais
+    // voler le focus à l'utilisateur lors d'un rafraîchissement ultérieur.
+    val firstCardFocus = remember { FocusRequester() }
+    var hasRequestedInitialFocus by remember { mutableStateOf(false) }
+    LaunchedEffect(recentMovies, recentSeries) {
+        if (!hasRequestedInitialFocus && (recentMovies.isNotEmpty() || recentSeries.isNotEmpty())) {
+            hasRequestedInitialFocus = true
+            firstCardFocus.requestFocus()
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         if (heroBackdrop != null) {
             HeroBackdrop(backdropPath = heroBackdrop)
@@ -93,6 +110,7 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
                         heading = "Films",
                         items = recentMovies,
                         onClick = { card -> onOpenTitle("movie", card.tmdbId) },
+                        firstItemFocusRequester = firstCardFocus,
                     )
                 }
             }
@@ -103,6 +121,10 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
                         heading = "Séries",
                         items = recentSeries,
                         onClick = { card -> onOpenTitle("series", card.tmdbId) },
+                        // La rangée Films passe déjà le requester si elle
+                        // existe — seule la toute première rangée réelle
+                        // (Séries si aucun film) doit recevoir le focus initial.
+                        firstItemFocusRequester = if (recentMovies.isEmpty()) firstCardFocus else null,
                     )
                 }
             }
@@ -162,7 +184,12 @@ private fun HeroBackdrop(backdropPath: String) {
 }
 
 @Composable
-private fun TitleRow(heading: String, items: List<TvTitleCard>, onClick: (TvTitleCard) -> Unit) {
+private fun TitleRow(
+    heading: String,
+    items: List<TvTitleCard>,
+    onClick: (TvTitleCard) -> Unit,
+    firstItemFocusRequester: FocusRequester? = null,
+) {
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = heading,
@@ -173,8 +200,12 @@ private fun TitleRow(heading: String, items: List<TvTitleCard>, onClick: (TvTitl
             contentPadding = PaddingValues(horizontal = 48.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            items(items, key = { it.id }) { card ->
-                PosterCard(card = card, onClick = { onClick(card) })
+            itemsIndexed(items, key = { _, item -> item.id }) { index, card ->
+                PosterCard(
+                    card = card,
+                    onClick = { onClick(card) },
+                    focusRequester = if (index == 0) firstItemFocusRequester else null,
+                )
             }
         }
     }
@@ -183,21 +214,24 @@ private fun TitleRow(heading: String, items: List<TvTitleCard>, onClick: (TvTitl
 /** Carte poster — l'effet "focus" central du 10-foot UI : agrandissement +
  *  liseré au dégradé de marque quand la carte prend le focus D-pad. */
 @Composable
-private fun PosterCard(card: TvTitleCard, onClick: () -> Unit) {
+private fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
 
     Column(modifier = Modifier.width(140.dp)) {
-        // Surface (tv-material3) gère nativement le focus D-pad + le clic
-        // OK — c'est ce qui rend la carte réellement navigable, contrairement
-        // à un simple Box/Column avec juste onFocusChanged.
+        // Surface (tv-material3) gère nativement le focus D-pad + le clic OK,
+        // mais PAS le clic souris/tactile (confirmé : un tap synthétique sur
+        // l'émulateur ne déclenchait rien) — tvPointerClick comble ce trou
+        // sans dupliquer le déclenchement côté D-pad (voir Theme.kt).
         Surface(
             onClick = onClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 .scale(if (focused) 1.12f else 1f)
-                .onFocusChanged { focused = it.isFocused },
+                .onFocusChanged { focused = it.isFocused }
+                .tvPointerClick(onClick),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1D1D2B)),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(

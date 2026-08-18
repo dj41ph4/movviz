@@ -112,6 +112,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Lecture directe (bloquante côté coroutine) de l'URL persistée, à
+     * utiliser pour la décision d'écran de départ. `serverUrl.first()` sur
+     * un StateFlow renvoie la valeur COURANTE sans attendre — si on
+     * l'appelle avant que le init{} ci-dessus ait fini de lire le
+     * DataStore, on récupère `null` alors qu'une URL valide existe bel et
+     * bien, et l'utilisateur retombe sur le wizard alors qu'il est déjà
+     * configuré (bug confirmé : reproductible après un force-stop, la
+     * connexion venait pourtant de réussir). Cette fonction lit le
+     * DataStore lui-même, sans dépendre du timing du init{}.
+     */
+    suspend fun loadPersistedServerUrl(): String? {
+        val url = prefs.serverUrl.first()
+        _serverUrl.value = url
+        return url
+    }
+
     /** Étape 1 du wizard — teste la connexion AVANT de sauvegarder l'URL,
      *  pour ne jamais coincer l'utilisateur sur une IP fausse au prochain
      *  lancement. */

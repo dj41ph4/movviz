@@ -28,7 +28,6 @@ import com.movviz.tv.ui.player.PlayerActivity
 import com.movviz.tv.ui.theme.MovvizTvTheme
 import com.movviz.tv.ui.title.TitleDetailScreen
 import com.movviz.tv.ui.wizard.WizardScreen
-import kotlinx.coroutines.flow.first
 
 private const val ROUTE_WIZARD = "wizard"
 private const val ROUTE_LOGIN = "login"
@@ -62,7 +61,13 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // login tant que la session tient.
     var startDestination by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
-        val url = viewModel.serverUrl.first()
+        // viewModel.serverUrl.first() renverrait la valeur COURANTE du
+        // StateFlow sans attendre — potentiellement `null` si le init{} du
+        // ViewModel n'a pas fini de lire le DataStore (course confirmée en
+        // testant : wizard réaffiché après un force-stop alors que l'URL
+        // venait d'être sauvegardée avec succès). loadPersistedServerUrl()
+        // lit le DataStore lui-même, pas de course possible.
+        val url = viewModel.loadPersistedServerUrl()
         startDestination = when {
             url == null -> ROUTE_WIZARD
             viewModel.hasValidSession() -> ROUTE_HOME

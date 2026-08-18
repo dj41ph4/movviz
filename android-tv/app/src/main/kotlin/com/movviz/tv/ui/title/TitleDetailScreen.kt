@@ -40,6 +40,7 @@ import com.movviz.tv.data.SeriesEpisodeDto
 import com.movviz.tv.data.SeriesSeasonDto
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.launch
 
 private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original"
@@ -300,7 +301,8 @@ private fun EpisodeChip(episode: SeriesEpisodeDto, onClick: () -> Unit) {
         modifier = Modifier
             .width(160.dp)
             .scale(if (focused && available) 1.06f else 1f)
-            .onFocusChanged { focused = it.isFocused },
+            .onFocusChanged { focused = it.isFocused }
+            .let { if (available) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.White.copy(alpha = if (available) 0.08f else 0.04f),
@@ -356,7 +358,8 @@ private fun PrimaryPill(
         modifier = Modifier
             .let { if (brush != null) it.background(brush, shape) else it }
             .scale(if (focused && enabled) 1.06f else 1f)
-            .onFocusChanged { focused = it.isFocused },
+            .onFocusChanged { focused = it.isFocused }
+            .let { if (enabled) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = if (brush != null) Color.Transparent else if (solidWhite) Color.White else Color.White.copy(alpha = 0.1f),

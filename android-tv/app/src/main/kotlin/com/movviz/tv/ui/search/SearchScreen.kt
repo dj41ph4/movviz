@@ -30,6 +30,7 @@ import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.SearchResultDto
+import com.movviz.tv.ui.theme.tvPointerClick
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
 
@@ -133,7 +134,8 @@ private fun SearchResultCard(result: SearchResultDto, onClick: () -> Unit) {
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .scale(if (focused) 1.08f else 1f)
-                .onFocusChanged { focused = it.isFocused },
+                .onFocusChanged { focused = it.isFocused }
+                .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(shape = shape),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1D1D2B)),
             border = ClickableSurfaceDefaults.border(
