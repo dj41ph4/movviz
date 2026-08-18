@@ -46,6 +46,7 @@ dependencies {
     implementation(libs.compose.ui)
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material.icons.core)
 
     // Compose for TV — composants focus-first (TvLazyRow, Carousel, gestion
     // D-pad native) plutôt que le vieux Leanback (View-based, legacy).

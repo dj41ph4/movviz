@@ -44,6 +44,7 @@ private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
 @Composable
 fun SearchScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int) -> Unit) {
     var query by remember { mutableStateOf("") }
+    var hasSearched by remember { mutableStateOf(false) }
     val results by viewModel.searchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
 
@@ -62,7 +63,7 @@ fun SearchScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: In
         SearchField(
             value = query,
             onValueChange = { query = it },
-            onSearch = { viewModel.search(query) },
+            onSearch = { hasSearched = true; viewModel.search(query) },
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -72,7 +73,7 @@ fun SearchScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: In
                 text = "Recherche…",
                 style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f)),
             )
-            results.isEmpty() && query.isNotBlank() -> Text(
+            hasSearched && results.isEmpty() -> Text(
                 text = "Aucun résultat pour « $query »",
                 style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f)),
             )

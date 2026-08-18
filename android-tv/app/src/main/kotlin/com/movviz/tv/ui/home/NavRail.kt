@@ -1,29 +1,43 @@
 package com.movviz.tv.ui.home
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.tv.ui.theme.AnimatedLogo
+import com.movviz.tv.ui.theme.MovvizBrand
+import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.tvPointerClick
 
-enum class HomeTab(val label: String, val glyph: String) {
-    HOME("Accueil", "⌂"),
-    SEARCH("Recherche", "🔍"),
-    SETTINGS("Paramètres", "⚙"),
+enum class HomeTab(val label: String, val icon: ImageVector) {
+    HOME("Accueil", Icons.Filled.Home),
+    SEARCH("Recherche", Icons.Filled.Search),
+    SETTINGS("Paramètres", Icons.Filled.Settings),
 }
 
 /**
@@ -36,17 +50,32 @@ enum class HomeTab(val label: String, val glyph: String) {
 @Composable
 fun NavRail(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
     var railFocused by remember { mutableStateOf(false) }
+    val width by animateDpAsState(
+        targetValue = if (railFocused) 224.dp else 96.dp,
+        animationSpec = tween(220),
+        label = "navRailWidth",
+    )
 
+    // Glass léger avec bordure droite subtile — même trio surface/bordure que
+    // les panneaux desktop (voir "glass" dans CLAUDE.md), pas un aplat noir.
     Column(
         modifier = Modifier
             .fillMaxHeight()
-            .width(if (railFocused) 220.dp else 88.dp)
-            .background(Color.Black.copy(alpha = 0.35f))
-            .padding(vertical = 24.dp, horizontal = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+            .width(width)
+            .background(Color(0xFF0E0E18).copy(alpha = 0.72f))
+            .drawBehind {
+                drawLine(
+                    color = Color.White.copy(alpha = 0.08f),
+                    start = androidx.compose.ui.geometry.Offset(size.width, 0f),
+                    end = androidx.compose.ui.geometry.Offset(size.width, size.height),
+                    strokeWidth = 1.dp.toPx(),
+                )
+            }
+            .padding(vertical = 28.dp, horizontal = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Box(modifier = Modifier.padding(bottom = 24.dp, start = 8.dp)) {
-            AnimatedLogo(size = 26.dp)
+        Box(modifier = Modifier.padding(bottom = 28.dp, start = 6.dp)) {
+            AnimatedLogo(size = 30.dp)
         }
         HomeTab.entries.forEach { tab ->
             RailItem(
@@ -63,7 +92,8 @@ fun NavRail(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
 @Composable
 private fun RailItem(tab: HomeTab, active: Boolean, expanded: Boolean, onFocusChange: (Boolean) -> Unit, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(14.dp)
+    val brandGradient = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))
 
     Surface(
         onClick = onClick,
@@ -77,23 +107,34 @@ private fun RailItem(tab: HomeTab, active: Boolean, expanded: Boolean, onFocusCh
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = when {
-                focused -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
-                active -> Color.White.copy(alpha = 0.12f)
+                focused -> Color.Transparent
+                active -> Color.White.copy(alpha = 0.08f)
                 else -> Color.Transparent
             },
-            contentColor = Color.White,
+            contentColor = if (active) MovvizInk else MovvizInkDim,
         ),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            modifier = Modifier
+                .let { if (focused) it.background(brandGradient, shape) else it }
+                .padding(horizontal = 14.dp, vertical = 13.dp),
         ) {
-            Text(text = tab.glyph, style = TextStyle(fontSize = 18.sp))
+            Image(
+                imageVector = tab.icon,
+                contentDescription = tab.label,
+                colorFilter = ColorFilter.tint(if (focused) Color.White else if (active) MovvizInk else MovvizInkDim),
+                modifier = Modifier.size(20.dp),
+            )
             if (expanded) {
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
                 Text(
                     text = tab.label,
-                    style = TextStyle(fontSize = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Normal),
+                    style = TextStyle(
+                        fontSize = 14.sp,
+                        fontWeight = if (active || focused) FontWeight.Bold else FontWeight.Medium,
+                        color = if (focused) Color.White else if (active) MovvizInk else MovvizInkDim,
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
