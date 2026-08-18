@@ -157,6 +157,12 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                         PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex),
                     )
                 },
+                // Rangée "Titres similaires" — pousse une nouvelle fiche sur
+                // la pile de nav (même écran, nouveau tmdbId), exactement
+                // comme un clic sur une carte de l'accueil.
+                onOpenTitle = { newType, newTmdbId ->
+                    navController.navigate(detailRoute(newType, newTmdbId))
+                },
             )
         }
     }
