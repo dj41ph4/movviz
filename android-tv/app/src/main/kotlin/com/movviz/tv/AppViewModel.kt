@@ -9,6 +9,8 @@ import com.movviz.tv.data.LibrarySeriesDto
 import com.movviz.tv.data.MetaDetailDto
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.MovvizUserDto
+import com.movviz.tv.data.OnDeckEntryDto
+import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.data.ServerPrefs
 import com.movviz.tv.data.SeriesSeasonDto
@@ -53,6 +55,30 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _searching = MutableStateFlow(false)
     val searching: StateFlow<Boolean> = _searching.asStateFlow()
+
+    // File de téléchargement en cours (moteur BitTorrent intégré) — le cœur
+    // de Movviz n'est pas que la lecture mais aussi le téléchargement, donc
+    // l'accueil TV affiche cette file au même titre que les rangées Films
+    // /Séries plutôt que de la reléguer à un écran caché.
+    private val _queue = MutableStateFlow<List<QueueItemDto>>(emptyList())
+    val queue: StateFlow<List<QueueItemDto>> = _queue.asStateFlow()
+
+    // Découverte — titres TMDb tendance pas encore ajoutés à la bibliothèque,
+    // pour la rangée "Découverte" de l'accueil. Chargés séparément
+    // films/séries puis filtrés contre movies/series une fois affichés (voir
+    // HomeScreen), pour rester à jour dès qu'un ajout réussit sans refaire
+    // d'appel réseau.
+    private val _trendingMovies = MutableStateFlow<List<SearchResultDto>>(emptyList())
+    val trendingMovies: StateFlow<List<SearchResultDto>> = _trendingMovies.asStateFlow()
+
+    private val _trendingSeries = MutableStateFlow<List<SearchResultDto>>(emptyList())
+    val trendingSeries: StateFlow<List<SearchResultDto>> = _trendingSeries.asStateFlow()
+
+    // Rangée "Continuer à regarder" de l'accueil — ordre Netflix (Continuer
+    // → Bibliothèque → Découverte). Réutilise le même /api/plex/on-deck que
+    // resumeOffsetMs, mais garde la liste entière plutôt qu'une seule entrée.
+    private val _continueWatching = MutableStateFlow<List<OnDeckEntryDto>>(emptyList())
+    val continueWatching: StateFlow<List<OnDeckEntryDto>> = _continueWatching.asStateFlow()
 
     // Signal générique "la session a expiré/est invalide" — un 401 en cours
     // d'usage (pas au lancement) ne doit jamais se traduire par un écran
@@ -172,6 +198,69 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 is ApiResult.Success -> _series.value = s.data
                 ApiResult.Unauthorized -> _sessionExpired.value = true
                 is ApiResult.Failure -> Unit
+            }
+        }
+    }
+
+    /** Rafraîchit la file de téléchargement — appelée en boucle par
+     *  HomeScreen (voir polling côté QueueTab desktop) tant que l'accueil
+     *  est affiché. Best-effort : un échec ponctuel laisse la dernière
+     *  liste connue plutôt que de la vider. */
+    fun loadQueue() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val q = repo.queue()) {
+                // Comme DownloadQueue.tsx côté desktop : "completed"/"seeding"
+                // ne sont plus des téléchargements EN COURS, ce sont des
+                // torrents finis qui traînent encore côté moteur en attendant
+                // leur tour de nettoyage/partage — ils rejoignent l'historique,
+                // pas cette rangée. Sans ce filtre, la rangée affiche des
+                // dizaines d'entrées déjà terminées (confirmé en direct sur
+                // la vraie file de prod) au lieu des seuls téléchargements
+                // réellement actifs.
+                is ApiResult.Success -> _queue.value = q.data.filter {
+                    it.status != "completed" && it.status != "seeding"
+                }
+                ApiResult.Unauthorized -> _sessionExpired.value = true
+                is ApiResult.Failure -> Unit
+            }
+        }
+    }
+
+    /** Rangée "Continuer à regarder" — chargée une fois par entrée sur
+     *  l'accueil, comme la bibliothèque (pas de polling seconde par
+     *  seconde, contrairement à la file de téléchargement). */
+    fun loadContinueWatching() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val r = repo.onDeckItems()) {
+                is ApiResult.Success -> _continueWatching.value = r.data
+                else -> Unit
+            }
+        }
+    }
+
+    /** Statut brut du film (voir LibraryStatus côté serveur : upcoming/
+     *  missing/searching/downloading/available) — pour afficher un état réel
+     *  sur la fiche titre plutôt que le texte générique "En attente de
+     *  synchronisation" affiché jusqu'ici pour toute variante autre que
+     *  "fichier prêt" ou "pas encore ajouté". */
+    fun libraryMovieStatus(tmdbId: Int): String? =
+        _movies.value.firstOrNull { it.tmdbId == tmdbId }?.status
+
+    /** Charge les tendances TMDb film + série pour la rangée Découverte —
+     *  une seule fois par entrée sur l'accueil (pas de polling, contrairement
+     *  à la file : le contenu tendance ne change pas seconde par seconde). */
+    fun loadDiscovery() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val m = repo.trending("movie")) {
+                is ApiResult.Success -> _trendingMovies.value = m.data
+                else -> Unit
+            }
+            when (val s = repo.trending("series")) {
+                is ApiResult.Success -> _trendingSeries.value = s.data
+                else -> Unit
             }
         }
     }

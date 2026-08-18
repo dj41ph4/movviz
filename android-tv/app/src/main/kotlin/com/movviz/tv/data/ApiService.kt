@@ -63,4 +63,17 @@ interface MovvizApiService {
 
     @GET("api/plex/on-deck")
     suspend fun onDeck(): Response<OnDeckResponseDto>
+
+    // File de téléchargement en cours (moteur BitTorrent intégré) — même
+    // route que l'onglet Activité desktop (QueueTab.tsx), juste le tab
+    // "queue". Le cœur de Movviz n'est pas que la lecture mais aussi la
+    // recherche/le téléchargement, donc l'accueil TV en a besoin.
+    @GET("api/activity/v2")
+    suspend fun queue(@Query("tab") tab: String = "queue"): Response<QueueResponseDto>
+
+    // Réponse au même format que /api/metadata/search (results: [...]),
+    // donc réutilisation de SearchResponseDto — sert la rangée "Découverte"
+    // de l'accueil (titres tendances pas encore en bibliothèque).
+    @GET("api/metadata/trending")
+    suspend fun trending(@Query("type") type: String): Response<SearchResponseDto>
 }

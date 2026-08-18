@@ -116,6 +116,11 @@ data class MetaDetailDto(
     val rating: Double,
     val genres: List<String> = emptyList(),
     val runtime: Int?,
+    // Déjà renvoyé par /api/metadata/detail (voir tmdb.ts, "similar":
+    // data.recommendations.results) mais jusqu'ici ignoré côté TV — sert la
+    // rangée "Titres similaires" en bas de la fiche (même esprit Netflix/
+    // Apple TV que le web, voir TitleContent.tsx "title.similar").
+    val similar: List<SearchResultDto> = emptyList(),
 )
 
 // Miroir de LibraryEpisode/LibrarySeason (src/lib/library/types.ts) — juste
@@ -198,22 +203,72 @@ data class ProgressRequest(
     val state: String,
 )
 
-// Miroir de OnDeckEntry (src/app/api/plex/on-deck/route.ts) — sert
-// uniquement à retrouver un pourcentage de progression approximatif pour la
+// Miroir de OnDeckEntry (src/app/api/plex/on-deck/route.ts) — utilisé à la
+// fois pour retrouver un pourcentage de progression approximatif pour la
 // reprise de lecture (l'API ne renvoie pas de ratingKey ni d'offset en ms,
 // seulement un progressPercent déjà calculé côté serveur ; combiné à la
 // durée réelle obtenue via /info, ça suffit à reprendre au bon endroit sans
-// route serveur supplémentaire — voir MovvizRepository.resumeOffsetMs).
+// route serveur supplémentaire — voir MovvizRepository.resumeOffsetMs) ET
+// pour peupler la rangée "Continuer à regarder" de l'accueil TV (title/
+// posterPath/rating étaient ignorés jusqu'ici alors que le serveur les
+// renvoie déjà — pas besoin de croiser avec movies()/series() pour afficher
+// la rangée).
 @JsonClass(generateAdapter = true)
 data class OnDeckEntryDto(
     val type: String,
     val tmdbId: Int,
+    val title: String? = null,
+    val posterPath: String? = null,
+    val rating: Double = 0.0,
     val progressPercent: Int = 0,
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
+    val episodeTitle: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
 data class OnDeckResponseDto(
     val items: List<OnDeckEntryDto> = emptyList(),
+)
+
+// Miroir (partiel) de ActivityMedia/ActivityDownload/QueueItem
+// (src/lib/activity/v2/types.ts), servis par GET /api/activity/v2?tab=queue
+// — le cœur de Movviz n'est pas que la lecture mais aussi le téléchargement
+// (voir la doc de mission), donc l'accueil TV a besoin de voir la file en
+// cours. Seuls les champs affichés dans la rangée "Téléchargements en
+// cours" sont déclarés ; tmdbId/posterPath/season/episode restent
+// nullables car un torrent ajouté à la main hors recherche Movviz n'a
+// aucune de ces infos (voir `linked: false` côté serveur).
+@JsonClass(generateAdapter = true)
+data class QueueMediaDto(
+    val title: String,
+    val type: String,
+    val posterPath: String? = null,
+    val tmdbId: Int? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class QueueDownloadDto(
+    // progress est une fraction 0..1 (pas un pourcentage) — voir
+    // useSmoothProgress/DownloadQueue.tsx côté desktop qui multiplie par 100
+    // à l'affichage seulement.
+    val progress: Double = 0.0,
+    val downloadSpeed: Long = 0,
+    val eta: Long = 0, // secondes
+    val state: String = "downloading",
+)
+
+@JsonClass(generateAdapter = true)
+data class QueueItemDto(
+    val id: String,
+    val media: QueueMediaDto,
+    val download: QueueDownloadDto,
+    val status: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class QueueResponseDto(
+    val items: List<QueueItemDto> = emptyList(),
 )
