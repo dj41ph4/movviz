@@ -1,0 +1,59 @@
+name: Build Android TV APK
+
+on:
+  push:
+    branches: [main]
+    paths: ["android-tv/**", ".github/workflows/android-tv-build.yml"]
+    tags: ["v*"]
+  pull_request:
+    paths: ["android-tv/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK platform & build-tools
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      # Le wrapper Gradle (gradlew/gradlew.bat + le jar) n'est pas versionné —
+      # voir android-tv/README.md, il se génère normalement en ouvrant le
+      # dossier dans Android Studio une première fois. Ici, on utilise
+      # directement le binaire Gradle fourni par setup-gradle plutôt que
+      # d'exiger ce wrapper, ce qui évite d'avoir à le committer.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Build debug APK
+        working-directory: android-tv
+        run: gradle assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MovvizTV-debug
+          path: android-tv/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Attach APK to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: android-tv/app/build/outputs/apk/debug/app-debug.apk
+          generate_release_notes: true
