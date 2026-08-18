@@ -15,3 +15,10 @@ val MovvizSurfaceStrong = Color(0xFF1D1D2B)
 val MovvizInk = Color(0xFFF5F5FA)
 val MovvizInkSoft = Color(0xFFB8B8C8)
 val MovvizInkDim = Color(0xFF7A7A8C)
+
+// Stops exacts de .text-logo-flow (src/app/globals.css, thème sombre) pour
+// le texte "Movviz" en degrade anime — mêmes couleurs que le desktop.
+val MovvizFlowInk = Color(0xFFEEF1FF)
+val MovvizFlowGlow = Color(0xFFA06BFF)
+val MovvizFlowMagenta = Color(0xFFFF4BD0)
+val MovvizFlowCyan = Color(0xFF34E2FF)
