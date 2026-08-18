@@ -162,6 +162,10 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun searchSeriesNow(libraryId: String): ApiResult<Unit> =
         safeCall { api.searchSeriesNow(libraryId) }.map { }
 
+    /** Statut "vu" manuel de l'utilisateur courant — voir WatchStatusDto. */
+    suspend fun watchStatus(): ApiResult<WatchStatusDto> =
+        safeCall { api.watchStatus() }
+
     private fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
         is ApiResult.Success -> ApiResult.Success(transform(data))
         is ApiResult.Failure -> this

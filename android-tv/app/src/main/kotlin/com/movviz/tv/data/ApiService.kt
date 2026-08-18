@@ -85,4 +85,10 @@ interface MovvizApiService {
     // de l'accueil (titres tendances pas encore en bibliothèque).
     @GET("api/metadata/trending")
     suspend fun trending(@Query("type") type: String): Response<SearchResponseDto>
+
+    // Statut "vu" manuel par utilisateur (films + épisodes) — voir
+    // WatchStatusDto. Sert la fiche titre TV (badge "Vu" sur un film déjà
+    // terminé, coche sur les épisodes déjà regardés).
+    @GET("api/watch-status")
+    suspend fun watchStatus(): Response<WatchStatusDto>
 }

@@ -60,9 +60,22 @@ data class LibrarySeriesDto(
     val genres: List<String> = emptyList(),
 )
 
+// Étendu (audit fiche titre TV) au-delà du seul plexRatingKey : le vrai
+// LibraryFile serveur (src/lib/library/types.ts, ligne ~32) porte aussi la
+// résolution/les codecs/le HDR/la source du fichier RÉELLEMENT en
+// bibliothèque — confirmé en direct contre /api/library/movies?tmdbId=155
+// ("file":{"resolution":"2160p","videoCodec":"HEVC","audioCodec":"EAC3",
+// "hdr":"HDR10",...}). Distinct des infos TMDb (qui ne savent rien du
+// fichier réel) : sert la zone technique secondaire de la fiche titre, pas
+// la hiérarchie principale.
 @JsonClass(generateAdapter = true)
 data class LibraryFileDto(
     val plexRatingKey: String?,
+    val resolution: String? = null,
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val hdr: String? = null,
+    val source: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -122,6 +135,11 @@ data class SystemInfoDto(
 data class MetaDetailDto(
     val tmdbId: Int,
     val title: String,
+    // Titre TMDb non localisé — confirmé en direct (GET /api/metadata/detail
+    // ?type=movie&tmdbId=27205 renvoie "originalTitle":"Inception"). Affiché
+    // côté fiche titre TV uniquement quand il diffère du titre localisé
+    // (voir MetaDetail dans src/lib/metadata/types.ts).
+    val originalTitle: String? = null,
     val year: Int?,
     val overview: String,
     val tagline: String = "",
@@ -141,6 +159,19 @@ data class MetaDetailDto(
     // réponse serveur (ex. tmdbId=27205 "Inception").
     val cast: List<MetaCastMemberDto> = emptyList(),
     val crew: List<MetaCrewMemberDto> = emptyList(),
+    // Appartenance à une saga TMDb (belongs_to_collection) — confirmé en
+    // direct (tmdbId=155 "The Dark Knight" renvoie
+    // {"id":263,"name":"The Dark Knight - Saga","posterPath":"..."}). Pas
+    // d'écran Collections côté TV : simple mention texte sur la fiche, pas
+    // de duplication d'un parcours qui n'existe pas encore ici.
+    val collection: MetaCollectionDto? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MetaCollectionDto(
+    val id: Int,
+    val name: String,
+    val posterPath: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -325,4 +356,24 @@ data class QueueResponseDto(
 @JsonClass(generateAdapter = true)
 data class SearchTriggerResponseDto(
     val queued: Boolean = false,
+)
+
+// Miroir de GET /api/watch-status (src/app/api/watch-status/route.ts) —
+// statut "vu" manuel PAR UTILISATEUR (distinct du statut LibraryStatus qui
+// dit si le FICHIER existe, pas si quelqu'un l'a regardé). Confirmé en
+// direct : {"movies":[102899,...],"episodes":[{"tmdbId":..,"season":..,
+// "episode":..}]}. "episodes[].tmdbId" est le tmdbId de la SÉRIE, pas de
+// l'épisode (mêmes conventions que WatchStatus côté serveur,
+// src/lib/plex/watchStore.ts).
+@JsonClass(generateAdapter = true)
+data class WatchedEpisodeDto(
+    val tmdbId: Int,
+    val season: Int,
+    val episode: Int,
+)
+
+@JsonClass(generateAdapter = true)
+data class WatchStatusDto(
+    val movies: List<Int> = emptyList(),
+    val episodes: List<WatchedEpisodeDto> = emptyList(),
 )

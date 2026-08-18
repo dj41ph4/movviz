@@ -14,6 +14,7 @@ import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.data.ServerPrefs
 import com.movviz.tv.data.SeriesSeasonDto
+import com.movviz.tv.data.WatchStatusDto
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -80,6 +81,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     // resumeOffsetMs, mais garde la liste entière plutôt qu'une seule entrée.
     private val _continueWatching = MutableStateFlow<List<OnDeckEntryDto>>(emptyList())
     val continueWatching: StateFlow<List<OnDeckEntryDto>> = _continueWatching.asStateFlow()
+
+    // Statut "vu" manuel par utilisateur (distinct de LibraryStatus, qui dit
+    // si le FICHIER existe, pas si on l'a regardé) — voir WatchStatusDto.
+    // Chargé une fois par entrée sur la fiche titre, comme le reste des
+    // données de fiche.
+    private val _watchStatus = MutableStateFlow<WatchStatusDto?>(null)
+    val watchStatus: StateFlow<WatchStatusDto?> = _watchStatus.asStateFlow()
 
     // Signal générique "la session a expiré/est invalide" — un 401 en cours
     // d'usage (pas au lancement) ne doit jamais se traduire par un écran
@@ -250,6 +258,20 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Charge le statut "vu" manuel de l'utilisateur — best-effort comme le
+     *  reste des données secondaires de la fiche : un échec laisse
+     *  simplement l'état vu/pas-vu indéterminé plutôt que de bloquer
+     *  l'affichage de la fiche. */
+    fun loadWatchStatus() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val r = repo.watchStatus()) {
+                is ApiResult.Success -> _watchStatus.value = r.data
+                else -> Unit
+            }
+        }
+    }
+
     /** Statut brut du film (voir LibraryStatus côté serveur : upcoming/
      *  missing/searching/downloading/available) — pour afficher un état réel
      *  sur la fiche titre plutôt que le texte générique "En attente de
@@ -257,6 +279,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
      *  "fichier prêt" ou "pas encore ajouté". */
     fun libraryMovieStatus(tmdbId: Int): String? =
         _movies.value.firstOrNull { it.tmdbId == tmdbId }?.status
+
+    /** Fichier réel (résolution/codecs/HDR/source) du film déjà en
+     *  bibliothèque, pour la zone technique secondaire de la fiche titre —
+     *  déjà chargé via loadLibrary(), aucun appel réseau dédié. */
+    fun libraryMovieFile(tmdbId: Int): com.movviz.tv.data.LibraryFileDto? =
+        _movies.value.firstOrNull { it.tmdbId == tmdbId }?.file
 
     /** Charge les tendances TMDb film + série pour la rangée Découverte —
      *  une seule fois par entrée sur l'accueil (pas de polling, contrairement
