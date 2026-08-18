@@ -4,14 +4,20 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -28,18 +34,26 @@ import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.itemsIndexed
 import androidx.tv.material3.Border
+import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.ui.theme.MovvizBrand
+import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.tvPointerClick
+import kotlinx.coroutines.delay
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
 private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original"
+private const val HERO_ROTATE_MS = 8_000L
+private const val HERO_COUNT = 5
 
-/** Titre unifié film/série pour l'affichage des rangées — évite de dupliquer
- *  la Card pour deux types quasi identiques à l'écran. */
+/** Titre unifié film/série pour l'affichage des rangées et du hero — évite de
+ *  dupliquer la Card pour deux types quasi identiques à l'écran. */
 private data class TvTitleCard(
     val id: String,
     val title: String,
@@ -47,6 +61,9 @@ private data class TvTitleCard(
     val backdropPath: String?,
     val tmdbId: Int,
     val isMovie: Boolean,
+    val year: Int? = null,
+    val rating: Double = 0.0,
+    val genres: List<String> = emptyList(),
 )
 
 @Composable
@@ -58,50 +75,75 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
 
     val recentMovies = remember(movies) {
         movies.take(20).map {
-            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true)
+            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true, year = it.year, rating = it.rating, genres = it.genres)
         }
     }
     val recentSeries = remember(series) {
         series.take(20).map {
-            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = false)
+            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = false, year = it.year, rating = it.rating, genres = it.genres)
         }
     }
-    // Même idée que le hero cinématique du dashboard desktop (backdrop plein
-    // écran + dégradé) — juste sans slideshow/rotation, un seul titre en
-    // fond derrière les rangées plutôt qu'un aplat noir uni.
-    val heroBackdrop = remember(recentMovies, recentSeries) {
-        (recentMovies + recentSeries).firstOrNull { it.backdropPath != null }?.backdropPath
+
+    // Vedettes du hero — les titres les mieux notés avec un backdrop
+    // exploitable, façon "Featured" Netflix plutôt qu'un ordre d'ajout brut.
+    val heroItems = remember(recentMovies, recentSeries) {
+        (recentMovies + recentSeries)
+            .filter { it.backdropPath != null }
+            .sortedByDescending { it.rating }
+            .take(HERO_COUNT)
     }
 
-    // Focus initial explicite sur la toute première carte poster — pas de
-    // LaunchedEffect(Unit) ici car les rangées se peuplent après la réponse
-    // réseau de loadLibrary() : on attend que la première rangée existe
-    // réellement, une seule fois (hasRequestedInitialFocus), pour ne jamais
-    // voler le focus à l'utilisateur lors d'un rafraîchissement ultérieur.
+    var heroIndex by remember { mutableStateOf(0) }
+    LaunchedEffect(heroItems) {
+        if (heroItems.size < 2) return@LaunchedEffect
+        while (true) {
+            delay(HERO_ROTATE_MS)
+            heroIndex = (heroIndex + 1) % heroItems.size
+        }
+    }
+
+    // Focus initial sur le CTA du hero (comme Netflix : le premier appui
+    // D-pad joue/ouvre directement la vedette), pas sur une carte de rangée.
+    // Attend que le hero existe réellement (après le chargement réseau) et
+    // ne redemande jamais le focus ensuite pour ne pas voler le focus de
+    // l'utilisateur à chaque rotation ou rafraîchissement.
+    val heroCtaFocus = remember { FocusRequester() }
     val firstCardFocus = remember { FocusRequester() }
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(recentMovies, recentSeries) {
-        if (!hasRequestedInitialFocus && (recentMovies.isNotEmpty() || recentSeries.isNotEmpty())) {
+    LaunchedEffect(heroItems, recentMovies, recentSeries) {
+        if (hasRequestedInitialFocus) return@LaunchedEffect
+        if (heroItems.isNotEmpty()) {
+            hasRequestedInitialFocus = true
+            heroCtaFocus.requestFocus()
+        } else if (recentMovies.isNotEmpty() || recentSeries.isNotEmpty()) {
             hasRequestedInitialFocus = true
             firstCardFocus.requestFocus()
         }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        if (heroBackdrop != null) {
-            HeroBackdrop(backdropPath = heroBackdrop)
-        }
-
         TvLazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(top = if (heroBackdrop != null) 360.dp else 48.dp, bottom = 48.dp),
+            contentPadding = PaddingValues(bottom = 48.dp),
         ) {
-            item {
-                Text(
-                    text = "Movviz",
-                    style = TextStyle(fontSize = 36.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary),
-                    modifier = Modifier.padding(start = 48.dp, bottom = 24.dp),
-                )
+            if (heroItems.isNotEmpty()) {
+                item {
+                    HeroCarousel(
+                        items = heroItems,
+                        currentIndex = heroIndex,
+                        onSelectIndex = { heroIndex = it },
+                        ctaFocusRequester = heroCtaFocus,
+                        onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                    )
+                }
+            } else {
+                item {
+                    Text(
+                        text = "Movviz",
+                        style = TextStyle(fontSize = 36.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary),
+                        modifier = Modifier.padding(start = 48.dp, top = 48.dp, bottom = 24.dp),
+                    )
+                }
             }
 
             if (recentMovies.isNotEmpty()) {
@@ -110,7 +152,7 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
                         heading = "Films",
                         items = recentMovies,
                         onClick = { card -> onOpenTitle("movie", card.tmdbId) },
-                        firstItemFocusRequester = firstCardFocus,
+                        firstItemFocusRequester = if (heroItems.isEmpty()) firstCardFocus else null,
                     )
                 }
             }
@@ -121,10 +163,7 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
                         heading = "Séries",
                         items = recentSeries,
                         onClick = { card -> onOpenTitle("series", card.tmdbId) },
-                        // La rangée Films passe déjà le requester si elle
-                        // existe — seule la toute première rangée réelle
-                        // (Séries si aucun film) doit recevoir le focus initial.
-                        firstItemFocusRequester = if (recentMovies.isEmpty()) firstCardFocus else null,
+                        firstItemFocusRequester = if (heroItems.isEmpty() && recentMovies.isEmpty()) firstCardFocus else null,
                     )
                 }
             }
@@ -142,44 +181,151 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
     }
 }
 
-/** Backdrop en fond de l'accueil — lent zoom continu (façon Ken Burns) sous
- *  un double dégradé pour que le texte/les rangées restent lisibles, même
- *  traitement que la fiche titre et le hero desktop. */
+/** Vedette plein écran en rotation automatique — backdrop en Ken Burns lent,
+ *  titre/méta/synopsis-less (pas de synopsis ici, la fiche titre s'en charge),
+ *  CTA "Lire"/"Voir la fiche" et indicateurs de progression cliquables, façon
+ *  bannière "Featured" Netflix plutôt que le simple aplat statique d'avant. */
 @Composable
-private fun HeroBackdrop(backdropPath: String) {
-    val infinite = rememberInfiniteTransition(label = "hero_ken_burns")
-    val zoom by infinite.animateFloat(
-        initialValue = 1f,
-        targetValue = 1.12f,
-        animationSpec = infiniteRepeatable(tween(30000, easing = LinearEasing), RepeatMode.Reverse),
-        label = "zoom",
-    )
+private fun HeroCarousel(
+    items: List<TvTitleCard>,
+    currentIndex: Int,
+    onSelectIndex: (Int) -> Unit,
+    ctaFocusRequester: FocusRequester,
+    onOpen: (TvTitleCard) -> Unit,
+) {
+    val current = items[currentIndex.coerceIn(0, items.size - 1)]
 
-    Box(modifier = Modifier.fillMaxWidth().height(520.dp)) {
-        Image(
-            painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE$backdropPath"),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize().scale(zoom),
-        )
+    // clipToBounds() est indispensable ici : le zoom Ken Burns agrandit
+    // l'image avec scale() (une transformation de dessin, pas de layout) et
+    // Compose ne rogne rien par défaut — sans ça l'image zoomée déborde
+    // visiblement de la bannière et empiète sur les rangées en dessous.
+    Box(modifier = Modifier.fillMaxWidth().height(640.dp).clipToBounds()) {
+        androidx.compose.animation.AnimatedContent(
+            targetState = current,
+            transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
+            label = "hero_backdrop",
+            modifier = Modifier.fillMaxSize(),
+        ) { item ->
+            val infinite = rememberInfiniteTransition(label = "hero_ken_burns")
+            val zoom by infinite.animateFloat(
+                initialValue = 1f,
+                targetValue = 1.12f,
+                animationSpec = infiniteRepeatable(tween(HERO_ROTATE_MS.toInt() * 3, easing = LinearEasing), RepeatMode.Reverse),
+                label = "zoom",
+            )
+            Image(
+                painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE${item.backdropPath}"),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize().scale(zoom),
+            )
+        }
+
         Box(
             modifier = Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.15f),
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.85f),
+                        Color.Transparent,
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.55f),
                         MaterialTheme.colorScheme.background,
                     ),
+                    startY = 0f,
                 ),
             ),
         )
         Box(
             modifier = Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
-                    colors = listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.5f), Color.Transparent),
+                    colors = listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.85f), Color.Transparent),
+                    endX = 900f,
                 ),
             ),
         )
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 48.dp, end = 48.dp, bottom = 40.dp)
+                .widthIn(max = 760.dp),
+        ) {
+            Text(
+                text = if (current.isMovie) "FILM" else "SÉRIE",
+                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizBrand2, letterSpacing = 2.sp),
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = current.title,
+                style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (current.rating > 0) {
+                    Text(text = "★ ${"%.1f".format(current.rating)}", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
+                    Spacer(modifier = Modifier.width(10.dp))
+                }
+                current.year?.let {
+                    Text(text = "$it", style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft))
+                    Spacer(modifier = Modifier.width(10.dp))
+                }
+                if (current.genres.isNotEmpty()) {
+                    Text(
+                        text = current.genres.take(3).joinToString(", "),
+                        style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                var focused by remember(current.id) { mutableStateOf(false) }
+                Surface(
+                    onClick = { onOpen(current) },
+                    modifier = Modifier
+                        .focusRequester(ctaFocusRequester)
+                        .scale(if (focused) 1.06f else 1f)
+                        .onFocusChanged { focused = it.isFocused }
+                        .tvPointerClick { onOpen(current) },
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.White, contentColor = Color.Black),
+                    border = ClickableSurfaceDefaults.border(
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, MovvizBrand), shape = RoundedCornerShape(12.dp)),
+                    ),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
+                    ) {
+                        Text(text = "▶", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(text = "Voir la fiche", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.Black))
+                    }
+                }
+
+                if (items.size > 1) {
+                    Spacer(modifier = Modifier.width(20.dp))
+                    // Purement décoratif — juste l'état de rotation, pas une
+                    // cible D-pad de plus à côté du CTA (un point de 8dp est
+                    // de toute façon un cible tactile trop petite sur TV).
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        items.indices.forEach { index ->
+                            val active = index == currentIndex
+                            Box(
+                                modifier = Modifier
+                                    .size(if (active) 22.dp else 8.dp, 8.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (active) Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))
+                                        else Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.25f))),
+                                    ),
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
