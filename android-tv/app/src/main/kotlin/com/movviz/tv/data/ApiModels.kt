@@ -157,3 +157,63 @@ data class SearchResultDto(
 data class SearchResponseDto(
     val results: List<SearchResultDto> = emptyList(),
 )
+
+// Miroir de la réponse de /api/stream/{ratingKey}/info (voir
+// src/app/api/stream/[ratingKey]/info/route.ts) — la TV n'a besoin ni de
+// ffmpegAvailable ni de videoCodec/container (pas de transcodage côté TV,
+// direct-play uniquement), seulement de la durée réelle et des pistes
+// audio/sous-titres EMBARQUÉES dans le fichier. Le direct-play sert le
+// fichier Plex tel quel (voir stream/[ratingKey]/route.ts, Media[0]/Part[0]
+// bruts, aucun paramètre de sélection de piste) donc la sélection
+// audio/sous-titres se fait côté client, dans les pistes que Media3 détecte
+// lui-même dans le conteneur — pas d'appel serveur supplémentaire.
+@JsonClass(generateAdapter = true)
+data class StreamAudioTrackDto(
+    val id: String,
+    val codec: String,
+    val language: String,
+    val channels: Int = 0,
+    val selected: Boolean = false,
+)
+
+@JsonClass(generateAdapter = true)
+data class StreamSubtitleTrackDto(
+    val id: String,
+    val codec: String,
+    val language: String,
+    val toTextConvertible: Boolean = false,
+    val selected: Boolean = false,
+)
+
+@JsonClass(generateAdapter = true)
+data class StreamInfoDto(
+    val audioStreams: List<StreamAudioTrackDto> = emptyList(),
+    val subtitleStreams: List<StreamSubtitleTrackDto> = emptyList(),
+    val durationMs: Long? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class ProgressRequest(
+    val offset: Long,
+    val state: String,
+)
+
+// Miroir de OnDeckEntry (src/app/api/plex/on-deck/route.ts) — sert
+// uniquement à retrouver un pourcentage de progression approximatif pour la
+// reprise de lecture (l'API ne renvoie pas de ratingKey ni d'offset en ms,
+// seulement un progressPercent déjà calculé côté serveur ; combiné à la
+// durée réelle obtenue via /info, ça suffit à reprendre au bon endroit sans
+// route serveur supplémentaire — voir MovvizRepository.resumeOffsetMs).
+@JsonClass(generateAdapter = true)
+data class OnDeckEntryDto(
+    val type: String,
+    val tmdbId: Int,
+    val progressPercent: Int = 0,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class OnDeckResponseDto(
+    val items: List<OnDeckEntryDto> = emptyList(),
+)

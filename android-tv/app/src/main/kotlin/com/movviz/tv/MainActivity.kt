@@ -26,6 +26,7 @@ import androidx.navigation.navArgument
 import com.movviz.tv.ui.home.MainScreen
 import com.movviz.tv.ui.login.LoginScreen
 import com.movviz.tv.ui.player.PlayerActivity
+import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizTvTheme
 import com.movviz.tv.ui.title.TitleDetailScreen
 import com.movviz.tv.ui.wizard.WizardScreen
@@ -145,14 +146,16 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             val context = androidx.compose.ui.platform.LocalContext.current
             val type = backStackEntry.arguments?.getString("type") ?: "movie"
             val tmdbId = backStackEntry.arguments?.getInt("tmdbId") ?: 0
+            val baseUrl by viewModel.serverUrl.collectAsState()
             TitleDetailScreen(
                 viewModel = viewModel,
                 type = type,
                 tmdbId = tmdbId,
-                onPlay = { streamUrl ->
-                    val intent = Intent(context, PlayerActivity::class.java)
-                        .putExtra(PlayerActivity.extraStreamUrl(), streamUrl)
-                    context.startActivity(intent)
+                onPlay = { title, queue, startIndex ->
+                    val url = baseUrl ?: return@TitleDetailScreen
+                    context.startActivity(
+                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex),
+                    )
                 },
             )
         }

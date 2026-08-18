@@ -48,4 +48,19 @@ interface MovvizApiService {
 
     @GET("api/metadata/search")
     suspend fun search(@Query("q") query: String): Response<SearchResponseDto>
+
+    @GET("api/stream/{ratingKey}/info")
+    suspend fun streamInfo(@Path("ratingKey") ratingKey: String): Response<StreamInfoDto>
+
+    @POST("api/stream/{ratingKey}/progress")
+    suspend fun streamProgress(
+        @Path("ratingKey") ratingKey: String,
+        @Body body: ProgressRequest,
+    ): Response<Map<String, Any?>>
+
+    @POST("api/stream/{ratingKey}/stop")
+    suspend fun streamStop(@Path("ratingKey") ratingKey: String): Response<Map<String, Any?>>
+
+    @GET("api/plex/on-deck")
+    suspend fun onDeck(): Response<OnDeckResponseDto>
 }

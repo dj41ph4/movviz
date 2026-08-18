@@ -80,6 +80,48 @@ class MovvizRepository(private val baseUrl: String) {
      *  s'applique automatiquement (même OkHttpClient/CookieJar partagé). */
     fun streamUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey"
 
+    suspend fun streamInfo(plexRatingKey: String): ApiResult<StreamInfoDto> =
+        safeCall { api.streamInfo(plexRatingKey) }
+
+    /** Ping "best-effort" de progression — jamais fatal pour la lecture,
+     *  Plex n'a besoin de savoir où on en est que pour la reprise/l'état
+     *  "en cours de lecture" côté serveur, un échec réseau ponctuel ne doit
+     *  jamais interrompre le lecteur. */
+    suspend fun reportProgress(plexRatingKey: String, offsetMs: Long, state: String) {
+        runCatching { api.streamProgress(plexRatingKey, ProgressRequest(offsetMs, state)) }
+    }
+
+    suspend fun reportStop(plexRatingKey: String) {
+        runCatching { api.streamStop(plexRatingKey) }
+    }
+
+    /** Position de reprise approximative (ms) — voir OnDeckEntryDto : l'API
+     *  ne renvoie qu'un progressPercent déjà arrondi, pas d'offset direct
+     *  par ratingKey. On retrouve l'entrée par tmdbId (+ saison/épisode pour
+     *  une série) puis on l'applique à la durée réelle (obtenue séparément
+     *  via streamInfo). Retourne null si rien à reprendre (< 2%, jamais
+     *  commencé, ou terminé à plus de 95% — pas la peine de "reprendre" un
+     *  film déjà fini). */
+    suspend fun resumeOffsetMs(
+        type: String,
+        tmdbId: Int,
+        durationMs: Long?,
+        seasonNumber: Int? = null,
+        episodeNumber: Int? = null,
+    ): Long? {
+        if (durationMs == null || durationMs <= 0) return null
+        val result = safeCall { api.onDeck() }
+        val items = (result as? ApiResult.Success)?.data?.items ?: return null
+        val match = items.firstOrNull { entry ->
+            entry.tmdbId == tmdbId &&
+                (type == "movie" && entry.type == "movie" ||
+                    type == "series" && entry.type == "episode" &&
+                        entry.seasonNumber == seasonNumber && entry.episodeNumber == episodeNumber)
+        } ?: return null
+        if (match.progressPercent < 2 || match.progressPercent > 95) return null
+        return (durationMs * match.progressPercent) / 100
+    }
+
     private fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
         is ApiResult.Success -> ApiResult.Success(transform(data))
         is ApiResult.Failure -> this

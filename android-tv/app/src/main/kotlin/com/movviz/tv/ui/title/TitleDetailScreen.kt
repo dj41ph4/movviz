@@ -43,6 +43,7 @@ import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.data.SeriesEpisodeDto
 import com.movviz.tv.data.SeriesSeasonDto
+import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.tvPointerClick
@@ -64,7 +65,7 @@ fun TitleDetailScreen(
     viewModel: AppViewModel,
     type: String,
     tmdbId: Int,
-    onPlay: (streamUrl: String) -> Unit,
+    onPlay: (title: String, queue: List<QueueItem>, startIndex: Int) -> Unit,
 ) {
     val detail by viewModel.detail.collectAsState()
     val addingToLibrary by viewModel.addingToLibrary.collectAsState()
@@ -80,6 +81,24 @@ fun TitleDetailScreen(
     }
 
     val plexRatingKey = viewModel.libraryPlexRatingKey(type, tmdbId)
+
+    // File de lecture épisode par épisode — à plat sur toutes les saisons,
+    // dans l'ordre d'affichage, pour que suivant/précédent dans le lecteur
+    // puisse traverser une frontière de saison naturellement (S1E10 → S2E1).
+    val playableEpisodes = remember(seasons) {
+        seasons.flatMap { season ->
+            season.episodes
+                .filter { it.plexRatingKey != null && it.status == "available" }
+                .map { ep ->
+                    QueueItem(
+                        ratingKey = ep.plexRatingKey!!,
+                        label = "S${season.seasonNumber} · Ép ${ep.episodeNumber} · ${ep.title}",
+                        seasonNumber = season.seasonNumber,
+                        episodeNumber = ep.episodeNumber,
+                    )
+                }
+        }
+    }
 
     // Focus initial déterministe — sans ceci, rien ne réclame jamais le
     // focus D-pad en entrant sur la fiche (constat direct : deux DPAD_DOWN
@@ -260,7 +279,7 @@ fun TitleDetailScreen(
                 Row {
                     if (plexRatingKey != null) {
                         PrimaryPill(text = "▶  Lire", brush = null, solidWhite = true, focusRequester = initialFocusRequester) {
-                            viewModel.streamUrl(plexRatingKey)?.let(onPlay)
+                            onPlay(d.title, listOf(QueueItem(plexRatingKey, null, -1, -1)), 0)
                         }
                     } else if (!inLibrary) {
                         PrimaryPill(
@@ -318,7 +337,10 @@ fun TitleDetailScreen(
                 } else {
                     items(seasons, key = { it.seasonNumber }) { season ->
                         SeasonRow(season = season) { episode ->
-                            episode.plexRatingKey?.let { key -> viewModel.streamUrl(key)?.let(onPlay) }
+                            val index = playableEpisodes.indexOfFirst {
+                                it.seasonNumber == season.seasonNumber && it.episodeNumber == episode.episodeNumber
+                            }
+                            if (index >= 0) onPlay(d.title, playableEpisodes, index)
                         }
                     }
                 }
