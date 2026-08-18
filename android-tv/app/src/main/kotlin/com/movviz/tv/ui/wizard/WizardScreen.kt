@@ -145,6 +145,7 @@ fun TvTextField(
     focusRequester: FocusRequester? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -166,6 +167,16 @@ fun TvTextField(
             onValueChange = onValueChange,
             textStyle = TextStyle(fontSize = 16.sp, color = Color.White),
             singleLine = true,
+            // Sans imeAction/onDone, le bouton coche du clavier virtuel
+            // n'a AUCUNE action assignée et ne referme donc jamais le
+            // clavier — confirmé en testant : cliquer dessus ne réagissait
+            // pas. Déplacer le focus (comme la flèche bas) fait sortir le
+            // champ de saisie, ce qui referme le clavier automatiquement.
+            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
+                nextFocus.requestFocus()
+                keyboardController?.hide()
+            }),
             // focusProperties{down=...} seul ne suffit pas : BasicTextField
             // avale la touche bas (déplacement de curseur) avant qu'elle
             // n'atteigne le système de recherche de focus — confirmé en

@@ -54,6 +54,18 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _searching = MutableStateFlow(false)
     val searching: StateFlow<Boolean> = _searching.asStateFlow()
 
+    // Signal générique "la session a expiré/est invalide" — un 401 en cours
+    // d'usage (pas au lancement) ne doit jamais se traduire par un écran
+    // qui a l'air normal mais vide ("aucun résultat" alors que le vrai
+    // problème est qu'on n'est plus authentifié, confirmé en live sur la
+    // recherche). MainActivity observe ce flag pour renvoyer au login.
+    private val _sessionExpired = MutableStateFlow(false)
+    val sessionExpired: StateFlow<Boolean> = _sessionExpired.asStateFlow()
+
+    fun consumeSessionExpired() {
+        _sessionExpired.value = false
+    }
+
     private val repository: MovvizRepository?
         get() = _serverUrl.value?.let { MovvizRepository(it) }
 
@@ -153,11 +165,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             when (val m = repo.movies()) {
                 is ApiResult.Success -> _movies.value = m.data
-                else -> Unit // best-effort — l'écran affiche une liste vide plutôt que de planter
+                ApiResult.Unauthorized -> _sessionExpired.value = true
+                is ApiResult.Failure -> Unit // best-effort — l'écran affiche une liste vide plutôt que de planter
             }
             when (val s = repo.series()) {
                 is ApiResult.Success -> _series.value = s.data
-                else -> Unit
+                ApiResult.Unauthorized -> _sessionExpired.value = true
+                is ApiResult.Failure -> Unit
             }
         }
     }
@@ -179,7 +193,11 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             when (val r = repo.search(query.trim())) {
                 is ApiResult.Success -> _searchResults.value = r.data
-                else -> _searchResults.value = emptyList()
+                ApiResult.Unauthorized -> {
+                    _searchResults.value = emptyList()
+                    _sessionExpired.value = true
+                }
+                is ApiResult.Failure -> _searchResults.value = emptyList()
             }
             _searching.value = false
         }

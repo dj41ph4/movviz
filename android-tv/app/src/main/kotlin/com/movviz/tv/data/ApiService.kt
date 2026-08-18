@@ -20,8 +20,10 @@ interface MovvizApiService {
     @POST("api/auth/login")
     suspend fun login(@Body body: LoginRequest): Response<LoginResponse>
 
+    // Répond 200 même sans session ({"user": null}) — voir MeResponseDto,
+    // ne jamais traiter un simple succès HTTP comme "connecté".
     @GET("api/auth/me")
-    suspend fun me(): Response<Map<String, Any?>>
+    suspend fun me(): Response<MeResponseDto>
 
     @GET("api/library/movies")
     suspend fun libraryMovies(): Response<LibraryMoviesResponse>

@@ -93,6 +93,13 @@ fun SearchScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: In
 @Composable
 private fun SearchField(value: String, onValueChange: (String) -> Unit, onSearch: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    // clearFocus() seul ne suffit pas : ça enlève le focus logique Compose
+    // mais ne dit rien à Android de fermer le clavier virtuel — confirmé en
+    // testant, la loupe lançait bien la recherche mais le clavier restait
+    // ouvert par-dessus les résultats. Il faut explicitement passer par le
+    // contrôleur du clavier logiciel.
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     Box(
         modifier = Modifier
             .fillMaxWidth(0.5f)
@@ -115,7 +122,11 @@ private fun SearchField(value: String, onValueChange: (String) -> Unit, onSearch
             textStyle = TextStyle(fontSize = 18.sp, color = Color(0xFFF5F5FA)),
             singleLine = true,
             keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = ImeAction.Search),
-            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = { onSearch() }),
+            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onSearch = {
+                onSearch()
+                focusManager.clearFocus()
+                keyboardController?.hide()
+            }),
             modifier = Modifier.fillMaxWidth(),
         )
     }

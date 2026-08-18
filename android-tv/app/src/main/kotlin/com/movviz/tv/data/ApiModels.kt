@@ -78,6 +78,16 @@ data class LibrarySeriesResponse(
     val series: List<LibrarySeriesDto> = emptyList(),
 )
 
+// /api/auth/me répond 200 même sans session — {"user": null} est une
+// réponse "réussie" mais NON connectée. Un simple Response<Map<...>> avec un
+// corps non-null suffisait à faire passer hasValidSession() pour vrai à
+// tort (bug confirmé en live : accueil/réglages accessibles sans jamais
+// avoir saisi d'identifiants). Il faut regarder le champ user lui-même.
+@JsonClass(generateAdapter = true)
+data class MeResponseDto(
+    val user: MovvizUserDto? = null,
+)
+
 @JsonClass(generateAdapter = true)
 data class SystemInfoDto(
     val platform: String? = null,

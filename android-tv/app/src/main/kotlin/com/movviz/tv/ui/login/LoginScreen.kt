@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,6 +22,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -139,6 +141,7 @@ private fun LoginField(
     focusRequester: FocusRequester? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -158,7 +161,17 @@ private fun LoginField(
             textStyle = TextStyle(fontSize = 16.sp, color = Color.White),
             singleLine = true,
             visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
-            keyboardOptions = if (isPassword) KeyboardOptions(keyboardType = KeyboardType.Password) else KeyboardOptions.Default,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Text,
+                imeAction = ImeAction.Done,
+            ),
+            // Sans onDone, la coche du clavier virtuel n'a aucune action et
+            // ne referme donc jamais le clavier (voir WizardScreen.TvTextField
+            // pour le même constat, confirmé en testant).
+            keyboardActions = KeyboardActions(onDone = {
+                nextFocus.requestFocus()
+                keyboardController?.hide()
+            }),
             // Voir WizardScreen.TvTextField pour le pourquoi de
             // onPreviewKeyEvent — focusProperties seul ne suffit pas,
             // BasicTextField avale la touche bas avant le système de focus.

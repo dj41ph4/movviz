@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,6 +73,20 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             url == null -> ROUTE_WIZARD
             viewModel.hasValidSession() -> ROUTE_HOME
             else -> ROUTE_LOGIN
+        }
+    }
+
+    // Un 401 en cours d'usage (pas seulement au lancement) doit renvoyer au
+    // login au lieu de laisser l'écran courant afficher un état trompeur
+    // ("aucun résultat", bibliothèque vide) qui a l'air normal mais cache en
+    // réalité une session expirée — confirmé en live sur la recherche.
+    val sessionExpired by viewModel.sessionExpired.collectAsState()
+    LaunchedEffect(sessionExpired) {
+        if (sessionExpired) {
+            viewModel.consumeSessionExpired()
+            navController.navigate(ROUTE_LOGIN) {
+                popUpTo(0) { inclusive = true }
+            }
         }
     }
 

@@ -43,8 +43,15 @@ class MovvizRepository(private val baseUrl: String) {
     /** Ping authentifié — sert à savoir, au lancement, si le cookie de
      *  session persisté (voir PersistentCookieJar) est toujours valide,
      *  pour sauter l'écran de login quand c'est le cas (comme Plex/Netflix
-     *  qui ne redemandent jamais les identifiants tant que la session tient). */
-    suspend fun hasValidSession(): Boolean = safeCall { api.me() } is ApiResult.Success
+     *  qui ne redemandent jamais les identifiants tant que la session tient).
+     *  /api/auth/me répond 200 même sans être connecté (user: null) — un
+     *  succès HTTP seul ne prouve rien, confirmé en live (accueil accessible
+     *  sans jamais avoir saisi d'identifiants). Il faut que user soit
+     *  réellement non-null. */
+    suspend fun hasValidSession(): Boolean {
+        val result = safeCall { api.me() }
+        return result is ApiResult.Success && result.data.user != null
+    }
 
     suspend fun detail(type: String, tmdbId: Int): ApiResult<MetaDetailDto> =
         safeCall { api.metadataDetail(type, tmdbId) }
