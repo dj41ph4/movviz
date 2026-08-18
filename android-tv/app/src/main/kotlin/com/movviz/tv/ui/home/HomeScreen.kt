@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -346,7 +347,16 @@ private fun HeroCarousel(
                 painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE${item.backdropPath}"),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().scale(zoom),
+                // graphicsLayer (pas .scale(zoom)) : .scale() avec une valeur
+                // lue depuis un State (ici animateFloat en continu tant que
+                // le hero est affiché) force une recomposition du composable
+                // Image à CHAQUE frame Choreographer, en boucle infinie —
+                // mesuré : 61,71% de frames janky à l'accueil totalement
+                // inactif (dumpsys gfxinfo, 700 frames/26s). graphicsLayer{}
+                // lit le State uniquement en phase de dessin (juste un
+                // re-layer, pas de recomposition), le zoom Ken Burns reste
+                // fluide sans repasser par toute la composition à 60fps.
+                modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom },
             )
         }
 

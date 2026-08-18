@@ -9,9 +9,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
@@ -60,8 +60,15 @@ fun Modifier.tvFocusLift(
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
         label = "tvFocusLiftElevation",
     )
+    // graphicsLayer (pas .scale(scale)) : .scale() avec une valeur lue
+    // depuis un State (animateFloatAsState) recompose le composable appelant
+    // — Surface/PosterCard entière, tv-material3 compris — à chaque frame de
+    // l'animation spring, sur CHAQUE carte focusable de l'app (usage quasi
+    // partout). graphicsLayer{} lit le State en phase de dessin uniquement,
+    // sans recomposition ; seule la carte réellement focusée anime, les
+    // autres restent à elevation 0 sans repasser par la composition.
     return this
-        .scale(scale)
+        .graphicsLayer { scaleX = scale; scaleY = scale }
         .shadow(elevation = elevation, shape = shape, ambientColor = androidx.compose.ui.graphics.Color.Black, spotColor = androidx.compose.ui.graphics.Color.Black)
 }
 
