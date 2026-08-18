@@ -74,7 +74,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
      *  TitleContent côté web (croiser tmdbId+type avec les listes déjà
      *  chargées) plutôt qu'un appel réseau dédié. */
     fun libraryPlexRatingKey(type: String, tmdbId: Int): String? =
-        if (type == "movie") _movies.value.firstOrNull { it.tmdbId == tmdbId }?.file?.plexRatingKey
+        // plexRatingKey vit à la racine de LibraryMovieDto, pas dans .file
+        // (voir le commentaire sur LibraryMovieDto dans ApiModels.kt — bug
+        // corrigé, c'était .file?.plexRatingKey et retournait toujours null).
+        if (type == "movie") _movies.value.firstOrNull { it.tmdbId == tmdbId }?.plexRatingKey
         else null // les séries n'ont pas de fichier unique — lecture épisode par épisode, pas encore géré côté TV
 
     fun isInLibrary(type: String, tmdbId: Int): Boolean =
