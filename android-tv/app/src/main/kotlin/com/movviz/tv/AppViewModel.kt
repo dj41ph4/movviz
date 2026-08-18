@@ -9,6 +9,7 @@ import com.movviz.tv.data.LibrarySeriesDto
 import com.movviz.tv.data.MetaDetailDto
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.MovvizUserDto
+import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.data.ServerPrefs
 import com.movviz.tv.data.SeriesSeasonDto
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -46,6 +47,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _seriesSeasons = MutableStateFlow<List<SeriesSeasonDto>>(emptyList())
     val seriesSeasons: StateFlow<List<SeriesSeasonDto>> = _seriesSeasons.asStateFlow()
+
+    private val _searchResults = MutableStateFlow<List<SearchResultDto>>(emptyList())
+    val searchResults: StateFlow<List<SearchResultDto>> = _searchResults.asStateFlow()
+
+    private val _searching = MutableStateFlow(false)
+    val searching: StateFlow<Boolean> = _searching.asStateFlow()
 
     private val repository: MovvizRepository?
         get() = _serverUrl.value?.let { MovvizRepository(it) }
@@ -140,6 +147,26 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     fun streamUrl(plexRatingKey: String): String? =
         repository?.streamUrl(plexRatingKey)
+
+    /** Recherche déclenchée explicitement (validation clavier), pas en
+     *  live-typing — le clavier virtuel Android TV rend la saisie lente et
+     *  saccadée, une requête par caractère serait à la fois inutile et
+     *  visuellement agaçante (résultats qui sautent en permanence). */
+    fun search(query: String) {
+        val repo = repository
+        if (repo == null || query.isBlank()) {
+            _searchResults.value = emptyList()
+            return
+        }
+        _searching.value = true
+        viewModelScope.launch {
+            when (val r = repo.search(query.trim())) {
+                is ApiResult.Success -> _searchResults.value = r.data
+                else -> _searchResults.value = emptyList()
+            }
+            _searching.value = false
+        }
+    }
 
     /** Utilisé une seule fois au lancement (voir MainActivity) pour décider
      *  si l'écran de login peut être sauté — le cookie persistant peut être

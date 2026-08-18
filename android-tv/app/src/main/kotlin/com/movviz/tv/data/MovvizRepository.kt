@@ -52,6 +52,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun seriesSeasons(seriesId: String): ApiResult<List<SeriesSeasonDto>> =
         safeCall { api.seriesDetail(seriesId) }.map { it.seasons }
 
+    suspend fun search(query: String): ApiResult<List<SearchResultDto>> =
+        safeCall { api.search(query) }.map { it.results }
+
     suspend fun addToLibrary(type: String, tmdbId: Int): ApiResult<Unit> {
         val result = safeCall {
             if (type == "movie") api.addMovie(AddToLibraryRequest(tmdbId))

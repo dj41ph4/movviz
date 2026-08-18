@@ -123,3 +123,19 @@ data class SeriesDetailDto(
     val id: String,
     val seasons: List<SeriesSeasonDto> = emptyList(),
 )
+
+// Miroir de MetaSearchResult (src/lib/metadata/types.ts).
+@JsonClass(generateAdapter = true)
+data class SearchResultDto(
+    val tmdbId: Int,
+    val type: String,
+    val title: String,
+    val year: Int?,
+    val posterPath: String?,
+    val rating: Double = 0.0,
+)
+
+@JsonClass(generateAdapter = true)
+data class SearchResponseDto(
+    val results: List<SearchResultDto> = emptyList(),
+)

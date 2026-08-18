@@ -43,4 +43,7 @@ interface MovvizApiService {
 
     @GET("api/library/series/{id}")
     suspend fun seriesDetail(@Path("id") id: String): Response<SeriesDetailDto>
+
+    @GET("api/metadata/search")
+    suspend fun search(@Query("q") query: String): Response<SearchResponseDto>
 }

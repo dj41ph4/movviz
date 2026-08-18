@@ -24,7 +24,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.movviz.tv.ui.home.HomeScreen
+import com.movviz.tv.ui.home.MainScreen
 import com.movviz.tv.ui.login.LoginScreen
 import com.movviz.tv.ui.player.PlayerActivity
 import com.movviz.tv.ui.theme.MovvizTvTheme
@@ -108,10 +108,15 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             )
         }
         composable(ROUTE_HOME) {
-            HomeScreen(
+            MainScreen(
                 viewModel = viewModel,
                 onOpenTitle = { type, tmdbId ->
                     navController.navigate(detailRoute(type, tmdbId))
+                },
+                onLoggedOut = {
+                    navController.navigate(ROUTE_LOGIN) {
+                        popUpTo(ROUTE_HOME) { inclusive = true }
+                    }
                 },
             )
         }
