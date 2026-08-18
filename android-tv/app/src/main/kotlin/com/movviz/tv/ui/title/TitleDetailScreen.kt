@@ -54,10 +54,13 @@ import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizOk
+import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.tvPointerClick
+import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.launch
 
 private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original"
+private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w185"
 
 /**
  * Fiche titre — même composition que le hero desktop (TitleContent.tsx) :
@@ -281,6 +284,14 @@ fun TitleDetailScreen(
                 }
             }
 
+            d.crew.firstOrNull { it.job == "Director" }?.let { director ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Row {
+                    Text(text = "Réalisation ", style = TextStyle(fontSize = 13.sp, color = MovvizInkDim))
+                    Text(text = director.name, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
+                }
+            }
+
             if (d.tagline.isNotBlank()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
@@ -377,6 +388,11 @@ fun TitleDetailScreen(
                 }
             }
 
+            if (d.cast.isNotEmpty()) {
+                item { Spacer(modifier = Modifier.height(28.dp)) }
+                item { CastRow(cast = d.cast) }
+            }
+
             // Rangée "Titres similaires" — voir similarCards ci-dessus
             // (calculé hors du DSL LazyColumn, `remember` n'est pas
             // utilisable directement dans le corps d'un `item {}` builder).
@@ -388,6 +404,63 @@ fun TitleDetailScreen(
                         items = similarCards,
                         onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                     )
+                }
+            }
+        }
+    }
+}
+
+/** Distribution — déjà renvoyée par /api/metadata/detail (cast/crew), juste
+ *  jamais affichée côté TV jusqu'ici. Portraits ronds + nom + rôle, même
+ *  esprit que la section Distribution du desktop (TitleContent.tsx) mais en
+ *  rangée horizontale scrollable, plus naturel au D-pad qu'une grille. */
+@Composable
+private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>) {
+    Column(modifier = Modifier.padding(bottom = 8.dp)) {
+        Text(
+            text = "Distribution",
+            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+            modifier = Modifier.padding(start = 48.dp, bottom = 12.dp),
+        )
+        TvLazyRow(
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 48.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            items(cast.take(15), key = { it.id }) { member ->
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(84.dp)) {
+                    val photoUrl = member.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
+                    Box(
+                        modifier = Modifier
+                            .size(72.dp)
+                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .background(MovvizSurfaceStrong),
+                    ) {
+                        if (photoUrl != null) {
+                            androidx.compose.foundation.Image(
+                                painter = coil.compose.rememberAsyncImagePainter(model = photoUrl),
+                                contentDescription = member.name,
+                                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = member.name,
+                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    )
+                    if (member.character.isNotBlank()) {
+                        Text(
+                            text = member.character,
+                            style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        )
+                    }
                 }
             }
         }

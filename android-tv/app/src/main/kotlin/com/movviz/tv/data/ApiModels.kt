@@ -135,6 +135,27 @@ data class MetaDetailDto(
     // rangée "Titres similaires" en bas de la fiche (même esprit Netflix/
     // Apple TV que le web, voir TitleContent.tsx "title.similar").
     val similar: List<SearchResultDto> = emptyList(),
+    // cast/crew déjà renvoyés par /api/metadata/detail (voir
+    // src/lib/metadata/types.ts MetaCastMember/MetaCrewMember) mais jamais
+    // consommés côté TV jusqu'ici — confirmé en direct contre la vraie
+    // réponse serveur (ex. tmdbId=27205 "Inception").
+    val cast: List<MetaCastMemberDto> = emptyList(),
+    val crew: List<MetaCrewMemberDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class MetaCastMemberDto(
+    val id: Int,
+    val name: String,
+    val character: String = "",
+    val profilePath: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MetaCrewMemberDto(
+    val id: Int,
+    val name: String,
+    val job: String = "",
 )
 
 // Miroir de LibraryEpisode/LibrarySeason (src/lib/library/types.ts) — juste
