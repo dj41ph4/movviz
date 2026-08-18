@@ -61,6 +61,9 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.common)
     implementation(libs.media3.datasource.okhttp)
+    // HLS — nécessaire pour le repli transcodage serveur (/api/stream/{ratingKey}/transcode,
+    // manifeste .m3u8) quand le direct-play échoue (codec non décodable nativement).
+    implementation(libs.media3.exoplayer.hls)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.moshi)
