@@ -95,9 +95,21 @@ fun TitleDetailScreen(
     LaunchedEffect(type, tmdbId) {
         viewModel.loadDetail(type, tmdbId)
         if (type == "series" && inLibrary) viewModel.loadSeriesSeasons(tmdbId)
+        if (type == "movie") viewModel.loadContinueWatching()
     }
 
     val plexRatingKey = viewModel.libraryPlexRatingKey(type, tmdbId)
+
+    // Reprise pour un film déjà entamé — via /api/plex/on-deck (déjà chargé
+    // pour la rangée "Continuer à regarder" de l'accueil), PAS un stockage
+    // local à l'appareil : la position doit être la même quel que soit
+    // l'appareil utilisé (TV, desktop...), donc côté serveur/compte Plex,
+    // jamais un cache propre à un seul écran.
+    val continueWatching by viewModel.continueWatching.collectAsState()
+    val movieResume = remember(continueWatching, type, tmdbId) {
+        if (type != "movie") null
+        else continueWatching.firstOrNull { it.type == "movie" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
+    }
 
     // File de lecture épisode par épisode — à plat sur toutes les saisons,
     // dans l'ordre d'affichage, pour que suivant/précédent dans le lecteur
@@ -318,28 +330,51 @@ fun TitleDetailScreen(
             // pas de CTA générique unique (mêmes hiérarchie qu'un show sur
             // Plex/Netflix : jamais un simple bouton "Lire" sur une série).
             if (type == "movie") {
-                Row {
-                    if (plexRatingKey != null) {
-                        PrimaryPill(text = "▶  Lire", brush = null, solidWhite = true, focusRequester = initialFocusRequester) {
-                            onPlay(d.title, listOf(QueueItem(plexRatingKey, null, -1, -1)), 0)
-                        }
-                    } else if (!inLibrary) {
-                        PrimaryPill(
-                            text = if (addingToLibrary) "Ajout…" else "+  Ajouter à la bibliothèque",
-                            brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                            solidWhite = false,
-                            enabled = !addingToLibrary,
-                            focusRequester = initialFocusRequester,
-                        ) {
-                            scope.launch {
-                                when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
-                                    is ApiResult.Failure -> addError = result.message
-                                    else -> addError = null
+                Column {
+                    Row {
+                        if (plexRatingKey != null) {
+                            val ctaText = if (movieResume != null) "▶  Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "▶  Lire"
+                            PrimaryPill(text = ctaText, brush = null, solidWhite = true, focusRequester = initialFocusRequester) {
+                                onPlay(d.title, listOf(QueueItem(plexRatingKey, null, -1, -1)), 0)
+                            }
+                        } else if (!inLibrary) {
+                            PrimaryPill(
+                                text = if (addingToLibrary) "Ajout…" else "+  Ajouter à la bibliothèque",
+                                brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                                solidWhite = false,
+                                enabled = !addingToLibrary,
+                                focusRequester = initialFocusRequester,
+                            ) {
+                                scope.launch {
+                                    when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
+                                        is ApiResult.Failure -> addError = result.message
+                                        else -> addError = null
+                                    }
                                 }
                             }
+                        } else {
+                            PrimaryPill(text = movieStatusLabel(viewModel.libraryMovieStatus(tmdbId)), brush = null, solidWhite = false, enabled = false) {}
                         }
-                    } else {
-                        PrimaryPill(text = movieStatusLabel(viewModel.libraryMovieStatus(tmdbId)), brush = null, solidWhite = false, enabled = false) {}
+                    }
+                    // Fine barre de progression sous le CTA de reprise — même
+                    // esprit que le hero de l'accueil (progressPercent sur
+                    // PosterCard), juste sous un bouton plutôt que sur un
+                    // poster ici.
+                    movieResume?.let { resume ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(200.dp)
+                                .height(3.dp)
+                                .background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.dp)),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(fraction = (resume.progressPercent / 100f).coerceIn(0f, 1f))
+                                    .fillMaxHeight()
+                                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
+                            )
+                        }
                     }
                 }
             } else if (!inLibrary) {
@@ -607,4 +642,15 @@ private fun movieStatusLabel(status: String?): String = when (status) {
     "downloading" -> "Téléchargement en cours…"
     "available" -> "Import en cours…" // fichier trouvé côté serveur mais pas encore reflété ici (plexRatingKey null)
     else -> "En attente de synchronisation"
+}
+
+/** "1:23:45" ou "9:24" selon la présence d'heures — même format que
+ *  formatResumeTime côté desktop (src/lib/player/watchProgress.ts), pour le
+ *  CTA "Reprendre à…" d'un film déjà entamé. */
+private fun formatResumeTime(offsetMs: Long): String {
+    val totalSeconds = (offsetMs / 1000).coerceAtLeast(0)
+    val h = totalSeconds / 3600
+    val m = (totalSeconds % 3600) / 60
+    val s = totalSeconds % 60
+    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
 }
