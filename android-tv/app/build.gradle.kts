@@ -33,6 +33,10 @@ android {
 
     buildFeatures {
         compose = true
+        // Expose versionName à Compose (BuildConfig.VERSION_NAME) — écran
+        // Paramètres, section "À propos" : un seul point de vérité pour le
+        // numéro de version plutôt qu'une chaîne dupliquée à la main.
+        buildConfig = true
     }
 }
 
