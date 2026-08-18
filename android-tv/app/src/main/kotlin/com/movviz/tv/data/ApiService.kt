@@ -7,7 +7,7 @@ import retrofit2.http.POST
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-/** Miroir des routes /api/* réellement utilisées côté web (src/app/api/...)
+/** Miroir des routes /api réellement utilisées côté web (src/app/api/...)
  *  — aucune nouvelle route serveur, ce client consomme l'API existante
  *  telle quelle. */
 interface MovvizApiService {

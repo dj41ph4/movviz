@@ -14,7 +14,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Button
-import androidx.tv.material3.CircularProgressIndicator
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.movviz.tv.AppViewModel
@@ -81,10 +80,6 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
                 }
             },
         ) {
-            if (testing) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-            }
             Text(if (testing) "Connexion..." else "Se connecter")
         }
     }

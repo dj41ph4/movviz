@@ -17,7 +17,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Button
-import androidx.tv.material3.CircularProgressIndicator
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import com.movviz.tv.AppViewModel
@@ -68,10 +67,6 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
                 }
             },
         ) {
-            if (busy) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-            }
             Text(if (busy) "Connexion..." else "Se connecter")
         }
     }

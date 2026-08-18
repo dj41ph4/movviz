@@ -21,7 +21,6 @@ import androidx.tv.foundation.lazy.list.items
 import androidx.tv.material3.Border
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
-import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
@@ -141,7 +140,7 @@ private fun PosterCard(card: TvTitleCard, onClick: () -> Unit) {
                 .scale(if (focused) 1.12f else 1f)
                 .onFocusChanged { focused = it.isFocused },
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
-            colors = SurfaceDefaults.colors(containerColor = Color(0xFF1D1D2B)),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color(0xFF1D1D2B)),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
                     border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
