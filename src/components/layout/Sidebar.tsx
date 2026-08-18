@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import useSWR from "swr";
@@ -265,37 +265,32 @@ export function Sidebar({ version }: { version: string }) {
 
 /** Item de navigation à sous-menu (Bibliothèque : Tout / Films / Séries).
  *  Le clic sur le label navigue comme avant ET déroule le sous-menu ; le
- *  chevron ne fait que dérouler/replier sans naviguer. Le sous-menu suit
- *  l'URL : il s'ouvre quand on est sur /library, se replie en quittant,
- *  l'entrée active est déduite du paramètre `type`, et les autres
- *  paramètres (filter/sort/tag) sont conservés quand on change de type.
- *  Les libellés réutilisent les clés des chips de la page Bibliothèque
+ *  chevron ne fait que dérouler/replier sans naviguer. Chaque entrée du
+ *  sous-menu pointe vers une page dédiée : /library (Tout, mélange les deux
+ *  types), /movies (films uniquement) et /series (séries uniquement). Le
+ *  sous-menu suit l'URL : il s'ouvre quand on est sur l'une des trois pages,
+ *  se replie en quittant, et l'entrée active est déduite du pathname. Les
+ *  libellés réutilisent les clés des chips de la page Bibliothèque
  *  (common.all/common.movies/common.series) — aucune nouvelle clé i18n. */
 function LibraryNavItem({ item, pathname }: { item: (typeof NAV)[number]; pathname: string }) {
   const t = useT();
-  const searchParams = useSearchParams();
-  const onLibrary = pathname.startsWith(item.href);
+  const onLibrary =
+    pathname.startsWith("/library") || pathname.startsWith("/movies") || pathname.startsWith("/series");
   const [open, setOpen] = useState(onLibrary);
 
   useEffect(() => {
     setOpen(onLibrary);
   }, [onLibrary]);
 
-  const typeParam = searchParams.get("type");
-  const subs: { id: "all" | "movie" | "series"; labelKey: string }[] = [
-    { id: "all", labelKey: "common.all" },
-    { id: "movie", labelKey: "common.movies" },
-    { id: "series", labelKey: "common.series" },
+  const subs: { id: "all" | "movie" | "series"; labelKey: string; href: string }[] = [
+    { id: "all", labelKey: "common.all", href: "/library" },
+    { id: "movie", labelKey: "common.movies", href: "/movies" },
+    { id: "series", labelKey: "common.series", href: "/series" },
   ];
-  const hrefWithType = (id: "all" | "movie" | "series") => {
-    const p = new URLSearchParams(searchParams.toString());
-    if (id === "all") p.delete("type");
-    else p.set("type", id);
-    const qs = p.toString();
-    return item.href + (qs ? `?${qs}` : "");
-  };
-  const isActive = (id: "all" | "movie" | "series") =>
-    id === "all" ? !typeParam || typeParam === "all" : typeParam === id;
+  // The series detail page (src/app/library/series/[id]) belongs to the
+  // series view — count it as the "Séries" entry active.
+  const isActive = (href: string) =>
+    href === "/library" ? pathname === "/library" : pathname.startsWith(href) || (href === "/series" && pathname.startsWith("/library/series"));
   const Icon = item.icon;
 
   return (
@@ -347,11 +342,11 @@ function LibraryNavItem({ item, pathname }: { item: (typeof NAV)[number]; pathna
           >
             <div className="flex flex-col gap-0.5 pb-1 pt-0.5">
               {subs.map((s) => {
-                const active = isActive(s.id);
+                const active = isActive(s.href);
                 return (
                   <Link
                     key={s.id}
-                    href={hrefWithType(s.id)}
+                    href={s.href}
                     className={cn(
                       "ml-2.5 mr-1.5 flex items-center gap-2 rounded-lg px-3 py-2 pl-8 text-sm font-semibold transition-colors ring-focus",
                       active ? "bg-brand/12 text-brand-glow" : "text-ink-soft hover:text-ink"
