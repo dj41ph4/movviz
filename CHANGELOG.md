@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.1 — August 2026
+
+### Nouveau : sous-menu Bibliothèque dans la sidebar (desktop)
+
+- Le menu « Bibliothèque » se déplie désormais sous trois entrées : **Tout**, **Films** et **Séries** — un chevron ouvre/ferme le sous-menu, et l'entrée active est mise en évidence. Les filtres, tri et tags déjà appliqués sont conservés quand on bascule entre les trois vues.
+
+### Correctif : le build échouait par manque d'espace disque
+
+- **Cause racine identifiée** : le build Turbopack de Next.js 16 ignorait les exclusions de tracing et copiait les dossiers de développement (`dta/`, `.movviz-data/`) — jusqu'à ~480 Go — dans le bundle standalone, jusqu'à saturer le disque. Le build repasse en webpack (où les exclusions fonctionnent) et un script `clean-standalone` purge ce qui doit rester hors du bundle : le standalone final passe de ~480 Go à ~64 Mo.
+
 ## v1.16.0 — August 2026
 
 ### Nouveau : client Android TV
