@@ -2,6 +2,7 @@ package com.movviz.tv.ui.title
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -12,9 +13,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -28,6 +32,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
+import androidx.tv.foundation.lazy.list.itemsIndexed
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -75,6 +80,42 @@ fun TitleDetailScreen(
     }
 
     val plexRatingKey = viewModel.libraryPlexRatingKey(type, tmdbId)
+
+    // Focus initial déterministe — sans ceci, rien ne réclame jamais le
+    // focus D-pad en entrant sur la fiche (constat direct : deux DPAD_DOWN
+    // consécutifs, focus immobile, avant ce correctif). La cible doit
+    // toujours être un élément déjà composé au premier rendu — viser
+    // directement le premier épisode d'une saison a été essayé et plante
+    // (IllegalStateException "FocusRequester is not initialized") ou échoue
+    // silencieusement : cette rangée vit dans la TvLazyColumn et n'est pas
+    // forcément composée tant qu'elle n'est pas au moins proche du viewport
+    // (synopsis long ⇒ saison 1 hors-champ au premier rendu). On utilise
+    // donc le CTA principal (Lire/Ajouter) quand il existe — il est toujours
+    // dans le tout premier `item{}`, donc toujours composé — sinon un ancrage
+    // invisible placé au même endroit (cas d'une série déjà en bibliothèque,
+    // sans CTA générique). Une fois le focus posé en haut, la descente D-pad
+    // classique fait défiler/composer les rangées de saisons normalement
+    // (même mécanisme que la ligne Films → Séries de l'accueil).
+    val initialFocusRequester = remember { FocusRequester() }
+    var hasRequestedInitialFocus by remember { mutableStateOf(false) }
+    val hasFocusableCta = when {
+        type == "movie" && plexRatingKey != null -> true
+        type == "movie" -> !inLibrary
+        else -> !inLibrary // série
+    }
+    LaunchedEffect(detail) {
+        if (hasRequestedInitialFocus) return@LaunchedEffect
+        if (detail == null) return@LaunchedEffect
+        hasRequestedInitialFocus = true
+        // Le tout premier `item{}` composé peut prendre une frame — on
+        // retente sur quelques frames plutôt que de laisser un crash D-pad
+        // silencieux (constaté en direct) sortir l'utilisateur de l'app.
+        repeat(10) { attempt ->
+            val focused = runCatching { initialFocusRequester.requestFocus() }.isSuccess
+            if (focused) return@LaunchedEffect
+            if (attempt < 9) withFrameNanos { }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val backdropUrl = detail?.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
@@ -130,6 +171,19 @@ fun TitleDetailScreen(
             contentPadding = PaddingValues(top = 320.dp),
         ) {
             item {
+            if (!hasFocusableCta) {
+                // Ancrage de focus invisible — série déjà en bibliothèque,
+                // donc aucun CTA généré plus bas dans ce même `item{}` (voir
+                // hasFocusableCta) : sans cible focusable garantie composée
+                // dès le premier rendu, le focus D-pad n'a nulle part où
+                // atterrir en entrant sur la fiche.
+                Box(
+                    modifier = Modifier
+                        .size(1.dp)
+                        .focusRequester(initialFocusRequester)
+                        .focusable(),
+                )
+            }
             if (inLibrary) {
                 Box(
                     modifier = Modifier
@@ -205,7 +259,7 @@ fun TitleDetailScreen(
             if (type == "movie") {
                 Row {
                     if (plexRatingKey != null) {
-                        PrimaryPill(text = "▶  Lire", brush = null, solidWhite = true) {
+                        PrimaryPill(text = "▶  Lire", brush = null, solidWhite = true, focusRequester = initialFocusRequester) {
                             viewModel.streamUrl(plexRatingKey)?.let(onPlay)
                         }
                     } else if (!inLibrary) {
@@ -214,6 +268,7 @@ fun TitleDetailScreen(
                             brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
                             solidWhite = false,
                             enabled = !addingToLibrary,
+                            focusRequester = initialFocusRequester,
                         ) {
                             scope.launch {
                                 when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
@@ -233,6 +288,7 @@ fun TitleDetailScreen(
                         brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
                         solidWhite = false,
                         enabled = !addingToLibrary,
+                        focusRequester = initialFocusRequester,
                     ) {
                         scope.launch {
                             when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
@@ -275,7 +331,11 @@ fun TitleDetailScreen(
  *  si le fichier est prêt), inspiré de la liste de saisons de Plex mais en
  *  rangée scrollable plutôt qu'un accordéon (plus naturel au D-pad). */
 @Composable
-private fun SeasonRow(season: SeriesSeasonDto, onPlayEpisode: (SeriesEpisodeDto) -> Unit) {
+private fun SeasonRow(
+    season: SeriesSeasonDto,
+    firstEpisodeFocusRequester: FocusRequester? = null,
+    onPlayEpisode: (SeriesEpisodeDto) -> Unit,
+) {
     Column(modifier = Modifier.padding(bottom = 24.dp)) {
         Text(
             text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
@@ -283,15 +343,19 @@ private fun SeasonRow(season: SeriesSeasonDto, onPlayEpisode: (SeriesEpisodeDto)
         )
         Spacer(modifier = Modifier.height(10.dp))
         TvLazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(season.episodes, key = { it.episodeNumber }) { ep ->
-                EpisodeChip(episode = ep, onClick = { onPlayEpisode(ep) })
+            itemsIndexed(season.episodes, key = { _, ep -> ep.episodeNumber }) { index, ep ->
+                EpisodeChip(
+                    episode = ep,
+                    onClick = { onPlayEpisode(ep) },
+                    focusRequester = if (index == 0) firstEpisodeFocusRequester else null,
+                )
             }
         }
     }
 }
 
 @Composable
-private fun EpisodeChip(episode: SeriesEpisodeDto, onClick: () -> Unit) {
+private fun EpisodeChip(episode: SeriesEpisodeDto, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val available = episode.plexRatingKey != null && episode.status == "available"
     val shape = RoundedCornerShape(10.dp)
@@ -300,6 +364,7 @@ private fun EpisodeChip(episode: SeriesEpisodeDto, onClick: () -> Unit) {
         enabled = available,
         modifier = Modifier
             .width(160.dp)
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .scale(if (focused && available) 1.06f else 1f)
             .onFocusChanged { focused = it.isFocused }
             .let { if (available) it.tvPointerClick(onClick) else it },
@@ -348,6 +413,7 @@ private fun PrimaryPill(
     brush: Brush?,
     solidWhite: Boolean,
     enabled: Boolean = true,
+    focusRequester: FocusRequester? = null,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -357,6 +423,7 @@ private fun PrimaryPill(
         enabled = enabled,
         modifier = Modifier
             .let { if (brush != null) it.background(brush, shape) else it }
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .scale(if (focused && enabled) 1.06f else 1f)
             .onFocusChanged { focused = it.isFocused }
             .let { if (enabled) it.tvPointerClick(onClick) else it },
