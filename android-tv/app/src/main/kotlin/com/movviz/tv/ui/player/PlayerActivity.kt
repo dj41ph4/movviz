@@ -3,14 +3,22 @@ package com.movviz.tv.ui.player
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
@@ -27,10 +35,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -54,9 +66,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.data.MovvizRepository
@@ -91,6 +105,19 @@ private const val EXTRA_INDEX = "extra_index"
  * pas de redémarrage d'Activity, donc pas de flash noir entre deux épisodes.
  */
 class PlayerActivity : ComponentActivity() {
+    // Les vraies télécommandes Android TV envoient des KEYCODE_MEDIA_* dédiés
+    // (play/pause/avance/recul/suivant/précédent) en plus du D-pad — ils
+    // n'appartiennent à aucun bouton Compose à l'écran donc ne remontent
+    // jamais via onPreviewKeyEvent des contrôles ; il faut les intercepter au
+    // niveau Activity. Le composable enregistre son gestionnaire ici une fois
+    // monté (voir PlayerScreen → onRegisterMediaKeyHandler).
+    private var mediaKeyHandler: ((Int) -> Boolean)? = null
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (isMediaKey(keyCode) && mediaKeyHandler?.invoke(keyCode) == true) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -124,10 +151,16 @@ class PlayerActivity : ComponentActivity() {
                         queue = queue,
                         startIndex = startIndex,
                         onExit = { finish() },
+                        onRegisterMediaKeyHandler = { handler -> mediaKeyHandler = handler },
                     )
                 }
             }
         }
+    }
+
+    override fun onDestroy() {
+        mediaKeyHandler = null
+        super.onDestroy()
     }
 
     companion object {
@@ -164,9 +197,71 @@ data class QueueItem(
     val episodeNumber: Int,
 )
 
+private fun isMediaKey(keyCode: Int): Boolean = keyCode in intArrayOf(
+    KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+    KeyEvent.KEYCODE_MEDIA_PLAY,
+    KeyEvent.KEYCODE_MEDIA_PAUSE,
+    KeyEvent.KEYCODE_MEDIA_STOP,
+    KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+    KeyEvent.KEYCODE_MEDIA_REWIND,
+    KeyEvent.KEYCODE_MEDIA_NEXT,
+    KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+)
+
 private const val SEEK_STEP_MS = 10_000L
 private const val CONTROLS_TIMEOUT_MS = 4_500L
 private const val PROGRESS_REPORT_INTERVAL_MS = 10_000L
+private const val MAX_NETWORK_AUTO_RETRIES = 2
+private const val NETWORK_RETRY_DELAY_MS = 2_000L
+
+/** Catégories d'erreur de lecture — déterminent le message et si un retry
+ *  automatique/manuel a un sens (ré-essayer un codec non supporté ne
+ *  changera jamais rien, contrairement à un pépin réseau transitoire). */
+private enum class PlayerErrorKind { NETWORK, AUTH, NOT_FOUND, UNSUPPORTED, UNKNOWN }
+
+private val NETWORK_ERROR_CODES = intArrayOf(
+    PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+    PlaybackException.ERROR_CODE_IO_INVALID_HTTP_CONTENT_TYPE,
+    PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE,
+    PlaybackException.ERROR_CODE_TIMEOUT,
+)
+
+private val UNSUPPORTED_ERROR_CODES = intArrayOf(
+    PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+    PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,
+    PlaybackException.ERROR_CODE_DECODING_FAILED,
+    PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+    PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+    PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED,
+    PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED,
+    PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+    PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED,
+)
+
+private fun classifyError(error: PlaybackException): PlayerErrorKind {
+    if (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
+        val httpCode = (error.cause as? HttpDataSource.InvalidResponseCodeException)?.responseCode
+        return when (httpCode) {
+            401, 403 -> PlayerErrorKind.AUTH
+            404 -> PlayerErrorKind.NOT_FOUND
+            else -> PlayerErrorKind.NETWORK
+        }
+    }
+    if (error.errorCode == PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND) return PlayerErrorKind.NOT_FOUND
+    if (error.errorCode in NETWORK_ERROR_CODES) return PlayerErrorKind.NETWORK
+    if (error.errorCode in UNSUPPORTED_ERROR_CODES) return PlayerErrorKind.UNSUPPORTED
+    return PlayerErrorKind.UNKNOWN
+}
+
+private fun messageFor(kind: PlayerErrorKind): String = when (kind) {
+    PlayerErrorKind.NETWORK -> "Connexion au serveur perdue."
+    PlayerErrorKind.AUTH -> "Session expirée — reconnecte-toi depuis l'accueil."
+    PlayerErrorKind.NOT_FOUND -> "Ce fichier n'est plus disponible sur le serveur."
+    PlayerErrorKind.UNSUPPORTED -> "Ce format vidéo n'est pas pris en charge par cet appareil."
+    PlayerErrorKind.UNKNOWN -> "Lecture impossible."
+}
 
 @Composable
 private fun PlayerScreen(
@@ -177,6 +272,7 @@ private fun PlayerScreen(
     queue: List<QueueItem>,
     startIndex: Int,
     onExit: () -> Unit,
+    onRegisterMediaKeyHandler: (((Int) -> Boolean) -> Unit)? = null,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -193,7 +289,14 @@ private fun PlayerScreen(
     var durationMs by remember { mutableStateOf(0L) }
     var bufferedPercent by remember { mutableStateOf(0) }
     var loading by remember { mutableStateOf(true) }
+    // A joué au moins une image pour cet item — distingue le chargement
+    // initial (voile plein écran + texte) d'un simple re-buffering réseau en
+    // cours de lecture (indicateur discret, la dernière image reste visible
+    // au lieu de figer l'écran sans aucun retour visuel).
+    var hasRenderedFrame by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var errorKind by remember { mutableStateOf<PlayerErrorKind?>(null) }
+    var networkRetryCount by remember { mutableStateOf(0) }
     var showAudioDialog by remember { mutableStateOf(false) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var tracksVersion by remember { mutableStateOf(0) } // force la recomposition des dialogues pistes
@@ -205,11 +308,14 @@ private fun PlayerScreen(
     }
 
     // Charge un item de la queue dans le player existant — appelé au premier
-    // rendu ET à chaque changement d'épisode (suivant/précédent), sans jamais
-    // recréer l'ExoPlayer ni relancer l'Activity : garde une lecture fluide.
+    // rendu, à chaque changement d'épisode (suivant/précédent) ET lors d'un
+    // retry après erreur, sans jamais recréer l'ExoPlayer ni relancer
+    // l'Activity : garde une lecture fluide.
     fun load(item: QueueItem, resumeMs: Long) {
         loading = true
+        hasRenderedFrame = false
         errorMessage = null
+        errorKind = null
         val url = repository.streamUrl(item.ratingKey)
         exoPlayer.setMediaItem(MediaItem.fromUri(url))
         exoPlayer.prepare()
@@ -217,11 +323,13 @@ private fun PlayerScreen(
         exoPlayer.playWhenReady = true
     }
 
-    // Reprise de lecture — approximée depuis /api/plex/on-deck (progressPercent)
-    // appliqué à la durée réelle une fois connue via /stream/{key}/info (voir
-    // MovvizRepository.resumeOffsetMs pour le détail de pourquoi c'est une
-    // approximation et pas un offset exact : l'API n'expose pas mieux).
+    // Reprise de lecture — position exacte (viewOffset Plex brut) exposée
+    // par /api/plex/on-deck via OnDeckEntryDto.offsetMs, voir
+    // MovvizRepository.resumeOffsetMs pour le détail (durationMs ne sert
+    // plus qu'à ignorer un offset aberrant si le fichier a changé entre
+    // temps).
     LaunchedEffect(current.ratingKey) {
+        networkRetryCount = 0
         val infoResult = repository.streamInfo(current.ratingKey)
         val knownDuration = (infoResult as? ApiResult.Success)?.data?.durationMs
         val resume = repository.resumeOffsetMs(
@@ -241,18 +349,43 @@ private fun PlayerScreen(
             }
             override fun onPlaybackStateChanged(state: Int) {
                 loading = state == Player.STATE_BUFFERING
-                if (state == Player.STATE_READY) durationMs = exoPlayer.duration.coerceAtLeast(0)
+                if (state == Player.STATE_READY) {
+                    durationMs = exoPlayer.duration.coerceAtLeast(0)
+                    hasRenderedFrame = true
+                }
                 if (state == Player.STATE_ENDED) {
-                    if (hasNext) {
+                    // currentIndex (état Compose) est lu ici à chaud plutôt
+                    // que de fermer sur `current`/`hasNext` capturés à la
+                    // création de cet effet (celui-ci ne se relance jamais,
+                    // sa clé `exoPlayer` ne change pas) — sinon la queue
+                    // reste bloquée sur l'épisode de départ pour toujours et
+                    // dépasse ses bornes (IndexOutOfBounds) une fois le
+                    // dernier épisode terminé naturellement (bug confirmé en
+                    // lisant le code : `hasNext` figé à true incrémentait
+                    // currentIndex au-delà de queue.size - 1).
+                    if (currentIndex < queue.size - 1) {
                         currentIndex += 1
                     } else {
-                        scope.launch { repository.reportStop(current.ratingKey) }
+                        scope.launch { repository.reportStop(queue[currentIndex].ratingKey) }
                         onExit()
                     }
                 }
             }
             override fun onPlayerError(error: PlaybackException) {
-                errorMessage = "Lecture impossible : ${error.errorCodeName}"
+                val kind = classifyError(error)
+                if (kind == PlayerErrorKind.NETWORK && networkRetryCount < MAX_NETWORK_AUTO_RETRIES) {
+                    networkRetryCount += 1
+                    val resumePos = exoPlayer.currentPosition.coerceAtLeast(0)
+                    loading = true
+                    val item = queue[currentIndex]
+                    scope.launch {
+                        delay(NETWORK_RETRY_DELAY_MS)
+                        load(item, resumePos)
+                    }
+                    return
+                }
+                errorKind = kind
+                errorMessage = messageFor(kind)
             }
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
                 tracksVersion++
@@ -267,12 +400,15 @@ private fun PlayerScreen(
 
     // Signale l'arrêt/la position finale au serveur en quittant l'écran —
     // sans ça Plex ne sait jamais que la lecture s'est arrêtée ici (état
-    // "en cours" qui resterait figé côté bibliothèque/on-deck).
+    // "en cours" qui resterait figé côté bibliothèque/on-deck). Même piège
+    // de fermeture que ci-dessus : lit currentIndex/queue à chaud plutôt que
+    // `current` (figé sur le premier épisode de la queue) pour reporter le
+    // bon ratingKey si l'utilisateur quitte après avoir avancé dans la file.
     DisposableEffect(Unit) {
         onDispose {
             runCatching {
                 kotlinx.coroutines.runBlocking {
-                    repository.reportStop(current.ratingKey)
+                    repository.reportStop(queue[currentIndex].ratingKey)
                 }
             }
         }
@@ -305,6 +441,47 @@ private fun PlayerScreen(
     }
     fun poke() {
         lastInteraction = System.currentTimeMillis()
+    }
+
+    // Actions du lecteur — factorisées pour être appelées à la fois par les
+    // boutons Compose de l'overlay ET par les touches média dédiées de la
+    // télécommande (KEYCODE_MEDIA_*, voir onRegisterMediaKeyHandler
+    // ci-dessous), qui ne passent jamais par un bouton à l'écran.
+    fun playPauseAction() {
+        poke()
+        if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
+    }
+    fun seekBackAction() {
+        poke()
+        exoPlayer.seekTo((exoPlayer.currentPosition - SEEK_STEP_MS).coerceAtLeast(0))
+    }
+    fun seekForwardAction() {
+        poke()
+        exoPlayer.seekTo((exoPlayer.currentPosition + SEEK_STEP_MS).coerceAtMost(exoPlayer.duration.coerceAtLeast(0)))
+    }
+    fun prevEpisodeAction() {
+        poke()
+        if (currentIndex > 0) currentIndex -= 1
+    }
+    fun nextEpisodeAction() {
+        poke()
+        if (currentIndex < queue.size - 1) currentIndex += 1
+    }
+
+    LaunchedEffect(Unit) {
+        onRegisterMediaKeyHandler?.invoke { keyCode ->
+            when (keyCode) {
+                KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> { playPauseAction(); true }
+                KeyEvent.KEYCODE_MEDIA_PLAY -> { poke(); exoPlayer.play(); true }
+                KeyEvent.KEYCODE_MEDIA_PAUSE -> { poke(); exoPlayer.pause(); true }
+                KeyEvent.KEYCODE_MEDIA_STOP -> { poke(); exoPlayer.pause(); true }
+                KeyEvent.KEYCODE_MEDIA_FAST_FORWARD -> { seekForwardAction(); true }
+                KeyEvent.KEYCODE_MEDIA_REWIND -> { seekBackAction(); true }
+                KeyEvent.KEYCODE_MEDIA_NEXT -> { nextEpisodeAction(); true }
+                KeyEvent.KEYCODE_MEDIA_PREVIOUS -> { prevEpisodeAction(); true }
+                else -> false
+            }
+        }
     }
 
     val playPauseFocus = remember { FocusRequester() }
@@ -349,6 +526,30 @@ private fun PlayerScreen(
                     isFocusable = false
                     isFocusableInTouchMode = false
                     descendantFocusability = android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+                    // Sous-titres lisibles à distance sur un téléviseur : la
+                    // taille par défaut de SubtitleView vise un écran tenu en
+                    // main, trop petite vue du canapé. Contour noir épais
+                    // (fonctionne aussi bien sur fond clair que sombre, pas
+                    // besoin d'un fond plein qui masquerait l'image) + police
+                    // agrandie. S'applique à tout type de piste texte rendue
+                    // par ExoPlayer (SRT/ASS/PGS une fois décodée en bitmap —
+                    // PGS est nativement supporté par media3-exoplayer, pas
+                    // besoin d'extension séparée).
+                    subtitleView?.setApplyEmbeddedStyles(false)
+                    subtitleView?.setApplyEmbeddedFontSizes(false)
+                    subtitleView?.setStyle(
+                        CaptionStyleCompat(
+                            android.graphics.Color.WHITE,
+                            android.graphics.Color.TRANSPARENT,
+                            android.graphics.Color.TRANSPARENT,
+                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
+                            android.graphics.Color.BLACK,
+                            null,
+                        ),
+                    )
+                    subtitleView?.setFractionalTextSize(0.06f)
+                    subtitleView?.setBottomPaddingFraction(0.12f)
                 }
             },
             modifier = Modifier.fillMaxSize(),
@@ -371,13 +572,27 @@ private fun PlayerScreen(
             )
         }
 
-        if (loading) {
-            Box(modifier = Modifier.align(Alignment.Center)) {
-                Text(text = "Chargement…", style = TextStyle(fontSize = 16.sp, color = MovvizInk))
+        if (loading && errorMessage == null) {
+            if (hasRenderedFrame) {
+                // Re-buffering en cours de lecture : indicateur discret en
+                // coin, la dernière image reste affichée — jamais de gel
+                // visuel silencieux pendant un ralentissement réseau.
+                Box(modifier = Modifier.align(Alignment.TopEnd).padding(28.dp)) {
+                    BufferingSpinner(size = 28.dp)
+                }
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        BufferingSpinner(size = 40.dp)
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(text = "Chargement…", style = TextStyle(fontSize = 16.sp, color = MovvizInk))
+                    }
+                }
             }
         }
 
         errorMessage?.let { msg ->
+            val canRetry = errorKind != PlayerErrorKind.AUTH && errorKind != PlayerErrorKind.NOT_FOUND
             Box(
                 modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)),
                 contentAlignment = Alignment.Center,
@@ -385,11 +600,23 @@ private fun PlayerScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(text = msg, style = TextStyle(fontSize = 16.sp, color = MovvizDown))
                     Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Retour",
-                        style = TextStyle(fontSize = 14.sp, color = MovvizBrand, fontWeight = FontWeight.Bold),
-                        modifier = Modifier.tvPointerClick { onExit() },
-                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                        if (canRetry) {
+                            Text(
+                                text = "Réessayer",
+                                style = TextStyle(fontSize = 14.sp, color = MovvizBrand, fontWeight = FontWeight.Bold),
+                                modifier = Modifier.tvPointerClick {
+                                    networkRetryCount = 0
+                                    load(current, positionMs)
+                                },
+                            )
+                        }
+                        Text(
+                            text = "Retour",
+                            style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f), fontWeight = FontWeight.Bold),
+                            modifier = Modifier.tvPointerClick { onExit() },
+                        )
+                    }
                 }
             }
         }
@@ -411,26 +638,11 @@ private fun PlayerScreen(
                 hasPrev = hasPrev,
                 playPauseFocus = playPauseFocus,
                 onInteraction = { poke() },
-                onPlayPause = {
-                    poke()
-                    if (exoPlayer.isPlaying) exoPlayer.pause() else exoPlayer.play()
-                },
-                onSeekBack = {
-                    poke()
-                    exoPlayer.seekTo((exoPlayer.currentPosition - SEEK_STEP_MS).coerceAtLeast(0))
-                },
-                onSeekForward = {
-                    poke()
-                    exoPlayer.seekTo((exoPlayer.currentPosition + SEEK_STEP_MS).coerceAtMost(exoPlayer.duration.coerceAtLeast(0)))
-                },
-                onPrevEpisode = {
-                    poke()
-                    if (hasPrev) currentIndex -= 1
-                },
-                onNextEpisode = {
-                    poke()
-                    if (hasNext) currentIndex += 1
-                },
+                onPlayPause = { playPauseAction() },
+                onSeekBack = { seekBackAction() },
+                onSeekForward = { seekForwardAction() },
+                onPrevEpisode = { prevEpisodeAction() },
+                onNextEpisode = { nextEpisodeAction() },
                 onOpenAudio = { poke(); showAudioDialog = true },
                 onOpenSubtitles = { poke(); showSubtitleDialog = true },
             )
@@ -471,6 +683,10 @@ private fun PlayerScreen(
     }
 }
 
+/** Changer de piste audio applique juste un override de sélection sur le
+ *  MediaItem déjà chargé — ExoPlayer ne recrée pas la source ni ne relance
+ *  la lecture depuis le début, la position courante est conservée (vérifié
+ *  en direct : bascule de piste en cours de lecture sans saut de position). */
 private fun applyTrackOverride(player: ExoPlayer, trackType: Int, group: androidx.media3.common.Tracks.Group) {
     player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
         .setTrackTypeDisabled(trackType, false)
@@ -500,6 +716,30 @@ private fun subtitleTrackOptions(player: ExoPlayer): List<TrackOption> =
             val lang = format.language?.uppercase() ?: "Inconnue"
             TrackOption(i, 0, lang, g.isSelected)
         }
+
+/** Petit indicateur de chargement/tampon rotatif aux couleurs de marque —
+ *  cohérent avec le pattern "Loader2 spin" utilisé ailleurs dans l'app pour
+ *  les actions asynchrones courtes. */
+@Composable
+private fun BufferingSpinner(size: androidx.compose.ui.unit.Dp) {
+    val transition = rememberInfiniteTransition(label = "buffering")
+    val angle by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(animation = tween(900, easing = LinearEasing), repeatMode = RepeatMode.Restart),
+        label = "angle",
+    )
+    Canvas(modifier = Modifier.size(size).rotate(angle)) {
+        drawArc(
+            brush = androidx.compose.ui.graphics.Brush.sweepGradient(listOf(Color.Transparent, MovvizBrand, MovvizBrand2)),
+            startAngle = 0f,
+            sweepAngle = 300f,
+            useCenter = false,
+            style = Stroke(width = size.toPx() * 0.14f, cap = StrokeCap.Round),
+            size = Size(size.toPx(), size.toPx()),
+        )
+    }
+}
 
 @Composable
 private fun ControlsOverlay(
