@@ -493,7 +493,7 @@ internal fun TitleRow(
         )
         TvLazyRow(
             contentPadding = PaddingValues(horizontal = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             itemsIndexed(items, key = { _, item -> item.id }) { index, card ->
                 PosterCard(
@@ -513,7 +513,7 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
 
-    Column(modifier = Modifier.width(140.dp)) {
+    Column(modifier = Modifier.width(112.dp)) {
         // Surface (tv-material3) gère nativement le focus D-pad + le clic OK,
         // mais PAS le clic souris/tactile (confirmé : un tap synthétique sur
         // l'émulateur ne déclenchait rien) — tvPointerClick comble ce trou
@@ -551,10 +551,17 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
                 // ui/theme/Badges.kt. Le statut n'existe que pour les films
                 // (LibrarySeriesDto n'a pas ce champ côté API) donc absent
                 // pour une carte série.
-                RatingBadge(
-                    rating = card.rating,
-                    modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
-                )
+                // Certaines sources (titres similaires, découverte) ne
+                // renvoient pas toujours de note — 0.0 par défaut n'est pas
+                // une vraie note "zéro étoile", juste une valeur absente,
+                // donc pas de pastille du tout dans ce cas plutôt que "★0.0"
+                // trompeur.
+                if (card.rating > 0) {
+                    RatingBadge(
+                        rating = card.rating,
+                        modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
+                    )
+                }
                 card.status?.let { status ->
                     StatusPill(
                         status = status,
@@ -608,7 +615,7 @@ private fun DownloadQueueRow(items: List<QueueItemDto>, onOpenTitle: (type: Stri
         )
         TvLazyRow(
             contentPadding = PaddingValues(horizontal = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             itemsIndexed(items, key = { _, item -> item.id }) { _, item ->
                 DownloadCard(
@@ -630,7 +637,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
     val clickable = item.media.tmdbId != null
     val shape = RoundedCornerShape(10.dp)
 
-    Column(modifier = Modifier.width(140.dp)) {
+    Column(modifier = Modifier.width(112.dp)) {
         Surface(
             onClick = onClick,
             enabled = clickable,
