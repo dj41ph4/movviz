@@ -62,6 +62,24 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun search(query: String): ApiResult<List<SearchResultDto>> =
         safeCall { api.search(query) }.map { it.results }
 
+    /** Liste brute "Continuer à regarder" — voir OnDeckEntryDto. Distinct de
+     *  resumeOffsetMs ci-dessous, qui ne fait qu'y chercher une seule entrée
+     *  précise pour calculer un offset de reprise ; ici on veut la rangée
+     *  entière pour l'accueil. */
+    suspend fun onDeckItems(): ApiResult<List<OnDeckEntryDto>> =
+        safeCall { api.onDeck() }.map { it.items }
+
+    /** File de téléchargement en cours — voir QueueItemDto. */
+    suspend fun queue(): ApiResult<List<QueueItemDto>> =
+        safeCall { api.queue() }.map { it.items }
+
+    /** Titres tendance TMDb, tous confondus (bibliothèque ou non) — le
+     *  filtrage "pas encore en bibliothèque" se fait côté AppViewModel, qui
+     *  a déjà movies()/series() chargés, plutôt que de dupliquer cette
+     *  logique ici. */
+    suspend fun trending(type: String): ApiResult<List<SearchResultDto>> =
+        safeCall { api.trending(type) }.map { it.results }
+
     suspend fun addToLibrary(type: String, tmdbId: Int): ApiResult<Unit> {
         val result = safeCall {
             if (type == "movie") api.addMovie(AddToLibraryRequest(tmdbId))

@@ -44,6 +44,8 @@ import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.data.SeriesEpisodeDto
 import com.movviz.tv.data.SeriesSeasonDto
+import com.movviz.tv.ui.home.TitleRow
+import com.movviz.tv.ui.home.TvTitleCard
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
@@ -72,6 +74,12 @@ fun TitleDetailScreen(
     type: String,
     tmdbId: Int,
     onPlay: (title: String, queue: List<QueueItem>, startIndex: Int) -> Unit,
+    // Navigation vers un AUTRE titre depuis cette même fiche — sert la
+    // rangée "Titres similaires" plus bas (clic → nouvelle fiche, poussée
+    // sur la pile de nav, exactement Netflix/Apple TV). Optionnel : les
+    // quelques autres call sites potentiels (aucun aujourd'hui) n'ont pas
+    // à le fournir.
+    onOpenTitle: (type: String, tmdbId: Int) -> Unit = { _, _ -> },
 ) {
     val detail by viewModel.detail.collectAsState()
     val addingToLibrary by viewModel.addingToLibrary.collectAsState()
@@ -188,6 +196,19 @@ fun TitleDetailScreen(
             return@Box
         }
         val d = detail!!
+
+        // Rangée "Titres similaires" — même esprit Netflix/Apple TV que le
+        // web (TitleContent.tsx, "title.similar") : d.similar vient du même
+        // /api/metadata/detail déjà appelé pour cette fiche (recommandations
+        // TMDb), pas un appel réseau séparé. Calculé ici (hors du DSL
+        // LazyColumn, où `remember` n'est pas utilisable) puis réutilisé via
+        // TitleRow/TvTitleCard de l'accueil pour rester visuellement
+        // identique aux autres rangées de posters de l'app.
+        val similarCards = remember(d) {
+            d.similar
+                .filter { !(it.tmdbId == tmdbId && it.type == type) }
+                .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, null, it.tmdbId, isMovie = it.type == "movie") }
+        }
 
         TvLazyColumn(
             modifier = Modifier
@@ -307,7 +328,7 @@ fun TitleDetailScreen(
                             }
                         }
                     } else {
-                        PrimaryPill(text = "En attente de synchronisation", brush = null, solidWhite = false, enabled = false) {}
+                        PrimaryPill(text = movieStatusLabel(viewModel.libraryMovieStatus(tmdbId)), brush = null, solidWhite = false, enabled = false) {}
                     }
                 }
             } else if (!inLibrary) {
@@ -353,6 +374,20 @@ fun TitleDetailScreen(
                             if (index >= 0) onPlay(d.title, playableEpisodes, index)
                         }
                     }
+                }
+            }
+
+            // Rangée "Titres similaires" — voir similarCards ci-dessus
+            // (calculé hors du DSL LazyColumn, `remember` n'est pas
+            // utilisable directement dans le corps d'un `item {}` builder).
+            if (similarCards.isNotEmpty()) {
+                item { Spacer(modifier = Modifier.height(28.dp)) }
+                item {
+                    TitleRow(
+                        heading = "Titres similaires",
+                        items = similarCards,
+                        onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                    )
                 }
             }
         }
@@ -485,4 +520,18 @@ private fun PrimaryPill(
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
         )
     }
+}
+
+/** Libellé français du vrai statut serveur (voir LibraryStatus dans
+ *  src/lib/library/types.ts : upcoming/missing/searching/downloading/
+ *  available) — remplace le texte générique "En attente de synchronisation"
+ *  qui s'affichait auparavant pour TOUT film en bibliothèque sans fichier
+ *  prêt, qu'il soit en recherche, en téléchargement, ou pas encore sorti. */
+private fun movieStatusLabel(status: String?): String = when (status) {
+    "upcoming" -> "Pas encore sorti"
+    "missing" -> "En attente de recherche"
+    "searching" -> "Recherche en cours…"
+    "downloading" -> "Téléchargement en cours…"
+    "available" -> "Import en cours…" // fichier trouvé côté serveur mais pas encore reflété ici (plexRatingKey null)
+    else -> "En attente de synchronisation"
 }
