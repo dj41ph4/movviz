@@ -130,6 +130,31 @@ fun StaticLogo(size: Dp = 30.dp) {
     }
 }
 
+/** Variante de tuile/dashboard : même halo multicolore que le logo animé,
+ * mais entièrement fixe. Elle garde la présence de marque sans transformer
+ * chaque carte de contenu en animation permanente. */
+@Composable
+fun StaticLogoWithGlow(size: Dp = 54.dp) {
+    Box(modifier = Modifier.size(size * 1.9f), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(size * 1.55f)
+                .background(
+                    brush = Brush.radialGradient(
+                        listOf(
+                            MovvizBrand.copy(alpha = 0.46f),
+                            MovvizFlowMagenta.copy(alpha = 0.25f),
+                            MovvizFlowCyan.copy(alpha = 0.16f),
+                            Color.Transparent,
+                        ),
+                    ),
+                    shape = CircleShape,
+                ),
+        )
+        StaticLogo(size = size * 0.72f)
+    }
+}
+
 /** Les quatre paths du Clapperboard Lucide importé par AnimatedLogo.tsx.
  * Centraliser ce dessin interdit tout retour d'une seconde icône Android. */
 @Composable

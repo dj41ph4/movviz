@@ -61,6 +61,14 @@ interface MovvizApiService {
     @GET("api/library/series/{id}")
     suspend fun seriesDetail(@Path("id") id: String): Response<SeriesDetailDto>
 
+    // Même route que SeasonAccordion.tsx côté desktop. Aucun nouvel endpoint
+    // serveur : ces données enrichissent les épisodes déjà connus de Plex.
+    @GET("api/metadata/season")
+    suspend fun metadataSeason(
+        @Query("tmdbId") tmdbId: Int,
+        @Query("season") seasonNumber: Int,
+    ): Response<MetadataSeasonDto>
+
     @GET("api/metadata/search")
     suspend fun search(@Query("q") query: String): Response<SearchResponseDto>
 
@@ -87,6 +95,12 @@ interface MovvizApiService {
 
     @POST("api/library/series/{id}/search")
     suspend fun searchSeriesNow(@Path("id") libraryId: String): Response<SearchTriggerResponseDto>
+
+    @POST("api/library/series/{id}/season/{season}/search")
+    suspend fun searchSeriesSeasonNow(
+        @Path("id") libraryId: String,
+        @Path("season") seasonNumber: Int,
+    ): Response<SearchTriggerResponseDto>
 
     // File de téléchargement en cours (moteur BitTorrent intégré) — même
     // route que l'onglet Activité desktop (QueueTab.tsx), juste le tab

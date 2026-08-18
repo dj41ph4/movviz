@@ -95,6 +95,7 @@ private const val EXTRA_KEYS = "extra_keys"
 private const val EXTRA_LABELS = "extra_labels"
 private const val EXTRA_SEASONS = "extra_seasons"
 private const val EXTRA_EPISODES = "extra_episodes"
+private const val EXTRA_START_FROM_BEGINNING = "extra_start_from_beginning"
 private const val EXTRA_INDEX = "extra_index"
 
 /**
@@ -132,6 +133,7 @@ class PlayerActivity : ComponentActivity() {
         val mainTitle = intent.getStringExtra(EXTRA_TITLE) ?: ""
         val type = intent.getStringExtra(EXTRA_TYPE) ?: "movie"
         val tmdbId = intent.getIntExtra(EXTRA_TMDB_ID, 0)
+        val startFromBeginning = intent.getBooleanExtra(EXTRA_START_FROM_BEGINNING, false)
 
         val queue = keys.indices.map { i ->
             QueueItem(
@@ -152,6 +154,7 @@ class PlayerActivity : ComponentActivity() {
                         tmdbId = tmdbId,
                         queue = queue,
                         startIndex = startIndex,
+                        startFromBeginning = startFromBeginning,
                         onExit = { finish() },
                         onRegisterMediaKeyHandler = { handler -> mediaKeyHandler = handler },
                     )
@@ -178,6 +181,7 @@ class PlayerActivity : ComponentActivity() {
             title: String,
             queue: List<QueueItem>,
             startIndex: Int,
+            startFromBeginning: Boolean = false,
         ): Intent = Intent(context, PlayerActivity::class.java).apply {
             putExtra(EXTRA_BASE_URL, baseUrl)
             putExtra(EXTRA_TYPE, type)
@@ -188,6 +192,7 @@ class PlayerActivity : ComponentActivity() {
             putExtra(EXTRA_SEASONS, queue.map { it.seasonNumber }.toIntArray())
             putExtra(EXTRA_EPISODES, queue.map { it.episodeNumber }.toIntArray())
             putExtra(EXTRA_INDEX, startIndex)
+            putExtra(EXTRA_START_FROM_BEGINNING, startFromBeginning)
         }
     }
 }
@@ -274,6 +279,7 @@ private fun PlayerScreen(
     tmdbId: Int,
     queue: List<QueueItem>,
     startIndex: Int,
+    startFromBeginning: Boolean,
     onExit: () -> Unit,
     onRegisterMediaKeyHandler: (((Int) -> Boolean) -> Unit)? = null,
 ) {
@@ -359,7 +365,7 @@ private fun PlayerScreen(
         fallbackNotice = null
         val infoResult = repository.streamInfo(current.ratingKey)
         val knownDuration = (infoResult as? ApiResult.Success)?.data?.durationMs
-        val resume = repository.resumeOffsetMs(
+        val resume = if (startFromBeginning && currentIndex == startIndex) 0L else repository.resumeOffsetMs(
             type = type,
             tmdbId = tmdbId,
             durationMs = knownDuration,
@@ -548,14 +554,13 @@ private fun PlayerScreen(
         }
     }
 
-    // Back : contrôles visibles → les masquer (comportement standard
-    // lecteur TV, ne quitte pas au premier appui) ; contrôles déjà masqués →
-    // sortie propre vers l'écran précédent (fiche titre).
+    // Retour doit toujours ramener immédiatement à la fiche : PlayerActivity
+    // est empilée au-dessus de TitleDetailScreen, donc finish() conserve le
+    // contexte et le bouton « Continuer à … » déjà calculé par la fiche.
     BackHandler(enabled = true) {
         when {
             showAudioDialog -> showAudioDialog = false
             showSubtitleDialog -> showSubtitleDialog = false
-            showControls -> showControls = false
             else -> onExit()
         }
     }

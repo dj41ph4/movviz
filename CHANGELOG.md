@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.6 — August 2026
+
+### Android TV : navigation et bibliothèque salon
+
+- Refonte des fiches TV : logo officiel TMDb, badges sous le logo, reprise et redémarrage séparés, et retour du lecteur vers la fiche.
+- Les séries proposent un sélecteur de saisons sans bonus S0, une fiche illustrée par épisode et la recherche d'une saison manquante depuis la télévision.
+- Dashboard amélioré : navigation Movviz animée, tuiles sans visuel avec halo de marque fixe, et cartes de téléchargement cliquables avec progression lisible.
+
 ## v1.16.5 — August 2026
 
 ### Correctif : worker de matching embarqué dans les installations standalone

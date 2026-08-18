@@ -58,6 +58,10 @@ data class LibrarySeriesDto(
     val backdropPath: String?,
     val rating: Double,
     val genres: List<String> = emptyList(),
+    // Les saisons sont déjà renvoyées par /api/library/series. Les conserver
+    // côté TV permet d'afficher une saison manquante avant même qu'un fichier
+    // Plex existe, afin de proposer sa recherche ciblée.
+    val seasons: List<SeriesSeasonDto> = emptyList(),
 )
 
 // Champs qualité confirmés en direct contre /api/library/movies (RoboCop :
@@ -259,6 +263,28 @@ data class SeriesSeasonDto(
 data class SeriesDetailDto(
     val id: String,
     val seasons: List<SeriesSeasonDto> = emptyList(),
+)
+
+/** Détails éditoriaux d'une saison déjà exposés par /api/metadata/season.
+ *  La bibliothèque reste la source de vérité pour disponibilité/Plex ; TMDb
+ *  n'apporte ici que les visuels et le synopsis nécessaires à une vraie
+ *  fiche épisode de salon. */
+@JsonClass(generateAdapter = true)
+data class MetadataEpisodeDto(
+    val seasonNumber: Int,
+    val episodeNumber: Int,
+    val title: String,
+    val airDate: String? = null,
+    val overview: String = "",
+    val stillPath: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MetadataSeasonDto(
+    val seasonNumber: Int,
+    val name: String,
+    val episodeCount: Int = 0,
+    val episodes: List<MetadataEpisodeDto> = emptyList(),
 )
 
 // Miroir de MetaSearchResult (src/lib/metadata/types.ts).

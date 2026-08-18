@@ -62,6 +62,7 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
+import com.movviz.tv.ui.theme.StaticLogoWithGlow
 import com.movviz.tv.ui.theme.RatingBadge
 import com.movviz.tv.ui.theme.StatusPill
 import com.movviz.tv.ui.theme.tvFocusLift
@@ -708,6 +709,15 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
+                } else {
+                    // Repli dashboard : tuile noire marquée Movviz, fixe et
+                    // sans animation pour rester calme au milieu des posters.
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(Color.Black),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        StaticLogoWithGlow(size = 54.dp)
+                    }
                 }
                 // Même paire de pastilles que la grille bibliothèque desktop
                 // (note ★ en haut-gauche, statut en bas-gauche) — voir
@@ -820,28 +830,37 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
     val posterUrl = item.media.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
     val clickable = item.media.tmdbId != null
-    val shape = RoundedCornerShape(10.dp)
+    val shape = RoundedCornerShape(14.dp)
 
-    Column(modifier = Modifier.width(112.dp)) {
-        Surface(
-            onClick = onClick,
-            enabled = clickable,
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(2f / 3f)
-                .tvFocusLift(focused && clickable, shape = shape)
-                .onFocusChanged { focused = it.isFocused }
-                .let { if (clickable) it.tvPointerClick(onClick) else it },
-            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = shape),
-            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
-            border = androidx.tv.material3.ClickableSurfaceDefaults.border(
-                focusedBorder = Border(
-                    border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
-                    shape = shape,
-                ),
+    // Une entrée de file n'est pas un poster tronqué. C'est une carte de
+    // travail : artwork à gauche, informations et progression à droite, avec
+    // un vrai état de focus qui dit sans ambiguïté qu'elle ouvre la fiche.
+    Surface(
+        onClick = onClick,
+        enabled = clickable,
+        modifier = Modifier
+            .width(310.dp)
+            .height(166.dp)
+            .tvFocusLift(focused && clickable, shape = shape)
+            .onFocusChanged { focused = it.isFocused }
+            .let { if (clickable) it.tvPointerClick(onClick) else it },
+        shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = shape),
+        colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
+        border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(3.dp, Color.White),
+                shape = shape,
             ),
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+        ),
+    ) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .width(108.dp)
+                    .fillMaxHeight()
+                    .background(Brush.verticalGradient(listOf(MovvizBrand.copy(alpha = 0.56f), MovvizSurfaceStrong))),
+                contentAlignment = Alignment.Center,
+            ) {
                 if (posterUrl != null) {
                     Image(
                         painter = rememberAsyncImagePainter(model = posterUrl),
@@ -849,44 +868,44 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
+                } else {
+                    Text(
+                        text = "↓",
+                        style = TextStyle(fontSize = 38.sp, fontWeight = FontWeight.Light, color = Color.White.copy(alpha = 0.9f)),
+                    )
                 }
-                // Voile sombre + pastille de statut en haut, comme une carte
-                // "en cours" plutôt qu'un poster fini — cohérent avec le
-                // trio texte/bg/border des pastilles de statut (CLAUDE.md).
-                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.28f)))
-                QueueStatusPill(
-                    status = item.status,
-                    modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+            }
+            Column(modifier = Modifier.weight(1f).padding(horizontal = 14.dp, vertical = 13.dp)) {
+                QueueStatusPill(status = item.status)
+                Spacer(modifier = Modifier.height(9.dp))
+                Text(
+                    text = item.media.title,
+                    style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .fillMaxWidth()
-                        .height(4.dp)
-                        .background(Color.White.copy(alpha = 0.15f)),
-                ) {
+                Spacer(modifier = Modifier.weight(1f))
+                Text(
+                    text = downloadSubtitle(item),
+                    style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.72f)),
+                    maxLines = 1,
+                )
+                Spacer(modifier = Modifier.height(7.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(5.dp).background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(50))) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth(fraction = item.download.progress.toFloat().coerceIn(0f, 1f))
                             .fillMaxHeight()
-                            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
+                            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(50)),
                     )
+                }
+                if (clickable) {
+                    Spacer(modifier = Modifier.height(5.dp))
+                    Text(text = "Ouvrir la fiche", style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = MovvizCyan))
                 }
             }
         }
-        Text(
-            text = item.media.title,
-            style = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onBackground),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp),
-        )
-        Text(
-            text = downloadSubtitle(item),
-            style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.6f)),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
     }
 }
 

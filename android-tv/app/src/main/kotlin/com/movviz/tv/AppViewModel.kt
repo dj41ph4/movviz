@@ -8,6 +8,7 @@ import com.movviz.tv.data.LibraryMovieDto
 import com.movviz.tv.data.LibrarySeriesDto
 import com.movviz.tv.data.DashboardHeroSlideDto
 import com.movviz.tv.data.MetaDetailDto
+import com.movviz.tv.data.MetadataSeasonDto
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.MovvizUserDto
 import com.movviz.tv.data.OnDeckEntryDto
@@ -62,6 +63,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _seriesSeasons = MutableStateFlow<List<SeriesSeasonDto>>(emptyList())
     val seriesSeasons: StateFlow<List<SeriesSeasonDto>> = _seriesSeasons.asStateFlow()
+
+    private val _seasonMetadata = MutableStateFlow<Map<Int, MetadataSeasonDto>>(emptyMap())
+    val seasonMetadata: StateFlow<Map<Int, MetadataSeasonDto>> = _seasonMetadata.asStateFlow()
+
+    private val _searchingSeason = MutableStateFlow<Int?>(null)
+    val searchingSeason: StateFlow<Int?> = _searchingSeason.asStateFlow()
 
     private val _searchResults = MutableStateFlow<List<SearchResultDto>>(emptyList())
     val searchResults: StateFlow<List<SearchResultDto>> = _searchResults.asStateFlow()
@@ -146,6 +153,36 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 is ApiResult.Success -> _seriesSeasons.value = s.data
                 else -> Unit
             }
+        }
+    }
+
+    /** Visuels et synopsis TMDb d'UNE saison ouverte. Le statut de chaque
+     * épisode reste celui de la bibliothèque/Plex chargé ci-dessus. */
+    fun loadSeasonMetadata(tmdbId: Int, seasonNumber: Int) {
+        if (_seasonMetadata.value.containsKey(seasonNumber)) return
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val result = repo.metadataSeason(tmdbId, seasonNumber)) {
+                is ApiResult.Success -> _seasonMetadata.value = _seasonMetadata.value + (seasonNumber to result.data)
+                else -> Unit
+            }
+        }
+    }
+
+    /** Déclenche la même recherche de saison que le bouton desktop, mais ne
+     * bloque pas la TV : le serveur répond immédiatement après mise en file. */
+    fun downloadSeason(tmdbId: Int, seasonNumber: Int) {
+        val repo = repository ?: return
+        val seriesId = seriesLibraryId(tmdbId) ?: return
+        if (_searchingSeason.value != null) return
+        _searchingSeason.value = seasonNumber
+        viewModelScope.launch {
+            when (repo.searchSeriesSeasonNow(seriesId, seasonNumber)) {
+                is ApiResult.Success -> loadSeriesSeasons(tmdbId)
+                ApiResult.Unauthorized -> _sessionExpired.value = true
+                is ApiResult.Failure -> Unit
+            }
+            _searchingSeason.value = null
         }
     }
 

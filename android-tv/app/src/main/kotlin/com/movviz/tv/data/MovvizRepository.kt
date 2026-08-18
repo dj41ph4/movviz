@@ -84,6 +84,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun seriesSeasons(seriesId: String): ApiResult<List<SeriesSeasonDto>> =
         safeCall { api.seriesDetail(seriesId) }.map { it.seasons }
 
+    suspend fun metadataSeason(tmdbId: Int, seasonNumber: Int): ApiResult<MetadataSeasonDto> =
+        safeCall { api.metadataSeason(tmdbId, seasonNumber) }
+
     suspend fun search(query: String): ApiResult<List<SearchResultDto>> =
         safeCall { api.search(query) }.map { it.results }
 
@@ -186,6 +189,9 @@ class MovvizRepository(private val baseUrl: String) {
 
     suspend fun searchSeriesNow(libraryId: String): ApiResult<Unit> =
         safeCall { api.searchSeriesNow(libraryId) }.map { }
+
+    suspend fun searchSeriesSeasonNow(libraryId: String, seasonNumber: Int): ApiResult<Unit> =
+        safeCall { api.searchSeriesSeasonNow(libraryId, seasonNumber) }.map { }
 
     /** Statut "vu" manuel de l'utilisateur courant — voir WatchStatusDto. */
     suspend fun watchStatus(): ApiResult<WatchStatusDto> =
