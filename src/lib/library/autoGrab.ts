@@ -39,7 +39,11 @@ const rank = (res: string | null) => (res ? RESOLUTION_ORDER.indexOf(res) : -1);
  * search + grab. Shared by: an admin/auto-approved user adding a title
  * directly, and an admin approving someone else's pending request.
  */
-export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: string, options?: { skipSearch?: boolean }) {
+export async function addMovieToLibrary(
+  tmdbId: number,
+  qualityProfileId?: string,
+  options?: { skipSearch?: boolean; onAdded?: (movie: LibraryMovie) => void }
+) {
   const existing = getMovieByTmdbId(tmdbId);
   if (existing) return { movie: existing, searchResult: null };
 
@@ -110,6 +114,10 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
     tmdbCollectionId: meta.collectionId,
   };
   addMovie(movie);
+  // A request must be persisted as soon as its library entry exists.  The
+  // automatic search below is deliberately best-effort: a flaky indexer or
+  // matching optimisation can never make the title vanish from Requests.
+  options?.onAdded?.(movie);
 
   // Skipped when this add is the side effect of linking an already-picked
   // release (see TitleTargetPicker's addAndPick) — searching would grab a
@@ -120,7 +128,16 @@ export async function addMovieToLibrary(tmdbId: number, qualityProfileId?: strin
   // Also skipped for a movie that hasn't released yet — nothing to find on
   // any indexer, and this would just burn an API call for a guaranteed miss.
   // releaseDayTask (scheduler) picks it up automatically once its date passes.
-  const searchResult = options?.skipSearch || !released ? null : await searchAndGrabMovie(movie.id);
+  let searchResult: Awaited<ReturnType<typeof searchAndGrabMovie>> | null = null;
+  if (!options?.skipSearch && released) {
+    try {
+      searchResult = await searchAndGrabMovie(movie.id);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      recordSearchLog("error", "search_movie.add_search_failed", `${movie.title} — ajout conservé, auto-recherche interrompue : ${detail}`);
+      searchResult = { error: "search_failed" as const, detail };
+    }
+  }
   return { movie, searchResult };
 }
 
@@ -146,6 +163,13 @@ export async function searchAndGrabMovie(movieId: string) {
     updateMovie(movie.id, { status: "searching" });
     try {
       return await searchAndGrabMovieInner(movie);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      // This boundary deliberately turns an infrastructure/matcher failure
+      // into a normal failed search.  Every caller (including add-to-library)
+      // can then keep its request and UI state instead of receiving a 500.
+      recordSearchLog("error", "search_movie.unhandled_error", `${movie.title} — recherche interrompue : ${detail}`);
+      return { error: "search_failed" as const, detail };
     } finally {
       const fresh = getMovie(movieId);
       if (fresh?.status === "searching") {

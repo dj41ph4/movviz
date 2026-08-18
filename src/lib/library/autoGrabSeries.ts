@@ -398,7 +398,7 @@ export async function addSeriesToLibrary(
   tmdbId: number,
   qualityProfileId?: string,
   seasonNumbers?: number[],
-  options?: { skipSearch?: boolean }
+  options?: { skipSearch?: boolean; onAdded?: (series: LibrarySeries) => void }
 ) {
   const existing = getSeriesByTmdbId(tmdbId);
   if (existing) return { series: existing, searchResult: null };
@@ -464,8 +464,23 @@ export async function addSeriesToLibrary(
     originalTitle: meta.originalTitle,
   };
   addSeries(series);
+  // Keep the request/UI lifecycle independent from the best-effort automatic
+  // search.  It is now observable immediately, even if an indexer fails.
+  options?.onAdded?.(series);
 
-  const searchResult = options?.skipSearch ? null : await searchAndGrabCompleteSeries(series.id);
+  let searchResult:
+    | Awaited<ReturnType<typeof searchAndGrabCompleteSeries>>
+    | { error: "search_failed"; detail: string }
+    | null = null;
+  if (!options?.skipSearch) {
+    try {
+      searchResult = await searchAndGrabCompleteSeries(series.id);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      recordSearchLog("error", "search_series.add_search_failed", `${series.title} — ajout conservé, auto-recherche interrompue : ${detail}`);
+      searchResult = { error: "search_failed" as const, detail };
+    }
+  }
   return { series, searchResult };
 }
 
@@ -824,6 +839,10 @@ export async function searchAndGrabEpisode(
   // "downloading" — the finally only restores what is STILL "searching".
   try {
     return await searchAndGrabEpisodeCascade(series, seriesId, seasonNumber, episodeNumber, profile, media, missingEpisodeNumbers, options);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    recordSearchLog("error", "grab_episode.unhandled_error", `${series.title} S${seasonNumber}E${String(episodeNumber).padStart(2, "0")} — recherche interrompue : ${detail}`);
+    return { error: "search_failed" as const, detail };
   } finally {
     restoreStaleEpisodeSearch(seriesId, seasonNumber, episodeNumber);
   }
@@ -1121,6 +1140,10 @@ export async function searchAndGrabSeason(
   // stuck on "searching" — see restoreStaleSeasonSearch).
   try {
     return await searchAndGrabSeasonCascade(series, seriesId, seasonNumber, profile, missing, options);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    recordSearchLog("error", "grab_season.unhandled_error", `${series.title} — saison ${seasonNumber} : recherche interrompue : ${detail}`);
+    return { error: "search_failed" as const, detail };
   } finally {
     restoreStaleSeasonSearch(seriesId, seasonNumber, missing.map((e) => e.episodeNumber));
   }

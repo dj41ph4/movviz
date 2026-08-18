@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.4 — August 2026
+
+### Correctif : demandes et auto-recherche découplées
+
+- Une demande approuvée est désormais enregistrée dès que le film ou la série entre dans la bibliothèque, avant la recherche automatique. Une erreur d'indexeur ou de matching ne peut donc plus créer un média sans le faire apparaître dans **Demandes**.
+- Les erreurs non prévues pendant une recherche de film, saison ou épisode deviennent un résultat contrôlé et explicite dans le journal de diagnostic, au lieu d'une erreur 500 ou d'un statut « recherche » restauré sans cause.
+
 ## v1.16.3 — August 2026
 
 ### Correctif : ajout automatique fiable, même sans worker disponible

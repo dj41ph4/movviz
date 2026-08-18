@@ -6,6 +6,32 @@ import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries } from "@/lib/
 import { logActivity } from "@/lib/activity/store";
 import { isBlocked } from "@/lib/blocklist/store";
 import type { User } from "@/lib/auth/types";
+import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
+
+function addApprovedRequest(
+  user: User,
+  type: "movie" | "series",
+  item: LibraryMovie | LibrarySeries,
+  seasonNumbers?: number[]
+) {
+  return addRequest({
+    id: `req_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+    userId: user.id,
+    username: user.username,
+    type,
+    tmdbId: item.tmdbId,
+    title: item.title,
+    year: item.year,
+    posterPath: item.posterPath,
+    overview: item.overview,
+    rating: item.rating,
+    status: "approved",
+    createdAt: Date.now(),
+    decidedAt: Date.now(),
+    decidedBy: user.username,
+    seasonNumbers,
+  });
+}
 
 /**
  * The single place that decides what happens when someone (a user clicking
@@ -42,33 +68,27 @@ export async function requestMedia(
   const canAutoApprove = user.role === "admin" || user.autoApproveRequests;
 
   if (canAutoApprove) {
+    // Persist the approved request immediately after the library record is
+    // created, *before* the network-dependent automatic search begins.
+    // This preserves the live Requests/status workflow even on a search
+    // failure and prevents a 500 from hiding a title that was already added.
+    let approvedRequest: ReturnType<typeof addRequest> | null = null;
+    const onAdded = (item: LibraryMovie | LibrarySeries) => {
+      approvedRequest = addApprovedRequest(user, type, item, seasonNumbers);
+    };
     const result =
       type === "movie"
-        ? await addMovieToLibrary(tmdbId, qualityProfileId, options)
-        : await addSeriesToLibrary(tmdbId, qualityProfileId, seasonNumbers, options);
+        ? await addMovieToLibrary(tmdbId, qualityProfileId, { ...options, onAdded })
+        : await addSeriesToLibrary(tmdbId, qualityProfileId, seasonNumbers, { ...options, onAdded });
     if ("error" in result) return { error: result.error };
     const item = "movie" in result ? result.movie : result.series;
     const href = "movie" in result ? `/title/movie/${result.movie.tmdbId}` : `/title/series/${result.series.tmdbId}`;
     logActivity("added", user.username, item.title, href);
     // Auto-approved adds still land in the Requests menu (pre-approved), so
     // it shows every ask with a live status badge, not just the gated ones.
-    addRequest({
-      id: `req_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
-      userId: user.id,
-      username: user.username,
-      type,
-      tmdbId: item.tmdbId,
-      title: item.title,
-      year: item.year,
-      posterPath: item.posterPath,
-      overview: item.overview,
-      rating: item.rating,
-      status: "approved",
-      createdAt: Date.now(),
-      decidedAt: Date.now(),
-      decidedBy: user.username,
-      seasonNumbers,
-    });
+    // Reused/duplicate-title entries are returned without the callback; they
+    // still represent this explicit request and must appear in Requests.
+    approvedRequest ??= addApprovedRequest(user, type, item, seasonNumbers);
     return { added: item, searchResult: result.searchResult };
   }
 
