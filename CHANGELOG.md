@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.7 — August 2026
+
+### Android TV : identité visuelle Movviz
+
+- Le mark animé TV reprend les géométries exactes de l’icône `Clapperboard` Lucide employée sur le desktop, via un VectorDrawable natif.
+- Halo aurora multicolore violet, magenta et cyan renforcé autour du logo animé comme de la tuile statique, sans changer la navigation TV.
+
 ## v1.16.6 — August 2026
 
 ### Android TV : navigation et bibliothèque salon

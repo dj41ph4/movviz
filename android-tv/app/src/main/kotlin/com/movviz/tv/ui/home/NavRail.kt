@@ -21,6 +21,7 @@ import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.AnimatedLogo
+import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.theme.tvPointerClick
 
 enum class HomeTab(val label: String) {
@@ -62,15 +63,10 @@ fun NavRail(selected: HomeTab, onSelect: (HomeTab) -> Unit, modifier: Modifier =
     ) {
         // Même logo animé que l'accueil/login : halo, ondes et particules
         // font partie de l'identité Movviz, ce n'est pas une icône carrée.
-        AnimatedLogo(size = 30.dp)
-        Spacer(modifier = Modifier.width(4.dp))
-        Row {
-            Text(text = "Mov", style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black, color = Color.White))
-            Text(
-                text = "viz",
-                style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black, brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))),
-            )
-        }
+        // Preset `sm` du Sidebar desktop : outer 40, mark 40, wordmark animé.
+        AnimatedLogo(size = 40.dp)
+        Spacer(modifier = Modifier.width(10.dp))
+        MovvizWordmark(fontSize = 18.sp)
 
         Spacer(modifier = Modifier.width(56.dp))
 
