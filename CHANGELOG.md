@@ -4,6 +4,19 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.3 — August 2026
+
+### Correctif : ajout automatique fiable, même sans worker disponible
+
+- L'ajout d'un film ou d'une série ne s'interrompt plus avec une erreur 500 si le worker de matching n'est pas chargé par une installation packagée : Movviz applique alors les mêmes règles de correspondance directement dans le processus principal et poursuit la recherche automatique.
+- Le pool de workers défaillant est arrêté proprement au lieu de se relancer en boucle, ce qui évite de maintenir le serveur en erreur permanente.
+- La fiche ne présente plus une réponse HTTP en échec comme un ajout réussi : l'erreur est affichée et l'état réel de la bibliothèque est rechargé.
+
+### Android TV : identité Movviz et parcours de découverte
+
+- L'écran TV reprend désormais l'identité visuelle Movviz : logo clap officiel, navigation en verre sur le hero, cartes et fiche titre adaptées à la télécommande.
+- La connexion avec Plex et les actions de bibliothèque sont intégrées au parcours TV, avec retour immédiat de l'état de téléchargement.
+
 ## v1.16.2 — August 2026
 
 ### Nouveau : bibliothèque dissociée — pages dédiées Films et Séries

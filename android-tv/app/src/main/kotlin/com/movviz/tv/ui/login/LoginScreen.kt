@@ -1,5 +1,7 @@
 package com.movviz.tv.ui.login
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -20,6 +22,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -28,17 +31,22 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Border
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizDown
+import com.movviz.tv.ui.theme.MovvizAmber
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.wizard.GradientButton
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 
 /** Même composition carte que WizardScreen — logo animé, titre, champs
  *  étiquetés, bouton en dégradé de marque. */
@@ -47,8 +55,10 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var plexBusy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val usernameFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
     val loginButtonFocus = remember { FocusRequester() }
@@ -65,21 +75,21 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
     ) {
         Column(
             modifier = Modifier
-                .width(520.dp)
-                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(24.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
-                .padding(40.dp),
+                .width(400.dp)
+                .background(Color(0xFF101225), RoundedCornerShape(26.dp))
+                .border(1.dp, Color(0xFF292D45), RoundedCornerShape(26.dp))
+                .padding(horizontal = 34.dp, vertical = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            AnimatedLogo(size = 56.dp)
-            Spacer(Modifier.height(12.dp))
-            MovvizWordmark()
-            Spacer(Modifier.height(4.dp))
+            AnimatedLogo(size = 52.dp)
+            Spacer(Modifier.height(10.dp))
+            MovvizWordmark(fontSize = 25.sp)
+            Spacer(Modifier.height(6.dp))
             Text(
-                text = "Connexion",
-                style = TextStyle(fontSize = 13.sp, color = MovvizInkDim),
+                text = "Bienvenue sur Movviz",
+                style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(26.dp))
 
             FieldLabel("Nom d'utilisateur")
             LoginField(
@@ -88,7 +98,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
                 nextFocus = passwordFocus,
                 focusRequester = usernameFocus,
             )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(13.dp))
             FieldLabel("Mot de passe")
             LoginField(
                 value = password,
@@ -103,7 +113,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
                 Text(text = error!!, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizDown))
             }
 
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(16.dp))
 
             GradientButton(
                 text = if (busy) "Connexion..." else "Se connecter",
@@ -123,6 +133,90 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
                     }
                 },
             )
+
+            Spacer(Modifier.height(18.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.09f)))
+                Text(
+                    text = "OU",
+                    style = TextStyle(fontSize = 10.sp, color = MovvizInkDim, letterSpacing = 1.sp),
+                    modifier = Modifier.padding(horizontal = 14.dp),
+                )
+                Box(modifier = Modifier.weight(1f).height(1.dp).background(Color.White.copy(alpha = 0.09f)))
+            }
+            Spacer(Modifier.height(18.dp))
+
+            Surface(
+                onClick = {
+                    if (plexBusy || busy) return@Surface
+                    plexBusy = true
+                    error = null
+                    scope.launch {
+                        try {
+                            when (val pin = viewModel.createPlexPin()) {
+                                is ApiResult.Success -> {
+                                    val opened = runCatching {
+                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pin.data.authUrl)))
+                                    }.isSuccess
+                                    if (!opened) {
+                                        error = "Impossible d'ouvrir Plex sur cet appareil"
+                                        return@launch
+                                    }
+                                    val deadline = System.currentTimeMillis() + 120_000L
+                                    while (System.currentTimeMillis() < deadline) {
+                                        delay(2_000L)
+                                        when (val poll = viewModel.pollPlexPin(pin.data.id)) {
+                                            is ApiResult.Success -> if (poll.data.done) {
+                                                onLoggedIn()
+                                                return@launch
+                                            }
+                                            ApiResult.Unauthorized -> {
+                                                error = "Connexion Plex refusée"
+                                                return@launch
+                                            }
+                                            is ApiResult.Failure -> Unit
+                                        }
+                                    }
+                                    error = "La connexion Plex a expiré"
+                                }
+                                ApiResult.Unauthorized -> error = "Connexion Plex indisponible"
+                                is ApiResult.Failure -> error = "Plex est inaccessible"
+                            }
+                        } finally {
+                            plexBusy = false
+                        }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(14.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = Color.Transparent,
+                    contentColor = MovvizAmber,
+                ),
+                border = ClickableSurfaceDefaults.border(
+                    border = Border(border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.16f)), shape = RoundedCornerShape(14.dp)),
+                    focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MovvizAmber), shape = RoundedCornerShape(14.dp)),
+                ),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 15.dp),
+                ) {
+                    Text(text = "▶", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizAmber))
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = if (plexBusy) "Connexion à Plex…" else "Se connecter avec Plex",
+                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizAmber),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(18.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                Text(text = "Pas encore de compte ? ", style = TextStyle(fontSize = 11.sp, color = MovvizInkDim))
+                Text(text = "Créer un compte", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary))
+            }
         }
     }
 }
@@ -151,18 +245,18 @@ private fun LoginField(
             .fillMaxWidth()
             .border(
                 width = if (focused) 2.dp else 1.dp,
-                color = if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = 0.12f),
+                color = if (focused) MaterialTheme.colorScheme.primary else Color.Transparent,
                 shape = RoundedCornerShape(12.dp),
             )
-            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+            .background(Color(0xFFE8F0FF), RoundedCornerShape(12.dp))
             .onFocusChanged { focused = it.isFocused }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            textStyle = TextStyle(fontSize = 16.sp, color = MovvizInk),
+            textStyle = TextStyle(fontSize = 15.sp, color = Color(0xFF181A28)),
             singleLine = true,
             visualTransformation = if (isPassword) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
             keyboardOptions = KeyboardOptions(

@@ -20,22 +20,37 @@ interface MovvizApiService {
     @POST("api/auth/login")
     suspend fun login(@Body body: LoginRequest): Response<LoginResponse>
 
+    @POST("api/auth/plex/pin")
+    suspend fun createPlexPin(): Response<PlexPinDto>
+
+    @POST("api/auth/plex/poll")
+    suspend fun pollPlexPin(@Body body: PlexPollRequest): Response<PlexPollDto>
+
     // Répond 200 même sans session ({"user": null}) — voir MeResponseDto,
     // ne jamais traiter un simple succès HTTP comme "connecté".
     @GET("api/auth/me")
     suspend fun me(): Response<MeResponseDto>
 
     @GET("api/library/movies")
-    suspend fun libraryMovies(): Response<LibraryMoviesResponse>
+    suspend fun libraryMovies(@Query("tmdbId") tmdbId: Int? = null): Response<LibraryMoviesResponse>
 
     @GET("api/library/series")
-    suspend fun librarySeries(): Response<LibrarySeriesResponse>
+    suspend fun librarySeries(@Query("tmdbId") tmdbId: Int? = null): Response<LibrarySeriesResponse>
 
     @GET("api/metadata/detail")
     suspend fun metadataDetail(
         @Query("type") type: String,
         @Query("tmdbId") tmdbId: Int,
     ): Response<MetaDetailDto>
+
+    @GET("api/dashboard/hero")
+    suspend fun dashboardHero(): Response<DashboardHeroResponseDto>
+
+    @GET("api/metadata/images")
+    suspend fun metadataImages(
+        @Query("tmdbId") tmdbId: Int,
+        @Query("type") type: String,
+    ): Response<MetadataImagesDto>
 
     @POST("api/library/movies")
     suspend fun addMovie(@Body body: AddToLibraryRequest): Response<Map<String, Any?>>

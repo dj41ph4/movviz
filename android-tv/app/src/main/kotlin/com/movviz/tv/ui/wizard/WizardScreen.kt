@@ -224,7 +224,12 @@ fun GradientButton(text: String, enabled: Boolean = true, focusRequester: FocusR
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = Color.White),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = Color.Transparent,
+            pressedContainerColor = Color.Transparent,
+            contentColor = Color.White,
+        ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
                 border = androidx.compose.foundation.BorderStroke(2.dp, Color.White),

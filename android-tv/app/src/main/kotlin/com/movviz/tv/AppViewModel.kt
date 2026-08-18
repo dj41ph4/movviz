@@ -6,10 +6,13 @@ import androidx.lifecycle.viewModelScope
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.data.LibraryMovieDto
 import com.movviz.tv.data.LibrarySeriesDto
+import com.movviz.tv.data.DashboardHeroSlideDto
 import com.movviz.tv.data.MetaDetailDto
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.MovvizUserDto
 import com.movviz.tv.data.OnDeckEntryDto
+import com.movviz.tv.data.PlexPinDto
+import com.movviz.tv.data.PlexPollDto
 import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.data.ServerPrefs
@@ -17,6 +20,7 @@ import com.movviz.tv.data.SeriesSeasonDto
 import com.movviz.tv.data.UserPrefsDto
 import com.movviz.tv.data.WatchStatusDto
 import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -43,6 +47,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _series = MutableStateFlow<List<LibrarySeriesDto>>(emptyList())
     val series: StateFlow<List<LibrarySeriesDto>> = _series.asStateFlow()
+
+    private val _dashboardHero = MutableStateFlow<List<DashboardHeroSlideDto>>(emptyList())
+    val dashboardHero: StateFlow<List<DashboardHeroSlideDto>> = _dashboardHero.asStateFlow()
+
+    private val _heroLogos = MutableStateFlow<Map<String, String>>(emptyMap())
+    val heroLogos: StateFlow<Map<String, String>> = _heroLogos.asStateFlow()
 
     private val _detail = MutableStateFlow<MetaDetailDto?>(null)
     val detail: StateFlow<MetaDetailDto?> = _detail.asStateFlow()
@@ -155,8 +165,13 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         _addingToLibrary.value = true
         try {
             val result = repo.addToLibrary(type, tmdbId)
-            if (result is ApiResult.Success) loadLibrary()
-            return result
+            // Le parcours serveur crée d'abord l'entrée Movviz puis lance la
+            // recherche automatique. Une erreur d'indexeur peut donc faire
+            // remonter un 500 APRES création. Le web se réconcilie aussitôt
+            // avec /api/library; la TV doit faire exactement la même chose,
+            // sans faire croire que l'ajout a échoué ni proposer un doublon.
+            refreshLibraryNow()
+            return if (result is ApiResult.Failure && !isInLibrary(type, tmdbId)) result else ApiResult.Success(Unit)
         } finally {
             _addingToLibrary.value = false
         }
@@ -204,15 +219,31 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return result
     }
 
+    suspend fun createPlexPin(): ApiResult<PlexPinDto> =
+        repository?.createPlexPin() ?: ApiResult.Failure("Aucun serveur configuré")
+
+    suspend fun pollPlexPin(id: Long): ApiResult<PlexPollDto> {
+        val result = repository?.pollPlexPin(id) ?: return ApiResult.Failure("Aucun serveur configuré")
+        if (result is ApiResult.Success && result.data.done && result.data.user != null) {
+            _currentUser.value = result.data.user
+        }
+        return result
+    }
+
     fun loadLibrary() {
-        val repo = repository ?: return
         viewModelScope.launch {
-            // Les deux appels sont indépendants — les lancer en parallèle
-            // (async/await) plutôt qu'en séquence coupe en deux le temps
-            // avant que l'accueil affiche quoi que ce soit, notable sur un
-            // NAS/serveur distant où chaque aller-retour coûte cher.
-            val moviesDeferred = async { repo.movies() }
-            val seriesDeferred = async { repo.series() }
+            refreshLibraryNow()
+        }
+    }
+
+    private suspend fun refreshLibraryNow() = coroutineScope {
+        val repo = repository ?: return@coroutineScope
+        // Les deux appels sont indépendants — les lancer en parallèle
+        // (async/await) plutôt qu'en séquence coupe en deux le temps
+        // avant que l'accueil affiche quoi que ce soit, notable sur un
+        // NAS/serveur distant où chaque aller-retour coûte cher.
+        val moviesDeferred = async { repo.movies() }
+        val seriesDeferred = async { repo.series() }
             when (val m = moviesDeferred.await()) {
                 is ApiResult.Success -> _movies.value = m.data
                 ApiResult.Unauthorized -> _sessionExpired.value = true
@@ -222,6 +253,62 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 is ApiResult.Success -> _series.value = s.data
                 ApiResult.Unauthorized -> _sessionExpired.value = true
                 is ApiResult.Failure -> Unit
+            }
+        }
+
+    /** Même sélection éditoriale personnalisée que le dashboard web. En cas
+     * d'indisponibilité, HomeScreen conserve son hero issu de la bibliothèque. */
+    fun loadDashboardHero() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val result = repo.dashboardHero()) {
+                is ApiResult.Success -> _dashboardHero.value = result.data
+                ApiResult.Unauthorized -> _sessionExpired.value = true
+                is ApiResult.Failure -> Unit
+            }
+        }
+    }
+
+    /** Équivalent TV du mutateLibrary ciblé de TitleContent : la fiche
+     * reflète recherche → téléchargement → disponibilité en direct, sans
+     * polling de toutes les bibliothèques. */
+    fun refreshTitleLibraryEntry(type: String, tmdbId: Int) {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            if (type == "movie") {
+                when (val result = repo.movieByTmdbId(tmdbId)) {
+                    is ApiResult.Success -> result.data?.let { updated ->
+                        _movies.value = _movies.value.replaceOrAppend(updated) { it.tmdbId }
+                    }
+                    ApiResult.Unauthorized -> _sessionExpired.value = true
+                    is ApiResult.Failure -> Unit
+                }
+            } else {
+                when (val result = repo.seriesByTmdbId(tmdbId)) {
+                    is ApiResult.Success -> result.data?.let { updated ->
+                        _series.value = _series.value.replaceOrAppend(updated) { it.tmdbId }
+                        loadSeriesSeasons(tmdbId)
+                    }
+                    ApiResult.Unauthorized -> _sessionExpired.value = true
+                    is ApiResult.Failure -> Unit
+                }
+            }
+        }
+    }
+
+    /** Charge et mémorise le meilleur logo officiel TMDb pour une vedette.
+     * Une absence de logo reste un résultat valide : HomeScreen affiche alors
+     * le titre texte, comme le desktop. */
+    fun loadHeroLogo(type: String, tmdbId: Int) {
+        val key = "$type-$tmdbId"
+        if (_heroLogos.value.containsKey(key)) return
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val result = repo.metadataImages(type, tmdbId)) {
+                is ApiResult.Success -> result.data.logos.firstOrNull()?.filePath?.let { path ->
+                    _heroLogos.value = _heroLogos.value + (key to path)
+                }
+                else -> Unit
             }
         }
     }
@@ -397,4 +484,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
             _userPrefs.value = null
         }
     }
+}
+
+private fun <T> List<T>.replaceOrAppend(item: T, key: (T) -> Int): List<T> {
+    val index = indexOfFirst { key(it) == key(item) }
+    return if (index < 0) this + item else toMutableList().also { it[index] = item }
 }

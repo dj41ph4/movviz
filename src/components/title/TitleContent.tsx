@@ -444,17 +444,27 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const addToLibrary = useCallback(async () => {
     setAdding(true);
     try {
-      await fetch(libEndpoint, {
+      const res = await fetch(libEndpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ tmdbId }),
       });
+      // A previous implementation treated every HTTP response as a success.
+      // In particular, an auto-search failure after the server had created
+      // the library record produced a 500, while this page still displayed
+      // the title as successfully added. Keep the UI honest so the user can
+      // retry/search manually instead of believing a download was started.
+      if (!res.ok) {
+        toast("error", t("discover.addFailed"));
+        await mutateLibrary();
+        return;
+      }
       setAdded(true);
-      mutateLibrary();
+      await mutateLibrary();
     } finally {
       setAdding(false);
     }
-  }, [libEndpoint, tmdbId, mutateLibrary]);
+  }, [libEndpoint, tmdbId, mutateLibrary, t]);
 
   const toggleWatchlist = useCallback(async () => {
     setWatching(true);

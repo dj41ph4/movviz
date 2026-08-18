@@ -14,6 +14,7 @@ import os from "node:os";
 export class WorkerPool<TIn, TOut> {
   private workers: Worker[] = [];
   private idle: Worker[] = [];
+  private closed = false;
   private queue: {
     input: TIn;
     resolve: (out: TOut) => void;
@@ -32,6 +33,7 @@ export class WorkerPool<TIn, TOut> {
   }
 
   private spawnWorker() {
+    if (this.closed) return;
     const worker = new Worker(this.workerUrl);
 
     worker.on("message", (result: { ok: true; value: TOut } | { ok: false; error: string }) => {
@@ -55,7 +57,11 @@ export class WorkerPool<TIn, TOut> {
       if (task) task.reject(err);
       this.workers = this.workers.filter((w) => w !== worker);
       this.idle = this.idle.filter((w) => w !== worker);
-      this.spawnWorker();
+      // A caller may deliberately close this pool after a packaging failure
+      // (e.g. a worker file missing from a standalone deployment). In that
+      // case respawning would produce an endless error loop and keep Node
+      // alive even though its caller has already switched to a safe fallback.
+      if (!this.closed) this.spawnWorker();
     });
 
     this.workers.push(worker);
@@ -87,5 +93,20 @@ export class WorkerPool<TIn, TOut> {
       });
       this.dispatch();
     });
+  }
+
+  /** Stops this pool permanently. Callers that have a synchronous fallback
+   * use it after an infrastructure failure so broken worker startup cannot
+   * spin/retry forever in the background. */
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    const error = new Error("worker pool closed");
+    for (const task of this.queue.splice(0)) task.reject(error);
+    for (const task of this.pending.values()) task.reject(error);
+    this.pending.clear();
+    for (const worker of this.workers) void worker.terminate().catch(() => {});
+    this.workers = [];
+    this.idle = [];
   }
 }

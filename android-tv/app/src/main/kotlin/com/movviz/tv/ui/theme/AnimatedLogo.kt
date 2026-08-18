@@ -35,6 +35,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
@@ -95,48 +96,63 @@ fun AnimatedLogo(size: Dp = 64.dp) {
                 .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
             contentAlignment = Alignment.Center,
         ) {
-            // Geometrie portee 1:1 depuis public/icon.svg (viewBox 512x512),
-            // fractions = coordonnee SVG / 512, pour rester fidele au clap
-            // de cinema du logo desktop plutot qu'un emoji generique.
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val w = this.size.width
-                val h = this.size.height
-                val stripeColor = MovvizBrand.copy(alpha = 0.4f)
-                val strokeW = 0.0156f * w
-
-                // Corps du clap (panneau translucide)
-                drawRoundRect(
-                    color = Color.White.copy(alpha = 0.15f),
-                    topLeft = Offset(0.2109f * w, 0.2969f * h),
-                    size = Size(0.5781f * w, 0.4688f * h),
-                    cornerRadius = CornerRadius(0.0391f * w, 0.0391f * h),
-                )
-                // Barre superieure du clap (rayures diagonales)
-                drawRoundRect(
-                    color = Color.White.copy(alpha = 0.9f),
-                    topLeft = Offset(0.2109f * w, 0.2109f * h),
-                    size = Size(0.5781f * w, 0.2109f * h),
-                    cornerRadius = CornerRadius(0.0391f * w, 0.0391f * h),
-                )
-                listOf(
-                    Offset(0.3672f * w, 0.2109f * h) to Offset(0.2891f * w, 0.4219f * h),
-                    Offset(0.5234f * w, 0.2109f * h) to Offset(0.4453f * w, 0.4219f * h),
-                    Offset(0.6797f * w, 0.2109f * h) to Offset(0.6016f * w, 0.4219f * h),
-                ).forEach { (a, b) ->
-                    drawLine(stripeColor, a, b, strokeWidth = strokeW, cap = StrokeCap.Round)
-                }
-                // Bobines + ligne de base
-                drawLine(
-                    stripeColor,
-                    Offset(0.2734f * w, 0.5469f * h),
-                    Offset(0.7266f * w, 0.5469f * h),
-                    strokeWidth = strokeW,
-                    cap = StrokeCap.Round,
-                )
-                drawCircle(Color.White.copy(alpha = 0.9f), radius = 0.0469f * w, center = Offset(0.3281f * w, 0.5859f * h))
-                drawCircle(Color.White.copy(alpha = 0.9f), radius = 0.0469f * w, center = Offset(0.6719f * w, 0.5859f * h))
-            }
+            // Desktop md : icône 20px dans un carré 44px. Même rapport ici,
+            // sinon le trait Lucide devient une masse blanche à l'écran TV.
+            ClapperboardGlyph(Modifier.size(size * 0.33f))
         }
+    }
+}
+
+/**
+ * Version statique du logo (clap seul, sans halo/ripples/particules en
+ * orbite) — pour les contextes compacts (rail de navigation persistant,
+ * en-têtes de liste) où AnimatedLogo() a été jugé "sale" à petite taille :
+ * les particules en orbite (rayon jusqu'à 34dp) débordent d'une Box
+ * dimensionnée pour un logo de 30dp et flottent, décrochées, à côté du
+ * texte "Movviz" au lieu de rester perçues comme faisant partie du logo.
+ * Le halo/ripples/particules restent réservés aux grands formats (splash,
+ * login, wizard, size=56dp) où ils ont la place de se déployer proprement.
+ */
+@Composable
+fun StaticLogo(size: Dp = 30.dp) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(RoundedCornerShape(size.value * 0.22f))
+            .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))),
+        contentAlignment = Alignment.Center,
+    ) {
+        // La même géométrie Lucide que le logo desktop, sans version
+        // « simplifiée » : le rail, le login et le launcher parlent enfin
+        // d'une seule marque.
+        // Desktop sm : icône 20px dans un carré 40px.
+        ClapperboardGlyph(Modifier.size(size * 0.5f))
+    }
+}
+
+/** Les quatre paths du Clapperboard Lucide importé par AnimatedLogo.tsx.
+ * Centraliser ce dessin interdit tout retour d'une seconde icône Android. */
+@Composable
+private fun ClapperboardGlyph(modifier: Modifier) {
+    Canvas(modifier = modifier) {
+        val u = size.width / 24f
+        val stroke = Stroke(width = 2.5f * u, cap = StrokeCap.Round)
+        fun p(x: Float, y: Float) = Offset(x * u, y * u)
+        val top = androidx.compose.ui.graphics.Path().apply {
+            moveTo(20.2f * u, 6f * u); lineTo(3f * u, 11f * u); lineTo(2.1f * u, 8.6f * u)
+            cubicTo(1.8f * u, 7.5f * u, 2.4f * u, 6.4f * u, 3.4f * u, 6.1f * u)
+            lineTo(16.9f * u, 2.1f * u); cubicTo(18f * u, 1.8f * u, 19.1f * u, 2.4f * u, 19.4f * u, 3.4f * u)
+            close()
+        }
+        val body = androidx.compose.ui.graphics.Path().apply {
+            moveTo(3f * u, 11f * u); lineTo(21f * u, 11f * u); lineTo(21f * u, 19f * u)
+            quadraticBezierTo(21f * u, 21f * u, 19f * u, 21f * u); lineTo(5f * u, 21f * u)
+            quadraticBezierTo(3f * u, 21f * u, 3f * u, 19f * u); close()
+        }
+        drawPath(top, Color.White, style = stroke)
+        drawPath(body, Color.White, style = stroke)
+        drawLine(Color.White, p(12.296f, 3.464f), p(15.316f, 7.42f), strokeWidth = 2.5f * u, cap = StrokeCap.Round)
+        drawLine(Color.White, p(6.18f, 5.276f), p(9.28f, 9.175f), strokeWidth = 2.5f * u, cap = StrokeCap.Round)
     }
 }
 

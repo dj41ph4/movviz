@@ -58,6 +58,7 @@ import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.tvPointerClick
 import androidx.compose.ui.draw.clip
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original"
@@ -100,6 +101,19 @@ fun TitleDetailScreen(
         // Statut "vu" manuel — utile aux deux types (badge "Vu" sur un film
         // terminé, coche par épisode pour une série), voir /api/watch-status.
         viewModel.loadWatchStatus()
+    }
+
+    // Même état vivant que la fiche desktop : après l'ajout, la même fiche
+    // passe naturellement de "Recherche" à "Téléchargement" puis à la
+    // disponibilité Plex. L'endpoint accepte tmdbId, donc on actualise
+    // seulement ce titre et jamais toute la médiathèque à intervalle fixe.
+    LaunchedEffect(type, tmdbId, inLibrary) {
+        if (!inLibrary) return@LaunchedEffect
+        viewModel.refreshTitleLibraryEntry(type, tmdbId)
+        while (true) {
+            delay(3_000)
+            viewModel.refreshTitleLibraryEntry(type, tmdbId)
+        }
     }
 
     val plexRatingKey = viewModel.libraryPlexRatingKey(type, tmdbId)

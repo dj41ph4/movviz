@@ -132,6 +132,7 @@ data class SystemInfoDto(
  *  TV n'a pas besoin des champs desktop-only (watchProviders, studios...). */
 @JsonClass(generateAdapter = true)
 data class MetaDetailDto(
+    val type: String = "movie",
     val tmdbId: Int,
     val title: String,
     // Titre TMDb non localisé — confirmé en direct (GET /api/metadata/detail
@@ -147,6 +148,10 @@ data class MetaDetailDto(
     val rating: Double,
     val genres: List<String> = emptyList(),
     val runtime: Int?,
+    /** Même liste ordonnée de candidats YouTube que le hero et la fiche web.
+     * Le client TV joue l'ambiance muette si possible et conserve le
+     * backdrop en repli : aucune nouvelle source ni API serveur. */
+    val trailerKeys: List<String> = emptyList(),
     // Déjà renvoyé par /api/metadata/detail (voir tmdb.ts, "similar":
     // data.recommendations.results) mais jusqu'ici ignoré côté TV — sert la
     // rangée "Titres similaires" en bas de la fiche (même esprit Netflix/
@@ -164,6 +169,50 @@ data class MetaDetailDto(
     // d'écran Collections côté TV : simple mention texte sur la fiche, pas
     // de duplication d'un parcours qui n'existe pas encore ici.
     val collection: MetaCollectionDto? = null,
+)
+
+/** PIN éphémère créé par /api/auth/plex/pin. authUrl pointe uniquement vers
+ * Plex : l'application TV ne reçoit ni identifiant ni jeton Plex. */
+@JsonClass(generateAdapter = true)
+data class PlexPinDto(
+    val id: Long,
+    val authUrl: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlexPollDto(
+    val done: Boolean = false,
+    val user: MovvizUserDto? = null,
+    val error: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlexPollRequest(val id: Long)
+
+/** Réponse de /api/dashboard/hero — source éditoriale commune au desktop et
+ * à la TV. Les champs de score restent côté serveur : la TV reçoit seulement
+ * la sélection déjà personnalisée pour l'utilisateur connecté. */
+@JsonClass(generateAdapter = true)
+data class DashboardHeroResponseDto(
+    val slides: List<DashboardHeroSlideDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class DashboardHeroSlideDto(
+    val detail: MetaDetailDto,
+    val libraryStatus: String? = null,
+)
+
+/** /api/metadata/images — mêmes logos TMDb que DashboardHero/TitleContent
+ * web. Le fichier est un path TMDb, jamais une URL fournie par un utilisateur. */
+@JsonClass(generateAdapter = true)
+data class MetadataImagesDto(
+    val logos: List<MetadataImageDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class MetadataImageDto(
+    val filePath: String,
 )
 
 @JsonClass(generateAdapter = true)

@@ -34,11 +34,30 @@ class MovvizRepository(private val baseUrl: String) {
         }
     }
 
+    suspend fun createPlexPin(): ApiResult<PlexPinDto> =
+        safeCall { api.createPlexPin() }
+
+    suspend fun pollPlexPin(id: Long): ApiResult<PlexPollDto> =
+        safeCall { api.pollPlexPin(PlexPollRequest(id)) }
+
     suspend fun movies(): ApiResult<List<LibraryMovieDto>> =
         safeCall { api.libraryMovies() }.map { it.movies }
 
     suspend fun series(): ApiResult<List<LibrarySeriesDto>> =
         safeCall { api.librarySeries() }.map { it.series }
+
+    /** Relecture ciblée, comme TitleContent côté web. On ne recharge pas une
+     * grande bibliothèque entière à chaque changement recherche/téléchargement
+     * d'une seule fiche. */
+    suspend fun movieByTmdbId(tmdbId: Int): ApiResult<LibraryMovieDto?> =
+        safeCall { api.libraryMovies(tmdbId) }.map { response ->
+            response.movies.firstOrNull { it.tmdbId == tmdbId }
+        }
+
+    suspend fun seriesByTmdbId(tmdbId: Int): ApiResult<LibrarySeriesDto?> =
+        safeCall { api.librarySeries(tmdbId) }.map { response ->
+            response.series.firstOrNull { it.tmdbId == tmdbId }
+        }
 
     /** Ping authentifié — sert à savoir, au lancement, si le cookie de
      *  session persisté (voir PersistentCookieJar) est toujours valide,
@@ -55,6 +74,12 @@ class MovvizRepository(private val baseUrl: String) {
 
     suspend fun detail(type: String, tmdbId: Int): ApiResult<MetaDetailDto> =
         safeCall { api.metadataDetail(type, tmdbId) }
+
+    suspend fun dashboardHero(): ApiResult<List<DashboardHeroSlideDto>> =
+        safeCall { api.dashboardHero() }.map { it.slides }
+
+    suspend fun metadataImages(type: String, tmdbId: Int): ApiResult<MetadataImagesDto> =
+        safeCall { api.metadataImages(tmdbId, type) }
 
     suspend fun seriesSeasons(seriesId: String): ApiResult<List<SeriesSeasonDto>> =
         safeCall { api.seriesDetail(seriesId) }.map { it.seasons }

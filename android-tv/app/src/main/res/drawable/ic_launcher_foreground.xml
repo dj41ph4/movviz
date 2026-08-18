@@ -1,13 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Placeholder — un "M" stylisé sur fond transparent, à remplacer par le
-     vrai logo Movviz (le SVG existe déjà côté web, README.md le référence
-     en base64). Suffit à faire compiler/tourner l'app en attendant. -->
+<!-- Marque officielle Movviz : le même Clapperboard Lucide que la sidebar
+     desktop (src/components/fx/AnimatedLogo.tsx), pas le placeholder M. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#7c5cff"
-        android:pathData="M24,74 L24,34 L40,34 L54,58 L68,34 L84,34 L84,74 L70,74 L70,52 L56,74 L52,74 L38,52 L38,74 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M30,47 L78,47 L78,68 Q78,75 71,75 L37,75 Q30,75 30,68 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M77,34 L31,47 L29,41 Q28,37 32,36 L68,25 Q72,24 73,28 Z" />
+    <path android:strokeColor="#FF101225" android:strokeWidth="8" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M55,29 L63,39 M38,34 L47,44" />
 </vector>

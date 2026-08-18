@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -41,6 +42,14 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
+import android.annotation.SuppressLint
+import android.graphics.Color as AndroidColor
+import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import android.os.Handler
+import android.os.Looper
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.ui.theme.MovvizAmber
@@ -49,6 +58,7 @@ import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizCyan
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
@@ -95,6 +105,9 @@ internal data class TvTitleCard(
      *  n'a pas de fichier réel en bibliothèque (séries, découverte). */
     val qualityLabel: String? = null,
     val hasHdr: Boolean = false,
+    val overview: String = "",
+    val runtime: Int? = null,
+    val trailerKeys: List<String> = emptyList(),
 )
 
 @Composable
@@ -105,11 +118,14 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
     val queue by viewModel.queue.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val trendingSeries by viewModel.trendingSeries.collectAsState()
+    val dashboardHero by viewModel.dashboardHero.collectAsState()
+    val heroLogos by viewModel.heroLogos.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadLibrary()
         viewModel.loadContinueWatching()
         viewModel.loadDiscovery()
+        viewModel.loadDashboardHero()
     }
 
     // La file de téléchargement change en continu (vitesse/progression) tant
@@ -167,16 +183,40 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
         moviesRow.zipInterleave(seriesRow).take(20)
     }
 
-    // Vedettes du hero — les titres les mieux notés avec un backdrop
-    // exploitable, façon "Featured" Netflix plutôt qu'un ordre d'ajout brut.
-    val heroItems = remember(recentMovies, recentSeries) {
-        (recentMovies + recentSeries)
-            .filter { it.backdropPath != null }
-            .sortedByDescending { it.rating }
-            .take(HERO_COUNT)
+    // Même sélection personnalisée que le dashboard web : trailerKeys,
+    // synopsis et statut viennent de /api/dashboard/hero. Le tri local reste
+    // un repli instantané pendant le chargement ou hors-ligne.
+    val heroItems = remember(dashboardHero, recentMovies, recentSeries) {
+        dashboardHero.map { slide ->
+            val detail = slide.detail
+            TvTitleCard(
+                id = "hero-${detail.type}-${detail.tmdbId}",
+                title = detail.title,
+                posterPath = detail.posterPath,
+                backdropPath = detail.backdropPath,
+                tmdbId = detail.tmdbId,
+                isMovie = detail.type == "movie",
+                year = detail.year,
+                rating = detail.rating,
+                genres = detail.genres,
+                status = slide.libraryStatus,
+                overview = detail.overview,
+                runtime = detail.runtime,
+                trailerKeys = detail.trailerKeys,
+            )
+        }.filter { it.backdropPath != null }.take(HERO_COUNT).ifEmpty {
+            (recentMovies + recentSeries)
+                .filter { it.backdropPath != null }
+                .sortedByDescending { it.rating }
+                .take(HERO_COUNT)
+        }
     }
 
     var heroIndex by remember { mutableStateOf(0) }
+    val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
+    LaunchedEffect(activeHero?.tmdbId, activeHero?.isMovie) {
+        activeHero?.let { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) }
+    }
     LaunchedEffect(heroItems) {
         if (heroItems.size < 2) return@LaunchedEffect
         while (true) {
@@ -223,17 +263,10 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
                     HeroCarousel(
                         items = heroItems,
                         currentIndex = heroIndex,
+                        logoPath = activeHero?.let { heroLogos["${if (it.isMovie) "movie" else "series"}-${it.tmdbId}"] },
                         onSelectIndex = { heroIndex = it },
                         ctaFocusRequester = heroCtaFocus,
                         onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
-                    )
-                }
-            } else {
-                item {
-                    Text(
-                        text = "Movviz",
-                        style = TextStyle(fontSize = 36.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary),
-                        modifier = Modifier.padding(start = 48.dp, top = 48.dp, bottom = 24.dp),
                     )
                 }
             }
@@ -331,6 +364,7 @@ private fun <T> List<T>.zipInterleave(other: List<T>): List<T> {
 private fun HeroCarousel(
     items: List<TvTitleCard>,
     currentIndex: Int,
+    logoPath: String?,
     onSelectIndex: (Int) -> Unit,
     ctaFocusRequester: FocusRequester,
     onOpen: (TvTitleCard) -> Unit,
@@ -341,15 +375,18 @@ private fun HeroCarousel(
     // l'image avec scale() (une transformation de dessin, pas de layout) et
     // Compose ne rogne rien par défaut — sans ça l'image zoomée déborde
     // visiblement de la bannière et empiète sur les rangées en dessous.
-    // Hauteur volontairement contenue (pas 760dp) : le focus D-pad initial
-    // atterrit sur le CTA en bas du bloc de texte, et TvLazyColumn fait
-    // défiler pour l'amener pleinement visible — avec un hero trop haut, ce
+    // Hauteur volontairement contenue : le focus D-pad initial atterrit sur
+    // le CTA en bas du bloc de texte, et TvLazyColumn fait défiler pour
+    // l'amener pleinement visible — avec un hero trop haut, ce
     // scroll-into-view pousse le HAUT du bloc (le titre) hors de l'écran
-    // avant même que l'utilisateur n'ait touché une touche (constaté en
-    // direct : agrandir la hauteur pour "faire de la place" au titre
-    // aggravait le rognage au lieu de le résoudre). Rester assez bas pour
-    // que le CTA soit déjà visible sans scroll dès le premier rendu.
-    Box(modifier = Modifier.fillMaxWidth().height(560.dp).clipToBounds()) {
+    // avant même que l'utilisateur n'ait touché une touche. 720dp (pas
+    // 560dp) : un titre anglais long sur 2 lignes pleines ("Akashic Records
+    // of Bastard Magic Instructor") a un bloc de texte plus haut qu'un
+    // titre court — 560dp coupait le badge FILM/SÉRIE et le haut du titre
+    // dans ce cas précis, constaté en direct sur émulateur. Les 80dp
+    // supplémentaires laissent le hero s'étendre sous la barre transparente
+    // sans placer le texte sous celle-ci.
+    Box(modifier = Modifier.fillMaxWidth().height(720.dp).clipToBounds()) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
             transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
@@ -380,6 +417,12 @@ private fun HeroCarousel(
             )
         }
 
+        AmbientTrailer(
+            trailerKeys = current.trailerKeys,
+            title = current.title,
+            modifier = Modifier.fillMaxSize(),
+        )
+
         Box(
             modifier = Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
@@ -404,20 +447,29 @@ private fun HeroCarousel(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 48.dp, end = 48.dp, bottom = 32.dp)
+                .padding(start = 64.dp, end = 48.dp, bottom = 42.dp)
                 .widthIn(max = 760.dp),
         ) {
             Text(
-                text = if (current.isMovie) "FILM" else "SÉRIE",
-                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizBrand2, letterSpacing = 2.sp),
+                text = "À LA UNE  ·  " + if (current.isMovie) "FILM" else "SÉRIE",
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizBrand2, letterSpacing = 2.2.sp),
             )
             Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = current.title,
-                style = TextStyle(fontSize = 36.sp, fontWeight = FontWeight.Black, color = MovvizInk),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            if (logoPath != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(model = "https://image.tmdb.org/t/p/w500$logoPath"),
+                    contentDescription = current.title,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.heightIn(max = 88.dp).widthIn(max = 480.dp),
+                )
+            } else {
+                Text(
+                    text = current.title,
+                    style = TextStyle(fontSize = 42.sp, fontWeight = FontWeight.Black, color = MovvizInk, lineHeight = 46.sp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (current.rating > 0) {
@@ -427,6 +479,9 @@ private fun HeroCarousel(
                 current.year?.let {
                     Text(text = "$it", style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft))
                     Spacer(modifier = Modifier.width(10.dp))
+                }
+                current.runtime?.let {
+                    Text(text = "$it min", style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft))
                 }
             }
             if (current.genres.isNotEmpty()) {
@@ -446,6 +501,16 @@ private fun HeroCarousel(
                         }
                     }
                 }
+            }
+            if (current.overview.isNotBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = current.overview,
+                    style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 20.sp),
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 620.dp),
+                )
             }
             Spacer(modifier = Modifier.height(24.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -512,6 +577,58 @@ private fun HeroCarousel(
     }
 }
 
+/** Variante TV de TrailerHeader : le backdrop reste la couche de base, et
+ * l'iframe YouTube muette ne devient visible qu'après l'événement PLAYING.
+ * Une vidéo bloquée ou un réseau absent laisse donc exactement l'image de
+ * fond, sans chrome YouTube ni perte du focus D-pad. */
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: Modifier = Modifier) {
+    val key = trailerKeys.firstOrNull { it.matches(Regex("[A-Za-z0-9_-]{6,}")) } ?: return
+    var playing by remember(key) { mutableStateOf(false) }
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+    val bridge = remember(key) {
+        AmbientTrailerBridge { mainHandler.post { playing = true } }
+    }
+    LaunchedEffect(key) { playing = false }
+
+    AndroidView(
+        factory = { context ->
+            WebView(context).apply {
+                setBackgroundColor(AndroidColor.TRANSPARENT)
+                isFocusable = false
+                isFocusableInTouchMode = false
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mediaPlaybackRequiresUserGesture = false
+                webChromeClient = WebChromeClient()
+                webViewClient = WebViewClient()
+                addJavascriptInterface(bridge, "MovvizAmbient")
+                loadDataWithBaseURL(
+                    "https://www.youtube.com",
+                    ambientTrailerHtml(key, title),
+                    "text/html",
+                    "utf-8",
+                    null,
+                )
+            }
+        },
+        modifier = modifier.graphicsLayer { alpha = if (playing) 1f else 0f },
+    )
+}
+
+private class AmbientTrailerBridge(private val onPlaying: () -> Unit) {
+    @JavascriptInterface fun playing() = onPlaying()
+}
+
+private fun ambientTrailerHtml(key: String, title: String): String = """
+    <!doctype html><html><body style="margin:0;background:transparent;overflow:hidden">
+    <div id="player"></div><script src="https://www.youtube.com/iframe_api"></script>
+    <script>
+      var p; function onYouTubeIframeAPIReady(){p=new YT.Player('player',{videoId:'$key',playerVars:{autoplay:1,mute:1,controls:0,playsinline:1,rel:0,modestbranding:1,loop:1,playlist:'$key'},events:{onReady:function(e){e.target.mute();e.target.playVideo()},onStateChange:function(e){if(e.data===YT.PlayerState.PLAYING){MovvizAmbient.playing()}},onError:function(){}}})}
+    </script></body></html>
+""".trimIndent()
+
 @Composable
 internal fun TitleRow(
     heading: String,
@@ -520,14 +637,26 @@ internal fun TitleRow(
     firstItemFocusRequester: FocusRequester? = null,
 ) {
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
-        Text(
-            text = heading,
-            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
-            modifier = Modifier.padding(start = 48.dp, bottom = 12.dp),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(start = 64.dp, bottom = 14.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(24.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Brush.verticalGradient(listOf(MovvizBrand, MovvizBrand2))),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = heading,
+                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
+            )
+        }
         TvLazyRow(
-            contentPadding = PaddingValues(horizontal = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 64.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             itemsIndexed(items, key = { _, item -> item.id }) { index, card ->
                 PosterCard(
@@ -547,7 +676,7 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
 
-    Column(modifier = Modifier.width(112.dp)) {
+    Column(modifier = Modifier.width(136.dp)) {
         // Surface (tv-material3) gère nativement le focus D-pad + le clic OK,
         // mais PAS le clic souris/tactile (confirmé : un tap synthétique sur
         // l'émulateur ne déclenchait rien) — tvPointerClick comble ce trou
@@ -558,15 +687,15 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .tvFocusLift(focused, shape = RoundedCornerShape(10.dp))
+                .tvFocusLift(focused, shape = RoundedCornerShape(14.dp), maxScale = 1.075f, maxElevation = 28.dp)
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
-            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(14.dp)),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
                     border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(14.dp),
                 ),
             ),
         ) {
@@ -636,10 +765,18 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
         }
         Text(
             text = card.title,
-            style = TextStyle(fontSize = 13.sp, color = MaterialTheme.colorScheme.onBackground),
-            maxLines = 1,
+            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onBackground),
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp),
+        )
+        val metadata = listOfNotNull(card.year?.toString(), if (card.isMovie) "Film" else "Série").joinToString("  ·  ")
+        Text(
+            text = metadata,
+            style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 2.dp),
         )
     }
 }
