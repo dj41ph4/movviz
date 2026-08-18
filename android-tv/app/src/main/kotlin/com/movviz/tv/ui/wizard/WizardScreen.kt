@@ -33,6 +33,8 @@ import com.movviz.tv.data.ApiResult
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizWordmark
+import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.launch
 
 /**
@@ -53,6 +55,14 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
     // télécommande, pas une supposition. focusProperties{down=...} force
     // explicitement la sortie du champ vers le bouton.
     val connectButtonFocus = remember { FocusRequester() }
+    val urlFieldFocus = remember { FocusRequester() }
+
+    // Guide officiel navigation TV : rien ne garantit qu'un élément ait le
+    // focus au lancement d'un écran Compose — sans cette demande explicite,
+    // le premier appui D-pad de l'utilisateur tombe dans le vide. Le champ
+    // existe dès la première composition ici (pas de donnée async à
+    // attendre), donc LaunchedEffect(Unit) est correct.
+    LaunchedEffect(Unit) { urlFieldFocus.requestFocus() }
 
     Box(
         modifier = Modifier
@@ -70,11 +80,13 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
         ) {
             AnimatedLogo(size = 56.dp)
             Spacer(Modifier.height(12.dp))
+            MovvizWordmark()
+            Spacer(Modifier.height(2.dp))
             Text(
-                text = "Movviz",
-                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
+                text = "MEDIA CORE",
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.35f), letterSpacing = 3.sp),
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(20.dp))
             Text(
                 text = "À quelle adresse se trouve ton serveur ?",
                 style = TextStyle(fontSize = 15.sp, color = Color.White.copy(alpha = 0.55f)),
@@ -86,6 +98,7 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
                 onValueChange = { url = it; error = null },
                 placeholder = "http://192.168.1.42:9810",
                 nextFocus = connectButtonFocus,
+                focusRequester = urlFieldFocus,
             )
 
             if (error != null) {
@@ -124,7 +137,13 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
  *  dégradé de marque (le clavier système Android TV s'ouvre automatiquement
  *  quand ce composable prend le focus et que l'utilisateur appuie sur OK). */
 @Composable
-fun TvTextField(value: String, onValueChange: (String) -> Unit, placeholder: String, nextFocus: FocusRequester) {
+fun TvTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    nextFocus: FocusRequester,
+    focusRequester: FocusRequester? = null,
+) {
     var focused by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
@@ -155,6 +174,7 @@ fun TvTextField(value: String, onValueChange: (String) -> Unit, placeholder: Str
             // la touche AVANT le champ de texte et déplace le focus lui-même.
             modifier = Modifier
                 .fillMaxWidth()
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 .focusProperties { down = nextFocus }
                 .onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
@@ -181,7 +201,8 @@ fun GradientButton(text: String, enabled: Boolean = true, focusRequester: FocusR
             .fillMaxWidth()
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
-            .onFocusChanged { focused = it.isFocused },
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = Color.White),
         border = ClickableSurfaceDefaults.border(

@@ -30,6 +30,7 @@ import androidx.tv.material3.Text
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.ui.theme.AnimatedLogo
+import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.wizard.GradientButton
 import kotlinx.coroutines.launch
 
@@ -42,8 +43,13 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val usernameFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
     val loginButtonFocus = remember { FocusRequester() }
+
+    // Focus initial explicite (voir WizardScreen) — le champ existe dès la
+    // première composition, pas de dépendance à une donnée async ici.
+    LaunchedEffect(Unit) { usernameFocus.requestFocus() }
 
     Box(
         modifier = Modifier
@@ -61,14 +67,21 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
         ) {
             AnimatedLogo(size = 56.dp)
             Spacer(Modifier.height(12.dp))
+            MovvizWordmark()
+            Spacer(Modifier.height(4.dp))
             Text(
                 text = "Connexion",
-                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
+                style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.5f)),
             )
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(24.dp))
 
             FieldLabel("Nom d'utilisateur")
-            LoginField(value = username, onValueChange = { username = it; error = null }, nextFocus = passwordFocus)
+            LoginField(
+                value = username,
+                onValueChange = { username = it; error = null },
+                nextFocus = passwordFocus,
+                focusRequester = usernameFocus,
+            )
             Spacer(Modifier.height(16.dp))
             FieldLabel("Mot de passe")
             LoginField(
