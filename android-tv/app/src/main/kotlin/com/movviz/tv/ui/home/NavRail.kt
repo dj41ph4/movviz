@@ -1,7 +1,5 @@
 package com.movviz.tv.ui.home
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -30,8 +28,8 @@ import androidx.tv.material3.Text
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
-import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
+import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.theme.tvPointerClick
 
 enum class HomeTab(val label: String, val icon: ImageVector) {
@@ -41,27 +39,20 @@ enum class HomeTab(val label: String, val icon: ImageVector) {
 }
 
 /**
- * Rail de navigation persistant à gauche — étroite (icône seule) au repos,
- * s'élargit pour montrer le libellé dès qu'un de ses items prend le focus,
- * exactement le comportement du rail Netflix Android TV. Contrairement au
- * bas de l'écran, un rail latéral ne consomme jamais l'espace vertical
- * réservé aux rangées de contenu.
+ * Rail de navigation persistant à gauche — toujours déplié avec les
+ * libellés visibles (comme la sidebar desktop, jamais un rail réduit aux
+ * icônes seules) : sur un remote, il n'y a pas de survol souris pour
+ * "révéler" un libellé caché, donc le collapse-to-icon du desktop (pensé
+ * pour gagner de la place sur un clic) n'a pas de sens ici.
  */
 @Composable
 fun NavRail(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
-    var railFocused by remember { mutableStateOf(false) }
-    val width by animateDpAsState(
-        targetValue = if (railFocused) 224.dp else 96.dp,
-        animationSpec = tween(220),
-        label = "navRailWidth",
-    )
-
     // Glass léger avec bordure droite subtile — même trio surface/bordure que
     // les panneaux desktop (voir "glass" dans CLAUDE.md), pas un aplat noir.
     Column(
         modifier = Modifier
             .fillMaxHeight()
-            .width(width)
+            .width(240.dp)
             .background(Color(0xFF0E0E18).copy(alpha = 0.72f))
             .drawBehind {
                 drawLine(
@@ -71,74 +62,81 @@ fun NavRail(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
                     strokeWidth = 1.dp.toPx(),
                 )
             }
-            .padding(vertical = 28.dp, horizontal = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(vertical = 28.dp, horizontal = 16.dp),
     ) {
-        Box(modifier = Modifier.padding(bottom = 28.dp, start = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 32.dp, start = 4.dp)) {
             AnimatedLogo(size = 30.dp)
+            Spacer(modifier = Modifier.width(10.dp))
+            MovvizWordmark(fontSize = 20.sp)
         }
-        HomeTab.entries.forEach { tab ->
-            RailItem(
-                tab = tab,
-                active = tab == selected,
-                expanded = railFocused,
-                onFocusChange = { railFocused = it },
-                onClick = { onSelect(tab) },
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            HomeTab.entries.forEach { tab ->
+                RailItem(
+                    tab = tab,
+                    active = tab == selected,
+                    onClick = { onSelect(tab) },
+                )
+            }
         }
+        Spacer(modifier = Modifier.weight(1f))
+        Text(
+            text = "Movviz TV",
+            style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
+            modifier = Modifier.padding(start = 4.dp),
+        )
     }
 }
 
 @Composable
-private fun RailItem(tab: HomeTab, active: Boolean, expanded: Boolean, onFocusChange: (Boolean) -> Unit, onClick: () -> Unit) {
+private fun RailItem(tab: HomeTab, active: Boolean, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(14.dp)
+    val shape = RoundedCornerShape(50)
     val brandGradient = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))
 
     Surface(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .onFocusChanged {
-                focused = it.isFocused
-                onFocusChange(it.isFocused)
-            }
+            .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = when {
-                focused -> Color.Transparent
-                active -> Color.White.copy(alpha = 0.08f)
-                else -> Color.Transparent
-            },
-            contentColor = if (active) MovvizInk else MovvizInkDim,
+            containerColor = Color.Transparent,
+            contentColor = if (active) Color.White else MovvizInkDim,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = androidx.tv.material3.Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)),
+                shape = shape,
+            ),
         ),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .let { if (focused) it.background(brandGradient, shape) else it }
-                .padding(horizontal = 14.dp, vertical = 13.dp),
+                // Pastille pleine en dégradé de marque pour l'onglet actif —
+                // même traitement que le point violet de la sidebar desktop,
+                // pas juste un léger changement d'opacité.
+                .let { if (active) it.background(brandGradient, shape) else it }
+                .padding(horizontal = 16.dp, vertical = 13.dp),
         ) {
             Image(
                 imageVector = tab.icon,
                 contentDescription = tab.label,
-                colorFilter = ColorFilter.tint(if (focused) Color.White else if (active) MovvizInk else MovvizInkDim),
+                colorFilter = ColorFilter.tint(if (active) Color.White else MovvizInkDim),
                 modifier = Modifier.size(20.dp),
             )
-            if (expanded) {
-                Spacer(modifier = Modifier.width(14.dp))
-                Text(
-                    text = tab.label,
-                    style = TextStyle(
-                        fontSize = 14.sp,
-                        fontWeight = if (active || focused) FontWeight.Bold else FontWeight.Medium,
-                        color = if (focused) Color.White else if (active) MovvizInk else MovvizInkDim,
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Text(
+                text = tab.label,
+                style = TextStyle(
+                    fontSize = 15.sp,
+                    fontWeight = if (active) FontWeight.Bold else FontWeight.Medium,
+                    color = if (active) Color.White else MovvizInkDim,
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }

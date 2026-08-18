@@ -319,7 +319,15 @@ private fun HeroCarousel(
     // l'image avec scale() (une transformation de dessin, pas de layout) et
     // Compose ne rogne rien par défaut — sans ça l'image zoomée déborde
     // visiblement de la bannière et empiète sur les rangées en dessous.
-    Box(modifier = Modifier.fillMaxWidth().height(640.dp).clipToBounds()) {
+    // Hauteur volontairement contenue (pas 760dp) : le focus D-pad initial
+    // atterrit sur le CTA en bas du bloc de texte, et TvLazyColumn fait
+    // défiler pour l'amener pleinement visible — avec un hero trop haut, ce
+    // scroll-into-view pousse le HAUT du bloc (le titre) hors de l'écran
+    // avant même que l'utilisateur n'ait touché une touche (constaté en
+    // direct : agrandir la hauteur pour "faire de la place" au titre
+    // aggravait le rognage au lieu de le résoudre). Rester assez bas pour
+    // que le CTA soit déjà visible sans scroll dès le premier rendu.
+    Box(modifier = Modifier.fillMaxWidth().height(560.dp).clipToBounds()) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
             transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
@@ -365,21 +373,21 @@ private fun HeroCarousel(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 48.dp, end = 48.dp, bottom = 40.dp)
+                .padding(start = 48.dp, end = 48.dp, bottom = 32.dp)
                 .widthIn(max = 760.dp),
         ) {
             Text(
                 text = if (current.isMovie) "FILM" else "SÉRIE",
                 style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizBrand2, letterSpacing = 2.sp),
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = current.title,
-                style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                style = TextStyle(fontSize = 36.sp, fontWeight = FontWeight.Black, color = MovvizInk),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (current.rating > 0) {
                     Text(text = "★ ${"%.1f".format(current.rating)}", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
@@ -389,18 +397,32 @@ private fun HeroCarousel(
                     Text(text = "$it", style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft))
                     Spacer(modifier = Modifier.width(10.dp))
                 }
-                if (current.genres.isNotEmpty()) {
-                    Text(
-                        text = current.genres.take(3).joinToString(", "),
-                        style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+            }
+            if (current.genres.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                // Pastilles de genre, pas du texte "Comédie, Crime, Mystère"
+                // brut — même langage pill que le reste de l'appli (voir
+                // ui/theme/Badges.kt) et que le hero desktop.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    current.genres.take(3).forEach { genre ->
+                        Box(
+                            modifier = Modifier
+                                .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(50))
+                                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(50))
+                                .padding(horizontal = 12.dp, vertical = 5.dp),
+                        ) {
+                            Text(text = genre, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft))
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(24.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 var focused by remember(current.id) { mutableStateOf(false) }
+                // Action primaire = dégradé de marque, jamais un simple
+                // blanc/noir (CLAUDE.md : "Primary actions: brand-gradient
+                // text-white font-bold rounded-xl") — c'était le seul CTA
+                // primaire de toute l'appli TV encore en noir/blanc.
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
@@ -408,19 +430,25 @@ private fun HeroCarousel(
                         .scale(if (focused) 1.06f else 1f)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(12.dp)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.White, contentColor = Color.Black),
+                    // rounded-full (pill), pas un simple rectangle arrondi —
+                    // même forme que les boutons d'action du hero desktop
+                    // (Informations/Ajouter à la bibliothèque/Pourquoi ce
+                    // contenu ?).
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(50)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = Color.White),
                     border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, MovvizBrand), shape = RoundedCornerShape(12.dp)),
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, Color.White), shape = RoundedCornerShape(50)),
                     ),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 14.dp),
+                        modifier = Modifier
+                            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)))
+                            .padding(horizontal = 28.dp, vertical = 14.dp),
                     ) {
-                        Text(text = "▶", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black))
+                        Text(text = "▶", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White))
                         Spacer(modifier = Modifier.width(10.dp))
-                        Text(text = "Voir la fiche", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.Black))
+                        Text(text = "Voir la fiche", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White))
                     }
                 }
 
