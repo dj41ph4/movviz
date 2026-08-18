@@ -708,7 +708,7 @@ private fun downloadSubtitle(item: QueueItemDto): String {
     return if (speed != null) "$percent% · $speed" else "$percent%"
 }
 
-private fun formatSpeed(bytesPerSec: Long): String? {
+private fun formatSpeed(bytesPerSec: Double): String? {
     if (bytesPerSec < 1024) return null
     val units = listOf("Ko/s", "Mo/s", "Go/s")
     var value = bytesPerSec / 1024.0

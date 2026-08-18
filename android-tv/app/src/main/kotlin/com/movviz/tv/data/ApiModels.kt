@@ -267,7 +267,13 @@ data class QueueDownloadDto(
     // useSmoothProgress/DownloadQueue.tsx côté desktop qui multiplie par 100
     // à l'affichage seulement.
     val progress: Double = 0.0,
-    val downloadSpeed: Long = 0,
+    // Double, pas Long : le moteur BitTorrent renvoie un débit brut non
+    // arrondi (voir t.downloadSpeed dans src/app/api/activity/v2/route.ts,
+    // contrairement à `eta` qui lui passe par Math.round côté serveur) —
+    // un Long ici plantait le parsing JSON dès qu'un torrent avait un débit
+    // non entier (crash confirmé en direct juste après connexion : "Expected
+    // a long but was 7485.6").
+    val downloadSpeed: Double = 0.0,
     val eta: Long = 0, // secondes
     val state: String = "downloading",
 )
