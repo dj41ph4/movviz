@@ -2,6 +2,7 @@ package com.movviz.tv.ui.title
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,6 +47,11 @@ import com.movviz.tv.data.SeriesSeasonDto
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizDown
+import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkDim
+import com.movviz.tv.ui.theme.MovvizInkSoft
+import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.launch
 
@@ -204,14 +210,18 @@ fun TitleDetailScreen(
                 )
             }
             if (inLibrary) {
+                // Trio pastille standard (texte/fond/bordure sur la même teinte
+                // sémantique) — voir CLAUDE.md, jusque-là seuls texte+fond
+                // étaient posés ici, sans bordure comme partout ailleurs.
                 Box(
                     modifier = Modifier
-                        .background(Color(0x1FA0E6A0), RoundedCornerShape(50))
+                        .background(MovvizOk.copy(alpha = 0.12f), RoundedCornerShape(50))
+                        .border(1.dp, MovvizOk.copy(alpha = 0.25f), RoundedCornerShape(50))
                         .padding(horizontal = 12.dp, vertical = 4.dp),
                 ) {
                     Text(
                         text = "Dans la bibliothèque",
-                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFFA0E6A0)),
+                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizOk),
                     )
                 }
                 Spacer(modifier = Modifier.height(12.dp))
@@ -219,7 +229,7 @@ fun TitleDetailScreen(
 
             Text(
                 text = d.title,
-                style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Black, color = Color.White),
+                style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Black, color = MovvizInk),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 720.dp),
@@ -254,7 +264,7 @@ fun TitleDetailScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = d.tagline,
-                    style = TextStyle(fontSize = 14.sp, fontStyle = FontStyle.Italic, color = Color.White.copy(alpha = 0.7f)),
+                    style = TextStyle(fontSize = 14.sp, fontStyle = FontStyle.Italic, color = MovvizInkSoft),
                     modifier = Modifier.widthIn(max = 640.dp),
                 )
             }
@@ -262,7 +272,7 @@ fun TitleDetailScreen(
             Spacer(modifier = Modifier.height(10.dp))
             Text(
                 text = d.overview,
-                style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.85f), lineHeight = 20.sp),
+                style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 20.sp),
                 maxLines = 4,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 640.dp),
@@ -321,7 +331,7 @@ fun TitleDetailScreen(
 
             addError?.let {
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = it, style = TextStyle(fontSize = 12.sp, color = Color(0xFFE67C7C)))
+                Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizDown))
             }
             } // item
 
@@ -331,7 +341,7 @@ fun TitleDetailScreen(
                     item {
                         Text(
                             text = "Chargement des épisodes…",
-                            style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f)),
+                            style = TextStyle(fontSize = 13.sp, color = MovvizInkDim),
                         )
                     }
                 } else {
@@ -361,7 +371,7 @@ private fun SeasonRow(
     Column(modifier = Modifier.padding(bottom = 24.dp)) {
         Text(
             text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
-            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White),
+            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
         )
         Spacer(modifier = Modifier.height(10.dp))
         TvLazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -392,8 +402,8 @@ private fun EpisodeChip(episode: SeriesEpisodeDto, onClick: () -> Unit, focusReq
             .let { if (available) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.White.copy(alpha = if (available) 0.08f else 0.04f),
-            contentColor = Color.White,
+            containerColor = MovvizInk.copy(alpha = if (available) 0.08f else 0.04f),
+            contentColor = MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
@@ -405,11 +415,11 @@ private fun EpisodeChip(episode: SeriesEpisodeDto, onClick: () -> Unit, focusReq
         Column(modifier = Modifier.padding(10.dp)) {
             Text(
                 text = "Épisode ${episode.episodeNumber}" + if (available) "  ▶" else "",
-                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (available) Color.White else Color.White.copy(alpha = 0.4f)),
+                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkDim),
             )
             Text(
                 text = episode.title,
-                style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = if (available) 0.75f else 0.35f)),
+                style = TextStyle(fontSize = 11.sp, color = if (available) MovvizInkSoft else MovvizInkDim),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -418,11 +428,11 @@ private fun EpisodeChip(episode: SeriesEpisodeDto, onClick: () -> Unit, focusReq
 }
 
 @Composable
-private fun metaStyle() = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f))
+private fun metaStyle() = TextStyle(fontSize = 14.sp, color = MovvizInkSoft)
 
 @Composable
 private fun MetaSep() {
-    Text(text = "  •  ", style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.4f)))
+    Text(text = "  •  ", style = TextStyle(fontSize = 14.sp, color = MovvizInkDim))
 }
 
 /** Bouton d'action principal — Surface focusable (obligatoire pour le D-pad),
@@ -451,12 +461,20 @@ private fun PrimaryPill(
             .let { if (enabled) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (brush != null) Color.Transparent else if (solidWhite) Color.White else Color.White.copy(alpha = 0.1f),
-            contentColor = if (solidWhite) Color.Black else Color.White,
+            containerColor = if (brush != null) Color.Transparent else if (solidWhite) Color.White else MovvizInk.copy(alpha = 0.1f),
+            contentColor = if (solidWhite) Color.Black else MovvizInk,
         ),
+        // Bordure de focus blanche invisible sur le variant "Lire" (fond
+        // déjà blanc plein) — corrigé : bordure en dégradé de marque sur ce
+        // variant précis, blanche partout ailleurs où le fond est sombre ou
+        // déjà en dégradé de marque (contraste garanti dans les deux cas).
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White),
+                border = if (solidWhite) {
+                    androidx.compose.foundation.BorderStroke(2.dp, Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)))
+                } else {
+                    androidx.compose.foundation.BorderStroke(2.dp, Color.White)
+                },
                 shape = shape,
             ),
         ),

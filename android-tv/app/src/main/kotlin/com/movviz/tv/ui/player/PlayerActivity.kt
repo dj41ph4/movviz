@@ -62,6 +62,10 @@ import com.movviz.tv.data.ApiResult
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizDown
+import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkSoft
+import com.movviz.tv.ui.theme.MovvizSurface
 import com.movviz.tv.ui.theme.MovvizTvTheme
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
@@ -369,7 +373,7 @@ private fun PlayerScreen(
 
         if (loading) {
             Box(modifier = Modifier.align(Alignment.Center)) {
-                Text(text = "Chargement…", style = TextStyle(fontSize = 16.sp, color = Color.White))
+                Text(text = "Chargement…", style = TextStyle(fontSize = 16.sp, color = MovvizInk))
             }
         }
 
@@ -379,7 +383,7 @@ private fun PlayerScreen(
                 contentAlignment = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = msg, style = TextStyle(fontSize = 16.sp, color = Color.White))
+                    Text(text = msg, style = TextStyle(fontSize = 16.sp, color = MovvizDown))
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "Retour",
@@ -529,14 +533,14 @@ private fun ControlsOverlay(
     ) {
         Text(
             text = title,
-            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black, color = Color.White),
+            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black, color = MovvizInk),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         if (!subtitle.isNullOrBlank()) {
             Text(
                 text = subtitle,
-                style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.7f)),
+                style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -560,8 +564,8 @@ private fun ControlsOverlay(
         }
         Spacer(modifier = Modifier.height(6.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = formatTime(positionMs), style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f)))
-            Text(text = formatTime(durationMs), style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.6f)))
+            Text(text = formatTime(positionMs), style = TextStyle(fontSize = 12.sp, color = MovvizInkSoft))
+            Text(text = formatTime(durationMs), style = TextStyle(fontSize = 12.sp, color = MovvizInkSoft))
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -665,10 +669,10 @@ private fun TrackDialog(
             onClick = {},
             modifier = Modifier.widthIn(min = 320.dp, max = 420.dp),
             shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(16.dp)),
-            colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF15151F)),
+            colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface),
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text(text = title, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White))
+                Text(text = title, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
                 Spacer(modifier = Modifier.height(12.dp))
                 TvLazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
                     if (includeOffOption) {
@@ -698,6 +702,7 @@ private fun TrackDialog(
 @Composable
 private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequester?, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -705,10 +710,20 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
-        shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (focused) Color.White.copy(alpha = 0.14f) else Color.Transparent,
-            contentColor = Color.White,
+            containerColor = if (focused) MovvizInk.copy(alpha = 0.14f) else Color.Transparent,
+            contentColor = MovvizInk,
+        ),
+        // Avant : seul le fond changeait légèrement au focus, contrairement
+        // à toutes les autres rangées/cartes focusables de l'app qui ont
+        // toutes une bordure nette (voir EpisodeChip, PosterCard) — un
+        // simple changement d'opacité est trop discret au D-pad.
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand),
+                shape = shape,
+            ),
         ),
     ) {
         Row(
@@ -716,7 +731,7 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = label, style = TextStyle(fontSize = 14.sp, color = Color.White))
+            Text(text = label, style = TextStyle(fontSize = 14.sp, color = MovvizInk))
             if (selected) {
                 Text(text = "✓", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizBrand))
             }

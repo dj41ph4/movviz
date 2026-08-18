@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -33,6 +34,9 @@ import com.movviz.tv.data.ApiResult
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizDown
+import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.launch
@@ -84,12 +88,12 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
             Spacer(Modifier.height(2.dp))
             Text(
                 text = "MEDIA CORE",
-                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.35f), letterSpacing = 3.sp),
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim, letterSpacing = 3.sp),
             )
             Spacer(Modifier.height(20.dp))
             Text(
                 text = "À quelle adresse se trouve ton serveur ?",
-                style = TextStyle(fontSize = 15.sp, color = Color.White.copy(alpha = 0.55f)),
+                style = TextStyle(fontSize = 15.sp, color = MovvizInkDim),
             )
             Spacer(Modifier.height(28.dp))
 
@@ -105,7 +109,7 @@ fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Text(
                     text = error!!,
-                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFFEF4444)),
+                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizDown),
                 )
             }
 
@@ -151,7 +155,7 @@ fun TvTextField(
             .fillMaxWidth()
             .border(
                 width = if (focused) 2.dp else 1.dp,
-                color = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f),
+                color = if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = 0.12f),
                 shape = RoundedCornerShape(12.dp),
             )
             .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
@@ -160,12 +164,12 @@ fun TvTextField(
         contentAlignment = Alignment.CenterStart,
     ) {
         if (value.isEmpty()) {
-            Text(text = placeholder, style = TextStyle(fontSize = 16.sp, color = Color.White.copy(alpha = 0.35f)))
+            Text(text = placeholder, style = TextStyle(fontSize = 16.sp, color = MovvizInkDim))
         }
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            textStyle = TextStyle(fontSize = 16.sp, color = Color.White),
+            textStyle = TextStyle(fontSize = 16.sp, color = MovvizInk),
             singleLine = true,
             // Sans imeAction/onDone, le bouton coche du clavier virtuel
             // n'a AUCUNE action assignée et ne referme donc jamais le
@@ -212,6 +216,10 @@ fun GradientButton(text: String, enabled: Boolean = true, focusRequester: FocusR
             .fillMaxWidth()
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+            // Manquait ici alors que tous les autres boutons focusables
+            // (PrimaryPill, SettingsButton, ControlButton) grossissent au
+            // focus — même état de focus "scale + bordure" partout.
+            .scale(if (focused) 1.06f else 1f)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
