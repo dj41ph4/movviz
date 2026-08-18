@@ -16,9 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -78,10 +76,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             modifier = Modifier.fillMaxSize().background(com.movviz.tv.ui.theme.MovvizBackground),
             contentAlignment = Alignment.Center,
         ) {
-            androidx.tv.material3.Text(
-                text = "Movviz",
-                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = com.movviz.tv.ui.theme.MovvizBrand),
-            )
+            com.movviz.tv.ui.theme.AnimatedLogo(size = 56.dp)
         }
         return
     }

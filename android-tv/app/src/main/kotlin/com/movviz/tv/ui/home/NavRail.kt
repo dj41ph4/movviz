@@ -17,6 +17,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.movviz.tv.ui.theme.AnimatedLogo
 
 enum class HomeTab(val label: String, val glyph: String) {
     HOME("Accueil", "⌂"),
@@ -43,11 +44,9 @@ fun NavRail(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
             .padding(vertical = 24.dp, horizontal = 12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(
-            text = "M",
-            style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.primary),
-            modifier = Modifier.padding(bottom = 24.dp, start = 8.dp),
-        )
+        Box(modifier = Modifier.padding(bottom = 24.dp, start = 8.dp)) {
+            AnimatedLogo(size = 26.dp)
+        }
         HomeTab.entries.forEach { tab ->
             RailItem(
                 tab = tab,
