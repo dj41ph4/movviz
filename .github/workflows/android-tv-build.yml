@@ -45,15 +45,25 @@ jobs:
         working-directory: android-tv
         run: gradle assembleDebug --no-daemon
 
+      # Renommé explicitement "client" — contrairement à l'installeur Windows
+      # (qui contient le serveur complet), cet APK est un client TV qui se
+      # connecte à un serveur Movviz déjà existant. Éviter toute ambiguïté
+      # dans la liste des assets d'une Release, à côté du .exe.
+      - name: Rename APK as client build
+        run: cp android-tv/app/build/outputs/apk/debug/app-debug.apk android-tv/app/build/outputs/apk/debug/Movviz-Android-TV-client-debug.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MovvizTV-debug
-          path: android-tv/app/build/outputs/apk/debug/app-debug.apk
+          name: Movviz-Android-TV-client-debug
+          path: android-tv/app/build/outputs/apk/debug/Movviz-Android-TV-client-debug.apk
 
       - name: Attach APK to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: android-tv/app/build/outputs/apk/debug/app-debug.apk
-          generate_release_notes: true
+          files: android-tv/app/build/outputs/apk/debug/Movviz-Android-TV-client-debug.apk
+          append_body: true
+          body: |
+            ---
+            **Movviz-Android-TV-client-debug.apk** — client Android TV (Kotlin/Compose). Se connecte à un serveur Movviz déjà installé (voir l'installeur Windows ci-dessus ou l'image Docker) ; ne fonctionne pas seul. APK de debug non signé — installation manuelle (`adb install` ou transfert direct sur le boîtier).
