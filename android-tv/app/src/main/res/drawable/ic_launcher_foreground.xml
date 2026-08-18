@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Placeholder — un "M" stylisé sur fond transparent, à remplacer par le
+     vrai logo Movviz (le SVG existe déjà côté web, README.md le référence
+     en base64). Suffit à faire compiler/tourner l'app en attendant. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#7c5cff"
+        android:pathData="M24,74 L24,34 L40,34 L54,58 L68,34 L84,34 L84,74 L70,74 L70,52 L56,74 L52,74 L38,52 L38,74 Z" />
+</vector>
