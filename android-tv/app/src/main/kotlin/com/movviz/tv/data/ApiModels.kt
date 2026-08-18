@@ -65,6 +65,8 @@ data class LibrarySeriesDto(
 // jusqu'ici alors que le badge desktop (LibraryMovieCard.tsx/MediaBadges.tsx)
 // les affiche déjà. hdr est absent (null) sur un fichier SDR, pas une chaîne
 // vide — distinct de source (release scene: "web-dl"/"bluray"/... ou null).
+// Sert à la fois la pastille qualité des posters (accueil) et la zone
+// technique secondaire de la fiche titre.
 @JsonClass(generateAdapter = true)
 data class LibraryFileDto(
     val plexRatingKey: String?,
@@ -132,6 +134,11 @@ data class SystemInfoDto(
 data class MetaDetailDto(
     val tmdbId: Int,
     val title: String,
+    // Titre TMDb non localisé — confirmé en direct (GET /api/metadata/detail
+    // ?type=movie&tmdbId=27205 renvoie "originalTitle":"Inception"). Affiché
+    // côté fiche titre TV uniquement quand il diffère du titre localisé
+    // (voir MetaDetail dans src/lib/metadata/types.ts).
+    val originalTitle: String? = null,
     val year: Int?,
     val overview: String,
     val tagline: String = "",
@@ -151,6 +158,19 @@ data class MetaDetailDto(
     // réponse serveur (ex. tmdbId=27205 "Inception").
     val cast: List<MetaCastMemberDto> = emptyList(),
     val crew: List<MetaCrewMemberDto> = emptyList(),
+    // Appartenance à une saga TMDb (belongs_to_collection) — confirmé en
+    // direct (tmdbId=155 "The Dark Knight" renvoie
+    // {"id":263,"name":"The Dark Knight - Saga","posterPath":"..."}). Pas
+    // d'écran Collections côté TV : simple mention texte sur la fiche, pas
+    // de duplication d'un parcours qui n'existe pas encore ici.
+    val collection: MetaCollectionDto? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MetaCollectionDto(
+    val id: Int,
+    val name: String,
+    val posterPath: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -335,4 +355,24 @@ data class QueueResponseDto(
 @JsonClass(generateAdapter = true)
 data class SearchTriggerResponseDto(
     val queued: Boolean = false,
+)
+
+// Miroir de GET /api/watch-status (src/app/api/watch-status/route.ts) —
+// statut "vu" manuel PAR UTILISATEUR (distinct du statut LibraryStatus qui
+// dit si le FICHIER existe, pas si quelqu'un l'a regardé). Confirmé en
+// direct : {"movies":[102899,...],"episodes":[{"tmdbId":..,"season":..,
+// "episode":..}]}. "episodes[].tmdbId" est le tmdbId de la SÉRIE, pas de
+// l'épisode (mêmes conventions que WatchStatus côté serveur,
+// src/lib/plex/watchStore.ts).
+@JsonClass(generateAdapter = true)
+data class WatchedEpisodeDto(
+    val tmdbId: Int,
+    val season: Int,
+    val episode: Int,
+)
+
+@JsonClass(generateAdapter = true)
+data class WatchStatusDto(
+    val movies: List<Int> = emptyList(),
+    val episodes: List<WatchedEpisodeDto> = emptyList(),
 )

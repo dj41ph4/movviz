@@ -49,6 +49,7 @@ import com.movviz.tv.ui.home.TvTitleCard
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizCyan
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
@@ -96,6 +97,9 @@ fun TitleDetailScreen(
         viewModel.loadDetail(type, tmdbId)
         if (type == "series" && inLibrary) viewModel.loadSeriesSeasons(tmdbId)
         if (type == "movie") viewModel.loadContinueWatching()
+        // Statut "vu" manuel — utile aux deux types (badge "Vu" sur un film
+        // terminé, coche par épisode pour une série), voir /api/watch-status.
+        viewModel.loadWatchStatus()
     }
 
     val plexRatingKey = viewModel.libraryPlexRatingKey(type, tmdbId)
@@ -109,6 +113,28 @@ fun TitleDetailScreen(
     val movieResume = remember(continueWatching, type, tmdbId) {
         if (type != "movie") null
         else continueWatching.firstOrNull { it.type == "movie" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
+    }
+
+    // Statut "vu" manuel par utilisateur — /api/watch-status, distinct de
+    // LibraryStatus (qui dit si le FICHIER existe, pas si on l'a regardé).
+    // Le CTA actuel ne distinguait que "jamais commencé" vs "en cours" ;
+    // "déjà terminé" est un troisième état réel qu'aucun autre signal ne
+    // couvre (movieResume exige un offset > 5s ET vient d'une source
+    // différente — le on-deck Plex, pas ce toggle manuel).
+    val watchStatus by viewModel.watchStatus.collectAsState()
+    val movieWatched = remember(watchStatus, type, tmdbId) {
+        type == "movie" && watchStatus?.movies?.contains(tmdbId) == true
+    }
+    // Clés "saison.épisode" déjà vues pour CETTE série — watchStatus.episodes
+    // est global à l'utilisateur (toutes séries confondues, tmdbId = id de
+    // la série), donc filtré ici avant de passer aux rangées de saisons.
+    val watchedEpisodeKeys = remember(watchStatus, type, tmdbId) {
+        if (type != "series") emptySet()
+        else watchStatus?.episodes
+            ?.filter { it.tmdbId == tmdbId }
+            ?.map { "${it.season}.${it.episode}" }
+            ?.toSet()
+            ?: emptySet()
     }
 
     // File de lecture épisode par épisode — à plat sur toutes les saisons,
@@ -245,20 +271,40 @@ fun TitleDetailScreen(
                         .focusable(),
                 )
             }
-            if (inLibrary) {
+            if (inLibrary || movieWatched) {
                 // Trio pastille standard (texte/fond/bordure sur la même teinte
                 // sémantique) — voir CLAUDE.md, jusque-là seuls texte+fond
                 // étaient posés ici, sans bordure comme partout ailleurs.
-                Box(
-                    modifier = Modifier
-                        .background(MovvizOk.copy(alpha = 0.12f), RoundedCornerShape(50))
-                        .border(1.dp, MovvizOk.copy(alpha = 0.25f), RoundedCornerShape(50))
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                ) {
-                    Text(
-                        text = "Dans la bibliothèque",
-                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizOk),
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (inLibrary) {
+                        Box(
+                            modifier = Modifier
+                                .background(MovvizOk.copy(alpha = 0.12f), RoundedCornerShape(50))
+                                .border(1.dp, MovvizOk.copy(alpha = 0.25f), RoundedCornerShape(50))
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = "Dans la bibliothèque",
+                                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizOk),
+                            )
+                        }
+                    }
+                    // "Vu" — statut manuel par utilisateur (/api/watch-status),
+                    // troisième état réel que le CTA seul ne couvrait pas
+                    // (jamais commencé / en cours de reprise / déjà terminé).
+                    if (movieWatched) {
+                        Box(
+                            modifier = Modifier
+                                .background(MovvizCyan.copy(alpha = 0.12f), RoundedCornerShape(50))
+                                .border(1.dp, MovvizCyan.copy(alpha = 0.25f), RoundedCornerShape(50))
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                        ) {
+                            Text(
+                                text = "✓ Vu",
+                                style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizCyan),
+                            )
+                        }
+                    }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
             }
@@ -270,6 +316,18 @@ fun TitleDetailScreen(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.widthIn(max = 720.dp),
             )
+
+            // Titre original — affiché seulement s'il diffère réellement du
+            // titre localisé (ex: "The Dark Knight" sous "The Dark Knight :
+            // Le Chevalier noir"), confirmé en direct contre
+            // /api/metadata/detail. Un titre déjà identique (le cas le plus
+            // fréquent) n'affiche rien de plus.
+            if (!d.originalTitle.isNullOrBlank() && !d.originalTitle.equals(d.title, ignoreCase = true)) {
+                Text(
+                    text = "Titre original : ${d.originalTitle}",
+                    style = TextStyle(fontSize = 13.sp, color = MovvizInkDim),
+                )
+            }
 
             Spacer(modifier = Modifier.height(10.dp))
 
@@ -301,6 +359,17 @@ fun TitleDetailScreen(
                 Row {
                     Text(text = "Réalisation ", style = TextStyle(fontSize = 13.sp, color = MovvizInkDim))
                     Text(text = director.name, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
+                }
+            }
+
+            // Saga TMDb (belongs_to_collection) — simple mention texte, pas
+            // de duplication d'un écran Collections qui n'existe pas côté TV.
+            // Zone secondaire discrète, jamais la hiérarchie principale.
+            d.collection?.let { collection ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Row {
+                    Text(text = "Fait partie de ", style = TextStyle(fontSize = 13.sp, color = MovvizInkDim))
+                    Text(text = collection.name, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
                 }
             }
 
@@ -376,6 +445,17 @@ fun TitleDetailScreen(
                             )
                         }
                     }
+                    // Infos techniques du fichier RÉELLEMENT en bibliothèque
+                    // (pas des infos TMDb) — résolution/codecs/HDR/source, tels
+                    // que Plex les a analysés (confirmé en direct contre
+                    // /api/library/movies : file.resolution/videoCodec/
+                    // audioCodec/hdr/source). Zone secondaire discrète sous le
+                    // CTA, jamais la hiérarchie principale de la fiche.
+                    if (plexRatingKey != null) {
+                        viewModel.libraryMovieFile(tmdbId)?.let { file ->
+                            FileTechInfoRow(file)
+                        }
+                    }
                 }
             } else if (!inLibrary) {
                 Row {
@@ -413,7 +493,7 @@ fun TitleDetailScreen(
                     }
                 } else {
                     items(seasons, key = { it.seasonNumber }) { season ->
-                        SeasonRow(season = season) { episode ->
+                        SeasonRow(season = season, watchedEpisodeKeys = watchedEpisodeKeys) { episode ->
                             val index = playableEpisodes.indexOfFirst {
                                 it.seasonNumber == season.seasonNumber && it.episodeNumber == episode.episodeNumber
                             }
@@ -509,6 +589,9 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>) {
 private fun SeasonRow(
     season: SeriesSeasonDto,
     firstEpisodeFocusRequester: FocusRequester? = null,
+    // Clés "saison.épisode" déjà vues (statut "vu" manuel utilisateur,
+    // /api/watch-status) — voir watchedEpisodeKeys dans TitleDetailScreen.
+    watchedEpisodeKeys: Set<String> = emptySet(),
     onPlayEpisode: (SeriesEpisodeDto) -> Unit,
 ) {
     Column(modifier = Modifier.padding(bottom = 24.dp)) {
@@ -521,6 +604,7 @@ private fun SeasonRow(
             itemsIndexed(season.episodes, key = { _, ep -> ep.episodeNumber }) { index, ep ->
                 EpisodeChip(
                     episode = ep,
+                    watched = watchedEpisodeKeys.contains("${season.seasonNumber}.${ep.episodeNumber}"),
                     onClick = { onPlayEpisode(ep) },
                     focusRequester = if (index == 0) firstEpisodeFocusRequester else null,
                 )
@@ -530,10 +614,11 @@ private fun SeasonRow(
 }
 
 @Composable
-private fun EpisodeChip(episode: SeriesEpisodeDto, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+private fun EpisodeChip(episode: SeriesEpisodeDto, watched: Boolean = false, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val available = episode.plexRatingKey != null && episode.status == "available"
     val shape = RoundedCornerShape(10.dp)
+    Box {
     Surface(
         onClick = onClick,
         enabled = available,
@@ -568,6 +653,44 @@ private fun EpisodeChip(episode: SeriesEpisodeDto, onClick: () -> Unit, focusReq
             )
         }
     }
+    // Coche "vu" — statut manuel utilisateur (/api/watch-status), coin
+    // supérieur droit de la puce, même trio pastille que le reste de l'app
+    // mais réduit au strict nécessaire (une puce épisode fait déjà 160dp de
+    // large, pas de place pour un libellé complet).
+    if (watched) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(4.dp)
+                .background(MovvizCyan.copy(alpha = 0.9f), androidx.compose.foundation.shape.CircleShape)
+                .padding(horizontal = 4.dp, vertical = 2.dp),
+        ) {
+            Text(text = "✓", style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White))
+        }
+    }
+    }
+}
+
+/** Infos techniques du fichier réellement en bibliothèque (résolution,
+ *  codecs, HDR, source) — zone secondaire discrète sous le CTA de lecture,
+ *  jamais la hiérarchie principale de la fiche. Texte simple plutôt que les
+ *  logos de format du desktop (FormatLogos.tsx) : pas la peine de porter tout
+ *  ce système d'assets pour une seule ligne d'infos secondaires côté TV. */
+@Composable
+private fun FileTechInfoRow(file: com.movviz.tv.data.LibraryFileDto) {
+    val parts = listOfNotNull(
+        file.resolution,
+        file.videoCodec,
+        file.audioCodec,
+        file.hdr,
+        file.source,
+    )
+    if (parts.isEmpty()) return
+    Spacer(modifier = Modifier.height(10.dp))
+    Text(
+        text = parts.joinToString("  ·  "),
+        style = TextStyle(fontSize = 12.sp, color = MovvizInkDim),
+    )
 }
 
 @Composable
