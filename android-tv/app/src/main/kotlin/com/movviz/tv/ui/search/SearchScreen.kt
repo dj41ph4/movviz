@@ -35,6 +35,7 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizSurface
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.RatingBadge
+import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
@@ -153,7 +154,7 @@ private fun SearchResultCard(result: SearchResultDto, onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .scale(if (focused) 1.08f else 1f)
+                .tvFocusLift(focused, shape = shape)
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(shape = shape),

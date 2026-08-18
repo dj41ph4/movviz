@@ -53,6 +53,7 @@ import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.RatingBadge
 import com.movviz.tv.ui.theme.StatusPill
+import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
 
@@ -523,7 +524,7 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .scale(if (focused) 1.08f else 1f)
+                .tvFocusLift(focused, shape = RoundedCornerShape(10.dp))
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(10.dp)),
@@ -636,7 +637,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
-                .scale(if (focused && clickable) 1.12f else 1f)
+                .tvFocusLift(focused && clickable, shape = shape)
                 .onFocusChanged { focused = it.isFocused }
                 .let { if (clickable) it.tvPointerClick(onClick) else it },
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = shape),
