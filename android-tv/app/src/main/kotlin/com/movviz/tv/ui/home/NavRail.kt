@@ -13,6 +13,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -71,9 +72,16 @@ fun NavRail(
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     onSwitchProfile: () -> Unit = {},
-    // Cible D-pad « premier résultat de recherche » : BasicTextField avale
-    // la flèche bas, on l'intercepte pour sauter sur la grille de résultats.
-    resultFocusRequester: FocusRequester? = null,
+    // Cible D-pad « premier élément focusable du contenu affiché » — sert à
+    // la fois de secours pour le champ de recherche (BasicTextField avale la
+    // flèche bas, interceptée plus bas pour sauter sur la grille) ET, plus
+    // généralement, de cible unique pour la flèche bas depuis N'IMPORTE quel
+    // item de cette barre (voir focusProperties ci-dessous) : sans ça, la
+    // recherche 2D de focus de Compose ne descend jamais dans le contenu
+    // depuis la nav (nav et contenu sont deux frères superposés dans un Box,
+    // zIndex(1f) ne joue que sur le dessin — bug constaté en direct sur
+    // vraie TV, DPAD bas totalement sans effet depuis n'importe quel onglet).
+    contentFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -81,6 +89,12 @@ fun NavRail(
         modifier = modifier
             .fillMaxWidth()
             .height(68.dp)
+            // Cible unique et explicite plutôt que de compter sur la
+            // recherche spatiale par défaut : posée sur la Row englobante,
+            // elle s'applique à tous les descendants focusables (items
+            // d'onglet, bouton recherche, avatar profil) sans avoir à
+            // répéter le modifier sur chacun.
+            .let { if (contentFocusRequester != null) it.focusProperties { down = contentFocusRequester } else it }
             .background(
                 Brush.verticalGradient(
                     listOf(
@@ -120,7 +134,7 @@ Spacer(modifier = Modifier.weight(1f))
             query = searchQuery,
             onToggle = onSearchToggle,
             onQueryChange = onSearchQueryChange,
-            downFocus = resultFocusRequester,
+            downFocus = contentFocusRequester,
         )
         Spacer(modifier = Modifier.width(22.dp))
         // À la place du texte "MOVVIZ TV" : l'avatar du profil actif, toujours

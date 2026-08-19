@@ -121,6 +121,12 @@ fun HomeScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
+    // Cible D-pad « flèche bas depuis la NavRail » (voir MainScreen/NavRail)
+    // — attachée plus bas au même élément que le focus initial (CTA hero ou
+    // première carte, les deux sont mutuellement exclusifs), jamais appelée
+    // automatiquement ici : elle ne sert que de destination quand l'utilisateur
+    // appuie réellement sur bas depuis la nav.
+    entryFocusRequester: FocusRequester? = null,
 ) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -257,8 +263,13 @@ fun HomeScreen(
     // pousse le logo sous la barre transparente avant toute action utilisateur.
     // Le CTA reste focusable : il est atteint naturellement avec DPAD_DOWN
     // depuis la navigation, sans déplacer l'accueil tout seul.
-    val heroCtaFocus = remember { FocusRequester() }
-    val firstCardFocus = remember { FocusRequester() }
+    // Une seule cible pour le CTA hero ET la première carte : les deux
+    // branches ci-dessous sont mutuellement exclusives (jamais de hero ET de
+    // firstRealRowKey en même temps), donc réutiliser le même FocusRequester
+    // le fait toujours pointer vers le seul élément réellement composé — et
+    // c'est cette même cible que la NavRail vise pour la flèche bas.
+    val heroCtaFocus = entryFocusRequester ?: remember { FocusRequester() }
+    val firstCardFocus = heroCtaFocus
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
     LaunchedEffect(heroItems, continueCards, recentMovies, recentSeries) {
         if (hasRequestedInitialFocus) return@LaunchedEffect
