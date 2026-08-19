@@ -4,6 +4,19 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.24 — August 2026
+
+### Android TV : foyer de profils côté serveur
+
+- Les profils du foyer sont désormais stockés sur le serveur (`/api/tv-profiles`), pas seulement sur l'appareil : un APK fraîchement installé ne montre plus les profils locaux de l'appareil précédent.
+- Gestion du foyer 100 % admin : seul l'admin voit la liste des comptes et peut ajouter/retirer un membre (choix parmi les comptes existants, sans mot de passe). Un compte invité qui se connecte depuis un APK ne voit jamais le foyer et ne peut rien y ajouter.
+- L'écran « Ajouter un membre au foyer » remplace le login pour alimenter le foyer depuis le sélecteur et le menu de navigation.
+- Les sessions restent locales à chaque appareil (séparées par serveur et compte).
+
+### Android TV : entête du catalogue
+
+- Supprime le bandeau de titre noir au-dessus du hero des onglets Films et Séries : le hero démarre désormais tout en haut, comme sur l'Accueil.
+
 ## v1.16.23 — August 2026
 
 ### Android TV : lecture

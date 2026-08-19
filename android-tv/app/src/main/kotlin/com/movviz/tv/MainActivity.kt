@@ -25,6 +25,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.movviz.tv.ui.home.MainScreen
 import com.movviz.tv.ui.login.LoginScreen
+import com.movviz.tv.ui.profile.AddProfileScreen
 import com.movviz.tv.ui.profile.ProfilePickerScreen
 import com.movviz.tv.ui.player.PlayerActivity
 import com.movviz.tv.ui.player.QueueItem
@@ -37,6 +38,7 @@ import kotlinx.coroutines.launch
 private const val ROUTE_WIZARD = "wizard"
 private const val ROUTE_LOGIN = "login"
 private const val ROUTE_PROFILES = "profiles"
+private const val ROUTE_ADD_PROFILE = "add-profile"
 private const val ROUTE_HOME = "home"
 private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}"
 
@@ -60,12 +62,12 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     val navController = rememberNavController()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
 
-    // Décision de l'écran de départ, une seule fois au lancement : pas
-    // d'URL connue → wizard ; URL connue mais cookie de session persisté
-    // (voir PersistentCookieJar) expiré ou absent → login ; cookie encore
-    // valide → accueil direct, sans re-demander les identifiants. Même
-    // comportement que l'appli Plex/Netflix, qui ne redemandent jamais un
-    // login tant que la session tient.
+// Démarrage façon Netflix : URL inconnue → wizard ; sinon, on vérifie
+    // la session locale. Un APK fraîchement installé n'affiche JAMAIS le
+    // picker de profils (liste vide) : on passe par le login, et ce n'est
+    // qu'après un login admin que les profils du foyer reviennent du
+    // serveur. Un compte invité (user) va directement à l'accueil — il ne
+    // voit pas la liste du foyer.
     var startDestination by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         // viewModel.serverUrl.first() renverrait la valeur COURANTE du
@@ -75,13 +77,15 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         // venait d'être sauvegardée avec succès). loadPersistedServerUrl()
         // lit le DataStore lui-même, pas de course possible.
         val url = viewModel.loadPersistedServerUrl()
-        val validSession = url != null && viewModel.hasValidSession()
-        if (validSession && viewModel.profiles.value.isEmpty()) viewModel.bootstrapCurrentProfile()
+        if (url == null) {
+            startDestination = ROUTE_WIZARD
+            return@LaunchedEffect
+        }
+        val user = viewModel.refreshCurrentUser()
         startDestination = when {
-            url == null -> ROUTE_WIZARD
-            viewModel.profiles.value.isNotEmpty() -> ROUTE_PROFILES
-            validSession -> ROUTE_HOME
-            else -> ROUTE_LOGIN
+            user == null -> ROUTE_LOGIN
+            user.role == "admin" && viewModel.loadProfilesFromServer().isNotEmpty() -> ROUTE_PROFILES
+            else -> ROUTE_HOME
         }
     }
 
@@ -115,11 +119,13 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // téléchargement/installation, et disparaît en cas de souci.
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = navController, startDestination = resolvedStart) {
-        composable(ROUTE_WIZARD) {
+composable(ROUTE_WIZARD) {
             WizardScreen(
                 viewModel = viewModel,
                 onConnected = {
-                    navController.navigate(ROUTE_PROFILES) {
+                    // Nouvel appareil : le picker est vide par design — on
+                    // passe directement par le login.
+                    navController.navigate(ROUTE_LOGIN) {
                         popUpTo(ROUTE_WIZARD) { inclusive = true }
                     }
                 },
@@ -139,16 +145,38 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                         }
                     }
                 },
-                onAdd = {
-                    navController.navigate(ROUTE_LOGIN)
+onAdd = {
+                    navController.navigate(ROUTE_ADD_PROFILE)
                 },
             )
         }
-        composable(ROUTE_LOGIN) {
+        composable(ROUTE_ADD_PROFILE) {
+            var accounts by remember { mutableStateOf<List<com.movviz.tv.data.MovvizUserDto>>(emptyList()) }
+            LaunchedEffect(Unit) {
+                accounts = viewModel.loadUsersForFoyer()
+            }
+            AddProfileScreen(
+                accounts = accounts,
+                onSelectAccount = { account ->
+                    scope.launch {
+                        viewModel.addProfileToFoyer(account.id)
+                        navController.popBackStack()
+                    }
+                },
+                onBack = { navController.popBackStack() },
+            )
+        }
+composable(ROUTE_LOGIN) {
             LoginScreen(
                 viewModel = viewModel,
                 onLoggedIn = {
-                    navController.navigate(ROUTE_HOME) {
+                    // Après login : l'admin retrouve les profils du foyer
+                    // (déjà chargés par viewModel.login), un compte invité va
+                    // directement à l'accueil — il ne voit jamais le picker.
+                    val target =
+                        if (viewModel.currentUser.value?.role == "admin" && viewModel.profiles.value.isNotEmpty()) ROUTE_PROFILES
+                        else ROUTE_HOME
+                    navController.navigate(target) {
                         popUpTo(ROUTE_LOGIN) { inclusive = true }
                     }
                 },
@@ -169,7 +197,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     navController.navigate(detailRoute(type, tmdbId))
                 },
                 onLoggedOut = {
-                    navController.navigate(ROUTE_PROFILES) {
+                    navController.navigate(ROUTE_LOGIN) {
                         popUpTo(ROUTE_HOME) { inclusive = true }
                     }
                 },
@@ -182,7 +210,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                         }
                     }
                 },
-                onAddProfile = { navController.navigate(ROUTE_LOGIN) },
+                onAddProfile = { navController.navigate(ROUTE_ADD_PROFILE) },
             )
         }
         composable(

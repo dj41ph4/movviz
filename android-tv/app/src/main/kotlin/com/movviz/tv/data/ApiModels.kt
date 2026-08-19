@@ -130,6 +130,33 @@ data class MeResponseDto(
     val user: MovvizUserDto? = null,
 )
 
+// Profils de foyer Android TV — encrés côté serveur (/api/tv-profiles).
+// Lecture ET écriture admin-only : un compte invité ne voit jamais la
+// liste du foyer et ne peut rien y ajouter.
+@JsonClass(generateAdapter = true)
+data class TvProfileDto(
+    val id: String,
+    val name: String,
+    val avatar: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class TvProfilesResponse(
+    val profiles: List<TvProfileDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class AddTvProfileRequest(
+    @Json(name = "userId") val userId: String,
+)
+
+/** Miroir de /api/users (admin-only) — la liste des comptes que l'admin
+ *  parcourt pour constituer son foyer TV, sans jamais leurs mots de passe. */
+@JsonClass(generateAdapter = true)
+data class UsersResponse(
+    val users: List<MovvizUserDto> = emptyList(),
+)
+
 @JsonClass(generateAdapter = true)
 data class SystemInfoDto(
     val platform: String? = null,

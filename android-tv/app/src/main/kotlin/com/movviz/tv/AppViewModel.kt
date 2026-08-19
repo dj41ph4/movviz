@@ -248,42 +248,61 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
      * connexion venait pourtant de réussir). Cette fonction lit le
      * DataStore lui-même, sans dépendre du timing du init{}.
      */
-    suspend fun loadPersistedServerUrl(): String? {
+suspend fun loadPersistedServerUrl(): String? {
         val url = prefs.serverUrl.first()
         _serverUrl.value = url
-        if (url != null) _profiles.value = profilePrefs.list(url)
+        // Pas de picker local : sur un nouvel appareil l'écran de départ est
+        // le login, jamais la liste des profils — ceux-ci ne reviennent
+        // qu'après un login admin (voir loadProfilesFromServer).
+        _profiles.value = emptyList()
+        _activeProfile.value = null
         return url
     }
 
     /** Étape 1 du wizard — teste la connexion AVANT de sauvegarder l'URL,
      *  pour ne jamais coincer l'utilisateur sur une IP fausse au prochain
      *  lancement. */
-    suspend fun testAndSaveServerUrl(url: String): ApiResult<Unit> {
+suspend fun testAndSaveServerUrl(url: String): ApiResult<Unit> {
         val result = MovvizRepository(url).ping()
         if (result is ApiResult.Success) {
             prefs.setServerUrl(url)
             _serverUrl.value = url.trim().trimEnd('/')
-            _profiles.value = profilePrefs.list(_serverUrl.value!!)
+            _profiles.value = emptyList()
+            _activeProfile.value = null
         }
         return result
     }
 
-    suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> {
+suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> {
         val repo = repository ?: return ApiResult.Failure("Aucun serveur configuré")
         val result = repo.login(username, password)
         if (result is ApiResult.Success) {
             _currentUser.value = result.data
             saveCurrentProfile(result.data)
+            // L'admin retrouve les profils du foyer encrés côté serveur.
+            if (result.data.role == "admin") loadProfilesFromServer()
         }
         return result
     }
 
+    /** Identité du compte actuellement connecté (session cookie locale),
+     *  sans en passer par le ViewModel — décision d'écran de départ. */
+    suspend fun refreshCurrentUser(): MovvizUserDto? {
+        val url = _serverUrl.value ?: return null
+        val result = MovvizRepository(url).me()
+        val user = (result as? ApiResult.Success)?.data
+        _currentUser.value = user
+        return user
+    }
+
     suspend fun forgetServer() {
+        val url = _serverUrl.value
         prefs.clearServerUrl()
         com.movviz.tv.data.ApiClient.clearSession()
         _serverUrl.value = null
         _profiles.value = emptyList()
         _activeProfile.value = null
+        if (url != null) profilePrefs.clearServer(url)
     }
 
     suspend fun createPlexPin(): ApiResult<PlexPinDto> =
@@ -294,18 +313,41 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (result is ApiResult.Success && result.data.done && result.data.user != null) {
             _currentUser.value = result.data.user
             saveCurrentProfile(result.data.user)
+            if (result.data.user.role == "admin") loadProfilesFromServer()
         }
         return result
     }
 
-    fun loadProfilesForServer(url: String) {
-        val normalized = url.trim().trimEnd('/')
-        _profiles.value = profilePrefs.list(normalized)
+    /** Profils du foyer depuis le serveur (GET admin-only) — un compte invité
+     *  reçoit un 403 et n'obtient donc qu'une liste vide. Les sessions
+     *  locales (si cet appareil a déjà servi) sont fusionnées pour permettre
+     *  le changement de profil sans mot de passe. */
+    suspend fun loadProfilesFromServer(): List<TvProfile> {
+        val url = _serverUrl.value ?: return emptyList()
+        val result = MovvizRepository(url).tvProfiles()
+        val profiles = if (result is ApiResult.Success) {
+            result.data.map { dto ->
+                TvProfile(
+                    id = dto.id,
+                    serverUrl = url,
+                    name = dto.name,
+                    avatar = dto.avatar,
+                    cookieSnapshot = profilePrefs.getSession(url, dto.id),
+                )
+            }
+        } else emptyList()
+        _profiles.value = profiles
+        _activeProfile.value = profiles.firstOrNull { it.id == _currentUser.value?.id }
+        return profiles
     }
 
-    /** Active un profil déjà authentifié sans redemander ses identifiants. */
+    /** Active un profil déjà authentifié sans redemander ses identifiants —
+     *  uniquement si cet appareil détient déjà une session locale pour lui. */
     suspend fun selectProfile(profile: TvProfile): ApiResult<MovvizUserDto> {
         val url = _serverUrl.value ?: profile.serverUrl
+        if (profile.cookieSnapshot.isNullOrBlank()) {
+            return ApiResult.Failure("session_manquante")
+        }
         ApiClient.restoreSession(url, profile.cookieSnapshot)
         val result = MovvizRepository(url).me()
         return when (result) {
@@ -313,10 +355,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
                 val user = result.data
                 if (user != null) {
                     _currentUser.value = user
-                    val refreshed = profile.copy(cookieSnapshot = ApiClient.sessionSnapshot(url), avatar = user.plexAvatar ?: profile.avatar, name = user.username)
-                    profilePrefs.upsert(refreshed)
-                    _profiles.value = profilePrefs.list(url)
+                    val refreshed = profile.copy(
+                        cookieSnapshot = ApiClient.sessionSnapshot(url),
+                        avatar = user.plexAvatar ?: profile.avatar,
+                        name = user.username,
+                    )
+                    refreshed.cookieSnapshot?.let { profilePrefs.saveSession(url, user.id, it) }
                     _activeProfile.value = refreshed
+                    if (user.role == "admin") loadProfilesFromServer()
                     ApiResult.Success(user)
                 } else ApiResult.Failure("Session du profil expirée")
             }
@@ -326,27 +372,47 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Migration transparente de la session unique des anciennes versions
-     * vers le premier profil TV, sans redemander les identifiants. */
+     *  vers le premier profil TV, sans redemander les identifiants. */
     suspend fun bootstrapCurrentProfile(): Boolean {
         val url = _serverUrl.value ?: return false
         val result = MovvizRepository(url).me()
         val user = (result as? ApiResult.Success)?.data ?: return false
         saveCurrentProfile(user)
+        if (user.role == "admin") loadProfilesFromServer()
         return true
     }
 
-    private fun saveCurrentProfile(user: MovvizUserDto) {
+    /** Mémoire locale de la session (par serveur+compte) + profil actif.
+     *  AUCUN appel serveur ici : le foyer côté serveur n'est alimenté que
+     *  par l'admin via addProfileToFoyer() — un compte invité qui se
+     *  connecte depuis un APK ne pollue jamais la liste du foyer. */
+    private suspend fun saveCurrentProfile(user: MovvizUserDto) {
         val url = _serverUrl.value ?: return
-        val profile = TvProfile(
+        val cookie = ApiClient.sessionSnapshot(url)
+        if (!cookie.isNullOrBlank()) profilePrefs.saveSession(url, user.id, cookie)
+        _activeProfile.value = TvProfile(
             id = user.id,
             serverUrl = url,
             name = user.username,
             avatar = user.plexAvatar,
-            cookieSnapshot = ApiClient.sessionSnapshot(url),
+            cookieSnapshot = cookie,
         )
-        profilePrefs.upsert(profile)
-        _profiles.value = profilePrefs.list(url)
-        _activeProfile.value = profile
+    }
+
+    /** Comptes existants (admin-only) — l'écran « ajouter un membre au
+     *  foyer TV » de l'APK admin. */
+    suspend fun loadUsersForFoyer(): List<MovvizUserDto> {
+        val url = _serverUrl.value ?: return emptyList()
+        val result = MovvizRepository(url).users()
+        return (result as? ApiResult.Success)?.data ?: emptyList()
+    }
+
+    /** L'admin ajoute un compte existant au foyer TV (sans son mot de
+     *  passe), puis recharge la liste. */
+    suspend fun addProfileToFoyer(userId: String) {
+        val url = _serverUrl.value ?: return
+        MovvizRepository(url).addTvProfile(userId)
+        loadProfilesFromServer()
     }
 
     fun loadLibrary() {

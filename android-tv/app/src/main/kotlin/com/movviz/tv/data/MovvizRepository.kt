@@ -234,6 +234,23 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun me(): ApiResult<MovvizUserDto?> =
         safeCall { api.me() }.map { it.user }
 
+    /** Profils du foyer TV (admin-only côté serveur — un compte invité reçoit
+     *  un 403, l'APK affiche alors un picker vide). */
+    suspend fun tvProfiles(): ApiResult<List<TvProfileDto>> =
+        safeCall { api.tvProfiles() }.map { it.profiles }
+
+    /** L'admin ajoute un compte existant au foyer TV (sans son mot de passe). */
+    suspend fun addTvProfile(userId: String): ApiResult<Unit> =
+        safeCall { api.addTvProfile(AddTvProfileRequest(userId)) }.map { }
+
+    /** L'admin retire un compte du foyer TV (le compte reste intact). */
+    suspend fun removeTvProfile(userId: String): ApiResult<Unit> =
+        safeCall { api.deleteTvProfile(AddTvProfileRequest(userId)) }.map { }
+
+    /** Comptes existants (admin-only) — alimente l'écran d'ajout au foyer. */
+    suspend fun users(): ApiResult<List<MovvizUserDto>> =
+        safeCall { api.users() }.map { it.users }
+
     suspend fun preferences(): ApiResult<UserPrefsDto> =
         safeCall { api.preferences() }.map { it.prefs }
 

@@ -2,6 +2,7 @@ package com.movviz.tv.data
 
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
@@ -30,6 +31,23 @@ interface MovvizApiService {
     // ne jamais traiter un simple succès HTTP comme "connecté".
     @GET("api/auth/me")
     suspend fun me(): Response<MeResponseDto>
+
+    // Profils de foyer TV encrés côté serveur — GET/POST/DELETE admin-only :
+// l'admin constitue la liste du foyer en choisissant des comptes existants
+// (un compte invité ne voit rien et ne peut rien ajouter).
+    @GET("api/tv-profiles")
+    suspend fun tvProfiles(): Response<TvProfilesResponse>
+
+    @POST("api/tv-profiles")
+    suspend fun addTvProfile(@Body body: AddTvProfileRequest): Response<Map<String, Any?>>
+
+    @DELETE("api/tv-profiles")
+    suspend fun deleteTvProfile(@Body body: AddTvProfileRequest): Response<Map<String, Any?>>
+
+    // Liste des comptes (admin-only) — alimente l'écran "ajouter un membre
+    // au foyer TV" sur l'APK.
+    @GET("api/users")
+    suspend fun users(): Response<UsersResponse>
 
     @GET("api/library/movies")
     suspend fun libraryMovies(@Query("tmdbId") tmdbId: Int? = null): Response<LibraryMoviesResponse>
