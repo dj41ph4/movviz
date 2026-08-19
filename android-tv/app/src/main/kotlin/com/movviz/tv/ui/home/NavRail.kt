@@ -30,6 +30,8 @@ import com.movviz.tv.ui.theme.tvPointerClick
 import com.movviz.tv.data.TvProfile
 import coil.compose.AsyncImage
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.unit.IntOffset
 
 enum class HomeTab(val label: String) {
     HOME("Accueil"),
@@ -151,8 +153,14 @@ private fun ProfileMenuButton(
             }
         }
         if (open) {
-            Popup(onDismissRequest = { open = false }, focusable = true) {
+            Popup(
+                alignment = Alignment.TopEnd,
+                offset = IntOffset(-20, 60),
+                onDismissRequest = { open = false },
+                properties = PopupProperties(focusable = true),
+            ) {
                 Surface(
+                    onClick = {},
                     modifier = Modifier.width(270.dp),
                     shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF222222), focusedContainerColor = Color(0xFF222222)),

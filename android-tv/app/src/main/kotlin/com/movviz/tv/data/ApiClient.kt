@@ -4,6 +4,7 @@ import android.content.Context
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.OkHttpClient
+import okhttp3.toHttpUrlOrNull
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
@@ -73,10 +74,10 @@ object ApiClient {
         cookieJar.clear()
     }
 
-    fun sessionSnapshot(baseUrl: String): String? = cookieJar.snapshot(okhttp3.HttpUrl.get(baseUrl).host)
+    fun sessionSnapshot(baseUrl: String): String? = baseUrl.toHttpUrlOrNull()?.let { cookieJar.snapshot(it.host) }
 
     fun restoreSession(baseUrl: String, snapshot: String?) {
-        cookieJar.restore(okhttp3.HttpUrl.get(baseUrl).host, snapshot)
+        baseUrl.toHttpUrlOrNull()?.let { cookieJar.restore(it.host, snapshot) }
     }
 
     fun service(baseUrl: String): MovvizApiService {

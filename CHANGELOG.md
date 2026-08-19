@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.21 — August 2026
+
+### Android TV : correctifs du menu profils
+
+- Corrige la compilation retail/AU du sélecteur et du menu de profils.
+- Conserve les sessions séparées et les avatars synchronisés.
+
 ## v1.16.20 — August 2026
 
 ### Android TV : profils synchronisés
