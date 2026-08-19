@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.42 — August 2026
+
+### Android TV : mise à jour automatique et navigation télécommande
+
+- Auto-update : l'installation échouait silencieusement à chaque tentative (session refusée par le système — un flux de données jamais fermé avant validation). Corrigé et vérifié en conditions réelles.
+- Télécommande : depuis la barre de navigation en haut, la flèche bas ne menait jamais au contenu en dessous, sur aucun onglet — le système ne trouvait spontanément aucune cible entre les deux. Cible explicite posée pour que la flèche bas fonctionne partout (Accueil, Films, Séries, Recherche, Paramètres).
+
 ## v1.16.41 — August 2026
 
 ### Android TV : bibliothèque et reprise de lecture série
