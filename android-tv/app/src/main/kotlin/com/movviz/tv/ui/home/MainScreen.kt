@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.data.TvProfile
 import com.movviz.tv.ui.search.SearchScreen
 import com.movviz.tv.ui.settings.SettingsScreen
 
@@ -28,6 +29,8 @@ fun MainScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     onLoggedOut: () -> Unit,
+    onProfileSelected: (TvProfile) -> Unit = {},
+    onAddProfile: () -> Unit = {},
 ) {
     var tab by remember { mutableStateOf(HomeTab.HOME) }
     var searchOpen by remember { mutableStateOf(false) }
@@ -65,6 +68,10 @@ fun MainScreen(
             searchQuery = searchQuery,
             onSearchToggle = { searchOpen = !searchOpen; if (searchOpen) tab = HomeTab.HOME else searchQuery = "" },
             onSearchQueryChange = { searchQuery = it },
+            profiles = viewModel.profiles.collectAsState().value,
+            activeProfile = viewModel.activeProfile.collectAsState().value,
+            onProfileSelected = onProfileSelected,
+            onAddProfile = onAddProfile,
             modifier = Modifier.zIndex(1f),
         )
     }

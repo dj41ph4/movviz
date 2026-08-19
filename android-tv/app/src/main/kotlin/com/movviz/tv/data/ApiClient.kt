@@ -73,6 +73,12 @@ object ApiClient {
         cookieJar.clear()
     }
 
+    fun sessionSnapshot(baseUrl: String): String? = cookieJar.snapshot(okhttp3.HttpUrl.get(baseUrl).host)
+
+    fun restoreSession(baseUrl: String, snapshot: String?) {
+        cookieJar.restore(okhttp3.HttpUrl.get(baseUrl).host, snapshot)
+    }
+
     fun service(baseUrl: String): MovvizApiService {
         val normalized = baseUrl.trim().trimEnd('/')
         cachedService?.let { if (cachedBaseUrl == normalized) return it }

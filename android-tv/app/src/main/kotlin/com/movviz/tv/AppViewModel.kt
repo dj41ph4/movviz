@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.movviz.tv.data.ApiResult
+import com.movviz.tv.data.ApiClient
 import com.movviz.tv.data.LibraryMovieDto
 import com.movviz.tv.data.LibrarySeriesDto
 import com.movviz.tv.data.DashboardHeroSlideDto
@@ -18,6 +19,8 @@ import com.movviz.tv.data.PlexPollDto
 import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.data.SearchResultDto
 import com.movviz.tv.data.ServerPrefs
+import com.movviz.tv.data.ProfilePrefs
+import com.movviz.tv.data.TvProfile
 import com.movviz.tv.data.SeriesSeasonDto
 import com.movviz.tv.data.UserPrefsDto
 import com.movviz.tv.data.WatchStatusDto
@@ -37,12 +40,19 @@ import kotlinx.coroutines.launch
  */
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = ServerPrefs(application)
+    private val profilePrefs = ProfilePrefs(application)
 
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl.asStateFlow()
 
     private val _currentUser = MutableStateFlow<MovvizUserDto?>(null)
     val currentUser: StateFlow<MovvizUserDto?> = _currentUser.asStateFlow()
+
+    private val _profiles = MutableStateFlow<List<TvProfile>>(emptyList())
+    val profiles: StateFlow<List<TvProfile>> = _profiles.asStateFlow()
+
+    private val _activeProfile = MutableStateFlow<TvProfile?>(null)
+    val activeProfile: StateFlow<TvProfile?> = _activeProfile.asStateFlow()
 
     private val _movies = MutableStateFlow<List<LibraryMovieDto>>(emptyList())
     val movies: StateFlow<List<LibraryMovieDto>> = _movies.asStateFlow()
@@ -241,6 +251,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun loadPersistedServerUrl(): String? {
         val url = prefs.serverUrl.first()
         _serverUrl.value = url
+        if (url != null) _profiles.value = profilePrefs.list(url)
         return url
     }
 
@@ -252,6 +263,7 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         if (result is ApiResult.Success) {
             prefs.setServerUrl(url)
             _serverUrl.value = url.trim().trimEnd('/')
+            _profiles.value = profilePrefs.list(_serverUrl.value!!)
         }
         return result
     }
@@ -259,7 +271,10 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> {
         val repo = repository ?: return ApiResult.Failure("Aucun serveur configuré")
         val result = repo.login(username, password)
-        if (result is ApiResult.Success) _currentUser.value = result.data
+        if (result is ApiResult.Success) {
+            _currentUser.value = result.data
+            saveCurrentProfile(result.data)
+        }
         return result
     }
 
@@ -267,6 +282,8 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         prefs.clearServerUrl()
         com.movviz.tv.data.ApiClient.clearSession()
         _serverUrl.value = null
+        _profiles.value = emptyList()
+        _activeProfile.value = null
     }
 
     suspend fun createPlexPin(): ApiResult<PlexPinDto> =
@@ -276,8 +293,60 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         val result = repository?.pollPlexPin(id) ?: return ApiResult.Failure("Aucun serveur configuré")
         if (result is ApiResult.Success && result.data.done && result.data.user != null) {
             _currentUser.value = result.data.user
+            saveCurrentProfile(result.data.user)
         }
         return result
+    }
+
+    fun loadProfilesForServer(url: String) {
+        val normalized = url.trim().trimEnd('/')
+        _profiles.value = profilePrefs.list(normalized)
+    }
+
+    /** Active un profil déjà authentifié sans redemander ses identifiants. */
+    suspend fun selectProfile(profile: TvProfile): ApiResult<MovvizUserDto> {
+        val url = _serverUrl.value ?: profile.serverUrl
+        ApiClient.restoreSession(url, profile.cookieSnapshot)
+        val result = MovvizRepository(url).me()
+        return when (result) {
+            is ApiResult.Success -> {
+                val user = result.data
+                if (user != null) {
+                    _currentUser.value = user
+                    val refreshed = profile.copy(cookieSnapshot = ApiClient.sessionSnapshot(url), avatar = user.plexAvatar ?: profile.avatar, name = user.username)
+                    profilePrefs.upsert(refreshed)
+                    _profiles.value = profilePrefs.list(url)
+                    _activeProfile.value = refreshed
+                    ApiResult.Success(user)
+                } else ApiResult.Failure("Session du profil expirée")
+            }
+            is ApiResult.Failure -> result
+            ApiResult.Unauthorized -> ApiResult.Unauthorized
+        }
+    }
+
+    /** Migration transparente de la session unique des anciennes versions
+     * vers le premier profil TV, sans redemander les identifiants. */
+    suspend fun bootstrapCurrentProfile(): Boolean {
+        val url = _serverUrl.value ?: return false
+        val result = MovvizRepository(url).me()
+        val user = (result as? ApiResult.Success)?.data ?: return false
+        saveCurrentProfile(user)
+        return true
+    }
+
+    private fun saveCurrentProfile(user: MovvizUserDto) {
+        val url = _serverUrl.value ?: return
+        val profile = TvProfile(
+            id = user.id,
+            serverUrl = url,
+            name = user.username,
+            avatar = user.plexAvatar,
+            cookieSnapshot = ApiClient.sessionSnapshot(url),
+        )
+        profilePrefs.upsert(profile)
+        _profiles.value = profilePrefs.list(url)
+        _activeProfile.value = profile
     }
 
     fun loadLibrary() {

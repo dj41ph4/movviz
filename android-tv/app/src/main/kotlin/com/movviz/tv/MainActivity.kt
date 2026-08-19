@@ -25,6 +25,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.movviz.tv.ui.home.MainScreen
 import com.movviz.tv.ui.login.LoginScreen
+import com.movviz.tv.ui.profile.ProfilePickerScreen
 import com.movviz.tv.ui.player.PlayerActivity
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizTvTheme
@@ -35,6 +36,7 @@ import kotlinx.coroutines.launch
 
 private const val ROUTE_WIZARD = "wizard"
 private const val ROUTE_LOGIN = "login"
+private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_HOME = "home"
 private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}"
 
@@ -73,9 +75,12 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         // venait d'être sauvegardée avec succès). loadPersistedServerUrl()
         // lit le DataStore lui-même, pas de course possible.
         val url = viewModel.loadPersistedServerUrl()
+        val validSession = url != null && viewModel.hasValidSession()
+        if (validSession && viewModel.profiles.value.isEmpty()) viewModel.bootstrapCurrentProfile()
         startDestination = when {
             url == null -> ROUTE_WIZARD
-            viewModel.hasValidSession() -> ROUTE_HOME
+            viewModel.profiles.value.isNotEmpty() -> ROUTE_PROFILES
+            validSession -> ROUTE_HOME
             else -> ROUTE_LOGIN
         }
     }
@@ -114,9 +119,28 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             WizardScreen(
                 viewModel = viewModel,
                 onConnected = {
-                    navController.navigate(ROUTE_LOGIN) {
+                    navController.navigate(ROUTE_PROFILES) {
                         popUpTo(ROUTE_WIZARD) { inclusive = true }
                     }
+                },
+            )
+        }
+        composable(ROUTE_PROFILES) {
+            val profiles by viewModel.profiles.collectAsState()
+            ProfilePickerScreen(
+                profiles = profiles,
+                onSelect = { profile ->
+                    scope.launch {
+                        when (viewModel.selectProfile(profile)) {
+                            is com.movviz.tv.data.ApiResult.Success -> navController.navigate(ROUTE_HOME) {
+                                popUpTo(ROUTE_PROFILES) { inclusive = true }
+                            }
+                            else -> navController.navigate(ROUTE_LOGIN)
+                        }
+                    }
+                },
+                onAdd = {
+                    navController.navigate(ROUTE_LOGIN)
                 },
             )
         }
@@ -145,10 +169,20 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     navController.navigate(detailRoute(type, tmdbId))
                 },
                 onLoggedOut = {
-                    navController.navigate(ROUTE_LOGIN) {
+                    navController.navigate(ROUTE_PROFILES) {
                         popUpTo(ROUTE_HOME) { inclusive = true }
                     }
                 },
+                onProfileSelected = { profile ->
+                    scope.launch {
+                        if (viewModel.selectProfile(profile) is com.movviz.tv.data.ApiResult.Success) {
+                            navController.navigate(ROUTE_HOME) {
+                                popUpTo(ROUTE_HOME) { inclusive = true }
+                            }
+                        }
+                    }
+                },
+                onAddProfile = { navController.navigate(ROUTE_LOGIN) },
             )
         }
         composable(

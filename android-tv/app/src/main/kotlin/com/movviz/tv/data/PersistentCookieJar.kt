@@ -58,6 +58,21 @@ class PersistentCookieJar(context: Context) : CookieJar {
         prefs.edit().clear().apply()
     }
 
+    /** Snapshot d'une session pour la rattacher à un profil TV précis. */
+    fun snapshot(host: String): String? = prefs.getString(host, null)
+
+    /** Remplace la session active par celle d'un profil enregistré. */
+    fun restore(host: String, raw: String?) {
+        if (raw.isNullOrBlank()) {
+            store.remove(host)
+            prefs.edit().remove(host).apply()
+            return
+        }
+        val cookies = raw.split(LINE_SEP).mapNotNull { deserialize(it) }
+        store[host] = cookies
+        prefs.edit().putString(host, raw).apply()
+    }
+
     private fun persist(host: String, cookies: List<Cookie>) {
         prefs.edit().putString(host, cookies.joinToString(LINE_SEP) { serialize(it) }).apply()
     }

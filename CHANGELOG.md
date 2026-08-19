@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.20 — August 2026
+
+### Android TV : profils synchronisés
+
+- Ajoute le sélecteur de profils au démarrage après le choix du serveur.
+- Réutilise les comptes Movviz existants, leurs avatars Plex et leurs sessions persistantes.
+- Ajoute l’ajout d’un profil et le changement de profil depuis le menu TV.
+- Aucun profil jeunesse ni droit spécial n’est introduit.
+
 ## v1.16.19 — August 2026
 
 ### Android TV : auto-update sans magasin (variante AU)

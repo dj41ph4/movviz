@@ -107,6 +107,7 @@ data class MovvizUserDto(
     // persisted public response. The TV client does not gate navigation on
     // this field, so tolerate its absence instead of crashing Moshi parsing.
     @Json(name = "status") val accountStatus: String? = null,
+    val plexAvatar: String? = null,
 )
 
 @JsonClass(generateAdapter = true)

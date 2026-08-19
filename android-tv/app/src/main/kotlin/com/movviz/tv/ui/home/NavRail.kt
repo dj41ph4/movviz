@@ -27,6 +27,9 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.theme.tvPointerClick
+import com.movviz.tv.data.TvProfile
+import coil.compose.AsyncImage
+import androidx.compose.ui.window.Popup
 
 enum class HomeTab(val label: String) {
     HOME("Accueil"),
@@ -50,6 +53,10 @@ fun NavRail(
     searchQuery: String = "",
     onSearchToggle: () -> Unit = {},
     onSearchQueryChange: (String) -> Unit = {},
+    profiles: List<TvProfile> = emptyList(),
+    activeProfile: TvProfile? = null,
+    onProfileSelected: (TvProfile) -> Unit = {},
+    onAddProfile: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -115,6 +122,53 @@ fun NavRail(
                 ),
                 maxLines = 1,
             )
+        }
+        if (profiles.isNotEmpty()) {
+            Spacer(modifier = Modifier.width(16.dp))
+            ProfileMenuButton(profiles, activeProfile, onProfileSelected, onAddProfile)
+        }
+    }
+}
+
+@Composable
+private fun ProfileMenuButton(
+    profiles: List<TvProfile>,
+    active: TvProfile?,
+    onSelect: (TvProfile) -> Unit,
+    onAdd: () -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box {
+        Surface(
+            onClick = { open = !open },
+            modifier = Modifier.size(42.dp),
+            shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+            colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f), focusedContainerColor = Color.White.copy(alpha = .22f)),
+        ) {
+            if (active?.avatar?.startsWith("http") == true) AsyncImage(model = active.avatar, contentDescription = active.name, modifier = Modifier.fillMaxSize())
+            else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (open) {
+            Popup(onDismissRequest = { open = false }, focusable = true) {
+                Surface(
+                    modifier = Modifier.width(270.dp),
+                    shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF222222), focusedContainerColor = Color(0xFF222222)),
+                ) {
+                    Column(Modifier.padding(10.dp)) {
+                        profiles.forEach { profile ->
+                            Surface(onClick = { open = false; onSelect(profile) }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
+                                Text(profile.name, color = Color.White, fontSize = 17.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
+                            }
+                        }
+                        Surface(onClick = { open = false; onAdd() }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
+                            Text("+ Ajouter un utilisateur", color = MovvizBrand2, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
+                        }
+                    }
+                }
+            }
         }
     }
 }
