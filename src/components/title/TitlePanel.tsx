@@ -4,13 +4,14 @@ import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
 import { TitleContent } from "@/components/title/TitleContent";
+import { PersonContent } from "@/components/title/PersonContent";
+import { CollectionContent } from "@/components/title/CollectionContent";
+import type { PanelView } from "@/components/title/useTitlePanel";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { computeMorphOrigin, estimateModalGeometry, type MorphTransform, type Rect } from "@/lib/motion/morphOrigin";
 
 interface TitlePanelProps {
-  tmdbId: number;
-  type: "movie" | "series";
-  originRect?: Rect;
+  view: PanelView;
   onClose: () => void;
 }
 
@@ -19,16 +20,17 @@ function estimateMorph(originRect: Rect): MorphTransform | null {
   return final ? computeMorphOrigin(originRect, final) : null;
 }
 
-export function TitlePanel({ tmdbId, type, originRect, onClose }: TitlePanelProps) {
+export function TitlePanel({ view, onClose }: TitlePanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useShouldReduceMotion();
+  const originRect = view.kind === "title" ? view.originRect : undefined;
   const [morph] = useState<MorphTransform | null>(() =>
     !originRect || reduceMotion ? null : estimateMorph(originRect)
   );
 
   useEffect(() => {
     scrollRef.current?.scrollTo(0, 0);
-  }, [tmdbId]);
+  }, [view]);
 
   useEffect(() => {
     const prevOverflow = document.body.style.overflow;
@@ -94,10 +96,16 @@ export function TitlePanel({ tmdbId, type, originRect, onClose }: TitlePanelProp
             edge, since the panel (unlike the standalone page's AppShell
             <main>) has no padding of its own to cancel. */}
         <div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-10 sm:pt-10">
-          <TitleContent
-            tmdbId={tmdbId}
-            type={type}
-          />
+          {view.kind === "title" ? (
+            <TitleContent
+              tmdbId={view.tmdbId}
+              type={view.type}
+            />
+          ) : view.kind === "person" ? (
+            <PersonContent id={String(view.personId)} />
+          ) : (
+            <CollectionContent id={view.collectionId} />
+          )}
         </div>
       </motion.div>
     </motion.div>

@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.16 — August 2026
+
+### Navigation dans le panneau titre
+
+- Depuis le panneau, tout clic sur un titre similaire, un acteur ou une collection met à jour le panneau au lieu d'ouvrir une page entière.
+- Les vues acteur et collection partagent désormais strictement le même composant que leurs pages dédiées (`PersonContent`, `CollectionContent`) — aucune variante dédiée au panneau.
+
 ## v1.16.15 — August 2026
 
 ### Android TV : catalogue enrichi et lecture plus fluide
