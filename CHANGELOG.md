@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.13 — August 2026
+
+### Android TV : diagnostic de liaison Plex
+
+- Affiche désormais l’erreur renvoyée par le serveur lors du polling PIN Plex (`no_plex_access`, compte Plex inaccessible, etc.) au lieu d’un message générique.
+- Conserve le flux desktop inchangé.
+
 ## v1.16.12 — August 2026
 
 ### Android TV : logos de titres

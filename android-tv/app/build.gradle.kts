@@ -82,4 +82,5 @@ dependencies {
     implementation(libs.datastore.preferences)
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.zxing.core)
 }

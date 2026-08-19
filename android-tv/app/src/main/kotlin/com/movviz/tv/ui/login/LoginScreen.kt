@@ -1,9 +1,11 @@
 package com.movviz.tv.ui.login
 
 import android.content.Intent
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -17,6 +19,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -45,6 +48,10 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.wizard.GradientButton
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.MultiFormatWriter
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
@@ -173,15 +180,23 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                                         delay(2_000L)
                                         when (val poll = viewModel.pollPlexPin(pin.data.id)) {
                                             is ApiResult.Success -> if (poll.data.done) {
-                                                plexCode = null
-                                                onLoggedIn()
-                                                return@launch
+                                                if (poll.data.user != null) {
+                                                    plexCode = null
+                                                    onLoggedIn()
+                                                    return@launch
+                                                } else {
+                                                    error = "Plex a validé le code, mais Movviz n’a pas reçu le compte"
+                                                    return@launch
+                                                }
                                             }
                                             ApiResult.Unauthorized -> {
                                                 error = "Connexion Plex refusée"
                                                 return@launch
                                             }
-                                            is ApiResult.Failure -> Unit
+                                            is ApiResult.Failure -> {
+                                                error = poll.message
+                                                return@launch
+                                            }
                                         }
                                     }
                                     error = "La connexion Plex a expiré"
@@ -259,13 +274,22 @@ private fun extractPlexCode(authUrl: String): String? {
 @Composable
 private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Unit) {
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .78f)), contentAlignment = Alignment.Center) {
-        Column(Modifier.width(520.dp).background(Color(0xFF101225), RoundedCornerShape(22.dp)).padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        val linkUrl = "https://plex.tv/link/?pin=${Uri.encode(code)}"
+        val qr = remember(linkUrl) { createQrBitmap(linkUrl, 360) }
+        Column(Modifier.width(700.dp).background(Color(0xFF101225), RoundedCornerShape(22.dp)).padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Connexion Plex", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(12.dp))
-            Text("Depuis un téléphone ou un ordinateur, ouvre", fontSize = 14.sp, color = MovvizInkSoft)
-            Text("plex.tv/link", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MovvizAmber)
-            Spacer(Modifier.height(12.dp))
-            Text(code.chunked(1).joinToString(" "), fontSize = 42.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 5.sp)
+            Text("Scanne le QR code ou ouvre plex.tv/link", fontSize = 14.sp, color = MovvizInkSoft)
+            Spacer(Modifier.height(18.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(34.dp)) {
+                qr?.let { Image(bitmap = it.asImageBitmap(), contentDescription = "QR code Plex", modifier = Modifier.size(180.dp)) }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Code TV", fontSize = 14.sp, color = MovvizInkDim)
+                    Spacer(Modifier.height(6.dp))
+                    Text(code.chunked(1).joinToString(" "), fontSize = 42.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 5.sp)
+                    Text("plex.tv/link", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MovvizAmber)
+                }
+            }
             Spacer(Modifier.height(8.dp))
             Text("La TV attend automatiquement la validation…", fontSize = 13.sp, color = MovvizInkDim)
             Spacer(Modifier.height(22.dp))
@@ -276,6 +300,19 @@ private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Uni
         }
     }
 }
+
+private fun createQrBitmap(content: String, size: Int): Bitmap? = runCatching {
+    val hints = mapOf<EncodeHintType, Any>(
+        EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
+        EncodeHintType.MARGIN to 1,
+    )
+    val matrix = MultiFormatWriter().encode(content, BarcodeFormat.QR_CODE, size, size, hints)
+    Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also { bitmap ->
+        for (x in 0 until size) for (y in 0 until size) {
+            bitmap.setPixel(x, y, if (matrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
+        }
+    }
+}.getOrNull()
 
 @Composable
 private fun FieldLabel(text: String) {

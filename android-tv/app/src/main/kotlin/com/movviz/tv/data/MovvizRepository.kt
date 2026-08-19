@@ -1,5 +1,7 @@
 package com.movviz.tv.data
 
+import org.json.JSONObject
+
 /** Résultat uniforme des appels réseau — évite de faire fuiter les
  *  exceptions Retrofit/OkHttp jusqu'aux écrans, qui n'ont qu'à gérer trois
  *  états (succès / erreur réseau / non autorisé). */
@@ -246,10 +248,22 @@ class MovvizRepository(private val baseUrl: String) {
             when {
                 response.code() == 401 -> ApiResult.Unauthorized
                 response.isSuccessful && body != null -> ApiResult.Success(body)
-                else -> ApiResult.Failure("Erreur serveur (${response.code()})")
+                else -> ApiResult.Failure(serverError(response))
             }
-        } catch (e: java.io.IOException) {
+        } catch (e: Exception) {
             ApiResult.Failure(e.message ?: "Impossible de joindre le serveur")
         }
+    }
+
+    /** Preserve the backend's actionable error (e.g. no_plex_access) instead
+     * of reducing every non-2xx response to an opaque status code. */
+    private fun <T> serverError(response: retrofit2.Response<T>): String {
+        val raw = response.errorBody()?.string()?.trim().orEmpty()
+        if (raw.isNotEmpty()) {
+            runCatching {
+                JSONObject(raw).optString("error").takeIf { it.isNotBlank() }
+            }.getOrNull()?.let { return it }
+        }
+        return "Erreur serveur (${response.code()})"
     }
 }
