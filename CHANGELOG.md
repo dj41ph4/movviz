@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.14 — August 2026
+
+### Android TV : version retail et connexion Plex
+
+- Corrige le crash de démarrage de la release minifiée et tolère les anciens comptes Plex sans champ `status`.
+- Conserve la clé retail locale hors dépôt et laisse les builds sans keystore fonctionner sans exposer de secret.
+
 ## v1.16.13 — August 2026
 
 ### Android TV : diagnostic de liaison Plex

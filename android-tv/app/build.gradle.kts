@@ -1,3 +1,7 @@
+import java.util.Properties
+
+val retailPropsFile = rootProject.file("keystore.properties")
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -12,14 +16,30 @@ android {
         applicationId = "com.movviz.tv"
         minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-        versionCode = 11611
-        versionName = "1.16.11"
+        versionCode = 11614
+        versionName = "1.16.14"
+    }
+
+    signingConfigs {
+        if (retailPropsFile.exists()) {
+            create("retail") {
+                val props = Properties().apply { retailPropsFile.inputStream().use { load(it) } }
+                storeFile = file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            // Compose TV/R8 still has an unresolved startup cast in this
+            // application. Keep retail signed and optimized by the Android
+            // toolchain, but do not shrink until the mapped crash is fixed.
+            isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (retailPropsFile.exists()) signingConfig = signingConfigs.getByName("retail")
         }
     }
 

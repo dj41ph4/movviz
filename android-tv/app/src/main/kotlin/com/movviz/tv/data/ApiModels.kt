@@ -103,7 +103,10 @@ data class MovvizUserDto(
     val id: String,
     val username: String,
     val role: String,
-    @Json(name = "status") val accountStatus: String,
+    // Older Plex-provisioned users may not have a status field in the
+    // persisted public response. The TV client does not gate navigation on
+    // this field, so tolerate its absence instead of crashing Moshi parsing.
+    @Json(name = "status") val accountStatus: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
