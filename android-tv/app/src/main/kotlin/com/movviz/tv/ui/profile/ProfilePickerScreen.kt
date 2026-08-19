@@ -12,6 +12,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,24 +30,49 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.tv.data.TvProfile
+import com.movviz.tv.ui.theme.MovvizAmber
 import com.movviz.tv.ui.theme.MovvizBrand2
+import kotlinx.coroutines.delay
 
-/** « Qui est-ce ? » — choisir un profil du foyer, ou en ajouter un. */
+/** Page profil — « Qui est-ce ? » : le profil ACTIF en tête (toujours
+ *  visible, même hors foyer), les membres du foyer, puis la tuile « + »
+ *  qui mène au login pour ajouter un utilisateur. Une notice d'info
+ *  (« compte déjà présent », « ajouté au foyer ») s'affiche sous le titre. */
 @Composable
 fun ProfilePickerScreen(
     profiles: List<TvProfile>,
+    activeProfile: TvProfile?,
+    notice: String?,
+    onNoticeDismissed: () -> Unit,
     onSelect: (TvProfile) -> Unit,
     onAdd: () -> Unit,
 ) {
+    val activeId = activeProfile?.id
+    val visibleProfiles = remember(profiles, activeProfile) {
+        if (activeProfile != null && profiles.none { it.id == activeId }) listOf(activeProfile) + profiles
+        else profiles
+    }
+    var shownNotice by remember { mutableStateOf(notice) }
+    LaunchedEffect(notice) {
+        shownNotice = notice
+        if (notice != null) {
+            delay(6_000L)
+            onNoticeDismissed()
+        }
+    }
     Box(
         Modifier.fillMaxSize().background(Color(0xFF101010)),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text("Qui est-ce ?", style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Bold, color = Color.White))
+            if (shownNotice != null) {
+                Spacer(Modifier.height(14.dp))
+                Text(shownNotice!!, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = MovvizAmber))
+            }
             Spacer(Modifier.height(42.dp))
             TvLazyRow(horizontalArrangement = Arrangement.spacedBy(28.dp), contentPadding = PaddingValues(horizontal = 48.dp)) {
-                items(profiles, key = { it.id }) { profile ->
+                items(visibleProfiles, key = { it.id }) { profile ->
                     ProfileTile(profile = profile, onClick = { onSelect(profile) })
                 }
                 item { AddProfileTile(onClick = onAdd) }
@@ -51,7 +81,7 @@ fun ProfilePickerScreen(
     }
 }
 
-/** Tuile « + » — propre à l'écran de sélection, mène à l'écran d'ajout. */
+/** Tuile « + » — propre à l'écran de sélection, mène au login d'ajout. */
 @Composable
 private fun AddProfileTile(onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(170.dp)) {

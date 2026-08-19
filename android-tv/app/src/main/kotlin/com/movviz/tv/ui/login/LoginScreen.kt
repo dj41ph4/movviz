@@ -56,9 +56,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 
 /** Même composition carte que WizardScreen — logo animé, titre, champs
- *  étiquetés, bouton en dégradé de marque. */
+ *  étiquetés, bouton en dégradé de marque. En mode `addMode`, le login
+ *  sert à AJOUTER un utilisateur au foyer : le titre l'indique. */
 @Composable
-fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer: () -> Unit = {}) {
+fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer: () -> Unit = {}, addMode: Boolean = false) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -95,7 +96,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
             MovvizWordmark(fontSize = 25.sp)
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Bienvenue sur Movviz",
+                text = if (addMode) "Ajouter un utilisateur au foyer" else "Bienvenue sur Movviz",
                 style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
             )
             Spacer(Modifier.height(26.dp))

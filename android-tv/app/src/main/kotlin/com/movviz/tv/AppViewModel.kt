@@ -51,8 +51,21 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val _profiles = MutableStateFlow<List<TvProfile>>(emptyList())
     val profiles: StateFlow<List<TvProfile>> = _profiles.asStateFlow()
 
-    private val _activeProfile = MutableStateFlow<TvProfile?>(null)
+private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     val activeProfile: StateFlow<TvProfile?> = _activeProfile.asStateFlow()
+
+    // Message d'info affiché sur l'écran profil (« Qui est-ce ? ») après un
+    // ajout via le login — « compte déjà présent » ou « ajouté au foyer ».
+    private val _foyerNotice = MutableStateFlow<String?>(null)
+    val foyerNotice: StateFlow<String?> = _foyerNotice.asStateFlow()
+
+    fun setFoyerNotice(message: String?) {
+        _foyerNotice.value = message
+    }
+
+    fun consumeFoyerNotice() {
+        _foyerNotice.value = null
+    }
 
     private val _movies = MutableStateFlow<List<LibraryMovieDto>>(emptyList())
     val movies: StateFlow<List<LibraryMovieDto>> = _movies.asStateFlow()
@@ -301,6 +314,18 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val result = MovvizRepository(url).me()
         val user = (result as? ApiResult.Success)?.data
         _currentUser.value = user
+        // Le profil actif doit toujours être visible (nom dans le menu de la
+        // pastille, tuile en tête de l'écran profil) — même quand l'app
+        // redémarre sur une session persistée sans passer par un login.
+        if (user != null && _activeProfile.value == null) {
+            _activeProfile.value = TvProfile(
+                id = user.id,
+                serverUrl = url,
+                name = user.username,
+                avatar = user.plexAvatar,
+                cookieSnapshot = ApiClient.sessionSnapshot(url),
+            )
+        }
         return user
     }
 
@@ -408,20 +433,14 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         )
     }
 
-    /** Comptes existants (admin-only) — l'écran « ajouter un membre au
-     *  foyer TV » de l'APK admin. */
-    suspend fun loadUsersForFoyer(): List<MovvizUserDto> {
-        val url = _serverUrl.value ?: return emptyList()
-        val result = MovvizRepository(url).users()
-        return (result as? ApiResult.Success)?.data ?: emptyList()
-    }
-
     /** L'admin ajoute un compte existant au foyer TV (sans son mot de
-     *  passe), puis recharge la liste. */
-    suspend fun addProfileToFoyer(userId: String) {
-        val url = _serverUrl.value ?: return
-        MovvizRepository(url).addTvProfile(userId)
+     *  passe), puis recharge la liste. Retourne le résultat du POST — le
+     *  serveur fait un UPSERT (jamais de doublon). */
+    suspend fun addProfileToFoyer(userId: String): ApiResult<Unit> {
+        val url = _serverUrl.value ?: return ApiResult.Failure("Aucun serveur configuré")
+        val result = MovvizRepository(url).addTvProfile(userId)
         loadProfilesFromServer()
+        return result
     }
 
     fun loadLibrary() {

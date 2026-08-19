@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.33 — August 2026
+
+### Android TV : écran profil — nom du profil actif, ajout via login, doublons détectés
+
+- **Nom du profil actif partout** : au redémarrage sur une session persistée, l'en-tête du menu (pastille utilisateur) affichait « — » et l'avatar « ? » — le profil actif est désormais restauré dès que la session est vérifiée.
+- **« Mon profil » et « Changer d'utilisateur »** mènent à l'écran profil (« Qui est-ce ? ») : profil actif en tête (toujours visible, même hors foyer), membres du foyer, et tuile « + » — plus jamais de renvoi direct vers le login.
+- **Ajouter un utilisateur = login** : la tuile « + » ouvre la connexion avec le compte à ajouter (sous-titre dédié) ; après connexion, le compte rejoint le foyer et l'écran profil s'affiche avec la confirmation.
+- **Compte déjà présent détecté** : se reconnecter avec un compte déjà dans le foyer n'en crée pas de doublon — message « Ce compte est déjà dans le foyer ».
+
 ## v1.16.32 — August 2026
 
 ### Hermétisme des profils affiné : chacun garde SES vues, rien ne se mélange

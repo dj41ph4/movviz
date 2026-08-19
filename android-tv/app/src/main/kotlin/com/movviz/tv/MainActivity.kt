@@ -25,7 +25,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.movviz.tv.ui.home.MainScreen
 import com.movviz.tv.ui.login.LoginScreen
-import com.movviz.tv.ui.profile.AddProfileScreen
 import com.movviz.tv.ui.profile.ProfilePickerScreen
 import com.movviz.tv.ui.player.PlayerActivity
 import com.movviz.tv.ui.player.QueueItem
@@ -38,9 +37,13 @@ import kotlinx.coroutines.launch
 private const val ROUTE_WIZARD = "wizard"
 private const val ROUTE_LOGIN = "login"
 private const val ROUTE_PROFILES = "profiles"
-private const val ROUTE_ADD_PROFILE = "add-profile"
 private const val ROUTE_HOME = "home"
 private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}"
+
+/** Login ouvert en mode « ajouter un utilisateur au foyer » : après la
+ *  connexion, le compte rejoint le foyer (ou est détecté déjà présent)
+ *  et on revient sur l'écran profil au lieu d'aller à l'accueil. */
+private const val ROUTE_LOGIN_ADD = "login?add=true"
 
 fun detailRoute(type: String, tmdbId: Int) = "detail/$type/$tmdbId"
 
@@ -131,10 +134,15 @@ composable(ROUTE_WIZARD) {
                 },
             )
         }
-        composable(ROUTE_PROFILES) {
+composable(ROUTE_PROFILES) {
             val profiles by viewModel.profiles.collectAsState()
+            val activeProfile by viewModel.activeProfile.collectAsState()
+            val notice by viewModel.foyerNotice.collectAsState()
             ProfilePickerScreen(
                 profiles = profiles,
+                activeProfile = activeProfile,
+                notice = notice,
+                onNoticeDismissed = { viewModel.consumeFoyerNotice() },
                 onSelect = { profile ->
                     scope.launch {
                         when (viewModel.selectProfile(profile)) {
@@ -145,39 +153,53 @@ composable(ROUTE_WIZARD) {
                         }
                     }
                 },
-onAdd = {
-                    navController.navigate(ROUTE_ADD_PROFILE)
+                onAdd = {
+                    // Ajouter un utilisateur → login : on se connecte avec le
+                    // compte à ajouter, pas une simple liste de comptes.
+                    navController.navigate(ROUTE_LOGIN_ADD)
                 },
             )
         }
-        composable(ROUTE_ADD_PROFILE) {
-            var accounts by remember { mutableStateOf<List<com.movviz.tv.data.MovvizUserDto>>(emptyList()) }
-            LaunchedEffect(Unit) {
-                accounts = viewModel.loadUsersForFoyer()
-            }
-            AddProfileScreen(
-                accounts = accounts,
-                onSelectAccount = { account ->
-                    scope.launch {
-                        viewModel.addProfileToFoyer(account.id)
-                        navController.popBackStack()
-                    }
-                },
-                onBack = { navController.popBackStack() },
-            )
-        }
-composable(ROUTE_LOGIN) {
+        composable(
+            route = "login?add={add}",
+            arguments = listOf(navArgument("add") { type = NavType.BoolType; defaultValue = false }),
+        ) { backStackEntry ->
+            val addMode = backStackEntry.arguments?.getBoolean("add") ?: false
             LoginScreen(
                 viewModel = viewModel,
+                addMode = addMode,
                 onLoggedIn = {
-                    // Après login : l'admin retrouve les profils du foyer
-                    // (déjà chargés par viewModel.login), un compte invité va
-                    // directement à l'accueil — il ne voit jamais le picker.
-                    val target =
-                        if (viewModel.currentUser.value?.role == "admin" && viewModel.profiles.value.isNotEmpty()) ROUTE_PROFILES
-                        else ROUTE_HOME
-                    navController.navigate(target) {
-                        popUpTo(ROUTE_LOGIN) { inclusive = true }
+                    if (addMode) {
+                        // Ajout au foyer : compte déjà présent → détecté, pas
+                        // de doublon ; sinon ajout au foyer. Retour sur
+                        // l'écran profil avec la notice correspondante.
+                        scope.launch {
+                            val user = viewModel.currentUser.value
+                            if (user != null) {
+                                val already = viewModel.profiles.value.any { it.id == user.id }
+                                val ok = already || viewModel.addProfileToFoyer(user.id) is com.movviz.tv.data.ApiResult.Success
+                                viewModel.setFoyerNotice(
+                                    when {
+                                        already -> "Ce compte est déjà dans le foyer"
+                                        ok -> "« ${user.username} » a été ajouté au foyer"
+                                        else -> "Connecté avec « ${user.username} »"
+                                    }
+                                )
+                            }
+                            navController.navigate(ROUTE_PROFILES) {
+                                popUpTo(ROUTE_LOGIN) { inclusive = true }
+                            }
+                        }
+                    } else {
+                        // Après login : l'admin retrouve les profils du foyer
+                        // (déjà chargés par viewModel.login), un compte invité va
+                        // directement à l'accueil — il ne voit jamais le picker.
+                        val target =
+                            if (viewModel.currentUser.value?.role == "admin" && viewModel.profiles.value.isNotEmpty()) ROUTE_PROFILES
+                            else ROUTE_HOME
+                        navController.navigate(target) {
+                            popUpTo(ROUTE_LOGIN) { inclusive = true }
+                        }
                     }
                 },
                 onChangeServer = {
@@ -210,17 +232,14 @@ composable(ROUTE_LOGIN) {
                         }
                     }
                 },
-                onAddProfile = { navController.navigate(ROUTE_ADD_PROFILE) },
+                onAddProfile = { navController.navigate(ROUTE_LOGIN_ADD) },
                 onSwitchProfile = {
-                    // "Changer d'utilisateur" : l'admin retrouve l'écran
-                    // "Qui est-ce ?" (choix du foyer ou ajout d'un membre) ;
-                    // un compte invité, qui n'a pas de foyer, repasse par le
-                    // login pour se connecter avec un autre compte.
-                    val target =
-                        if (viewModel.currentUser.value?.role == "admin" && viewModel.profiles.value.isNotEmpty()) ROUTE_PROFILES
-                        else ROUTE_LOGIN
-                    navController.navigate(target) {
-                        popUpTo(ROUTE_HOME) { inclusive = target == ROUTE_LOGIN }
+                    // "Mon profil" / "Changer d'utilisateur" : l'écran profil
+                    // — profil actif en tête, membres du foyer, et tuile « + »
+                    // qui mène au login pour ajouter un utilisateur. Jamais le
+                    // login directement.
+                    navController.navigate(ROUTE_PROFILES) {
+                        popUpTo(ROUTE_HOME)
                     }
                 },
             )

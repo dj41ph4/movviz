@@ -189,6 +189,12 @@ private fun ProfileMenuButton(
                         }
                         Spacer(Modifier.height(6.dp))
                         MenuItem(
+                            leading = "◉",
+                            label = "Mon profil",
+                            onClick = { open = false; onSwitch() },
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        MenuItem(
                             leading = "⇄",
                             label = "Changer d'utilisateur",
                             onClick = { open = false; onSwitch() },
