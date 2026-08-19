@@ -30,6 +30,9 @@ import com.movviz.tv.ui.settings.SettingsScreen
 fun MainScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    // Ouverture d'une série depuis "Continuer à regarder" — sur le bon
+    // épisode plutôt que la saison 1 par défaut (voir HomeScreen).
+    onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
     onLoggedOut: () -> Unit,
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
@@ -65,7 +68,7 @@ fun MainScreen(
                     showSearchField = false,
                     resultFocusRequester = searchResultsFocus,
                 )
-                tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle)
+                tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode)
                 tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle)
                 tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle)
                 tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut)

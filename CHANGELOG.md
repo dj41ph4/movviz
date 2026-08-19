@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.41 — August 2026
+
+### Android TV : bibliothèque et reprise de lecture série
+
+- Le bouton « Ajouter à la bibliothèque » n'affichait plus le bon statut (téléchargement en cours, etc.) juste après l'ajout — il pouvait retomber sur « Ajouter » à cause d'un rafraîchissement trop rapide. Nouvelles tentatives automatiques.
+- « Continuer à regarder » sur une série ouvre maintenant directement l'épisode en cours (bonne saison, CTA de reprise avec le numéro et le titre de l'épisode) au lieu de toujours retomber sur la saison 1 comme un film.
+
 ## v1.16.40 — August 2026
 
 ### Android TV : corrections remontées sur boîtier réel

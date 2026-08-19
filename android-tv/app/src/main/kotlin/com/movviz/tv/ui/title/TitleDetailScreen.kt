@@ -95,6 +95,11 @@ fun TitleDetailScreen(
     // quelques autres call sites potentiels (aucun aujourd'hui) n'ont pas
     // à le fournir.
     onOpenTitle: (type: String, tmdbId: Int) -> Unit = { _, _ -> },
+    // Ouverture depuis "Continuer à regarder" pour une série : la saison en
+    // cours plutôt que la saison 1 par défaut (voir plus bas, la sélection
+    // de saison ne l'écrase jamais une fois initialisée).
+    initialSeasonNumber: Int? = null,
+    initialEpisodeNumber: Int? = null,
 ) {
     val detail by viewModel.detail.collectAsState()
     // Même artwork de titre que TitleContent sur desktop : le logo officiel
@@ -145,6 +150,15 @@ fun TitleDetailScreen(
     val movieResume = remember(continueWatching, type, tmdbId) {
         if (type != "movie") null
         else continueWatching.firstOrNull { it.type == "movie" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
+    }
+    // Même logique côté série : l'épisode en cours de visionnage, pas juste
+    // "la série est en bibliothèque" — sans ça la fiche d'une série se
+    // comportait comme si de rien n'était, aucune indication de l'épisode
+    // en cours ni moyen direct de le reprendre (signalé en direct : "il
+    // réagit comme un film" au lieu de proposer l'épisode en cours).
+    val episodeResume = remember(continueWatching, type, tmdbId) {
+        if (type != "series") null
+        else continueWatching.firstOrNull { it.type == "series" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
     }
 
     // Statut "vu" manuel par utilisateur — /api/watch-status, distinct de
@@ -198,7 +212,8 @@ fun TitleDetailScreen(
         // rafraîchissement du titre toutes les 3 s ne doit jamais écraser
         // la sélection D-pad (sinon retour à la saison 1 après chaque poll).
         if (selectedSeasonNumber == null && visibleSeasons.isNotEmpty()) {
-            selectedSeasonNumber = visibleSeasons.first().seasonNumber
+            val wanted = initialSeasonNumber?.let { s -> visibleSeasons.firstOrNull { it.seasonNumber == s } }
+            selectedSeasonNumber = (wanted ?: visibleSeasons.first()).seasonNumber
         }
     }
     val selectedSeason = visibleSeasons.firstOrNull { it.seasonNumber == selectedSeasonNumber }
@@ -535,6 +550,34 @@ fun TitleDetailScreen(
                                 is ApiResult.Failure -> addError = result.message
                                 else -> addError = null
                             }
+                        }
+                    }
+                }
+            } else if (episodeResume != null) {
+                // Série en bibliothèque avec un épisode en cours : même
+                // traitement que "Reprendre" côté film (CTA + libellé de
+                // l'épisode juste en dessous du titre), pour que l'ouverture
+                // depuis "Continuer à regarder" mène droit à la reprise au
+                // lieu de laisser deviner où chercher plus bas dans la liste
+                // des saisons.
+                Column {
+                    Text(
+                        text = "S${episodeResume.seasonNumber} · Ép ${episodeResume.episodeNumber}" +
+                            (episodeResume.episodeTitle?.let { " — $it" } ?: ""),
+                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row {
+                        PrimaryPill(
+                            text = "▶  Reprendre à ${formatResumeTime(episodeResume.offsetMs)}",
+                            brush = null,
+                            solidWhite = true,
+                            focusRequester = initialFocusRequester,
+                        ) {
+                            val index = playableEpisodes.indexOfFirst {
+                                it.seasonNumber == episodeResume.seasonNumber && it.episodeNumber == episodeResume.episodeNumber
+                            }
+                            if (index >= 0) onPlay(d.title, playableEpisodes, index)
                         }
                     }
                 }

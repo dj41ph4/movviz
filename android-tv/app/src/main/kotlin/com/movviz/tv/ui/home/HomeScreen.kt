@@ -109,10 +109,19 @@ internal data class TvTitleCard(
     val overview: String = "",
     val runtime: Int? = null,
     val trailerKeys: List<String> = emptyList(),
+    /** Non-null uniquement pour une carte "Continuer à regarder" d'une
+     *  série — épisode précis en cours, pour ouvrir directement dessus au
+     *  lieu de retomber sur la saison 1 (voir onOpenEpisode). */
+    val resumeSeasonNumber: Int? = null,
+    val resumeEpisodeNumber: Int? = null,
 )
 
 @Composable
-fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int) -> Unit) {
+fun HomeScreen(
+    viewModel: AppViewModel,
+    onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
+) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
     val continueWatching by viewModel.continueWatching.collectAsState()
@@ -166,6 +175,8 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
                 tmdbId = it.tmdbId,
                 isMovie = it.type == "movie",
                 progressPercent = it.progressPercent,
+                resumeSeasonNumber = it.seasonNumber,
+                resumeEpisodeNumber = it.episodeNumber,
             )
         }
     }
@@ -296,7 +307,15 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
                     TitleRow(
                         heading = "Continuer à regarder",
                         items = continueCards,
-                        onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                        onClick = { card ->
+                            val season = card.resumeSeasonNumber
+                            val episode = card.resumeEpisodeNumber
+                            if (!card.isMovie && season != null && episode != null) {
+                                onOpenEpisode(card.tmdbId, season, episode)
+                            } else {
+                                onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId)
+                            }
+                        },
                         firstItemFocusRequester = if (heroItems.isEmpty() && firstRealRowKey == "continue") firstCardFocus else null,
                     )
                 }

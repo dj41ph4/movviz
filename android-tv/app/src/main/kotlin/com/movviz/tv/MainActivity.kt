@@ -38,14 +38,18 @@ private const val ROUTE_WIZARD = "wizard"
 private const val ROUTE_LOGIN = "login"
 private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_HOME = "home"
-private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}"
+private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}?season={season}&episode={episode}"
 
 /** Login ouvert en mode « ajouter un utilisateur au foyer » : après la
  *  connexion, le compte rejoint le foyer (ou est détecté déjà présent)
  *  et on revient sur l'écran profil au lieu d'aller à l'accueil. */
 private const val ROUTE_LOGIN_ADD = "login?add=true"
 
-fun detailRoute(type: String, tmdbId: Int) = "detail/$type/$tmdbId"
+fun detailRoute(type: String, tmdbId: Int, season: Int? = null, episode: Int? = null): String {
+    val base = "detail/$type/$tmdbId"
+    if (season == null || episode == null) return base
+    return "$base?season=$season&episode=$episode"
+}
 
 class MainActivity : ComponentActivity() {
     private val appViewModel: AppViewModel by viewModels()
@@ -218,6 +222,9 @@ composable(ROUTE_PROFILES) {
                 onOpenTitle = { type, tmdbId ->
                     navController.navigate(detailRoute(type, tmdbId))
                 },
+                onOpenEpisode = { tmdbId, season, episode ->
+                    navController.navigate(detailRoute("series", tmdbId, season, episode))
+                },
                 onLoggedOut = {
                     navController.navigate(ROUTE_LOGIN) {
                         popUpTo(ROUTE_HOME) { inclusive = true }
@@ -249,16 +256,22 @@ composable(ROUTE_PROFILES) {
             arguments = listOf(
                 navArgument("type") { type = NavType.StringType },
                 navArgument("tmdbId") { type = NavType.IntType },
+                navArgument("season") { type = NavType.IntType; defaultValue = -1 },
+                navArgument("episode") { type = NavType.IntType; defaultValue = -1 },
             ),
         ) { backStackEntry ->
             val context = androidx.compose.ui.platform.LocalContext.current
             val type = backStackEntry.arguments?.getString("type") ?: "movie"
             val tmdbId = backStackEntry.arguments?.getInt("tmdbId") ?: 0
+            val season = backStackEntry.arguments?.getInt("season")?.takeIf { it >= 0 }
+            val episode = backStackEntry.arguments?.getInt("episode")?.takeIf { it >= 0 }
             val baseUrl by viewModel.serverUrl.collectAsState()
             TitleDetailScreen(
                 viewModel = viewModel,
                 type = type,
                 tmdbId = tmdbId,
+                initialSeasonNumber = season,
+                initialEpisodeNumber = episode,
                 onPlay = { title, queue, startIndex ->
                     val url = baseUrl ?: return@TitleDetailScreen
                     context.startActivity(

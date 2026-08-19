@@ -26,6 +26,7 @@ import com.movviz.tv.data.UserPrefsDto
 import com.movviz.tv.data.WatchStatusDto
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -246,7 +247,17 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
             // remonter un 500 APRES création. Le web se réconcilie aussitôt
             // avec /api/library; la TV doit faire exactement la même chose,
             // sans faire croire que l'ajout a échoué ni proposer un doublon.
+            // Petite marge de re-essai : un seul refresh immédiat pouvait
+            // arriver juste avant que l'entrée soit réellement lisible via
+            // /api/library (constaté en direct — le bouton retombait sur
+            // "Ajouter à la bibliothèque" au lieu du statut réel juste après
+            // un ajout). 3 tentatives espacées de 500ms avant d'abandonner.
             refreshLibraryNow()
+            repeat(2) { attempt ->
+                if (isInLibrary(type, tmdbId)) return@repeat
+                delay(500)
+                refreshLibraryNow()
+            }
             return if (result is ApiResult.Failure && !isInLibrary(type, tmdbId)) result else ApiResult.Success(Unit)
         } finally {
             _addingToLibrary.value = false
