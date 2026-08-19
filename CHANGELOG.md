@@ -4,6 +4,17 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.25 — August 2026
+
+### Android TV : auto-update améliorée
+
+- L'installation se fait désormais en arrière-plan (PackageInstaller session API) : plus d'écran système qui fait « fermer » l'app — elle reste affichée avec une barre de chargement pendant l'installation, puis l'application redémarre automatiquement sur la nouvelle version (receiver `MY_PACKAGE_REPLACED`).
+- Retire l'installeur système `ACTION_VIEW` (FileProvider devenu inutile pour ce flux).
+
+### Android TV : bande noire du catalogue
+
+- Corrige la bande noire au-dessus du hero des onglets Films et Séries : le contenu passe désormais sous la barre de navigation en verre comme sur l'Accueil (le `padding` de 80 dp n'est conservé que pour la Recherche et les Paramètres).
+
 ## v1.16.24 — August 2026
 
 ### Android TV : foyer de profils côté serveur

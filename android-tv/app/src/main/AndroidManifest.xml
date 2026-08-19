@@ -58,6 +58,18 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <!-- Auto-update : quand l'installation (PackageInstaller) a remplacé
+             le package, le process est tué puis le système envoie
+             MY_PACKAGE_REPLACED à la NOUVELLE version — ce receiver relance
+             alors MainActivity (reboot de l'app, façon Netflix). -->
+        <receiver
+            android:name=".UpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

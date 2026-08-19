@@ -2,11 +2,14 @@
 
 import android.content.Context
 import android.content.Intent
+import android.app.PendingIntent
+import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.core.content.FileProvider
 import com.movviz.tv.BuildConfig
+import com.movviz.tv.UpdateReceiver
 import com.squareup.moshi.Json
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -14,6 +17,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.io.File
+import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
 
@@ -135,16 +139,60 @@ class UpdateManager(private val context: Context) {
         )
     }
 
-    /** DÃ©clenche l'installation systÃ¨me de l'APK tÃ©lÃ©chargÃ©. */
-    fun launchInstaller(file: File) {
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        context.startActivity(
-            Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            },
-        )
+    /** DÃ©clenche l'installation en ARRIÃˆRE-PLAN de l'APK tÃ©lÃ©chargÃ©
+     *  (PackageInstaller session API) : pas d'Ã©cran systÃ¨me, l'app reste
+     *  affichÃ©e avec la barre de progression (0â†’1 pendant l'Ã©criture).
+     *
+     *  Le commit fait tuer le process Ã  la fin de l'installation ; le
+     *  receiver UpdateReceiver (MY_PACKAGE_REPLACED) relance alors
+     *  MainActivity automatiquement — reboot de l'app faÃ§on Netflix.
+     *  En cas d'Ã©chec silencieux du commit, le timeout de l'overlay
+     *  ramÃ¨ne l'application Ã  son Ã©tat normal.
+     */
+    fun installInBackground(file: File, onProgress: (Float) -> Unit) {
+        val installer = context.packageManager.packageInstaller
+        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+        params.setAppPackageName(context.packageName)
+        val sessionId = installer.createSession(params)
+        val session = installer.openSession(sessionId)
+        try {
+            val size = file.length()
+            // API 35+ : openWrite retourne directement un OutputStream
+            // (avant c'était un ParcelFileDescriptor) — on écrit dessus puis
+            // fsync AVANT la fermeture, comme l'exige PackageInstaller.
+            val stream = session.openWrite("base.apk", 0, size)
+            try {
+                file.inputStream().use { input ->
+                    val buffer = ByteArray(256 * 1024)
+                    var read: Int
+                    var done = 0L
+                    while (input.read(buffer).also { read = it } != -1) {
+                        stream.write(buffer, 0, read)
+                        done += read
+                        onProgress((done.toFloat() / size).coerceIn(0f, 1f))
+                    }
+                }
+                stream.flush()
+                session.fsync(stream)
+            } finally {
+                stream.close()
+            }
+            session.commit(
+                PendingIntent.getBroadcast(
+                    context,
+                    0,
+                    Intent(context, UpdateReceiver::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                ).intentSender,
+            )
+            session.close()
+        } catch (e: Exception) {
+            try {
+                session.abandon()
+            } catch (_: Exception) {
+            }
+            throw IOException("installation failed", e)
+        }
     }
 
     /** Compare "v1.16.19" vs "1.16.18" â€” la plus haute gagne. */

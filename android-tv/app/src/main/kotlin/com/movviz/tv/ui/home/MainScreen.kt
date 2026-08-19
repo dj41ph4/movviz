@@ -41,11 +41,13 @@ fun MainScreen(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                // Sur l'accueil, le hero passe sous la barre en verre : la
-                // transparence révèle réellement le visuel plutôt qu'un
-                // simple fond noir translucide. Les écrans utilitaires
-                // conservent, eux, une zone de lecture dégagée sous la nav.
-                .padding(top = if (tab == HomeTab.HOME && !searchOpen) 0.dp else 80.dp),
+                // Sur l'accueil ET les catalogues Films/Séries, le hero passe
+                // sous la barre en verre : la transparence révèle réellement
+                // le visuel plutôt qu'un simple fond noir translucide — pas de
+                // bande noire au-dessus du hero. Les écrans utilitaires
+                // (recherche, paramètres) conservent, eux, une zone de
+                // lecture dégagée sous la nav.
+                .padding(top = if ((tab == HomeTab.HOME || tab == HomeTab.MOVIES || tab == HomeTab.SERIES) && !searchOpen) 0.dp else 80.dp),
         ) {
             when {
                 searchOpen -> SearchScreen(

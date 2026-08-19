@@ -58,7 +58,7 @@ sealed interface UpdateUiState {
     data object Hidden : UpdateUiState
     data object NeedPermission : UpdateUiState
     data class Downloading(val progress: Float) : UpdateUiState
-    data object Installing : UpdateUiState
+    data class Installing(val progress: Float?) : UpdateUiState
 }
 
 /**
@@ -92,10 +92,20 @@ fun AutoUpdateOverlay() {
             val file = updateManager.download(info) { progress ->
                 state = UpdateUiState.Downloading(progress)
             }
-            state = UpdateUiState.Installing
-            updateManager.launchInstaller(file)
-            // L'installeur système recouvre l'appli ; au retour (installation
-            // terminée ou annulée) on revient proprement à l'écran d'accueil.
+            // Installation en arrière-plan (PackageInstaller) : l'app reste
+            // affichée avec la barre de progression. Le commit tue le process
+            // à la fin — le receiver MY_PACKAGE_REPLACED relance alors
+            // MainActivity automatiquement (reboot façon Netflix).
+            state = UpdateUiState.Installing(null)
+            updateManager.installInBackground(file) { progress ->
+                state = UpdateUiState.Installing(progress)
+            }
+            // Échec silencieux possible (commit sans erreur mais installation
+            // refusée) : si le process est encore là après 30 s, l'app revient
+            // à son état normal au lieu de rester bloquée sur l'overlay. En
+            // cas de succès le process est déjà mort, ce délai n'est jamais
+            // atteint.
+            kotlinx.coroutines.delay(30_000L)
             state = UpdateUiState.Hidden
         } catch (e: Exception) {
             // Réseau, HTTP, SHA-256… l'appli démarre normalement, on ne
@@ -176,12 +186,27 @@ fun UpdateOverlay(
                         style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f)),
                     )
                 }
-                UpdateUiState.Installing -> {
-                    IndeterminateBar()
+                is UpdateUiState.Installing -> {
+                    val progress = state.progress
+                    if (progress != null) {
+                        ProgressBar(progress)
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            text = "Installation… ${(progress * 100).toInt()}%",
+                            style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f)),
+                        )
+                    } else {
+                        IndeterminateBar()
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            text = "Installation…",
+                            style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f)),
+                        )
+                    }
                     Spacer(Modifier.height(14.dp))
                     Text(
-                        text = "Installation…",
-                        style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f)),
+                        text = "L'application va redémarrer automatiquement",
+                        style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.6f)),
                     )
                 }
                 UpdateUiState.NeedPermission -> {
