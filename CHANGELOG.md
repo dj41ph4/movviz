@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.11 — August 2026
+
+### Versionnement Android TV
+
+- Aligne enfin la version native de l’APK Android TV sur la version Movviz publiée (`1.16.11`) et incrémente son `versionCode`.
+
 ## v1.16.10 — August 2026
 
 ### Android TV : liaison Plex
