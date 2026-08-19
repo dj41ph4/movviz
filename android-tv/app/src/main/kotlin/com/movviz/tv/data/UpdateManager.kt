@@ -161,11 +161,13 @@ class UpdateManager(private val context: Context) {
         val session = installer.openSession(sessionId)
         try {
             val size = file.length()
-            // API 35+ : openWrite retourne directement un OutputStream
-            // (avant c'était un ParcelFileDescriptor) — on écrit dessus puis
-            // fsync. ATTENTION : sur cette API, fsync(OutputStream) FERME
-            // lui-même le stream — ne JAMAIS appeler stream.close() après,
-            // l'erreur "already closed" abandonnerait la session (constaté).
+            // fsync(OutputStream) marque juste les données comme prêtes à être
+            // appliquées sur disque — il NE FERME PAS le stream (contrairement
+            // à ce qu'affirmait un commentaire précédent ici, qui menait à ne
+            // jamais appeler close()). Résultat constaté : commit() levait
+            // SecurityException "Files still open" — PackageInstallerSession
+            // refuse de sceller une session avec un write transfer encore
+            // ouvert. Le stream DOIT être fermé explicitement avant commit().
             val stream = session.openWrite("base.apk", 0, size)
             file.inputStream().use { input ->
                 val buffer = ByteArray(256 * 1024)
@@ -179,6 +181,7 @@ class UpdateManager(private val context: Context) {
             }
             stream.flush()
             session.fsync(stream)
+            stream.close()
             session.commit(
                 PendingIntent.getBroadcast(
                     context,
