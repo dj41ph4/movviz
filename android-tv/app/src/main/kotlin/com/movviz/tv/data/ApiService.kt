@@ -115,6 +115,9 @@ interface MovvizApiService {
     @GET("api/metadata/trending")
     suspend fun trending(@Query("type") type: String): Response<SearchResponseDto>
 
+    @GET("api/metadata/rows")
+    suspend fun metadataRows(@Query("type") type: String): Response<MetadataRowsResponseDto>
+
     // Statut "vu" manuel par utilisateur (films + épisodes) — voir
     // WatchStatusDto. Sert la fiche titre TV (badge "Vu" sur un film déjà
     // terminé, coche sur les épisodes déjà regardés).

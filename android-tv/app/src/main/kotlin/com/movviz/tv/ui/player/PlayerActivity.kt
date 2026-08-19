@@ -69,7 +69,9 @@ import androidx.media3.common.Player
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
@@ -319,9 +321,23 @@ private fun PlayerScreen(
     var fallbackNotice by remember { mutableStateOf<String?>(null) }
 
     val exoPlayer = remember {
-        val dataSourceFactory = OkHttpDataSource.Factory(com.movviz.tv.data.ApiClient.httpClient())
+        val upstream = OkHttpDataSource.Factory(com.movviz.tv.data.ApiClient.httpClient())
+        val dataSourceFactory = CacheDataSource.Factory()
+            .setCache((context.applicationContext as com.movviz.tv.MovvizTvApplication).videoCache())
+            .setUpstreamDataSourceFactory(upstream)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
         val mediaSourceFactory = DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory)
-        ExoPlayer.Builder(context).setMediaSourceFactory(mediaSourceFactory).build()
+        // Tampon plus large pour absorber les pointes d'un serveur Plex/NAS
+        // distant : démarrage à 2,5 s, reprise à 5 s et jusqu'à 2 minutes
+        // déjà mises en mémoire avant de solliciter à nouveau le réseau.
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(30_000, 120_000, 2_500, 5_000)
+            .setTargetBufferBytes(64 * 1024 * 1024)
+            .build()
+        ExoPlayer.Builder(context)
+            .setLoadControl(loadControl)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
     }
 
     // Charge un item de la queue dans le player existant — appelé au premier

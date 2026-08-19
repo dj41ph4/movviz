@@ -309,6 +309,20 @@ data class SearchResponseDto(
     val totalPages: Int = 1,
 )
 
+/** Rangées éditoriales déjà assemblées par le backend pour le dashboard web.
+ * La TV les consomme telles quelles afin de garder les mêmes catégories sans
+ * dupliquer la logique de sélection côté client. */
+@JsonClass(generateAdapter = true)
+data class MetadataRowDto(
+    val key: String,
+    val results: List<SearchResultDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class MetadataRowsResponseDto(
+    val rows: List<MetadataRowDto> = emptyList(),
+)
+
 // Miroir de la réponse de /api/stream/{ratingKey}/info (voir
 // src/app/api/stream/[ratingKey]/info/route.ts) — la TV n'a besoin ni de
 // ffmpegAvailable ni de videoCodec/container (pas de transcodage côté TV,

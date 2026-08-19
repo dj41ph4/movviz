@@ -6,12 +6,18 @@ import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.memory.MemoryCache
 import com.movviz.tv.data.ApiClient
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
+import java.io.File
 
 /** Initialise le CookieJar persistant avant que quoi que ce soit d'autre
  *  (MainActivity, AppViewModel) ne puisse déclencher un appel réseau, et
  *  fournit l'ImageLoader Coil partagé par tous les écrans (posters/backdrops
  *  TMDb, chargés en dizaines d'exemplaires dans les TvLazyRow). */
 class MovvizTvApplication : Application(), ImageLoaderFactory {
+    private var videoCacheInstance: SimpleCache? = null
+
     override fun onCreate() {
         super.onCreate()
         ApiClient.initialize(this)
@@ -31,4 +37,22 @@ class MovvizTvApplication : Application(), ImageLoaderFactory {
         }
         .crossfade(false)
         .build()
+
+    /** Cache disque partagé par tous les lecteurs de la TV. 1,5 Go est assez
+     * grand pour absorber les relectures et les sauts arrière, tout en restant
+     * borné : on ne transforme pas le boîtier en copie de toute la médiathèque. */
+    @Synchronized
+    fun videoCache(): SimpleCache {
+        return videoCacheInstance ?: SimpleCache(
+            File(cacheDir, "movviz-video-cache"),
+            LeastRecentlyUsedCacheEvictor(1_500L * 1024L * 1024L),
+            StandaloneDatabaseProvider(this),
+        ).also { videoCacheInstance = it }
+    }
+
+    override fun onTerminate() {
+        videoCacheInstance?.release()
+        videoCacheInstance = null
+        super.onTerminate()
+    }
 }

@@ -125,6 +125,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun trending(type: String): ApiResult<List<SearchResultDto>> =
         safeCall { api.trending(type) }.map { it.results }
 
+    suspend fun metadataRows(type: String): ApiResult<List<MetadataRowDto>> =
+        safeCall { api.metadataRows(type) }.map { it.rows }
+
     suspend fun addToLibrary(type: String, tmdbId: Int): ApiResult<Unit> {
         val result = safeCall {
             if (type == "movie") api.addMovie(AddToLibraryRequest(tmdbId))

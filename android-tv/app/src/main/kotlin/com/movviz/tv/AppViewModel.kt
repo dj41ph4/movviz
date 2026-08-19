@@ -9,6 +9,7 @@ import com.movviz.tv.data.LibrarySeriesDto
 import com.movviz.tv.data.DashboardHeroSlideDto
 import com.movviz.tv.data.MetaDetailDto
 import com.movviz.tv.data.MetadataSeasonDto
+import com.movviz.tv.data.MetadataRowDto
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.MovvizUserDto
 import com.movviz.tv.data.OnDeckEntryDto
@@ -93,6 +94,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _trendingSeries = MutableStateFlow<List<SearchResultDto>>(emptyList())
     val trendingSeries: StateFlow<List<SearchResultDto>> = _trendingSeries.asStateFlow()
+
+    private val _movieRows = MutableStateFlow<List<MetadataRowDto>>(emptyList())
+    val movieRows: StateFlow<List<MetadataRowDto>> = _movieRows.asStateFlow()
+
+    private val _seriesRows = MutableStateFlow<List<MetadataRowDto>>(emptyList())
+    val seriesRows: StateFlow<List<MetadataRowDto>> = _seriesRows.asStateFlow()
 
     // Rangée "Continuer à regarder" de l'accueil — ordre Netflix (Continuer
     // → Bibliothèque → Découverte). Réutilise le même /api/plex/on-deck que
@@ -428,13 +435,15 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun loadDiscovery() {
         val repo = repository ?: return
         viewModelScope.launch {
-            when (val m = repo.trending("movie")) {
-                is ApiResult.Success -> _trendingMovies.value = m.data
-                else -> Unit
-            }
-            when (val s = repo.trending("series")) {
-                is ApiResult.Success -> _trendingSeries.value = s.data
-                else -> Unit
+            coroutineScope {
+                val movies = async { repo.trending("movie") }
+                val series = async { repo.trending("series") }
+                val movieRows = async { repo.metadataRows("movie") }
+                val seriesRows = async { repo.metadataRows("series") }
+                when (val m = movies.await()) { is ApiResult.Success -> _trendingMovies.value = m.data; else -> Unit }
+                when (val s = series.await()) { is ApiResult.Success -> _trendingSeries.value = s.data; else -> Unit }
+                when (val rows = movieRows.await()) { is ApiResult.Success -> _movieRows.value = rows.data; else -> Unit }
+                when (val rows = seriesRows.await()) { is ApiResult.Success -> _seriesRows.value = rows.data; else -> Unit }
             }
         }
     }

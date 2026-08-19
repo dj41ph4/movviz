@@ -16,8 +16,8 @@ android {
         applicationId = "com.movviz.tv"
         minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-        versionCode = 11614
-        versionName = "1.16.14"
+        versionCode = 11615
+        versionName = "1.16.15"
     }
 
     signingConfigs {
@@ -85,6 +85,8 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.media3.common)
     implementation(libs.media3.datasource.okhttp)
+    implementation(libs.media3.datasource)
+    implementation(libs.media3.database)
     // HLS — nécessaire pour le repli transcodage serveur (/api/stream/{ratingKey}/transcode,
     // manifeste .m3u8) quand le direct-play échoue (codec non décodable nativement).
     implementation(libs.media3.exoplayer.hls)

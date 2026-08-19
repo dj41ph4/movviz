@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.15 — August 2026
+
+### Android TV : catalogue enrichi et lecture plus fluide
+
+- Réutilise les rangées éditoriales existantes du dashboard (`/api/metadata/rows`) dans l'accueil, Films et Séries.
+- Ajoute un cache vidéo Media3 partagé de 1,5 Go et un tampon de lecture élargi pour limiter les rechargements.
+- Conserve les pistes audio et sous-titres Media3 ainsi que le fallback de transcodage existant.
+
 ## v1.16.14 — August 2026
 
 ### Android TV : version retail et connexion Plex

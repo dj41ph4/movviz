@@ -119,6 +119,8 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
     val queue by viewModel.queue.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val trendingSeries by viewModel.trendingSeries.collectAsState()
+    val movieRows by viewModel.movieRows.collectAsState()
+    val seriesRows by viewModel.seriesRows.collectAsState()
     val dashboardHero by viewModel.dashboardHero.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
 
@@ -182,6 +184,19 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
         // rangée Découverte doit ressembler à un mélange éditorial, pas à
         // une simple concaténation de deux listes.
         moviesRow.zipInterleave(seriesRow).take(20)
+    }
+
+    // Les mêmes rangées éditoriales que le dashboard desktop. Elles arrivent
+    // déjà ordonnées depuis /api/metadata/rows : la TV ne fabrique donc pas
+    // de faux contenus et reste cohérente avec les préférences du serveur.
+    val editorialCards = remember(movieRows, seriesRows) {
+        (movieRows + seriesRows).mapNotNull { row ->
+            val cards = row.results.map {
+                TvTitleCard("editorial-${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, null,
+                    it.tmdbId, it.type == "movie", it.year, it.rating)
+            }
+            if (cards.isEmpty()) null else row.key to cards
+        }
     }
 
     // Même sélection personnalisée que le dashboard web : trailerKeys,
@@ -319,6 +334,16 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
                 }
             }
 
+            editorialCards.forEach { (key, cards) ->
+                item {
+                    TitleRow(
+                        heading = homeRowLabel(key),
+                        items = cards,
+                        onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                    )
+                }
+            }
+
             if (recentMovies.isEmpty() && recentSeries.isEmpty()) {
                 item {
                     Text(
@@ -330,6 +355,17 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
             }
         }
     }
+}
+
+private fun homeRowLabel(key: String): String = when (key) {
+    "recommendedTop" -> "Sélection pour vous"
+    "trendingPopular", "trending" -> "Tendances Movviz"
+    "upcoming", "upcomingVod" -> "Prochainement"
+    "onAir" -> "En ce moment"
+    "newSeriesRenewed" -> "Nouvelles séries"
+    "nowPlayingBoxOffice" -> "En salles"
+    "kids" -> "Jeunesse"
+    else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
 }
 
 /** Même mapping que la pastille résolution desktop (MediaBadges.tsx) : 2160→4K,
