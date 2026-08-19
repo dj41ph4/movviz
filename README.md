@@ -7,7 +7,7 @@
 
 <!-- Primary tagline -->
 
-Version actuelle : **1.16.17**
+Version actuelle : **1.16.18**
 <h1>Centre de commande unifié pour films et séries</h1>
 <p><strong>Découvrir, organiser, suivre et gérer</strong> — depuis une interface unique, self-hostée et open-source.</p>
 

@@ -148,12 +148,22 @@ class MovvizRepository(private val baseUrl: String) {
 
     /** URL de repli quand le direct-play échoue (codec non décodable
      *  nativement par ExoPlayer) — démarre une session de transcodage Plex
-     *  côté serveur et renvoie un manifeste HLS (.m3u8). tv=1&ta=1 = le
-     *  serveur ré-encode vidéo ET audio dans un format universellement lisible
-     *  (h264/aac), le repli le plus sûr possible (voir transcode/route.ts —
-     *  ne PAS toucher cette route, elle contient déjà toute la logique de
-     *  décision copy/transcode). */
-    fun transcodeUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey/transcode?tv=1&ta=1"
+     *  côté serveur. tv=0&ta=1 = la vidéo est copiée en bitstream (jamais
+     *  ré-encodée : x264/x265 passent presque partout) et SEUL l'audio est
+     *  ré-encodé en aac. fmt=dash = le seul format où Plex honore le copy
+     *  bitstream quel que soit le codec source (HEVC/AV1 compris, prouvé
+     *  live : les sessions HLS ré-encodent tout HEVC en libx264) — la
+     *  vidéo n'est donc jamais transcodée à ce niveau, ffmpeg ne s'occupe
+     *  que du son. Le client bascule sur ce niveau dès qu'ExoPlayer
+     *  signale un format non décodable (généralement l'audio). */
+    fun transcodeUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey/transcode?tv=0&ta=1&fmt=dash"
+
+    /** Dernier recours après le repli audio-seul : tv=1&ta=1 = le serveur
+     *  ré-encode vidéo ET audio dans un format universellement lisible
+     *  (h264/aac) servi en HLS — réservé aux boîtiers qui ne décodent même
+     *  pas la vidéo copiée (AV1 par exemple). Voir transcode/route.ts pour
+     *  toute la logique de décision copy/transcode. */
+    fun transcodeFullUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey/transcode?tv=1&ta=1"
 
     suspend fun streamInfo(plexRatingKey: String): ApiResult<StreamInfoDto> =
         safeCall { api.streamInfo(plexRatingKey) }

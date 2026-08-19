@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.18 — August 2026
+
+### Android TV : lecture en 3 niveaux — direct > ffmpeg audio seul > HLS
+
+- Lecture directe (octets bruts) tant qu'ExoPlayer décode tout nativement — aucun transcodage.
+- Dès qu'un format n'est pas décodable (souvent l'audio : DTS/AC3/TrueHD), bascule sur un transcodage audio seul : la vidéo est copiée en bitstream (x264/x265 ne sont jamais ré-encodés) et seul le son est ré-encodé en aac, via DASH (seul format où Plex honore le copy bitstream, HEVC compris).
+- Si la vidéo copiée n'est toujours pas décodable (AV1 par exemple), dernier recours : transcodage complet h264/aac servi en HLS.
+- Chaque niveau n'est tenté qu'une fois par item, reprise à la même position, aucune boucle.
+
 ## v1.16.17 — August 2026
 
 ### Navigation dans le panneau titre

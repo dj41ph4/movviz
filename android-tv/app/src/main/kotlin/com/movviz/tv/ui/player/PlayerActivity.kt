@@ -311,13 +311,18 @@ private fun PlayerScreen(
     var showAudioDialog by remember { mutableStateOf(false) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var tracksVersion by remember { mutableStateOf(0) } // force la recomposition des dialogues pistes
-    // Repli direct-play → transcodage serveur : une seule tentative par item
-    // de la queue (pas de boucle si le transcodage échoue aussi), déclenchée
-    // dès qu'ExoPlayer signale un format/codec non décodable nativement par
-    // ce boîtier. Le serveur a déjà toute la logique copy/ré-encodage
-    // (voir /api/stream/{ratingKey}/transcode) — le client se contente de
-    // basculer d'URL et de reprendre à la même position.
-    var usedTranscodeFallback by remember { mutableStateOf(false) }
+    // Repli direct-play → transcodage serveur, en deux niveaux : 1 = ffmpeg
+    // audio seul (vidéo copiée en bitstream, seul le son est ré-encodé —
+    // x264/x265 passent presque partout, inutile de ré-encoder l'image),
+    // 2 = transcodage complet HLS h264/aac, vraiment en dernier recours
+    // (boîtier qui ne décode même pas la vidéo copiée, ex. AV1). Chaque
+    // niveau n'est tenté qu'une fois par item (pas de boucle si le
+    // transcodage échoue aussi), déclenché dès qu'ExoPlayer signale un
+    // format/codec non décodable nativement par ce boîtier. Le serveur a
+    // déjà toute la logique copy/ré-encodage (voir /api/stream/{ratingKey}/
+    // transcode) — le client se contente de basculer d'URL et de reprendre
+    // à la même position.
+    var fallbackLevel by remember { mutableStateOf(0) }
     var fallbackNotice by remember { mutableStateOf<String?>(null) }
 
     val exoPlayer = remember {
@@ -343,26 +348,38 @@ private fun PlayerScreen(
     // Charge un item de la queue dans le player existant — appelé au premier
     // rendu, à chaque changement d'épisode (suivant/précédent) ET lors d'un
     // retry après erreur, sans jamais recréer l'ExoPlayer ni relancer
-    // l'Activity : garde une lecture fluide. `useTranscode` bascule vers le
-    // manifeste HLS de repli servi par le serveur (voir MovvizRepository.
-    // transcodeUrl) — le type MIME doit être explicite : l'URL ne se termine
-    // pas par ".m3u8" (query string sur /transcode), DefaultMediaSourceFactory
+    // l'Activity : garde une lecture fluide. `level` choisit le mode de
+    // lecture : 0 = direct-play (octets bruts), 1 = transcodage audio seul
+    // (vidéo copiée, ffmpeg ne ré-encode que l'audio — DASH), 2 =
+    // transcodage complet HLS (h264/aac) en dernier recours (voir
+    // MovvizRepository.transcodeUrl/transcodeFullUrl). Le type MIME doit
+    // être explicite pour les niveaux 1/2 : l'URL ne se termine pas par
+    // ".mpd"/".m3u8" (query string sur /transcode), DefaultMediaSourceFactory
     // ne peut donc pas l'inférer de l'extension et choisirait à tort
-    // ProgressiveMediaSource au lieu de HlsMediaSource.
-    fun load(item: QueueItem, resumeMs: Long, useTranscode: Boolean = false) {
+    // ProgressiveMediaSource au lieu de DashMediaSource/HlsMediaSource.
+    fun load(item: QueueItem, resumeMs: Long, level: Int = 0) {
         loading = true
         hasRenderedFrame = false
         errorMessage = null
         errorKind = null
-        val mediaItem = if (useTranscode) {
-            val url = repository.transcodeUrl(item.ratingKey)
-            Log.i(TAG, "load() transcode: $url (resumeMs=$resumeMs)")
-            MediaItem.Builder()
-                .setUri(url)
-                .setMimeType(MimeTypes.APPLICATION_M3U8)
-                .build()
-        } else {
-            MediaItem.fromUri(repository.streamUrl(item.ratingKey))
+        val mediaItem = when (level) {
+            1 -> {
+                val url = repository.transcodeUrl(item.ratingKey)
+                Log.i(TAG, "load() transcode audio-seul: $url (resumeMs=$resumeMs)")
+                MediaItem.Builder()
+                    .setUri(url)
+                    .setMimeType(MimeTypes.APPLICATION_MPD)
+                    .build()
+            }
+            2 -> {
+                val url = repository.transcodeFullUrl(item.ratingKey)
+                Log.i(TAG, "load() transcode complet HLS: $url (resumeMs=$resumeMs)")
+                MediaItem.Builder()
+                    .setUri(url)
+                    .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .build()
+            }
+            else -> MediaItem.fromUri(repository.streamUrl(item.ratingKey))
         }
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
@@ -377,7 +394,7 @@ private fun PlayerScreen(
     // temps).
     LaunchedEffect(current.ratingKey) {
         networkRetryCount = 0
-        usedTranscodeFallback = false
+        fallbackLevel = 0
         fallbackNotice = null
         val infoResult = repository.streamInfo(current.ratingKey)
         val knownDuration = (infoResult as? ApiResult.Success)?.data?.durationMs
@@ -422,7 +439,7 @@ private fun PlayerScreen(
             }
             override fun onPlayerError(error: PlaybackException) {
                 val kind = classifyError(error)
-                Log.w(TAG, "onPlayerError code=${error.errorCode} kind=$kind usedTranscodeFallback=$usedTranscodeFallback", error)
+                Log.w(TAG, "onPlayerError code=${error.errorCode} kind=$kind fallbackLevel=$fallbackLevel", error)
                 if (kind == PlayerErrorKind.NETWORK && networkRetryCount < MAX_NETWORK_AUTO_RETRIES) {
                     networkRetryCount += 1
                     val resumePos = exoPlayer.currentPosition.coerceAtLeast(0)
@@ -436,18 +453,22 @@ private fun PlayerScreen(
                 }
                 // Format/codec non décodable nativement par ce boîtier : le
                 // serveur sait déjà transcoder (voir transcode/route.ts), donc
-                // avant d'afficher une erreur définitive on bascule une seule
-                // fois sur son flux HLS de repli, à la même position — quasi
-                // instantané (pas d'attente artificielle), et jamais une
-                // deuxième fois pour le même item si le transcodage échoue
-                // aussi (pas de boucle infinie).
-                if (kind == PlayerErrorKind.UNSUPPORTED && !usedTranscodeFallback) {
-                    usedTranscodeFallback = true
+                // avant d'afficher une erreur définitive on bascule au niveau
+                // de repli suivant, à la même position — quasi instantané
+                // (pas d'attente artificielle). Niveau 1 : ffmpeg audio seul
+                // (la vidéo reste copiée en bitstream — c'est l'audio, très
+                // souvent DTS/AC3/TrueHD, qui n'était pas décodable). Niveau
+                // 2 : transcodage complet h264/aac en HLS, dernier recours
+                // (boîtier qui ne décode même pas la vidéo copiée, ex. AV1).
+                // Jamais de boucle : une seule tentative par niveau et par
+                // item, le transcodage peut échouer lui aussi.
+                if (kind == PlayerErrorKind.UNSUPPORTED && fallbackLevel < 2) {
+                    fallbackLevel += 1
                     val resumePos = exoPlayer.currentPosition.coerceAtLeast(0)
                     val item = queue[currentIndex]
-                    Log.i(TAG, "Repli transcodage serveur pour ${item.ratingKey} à ${resumePos}ms (direct-play non décodable)")
+                    Log.i(TAG, "Repli transcodage niveau $fallbackLevel pour ${item.ratingKey} à ${resumePos}ms (direct-play non décodable)")
                     fallbackNotice = "Compatibilité optimisée…"
-                    load(item, resumePos, useTranscode = true)
+                    load(item, resumePos, level = fallbackLevel)
                     return
                 }
                 errorKind = kind
@@ -703,12 +724,12 @@ private fun PlayerScreen(
                                 modifier = Modifier.tvPointerClick {
                                     networkRetryCount = 0
                                     // Reprend dans le même mode qu'au moment de
-                                    // l'échec (direct ou transcodé) — sinon un
-                                    // retry manuel après échec du repli
-                                    // transcodage reviendrait au direct-play et
-                                    // reproduirait la même erreur non
-                                    // supportée à coup sûr.
-                                    load(current, positionMs, useTranscode = usedTranscodeFallback)
+                                    // l'échec (direct, audio-seul ou HLS
+                                    // complet) — sinon un retry manuel après
+                                    // échec du repli transcodage reviendrait au
+                                    // direct-play et reproduirait la même
+                                    // erreur non supportée à coup sûr.
+                                    load(current, positionMs, level = fallbackLevel)
                                 },
                             )
                         }
