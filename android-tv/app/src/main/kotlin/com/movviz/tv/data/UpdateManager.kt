@@ -132,10 +132,14 @@ class UpdateManager(private val context: Context) {
     fun canInstallUnknown(): Boolean =
         Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls()
 
-    /** Ouvre les rÃ©glages systÃ¨me pour autoriser les sources inconnues. */
+    /** Ouvre les rÃ©glages systÃ¨me pour autoriser les sources inconnues.
+     *  FLAG_ACTIVITY_NEW_TASK est OBLIGATOIRE : ce manager tourne sur le
+     *  contexte application (pas une Activity) — sans ce flag, le clic
+     *  « Autoriser » plante l'app (AndroidRuntimeException, constatÃ©). */
     fun openInstallPermissionSettings() {
         context.startActivity(
-            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}")),
+            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
         )
     }
 
@@ -159,24 +163,22 @@ class UpdateManager(private val context: Context) {
             val size = file.length()
             // API 35+ : openWrite retourne directement un OutputStream
             // (avant c'était un ParcelFileDescriptor) — on écrit dessus puis
-            // fsync AVANT la fermeture, comme l'exige PackageInstaller.
+            // fsync. ATTENTION : sur cette API, fsync(OutputStream) FERME
+            // lui-même le stream — ne JAMAIS appeler stream.close() après,
+            // l'erreur "already closed" abandonnerait la session (constaté).
             val stream = session.openWrite("base.apk", 0, size)
-            try {
-                file.inputStream().use { input ->
-                    val buffer = ByteArray(256 * 1024)
-                    var read: Int
-                    var done = 0L
-                    while (input.read(buffer).also { read = it } != -1) {
-                        stream.write(buffer, 0, read)
-                        done += read
-                        onProgress((done.toFloat() / size).coerceIn(0f, 1f))
-                    }
+            file.inputStream().use { input ->
+                val buffer = ByteArray(256 * 1024)
+                var read: Int
+                var done = 0L
+                while (input.read(buffer).also { read = it } != -1) {
+                    stream.write(buffer, 0, read)
+                    done += read
+                    onProgress((done.toFloat() / size).coerceIn(0f, 1f))
                 }
-                stream.flush()
-                session.fsync(stream)
-            } finally {
-                stream.close()
             }
+            stream.flush()
+            session.fsync(stream)
             session.commit(
                 PendingIntent.getBroadcast(
                     context,
@@ -186,7 +188,9 @@ class UpdateManager(private val context: Context) {
                 ).intentSender,
             )
             session.close()
+            android.util.Log.i("MovvizUpdate", "session $sessionId commit OK")
         } catch (e: Exception) {
+            android.util.Log.e("MovvizUpdate", "install failed (session $sessionId)", e)
             try {
                 session.abandon()
             } catch (_: Exception) {

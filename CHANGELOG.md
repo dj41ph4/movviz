@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.27 — August 2026
+
+### Android TV : correctifs auto-update
+
+- Corrige l'installation : `fsync(OutputStream)` ferme lui-même le stream sur l'API 35 — le `close()` supplémentaire abandonnait la session et l'APK ne s'installait jamais (l'app semblait « se fermer » après la mise à jour).
+- Corrige le plantage du bouton « Autoriser » (ouverture des réglages de sources inconnues sans `FLAG_ACTIVITY_NEW_TASK` — AndroidRuntimeException sur contexte application).
+- Ajoute des logs (`MovvizUpdate`) pour suivre l'installation et le redémarrage automatique.
+
 ## v1.16.26 — August 2026
 
 ### Android TV : menu profil style Netflix

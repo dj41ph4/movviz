@@ -15,7 +15,17 @@ import android.content.Intent
  */
 class UpdateReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+        // Le commit de PackageInstaller délivre aussi un intent explicite à
+        // ce receiver (avec EXTRA_STATUS) : on loggue le résultat même si
+        // l'installation a échoué — en cas de succès, le process est déjà
+        // mort et c'est MY_PACKAGE_REPLACED qui prend le relais.
+        if (intent.hasExtra(android.content.pm.PackageInstaller.EXTRA_STATUS)) {
+            val status = intent.getIntExtra(android.content.pm.PackageInstaller.EXTRA_STATUS, -1)
+            android.util.Log.i("MovvizUpdate", "install result status=$status msg=" +
+                intent.getStringExtra(android.content.pm.PackageInstaller.EXTRA_STATUS_MESSAGE))
+        }
         if (intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
+        android.util.Log.i("MovvizUpdate", "package replaced — relance automatique")
         context.startActivity(
             Intent(context, MainActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
