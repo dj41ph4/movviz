@@ -184,7 +184,11 @@ class UpdateManager(private val context: Context) {
                     context,
                     0,
                     Intent(context, UpdateReceiver::class.java),
-                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    // MUTABLE est OBLIGATOIRE sur API 35+ : le système exige
+                    // un status receiver mutable pour commit() (constaté :
+                    // IllegalArgumentException "should come from a mutable
+                    // PendingIntent" — l'installation échouait silencieusement).
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
                 ).intentSender,
             )
             session.close()

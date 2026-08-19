@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.30 — August 2026
+
+### Android TV : auto-update réparée (échec d'installation)
+
+- L'installation échouait silencieusement au `commit()` : sur Android 15+, le status receiver doit venir d'un PendingIntent **mutable** — `FLAG_IMMUTABLE` provoquait `IllegalArgumentException` et la session était abandonnée (l'app restait sur l'ancienne version après la barre de chargement).
+- Le PendingIntent du commit est désormais `FLAG_MUTABLE` : la mise à jour s'applique et l'app redémarre automatiquement sur la nouvelle version.
+
 ## v1.16.29 — August 2026
 
 ### Android TV : fiche série — fin du clignotement et du retour forcé à la saison 1
