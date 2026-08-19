@@ -16,8 +16,8 @@ android {
         applicationId = "com.movviz.tv"
         minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-        versionCode = 11622
-        versionName = "1.16.22"
+        versionCode = 11623
+        versionName = "1.16.23"
     }
 
     // Deux canaux de distribution depuis le même code :
@@ -113,6 +113,8 @@ dependencies {
     // HLS — nécessaire pour le repli transcodage serveur (/api/stream/{ratingKey}/transcode,
     // manifeste .m3u8) quand le direct-play échoue (codec non décodable nativement).
     implementation(libs.media3.exoplayer.hls)
+    // DASH — repli audio/vidéo servi par le transcodage FFmpeg/Plex.
+    implementation(libs.media3.exoplayer.dash)
 
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.moshi)

@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.23 — August 2026
+
+### Android TV : lecture
+
+- Ajoute le module Media3 DASH manquant afin d’éviter le plantage lors du repli de lecture.
+
 ## v1.16.22 — August 2026
 
 ### Android TV : compilation profils
