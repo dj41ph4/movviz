@@ -4,6 +4,15 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.40 — August 2026
+
+### Android TV : corrections remontées sur boîtier réel
+
+- Réaligne le numéro de version partout (`package.json`, badge README, `versionCode`/`versionName` de l'app Android TV) — la dérive entre ces sources faisait échouer certaines mises à jour.
+- Corrige un plantage à la compilation de l'écran profil (« Qui est-ce ? ») laissé par un travail inachevé.
+- Recherche : supprime le bandeau « Ouvrir la fiche » qui s'affichait sous les cartes au focus — être sur une carte et valider ouvre directement la fiche, comme partout ailleurs.
+- Paramètres et Recherche : supprime la bande opaque qui restait au-dessus du contenu, déjà retirée de l'accueil et des catalogues Films/Séries.
+
 ## v1.16.33 — August 2026
 
 ### Android TV : écran profil — nom du profil actif, ajout via login, doublons détectés

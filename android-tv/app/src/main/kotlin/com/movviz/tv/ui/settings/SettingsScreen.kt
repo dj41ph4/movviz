@@ -72,7 +72,10 @@ fun SettingsScreen(viewModel: AppViewModel, onLoggedOut: () -> Unit) {
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .verticalScroll(rememberScrollState())
-            .padding(start = 48.dp, top = 40.dp, end = 48.dp, bottom = 40.dp),
+            // top = 96dp : dégage la barre de nav flottante (68dp + marge)
+            // sans qu'un padding posé plus haut, au niveau de MainScreen,
+            // n'ajoute une bande de fond opaque au-dessus de tout le monde.
+            .padding(start = 48.dp, top = 96.dp, end = 48.dp, bottom = 40.dp),
     ) {
         Text(
             text = "Paramètres",

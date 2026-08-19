@@ -18,6 +18,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -37,12 +39,15 @@ import com.movviz.tv.ui.theme.MovvizBrand2
 /** Tuile de profil TV — partagée par l'écran « Qui est-ce ? » et l'écran
  *  d'ajout d'un membre au foyer (même rendu, une seule implémentation). */
 @Composable
-fun ProfileTile(profile: TvProfile, onClick: () -> Unit) {
+fun ProfileTile(profile: TvProfile, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(170.dp)) {
         Surface(
             onClick = onClick,
-            modifier = Modifier.size(160.dp).onFocusChanged { focused = it.isFocused },
+            modifier = Modifier
+                .size(160.dp)
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                .onFocusChanged { focused = it.isFocused },
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
             colors = ClickableSurfaceDefaults.colors(
                 containerColor = Color(0xFF242424),

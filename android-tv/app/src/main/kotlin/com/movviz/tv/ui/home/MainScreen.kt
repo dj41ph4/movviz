@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.movviz.tv.AppViewModel
@@ -37,18 +38,23 @@ fun MainScreen(
     var tab by remember { mutableStateOf(HomeTab.HOME) }
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    // Cible D-pad du champ de recherche (voir NavRail.SearchButton) : la
+    // grille de résultats récupère le focus quand la flèche bas est
+    // interceptée, et reçoit aussi le focus après l'action IME "Recherche".
+    val searchResultsFocus = remember { FocusRequester() }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
-                // Sur l'accueil ET les catalogues Films/Séries, le hero passe
-                // sous la barre en verre : la transparence révèle réellement
-                // le visuel plutôt qu'un simple fond noir translucide — pas de
-                // bande noire au-dessus du hero. Les écrans utilitaires
-                // (recherche, paramètres) conservent, eux, une zone de
-                // lecture dégagée sous la nav.
-                .padding(top = if ((tab == HomeTab.HOME || tab == HomeTab.MOVIES || tab == HomeTab.SERIES) && !searchOpen) 0.dp else 80.dp),
+                .fillMaxSize(),
+            // Jamais de padding top ici, sur AUCUN écran : un padding
+            // poussait Recherche/Paramètres sous une bande opaque
+            // (MaterialTheme.colorScheme.background plein sous la nav
+            // transparente) qui tranchait visuellement avec le reste —
+            // signalé en direct comme "bandeau noir" après l'avoir déjà fait
+            // disparaître d'Accueil/Films/Séries de la même façon. Chaque
+            // écran gère désormais lui-même sa marge haute pour dégager la
+            // barre de nav flottante (voir SearchScreen/SettingsScreen).
         ) {
             when {
                 searchOpen -> SearchScreen(
@@ -57,6 +63,7 @@ fun MainScreen(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
                     showSearchField = false,
+                    resultFocusRequester = searchResultsFocus,
                 )
                 tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle)
                 tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle)
@@ -76,6 +83,7 @@ fun MainScreen(
 onProfileSelected = onProfileSelected,
             onAddProfile = onAddProfile,
             onSwitchProfile = onSwitchProfile,
+            resultFocusRequester = searchResultsFocus,
             modifier = Modifier.zIndex(1f),
         )
     }

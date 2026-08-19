@@ -19,11 +19,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.withFrameNanos
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -60,6 +63,19 @@ fun ProfilePickerScreen(
             onNoticeDismissed()
         }
     }
+    // Focus D-pad initial : rien ne réclame le focus à l'arrivée sur cet
+    // écran (constaté ailleurs dans l'app : premier appui de flèche sans
+    // effet). On vise la première tuile — ou la tuile « + » si le foyer
+    // est vide — en retentant sur quelques frames le temps que la
+    // TvLazyRow compose l'item.
+    val firstTileFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        repeat(10) { attempt ->
+            val focused = runCatching { firstTileFocus.requestFocus() }.isSuccess
+            if (focused) return@LaunchedEffect
+            if (attempt < 9) withFrameNanos { }
+        }
+    }
     Box(
         Modifier.fillMaxSize().background(Color(0xFF101010)),
         contentAlignment = Alignment.Center,
@@ -73,9 +89,18 @@ fun ProfilePickerScreen(
             Spacer(Modifier.height(42.dp))
             TvLazyRow(horizontalArrangement = Arrangement.spacedBy(28.dp), contentPadding = PaddingValues(horizontal = 48.dp)) {
                 items(visibleProfiles, key = { it.id }) { profile ->
-                    ProfileTile(profile = profile, onClick = { onSelect(profile) })
+                    ProfileTile(
+                        profile = profile,
+                        onClick = { onSelect(profile) },
+                        focusRequester = if (visibleProfiles.firstOrNull()?.id == profile.id) firstTileFocus else null,
+                    )
                 }
-                item { AddProfileTile(onClick = onAdd) }
+                item {
+                    AddProfileTile(
+                        onClick = onAdd,
+                        focusRequester = if (visibleProfiles.isEmpty()) firstTileFocus else null,
+                    )
+                }
             }
         }
     }
@@ -83,11 +108,13 @@ fun ProfilePickerScreen(
 
 /** Tuile « + » — propre à l'écran de sélection, mène au login d'ajout. */
 @Composable
-private fun AddProfileTile(onClick: () -> Unit) {
+private fun AddProfileTile(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(170.dp)) {
         Surface(
             onClick = onClick,
-            modifier = Modifier.size(160.dp),
+            modifier = Modifier
+                .size(160.dp)
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it },
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF242424), focusedContainerColor = Color(0xFF383838)),
         ) {

@@ -15,7 +15,15 @@ GRADLE_BIN="${GRADLE_BIN:-C:/devtools/gradle/gradle-8.9/bin/gradle}"
 # -----------------------------------------------------------------------
 
 ADB="$ANDROID_HOME_PATH/platform-tools/adb.exe"
-APK_PATH="$ANDROID_TV_DIR/app/build/outputs/apk/debug/app-debug.apk"
+# Deux saveurs depuis l'ajout du canal auto-update (channel=retail/au,
+# voir app/build.gradle.kts) : "retail" garde le même applicationId
+# (com.movviz.tv, pas de suffixe) que l'ancien build flavor-less dont ce
+# script ciblait le chemin de sortie — outputs/apk/debug/app-debug.apk
+# n'est plus régénéré du tout et reste une archive figée à un ancien
+# versionCode, ce qui fait échouer `adb install` en "VERSION_DOWNGRADE"
+# dès que l'app installée est plus récente. "retail" est donc le choix par
+# défaut ici : même paquet que ce qui tourne déjà sur l'appareil/l'émulateur.
+APK_PATH="$ANDROID_TV_DIR/app/build/outputs/apk/retail/debug/app-retail-debug.apk"
 PKG="com.movviz.tv"
 ACTIVITY="$PKG/.MainActivity"
 SCRATCH_DIR="${MOVVIZ_TV_SCRATCH:-/tmp}"
@@ -27,7 +35,7 @@ usage() {
   cat <<'EOF'
 Usage: driver.sh <command> [args]
 
-  build              gradle assembleDebug (produces app-debug.apk)
+  build              gradle assembleRetailDebug (canal "retail", même applicationId que l'app déjà installée)
   install            adb install -r the last-built APK (NEVER uninstall — wipes the logged-in session)
   launch             force-stop + start MainActivity fresh
   screenshot <name>  screencap the device, pull to $MOVVIZ_TV_SCRATCH/<name>.png (default /tmp), print the local path
@@ -49,7 +57,7 @@ require_adb() {
 
 case "$cmd" in
   build)
-    (cd "$ANDROID_TV_DIR" && JAVA_HOME="$JAVA_HOME_PATH" ANDROID_HOME="$ANDROID_HOME_PATH" "$GRADLE_BIN" assembleDebug --no-daemon)
+    (cd "$ANDROID_TV_DIR" && JAVA_HOME="$JAVA_HOME_PATH" ANDROID_HOME="$ANDROID_HOME_PATH" "$GRADLE_BIN" assembleRetailDebug --no-daemon)
     ;;
   install)
     require_adb

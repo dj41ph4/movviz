@@ -11,6 +11,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -25,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.items
+import androidx.tv.foundation.lazy.grid.itemsIndexed
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -33,7 +36,6 @@ import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.SearchResultDto
-import com.movviz.tv.ui.theme.MovvizBrandGlow
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizSurface
@@ -54,6 +56,9 @@ fun SearchScreen(
     query: String = "",
     onQueryChange: (String) -> Unit = {},
     showSearchField: Boolean = true,
+    // Cible D-pad pour sortir du champ de recherche (NavRail.SearchButton) :
+    // première carte de la grille de résultats.
+    resultFocusRequester: FocusRequester? = null,
 ) {
     var focusedResult by remember { mutableStateOf<SearchResultDto?>(null) }
     var fieldFocused by remember { mutableStateOf(false) }
@@ -66,7 +71,9 @@ fun SearchScreen(
     }
 
     val selected = focusedResult
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(start = 48.dp, end = 48.dp, bottom = 30.dp)) {
+    // top = 96dp : même marge que Paramètres pour dégager la barre de nav
+    // flottante sans bande de fond opaque ajoutée au-dessus (voir MainScreen).
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(start = 48.dp, top = 96.dp, end = 48.dp, bottom = 30.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (showSearchField) {
                 Text("Recherche", style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground))
@@ -88,17 +95,16 @@ fun SearchScreen(
             }
             Spacer(Modifier.height(18.dp))
         }
-        if (selected != null && query.isNotBlank()) {
-            SearchPreview(selected) { onOpenTitle(selected.type, selected.tmdbId) }
-            Spacer(Modifier.height(20.dp))
-        }
         when {
             searching -> Text("Recherche…", color = MovvizInkDim, fontSize = 15.sp)
             query.isBlank() -> Text("Recherchez un film ou une série", color = MovvizInkDim, fontSize = 15.sp)
             results.isEmpty() -> Text("Aucun résultat pour « $query »", color = MovvizInkDim, fontSize = 15.sp)
             else -> TvLazyVerticalGrid(columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
-                items(results, key = { "${it.type}-${it.tmdbId}" }) { result ->
-                    SearchResultCard(result, result == selected, { focusedResult = result }) { onOpenTitle(result.type, result.tmdbId) }
+                itemsIndexed(results, key = { _, result -> "${result.type}-${result.tmdbId}" }) { index, result ->
+                    SearchResultCard(
+                        result, result == selected, { focusedResult = result },
+                        focusRequester = if (index == 0) resultFocusRequester else null,
+                    ) { onOpenTitle(result.type, result.tmdbId) }
                 }
             }
         }
@@ -116,24 +122,10 @@ private fun SearchField(value: String, focused: Boolean, onFocusChanged: (Boolea
 }
 
 @Composable
-private fun SearchPreview(result: SearchResultDto, onOpen: () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(Color.Black.copy(alpha = .32f), RoundedCornerShape(14.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-        result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_IMAGE_BASE$it"), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.width(168.dp).aspectRatio(16f / 9f)) }
-        Spacer(Modifier.width(18.dp))
-        Column(Modifier.weight(1f)) {
-            Text(result.title, fontSize = 23.sp, fontWeight = FontWeight.Bold, color = MovvizInk)
-            Text(listOfNotNull(result.year?.toString(), if (result.type == "series") "Série" else "Film").joinToString("  ·  "), color = MovvizInkDim, fontSize = 14.sp)
-            if (result.rating > 0) Text("★ ${"%.1f".format(result.rating)}", color = MovvizBrandGlow, fontSize = 14.sp)
-        }
-        Surface(onClick = onOpen, shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)), colors = ClickableSurfaceDefaults.colors(containerColor = MaterialTheme.colorScheme.primary)) { Text("Ouvrir la fiche", color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp)) }
-    }
-}
-
-@Composable
-private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus: () -> Unit, onClick: () -> Unit) {
+private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus: () -> Unit, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
     val shape = RoundedCornerShape(10.dp)
     Column {
-        Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
+        Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
             Box(Modifier.fillMaxSize()) {
                 result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_IMAGE_BASE$it"), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
                 if (result.rating > 0) RatingBadge(result.rating, Modifier.align(Alignment.TopStart).padding(7.dp))

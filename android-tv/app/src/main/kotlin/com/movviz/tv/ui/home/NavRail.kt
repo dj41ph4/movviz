@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -14,13 +16,22 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
+import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
@@ -60,6 +71,9 @@ fun NavRail(
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     onSwitchProfile: () -> Unit = {},
+    // Cible D-pad « premier résultat de recherche » : BasicTextField avale
+    // la flèche bas, on l'intercepte pour sauter sur la grille de résultats.
+    resultFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -106,6 +120,7 @@ Spacer(modifier = Modifier.weight(1f))
             query = searchQuery,
             onToggle = onSearchToggle,
             onQueryChange = onSearchQueryChange,
+            downFocus = resultFocusRequester,
         )
         Spacer(modifier = Modifier.width(22.dp))
         // À la place du texte "MOVVIZ TV" : l'avatar du profil actif, toujours
@@ -159,19 +174,35 @@ private fun ProfileMenuButton(
                 onDismissRequest = { open = false },
                 properties = PopupProperties(focusable = true),
             ) {
+                // Focus D-pad : le Popup est une fenêtre séparée — sans
+                // demande explicite, le focus reste piégé sur la Surface
+                // englobante (l'ancien onClick={} sans action, qui volait
+                // le focus) et la flèche bas ne descend jamais dans le menu
+                // (bug constaté sur vraie TV). On pose donc le focus sur le
+                // premier item dès l'ouverture, en retentant sur quelques
+                // frames : l'attachement du noeud peut suivre d'une frame
+                // la composition de la fenêtre popup.
+                val firstItemFocus = remember { FocusRequester() }
+                LaunchedEffect(Unit) {
+                    repeat(10) { attempt ->
+                        val focused = runCatching { firstItemFocus.requestFocus() }.isSuccess
+                        if (focused) return@LaunchedEffect
+                        if (attempt < 9) withFrameNanos { }
+                    }
+                }
                 // Charte Movviz : fond sombre profond, coins doux, bordure
                 // discrète, focus à bordure claire — mêmes codes que le
                 // sélecteur de profils et les boutons du wizard.
+                // PAS de onClick ici : une Surface cliquable sans action
+                // prendrait le focus D-pad et bloquerait la descente vers
+                // les items (bug constaté sur vraie TV).
                 Surface(
-                    onClick = {},
                     modifier = Modifier.width(300.dp),
-                    shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF16161C), focusedContainerColor = Color(0xFF16161C)),
-                    border = ClickableSurfaceDefaults.border(
-                        border = androidx.tv.material3.Border(
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-                        ),
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                    colors = SurfaceDefaults.colors(containerColor = Color(0xFF16161C)),
+                    border = Border(
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                     ),
                 ) {
                     Column(Modifier.padding(10.dp)) {
@@ -191,6 +222,7 @@ private fun ProfileMenuButton(
                         MenuItem(
                             leading = "◉",
                             label = "Mon profil",
+                            focusRequester = firstItemFocus,
                             onClick = { open = false; onSwitch() },
                         )
                         Spacer(Modifier.height(6.dp))
@@ -235,11 +267,15 @@ private fun MenuItem(
     leading: String? = null,
     avatar: TvProfile? = null,
     accent: Boolean = false,
+    focusRequester: FocusRequester? = null,
 ) {
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
     Surface(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth().tvPointerClick(onClick),
+        modifier = Modifier
+            .fillMaxWidth()
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape),
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
@@ -270,9 +306,10 @@ private fun MenuItem(
 }
 
 @Composable
-private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQueryChange: (String) -> Unit) {
+private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQueryChange: (String) -> Unit, downFocus: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val inputRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     LaunchedEffect(open) { if (open) inputRequester.requestFocus() }
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp)
     Surface(
@@ -302,7 +339,29 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                     onValueChange = onQueryChange,
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 16.sp, color = Color.White),
-                    modifier = Modifier.width(180.dp).focusRequester(inputRequester),
+                    // Même piège que WizardScreen.TvTextField : BasicTextField
+                    // avale la flèche bas (mouvement de curseur) et le focus
+                    // resterait piégé dans le champ, sans jamais atteindre la
+                    // grille de résultats — on intercepte la touche pour
+                    // sauter sur le premier résultat. L'action IME
+                    // "Recherche" fait pareil et referme le clavier.
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = {
+                        runCatching { downFocus?.requestFocus() }
+                        keyboardController?.hide()
+                    }),
+                    modifier = Modifier
+                        .width(180.dp)
+                        .focusRequester(inputRequester)
+                        .onPreviewKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown && downFocus != null) {
+                                // Résultats pas encore composés → on rend la
+                                // touche au champ plutôt que de crasher.
+                                runCatching { downFocus.requestFocus() }.isSuccess
+                            } else {
+                                false
+                            }
+                        },
                 )
             }
         }
