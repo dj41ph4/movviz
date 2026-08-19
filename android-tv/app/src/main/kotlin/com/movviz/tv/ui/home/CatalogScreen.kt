@@ -24,7 +24,16 @@ import com.movviz.tv.AppViewModel
 /** Catalogue Films/Séries TV : même carte et même statut que l'accueil,
  * mais avec une destination dédiée utilisable au D-pad. */
 @Composable
-fun CatalogScreen(viewModel: AppViewModel, type: HomeTab, onOpenTitle: (String, Int) -> Unit) {
+fun CatalogScreen(
+    viewModel: AppViewModel,
+    type: HomeTab,
+    onOpenTitle: (String, Int) -> Unit,
+    // Cible D-pad « flèche bas depuis la NavRail » — même rôle que dans
+    // HomeScreen : attachée au CTA du hero s'il y en a un, sinon à la
+    // première carte de la première rangée (voir plus bas), jamais
+    // demandée automatiquement ici.
+    entryFocusRequester: FocusRequester? = null,
+) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
     val movieRows by viewModel.movieRows.collectAsState()
@@ -70,7 +79,10 @@ fun CatalogScreen(viewModel: AppViewModel, type: HomeTab, onOpenTitle: (String, 
     }
     var heroIndex by remember { mutableStateOf(0) }
     val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
-    val heroFocus = remember { FocusRequester() }
+    // Même cible pour le CTA hero et la première carte de la première
+    // rangée (mutuellement exclusifs — voir plus bas) : c'est elle que la
+    // NavRail vise pour la flèche bas.
+    val heroFocus = entryFocusRequester ?: remember { FocusRequester() }
     LaunchedEffect(activeHero?.tmdbId, activeHero?.isMovie) {
         activeHero?.let { viewModel.loadHeroLogo(wantedType, it.tmdbId) }
     }
@@ -102,6 +114,11 @@ fun CatalogScreen(viewModel: AppViewModel, type: HomeTab, onOpenTitle: (String, 
                     heading = if (key == "library") type.label else catalogRowLabel(key),
                     items = rowCards,
                     onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                    // Sans hero, rien n'était câblé jusqu'ici pour la
+                    // première carte — la flèche bas depuis la NavRail
+                    // n'avait donc littéralement aucune cible stable sur cet
+                    // écran.
+                    firstItemFocusRequester = if (activeHero == null && index == 0) heroFocus else null,
                 )
             }
         }

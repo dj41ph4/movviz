@@ -38,10 +38,18 @@ fun MainScreen(
     var tab by remember { mutableStateOf(HomeTab.HOME) }
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    // Cible D-pad du champ de recherche (voir NavRail.SearchButton) : la
-    // grille de résultats récupère le focus quand la flèche bas est
-    // interceptée, et reçoit aussi le focus après l'action IME "Recherche".
-    val searchResultsFocus = remember { FocusRequester() }
+    // Cible D-pad unique « premier élément du contenu affiché » — la NavRail
+    // pose focusProperties{down=...} dessus (voir NavRail.kt) pour que la
+    // flèche bas depuis N'IMPORTE quel item de la barre y descende toujours,
+    // au lieu de compter sur la recherche spatiale par défaut de Compose qui
+    // ne trouve jamais de cible à travers deux frères superposés dans un Box
+    // (nav + contenu, zIndex ne joue que sur le dessin) — bug constaté en
+    // direct : DPAD bas totalement sans effet depuis la nav, quel que soit
+    // l'onglet. Un seul écran de contenu est composé à la fois (when
+    // ci-dessous) donc un seul requester suffit ; chaque écran l'attache à
+    // son propre premier élément focusable (CTA hero, première carte,
+    // premier résultat de recherche, premier réglage…).
+    val contentFocusRequester = remember { FocusRequester() }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
@@ -63,12 +71,12 @@ fun MainScreen(
                     query = searchQuery,
                     onQueryChange = { searchQuery = it },
                     showSearchField = false,
-                    resultFocusRequester = searchResultsFocus,
+                    resultFocusRequester = contentFocusRequester,
                 )
-                tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle)
-                tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle)
-                tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle)
-                tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut)
+                tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
+                tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
+                tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
+                tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)
             }
         }
         NavRail(
@@ -83,7 +91,7 @@ fun MainScreen(
 onProfileSelected = onProfileSelected,
             onAddProfile = onAddProfile,
             onSwitchProfile = onSwitchProfile,
-            resultFocusRequester = searchResultsFocus,
+            contentFocusRequester = contentFocusRequester,
             modifier = Modifier.zIndex(1f),
         )
     }

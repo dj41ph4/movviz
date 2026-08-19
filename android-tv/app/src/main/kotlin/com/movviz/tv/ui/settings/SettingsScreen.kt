@@ -16,6 +16,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -53,7 +55,14 @@ private val AUDIO_LANGUAGE_LABELS = listOf(
 )
 
 @Composable
-fun SettingsScreen(viewModel: AppViewModel, onLoggedOut: () -> Unit) {
+fun SettingsScreen(
+    viewModel: AppViewModel,
+    onLoggedOut: () -> Unit,
+    // Cible D-pad « flèche bas depuis la NavRail » — attachée au premier
+    // chip de langue, seul élément focusable garanti composé dès l'entrée
+    // sur l'écran (la section Compte n'a que du texte, non focusable).
+    entryFocusRequester: FocusRequester? = null,
+) {
     val serverUrl by viewModel.serverUrl.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val userPrefs by viewModel.userPrefs.collectAsState()
@@ -119,11 +128,12 @@ fun SettingsScreen(viewModel: AppViewModel, onLoggedOut: () -> Unit) {
                     .horizontalScroll(rememberScrollState())
                     .padding(bottom = 2.dp),
             ) {
-                AUDIO_LANGUAGE_LABELS.forEach { (code, label) ->
+                AUDIO_LANGUAGE_LABELS.forEachIndexed { index, (code, label) ->
                     LanguageChip(
                         label = label,
                         selected = (userPrefs?.preferredAudioLanguage ?: "auto") == code,
                         onClick = { viewModel.setPreferredAudioLanguage(code) },
+                        focusRequester = if (index == 0) entryFocusRequester else null,
                     )
                 }
             }
@@ -204,12 +214,13 @@ private fun RolePill(role: String?) {
  *  (tvFocusLift), l'état "sélectionné" (pas juste focusé) reprend le
  *  dégradé de marque plein comme l'onglet actif du rail de navigation. */
 @Composable
-private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit) {
+private fun LanguageChip(label: String, selected: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
         modifier = Modifier
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .tvFocusLift(focused = focused, shape = shape, maxScale = 1.06f, maxElevation = 12.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
