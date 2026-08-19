@@ -11,6 +11,12 @@ All notable changes to Movviz, grouped by development milestone.
 - Depuis le panneau, tout clic sur un titre similaire, un acteur ou une collection met à jour le panneau au lieu d'ouvrir une page entière.
 - Les vues acteur et collection partagent désormais strictement le même composant que leurs pages dédiées (`PersonContent`, `CollectionContent`) — aucune variante dédiée au panneau.
 
+### Android TV : carrousels par type
+
+- Le carrousel Films ne propose désormais que des films.
+- Le carrousel Séries ne propose désormais que des séries.
+- Le carrousel mixte de l'accueil général reste inchangé.
+
 ## v1.16.15 — August 2026
 
 ### Android TV : catalogue enrichi et lecture plus fluide

@@ -7,6 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.tv.foundation.lazy.list.TvLazyColumn
@@ -25,10 +29,13 @@ fun CatalogScreen(viewModel: AppViewModel, type: HomeTab, onOpenTitle: (String, 
     val series by viewModel.series.collectAsState()
     val movieRows by viewModel.movieRows.collectAsState()
     val seriesRows by viewModel.seriesRows.collectAsState()
+    val dashboardHero by viewModel.dashboardHero.collectAsState()
+    val heroLogos by viewModel.heroLogos.collectAsState()
     val editorialRows = if (type == HomeTab.MOVIES) movieRows else seriesRows
     LaunchedEffect(Unit) {
         viewModel.loadLibrary()
         viewModel.loadDiscovery()
+        viewModel.loadDashboardHero()
     }
     val cards = if (type == HomeTab.MOVIES) {
         movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
@@ -46,10 +53,48 @@ fun CatalogScreen(viewModel: AppViewModel, type: HomeTab, onOpenTitle: (String, 
         addAll(editorial)
         if (cards.isNotEmpty()) add("library" to cards)
     }
+    val wantedType = if (type == HomeTab.MOVIES) "movie" else "series"
+    val heroItems = remember(dashboardHero, cards) {
+        dashboardHero.filter { it.detail.type == wantedType }.map { slide ->
+            val d = slide.detail
+            TvTitleCard(
+                id = "catalog-hero-${d.type}-${d.tmdbId}", title = d.title,
+                posterPath = d.posterPath, backdropPath = d.backdropPath,
+                tmdbId = d.tmdbId, isMovie = wantedType == "movie", year = d.year,
+                rating = d.rating, genres = d.genres, status = slide.libraryStatus,
+                overview = d.overview, runtime = d.runtime, trailerKeys = d.trailerKeys,
+            )
+        }.filter { it.backdropPath != null }.take(5).ifEmpty {
+            cards.filter { it.isMovie == (wantedType == "movie") && it.backdropPath != null }.take(5)
+        }
+    }
+    var heroIndex by remember { mutableStateOf(0) }
+    val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
+    val heroFocus = remember { FocusRequester() }
+    LaunchedEffect(activeHero?.tmdbId, activeHero?.isMovie) {
+        activeHero?.let { viewModel.loadHeroLogo(wantedType, it.tmdbId) }
+    }
+    LaunchedEffect(heroItems) {
+        heroIndex = 0
+        if (heroItems.size > 1) while (true) {
+            kotlinx.coroutines.delay(8_000L)
+            heroIndex = (heroIndex + 1) % heroItems.size
+        }
+    }
     Column(Modifier.fillMaxSize().padding(top = 18.dp)) {
         Text(type.label, style = TextStyle(fontSize = 30.sp, color = MaterialTheme.colorScheme.onBackground), modifier = Modifier.padding(start = 64.dp, bottom = 18.dp))
         if (rows.isEmpty()) Text("Aucun titre pour le moment", color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(start = 64.dp))
         else TvLazyColumn(Modifier.fillMaxSize()) {
+            if (activeHero != null) item {
+                HeroCarousel(
+                    items = heroItems,
+                    currentIndex = heroIndex,
+                    logoPath = heroLogos["$wantedType-${activeHero.tmdbId}"],
+                    onSelectIndex = { heroIndex = it },
+                    ctaFocusRequester = heroFocus,
+                    onOpen = { card -> onOpenTitle(wantedType, card.tmdbId) },
+                )
+            }
             items(rows.size) { index ->
                 val (key, rowCards) = rows[index]
                 TitleRow(

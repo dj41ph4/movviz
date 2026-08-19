@@ -398,7 +398,7 @@ private fun <T> List<T>.zipInterleave(other: List<T>): List<T> {
  *  façon bannière "Featured" Netflix plutôt que le simple aplat statique
  *  d'avant. */
 @Composable
-private fun HeroCarousel(
+internal fun HeroCarousel(
     items: List<TvTitleCard>,
     currentIndex: Int,
     logoPath: String?,
