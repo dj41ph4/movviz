@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating } from "@/lib/ai/intentParser";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating, getRating, getAllRatings, getLastProactiveRatingAskAt, markProactiveRatingAsked } from "@/lib/ai/tasteProfile";
@@ -114,9 +114,43 @@ export async function POST(req: NextRequest) {
   // previousAssistant = the turn right before the user message just
   // pushed above (session.messages now ends [...,assistant,user]).
   const previousAssistant = session.messages[session.messages.length - 2];
+  const previousAssistantText = previousAssistant?.role === "assistant" ? previousAssistant.content : undefined;
+  // Acknowledge/imperative turns such as « ok », « vas-y » and « donne » are
+  // interpreted from the immediately preceding offer, before any TMDb title
+  // detection can mistake their text for a work name.
+  const recommendationContinuation = isRecommendationContinuation(previousAssistantText, message);
   const introName = extractSelfIntroName(message)
-    ?? extractNameFromDirectAnswer(previousAssistant?.role === "assistant" ? previousAssistant.content : undefined, message);
+    ?? extractNameFromDirectAnswer(previousAssistantText, message);
   if (introName) rememberFact(user.id, introName);
+
+  // Explicit ratings must not depend on a small model deciding to output an
+  // invisible [[NOTE: ...]] marker.  A whole-franchise statement remains a
+  // durable taste fact (rather than incorrectly rating the last single film
+  // in the conversation); a named individual work is stored as explicit.
+  const explicitTasteRating = extractExplicitTasteRating(message);
+  if (explicitTasteRating) {
+    if (explicitTasteRating.isGlobal) {
+      rememberFact(user.id, `Préférence forte : ${explicitTasteRating.subject} dans son ensemble mérite ${explicitTasteRating.stars}/5 à l'utilisateur.`);
+    } else {
+      try {
+        const resolved = await resolveAiItem({ title: explicitTasteRating.subject });
+        if (resolved) {
+          setRating(user.id, {
+            tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title,
+            rating: explicitTasteRating.stars, source: "explicit", confidence: 1,
+            opinion: "note explicite donnée en conversation",
+          });
+          triggerIncrementalContextIfDue(user.id).catch(() => {});
+        } else {
+          // Still valuable for taste even when TMDb cannot resolve a typo or
+          // a franchise wording such as « South Parl ».
+          rememberFact(user.id, `Préférence forte : ${explicitTasteRating.subject} mérite ${explicitTasteRating.stars}/5 à l'utilisateur.`);
+        }
+      } catch {
+        rememberFact(user.id, `Préférence forte : ${explicitTasteRating.subject} mérite ${explicitTasteRating.stars}/5 à l'utilisateur.`);
+      }
+    }
+  }
 
   // Correction-detection (confirmed live bug: "il me manque quoi de X" →
   // invented absence → user corrects it, but the assistant never actually
@@ -148,6 +182,12 @@ export async function POST(req: NextRequest) {
   const needsName = !hasKnownName(user.id);
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
   system += buildRatingsContext(user.id);
+  if (recommendationContinuation) {
+    system += "\n\nCONTINUITÉ DE RECOMMANDATION — la réponse très courte de l'utilisateur confirme ta proposition précédente. Fournis MAINTENANT une vraie sélection en MODE 2 : JSON recommend valide, 4 à 8 titres, sans texte autour. Ne traite jamais son mot court comme le titre d'une œuvre et ne redemande pas s'il veut des recommandations.";
+  }
+  if (explicitTasteRating) {
+    system += `\n\nNOTE EXPLICITE DÉJÀ ENREGISTRÉE — l'utilisateur vient d'attribuer ${explicitTasteRating.stars}/5 à ${explicitTasteRating.isGlobal ? "l'ensemble de " : "« "}${explicitTasteRating.subject}${explicitTasteRating.isGlobal ? "" : " »"}. Réagis simplement et naturellement ; ne lui redemande ni confirmation ni une autre note.`;
+  }
 
   // Proactive rating nudge (demande explicite user) — occasional, never
   // systematic: gated by BOTH a cooldown (never twice within the window,
@@ -325,7 +365,7 @@ export async function POST(req: NextRequest) {
   // Gardé APRÈS les 4 détecteurs "question" ci-dessus et les recherches
   // franchise/filmographie plus haut, pour ne jamais faire un second appel
   // TMDb sur un message qui a déjà déclenché un des blocs plus spécifiques.
-  const bareTitleCandidate = (!watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
+  const bareTitleCandidate = (!recommendationContinuation && !explicitTasteRating && !watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
     ? extractBareTitleMention(message)
     : null;
   if (bareTitleCandidate) {
@@ -423,6 +463,22 @@ export async function POST(req: NextRequest) {
   console.log(`[ai] chat ok user=${user.username} provider=${providerName} model=${usedModel} latency=${latency}ms`);
 
   let intent = parseIntent(text);
+  // The model occasionally keeps chatting after an explicit « yes/give it
+  // to me » even though this branch has already established that a selection
+  // is required.  One bounded retry turns that unfulfilled promise into
+  // cards; it can never trigger a library add because the required action is
+  // recommend only.
+  if (recommendationContinuation && intent.action !== "recommend") {
+    try {
+      const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a ignoré une confirmation explicite de recommandation. Réponds maintenant UNIQUEMENT avec le JSON {"action":"recommend","items":[...]} demandé, contenant 4 à 8 titres réellement recommandés. Ne parle pas du mot court de l'utilisateur comme s'il s'agissait d'un titre et n'ajoute aucun média.`;
+      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryIntent = parseIntent(retryRes.text);
+      if (retryIntent.action === "recommend") intent = retryIntent;
+    } catch {
+      // Best-effort: the normal response remains available if the provider
+      // fails during this single corrective call.
+    }
+  }
   // Confirmed live: a bare title mention with no action verb ("Hurlevent",
   // "the nice guys") sometimes gets read by the model as an implicit
   // add_media request — the prompt already says mode 1/2 requires an

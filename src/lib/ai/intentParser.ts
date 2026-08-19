@@ -945,6 +945,52 @@ const CONTEXTUAL_REFERENCE_RE = /^(pourtant si|mais si|en fait si|si,? (?:je|j'|
 const BARE_TITLE_MAX_LEN = 60;
 const BARE_TITLE_MAX_WORDS = 8;
 
+/**
+ * A short affirmative or imperative is only ambiguous in isolation.  Right
+ * after Movviz offered a selection (or said it was about to give one), it is
+ * a continuation of that recommendation turn — never a film title.  This
+ * prevents `donne` from being resolved as a title such as « Nouvelle donne ».
+ */
+const RECOMMENDATION_OFFER_RE = /\b(?:recommand(?:ation|e|er)|propos(?:e|er)|sugg[èe]r(?:e|er)|s[ée]lection|liste|dans le m[êe]me (?:style|mood|genre)|ce qui devrait (?:bien )?coller|je te (?:fais|sors|balance|envoie))/i;
+const RECOMMENDATION_CONTINUATION_RE = /^(?:oui|ouais|ouep|ok(?:ay)?|d['’]accord|vas[- ]y|go|donne(?:-moi)?|balance(?:-moi)?|envoie(?:-moi)?|je veux(?: bien)?|pourquoi pas)[\s!.?]*$/i;
+
+export function isRecommendationContinuation(previousAssistantMessage: string | undefined, userMessage: string): boolean {
+  return !!previousAssistantMessage
+    && RECOMMENDATION_OFFER_RE.test(previousAssistantMessage)
+    && RECOMMENDATION_CONTINUATION_RE.test(userMessage.trim());
+}
+
+export interface ExplicitTasteRating {
+  /** The named work/franchise, without conversational glue such as « aussi ». */
+  subject: string;
+  stars: number;
+  /** « tout X confondu » is a taste signal about a whole universe, not one title. */
+  isGlobal: boolean;
+}
+
+/**
+ * Captures clear user ratings before the LLM replies.  The old marker-only
+ * flow could forget « tout South Park confondu, 5 étoiles » if the model
+ * reacted conversationally without emitting [[NOTE: ...]].  A global rating
+ * is deliberately kept as a preference fact: it must not falsely rate only
+ * the last film when the user explicitly includes the series/franchise.
+ */
+export function extractExplicitTasteRating(message: string): ExplicitTasteRating | null {
+  const trimmed = message.trim().replace(/[.!?]+$/, "");
+  const match = /^(.*?)\s+(?:c['’]est\s+)?([1-5])\s*(?:\/\s*5|[ée]toiles?)$/i.exec(trimmed);
+  if (!match) return null;
+  const stars = Number(match[2]);
+  let subject = match[1].trim().replace(/\s+(?:aussi|pareil)$/i, "").trim();
+  if (!subject || subject.length > BARE_TITLE_MAX_LEN) return null;
+
+  const global = /^(?:tout(?:e)?|tous?|l['’]ensemble(?:\s+de)?)\s+(.+)$/i.exec(subject);
+  if (global?.[1]) {
+    subject = global[1].replace(/\s+(?:confondu(?:e)?s?|compris(?:e)?s?)$/i, "").trim();
+  }
+  if (subject.length < 2) return null;
+  return { subject, stars, isGlobal: !!global };
+}
+
 /** Détecte une mention casuelle de titre (voir doc ci-dessus). Retourne le
  *  message nettoyé (candidat à résoudre contre TMDb) ou null si ça ressemble
  *  plutôt à du bavardage/une phrase construite. Le caller ne doit l'appeler

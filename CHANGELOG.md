@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.8 — August 2026
+
+### Chat desktop : continuité et goût
+
+- Les notes explicites données en conversation sont désormais enregistrées sans dépendre d’un marqueur du modèle ; une note sur « tout » un univers reste une préférence globale, sans être réduite à un seul film.
+- Après une offre de recommandations, « ok », « vas-y » ou « donne » poursuit la sélection et ne peut plus être interprété comme un titre à rechercher.
+- Si le modèle annonce une sélection sans renvoyer de cartes, Movviz redemande une réponse structurée de recommandations.
+
 ## v1.16.7 — August 2026
 
 ### Android TV : identité visuelle Movviz
