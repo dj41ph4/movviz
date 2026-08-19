@@ -180,6 +180,7 @@ data class MetaDetailDto(
 @JsonClass(generateAdapter = true)
 data class PlexPinDto(
     val id: Long,
+    val code: String = "",
     val authUrl: String,
 )
 
@@ -301,6 +302,8 @@ data class SearchResultDto(
 @JsonClass(generateAdapter = true)
 data class SearchResponseDto(
     val results: List<SearchResultDto> = emptyList(),
+    val page: Int = 1,
+    val totalPages: Int = 1,
 )
 
 // Miroir de la réponse de /api/stream/{ratingKey}/info (voir

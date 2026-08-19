@@ -26,4 +26,8 @@ class ServerPrefs(private val context: Context) {
         val normalized = url.trim().trimEnd('/')
         context.dataStore.edit { it[serverUrlKey] = normalized }
     }
+
+    suspend fun clearServerUrl() {
+        context.dataStore.edit { it.remove(serverUrlKey) }
+    }
 }

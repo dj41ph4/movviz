@@ -30,6 +30,8 @@ fun MainScreen(
     onLoggedOut: () -> Unit,
 ) {
     var tab by remember { mutableStateOf(HomeTab.HOME) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Box(
@@ -39,17 +41,30 @@ fun MainScreen(
                 // transparence révèle réellement le visuel plutôt qu'un
                 // simple fond noir translucide. Les écrans utilitaires
                 // conservent, eux, une zone de lecture dégagée sous la nav.
-                .padding(top = if (tab == HomeTab.HOME) 0.dp else 80.dp),
+                .padding(top = if (tab == HomeTab.HOME && !searchOpen) 0.dp else 80.dp),
         ) {
-            when (tab) {
-                HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle)
-                HomeTab.SEARCH -> SearchScreen(viewModel = viewModel, onOpenTitle = onOpenTitle)
-                HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut)
+            when {
+                searchOpen -> SearchScreen(
+                    viewModel = viewModel,
+                    onOpenTitle = onOpenTitle,
+                    query = searchQuery,
+                    onQueryChange = { searchQuery = it },
+                    showSearchField = false,
+                )
+                tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle)
+                tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle)
+                tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle)
+                tab == HomeTab.SEARCH -> SearchScreen(viewModel = viewModel, onOpenTitle = onOpenTitle)
+                tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut)
             }
         }
         NavRail(
             selected = tab,
-            onSelect = { tab = it },
+            onSelect = { tab = it; searchOpen = false },
+            searchOpen = searchOpen,
+            searchQuery = searchQuery,
+            onSearchToggle = { searchOpen = !searchOpen; if (searchOpen) tab = HomeTab.HOME else searchQuery = "" },
+            onSearchQueryChange = { searchQuery = it },
             modifier = Modifier.zIndex(1f),
         )
     }

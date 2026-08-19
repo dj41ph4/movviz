@@ -226,10 +226,11 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
         }
     }
 
-    // Focus initial : hero (comme Netflix, le premier appui D-pad ouvre
-    // directement la vedette) sinon la toute première rangée réellement
-    // affichée (Continuer > Films > Séries) — jamais redemandé ensuite pour
-    // ne pas voler le focus de l'utilisateur à une rotation/rafraîchissement.
+    // Le héros reste au repos visuel au démarrage. Demander immédiatement le
+    // focus au CTA fait déclencher le scroll-into-view de TvLazyColumn et
+    // pousse le logo sous la barre transparente avant toute action utilisateur.
+    // Le CTA reste focusable : il est atteint naturellement avec DPAD_DOWN
+    // depuis la navigation, sans déplacer l'accueil tout seul.
     val heroCtaFocus = remember { FocusRequester() }
     val firstCardFocus = remember { FocusRequester() }
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
@@ -237,7 +238,6 @@ fun HomeScreen(viewModel: AppViewModel, onOpenTitle: (type: String, tmdbId: Int)
         if (hasRequestedInitialFocus) return@LaunchedEffect
         if (heroItems.isNotEmpty()) {
             hasRequestedInitialFocus = true
-            heroCtaFocus.requestFocus()
         } else if (continueCards.isNotEmpty() || recentMovies.isNotEmpty() || recentSeries.isNotEmpty()) {
             hasRequestedInitialFocus = true
             firstCardFocus.requestFocus()
@@ -371,6 +371,14 @@ private fun HeroCarousel(
     onOpen: (TvTitleCard) -> Unit,
 ) {
     val current = items[currentIndex.coerceIn(0, items.size - 1)]
+    var showTitleFallback by remember(current.id, logoPath) { mutableStateOf(false) }
+    LaunchedEffect(current.id, logoPath) {
+        showTitleFallback = false
+        if (logoPath == null) {
+            delay(3_000)
+            showTitleFallback = true
+        }
+    }
 
     // clipToBounds() est indispensable ici : le zoom Ken Burns agrandit
     // l'image avec scale() (une transformation de dessin, pas de layout) et
@@ -387,6 +395,9 @@ private fun HeroCarousel(
     // dans ce cas précis, constaté en direct sur émulateur. Les 80dp
     // supplémentaires laissent le hero s'étendre sous la barre transparente
     // sans placer le texte sous celle-ci.
+    // Hauteur contenue pour que le héros reste entièrement dans le viewport
+    // TV. Le focus initial n'est plus forcé : le logo ne passe donc plus sous
+    // la barre transparente avant la première action de l'utilisateur.
     Box(modifier = Modifier.fillMaxWidth().height(720.dp).clipToBounds()) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
@@ -448,7 +459,11 @@ private fun HeroCarousel(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 64.dp, end = 48.dp, bottom = 42.dp)
+                // Le CTA doit rester posé contre le bas du viewport, comme
+                // sur la fiche desktop/TV : pas de grand vide sous « Voir la
+                // fiche », tout en gardant le bouton entièrement cliquable.
+                .offset(y = (-200).dp)
+                .padding(start = 64.dp, end = 48.dp, bottom = 18.dp)
                 .widthIn(max = 760.dp),
         ) {
             Text(
@@ -461,15 +476,27 @@ private fun HeroCarousel(
                     painter = rememberAsyncImagePainter(model = "https://image.tmdb.org/t/p/w500$logoPath"),
                     contentDescription = current.title,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.heightIn(max = 88.dp).widthIn(max = 480.dp),
+                    alignment = Alignment.CenterStart,
+                    // Certains logos TMDb ont une large zone transparente à
+                    // gauche ; le canvas est aligné mais le visuel paraît
+                    // décalé vers la droite. Le léger recadrage le réaligne
+                    // sur les métadonnées et le synopsis.
+                    modifier = Modifier
+                        .offset(x = (-140).dp)
+                        .heightIn(max = 88.dp)
+                        .width(480.dp),
                 )
-            } else {
+            } else if (showTitleFallback) {
                 Text(
                     text = current.title,
                     style = TextStyle(fontSize = 42.sp, fontWeight = FontWeight.Black, color = MovvizInk, lineHeight = 46.sp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
+            } else {
+                // Réserve la place du logo pendant son chargement : aucun
+                // titre texte ne clignote avant de laisser sa place au logo.
+                Spacer(modifier = Modifier.height(88.dp).widthIn(max = 480.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {

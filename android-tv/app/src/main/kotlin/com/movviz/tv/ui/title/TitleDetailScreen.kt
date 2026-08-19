@@ -288,6 +288,14 @@ fun TitleDetailScreen(
         }
         val d = detail!!
         val titleLogoPath = heroLogos["$type-$tmdbId"]
+        var showTitleFallback by remember(titleLogoPath, d.tmdbId) { mutableStateOf(false) }
+        LaunchedEffect(titleLogoPath, d.tmdbId) {
+            showTitleFallback = false
+            if (titleLogoPath == null) {
+                delay(3_000)
+                showTitleFallback = true
+            }
+        }
 
         // Rangée "Titres similaires" — même esprit Netflix/Apple TV que le
         // web (TitleContent.tsx, "title.similar") : d.similar vient du même
@@ -306,7 +314,13 @@ fun TitleDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(start = 56.dp, end = 56.dp, bottom = 40.dp),
-            contentPadding = PaddingValues(top = 320.dp),
+            // Le backdrop reste derrière la fiche, mais le contenu doit
+            // commencer dans sa zone lisible (logo + métadonnées + synopsis
+            // + CTA visibles ensemble). 320dp faisait démarrer la fiche trop
+            // bas et le scroll TV pouvait la repousser encore davantage ;
+            // 56dp reprend le cadrage desktop/Apple TV et laisse ensuite la
+            // liste défiler normalement vers saisons et épisodes.
+            contentPadding = PaddingValues(top = 56.dp),
         ) {
             item {
             if (!hasFocusableCta) {
@@ -327,11 +341,13 @@ fun TitleDetailScreen(
                     painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),
                     contentDescription = d.title,
                     contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart,
                     modifier = Modifier
+                        .offset(x = (-140).dp)
                         .heightIn(max = 116.dp)
-                        .widthIn(max = 620.dp),
+                        .width(620.dp),
                 )
-            } else {
+            } else if (showTitleFallback) {
                 Text(
                     text = d.title,
                     style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Black, color = MovvizInk),
@@ -339,6 +355,8 @@ fun TitleDetailScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 720.dp),
                 )
+            } else {
+                Spacer(modifier = Modifier.height(116.dp).widthIn(max = 620.dp))
             }
 
             // Les états appartiennent au titre qu'on vient de lire : juste

@@ -20,8 +20,8 @@ interface MovvizApiService {
     @POST("api/auth/login")
     suspend fun login(@Body body: LoginRequest): Response<LoginResponse>
 
-    @POST("api/auth/plex/pin")
-    suspend fun createPlexPin(): Response<PlexPinDto>
+    @POST("api/auth/plex/tv-pin")
+    suspend fun createPlexTvPin(): Response<PlexPinDto>
 
     @POST("api/auth/plex/poll")
     suspend fun pollPlexPin(@Body body: PlexPollRequest): Response<PlexPollDto>
@@ -70,7 +70,7 @@ interface MovvizApiService {
     ): Response<MetadataSeasonDto>
 
     @GET("api/metadata/search")
-    suspend fun search(@Query("q") query: String): Response<SearchResponseDto>
+    suspend fun search(@Query("q") query: String, @Query("page") page: Int = 1): Response<SearchResponseDto>
 
     @GET("api/stream/{ratingKey}/info")
     suspend fun streamInfo(@Path("ratingKey") ratingKey: String): Response<StreamInfoDto>

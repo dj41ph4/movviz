@@ -256,6 +256,12 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
         return result
     }
 
+    suspend fun forgetServer() {
+        prefs.clearServerUrl()
+        com.movviz.tv.data.ApiClient.clearSession()
+        _serverUrl.value = null
+    }
+
     suspend fun createPlexPin(): ApiResult<PlexPinDto> =
         repository?.createPlexPin() ?: ApiResult.Failure("Aucun serveur configuré")
 

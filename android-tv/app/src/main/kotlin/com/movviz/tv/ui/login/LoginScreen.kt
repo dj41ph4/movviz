@@ -51,11 +51,13 @@ import kotlinx.coroutines.delay
 /** Même composition carte que WizardScreen — logo animé, titre, champs
  *  étiquetés, bouton en dégradé de marque. */
 @Composable
-fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
+fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer: () -> Unit = {}) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var plexBusy by remember { mutableStateOf(false) }
+    var plexCode by remember { mutableStateOf<String?>(null) }
+    var plexAuthUrl by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -155,18 +157,23 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
                         try {
                             when (val pin = viewModel.createPlexPin()) {
                                 is ApiResult.Success -> {
-                                    val opened = runCatching {
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(pin.data.authUrl)))
-                                    }.isSuccess
-                                    if (!opened) {
-                                        error = "Impossible d'ouvrir Plex sur cet appareil"
-                                        return@launch
-                                    }
+                                    // Android TV n'a pas toujours de navigateur
+                                    // disponible. Le code Plex est présent dans
+                                    // le fragment de l'URL renvoyée par le
+                                    // backend : on l'affiche donc directement
+                                    // avec plex.tv/link, utilisable depuis un
+                                    // téléphone ou un ordinateur.
+                                    plexAuthUrl = pin.data.authUrl
+                                    // The backend requests Plex's TV flow
+                                    // (without strong=true), which returns the
+                                    // short four-character link code.
+                                    plexCode = pin.data.code.ifBlank { extractPlexCode(pin.data.authUrl) }
                                     val deadline = System.currentTimeMillis() + 120_000L
                                     while (System.currentTimeMillis() < deadline) {
                                         delay(2_000L)
                                         when (val poll = viewModel.pollPlexPin(pin.data.id)) {
                                             is ApiResult.Success -> if (poll.data.done) {
+                                                plexCode = null
                                                 onLoggedIn()
                                                 return@launch
                                             }
@@ -216,6 +223,55 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 Text(text = "Pas encore de compte ? ", style = TextStyle(fontSize = 11.sp, color = MovvizInkDim))
                 Text(text = "Créer un compte", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary))
+            }
+            Spacer(Modifier.height(12.dp))
+            Surface(
+                onClick = onChangeServer,
+                colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = MovvizInkDim),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(8.dp)),
+            ) {
+                Text("Changer de serveur", fontSize = 11.sp, color = MovvizInkDim, modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp))
+            }
+        }
+        if (plexCode != null) {
+            PlexCodeOverlay(
+                code = plexCode!!,
+                onOpen = {
+                    runCatching {
+                        val link = plexCode?.let { "https://plex.tv/link/?pin=${Uri.encode(it)}" }
+                            ?: plexAuthUrl
+                            ?: "https://plex.tv/link"
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
+                    }
+                },
+                onClose = { plexCode = null; plexAuthUrl = null },
+            )
+        }
+    }
+}
+
+private fun extractPlexCode(authUrl: String): String? {
+    val fragment = Uri.parse(authUrl).fragment ?: return null
+    val query = fragment.substringAfter('?', fragment)
+    return Uri.parse("https://plex.local/?$query").getQueryParameter("code")
+}
+
+@Composable
+private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Unit) {
+    Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .78f)), contentAlignment = Alignment.Center) {
+        Column(Modifier.width(520.dp).background(Color(0xFF101225), RoundedCornerShape(22.dp)).padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Connexion Plex", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Spacer(Modifier.height(12.dp))
+            Text("Depuis un téléphone ou un ordinateur, ouvre", fontSize = 14.sp, color = MovvizInkSoft)
+            Text("plex.tv/link", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MovvizAmber)
+            Spacer(Modifier.height(12.dp))
+            Text(code.chunked(1).joinToString(" "), fontSize = 42.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = 5.sp)
+            Spacer(Modifier.height(8.dp))
+            Text("La TV attend automatiquement la validation…", fontSize = 13.sp, color = MovvizInkDim)
+            Spacer(Modifier.height(22.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Surface(onClick = onOpen, colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
+                Surface(onClick = onClose, colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f)), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Annuler", color = Color.White, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
             }
         }
     }

@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.9 — August 2026
+
+### Android TV : liaison Plex
+
+- Ajout d’une route dédiée au code court Plex pour les appareils TV, sans modifier le flux Plex desktop existant.
+- Android TV affiche et utilise le PIN de liaison court via `plex.tv/link`.
+- Le lien discret de changement de serveur efface proprement la configuration locale avant de revenir à l’assistant.
+
 ## v1.16.8 — August 2026
 
 ### Chat desktop : continuité et goût

@@ -30,6 +30,7 @@ import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizTvTheme
 import com.movviz.tv.ui.title.TitleDetailScreen
 import com.movviz.tv.ui.wizard.WizardScreen
+import kotlinx.coroutines.launch
 
 private const val ROUTE_WIZARD = "wizard"
 private const val ROUTE_LOGIN = "login"
@@ -54,6 +55,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun MovvizNavHost(viewModel: AppViewModel) {
     val navController = rememberNavController()
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
 
     // Décision de l'écran de départ, une seule fois au lancement : pas
     // d'URL connue → wizard ; URL connue mais cookie de session persisté
@@ -119,6 +121,14 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                 onLoggedIn = {
                     navController.navigate(ROUTE_HOME) {
                         popUpTo(ROUTE_LOGIN) { inclusive = true }
+                    }
+                },
+                onChangeServer = {
+                    scope.launch {
+                        viewModel.forgetServer()
+                        navController.navigate(ROUTE_WIZARD) {
+                            popUpTo(ROUTE_LOGIN) { inclusive = true }
+                        }
                     }
                 },
             )

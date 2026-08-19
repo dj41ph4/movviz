@@ -66,6 +66,21 @@ export async function createPin(clientId: string): Promise<{ id: number; code: s
   }
 }
 
+/** Short 4-character link PIN reserved for big-screen clients. */
+export async function createTvPin(clientId: string): Promise<{ id: number; code: string } | null> {
+  try {
+    const res = await fetch("https://plex.tv/api/v2/pins", {
+      method: "POST",
+      headers: headers(clientId),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { id: data.id, code: data.code };
+  } catch {
+    return null;
+  }
+}
+
 export function buildAuthUrl(clientId: string, code: string): string {
   const params = new URLSearchParams({
     clientID: clientId,

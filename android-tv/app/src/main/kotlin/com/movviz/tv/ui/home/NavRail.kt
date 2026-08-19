@@ -2,11 +2,15 @@ package com.movviz.tv.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -26,6 +30,8 @@ import com.movviz.tv.ui.theme.tvPointerClick
 
 enum class HomeTab(val label: String) {
     HOME("Accueil"),
+    MOVIES("Films"),
+    SERIES("Séries"),
     SEARCH("Recherche"),
     SETTINGS("Paramètres"),
 }
@@ -37,7 +43,15 @@ enum class HomeTab(val label: String) {
  * aplat neutre discret ; le focus D-pad garde seul une bordure nette.
  */
 @Composable
-fun NavRail(selected: HomeTab, onSelect: (HomeTab) -> Unit, modifier: Modifier = Modifier) {
+fun NavRail(
+    selected: HomeTab,
+    onSelect: (HomeTab) -> Unit,
+    searchOpen: Boolean = false,
+    searchQuery: String = "",
+    onSearchToggle: () -> Unit = {},
+    onSearchQueryChange: (String) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
@@ -77,6 +91,13 @@ fun NavRail(selected: HomeTab, onSelect: (HomeTab) -> Unit, modifier: Modifier =
         }
 
         Spacer(modifier = Modifier.weight(1f))
+        SearchButton(
+            open = searchOpen,
+            query = searchQuery,
+            onToggle = onSearchToggle,
+            onQueryChange = onSearchQueryChange,
+        )
+        Spacer(modifier = Modifier.width(22.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
@@ -92,7 +113,48 @@ fun NavRail(selected: HomeTab, onSelect: (HomeTab) -> Unit, modifier: Modifier =
                     color = MovvizInkDim,
                     letterSpacing = 1.4.sp,
                 ),
+                maxLines = 1,
             )
+        }
+    }
+}
+
+@Composable
+private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQueryChange: (String) -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val inputRequester = remember { FocusRequester() }
+    LaunchedEffect(open) { if (open) inputRequester.requestFocus() }
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp)
+    Surface(
+        onClick = onToggle,
+        modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick(onToggle),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (open) Color.White.copy(alpha = .14f) else Color.Transparent,
+            focusedContainerColor = Color.White.copy(alpha = .10f),
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = androidx.tv.material3.Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = .65f)),
+                shape = shape,
+            ),
+        ),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)) {
+            Canvas(Modifier.size(24.dp)) {
+                drawCircle(Color.White, radius = 7.dp.toPx(), center = androidx.compose.ui.geometry.Offset(9.dp.toPx(), 9.dp.toPx()), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+                drawLine(Color.White, androidx.compose.ui.geometry.Offset(14.dp.toPx(), 14.dp.toPx()), androidx.compose.ui.geometry.Offset(21.dp.toPx(), 21.dp.toPx()), strokeWidth = 2.dp.toPx())
+            }
+            if (open) {
+                Spacer(Modifier.width(8.dp))
+                BasicTextField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    textStyle = TextStyle(fontSize = 16.sp, color = Color.White),
+                    modifier = Modifier.width(180.dp).focusRequester(inputRequester),
+                )
+            }
         }
     }
 }

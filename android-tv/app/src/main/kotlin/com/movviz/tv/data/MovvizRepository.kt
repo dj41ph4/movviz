@@ -35,7 +35,7 @@ class MovvizRepository(private val baseUrl: String) {
     }
 
     suspend fun createPlexPin(): ApiResult<PlexPinDto> =
-        safeCall { api.createPlexPin() }
+        safeCall { api.createPlexTvPin() }
 
     suspend fun pollPlexPin(id: Long): ApiResult<PlexPollDto> =
         safeCall { api.pollPlexPin(PlexPollRequest(id)) }
@@ -87,8 +87,23 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun metadataSeason(tmdbId: Int, seasonNumber: Int): ApiResult<MetadataSeasonDto> =
         safeCall { api.metadataSeason(tmdbId, seasonNumber) }
 
-    suspend fun search(query: String): ApiResult<List<SearchResultDto>> =
-        safeCall { api.search(query) }.map { it.results }
+    /** TMDb renvoie une vingtaine de résultats par page. La recherche TV
+     * affiche trois pages (jusqu'à 60 titres) pour rester proche du catalogue
+     * Netflix, sans modifier la route backend. */
+    suspend fun search(query: String): ApiResult<List<SearchResultDto>> {
+        val all = mutableListOf<SearchResultDto>()
+        for (page in 1..3) {
+            when (val response = safeCall { api.search(query, page) }) {
+                is ApiResult.Success -> {
+                    all += response.data.results
+                    if (response.data.results.isEmpty() || page >= response.data.totalPages) break
+                }
+                is ApiResult.Failure -> if (page == 1) return response
+                ApiResult.Unauthorized -> return ApiResult.Unauthorized
+            }
+        }
+        return ApiResult.Success(all.distinctBy { "${it.type}-${it.tmdbId}" })
+    }
 
     /** Liste brute "Continuer à regarder" — voir OnDeckEntryDto. Distinct de
      *  resumeOffsetMs ci-dessous, qui ne fait qu'y chercher une seule entrée
