@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.26 — August 2026
+
+### Android TV : menu profil style Netflix
+
+- Remplace le texte « MOVVIZ TV » en haut à droite par l'avatar du profil actif, toujours visible.
+- Au clic : menu style Netflix avec « Changer d'utilisateur » (→ écran « Qui est-ce ? » : choix d'un profil du foyer ou ajout d'un membre), les profils du foyer en raccourci et « + Ajouter un utilisateur ».
+- Un compte invité qui choisit « Changer d'utilisateur » repasse par le login (il n'a pas de foyer).
+
 ## v1.16.25 — August 2026
 
 ### Android TV : auto-update améliorée

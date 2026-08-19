@@ -32,6 +32,7 @@ fun MainScreen(
     onLoggedOut: () -> Unit,
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
+    onSwitchProfile: () -> Unit = {},
 ) {
     var tab by remember { mutableStateOf(HomeTab.HOME) }
     var searchOpen by remember { mutableStateOf(false) }
@@ -73,8 +74,9 @@ fun MainScreen(
             onSearchQueryChange = { searchQuery = it },
             profiles = viewModel.profiles.collectAsState().value,
             activeProfile = viewModel.activeProfile.collectAsState().value,
-            onProfileSelected = onProfileSelected,
+onProfileSelected = onProfileSelected,
             onAddProfile = onAddProfile,
+            onSwitchProfile = onSwitchProfile,
             modifier = Modifier.zIndex(1f),
         )
     }

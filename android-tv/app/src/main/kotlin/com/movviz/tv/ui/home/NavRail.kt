@@ -59,6 +59,7 @@ fun NavRail(
     activeProfile: TvProfile? = null,
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
+    onSwitchProfile: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -99,7 +100,7 @@ fun NavRail(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+Spacer(modifier = Modifier.weight(1f))
         SearchButton(
             open = searchOpen,
             query = searchQuery,
@@ -107,28 +108,17 @@ fun NavRail(
             onQueryChange = onSearchQueryChange,
         )
         Spacer(modifier = Modifier.width(22.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(7.dp)
-                    .background(Color(0xFF43E6A0), androidx.compose.foundation.shape.CircleShape),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "MOVVIZ TV",
-                style = TextStyle(
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MovvizInkDim,
-                    letterSpacing = 1.4.sp,
-                ),
-                maxLines = 1,
-            )
-        }
-        if (profiles.isNotEmpty()) {
-            Spacer(modifier = Modifier.width(16.dp))
-            ProfileMenuButton(profiles, activeProfile, onProfileSelected, onAddProfile)
-        }
+        // À la place du texte "MOVVIZ TV" : l'avatar du profil actif, toujours
+        // visible — même composition que Netflix. Le menu donne accès au
+        // changement d'utilisateur (→ écran "Qui est-ce ?") et, pour l'admin,
+        // aux profils du foyer en raccourci + l'ajout d'un membre.
+        ProfileMenuButton(
+            profiles = profiles,
+            active = activeProfile,
+            onSelect = onProfileSelected,
+            onAdd = onAddProfile,
+            onSwitch = onSwitchProfile,
+        )
     }
 }
 
@@ -138,6 +128,7 @@ private fun ProfileMenuButton(
     active: TvProfile?,
     onSelect: (TvProfile) -> Unit,
     onAdd: () -> Unit,
+    onSwitch: () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
@@ -161,18 +152,38 @@ private fun ProfileMenuButton(
             ) {
                 Surface(
                     onClick = {},
-                    modifier = Modifier.width(270.dp),
+                    modifier = Modifier.width(280.dp),
                     shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
                     colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF222222), focusedContainerColor = Color(0xFF222222)),
                 ) {
                     Column(Modifier.padding(10.dp)) {
-                        profiles.forEach { profile ->
-                            Surface(onClick = { open = false; onSelect(profile) }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
-                                Text(profile.name, color = Color.White, fontSize = 17.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
+                        // Entrée principale — ouvre l'écran "Qui est-ce ?" (choix
+                        // d'un profil du foyer ou ajout d'un membre). Netflix
+                        // fonctionne exactement comme ça : le menu mène au
+                        // sélecteur plein écran.
+                        Surface(onClick = { open = false; onSwitch() }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp)) {
+                                Text("⇄", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(end = 10.dp))
+                                Text("Changer d'utilisateur", color = Color.White, fontSize = 17.sp)
                             }
                         }
-                        Surface(onClick = { open = false; onAdd() }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
-                            Text("+ Ajouter un utilisateur", color = MovvizBrand2, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
+                        if (profiles.isNotEmpty()) {
+                            Spacer(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .padding(horizontal = 8.dp)
+                                    .background(Color.White.copy(alpha = 0.08f)),
+                            )
+                            Spacer(Modifier.height(4.dp))
+                            profiles.forEach { profile ->
+                                Surface(onClick = { open = false; onSelect(profile) }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
+                                    Text(profile.name, color = Color.White, fontSize = 17.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
+                                }
+                            }
+                            Surface(onClick = { open = false; onAdd() }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
+                                Text("+ Ajouter un utilisateur", color = MovvizBrand2, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
+                            }
                         }
                     }
                 }

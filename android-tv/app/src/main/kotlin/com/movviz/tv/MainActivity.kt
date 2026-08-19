@@ -211,6 +211,18 @@ composable(ROUTE_LOGIN) {
                     }
                 },
                 onAddProfile = { navController.navigate(ROUTE_ADD_PROFILE) },
+                onSwitchProfile = {
+                    // "Changer d'utilisateur" : l'admin retrouve l'écran
+                    // "Qui est-ce ?" (choix du foyer ou ajout d'un membre) ;
+                    // un compte invité, qui n'a pas de foyer, repasse par le
+                    // login pour se connecter avec un autre compte.
+                    val target =
+                        if (viewModel.currentUser.value?.role == "admin" && viewModel.profiles.value.isNotEmpty()) ROUTE_PROFILES
+                        else ROUTE_LOGIN
+                    navController.navigate(target) {
+                        popUpTo(ROUTE_HOME) { inclusive = target == ROUTE_LOGIN }
+                    }
+                },
             )
         }
         composable(
