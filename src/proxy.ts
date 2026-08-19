@@ -20,6 +20,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/auth/logout",
   "/api/auth/me",
   "/api/auth/plex/pin",
+  "/api/auth/plex/tv-pin",
   "/api/auth/plex/poll",
   "/api/healthz",
   "/api/library/import",

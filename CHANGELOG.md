@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.10 — August 2026
+
+### Android TV : liaison Plex
+
+- Autorise explicitement la nouvelle route PIN TV dans le proxy d’authentification afin que l’émulateur et les appareils Android TV puissent l’appeler sans session.
+
 ## v1.16.9 — August 2026
 
 ### Android TV : liaison Plex
