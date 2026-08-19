@@ -16,8 +16,8 @@ android {
         applicationId = "com.movviz.tv"
         minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-versionCode = 11628
-        versionName = "1.16.28"
+versionCode = 11629
+        versionName = "1.16.29"
     }
 
     // Deux canaux de distribution depuis le même code :

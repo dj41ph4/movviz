@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.29 — August 2026
+
+### Android TV : fiche série — fin du clignotement et du retour forcé à la saison 1
+
+- Le rafraîchissement périodique de la fiche (3 s) vidait les saisons avant de les recharger : l'écran clignotait et la sélection D-pad était réinitialisée (retour à la saison 1 après chaque poll).
+- Les saisons ne sont plus vidées que lors d'un CHANGEMENT de série ; un simple rafraîchissement conserve l'affichage en place.
+- La saison par défaut n'est choisie qu'à l'ouverture de la fiche : un rafraîchissement n'écrase plus jamais le choix de l'utilisateur.
+
 ## v1.16.28 — August 2026
 
 ### Android TV : menu profil retravaillé + navigation

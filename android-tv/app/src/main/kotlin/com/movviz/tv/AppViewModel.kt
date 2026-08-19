@@ -161,10 +161,19 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     fun seriesLibraryId(tmdbId: Int): String? =
         _series.value.firstOrNull { it.tmdbId == tmdbId }?.id
 
+    /** Série dont les saisons sont affichées — permet de ne vider la liste
+     * que lors d'un CHANGEMENT de série, jamais pendant un simple
+     * rafraîchissement (sinon l'écran clignote et le choix de saison est
+     * réinitialisé toutes les 3 secondes). */
+    private var seasonsTmdbId: Int? = null
+
     fun loadSeriesSeasons(tmdbId: Int) {
         val repo = repository ?: return
         val seriesId = seriesLibraryId(tmdbId) ?: return
-        _seriesSeasons.value = emptyList()
+        if (seasonsTmdbId != tmdbId) {
+            seasonsTmdbId = tmdbId
+            _seriesSeasons.value = emptyList()
+        }
         viewModelScope.launch {
             when (val s = repo.seriesSeasons(seriesId)) {
                 is ApiResult.Success -> _seriesSeasons.value = s.data

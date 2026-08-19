@@ -194,8 +194,11 @@ fun TitleDetailScreen(
     // saisons de l'histoire principale dans le parcours TV.
     val visibleSeasons = remember(seasons) { seasons.filter { it.seasonNumber > 0 } }
     LaunchedEffect(visibleSeasons) {
-        if (selectedSeasonNumber !in visibleSeasons.map { it.seasonNumber }) {
-            selectedSeasonNumber = visibleSeasons.firstOrNull()?.seasonNumber
+        // Ne choisir la saison par défaut qu'à l'OUVERTURE (null) : un
+        // rafraîchissement du titre toutes les 3 s ne doit jamais écraser
+        // la sélection D-pad (sinon retour à la saison 1 après chaque poll).
+        if (selectedSeasonNumber == null && visibleSeasons.isNotEmpty()) {
+            selectedSeasonNumber = visibleSeasons.first().seasonNumber
         }
     }
     val selectedSeason = visibleSeasons.firstOrNull { it.seasonNumber == selectedSeasonNumber }
