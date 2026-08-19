@@ -10,6 +10,10 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Auto-update (variante AU uniquement) : demande l'autorisation
+         "installer des applications inconnues" puis installe l'APK de la
+         dernière release GitHub via ACTION_VIEW. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".MovvizTvApplication"
@@ -40,6 +44,19 @@
             android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.MovvizTv.Player" />
+
+        <!-- Partage de l'APK téléchargé (cache/update) avec l'installeur
+             système — l'authority suit l'applicationId, donc chaque variante
+             (retail/AU) a la sienne : ${applicationId}.fileprovider -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

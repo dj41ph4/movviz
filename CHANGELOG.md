@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.19 — August 2026
+
+### Android TV : auto-update sans magasin (variante AU)
+
+- Nouvelle variante d'APK **AU** (« auto-update ») à côté du retail : au lancement, elle interroge les releases GitHub publiques de Movviz, compare la version et affiche « Mise à jour, veuillez patienter… » avec une barre de progression pendant le téléchargement.
+- SHA-256 vérifié contre le digest publié sur GitHub avant installation — un fichier corrompu ou falsifié n'est jamais installé.
+- Installation via l'installeur système (FileProvider) ; autorisation « sources inconnues » gérée au premier lancement, reprise automatique au retour des réglages.
+- Le retail reste sans auto-update ; les deux APK partagent la même signature — l'AU se met à jour par-dessus sans perte de données.
+- Le CI publie désormais les deux APK (`Movviz-Android-TV-client-retail.apk` et `Movviz-Android-TV-client-AU.apk`) sur chaque release.
+
 ## v1.16.18 — August 2026
 
 ### Android TV : lecture en 3 niveaux — direct > ffmpeg audio seul > HLS

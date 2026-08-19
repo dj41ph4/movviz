@@ -16,8 +16,31 @@ android {
         applicationId = "com.movviz.tv"
         minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-versionCode = 11618
-        versionName = "1.16.18"
+        versionCode = 11619
+        versionName = "1.16.19"
+    }
+
+    // Deux canaux de distribution depuis le même code :
+    //  - retail : APK stable, installé à la main (l'APK historique, signature
+    //    retail — l'auto-update y est désactivé pour ne jamais surprendre)
+    //  - au : variante "auto-update" — vérifie GitHub au lancement, télécharge
+    //    et installe la nouvelle version AU avec un écran de progression.
+    // Les deux partagent la même clé de signature retail : l'AU peut se
+    // remplacer lui-même (même package, même clé) sans perdre les données.
+    flavorDimensions += "channel"
+    productFlavors {
+        create("retail") {
+            dimension = "channel"
+            buildConfigField("boolean", "AUTO_UPDATE", "false")
+        }
+        create("au") {
+            dimension = "channel"
+            applicationIdSuffix = ".au"
+            buildConfigField("boolean", "AUTO_UPDATE", "true")
+            // Label distinct dans le launcher pour ne pas confondre les deux
+            // APK installés côte à côte pendant une migration.
+            resValue("string", "app_name", "Movviz AU")
+        }
     }
 
     signingConfigs {

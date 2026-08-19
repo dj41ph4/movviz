@@ -29,6 +29,7 @@ import com.movviz.tv.ui.player.PlayerActivity
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizTvTheme
 import com.movviz.tv.ui.title.TitleDetailScreen
+import com.movviz.tv.ui.update.AutoUpdateOverlay
 import com.movviz.tv.ui.wizard.WizardScreen
 import kotlinx.coroutines.launch
 
@@ -104,7 +105,11 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         return
     }
 
-    NavHost(navController = navController, startDestination = resolvedStart) {
+    // L'overlay d'auto-update (variante AU uniquement, jamais en retail) se
+    // pose PAR-DESSUS la navigation : il bloque l'interaction pendant le
+    // téléchargement/installation, et disparaît en cas de souci.
+    Box(modifier = Modifier.fillMaxSize()) {
+        NavHost(navController = navController, startDestination = resolvedStart) {
         composable(ROUTE_WIZARD) {
             WizardScreen(
                 viewModel = viewModel,
@@ -181,5 +186,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                 },
             )
         }
+        }
+        AutoUpdateOverlay()
     }
 }

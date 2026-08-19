@@ -63,29 +63,41 @@ jobs:
           fi
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$keystore" "$store_password" "$key_alias" "$key_password" > android-tv/keystore.properties
 
-      - name: Build retail APK
+      - name: Build APKs (retail + AU)
         working-directory: android-tv
+        # assembleRelease construit les DEUX flavors (retail + au) — l'APK AU
+        # embarque l'auto-update (BuildConfig.AUTO_UPDATE=true), le retail en
+        # est dépourvu. Même clé de signature pour les deux : l'AU peut se
+        # remplacer lui-même par-dessus sans perte de données.
         run: gradle assembleRelease --no-daemon
 
-      # Renommé explicitement "client" — contrairement à l'installeur Windows
-      # (qui contient le serveur complet), cet APK est un client TV qui se
-      # connecte à un serveur Movviz déjà existant. Éviter toute ambiguïté
+      # Renommés explicitement "client" — contrairement à l'installeur Windows
+      # (qui contient le serveur complet), ces APK sont des clients TV qui se
+      # connectent à un serveur Movviz déjà existant. Éviter toute ambiguïté
       # dans la liste des assets d'une Release, à côté du .exe.
-      - name: Rename APK as retail client build
-        run: cp android-tv/app/build/outputs/apk/release/app-release.apk android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client-retail.apk
+      - name: Rename APKs as client builds
+        run: |
+          cp android-tv/app/build/outputs/apk/retail/release/app-retail-release.apk android-tv/app/build/outputs/apk/retail/release/Movviz-Android-TV-client-retail.apk
+          cp android-tv/app/build/outputs/apk/au/release/app-au-release.apk android-tv/app/build/outputs/apk/au/release/Movviz-Android-TV-client-AU.apk
 
-      - name: Upload APK artifact
+      - name: Upload APK artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Movviz-Android-TV-client-retail
-          path: android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client-retail.apk
+          name: Movviz-Android-TV-client
+          path: |
+            android-tv/app/build/outputs/apk/retail/release/Movviz-Android-TV-client-retail.apk
+            android-tv/app/build/outputs/apk/au/release/Movviz-Android-TV-client-AU.apk
 
-      - name: Attach APK to release
+      - name: Attach APKs to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client-retail.apk
+          files: |
+            android-tv/app/build/outputs/apk/retail/release/Movviz-Android-TV-client-retail.apk
+            android-tv/app/build/outputs/apk/au/release/Movviz-Android-TV-client-AU.apk
           append_body: true
           body: |
             ---
-            **Movviz-Android-TV-client-retail.apk** — client Android TV (Kotlin/Compose), signé pour installation retail. Se connecte à un serveur Movviz déjà installé (voir l'installeur Windows ci-dessus ou l'image Docker) ; ne fonctionne pas seul.
+            **Movviz-Android-TV-client-retail.apk** — client Android TV (Kotlin/Compose), signé pour installation retail, sans auto-update. Se connecte à un serveur Movviz déjà installé (voir l'installeur Windows ci-dessus ou l'image Docker) ; ne fonctionne pas seul.
+
+            **Movviz-Android-TV-client-AU.apk** — variante auto-update : vérifie GitHub au lancement, télécharge et installe la prochaine version AU avec un écran « Mise à jour, veuillez patienter… ». La signature retail est partagée : l'AU se met à jour par-dessus sans perte de données.
