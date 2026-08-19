@@ -1,8 +1,10 @@
 import { loadPlexConfig } from "./store";
-import { getAccountHistory, batchTmdbIds } from "./client";
+import { getAccountHistory, batchTmdbIds, type PlexHistoryEntry } from "./client";
+import type { PlexServerConfig } from "./types";
 import { saveWatchStatus, getWatchStatus, type RecentWatch } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
+import { loadUsers } from "@/lib/auth/store";
 
 /**
  * Read this user's own watch state directly from Plex.
@@ -36,33 +38,6 @@ export async function syncUserWatchStatus(user: User) {
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) return;
 
-  // BARRIÈRE HERMÉTIQUE ABSOLUE ENTRE PROFILS (bug constaté en prod : le
-  // contexte IA de chaque ami importé affichait l'activité du compte de
-  // liaison — "294 films vus, Les Simpson 714 ép..." alors que seul le
-  // compte de liaison regarde). Plex ne filtre PAS l'historique par
-  // accountID pour les comptes AMIS (friends) : /status/sessions/history/all
-  // renvoie l'historique du SERVEUR (celui du propriétaire/admin) quel que
-  // soit l'accountID passé. Décision utilisateur (strictement nominative) :
-  // "peu importe le profil, ça doit être hermétique, le contexte est
-  // biaisé sinon". Seul le compte authentifié avec SON token (plexToken)
-  // a un historique dont on est certain qu'il est le sien. Tous les autres
-  // profils — amis, Home-managed, non liés — n'ont AUCUNE source fiable :
-  // on ne leur écrit rien, et on VIDE leurs données antérieures,
-  // contaminées par ce bug (un profil sans token propre n'a aucun autre
-  // chemin d'écriture de watch status qu'un lien Plex douteux).
-  if (!user.plexToken) {
-    const previous = getWatchStatus(user.id);
-    if (previous && (previous.movies.length > 0 || previous.episodes.length > 0 || (previous.recent?.length ?? 0) > 0)) {
-      saveWatchStatus({ userId: user.id, movies: [], episodes: [], recent: [], updatedAt: Date.now() });
-      recordSearchLog(
-        "warn",
-        "plex.watchSync",
-        `${user.username} : profil sans token propre — l'historique Plex n'est pas nominatif pour ce profil (Plex renvoie l'activité du serveur). Données contaminées vidées : aucune activité d'un autre compte ne fuit ici.`
-      );
-    }
-    return;
-  }
-
   // Bug fix (confirmed live — "chaque profil doit être indépendant"):
   // `plexManagedUserId` is set by the admin's "assign a Plex Home profile"
   // flow (PlexSettings.tsx → /api/plex/assign-profile) for a Movviz account
@@ -88,6 +63,37 @@ export async function syncUserWatchStatus(user: User) {
         `${user.username} (plexId:${accountId}): aucun historique Plex retourné — sync ignorée, données précédentes conservées (${previous ? `${previous.movies.length} films / ${previous.episodes.length} épisodes` : "aucune donnée existante"})`
       );
       return;
+    }
+
+    // GARDE ANTI-FUITE ENTRE PROFILS (bug constaté en prod : le contexte IA
+    // de chaque ami importé affichait l'activité du compte de liaison —
+    // "294 films vus, Les Simpson 714 ép..." — alors que l'admin se
+    // contente d'importer ses amis Plex, sans autre interaction). Sur
+    // /status/sessions/history/all, Plex applique le filtre accountID pour
+    // certains comptes mais peut l'IGNORER pour d'autres et renvoyer
+    // l'historique COMPLET du serveur (celui du propriétaire) — chaque ami
+    // recevait alors les vues de l'admin. Un compte ne peut pas
+    // légitimement avoir un historique STRICTEMENT IDENTIQUE à celui du
+    // propriétaire (mêmes films, mêmes épisodes, même volume) : on compare
+    // les empreintes (ratingKeys triés) et on refuse d'écrire si elles
+    // correspondent, puis on VIDE les données antérieures contaminées. Un
+    // historique différent = bien le sien → sync normal, personne n'est
+    // privé de ses vraies vues/reprises/préférences.
+    const owner = ownerAccountId();
+    if (owner !== null && accountId !== owner) {
+      const fp = await ownerFingerprint(cfg);
+      if (fp !== null && fingerprint(history) === fp) {
+        const previous = getWatchStatus(user.id);
+        if (previous && (previous.movies.length > 0 || previous.episodes.length > 0 || (previous.recent?.length ?? 0) > 0)) {
+          saveWatchStatus({ userId: user.id, movies: [], episodes: [], recent: [], updatedAt: Date.now() });
+          recordSearchLog(
+            "warn",
+            "plex.watchSync",
+            `${user.username} : Plex a renvoyé l'historique du SERVEUR (celui du compte de liaison) au lieu du sien — refus d'écrire, données contaminées vidées.`
+          );
+        }
+        return;
+      }
     }
 
     const movieRatingKeys = [...new Set(history.filter((h) => h.type === "movie").map((h) => h.ratingKey))];
@@ -153,4 +159,36 @@ export async function syncUserWatchStatus(user: User) {
       `${user.username} (plexId:${accountId}): échec de synchronisation — ${msg} — données précédentes conservées`
     );
   }
+}
+
+let cachedOwner: number | null | undefined;
+function ownerAccountId(): number | null {
+  if (cachedOwner === undefined) {
+    const owner = loadUsers().find((u) => u.plexToken);
+    const raw = owner ? (owner.plexId ?? owner.plexManagedUserId) : null;
+    cachedOwner = raw ? Number(raw) || null : null;
+  }
+  return cachedOwner;
+}
+
+let cachedOwnerFingerprint: string | null | undefined;
+async function ownerFingerprint(cfg: PlexServerConfig): Promise<string | null> {
+  const owner = ownerAccountId();
+  if (owner === null) return null;
+  if (!cfg.adminToken) return null;
+  if (cachedOwnerFingerprint === undefined) {
+    try {
+      cachedOwnerFingerprint = fingerprint(await getAccountHistory(cfg, cfg.adminToken, owner));
+    } catch {
+      cachedOwnerFingerprint = null;
+    }
+  }
+  return cachedOwnerFingerprint;
+}
+
+function fingerprint(history: PlexHistoryEntry[]): string {
+  return history
+    .map((h) => (h.type === "movie" ? `m:${h.ratingKey}` : `e:${h.ratingKey}`))
+    .sort()
+    .join(",");
 }

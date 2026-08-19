@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.32 — August 2026
+
+### Hermétisme des profils affiné : chacun garde SES vues, rien ne se mélange
+
+- **Correctif de la 1.16.31** : les comptes amis importés possèdent leurs propres comptes Plex (l'admin ne fait qu'un import dans Utilisateurs, rien d'autre) — ils doivent donc récupérer **leur** historique, leurs reprises et leurs préférences, pas rester vides.
+- **Garde anti-fuite dans les données** : Plex peut renvoyer l'historique du serveur (celui du compte de liaison) au lieu de celui du compte demandé. L'empreinte (films + épisodes) de chaque historique est comparée à celle du compte de liaison : identique → refus d'écrire + données antérieures contaminées vidées ; différente → c'est bien le sien, synchronisation normale. Aucune activité d'un profil ne fuit vers un autre, et aucun profil n'est privé de ses vraies données.
+
 ## v1.16.31 — August 2026
 
 ### Profils hermétiques + mémoire IA étendue + réinitialisation du contexte
