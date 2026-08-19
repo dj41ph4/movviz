@@ -18,7 +18,11 @@ const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR 
 const FILE = path.join(CONFIG_DIR, "ai-user-profiles.json");
 
 const MAX_FEEDBACK_ENTRIES = 200;
-const MAX_FACT_ENTRIES = 30;
+// 100 faits — demande explicite ("il doit enregistrer plus de contexte,
+// plus il en apprend plus il me connaît") : l'extraction conversationnelle
+// continue (factExtractor.ts) alimente ce stock, qui doit couvrir des mois
+// de conversations sans évincer les apprentissages importants.
+const MAX_FACT_ENTRIES = 100;
 
 function read(): AiProfileStore {
   const raw = readJsonCached<AiProfileStore | null>(FILE, null);
@@ -97,6 +101,20 @@ export function rememberFact(userId: string, fact: string): void {
 
 export function getFacts(userId: string): AiFactEntry[] {
   return profileForUser(read(), userId).facts;
+}
+
+/** Réinitialise le contexte IA à zéro (bouton « Réinitialiser le contexte »
+ *  du panneau profil — demande explicite : "revenir à 0"). Vide le contexte
+ *  consolidé (insights) ET les faits retenus en conversation : tout ce que
+ *  l'assistant avait appris sur l'utilisateur est oublié, il repart de rien.
+ *  Les retours 👍/👎, notes et corrections sont des ACTIONS de l'utilisateur,
+ *  pas du contexte appris : on les conserve (un reset ne doit pas effacer
+ *  l'historique réel de ses votes). */
+export function resetContextProfile(userId: string): void {
+  const store = read();
+  const profile = profileForUser(store, userId);
+  store[userId] = { ...profile, context: undefined, facts: [] };
+  write(store);
 }
 
 /** Whether the user's first name is already known — checked loosely (any

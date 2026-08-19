@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
 import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating } from "@/lib/ai/intentParser";
+import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating, getRating, getAllRatings, getLastProactiveRatingAskAt, markProactiveRatingAsked } from "@/lib/ai/tasteProfile";
@@ -442,6 +443,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Apprentissage conversationnel continu (demande explicite : "la moindre
+  // chose qu'il apprend sur moi doit devenir du contexte") — l'extraction
+  // des faits tourne EN PARALLÈLE de la réponse (latence invisible) et est
+  // attendue avant le retour pour que l'écriture soit garantie.
+  const factsPromise = extractConversationFacts(user.id, message).catch(() => {});
   const t0 = Date.now();
   let providerName = "";
   let text: string;
@@ -458,6 +464,7 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ error: "ai_call_failed", detail: (err.message ?? null)?.slice(0, 200) ?? null }, { status: 502 });
   }
+  await factsPromise;
   const latency = Date.now() - t0;
   const usedModel = (config.providers as Record<string, { model?: string }>)[providerName]?.model ?? "?";
   console.log(`[ai] chat ok user=${user.username} provider=${providerName} model=${usedModel} latency=${latency}ms`);

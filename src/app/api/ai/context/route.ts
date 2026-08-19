@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { getFacts, getFeedback, getContextProfile, saveContextInsights, getAllRatings } from "@/lib/ai/tasteProfile";
+import { getFacts, getFeedback, getContextProfile, saveContextInsights, getAllRatings, resetContextProfile } from "@/lib/ai/tasteProfile";
 import { buildUsageProfile } from "@/lib/ai/profile";
 import { loadAiConfig } from "@/lib/ai/store";
 import { buildContext } from "@/lib/ai/contextBuilder";
@@ -58,4 +58,17 @@ export async function POST(req: NextRequest) {
   saveContextInsights(user.id, insights, false);
   const context = getContextProfile(user.id)!;
   return NextResponse.json({ context: { insights: context.insights.map((i) => i.text), builtAt: context.builtAt } });
+}
+
+/**
+ * "Réinitialiser le contexte" (bouton du panneau profil, demande explicite :
+ * "revenir à 0") — efface le contexte consolidé et les faits retenus de cet
+ * utilisateur. Les retours 👍/👎, notes et corrections sont conservés (des
+ * actions, pas du contexte appris). Strictement scoped au user connecté.
+ */
+export async function DELETE(req: NextRequest) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  resetContextProfile(user.id);
+  return NextResponse.json({ ok: true });
 }

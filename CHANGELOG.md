@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.31 — August 2026
+
+### Profils hermétiques + mémoire IA étendue + réinitialisation du contexte
+
+- **Barrière hermétique entre profils (correctif majeur)** : le contexte IA de chaque ami importé affichait l'activité du compte de liaison (294 films vus, Les Simpson 714 ép…). Plex renvoie l'historique du serveur pour les comptes amis, quel que soit le compte demandé — l'historique n'est désormais synchronisé que pour le compte authentifié avec son propre token ; tous les autres profils (amis, Home) restent strictement vides, et les données contaminées sont détectées et vidées. Chaque profil n'a que ses propres vues — les siennes, jamais celles d'un autre.
+- **Mémoire conversationnelle continue** : chaque message discuté avec l'assistant (goûts, ressentiments, préférences, habitudes, prénom…) est extrait et mémorisé en parallèle de la réponse (aucune latence ajoutée), au-delà des seuls marqueurs que le modèle émettait jusque-là. Plafond de faits retenus porté de 30 à 100.
+- **Bouton « Réinitialiser le contexte »** dans Profil, à côté de « Créer le contexte » : confirmation en deux clics, le contexte appris est effacé (votes et notes conservés).
+
 ## v1.16.30 — August 2026
 
 ### Android TV : auto-update réparée (échec d'installation)

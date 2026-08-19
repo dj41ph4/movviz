@@ -4,7 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { useT } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
-import { Sparkles, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Brain, Loader2, Star, X } from "lucide-react";
+import { Sparkles, ChevronDown, ChevronUp, ThumbsUp, ThumbsDown, Brain, Loader2, Star, X, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AiContextInsight {
@@ -46,6 +46,8 @@ export function AiContextPanel() {
   const t = useT();
   const [open, setOpen] = useState(false);
   const [building, setBuilding] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const { data: sessionData } = useSWR<{ enabled: boolean }>("/api/ai/session");
   const { data, mutate } = useSWR<AiContextData>(open ? "/api/ai/context" : null);
 
@@ -66,6 +68,32 @@ export function AiContextPanel() {
       toast("error", t("profile.aiContext.buildFailed"));
     } finally {
       setBuilding(false);
+    }
+  };
+
+  // "Revenir à 0" (demande explicite) — premier clic = confirmation
+  // visible (le bouton change de couleur/label), deuxième clic = efface
+  // réellement. Jamais de suppression au premier clic.
+  const resetContext = async () => {
+    if (!confirmReset) {
+      setConfirmReset(true);
+      return;
+    }
+    setConfirmReset(false);
+    if (resetting) return;
+    setResetting(true);
+    try {
+      const r = await fetch("/api/ai/context", { method: "DELETE" });
+      if (r.ok) {
+        mutate();
+        toast("success", t("profile.aiContext.resetContextDone"));
+      } else {
+        toast("error", t("profile.aiContext.resetContextFailed"));
+      }
+    } catch {
+      toast("error", t("profile.aiContext.resetContextFailed"));
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -107,6 +135,17 @@ export function AiContextPanel() {
             >
               {building ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brain className="h-3.5 w-3.5" />}
               {data?.context ? t("profile.aiContext.rebuildContext") : t("profile.aiContext.buildContext")}
+            </button>
+            <button
+              onClick={resetContext}
+              disabled={resetting}
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-opacity hover:opacity-90 disabled:opacity-50",
+                confirmReset ? "border-down/40 bg-down/15 text-down" : "border-white/12 text-ink-dim"
+              )}
+            >
+              {resetting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCcw className="h-3.5 w-3.5" />}
+              {confirmReset ? t("profile.aiContext.resetContextConfirm") : t("profile.aiContext.resetContext")}
             </button>
           </div>
 

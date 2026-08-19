@@ -35,6 +35,34 @@ import type { User } from "@/lib/auth/types";
 export async function syncUserWatchStatus(user: User) {
   const cfg = loadPlexConfig();
   if (!cfg.hostname || !cfg.adminToken) return;
+
+  // BARRIÈRE HERMÉTIQUE ABSOLUE ENTRE PROFILS (bug constaté en prod : le
+  // contexte IA de chaque ami importé affichait l'activité du compte de
+  // liaison — "294 films vus, Les Simpson 714 ép..." alors que seul le
+  // compte de liaison regarde). Plex ne filtre PAS l'historique par
+  // accountID pour les comptes AMIS (friends) : /status/sessions/history/all
+  // renvoie l'historique du SERVEUR (celui du propriétaire/admin) quel que
+  // soit l'accountID passé. Décision utilisateur (strictement nominative) :
+  // "peu importe le profil, ça doit être hermétique, le contexte est
+  // biaisé sinon". Seul le compte authentifié avec SON token (plexToken)
+  // a un historique dont on est certain qu'il est le sien. Tous les autres
+  // profils — amis, Home-managed, non liés — n'ont AUCUNE source fiable :
+  // on ne leur écrit rien, et on VIDE leurs données antérieures,
+  // contaminées par ce bug (un profil sans token propre n'a aucun autre
+  // chemin d'écriture de watch status qu'un lien Plex douteux).
+  if (!user.plexToken) {
+    const previous = getWatchStatus(user.id);
+    if (previous && (previous.movies.length > 0 || previous.episodes.length > 0 || (previous.recent?.length ?? 0) > 0)) {
+      saveWatchStatus({ userId: user.id, movies: [], episodes: [], recent: [], updatedAt: Date.now() });
+      recordSearchLog(
+        "warn",
+        "plex.watchSync",
+        `${user.username} : profil sans token propre — l'historique Plex n'est pas nominatif pour ce profil (Plex renvoie l'activité du serveur). Données contaminées vidées : aucune activité d'un autre compte ne fuit ici.`
+      );
+    }
+    return;
+  }
+
   // Bug fix (confirmed live — "chaque profil doit être indépendant"):
   // `plexManagedUserId` is set by the admin's "assign a Plex Home profile"
   // flow (PlexSettings.tsx → /api/plex/assign-profile) for a Movviz account
