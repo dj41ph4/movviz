@@ -4,7 +4,7 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
-## v1.16.16 — August 2026
+## v1.16.17 — August 2026
 
 ### Navigation dans le panneau titre
 
