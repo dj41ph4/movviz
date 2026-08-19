@@ -477,12 +477,16 @@ private fun HeroCarousel(
                     contentDescription = current.title,
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart,
-                    // Certains logos TMDb ont une large zone transparente à
-                    // gauche ; le canvas est aligné mais le visuel paraît
-                    // décalé vers la droite. Le léger recadrage le réaligne
-                    // sur les métadonnées et le synopsis.
+                    // PAS d'offset x négatif ici : un -140dp était appliqué à
+                    // tous les logos pour recentrer un asset TMDb précis dont
+                    // la marge transparente à gauche était inhabituellement
+                    // large — mais la plupart des logos TMDb sont déjà
+                    // recadrés au plus près, donc ce décalage aveugle les
+                    // poussait hors de l'écran à gauche (confirmé en direct :
+                    // "Jackass: Best and Last" et "Les aventures de Porcinet"
+                    // tous deux tronqués, contentDescription visible via
+                    // uiautomator dump mais premiers caractères hors-écran).
                     modifier = Modifier
-                        .offset(x = (-140).dp)
                         .heightIn(max = 88.dp)
                         .width(480.dp),
                 )

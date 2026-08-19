@@ -342,8 +342,11 @@ fun TitleDetailScreen(
                     contentDescription = d.title,
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart,
+                    // Même hack -140dp que HomeScreen.kt (hero) retiré ici
+                    // aussi : décalait tout logo hors du panneau à gauche
+                    // ("Fast & Furious" tronqué en "AST"/"RIOUS" sur la fiche
+                    // titre), pas seulement à l'accueil.
                     modifier = Modifier
-                        .offset(x = (-140).dp)
                         .heightIn(max = 116.dp)
                         .width(620.dp),
                 )

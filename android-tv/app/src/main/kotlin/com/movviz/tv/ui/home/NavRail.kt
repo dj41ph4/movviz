@@ -170,9 +170,17 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, onClick: () -> Unit) {
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
+        // focusedContainerColor explicite : sans ça, androidx.tv.material3
+        // retombe sur son gris/blanc quasi opaque par défaut dès que l'item
+        // garde le focus D-pad, écrasant notre teinte discrète et rendant le
+        // libellé illisible ("gros bouton blanc" constaté en direct — le
+        // focus initial reste sur "Accueil" tant que rien n'a bougé).
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (active) Color.White.copy(alpha = 0.17f) else if (focused) Color.White.copy(alpha = 0.09f) else Color.Transparent,
+            containerColor = if (active) Color.White.copy(alpha = 0.17f) else Color.Transparent,
+            focusedContainerColor = if (active) Color.White.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.09f),
+            pressedContainerColor = Color.White.copy(alpha = 0.22f),
             contentColor = if (active) Color.White else MovvizInkDim,
+            focusedContentColor = Color.White,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = androidx.tv.material3.Border(

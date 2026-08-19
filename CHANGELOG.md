@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.12 — August 2026
+
+### Android TV : logos de titres
+
+- Corrige un décalage systématique qui poussait le logo du film ou de la série hors de l'écran à gauche, à l'accueil comme sur la fiche titre, pour tout logo n'ayant pas la même marge que celui utilisé pour calibrer le réglage.
+- Corrige le bouton du menu actif ("Accueil") qui devenait un bloc blanc opaque illisible dès qu'il gardait le focus télécommande.
+
 ## v1.16.11 — August 2026
 
 ### Versionnement Android TV
