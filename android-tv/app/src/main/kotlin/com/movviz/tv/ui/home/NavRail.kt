@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -37,7 +38,6 @@ enum class HomeTab(val label: String) {
     HOME("Accueil"),
     MOVIES("Films"),
     SERIES("Séries"),
-    SEARCH("Recherche"),
     SETTINGS("Paramètres"),
 }
 
@@ -132,11 +132,20 @@ private fun ProfileMenuButton(
 ) {
     var open by remember { mutableStateOf(false) }
     Box {
+        val avatarShape = androidx.compose.foundation.shape.CircleShape
         Surface(
             onClick = { open = !open },
-            modifier = Modifier.size(42.dp),
-            shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+            modifier = Modifier
+                .size(42.dp)
+                .tvPointerClick { open = !open },
+            shape = ClickableSurfaceDefaults.shape(avatarShape),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f), focusedContainerColor = Color.White.copy(alpha = .22f)),
+            border = ClickableSurfaceDefaults.border(
+                focusedBorder = androidx.tv.material3.Border(
+                    border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2),
+                    shape = avatarShape,
+                ),
+            ),
         ) {
             if (active?.avatar?.startsWith("http") == true) AsyncImage(model = active.avatar, contentDescription = active.name, modifier = Modifier.fillMaxSize())
             else Box(Modifier.fillMaxSize().background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
@@ -150,44 +159,106 @@ private fun ProfileMenuButton(
                 onDismissRequest = { open = false },
                 properties = PopupProperties(focusable = true),
             ) {
+                // Charte Movviz : fond sombre profond, coins doux, bordure
+                // discrète, focus à bordure claire — mêmes codes que le
+                // sélecteur de profils et les boutons du wizard.
                 Surface(
                     onClick = {},
-                    modifier = Modifier.width(280.dp),
-                    shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF222222), focusedContainerColor = Color(0xFF222222)),
+                    modifier = Modifier.width(300.dp),
+                    shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.RoundedCornerShape(14.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF16161C), focusedContainerColor = Color(0xFF16161C)),
+                    border = ClickableSurfaceDefaults.border(
+                        border = androidx.tv.material3.Border(
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
+                        ),
+                    ),
                 ) {
                     Column(Modifier.padding(10.dp)) {
-                        // Entrée principale — ouvre l'écran "Qui est-ce ?" (choix
-                        // d'un profil du foyer ou ajout d'un membre). Netflix
-                        // fonctionne exactement comme ça : le menu mène au
-                        // sélecteur plein écran.
-                        Surface(onClick = { open = false; onSwitch() }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
-                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp)) {
-                                Text("⇄", color = Color.White, fontSize = 14.sp, modifier = Modifier.padding(end = 10.dp))
-                                Text("Changer d'utilisateur", color = Color.White, fontSize = 17.sp)
+                        // En-tête : profil actif (avatar + nom).
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp)) {
+                            Box(Modifier.size(34.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                                if (active?.avatar?.startsWith("http") == true) AsyncImage(model = active.avatar, contentDescription = active.name, modifier = Modifier.fillMaxSize())
+                                else Text(active?.name?.take(2)?.uppercase() ?: "?", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Profil actif", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, letterSpacing = 1.sp)
+                                Text(active?.name ?: "—", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             }
                         }
+                        Spacer(Modifier.height(6.dp))
+                        MenuItem(
+                            leading = "⇄",
+                            label = "Changer d'utilisateur",
+                            onClick = { open = false; onSwitch() },
+                        )
+                        Spacer(Modifier.height(6.dp))
                         if (profiles.isNotEmpty()) {
-                            Spacer(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .padding(horizontal = 8.dp)
-                                    .background(Color.White.copy(alpha = 0.08f)),
-                            )
-                            Spacer(Modifier.height(4.dp))
+                            Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 10.dp).background(Color.White.copy(alpha = 0.08f)))
+                            Spacer(Modifier.height(6.dp))
                             profiles.forEach { profile ->
-                                Surface(onClick = { open = false; onSelect(profile) }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
-                                    Text(profile.name, color = Color.White, fontSize = 17.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
-                                }
+                                MenuItem(
+                                    avatar = profile,
+                                    label = profile.name,
+                                    onClick = { open = false; onSelect(profile) },
+                                )
                             }
-                            Surface(onClick = { open = false; onAdd() }, modifier = Modifier.fillMaxWidth(), colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f))) {
-                                Text("+ Ajouter un utilisateur", color = MovvizBrand2, fontSize = 16.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
-                            }
+                            Spacer(Modifier.height(4.dp))
+                            MenuItem(
+                                leading = "+",
+                                label = "Ajouter un utilisateur",
+                                accent = true,
+                                onClick = { open = false; onAdd() },
+                            )
                         }
                     }
                 }
             }
+        }
+    }
+}
+
+/** Item de menu profil — focus D-pad ET clic pointeur (tvPointerClick,
+ *  sans quoi le clic souris de l'émulateur ne fait rien), bordure focus
+ *  claire, même famille visuelle que le reste de l'appli. */
+@Composable
+private fun MenuItem(
+    label: String,
+    onClick: () -> Unit,
+    leading: String? = null,
+    avatar: TvProfile? = null,
+    accent: Boolean = false,
+) {
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth().tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = Color.Transparent,
+            focusedContainerColor = Color.White.copy(alpha = 0.09f),
+            contentColor = if (accent) MovvizBrand2 else Color.White,
+            focusedContentColor = Color.White,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = androidx.tv.material3.Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2.copy(alpha = 0.9f)),
+                shape = shape,
+            ),
+        ),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            if (avatar != null) {
+                Box(Modifier.size(28.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+                    if (avatar.avatar?.startsWith("http") == true) AsyncImage(model = avatar.avatar, contentDescription = avatar.name, modifier = Modifier.fillMaxSize())
+                    else Text(avatar.name.take(2).uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(10.dp))
+            } else if (leading != null) {
+                Text(leading, color = if (accent) MovvizBrand2 else Color.White, fontSize = 15.sp, modifier = Modifier.width(22.dp))
+            }
+            Text(label, color = if (accent) MovvizBrand2 else Color.White, fontSize = 15.sp, fontWeight = if (accent) FontWeight.Bold else FontWeight.Medium)
         }
     }
 }

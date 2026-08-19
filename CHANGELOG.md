@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.28 — August 2026
+
+### Android TV : menu profil retravaillé + navigation
+
+- Menu profil aux couleurs de Movviz (fond sombre profond, bordure discrète, focus clair, dégradé de marque) avec en-tête « Profil actif » (avatar + nom).
+- Corrige le clic de « Changer d'utilisateur » : les items du menu ne répondaient pas au clic pointeur (il manquait `tvPointerClick`) — le clic souris/télécommande fonctionne désormais partout.
+- Supprime l'onglet « Recherche » de la barre de navigation : la loupe existe déjà et ouvre la recherche depuis l'accueil.
+
 ## v1.16.27 — August 2026
 
 ### Android TV : correctifs auto-update
