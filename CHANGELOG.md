@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.22 — August 2026
+
+### Android TV : compilation profils
+
+- Corrige la résolution de l’hôte serveur utilisée pour sauvegarder et restaurer les sessions de profil.
+
 ## v1.16.21 — August 2026
 
 ### Android TV : correctifs du menu profils
