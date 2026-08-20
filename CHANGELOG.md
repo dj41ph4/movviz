@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.52 — August 2026
+
+### Android TV : lecture — repli audio-seul plus fiable
+
+- Le repli "audio-seul" passait systématiquement par le transcodage Plex, qui peut silencieusement refuser de copier la vidéo pour certaines sources (HEVC notamment) et ré-encode alors les deux au lieu du seul audio. Utilise désormais en priorité le remux local du serveur (déjà utilisé par le client desktop) quand disponible — copie vidéo garantie, seul l'audio est ré-encodé.
+
 ## v1.16.51 — August 2026
 
 ### Android TV : boucle de mise à jour, fermetures inattendues à la télécommande

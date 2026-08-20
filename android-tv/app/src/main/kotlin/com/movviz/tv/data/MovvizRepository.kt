@@ -164,6 +164,23 @@ class MovvizRepository(private val baseUrl: String) {
      *  (pré-décision) ou qu'ExoPlayer signale une erreur de décodage. */
     fun transcodeUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey/transcode?tv=0&ta=1&fmt=dash"
 
+    /** Repli "audio-seul" par remux ffmpeg LOCAL au serveur — même route que
+     *  le desktop (src/app/api/playback-ffmpeg/[ratingKey]/route.ts) :
+     *  process ffmpeg qui copie la vidéo bit-exacte et ne ré-encode QUE
+     *  l'audio (AAC), servi en MP4 progressif simple (video/mp4, lisible
+     *  directement par ExoPlayer, aucun manifeste). Ne passe JAMAIS par le
+     *  moteur de décision de Plex (MDE) — contrairement à transcodeUrl()
+     *  ci-dessus (fmt=dash), qui elle dépend de Plex et peut silencieusement
+     *  ignorer la demande de copie vidéo pour certaines sources HEVC/
+     *  conteneurs (prouvé en investigation dédiée, voir CHANGELOG). Le
+     *  desktop utilise cette route EN PREMIER, avant tout transcode Plex —
+     *  Android doit faire pareil dès que le serveur l'expose
+     *  (StreamInfoDto.ffmpegAvailable). */
+    fun ffmpegRemuxUrl(plexRatingKey: String, audioStreamID: String? = null): String {
+        val qs = if (audioStreamID != null) "?audioStreamID=$audioStreamID" else ""
+        return "$baseUrl/api/playback-ffmpeg/$plexRatingKey$qs"
+    }
+
     /** Dernier recours après le repli audio-seul : tv=1&ta=1 = le serveur
      *  ré-encode vidéo ET audio dans un format universellement lisible
      *  (h264/aac) servi en HLS — réservé aux boîtiers qui ne décodent même

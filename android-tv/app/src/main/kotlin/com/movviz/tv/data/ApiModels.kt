@@ -410,6 +410,13 @@ data class StreamInfoDto(
     val audioStreams: List<StreamAudioTrackDto> = emptyList(),
     val subtitleStreams: List<StreamSubtitleTrackDto> = emptyList(),
     val durationMs: Long? = null,
+    // Binaire ffmpeg présent côté serveur — voir /api/playback-ffmpeg/{ratingKey}
+    // (remux local : copie vidéo + audio AAC, sans jamais passer par le moteur
+    // de décision de Plex). C'est le repli utilisé par le desktop en premier,
+    // AVANT tout transcode Plex — Plex "MDE" refuse parfois silencieusement de
+    // copier la vidéo (tv=0 ignoré, prouvé en investigation) même quand c'est
+    // demandé correctement ; le remux local ne dépend pas de cette décision.
+    val ffmpegAvailable: Boolean = false,
 )
 
 @JsonClass(generateAdapter = true)

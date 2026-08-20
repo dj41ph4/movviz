@@ -414,6 +414,12 @@ private fun PlayerScreen(
     // à la même position.
     var fallbackLevel by remember { mutableStateOf(0) }
     var fallbackNotice by remember { mutableStateOf<String?>(null) }
+    // Repli "audio-seul" niveau 1 : remux ffmpeg local au serveur quand
+    // disponible (voir MovvizRepository.ffmpegRemuxUrl), sinon repli sur le
+    // transcode Plex DASH historique. audioStreamId suit la piste réellement
+    // sélectionnée pour que le remux ré-encode la bonne piste audio.
+    var level1FfmpegAvailable by remember { mutableStateOf(false) }
+    var level1AudioStreamId by remember { mutableStateOf<String?>(null) }
 
     val exoPlayer = remember {
         val upstream = OkHttpDataSource.Factory(com.movviz.tv.data.ApiClient.httpClient())
@@ -493,15 +499,35 @@ ExoPlayer.Builder(context)
         errorKind = null
         val metadata = mediaMetadata(item)
         val mediaItem = when (level) {
-            1 -> {
+            1 -> if (level1FfmpegAvailable) {
+                // Remux ffmpeg LOCAL au serveur — même route que le desktop,
+                // utilisée en premier là-bas, avant tout transcode Plex : un
+                // process ffmpeg copie la vidéo bit-exacte et ne ré-encode
+                // que l'audio, sans jamais passer par le moteur de décision
+                // de Plex (qui peut silencieusement refuser la copie vidéo
+                // pour certaines sources HEVC — cause confirmée du "transcode
+                // vidéo alors que seul l'audio est incompatible"). MP4
+                // progressif simple (video/mp4) : pas de manifeste, le
+                // ProgressiveMediaSource par défaut suffit, inférence MIME
+                // normale suffisante ici (contrairement à DASH/HLS ci-dessous).
+                val url = repository.ffmpegRemuxUrl(item.ratingKey, level1AudioStreamId)
+                Log.i(TAG, "load() remux ffmpeg local (audio-seul): $url (resumeMs=$resumeMs)")
+                MediaItem.Builder()
+                    .setUri(url)
+                    .setMediaMetadata(metadata)
+                    .build()
+            } else {
                 val url = repository.transcodeUrl(item.ratingKey)
                 // Repli audio seul, toujours en DASH (fMP4) quel que soit le
                 // codec source — le seul format où Plex honore le copy
                 // bitstream vidéo (voir MovvizRepository.transcodeUrl). Le
                 // type MIME doit être explicite : l'URL ne se termine pas par
                 // ".mpd" (query string sur /transcode), le source factory ne
-                // peut pas l'inférer.
-                Log.i(TAG, "load() transcode audio-seul (DASH): $url (resumeMs=$resumeMs)")
+                // peut pas l'inférer. N'est utilisé que si le serveur n'a pas
+                // ffmpeg d'installé (level1FfmpegAvailable=false) — sinon le
+                // remux local ci-dessus est préféré, plus fiable (voir
+                // commentaire ci-dessus).
+                Log.i(TAG, "load() transcode audio-seul (DASH, repli Plex): $url (resumeMs=$resumeMs)")
                 MediaItem.Builder()
                     .setUri(url)
                     .setMimeType(MimeTypes.APPLICATION_MPD)
@@ -563,6 +589,8 @@ LaunchedEffect(current.ratingKey) {
         val audioMime = audioMimeType(selectedAudio?.codec ?: info?.audioCodec)
         val videoDecodable = videoMime == null || hasPlatformVideoDecoder(videoMime)
         val audioDecodable = audioMime == null || hasPlatformAudioDecoder(audioMime)
+        level1FfmpegAvailable = info?.ffmpegAvailable == true
+        level1AudioStreamId = selectedAudio?.id
         val startLevel = when {
             info != null && !videoDecodable -> 2
             info != null && !audioDecodable -> 1
