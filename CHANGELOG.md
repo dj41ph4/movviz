@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.51 — August 2026
+
+### Android TV : boucle de mise à jour, fermetures inattendues à la télécommande
+
+- Mise à jour automatique qui recommençait indéfiniment : le système exige un écran de confirmation d'installation à partir d'Android 12, jamais géré jusqu'ici — l'application croyait l'installation réussie alors qu'elle restait bloquée en attente pour toujours. Corrigé et vérifié en conditions réelles (numéro de version qui avance bien après coup).
+- Fermetures inattendues de l'application en appuyant sur la flèche du bas de la télécommande — plus fréquentes sur les boîtiers plus lents (ex. Chromecast 4K) : la cible de navigation pouvait pointer vers un élément d'écran pas encore chargé. Rendue systématiquement sûre, quel que soit l'état de chargement de l'écran.
+
 ## v1.16.50 — August 2026
 
 ### Android TV : ajout d'utilisateur au foyer, profil admin manquant
