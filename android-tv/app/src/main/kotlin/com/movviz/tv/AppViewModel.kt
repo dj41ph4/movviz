@@ -268,10 +268,15 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
             // "Ajouter à la bibliothèque" au lieu du statut réel juste après
             // un ajout). 3 tentatives espacées de 500ms avant d'abandonner.
             refreshLibraryNow()
-            repeat(2) { attempt ->
-                if (isInLibrary(type, tmdbId)) return@repeat
+            // return@repeat ne sortirait que de CETTE itération, pas de la
+            // boucle — les 2 tentatives s'exécuteraient quand même même une
+            // fois l'entrée déjà visible. `while` sort réellement dès que
+            // c'est confirmé.
+            var attempt = 0
+            while (attempt < 2 && !isInLibrary(type, tmdbId)) {
                 delay(500)
                 refreshLibraryNow()
+                attempt++
             }
             return if (result is ApiResult.Failure && !isInLibrary(type, tmdbId)) result else ApiResult.Success(Unit)
         } finally {

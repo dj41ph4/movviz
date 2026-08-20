@@ -28,6 +28,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -159,10 +162,30 @@ fun UpdateOverlay(
     onAuthorize: () -> Unit,
     onLater: () -> Unit,
 ) {
+    // L'overlay est peint PAR-DESSUS le menu/la fiche en cours, mais rien ne
+    // réclamait le focus D-pad avant ce correctif : la télécommande
+    // continuait de piloter la NavRail ou l'écran caché EN DESSOUS (visible
+    // à l'écran, invisible en réalité, recouvert par ce Box) — d'où
+    // "Autoriser" injoignable, et des flèche-bas + OK qui finissaient sur un
+    // élément caché de l'écran d'accueil (parfois de quoi fermer l'appli).
+    // Le Box racine est rendu focusable en repli général (state == Hidden ne
+    // rend rien, donc jamais atteint ici), et le bouton "Autoriser" reçoit
+    // le focus en priorité dès qu'il apparaît.
+    val rootFocusRequester = remember { FocusRequester() }
+    val authorizeFocusRequester = remember { FocusRequester() }
+    LaunchedEffect(state) {
+        if (state is UpdateUiState.NeedPermission) {
+            runCatching { authorizeFocusRequester.requestFocus() }
+        } else {
+            runCatching { rootFocusRequester.requestFocus() }
+        }
+    }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MovvizBackground),
+            .background(MovvizBackground)
+            .focusRequester(rootFocusRequester)
+            .focusable(),
         contentAlignment = Alignment.Center,
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -216,7 +239,7 @@ fun UpdateOverlay(
                     )
                     Spacer(Modifier.height(24.dp))
                     Row {
-                        ActionButton(text = "Autoriser", onClick = onAuthorize)
+                        ActionButton(text = "Autoriser", onClick = onAuthorize, focusRequester = authorizeFocusRequester)
                         Spacer(Modifier.width(20.dp))
                         ActionButton(text = "Plus tard", onClick = onLater)
                     }
@@ -264,7 +287,7 @@ private fun IndeterminateBar() {
 /** Bouton d'action TV — même traitement que GradientButton (wizard) :
  *  focus-first, lift, dégradé de marque, clic télécommande ET pointeur. */
 @Composable
-private fun ActionButton(text: String, onClick: () -> Unit) {
+private fun ActionButton(text: String, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(12.dp)
     Surface(
@@ -272,6 +295,7 @@ private fun ActionButton(text: String, onClick: () -> Unit) {
         modifier = Modifier
             .tvFocusLift(focused, shape = shape)
             .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

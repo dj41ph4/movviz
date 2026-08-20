@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.49 — August 2026
+
+### Android TV : mise à jour bloquée par la télécommande
+
+- L'overlay auto-update n'attrapait jamais le focus D-pad : le bouton « Autoriser » restait injoignable et la télécommande continuait de piloter le menu caché en dessous — cause probable des fermetures inattendues de l'application en pleine mise à jour. Corrigé.
+
 ## v1.16.48 — August 2026
 
 ### Version de test de l'auto-update
