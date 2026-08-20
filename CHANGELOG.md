@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.48 — August 2026
+
+### Version de test de l'auto-update
+
+- Aucun changement fonctionnel : bump de version uniquement, pour valider en conditions réelles le flux d'auto-update (check GitHub au lancement → téléchargement `Movviz-Android-TV-client.apk` → vérification SHA-256 → installation par-dessus l'existant).
+
 ## v1.16.47 — August 2026
 
 ### Un seul APK : « Movviz TV »
