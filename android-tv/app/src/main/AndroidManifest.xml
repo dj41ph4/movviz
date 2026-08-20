@@ -10,6 +10,10 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Chaîne "Movviz" sur le dashboard Android TV : écriture dans le
+         TvProvider (permission système déclarée, aucune demande runtime) —
+         c'est ce qui permet à l'app de pousser des cartes "à reprendre". -->
+    <uses-permission android:name="com.android.providers.tv.permission.READ_TV_PROVIDER" />
     <!-- Auto-update (variante AU uniquement) : demande l'autorisation
          "installer des applications inconnues" puis installe l'APK de la
          dernière release GitHub via ACTION_VIEW. -->
@@ -36,6 +40,15 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+            <!-- Deep link depuis le dashboard (chaîne TvProvider) : une carte
+                 de la rangée "Continuer à regarder" ouvre la fiche du titre
+                 via movviz://title/{type}/{tmdbId}. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="movviz" android:host="title" />
             </intent-filter>
         </activity>
 

@@ -1,6 +1,6 @@
 import java.util.Properties
 
-val retailPropsFile = rootProject.file("keystore.properties")
+val releasePropsFile = rootProject.file("keystore.properties")
 
 plugins {
     alias(libs.plugins.android.application)
@@ -13,40 +13,23 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.movviz.tv"
+        // applicationId historique de la variante AU : gardé tel quel pour
+        // que l'auto-update et les installations existantes continuent de se
+        // remplacer proprement (même package = mise à jour, pas une 2e app).
+        applicationId = "com.movviz.tv.au"
         minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-versionCode = 11646
-        versionName = "1.16.46"
-    }
-
-    // Deux canaux de distribution depuis le même code :
-    //  - retail : APK stable, installé à la main (l'APK historique, signature
-    //    retail — l'auto-update y est désactivé pour ne jamais surprendre)
-    //  - au : variante "auto-update" — vérifie GitHub au lancement, télécharge
-    //    et installe la nouvelle version AU avec un écran de progression.
-    // Les deux partagent la même clé de signature retail : l'AU peut se
-    // remplacer lui-même (même package, même clé) sans perdre les données.
-    flavorDimensions += "channel"
-    productFlavors {
-        create("retail") {
-            dimension = "channel"
-            buildConfigField("boolean", "AUTO_UPDATE", "false")
-        }
-        create("au") {
-            dimension = "channel"
-            applicationIdSuffix = ".au"
-            buildConfigField("boolean", "AUTO_UPDATE", "true")
-            // Label distinct dans le launcher pour ne pas confondre les deux
-            // APK installés côte à côte pendant une migration.
-            resValue("string", "app_name", "Movviz AU")
-        }
+        versionCode = 11647
+        versionName = "1.16.47"
+        // Canal unique depuis le retrait de la variante retail : l'APK livré
+        // s'auto-met à jour via GitHub au lancement (voir UpdateManager).
+        buildConfigField("boolean", "AUTO_UPDATE", "true")
     }
 
     signingConfigs {
-        if (retailPropsFile.exists()) {
-            create("retail") {
-                val props = Properties().apply { retailPropsFile.inputStream().use { load(it) } }
+        if (releasePropsFile.exists()) {
+            create("release") {
+                val props = Properties().apply { releasePropsFile.inputStream().use { load(it) } }
                 storeFile = file(props.getProperty("storeFile"))
                 storePassword = props.getProperty("storePassword")
                 keyAlias = props.getProperty("keyAlias")
@@ -58,11 +41,12 @@ versionCode = 11646
     buildTypes {
         release {
             // Compose TV/R8 still has an unresolved startup cast in this
-            // application. Keep retail signed and optimized by the Android
-            // toolchain, but do not shrink until the mapped crash is fixed.
+            // application. Keep the release signed and optimized by the
+            // Android toolchain, but do not shrink until the mapped crash
+            // is fixed.
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            if (retailPropsFile.exists()) signingConfig = signingConfigs.getByName("retail")
+            if (releasePropsFile.exists()) signingConfig = signingConfigs.getByName("release")
         }
     }
 

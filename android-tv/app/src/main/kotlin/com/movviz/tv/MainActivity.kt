@@ -26,6 +26,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.navigation.navDeepLink
 import com.movviz.tv.ui.home.HomeTab
 import com.movviz.tv.ui.home.MainScreen
 import com.movviz.tv.ui.home.NavRail
@@ -69,13 +70,30 @@ fun personRoute(id: Int): String = "person/$id"
 class MainActivity : ComponentActivity() {
     private val appViewModel: AppViewModel by viewModels()
 
+    // Deep link reçu (carte du dashboard TvProvider, movviz://title/...) —
+    // consommé par le NavHost une fois la navigation prête.
+    private var pendingDeepLink: Intent? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        pendingDeepLink = intent
         setContent {
             MovvizTvTheme {
                 MovvizNavHost(appViewModel)
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        pendingDeepLink = intent
+    }
+
+    /** Récupère (et vide) le deep link en attente, s'il y en a un. */
+    fun consumeDeepLink(): Intent? {
+        val link = pendingDeepLink
+        pendingDeepLink = null
+        return link
     }
 }
 
@@ -141,6 +159,21 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         }
     }
 
+    // Deep link movviz://title/{type}/{tmdbId} (carte du dashboard TvProvider
+    // ou tout autre point d'entrée) : consommé dès que la navigation est
+    // prête ET que le serveur est connu — sinon on laisse le flux de
+    // démarrage normal (wizard/login) faire son chemin. handleDeepLink
+    // navigue vers la route detail/{type}/{tmdbId} grâce au navDeepLink
+    // déclaré sur cette route.
+    val activity = androidx.compose.ui.platform.LocalContext.current as MainActivity
+    val serverUrl by viewModel.serverUrl.collectAsState()
+    LaunchedEffect(startDestination, serverUrl) {
+        val link = activity.consumeDeepLink()?.takeIf { it.data?.scheme == "movviz" } ?: return@LaunchedEffect
+        if (startDestination != null && serverUrl != null) {
+            navController.handleDeepLink(link)
+        }
+    }
+
     val resolvedStart = startDestination
     if (resolvedStart == null) {
         Box(
@@ -152,9 +185,9 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         return
     }
 
-    // L'overlay d'auto-update (variante AU uniquement, jamais en retail) se
-    // pose PAR-DESSUS la navigation : il bloque l'interaction pendant le
-    // téléchargement/installation, et disparaît en cas de souci.
+    // L'overlay d'auto-update se pose PAR-DESSUS la navigation : il bloque
+    // l'interaction pendant le téléchargement/installation, et disparaît en
+    // cas de souci.
     Box(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = navController, startDestination = resolvedStart) {
 composable(ROUTE_WIZARD) {
@@ -276,6 +309,12 @@ composable(ROUTE_PROFILES) {
                 navArgument("season") { type = NavType.IntType; defaultValue = -1 },
                 navArgument("episode") { type = NavType.IntType; defaultValue = -1 },
             ),
+            deepLinks = listOf(
+                // movviz://title/movie/27205 (carte dashboard TvProvider) →
+                // fiche détail. La fiche série rouvre elle-même le bon
+                // épisode en cours via le on-deck.
+                navDeepLink { uriPattern = "movviz://title/{type}/{tmdbId}" },
+            ),
         ) { backStackEntry ->
             val context = androidx.compose.ui.platform.LocalContext.current
             val type = backStackEntry.arguments?.getString("type") ?: "movie"
@@ -289,16 +328,16 @@ composable(ROUTE_PROFILES) {
                 tmdbId = tmdbId,
                 initialSeasonNumber = season,
                 initialEpisodeNumber = episode,
-                onPlay = { title, queue, startIndex ->
+                onPlay = { title, queue, startIndex, posterPath ->
                     val url = baseUrl ?: return@TitleDetailScreen
                     context.startActivity(
-                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex),
+                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, posterPath = posterPath),
                     )
                 },
-                onPlayFromStart = { title, queue, startIndex ->
+                onPlayFromStart = { title, queue, startIndex, posterPath ->
                     val url = baseUrl ?: return@TitleDetailScreen
                     context.startActivity(
-                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, startFromBeginning = true),
+                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, startFromBeginning = true, posterPath = posterPath),
                     )
                 },
                 // Rangée "Titres similaires" — pousse une nouvelle fiche sur

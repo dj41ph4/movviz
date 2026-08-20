@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.47 — August 2026
+
+### Un seul APK : « Movviz TV »
+
+- La variante `retail` (sans auto-update) est **supprimée** : il n'existe plus qu'un seul APK, l'application s'appelle désormais **Movviz TV** et s'auto-met à jour via GitHub au lancement.
+- L'`applicationId` `com.movviz.tv.au` est conservé : les installations existantes et l'auto-update continuent de se remplacer proprement (même package = mise à jour, pas une 2e app).
+- Le workflow CI ne publie plus qu'un seul asset : `Movviz-Android-TV-client.apk`.
+- Nouveau : une **chaîne TvProvider** « Movviz » sur le dashboard Android TV — la rangée « Continuer à regarder » du launcher affiche les titres en cours du compte actif (comme Plex/Netflix, sans aucun partenariat), et un deep link `movviz://title/{type}/{tmdbId}` est déclaré pour ouvrir la fiche du titre.
+- **Google TV** : la session média alimente désormais la rangée « Continuer à regarder » du launcher Google TV — les MediaItems portent de vraies métadonnées (titre, sous-titre épisode, affiche TMDb) et une activité de session est déclarée (cliquer sur la carte rouvre l'app).
+
 ## v1.16.46 — August 2026
 
 ### Android TV : le lecteur empêche la veille pendant la lecture

@@ -46,10 +46,10 @@ private data class AssetDto(
  *
  * Le repo Movviz est public : on interroge directement l'API GitHub
  * (`releases/latest`), on compare la version Ã  la nÃ´tre, on tÃ©lÃ©charge
- * l'APK AU de la release (SHA-256 vÃ©rifiÃ© contre le digest publiÃ©) et on
- * ouvre l'installeur systÃ¨me (FileProvider + ACTION_VIEW). L'APK AU porte
- * la mÃªme clÃ© de signature que le retail : la mise Ã  jour se fait par-dessus
- * sans perte de donnÃ©es.
+ * l'APK de la release (SHA-256 vÃ©rifiÃ© contre le digest publiÃ©) et on
+ * ouvre l'installeur systÃ¨me (FileProvider + ACTION_VIEW). L'APK se
+ * remplace lui-mÃªme (mÃªme package, mÃªme clÃ© de signature) sans perte de
+ * donnÃ©es.
  *
  * ConÃ§ue pour ne JAMAIS bloquer l'appli : toute erreur (rÃ©seau, HTTP, hash,
  * utilisateur qui annule) renvoie null ou lÃ¨ve â€” l'app continue normalement.
@@ -59,8 +59,8 @@ class UpdateManager(private val context: Context) {
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
     private val releaseAdapter = moshi.adapter(ReleaseDto::class.java)
 
-    /** Nom de l'asset publiÃ© par le workflow CI pour la variante AU. */
-    private val expectedAssetName = "Movviz-Android-TV-client-AU.apk"
+    /** Nom de l'asset publiÃ© par le workflow CI. */
+    private val expectedAssetName = "Movviz-Android-TV-client.apk"
 
     /** Retourne la mise Ã  jour Ã  appliquer, ou null si Ã  jour / indisponible. */
     suspend fun checkForUpdate(): UpdateInfo? = withContext(Dispatchers.IO) {

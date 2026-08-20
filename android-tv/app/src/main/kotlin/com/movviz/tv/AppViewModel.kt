@@ -584,7 +584,16 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val repo = repository ?: return
         viewModelScope.launch {
             when (val r = repo.onDeckItems()) {
-                is ApiResult.Success -> _continueWatching.value = r.data
+                is ApiResult.Success -> {
+                    _continueWatching.value = r.data
+                    // Rangée "Continuer à regarder" du dashboard Android TV :
+                    // la chaîne TvProvider est resynchronisée à chaque
+                    // chargement réussi du on-deck (accueil ET fiche titre) —
+                    // en arrière-plan, jamais bloquant pour l'UI.
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        com.movviz.tv.tvchannel.TvChannelProvider.sync(getApplication(), r.data)
+                    }
+                }
                 else -> Unit
             }
         }

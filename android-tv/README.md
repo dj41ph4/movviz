@@ -35,27 +35,28 @@ MIME par niveau : direct = auto, niveau 1 = `APPLICATION_MPD`, niveau 2 = `APPLI
 
 ---
 
-## Deux variantes d'APK : `retail` et `au`
+## Un seul APK : « Movviz TV » (auto-update intégrée)
 
-Depuis la v1.16.19, `build.gradle.kts` définit **deux flavors** (dimension
-`channel`) sur le même code :
+Depuis la v1.16.47, il n'existe **plus qu'un seul APK** — la variante
+`retail` (sans auto-update) a été supprimée. L'application unique s'appelle
+**Movviz TV** :
 
-| Flavor | applicationId | `BuildConfig.AUTO_UPDATE` | Label | Usage |
-|---|---|---|---|---|
-| `retail` | `com.movviz.tv` | `false` | `@string/app_name` (« Movviz ») | APK stable, installé à la main, **sans** auto-update |
-| `au` | `com.movviz.tv.au` | `true` | `resValue` « Movviz AU » | S'auto-met à jour via GitHub au lancement |
+| applicationId | `BuildConfig.AUTO_UPDATE` | Label |
+|---|---|---|
+| `com.movviz.tv.au` | `true` | « Movviz TV » |
 
-Les deux partagent la **même clé de signature retail** : l'AU peut se
-remplacer lui-même par-dessus sans perte de données.
+L'`applicationId` gardé est celui de l'ancienne variante AU : les
+installations existantes et l'auto-update continuent de se remplacer
+proprement (même package = mise à jour, pas une 2e app).
 
-### Auto-update sans magasin (variante AU)
+### Auto-update sans magasin
 
 Flux complet, vivant dans `data/UpdateManager.kt` + `ui/update/UpdateOverlay.kt` :
 
 1. **Check** (`UpdateManager.checkForUpdate()`) — au lancement, GET
    `https://api.github.com/repos/dj41ph4/movviz/releases/latest` (repo public,
    API sans auth). Compare le tag semver au `BuildConfig.VERSION_NAME`
-   (`isNewerVersion`). Cherche l'asset `Movviz-Android-TV-client-AU.apk` +
+   (`isNewerVersion`). Cherche l'asset `Movviz-Android-TV-client.apk` +
    son `digest` SHA-256. Toute erreur (réseau/HTTP) → `null`, l'app démarre normalement.
 2. **Permission** — si `canInstallUnknown()` est faux (Android 8+), overlay
    « Autorise l'installation d'applications inconnues » → ouvre
@@ -75,14 +76,11 @@ dessinée à la main — pas de material3 LinearProgressIndicator dans le projet
 est monté **par-dessus** le `NavHost` (`MainActivity.kt`, Box parent) et
 bloque l'interaction pendant le téléchargement/installation.
 
-**Ne jamais afficher l'overlay en retail** — le `LaunchedEffect` est gardé par
-`BuildConfig.AUTO_UPDATE`.
-
 ---
 
 ## Signature & keystore
 
-- La clé retail vit **localement** dans `C:\Users\dj41ph4\.movviz\keys\movviz-tv-retail.jks`
+- La clé de signature vit **localement** dans `C:\Users\dj41ph4\.movviz\keys\movviz-tv-retail.jks`
   (+ `movviz-tv-retail.password.txt`).
 - `android-tv/keystore.properties` référence cette clé pour le build local.
   **NE JAMAIS le commiter** (déjà dans `.gitignore` — vérifier avant tout
@@ -111,13 +109,13 @@ $env:JAVA_HOME = "C:\Users\dj41ph4\.movviz\jdk-17"          # JDK 17 (le JDK 25 
 & "C:\Users\dj41ph4\.movviz\gradle-8.9\bin\gradle.bat" :app:assembleRelease --no-daemon
 ```
 
-`assembleRelease` compile **les deux flavors** (`retail` + `au`) et produit :
-`app/build/outputs/apk/{retail,au}/release/app-{retail,au}-release.apk`.
+`assembleRelease` compile l'unique canal et produit :
+`app/build/outputs/apk/release/app-release.apk`.
 
 Pour valider le Kotlin seul (rapide) :
 
 ```powershell
-& "C:\Users\dj41ph4\.movviz\gradle-8.9\bin\gradle.bat" :app:compileAuReleaseKotlin :app:compileRetailReleaseKotlin --no-daemon
+& "C:\Users\dj41ph4\.movviz\gradle-8.9\bin\gradle.bat" :app:compileReleaseKotlin --no-daemon
 ```
 
 Le build web n'est pas impacté par `android-tv/`, mais un push complet passe
@@ -130,15 +128,14 @@ aussi par `npm run typecheck` à la racine.
 - Déclenché sur : push `main` touchant `android-tv/**` ou le workflow, PR,
   tags `v*`, et `workflow_dispatch`.
 - JDK 17 + Android SDK 35 + Gradle 8.9 (binaire `setup-gradle`, pas le wrapper).
-- `Prepare retail signing key` : reconstruit le keystore depuis les secrets
+- `Prepare release signing key` : reconstruit le keystore depuis les secrets
   (ou clé éphémère avec warning).
-- `gradle assembleRelease` → **2 APK** renommés :
-  - `Movviz-Android-TV-client-retail.apk`
-  - `Movviz-Android-TV-client-AU.apk`
-- Sur tag `v*` : les **2 APK** sont attachés à la Release (softprops/action-gh-release),
+- `gradle assembleRelease` → **1 APK** renommé :
+  `Movviz-Android-TV-client.apk`
+- Sur tag `v*` : l'APK est attaché à la Release (softprops/action-gh-release),
   avec le digest SHA-256 généré automatiquement par GitHub (utilisé par l'auto-update).
-- L'APK AU embarque `BuildConfig.AUTO_UPDATE=true` : c'est le seul asset
-  qu'il télécharge pour se mettre à jour.
+- L'APK embarque `BuildConfig.AUTO_UPDATE=true` : c'est l'asset qu'il
+  télécharge pour se mettre à jour.
 
 ---
 
@@ -154,5 +151,5 @@ aussi par `npm run typecheck` à la racine.
 4. **Commit sans jamais inclure** : `android-tv/*.png`, `android-tv/ui.xml`,
    `android-tv/keystore.properties`, les `*.png` à la racine. N'ajouter que les
    fichiers source concernés.
-5. `git tag vX.Y.Z` puis `git push origin main --tags` — le CI publie les 2 APK.
-6. Vérifier la Release GitHub : les 2 assets présents avec leur digest.
+5. `git tag vX.Y.Z` puis `git push origin main --tags` — le CI publie l'APK.
+6. Vérifier la Release GitHub : l'asset présent avec son digest.

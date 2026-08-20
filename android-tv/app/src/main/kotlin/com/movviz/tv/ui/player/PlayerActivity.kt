@@ -1,7 +1,9 @@
 package com.movviz.tv.ui.player
 
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
@@ -63,6 +65,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -100,6 +103,7 @@ private const val EXTRA_SEASONS = "extra_seasons"
 private const val EXTRA_EPISODES = "extra_episodes"
 private const val EXTRA_START_FROM_BEGINNING = "extra_start_from_beginning"
 private const val EXTRA_INDEX = "extra_index"
+private const val EXTRA_POSTER_PATH = "extra_poster_path"
 
 /**
  * Une seule Activity dédiée à la lecture, quel que soit le contenu (film ou
@@ -133,10 +137,11 @@ class PlayerActivity : ComponentActivity() {
         val seasons = intent.getIntArrayExtra(EXTRA_SEASONS) ?: IntArray(keys.size) { -1 }
         val episodes = intent.getIntArrayExtra(EXTRA_EPISODES) ?: IntArray(keys.size) { -1 }
         val startIndex = intent.getIntExtra(EXTRA_INDEX, 0).coerceIn(0, keys.size - 1)
-        val mainTitle = intent.getStringExtra(EXTRA_TITLE) ?: ""
+val mainTitle = intent.getStringExtra(EXTRA_TITLE) ?: ""
         val type = intent.getStringExtra(EXTRA_TYPE) ?: "movie"
         val tmdbId = intent.getIntExtra(EXTRA_TMDB_ID, 0)
         val startFromBeginning = intent.getBooleanExtra(EXTRA_START_FROM_BEGINNING, false)
+        val posterPath = intent.getStringExtra(EXTRA_POSTER_PATH)
 
         val queue = keys.indices.map { i ->
             QueueItem(
@@ -150,7 +155,7 @@ class PlayerActivity : ComponentActivity() {
         setContent {
             MovvizTvTheme {
                 Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-                    PlayerScreen(
+PlayerScreen(
                         baseUrl = baseUrl,
                         mainTitle = mainTitle,
                         type = type,
@@ -158,6 +163,7 @@ class PlayerActivity : ComponentActivity() {
                         queue = queue,
                         startIndex = startIndex,
                         startFromBeginning = startFromBeginning,
+                        posterPath = posterPath,
                         onExit = { finish() },
                         onRegisterMediaKeyHandler = { handler -> mediaKeyHandler = handler },
                     )
@@ -176,7 +182,7 @@ class PlayerActivity : ComponentActivity() {
         fun forMovie(context: Context, baseUrl: String, ratingKey: String, tmdbId: Int, title: String): Intent =
             forQueue(context, baseUrl, "movie", tmdbId, title, listOf(QueueItem(ratingKey, null, -1, -1)), 0)
 
-        fun forQueue(
+fun forQueue(
             context: Context,
             baseUrl: String,
             type: String,
@@ -185,6 +191,7 @@ class PlayerActivity : ComponentActivity() {
             queue: List<QueueItem>,
             startIndex: Int,
             startFromBeginning: Boolean = false,
+            posterPath: String? = null,
         ): Intent = Intent(context, PlayerActivity::class.java).apply {
             putExtra(EXTRA_BASE_URL, baseUrl)
             putExtra(EXTRA_TYPE, type)
@@ -196,6 +203,7 @@ class PlayerActivity : ComponentActivity() {
             putExtra(EXTRA_EPISODES, queue.map { it.episodeNumber }.toIntArray())
             putExtra(EXTRA_INDEX, startIndex)
             putExtra(EXTRA_START_FROM_BEGINNING, startFromBeginning)
+            putExtra(EXTRA_POSTER_PATH, posterPath)
         }
     }
 }
@@ -224,6 +232,7 @@ private const val CONTROLS_TIMEOUT_MS = 4_500L
 private const val PROGRESS_REPORT_INTERVAL_MS = 10_000L
 private const val MAX_NETWORK_AUTO_RETRIES = 2
 private const val NETWORK_RETRY_DELAY_MS = 2_000L
+private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
 
 /** Catégories d'erreur de lecture — déterminent le message et si un retry
  *  automatique/manuel a un sens (ré-essayer un codec non supporté ne
@@ -350,6 +359,7 @@ private fun PlayerScreen(
     queue: List<QueueItem>,
     startIndex: Int,
     startFromBeginning: Boolean,
+    posterPath: String? = null,
     onExit: () -> Unit,
     onRegisterMediaKeyHandler: (((Int) -> Boolean) -> Unit)? = null,
 ) {
@@ -426,15 +436,42 @@ ExoPlayer.Builder(context)
     }
 
     // Session média active (comme les apps natives type Netflix) : annonce au
-    // système Android TV qu'un média est en cours de lecture. Le système s'en
-    // sert pour ne pas endormir le boîtier pendant la lecture, afficher le
-    // titre dans l'interface système (now playing) et permettre le contrôle
-    // par la télécommande système. Relâchée quand l'Activity se ferme.
+    // système Android TV/Google TV qu'un média est en cours de lecture. Le
+    // système s'en sert pour ne pas endormir le boîtier pendant la lecture,
+    // alimenter la rangée « Continuer à regarder » du launcher Google TV
+    // (métadonnées + position = carte reprise, voir mediaMetadata ci-dessous)
+    // et permettre le contrôle par la télécommande système. L'activité de
+    // session (sessionActivity) fait que cliquer sur la carte du launcher
+    // rouvre l'app. Relâchée quand l'Activity se ferme.
     val mediaSession = remember(exoPlayer) {
-        androidx.media3.session.MediaSession.Builder(context, exoPlayer).build()
+        val sessionActivity = PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, com.movviz.tv.MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        androidx.media3.session.MediaSession.Builder(context, exoPlayer)
+            .setSessionActivity(sessionActivity)
+            .build()
     }
     DisposableEffect(mediaSession) {
         onDispose { mediaSession.release() }
+    }
+
+    // Métadonnées du titre courant pour la session média — ce sont elles que
+    // le launcher Google TV affiche dans « Continuer à regarder » (titre,
+    // affiche, position de reprise déduite de l'état du player) et dans le
+    // now playing système. Un épisode porte le nom de la série en titre
+    // principal et le libellé Sx·Épy·Nom en sous-titre, comme sur les
+    // plateformes.
+    fun mediaMetadata(item: QueueItem): MediaMetadata {
+        val isEpisode = item.seasonNumber > 0 && item.episodeNumber > 0
+        return MediaMetadata.Builder()
+            .setTitle(if (isEpisode && item.label != null) "$mainTitle — ${item.label}" else mainTitle)
+            .setSubtitle(if (isEpisode && item.label != null) mainTitle else null)
+            .setArtworkUri(posterPath?.let { Uri.parse("$TMDB_IMAGE_BASE$it") })
+            .build()
     }
 
     // Charge un item de la queue dans le player existant — appelé au premier
@@ -454,6 +491,7 @@ ExoPlayer.Builder(context)
         hasRenderedFrame = false
         errorMessage = null
         errorKind = null
+        val metadata = mediaMetadata(item)
         val mediaItem = when (level) {
             1 -> {
                 val url = repository.transcodeUrl(item.ratingKey)
@@ -467,6 +505,7 @@ ExoPlayer.Builder(context)
                 MediaItem.Builder()
                     .setUri(url)
                     .setMimeType(MimeTypes.APPLICATION_MPD)
+                    .setMediaMetadata(metadata)
                     .build()
             }
             2 -> {
@@ -475,9 +514,13 @@ ExoPlayer.Builder(context)
                 MediaItem.Builder()
                     .setUri(url)
                     .setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .setMediaMetadata(metadata)
                     .build()
             }
-            else -> MediaItem.fromUri(repository.streamUrl(item.ratingKey))
+            else -> MediaItem.Builder()
+                .setUri(repository.streamUrl(item.ratingKey))
+                .setMediaMetadata(metadata)
+                .build()
         }
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()

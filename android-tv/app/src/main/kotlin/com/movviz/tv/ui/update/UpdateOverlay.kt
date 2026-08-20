@@ -63,10 +63,9 @@ sealed interface UpdateUiState {
 
 /**
  * Overlay plein écran « Mise à jour, veuillez patienter… » — affiché au
- * lancement de la variante AU (BuildConfig.AUTO_UPDATE) quand une nouvelle
- * release existe sur GitHub. Le flux complet vit ici : check de version,
- * téléchargement avec progression, vérification SHA-256, installeur système.
- * Jamais affiché dans la variante retail.
+ * lancement (BuildConfig.AUTO_UPDATE) quand une nouvelle release existe sur
+ * GitHub. Le flux complet vit ici : check de version, téléchargement avec
+ * progression, vérification SHA-256, installeur système.
  */
 @Composable
 fun AutoUpdateOverlay() {

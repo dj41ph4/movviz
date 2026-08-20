@@ -87,8 +87,8 @@ fun TitleDetailScreen(
     viewModel: AppViewModel,
     type: String,
     tmdbId: Int,
-    onPlay: (title: String, queue: List<QueueItem>, startIndex: Int) -> Unit,
-    onPlayFromStart: (title: String, queue: List<QueueItem>, startIndex: Int) -> Unit,
+    onPlay: (title: String, queue: List<QueueItem>, startIndex: Int, posterPath: String?) -> Unit,
+    onPlayFromStart: (title: String, queue: List<QueueItem>, startIndex: Int, posterPath: String?) -> Unit,
     // Navigation vers un AUTRE titre depuis cette même fiche — sert la
     // rangée "Titres similaires" plus bas (clic → nouvelle fiche, poussée
     // sur la pile de nav, exactement Netflix/Apple TV). Optionnel : les
@@ -501,12 +501,12 @@ fun TitleDetailScreen(
                         if (plexRatingKey != null) {
                             val ctaText = if (movieResume != null) "▶  Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "▶  Lire"
                             PrimaryPill(text = ctaText, brush = null, solidWhite = true, focusRequester = initialFocusRequester) {
-                                onPlay(d.title, listOf(QueueItem(plexRatingKey, null, -1, -1)), 0)
+                                onPlay(d.title, listOf(QueueItem(plexRatingKey, null, -1, -1)), 0, d.posterPath)
                             }
                             if (movieResume != null) {
                                 Spacer(modifier = Modifier.width(12.dp))
                                 PrimaryPill(text = "↻  Lire depuis le début", brush = null, solidWhite = false) {
-                                    onPlayFromStart(d.title, listOf(QueueItem(plexRatingKey, null, -1, -1)), 0)
+                                    onPlayFromStart(d.title, listOf(QueueItem(plexRatingKey, null, -1, -1)), 0, d.posterPath)
                                 }
                             }
                         } else if (!inLibrary) {
@@ -601,7 +601,7 @@ fun TitleDetailScreen(
                             val index = playableEpisodes.indexOfFirst {
                                 it.seasonNumber == episodeResume.seasonNumber && it.episodeNumber == episodeResume.episodeNumber
                             }
-                            if (index >= 0) onPlay(d.title, playableEpisodes, index)
+                            if (index >= 0) onPlay(d.title, playableEpisodes, index, d.posterPath)
                         }
                     }
                 }
@@ -624,7 +624,7 @@ fun TitleDetailScreen(
                         }
                         if (index >= 0) {
                             selectedEpisode = null
-                            onPlay(d.title, playableEpisodes, index)
+                            onPlay(d.title, playableEpisodes, index, d.posterPath)
                         }
                     },
                     onDownloadSeason = { viewModel.downloadSeason(tmdbId, selection.season.seasonNumber) },
