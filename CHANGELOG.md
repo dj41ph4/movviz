@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.53 — August 2026
+
+### Android TV : vérification manuelle des mises à jour
+
+- Ajoute un bouton « Vérifier les mises à jour » dans Paramètres → À propos — jusqu'ici la vérification ne se déclenchait qu'une seule fois au lancement, sans aucun moyen de la relancer ou de voir ce qui se passe sans redémarrer l'application entière.
+
 ## v1.16.52 — August 2026
 
 ### Android TV : lecture — repli audio-seul plus fiable

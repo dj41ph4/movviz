@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,6 +47,7 @@ import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.movviz.tv.AppViewModel
 import com.movviz.tv.BuildConfig
 import com.movviz.tv.data.UpdateInfo
 import com.movviz.tv.data.UpdateManager
@@ -71,7 +73,7 @@ sealed interface UpdateUiState {
  * progression, vérification SHA-256, installeur système.
  */
 @Composable
-fun AutoUpdateOverlay() {
+fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
     val context = LocalContext.current
     val updateManager = remember { UpdateManager(context.applicationContext) }
     var state by remember { mutableStateOf<UpdateUiState>(UpdateUiState.Hidden) }
@@ -140,6 +142,30 @@ fun AutoUpdateOverlay() {
     LaunchedEffect(Unit) {
         if (!BuildConfig.AUTO_UPDATE || dismissed) return@LaunchedEffect
         val info = updateManager.checkForUpdate() ?: return@LaunchedEffect
+        pending = info
+        start(info)
+    }
+
+    // Vérification manuelle (bouton Paramètres → À propos) — le check
+    // automatique ne se déclenche qu'une fois au lancement, sans lui aucun
+    // moyen de relancer/diagnostiquer un souci de mise à jour sans
+    // redémarrer l'appli entière. Ignore le "Plus tard" précédent
+    // (dismissed) puisque l'utilisateur redemande explicitement.
+    val manualTrigger = viewModel?.updateCheckTrigger?.collectAsState()?.value
+    LaunchedEffect(manualTrigger) {
+        if (manualTrigger == null || manualTrigger == 0) return@LaunchedEffect
+        if (!BuildConfig.AUTO_UPDATE) {
+            viewModel.setUpdateCheckStatus("Mise à jour automatique désactivée sur cette build")
+            return@LaunchedEffect
+        }
+        dismissed = false
+        viewModel.setUpdateCheckStatus("Vérification…")
+        val info = updateManager.checkForUpdate()
+        if (info == null) {
+            viewModel.setUpdateCheckStatus("Movviz est à jour (${BuildConfig.VERSION_NAME})")
+            return@LaunchedEffect
+        }
+        viewModel.setUpdateCheckStatus(null)
         pending = info
         start(info)
     }

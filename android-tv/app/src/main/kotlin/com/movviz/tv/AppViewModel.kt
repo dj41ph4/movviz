@@ -150,6 +150,25 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _sessionExpired = MutableStateFlow(false)
     val sessionExpired: StateFlow<Boolean> = _sessionExpired.asStateFlow()
 
+    // Déclenchement manuel d'une vérification de mise à jour (écran
+    // Paramètres → À propos) — l'auto-update ne se vérifie sinon qu'une
+    // seule fois au lancement, aucun moyen de relancer/diagnostiquer sans
+    // redémarrer l'appli. AutoUpdateOverlay observe ce compteur ; toute
+    // incrémentation relance un check. updateCheckStatus reflète le
+    // résultat côté écran Paramètres (à jour / vérification / erreur).
+    private val _updateCheckTrigger = MutableStateFlow(0)
+    val updateCheckTrigger: StateFlow<Int> = _updateCheckTrigger.asStateFlow()
+    private val _updateCheckStatus = MutableStateFlow<String?>(null)
+    val updateCheckStatus: StateFlow<String?> = _updateCheckStatus.asStateFlow()
+
+    fun requestUpdateCheck() {
+        _updateCheckTrigger.value += 1
+    }
+
+    fun setUpdateCheckStatus(message: String?) {
+        _updateCheckStatus.value = message
+    }
+
     // Préférences de compte persistées côté serveur (voir UserPrefsDto) —
     // écran Paramètres, section Lecture. null = pas encore chargées.
     private val _userPrefs = MutableStateFlow<UserPrefsDto?>(null)

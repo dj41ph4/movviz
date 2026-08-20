@@ -416,6 +416,6 @@ composable(ROUTE_PROFILES) {
                 modifier = Modifier.zIndex(1f),
             )
         }
-        AutoUpdateOverlay()
+        AutoUpdateOverlay(viewModel)
     }
 }

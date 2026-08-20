@@ -145,6 +145,15 @@ fun SettingsScreen(
             InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
             Spacer(modifier = Modifier.height(10.dp))
             InfoRow(label = "Application", value = "Movviz TV")
+            if (BuildConfig.AUTO_UPDATE) {
+                Spacer(modifier = Modifier.height(14.dp))
+                SettingsButton(text = "Vérifier les mises à jour") { viewModel.requestUpdateCheck() }
+                val updateCheckStatus by viewModel.updateCheckStatus.collectAsState()
+                updateCheckStatus?.let {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizInkDim))
+                }
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
