@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +24,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -35,6 +37,7 @@ import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
 import androidx.tv.foundation.lazy.list.itemsIndexed
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -63,7 +66,13 @@ import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original"
+// w1280, PAS "original" : un backdrop plein écran en "original" télécharge
+// jusqu'à 4000px de large pour un écran TV 1080p — gaspillage réseau et
+// mémoire inutile (même raisonnement que le hero, HomeScreen.kt).
+private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280"
+// Les captures d'épisode sont affichées en petits formats : w780 suffit
+// largement, l'original est du gaspillage pur.
+private const val TMDB_STILL_BASE = "https://image.tmdb.org/t/p/w780"
 private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w185"
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
 
@@ -144,7 +153,7 @@ fun TitleDetailScreen(
         if (!inLibrary) return@LaunchedEffect
         viewModel.refreshTitleLibraryEntry(type, tmdbId)
         while (true) {
-            delay(3_000)
+            delay(8_000)
             viewModel.refreshTitleLibraryEntry(type, tmdbId)
         }
     }
@@ -219,7 +228,7 @@ fun TitleDetailScreen(
     val visibleSeasons = remember(seasons) { seasons.filter { it.seasonNumber > 0 } }
     LaunchedEffect(visibleSeasons) {
         // Ne choisir la saison par défaut qu'à l'OUVERTURE (null) : un
-        // rafraîchissement du titre toutes les 3 s ne doit jamais écraser
+        // rafraîchissement du titre toutes les 8 s ne doit jamais écraser
         // la sélection D-pad (sinon retour à la saison 1 après chaque poll).
         if (selectedSeasonNumber == null && visibleSeasons.isNotEmpty()) {
             val wanted = initialSeasonNumber?.let { s -> visibleSeasons.firstOrNull { it.seasonNumber == s } }
@@ -287,6 +296,24 @@ fun TitleDetailScreen(
         }
     }
 
+    // Parallax du backdrop (effet profondeur Apple TV) : l'image glisse à
+    // 0.4x la vitesse de la liste pendant le scroll. Limité aux premiers
+    // ~200dp de scroll — le backdrop sort du champ ensuite, l'effet est
+    // plafonné et invisible de toute façon. L'image fait 640dp pour 560dp
+    // visibles : les 80dp de marge absorbent la translation sans jamais
+    // révéler de trou sous le dégradé.
+    val lazyListState = rememberTvLazyListState()
+    val parallaxOffset by remember {
+        derivedStateOf {
+            val scroll = if (lazyListState.firstVisibleItemIndex == 0) {
+                lazyListState.firstVisibleItemScrollOffset
+            } else {
+                Int.MAX_VALUE
+            }
+            -(minOf(scroll * 0.4f, 80f).toInt()).toFloat()
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val backdropUrl = detail?.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
         if (backdropUrl != null) {
@@ -294,7 +321,10 @@ fun TitleDetailScreen(
                 painter = rememberAsyncImagePainter(model = backdropUrl),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxWidth().height(560.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(640.dp)
+                    .graphicsLayer { translationY = parallaxOffset },
             )
         } else {
             Box(modifier = Modifier.fillMaxWidth().height(560.dp).background(MaterialTheme.colorScheme.surface))
@@ -360,6 +390,7 @@ fun TitleDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(start = 56.dp, end = 56.dp, bottom = 40.dp),
+            state = lazyListState,
             // Le backdrop reste derrière la fiche, mais le contenu doit
             // commencer dans sa zone lisible (logo + métadonnées + synopsis
             // + CTA visibles ensemble). 320dp faisait démarrer la fiche trop
@@ -523,7 +554,7 @@ fun TitleDetailScreen(
                             ) {
                                 scope.launch {
                                     when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
-                                        is ApiResult.Failure -> addError = result.message
+                                        is ApiResult.Failure -> addError = friendlyAddError(result.message)
                                         else -> addError = null
                                     }
                                 }
@@ -575,7 +606,7 @@ fun TitleDetailScreen(
                     ) {
                         scope.launch {
                             when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
-                                is ApiResult.Failure -> addError = result.message
+                                is ApiResult.Failure -> addError = friendlyAddError(result.message)
                                 else -> addError = null
                             }
                         }
@@ -875,7 +906,7 @@ private fun EpisodeCard(episode: SeriesEpisodeDto, metadata: MetadataEpisodeDto?
             Text(text = episode.episodeNumber.toString(), style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Light, color = MovvizInkDim), modifier = Modifier.width(34.dp))
             metadata?.stillPath?.let { still ->
                 Image(
-                    painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE$still"),
+                    painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still"),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.width(164.dp).height(92.dp).clip(RoundedCornerShape(5.dp)),
@@ -985,7 +1016,7 @@ private fun EpisodeDetailOverlay(
             Column(modifier = Modifier.padding(28.dp)) {
                 selection.metadata?.stillPath?.let { still ->
                     Image(
-                        painter = rememberAsyncImagePainter(model = "$TMDB_BACKDROP_BASE$still"),
+                        painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still"),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxWidth().height(250.dp).clip(RoundedCornerShape(10.dp)),
@@ -1103,4 +1134,18 @@ private fun formatResumeTime(offsetMs: Long): String {
     val m = (totalSeconds % 3600) / 60
     val s = totalSeconds % 60
     return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+}
+
+/** Traduit le message d'erreur brut du serveur en message lisible pour la TV.
+ *  Le cas le plus fréquent est un TMDb injoignable (coupure réseau côté
+ *  serveur) : l'ajout échoue avec "movie not found on TMDb" qui prête à
+ *  confusion — le film n'est pas introuvable, il est juste inaccessible. */
+private fun friendlyAddError(raw: String): String = when {
+    raw.contains("TMDb", ignoreCase = true) ->
+        "Impossible de joindre TMDb — vérifiez la connexion du serveur et réessayez"
+    raw.contains("quotaReached") -> "Quota de demandes atteint pour ce compte"
+    raw.contains("blocked") -> "Ce titre est bloqué"
+    raw.contains("alreadyInLibrary") -> "Déjà dans la bibliothèque"
+    raw.contains("duplicateRequest") -> "Demande déjà envoyée pour ce titre"
+    else -> "Échec de l'ajout : $raw"
 }

@@ -26,7 +26,11 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/Theme.MovvizTv"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:largeHeap="true">
+        <!-- largeHeap : le hero (WebView de bandes-annonces + carrousel) et
+             les grandes affiches 4K consomment de la mémoire ; l'app TV est
+             la seule app visible à l'écran, le heap agrandi ne gêne rien. -->
         <!-- usesCleartextTraffic : la plupart des instances Movviz tournent en
              HTTP simple sur le réseau local (port 9810) — voir la même
              tolérance déjà en place côté web/desktop. -->

@@ -226,6 +226,24 @@ class UpdateManager(private val context: Context) {
         }
     }
 
+    /** Repli quand l'installation en arrière-plan (PackageInstaller) échoue
+     *  ou est refusée en silence par le système — constaté sur certains
+     *  Google TV (Chromecast 4K) où le commit passe sans erreur mais rien
+     *  ne s'installe. On ouvre alors l'installeur système classique
+     *  (ACTION_VIEW + FileProvider) : un écran natif « Voulez-vous mettre à
+     *  jour cette application ? » s'affiche, l'utilisateur valide avec la
+     *  télécommande. L'APK est déjà téléchargé et vérifié, ce chemin ne
+     *  refait aucun réseau. */
+    fun installViaSystemInstaller(file: File) {
+        val apkUri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(apkUri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+
     /** Compare "v1.16.19" vs "1.16.18" â€” la plus haute gagne. */
     private fun isNewerVersion(tag: String, current: String): Boolean {
         val a = parseVersion(tag)

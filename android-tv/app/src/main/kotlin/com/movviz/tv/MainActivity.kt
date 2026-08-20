@@ -39,6 +39,7 @@ import com.movviz.tv.ui.theme.MovvizTvTheme
 import com.movviz.tv.ui.title.TitleDetailScreen
 import com.movviz.tv.ui.update.AutoUpdateOverlay
 import com.movviz.tv.ui.wizard.WizardScreen
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val ROUTE_WIZARD = "wizard"
@@ -123,7 +124,29 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // l'échec — voir le onKeyEvent + runCatching de NavRail).
     val contentFocusRequester = remember { FocusRequester() }
     val fallbackFocusRequester = remember { FocusRequester() }
+    // Cible HAUT depuis le contenu : onglet sélectionné de la NavRail.
+    val navRailFocusRequester = remember { FocusRequester() }
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+    // Restauration du focus au retour d'un écran détail : quand on revient
+    // à l'accueil depuis une fiche, le focus doit revenir sur la NavRail
+    // pour que la télécommande réagisse immédiatement — sans ceci, le
+    // focus reste « nulle part » et l'utilisateur croit que l'app a gelé.
+    var previousRoute by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(currentRoute) {
+        if (currentRoute?.startsWith("home") == true &&
+            previousRoute != null &&
+            previousRoute?.startsWith("home") != true
+        ) {
+            // Attendre la composition complète de l'écran contenu avant de
+            // demander le focus — le FocusRequester doit être attaché à un
+            // noeud composé vivant, sinon requestFocus() lève une exception
+            // (constaté en direct sur TV : 200 ms trop court, 300 ms OK).
+            delay(300)
+            runCatching { navRailFocusRequester.requestFocus() }
+        }
+        previousRoute = currentRoute
+    }
 
 // Démarrage façon Netflix : URL inconnue → wizard ; sinon, on vérifie
     // la session locale. Un APK fraîchement installé n'affiche JAMAIS le
@@ -307,6 +330,7 @@ composable(ROUTE_PROFILES) {
                 onSearchQueryChange = { searchQuery = it },
                 contentFocusRequester = contentFocusRequester,
                 fallbackFocusRequester = fallbackFocusRequester,
+                navRailFocusRequester = navRailFocusRequester,
             )
         }
         composable(
@@ -423,6 +447,7 @@ composable(ROUTE_PROFILES) {
                 },
                 contentFocusRequester = contentFocusRequester,
                 fallbackFocusRequester = fallbackFocusRequester,
+                navRailFocusRequester = navRailFocusRequester,
                 modifier = Modifier.zIndex(1f),
             )
         }

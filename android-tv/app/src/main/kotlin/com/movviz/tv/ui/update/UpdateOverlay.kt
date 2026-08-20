@@ -57,6 +57,7 @@ import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.launch
+import java.io.File
 
 /** États de l'auto-update, du check GitHub jusqu'à l'installation. */
 sealed interface UpdateUiState {
@@ -64,6 +65,11 @@ sealed interface UpdateUiState {
     data object NeedPermission : UpdateUiState
     data class Downloading(val progress: Float) : UpdateUiState
     data class Installing(val progress: Float?) : UpdateUiState
+
+    /** Le commit PackageInstaller n'a pas abouti (refusé en silence par
+     *  certains Google TV) : l'APK est prêt, on propose l'installeur
+     *  système via le bouton « Installer » (voir onRetryInstall). */
+    data object FallbackInstall : UpdateUiState
 }
 
 /**
@@ -80,6 +86,10 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
     var target by remember { mutableStateOf("") }
     var pending by remember { mutableStateOf<UpdateInfo?>(null) }
     var dismissed by remember { mutableStateOf(false) }
+
+    /** APK téléchargé et vérifié — conservé pour le repli installeur
+     *  système quand le commit PackageInstaller est ignoré. */
+    var downloadedFile by remember { mutableStateOf<File?>(null) }
     val scope = rememberCoroutineScope()
 
     suspend fun start(info: UpdateInfo) {
@@ -105,19 +115,22 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
                 state = UpdateUiState.Installing(progress)
             }
             // Échec silencieux possible (commit sans erreur mais installation
-            // refusée) : si le process est encore là après 30 s, l'app revient
-            // à son état normal au lieu de rester bloquée sur l'overlay. En
-            // cas de succès le process est déjà mort, ce délai n'est jamais
-            // atteint.
+            // refusée) : si le process est encore là après 30 s, on passe au
+            // repli installeur système au lieu de revenir sans rien (l'APK
+            // déjà téléchargé permet un « Installer » en un clic). En cas de
+            // succès le process est déjà mort, ce délai n'est jamais atteint.
+            downloadedFile = file
             kotlinx.coroutines.delay(30_000L)
-            state = UpdateUiState.Hidden
+            state = UpdateUiState.FallbackInstall
         } catch (e: Exception) {
             // Réseau, HTTP, SHA-256… l'appli démarre normalement, on ne
             // bloque jamais l'utilisation sur un souci de mise à jour. Le log
             // manquait ici avant ce correctif — un échec de download() ou
             // d'installInBackground() se refermait sans aucune trace.
             android.util.Log.w("MovvizUpdate", "cycle de mise à jour interrompu", e)
-            state = UpdateUiState.Hidden
+            // L'APK est déjà complet : proposer l'installeur système reste
+            // plus utile qu'un retour silencieux à l'écran d'accueil.
+            state = if (downloadedFile != null) UpdateUiState.FallbackInstall else UpdateUiState.Hidden
         }
     }
 
@@ -175,6 +188,9 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
             state = state,
             targetVersion = target,
             onAuthorize = { updateManager.openInstallPermissionSettings() },
+            onRetryInstall = {
+                downloadedFile?.let { updateManager.installViaSystemInstaller(it) }
+            },
             onLater = {
                 dismissed = true
                 state = UpdateUiState.Hidden
@@ -189,6 +205,7 @@ fun UpdateOverlay(
     state: UpdateUiState,
     targetVersion: String,
     onAuthorize: () -> Unit,
+    onRetryInstall: () -> Unit,
     onLater: () -> Unit,
 ) {
     // L'overlay est peint PAR-DESSUS le menu/la fiche en cours, mais rien ne
@@ -202,9 +219,12 @@ fun UpdateOverlay(
     // le focus en priorité dès qu'il apparaît.
     val rootFocusRequester = remember { FocusRequester() }
     val authorizeFocusRequester = remember { FocusRequester() }
+    val retryFocusRequester = remember { FocusRequester() }
     LaunchedEffect(state) {
         if (state is UpdateUiState.NeedPermission) {
             runCatching { authorizeFocusRequester.requestFocus() }
+        } else if (state is UpdateUiState.FallbackInstall) {
+            runCatching { retryFocusRequester.requestFocus() }
         } else {
             runCatching { rootFocusRequester.requestFocus() }
         }
@@ -269,6 +289,25 @@ fun UpdateOverlay(
                     Spacer(Modifier.height(24.dp))
                     Row {
                         ActionButton(text = "Autoriser", onClick = onAuthorize, focusRequester = authorizeFocusRequester)
+                        Spacer(Modifier.width(20.dp))
+                        ActionButton(text = "Plus tard", onClick = onLater)
+                    }
+                }
+                UpdateUiState.FallbackInstall -> {
+                    Text(
+                        text = "L'installation automatique n'a pas abouti sur cet appareil",
+                        style = TextStyle(fontSize = 16.sp, color = Color.White.copy(alpha = 0.85f)),
+                        modifier = Modifier.padding(horizontal = 64.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "L'APK est téléchargé et vérifié : ouvre l'installeur système pour terminer.",
+                        style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.6f)),
+                        modifier = Modifier.padding(horizontal = 64.dp),
+                    )
+                    Spacer(Modifier.height(24.dp))
+                    Row {
+                        ActionButton(text = "Installer", onClick = onRetryInstall, focusRequester = retryFocusRequester)
                         Spacer(Modifier.width(20.dp))
                         ActionButton(text = "Plus tard", onClick = onLater)
                     }

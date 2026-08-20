@@ -80,6 +80,11 @@ fun NavRail(
     // contentFocusRequester ne pointe encore vers rien de réel, pour ne
     // JAMAIS laisser la flèche bas viser une cible non attachée.
     fallbackFocusRequester: FocusRequester? = null,
+    // Cible HAUT depuis le contenu : onglet sélectionné de la barre de
+    // navigation, pour que la touche HAUT depuis le contenu rejoigne
+    // directement la NavRail (frères superposés dans un Box — Compose
+    // ne trouve pas la nav automatiquement).
+    navRailFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
     // flèche bas depuis N'IMPORTE quel item de cette barre (onglet, bouton
@@ -93,8 +98,14 @@ fun NavRail(
     // direct sur vraie TV dans les deux sens (aucun effet, puis fermeture
     // de l'appli une fois qu'une redirection directe mais non protégée a
     // été tentée). Chaque tentative est protégée individuellement.
-    val navDownKeyHandler = Modifier.onKeyEvent { event ->
-        if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown) return@onKeyEvent false
+    // onPreviewKeyEvent (pas onKeyEvent) : la touche BAS doit être
+    // interceptée AVANT que les Surface/TopNavItem enfants ne la
+    // consomment pour la navigation interne. Sans ceci, l'enfant focusé
+    // peut avaler DOWN avant que le Row ne le voie — constaté en direct
+    // sur TV quand la NavRail a le focus et que BAS ne descendait pas
+    // dans le contenu.
+    val navDownKeyHandler = Modifier.onPreviewKeyEvent { event ->
+        if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown) return@onPreviewKeyEvent false
         val moved = contentFocusRequester != null && runCatching { contentFocusRequester.requestFocus() }.isSuccess
         if (moved) true
         else fallbackFocusRequester != null && runCatching { fallbackFocusRequester.requestFocus() }.isSuccess
@@ -134,7 +145,12 @@ fun NavRail(
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             HomeTab.entries.forEach { tab ->
-                TopNavItem(tab = tab, active = tab == selected, onClick = { onSelect(tab) })
+                TopNavItem(
+                    tab = tab,
+                    active = tab == selected,
+                    onClick = { onSelect(tab) },
+                    focusRequester = if (tab == selected) navRailFocusRequester else null,
+                )
             }
         }
 
@@ -405,13 +421,14 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
 }
 
 @Composable
-private fun TopNavItem(tab: HomeTab, active: Boolean, onClick: () -> Unit) {
+private fun TopNavItem(tab: HomeTab, active: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
 
     Surface(
         onClick = onClick,
         modifier = Modifier
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

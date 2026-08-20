@@ -19,8 +19,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
@@ -38,20 +36,26 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -85,6 +89,7 @@ import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizInk
+import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizSurface
 import com.movviz.tv.ui.theme.MovvizTvTheme
@@ -228,7 +233,7 @@ private fun isMediaKey(keyCode: Int): Boolean = keyCode in intArrayOf(
 
 private const val TAG = "MovvizPlayer"
 private const val SEEK_STEP_MS = 10_000L
-private const val CONTROLS_TIMEOUT_MS = 4_500L
+private const val CONTROLS_TIMEOUT_MS = 5_000L
 private const val PROGRESS_REPORT_INTERVAL_MS = 10_000L
 private const val MAX_NETWORK_AUTO_RETRIES = 2
 private const val NETWORK_RETRY_DELAY_MS = 2_000L
@@ -386,10 +391,11 @@ private fun PlayerScreen(
 
     var showControls by remember { mutableStateOf(true) }
     var isPlaying by remember { mutableStateOf(true) }
-    var positionMs by remember { mutableStateOf(0L) }
-    var durationMs by remember { mutableStateOf(0L) }
-    var bufferedPercent by remember { mutableStateOf(0) }
     var loading by remember { mutableStateOf(true) }
+    // Dernière exception ExoPlayer — sert uniquement aux détails techniques
+    // de l'écran d'erreur (code ExoPlayer + codecs de la source) ; le
+    // fallback direct → transcode, lui, se décide dans onPlayerError.
+    var lastError by remember { mutableStateOf<PlaybackException?>(null) }
     // A joué au moins une image pour cet item — distingue le chargement
     // initial (voile plein écran + texte) d'un simple re-buffering réseau en
     // cours de lecture (indicateur discret, la dernière image reste visible
@@ -401,6 +407,15 @@ private fun PlayerScreen(
     var showAudioDialog by remember { mutableStateOf(false) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var tracksVersion by remember { mutableStateOf(0) } // force la recomposition des dialogues pistes
+    // Indicateur flottant centré quand on seek — feedback visuel immédiat
+    // comme Netflix : un "+10s" ou "−10s" en overlay semi-transparent qui
+    // apparaît/disparaît en fondu, sans obscurcir l'image.
+    var seekIndicator by remember { mutableStateOf<String?>(null) }
+    // Panneau "Épisode suivant" en fin d'épisode — visible ~45s avant la fin,
+    // même comportement que Netflix : carte avec libellé, compte à rebours
+    // et bouton "⏭". Toujours visible, pas dans l'overlay auto-masquant.
+    var showNextEpisodeTeaser by remember { mutableStateOf(false) }
+    var nextEpisodeCountdown by remember { mutableStateOf(0L) }
     // Repli direct-play → transcodage serveur, en deux niveaux : 1 = ffmpeg
     // audio seul (vidéo copiée en bitstream, seul le son est ré-encodé —
     // x264/x265 passent presque partout, inutile de ré-encoder l'image),
@@ -497,6 +512,7 @@ ExoPlayer.Builder(context)
         hasRenderedFrame = false
         errorMessage = null
         errorKind = null
+        lastError = null
         val metadata = mediaMetadata(item)
         val mediaItem = when (level) {
             1 -> if (level1FfmpegAvailable) {
@@ -625,7 +641,8 @@ LaunchedEffect(current.ratingKey) {
             override fun onPlaybackStateChanged(state: Int) {
                 loading = state == Player.STATE_BUFFERING
                 if (state == Player.STATE_READY) {
-                    durationMs = exoPlayer.duration.coerceAtLeast(0)
+                    // La durée n'est plus stockée à la racine : PlayerProgressBar
+                    // la lit directement depuis le player (voir NOTE PERF).
                     hasRenderedFrame = true
                 }
                 if (state == Player.STATE_ENDED) {
@@ -648,6 +665,7 @@ LaunchedEffect(current.ratingKey) {
             }
             override fun onPlayerError(error: PlaybackException) {
                 val kind = classifyError(error)
+                lastError = error
                 Log.w(TAG, "onPlayerError code=${error.errorCode} kind=$kind fallbackLevel=$fallbackLevel", error)
                 if (kind == PlayerErrorKind.NETWORK && networkRetryCount < MAX_NETWORK_AUTO_RETRIES) {
                     networkRetryCount += 1
@@ -715,16 +733,11 @@ LaunchedEffect(current.ratingKey) {
         }
     }
 
-    // Battement de progression régulier + suivi position/buffer pour la
-    // barre — best-effort, jamais fatal (voir MovvizRepository.reportProgress).
-    LaunchedEffect(exoPlayer) {
-        while (true) {
-            delay(500)
-            positionMs = exoPlayer.currentPosition.coerceAtLeast(0)
-            if (exoPlayer.duration > 0) durationMs = exoPlayer.duration
-            bufferedPercent = exoPlayer.bufferedPercentage
-        }
-    }
+    // NOTE PERF : plus aucun ticker de progression ici. Position/durée/
+    // buffer vivent dans PlayerProgressBar (états locaux + ticker interne,
+    // 4 lectures/s max) : c'est le SEUL composable qui se recompose pendant
+    // la lecture, jamais la racine PlayerScreen ni les boutons de contrôle
+    // (règle du lecteur : 60 fps constants, zéro recomposition à la frame).
     LaunchedEffect(current.ratingKey) {
         while (true) {
             delay(PROGRESS_REPORT_INTERVAL_MS)
@@ -739,6 +752,33 @@ LaunchedEffect(current.ratingKey) {
         if (fallbackNotice == null) return@LaunchedEffect
         delay(2_500L)
         fallbackNotice = null
+    }
+
+    // Effacement automatique de l'indicateur de seek après 1s — le temps
+    // de lire le feedback sans que ça reste affiché en permanence.
+    LaunchedEffect(seekIndicator) {
+        if (seekIndicator == null) return@LaunchedEffect
+        delay(1_000L)
+        seekIndicator = null
+    }
+
+    // Surveillance de la position pour afficher le panneau "Épisode suivant"
+    // en fin d'épisode — même UX que Netflix : la carte apparaît ~45s avant
+    // la fin, avec le libellé du prochain épisode et un compte à rebours.
+    LaunchedEffect(current.ratingKey, hasNext) {
+        showNextEpisodeTeaser = false
+        while (true) {
+            delay(1_000L)
+            if (!hasNext) { showNextEpisodeTeaser = false; continue }
+            val pos = exoPlayer.currentPosition
+            val dur = exoPlayer.duration.coerceAtLeast(0)
+            if (dur > 0 && pos > dur - 45_000L) {
+                showNextEpisodeTeaser = true
+                nextEpisodeCountdown = ((dur - pos) / 1000L).coerceAtLeast(0)
+            } else {
+                showNextEpisodeTeaser = false
+            }
+        }
     }
 
     // Auto-hide des contrôles — toute interaction relance le minuteur.
@@ -764,10 +804,12 @@ LaunchedEffect(current.ratingKey) {
     fun seekBackAction() {
         poke()
         exoPlayer.seekTo((exoPlayer.currentPosition - SEEK_STEP_MS).coerceAtLeast(0))
+        seekIndicator = "−10s"
     }
     fun seekForwardAction() {
         poke()
         exoPlayer.seekTo((exoPlayer.currentPosition + SEEK_STEP_MS).coerceAtMost(exoPlayer.duration.coerceAtLeast(0)))
+        seekIndicator = "+10s"
     }
     fun prevEpisodeAction() {
         poke()
@@ -816,7 +858,18 @@ LaunchedEffect(current.ratingKey) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            // Toute pression de télécommande relance le minuteur
+            // d'auto-masquage, même si elle ne déplace pas le focus (appui
+            // "à vide" sur un overlay déjà affiché) — le D-pad seul ne doit
+            // jamais laisser les contrôles s'éteindre en pleine navigation.
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown) poke()
+                false
+            },
+    ) {
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
@@ -881,20 +934,40 @@ LaunchedEffect(current.ratingKey) {
             )
         }
 
-        if (loading && errorMessage == null) {
-            if (hasRenderedFrame) {
-                // Re-buffering en cours de lecture : indicateur discret en
-                // coin, la dernière image reste affichée — jamais de gel
-                // visuel silencieux pendant un ralentissement réseau.
-                Box(modifier = Modifier.align(Alignment.TopEnd).padding(28.dp)) {
-                    BufferingSpinner(size = 28.dp)
-                }
-            } else {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        BufferingSpinner(size = 40.dp)
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Text(text = "Chargement…", style = TextStyle(fontSize = 16.sp, color = MovvizInk))
+        // Voile de chargement/buffering — fondu d'apparition/disparition
+        // (jamais de flash : un voile qui apparaît d'un coup "clignote"
+        // l'écran) et scrim léger (alpha 0.4, pas un bloc opaque) pour le
+        // chargement initial. Le re-buffering en cours de lecture reste un
+        // indicateur discret en coin, la dernière image affichée.
+        AnimatedVisibility(
+            visible = loading && errorMessage == null,
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(250)),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (hasRenderedFrame) {
+                    // Re-buffering en cours de lecture : indicateur discret
+                    // en coin, la dernière image reste affichée — jamais de
+                    // gel visuel silencieux pendant un ralentissement réseau.
+                    BufferingSpinner(
+                        size = 28.dp,
+                        modifier = Modifier.align(Alignment.TopEnd).padding(28.dp),
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            BufferingSpinner(size = 40.dp)
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Text(
+                                text = "Chargement…",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MovvizInk,
+                            )
+                        }
                     }
                 }
             }
@@ -916,26 +989,64 @@ LaunchedEffect(current.ratingKey) {
             ) {
                 Text(
                     text = fallbackNotice ?: "",
-                    style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft, fontWeight = FontWeight.Bold),
+                    style = MaterialTheme.typography.labelLarge.copy(color = MovvizInkSoft),
                 )
             }
         }
 
         errorMessage?.let { msg ->
             val canRetry = errorKind != PlayerErrorKind.AUTH && errorKind != PlayerErrorKind.NOT_FOUND
+            // Détails techniques grisés (codecs, résolution, code d'erreur)
+            // — utiles pour diagnostiquer un titre non supporté depuis le
+            // canapé, discrets pour les autres (labelSmall, couleur dim).
+            val techDetails = remember(msg) { buildTechDetails(exoPlayer, lastError) }
+            val retryFocus = remember { FocusRequester() }
+            val exitFocus = remember { FocusRequester() }
+            LaunchedEffect(Unit) {
+                // Focus D-pad sur le premier bouton disponible — l'écran
+                // d'erreur doit être pilotable à la télécommande comme tout
+                // le reste (avant, les "boutons" texte n'étaient pas
+                // focusables du tout, uniquement cliquables au pointeur).
+                val target = if (canRetry) retryFocus else exitFocus
+                repeat(5) { attempt ->
+                    val ok = runCatching { target.requestFocus() }.isSuccess
+                    if (ok) return@LaunchedEffect
+                    if (attempt < 4) withFrameNanos { }
+                }
+            }
             Box(
                 modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = msg, style = TextStyle(fontSize = 16.sp, color = MovvizDown))
-                    Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 48.dp),
+                ) {
+                    Text(
+                        text = msg,
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MovvizDown,
+                        textAlign = TextAlign.Center,
+                    )
+                    if (techDetails.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = techDetails,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MovvizInkDim,
+                            textAlign = TextAlign.Center,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(28.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                         if (canRetry) {
-                            Text(
-                                text = "Réessayer",
-                                style = TextStyle(fontSize = 14.sp, color = MovvizBrand, fontWeight = FontWeight.Bold),
-                                modifier = Modifier.tvPointerClick {
+                            ErrorActionButton(
+                                label = "Réessayer",
+                                primary = true,
+                                focusRequester = retryFocus,
+                                onClick = {
                                     networkRetryCount = 0
                                     // Reprend dans le même mode qu'au moment de
                                     // l'échec (direct, audio-seul ou HLS
@@ -943,33 +1054,35 @@ LaunchedEffect(current.ratingKey) {
                                     // échec du repli transcodage reviendrait au
                                     // direct-play et reproduirait la même
                                     // erreur non supportée à coup sûr.
-                                    load(current, positionMs, level = fallbackLevel)
+                                    load(current, exoPlayer.currentPosition.coerceAtLeast(0), level = fallbackLevel)
                                 },
                             )
                         }
-                        Text(
-                            text = "Retour",
-                            style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.8f), fontWeight = FontWeight.Bold),
-                            modifier = Modifier.tvPointerClick { onExit() },
+                        ErrorActionButton(
+                            label = "Retour",
+                            primary = false,
+                            focusRequester = if (canRetry) null else exitFocus,
+                            onClick = { onExit() },
                         )
                     }
                 }
             }
         }
 
+        // Overlay plein écran (titre haut, boutons centre, progression bas) —
+        // fade pur, sans slide : un déplacement est perçu comme un saut,
+        // Netflix ne fait que des fondus (alpha GPU, zéro layout).
         AnimatedVisibility(
             visible = showControls && errorMessage == null,
-            enter = fadeIn() + slideInVertically(initialOffsetY = { it / 3 }),
-            exit = fadeOut() + slideOutVertically(targetOffsetY = { it / 3 }),
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
+            enter = fadeIn(tween(220)),
+            exit = fadeOut(tween(220)),
+            modifier = Modifier.fillMaxSize(),
         ) {
             ControlsOverlay(
                 title = mainTitle,
                 subtitle = current.label,
                 isPlaying = isPlaying,
-                positionMs = positionMs,
-                durationMs = durationMs,
-                bufferedPercent = bufferedPercent,
+                player = exoPlayer,
                 hasNext = hasNext,
                 hasPrev = hasPrev,
                 playPauseFocus = playPauseFocus,
@@ -981,6 +1094,48 @@ LaunchedEffect(current.ratingKey) {
                 onNextEpisode = { nextEpisodeAction() },
                 onOpenAudio = { poke(); showAudioDialog = true },
                 onOpenSubtitles = { poke(); showSubtitleDialog = true },
+            )
+        }
+
+        // Indicateur centré "+10s"/"-10s" — feedback visuel quand on
+        // avance/recule, fondu rapide pour ne pas gêner la lecture.
+        AnimatedVisibility(
+            visible = seekIndicator != null,
+            enter = fadeIn(tween(100)),
+            exit = fadeOut(tween(300)),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Box(
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.65f), CircleShape)
+                        .padding(horizontal = 28.dp, vertical = 18.dp),
+                ) {
+                    Text(
+                        text = seekIndicator ?: "",
+                        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                        color = Color.White,
+                    )
+                }
+            }
+        }
+
+        // Panneau "Épisode suivant" en bas à droite — visible dans les
+        // ~45 dernières secondes d'un épisode, même pattern Netflix :
+        // carte avec le libellé du prochain épisode, compte à rebours et
+        // bouton "⏭". Toujours visible (pas dans l'overlay auto-masquant).
+        AnimatedVisibility(
+            visible = showNextEpisodeTeaser && hasNext,
+            enter = fadeIn(tween(300)),
+            exit = fadeOut(tween(200)),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 56.dp, bottom = 130.dp),
+        ) {
+            NextEpisodeTeaser(
+                label = queue.getOrNull(currentIndex + 1)?.label,
+                countdown = nextEpisodeCountdown,
+                onNextEpisode = { nextEpisodeAction() },
             )
         }
 
@@ -1055,9 +1210,13 @@ private fun subtitleTrackOptions(player: ExoPlayer): List<TrackOption> =
 
 /** Petit indicateur de chargement/tampon rotatif aux couleurs de marque —
  *  cohérent avec le pattern "Loader2 spin" utilisé ailleurs dans l'app pour
- *  les actions asynchrones courtes. */
+ *  les actions asynchrones courtes. La rotation passe par graphicsLayer
+ *  (mise à jour en phase de dessin, zéro recomposition) et non
+ *  Modifier.rotate() qui relirait l'angle en composition à chaque frame —
+ *  pendant un re-buffering prolongé, le reste de l'écran ne doit pas
+ *  repasser par la composition. */
 @Composable
-private fun BufferingSpinner(size: androidx.compose.ui.unit.Dp) {
+private fun BufferingSpinner(size: Dp, modifier: Modifier = Modifier) {
     val transition = rememberInfiniteTransition(label = "buffering")
     val angle by transition.animateFloat(
         initialValue = 0f,
@@ -1065,9 +1224,9 @@ private fun BufferingSpinner(size: androidx.compose.ui.unit.Dp) {
         animationSpec = infiniteRepeatable(animation = tween(900, easing = LinearEasing), repeatMode = RepeatMode.Restart),
         label = "angle",
     )
-    Canvas(modifier = Modifier.size(size).rotate(angle)) {
+    Canvas(modifier = modifier.size(size).graphicsLayer { rotationZ = angle }) {
         drawArc(
-            brush = androidx.compose.ui.graphics.Brush.sweepGradient(listOf(Color.Transparent, MovvizBrand, MovvizBrand2)),
+            brush = Brush.sweepGradient(listOf(Color.Transparent, MovvizBrand, MovvizBrand2)),
             startAngle = 0f,
             sweepAngle = 300f,
             useCenter = false,
@@ -1077,14 +1236,83 @@ private fun BufferingSpinner(size: androidx.compose.ui.unit.Dp) {
     }
 }
 
+/** Barre de progression isolée — le SEUL composable autorisé à se
+ *  recomposer pendant la lecture. Elle possède ses propres états de
+ *  position/durée/buffer mis à jour par un ticker interne (4 lectures/s
+ *  max) : les recompositions restent contenues ici, le titre et les
+ *  boutons de l'overlay ne repassent jamais par la composition à chaque
+ *  frame (règle de perf du lecteur : zéro recomposition racine pendant la
+ *  lecture, voir PlayerScreen). */
+@Composable
+private fun PlayerProgressBar(player: ExoPlayer, modifier: Modifier = Modifier) {
+    var positionMs by remember { mutableStateOf(0L) }
+    var durationMs by remember { mutableStateOf(0L) }
+    var bufferedPercent by remember { mutableStateOf(0) }
+    LaunchedEffect(player) {
+        while (true) {
+            delay(250)
+            positionMs = player.currentPosition.coerceAtLeast(0)
+            durationMs = player.duration.coerceAtLeast(0)
+            bufferedPercent = player.bufferedPercentage
+        }
+    }
+    val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+    val buffered = (bufferedPercent / 100f).coerceIn(0f, 1f)
+    Column(modifier = modifier) {
+        Box(modifier = Modifier.fillMaxWidth().height(4.dp)) {
+            // Piste de fond
+            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
+            // Zone déjà tamponnée
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(buffered)
+                    .fillMaxHeight()
+                    .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(2.dp)),
+            )
+            // Progression — dessinée au Canvas pour le halo : la lueur sous
+            // le trait net (même dégradé en alpha faible, plus épaisse)
+            // donne l'effet "glow" Netflix sans bitmap ni shader, purement
+            // GPU (drawRoundRect), et la fraction est relue en phase de
+            // dessin sans recomposer le reste de l'overlay.
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width * progress
+                if (w > 0f) {
+                    val core = size.height
+                    drawRoundRect(
+                        brush = Brush.horizontalGradient(listOf(MovvizBrand.copy(alpha = 0.35f), MovvizBrand2.copy(alpha = 0.35f))),
+                        topLeft = Offset(0f, core / 2f - core * 1.6f),
+                        size = Size(w, core * 3.2f),
+                        cornerRadius = CornerRadius(core * 1.6f),
+                    )
+                    drawRoundRect(
+                        brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
+                        topLeft = Offset.Zero,
+                        size = Size(w, core),
+                        cornerRadius = CornerRadius(core / 2f),
+                    )
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(text = formatTime(positionMs), style = MaterialTheme.typography.labelSmall, color = MovvizInkSoft)
+            Text(text = formatTime(durationMs), style = MaterialTheme.typography.labelSmall, color = MovvizInkSoft)
+        }
+    }
+}
+
+/** Overlay de contrôles premium "Netflix" : titre en haut (scrim dégradé +
+ *  ombre portée sur le texte pour la lisibilité sur image claire), boutons
+ *  au centre, barre de progression en bas. Trois zones distinctes qui
+ *  s'animent ensemble — le parent AnimatedVisibility ne fait qu'un fade
+ *  global, jamais de slide : un glissement est un changement de layout
+ *  perçu, Netflix ne fait que des fondus. */
 @Composable
 private fun ControlsOverlay(
     title: String,
     subtitle: String?,
     isPlaying: Boolean,
-    positionMs: Long,
-    durationMs: Long,
-    bufferedPercent: Int,
+    player: ExoPlayer,
     hasNext: Boolean,
     hasPrev: Boolean,
     playPauseFocus: FocusRequester,
@@ -1097,56 +1325,51 @@ private fun ControlsOverlay(
     onOpenAudio: () -> Unit,
     onOpenSubtitles: () -> Unit,
 ) {
-    Column(
+    // Ombre portée partagée titre/sous-titre — sans elle un texte blanc
+    // disparaît sur une image claire (scène enneigée, ciel…). Le Shadow
+    // Compose est du rendu texte natif, pas un overlay supplémentaire.
+    val titleShadow = Shadow(color = Color.Black.copy(alpha = 0.8f), offset = Offset(0f, 2f), blurRadius = 8f)
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .background(
-                androidx.compose.ui.graphics.Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f)),
-                ),
-            )
-            .padding(horizontal = 56.dp, vertical = 28.dp),
+            .fillMaxSize()
+            // Un tap sur une zone vide de l'overlay relance juste le
+            // minuteur d'auto-masquage (les boutons consomment leurs taps).
+            .tvPointerClick { onInteraction() },
     ) {
-        Text(
-            text = title,
-            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Black, color = MovvizInk),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        if (!subtitle.isNullOrBlank()) {
+        // Zone haute : titre + libellé saison/épisode
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.85f), Color.Transparent)))
+                .padding(horizontal = 56.dp)
+                .padding(top = 36.dp, bottom = 36.dp),
+        ) {
             Text(
-                text = subtitle,
-                style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft),
+                text = title,
+                style = MaterialTheme.typography.headlineMedium.copy(shadow = titleShadow),
+                color = MovvizInk,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (!subtitle.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodyMedium.copy(shadow = titleShadow),
+                    color = MovvizInkSoft,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(18.dp))
-
-        // Timeline — visuelle uniquement, la navigation se fait via les
-        // boutons -10s/+10s explicites ci-dessous (déterministe au D-pad,
-        // pas de curseur à faire glisser à la précision souris).
-        val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
-        val buffered = (bufferedPercent / 100f).coerceIn(0f, 1f)
-        Box(modifier = Modifier.fillMaxWidth().height(4.dp).background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.dp))) {
-            Box(modifier = Modifier.fillMaxWidth(buffered).height(4.dp).background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(2.dp)))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth(progress)
-                    .height(4.dp)
-                    .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
-            )
-        }
-        Spacer(modifier = Modifier.height(6.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = formatTime(positionMs), style = TextStyle(fontSize = 12.sp, color = MovvizInkSoft))
-            Text(text = formatTime(durationMs), style = TextStyle(fontSize = 12.sp, color = MovvizInkSoft))
-        }
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+        // Zone centrale : boutons de contrôle
+        Row(
+            modifier = Modifier.align(Alignment.Center),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
             if (hasPrev) {
                 ControlButton(glyph = "⏮", contentDescription = "Épisode précédent", onClick = onPrevEpisode)
             }
@@ -1162,11 +1385,23 @@ private fun ControlsOverlay(
             if (hasNext) {
                 ControlButton(glyph = "⏭", contentDescription = "Épisode suivant", onClick = onNextEpisode)
             }
+        }
 
-            Spacer(modifier = Modifier.weight(1f))
-
-            ControlButton(glyph = "♪", contentDescription = "Piste audio", onClick = onOpenAudio, small = true)
-            ControlButton(glyph = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true)
+        // Zone basse : progression + accès pistes
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
+                .padding(horizontal = 56.dp, vertical = 28.dp),
+        ) {
+            PlayerProgressBar(player = player)
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                ControlButton(glyph = "♪", contentDescription = "Piste audio", onClick = onOpenAudio, small = true)
+                Spacer(modifier = Modifier.width(12.dp))
+                ControlButton(glyph = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true)
+            }
         }
     }
 }
@@ -1222,6 +1457,118 @@ private fun ControlButton(
     }
 }
 
+/** Bouton d'action de l'écran d'erreur — focusable au D-pad (contrairement
+ *  aux simples Text cliquables d'avant, injoignables à la télécommande),
+ *  même langage visuel que les boutons du lecteur : lift au focus + bordure
+ *  d'accent. */
+@Composable
+private fun ErrorActionButton(
+    label: String,
+    primary: Boolean,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (primary) MovvizBrand else Color.White.copy(alpha = 0.14f),
+            contentColor = Color.White,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, if (primary) MovvizBrand2 else MovvizBrand),
+                shape = shape,
+            ),
+        ),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelLarge,
+            color = Color.White,
+            modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
+        )
+    }
+}
+
+/** Carte "Épisode suivant" en fin d'épisode — visible en bas à droite
+ *  pendant les ~45 dernières secondes, comme Netflix. Compte à rebours
+ *  en cours, même langage visuel que les autres boutons du lecteur
+ *  (Surface, lift au focus, bordure accent). Pas dans la chaîne de
+ *  focus D-pad pour ne pas perturber la navigation de l'overlay —
+ *  cliquable/tactile et déclenchable via la touche NEXT de la
+ *  télécommande. */
+@Composable
+private fun NextEpisodeTeaser(
+    label: String?,
+    countdown: Long,
+    onNextEpisode: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val titleShadow = Shadow(color = Color.Black.copy(alpha = 0.8f), offset = Offset(0f, 2f), blurRadius = 8f)
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        onClick = onNextEpisode,
+        modifier = modifier
+            .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onNextEpisode),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = MovvizSurface.copy(alpha = 0.92f),
+            contentColor = Color.White,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand),
+                shape = shape,
+            ),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Épisode suivant",
+                    style = MaterialTheme.typography.labelLarge.copy(shadow = titleShadow),
+                    color = MovvizInkSoft,
+                )
+                if (!label.isNullOrBlank()) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.bodyMedium.copy(shadow = titleShadow),
+                        color = MovvizInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (countdown > 0) {
+                    Text(
+                        text = "dans ${countdown}s",
+                        style = MaterialTheme.typography.labelSmall.copy(shadow = titleShadow),
+                        color = MovvizInkDim,
+                    )
+                }
+            }
+            Text(
+                text = "⏭",
+                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White),
+            )
+        }
+    }
+}
+
 @Composable
 private fun TrackDialog(
     title: String,
@@ -1252,7 +1599,10 @@ private fun TrackDialog(
             colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface),
         ) {
             Column(modifier = Modifier.padding(20.dp)) {
-                Text(text = title, style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = MovvizInk),
+                )
                 Spacer(modifier = Modifier.height(12.dp))
                 TvLazyColumn(modifier = Modifier.heightIn(max = 320.dp)) {
                     if (includeOffOption) {
@@ -1311,12 +1661,62 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = label, style = TextStyle(fontSize = 14.sp, color = MovvizInk))
+            Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MovvizInk)
             if (selected) {
-                Text(text = "✓", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizBrand))
+                Text(
+                    text = "✓",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = MovvizBrand),
+                )
             }
         }
     }
+}
+
+/** Détails techniques affichés sous le message d'erreur — codecs et
+ *  résolution de la source (lus des pistes du player, pas devinés) et code
+ *  ExoPlayer brut. De quoi diagnostiquer un titre non supporté depuis le
+ *  canapé sans ouvrir logcat. */
+private fun buildTechDetails(player: ExoPlayer, error: PlaybackException?): String {
+    val parts = mutableListOf<String>()
+    player.currentTracks.groups.forEach { g ->
+        val f = g.getTrackFormat(0)
+        when (g.type) {
+            C.TRACK_TYPE_VIDEO -> {
+                parts += codecShortName(f.sampleMimeType) ?: "vidéo"
+                if (f.width > 0 && f.height > 0) parts += "${f.width}×${f.height}"
+            }
+            C.TRACK_TYPE_AUDIO -> {
+                parts += codecShortName(f.sampleMimeType) ?: "audio"
+                if (f.channelCount > 0) parts += "${f.channelCount}.0"
+            }
+        }
+    }
+    if (error != null) parts += "Erreur ExoPlayer #${error.errorCode}"
+    return parts.joinToString(" · ")
+}
+
+/** Nom court lisible d'un MIME (video/avc → H.264) pour l'écran d'erreur —
+ *  à ne pas confondre avec videoMimeType()/audioMimeType() qui, eux,
+ *  alimentent la décision de niveau de lecture. */
+private fun codecShortName(mime: String?): String? = when (mime) {
+    MimeTypes.VIDEO_H264 -> "H.264"
+    MimeTypes.VIDEO_H265 -> "H.265"
+    MimeTypes.VIDEO_AV1 -> "AV1"
+    MimeTypes.VIDEO_VP9 -> "VP9"
+    MimeTypes.VIDEO_VP8 -> "VP8"
+    MimeTypes.VIDEO_MP4V -> "MPEG-4"
+    MimeTypes.VIDEO_MPEG2 -> "MPEG-2"
+    MimeTypes.AUDIO_AAC -> "AAC"
+    MimeTypes.AUDIO_MPEG -> "MP3"
+    MimeTypes.AUDIO_AC3 -> "AC-3"
+    MimeTypes.AUDIO_E_AC3 -> "E-AC-3"
+    MimeTypes.AUDIO_DTS -> "DTS"
+    MimeTypes.AUDIO_DTS_HD -> "DTS-HD"
+    MimeTypes.AUDIO_TRUEHD -> "TrueHD"
+    MimeTypes.AUDIO_OPUS -> "Opus"
+    MimeTypes.AUDIO_FLAC -> "FLAC"
+    MimeTypes.AUDIO_VORBIS -> "Vorbis"
+    else -> mime?.substringAfter('/')
 }
 
 private fun formatTime(ms: Long): String {

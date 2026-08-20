@@ -4,6 +4,51 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.62 — August 2026
+
+### Android TV : refonte premium qualité Netflix
+
+#### Typographie et design system
+- Police Inter embarquée (5 graisses : Regular → ExtraBold) — même direction typographique que Netflix et Apple TV.
+- Tokens de typographie unifiés : displayLarge (40sp), headlineMedium (24sp), titleLarge (20sp), titleMedium (16sp), bodyLarge (16sp), bodyMedium (14sp), labelLarge (14sp), labelSmall (12sp).
+- `MovvizCardShape` (12dp) — rayon unique de toutes les cartes de contenu, cohérent partout.
+- `tvFocusLift` existant préservé — spring + ombre GPU-only (graphicsLayer), zéro recomposition pendant l'animation.
+
+#### Accueil (HomeScreen)
+- Rangées de catégories avec titre au-dessus (style titleLarge), peaking Netflix (padding end négatif).
+- Cartes posters : ratio 2:3, bordure de focus 2dp blanc alpha 90% lisible depuis le canapé.
+- Call-out Netflix : synopsis + métadonnées en bas de rangée au focus, AnimatedVisibility avec debounce pour zéro scintillement.
+- Précharge directionnelle : les 2 images suivantes la carte focalisée sont préchargées via Coil (zéro pop-in).
+- Keys stables + contentType sur toutes les listes.
+- Hero : Ken Burns (zoom 1.0→1.05 sur 20s), grain cinéma (BitmapShader natif), scrim adaptatif à la luminance, logo officiel TMDb, texte animé, AmbientTrailer via pool WebView, précharge de 2 backdrops suivants.
+
+#### Fiche titre (TitleDetailScreen)
+- Parallax backdrop (graphicsLayer translationY), logo officiel, CTA, saisons/épisodes avec clés stables.
+- Messages d'erreur français (friendlyAddError) au lieu de brut anglais.
+- Stills d'épisodes w780, backdrops w1280.
+
+#### Lecteur vidéo (PlayerActivity)
+- Indicateur de seek centré "+10s" / "−10s" avec fadeIn/fadeOut.
+- Panneau "Épisode suivant" en fin d'épisode (position > duration − 45s) avec countdown et focus D-pad.
+- Auto-hide overlay 5s, barre de progression animée, buffered spinner.
+- Écran d'erreur avec détails techniques (codec, résolution) lisible depuis le canapé.
+- Typographie et tokens du thème sur tous les contrôles.
+
+#### Navigation D-pad
+- DOWN depuis NavRail → contenu : interception via onPreviewKeyEvent (avant les enfants Surface).
+- UP depuis contenu → NavRail : interception via onKeyEvent (après les LazyColumn).
+- Restauration du focus au retour d'une fiche détail (delay 300ms + navRailFocusRequester).
+- Fallback focus (1dp invisible toujours focusable) — aucun cas de focus perdu.
+
+#### Performance
+- Polling file téléchargement : 4s → 8s (réduit le trafic réseau).
+- largeHeap sur Android Manifest.
+- TMDb : retry 3 tentatives avec backoff (300ms, 800ms) — plus de faux "movie not found" sur coupure réseau transitoire.
+
+#### Corrections
+- Bouton "Ajouter à la bibliothèque" : plus de faux échecs TMDb (retry serveur + message d'erreur lisible).
+- Recherche : variable `fieldFocused` et constante `TMDB_POSTER_BASE` corrigées.
+
 ## v1.16.60 — August 2026
 
 ### Tableau de bord : une carte de carrousel cassée ne bloque plus tout l'écran

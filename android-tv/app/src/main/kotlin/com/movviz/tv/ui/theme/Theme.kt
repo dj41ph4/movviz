@@ -13,9 +13,16 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Typography
 import androidx.tv.material3.darkColorScheme
+import com.movviz.tv.R
 
 /**
  * androidx.tv.material3.Surface(onClick = ...) ne déclenche l'action que sur
@@ -72,6 +79,67 @@ fun Modifier.tvFocusLift(
         .shadow(elevation = elevation, shape = shape, ambientColor = androidx.compose.ui.graphics.Color.Black, spotColor = androidx.compose.ui.graphics.Color.Black)
 }
 
+/**
+ * Forme unique des cartes de contenu (posters, épisodes, fiches) — un seul
+ * rayon pour toute l'app, comme Netflix qui utilise le même radius sur tous
+ * ses artwork. Ajuster ici propage partout ; ne JAMAIS mettre un rayon ad
+ * hoc dans un écran.
+ */
+val MovvizCardShape = RoundedCornerShape(12.dp)
+
+/**
+ * Famille Inter (la direction typographique de Netflix et de la plupart des
+ * plateformes premium) — 5 graisses embarquées en .otf dans res/font/.
+ * Toute la typographie TV passe par ces styles, jamais de fontSize ad hoc
+ * sans passer par un style existant.
+ */
+val MovvizFonts = FontFamily(
+    Font(R.font.inter_regular, FontWeight.Normal),
+    Font(R.font.inter_medium, FontWeight.Medium),
+    Font(R.font.inter_semibold, FontWeight.SemiBold),
+    Font(R.font.inter_bold, FontWeight.Bold),
+    Font(R.font.inter_extrabold, FontWeight.ExtraBold),
+)
+
+private val MovvizTypography = Typography(
+    // Titre d'une fiche / écran entier
+    displayLarge = TextStyle(
+        fontFamily = MovvizFonts, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold,
+        letterSpacing = (-0.5).sp, lineHeight = 46.sp,
+    ),
+    // Titre de section (à la une, rangées principales)
+    headlineMedium = TextStyle(
+        fontFamily = MovvizFonts, fontSize = 24.sp, fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.2).sp,
+    ),
+    // Titre de rangée (catégorie au-dessus d'une LazyRow)
+    titleLarge = TextStyle(
+        fontFamily = MovvizFonts, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
+    ),
+    // Titre de carte / bouton
+    titleMedium = TextStyle(
+        fontFamily = MovvizFonts, fontSize = 16.sp, fontWeight = FontWeight.Medium,
+    ),
+    // Synopsis / corps de texte
+    bodyLarge = TextStyle(
+        fontFamily = MovvizFonts, fontSize = 16.sp, fontWeight = FontWeight.Normal,
+        lineHeight = 24.sp,
+    ),
+    // Métadonnées secondaires
+    bodyMedium = TextStyle(
+        fontFamily = MovvizFonts, fontSize = 14.sp, fontWeight = FontWeight.Normal,
+        lineHeight = 20.sp,
+    ),
+    // Libellés de boutons, badges
+    labelLarge = TextStyle(
+        fontFamily = MovvizFonts, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+    ),
+    // Métadonnées fines (année, durée, résolution)
+    labelSmall = TextStyle(
+        fontFamily = MovvizFonts, fontSize = 12.sp, fontWeight = FontWeight.Medium,
+    ),
+)
+
 // Un seul schéma de couleurs, volontairement sombre — pas de switch clair/
 // sombre sur TV, une pièce de salon vise toujours l'immersion (même choix
 // qu'Apple TV/Netflix).
@@ -89,6 +157,7 @@ private val MovvizColorScheme = darkColorScheme(
 fun MovvizTvTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = MovvizColorScheme,
+        typography = MovvizTypography,
         content = content,
     )
 }

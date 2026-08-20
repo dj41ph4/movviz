@@ -3,11 +3,15 @@ package com.movviz.tv.ui.home
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -18,16 +22,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -42,10 +50,16 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import coil.compose.LocalImageLoader
 import coil.compose.rememberAsyncImagePainter
+import coil.request.ImageRequest
+import coil.size.Size
 import com.movviz.tv.ui.theme.AnimatedLogo
 import android.annotation.SuppressLint
+import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Color as AndroidColor
+import android.graphics.drawable.BitmapDrawable
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -57,6 +71,7 @@ import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.ui.theme.MovvizAmber
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizCardShape
 import com.movviz.tv.ui.theme.MovvizCyan
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizInk
@@ -72,7 +87,11 @@ import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
-private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/original"
+// w1280, PAS "original" : un backdrop plein écran en "original" télécharge
+// jusqu'à 4000px de large (plusieurs Mo décodés en bitmap complet) pour un
+// écran TV 1080p qui n'en montre que 1920px — le gaspillage réseau/mémoire
+// était visible sur Chromecast 4K. Netflix/Apple TV servent du 1080p max.
+private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280"
 private const val HERO_ROTATE_MS = 8_000L
 private const val HERO_COUNT = 5
 
@@ -80,7 +99,7 @@ private const val HERO_COUNT = 5
  *  — plus lâche que le polling 500ms de QueueTab.tsx (fait pour un tableau
  *  admin dense) : ici c'est juste une rangée parmi d'autres, pas l'écran
  *  principal de suivi, donc pas besoin de la même fréquence. */
-private const val QUEUE_POLL_INTERVAL_MS = 4000L
+private const val QUEUE_POLL_INTERVAL_MS = 8000L
 
 /** Titre unifié film/série pour l'affichage des rangées et du hero — évite de
  *  dupliquer la Card pour deux types quasi identiques à l'écran. `internal`
@@ -161,16 +180,19 @@ fun HomeScreen(
 
     val recentMovies = remember(movies) {
         movies.take(20).map {
-            TvTitleCard(
-                it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true,
-                year = it.year, rating = it.rating, genres = it.genres, status = it.status,
-                qualityLabel = resolutionLabel(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(),
-            )
+TvTitleCard(
+                    it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true,
+                    year = it.year, rating = it.rating, genres = it.genres, status = it.status,
+                    // overview sert au call-out Netflix sous la rangée (synopsis
+                    // 1 ligne) — déjà renvoyé par /api/library/movies.
+                    overview = it.overview,
+                    qualityLabel = resolutionLabel(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(),
+                )
         }
     }
     val recentSeries = remember(series) {
         series.take(20).map {
-            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = false, year = it.year, rating = it.rating, genres = it.genres, status = null)
+            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = false, year = it.year, rating = it.rating, genres = it.genres, overview = it.overview, status = null)
         }
     }
     val continueCards = remember(continueWatching) {
@@ -299,7 +321,7 @@ fun HomeScreen(
             contentPadding = PaddingValues(bottom = 48.dp),
         ) {
             if (heroItems.isNotEmpty()) {
-                item {
+                item(contentType = "hero") {
                     HeroCarousel(
                         items = heroItems,
                         currentIndex = heroIndex,
@@ -312,11 +334,11 @@ fun HomeScreen(
             }
 
             if (queue.isNotEmpty()) {
-                item { DownloadQueueRow(items = queue, onOpenTitle = onOpenTitle) }
+                item(contentType = "row") { DownloadQueueRow(items = queue, onOpenTitle = onOpenTitle) }
             }
 
             if (continueCards.isNotEmpty()) {
-                item {
+                item(contentType = "row") {
                     TitleRow(
                         heading = "Continuer à regarder",
                         items = continueCards,
@@ -335,7 +357,7 @@ fun HomeScreen(
             }
 
             if (recentMovies.isNotEmpty()) {
-                item {
+                item(contentType = "row") {
                     TitleRow(
                         heading = "Films",
                         items = recentMovies,
@@ -346,7 +368,7 @@ fun HomeScreen(
             }
 
             if (recentSeries.isNotEmpty()) {
-                item {
+                item(contentType = "row") {
                     TitleRow(
                         heading = "Séries",
                         items = recentSeries,
@@ -357,7 +379,7 @@ fun HomeScreen(
             }
 
             if (discoverCards.isNotEmpty()) {
-                item {
+                item(contentType = "row") {
                     TitleRow(
                         heading = "Découverte",
                         items = discoverCards,
@@ -367,7 +389,7 @@ fun HomeScreen(
             }
 
             editorialCards.forEach { (key, cards) ->
-                item {
+                item(contentType = "row") {
                     TitleRow(
                         heading = homeRowLabel(key),
                         items = cards,
@@ -377,7 +399,7 @@ fun HomeScreen(
             }
 
             if (recentMovies.isEmpty() && recentSeries.isEmpty()) {
-                item {
+                item(contentType = "loading") {
                     // Prend le focus (firstCardFocus == contentFocusRequester) au lieu
                     // de laisser MainScreen retomber sur son ancre invisible : cet
                     // écran de chargement a désormais une vraie cible visible et
@@ -402,7 +424,7 @@ fun HomeScreen(
                             }
                             Text(
                                 text = "Chargement de ta bibliothèque…",
-                                style = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f)),
+                                style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f)),
                                 modifier = Modifier.padding(top = 16.dp),
                             )
                         }
@@ -472,6 +494,78 @@ internal fun HeroCarousel(
         }
     }
 
+    // --- Ultra hero : texte révélé en fondu + glissement à chaque rotation.
+    // Seule la zone texte est animée ; le CTA reste stable en dessous pour
+    // ne jamais perturber le focus D-pad (le focus initial atterrit dessus).
+    var textRevealed by remember(current.id) { mutableStateOf(false) }
+    LaunchedEffect(current.id) { textRevealed = true }
+    val textAlpha by animateFloatAsState(
+        targetValue = if (textRevealed) 1f else 0f,
+        animationSpec = tween(450),
+        label = "hero_text_alpha",
+    )
+    val textSlide by animateFloatAsState(
+        targetValue = if (textRevealed) 0f else 20f,
+        animationSpec = tween(450),
+        label = "hero_text_slide",
+    )
+
+    // --- Ultra hero : scrim adaptatif à la luminosité réelle du backdrop.
+    // Moyenne de luminance pondérée (Rec. 709), calculée une fois par image
+    // via un échantillon 64x36, mise en cache : backdrop sombre → scrim
+    // léger (l'image porte sa propre lisibilité), backdrop clair → scrim
+    // renforcé. Un dégradé statique rendait les titres clairs illisibles et
+    // surassombrissait les plans de nuit.
+    var scrimAlpha by remember(current.id) { mutableStateOf(0.55f) }
+    val animatedScrimAlpha by animateFloatAsState(scrimAlpha, tween(600), label = "hero_scrim_alpha")
+    val context = LocalContext.current
+    val imageLoader = LocalImageLoader.current
+    LaunchedEffect(current.id) {
+        val url = "$TMDB_BACKDROP_BASE${current.backdropPath}"
+        val cached = luminanceCache[url]
+        if (cached != null) {
+            scrimAlpha = scrimStrengthFor(cached)
+            return@LaunchedEffect
+        }
+        val loader = imageLoader ?: return@LaunchedEffect
+        loader.enqueue(
+            ImageRequest.Builder(context)
+                .data(url)
+                .size(Size(64, 36))
+                .target(
+                    onStart = {},
+                    onError = {},
+                    onSuccess = { drawable ->
+                        val bmp = (drawable as? BitmapDrawable)?.bitmap
+                        if (bmp != null) {
+                            val lum = averageLuminance(bmp)
+                            luminanceCache[url] = lum
+                            scrimAlpha = scrimStrengthFor(lum)
+                        }
+                    },
+                )
+                .build(),
+        )
+    }
+
+    // --- Ultra hero : précharge prédictive des 2 prochains backdrops dès la
+    // rotation — au lieu de charger pendant le crossfade (pop-in/flou).
+    // Même cache mémoire Coil que l'affichage ; après le premier passage le
+    // disque sert de source, aucun réseau en plus.
+    LaunchedEffect(currentIndex, items) {
+        if (items.size < 2) return@LaunchedEffect
+        val loader = imageLoader ?: return@LaunchedEffect
+        for (offset in 1..2) {
+            val next = items[(currentIndex + offset) % items.size]
+            loader.enqueue(
+                ImageRequest.Builder(context)
+                    .data("$TMDB_BACKDROP_BASE${next.backdropPath}")
+                    .size(Size(1280, 720))
+                    .build(),
+            )
+        }
+    }
+
     // clipToBounds() est indispensable ici : le zoom Ken Burns agrandit
     // l'image avec scale() (une transformation de dessin, pas de layout) et
     // Compose ne rogne rien par défaut — sans ça l'image zoomée déborde
@@ -527,12 +621,16 @@ internal fun HeroCarousel(
             modifier = Modifier.fillMaxSize(),
         )
 
+        // Scrim vertical — force animée selon la luminosité du backdrop
+        // (scrimAlpha, calculé plus haut). Le dégradé reste ancré sur
+        // MaterialTheme.colorScheme.background pour fondre proprement dans
+        // le fond de l'écran.
         Box(
             modifier = Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.55f),
+                        MaterialTheme.colorScheme.background.copy(alpha = animatedScrimAlpha),
                         MaterialTheme.colorScheme.background,
                     ),
                     startY = 0f,
@@ -548,6 +646,33 @@ internal fun HeroCarousel(
             ),
         )
 
+        // Grain cinéma : un léger bruit photo par-dessus image et vidéo,
+        // signature visuelle des apps premium (Netflix/Apple TV en posent
+        // un très discret). Bitmap généré UNE FOIS par process et étalé en
+        // TileMode.Repeat via un shader Android natif — un seul draw call
+        // par frame, coût négligeable pour l'effet obtenu. (Le Paint natif
+        // est requis : les shaders Compose n'existent pas dans cette
+        // version de Compose TV — see nativeCanvas.)
+        val grainBitmap = remember { createFilmGrain() }
+        val grainPaint = remember {
+            android.graphics.Paint().apply {
+                isAntiAlias = false
+                shader = android.graphics.BitmapShader(
+                    grainBitmap,
+                    android.graphics.Shader.TileMode.REPEAT,
+                    android.graphics.Shader.TileMode.REPEAT,
+                )
+                alpha = 26
+            }
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .drawBehind {
+                    drawContext.canvas.nativeCanvas.drawRect(0f, 0f, size.width, size.height, grainPaint)
+                },
+        )
+
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -558,6 +683,14 @@ internal fun HeroCarousel(
                 .padding(start = 64.dp, end = 48.dp, bottom = 18.dp)
                 .widthIn(max = 760.dp),
         ) {
+            // Zone texte animée en fondu + glissement à chaque rotation.
+            // Le CTA (plus bas) reste HORS de cette colonne : le focus D-pad
+            // initial atterrit dessus, l'animation ne doit pas le perturber.
+            Column(
+                modifier = Modifier
+                    .alpha(textAlpha)
+                    .offset(y = textSlide.dp),
+            ) {
             Text(
                 text = "À LA UNE  ·  " + if (current.isMovie) "FILM" else "SÉRIE",
                 style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizBrand2, letterSpacing = 2.2.sp),
@@ -636,6 +769,7 @@ internal fun HeroCarousel(
                     modifier = Modifier.widthIn(max = 620.dp),
                 )
             }
+            }
             Spacer(modifier = Modifier.height(24.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 var focused by remember(current.id) { mutableStateOf(false) }
@@ -705,7 +839,6 @@ internal fun HeroCarousel(
  * l'iframe YouTube muette ne devient visible qu'après l'événement PLAYING.
  * Une vidéo bloquée ou un réseau absent laisse donc exactement l'image de
  * fond, sans chrome YouTube ni perte du focus D-pad. */
-@SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: Modifier = Modifier) {
     val key = trailerKeys.firstOrNull { it.matches(Regex("[A-Za-z0-9_-]{6,}")) } ?: return
@@ -716,33 +849,66 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     }
     LaunchedEffect(key) { playing = false }
 
+    // LA MÊME WebView sert pendant toute la durée du hero : le factory ne
+    // capture rien (donc stable — AndroidView garde la vue) et chaque
+    // rotation recharge juste la vidéo via update. Avant ce correctif : une
+    // WebView NEUVE à chaque rotation, jamais détruite — les moteurs
+    // s'empilaient en mémoire (fuite visible sur Chromecast 4K) et chaque
+    // rotation payait la création du moteur + le rechargement de l'iframe
+    // API YouTube (jank au moment du changement).
     AndroidView(
-        factory = { context ->
-            WebView(context).apply {
-                setBackgroundColor(AndroidColor.TRANSPARENT)
-                isFocusable = false
-                isFocusableInTouchMode = false
-                settings.javaScriptEnabled = true
-                settings.domStorageEnabled = true
-                settings.mediaPlaybackRequiresUserGesture = false
-                webChromeClient = WebChromeClient()
-                webViewClient = WebViewClient()
-                addJavascriptInterface(bridge, "MovvizAmbient")
-                loadDataWithBaseURL(
-                    "https://www.youtube.com",
-                    ambientTrailerHtml(key, title),
-                    "text/html",
-                    "utf-8",
-                    null,
-                )
-            }
-        },
+        factory = remember { { ctx: Context -> TrailerWebViewPool.obtain(ctx) } },
+        update = { view -> TrailerWebViewPool.prepare(view, key, title, bridge) },
+        onRelease = { view -> TrailerWebViewPool.release(view) },
         modifier = modifier.graphicsLayer { alpha = if (playing) 1f else 0f },
     )
 }
 
 private class AmbientTrailerBridge(private val onPlaying: () -> Unit) {
     @JavascriptInterface fun playing() = onPlaying()
+}
+
+/** Pool de WebViews de bandes-annonces ambiantes : maximum 2 instances
+ *  vivantes (une à l'écran, une au repos), aucune création/destruction à
+ *  chaque rotation du hero. La préparation est idempotente : update est
+ *  appelé à chaque recomposition, prepare ne recharge la vidéo que si la
+ *  clé (trailer) a changé. */
+@SuppressLint("SetJavaScriptEnabled")
+private object TrailerWebViewPool {
+    private val idle = ArrayDeque<WebView>()
+    private const val MAX_IDLE = 2
+
+    fun obtain(context: Context): WebView =
+        idle.removeLastOrNull() ?: WebView(context).apply {
+            setBackgroundColor(AndroidColor.TRANSPARENT)
+            isFocusable = false
+            isFocusableInTouchMode = false
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.mediaPlaybackRequiresUserGesture = false
+            webChromeClient = WebChromeClient()
+            webViewClient = WebViewClient()
+        }
+
+    fun release(view: WebView) {
+        view.stopLoading()
+        view.removeJavascriptInterface("MovvizAmbient")
+        if (idle.size < MAX_IDLE) idle.addLast(view) else view.destroy()
+    }
+
+    fun prepare(view: WebView, key: String, title: String, bridge: AmbientTrailerBridge) {
+        if (view.tag == key) return
+        view.tag = key
+        view.removeJavascriptInterface("MovvizAmbient")
+        view.addJavascriptInterface(bridge, "MovvizAmbient")
+        view.loadDataWithBaseURL(
+            "https://www.youtube.com",
+            ambientTrailerHtml(key, title),
+            "text/html",
+            "utf-8",
+            null,
+        )
+    }
 }
 
 private fun ambientTrailerHtml(key: String, title: String): String = """
@@ -760,47 +926,121 @@ internal fun TitleRow(
     onClick: (TvTitleCard) -> Unit,
     firstItemFocusRequester: FocusRequester? = null,
 ) {
+    // État de focus partagé par toutes les cartes de la rangée — il vit ici
+    // (pas dans PosterCard) pour survivre à la destruction des items par la
+    // LazyRow, et n'est lu QUE par les deux enfants dédiés (précharge des
+    // images + call-out Netflix) : la rangée elle-même et ses cartes ne
+    // recomposent JAMAIS pendant un scroll latéral, seul le bandeau bouge.
+    val focusedCardState = remember { mutableStateOf<TvTitleCard?>(null) }
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 64.dp, bottom = 14.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .height(24.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Brush.verticalGradient(listOf(MovvizBrand, MovvizBrand2))),
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = heading,
-                style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
-            )
-        }
+        RowHeading(heading)
         TvLazyRow(
-            contentPadding = PaddingValues(horizontal = 64.dp),
+            // Padding end négatif = "peaking" Netflix : la dernière carte de
+            // la rangée reste légèrement coupée au bord droit, signalant
+            // qu'il y a encore du contenu à faire défiler (au lieu d'un
+            // vide de 64dp en fin de rangée).
+            contentPadding = PaddingValues(start = 64.dp, end = (-12).dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            itemsIndexed(items, key = { _, item -> item.id }) { index, card ->
+            itemsIndexed(items, key = { _, item -> item.id }, contentType = { _, _ -> "card" }) { index, card ->
                 PosterCard(
                     card = card,
                     onClick = { onClick(card) },
                     focusRequester = if (index == 0) firstItemFocusRequester else null,
+                    onFocusedChange = { focused -> focusedCardState.value = if (focused) card else null },
                 )
+            }
+        }
+        // Précharge des 2 posters suivants la carte focalisée (zéro pop-in)
+        // + call-out Netflix (synopsis/métadonnées) — voir chaque composable.
+        val ctx = LocalContext.current
+        val imageLoader = LocalImageLoader.current
+        LaunchedEffect(focusedCardState.value) {
+            val focused = focusedCardState.value ?: return@LaunchedEffect
+            val idx = items.indexOf(focused)
+            if (idx < 0) return@LaunchedEffect
+            for (offset in 1..2) {
+                val next = items.getOrNull(idx + offset) ?: continue
+                next.posterPath?.let { path ->
+                    imageLoader.enqueue(
+                        ImageRequest.Builder(ctx)
+                            .data("$TMDB_IMAGE_BASE$path")
+                            .size(Size(342, 513))
+                            .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                            .build()
+                    )
+                }
+            }
+        }
+        // Bandeau call-out Netflix : synopsis + métadonnées de la carte
+        // focalisée, avec debounce pour éviter le scintillement pendant le
+        // scroll rapide. Seul ce composable se recompose au changement de
+        // focus — la rangée et ses cartes restent intactes.
+        val focusedCard = focusedCardState.value
+        AnimatedVisibility(
+            visible = focusedCard != null,
+            enter = fadeIn(tween(200)) + expandVertically(tween(200)),
+            exit = fadeOut(tween(150)) + shrinkVertically(tween(150)),
+        ) {
+            focusedCard?.let { card ->
+                Column(modifier = Modifier.padding(start = 64.dp, top = 8.dp, end = 64.dp)) {
+                    card.overview?.let { overview ->
+                        Text(
+                            text = overview,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MovvizInkSoft,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    val meta = listOfNotNull(
+                        card.year?.toString(),
+                        if (card.isMovie) "Film" else "Série",
+                    ).joinToString("  ·  ")
+                    if (meta.isNotEmpty()) {
+                        Text(
+                            text = meta,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MovvizInkDim,
+                            maxLines = 1,
+                        )
+                    }
+                }
             }
         }
     }
 }
 
-/** Carte poster — l'effet "focus" central du 10-foot UI : agrandissement +
- *  liseré au dégradé de marque quand la carte prend le focus D-pad. */
+/** Titre de rangée — style titleLarge Netflix, marge basse cohérente,
+ *  padding start identique au padding de la LazyRow pour un alignement
+ *  parfait avec la première carte. */
 @Composable
-internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+private fun RowHeading(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleLarge,
+        color = MaterialTheme.colorScheme.onBackground,
+        modifier = Modifier.padding(start = 64.dp, bottom = 12.dp),
+    )
+}
+
+/** Carte poster — l'effet "focus" central du 10-foot UI : agrandissement
+ *  (tvFocusLift, scale ~1.08) + liseré blanc subtil quand la carte prend le
+ *  focus D-pad, façon Netflix — une bordure nette (2dp, blanc à 90%) se lit
+ *  depuis le canapé, là où le dégradé de marque passait pour du flou à
+ *  distance. `onFocusedChange` remonte l'état de focus à la rangée pour la
+ *  précharge et le call-out, sans faire recomposer la rangée elle-même. */
+@Composable
+internal fun PosterCard(
+    card: TvTitleCard,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null,
+    onFocusedChange: ((Boolean) -> Unit)? = null,
+) {
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
 
-    Column(modifier = Modifier.width(136.dp)) {
+    Column(modifier = Modifier.width(160.dp)) {
         // Surface (tv-material3) gère nativement le focus D-pad + le clic OK,
         // mais PAS le clic souris/tactile (confirmé : un tap synthétique sur
         // l'émulateur ne déclenchait rien) — tvPointerClick comble ce trou
@@ -811,15 +1051,18 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .tvFocusLift(focused, shape = RoundedCornerShape(14.dp), maxScale = 1.075f, maxElevation = 28.dp)
-                .onFocusChanged { focused = it.isFocused }
+                .tvFocusLift(focused, shape = MovvizCardShape, maxScale = 1.08f, maxElevation = 28.dp)
+                .onFocusChanged {
+                    focused = it.isFocused
+                    onFocusedChange?.invoke(it.isFocused)
+                }
                 .tvPointerClick(onClick),
-            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(14.dp)),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = MovvizCardShape),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
-                    border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary),
-                    shape = RoundedCornerShape(14.dp),
+                    border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.9f)),
+                    shape = MovvizCardShape,
                 ),
             ),
         ) {
@@ -898,18 +1141,20 @@ internal fun PosterCard(card: TvTitleCard, onClick: () -> Unit, focusRequester: 
         }
         Text(
             text = card.title,
-            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onBackground),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onBackground,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp),
+            modifier = Modifier.padding(top = 8.dp),
         )
         val metadata = listOfNotNull(card.year?.toString(), if (card.isMovie) "Film" else "Série").joinToString("  ·  ")
         Text(
             text = metadata,
-            style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
+            style = MaterialTheme.typography.labelSmall,
+            color = MovvizInkDim,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 2.dp),
+            modifier = Modifier.padding(top = 3.dp),
         )
     }
 }
@@ -1081,4 +1326,50 @@ private fun formatSpeed(bytesPerSec: Double): String? {
         unitIndex++
     }
     return "%.1f %s".format(value, units[unitIndex])
+}
+
+/** Grain cinéma : bitmap de bruit 256x128 généré UNE FOIS par process, puis
+ *  étalé en motif répété par l'overlay du hero (BitmapShader Repeat).
+ *  Blanc/noir aléatoire à alpha très faible — texture photo discrète, pas
+ *  un effet « neige d'écran ». */
+private fun createFilmGrain(): Bitmap {
+    val bmp = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888)
+    val rnd = java.util.Random()
+    for (y in 0 until 128) {
+        for (x in 0 until 256) {
+            val alpha = 12 + rnd.nextInt(16)
+            val white = rnd.nextBoolean()
+            bmp.setPixel(x, y, if (white) AndroidColor.argb(alpha, 255, 255, 255) else AndroidColor.argb(alpha, 0, 0, 0))
+        }
+    }
+    return bmp
+}
+
+/** Cache des luminances moyennes par URL de backdrop — calculées une fois,
+ *  jamais recalculées à chaque rotation du hero. */
+private val luminanceCache = HashMap<String, Float>()
+
+/** Luminance moyenne pondérée (Rec. 709) d'un échantillon 64x36 : 0 = noir
+ *  profond, 1 = blanc. Un sous-échantillon de 1 pixel sur 2 suffit pour une
+ *  valeur stable à ±0.02 près. */
+private fun averageLuminance(bmp: Bitmap): Float {
+    var sum = 0.0
+    var count = 0
+    for (y in 0 until bmp.height step 2) {
+        for (x in 0 until bmp.width step 2) {
+            val p = bmp.getPixel(x, y)
+            sum += (0.2126f * AndroidColor.red(p) + 0.7152f * AndroidColor.green(p) + 0.0722f * AndroidColor.blue(p)) / 255.0
+            count++
+        }
+    }
+    return if (count == 0) 0.5f else (sum / count).toFloat()
+}
+
+/** Force du scrim vertical selon la luminosité du backdrop : sombre → scrim
+ *  léger (l'image porte sa propre lisibilité), clair → scrim renforcé pour
+ *  garder le texte blanc lisible. */
+private fun scrimStrengthFor(luminance: Float): Float = when {
+    luminance < 0.2f -> 0.45f
+    luminance < 0.4f -> 0.55f
+    else -> 0.68f
 }

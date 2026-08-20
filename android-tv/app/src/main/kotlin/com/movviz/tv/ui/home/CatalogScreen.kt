@@ -46,21 +46,35 @@ fun CatalogScreen(
         viewModel.loadDiscovery()
         viewModel.loadDashboardHero()
     }
-    val cards = if (type == HomeTab.MOVIES) {
-        movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
-    } else {
-        series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
-    }
-    val editorial = editorialRows.mapNotNull { row ->
-        val rowCards = row.results.map {
-            TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, null, it.tmdbId,
-                isMovie = it.type == "movie", year = it.year, rating = it.rating)
+    // Cartes et rangées dérivées UNE fois par changement de données (remember),
+    // pas à chaque recomposition : la rotation du hero (8s), le focus D-pad ou
+    // un refresh de bibliothèque ne doivent pas recréer des centaines de
+    // TvTitleCard ni invalider les clés de la TvLazyColumn — sinon toutes les
+    // rangées recomposent au moindre changement (même pattern que HomeScreen,
+    // qui remember ses listes dérivées). Avant ce correctif, heroItems (et donc
+    // la boucle de rotation) était aussi invalidé à chaque recomposition : le
+    // carousel revenait à l'index 0 dès qu'un état bougeait.
+    val cards = remember(movies, series, type) {
+        if (type == HomeTab.MOVIES) {
+            movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
+        } else {
+            series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
         }
-        if (rowCards.isEmpty()) null else row.key to rowCards
     }
-    val rows = buildList {
-        addAll(editorial)
-        if (cards.isNotEmpty()) add("library" to cards)
+    val editorial = remember(editorialRows) {
+        editorialRows.mapNotNull { row ->
+            val rowCards = row.results.map {
+                TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, null, it.tmdbId,
+                    isMovie = it.type == "movie", year = it.year, rating = it.rating)
+            }
+            if (rowCards.isEmpty()) null else row.key to rowCards
+        }
+    }
+    val rows = remember(editorial, cards) {
+        buildList {
+            addAll(editorial)
+            if (cards.isNotEmpty()) add("library" to cards)
+        }
     }
     val wantedType = if (type == HomeTab.MOVIES) "movie" else "series"
     val heroItems = remember(dashboardHero, cards) {
@@ -108,8 +122,13 @@ fun CatalogScreen(
                     onOpen = { card -> onOpenTitle(wantedType, card.tmdbId) },
                 )
             }
-            items(rows.size) { index ->
-                val (key, rowCards) = rows[index]
+            // Clé stable par rangée + contentType : sans key, TvLazyColumn
+            // re-compose les items au scroll D-pad. La clé est préfixée par
+            // l'onglet pour ne jamais entrer en collision avec la rangée
+            // "library" ni entre les deux onglets (une clé dupliquée lève
+            // une exception en composition).
+            val firstRowKey = "${type.name}-${rows.first().first}"
+            items(rows, key = { "${type.name}-${it.first}" }, contentType = { "catalog-row" }) { (key, rowCards) ->
                 TitleRow(
                     heading = if (key == "library") type.label else catalogRowLabel(key),
                     items = rowCards,
@@ -118,7 +137,7 @@ fun CatalogScreen(
                     // première carte — la flèche bas depuis la NavRail
                     // n'avait donc littéralement aucune cible stable sur cet
                     // écran.
-                    firstItemFocusRequester = if (activeHero == null && index == 0) heroFocus else null,
+                    firstItemFocusRequester = if (activeHero == null && key == firstRowKey) heroFocus else null,
                 )
             }
         }

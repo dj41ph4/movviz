@@ -74,21 +74,43 @@ export function tmdbImageUrl(path: string | null, size: "w342" | "w500" | "origi
 const gRefresh = globalThis as typeof globalThis & { __movvizTmdbRefreshing?: Set<string> };
 const refreshing: Set<string> = (gRefresh.__movvizTmdbRefreshing ??= new Set());
 
+const TMDb_FETCH_MAX_ATTEMPTS = 3;
+const TMDb_FETCH_RETRY_DELAYS_MS = [300, 800];
+
 async function fetchAndCache<T>(url: string): Promise<T | null> {
   const cache = tmdbCache();
-  try {
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) {
-      console.log("[tmdb] fetchAndCache — " + url.replace(/\?api_key=[^&]+/, "?api_key=***") + " status=" + res.status);
+  const logUrl = url.replace(/\?api_key=[^&]+/, "?api_key=***");
+  for (let attempt = 1; attempt <= TMDb_FETCH_MAX_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        // 429/5xx = TMDb surchargé ou en panne — transitoire, on réessaie.
+        // Les 4xx (404…) sont définitifs : un film absent ne se matérialise
+        // pas en 800ms, réessayer ne ferait que retarder l'erreur.
+        if ((res.status === 429 || res.status >= 500) && attempt < TMDb_FETCH_MAX_ATTEMPTS) {
+          console.log(`[tmdb] fetchAndCache — ${logUrl} status=${res.status} attempt=${attempt}`);
+          await new Promise((r) => setTimeout(r, TMDb_FETCH_RETRY_DELAYS_MS[attempt - 1]));
+          continue;
+        }
+        console.log(`[tmdb] fetchAndCache — ${logUrl} status=${res.status}`);
+        return null;
+      }
+      const data = (await res.json()) as T;
+      cache.set(url, data);
+      return data;
+    } catch (e) {
+      // Erreur réseau (DNS, coupure, proxy) — cause la plus fréquente des
+      // faux "movie not found on TMDb" côté ajout (constaté en direct) :
+      // on réessaie avant d'abandonner.
+      console.log(`[tmdb] fetchAndCache — ${logUrl} error attempt=${attempt} ${e}`);
+      if (attempt < TMDb_FETCH_MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, TMDb_FETCH_RETRY_DELAYS_MS[attempt - 1]));
+        continue;
+      }
       return null;
     }
-    const data = (await res.json()) as T;
-    cache.set(url, data);
-    return data;
-  } catch (e) {
-    console.log("[tmdb] fetchAndCache — error fetching " + url.replace(/\?api_key=[^&]+/, "?api_key=***") + " " + e);
-    return null;
   }
+  return null;
 }
 
 async function tmdbGet<T>(path: string, params: Record<string, string> = {}, language?: string): Promise<T | null> {

@@ -9,6 +9,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.ui.search.SearchScreen
@@ -45,9 +50,27 @@ fun MainScreen(
     // la flèche bas semblait alors "ne rien faire", un vrai recul en usage
     // normal pour éliminer un plantage qui n'arrivait qu'en bord de cas.
     fallbackFocusRequester: FocusRequester,
+    // Cible HAUT depuis le contenu → NavRail : onglet sélectionné de la
+    // barre reçoit le focus quand l'utilisateur appuie sur HAUT depuis
+    // n'importe quel élément du contenu. Sans ceci, la touche HAUT ne
+    // fait rien depuis le contenu (nav et contenu sont deux frères
+    // superposés dans un Box — Compose ne trouve pas la nav
+    // automatiquement).
+    navRailFocusRequester: FocusRequester? = null,
 ) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize()
+            // HAUT depuis le contenu → NavRail : interception en phase
+            // principale (onKeyEvent, pas onPreviewKeyEvent) — le handler
+            // ne se déclenche QUE si aucun enfant n'a consommé la touche
+            // HAUT (ex: un LazyColumn en première rangée), ce qui
+            // correspond exactement au cas où le focus ne peut plus monter
+            // dans le contenu et doit rejoindre la barre de navigation.
+            .onKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                    navRailFocusRequester != null && runCatching { navRailFocusRequester.requestFocus() }.isSuccess
+                } else false
+            },
         // Jamais de padding top ici, sur AUCUN écran : un padding poussait
         // Recherche/Paramètres sous une bande opaque (MaterialTheme.
         // colorScheme.background plein sous la nav transparente) qui

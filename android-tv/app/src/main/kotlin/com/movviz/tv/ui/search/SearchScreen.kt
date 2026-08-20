@@ -45,7 +45,11 @@ import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
 
-private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
+// w342, PAS w500 : les cartes de résultats font 154dp de large (~310px
+// physiques en 1080p) — w342 couvre avec marge pour les TV 4K sans
+// télécharger le double de pixels inutilement (leçon Elefin : jamais
+// d'image plus grande que le rendu, la moitié du poids réseau/mémoire).
+private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w342"
 
 /** Recherche TV inspirée du flux Netflix : résultats pendant la saisie,
  * suggestions sous le champ, cartes larges et aperçu du titre ciblé. */
@@ -60,17 +64,28 @@ fun SearchScreen(
     // première carte de la grille de résultats.
     resultFocusRequester: FocusRequester? = null,
 ) {
-    var focusedResult by remember { mutableStateOf<SearchResultDto?>(null) }
-    var fieldFocused by remember { mutableStateOf(false) }
+    // Carte "focusée" identifiée par type+tmdbId (2 primitifs) plutôt que par
+    // l'objet SearchResultDto entier : la comparaison par égalité structurelle
+    // de la data class compare TOUS ses champs (posterPath, overview...) pour
+    // chaque cellule visible de la grille à chaque déplacement de focus —
+    // deux int/string, c'est instantané et ne retient rien de lourd.
+    var focusedTmdbId by remember { mutableStateOf<Int?>(null) }
+    var focusedType by remember { mutableStateOf<String?>(null) }
     val results by viewModel.searchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
 
     LaunchedEffect(query) {
-        if (query.isBlank()) focusedResult = null
-        else { delay(350); viewModel.search(query) }
+        if (query.isBlank()) {
+            focusedTmdbId = null
+            focusedType = null
+        } else { delay(350); viewModel.search(query) }
     }
 
-    val selected = focusedResult
+    // Prise UNE fois par changement de résultats : l'ancien code appelait
+    // results.take(8) à chaque itération de la boucle (sous-liste recréée à
+    // chaque passage) + une fois pour lastIndex.
+    val suggestions = remember(results) { results.take(8) }
+    var fieldFocused by remember { mutableStateOf(false) }
     // top = 96dp : même marge que Paramètres pour dégager la barre de nav
     // flottante sans bande de fond opaque ajoutée au-dessus (voir MainScreen).
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(start = 48.dp, top = 96.dp, end = 48.dp, bottom = 30.dp)) {
@@ -82,15 +97,15 @@ fun SearchScreen(
             }
         }
         Spacer(Modifier.height(18.dp))
-        if (query.isNotBlank() && results.isNotEmpty()) {
+        if (query.isNotBlank() && suggestions.isNotEmpty()) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("Autres titres à découvrir", color = MovvizInkDim, fontSize = 13.sp)
                 Spacer(Modifier.width(10.dp))
-                results.take(8).forEachIndexed { index, item ->
+                suggestions.forEachIndexed { index, item ->
                     Surface(onClick = { onQueryChange(item.title) }, modifier = Modifier.tvPointerClick { onQueryChange(item.title) }, colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp))) {
-                        Text(item.title, color = if (item == selected) MaterialTheme.colorScheme.primary else MovvizInk, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.dp))
+                        Text(item.title, color = if (item.tmdbId == focusedTmdbId && item.type == focusedType) MaterialTheme.colorScheme.primary else MovvizInk, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.dp))
                     }
-                    if (index < results.take(8).lastIndex) Text("  |  ", color = MovvizInkDim, fontSize = 12.sp)
+                    if (index < suggestions.lastIndex) Text("  |  ", color = MovvizInkDim, fontSize = 12.sp)
                 }
             }
             Spacer(Modifier.height(18.dp))
@@ -100,9 +115,14 @@ fun SearchScreen(
             query.isBlank() -> Text("Recherchez un film ou une série", color = MovvizInkDim, fontSize = 15.sp)
             results.isEmpty() -> Text("Aucun résultat pour « $query »", color = MovvizInkDim, fontSize = 15.sp)
             else -> TvLazyVerticalGrid(columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
-                itemsIndexed(results, key = { _, result -> "${result.type}-${result.tmdbId}" }) { index, result ->
+                // contentType : indique à la grille que toutes les cellules
+                // partagent la même structure — elle peut réutiliser les
+                // sous-compositions au scroll sans re-créer les nodes.
+                itemsIndexed(results, key = { _, result -> "${result.type}-${result.tmdbId}" }, contentType = { _, _ -> "search-result" }) { index, result ->
                     SearchResultCard(
-                        result, result == selected, { focusedResult = result },
+                        result,
+                        result.tmdbId == focusedTmdbId && result.type == focusedType,
+                        { focusedTmdbId = result.tmdbId; focusedType = result.type },
                         focusRequester = if (index == 0) resultFocusRequester else null,
                     ) { onOpenTitle(result.type, result.tmdbId) }
                 }
@@ -127,7 +147,7 @@ private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus
     Column {
         Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().aspectRatio(2f / 3f).let { if (focusRequester != null) it.focusRequester(focusRequester) else it }.tvFocusLift(selected, shape = shape).onFocusChanged { if (it.isFocused) onFocus() }.tvPointerClick(onClick), shape = ClickableSurfaceDefaults.shape(shape = shape), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong), border = ClickableSurfaceDefaults.border(focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, MaterialTheme.colorScheme.primary), shape = shape))) {
             Box(Modifier.fillMaxSize()) {
-                result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_IMAGE_BASE$it"), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
+                result.posterPath?.let { Image(painter = rememberAsyncImagePainter("$TMDB_POSTER_BASE$it"), contentDescription = result.title, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
                 if (result.rating > 0) RatingBadge(result.rating, Modifier.align(Alignment.TopStart).padding(7.dp))
             }
         }
