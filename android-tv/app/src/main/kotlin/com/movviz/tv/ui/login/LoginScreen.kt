@@ -77,9 +77,20 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
     // du noeud qui le portait et le premier appui D-pad tombe dans le vide.
     val plexLoginFocus = remember { FocusRequester() }
 
-    // Focus initial explicite (voir WizardScreen) — le champ existe dès la
-    // première composition, pas de dépendance à une donnée async ici.
-    LaunchedEffect(Unit) { usernameFocus.requestFocus() }
+    // Focus initial explicite — un seul essai non protégé ici plantait le
+    // LaunchedEffect (IllegalStateException, noeud pas encore attaché à la
+    // première frame) sans jamais réclamer le focus : symptôme signalé en
+    // direct sur "Ajouter utilisateur" (écran qui "ne répond pas" au D-pad).
+    // Même filet de sécurité que ProfilePickerScreen/le reste de cet
+    // écran (overlay Plex) : retente sur quelques frames au lieu de
+    // supposer que le champ est déjà attaché.
+    LaunchedEffect(Unit) {
+        repeat(10) { attempt ->
+            val granted = runCatching { usernameFocus.requestFocus() }.isSuccess
+            if (granted) return@LaunchedEffect
+            if (attempt < 9) withFrameNanos { }
+        }
+    }
 
     Box(
         modifier = Modifier

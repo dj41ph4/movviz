@@ -389,7 +389,21 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
      *  le changement de profil sans mot de passe. */
     suspend fun loadProfilesFromServer(): List<TvProfile> {
         val url = _serverUrl.value ?: return emptyList()
-        val result = MovvizRepository(url).tvProfiles()
+        val repo = MovvizRepository(url)
+        var result = repo.tvProfiles()
+        // Foyer vide + admin : le compte qui a fait la liaison initiale ne se
+        // voyait jamais lui-même dans "Qui est-ce ?" tant qu'il ne s'ajoutait
+        // pas manuellement à son propre foyer — contre-intuitif (signalé en
+        // direct : "j'ai pas d'utilisateur d'inscrit"). Comme Netflix/Plex où
+        // le compte propriétaire est toujours le premier profil, on l'y
+        // ajoute nous-mêmes une fois, silencieusement, via la même route que
+        // la tuile "+". Un compte invité n'a de toute façon pas accès à cette
+        // route (admin-only côté serveur), donc jamais déclenché pour lui.
+        val me = _currentUser.value
+        if (result is ApiResult.Success && result.data.isEmpty() && me?.role == "admin") {
+            repo.addTvProfile(me.id)
+            result = repo.tvProfiles()
+        }
         val profiles = if (result is ApiResult.Success) {
             result.data.map { dto ->
                 TvProfile(

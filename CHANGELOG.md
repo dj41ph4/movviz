@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.50 — August 2026
+
+### Android TV : ajout d'utilisateur au foyer, profil admin manquant
+
+- « Ajouter utilisateur » depuis l'écran profil ne répondait pas à la télécommande — l'écran de connexion en mode ajout ne réclamait jamais le focus D-pad (même défaut déjà corrigé ailleurs, retenté ici sans filet de sécurité).
+- Le compte admin qui fait la liaison initiale ne se voyait jamais dans « Qui est-ce ? » tant qu'il ne s'ajoutait pas manuellement à son propre foyer — désormais ajouté automatiquement au premier accès, comme le compte propriétaire l'est toujours en premier profil chez Netflix/Plex.
+
 ## v1.16.49 — August 2026
 
 ### Android TV : mise à jour bloquée par la télécommande
