@@ -71,18 +71,28 @@ class UpdateManager(private val context: Context) {
                 .header("User-Agent", "Movviz-AndroidTV/${BuildConfig.VERSION_NAME}")
                 .build()
             client.newCall(request).execute().use { response ->
-                if (!response.isSuccessful) return@withContext null
+                if (!response.isSuccessful) {
+                    android.util.Log.w("MovvizUpdate", "check: HTTP ${response.code}")
+                    return@withContext null
+                }
                 val body = response.body?.string() ?: return@withContext null
                 val release = releaseAdapter.fromJson(body) ?: return@withContext null
                 val tag = release.tagName ?: return@withContext null
-                if (!isNewerVersion(tag, BuildConfig.VERSION_NAME)) return@withContext null
+                if (!isNewerVersion(tag, BuildConfig.VERSION_NAME)) {
+                    android.util.Log.i("MovvizUpdate", "check: à jour (local=${BuildConfig.VERSION_NAME}, latest=$tag)")
+                    return@withContext null
+                }
                 val asset = release.assets?.firstOrNull { it.name == expectedAssetName }
                     ?: return@withContext null
                 val url = asset.url ?: return@withContext null
                 val digest = asset.digest ?: return@withContext null
+                android.util.Log.i("MovvizUpdate", "check: mise à jour trouvée $tag (local=${BuildConfig.VERSION_NAME})")
                 UpdateInfo(tag = tag, apkUrl = url, sha256 = digest, size = asset.size ?: 0L)
             }
         } catch (e: Exception) {
+            // Avant ce correctif : un échec réseau (DNS, timeout, TLS…) se refermait
+            // ici sans aucune trace, indiscernable d'un simple "pas de mise à jour".
+            android.util.Log.w("MovvizUpdate", "check: échec", e)
             null
         }
     }
@@ -157,6 +167,16 @@ class UpdateManager(private val context: Context) {
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
         params.setAppPackageName(context.packageName)
+        // Sans ceci, l'API 31+ exige un écran de confirmation système avant tout
+        // commit() — le commit() ci-dessous ne lève rien mais reste EN ATTENTE de
+        // cette confirmation qui n'arrive jamais (rien ne l'affiche) : ni succès
+        // ni échec, l'appli croit que "ça a marché" et rien ne s'installe jamais.
+        // C'est la cause de la boucle « mise à jour qui recommence à chaque
+        // lancement » — voir aussi le fallback dans UpdateReceiver si le système
+        // exige quand même la confirmation malgré cette demande.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
+        }
         val sessionId = installer.createSession(params)
         val session = installer.openSession(sessionId)
         try {
