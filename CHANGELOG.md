@@ -4,6 +4,13 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.46 — August 2026
+
+### Android TV : le lecteur empêche la veille pendant la lecture
+
+- Le flag window anti-veille est désormais posé pour toute la vie de l'Activity de lecture (pas seulement pendant la lecture active d'ExoPlayer) : un re-buffering sur serveur distant ne laisse plus l'Android TV s'endormir en plein film.
+- Ajout d'une session média active (media3-session) : le système sait qu'un média est en cours de lecture, comme Netflix — il ne met plus le boîtier en veille et affiche le titre dans l'interface système.
+
 ## v1.16.45 — August 2026
 
 ### Android TV : repli audio seul en DASH pour tous les codecs

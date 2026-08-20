@@ -357,6 +357,18 @@ private fun PlayerScreen(
     val scope = rememberCoroutineScope()
     val repository = remember(baseUrl) { MovvizRepository(baseUrl) }
 
+    // Anti-veille : le flag window est posé pour TOUTE la vie de l'Activity
+    // (pas seulement quand ExoPlayer est en lecture active). Le flag
+    // conditionnel de PlayerView se relâche dès qu'ExoPlayer bufferise, et un
+    // long re-buffering sur serveur distant suffisait à laisser l'Android TV
+    // s'endormir en plein film. Avec le flag permanent, le boîtier reste
+    // éveillé pendant la lecture comme avec Netflix.
+    val view = androidx.compose.ui.platform.LocalView.current
+    DisposableEffect(Unit) {
+        view.keepScreenOn = true
+        onDispose { view.keepScreenOn = false }
+    }
+
     var currentIndex by remember { mutableStateOf(startIndex) }
     val current = queue[currentIndex]
     val hasNext = currentIndex < queue.size - 1
@@ -407,10 +419,22 @@ private fun PlayerScreen(
             .setBufferDurationsMs(30_000, 120_000, 2_500, 5_000)
             .setTargetBufferBytes(64 * 1024 * 1024)
             .build()
-        ExoPlayer.Builder(context)
+ExoPlayer.Builder(context)
             .setLoadControl(loadControl)
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
+    }
+
+    // Session média active (comme les apps natives type Netflix) : annonce au
+    // système Android TV qu'un média est en cours de lecture. Le système s'en
+    // sert pour ne pas endormir le boîtier pendant la lecture, afficher le
+    // titre dans l'interface système (now playing) et permettre le contrôle
+    // par la télécommande système. Relâchée quand l'Activity se ferme.
+    val mediaSession = remember(exoPlayer) {
+        androidx.media3.session.MediaSession.Builder(context, exoPlayer).build()
+    }
+    DisposableEffect(mediaSession) {
+        onDispose { mediaSession.release() }
     }
 
     // Charge un item de la queue dans le player existant — appelé au premier

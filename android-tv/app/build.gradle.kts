@@ -16,8 +16,8 @@ android {
         applicationId = "com.movviz.tv"
         minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-versionCode = 11645
-        versionName = "1.16.45"
+versionCode = 11646
+        versionName = "1.16.46"
     }
 
     // Deux canaux de distribution depuis le même code :
@@ -105,6 +105,7 @@ dependencies {
     // Media3/ExoPlayer — décodage matériel, HDR, pistes audio/sous-titres :
     // un <video> web n'offre aucune de ces garanties sur boîtier TV.
     implementation(libs.media3.exoplayer)
+    implementation(libs.media3.session)
     implementation(libs.media3.ui)
     implementation(libs.media3.common)
     implementation(libs.media3.datasource.okhttp)
