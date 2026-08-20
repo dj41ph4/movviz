@@ -153,19 +153,16 @@ class MovvizRepository(private val baseUrl: String) {
      *  nativement par ExoPlayer) — démarre une session de transcodage Plex
      *  côté serveur. tv=0&ta=1 = la vidéo est copiée en bitstream (jamais
      *  ré-encodée : x264/x265 passent presque partout) et SEUL l'audio est
-     *  ré-encodé en aac. Le format dépend du codec source :
-     *  - H264 → HLS : Plex honore le copy vidéo en HLS-TS pour h264 (prouvé),
-     *    et HLS est le plus robuste pour ExoPlayer ;
-     *  - HEVC/AV1/VP9 → DASH : le SEUL format où Plex honore le copy bitstream
-     *    pour ces codecs (les sessions HLS ré-encodent tout HEVC en libx264).
-     *  La vidéo n'est donc jamais transcodée à ce niveau, ffmpeg ne
-     *  s'occupe que du son. Le client bascule sur ce niveau dès qu'un codec
-     *  non décodable est détecté (pré-décision) ou qu'ExoPlayer signale une
-     *  erreur de décodage. */
-    fun transcodeUrl(plexRatingKey: String, videoCodec: String? = null): String {
-        val isH264 = videoCodec?.contains("h264") == true || videoCodec?.contains("avc") == true
-        return "$baseUrl/api/stream/$plexRatingKey/transcode?tv=0&ta=1&${if (isH264) "fmt=hls" else "fmt=dash"}"
-    }
+     *  ré-encodé en aac. fmt=dash pour TOUS les codecs sources (h264
+     *  compris) : c'est le seul format où Plex honore le copy bitstream
+     *  quel que soit le codec (les sessions HLS ré-encodent tout HEVC en
+     *  libx264 ; Plex Web lui-même utilise DASH pour ce cas), et le
+     *  fMP4/DASH offre un seeking par plages d'octets plus précis à
+     *  ExoPlayer que le HLS-TS par segments. La vidéo n'est donc jamais
+     *  transcodée à ce niveau, ffmpeg ne s'occupe que du son. Le client
+     *  bascule sur ce niveau dès qu'un codec non décodable est détecté
+     *  (pré-décision) ou qu'ExoPlayer signale une erreur de décodage. */
+    fun transcodeUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey/transcode?tv=0&ta=1&fmt=dash"
 
     /** Dernier recours après le repli audio-seul : tv=1&ta=1 = le serveur
      *  ré-encode vidéo ET audio dans un format universellement lisible

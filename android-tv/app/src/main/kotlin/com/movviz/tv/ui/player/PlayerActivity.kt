@@ -392,9 +392,6 @@ private fun PlayerScreen(
     // à la même position.
     var fallbackLevel by remember { mutableStateOf(0) }
     var fallbackNotice by remember { mutableStateOf<String?>(null) }
-    // Codec vidéo du titre courant (streamInfo) — sert au choix du format du
-    // repli 1 (HLS pour h264, DASH pour HEVC/AV1/VP9, voir transcodeUrl).
-    var knownVideoCodec by remember { mutableStateOf<String?>(null) }
 
     val exoPlayer = remember {
         val upstream = OkHttpDataSource.Factory(com.movviz.tv.data.ApiClient.httpClient())
@@ -435,16 +432,17 @@ private fun PlayerScreen(
         errorKind = null
         val mediaItem = when (level) {
             1 -> {
-                val url = repository.transcodeUrl(item.ratingKey, knownVideoCodec)
-                // Le repli 1 est servi en HLS pour les sources h264 et en
-                // DASH pour HEVC/AV1/VP9 (règle de MovvizRepository.transcodeUrl) :
-                // le type MIME doit suivre le format effectif, sinon
-                // DefaultMediaSourceFactory choisit le mauvais source factory.
-                val hls = knownVideoCodec?.let { it.contains("h264") || it.contains("avc") } == true
-                Log.i(TAG, "load() transcode audio-seul (${if (hls) "HLS" else "DASH"}): $url (resumeMs=$resumeMs)")
+                val url = repository.transcodeUrl(item.ratingKey)
+                // Repli audio seul, toujours en DASH (fMP4) quel que soit le
+                // codec source — le seul format où Plex honore le copy
+                // bitstream vidéo (voir MovvizRepository.transcodeUrl). Le
+                // type MIME doit être explicite : l'URL ne se termine pas par
+                // ".mpd" (query string sur /transcode), le source factory ne
+                // peut pas l'inférer.
+                Log.i(TAG, "load() transcode audio-seul (DASH): $url (resumeMs=$resumeMs)")
                 MediaItem.Builder()
                     .setUri(url)
-                    .setMimeType(if (hls) MimeTypes.APPLICATION_M3U8 else MimeTypes.APPLICATION_MPD)
+                    .setMimeType(MimeTypes.APPLICATION_MPD)
                     .build()
             }
             2 -> {
@@ -475,7 +473,6 @@ LaunchedEffect(current.ratingKey) {
         val infoResult = repository.streamInfo(current.ratingKey)
         val info = (infoResult as? ApiResult.Success)?.data
         val knownDuration = info?.durationMs
-        knownVideoCodec = info?.videoCodec
         // Pré-décision du niveau de lecture, d'après les codecs réels du
         // titre (streamInfo) et les décodeurs RÉELS du boîtier sondés via
         // MediaCodecUtil — la même API qu'ExoPlayer utilise pour choisir ses

@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.45 — August 2026
+
+### Android TV : repli audio seul en DASH pour tous les codecs
+
+- Le repli « audio seul » (vidéo copiée en bitstream, son ré-encodé) utilise désormais DASH quel que soit le codec source, h264 compris — cohérent avec le lecteur web et avec le comportement de Plex Web lui-même, et le fMP4/DASH offre à ExoPlayer un seeking par plages d'octets plus précis que le HLS-TS par segments.
+
 ## v1.16.44 — August 2026
 
 ### Android TV : sonde de compatibilité réelle par boîtier
