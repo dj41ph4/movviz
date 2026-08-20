@@ -61,6 +61,11 @@ interface MovvizApiService {
         @Query("tmdbId") tmdbId: Int,
     ): Response<MetaDetailDto>
 
+    // Fiche acteur/actrice — filmographie complète, ouverte depuis la
+    // Distribution d'une fiche titre.
+    @GET("api/metadata/person")
+    suspend fun person(@Query("id") id: Int): Response<PersonDto>
+
     @GET("api/dashboard/hero")
     suspend fun dashboardHero(): Response<DashboardHeroResponseDto>
 

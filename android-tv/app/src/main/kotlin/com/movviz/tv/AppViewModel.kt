@@ -14,6 +14,7 @@ import com.movviz.tv.data.MetadataRowDto
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.data.MovvizUserDto
 import com.movviz.tv.data.OnDeckEntryDto
+import com.movviz.tv.data.PersonDto
 import com.movviz.tv.data.PlexPinDto
 import com.movviz.tv.data.PlexPollDto
 import com.movviz.tv.data.QueueItemDto
@@ -82,6 +83,9 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     private val _detail = MutableStateFlow<MetaDetailDto?>(null)
     val detail: StateFlow<MetaDetailDto?> = _detail.asStateFlow()
+
+    private val _person = MutableStateFlow<PersonDto?>(null)
+    val person: StateFlow<PersonDto?> = _person.asStateFlow()
 
     private val _addingToLibrary = MutableStateFlow(false)
     val addingToLibrary: StateFlow<Boolean> = _addingToLibrary.asStateFlow()
@@ -232,6 +236,17 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         viewModelScope.launch {
             when (val d = repo.detail(type, tmdbId)) {
                 is ApiResult.Success -> _detail.value = d.data
+                else -> Unit
+            }
+        }
+    }
+
+    fun loadPerson(id: Int) {
+        val repo = repository ?: return
+        _person.value = null
+        viewModelScope.launch {
+            when (val p = repo.person(id)) {
+                is ApiResult.Success -> _person.value = p.data
                 else -> Unit
             }
         }

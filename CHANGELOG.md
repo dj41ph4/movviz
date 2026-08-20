@@ -4,13 +4,21 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.44 — August 2026
+
+### Android TV : sonde de compatibilité réelle par boîtier
+
+- La compatibilité du boîtier n'est jamais présumée : avant chaque lecture, l'app interroge les décodeurs RÉELLEMENT déclarés par l'appareil (MediaCodecList, la même API qu'ExoPlayer utilise pour décoder) et choisit le mode de lecture en conséquence — un boîtier qui décode DTS/TrueHD/E-AC3 joue en direct-play, un autre qui ne les a pas bascule sur le repli audio seul (vidéo copiée, jamais ré-encodée). La décision et sa raison sont journalisées dans le logcat (`Pré-décision v=… a=… → niveau …`).
+- Correction : le repli audio seul est servi en HLS pour les sources h264 — le lecteur annonçait par erreur un manifeste DASH et la lecture échouait au démarrage.
+- Nouveau : fiche acteur/actrice — la Distribution d'une fiche titre mène à la filmographie complète de la personne, avec navigation par cartes vers chaque titre. La NavRail reste visible sur les fiches (titre et acteur) pour changer d'onglet sans revenir à l'accueil.
+
 ## v1.16.43 — August 2026
 
 ### Android TV : lecture optimisée — fin du transcode vidéo inutile
 
-- Un titre avec une vidéo parfaitement compatible (h264/HEVC…) mais une piste audio exotique (DTS/DTS-HD/TrueHD/E-AC3, quasi jamais supportée par les boîtiers) déclenchait toute la chaîne de repli et finissait en transcode vidéo+audio côté serveur, alors que seule l'audio posait problème. Le lecteur vérifie maintenant les codecs réels du titre avant de commencer :
-  - vidéo non décodable (AV1, VP9…) → transcode complet directement, sans deux erreurs à l'écran ;
-  - audio non décodable mais vidéo OK → repli « audio seul » immédiat : la vidéo est copiée en bitstream (jamais ré-encodée), seul le son passe en AAC ;
+- Un titre dont la vidéo est décodable par le boîtier mais dont la piste audio ne l'est pas (DTS/DTS-HD/TrueHD/E-AC3 selon les appareils) déclenchait toute la chaîne de repli et finissait en transcode vidéo+audio côté serveur, alors que seule l'audio posait problème. Le lecteur sonde maintenant les codecs réels du titre (streamInfo) ET les décodeurs réels du boîtier avant de commencer :
+  - vidéo non décodable par CE boîtier (AV1, VP9…) → transcode complet directement, sans deux erreurs à l'écran ;
+  - audio non décodable par CE boîtier mais vidéo OK → repli « audio seul » immédiat : la vidéo est copiée en bitstream (jamais ré-encodée), seul le son passe en AAC ;
   - le repli audio seul utilise HLS pour les sources h264 (le plus robuste pour ExoPlayer) et DASH pour HEVC/AV1/VP9 (le seul format où Plex honore la copie bitstream).
 - « Continuer à regarder » sur une série : la fiche de l'épisode en cours (saison, numéro, titre, synopsis) s'ouvre automatiquement à l'arrivée sur le titre — l'utilisateur ne doit plus la chercher dans la liste des saisons.
 

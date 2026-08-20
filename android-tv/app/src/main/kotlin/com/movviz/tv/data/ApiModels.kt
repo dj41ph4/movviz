@@ -273,6 +273,31 @@ data class MetaCrewMemberDto(
     val job: String = "",
 )
 
+// Miroir de MetaPerson (src/lib/metadata/tmdb.ts, getPerson()) — fiche
+// acteur/actrice ouverte depuis la Distribution d'une fiche titre, avec sa
+// filmographie complète (films + séries confondus, triée par popularité).
+@JsonClass(generateAdapter = true)
+data class PersonDto(
+    val id: Int,
+    val name: String,
+    val profilePath: String? = null,
+    val biography: String = "",
+    val credits: List<PersonCreditDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class PersonCreditDto(
+    val tmdbId: Int,
+    val type: String,
+    val title: String,
+    val year: Int? = null,
+    val releaseDate: String? = null,
+    val overview: String = "",
+    val posterPath: String? = null,
+    val backdropPath: String? = null,
+    val rating: Double = 0.0,
+)
+
 // Miroir de LibraryEpisode/LibrarySeason (src/lib/library/types.ts) — juste
 // ce qu'il faut pour afficher/lancer un épisode depuis la fiche série.
 @JsonClass(generateAdapter = true)

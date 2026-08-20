@@ -17,14 +17,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.movviz.tv.ui.home.HomeTab
 import com.movviz.tv.ui.home.MainScreen
+import com.movviz.tv.ui.home.NavRail
 import com.movviz.tv.ui.login.LoginScreen
+import com.movviz.tv.ui.person.PersonScreen
 import com.movviz.tv.ui.profile.ProfilePickerScreen
 import com.movviz.tv.ui.player.PlayerActivity
 import com.movviz.tv.ui.player.QueueItem
@@ -39,17 +45,26 @@ private const val ROUTE_LOGIN = "login"
 private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_HOME = "home"
 private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}?season={season}&episode={episode}"
+private const val ROUTE_PERSON = "person/{id}"
 
 /** Login ouvert en mode « ajouter un utilisateur au foyer » : après la
  *  connexion, le compte rejoint le foyer (ou est détecté déjà présent)
  *  et on revient sur l'écran profil au lieu d'aller à l'accueil. */
 private const val ROUTE_LOGIN_ADD = "login?add=true"
 
+/** Écrans où la NavRail reste affichée en permanence — accueil, fiche
+ *  titre, fiche acteur. Absente sur wizard/login/profils (avant qu'il y
+ *  ait quoi que ce soit à naviguer). */
+private fun routeShowsNavRail(route: String?): Boolean =
+    route != null && (route.startsWith("home") || route.startsWith("detail/") || route.startsWith("person/"))
+
 fun detailRoute(type: String, tmdbId: Int, season: Int? = null, episode: Int? = null): String {
     val base = "detail/$type/$tmdbId"
     if (season == null || episode == null) return base
     return "$base?season=$season&episode=$episode"
 }
+
+fun personRoute(id: Int): String = "person/$id"
 
 class MainActivity : ComponentActivity() {
     private val appViewModel: AppViewModel by viewModels()
@@ -68,6 +83,22 @@ class MainActivity : ComponentActivity() {
 private fun MovvizNavHost(viewModel: AppViewModel) {
     val navController = rememberNavController()
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+    // État de la NavRail hoisté ici (pas dans MainScreen) : elle doit rester
+    // visible et fonctionnelle même sur la fiche titre/acteur, qui vivent en
+    // dehors de MainScreen sur la pile de navigation (demandé explicitement
+    // après le premier jet qui la masquait sur la fiche, façon Netflix).
+    var tab by remember { mutableStateOf(HomeTab.HOME) }
+    var searchOpen by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    // Cible D-pad unique « premier élément du contenu affiché » — la NavRail
+    // pose focusProperties{down=...} dessus pour que la flèche bas depuis
+    // N'IMPORTE quel item de la barre y descende toujours, au lieu de
+    // compter sur la recherche spatiale par défaut de Compose qui ne trouve
+    // jamais de cible à travers deux frères superposés dans un Box (nav +
+    // contenu, zIndex ne joue que sur le dessin).
+    val contentFocusRequester = remember { FocusRequester() }
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
 // Démarrage façon Netflix : URL inconnue → wizard ; sinon, on vérifie
     // la session locale. Un APK fraîchement installé n'affiche JAMAIS le
@@ -230,25 +261,11 @@ composable(ROUTE_PROFILES) {
                         popUpTo(ROUTE_HOME) { inclusive = true }
                     }
                 },
-                onProfileSelected = { profile ->
-                    scope.launch {
-                        if (viewModel.selectProfile(profile) is com.movviz.tv.data.ApiResult.Success) {
-                            navController.navigate(ROUTE_HOME) {
-                                popUpTo(ROUTE_HOME) { inclusive = true }
-                            }
-                        }
-                    }
-                },
-                onAddProfile = { navController.navigate(ROUTE_LOGIN_ADD) },
-                onSwitchProfile = {
-                    // "Mon profil" / "Changer d'utilisateur" : l'écran profil
-                    // — profil actif en tête, membres du foyer, et tuile « + »
-                    // qui mène au login pour ajouter un utilisateur. Jamais le
-                    // login directement.
-                    navController.navigate(ROUTE_PROFILES) {
-                        popUpTo(ROUTE_HOME)
-                    }
-                },
+                tab = tab,
+                searchOpen = searchOpen,
+                searchQuery = searchQuery,
+                onSearchQueryChange = { searchQuery = it },
+                contentFocusRequester = contentFocusRequester,
             )
         }
         composable(
@@ -290,8 +307,75 @@ composable(ROUTE_PROFILES) {
                 onOpenTitle = { newType, newTmdbId ->
                     navController.navigate(detailRoute(newType, newTmdbId))
                 },
+                // Distribution → fiche acteur avec sa filmographie complète.
+                onOpenPerson = { personId ->
+                    navController.navigate(personRoute(personId))
+                },
             )
         }
+        composable(
+            route = ROUTE_PERSON,
+            arguments = listOf(navArgument("id") { type = NavType.IntType }),
+        ) { backStackEntry ->
+            val personId = backStackEntry.arguments?.getInt("id") ?: 0
+            PersonScreen(
+                viewModel = viewModel,
+                personId = personId,
+                onOpenTitle = { newType, newTmdbId ->
+                    navController.navigate(detailRoute(newType, newTmdbId))
+                },
+                entryFocusRequester = contentFocusRequester,
+            )
+        }
+        }
+        if (routeShowsNavRail(currentRoute)) {
+            NavRail(
+                selected = tab,
+                onSelect = { newTab ->
+                    // Depuis une fiche titre/acteur, la nav doit d'abord
+                    // revenir à l'accueil avant de changer d'onglet — sinon
+                    // "Films"/"Séries" resterait affiché par-dessus une fiche
+                    // toujours sur la pile.
+                    if (currentRoute?.startsWith("home") != true) {
+                        navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                    }
+                    tab = newTab
+                    searchOpen = false
+                },
+                searchOpen = searchOpen,
+                searchQuery = searchQuery,
+                onSearchToggle = {
+                    if (currentRoute?.startsWith("home") != true) {
+                        navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                    }
+                    searchOpen = !searchOpen
+                    if (searchOpen) tab = HomeTab.HOME else searchQuery = ""
+                },
+                onSearchQueryChange = { searchQuery = it },
+                profiles = viewModel.profiles.collectAsState().value,
+                activeProfile = viewModel.activeProfile.collectAsState().value,
+                onProfileSelected = { profile ->
+                    scope.launch {
+                        if (viewModel.selectProfile(profile) is com.movviz.tv.data.ApiResult.Success) {
+                            navController.navigate(ROUTE_HOME) {
+                                popUpTo(ROUTE_HOME) { inclusive = true }
+                            }
+                        }
+                    }
+                },
+                onAddProfile = { navController.navigate(ROUTE_LOGIN_ADD) },
+                onSwitchProfile = {
+                    // "Mon profil" / "Changer d'utilisateur" : l'écran profil
+                    // — profil actif en tête, membres du foyer, et tuile « + »
+                    // qui mène au login pour ajouter un utilisateur. Jamais le
+                    // login directement.
+                    navController.navigate(ROUTE_PROFILES) {
+                        popUpTo(ROUTE_HOME)
+                    }
+                },
+                contentFocusRequester = contentFocusRequester,
+                modifier = Modifier.zIndex(1f),
+            )
         }
         AutoUpdateOverlay()
     }

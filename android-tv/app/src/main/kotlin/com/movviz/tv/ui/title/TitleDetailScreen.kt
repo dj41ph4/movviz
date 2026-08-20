@@ -95,6 +95,8 @@ fun TitleDetailScreen(
     // quelques autres call sites potentiels (aucun aujourd'hui) n'ont pas
     // à le fournir.
     onOpenTitle: (type: String, tmdbId: Int) -> Unit = { _, _ -> },
+    // Distribution → fiche acteur avec sa filmographie complète.
+    onOpenPerson: (personId: Int) -> Unit = {},
     // Ouverture depuis "Continuer à regarder" pour une série : la saison en
     // cours plutôt que la saison 1 par défaut (voir plus bas, la sélection
     // de saison ne l'écrase jamais une fois initialisée).
@@ -667,7 +669,7 @@ fun TitleDetailScreen(
 
             if (d.cast.isNotEmpty()) {
                 item { Spacer(modifier = Modifier.height(28.dp)) }
-                item { CastRow(cast = d.cast) }
+                item { CastRow(cast = d.cast, onOpenPerson = onOpenPerson) }
             }
 
             // Rangée "Titres similaires" — voir similarCards ci-dessus
@@ -692,7 +694,7 @@ fun TitleDetailScreen(
  *  esprit que la section Distribution du desktop (TitleContent.tsx) mais en
  *  rangée horizontale scrollable, plus naturel au D-pad qu'une grille. */
 @Composable
-private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>) {
+private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPerson: (Int) -> Unit) {
     Column(modifier = Modifier.padding(bottom = 8.dp)) {
         Text(
             text = "Distribution",
@@ -704,7 +706,17 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>) {
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(cast.take(15), key = { it.id }) { member ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(84.dp)) {
+                val shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
+                Surface(
+                    onClick = { onOpenPerson(member.id) },
+                    modifier = Modifier.width(84.dp).tvPointerClick { onOpenPerson(member.id) },
+                    shape = ClickableSurfaceDefaults.shape(shape),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
+                    border = ClickableSurfaceDefaults.border(
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape = shape),
+                    ),
+                ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(84.dp).padding(vertical = 6.dp)) {
                     val photoUrl = member.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
                     Box(
                         modifier = Modifier
@@ -738,6 +750,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>) {
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
                     }
+                }
                 }
             }
         }

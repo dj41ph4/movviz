@@ -306,14 +306,15 @@ private fun audioMimeType(codec: String?): String? = when {
     else -> null
 }
 
-/** Un décodeur audio existe-t-il sur ce boîtier ? (MediaCodecUtil ne voit
- *  que les décodeurs plateforme — les boîtiers TV n'ont presque jamais de
- *  décodeur DTS/DTS-HD/TrueHD/E-AC3 : le direct-play échouerait à coup sûr
- *  sur l'AUDIO alors que la vidéo est parfaitement compatible, et toute la
- *  lecture basculerait inutilement en transcode vidéo+audio). Quand l'audio
- *  n'est pas décodable, on part directement au repli 1 (vidéo copiée en
- *  bitstream, seul le son est ré-encodé). null/erreur → true : on laisse
- *  ExoPlayer décider (comportement historique). */
+/** Ce boîtier possède-t-il un décodeur audio pour ce codec ? DÉTECTION
+ *  RÉELLE, jamais de présomption : MediaCodecUtil interroge MediaCodecList
+ *  du dispositif (la même API qu'ExoPlayer utilise pour choisir ses
+ *  décodeurs) — un boîtier qui déclare DTS/TrueHD/E-AC3 passe le test et
+ *  joue en direct-play, un autre qui ne les a pas bascule au repli 1
+ *  (vidéo copiée en bitstream, seul le son est ré-encodé) au lieu
+ *  d'essuyer une erreur de décodage. Un codec inconnu ou une erreur
+ *  d'interrogation renvoie true : on laisse ExoPlayer décider
+ *  (comportement historique). */
 private fun hasPlatformAudioDecoder(mimeType: String?): Boolean {
     if (mimeType == null) return true
     return try {
@@ -435,10 +436,15 @@ private fun PlayerScreen(
         val mediaItem = when (level) {
             1 -> {
                 val url = repository.transcodeUrl(item.ratingKey, knownVideoCodec)
-                Log.i(TAG, "load() transcode audio-seul: $url (resumeMs=$resumeMs)")
+                // Le repli 1 est servi en HLS pour les sources h264 et en
+                // DASH pour HEVC/AV1/VP9 (règle de MovvizRepository.transcodeUrl) :
+                // le type MIME doit suivre le format effectif, sinon
+                // DefaultMediaSourceFactory choisit le mauvais source factory.
+                val hls = knownVideoCodec?.let { it.contains("h264") || it.contains("avc") } == true
+                Log.i(TAG, "load() transcode audio-seul (${if (hls) "HLS" else "DASH"}): $url (resumeMs=$resumeMs)")
                 MediaItem.Builder()
                     .setUri(url)
-                    .setMimeType(MimeTypes.APPLICATION_MPD)
+                    .setMimeType(if (hls) MimeTypes.APPLICATION_M3U8 else MimeTypes.APPLICATION_MPD)
                     .build()
             }
             2 -> {
@@ -471,31 +477,43 @@ LaunchedEffect(current.ratingKey) {
         val knownDuration = info?.durationMs
         knownVideoCodec = info?.videoCodec
         // Pré-décision du niveau de lecture, d'après les codecs réels du
-        // titre (streamInfo) et les décodeurs du boîtier :
-        //  - vidéo non décodable (AV1 sur vieux boîtier, VP9…) → transcode
-        //    complet direct : ni le direct-play ni le repli 1 (même vidéo
-        //    copiée) ne peuvent aboutir, inutile d'essuyer deux erreurs ;
-        //  - audio non décodable (DTS/DTS-HD/TrueHD/E-AC3, quasi jamais
-        //    supportés par les boîtiers) mais vidéo OK → repli 1 direct :
-        //    la vidéo est copiée en bitstream, SEUL le son est ré-encodé —
-        //    c'est le cas « vidéo compatible qui se fait quand même
-        //    transcoder » que cette pré-décision élimine ;
-        //  - tout décodable → direct-play, l'ancien chemin d'erreur reste la
-        //    sécurité pour les cas non détectés (profil 10-bit, HDR…).
+        // titre (streamInfo) et les décodeurs RÉELS du boîtier sondés via
+        // MediaCodecUtil — la même API qu'ExoPlayer utilise pour choisir ses
+        // décodeurs, donc la vérité du dispositif : aucun codec n'est jamais
+        // présumé supporté ou non (DTS/TrueHD/E-AC3 existent sur certains
+        // boîtiers, pas sur d'autres — la sonde tranche pour chaque appareil) :
+        //  - vidéo non décodable par CE boîtier (AV1 sur vieux boîtier,
+        //    VP9…) → transcode complet direct : ni le direct-play ni le
+        //    repli 1 (même vidéo copiée) ne peuvent aboutir, inutile
+        //    d'essuyer deux erreurs ;
+        //  - audio non décodable par CE boîtier mais vidéo OK → repli 1
+        //    direct : la vidéo est copiée en bitstream, SEUL le son est
+        //    ré-encodé — c'est le cas « vidéo compatible qui se fait quand
+        //    même transcoder » que cette pré-décision élimine ;
+        //  - tout décodable par CE boîtier → direct-play, l'ancien chemin
+        //    d'erreur reste la sécurité pour les cas non détectés (profil
+        //    10-bit, HDR, conteneur exotique…).
         val videoMime = videoMimeType(info?.videoCodec)
         val selectedAudio = info?.audioStreams?.firstOrNull { it.selected }
             ?: info?.audioStreams?.firstOrNull()
         val audioMime = audioMimeType(selectedAudio?.codec ?: info?.audioCodec)
+        val videoDecodable = videoMime == null || hasPlatformVideoDecoder(videoMime)
+        val audioDecodable = audioMime == null || hasPlatformAudioDecoder(audioMime)
         val startLevel = when {
-            info != null && videoMime != null && !hasPlatformVideoDecoder(videoMime) -> 2
-            info != null && audioMime != null && !hasPlatformAudioDecoder(audioMime) -> 1
+            info != null && !videoDecodable -> 2
+            info != null && !audioDecodable -> 1
             else -> 0
         }
+        // Sonde visible : la décision (et la raison) est dans le logcat pour
+        // vérifier que le boîtier est bien interrogé, pas supposé.
+        Log.i(
+            TAG,
+            "Pré-décision v=${info?.videoCodec ?: "?"} (décodeur=${videoDecodable}) a=${selectedAudio?.codec ?: info?.audioCodec ?: "?"} (décodeur=${audioDecodable}) → niveau $startLevel"
+        )
         if (startLevel == 2) {
             fallbackLevel = 2
-            Log.i(TAG, "Pré-décision : pas de décodeur ${info?.videoCodec} sur ce boîtier → transcode complet direct")
         } else if (startLevel == 1) {
-            Log.i(TAG, "Pré-décision : audio ${selectedAudio?.codec ?: info?.audioCodec} non décodable → repli audio-seul (vidéo copiée)")
+            fallbackNotice = "Compatibilité optimisée…"
         }
         val resume = if (startFromBeginning && currentIndex == startIndex) 0L else repository.resumeOffsetMs(
             type = type,
