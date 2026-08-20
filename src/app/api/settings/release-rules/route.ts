@@ -52,6 +52,9 @@ export async function PUT(req: NextRequest) {
   if ("autoUpgradeEnabled" in body) {
     patch.autoUpgradeEnabled = Boolean(body.autoUpgradeEnabled);
   }
+  if ("dashboardUpgradeScanEnabled" in body) {
+    patch.dashboardUpgradeScanEnabled = Boolean(body.dashboardUpgradeScanEnabled);
+  }
   if ("sizePreference" in body) {
     const allowedSizePreference = ["smaller", "balanced", "quality"];
     patch.sizePreference = allowedSizePreference.includes(body.sizePreference) ? body.sizePreference : "balanced";

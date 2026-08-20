@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.57 — August 2026
+
+### Correctif : le nouveau bouton "Suggestions de mise à niveau sur le tableau de bord" ne s'enregistrait pas
+
+- Le bouton ajouté en v1.16.56 ne persistait jamais son état — la route de sauvegarde des réglages ignorait ce champ précis, revenant systématiquement à sa valeur d'origine.
+
 ## v1.16.56 — August 2026
 
 ### Réglages > Qualité : désactiver l'analyse des mises à niveau sur le tableau de bord
