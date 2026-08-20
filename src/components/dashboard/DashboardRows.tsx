@@ -50,6 +50,16 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
     visible.has("continueWatching") ? "/api/plex/on-deck" : null
   );
   const continueWatching = onDeckData?.items ?? [];
+  // Reglages > Qualité toggle, off by default disables ONLY this scan —
+  // separate from dashboardUpgradeScanEnabled's sibling autoUpgradeEnabled
+  // (background re-grab job), unaffected either way. Rarely changes, so a
+  // long dedupingInterval keeps this from adding its own request on every
+  // dashboard mount.
+  const { data: releaseRules } = useSWR<{ dashboardUpgradeScanEnabled?: boolean }>(
+    visible.has("upgradesAvailable") ? "/api/settings/release-rules" : null,
+    { revalidateOnFocus: false, dedupingInterval: 10 * 60 * 1000 }
+  );
+  const dashboardScanEnabled = releaseRules !== undefined && releaseRules.dashboardUpgradeScanEnabled !== false;
   // Without `liveSearch=0` this endpoint runs a real multi-minute scan (up
   // to 25 movies + 25 episodes falling back to live indexer searches) —
   // confirmed live, that eager per-mount cost alone could run past a
@@ -60,7 +70,7 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
   // focus, unlike every other row here; the server-side cache in the route
   // also bounds the cost of whatever revalidations do happen.
   const { data: upgradeData } = useSWR<{ candidates: UpgradeCandidate[] }>(
-    visible.has("upgradesAvailable") ? "/api/library/upgrade-candidates?liveSearch=0" : null,
+    visible.has("upgradesAvailable") && dashboardScanEnabled ? "/api/library/upgrade-candidates?liveSearch=0" : null,
     { revalidateOnFocus: false, dedupingInterval: 10 * 60 * 1000 }
   );
 

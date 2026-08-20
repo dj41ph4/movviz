@@ -47,6 +47,17 @@ export interface ReleaseRules {
   /** When enabled, autoUpgradeAll() runs periodically (every 6h) to automatically grab upgrade candidates. */
   autoUpgradeEnabled: boolean;
   /**
+   * Distinct from autoUpgradeEnabled above: that one gates the background
+   * job that actually RE-GRABS files. This one gates the dashboard's
+   * "upgradesAvailable" row and its read-only scan
+   * (/api/library/upgrade-candidates), which can take several minutes on a
+   * large library even in cache-only mode — some users never open that row
+   * and don't want the scan running at all. Off has no effect on the
+   * background auto-upgrade job or the manual "Rechercher et remplacer"
+   * panel, both unrelated to this flag.
+   */
+  dashboardUpgradeScanEnabled: boolean;
+  /**
    * Auto-grab's size/quality selection policy among candidates that already
    * pass minScore + size-limit + blocked-word filtering — deliberately kept
    * separate from `codecScores` above (which nudges the general relevance
@@ -75,6 +86,7 @@ const DEFAULT_RULES: ReleaseRules = {
   preferredAudioCodec: null,
   preferredResolution: null,
   autoUpgradeEnabled: false,
+  dashboardUpgradeScanEnabled: true,
   sizePreference: "balanced",
 };
 

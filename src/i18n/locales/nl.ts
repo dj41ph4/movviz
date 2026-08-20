@@ -1575,6 +1575,8 @@ export const nl: Dictionary = {
     resolutionHint: "Wanneer een resolutie is gekozen, komt elk bestand met een lagere resolutie in aanmerking voor vervanging.",
     autoUpgradeTitle: "Automatische upgrade",
     autoUpgradeHint: "Activeert periodieke controle en automatische bestandsvervanging op basis van de hierboven geconfigureerde voorkeuren.",
+    dashboardScanTitle: "Upgradesuggesties op het dashboard",
+    dashboardScanHint: "Schakelt de scan in die de rij \"Upgrades beschikbaar\" van het dashboard voedt. Heeft geen effect op de automatische upgrade hierboven of op \"Zoeken en vervangen\" — schakelt alleen deze scan uit, handig als die het dashboard vertraagt bij een grote bibliotheek.",
   },
 
   issues: {

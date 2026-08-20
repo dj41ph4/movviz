@@ -1575,6 +1575,8 @@ export const en: Dictionary = {
     resolutionHint: "When a resolution is chosen, any owned file at a lower resolution becomes eligible for replacement.",
     autoUpgradeTitle: "Automatic upgrade",
     autoUpgradeHint: "Enables periodic checking and automatic file replacement based on the preferences configured above.",
+    dashboardScanTitle: "Dashboard upgrade suggestions",
+    dashboardScanHint: "Enables the scan that powers the dashboard's \"Upgrades available\" row. No effect on the automatic upgrade above or on \"Search and replace\" — this only turns off that scan, useful if it slows down the dashboard on a large library.",
   },
 
   issues: {

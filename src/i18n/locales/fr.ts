@@ -1573,6 +1573,8 @@ export const fr = {
     resolutionHint: "Quand une résolution est choisie, tout fichier possédé dans une résolution inférieure devient éligible à un remplacement.",
     autoUpgradeTitle: "Mise à niveau automatique",
     autoUpgradeHint: "Active la vérification périodique et le remplacement automatique des fichiers selon les préférences configurées.",
+    dashboardScanTitle: "Suggestions de mise à niveau sur le tableau de bord",
+    dashboardScanHint: "Active l'analyse qui alimente la rangée « Mises à niveau disponibles » du tableau de bord. Sans effet sur la mise à niveau automatique ci-dessus ni sur « Rechercher et remplacer » — désactive uniquement cette analyse, utile si elle ralentit le tableau de bord sur une grosse bibliothèque.",
   },
 
   issues: {

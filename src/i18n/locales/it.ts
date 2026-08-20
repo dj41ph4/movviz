@@ -1574,6 +1574,8 @@ export const it: Dictionary = {
     resolutionHint: "Quando una risoluzione è scelta, qualsiasi file posseduto a risoluzione inferiore diventa idoneo alla sostituzione.",
     autoUpgradeTitle: "Aggiornamento automatico",
     autoUpgradeHint: "Attiva il controllo periodico e la sostituzione automatica dei file in base alle preferenze configurate sopra.",
+    dashboardScanTitle: "Suggerimenti di aggiornamento sulla dashboard",
+    dashboardScanHint: "Attiva la scansione che alimenta la riga \"Aggiornamenti disponibili\" della dashboard. Nessun effetto sull'aggiornamento automatico sopra né su \"Cerca e sostituisci\" — disattiva solo questa scansione, utile se rallenta la dashboard su una libreria di grandi dimensioni.",
   },
 
   issues: {

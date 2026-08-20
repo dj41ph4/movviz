@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.56 — August 2026
+
+### Réglages > Qualité : désactiver l'analyse des mises à niveau sur le tableau de bord
+
+- Nouveau bouton dans Réglages > Qualité pour désactiver l'analyse qui alimente la rangée « Mises à niveau disponibles » du tableau de bord — cette analyse pouvait ralentir sérieusement l'affichage sur une grosse bibliothèque. Distinct du bouton de mise à niveau automatique existant (qui gère le remplacement automatique en tâche de fond) : celui-ci coupe uniquement le scan d'affichage, sans toucher au reste.
+
 ## v1.16.55 — August 2026
 
 ### Android TV : flèche bas depuis le menu — vraie correction

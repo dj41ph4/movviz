@@ -1592,6 +1592,8 @@ export const de: Dictionary = {
     resolutionHint: "Wenn eine Auflösung gewählt ist, wird jede Datei mit niedrigerer Auflösung für einen Ersatz vorgemerkt.",
     autoUpgradeTitle: "Automatisches Upgrade",
     autoUpgradeHint: "Aktiviert die regelmäßige Überprüfung und den automatischen Dateiersatz basierend auf den oben konfigurierten Einstellungen.",
+    dashboardScanTitle: "Upgrade-Vorschläge im Dashboard",
+    dashboardScanHint: "Aktiviert den Scan, der die Zeile „Verfügbare Upgrades“ im Dashboard versorgt. Keine Auswirkung auf das automatische Upgrade oben oder auf „Suchen und ersetzen“ — deaktiviert nur diesen Scan, nützlich wenn er das Dashboard bei einer großen Bibliothek verlangsamt.",
   },
 
   issues: {

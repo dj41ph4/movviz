@@ -19,6 +19,7 @@ interface ReleaseRules {
   preferredAudioCodec: string | null;
   preferredResolution: string | null;
   autoUpgradeEnabled: boolean;
+  dashboardUpgradeScanEnabled: boolean;
 }
 
 const VIDEO_CODEC_OPTIONS = ["x264", "x265", "AV1"] as const;
@@ -332,6 +333,27 @@ export function ReleaseRulesPanel() {
             <span className={cn(
               "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
               rules.autoUpgradeEnabled && "translate-x-5"
+            )} />
+          </button>
+        </div>
+      </div>
+
+      {/* Dashboard upgrade scan toggle */}
+      <div className="rounded-2xl glass p-5">
+        <h3 className="font-bold text-ink">{t("releaseRules.dashboardScanTitle")}</h3>
+        <p className="mt-1 text-xs text-ink-dim">{t("releaseRules.dashboardScanHint")}</p>
+        <div className="mt-4 flex items-center justify-between gap-4">
+          <span className="text-xs text-ink-soft">{rules.dashboardUpgradeScanEnabled ? t("common.enabled") : t("common.disabled")}</span>
+          <button
+            onClick={() => save({ dashboardUpgradeScanEnabled: !rules.dashboardUpgradeScanEnabled })}
+            className={cn(
+              "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+              rules.dashboardUpgradeScanEnabled ? "brand-gradient" : "bg-white/10"
+            )}
+          >
+            <span className={cn(
+              "absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+              rules.dashboardUpgradeScanEnabled && "translate-x-5"
             )} />
           </button>
         </div>
