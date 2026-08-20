@@ -111,7 +111,10 @@ fun AutoUpdateOverlay() {
             state = UpdateUiState.Hidden
         } catch (e: Exception) {
             // Réseau, HTTP, SHA-256… l'appli démarre normalement, on ne
-            // bloque jamais l'utilisation sur un souci de mise à jour.
+            // bloque jamais l'utilisation sur un souci de mise à jour. Le log
+            // manquait ici avant ce correctif — un échec de download() ou
+            // d'installInBackground() se refermait sans aucune trace.
+            android.util.Log.w("MovvizUpdate", "cycle de mise à jour interrompu", e)
             state = UpdateUiState.Hidden
         }
     }
