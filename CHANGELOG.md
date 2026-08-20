@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.58 — August 2026
+
+### Android TV : écran de chargement de l'accueil, vraie identité visuelle
+
+- Le texte "Chargement de ta bibliothèque…" cède la place au logo Movviz animé (le même que login/paramètres) au tout premier lancement, avant que la bibliothèque ait chargé. Ce logo sert aussi de vraie cible de focus visible pour la flèche bas — l'ancre invisible de secours n'est plus sollicitée dans ce cas précis, elle reste en place pour les autres cas limites.
+
 ## v1.16.57 — August 2026
 
 ### Correctif : le nouveau bouton "Suggestions de mise à niveau sur le tableau de bord" ne s'enregistrait pas

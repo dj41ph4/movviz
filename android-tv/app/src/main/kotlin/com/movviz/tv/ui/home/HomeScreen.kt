@@ -12,6 +12,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
@@ -42,6 +43,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
+import com.movviz.tv.ui.theme.AnimatedLogo
 import android.annotation.SuppressLint
 import android.graphics.Color as AndroidColor
 import android.webkit.JavascriptInterface
@@ -376,11 +378,35 @@ fun HomeScreen(
 
             if (recentMovies.isEmpty() && recentSeries.isEmpty()) {
                 item {
-                    Text(
-                        text = "Chargement de ta bibliothèque…",
-                        style = TextStyle(fontSize = 18.sp, color = MaterialTheme.colorScheme.onBackground),
-                        modifier = Modifier.padding(start = 48.dp),
-                    )
+                    // Prend le focus (firstCardFocus == contentFocusRequester) au lieu
+                    // de laisser MainScreen retomber sur son ancre invisible : cet
+                    // écran de chargement a désormais une vraie cible visible et
+                    // focusable, plutôt qu'un texte statique inerte.
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 24.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                modifier = if (heroItems.isEmpty() && firstRealRowKey == null) {
+                                    // Rien d'autre à l'écran ne dispute firstCardFocus dans
+                                    // ce cas précis (voir firstRealRowKey ci-dessus) — seule
+                                    // cible réelle et visible au tout premier rendu, plus
+                                    // besoin de retomber sur l'ancre invisible de MainScreen.
+                                    Modifier.focusRequester(firstCardFocus).focusable()
+                                } else {
+                                    Modifier
+                                },
+                            ) {
+                                AnimatedLogo(size = 64.dp)
+                            }
+                            Text(
+                                text = "Chargement de ta bibliothèque…",
+                                style = TextStyle(fontSize = 15.sp, color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f)),
+                                modifier = Modifier.padding(top = 16.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
