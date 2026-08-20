@@ -120,7 +120,11 @@ fun TitleDetailScreen(
         viewModel.loadDetail(type, tmdbId)
         viewModel.loadHeroLogo(type, tmdbId)
         if (type == "series" && inLibrary) viewModel.loadSeriesSeasons(tmdbId)
-        if (type == "movie") viewModel.loadContinueWatching()
+        // On-deck chargé pour les DEUX types : le libellé « S1 · Ép 3 — titre »
+        // + le CTA « Reprendre » d'une série en cours dépendent de
+        // continueWatching (il n'était chargé que pour les films — une série
+        // ouverte depuis « Continuer à regarder » se comportait comme un film).
+        viewModel.loadContinueWatching()
         // Statut "vu" manuel — utile aux deux types (badge "Vu" sur un film
         // terminé, coche par épisode pour une série), voir /api/watch-status.
         viewModel.loadWatchStatus()
@@ -223,6 +227,20 @@ fun TitleDetailScreen(
         }
     }
 
+    // Arrivée depuis « Continuer à regarder » (onOpenEpisode) : ouvre
+    // DIRECTEMENT la fiche de l'épisode en cours (EpisodeDetailOverlay),
+    // au lieu de laisser l'utilisateur la chercher dans la liste des
+    // saisons. Une seule ouverture automatique — un retour (Retour) ne la
+    // rouvre jamais, et un changement de saison manuel non plus.
+    var didOpenInitialEpisode by remember(type, tmdbId) { mutableStateOf(false) }
+    LaunchedEffect(selectedSeason, seasonMetadata, initialEpisodeNumber) {
+        if (didOpenInitialEpisode) return@LaunchedEffect
+        if (initialEpisodeNumber == null || selectedSeason == null) return@LaunchedEffect
+        val episode = selectedSeason.episodes.firstOrNull { it.episodeNumber == initialEpisodeNumber } ?: return@LaunchedEffect
+        didOpenInitialEpisode = true
+        selectedEpisode = EpisodeSelection(selectedSeason, episode, null)
+    }
+
     // Focus initial déterministe — sans ceci, rien ne réclame jamais le
     // focus D-pad en entrant sur la fiche (constat direct : deux DPAD_DOWN
     // consécutifs, focus immobile, avant ce correctif). La cible doit
@@ -253,8 +271,12 @@ fun TitleDetailScreen(
         // retente sur quelques frames plutôt que de laisser un crash D-pad
         // silencieux (constaté en direct) sortir l'utilisateur de l'app.
         repeat(10) { attempt ->
-            val focused = runCatching { initialFocusRequester.requestFocus() }.isSuccess
-            if (focused) return@LaunchedEffect
+            // requestFocus() renvoie Unit en Compose 1.7 et lève
+            // IllegalStateException si le noeud n'est pas encore attaché :
+            // on retente tant que la demande échoue (premier item{} pas
+            // encore composé au premier rendu).
+            val granted = runCatching { initialFocusRequester.requestFocus() }.isSuccess
+            if (granted) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
         }
     }
@@ -919,6 +941,22 @@ private fun EpisodeDetailOverlay(
     onDownloadSeason: () -> Unit,
 ) {
     val available = selection.episode.plexRatingKey != null && selection.episode.status == "available"
+    // Focus D-pad initial dans le Dialog : la fiche d'épisode est une vraie
+    // fenêtre séparée — sans demande explicite, rien ne garantit que le
+    // focus y atterrisse sur un bouton (même constat que le Popup de
+    // NavRail). On vise l'action primaire, en retentant sur quelques frames
+    // le temps que le noeud s'attache.
+    val primaryActionFocus = remember { FocusRequester() }
+    LaunchedEffect(Unit) {
+        repeat(10) { attempt ->
+            // requestFocus() renvoie Unit en Compose 1.7 et lève
+            // IllegalStateException si le noeud n'est pas encore attaché :
+            // on retente tant que la demande échoue.
+            val granted = runCatching { primaryActionFocus.requestFocus() }.isSuccess
+            if (granted) return@LaunchedEffect
+            if (attempt < 9) withFrameNanos { }
+        }
+    }
     Dialog(onDismissRequest = onDismiss) {
         Box(
             modifier = Modifier
@@ -950,13 +988,14 @@ private fun EpisodeDetailOverlay(
                 Spacer(modifier = Modifier.height(24.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (available) {
-                        PrimaryPill(text = "▶  Lire l'épisode", brush = null, solidWhite = true, onClick = onPlay)
+                        PrimaryPill(text = "▶  Lire l'épisode", brush = null, solidWhite = true, focusRequester = primaryActionFocus, onClick = onPlay)
                     } else {
                         PrimaryPill(
                             text = if (downloading) "Recherche…" else "↓  Télécharger la saison",
                             brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
                             solidWhite = false,
                             enabled = !downloading,
+                            focusRequester = primaryActionFocus,
                             onClick = onDownloadSeason,
                         )
                     }

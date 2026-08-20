@@ -87,7 +87,7 @@ fun SearchScreen(
                 Text("Autres titres à découvrir", color = MovvizInkDim, fontSize = 13.sp)
                 Spacer(Modifier.width(10.dp))
                 results.take(8).forEachIndexed { index, item ->
-                    Surface(onClick = { onQueryChange(item.title) }, colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp))) {
+                    Surface(onClick = { onQueryChange(item.title) }, modifier = Modifier.tvPointerClick { onQueryChange(item.title) }, colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = MovvizSurfaceStrong), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(4.dp))) {
                         Text(item.title, color = if (item == selected) MaterialTheme.colorScheme.primary else MovvizInk, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 4.dp, vertical = 3.dp))
                     }
                     if (index < results.take(8).lastIndex) Text("  |  ", color = MovvizInkDim, fontSize = 12.sp)

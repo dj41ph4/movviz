@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.43 — August 2026
+
+### Android TV : lecture optimisée — fin du transcode vidéo inutile
+
+- Un titre avec une vidéo parfaitement compatible (h264/HEVC…) mais une piste audio exotique (DTS/DTS-HD/TrueHD/E-AC3, quasi jamais supportée par les boîtiers) déclenchait toute la chaîne de repli et finissait en transcode vidéo+audio côté serveur, alors que seule l'audio posait problème. Le lecteur vérifie maintenant les codecs réels du titre avant de commencer :
+  - vidéo non décodable (AV1, VP9…) → transcode complet directement, sans deux erreurs à l'écran ;
+  - audio non décodable mais vidéo OK → repli « audio seul » immédiat : la vidéo est copiée en bitstream (jamais ré-encodée), seul le son passe en AAC ;
+  - le repli audio seul utilise HLS pour les sources h264 (le plus robuste pour ExoPlayer) et DASH pour HEVC/AV1/VP9 (le seul format où Plex honore la copie bitstream).
+- « Continuer à regarder » sur une série : la fiche de l'épisode en cours (saison, numéro, titre, synopsis) s'ouvre automatiquement à l'arrivée sur le titre — l'utilisateur ne doit plus la chercher dans la liste des saisons.
+
 ## v1.16.42 — August 2026
 
 ### Android TV : mise à jour automatique et navigation télécommande

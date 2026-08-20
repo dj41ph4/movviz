@@ -72,6 +72,10 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
     val usernameFocus = remember { FocusRequester() }
     val passwordFocus = remember { FocusRequester() }
     val loginButtonFocus = remember { FocusRequester() }
+    // Cible de retour du focus quand l'overlay de code Plex se ferme
+    // ("Annuler") — sans ça, le focus reste orphelin après la disparition
+    // du noeud qui le portait et le premier appui D-pad tombe dans le vide.
+    val plexLoginFocus = remember { FocusRequester() }
 
     // Focus initial explicite (voir WizardScreen) — le champ existe dès la
     // première composition, pas de dépendance à une donnée async ici.
@@ -210,7 +214,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().focusRequester(plexLoginFocus),
                 shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(14.dp)),
                 colors = ClickableSurfaceDefaults.colors(
                     containerColor = Color.Transparent,
@@ -260,7 +264,7 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                         context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link)))
                     }
                 },
-                onClose = { plexCode = null; plexAuthUrl = null },
+                onClose = { plexCode = null; plexAuthUrl = null; runCatching { plexLoginFocus.requestFocus() } },
             )
         }
     }
@@ -275,6 +279,24 @@ private fun extractPlexCode(authUrl: String): String? {
 @Composable
 private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Unit) {
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .78f)), contentAlignment = Alignment.Center) {
+        // Focus D-pad initial : l'overlay est un simple Box posé PAR-DESSUS
+        // la carte de login (pas un Dialog ni un Popup) — sans demande
+        // explicite, le focus reste sur la carte derrière le voile et le
+        // D-pad ne rejoint jamais les boutons de l'overlay (même constat
+        // que le Popup de NavRail). On vise l'action primaire "Ouvrir
+        // Plex", en retentant sur quelques frames le temps que le noeud
+        // s'attache.
+        val openPlexFocus = remember { FocusRequester() }
+        LaunchedEffect(Unit) {
+            repeat(10) { attempt ->
+                // requestFocus() renvoie Unit en Compose 1.7 et lève
+                // IllegalStateException si le noeud n'est pas encore
+                // attaché : on retente tant que la demande échoue.
+                val granted = runCatching { openPlexFocus.requestFocus() }.isSuccess
+                if (granted) return@LaunchedEffect
+                if (attempt < 9) withFrameNanos { }
+            }
+        }
         val linkUrl = "https://plex.tv/link/?pin=${Uri.encode(code)}"
         val qr = remember(linkUrl) { createQrBitmap(linkUrl, 360) }
         Column(Modifier.width(700.dp).background(Color(0xFF101225), RoundedCornerShape(22.dp)).padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -295,7 +317,7 @@ private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Uni
             Text("La TV attend automatiquement la validation…", fontSize = 13.sp, color = MovvizInkDim)
             Spacer(Modifier.height(22.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Surface(onClick = onOpen, colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
+                Surface(onClick = onOpen, modifier = Modifier.focusRequester(openPlexFocus), colors = ClickableSurfaceDefaults.colors(containerColor = MovvizAmber), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Ouvrir Plex", color = Color.Black, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
                 Surface(onClick = onClose, colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f)), shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp))) { Text("Annuler", color = Color.White, modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) }
             }
         }

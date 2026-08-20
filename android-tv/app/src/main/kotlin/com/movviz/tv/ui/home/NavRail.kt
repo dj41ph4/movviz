@@ -197,10 +197,17 @@ private fun ProfileMenuButton(
                 // frames : l'attachement du noeud peut suivre d'une frame
                 // la composition de la fenêtre popup.
                 val firstItemFocus = remember { FocusRequester() }
-                LaunchedEffect(Unit) {
+                // LaunchedEffect(open) : relancé à chaque ouverture (le
+                // contenu du Popup est recomposé de zéro à chaque fois).
+                LaunchedEffect(open) {
                     repeat(10) { attempt ->
-                        val focused = runCatching { firstItemFocus.requestFocus() }.isSuccess
-                        if (focused) return@LaunchedEffect
+                        // requestFocus() renvoie Unit en Compose 1.7 et lève
+                        // IllegalStateException si le noeud n'est pas encore
+                        // attaché : on retente donc tant que la demande
+                        // échoue, pour couvrir l'attachement décalé d'une
+                        // frame de la fenêtre popup.
+                        val granted = runCatching { firstItemFocus.requestFocus() }.isSuccess
+                        if (granted) return@LaunchedEffect
                         if (attempt < 9) withFrameNanos { }
                     }
                 }

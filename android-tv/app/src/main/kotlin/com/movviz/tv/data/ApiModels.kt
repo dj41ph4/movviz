@@ -380,6 +380,8 @@ data class StreamSubtitleTrackDto(
 
 @JsonClass(generateAdapter = true)
 data class StreamInfoDto(
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
     val audioStreams: List<StreamAudioTrackDto> = emptyList(),
     val subtitleStreams: List<StreamSubtitleTrackDto> = emptyList(),
     val durationMs: Long? = null,

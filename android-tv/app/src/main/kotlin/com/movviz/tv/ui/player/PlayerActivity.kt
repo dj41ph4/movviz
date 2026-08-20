@@ -72,6 +72,7 @@ import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
@@ -273,6 +274,72 @@ private fun messageFor(kind: PlayerErrorKind): String = when (kind) {
     PlayerErrorKind.UNKNOWN -> "Lecture impossible."
 }
 
+/** MIME vidéo ExoPlayer d'après le codec rapporté par Plex (streamInfo) —
+ *  sert uniquement à la pré-décision du niveau de lecture (voir
+ *  hasPlatformVideoDecoder). */
+private fun videoMimeType(codec: String?): String? = when {
+    codec == null -> null
+    codec.contains("h264") || codec.contains("avc") -> MimeTypes.VIDEO_H264
+    codec.contains("hevc") || codec.contains("h265") || codec.contains("hev1") || codec.contains("hvc1") -> MimeTypes.VIDEO_H265
+    codec.contains("av1") || codec.contains("av01") -> MimeTypes.VIDEO_AV1
+    codec.contains("vp9") || codec.contains("vp09") -> MimeTypes.VIDEO_VP9
+    codec.contains("vp8") -> MimeTypes.VIDEO_VP8
+    codec.contains("mpeg4") || codec.contains("mp4v") -> MimeTypes.VIDEO_MP4V
+    codec.contains("mpeg2") -> MimeTypes.VIDEO_MPEG2
+    else -> null
+}
+
+/** MIME audio ExoPlayer d'après le codec rapporté par Plex (streamInfo) —
+ *  sert uniquement à la pré-décision du niveau de lecture. null = codec
+ *  inconnu/PM (PCM…) → toujours traité comme décodable. */
+private fun audioMimeType(codec: String?): String? = when {
+    codec == null -> null
+    codec.contains("aac") || codec.contains("mp4a") -> MimeTypes.AUDIO_AAC
+    codec.contains("mp3") || codec.contains("mpga") || codec.contains("mpeg") -> MimeTypes.AUDIO_MPEG
+    codec.contains("ac3") || codec.contains("ac-3") -> MimeTypes.AUDIO_AC3
+    codec.contains("eac3") || codec.contains("ec-3") || codec.contains("e-ac3") -> MimeTypes.AUDIO_E_AC3
+    codec.contains("dts") || codec.contains("dca") -> if (codec.contains("hd")) MimeTypes.AUDIO_DTS_HD else MimeTypes.AUDIO_DTS
+    codec.contains("truehd") || codec.contains("mlp") -> MimeTypes.AUDIO_TRUEHD
+    codec.contains("opus") -> MimeTypes.AUDIO_OPUS
+    codec.contains("flac") -> MimeTypes.AUDIO_FLAC
+    codec.contains("vorbis") -> MimeTypes.AUDIO_VORBIS
+    else -> null
+}
+
+/** Un décodeur audio existe-t-il sur ce boîtier ? (MediaCodecUtil ne voit
+ *  que les décodeurs plateforme — les boîtiers TV n'ont presque jamais de
+ *  décodeur DTS/DTS-HD/TrueHD/E-AC3 : le direct-play échouerait à coup sûr
+ *  sur l'AUDIO alors que la vidéo est parfaitement compatible, et toute la
+ *  lecture basculerait inutilement en transcode vidéo+audio). Quand l'audio
+ *  n'est pas décodable, on part directement au repli 1 (vidéo copiée en
+ *  bitstream, seul le son est ré-encodé). null/erreur → true : on laisse
+ *  ExoPlayer décider (comportement historique). */
+private fun hasPlatformAudioDecoder(mimeType: String?): Boolean {
+    if (mimeType == null) return true
+    return try {
+        MediaCodecUtil.getDecoderInfos(mimeType, false, false).isNotEmpty()
+    } catch (_: Exception) {
+        true
+    }
+}
+
+/** Un décodeur vidéo existe-t-il sur ce boîtier ? MediaCodecUtil ne voit que
+ *  les décodeurs plateforme (le logiciel FFmpeg ne sert qu'à l'audio) : un
+ *  codec vidéo absent du boîtier (AV1 sur un vieux boîtier, VP9…) ne peut
+ *  JAMAIS être décodé — le direct-play ET le repli audio-seul (même vidéo
+ *  copiée en bitstream) échoueraient tous deux à coup sûr. Autant partir
+ *  directement au transcodage complet au lieu d'essuyer deux erreurs à
+ *  l'écran. Un codec inconnu ou une erreur d'interrogation renvoie true :
+ *  on laisse ExoPlayer décider (comportement historique inchangé). */
+private fun hasPlatformVideoDecoder(mimeType: String?): Boolean {
+    if (mimeType == null) return true
+    return try {
+        MediaCodecUtil.getDecoderInfos(mimeType, false, false).isNotEmpty()
+    } catch (_: Exception) {
+        true
+    }
+}
+
 @Composable
 private fun PlayerScreen(
     baseUrl: String,
@@ -324,6 +391,9 @@ private fun PlayerScreen(
     // à la même position.
     var fallbackLevel by remember { mutableStateOf(0) }
     var fallbackNotice by remember { mutableStateOf<String?>(null) }
+    // Codec vidéo du titre courant (streamInfo) — sert au choix du format du
+    // repli 1 (HLS pour h264, DASH pour HEVC/AV1/VP9, voir transcodeUrl).
+    var knownVideoCodec by remember { mutableStateOf<String?>(null) }
 
     val exoPlayer = remember {
         val upstream = OkHttpDataSource.Factory(com.movviz.tv.data.ApiClient.httpClient())
@@ -364,7 +434,7 @@ private fun PlayerScreen(
         errorKind = null
         val mediaItem = when (level) {
             1 -> {
-                val url = repository.transcodeUrl(item.ratingKey)
+                val url = repository.transcodeUrl(item.ratingKey, knownVideoCodec)
                 Log.i(TAG, "load() transcode audio-seul: $url (resumeMs=$resumeMs)")
                 MediaItem.Builder()
                     .setUri(url)
@@ -392,12 +462,41 @@ private fun PlayerScreen(
     // MovvizRepository.resumeOffsetMs pour le détail (durationMs ne sert
     // plus qu'à ignorer un offset aberrant si le fichier a changé entre
     // temps).
-    LaunchedEffect(current.ratingKey) {
+LaunchedEffect(current.ratingKey) {
         networkRetryCount = 0
         fallbackLevel = 0
         fallbackNotice = null
         val infoResult = repository.streamInfo(current.ratingKey)
-        val knownDuration = (infoResult as? ApiResult.Success)?.data?.durationMs
+        val info = (infoResult as? ApiResult.Success)?.data
+        val knownDuration = info?.durationMs
+        knownVideoCodec = info?.videoCodec
+        // Pré-décision du niveau de lecture, d'après les codecs réels du
+        // titre (streamInfo) et les décodeurs du boîtier :
+        //  - vidéo non décodable (AV1 sur vieux boîtier, VP9…) → transcode
+        //    complet direct : ni le direct-play ni le repli 1 (même vidéo
+        //    copiée) ne peuvent aboutir, inutile d'essuyer deux erreurs ;
+        //  - audio non décodable (DTS/DTS-HD/TrueHD/E-AC3, quasi jamais
+        //    supportés par les boîtiers) mais vidéo OK → repli 1 direct :
+        //    la vidéo est copiée en bitstream, SEUL le son est ré-encodé —
+        //    c'est le cas « vidéo compatible qui se fait quand même
+        //    transcoder » que cette pré-décision élimine ;
+        //  - tout décodable → direct-play, l'ancien chemin d'erreur reste la
+        //    sécurité pour les cas non détectés (profil 10-bit, HDR…).
+        val videoMime = videoMimeType(info?.videoCodec)
+        val selectedAudio = info?.audioStreams?.firstOrNull { it.selected }
+            ?: info?.audioStreams?.firstOrNull()
+        val audioMime = audioMimeType(selectedAudio?.codec ?: info?.audioCodec)
+        val startLevel = when {
+            info != null && videoMime != null && !hasPlatformVideoDecoder(videoMime) -> 2
+            info != null && audioMime != null && !hasPlatformAudioDecoder(audioMime) -> 1
+            else -> 0
+        }
+        if (startLevel == 2) {
+            fallbackLevel = 2
+            Log.i(TAG, "Pré-décision : pas de décodeur ${info?.videoCodec} sur ce boîtier → transcode complet direct")
+        } else if (startLevel == 1) {
+            Log.i(TAG, "Pré-décision : audio ${selectedAudio?.codec ?: info?.audioCodec} non décodable → repli audio-seul (vidéo copiée)")
+        }
         val resume = if (startFromBeginning && currentIndex == startIndex) 0L else repository.resumeOffsetMs(
             type = type,
             tmdbId = tmdbId,
@@ -405,7 +504,7 @@ private fun PlayerScreen(
             seasonNumber = current.seasonNumber.takeIf { it >= 0 },
             episodeNumber = current.episodeNumber.takeIf { it >= 0 },
         ) ?: 0L
-        load(current, resume)
+        load(current, resume, level = startLevel)
     }
 
     DisposableEffect(exoPlayer) {

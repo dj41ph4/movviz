@@ -71,8 +71,12 @@ fun ProfilePickerScreen(
     val firstTileFocus = remember { FocusRequester() }
     LaunchedEffect(Unit) {
         repeat(10) { attempt ->
-            val focused = runCatching { firstTileFocus.requestFocus() }.isSuccess
-            if (focused) return@LaunchedEffect
+            // requestFocus() renvoie Unit en Compose 1.7 et lève
+            // IllegalStateException si le noeud n'est pas encore attaché :
+            // on retente tant que la demande échoue (première frame de la
+            // TvLazyRow, item pas encore composé).
+            val granted = runCatching { firstTileFocus.requestFocus() }.isSuccess
+            if (granted) return@LaunchedEffect
             if (attempt < 9) withFrameNanos { }
         }
     }
