@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -34,6 +35,16 @@ fun MainScreen(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     contentFocusRequester: FocusRequester,
+    // Ancre de repli, TOUJOURS attachée (voir plus bas) — cible que la
+    // NavRail vise quand contentFocusRequester ne pointe encore vers rien
+    // de réel (écran en chargement, résultats vides). Distincte de
+    // contentFocusRequester : les deux ne peuvent pas être le même objet, un
+    // FocusRequester ne peut être attaché qu'à UN seul noeud composé à la
+    // fois. Sans repli séparé, la seule option sûre était de ne JAMAIS
+    // viser le vrai premier élément (ce qui a été tenté, puis corrigé ici) —
+    // la flèche bas semblait alors "ne rien faire", un vrai recul en usage
+    // normal pour éliminer un plantage qui n'arrivait qu'en bord de cas.
+    fallbackFocusRequester: FocusRequester,
 ) {
     Box(
         modifier = Modifier.fillMaxSize(),
@@ -45,26 +56,14 @@ fun MainScreen(
         // Films/Séries de la même façon. Chaque écran gère désormais
         // lui-même sa marge haute pour dégager la barre de nav flottante.
     ) {
-        // Ancre invisible en PERMANENCE attachée à contentFocusRequester —
-        // c'est la cible de "flèche bas depuis la NavRail" (focusProperties,
-        // voir NavRail.kt), qui doit TOUJOURS pouvoir résoudre vers un noeud
-        // réellement composé. Avant ce correctif, cette même référence était
-        // repassée directement aux écrans comme cible de LEUR premier élément
-        // réel (CTA hero, première carte, premier résultat…) — mais cet
-        // élément n'existe QUE si l'écran a déjà des données (pas pendant le
-        // chargement, pas sur une bibliothèque/recherche vide). Demander le
-        // focus vers une FocusRequester non attachée plante (constaté en
-        // direct : télécommande + flèche bas = fermeture de l'appli, plus
-        // fréquent sur un boîtier lent où la fenêtre "encore en chargement"
-        // dure plus longtemps — ex. Chromecast 4K vs Xiaomi). Chaque écran
-        // garde sa PROPRE cible de focus initial (interne, toujours protégée
-        // par retry+runCatching) pour le focus automatique à l'ouverture ;
-        // seule la cible de la NavRail est désormais découplée et
-        // inconditionnellement sûre.
+        // Ancre invisible en PERMANENCE attachée — NavRail bascule dessus
+        // (onKeyEvent + runCatching, voir NavRail.kt) uniquement si viser
+        // contentFocusRequester échoue, jamais en laissant Compose planter
+        // sur une cible non attachée.
         Box(
             modifier = Modifier
                 .size(1.dp)
-                .focusRequester(contentFocusRequester)
+                .focusRequester(fallbackFocusRequester)
                 .focusable(),
         )
         when {
@@ -74,11 +73,12 @@ fun MainScreen(
                 query = searchQuery,
                 onQueryChange = onSearchQueryChange,
                 showSearchField = false,
+                resultFocusRequester = contentFocusRequester,
             )
-            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode)
-            tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle)
-            tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle)
-            tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut)
+            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)
         }
     }
 }

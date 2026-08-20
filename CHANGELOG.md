@@ -4,6 +4,17 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.55 — August 2026
+
+### Android TV : flèche bas depuis le menu — vraie correction
+
+- Le correctif précédent éliminait les fermetures inattendues mais rendait la flèche bas inopérante en usage normal (elle visait systématiquement une ancre invisible au lieu du vrai contenu). Restaure la descente directe vers le premier élément réel de l'écran quand il existe, avec l'ancre de secours seulement en repli — jamais de plantage, jamais de flèche bas sans effet.
+- Nouveau README, refonte complète.
+
+## v1.16.54 — August 2026
+
+### Version de contrôle pour la vérification de la mise à jour automatique
+
 ## v1.16.53 — August 2026
 
 ### Android TV : vérification manuelle des mises à jour

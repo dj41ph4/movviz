@@ -102,6 +102,10 @@ fun TitleDetailScreen(
     // de saison ne l'écrase jamais une fois initialisée).
     initialSeasonNumber: Int? = null,
     initialEpisodeNumber: Int? = null,
+    // Cible D-pad « flèche bas depuis la NavRail » (voir MainScreen/NavRail)
+    // — la fiche a déjà son propre mécanisme de repli interne sur un
+    // ancrage invisible si aucun CTA n'est composé, donc toujours sûre.
+    entryFocusRequester: FocusRequester? = null,
 ) {
     val detail by viewModel.detail.collectAsState()
     // Même artwork de titre que TitleContent sur desktop : le logo officiel
@@ -258,7 +262,7 @@ fun TitleDetailScreen(
     // sans CTA générique). Une fois le focus posé en haut, la descente D-pad
     // classique fait défiler/composer les rangées de saisons normalement
     // (même mécanisme que la ligne Films → Séries de l'accueil).
-    val initialFocusRequester = remember { FocusRequester() }
+    val initialFocusRequester = entryFocusRequester ?: remember { FocusRequester() }
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
     val hasFocusableCta = when {
         type == "movie" && plexRatingKey != null -> true

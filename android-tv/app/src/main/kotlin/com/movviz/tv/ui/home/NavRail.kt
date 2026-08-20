@@ -13,13 +13,13 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -72,29 +72,39 @@ fun NavRail(
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     onSwitchProfile: () -> Unit = {},
-    // Cible D-pad « premier élément focusable du contenu affiché » — sert à
-    // la fois de secours pour le champ de recherche (BasicTextField avale la
-    // flèche bas, interceptée plus bas pour sauter sur la grille) ET, plus
-    // généralement, de cible unique pour la flèche bas depuis N'IMPORTE quel
-    // item de cette barre (voir focusProperties ci-dessous) : sans ça, la
-    // recherche 2D de focus de Compose ne descend jamais dans le contenu
-    // depuis la nav (nav et contenu sont deux frères superposés dans un Box,
-    // zIndex(1f) ne joue que sur le dessin — bug constaté en direct sur
-    // vraie TV, DPAD bas totalement sans effet depuis n'importe quel onglet).
+    // Cible D-pad « premier élément réel du contenu affiché » — voir
+    // MainScreen : n'est attachée que si l'écran a déjà un vrai premier
+    // élément (pas pendant le chargement, pas sur une liste vide).
     contentFocusRequester: FocusRequester? = null,
+    // Ancre de repli TOUJOURS attachée (voir MainScreen) — utilisée quand
+    // contentFocusRequester ne pointe encore vers rien de réel, pour ne
+    // JAMAIS laisser la flèche bas viser une cible non attachée.
+    fallbackFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
+    // flèche bas depuis N'IMPORTE quel item de cette barre (onglet, bouton
+    // recherche, avatar profil) → contentFocusRequester en priorité, repli
+    // sur fallbackFocusRequester si le premier échoue. onKeyEvent (pas
+    // focusProperties, déclaratif et sans possibilité d'intercepter un
+    // échec) : Compose ne descend jamais dans le contenu depuis la nav par
+    // défaut (nav et contenu sont deux frères superposés dans un Box,
+    // zIndex(1f) ne joue que sur le dessin), et une cible non attachée
+    // plante si rien n'entoure la tentative de runCatching — constaté en
+    // direct sur vraie TV dans les deux sens (aucun effet, puis fermeture
+    // de l'appli une fois qu'une redirection directe mais non protégée a
+    // été tentée). Chaque tentative est protégée individuellement.
+    val navDownKeyHandler = Modifier.onKeyEvent { event ->
+        if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown) return@onKeyEvent false
+        val moved = contentFocusRequester != null && runCatching { contentFocusRequester.requestFocus() }.isSuccess
+        if (moved) true
+        else fallbackFocusRequester != null && runCatching { fallbackFocusRequester.requestFocus() }.isSuccess
+    }
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
             .height(68.dp)
-            // Cible unique et explicite plutôt que de compter sur la
-            // recherche spatiale par défaut : posée sur la Row englobante,
-            // elle s'applique à tous les descendants focusables (items
-            // d'onglet, bouton recherche, avatar profil) sans avoir à
-            // répéter le modifier sur chacun.
-            .let { if (contentFocusRequester != null) it.focusProperties { down = contentFocusRequester } else it }
+            .then(navDownKeyHandler)
             .background(
                 Brush.verticalGradient(
                     listOf(
@@ -135,6 +145,7 @@ Spacer(modifier = Modifier.weight(1f))
             onToggle = onSearchToggle,
             onQueryChange = onSearchQueryChange,
             downFocus = contentFocusRequester,
+            fallbackFocus = fallbackFocusRequester,
         )
         Spacer(modifier = Modifier.width(22.dp))
         // À la place du texte "MOVVIZ TV" : l'avatar du profil actif, toujours
@@ -327,7 +338,7 @@ private fun MenuItem(
 }
 
 @Composable
-private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQueryChange: (String) -> Unit, downFocus: FocusRequester? = null) {
+private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQueryChange: (String) -> Unit, downFocus: FocusRequester? = null, fallbackFocus: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val inputRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -368,17 +379,21 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                     // "Recherche" fait pareil et referme le clavier.
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = {
-                        runCatching { downFocus?.requestFocus() }
+                        val moved = downFocus != null && runCatching { downFocus.requestFocus() }.isSuccess
+                        if (!moved) runCatching { fallbackFocus?.requestFocus() }
                         keyboardController?.hide()
                     }),
                     modifier = Modifier
                         .width(180.dp)
                         .focusRequester(inputRequester)
                         .onPreviewKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown && downFocus != null) {
-                                // Résultats pas encore composés → on rend la
-                                // touche au champ plutôt que de crasher.
-                                runCatching { downFocus.requestFocus() }.isSuccess
+                            if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
+                                // Résultats pas encore composés (downFocus non
+                                // attaché) → repli sur l'ancre toujours sûre
+                                // plutôt que de laisser la touche dans le vide.
+                                val moved = downFocus != null && runCatching { downFocus.requestFocus() }.isSuccess
+                                if (moved) true
+                                else fallbackFocus != null && runCatching { fallbackFocus.requestFocus() }.isSuccess
                             } else {
                                 false
                             }

@@ -109,13 +109,20 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     var tab by remember { mutableStateOf(HomeTab.HOME) }
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
-    // Cible D-pad unique « premier élément du contenu affiché » — la NavRail
-    // pose focusProperties{down=...} dessus pour que la flèche bas depuis
-    // N'IMPORTE quel item de la barre y descende toujours, au lieu de
-    // compter sur la recherche spatiale par défaut de Compose qui ne trouve
-    // jamais de cible à travers deux frères superposés dans un Box (nav +
-    // contenu, zIndex ne joue que sur le dessin).
+    // Cible D-pad « premier élément réel du contenu affiché » — la NavRail
+    // tente de viser ceci en premier pour que la flèche bas depuis N'IMPORTE
+    // quel item de la barre y descende directement (au lieu de compter sur
+    // la recherche spatiale par défaut de Compose, qui ne trouve jamais de
+    // cible à travers deux frères superposés dans un Box — nav + contenu,
+    // zIndex ne joue que sur le dessin). N'est attachée que si l'écran a
+    // déjà un vrai premier élément (pas pendant le chargement, pas sur une
+    // liste vide) : viser une cible non attachée plante Compose si ce n'est
+    // pas protégé — d'où fallbackFocusRequester, une ancre TOUJOURS
+    // attachée que la NavRail utilise en repli (jamais un simple
+    // focusProperties déclaratif, qui ne laisse aucune chance d'intercepter
+    // l'échec — voir le onKeyEvent + runCatching de NavRail).
     val contentFocusRequester = remember { FocusRequester() }
+    val fallbackFocusRequester = remember { FocusRequester() }
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
 
 // Démarrage façon Netflix : URL inconnue → wizard ; sinon, on vérifie
@@ -299,6 +306,7 @@ composable(ROUTE_PROFILES) {
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
                 contentFocusRequester = contentFocusRequester,
+                fallbackFocusRequester = fallbackFocusRequester,
             )
         }
         composable(
@@ -350,6 +358,7 @@ composable(ROUTE_PROFILES) {
                 onOpenPerson = { personId ->
                     navController.navigate(personRoute(personId))
                 },
+                entryFocusRequester = contentFocusRequester,
             )
         }
         composable(
@@ -413,6 +422,7 @@ composable(ROUTE_PROFILES) {
                     }
                 },
                 contentFocusRequester = contentFocusRequester,
+                fallbackFocusRequester = fallbackFocusRequester,
                 modifier = Modifier.zIndex(1f),
             )
         }
