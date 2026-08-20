@@ -546,7 +546,12 @@ LaunchedEffect(current.ratingKey) {
                     val item = queue[currentIndex]
                     scope.launch {
                         delay(NETWORK_RETRY_DELAY_MS)
-                        load(item, resumePos)
+                        // Reprend dans le même mode (direct, audio-seul ou
+                        // transcode complet) : un titre démarré au repli 1
+                        // parce que son audio n'est pas décodable doit y
+                        // rester après un pépin réseau, pas retomber en
+                        // direct-play pour reproduire la même erreur.
+                        load(item, resumePos, level = fallbackLevel)
                     }
                     return
                 }
