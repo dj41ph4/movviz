@@ -10,6 +10,7 @@ import { UpdateAvailableBanner } from "@/components/system/UpdateAvailableBanner
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { DashboardRows } from "@/components/dashboard/DashboardRows";
+import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -150,7 +151,11 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-8">
-      {layout.mode === "cinema" && <DashboardHero settings={layout.hero} />}
+      {layout.mode === "cinema" && (
+        <CardErrorBoundary>
+          <DashboardHero settings={layout.hero} />
+        </CardErrorBoundary>
+      )}
 
       <div className="flex flex-wrap items-center justify-end gap-2">
         {editMode && (

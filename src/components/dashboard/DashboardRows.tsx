@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PosterRow } from "@/components/media/PosterRow";
 import { DashboardPosterCard } from "./DashboardPosterCard";
+import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useT } from "@/i18n/provider";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { LibraryMovie } from "@/lib/library/types";
@@ -112,17 +113,18 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
           return (
             <PosterRow key={id} title={t("dashboard.continueWatching")}>
               {continueWatching.map((item, i) => (
-                <DashboardPosterCard
-                  key={`${item.type}:${item.tmdbId}:${i}`}
-                  tmdbId={item.tmdbId}
-                  type={item.type === "movie" ? "movie" : "series"}
-                  title={item.title}
-                  posterPath={item.posterPath}
-                  rating={item.rating}
-                  year={item.year ?? undefined}
-                  progressPercent={item.progressPercent}
-                  subtitle={item.type === "episode" ? `S${item.seasonNumber} E${item.episodeNumber} — ${item.episodeTitle}` : undefined}
-                />
+                <CardErrorBoundary key={`${item.type}:${item.tmdbId}:${i}`}>
+                  <DashboardPosterCard
+                    tmdbId={item.tmdbId}
+                    type={item.type === "movie" ? "movie" : "series"}
+                    title={item.title}
+                    posterPath={item.posterPath}
+                    rating={item.rating}
+                    year={item.year ?? undefined}
+                    progressPercent={item.progressPercent}
+                    subtitle={item.type === "episode" ? `S${item.seasonNumber} E${item.episodeNumber} — ${item.episodeTitle}` : undefined}
+                  />
+                </CardErrorBoundary>
               ))}
             </PosterRow>
           );
@@ -132,7 +134,9 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
           return (
             <PosterRow key={id} title={t("dashboard.rowRecommended")} onSeeAll={() => router.push("/discover?type=movie&row=recommendedTop")}>
               {recommended.map((r) => (
-                <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} />
+                <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
+                  <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} />
+                </CardErrorBoundary>
               ))}
             </PosterRow>
           );
@@ -142,7 +146,9 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
           return (
             <PosterRow key={id} title={t("dashboard.recentlyAdded")} onSeeAll={() => router.push("/library?filter=available&sort=recent")}>
               {recentlyAdded.map((m) => (
-                <DashboardPosterCard key={m.id} tmdbId={m.tmdbId} type="movie" title={m.title} posterPath={m.posterPath} rating={m.rating} year={m.year} runtime={m.runtime} genres={m.genres} />
+                <CardErrorBoundary key={m.id}>
+                  <DashboardPosterCard tmdbId={m.tmdbId} type="movie" title={m.title} posterPath={m.posterPath} rating={m.rating} year={m.year} runtime={m.runtime} genres={m.genres} />
+                </CardErrorBoundary>
               ))}
             </PosterRow>
           );
@@ -152,17 +158,18 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
           return (
             <PosterRow key={id} title={t("dashboard.rowUpcoming")} onSeeAll={() => router.push("/library?filter=upcoming")}>
               {upcoming.map(({ m, days }) => (
-                <DashboardPosterCard
-                  key={m.id}
-                  tmdbId={m.tmdbId}
-                  type="movie"
-                  title={m.title}
-                  posterPath={m.posterPath}
-                  badge={days <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: days })}
-                  year={m.year}
-                  runtime={m.runtime}
-                  genres={m.genres}
-                />
+                <CardErrorBoundary key={m.id}>
+                  <DashboardPosterCard
+                    tmdbId={m.tmdbId}
+                    type="movie"
+                    title={m.title}
+                    posterPath={m.posterPath}
+                    badge={days <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: days })}
+                    year={m.year}
+                    runtime={m.runtime}
+                    genres={m.genres}
+                  />
+                </CardErrorBoundary>
               ))}
             </PosterRow>
           );
@@ -172,17 +179,18 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
           return (
             <PosterRow key={id} title={t("dashboard.upgradesAvailable")}>
               {upgrades.map(({ candidate, movie }) => (
-                <DashboardPosterCard
-                  key={candidate.movieId}
-                  tmdbId={movie.tmdbId}
-                  type="movie"
-                  title={movie.title}
-                  posterPath={movie.posterPath}
-                  badge={candidate.detectedVersion}
-                  year={movie.year}
-                  runtime={movie.runtime}
-                  genres={movie.genres}
-                />
+                <CardErrorBoundary key={candidate.movieId}>
+                  <DashboardPosterCard
+                    tmdbId={movie.tmdbId}
+                    type="movie"
+                    title={movie.title}
+                    posterPath={movie.posterPath}
+                    badge={candidate.detectedVersion}
+                    year={movie.year}
+                    runtime={movie.runtime}
+                    genres={movie.genres}
+                  />
+                </CardErrorBoundary>
               ))}
             </PosterRow>
           );
@@ -192,7 +200,9 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
           return (
             <PosterRow key={id} title={t("dashboard.rowTrending")} onSeeAll={() => router.push("/discover?type=movie&row=trendingPopular")}>
               {trending.map((r, i) => (
-                <DashboardPosterCard key={`${r.type}:${r.tmdbId}`} tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} rank={i + 1} />
+                <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
+                  <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} rank={i + 1} />
+                </CardErrorBoundary>
               ))}
             </PosterRow>
           );

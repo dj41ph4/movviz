@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.60 — August 2026
+
+### Tableau de bord : une carte de carrousel cassée ne bloque plus tout l'écran
+
+- Un film ou une série avec des données inattendues pouvait faire planter tout le tableau de bord ("Erreur serveur", écran entier bloqué) au lieu de simplement ne pas s'afficher. Chaque carte de carrousel (et la vignette héros) est désormais isolée : si l'une d'elles plante, elle disparaît discrètement, le reste du tableau de bord continue de fonctionner normalement.
+
 ## v1.16.59 — August 2026
 
 ### Correctif : erreur serveur sur le tableau de bord pour les comptes non-admin
