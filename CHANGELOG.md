@@ -4,6 +4,12 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.59 — August 2026
+
+### Correctif : erreur serveur sur le tableau de bord pour les comptes non-admin
+
+- Le nouveau réglage ajouté en v1.16.56 pour la rangée « Mises à niveau disponibles » était lu via une route réservée aux admins — tout compte non-admin ouvrant le tableau de bord recevait un refus d'accès sur cette requête. Lecture désormais ouverte à tout compte connecté (l'écriture reste admin uniquement, comme avant).
+
 ## v1.16.58 — August 2026
 
 ### Android TV : écran de chargement de l'accueil, vraie identité visuelle

@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth/guard";
+import { requireAdmin, requireUser } from "@/lib/auth/guard";
 import { loadReleaseRules, saveReleaseRules } from "@/lib/library/releaseRules";
 import { markWizardWritten, markManuallyEdited, type WizardTrackedField } from "@/lib/setup/wizardProvenance";
 
 export const dynamic = "force-dynamic";
 
+// GET is admin-only-to-write but readable by any signed-in user — the
+// dashboard's "upgradesAvailable" row (DashboardRows.tsx, visible to every
+// user, not just admins) reads dashboardUpgradeScanEnabled from here. Was
+// requireAdmin before, which 403'd for non-admin users viewing the
+// dashboard.
 export async function GET(req: NextRequest) {
-  const admin = requireAdmin(req);
-  if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   return NextResponse.json(loadReleaseRules());
 }
 
