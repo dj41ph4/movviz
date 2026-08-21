@@ -4,6 +4,14 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.70 — August 2026
+
+### Android TV : Paramètres en icône engrenage
+
+- L'onglet texte "Paramètres" quitte la barre de nav : une **icône engrenage** (dessinée, même style que la loupe) prend place entre la loupe de recherche et l'avatar profil. Bordure focus blanche (dégradé de marque quand l'onglet est actif).
+
+---
+
 ## v1.16.69 — August 2026
 
 ### Android TV : fin de l'auto-scroll d'ouverture, race condition saisons corrigée

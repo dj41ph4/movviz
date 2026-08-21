@@ -60,6 +60,37 @@ enum class HomeTab(val label: String) {
     SETTINGS("Paramètres"),
 }
 
+/** Icône engrenage vectorielle — Paramètres devient une icône entre la
+ *  loupe et l'avatar profil (demandé en direct), même style que la loupe
+ *  dessinée dans SearchButton. */
+@Composable
+private fun GearIcon(color: Color, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier.size(24.dp)) {
+        val stroke = 2.dp.toPx()
+        // Couronne : cercle denté simplifié — 8 dents en traits courts.
+        drawCircle(
+            color = color,
+            radius = 6.4.dp.toPx(),
+            style = androidx.compose.ui.graphics.drawscope.Stroke(width = stroke),
+        )
+        for (i in 0 until 8) {
+            val angle = Math.PI * 2.0 * i / 8.0
+            val cx = center.x + 6.4.dp.toPx() * kotlin.math.cos(angle).toFloat()
+            val cy = center.y + 6.4.dp.toPx() * kotlin.math.sin(angle).toFloat()
+            val ex = center.x + 9.dp.toPx() * kotlin.math.cos(angle).toFloat()
+            val ey = center.y + 9.dp.toPx() * kotlin.math.sin(angle).toFloat()
+            drawLine(
+                color = color,
+                start = androidx.compose.ui.geometry.Offset(cx, cy),
+                end = androidx.compose.ui.geometry.Offset(ex, ey),
+                strokeWidth = stroke,
+            )
+        }
+        // Moyeu central.
+        drawCircle(color = color, radius = 2.2.dp.toPx())
+    }
+}
+
 /**
  * Barre de navigation horizontale en haut — même composition que le lanceur
  * Netflix : wordmark compact à gauche, libellés texte à plat, et un seul
@@ -164,7 +195,9 @@ fun NavRail(
         Spacer(modifier = Modifier.width(56.dp))
 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HomeTab.entries.forEach { tab ->
+            // SETTINGS retiré des onglets texte : devient l'icône engrenage
+            // entre la loupe et l'avatar (voir plus bas).
+            HomeTab.entries.filter { it != HomeTab.SETTINGS }.forEach { tab ->
                 TopNavItem(
                     tab = tab,
                     active = tab == selected,
@@ -183,6 +216,34 @@ Spacer(modifier = Modifier.weight(1f))
             downFocus = contentFocusRequester,
             fallbackFocus = fallbackFocusRequester,
         )
+        Spacer(modifier = Modifier.width(22.dp))
+        // Paramètres en ICÔNE engrenage entre la loupe et l'avatar profil
+        // (demandé en direct) — même langage visuel que la loupe : trait
+        // blanc, fond discret au focus, bordure nette au D-pad.
+        var gearFocused by remember { mutableStateOf(false) }
+        val gearShape = androidx.compose.foundation.shape.CircleShape
+        Surface(
+            onClick = { onSelect(HomeTab.SETTINGS) },
+            modifier = Modifier
+                .size(42.dp)
+                .onFocusChanged { gearFocused = it.isFocused }
+                .tvPointerClick { onSelect(HomeTab.SETTINGS) },
+            shape = ClickableSurfaceDefaults.shape(shape = gearShape),
+            colors = ClickableSurfaceDefaults.colors(
+                containerColor = if (selected == HomeTab.SETTINGS) Color.White.copy(alpha = 0.14f) else Color.Transparent,
+                focusedContainerColor = Color.White.copy(alpha = 0.10f),
+            ),
+            border = ClickableSurfaceDefaults.border(
+                focusedBorder = Border(
+                    border = androidx.compose.foundation.BorderStroke(2.dp, if (selected == HomeTab.SETTINGS) MovvizBrand2 else Color.White.copy(alpha = .65f)),
+                    shape = gearShape,
+                ),
+            ),
+        ) {
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                GearIcon(color = Color.White.copy(alpha = if (gearFocused || selected == HomeTab.SETTINGS) 1f else 0.75f))
+            }
+        }
         Spacer(modifier = Modifier.width(22.dp))
         // À la place du texte "MOVVIZ TV" : l'avatar du profil actif, toujours
         // visible — même composition que Netflix. Le menu donne accès au
