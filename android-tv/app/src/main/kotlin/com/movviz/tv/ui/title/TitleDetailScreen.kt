@@ -68,6 +68,7 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
+import com.movviz.tv.ui.theme.statusTone
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -147,6 +148,15 @@ fun TitleDetailScreen(
         }
     }
 
+    // File de téléchargement partagée (même StateFlow que la rangée accueil)
+    // — source RÉACTIVE de l'état en cours pour CE titre : progression,
+    // vitesse, ETA. Le badge et le CTA se mettent à jour sans aucune
+    // action utilisateur quand le téléchargement avance ou se termine.
+    val queue by viewModel.queue.collectAsState()
+    val activeDownload = remember(queue, type, tmdbId) {
+        queue.firstOrNull { it.media.tmdbId == tmdbId && it.status != "completed" && it.status != "seeding" }
+    }
+
     LaunchedEffect(type, tmdbId) {
         viewModel.loadDetail(type, tmdbId)
         viewModel.loadHeroLogo(type, tmdbId)
@@ -164,12 +174,26 @@ fun TitleDetailScreen(
     // passe naturellement de "Recherche" à "Téléchargement" puis à la
     // disponibilité Plex. L'endpoint accepte tmdbId, donc on actualise
     // seulement ce titre et jamais toute la médiathèque à intervalle fixe.
+    // Rythme accéléré (4s) tant qu'un téléchargement est actif pour CE
+    // titre : le passage "Téléchargement en cours…" → "Lire" doit être
+    // quasi immédiat à la fin du download, sans attendre un cycle long.
     LaunchedEffect(type, tmdbId, inLibrary) {
         if (!inLibrary) return@LaunchedEffect
         viewModel.refreshTitleLibraryEntry(type, tmdbId)
         while (true) {
-            delay(8_000)
+            delay(if (activeDownload != null) 4_000 else 8_000)
             viewModel.refreshTitleLibraryEntry(type, tmdbId)
+        }
+    }
+
+    // Polling de la file partagée pendant que la fiche est ouverte —
+    // alimente progression % / vitesse / ETA en direct (même source que la
+    // rangée "Téléchargements en cours" de l'accueil).
+    LaunchedEffect(type, tmdbId, inLibrary) {
+        if (!inLibrary) return@LaunchedEffect
+        while (true) {
+            viewModel.loadQueue()
+            delay(3_000)
         }
     }
 
@@ -469,7 +493,24 @@ fun TitleDetailScreen(
             if (inLibrary || movieWatched) {
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (inLibrary) StatusBadge("Dans la bibliothèque", MovvizOk)
+                    // Badge d'état RÉACTIF : reflète la file en direct
+                    // (Recherche…/Téléchargement) plutôt qu'un statut
+                    // bibliothèque figé — la fin du download bascule seul
+                    // vers "Disponible" (movies rafraîchies toutes les 4s).
+                    if (inLibrary) {
+                        val libEntry = if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId } else null
+                        when {
+                            activeDownload != null -> StatusBadge(
+                                if (activeDownload.status == "searching") "Recherche…" else "Téléchargement",
+                                MovvizCyan,
+                            )
+                            libEntry?.status != null -> {
+                                val tone = statusTone(libEntry.status)
+                                StatusBadge(tone.label, tone.color)
+                            }
+                            else -> StatusBadge("Dans la bibliothèque", MovvizOk)
+                        }
+                    }
                     if (movieWatched) StatusBadge("Vu", MovvizCyan, icon = MovvizIconCheck)
                 }
             }
@@ -489,17 +530,21 @@ fun TitleDetailScreen(
             Spacer(modifier = Modifier.height(10.dp))
 
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Icon(
-                    imageVector = MovvizIconStar,
-                    contentDescription = null,
-                    tint = Color(0xFFF5C144),
-                    modifier = Modifier.size(14.dp),
-                )
-                Text(
-                    text = "%.1f".format(d.rating),
-                    style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C144)),
-                )
-                MetaSep()
+                // Pas de note TMDb (rating = 0) → pas d'étoile du tout :
+                // "★ 0.0" est trompeur, une valeur absente n'est pas zéro.
+                if (d.rating > 0) {
+                    Icon(
+                        imageVector = MovvizIconStar,
+                        contentDescription = null,
+                        tint = Color(0xFFF5C144),
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Text(
+                        text = "%.1f".format(d.rating),
+                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C144)),
+                    )
+                    MetaSep()
+                }
                 Text(text = d.year?.toString() ?: "—", style = metaStyle())
                 d.runtime?.let {
                     MetaSep()
@@ -592,6 +637,19 @@ fun TitleDetailScreen(
                                     }
                                 }
                             }
+                        } else if (activeDownload != null) {
+                            // Téléchargement en cours pour CE titre : pilule
+                            // vivante avec % + vitesse + ETA + barre de
+                            // progression — se met à jour toute seule (queue
+                            // pollée 3s) et disparaît au profit de "Lire"
+                            // dès que le fichier est prêt.
+                            DownloadProgressPill(
+                                progress = activeDownload.download.progress,
+                                speedBytesPerSec = activeDownload.download.downloadSpeed,
+                                etaSeconds = activeDownload.download.eta,
+                                searching = activeDownload.status == "searching",
+                                focusRequester = initialFocusRequester,
+                            )
                         } else {
                             val movieStatus = remember(type, tmdbId, movies) {
                                 if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId }?.status else null
@@ -1187,6 +1245,93 @@ private fun movieStatusLabel(status: String?): String = when (status) {
     "downloading" -> "Téléchargement en cours…"
     "available" -> "Import en cours…" // fichier trouvé côté serveur mais pas encore reflété ici (plexRatingKey null)
     else -> "En attente de synchronisation"
+}
+
+/** Pilule de téléchargement vivante — remplace le CTA figé pendant qu'un
+ *  torrent est actif pour CE titre : pourcentage, vitesse, temps restant et
+ *  barre de progression dans la pilule même (pattern Netflix "Downloading
+ *  45%"). Non cliquable : la lecture n'est possible qu'une fois le fichier
+ *  prêt, la bascule vers "Lire" se fait seule via les StateFlow. */
+@Composable
+private fun DownloadProgressPill(
+    progress: Double,
+    speedBytesPerSec: Double,
+    etaSeconds: Long,
+    searching: Boolean,
+    focusRequester: FocusRequester? = null,
+) {
+    val shape = RoundedCornerShape(12.dp)
+    var focused by remember { mutableStateOf(false) }
+    val pct = (progress.coerceIn(0.0, 1.0) * 100).toInt()
+    Surface(
+        onClick = {},
+        enabled = false,
+        modifier = Modifier
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .tvFocusLift(focused, shape = shape, maxScale = 1.03f)
+            .onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = MovvizInk.copy(alpha = 0.14f),
+            contentColor = MovvizInkSoft,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.5f)),
+                shape = shape,
+            ),
+        ),
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp)) {
+            Text(
+                text = if (searching) {
+                    "Recherche en cours…"
+                } else {
+                    val speed = formatSpeedShort(speedBytesPerSec)
+                    val eta = formatEta(etaSeconds)
+                    listOfNotNull(
+                        "Téléchargement $pct%",
+                        speed?.let { "$it/s" },
+                        eta?.let { "$it restantes" },
+                    ).joinToString(" · ")
+                },
+                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+            )
+            if (!searching) {
+                Spacer(modifier = Modifier.height(7.dp))
+                Box(
+                    modifier = Modifier
+                        .width(220.dp)
+                        .height(4.dp)
+                        .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(2.dp)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = progress.coerceIn(0.0, 1.0).toFloat())
+                            .fillMaxHeight()
+                            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** "6.1 Mo" / "840 Ko" — débit brut du moteur BitTorrent (octets/s). */
+private fun formatSpeedShort(bytesPerSec: Double): String? {
+    if (bytesPerSec <= 0.0) return null
+    return if (bytesPerSec >= 1_000_000) "%.1f Mo".format(bytesPerSec / 1_000_000)
+    else "%d Ko".format((bytesPerSec / 1_000).toLong())
+}
+
+/** ETA secondes → "42 s" / "12 min" / "1 h 05". */
+private fun formatEta(seconds: Long): String? {
+    if (seconds <= 0L) return null
+    return when {
+        seconds < 60 -> "${seconds}s"
+        seconds < 3600 -> "${seconds / 60} min"
+        else -> "%d h %02d".format(seconds / 3600, (seconds % 3600) / 60)
+    }
 }
 
 /** "1:23:45" ou "9:24" selon la présence d'heures — même format que

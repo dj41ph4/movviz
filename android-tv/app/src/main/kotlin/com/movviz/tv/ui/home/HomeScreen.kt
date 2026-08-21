@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -42,9 +43,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.TvLazyRow
-import androidx.tv.foundation.lazy.list.itemsIndexed
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed as foundationItemsIndexed
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -77,6 +80,8 @@ import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
+import com.movviz.tv.ui.theme.MovvizIconStar
+import androidx.tv.material3.Icon
 import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.StaticLogoWithGlow
@@ -327,7 +332,7 @@ TvTitleCard(
     }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        TvLazyColumn(
+        LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 80.dp),
         ) {
@@ -720,7 +725,17 @@ internal fun HeroCarousel(
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (current.rating > 0) {
-                    Text(text = "★ ${"%.1f".format(current.rating)}", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
+                    // Icône vectorielle : le glyphe ★ n'existe pas dans Inter
+                    // (rendu fallback système cassé sur Google TV).
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Icon(
+                            imageVector = MovvizIconStar,
+                            contentDescription = null,
+                            tint = Color(0xFFF5C542),
+                            modifier = Modifier.size(13.dp),
+                        )
+                        Text(text = "%.1f".format(current.rating), style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                 }
                 current.year?.let {
@@ -1010,6 +1025,7 @@ private fun ambientTrailerHtml(key: String, title: String): String = """
     </script></body></html>
 """.trimIndent()
 
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 @Composable
 internal fun TitleRow(
     heading: String,
@@ -1025,11 +1041,12 @@ internal fun TitleRow(
     val focusedCardState = remember { mutableStateOf<TvTitleCard?>(null) }
     Column(modifier = Modifier.padding(bottom = 48.dp)) {
         RowHeading(heading)
-        TvLazyRow(
+        LazyRow(
+            modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(start = 64.dp, end = 64.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            itemsIndexed(items, key = { _, item -> item.id }, contentType = { _, _ -> "card" }) { index, card ->
+            foundationItemsIndexed(items, key = { _, item -> item.id }, contentType = { _, _ -> "card" }) { index, card ->
                 PosterCard(
                     card = card,
                     onClick = { onClick(card) },
@@ -1298,6 +1315,7 @@ internal fun PosterCard(
  * 10-foot UI.
  */
 @Composable
+@OptIn(ExperimentalFoundationApi::class, ExperimentalComposeUiApi::class)
 private fun DownloadQueueRow(items: List<QueueItemDto>, onOpenTitle: (type: String, tmdbId: Int) -> Unit) {
     Column(modifier = Modifier.padding(bottom = 48.dp)) {
         Text(
@@ -1306,11 +1324,12 @@ private fun DownloadQueueRow(items: List<QueueItemDto>, onOpenTitle: (type: Stri
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 64.dp, bottom = 16.dp),
         )
-        TvLazyRow(
+        LazyRow(
+            modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(horizontal = 64.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            itemsIndexed(items, key = { _, item -> item.id }) { _, item ->
+            foundationItemsIndexed(items, key = { _, item -> item.id }) { _, item ->
                 DownloadCard(
                     item = item,
                     onClick = {

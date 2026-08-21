@@ -4,6 +4,24 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.67 — August 2026
+
+### Android TV : état de téléchargement réactif sur la fiche, focusRestorer, ancre D-pad
+
+#### Fiche titre : téléchargement vivant (pattern Netflix)
+- **Badge d'état réactif** : "Téléchargement"/"Recherche…" pendant l'activité (file pollée 3s), statut bibliothèque réel sinon (Disponible/Téléchargement/Manquant via statusTone) — plus jamais un "Dans la bibliothèque" figé pendant un download.
+- **Pilule de progression** `DownloadProgressPill` : pourcentage + vitesse + temps restant ("Téléchargement 42% · 6.1 Mo/s · 12 min restantes") avec barre de progression dans la pilule même.
+- **Bascule automatique vers "Lire"** à la fin du download : rafraîchissement bibliothèque accéléré à 4s tant qu'un torrent est actif — zéro action utilisateur, zéro respiration d'app.
+- Note TMDb absente (0) → plus d'étoile "★ 0.0" trompeuse sur la fiche.
+
+#### Navigation D-pad
+- **`focusRestorer()` sur toutes les rangées** (doc officielle Google) : chaque rangée se souvient de sa carte focalisée — le focus revient au bon poster après retour de fiche et en naviguant verticalement.
+- **Migration TvLazy\* → Lazy\*** standard (TvLazyColumn/TvLazyRow dépréciés).
+- **Ancre de repli exclue de la recherche directionnelle** (`FocusRequester.Cancel` ×4) : elle est géométriquement au-dessus de tout le contenu — moveFocus(Up) depuis le hero atterrissait dessus (invisible) au lieu de remonter dans la NavRail.
+- Étoile du hero → icône vectorielle (le glyphe ★ n'existe pas dans Inter).
+
+---
+
 ## v1.16.66 — August 2026
 
 ### Android TV : réparation UTF-8 massive, icônes vectorielles, symétrie D-pad

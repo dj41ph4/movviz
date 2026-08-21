@@ -22,6 +22,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
@@ -111,6 +112,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(androidx.compose.ui.ExperimentalComposeUiApi::class)
 @Composable
 private fun MovvizNavHost(viewModel: AppViewModel) {
     val navController = rememberNavController()
@@ -250,6 +252,18 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                 .size(6.dp)
                 .focusRequester(fallbackFocusRequester)
                 .focusable()
+                // HORS recherche directionnelle : l'ancre est géométriquement
+                // au-dessus de TOUT le contenu (coin haut-gauche) — sans ce
+                // Cancel, moveFocus(Up) depuis le hero atterrissait sur cette
+                // pastille quasi invisible au lieu de remonter dans la NavRail
+                // (« UP ne fait rien », constaté en direct). requestFocus()
+                // programmatique reste possible : c'est le repli explicite.
+                .focusProperties {
+                    up = FocusRequester.Cancel
+                    down = FocusRequester.Cancel
+                    left = FocusRequester.Cancel
+                    right = FocusRequester.Cancel
+                }
                 .onFocusChanged { fallbackFocused = it.isFocused }
                 .onPreviewKeyEvent { event ->
                     if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
