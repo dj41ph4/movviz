@@ -2,7 +2,12 @@ package com.movviz.tv.ui.home
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -11,10 +16,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.tv.foundation.lazy.list.TvLazyColumn
-import androidx.tv.foundation.lazy.list.items
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import androidx.compose.ui.text.TextStyle
@@ -97,6 +101,10 @@ fun CatalogScreen(
     // rangée (mutuellement exclusifs — voir plus bas) : c'est elle que la
     // NavRail vise pour la flèche bas.
     val heroFocus = entryFocusRequester ?: remember { FocusRequester() }
+    // Palier invisible au-dessus du hero — voir le premier item de la
+    // LazyColumn plus bas (UP depuis le CTA : scroll retour en haut avant
+    // la NavRail).
+    val heroTopAnchor = remember { FocusRequester() }
     // Précharge les logos de TOUTES les vedettes du hero — même fix que
     // HomeScreen pour éviter le race condition logo vs timer 3 s fallback.
     LaunchedEffect(heroItems) {
@@ -116,7 +124,20 @@ fun CatalogScreen(
     // bandeau de titre — le tab actif est déjà indiqué par la NavRail.
     Column(Modifier.fillMaxSize()) {
         if (rows.isEmpty()) Text("Aucun titre pour le moment", color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(start = 64.dp, top = 48.dp))
-        else TvLazyColumn(Modifier.fillMaxSize()) {
+        else LazyColumn(Modifier.fillMaxSize()) {
+            // Palier D-pad invisible TOUT EN HAUT (identique à l'accueil) :
+            // UP depuis le CTA y atterrit d'abord, ramène le scroll à
+            // l'offset 0 (carrousel entier visible), puis un second UP
+            // rejoint la NavRail.
+            item(contentType = "topAnchor") {
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .focusRequester(heroTopAnchor)
+                        .focusable(),
+                )
+            }
             if (activeHero != null) item {
                 HeroCarousel(
                     items = heroItems,

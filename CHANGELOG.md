@@ -4,6 +4,29 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.68 — August 2026
+
+### Android TV : hero façon fiche titre, palier D-pad haut de page, filmographie nettoyée
+
+#### Hero Accueil/Films/Séries = même composition que la fiche
+- Logo TMDb en hauteur FIXE 118dp (`ContentScale.FillHeight`) : les logos minuscules (~30px, illisibles depuis le canapé) deviennent des title-art à la Netflix.
+- Badge statut bibliothèque sous le logo (même pastille que la fiche : Recherche…/Téléchargement/Manquant) — "Disponible" reste implicite.
+- Ligne méta unifiée ★ note · année · durée · genres inline (les chips prenaient une rangée entière pour rien).
+- Suppression du dégradé noir disgracieux derrière le synopsis — le scrim du hero suffit.
+- Colonne contenu ancrée au bord bas du backdrop (le CTA "Lire" n'était plus coupé sous l'image).
+- Glyphes restants remplacés par des icônes vectorielles : ▶ sur "Lire", pastille "i" dessinée sur "Plus d'infos".
+
+#### Palier D-pad haut de page (Accueil + Films + Séries)
+- Ancre invisible 1dp tout en haut de chaque écran : UP depuis le CTA du hero y atterrit d'abord — le bringIntoView ramène le scroll à l'offset 0 (carrousel entier redevient visible sous la barre), puis un second UP rejoint la NavRail. Fini le carrousel à moitié caché derrière elle.
+
+#### Filmographie acteurs nettoyée
+- Filtrage des talk-shows et cérémonies (Saturday Night Live, Tonight Show, Late Night/Show, Graham Norton, Kelly Clarkson, Jimmy Kimmel, Ellen, Golden Globes, Oscars, MTV/Critics'/People's Choice Awards, GMA, Today Show, Conan, red carpet…) — demandé en direct : « j'en ai marre de voir les late night ».
+
+#### Divers
+- CatalogScreen migré TvLazyColumn → LazyColumn standard (cohérence avec l'accueil).
+
+---
+
 ## v1.16.67 — August 2026
 
 ### Android TV : état de téléchargement réactif sur la fiche, focusRestorer, ancre D-pad

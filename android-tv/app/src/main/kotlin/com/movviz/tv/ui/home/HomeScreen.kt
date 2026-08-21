@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,6 +81,7 @@ import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
+import com.movviz.tv.ui.theme.MovvizIconPlay
 import com.movviz.tv.ui.theme.MovvizIconStar
 import androidx.tv.material3.Icon
 import com.movviz.tv.ui.theme.MovvizOk
@@ -87,6 +89,7 @@ import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.StaticLogoWithGlow
 import com.movviz.tv.ui.theme.RatingBadge
 import com.movviz.tv.ui.theme.StatusPill
+import com.movviz.tv.ui.theme.statusTone
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
@@ -310,6 +313,10 @@ TvTitleCard(
     // c'est cette même cible que la NavRail vise pour la flèche bas.
     val heroCtaFocus = entryFocusRequester ?: remember { FocusRequester() }
     val firstCardFocus = heroCtaFocus
+    // Palier invisible au-dessus du hero — voir le premier item de la
+    // LazyColumn plus bas (UP depuis le CTA : scroll retour en haut avant
+    // la NavRail).
+    val heroTopAnchor = remember { FocusRequester() }
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
     LaunchedEffect(heroItems, continueCards, recentMovies, recentSeries) {
         if (hasRequestedInitialFocus) return@LaunchedEffect
@@ -336,6 +343,22 @@ TvTitleCard(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 80.dp),
         ) {
+            // Palier D-pad invisible TOUT EN HAUT du contenu (demandé en
+            // direct) : UP depuis le CTA du hero y atterrit d'abord — le
+            // bringIntoView ramène alors le scroll à l'offset 0, carrousel
+            // entier redevient visible sous la barre de nav — et un second
+            // UP seulement rejoint la NavRail. Sans ce palier, la dernière
+            // étape avant la nav restait "Lire" et le carrousel demeurait
+            // à moitié caché derrière elle.
+            item(contentType = "topAnchor") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .focusRequester(heroTopAnchor)
+                        .focusable(),
+                )
+            }
             if (heroItems.isNotEmpty()) {
                 item(contentType = "hero") {
                     HeroCarousel(
@@ -674,8 +697,7 @@ internal fun HeroCarousel(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .offset(y = (-180).dp)
-                .padding(start = 64.dp, end = 48.dp, bottom = 20.dp)
+                .padding(start = 64.dp, end = 48.dp, bottom = 26.dp)
                 .widthIn(max = 760.dp),
         ) {
             // Zone texte animée en fondu + glissement à chaque rotation.
@@ -692,23 +714,16 @@ internal fun HeroCarousel(
             )
             Spacer(modifier = Modifier.height(8.dp))
             if (logoPath != null) {
+                // Hauteur FIXE + FillHeight : garantit un logo GRAND quel que
+                // soit l'asset TMDb (les logos courts-rendus à ~30px étaient
+                // illisibles depuis le canapé). Ratio préservé par la largeur.
                 Image(
                     painter = rememberAsyncImagePainter(model = "https://image.tmdb.org/t/p/w500$logoPath"),
                     contentDescription = current.title,
-                    contentScale = ContentScale.Fit,
-                    alignment = Alignment.CenterStart,
-                    // PAS d'offset x négatif ici : un -140dp était appliqué à
-                    // tous les logos pour recentrer un asset TMDb précis dont
-                    // la marge transparente à gauche était inhabituellement
-                    // large — mais la plupart des logos TMDb sont déjà
-                    // recadrés au plus près, donc ce décalage aveugle les
-                    // poussait hors de l'écran à gauche (confirmé en direct :
-                    // "Jackass: Best and Last" et "Les aventures de Porcinet"
-                    // tous deux tronqués, contentDescription visible via
-                    // uiautomator dump mais premiers caractères hors-écran).
+                    contentScale = ContentScale.FillHeight,
                     modifier = Modifier
-                        .heightIn(max = 120.dp)
-                        .width(560.dp),
+                        .height(118.dp)
+                        .widthIn(max = 620.dp),
                 )
             } else if (showTitleFallback) {
                 Text(
@@ -722,7 +737,24 @@ internal fun HeroCarousel(
                 // titre texte ne clignote avant de laisser sa place au logo.
                 Spacer(modifier = Modifier.height(120.dp).widthIn(max = 560.dp))
             }
+            // Badge statut bibliothèque (même pastille que la fiche titre)
+            current.status?.let { st ->
+                if (st != "available") {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    val tone = statusTone(st)
+                    Box(
+                        modifier = Modifier
+                            .background(tone.color.copy(alpha = 0.12f), RoundedCornerShape(50))
+                            .border(1.dp, tone.color.copy(alpha = 0.25f), RoundedCornerShape(50))
+                            .padding(horizontal = 12.dp, vertical = 4.dp),
+                    ) {
+                        Text(text = tone.label, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = tone.color))
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
+            // Même ligne méta que la fiche : ★ · année · durée · genres inline
+            // (les chips séparées prenaient une rangée entière pour rien).
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (current.rating > 0) {
                     // Icône vectorielle : le glyphe ★ n'existe pas dans Inter
@@ -736,51 +768,32 @@ internal fun HeroCarousel(
                         )
                         Text(text = "%.1f".format(current.rating), style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
                     }
-                    Spacer(modifier = Modifier.width(12.dp))
+                    HeroMetaDot()
                 }
                 current.year?.let {
                     Text(text = "$it", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft))
-                    Spacer(modifier = Modifier.width(12.dp))
+                    HeroMetaDot()
                 }
                 current.runtime?.let {
                     Text(text = "$it min", style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft))
+                    if (current.genres.isNotEmpty()) HeroMetaDot()
                 }
-            }
-            if (current.genres.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    current.genres.take(3).forEach { genre ->
-                        Box(
-                            modifier = Modifier
-                                .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50))
-                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(50))
-                                .padding(horizontal = 16.dp, vertical = 7.dp),
-                        ) {
-                            Text(text = genre, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft))
-                        }
-                    }
-                }
+                Text(
+                    text = current.genres.take(3).joinToString(", "),
+                    style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             if (current.overview.isNotBlank()) {
                 Spacer(modifier = Modifier.height(10.dp))
-                Box(modifier = Modifier.widthIn(max = 580.dp)) {
-                    Text(
-                        text = current.overview,
-                        style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 21.sp),
-                        maxLines = 3,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Box(
-                        modifier = Modifier
-                            .matchParentSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background),
-                                    startY = 0f,
-                                ),
-                            ),
-                    )
-                }
+                Text(
+                    text = current.overview,
+                    style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 21.sp),
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 580.dp),
+                )
             }
             }
             Spacer(modifier = Modifier.height(16.dp))
@@ -802,9 +815,16 @@ internal fun HeroCarousel(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     ) {
-                        Text(text = "▶", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black))
+                        // Icône vectorielle : le glyphe ▶ rendait en carré
+                        // (pas dans Inter).
+                        Icon(
+                            imageVector = MovvizIconPlay,
+                            contentDescription = null,
+                            tint = Color.Black,
+                            modifier = Modifier.size(15.dp),
+                        )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(text = "Lire", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black))
                     }
@@ -830,7 +850,16 @@ internal fun HeroCarousel(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
                     ) {
-                        Text(text = "ℹ", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White))
+                        // Le glyphe ℹ rendait en carré (pas dans Inter) —
+                        // simple pastille "i" dessinée en vectoriel local.
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .border(1.5.dp, Color.White, RoundedCornerShape(50)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(text = "i", style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = Color.White))
+                        }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(text = "Plus d'infos", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White))
                     }
@@ -855,6 +884,15 @@ internal fun HeroCarousel(
             }
         }
     }
+}
+
+/** Séparateur "·" de la ligne méta hero — même style que la fiche titre. */
+@Composable
+private fun HeroMetaDot() {
+    Text(
+        text = "  ·  ",
+        style = TextStyle(fontSize = 14.sp, color = MovvizInkDim),
+    )
 }
 
 /** Délai avant le lancement du trailer ambiant (ms) — Netflix laisse

@@ -50,20 +50,35 @@ fun PersonScreen(
         viewModel.loadPerson(personId)
     }
 
+    // Filtre anti-pollution : les crédits TMDb d'un acteur débordent de
+    // talk-shows et cérémonies — Saturday Night Live, Tonight Show, Graham
+    // Norton, Kelly Clarkson, Golden Globes… Aucun intérêt dans une
+    // filmographie (demandé en direct : "j'en ai marre de voir les late
+    // night"). Filtrage par titre : le DTO crédit ne transporte pas le nom
+    // du personnage ("Self").
+    val junkShow = Regex(
+        "saturday night live|tonight show|late night|late show|graham norton|kelly clarkson|" +
+            "jimmy kimmel|ellen( show)?|golden globes?|(academy|people'?s choice|mtv (movie|video)|critics'?) awards?" +
+            "|\\bawards?\\b|critics'? choice|good morning america|today show|conan( o'brien)?|" +
+            "mike tyson mysteries|red carpet|the view|watch what happens",
+        RegexOption.IGNORE_CASE,
+    )
     val filmography = remember(person) {
-        person?.credits.orEmpty().map { c ->
-            TvTitleCard(
-                id = "${c.type}-${c.tmdbId}",
-                title = c.title,
-                posterPath = c.posterPath,
-                backdropPath = c.backdropPath,
-                tmdbId = c.tmdbId,
-                isMovie = c.type == "movie",
-                year = c.year,
-                rating = c.rating,
-                overview = c.overview,
-            )
-        }
+        person?.credits.orEmpty()
+            .filter { c -> !junkShow.containsMatchIn(c.title) }
+            .map { c ->
+                TvTitleCard(
+                    id = "${c.type}-${c.tmdbId}",
+                    title = c.title,
+                    posterPath = c.posterPath,
+                    backdropPath = c.backdropPath,
+                    tmdbId = c.tmdbId,
+                    isMovie = c.type == "movie",
+                    year = c.year,
+                    rating = c.rating,
+                    overview = c.overview,
+                )
+            }
     }
 
     TvLazyColumn(
