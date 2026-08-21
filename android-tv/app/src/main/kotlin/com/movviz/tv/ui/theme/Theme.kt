@@ -75,7 +75,7 @@ fun Modifier.tvFocusLift(
  * à la couche de contenu Netflix. Ajuster ici propage partout ; ne JAMAIS
  * mettre un rayon ad hoc dans un écran.
  */
-val MovvizCardShape = RoundedCornerShape(8.dp)
+val MovvizCardShape = RoundedCornerShape(12.dp)
 
 /**
  * Famille Inter (la direction typographique de Netflix et de la plupart des
@@ -94,7 +94,7 @@ val MovvizFonts = FontFamily(
 private val MovvizTypography = Typography(
     // Hero / page title — large, bold, Netflix display style
     displayLarge = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold,
+        fontFamily = MovvizFonts, fontSize = 44.sp, fontWeight = FontWeight.Bold,
         letterSpacing = (-0.5).sp, lineHeight = 50.sp,
     ),
     // Section header (hero subtitle, row headers)

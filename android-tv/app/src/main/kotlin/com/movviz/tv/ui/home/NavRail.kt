@@ -247,7 +247,7 @@ private fun ProfileMenuButton(
                 // prendrait le focus D-pad et bloquerait la descente vers
                 // les items (bug constaté sur vraie TV).
                 Surface(
-                    modifier = Modifier.width(300.dp),
+                    modifier = Modifier.width(320.dp),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                     colors = SurfaceDefaults.colors(containerColor = Color(0xFF141414)),
                     border = Border(
@@ -283,7 +283,7 @@ private fun ProfileMenuButton(
                         )
                         Spacer(Modifier.height(6.dp))
                         if (profiles.isNotEmpty()) {
-                            Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 10.dp).background(Color.White.copy(alpha = 0.08f)))
+                            Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 16.dp).background(Color.White.copy(alpha = 0.10f)))
                             Spacer(Modifier.height(6.dp))
                             profiles.forEach { profile ->
                                 MenuItem(

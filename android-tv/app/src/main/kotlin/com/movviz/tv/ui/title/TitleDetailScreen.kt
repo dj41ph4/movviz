@@ -61,6 +61,7 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
+import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.delay
@@ -778,7 +779,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                     val photoUrl = member.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
                     Box(
                         modifier = Modifier
-                            .size(72.dp)
+                            .size(84.dp)
                             .clip(androidx.compose.foundation.shape.CircleShape)
                             .background(MovvizSurfaceStrong),
                     ) {
@@ -794,7 +795,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
                         text = member.name,
-                        style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
+                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -802,7 +803,7 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                     if (member.character.isNotBlank()) {
                         Text(
                             text = member.character,
-                            style = TextStyle(fontSize = 11.sp, color = MovvizInkDim),
+                            style = TextStyle(fontSize = 12.sp, color = MovvizInkDim),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -831,7 +832,7 @@ private fun SeasonSelector(
             items(seasons, key = { it.seasonNumber }) { season ->
                 val selected = season.seasonNumber == selectedSeasonNumber
                 var focused by remember { mutableStateOf(false) }
-                val shape = RoundedCornerShape(9.dp)
+                val shape = RoundedCornerShape(12.dp)
                 Surface(
                     onClick = { onSelect(season.seasonNumber) },
                     modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick { onSelect(season.seasonNumber) },
@@ -910,7 +911,7 @@ private fun EpisodeCard(episode: SeriesEpisodeDto, metadata: MetadataEpisodeDto?
         enabled = available,
         modifier = Modifier
             .fillMaxWidth()
-            .scale(if (focused && available) 1.018f else 1f)
+            .tvFocusLift(focused && available, shape = shape, maxScale = 1.06f, maxElevation = 12.dp)
             .onFocusChanged { focused = it.isFocused }
             .let { if (available) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
@@ -926,7 +927,7 @@ private fun EpisodeCard(episode: SeriesEpisodeDto, metadata: MetadataEpisodeDto?
         ),
     ) {
         Row(modifier = Modifier.heightIn(min = 112.dp).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(text = episode.episodeNumber.toString(), style = TextStyle(fontSize = 22.sp, fontWeight = FontWeight.Light, color = MovvizInkDim), modifier = Modifier.width(34.dp))
+            Text(text = episode.episodeNumber.toString(), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = MovvizInkDim), modifier = Modifier.width(34.dp))
             metadata?.stillPath?.let { still ->
                 Image(
                     painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still"),
@@ -1103,7 +1104,7 @@ private fun PrimaryPill(
         modifier = Modifier
             .let { if (brush != null) it.background(brush, shape) else it }
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            .scale(if (focused && enabled) 1.06f else 1f)
+            .tvFocusLift(focused && enabled, shape = shape, maxScale = 1.06f, maxElevation = 16.dp)
             .onFocusChanged { focused = it.isFocused }
             .let { if (enabled) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),

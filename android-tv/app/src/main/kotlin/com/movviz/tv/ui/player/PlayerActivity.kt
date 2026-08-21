@@ -1018,7 +1018,7 @@ LaunchedEffect(current.ratingKey) {
                 }
             }
             Box(
-                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.85f)),
+                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.72f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
@@ -1028,7 +1028,7 @@ LaunchedEffect(current.ratingKey) {
                     Text(
                         text = msg,
                         style = MaterialTheme.typography.titleLarge,
-                        color = MovvizDown,
+                        color = Color.White,
                         textAlign = TextAlign.Center,
                     )
                     if (techDetails.isNotEmpty()) {
@@ -1233,7 +1233,7 @@ private fun BufferingSpinner(size: Dp, modifier: Modifier = Modifier) {
             startAngle = 0f,
             sweepAngle = 300f,
             useCenter = false,
-            style = Stroke(width = size.toPx() * 0.14f, cap = StrokeCap.Round),
+            style = Stroke(width = size.toPx() * 0.18f, cap = StrokeCap.Round),
             size = Size(size.toPx(), size.toPx()),
         )
     }

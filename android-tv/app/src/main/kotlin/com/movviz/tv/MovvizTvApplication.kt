@@ -32,7 +32,7 @@ class MovvizTvApplication : Application(), ImageLoaderFactory {
         .bitmapConfig(Bitmap.Config.RGB_565)
         .memoryCache {
             MemoryCache.Builder(this)
-                .maxSizePercent(0.2)
+                .maxSizePercent(0.10)
                 .build()
         }
         .crossfade(false)

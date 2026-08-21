@@ -26,8 +26,8 @@ val MovvizInkDim = Color(0xFF6B6B6B)
 // Semantic status pills — kept for functional indicators.
 val MovvizOk = Color(0xFF43E6A0)
 val MovvizAmber = Color(0xFFFFB84B)
-val MovvizDown = Color(0xFFFF5B78)
-val MovvizCyan = Color(0xFF34E2FF)
+val MovvizDown = Color(0xFFE87C7C)
+val MovvizCyan = Color(0xFF5CE0D8)
 
 // Animated logo flow — brand signature on the wordmark.
 val MovvizFlowInk = Color(0xFFEEF1FF)

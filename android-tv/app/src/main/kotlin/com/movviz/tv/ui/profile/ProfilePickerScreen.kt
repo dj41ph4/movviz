@@ -35,6 +35,7 @@ import androidx.tv.material3.Text
 import com.movviz.tv.data.TvProfile
 import com.movviz.tv.ui.theme.MovvizAmber
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
 
 /** Page profil — « Qui est-ce ? » : le profil ACTIF en tête (toujours
@@ -118,7 +119,8 @@ private fun AddProfileTile(onClick: () -> Unit, focusRequester: FocusRequester? 
             onClick = onClick,
             modifier = Modifier
                 .size(160.dp)
-                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it },
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color(0xFF242424), focusedContainerColor = Color(0xFF383838)),
         ) {

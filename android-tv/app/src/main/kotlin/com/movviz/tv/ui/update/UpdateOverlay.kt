@@ -56,6 +56,7 @@ import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -152,8 +153,10 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
     }
 
     // Check GitHub au lancement — une seule fois par démarrage de l'appli.
+    val autoUpdate by (viewModel?.autoUpdateEnabled?.collectAsState() ?: remember { mutableStateOf(BuildConfig.AUTO_UPDATE) })
     LaunchedEffect(Unit) {
-        if (!BuildConfig.AUTO_UPDATE || dismissed) return@LaunchedEffect
+        if (!autoUpdate || dismissed) return@LaunchedEffect
+        delay(5_000)
         val info = updateManager.checkForUpdate() ?: return@LaunchedEffect
         pending = info
         start(info)
@@ -167,7 +170,7 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
     val manualTrigger = viewModel?.updateCheckTrigger?.collectAsState()?.value
     LaunchedEffect(manualTrigger) {
         if (manualTrigger == null || manualTrigger == 0) return@LaunchedEffect
-        if (!BuildConfig.AUTO_UPDATE) {
+        if (!autoUpdate) {
             viewModel.setUpdateCheckStatus("Mise à jour automatique désactivée sur cette build")
             return@LaunchedEffect
         }
@@ -323,7 +326,7 @@ fun UpdateOverlay(
  *  dégradé de marque. */
 @Composable
 private fun ProgressBar(fraction: Float) {
-    val shape = RoundedCornerShape(5.dp)
+    val shape = RoundedCornerShape(50)
     Box(
         modifier = Modifier
             .fillMaxWidth(0.7f)

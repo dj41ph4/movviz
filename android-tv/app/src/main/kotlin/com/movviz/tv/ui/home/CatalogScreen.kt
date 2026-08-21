@@ -115,7 +115,7 @@ fun CatalogScreen(
     // Même structure que l'accueil : le hero démarre tout en haut, sans
     // bandeau de titre — le tab actif est déjà indiqué par la NavRail.
     Column(Modifier.fillMaxSize()) {
-        if (rows.isEmpty()) Text("Aucun titre pour le moment", color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(start = 64.dp, top = 24.dp))
+        if (rows.isEmpty()) Text("Aucun titre pour le moment", color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(start = 64.dp, top = 48.dp))
         else TvLazyColumn(Modifier.fillMaxSize()) {
             if (activeHero != null) item {
                 HeroCarousel(

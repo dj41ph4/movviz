@@ -35,6 +35,7 @@ import coil.compose.AsyncImage
 import com.movviz.tv.data.TvProfile
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.tvPointerClick
 
 /** Tuile de profil TV — partagée par l'écran « Qui est-ce ? » et l'écran
  *  d'ajout d'un membre au foyer (même rendu, une seule implémentation). */
@@ -47,7 +48,8 @@ fun ProfileTile(profile: TvProfile, onClick: () -> Unit, focusRequester: FocusRe
             modifier = Modifier
                 .size(160.dp)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .onFocusChanged { focused = it.isFocused },
+                .onFocusChanged { focused = it.isFocused }
+                .tvPointerClick(onClick),
             shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
             colors = ClickableSurfaceDefaults.colors(
                 containerColor = Color(0xFF242424),

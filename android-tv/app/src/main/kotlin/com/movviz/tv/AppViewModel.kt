@@ -29,8 +29,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -46,6 +48,14 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl.asStateFlow()
+
+    val autoUpdateEnabled: StateFlow<Boolean> = prefs.autoUpdateEnabled.stateIn(
+        viewModelScope, SharingStarted.Eagerly, true
+    )
+
+    fun setAutoUpdateEnabled(enabled: Boolean) {
+        viewModelScope.launch { prefs.setAutoUpdateEnabled(enabled) }
+    }
 
     private val _currentUser = MutableStateFlow<MovvizUserDto?>(null)
     val currentUser: StateFlow<MovvizUserDto?> = _currentUser.asStateFlow()
@@ -619,32 +629,30 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
      * DNS) déclenche UN retry après 1 s — les images TMDb sont en cache
      * CDN, donc un second essai quasi immédiat résout la majorité des
      * interruptions transitoires sans surcharger le serveur. */
-    fun loadHeroLogo(type: String, tmdbId: Int) {
+    suspend fun loadHeroLogo(type: String, tmdbId: Int) {
         val key = "$type-$tmdbId"
         if (_heroLogos.value.containsKey(key)) return
         val repo = repository ?: return
-        viewModelScope.launch {
-            var result = repo.metadataImages(type, tmdbId)
-            if (result is ApiResult.Failure) {
-                android.util.Log.w("HeroLogo", "1st attempt failed for $key: ${(result as ApiResult.Failure).message}, retrying in 1s")
-                delay(1_000)
-                result = repo.metadataImages(type, tmdbId)
+        var result = repo.metadataImages(type, tmdbId)
+        if (result is ApiResult.Failure) {
+            android.util.Log.w("HeroLogo", "1st attempt failed for $key: ${(result as ApiResult.Failure).message}, retrying in 1s")
+            delay(1_000)
+            result = repo.metadataImages(type, tmdbId)
+        }
+        when (result) {
+            is ApiResult.Success -> {
+                val path = result.data.logos.firstOrNull()?.filePath
+                if (path != null) {
+                    _heroLogos.value = _heroLogos.value + (key to path)
+                } else {
+                    android.util.Log.d("HeroLogo", "No logo available for $key (empty logos list)")
+                }
             }
-            when (result) {
-                is ApiResult.Success -> {
-                    val path = result.data.logos.firstOrNull()?.filePath
-                    if (path != null) {
-                        _heroLogos.value = _heroLogos.value + (key to path)
-                    } else {
-                        android.util.Log.d("HeroLogo", "No logo available for $key (empty logos list)")
-                    }
-                }
-                is ApiResult.Failure -> {
-                    android.util.Log.w("HeroLogo", "Failed to load hero logo for $key after retry: ${result.message}")
-                }
-                ApiResult.Unauthorized -> {
-                    android.util.Log.w("HeroLogo", "Unauthorized loading hero logo for $key")
-                }
+            is ApiResult.Failure -> {
+                android.util.Log.w("HeroLogo", "Failed to load hero logo for $key after retry: ${result.message}")
+            }
+            ApiResult.Unauthorized -> {
+                android.util.Log.w("HeroLogo", "Unauthorized loading hero logo for $key")
             }
         }
     }
@@ -655,7 +663,12 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
      * complet (40 s). Les images TMDb sont légères (< 50 KB) et le CDN
      * accepte 5 requêtes en parallèle sans throttle. */
     fun loadHeroLogos(type: String, tmdbIds: List<Int>) {
-        tmdbIds.forEach { tmdbId -> loadHeroLogo(type, tmdbId) }
+        viewModelScope.launch {
+            tmdbIds.forEach { tmdbId ->
+                loadHeroLogo(type, tmdbId)
+                delay(100)
+            }
+        }
     }
 
     /** Rafraîchit la file de téléchargement — appelée en boucle par

@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.FocusRequester
@@ -147,6 +148,8 @@ fun SettingsScreen(
             InfoRow(label = "Application", value = "Movviz TV")
             if (BuildConfig.AUTO_UPDATE) {
                 Spacer(modifier = Modifier.height(14.dp))
+                AutoUpdateToggle(viewModel)
+                Spacer(modifier = Modifier.height(14.dp))
                 SettingsButton(text = "Vérifier les mises à jour") { viewModel.requestUpdateCheck() }
                 val updateCheckStatus by viewModel.updateCheckStatus.collectAsState()
                 updateCheckStatus?.let {
@@ -165,6 +168,58 @@ fun SettingsScreen(
     }
 }
 
+@Composable
+private fun AutoUpdateToggle(viewModel: AppViewModel) {
+    val enabled by viewModel.autoUpdateEnabled.collectAsState()
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(10.dp)
+    Surface(
+        onClick = { viewModel.setAutoUpdateEnabled(!enabled) },
+        modifier = Modifier
+            .tvFocusLift(focused = focused, shape = shape, maxScale = 1.05f, maxElevation = 12.dp)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick { viewModel.setAutoUpdateEnabled(!enabled) },
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (enabled) MovvizBrand.copy(alpha = 0.25f) else Color.White.copy(alpha = 0.08f),
+            contentColor = if (enabled) MovvizBrand else MovvizInkSoft,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, if (enabled) MovvizBrand else Color.White.copy(alpha = 0.4f)),
+                shape = shape,
+            ),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = if (enabled) "Auto-mise à jour : ON" else "Auto-mise à jour : OFF",
+                style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold),
+            )
+            Box(
+                modifier = Modifier
+                    .width(44.dp)
+                    .height(24.dp)
+                    .background(
+                        if (enabled) MovvizBrand else Color.White.copy(alpha = 0.15f),
+                        RoundedCornerShape(12.dp),
+                    ),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(20.dp)
+                        .offset(x = if (enabled) 22.dp else 2.dp, y = 2.dp)
+                        .background(Color.White, RoundedCornerShape(10.dp)),
+                )
+            }
+        }
+    }
+}
+
 /** Carte glass standard — même trio surface/bordure que le reste de l'app
  *  (voir NavRail, StatusPill) : fond sombre translucide + liseré blanc
  *  8-10%, jamais un aplat opaque. */
@@ -173,12 +228,12 @@ private fun SettingsSection(title: String, content: @Composable ColumnScope.() -
     Column {
         Text(
             text = title.uppercase(),
-            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizBrand, letterSpacing = 1.sp),
+            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft, letterSpacing = 1.sp),
         )
         Spacer(modifier = Modifier.height(12.dp))
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.72f)
+                .fillMaxWidth(0.78f)
                 .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
                 .padding(horizontal = 22.dp, vertical = 20.dp),
@@ -192,8 +247,8 @@ private fun InfoRow(label: String, value: String) {
     Row {
         Text(
             text = label,
-            style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
-            modifier = Modifier.width(160.dp),
+            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
+            modifier = Modifier.width(180.dp),
         )
         Text(
             text = value,
@@ -263,7 +318,7 @@ private fun SettingsButton(text: String, dangerous: Boolean = false, onClick: ()
     Surface(
         onClick = onClick,
         modifier = Modifier
-            .scale(if (focused) 1.05f else 1f)
+            .tvFocusLift(focused, shape = shape, maxScale = 1.05f, maxElevation = 12.dp)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),

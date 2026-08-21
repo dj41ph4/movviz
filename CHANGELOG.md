@@ -4,6 +4,51 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.64 — August 2026
+
+### Android TV : polish visuel premium + toggle auto-update + crash fixes
+
+#### Stabilité (8 crash vectors corrigés)
+- Appels réseau HomeScreen échelonnés (+200ms entre chaque) — fin du flood parallèle au démarrage.
+- Check GitHub update delayé de 5s — ne bloque plus le premier frame.
+- Ambient trailer désactivé sur devices < 4GB RAM — fin du crash Chromium/SwiftShader.
+- Preload hero backdrop réduit de 2 à 1 image — moins de pression mémoire.
+- Coil memory cache réduit de 20% à 10% du heap.
+- `createFilmGrain()` optimisé avec `setPixels()` batch au lieu de 32k appels `setPixel()`.
+- OkHttp timeouts réduits : connect 5s, read 15s, callTimeout 20s.
+- Hero logos batch chargés séquentiellement (+100ms) au lieu de 5 coroutines en parallèle.
+
+#### Visuel premium (45 fixes)
+- Card shape 8dp → 12dp (cohérent TV).
+- displayLarge ExtraBold → Bold (moins blobby à 10 pieds).
+- MovvizDown adouci (#FF5B78 → #E87C7C).
+- MovvizCyan adouci (#34E2FF → #5CE0D8).
+- Orbit dots AnimatedLogo 6dp → 8dp.
+- Wordmark flow ralenti de 5s → 8s.
+- Profile popup NavRail élargi 300dp → 320dp.
+- Menu séparateur NavRail padding 10dp → 16dp.
+- Hero left scrim 70% → 45%.
+- Hero bottom gradient adouci (banding réduit).
+- Genre chips hero 12sp → 14sp.
+- Download card border 3dp → 2dp.
+- Row heading bottom padding 16dp → 20dp.
+- Season chip shape 9dp → 12dp.
+- Episode number 22sp Light → 16sp Medium.
+- Cast photos 72dp → 84dp, noms 12sp → 14sp.
+- Settings section titles MovvizBrand → MovvizInkSoft.
+- Settings panel 72% → 78% width.
+- InfoRow labels 12sp → 14sp, width 160dp → 180dp.
+- Error screen player: titre blanc au lieu de rouge, overlay 85% → 72%.
+- Buffering spinner epaisseur 14% → 18%.
+- Progress bar update pill shape (50 radius).
+- Empty state catalogue padding top 24dp → 48dp.
+
+#### Fonctionnalités
+- Toggle « Auto-mise à jour ON/OFF » dans Paramètres → À propos (persisté via DataStore).
+- Clic tactile activé sur l'écran de sélection de profil (tvPointerClick).
+
+---
+
 ## v1.16.62 — August 2026
 
 ### Android TV : refonte premium qualité Netflix

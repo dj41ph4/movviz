@@ -162,8 +162,11 @@ fun HomeScreen(
 
     LaunchedEffect(Unit) {
         viewModel.loadLibrary()
+        delay(200)
         viewModel.loadContinueWatching()
+        delay(200)
         viewModel.loadDiscovery()
+        delay(200)
         viewModel.loadDashboardHero()
     }
 
@@ -563,7 +566,7 @@ internal fun HeroCarousel(
     LaunchedEffect(currentIndex, items) {
         if (items.size < 2) return@LaunchedEffect
         val loader = imageLoader ?: return@LaunchedEffect
-        for (offset in 1..2) {
+        for (offset in 1..1) {
             val next = items[(currentIndex + offset) % items.size]
             loader.enqueue(
                 ImageRequest.Builder(context)
@@ -619,9 +622,9 @@ internal fun HeroCarousel(
                 Brush.verticalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        Color.Black.copy(alpha = 0.3f),
-                        Color.Black.copy(alpha = 0.75f),
-                        Color.Black,
+                        Color.Black.copy(alpha = 0.2f),
+                        Color.Black.copy(alpha = 0.55f),
+                        Color.Black.copy(alpha = 0.85f),
                     ),
                     startY = 0f,
                 ),
@@ -630,7 +633,7 @@ internal fun HeroCarousel(
         Box(
             modifier = Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
-                    colors = listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent),
+                    colors = listOf(Color.Black.copy(alpha = 0.45f), Color.Transparent),
                     endX = 800f,
                 ),
             ),
@@ -736,9 +739,9 @@ internal fun HeroCarousel(
                             modifier = Modifier
                                 .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50))
                                 .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(50))
-                                .padding(horizontal = 14.dp, vertical = 5.dp),
+                                .padding(horizontal = 16.dp, vertical = 7.dp),
                         ) {
-                            Text(text = genre, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft))
+                            Text(text = genre, style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft))
                         }
                     }
                 }
@@ -856,6 +859,11 @@ private const val AMBIENT_TRAILER_DELAY_MS = 2_200L
 @Composable
 private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: Modifier = Modifier) {
     val key = trailerKeys.firstOrNull { it.matches(Regex("[A-Za-z0-9_-]{6,}")) } ?: return
+    val context = LocalContext.current
+    val activityManager = remember { context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager }
+    val memInfo = remember { android.app.ActivityManager.MemoryInfo() }
+    activityManager.getMemoryInfo(memInfo)
+    if (memInfo.totalMem < 4L * 1024 * 1024 * 1024) return
     var ready by remember(key) { mutableStateOf(false) }
     var playing by remember(key) { mutableStateOf(false) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
@@ -1137,7 +1145,7 @@ private fun RowHeading(text: String) {
             text = text,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 64.dp, bottom = 16.dp),
+            modifier = Modifier.padding(start = 64.dp, bottom = 20.dp),
         )
 }
 
@@ -1263,10 +1271,10 @@ internal fun PosterCard(
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .width(192.dp)
+                .fillMaxWidth()
                 .padding(top = 8.dp),
         )
-        val metadata = listOfNotNull(card.year?.toString(), if (card.isMovie) "Film" else "SÃ©rie").joinToString("  Â·  ")
+        val metadata = listOfNotNull(card.year?.toString(), if (card.isMovie) "Film" else "Série").joinToString("  ·  ")
         Text(
             text = metadata,
             style = MaterialTheme.typography.labelSmall,
@@ -1274,7 +1282,7 @@ internal fun PosterCard(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
-                .width(192.dp)
+                .fillMaxWidth()
                 .padding(top = 2.dp),
         )
     }
@@ -1338,7 +1346,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
         colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
         border = androidx.tv.material3.ClickableSurfaceDefaults.border(
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(3.dp, Color.White),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)),
                 shape = shape,
             ),
         ),
@@ -1348,7 +1356,7 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
                 modifier = Modifier
                     .width(108.dp)
                     .fillMaxHeight()
-                    .background(Brush.verticalGradient(listOf(MovvizBrand.copy(alpha = 0.56f), MovvizSurfaceStrong))),
+                    .background(Brush.verticalGradient(listOf(MovvizBrand.copy(alpha = 0.35f), MovvizSurfaceStrong.copy(alpha = 0.8f), MovvizSurfaceStrong))),
                 contentAlignment = Alignment.Center,
             ) {
                 if (posterUrl != null) {
@@ -1457,13 +1465,15 @@ private fun formatSpeed(bytesPerSec: Double): String? {
 private fun createFilmGrain(): Bitmap {
     val bmp = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888)
     val rnd = java.util.Random()
-    for (y in 0 until 128) {
-        for (x in 0 until 256) {
-            val alpha = 12 + rnd.nextInt(16)
-            val white = rnd.nextBoolean()
-            bmp.setPixel(x, y, if (white) AndroidColor.argb(alpha, 255, 255, 255) else AndroidColor.argb(alpha, 0, 0, 0))
-        }
+    val pixels = IntArray(256 * 128)
+    for (i in pixels.indices) {
+        val alpha = 12 + rnd.nextInt(16)
+        pixels[i] = if (rnd.nextBoolean())
+            AndroidColor.argb(alpha, 255, 255, 255)
+        else
+            AndroidColor.argb(alpha, 0, 0, 0)
     }
+    bmp.setPixels(pixels, 0, 256, 0, 0, 256, 128)
     return bmp
 }
 

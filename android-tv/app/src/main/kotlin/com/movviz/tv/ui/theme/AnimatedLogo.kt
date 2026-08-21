@@ -229,7 +229,7 @@ private fun OrbitDot(particle: OrbitParticle) {
     Box(
         modifier = Modifier
             .offset(x = dx.dp, y = dy.dp)
-            .size(6.dp)
+            .size(8.dp)
             .background(
                 Brush.radialGradient(listOf(Color.White.copy(alpha = .9f), particle.color, particle.color.copy(alpha = .1f))),
                 CircleShape,
@@ -272,7 +272,7 @@ private val WORDMARK_STOPS = listOf(
 fun MovvizWordmark(fontSize: androidx.compose.ui.unit.TextUnit = 28.sp) {
     var widthPx by remember { mutableStateOf(0f) }
     val infinite = rememberInfiniteTransition(label = "wordmark_flow")
-    val shift by infinite.floatLoop(0f, 1f, 5000, LinearEasing, RepeatMode.Restart)
+    val shift by infinite.floatLoop(0f, 1f, 8000, LinearEasing, RepeatMode.Restart)
 
     val brush = if (widthPx <= 0f) {
         Brush.linearGradient(WORDMARK_STOPS)
