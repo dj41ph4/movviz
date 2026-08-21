@@ -4,6 +4,19 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.69 — August 2026
+
+### Android TV : fin de l'auto-scroll d'ouverture, race condition saisons corrigée
+
+#### Auto-scroll à l'ouverture des fiches (demandé en direct)
+- Spec de scroll MINIMAL (comportement mobile) sur fiche titre et fiche acteur, au lieu du pivot TV (~30% du bord) qui faisait défiler la fiche toute seule dès que le focus initial atterrissait sur le CTA. Le scroll ne survient plus que si l'élément visé est réellement hors champ (saisons/épisodes plus bas).
+
+#### Saisons d'une autre série affichées (« la saison n'est pas celle de la série choisie »)
+- **Race condition** : ouvrir une série A puis une B rapidement renvoyait les deux requêtes dans un ordre quelconque — les saisons de A écrasaient celles de B. Garde ajoutée : la réponse n'est écrite que si la série demandée est toujours la courante.
+- **Cache saison clé par série** : l'ancien cache clé par numéro de saison seul servait la saison 1 de la première série ouverte à la suivante. Désormais clé "tmdbId-saison".
+
+---
+
 ## v1.16.68 — August 2026
 
 ### Android TV : hero façon fiche titre, palier D-pad haut de page, filmographie nettoyée

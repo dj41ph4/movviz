@@ -34,6 +34,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.tv.foundation.lazy.list.TvLazyRow
 import androidx.tv.foundation.lazy.list.items
 import androidx.tv.foundation.lazy.list.itemsIndexed
@@ -101,6 +104,7 @@ private data class EpisodeSelection(
  * actions sont deux Surface focusables plutôt que des boutons cliqués à la
  * souris.
  */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun TitleDetailScreen(
     viewModel: AppViewModel,
@@ -435,17 +439,20 @@ fun TitleDetailScreen(
                 .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, null, it.tmdbId, isMovie = it.type == "movie") }
         }
 
+        // Spec de scroll MINIMAL (comportement mobile) au lieu du pivot TV :
+        // le pivot par défaut (~30% du bord) faisait DÉFILER la fiche à
+        // l'ouverture dès que le focus initial atterrissait sur le CTA —
+        // l'utilisateur voyait la fiche bouger toute seule ("auto scroll"
+        // demandé en direct). Avec la spec vide, le scroll ne survient que
+        // si l'élément focalisé est hors champ (saisons/épisodes plus bas).
+        CompositionLocalProvider(
+            LocalBringIntoViewSpec provides object : BringIntoViewSpec {},
+        ) {
         TvLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(start = 56.dp, end = 56.dp, bottom = 40.dp),
             state = lazyListState,
-            // Le backdrop reste derrière la fiche, mais le contenu doit
-            // commencer dans sa zone lisible (logo + métadonnées + synopsis
-            // + CTA visibles ensemble). 320dp faisait démarrer la fiche trop
-            // bas et le scroll TV pouvait la repousser encore davantage ;
-            // 56dp reprend le cadrage desktop/Apple TV et laisse ensuite la
-            // liste défiler normalement vers saisons et épisodes.
             contentPadding = PaddingValues(top = 56.dp),
         ) {
             item {
@@ -788,7 +795,7 @@ fun TitleDetailScreen(
                         item(key = "season-${season.seasonNumber}") {
                             SeasonEpisodeList(
                                 season = season,
-                                metadata = seasonMetadata[season.seasonNumber],
+                                metadata = seasonMetadata[viewModel.seasonMetadataKey(tmdbId, season.seasonNumber)],
                                 watchedEpisodeKeys = watchedEpisodeKeys,
                                 downloading = searchingSeason == season.seasonNumber,
                                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, season.seasonNumber) },
@@ -818,6 +825,7 @@ fun TitleDetailScreen(
                     )
                 }
             }
+        }
         }
     }
 }

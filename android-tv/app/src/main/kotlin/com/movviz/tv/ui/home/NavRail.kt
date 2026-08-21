@@ -133,9 +133,13 @@ fun NavRail(
             .height(68.dp)
             .then(navDownKeyHandler)
             .background(
+                // Scrim renforcé côté haut : sur un backdrop clair (ciel,
+                // neige…) les libellés gris MovvizInkDim devenaient
+                // illisibles — constaté en direct sur le hero "86".
                 Brush.verticalGradient(
                     listOf(
-                        Color.Black.copy(alpha = 0.66f),
+                        Color.Black.copy(alpha = 0.82f),
+                        Color.Black.copy(alpha = 0.45f),
                         Color.Black.copy(alpha = 0.08f),
                     ),
                 ),

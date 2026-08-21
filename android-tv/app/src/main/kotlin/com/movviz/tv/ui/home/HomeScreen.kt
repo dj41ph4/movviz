@@ -605,9 +605,13 @@ internal fun HeroCarousel(
         }
     }
 
-    // Hero height ~65% of 1080p TV screen (780dp). Netflix-style: hero
-    // dominates the screen, content rows peek below.
-    Box(modifier = Modifier.fillMaxWidth().height(780.dp).clipToBounds()) {
+    // Hero = PLEIN ÉCRAN VISIBLE (pas une valeur fixe) : à 780dp fixes le
+    // contenu ancré en bas tombait SOUS le viewport (~540dp en 1080p TV) —
+    // logo/méta/CTA invisibles, seul le label "À LA UNE" dépassait en bas
+    // d'écran (constaté en direct sur émulateur). Hauteur = hauteur écran +
+    // 40dp pour laisser deviner la première rangée en dessous.
+    val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+    Box(modifier = Modifier.fillMaxWidth().height((screenHeightDp + 40).dp).clipToBounds()) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
             transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
@@ -697,7 +701,9 @@ internal fun HeroCarousel(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 64.dp, end = 48.dp, bottom = 26.dp)
+                // bottom = dépassement du hero sous le pli (40dp) + marge
+                // visuelle : le CTA reste ENTièrement au-dessus de l'écran.
+                .padding(start = 64.dp, end = 48.dp, bottom = 72.dp)
                 .widthIn(max = 760.dp),
         ) {
             // Zone texte animée en fondu + glissement à chaque rotation.
@@ -714,16 +720,20 @@ internal fun HeroCarousel(
             )
             Spacer(modifier = Modifier.height(8.dp))
             if (logoPath != null) {
-                // Hauteur FIXE + FillHeight : garantit un logo GRAND quel que
-                // soit l'asset TMDb (les logos courts-rendus à ~30px étaient
-                // illisibles depuis le canapé). Ratio préservé par la largeur.
+                // BOÎTE FIXE + Fit : les assets TMDb ont des tailles/ratios
+                // très variables (intrinsèque ÷ densité 2 = minuscule sans
+                // dimension fixe ; FillHeight = géant et tronqué pour les
+                // wordmarks larges type "Annabelle"). La boîte contraint tout :
+                // large → limité par 520dp de large, carré → limité par
+                // 104dp de haut, ratio toujours préservé.
                 Image(
                     painter = rememberAsyncImagePainter(model = "https://image.tmdb.org/t/p/w500$logoPath"),
                     contentDescription = current.title,
-                    contentScale = ContentScale.FillHeight,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart,
                     modifier = Modifier
-                        .height(118.dp)
-                        .widthIn(max = 620.dp),
+                        .width(520.dp)
+                        .height(104.dp),
                 )
             } else if (showTitleFallback) {
                 Text(

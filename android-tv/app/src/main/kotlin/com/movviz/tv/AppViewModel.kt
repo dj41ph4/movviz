@@ -103,8 +103,8 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _seriesSeasons = MutableStateFlow<List<SeriesSeasonDto>>(emptyList())
     val seriesSeasons: StateFlow<List<SeriesSeasonDto>> = _seriesSeasons.asStateFlow()
 
-    private val _seasonMetadata = MutableStateFlow<Map<Int, MetadataSeasonDto>>(emptyMap())
-    val seasonMetadata: StateFlow<Map<Int, MetadataSeasonDto>> = _seasonMetadata.asStateFlow()
+    private val _seasonMetadata = MutableStateFlow<Map<String, MetadataSeasonDto>>(emptyMap())
+    val seasonMetadata: StateFlow<Map<String, MetadataSeasonDto>> = _seasonMetadata.asStateFlow()
 
     private val _searchingSeason = MutableStateFlow<Int?>(null)
     val searchingSeason: StateFlow<Int?> = _searchingSeason.asStateFlow()
@@ -223,20 +223,31 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         }
         viewModelScope.launch {
             when (val s = repo.seriesSeasons(seriesId)) {
-                is ApiResult.Success -> _seriesSeasons.value = s.data
+                // Garde anti-course : ouvrir A puis B vite fait renvoyer les
+                // deux réponses dans n'importe quel ordre — sans ce test,
+                // les saisons de A venaient écraser celles de B à l'écran
+                // (« la saison n'est pas celle de la série choisie »,
+                // constaté en direct).
+                is ApiResult.Success -> if (seasonsTmdbId == tmdbId) _seriesSeasons.value = s.data
                 else -> Unit
             }
         }
     }
 
     /** Visuels et synopsis TMDb d'UNE saison ouverte. Le statut de chaque
-     * épisode reste celui de la bibliothèque/Plex chargé ci-dessus. */
+     *  épisode reste celui de la bibliothèque/Plex chargé ci-dessus.
+     *  Clé "tmdbId-saison" (PAS la saison seule) : deux séries ont toutes
+     *  les deux une saison 1 — l'ancien cache clé par numéro servait les
+     *  épisodes de la première série ouverte à la seconde. */
+    fun seasonMetadataKey(tmdbId: Int, seasonNumber: Int): String = "${tmdbId}-${seasonNumber}"
+
     fun loadSeasonMetadata(tmdbId: Int, seasonNumber: Int) {
-        if (_seasonMetadata.value.containsKey(seasonNumber)) return
+        val key = seasonMetadataKey(tmdbId, seasonNumber)
+        if (_seasonMetadata.value.containsKey(key)) return
         val repo = repository ?: return
         viewModelScope.launch {
             when (val result = repo.metadataSeason(tmdbId, seasonNumber)) {
-                is ApiResult.Success -> _seasonMetadata.value = _seasonMetadata.value + (seasonNumber to result.data)
+                is ApiResult.Success -> _seasonMetadata.value = _seasonMetadata.value + (key to result.data)
                 else -> Unit
             }
         }

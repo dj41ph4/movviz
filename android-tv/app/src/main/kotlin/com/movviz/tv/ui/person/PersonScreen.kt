@@ -20,6 +20,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.compose.foundation.gestures.BringIntoViewSpec
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
@@ -37,6 +40,7 @@ private const val TMDB_PROFILE_BASE = "https://image.tmdb.org/t/p/w342"
  *  photo, biographie, puis filmographie complète (films + séries) dans la
  *  même rangée que le reste de l'app (TitleRow/PosterCard), pas un écran
  *  au look différent. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PersonScreen(
     viewModel: AppViewModel,
@@ -81,12 +85,15 @@ fun PersonScreen(
             }
     }
 
+    // Spec de scroll minimal (voir TitleDetailScreen) : le pivot TV
+    // défilait la fiche acteur toute seule à l'ouverture.
+    CompositionLocalProvider(
+        LocalBringIntoViewSpec provides object : BringIntoViewSpec {},
+    ) {
     TvLazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            // top = 96dp : dégage la barre de nav flottante, même marge que
-            // Recherche/Paramètres.
             .padding(top = 96.dp, bottom = 40.dp),
     ) {
         item {
@@ -144,5 +151,6 @@ fun PersonScreen(
                 )
             }
         }
+    }
     }
 }
