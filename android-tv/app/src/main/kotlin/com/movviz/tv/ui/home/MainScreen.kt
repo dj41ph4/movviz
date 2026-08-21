@@ -1,20 +1,17 @@
 package com.movviz.tv.ui.home
 
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalFocusManager
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.ui.search.SearchScreen
 import com.movviz.tv.ui.settings.SettingsScreen
@@ -40,29 +37,40 @@ fun MainScreen(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     contentFocusRequester: FocusRequester,
-    // Ancre de repli, TOUJOURS attachée (voir plus bas) — cible que la
-    // NavRail vise quand contentFocusRequester ne pointe encore vers rien
+    // Ancre de repli TOUJOURS attachée (désormais au niveau de
+    // MovvizNavHost pour exister aussi sous fiche titre/acteur) — cible que
+    // la NavRail vise quand contentFocusRequester ne pointe encore vers rien
     // de réel (écran en chargement, résultats vides). Distincte de
     // contentFocusRequester : les deux ne peuvent pas être le même objet, un
     // FocusRequester ne peut être attaché qu'à UN seul noeud composé à la
-    // fois. Sans repli séparé, la seule option sûre était de ne JAMAIS
-    // viser le vrai premier élément (ce qui a été tenté, puis corrigé ici) —
-    // la flèche bas semblait alors "ne rien faire", un vrai recul en usage
-    // normal pour éliminer un plantage qui n'arrivait qu'en bord de cas.
+    // fois.
     fallbackFocusRequester: FocusRequester,
     // Cible HAUT depuis le contenu → NavRail : onglet sélectionné de la
-    // barre reçoit le focus quand l'utilisateur appuie sur HAUT depuis
-    // n'importe quel élément du contenu. Sans ceci, la touche HAUT ne
-    // fait rien depuis le contenu (nav et contenu sont deux frères
-    // superposés dans un Box — Compose ne trouve pas la nav
-    // automatiquement).
+    // barre reçoit le focus quand l'utilisateur appuie sur HAUT alors que
+    // plus rien ne se trouve au-dessus dans le contenu.
     navRailFocusRequester: FocusRequester? = null,
 ) {
+    val focusManager = LocalFocusManager.current
     Box(
         modifier = Modifier.fillMaxSize()
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                    navRailFocusRequester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
+                    // SYMÉTRIE D-PAD OBLIGATOIRE (bug constaté en direct :
+                    // « UP remonte dans le menu et ne redescend plus »).
+                    // Ancien code : consommait TOUS les UP → impossible de
+                    // monter d'une rangée de posters à l'autre, chaque HAUT
+                    // sautait directement dans la barre de nav.
+                    //
+                    // 1) Laisser d'abord le focus monter À L'INTÉRIEUR du
+                    //    contenu (rangée N-1, saison au-dessus…) —
+                    //    moveFocus parcourt toute la hiérarchie composée.
+                    val movedInside = focusManager.moveFocus(FocusDirection.Up)
+                    if (movedInside) true
+                    // 2) Rien au-dessus dans le contenu (première rangée /
+                    //    hero) → onglet actif de la NavRail.
+                    else navRailFocusRequester?.let {
+                        runCatching { it.requestFocus() }.isSuccess
+                    } == true
                 } else false
             },
         // Jamais de padding top ici, sur AUCUN écran : un padding poussait
@@ -73,16 +81,6 @@ fun MainScreen(
         // Films/Séries de la même façon. Chaque écran gère désormais
         // lui-même sa marge haute pour dégager la barre de nav flottante.
     ) {
-        // Ancre invisible en PERMANENCE attachée — NavRail bascule dessus
-        // (onKeyEvent + runCatching, voir NavRail.kt) uniquement si viser
-        // contentFocusRequester échoue, jamais en laissant Compose planter
-        // sur une cible non attachée.
-        Box(
-            modifier = Modifier
-                .size(1.dp)
-                .focusRequester(fallbackFocusRequester)
-                .focusable(),
-        )
         when {
             searchOpen -> SearchScreen(
                 viewModel = viewModel,

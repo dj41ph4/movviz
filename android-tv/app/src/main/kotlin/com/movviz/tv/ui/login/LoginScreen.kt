@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.tv.AppViewModel
@@ -43,6 +44,7 @@ import com.movviz.tv.data.ApiResult
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizAmber
+import com.movviz.tv.ui.theme.MovvizIconPlay
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
@@ -241,7 +243,12 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
                     horizontalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth().padding(vertical = 15.dp),
                 ) {
-                    Text(text = "▶", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizAmber))
+                    Icon(
+                        imageVector = MovvizIconPlay,
+                        contentDescription = null,
+                        tint = MovvizAmber,
+                        modifier = Modifier.size(15.dp),
+                    )
                     Spacer(Modifier.width(10.dp))
                     Text(
                         text = if (plexBusy) "Connexion à Plex…" else "Se connecter avec Plex",

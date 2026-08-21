@@ -1,4 +1,4 @@
-﻿package com.movviz.tv.data
+package com.movviz.tv.data
 
 import android.content.Context
 import android.content.Intent
@@ -21,7 +21,7 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.security.MessageDigest
 
-/** DerniÃ¨re release disponible sur GitHub (repo public â€” API sans auth). */
+/** Dernière release disponible sur GitHub (repo public — API sans auth). */
 data class UpdateInfo(
     val tag: String,
     val apkUrl: String,
@@ -45,24 +45,24 @@ private data class AssetDto(
  * Auto-update Android TV sans magasin d'applications.
  *
  * Le repo Movviz est public : on interroge directement l'API GitHub
- * (`releases/latest`), on compare la version Ã  la nÃ´tre, on tÃ©lÃ©charge
- * l'APK de la release (SHA-256 vÃ©rifiÃ© contre le digest publiÃ©) et on
- * ouvre l'installeur systÃ¨me (FileProvider + ACTION_VIEW). L'APK se
- * remplace lui-mÃªme (mÃªme package, mÃªme clÃ© de signature) sans perte de
- * donnÃ©es.
+ * (`releases/latest`), on compare la version à la nôtre, on télécharge
+ * l'APK de la release (SHA-256 vérifié contre le digest publié) et on
+ * ouvre l'installeur système (FileProvider + ACTION_VIEW). L'APK se
+ * remplace lui-même (même package, même clé de signature) sans perte de
+ * données.
  *
- * ConÃ§ue pour ne JAMAIS bloquer l'appli : toute erreur (rÃ©seau, HTTP, hash,
- * utilisateur qui annule) renvoie null ou lÃ¨ve â€” l'app continue normalement.
+ * Conçue pour ne JAMAIS bloquer l'appli : toute erreur (réseau, HTTP, hash,
+ * utilisateur qui annule) renvoie null ou lève — l'app continue normalement.
  */
 class UpdateManager(private val context: Context) {
     private val client = ApiClient.httpClient()
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
     private val releaseAdapter = moshi.adapter(ReleaseDto::class.java)
 
-    /** Nom de l'asset publiÃ© par le workflow CI. */
+    /** Nom de l'asset publié par le workflow CI. */
     private val expectedAssetName = "Movviz-Android-TV-client.apk"
 
-    /** Retourne la mise Ã  jour Ã  appliquer, ou null si Ã  jour / indisponible. */
+    /** Retourne la mise à jour à appliquer, ou null si à jour / indisponible. */
     suspend fun checkForUpdate(): UpdateInfo? = withContext(Dispatchers.IO) {
         try {
             val request = Request.Builder()
@@ -97,7 +97,7 @@ class UpdateManager(private val context: Context) {
         }
     }
 
-    /** TÃ©lÃ©charge l'APK (avec progression 0â†’1) et vÃ©rifie son SHA-256. */
+    /** Télécharge l'APK (avec progression 0→1) et vérifie son SHA-256. */
     suspend fun download(info: UpdateInfo, onProgress: (Float) -> Unit): File =
         withContext(Dispatchers.IO) {
             val dir = File(context.cacheDir, "update").apply { mkdirs() }
@@ -138,14 +138,14 @@ class UpdateManager(private val context: Context) {
             target
         }
 
-    /** Autorisation "installer des applications inconnues" dÃ©jÃ  accordÃ©e. */
+    /** Autorisation "installer des applications inconnues" déjà accordée. */
     fun canInstallUnknown(): Boolean =
         Build.VERSION.SDK_INT < 26 || context.packageManager.canRequestPackageInstalls()
 
-    /** Ouvre les rÃ©glages systÃ¨me pour autoriser les sources inconnues.
+    /** Ouvre les réglages système pour autoriser les sources inconnues.
      *  FLAG_ACTIVITY_NEW_TASK est OBLIGATOIRE : ce manager tourne sur le
      *  contexte application (pas une Activity) — sans ce flag, le clic
-     *  « Autoriser » plante l'app (AndroidRuntimeException, constatÃ©). */
+     *  « Autoriser » plante l'app (AndroidRuntimeException, constaté). */
     fun openInstallPermissionSettings() {
         context.startActivity(
             Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
@@ -153,15 +153,15 @@ class UpdateManager(private val context: Context) {
         )
     }
 
-    /** DÃ©clenche l'installation en ARRIÃˆRE-PLAN de l'APK tÃ©lÃ©chargÃ©
-     *  (PackageInstaller session API) : pas d'Ã©cran systÃ¨me, l'app reste
-     *  affichÃ©e avec la barre de progression (0â†’1 pendant l'Ã©criture).
+    /** Déclenche l'installation en ARRIÈRE-PLAN de l'APK téléchargé
+     *  (PackageInstaller session API) : pas d'écran système, l'app reste
+     *  affichée avec la barre de progression (0→1 pendant l'écriture).
      *
-     *  Le commit fait tuer le process Ã  la fin de l'installation ; le
+     *  Le commit fait tuer le process à la fin de l'installation ; le
      *  receiver UpdateReceiver (MY_PACKAGE_REPLACED) relance alors
-     *  MainActivity automatiquement — reboot de l'app faÃ§on Netflix.
-     *  En cas d'Ã©chec silencieux du commit, le timeout de l'overlay
-     *  ramÃ¨ne l'application Ã  son Ã©tat normal.
+     *  MainActivity automatiquement — reboot de l'app façon Netflix.
+     *  En cas d'échec silencieux du commit, le timeout de l'overlay
+     *  ramène l'application à son état normal.
      */
     fun installInBackground(file: File, onProgress: (Float) -> Unit) {
         val installer = context.packageManager.packageInstaller
@@ -244,7 +244,7 @@ class UpdateManager(private val context: Context) {
         )
     }
 
-    /** Compare "v1.16.19" vs "1.16.18" â€” la plus haute gagne. */
+    /** Compare "v1.16.19" vs "1.16.18" — la plus haute gagne. */
     private fun isNewerVersion(tag: String, current: String): Boolean {
         val a = parseVersion(tag)
         val b = parseVersion(current)

@@ -40,6 +40,7 @@ import androidx.tv.foundation.lazy.list.itemsIndexed
 import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
@@ -56,6 +57,12 @@ import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizCyan
 import com.movviz.tv.ui.theme.MovvizDown
+import com.movviz.tv.ui.theme.MovvizIconCheck
+import com.movviz.tv.ui.theme.MovvizIconDownload
+import com.movviz.tv.ui.theme.MovvizIconPlay
+import com.movviz.tv.ui.theme.MovvizIconPlus
+import com.movviz.tv.ui.theme.MovvizIconReplay
+import com.movviz.tv.ui.theme.MovvizIconStar
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
@@ -63,6 +70,7 @@ import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -462,7 +470,7 @@ fun TitleDetailScreen(
                 Spacer(modifier = Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (inLibrary) StatusBadge("Dans la bibliothèque", MovvizOk)
-                    if (movieWatched) StatusBadge("✓ Vu", MovvizCyan)
+                    if (movieWatched) StatusBadge("Vu", MovvizCyan, icon = MovvizIconCheck)
                 }
             }
 
@@ -480,9 +488,15 @@ fun TitleDetailScreen(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Icon(
+                    imageVector = MovvizIconStar,
+                    contentDescription = null,
+                    tint = Color(0xFFF5C144),
+                    modifier = Modifier.size(14.dp),
+                )
                 Text(
-                    text = "★ ${"%.1f".format(d.rating)}",
+                    text = "%.1f".format(d.rating),
                     style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C144)),
                 )
                 MetaSep()
@@ -552,22 +566,23 @@ fun TitleDetailScreen(
                     Row {
                         val plexKey = plexRatingKey
                         if (plexKey != null) {
-                            val ctaText = if (movieResume != null) "▶  Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "▶  Lire"
-                            PrimaryPill(text = ctaText, brush = null, solidWhite = true, focusRequester = initialFocusRequester) {
+                            val ctaText = if (movieResume != null) "Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "Lire"
+                            PrimaryPill(text = ctaText, brush = null, solidWhite = true, icon = MovvizIconPlay, focusRequester = initialFocusRequester) {
                                 onPlay(d.title, listOf(QueueItem(plexKey, null, -1, -1)), 0, d.posterPath)
                             }
                             if (movieResume != null) {
                                 Spacer(modifier = Modifier.width(12.dp))
-                                PrimaryPill(text = "↻  Lire depuis le début", brush = null, solidWhite = false) {
+                                PrimaryPill(text = "Lire depuis le début", brush = null, solidWhite = false, icon = MovvizIconReplay) {
                                     onPlayFromStart(d.title, listOf(QueueItem(plexKey, null, -1, -1)), 0, d.posterPath)
                                 }
                             }
                         } else if (!inLibrary) {
                             PrimaryPill(
-                                text = if (addingToLibrary) "Ajout…" else "+  Ajouter à la bibliothèque",
+                                text = if (addingToLibrary) "Ajout…" else "Ajouter à la bibliothèque",
                                 brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
                                 solidWhite = false,
                                 enabled = !addingToLibrary,
+                                icon = if (addingToLibrary) null else MovvizIconPlus,
                                 focusRequester = initialFocusRequester,
                             ) {
                                 scope.launch {
@@ -652,9 +667,10 @@ fun TitleDetailScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                     Row {
                         PrimaryPill(
-                            text = "▶  Reprendre à ${formatResumeTime(episodeResume.offsetMs)}",
+                            text = "Reprendre à ${formatResumeTime(episodeResume.offsetMs)}",
                             brush = null,
                             solidWhite = true,
+                            icon = MovvizIconPlay,
                             focusRequester = initialFocusRequester,
                         ) {
                             val index = playableEpisodes.indexOfFirst {
@@ -879,10 +895,11 @@ private fun SeasonEpisodeList(
             val hasReadyEpisode = season.episodes.any { it.plexRatingKey != null && it.status == "available" }
             if (!hasReadyEpisode) {
                 PrimaryPill(
-                    text = if (downloading) "Recherche…" else "↓  Télécharger la saison",
+                    text = if (downloading) "Recherche…" else "Télécharger la saison",
                     brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
                     solidWhite = false,
                     enabled = !downloading,
+                    icon = if (downloading) null else MovvizIconDownload,
                     onClick = onDownloadSeason,
                 )
             }
@@ -956,9 +973,14 @@ private fun EpisodeCard(episode: SeriesEpisodeDto, metadata: MetadataEpisodeDto?
                 .align(Alignment.TopEnd)
                 .padding(4.dp)
                 .background(MovvizCyan.copy(alpha = 0.9f), androidx.compose.foundation.shape.CircleShape)
-                .padding(horizontal = 4.dp, vertical = 2.dp),
+                .padding(3.dp),
         ) {
-            Text(text = "✓", style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White))
+            Icon(
+                imageVector = MovvizIconCheck,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(9.dp),
+            )
         }
     }
     }
@@ -990,14 +1012,19 @@ private fun FileTechInfoRow(file: com.movviz.tv.data.LibraryFileDto) {
 private fun metaStyle() = TextStyle(fontSize = 14.sp, color = MovvizInkSoft)
 
 @Composable
-private fun StatusBadge(text: String, tone: Color) {
+private fun StatusBadge(text: String, tone: Color, icon: ImageVector? = null) {
     Box(
         modifier = Modifier
             .background(tone.copy(alpha = 0.12f), RoundedCornerShape(50))
             .border(1.dp, tone.copy(alpha = 0.25f), RoundedCornerShape(50))
             .padding(horizontal = 12.dp, vertical = 4.dp),
     ) {
-        Text(text = text, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = tone))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            if (icon != null) {
+                Icon(imageVector = icon, contentDescription = null, tint = tone, modifier = Modifier.size(11.dp))
+            }
+            Text(text = text, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = tone))
+        }
     }
 }
 
@@ -1060,13 +1087,14 @@ private fun EpisodeDetailOverlay(
                 Spacer(modifier = Modifier.height(24.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     if (available) {
-                        PrimaryPill(text = "▶  Lire l'épisode", brush = null, solidWhite = true, focusRequester = primaryActionFocus, onClick = onPlay)
+                        PrimaryPill(text = "Lire l'épisode", brush = null, solidWhite = true, icon = MovvizIconPlay, focusRequester = primaryActionFocus, onClick = onPlay)
                     } else {
                         PrimaryPill(
-                            text = if (downloading) "Recherche…" else "↓  Télécharger la saison",
+                            text = if (downloading) "Recherche…" else "Télécharger la saison",
                             brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
                             solidWhite = false,
                             enabled = !downloading,
+                            icon = if (downloading) null else MovvizIconDownload,
                             focusRequester = primaryActionFocus,
                             onClick = onDownloadSeason,
                         )
@@ -1093,6 +1121,7 @@ private fun PrimaryPill(
     brush: Brush?,
     solidWhite: Boolean,
     enabled: Boolean = true,
+    icon: ImageVector? = null,
     focusRequester: FocusRequester? = null,
     onClick: () -> Unit,
 ) {
@@ -1127,11 +1156,22 @@ private fun PrimaryPill(
             ),
         ),
     ) {
-        Text(
-            text = text,
-            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.padding(horizontal = 22.dp, vertical = 14.dp),
-        )
+        ) {
+            if (icon != null) {
+                // Sans tint explicite : Icon hérite de LocalContentColor de la
+                // Surface (noir sur pilule blanche, encre sinon) — le vecteur
+                // est entièrement recoloré par le tint.
+                Icon(imageVector = icon, contentDescription = null, modifier = Modifier.size(16.dp))
+            }
+            Text(
+                text = text,
+                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold),
+            )
+        }
     }
 }
 

@@ -2,15 +2,20 @@ package com.movviz.tv.ui.theme
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 
 /**
@@ -49,14 +54,26 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
     )
 }
 
-/** Rating badge — dark glass with gold star, Netflix-style. */
+/** Rating badge — dark glass with gold star, Netflix-style. Icône
+ *  vectorielle : le glyphe ★ n'existe pas dans Inter (rendu cassé TV). */
 @Composable
 fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
-    Text(
-        text = "★ ${"%.1f".format(rating)}",
-        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)),
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(3.dp),
         modifier = modifier
             .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
             .padding(horizontal = 6.dp, vertical = 2.dp),
-    )
+    ) {
+        Icon(
+            imageVector = MovvizIconStar,
+            contentDescription = null,
+            tint = Color(0xFFF5C542),
+            modifier = Modifier.size(11.dp),
+        )
+        Text(
+            text = "%.1f".format(rating),
+            style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)),
+        )
+    }
 }

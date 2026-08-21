@@ -1,4 +1,4 @@
-﻿package com.movviz.tv.ui.home
+package com.movviz.tv.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -22,6 +23,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.SurfaceDefaults
 import androidx.tv.material3.Text
@@ -38,10 +41,14 @@ import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.AnimatedLogo
+import com.movviz.tv.ui.theme.MovvizIconDotCircle
+import com.movviz.tv.ui.theme.MovvizIconPlus
+import com.movviz.tv.ui.theme.MovvizIconSwap
 import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.theme.tvPointerClick
 import com.movviz.tv.data.TvProfile
 import coil.compose.AsyncImage
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.IntOffset
@@ -88,31 +95,36 @@ fun NavRail(
     modifier: Modifier = Modifier,
 ) {
     // flèche bas depuis N'IMPORTE quel item de cette barre (onglet, bouton
-    // recherche, avatar profil) → contentFocusRequester en priorité, repli
-    // sur fallbackFocusRequester si le premier échoue. onKeyEvent (pas
-    // focusProperties, déclaratif et sans possibilité d'intercepter un
-    // échec) : Compose ne descend jamais dans le contenu depuis la nav par
-    // défaut (nav et contenu sont deux frères superposés dans un Box,
-    // zIndex(1f) ne joue que sur le dessin), et une cible non attachée
-    // plante si rien n'entoure la tentative de runCatching — constaté en
-    // direct sur vraie TV dans les deux sens (aucun effet, puis fermeture
-    // de l'appli une fois qu'une redirection directe mais non protégée a
-    // été tentée). Chaque tentative est protégée individuellement.
-    // onPreviewKeyEvent (pas onKeyEvent) : la touche BAS doit être
-    // interceptée AVANT que les Surface/TopNavItem enfants ne la
-    // consomment pour la navigation interne. Sans ceci, l'enfant focusé
-    // peut avaler DOWN avant que le Row ne le voie — constaté en direct
-    // sur TV quand la NavRail a le focus et que BAS ne descendait pas
-    // dans le contenu.
+    // recherche, avatar profil) → 3 niveaux, du plus précis au plus robuste :
+    //   1. contentFocusRequester : le premier élément RÉEL de l'écran courant
+    //      (hero CTA, première carte, premier réglage…).
+    //   2. moveFocus(Down) : repli GÉOMÉTRIQUE — l'élément focusable le plus
+    //      proche sous la barre. Fonctionne même quand la cible n°1 n'est pas
+    //      encore composée (écran en chargement, changement d'onglet) —
+    //      c'était LE trou : avant, on sautait direct sur l'ancre invisible,
+    //      l'utilisateur ne voyait RIEN bouger (« DOWN ne redescend plus »,
+    //      constaté en direct sur Google TV).
+    //   3. fallbackFocusRequester : ancre toujours attachée (MovvizNavHost),
+    //      désormais dessinée quand elle prend le focus pour ne jamais
+    //      ressembler à un écran gelé.
+    // onPreviewKeyEvent (pas onKeyEvent ni focusProperties déclaratif) : la
+    // touche BAS doit être interceptée AVANT que les Surface/TopNavItem
+    // enfants ne la consomment, et chaque tentative doit pouvoir intercepter
+    // un échec individuellement (une cible non attachée lève une exception).
+    val focusManager = LocalFocusManager.current
     val navDownKeyHandler = Modifier.onPreviewKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown) return@onPreviewKeyEvent false
-        // requestFocus() returns Boolean in Compose 1.5+ (BOM 2024.12.01) —
-        // check the actual return value, NOT .isSuccess which is always true
-        // since the call no longer throws. Without this, the DOWN event is
-        // consumed but focus never moves, leaving the user stuck on the NavRail.
-        val moved = contentFocusRequester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
-        if (moved) true
-        else fallbackFocusRequester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
+        // requestFocus() retourne VOID en compose-ui 1.7.6 (vérifié au
+        // javap) — l'ancien commentaire « returns Boolean » était FAUX et
+        // l'ancien pattern .getOrDefault(false) produisait Result<Unit>,
+        // donc (Unit == true) = TOUJOURS faux : le repli se déclenchait
+        // même quand la cible n°1 avait réussi. Le vrai test de succès est
+        // .isSuccess : requestFocus() LÈVE IllegalStateException quand le
+        // requester n'est attaché à aucun noeud composé.
+        val moved = contentFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
+        if (moved) return@onPreviewKeyEvent true
+        if (focusManager.moveFocus(FocusDirection.Down)) return@onPreviewKeyEvent true
+        fallbackFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -232,9 +244,10 @@ private fun ProfileMenuButton(
                 // contenu du Popup est recomposé de zéro à chaque fois).
                 LaunchedEffect(open) {
                     repeat(10) { attempt ->
-                        // requestFocus() returns Boolean in Compose 1.5+ —
-                        // check actual return value, not isSuccess (always true).
-                        // Retry until the node is attached and focus is granted.
+                        // requestFocus() retourne void — le succès se teste
+                        // par l'ABSENCE d'exception (IllegalStateException si
+                        // le noeud n'est pas encore attaché). Retry jusqu'à
+                        // ce que le focus soit réellement accordé.
                         val granted = try { firstItemFocus.requestFocus(); true } catch (_: Exception) { false }
                         if (granted) return@LaunchedEffect
                         if (attempt < 9) withFrameNanos { }
@@ -270,14 +283,14 @@ private fun ProfileMenuButton(
                         }
                         Spacer(Modifier.height(6.dp))
                         MenuItem(
-                            leading = "◉",
+                            leadingIcon = MovvizIconDotCircle,
                             label = "Mon profil",
                             focusRequester = firstItemFocus,
                             onClick = { open = false; onSwitch() },
                         )
                         Spacer(Modifier.height(6.dp))
                         MenuItem(
-                            leading = "⇄",
+                            leadingIcon = MovvizIconSwap,
                             label = "Changer d'utilisateur",
                             onClick = { open = false; onSwitch() },
                         )
@@ -294,7 +307,7 @@ private fun ProfileMenuButton(
                             }
                             Spacer(Modifier.height(4.dp))
                             MenuItem(
-                                leading = "+",
+                                leadingIcon = MovvizIconPlus,
                                 label = "Ajouter un utilisateur",
                                 accent = true,
                                 onClick = { open = false; onAdd() },
@@ -315,6 +328,7 @@ private fun MenuItem(
     label: String,
     onClick: () -> Unit,
     leading: String? = null,
+    leadingIcon: ImageVector? = null,
     avatar: TvProfile? = null,
     accent: Boolean = false,
     focusRequester: FocusRequester? = null,
@@ -347,6 +361,16 @@ private fun MenuItem(
                     else Text(avatar.name.take(2).uppercase(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.width(10.dp))
+            } else if (leadingIcon != null) {
+                // Icône vectorielle (MovvizIcons) — les glyphes Unicode ◉ ⇄
+                // n'existent pas dans Inter et rendaient en carrés sur TV.
+                Icon(
+                    imageVector = leadingIcon,
+                    contentDescription = null,
+                    tint = if (accent) MovvizBrand2 else Color.White,
+                    modifier = Modifier.size(16.dp).let { it },
+                )
+                Spacer(Modifier.width(8.dp))
             } else if (leading != null) {
                 Text(leading, color = if (accent) MovvizBrand2 else Color.White, fontSize = 15.sp, modifier = Modifier.width(22.dp))
             }
@@ -397,7 +421,7 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                     // "Recherche" fait pareil et referme le clavier.
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = {
-                        val moved = downFocus?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
+                        val moved = downFocus?.let { runCatching { it.requestFocus() }.isSuccess } == true
                         if (!moved) runCatching { fallbackFocus?.requestFocus() }
                         keyboardController?.hide()
                     }),
@@ -406,9 +430,9 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                         .focusRequester(inputRequester)
                         .onPreviewKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
-                                val moved = downFocus?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
+                                val moved = downFocus?.let { runCatching { it.requestFocus() }.isSuccess } == true
                                 if (moved) true
-                                else fallbackFocus?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
+                                else fallbackFocus?.let { runCatching { it.requestFocus() }.isSuccess } == true
                             } else {
                                 false
                             }

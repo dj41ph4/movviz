@@ -4,6 +4,28 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.66 — August 2026
+
+### Android TV : réparation UTF-8 massive, icônes vectorielles, symétrie D-pad
+
+#### UTF-8 / mojibake (LE bug des accents et symboles cassés)
+- **510 séquences mojibake réparées** (UTF-8 réinterprété CP1252 puis ré-encodé) : "Ã©cran" → "écran", "â˜…" → ★, "TÃ©lÃ©chargement" → "Téléchargement", "Â·" → "·"… dans HomeScreen.kt, CatalogScreen.kt et UpdateManager.kt.
+- Cause racine : écritures fichiers en Get-Content/Set-Content sans encodage explicite lors de sessions précédentes.
+
+#### Icônes vectorielles (fin des carrés vides sur Google TV)
+- Nouveau `MovvizIcons.kt` : 13 icônes dessinées à la main en ImageVector (play, pause, skip prev/next, rewind/forward, note musicale, coche, étoile, plus, télécharger, swap, dot-circle, replay) — les glyphes Unicode ▶ ❚❚ ⏮ ⏭ ♪ ★ ✓ ↓ ⇄ ◉ ↻ n'existent pas dans Inter et rendaient en fallback système/carrés.
+- Remplacés partout : contrôles lecteur (PlayerActivity), CTA fiche titre ("Lire", "Reprendre", "Télécharger la saison", "Ajouter"), badges note étoilée (RatingBadge, fiche titre), pastille "Vu", coche épisode vu, menu profil NavRail, bouton Plex du login.
+- `ControlButton` accepte désormais icône vectorielle ou libellé texte ("CC").
+
+#### Navigation D-pad — symétrie UP/DOWN
+- **Fix « UP remonte mais DOWN ne redescend plus »** : l'ancien handler consommait TOUS les UP depuis n'importe quelle profondeur → impossible de monter d'une rangée à l'autre, chaque HAUT sautait dans la barre de nav.
+- MainScreen/fiches titre/acteur : UP tente d'abord `moveFocus(Up)` (montée interne rangée N−1), bascule sur l'onglet actif de la NavRail seulement en haut de contenu.
+- NavRail : DOWN essaie la cible précise, puis repli géométrique `moveFocus(Down)` (fonctionne même écran en chargement), puis ancre de secours.
+- Ancre de repli hoistée au niveau NavHost (existait seulement sur home — flèche bas morte pendant le chargement d'une fiche), désormais **dessinée** quand elle prend le focus (petit point blanc) pour ne jamais ressembler à un écran gelé.
+- **Correction du pattern `.getOrDefault(false)` sur `requestFocus()`** : la méthode retourne void en compose-ui 1.7.6 (vérifié au javap), le test de succès réel est `.isSuccess` — l'ancien code évaluait `(Unit == true)` = toujours faux.
+
+---
+
 ## v1.16.65 — August 2026
 
 ### Android TV : bump version pour build de test

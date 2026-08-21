@@ -89,6 +89,14 @@ import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizDown
+import com.movviz.tv.ui.theme.MovvizIconCheck
+import com.movviz.tv.ui.theme.MovvizIconForward
+import com.movviz.tv.ui.theme.MovvizIconMusicNote
+import com.movviz.tv.ui.theme.MovvizIconPause
+import com.movviz.tv.ui.theme.MovvizIconPlay
+import com.movviz.tv.ui.theme.MovvizIconRewind
+import com.movviz.tv.ui.theme.MovvizIconSkipNext
+import com.movviz.tv.ui.theme.MovvizIconSkipPrev
 import com.movviz.tv.ui.theme.MovvizInk
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
@@ -96,6 +104,8 @@ import com.movviz.tv.ui.theme.MovvizSurface
 import com.movviz.tv.ui.theme.MovvizTvTheme
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.tv.material3.Icon
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -1374,19 +1384,19 @@ private fun ControlsOverlay(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             if (hasPrev) {
-                ControlButton(glyph = "⏮", contentDescription = "Épisode précédent", onClick = onPrevEpisode)
+                ControlButton(icon = MovvizIconSkipPrev, contentDescription = "Épisode précédent", onClick = onPrevEpisode)
             }
-            ControlButton(glyph = "◀◀", contentDescription = "Reculer de 10 secondes", onClick = onSeekBack)
+            ControlButton(icon = MovvizIconRewind, contentDescription = "Reculer de 10 secondes", onClick = onSeekBack)
             ControlButton(
-                glyph = if (isPlaying) "❚❚" else "▶",
+                icon = if (isPlaying) MovvizIconPause else MovvizIconPlay,
                 contentDescription = if (isPlaying) "Pause" else "Lecture",
                 onClick = onPlayPause,
                 primary = true,
                 focusRequester = playPauseFocus,
             )
-            ControlButton(glyph = "▶▶", contentDescription = "Avancer de 10 secondes", onClick = onSeekForward)
+            ControlButton(icon = MovvizIconForward, contentDescription = "Avancer de 10 secondes", onClick = onSeekForward)
             if (hasNext) {
-                ControlButton(glyph = "⏭", contentDescription = "Épisode suivant", onClick = onNextEpisode)
+                ControlButton(icon = MovvizIconSkipNext, contentDescription = "Épisode suivant", onClick = onNextEpisode)
             }
         }
 
@@ -1401,20 +1411,22 @@ private fun ControlsOverlay(
             PlayerProgressBar(player = player)
             Spacer(modifier = Modifier.height(14.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                ControlButton(glyph = "♪", contentDescription = "Piste audio", onClick = onOpenAudio, small = true)
+                ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true)
                 Spacer(modifier = Modifier.width(12.dp))
-                ControlButton(glyph = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true)
+                ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true)
             }
         }
     }
 }
 
-/** Bouton rond de contrôle du lecteur — glyphe texte plutôt qu'une police
- *  d'icônes (le projet n'embarque pas material-icons-extended, voir les
- *  autres écrans qui utilisent déjà des glyphes texte comme "▶"/"★"). */
+/** Bouton rond de contrôle du lecteur — icône vectorielle (MovvizIcons.kt)
+ *  ou libellé texte court ("CC") : les glyphes Unicode (▶ ❚❚ ⏮ ♪) ne
+ *  existent pas dans Inter et rendaient en carrés/fallback système sur
+ *  Google TV. */
 @Composable
 private fun ControlButton(
-    glyph: String,
+    icon: ImageVector? = null,
+    label: String? = null,
     contentDescription: String,
     onClick: () -> Unit,
     primary: Boolean = false,
@@ -1448,14 +1460,24 @@ private fun ControlButton(
         ),
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
-            Text(
-                text = glyph,
-                style = TextStyle(
-                    fontSize = if (small) 13.sp else if (primary) 22.sp else 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (primary) Color.Black else Color.White,
-                ),
-            )
+            val tint = if (primary) Color.Black else Color.White
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = contentDescription,
+                    tint = tint,
+                    modifier = Modifier.size(if (small) 18.dp else if (primary) 28.dp else 24.dp),
+                )
+            } else {
+                Text(
+                    text = label ?: "",
+                    style = TextStyle(
+                        fontSize = if (small) 13.sp else if (primary) 22.sp else 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = tint,
+                    ),
+                )
+            }
         }
     }
 }
@@ -1564,9 +1586,11 @@ private fun NextEpisodeTeaser(
                     )
                 }
             }
-            Text(
-                text = "⏭",
-                style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Color.White),
+            Icon(
+                imageVector = MovvizIconSkipNext,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(28.dp),
             )
         }
     }
@@ -1666,9 +1690,11 @@ private fun TrackRow(label: String, selected: Boolean, focusRequester: FocusRequ
         ) {
             Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MovvizInk)
             if (selected) {
-                Text(
-                    text = "✓",
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = MovvizBrand),
+                Icon(
+                    imageVector = MovvizIconCheck,
+                    contentDescription = null,
+                    tint = MovvizBrand,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
