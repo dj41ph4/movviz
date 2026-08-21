@@ -1,4 +1,4 @@
-package com.movviz.tv.ui.home
+﻿package com.movviz.tv.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -106,9 +106,13 @@ fun NavRail(
     // dans le contenu.
     val navDownKeyHandler = Modifier.onPreviewKeyEvent { event ->
         if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown) return@onPreviewKeyEvent false
-        val moved = contentFocusRequester != null && runCatching { contentFocusRequester.requestFocus() }.isSuccess
+        // requestFocus() returns Boolean in Compose 1.5+ (BOM 2024.12.01) —
+        // check the actual return value, NOT .isSuccess which is always true
+        // since the call no longer throws. Without this, the DOWN event is
+        // consumed but focus never moves, leaving the user stuck on the NavRail.
+        val moved = contentFocusRequester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
         if (moved) true
-        else fallbackFocusRequester != null && runCatching { fallbackFocusRequester.requestFocus() }.isSuccess
+        else fallbackFocusRequester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
     }
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -119,8 +123,8 @@ fun NavRail(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        Color(0xFF090911).copy(alpha = 0.66f),
-                        Color(0xFF090911).copy(alpha = 0.08f),
+                        Color.Black.copy(alpha = 0.66f),
+                        Color.Black.copy(alpha = 0.08f),
                     ),
                 ),
             )
@@ -228,12 +232,10 @@ private fun ProfileMenuButton(
                 // contenu du Popup est recomposé de zéro à chaque fois).
                 LaunchedEffect(open) {
                     repeat(10) { attempt ->
-                        // requestFocus() renvoie Unit en Compose 1.7 et lève
-                        // IllegalStateException si le noeud n'est pas encore
-                        // attaché : on retente donc tant que la demande
-                        // échoue, pour couvrir l'attachement décalé d'une
-                        // frame de la fenêtre popup.
-                        val granted = runCatching { firstItemFocus.requestFocus() }.isSuccess
+                        // requestFocus() returns Boolean in Compose 1.5+ —
+                        // check actual return value, not isSuccess (always true).
+                        // Retry until the node is attached and focus is granted.
+                        val granted = try { firstItemFocus.requestFocus(); true } catch (_: Exception) { false }
                         if (granted) return@LaunchedEffect
                         if (attempt < 9) withFrameNanos { }
                     }
@@ -247,7 +249,7 @@ private fun ProfileMenuButton(
                 Surface(
                     modifier = Modifier.width(300.dp),
                     shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
-                    colors = SurfaceDefaults.colors(containerColor = Color(0xFF16161C)),
+                    colors = SurfaceDefaults.colors(containerColor = Color(0xFF141414)),
                     border = Border(
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
@@ -395,7 +397,7 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                     // "Recherche" fait pareil et referme le clavier.
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = {
-                        val moved = downFocus != null && runCatching { downFocus.requestFocus() }.isSuccess
+                        val moved = downFocus?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
                         if (!moved) runCatching { fallbackFocus?.requestFocus() }
                         keyboardController?.hide()
                     }),
@@ -404,12 +406,9 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                         .focusRequester(inputRequester)
                         .onPreviewKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
-                                // Résultats pas encore composés (downFocus non
-                                // attaché) → repli sur l'ancre toujours sûre
-                                // plutôt que de laisser la touche dans le vide.
-                                val moved = downFocus != null && runCatching { downFocus.requestFocus() }.isSuccess
+                                val moved = downFocus?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
                                 if (moved) true
-                                else fallbackFocus != null && runCatching { fallbackFocus.requestFocus() }.isSuccess
+                                else fallbackFocus?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
                             } else {
                                 false
                             }

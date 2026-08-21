@@ -81,6 +81,7 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import android.graphics.Typeface
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import com.movviz.tv.data.ApiResult
@@ -891,10 +892,12 @@ LaunchedEffect(current.ratingKey) {
 
                     // Sous-titres lisibles à distance sur un téléviseur : la
                     // taille par défaut de SubtitleView vise un écran tenu en
-                    // main, trop petite vue du canapé. Contour noir épais
-                    // (fonctionne aussi bien sur fond clair que sombre, pas
-                    // besoin d'un fond plein qui masquerait l'image) + police
-                    // agrandie. S'applique à tout type de piste texte rendue
+                    // main, trop petite vue du canapé. Ombre portée noire
+                    // semi-transparente (EDGE_TYPE_DROP_SHADOW) au lieu d'un
+                    // simple contour : diffuse mieux sur fond clair (scènes
+                    // enneigées, ciel) tout en restant discret sur fond sombre.
+                    // Police en gras (DEFAULT_BOLD) pour renforcer la
+                    // lisibilité. S'applique à tout type de piste texte rendue
                     // par ExoPlayer (SRT/ASS/PGS une fois décodée en bitmap —
                     // PGS est nativement supporté par media3-exoplayer, pas
                     // besoin d'extension séparée).
@@ -905,12 +908,12 @@ LaunchedEffect(current.ratingKey) {
                             android.graphics.Color.WHITE,
                             android.graphics.Color.TRANSPARENT,
                             android.graphics.Color.TRANSPARENT,
-                            CaptionStyleCompat.EDGE_TYPE_OUTLINE,
-                            android.graphics.Color.BLACK,
-                            null,
+                            CaptionStyleCompat.EDGE_TYPE_DROP_SHADOW,
+                            android.graphics.Color.argb(200, 0, 0, 0),
+                            Typeface.DEFAULT_BOLD,
                         ),
                     )
-                    subtitleView?.setFractionalTextSize(0.06f)
+                    subtitleView?.setFractionalTextSize(0.07f)
                     subtitleView?.setBottomPaddingFraction(0.12f)
                 }
             },

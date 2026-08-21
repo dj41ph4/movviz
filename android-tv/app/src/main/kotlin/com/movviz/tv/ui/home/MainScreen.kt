@@ -60,15 +60,9 @@ fun MainScreen(
 ) {
     Box(
         modifier = Modifier.fillMaxSize()
-            // HAUT depuis le contenu → NavRail : interception en phase
-            // principale (onKeyEvent, pas onPreviewKeyEvent) — le handler
-            // ne se déclenche QUE si aucun enfant n'a consommé la touche
-            // HAUT (ex: un LazyColumn en première rangée), ce qui
-            // correspond exactement au cas où le focus ne peut plus monter
-            // dans le contenu et doit rejoindre la barre de navigation.
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                    navRailFocusRequester != null && runCatching { navRailFocusRequester.requestFocus() }.isSuccess
+                    navRailFocusRequester?.let { runCatching { it.requestFocus() }.getOrDefault(false) } == true
                 } else false
             },
         // Jamais de padding top ici, sur AUCUN écran : un padding poussait

@@ -42,50 +42,40 @@ fun Modifier.tvPointerClick(onClick: () -> Unit): Modifier =
     }
 
 /**
- * "Lift" façon Apple TV : une carte au focus ne fait pas que grossir, elle
- * se détache visuellement de la grille avec une ombre portée douce en
- * dessous — c'est cette ombre (pas le scale seul) qui donne l'impression de
- * profondeur/qualité. `scale()` seul (ce que faisait chaque carte TV avant)
- * ne produit qu'un zoom plat, sans lecture de profondeur. Spring plutôt
- * qu'un tween linéaire pour le petit rebond naturel du lift, même sensation
- * que les grilles tvOS.
+ * "Lift" Netflix-style : la carte au focus se détache visuellement avec un
+ * scale + ombre profonde portée. Netflix utilise un lift discret mais net :
+ * la carte s'agrandit légèrement (1.06x) avec une ombre diffuse noire — pas
+ * de bordure colorée, pas de scale agressif. Le rebond spring est adouci
+ * pour un mouvement naturel à la télécommande.
  */
 @Composable
 fun Modifier.tvFocusLift(
     focused: Boolean,
-    shape: Shape = RoundedCornerShape(10.dp),
-    maxScale: Float = 1.08f,
+    shape: Shape = RoundedCornerShape(8.dp),
+    maxScale: Float = 1.06f,
     maxElevation: androidx.compose.ui.unit.Dp = 24.dp,
 ): Modifier {
     val scale by animateFloatAsState(
         targetValue = if (focused) maxScale else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "tvFocusLiftScale",
     )
     val elevation by animateDpAsState(
         targetValue = if (focused) maxElevation else 0.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
         label = "tvFocusLiftElevation",
     )
-    // graphicsLayer (pas .scale(scale)) : .scale() avec une valeur lue
-    // depuis un State (animateFloatAsState) recompose le composable appelant
-    // — Surface/PosterCard entière, tv-material3 compris — à chaque frame de
-    // l'animation spring, sur CHAQUE carte focusable de l'app (usage quasi
-    // partout). graphicsLayer{} lit le State en phase de dessin uniquement,
-    // sans recomposition ; seule la carte réellement focusée anime, les
-    // autres restent à elevation 0 sans repasser par la composition.
     return this
         .graphicsLayer { scaleX = scale; scaleY = scale }
         .shadow(elevation = elevation, shape = shape, ambientColor = androidx.compose.ui.graphics.Color.Black, spotColor = androidx.compose.ui.graphics.Color.Black)
 }
 
 /**
- * Forme unique des cartes de contenu (posters, épisodes, fiches) — un seul
- * rayon pour toute l'app, comme Netflix qui utilise le même radius sur tous
- * ses artwork. Ajuster ici propage partout ; ne JAMAIS mettre un rayon ad
- * hoc dans un écran.
+ * Forme unique des cartes Netflix — coins arrondis doux (8dp), identiques
+ * à la couche de contenu Netflix. Ajuster ici propage partout ; ne JAMAIS
+ * mettre un rayon ad hoc dans un écran.
  */
-val MovvizCardShape = RoundedCornerShape(12.dp)
+val MovvizCardShape = RoundedCornerShape(8.dp)
 
 /**
  * Famille Inter (la direction typographique de Netflix et de la plupart des
@@ -102,39 +92,40 @@ val MovvizFonts = FontFamily(
 )
 
 private val MovvizTypography = Typography(
-    // Titre d'une fiche / écran entier
+    // Hero / page title — large, bold, Netflix display style
     displayLarge = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 40.sp, fontWeight = FontWeight.ExtraBold,
-        letterSpacing = (-0.5).sp, lineHeight = 46.sp,
+        fontFamily = MovvizFonts, fontSize = 44.sp, fontWeight = FontWeight.ExtraBold,
+        letterSpacing = (-0.5).sp, lineHeight = 50.sp,
     ),
-    // Titre de section (à la une, rangées principales)
+    // Section header (hero subtitle, row headers)
     headlineMedium = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 24.sp, fontWeight = FontWeight.Bold,
+        fontFamily = MovvizFonts, fontSize = 26.sp, fontWeight = FontWeight.Bold,
+        letterSpacing = (-0.3).sp,
+    ),
+    // Row heading — large white bold, Netflix-style category label
+    titleLarge = TextStyle(
+        fontFamily = MovvizFonts, fontSize = 22.sp, fontWeight = FontWeight.Bold,
         letterSpacing = (-0.2).sp,
     ),
-    // Titre de rangée (catégorie au-dessus d'une LazyRow)
-    titleLarge = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 20.sp, fontWeight = FontWeight.SemiBold,
-    ),
-    // Titre de carte / bouton
+    // Card title
     titleMedium = TextStyle(
-        fontFamily = MovvizFonts, fontSize = 16.sp, fontWeight = FontWeight.Medium,
+        fontFamily = MovvizFonts, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
     ),
-    // Synopsis / corps de texte
+    // Synopsis / body text
     bodyLarge = TextStyle(
         fontFamily = MovvizFonts, fontSize = 16.sp, fontWeight = FontWeight.Normal,
         lineHeight = 24.sp,
     ),
-    // Métadonnées secondaires
+    // Secondary text, metadata
     bodyMedium = TextStyle(
         fontFamily = MovvizFonts, fontSize = 14.sp, fontWeight = FontWeight.Normal,
         lineHeight = 20.sp,
     ),
-    // Libellés de boutons, badges
+    // Button labels, badges
     labelLarge = TextStyle(
         fontFamily = MovvizFonts, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
     ),
-    // Métadonnées fines (année, durée, résolution)
+    // Fine metadata (year, duration, resolution)
     labelSmall = TextStyle(
         fontFamily = MovvizFonts, fontSize = 12.sp, fontWeight = FontWeight.Medium,
     ),

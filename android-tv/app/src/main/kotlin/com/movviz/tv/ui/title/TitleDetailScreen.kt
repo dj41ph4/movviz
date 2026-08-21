@@ -129,12 +129,18 @@ fun TitleDetailScreen(
     var selectedSeasonNumber by remember(type, tmdbId) { mutableStateOf<Int?>(null) }
     var selectedEpisode by remember(type, tmdbId) { mutableStateOf<EpisodeSelection?>(null) }
 
-    val inLibrary = viewModel.isInLibrary(type, tmdbId)
+    val movies by viewModel.movies.collectAsState()
+    val series by viewModel.series.collectAsState()
+    val inLibrary by remember(type, tmdbId, movies, series) {
+        derivedStateOf {
+            if (type == "movie") movies.any { it.tmdbId == tmdbId }
+            else series.any { it.tmdbId == tmdbId }
+        }
+    }
 
     LaunchedEffect(type, tmdbId) {
         viewModel.loadDetail(type, tmdbId)
         viewModel.loadHeroLogo(type, tmdbId)
-        if (type == "series" && inLibrary) viewModel.loadSeriesSeasons(tmdbId)
         // On-deck chargé pour les DEUX types : le libellé « S1 · Ép 3 — titre »
         // + le CTA « Reprendre » d'une série en cours dépendent de
         // continueWatching (il n'était chargé que pour les films — une série
@@ -158,7 +164,17 @@ fun TitleDetailScreen(
         }
     }
 
-    val plexRatingKey = viewModel.libraryPlexRatingKey(type, tmdbId)
+    // Charger les saisons quand la série vient d'être ajoutée
+    LaunchedEffect(type, tmdbId, inLibrary) {
+        if (type == "series" && inLibrary) viewModel.loadSeriesSeasons(tmdbId)
+    }
+
+    val plexRatingKey by remember(type, tmdbId, movies) {
+        derivedStateOf {
+            if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId }?.plexRatingKey
+            else null
+        }
+    }
 
     // Reprise pour un film déjà entamé — via /api/plex/on-deck (déjà chargé
     // pour la rangée "Continuer à regarder" de l'accueil), PAS un stockage
@@ -533,15 +549,16 @@ fun TitleDetailScreen(
             if (type == "movie") {
                 Column {
                     Row {
-                        if (plexRatingKey != null) {
+                        val plexKey = plexRatingKey
+                        if (plexKey != null) {
                             val ctaText = if (movieResume != null) "▶  Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "▶  Lire"
                             PrimaryPill(text = ctaText, brush = null, solidWhite = true, focusRequester = initialFocusRequester) {
-                                onPlay(d.title, listOf(QueueItem(plexRatingKey, null, -1, -1)), 0, d.posterPath)
+                                onPlay(d.title, listOf(QueueItem(plexKey, null, -1, -1)), 0, d.posterPath)
                             }
                             if (movieResume != null) {
                                 Spacer(modifier = Modifier.width(12.dp))
                                 PrimaryPill(text = "↻  Lire depuis le début", brush = null, solidWhite = false) {
-                                    onPlayFromStart(d.title, listOf(QueueItem(plexRatingKey, null, -1, -1)), 0, d.posterPath)
+                                    onPlayFromStart(d.title, listOf(QueueItem(plexKey, null, -1, -1)), 0, d.posterPath)
                                 }
                             }
                         } else if (!inLibrary) {
@@ -560,7 +577,10 @@ fun TitleDetailScreen(
                                 }
                             }
                         } else {
-                            PrimaryPill(text = movieStatusLabel(viewModel.libraryMovieStatus(tmdbId)), brush = null, solidWhite = false, enabled = false) {}
+                            val movieStatus = remember(type, tmdbId, movies) {
+                                if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId }?.status else null
+                            }
+                            PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, solidWhite = false, enabled = false) {}
                         }
                     }
                     // Fine barre de progression sous le CTA de reprise — même
@@ -590,7 +610,10 @@ fun TitleDetailScreen(
                     // audioCodec/hdr/source). Zone secondaire discrète sous le
                     // CTA, jamais la hiérarchie principale de la fiche.
                     if (plexRatingKey != null) {
-                        viewModel.libraryMovieFile(tmdbId)?.let { file ->
+                        val movieFile = remember(type, tmdbId, movies) {
+                            if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId }?.file else null
+                        }
+                        movieFile?.let { file ->
                             FileTechInfoRow(file)
                         }
                     }

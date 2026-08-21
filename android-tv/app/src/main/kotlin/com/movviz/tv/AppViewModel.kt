@@ -1,4 +1,4 @@
-package com.movviz.tv
+﻿package com.movviz.tv
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -276,30 +276,70 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         _addingToLibrary.value = true
         try {
             val result = repo.addToLibrary(type, tmdbId)
+            // Handle 401 explicitly -- do not silently swallow it as Success.
+            if (result is ApiResult.Unauthorized) {
+                _sessionExpired.value = true
+                return result
+            }
             // Le parcours serveur crée d'abord l'entrée Movviz puis lance la
             // recherche automatique. Une erreur d'indexeur peut donc faire
             // remonter un 500 APRES création. Le web se réconcilie aussitôt
             // avec /api/library; la TV doit faire exactement la même chose,
             // sans faire croire que l'ajout a échoué ni proposer un doublon.
-            // Petite marge de re-essai : un seul refresh immédiat pouvait
-            // arriver juste avant que l'entrée soit réellement lisible via
-            // /api/library (constaté en direct — le bouton retombait sur
-            // "Ajouter à la bibliothèque" au lieu du statut réel juste après
-            // un ajout). 3 tentatives espacées de 500ms avant d'abandonner.
             refreshLibraryNow()
-            // return@repeat ne sortirait que de CETTE itération, pas de la
-            // boucle — les 2 tentatives s'exécuteraient quand même même une
-            // fois l'entrée déjà visible. `while` sort réellement dès que
-            // c'est confirmé.
             var attempt = 0
             while (attempt < 2 && !isInLibrary(type, tmdbId)) {
                 delay(500)
                 refreshLibraryNow()
                 attempt++
             }
+            // Safety net: if the POST succeeded but the library refresh hasn't
+            // caught up yet (server propagation delay), insert an optimistic
+            // placeholder so isInLibrary() returns true and the button doesn't
+            // revert. The polling LaunchedEffect (refreshTitleLibraryEntry)
+            // will replace it with real data within seconds.
+            if (!isInLibrary(type, tmdbId)) {
+                addOptimisticEntry(type, tmdbId)
+            }
             return if (result is ApiResult.Failure && !isInLibrary(type, tmdbId)) result else ApiResult.Success(Unit)
         } finally {
             _addingToLibrary.value = false
+        }
+    }
+
+    /** Insert a minimal placeholder into _movies/_series so that isInLibrary()
+     *  returns true immediately after a successful POST, preventing the button
+     *  from reverting while the server propagates the new entry. The polling
+     *  LaunchedEffect will replace it with real data via refreshTitleLibraryEntry(). */
+    private fun addOptimisticEntry(type: String, tmdbId: Int) {
+        val d = _detail.value
+        if (type == "movie") {
+            _movies.value = _movies.value.filter { it.tmdbId != tmdbId } + LibraryMovieDto(
+                id = "optimistic-$tmdbId",
+                tmdbId = tmdbId,
+                title = d?.title ?: "",
+                year = d?.year,
+                overview = d?.overview ?: "",
+                posterPath = d?.posterPath,
+                backdropPath = d?.backdropPath,
+                rating = d?.rating ?: 0.0,
+                genres = d?.genres ?: emptyList(),
+                status = "searching",
+                file = null,
+                plexRatingKey = null,
+            )
+        } else {
+            _series.value = _series.value.filter { it.tmdbId != tmdbId } + LibrarySeriesDto(
+                id = "optimistic-$tmdbId",
+                tmdbId = tmdbId,
+                title = d?.title ?: "",
+                year = d?.year,
+                overview = d?.overview ?: "",
+                posterPath = d?.posterPath,
+                backdropPath = d?.backdropPath,
+                rating = d?.rating ?: 0.0,
+                genres = d?.genres ?: emptyList(),
+            )
         }
     }
 
@@ -575,19 +615,47 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
 
     /** Charge et mémorise le meilleur logo officiel TMDb pour une vedette.
      * Une absence de logo reste un résultat valide : HomeScreen affiche alors
-     * le titre texte, comme le desktop. */
+     * le titre texte, comme le desktop. Un échec réseau ponctuel (timeout,
+     * DNS) déclenche UN retry après 1 s — les images TMDb sont en cache
+     * CDN, donc un second essai quasi immédiat résout la majorité des
+     * interruptions transitoires sans surcharger le serveur. */
     fun loadHeroLogo(type: String, tmdbId: Int) {
         val key = "$type-$tmdbId"
         if (_heroLogos.value.containsKey(key)) return
         val repo = repository ?: return
         viewModelScope.launch {
-            when (val result = repo.metadataImages(type, tmdbId)) {
-                is ApiResult.Success -> result.data.logos.firstOrNull()?.filePath?.let { path ->
-                    _heroLogos.value = _heroLogos.value + (key to path)
+            var result = repo.metadataImages(type, tmdbId)
+            if (result is ApiResult.Failure) {
+                android.util.Log.w("HeroLogo", "1st attempt failed for $key: ${(result as ApiResult.Failure).message}, retrying in 1s")
+                delay(1_000)
+                result = repo.metadataImages(type, tmdbId)
+            }
+            when (result) {
+                is ApiResult.Success -> {
+                    val path = result.data.logos.firstOrNull()?.filePath
+                    if (path != null) {
+                        _heroLogos.value = _heroLogos.value + (key to path)
+                    } else {
+                        android.util.Log.d("HeroLogo", "No logo available for $key (empty logos list)")
+                    }
                 }
-                else -> Unit
+                is ApiResult.Failure -> {
+                    android.util.Log.w("HeroLogo", "Failed to load hero logo for $key after retry: ${result.message}")
+                }
+                ApiResult.Unauthorized -> {
+                    android.util.Log.w("HeroLogo", "Unauthorized loading hero logo for $key")
+                }
             }
         }
+    }
+
+    /** Précharge les logos de TOUTES les vedettes du hero d'un coup — au
+     * lieu de les charger une par une au fil des rotations (8 s chacune),
+     * ce qui laissait les 4 autres sans logo pendant le premier cycle
+     * complet (40 s). Les images TMDb sont légères (< 50 KB) et le CDN
+     * accepte 5 requêtes en parallèle sans throttle. */
+    fun loadHeroLogos(type: String, tmdbIds: List<Int>) {
+        tmdbIds.forEach { tmdbId -> loadHeroLogo(type, tmdbId) }
     }
 
     /** Rafraîchit la file de téléchargement — appelée en boucle par

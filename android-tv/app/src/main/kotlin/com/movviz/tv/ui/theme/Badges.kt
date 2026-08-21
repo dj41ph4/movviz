@@ -36,8 +36,7 @@ fun statusTone(status: String): StatusTone = when (status) {
     else -> StatusTone(MovvizAmber, "Manquant")
 }
 
-/** Pastille de statut compacte — coin d'un poster (accueil/recherche) ou
- *  fiche titre. */
+/** Status pill — compact, dark glass, subtle color accent. */
 @Composable
 fun StatusPill(status: String, modifier: Modifier = Modifier) {
     val tone = statusTone(status)
@@ -45,23 +44,19 @@ fun StatusPill(status: String, modifier: Modifier = Modifier) {
         text = tone.label,
         style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = tone.color),
         modifier = modifier
-            .background(tone.color.copy(alpha = 0.15f), RoundedCornerShape(50))
-            .border(1.dp, tone.color.copy(alpha = 0.28f), RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
             .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }
 
-/** Pastille note ★ — même position/traitement que le badge étoile en haut à
- *  gauche des posters de la grille bibliothèque desktop (text-amber, fond
- *  sombre translucide). */
+/** Rating badge — dark glass with gold star, Netflix-style. */
 @Composable
 fun RatingBadge(rating: Double, modifier: Modifier = Modifier) {
     Text(
         text = "★ ${"%.1f".format(rating)}",
-        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MovvizAmber),
+        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)),
         modifier = modifier
-            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
-            .border(1.dp, MovvizInk.copy(alpha = 0.15f), RoundedCornerShape(50))
+            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
             .padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }

@@ -1,4 +1,4 @@
-package com.movviz.tv.ui.home
+﻿package com.movviz.tv.ui.home
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -86,28 +86,28 @@ import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
 
-private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
-// w1280, PAS "original" : un backdrop plein écran en "original" télécharge
-// jusqu'à 4000px de large (plusieurs Mo décodés en bitmap complet) pour un
-// écran TV 1080p qui n'en montre que 1920px — le gaspillage réseau/mémoire
-// était visible sur Chromecast 4K. Netflix/Apple TV servent du 1080p max.
+private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
+// w1280, PAS "original" : un backdrop plein Ã©cran en "original" tÃ©lÃ©charge
+// jusqu'Ã  4000px de large (plusieurs Mo dÃ©codÃ©s en bitmap complet) pour un
+// Ã©cran TV 1080p qui n'en montre que 1920px â€” le gaspillage rÃ©seau/mÃ©moire
+// Ã©tait visible sur Chromecast 4K. Netflix/Apple TV servent du 1080p max.
 private const val TMDB_BACKDROP_BASE = "https://image.tmdb.org/t/p/w1280"
 private const val HERO_ROTATE_MS = 8_000L
 private const val HERO_COUNT = 5
 
-/** Intervalle de rafraîchissement de la file de téléchargement sur l'accueil
- *  — plus lâche que le polling 500ms de QueueTab.tsx (fait pour un tableau
- *  admin dense) : ici c'est juste une rangée parmi d'autres, pas l'écran
- *  principal de suivi, donc pas besoin de la même fréquence. */
+/** Intervalle de rafraÃ®chissement de la file de tÃ©lÃ©chargement sur l'accueil
+ *  â€” plus lÃ¢che que le polling 500ms de QueueTab.tsx (fait pour un tableau
+ *  admin dense) : ici c'est juste une rangÃ©e parmi d'autres, pas l'Ã©cran
+ *  principal de suivi, donc pas besoin de la mÃªme frÃ©quence. */
 private const val QUEUE_POLL_INTERVAL_MS = 8000L
 
-/** Titre unifié film/série pour l'affichage des rangées et du hero — évite de
- *  dupliquer la Card pour deux types quasi identiques à l'écran. `internal`
- *  (pas `private`) : TitleDetailScreen réutilise TvTitleCard/TitleRow/
- *  PosterCard telles quelles pour sa rangée "Titres similaires", même style
- *  visuel que l'accueil plutôt qu'une variante dupliquée. `status` est null
- *  pour les séries : contrairement aux films, l'API ne renvoie aucun champ de
- *  statut au niveau série (voir le commentaire sur LibrarySeriesDto) donc la
+/** Titre unifiÃ© film/sÃ©rie pour l'affichage des rangÃ©es et du hero â€” Ã©vite de
+ *  dupliquer la Card pour deux types quasi identiques Ã  l'Ã©cran. `internal`
+ *  (pas `private`) : TitleDetailScreen rÃ©utilise TvTitleCard/TitleRow/
+ *  PosterCard telles quelles pour sa rangÃ©e "Titres similaires", mÃªme style
+ *  visuel que l'accueil plutÃ´t qu'une variante dupliquÃ©e. `status` est null
+ *  pour les sÃ©ries : contrairement aux films, l'API ne renvoie aucun champ de
+ *  statut au niveau sÃ©rie (voir le commentaire sur LibrarySeriesDto) donc la
  *  pastille de statut ne s'affiche que sur les posters film. */
 internal data class TvTitleCard(
     val id: String,
@@ -120,18 +120,18 @@ internal data class TvTitleCard(
     val rating: Double = 0.0,
     val genres: List<String> = emptyList(),
     val status: String? = null,
-    /** Non-null uniquement pour une carte "Continuer à regarder" — affiche
+    /** Non-null uniquement pour une carte "Continuer Ã  regarder" â€” affiche
      *  une fine barre de progression en bas du poster. */
     val progressPercent: Int? = null,
-    /** "4K"/"1080p"/... — voir resolutionLabel(). Absent pour tout ce qui
-     *  n'a pas de fichier réel en bibliothèque (séries, découverte). */
+    /** "4K"/"1080p"/... â€” voir resolutionLabel(). Absent pour tout ce qui
+     *  n'a pas de fichier rÃ©el en bibliothÃ¨que (sÃ©ries, dÃ©couverte). */
     val qualityLabel: String? = null,
     val hasHdr: Boolean = false,
     val overview: String = "",
     val runtime: Int? = null,
     val trailerKeys: List<String> = emptyList(),
-    /** Non-null uniquement pour une carte "Continuer à regarder" d'une
-     *  série — épisode précis en cours, pour ouvrir directement dessus au
+    /** Non-null uniquement pour une carte "Continuer Ã  regarder" d'une
+     *  sÃ©rie â€” Ã©pisode prÃ©cis en cours, pour ouvrir directement dessus au
      *  lieu de retomber sur la saison 1 (voir onOpenEpisode). */
     val resumeSeasonNumber: Int? = null,
     val resumeEpisodeNumber: Int? = null,
@@ -142,11 +142,11 @@ fun HomeScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
-    // Cible D-pad « flèche bas depuis la NavRail » (voir MainScreen/NavRail)
-    // — attachée plus bas au même élément que le focus initial (CTA hero ou
-    // première carte, les deux sont mutuellement exclusifs), jamais appelée
+    // Cible D-pad Â« flÃ¨che bas depuis la NavRail Â» (voir MainScreen/NavRail)
+    // â€” attachÃ©e plus bas au mÃªme Ã©lÃ©ment que le focus initial (CTA hero ou
+    // premiÃ¨re carte, les deux sont mutuellement exclusifs), jamais appelÃ©e
     // automatiquement ici : elle ne sert que de destination quand l'utilisateur
-    // appuie réellement sur bas depuis la nav.
+    // appuie rÃ©ellement sur bas depuis la nav.
     entryFocusRequester: FocusRequester? = null,
 ) {
     val movies by viewModel.movies.collectAsState()
@@ -167,9 +167,9 @@ fun HomeScreen(
         viewModel.loadDashboardHero()
     }
 
-    // La file de téléchargement change en continu (vitesse/progression) tant
-    // que l'accueil est visible — seule rangée avec un polling actif, les
-    // autres (bibliothèque/découverte/reprise) sont chargées une fois et ne
+    // La file de tÃ©lÃ©chargement change en continu (vitesse/progression) tant
+    // que l'accueil est visible â€” seule rangÃ©e avec un polling actif, les
+    // autres (bibliothÃ¨que/dÃ©couverte/reprise) sont chargÃ©es une fois et ne
     // bougent pas seconde par seconde.
     LaunchedEffect(Unit) {
         while (true) {
@@ -183,8 +183,8 @@ fun HomeScreen(
 TvTitleCard(
                     it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true,
                     year = it.year, rating = it.rating, genres = it.genres, status = it.status,
-                    // overview sert au call-out Netflix sous la rangée (synopsis
-                    // 1 ligne) — déjà renvoyé par /api/library/movies.
+                    // overview sert au call-out Netflix sous la rangÃ©e (synopsis
+                    // 1 ligne) â€” dÃ©jÃ  renvoyÃ© par /api/library/movies.
                     overview = it.overview,
                     qualityLabel = resolutionLabel(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(),
                 )
@@ -199,7 +199,7 @@ TvTitleCard(
         continueWatching.map {
             TvTitleCard(
                 id = "cw-${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}",
-                title = it.title ?: "—",
+                title = it.title ?: "â€”",
                 posterPath = it.posterPath,
                 backdropPath = null,
                 tmdbId = it.tmdbId,
@@ -210,10 +210,10 @@ TvTitleCard(
             )
         }
     }
-    // Découverte — tendances TMDb pas encore dans la bibliothèque locale.
-    // Le filtrage se refait à chaque recomposition de movies/series pour
-    // qu'un ajout depuis la fiche titre fasse disparaître la carte de cette
-    // rangée sans nouvel appel réseau (mêmes listes déjà chargées).
+    // DÃ©couverte â€” tendances TMDb pas encore dans la bibliothÃ¨que locale.
+    // Le filtrage se refait Ã  chaque recomposition de movies/series pour
+    // qu'un ajout depuis la fiche titre fasse disparaÃ®tre la carte de cette
+    // rangÃ©e sans nouvel appel rÃ©seau (mÃªmes listes dÃ©jÃ  chargÃ©es).
     val ownedMovieIds = remember(movies) { movies.map { it.tmdbId }.toSet() }
     val ownedSeriesIds = remember(series) { series.map { it.tmdbId }.toSet() }
     val discoverCards = remember(trendingMovies, trendingSeries, ownedMovieIds, ownedSeriesIds) {
@@ -221,15 +221,15 @@ TvTitleCard(
             .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, null, it.tmdbId, isMovie = true) }
         val seriesRow = trendingSeries.filter { it.tmdbId !in ownedSeriesIds }
             .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, null, it.tmdbId, isMovie = false) }
-        // Alterné plutôt que "tous les films puis toutes les séries" — une
-        // rangée Découverte doit ressembler à un mélange éditorial, pas à
-        // une simple concaténation de deux listes.
+        // AlternÃ© plutÃ´t que "tous les films puis toutes les sÃ©ries" â€” une
+        // rangÃ©e DÃ©couverte doit ressembler Ã  un mÃ©lange Ã©ditorial, pas Ã 
+        // une simple concatÃ©nation de deux listes.
         moviesRow.zipInterleave(seriesRow).take(20)
     }
 
-    // Les mêmes rangées éditoriales que le dashboard desktop. Elles arrivent
-    // déjà ordonnées depuis /api/metadata/rows : la TV ne fabrique donc pas
-    // de faux contenus et reste cohérente avec les préférences du serveur.
+    // Les mÃªmes rangÃ©es Ã©ditoriales que le dashboard desktop. Elles arrivent
+    // dÃ©jÃ  ordonnÃ©es depuis /api/metadata/rows : la TV ne fabrique donc pas
+    // de faux contenus et reste cohÃ©rente avec les prÃ©fÃ©rences du serveur.
     val editorialCards = remember(movieRows, seriesRows) {
         (movieRows + seriesRows).mapNotNull { row ->
             val cards = row.results.map {
@@ -240,9 +240,9 @@ TvTitleCard(
         }
     }
 
-    // Même sélection personnalisée que le dashboard web : trailerKeys,
+    // MÃªme sÃ©lection personnalisÃ©e que le dashboard web : trailerKeys,
     // synopsis et statut viennent de /api/dashboard/hero. Le tri local reste
-    // un repli instantané pendant le chargement ou hors-ligne.
+    // un repli instantanÃ© pendant le chargement ou hors-ligne.
     val heroItems = remember(dashboardHero, recentMovies, recentSeries) {
         dashboardHero.map { slide ->
             val detail = slide.detail
@@ -271,8 +271,16 @@ TvTitleCard(
 
     var heroIndex by remember { mutableStateOf(0) }
     val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
-    LaunchedEffect(activeHero?.tmdbId, activeHero?.isMovie) {
-        activeHero?.let { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) }
+    // Précharge les logos de TOUTES les vedettes dès que la liste change
+    // (plutôt que de charger uniquement le hero actif au fil des rotations).
+    // Sans ça, les 4 autres heroes restaient sans logo pendant le premier
+    // cycle complet (40 s) et le timer 3 s du fallback texte se déclenchait
+    // systématiquement — d'où le chargement à 1 chance sur 3.
+    LaunchedEffect(heroItems) {
+        val movieIds = heroItems.filter { it.isMovie }.map { it.tmdbId }
+        val seriesIds = heroItems.filter { !it.isMovie }.map { it.tmdbId }
+        if (movieIds.isNotEmpty()) viewModel.loadHeroLogos("movie", movieIds)
+        if (seriesIds.isNotEmpty()) viewModel.loadHeroLogos("series", seriesIds)
     }
     LaunchedEffect(heroItems) {
         if (heroItems.size < 2) return@LaunchedEffect
@@ -283,15 +291,15 @@ TvTitleCard(
     }
 
     // Le héros reste au repos visuel au démarrage. Demander immédiatement le
-    // focus au CTA fait déclencher le scroll-into-view de TvLazyColumn et
+    // focus au CTA fait dÃ©clencher le scroll-into-view de TvLazyColumn et
     // pousse le logo sous la barre transparente avant toute action utilisateur.
     // Le CTA reste focusable : il est atteint naturellement avec DPAD_DOWN
-    // depuis la navigation, sans déplacer l'accueil tout seul.
-    // Une seule cible pour le CTA hero ET la première carte : les deux
+    // depuis la navigation, sans dÃ©placer l'accueil tout seul.
+    // Une seule cible pour le CTA hero ET la premiÃ¨re carte : les deux
     // branches ci-dessous sont mutuellement exclusives (jamais de hero ET de
-    // firstRealRowKey en même temps), donc réutiliser le même FocusRequester
-    // le fait toujours pointer vers le seul élément réellement composé — et
-    // c'est cette même cible que la NavRail vise pour la flèche bas.
+    // firstRealRowKey en mÃªme temps), donc rÃ©utiliser le mÃªme FocusRequester
+    // le fait toujours pointer vers le seul Ã©lÃ©ment rÃ©ellement composÃ© â€” et
+    // c'est cette mÃªme cible que la NavRail vise pour la flÃ¨che bas.
     val heroCtaFocus = entryFocusRequester ?: remember { FocusRequester() }
     val firstCardFocus = heroCtaFocus
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
@@ -304,10 +312,10 @@ TvTitleCard(
             firstCardFocus.requestFocus()
         }
     }
-    // La toute première rangée réellement affichée (Continuer > Films >
-    // Séries, dans l'ordre où elles sont composées ci-dessous) est la seule
-    // à recevoir le focus initial quand il n'y a pas de hero — sinon deux
-    // rangées se disputeraient le même FocusRequester au premier rendu.
+    // La toute premiÃ¨re rangÃ©e rÃ©ellement affichÃ©e (Continuer > Films >
+    // SÃ©ries, dans l'ordre oÃ¹ elles sont composÃ©es ci-dessous) est la seule
+    // Ã  recevoir le focus initial quand il n'y a pas de hero â€” sinon deux
+    // rangÃ©es se disputeraient le mÃªme FocusRequester au premier rendu.
     val firstRealRowKey = when {
         continueCards.isNotEmpty() -> "continue"
         recentMovies.isNotEmpty() -> "movies"
@@ -318,7 +326,7 @@ TvTitleCard(
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         TvLazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 48.dp),
+            contentPadding = PaddingValues(bottom = 80.dp),
         ) {
             if (heroItems.isNotEmpty()) {
                 item(contentType = "hero") {
@@ -340,7 +348,7 @@ TvTitleCard(
             if (continueCards.isNotEmpty()) {
                 item(contentType = "row") {
                     TitleRow(
-                        heading = "Continuer à regarder",
+                        heading = "Continuer Ã  regarder",
                         items = continueCards,
                         onClick = { card ->
                             val season = card.resumeSeasonNumber
@@ -370,7 +378,7 @@ TvTitleCard(
             if (recentSeries.isNotEmpty()) {
                 item(contentType = "row") {
                     TitleRow(
-                        heading = "Séries",
+                        heading = "SÃ©ries",
                         items = recentSeries,
                         onClick = { card -> onOpenTitle("series", card.tmdbId) },
                         firstItemFocusRequester = if (heroItems.isEmpty() && firstRealRowKey == "series") firstCardFocus else null,
@@ -381,7 +389,7 @@ TvTitleCard(
             if (discoverCards.isNotEmpty()) {
                 item(contentType = "row") {
                     TitleRow(
-                        heading = "Découverte",
+                        heading = "DÃ©couverte",
                         items = discoverCards,
                         onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                     )
@@ -402,8 +410,8 @@ TvTitleCard(
                 item(contentType = "loading") {
                     // Prend le focus (firstCardFocus == contentFocusRequester) au lieu
                     // de laisser MainScreen retomber sur son ancre invisible : cet
-                    // écran de chargement a désormais une vraie cible visible et
-                    // focusable, plutôt qu'un texte statique inerte.
+                    // Ã©cran de chargement a dÃ©sormais une vraie cible visible et
+                    // focusable, plutÃ´t qu'un texte statique inerte.
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 24.dp),
                         contentAlignment = Alignment.Center,
@@ -411,9 +419,9 @@ TvTitleCard(
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
                                 modifier = if (heroItems.isEmpty() && firstRealRowKey == null) {
-                                    // Rien d'autre à l'écran ne dispute firstCardFocus dans
-                                    // ce cas précis (voir firstRealRowKey ci-dessus) — seule
-                                    // cible réelle et visible au tout premier rendu, plus
+                                    // Rien d'autre Ã  l'Ã©cran ne dispute firstCardFocus dans
+                                    // ce cas prÃ©cis (voir firstRealRowKey ci-dessus) â€” seule
+                                    // cible rÃ©elle et visible au tout premier rendu, plus
                                     // besoin de retomber sur l'ancre invisible de MainScreen.
                                     Modifier.focusRequester(firstCardFocus).focusable()
                                 } else {
@@ -423,7 +431,7 @@ TvTitleCard(
                                 AnimatedLogo(size = 64.dp)
                             }
                             Text(
-                                text = "Chargement de ta bibliothèque…",
+                                text = "Chargement de ta bibliothÃ¨queâ€¦",
                                 style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f)),
                                 modifier = Modifier.padding(top = 16.dp),
                             )
@@ -436,19 +444,19 @@ TvTitleCard(
 }
 
 private fun homeRowLabel(key: String): String = when (key) {
-    "recommendedTop" -> "Sélection pour vous"
+    "recommendedTop" -> "SÃ©lection pour vous"
     "trendingPopular", "trending" -> "Tendances Movviz"
     "upcoming", "upcomingVod" -> "Prochainement"
     "onAir" -> "En ce moment"
-    "newSeriesRenewed" -> "Nouvelles séries"
+    "newSeriesRenewed" -> "Nouvelles sÃ©ries"
     "nowPlayingBoxOffice" -> "En salles"
     "kids" -> "Jeunesse"
     else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
 }
 
-/** Même mapping que la pastille résolution desktop (MediaBadges.tsx) : 2160→4K,
- *  4320→8K, 1080/720 en toutes lettres, sinon la valeur brute — jamais le
- *  "2160p" cru. null si aucun fichier réel (pas encore en bibliothèque). */
+/** MÃªme mapping que la pastille rÃ©solution desktop (MediaBadges.tsx) : 2160â†’4K,
+ *  4320â†’8K, 1080/720 en toutes lettres, sinon la valeur brute â€” jamais le
+ *  "2160p" cru. null si aucun fichier rÃ©el (pas encore en bibliothÃ¨que). */
 private fun resolutionLabel(resolution: String?): String? = when {
     resolution == null -> null
     resolution.startsWith("2160") -> "4K"
@@ -458,9 +466,9 @@ private fun resolutionLabel(resolution: String?): String? = when {
     else -> resolution
 }
 
-/** Fusion en alternance ([a1,b1,a2,b2,...]) — pas d'appariement strict par
+/** Fusion en alternance ([a1,b1,a2,b2,...]) â€” pas d'appariement strict par
  *  index, continue de piocher dans la liste la plus longue une fois l'autre
- *  épuisée. */
+ *  Ã©puisÃ©e. */
 private fun <T> List<T>.zipInterleave(other: List<T>): List<T> {
     val out = ArrayList<T>(size + other.size)
     val max = maxOf(size, other.size)
@@ -471,9 +479,9 @@ private fun <T> List<T>.zipInterleave(other: List<T>): List<T> {
     return out
 }
 
-/** Vedette plein écran en rotation automatique — backdrop en Ken Burns lent,
- *  titre/méta, CTA "Voir la fiche" et indicateurs de progression décoratifs,
- *  façon bannière "Featured" Netflix plutôt que le simple aplat statique
+/** Vedette plein Ã©cran en rotation automatique â€” backdrop en Ken Burns lent,
+ *  titre/mÃ©ta, CTA "Voir la fiche" et indicateurs de progression dÃ©coratifs,
+ *  faÃ§on banniÃ¨re "Featured" Netflix plutÃ´t que le simple aplat statique
  *  d'avant. */
 @Composable
 internal fun HeroCarousel(
@@ -494,8 +502,8 @@ internal fun HeroCarousel(
         }
     }
 
-    // --- Ultra hero : texte révélé en fondu + glissement à chaque rotation.
-    // Seule la zone texte est animée ; le CTA reste stable en dessous pour
+    // --- Ultra hero : texte rÃ©vÃ©lÃ© en fondu + glissement Ã  chaque rotation.
+    // Seule la zone texte est animÃ©e ; le CTA reste stable en dessous pour
     // ne jamais perturber le focus D-pad (le focus initial atterrit dessus).
     var textRevealed by remember(current.id) { mutableStateOf(false) }
     LaunchedEffect(current.id) { textRevealed = true }
@@ -510,11 +518,11 @@ internal fun HeroCarousel(
         label = "hero_text_slide",
     )
 
-    // --- Ultra hero : scrim adaptatif à la luminosité réelle du backdrop.
-    // Moyenne de luminance pondérée (Rec. 709), calculée une fois par image
-    // via un échantillon 64x36, mise en cache : backdrop sombre → scrim
-    // léger (l'image porte sa propre lisibilité), backdrop clair → scrim
-    // renforcé. Un dégradé statique rendait les titres clairs illisibles et
+    // --- Ultra hero : scrim adaptatif Ã  la luminositÃ© rÃ©elle du backdrop.
+    // Moyenne de luminance pondÃ©rÃ©e (Rec. 709), calculÃ©e une fois par image
+    // via un Ã©chantillon 64x36, mise en cache : backdrop sombre â†’ scrim
+    // lÃ©ger (l'image porte sa propre lisibilitÃ©), backdrop clair â†’ scrim
+    // renforcÃ©. Un dÃ©gradÃ© statique rendait les titres clairs illisibles et
     // surassombrissait les plans de nuit.
     var scrimAlpha by remember(current.id) { mutableStateOf(0.55f) }
     val animatedScrimAlpha by animateFloatAsState(scrimAlpha, tween(600), label = "hero_scrim_alpha")
@@ -548,10 +556,10 @@ internal fun HeroCarousel(
         )
     }
 
-    // --- Ultra hero : précharge prédictive des 2 prochains backdrops dès la
-    // rotation — au lieu de charger pendant le crossfade (pop-in/flou).
-    // Même cache mémoire Coil que l'affichage ; après le premier passage le
-    // disque sert de source, aucun réseau en plus.
+    // --- Ultra hero : prÃ©charge prÃ©dictive des 2 prochains backdrops dÃ¨s la
+    // rotation â€” au lieu de charger pendant le crossfade (pop-in/flou).
+    // MÃªme cache mÃ©moire Coil que l'affichage ; aprÃ¨s le premier passage le
+    // disque sert de source, aucun rÃ©seau en plus.
     LaunchedEffect(currentIndex, items) {
         if (items.size < 2) return@LaunchedEffect
         val loader = imageLoader ?: return@LaunchedEffect
@@ -566,25 +574,9 @@ internal fun HeroCarousel(
         }
     }
 
-    // clipToBounds() est indispensable ici : le zoom Ken Burns agrandit
-    // l'image avec scale() (une transformation de dessin, pas de layout) et
-    // Compose ne rogne rien par défaut — sans ça l'image zoomée déborde
-    // visiblement de la bannière et empiète sur les rangées en dessous.
-    // Hauteur volontairement contenue : le focus D-pad initial atterrit sur
-    // le CTA en bas du bloc de texte, et TvLazyColumn fait défiler pour
-    // l'amener pleinement visible — avec un hero trop haut, ce
-    // scroll-into-view pousse le HAUT du bloc (le titre) hors de l'écran
-    // avant même que l'utilisateur n'ait touché une touche. 720dp (pas
-    // 560dp) : un titre anglais long sur 2 lignes pleines ("Akashic Records
-    // of Bastard Magic Instructor") a un bloc de texte plus haut qu'un
-    // titre court — 560dp coupait le badge FILM/SÉRIE et le haut du titre
-    // dans ce cas précis, constaté en direct sur émulateur. Les 80dp
-    // supplémentaires laissent le hero s'étendre sous la barre transparente
-    // sans placer le texte sous celle-ci.
-    // Hauteur contenue pour que le héros reste entièrement dans le viewport
-    // TV. Le focus initial n'est plus forcé : le logo ne passe donc plus sous
-    // la barre transparente avant la première action de l'utilisateur.
-    Box(modifier = Modifier.fillMaxWidth().height(720.dp).clipToBounds()) {
+    // Hero height ~65% of 1080p TV screen (780dp). Netflix-style: hero
+    // dominates the screen, content rows peek below.
+    Box(modifier = Modifier.fillMaxWidth().height(780.dp).clipToBounds()) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
             transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
@@ -604,13 +596,13 @@ internal fun HeroCarousel(
                 contentScale = ContentScale.Crop,
                 // graphicsLayer (pas .scale(zoom)) : .scale() avec une valeur
                 // lue depuis un State (ici animateFloat en continu tant que
-                // le hero est affiché) force une recomposition du composable
-                // Image à CHAQUE frame Choreographer, en boucle infinie —
-                // mesuré : 61,71% de frames janky à l'accueil totalement
+                // le hero est affichÃ©) force une recomposition du composable
+                // Image Ã  CHAQUE frame Choreographer, en boucle infinie â€”
+                // mesurÃ© : 61,71% de frames janky Ã  l'accueil totalement
                 // inactif (dumpsys gfxinfo, 700 frames/26s). graphicsLayer{}
                 // lit le State uniquement en phase de dessin (juste un
                 // re-layer, pas de recomposition), le zoom Ken Burns reste
-                // fluide sans repasser par toute la composition à 60fps.
+                // fluide sans repasser par toute la composition Ã  60fps.
                 modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom },
             )
         }
@@ -621,17 +613,15 @@ internal fun HeroCarousel(
             modifier = Modifier.fillMaxSize(),
         )
 
-        // Scrim vertical — force animée selon la luminosité du backdrop
-        // (scrimAlpha, calculé plus haut). Le dégradé reste ancré sur
-        // MaterialTheme.colorScheme.background pour fondre proprement dans
-        // le fond de l'écran.
+        // Netflix-style gradient scrim — strong bottom, subtle left.
         Box(
             modifier = Modifier.fillMaxSize().background(
                 Brush.verticalGradient(
                     colors = listOf(
                         Color.Transparent,
-                        MaterialTheme.colorScheme.background.copy(alpha = animatedScrimAlpha),
-                        MaterialTheme.colorScheme.background,
+                        Color.Black.copy(alpha = 0.3f),
+                        Color.Black.copy(alpha = 0.75f),
+                        Color.Black,
                     ),
                     startY = 0f,
                 ),
@@ -640,19 +630,19 @@ internal fun HeroCarousel(
         Box(
             modifier = Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
-                    colors = listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.85f), Color.Transparent),
-                    endX = 900f,
+                    colors = listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent),
+                    endX = 800f,
                 ),
             ),
         )
 
-        // Grain cinéma : un léger bruit photo par-dessus image et vidéo,
+        // Grain cinÃ©ma : un lÃ©ger bruit photo par-dessus image et vidÃ©o,
         // signature visuelle des apps premium (Netflix/Apple TV en posent
-        // un très discret). Bitmap généré UNE FOIS par process et étalé en
-        // TileMode.Repeat via un shader Android natif — un seul draw call
-        // par frame, coût négligeable pour l'effet obtenu. (Le Paint natif
+        // un trÃ¨s discret). Bitmap gÃ©nÃ©rÃ© UNE FOIS par process et Ã©talÃ© en
+        // TileMode.Repeat via un shader Android natif â€” un seul draw call
+        // par frame, coÃ»t nÃ©gligeable pour l'effet obtenu. (Le Paint natif
         // est requis : les shaders Compose n'existent pas dans cette
-        // version de Compose TV — see nativeCanvas.)
+        // version de Compose TV â€” see nativeCanvas.)
         val grainBitmap = remember { createFilmGrain() }
         val grainPaint = remember {
             android.graphics.Paint().apply {
@@ -676,14 +666,11 @@ internal fun HeroCarousel(
         Column(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                // Le CTA doit rester posé contre le bas du viewport, comme
-                // sur la fiche desktop/TV : pas de grand vide sous « Voir la
-                // fiche », tout en gardant le bouton entièrement cliquable.
-                .offset(y = (-200).dp)
-                .padding(start = 64.dp, end = 48.dp, bottom = 18.dp)
+                .offset(y = (-180).dp)
+                .padding(start = 64.dp, end = 48.dp, bottom = 20.dp)
                 .widthIn(max = 760.dp),
         ) {
-            // Zone texte animée en fondu + glissement à chaque rotation.
+            // Zone texte animÃ©e en fondu + glissement Ã  chaque rotation.
             // Le CTA (plus bas) reste HORS de cette colonne : le focus D-pad
             // initial atterrit dessus, l'animation ne doit pas le perturber.
             Column(
@@ -692,8 +679,8 @@ internal fun HeroCarousel(
                     .offset(y = textSlide.dp),
             ) {
             Text(
-                text = "À LA UNE  ·  " + if (current.isMovie) "FILM" else "SÉRIE",
-                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizBrand2, letterSpacing = 2.2.sp),
+                text = "Ã€ LA UNE  Â·  " + if (current.isMovie) "FILM" else "SÃ‰RIE",
+                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f), letterSpacing = 2.5.sp),
             )
             Spacer(modifier = Modifier.height(8.dp))
             if (logoPath != null) {
@@ -702,129 +689,146 @@ internal fun HeroCarousel(
                     contentDescription = current.title,
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart,
-                    // PAS d'offset x négatif ici : un -140dp était appliqué à
-                    // tous les logos pour recentrer un asset TMDb précis dont
-                    // la marge transparente à gauche était inhabituellement
-                    // large — mais la plupart des logos TMDb sont déjà
-                    // recadrés au plus près, donc ce décalage aveugle les
-                    // poussait hors de l'écran à gauche (confirmé en direct :
+                    // PAS d'offset x nÃ©gatif ici : un -140dp Ã©tait appliquÃ© Ã 
+                    // tous les logos pour recentrer un asset TMDb prÃ©cis dont
+                    // la marge transparente Ã  gauche Ã©tait inhabituellement
+                    // large â€” mais la plupart des logos TMDb sont dÃ©jÃ 
+                    // recadrÃ©s au plus prÃ¨s, donc ce dÃ©calage aveugle les
+                    // poussait hors de l'Ã©cran Ã  gauche (confirmÃ© en direct :
                     // "Jackass: Best and Last" et "Les aventures de Porcinet"
-                    // tous deux tronqués, contentDescription visible via
-                    // uiautomator dump mais premiers caractères hors-écran).
+                    // tous deux tronquÃ©s, contentDescription visible via
+                    // uiautomator dump mais premiers caractÃ¨res hors-Ã©cran).
                     modifier = Modifier
-                        .heightIn(max = 88.dp)
-                        .width(480.dp),
+                        .heightIn(max = 120.dp)
+                        .width(560.dp),
                 )
             } else if (showTitleFallback) {
                 Text(
                     text = current.title,
-                    style = TextStyle(fontSize = 42.sp, fontWeight = FontWeight.Black, color = MovvizInk, lineHeight = 46.sp),
+                    style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.Black, color = MovvizInk, lineHeight = 52.sp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             } else {
-                // Réserve la place du logo pendant son chargement : aucun
+                // RÃ©serve la place du logo pendant son chargement : aucun
                 // titre texte ne clignote avant de laisser sa place au logo.
-                Spacer(modifier = Modifier.height(88.dp).widthIn(max = 480.dp))
+                Spacer(modifier = Modifier.height(120.dp).widthIn(max = 560.dp))
             }
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (current.rating > 0) {
-                    Text(text = "★ ${"%.1f".format(current.rating)}", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(text = "â˜… ${"%.1f".format(current.rating)}", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color(0xFFF5C542)))
+                    Spacer(modifier = Modifier.width(12.dp))
                 }
                 current.year?.let {
-                    Text(text = "$it", style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft))
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(text = "$it", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft))
+                    Spacer(modifier = Modifier.width(12.dp))
                 }
                 current.runtime?.let {
-                    Text(text = "$it min", style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft))
+                    Text(text = "$it min", style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft))
                 }
             }
             if (current.genres.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(10.dp))
-                // Pastilles de genre, pas du texte "Comédie, Crime, Mystère"
-                // brut — même langage pill que le reste de l'appli (voir
-                // ui/theme/Badges.kt) et que le hero desktop.
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     current.genres.take(3).forEach { genre ->
                         Box(
                             modifier = Modifier
-                                .background(Color.White.copy(alpha = 0.1f), RoundedCornerShape(50))
-                                .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(50))
-                                .padding(horizontal = 12.dp, vertical = 5.dp),
+                                .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(50))
+                                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(50))
+                                .padding(horizontal = 14.dp, vertical = 5.dp),
                         ) {
-                            Text(text = genre, style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft))
+                            Text(text = genre, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, color = MovvizInkSoft))
                         }
                     }
                 }
             }
             if (current.overview.isNotBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = current.overview,
-                    style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 20.sp),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 620.dp),
-                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Box(modifier = Modifier.widthIn(max = 580.dp)) {
+                    Text(
+                        text = current.overview,
+                        style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 21.sp),
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background),
+                                    startY = 0f,
+                                ),
+                            ),
+                    )
+                }
             }
             }
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 var focused by remember(current.id) { mutableStateOf(false) }
-                // Action primaire = dégradé de marque, jamais un simple
-                // blanc/noir (CLAUDE.md : "Primary actions: brand-gradient
-                // text-white font-bold rounded-xl") — c'était le seul CTA
-                // primaire de toute l'appli TV encore en noir/blanc.
+                // Netflix-style "Lire" button â€” white solid, bold.
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
                         .focusRequester(ctaFocusRequester)
-                        // tvFocusLift (Theme.kt) plutôt qu'un scale() isolé —
-                        // même lift Apple TV (scale + ombre) que toute autre
-                        // carte/bouton focusable de l'appli ; c'était le
-                        // dernier CTA à n'avoir qu'un zoom plat sans ombre.
-                        .tvFocusLift(focused, shape = RoundedCornerShape(50))
+                        .tvFocusLift(focused, shape = RoundedCornerShape(6.dp), maxScale = 1.04f, maxElevation = 16.dp)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
-                    // rounded-full (pill), pas un simple rectangle arrondi —
-                    // même forme que les boutons d'action du hero desktop
-                    // (Informations/Ajouter à la bibliothèque/Pourquoi ce
-                    // contenu ?).
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(50)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, contentColor = Color.White),
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.White, contentColor = Color.Black),
                     border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(3.dp, Color.White), shape = RoundedCornerShape(50)),
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(6.dp)),
                     ),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)))
-                            .padding(horizontal = 28.dp, vertical = 14.dp),
+                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
                     ) {
-                        Text(text = "▶", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White))
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Text(text = "Voir la fiche", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White))
+                        Text(text = "â–¶", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Lire", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black))
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // "Plus d'infos" button â€” dark glass, secondary action.
+                var infoFocused by remember(current.id) { mutableStateOf(false) }
+                Surface(
+                    onClick = { onOpen(current) },
+                    modifier = Modifier
+                        .tvFocusLift(infoFocused, shape = RoundedCornerShape(6.dp), maxScale = 1.04f, maxElevation = 16.dp)
+                        .onFocusChanged { infoFocused = it.isFocused }
+                        .tvPointerClick { onOpen(current) },
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp)),
+                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White),
+                    border = ClickableSurfaceDefaults.border(
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)), shape = RoundedCornerShape(6.dp)),
+                    ),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    ) {
+                        Text(text = "â„¹", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.White))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(text = "Plus d'infos", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White))
                     }
                 }
 
                 if (items.size > 1) {
-                    Spacer(modifier = Modifier.width(20.dp))
-                    // Purement décoratif — juste l'état de rotation, pas une
-                    // cible D-pad de plus à côté du CTA (un point de 8dp est
-                    // de toute façon un cible tactile trop petite sur TV).
+                    Spacer(modifier = Modifier.width(24.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items.indices.forEach { index ->
                             val active = index == currentIndex
                             Box(
                                 modifier = Modifier
-                                    .size(if (active) 22.dp else 8.dp, 8.dp)
+                                    .size(if (active) 24.dp else 8.dp, 8.dp)
                                     .clip(RoundedCornerShape(4.dp))
                                     .background(
-                                        if (active) Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2))
-                                        else Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.25f), Color.White.copy(alpha = 0.25f))),
+                                        if (active) Color.White else Color.White.copy(alpha = 0.3f),
                                     ),
                             )
                         }
@@ -835,44 +839,85 @@ internal fun HeroCarousel(
     }
 }
 
+/** DÃ©lai avant le lancement du trailer ambiant (ms) â€” Netflix laisse
+ * ~2-3s le temps au backdrop Ken Burns de s'installer avant de lancer
+ * la bande-annonce. */
+private const val AMBIENT_TRAILER_DELAY_MS = 2_200L
+
 /** Variante TV de TrailerHeader : le backdrop reste la couche de base, et
- * l'iframe YouTube muette ne devient visible qu'après l'événement PLAYING.
- * Une vidéo bloquée ou un réseau absent laisse donc exactement l'image de
- * fond, sans chrome YouTube ni perte du focus D-pad. */
+ * l'iframe YouTube muette ne devient visible qu'aprÃ¨s l'Ã©vÃ©nement PLAYING.
+ * Une vidÃ©o bloquÃ©e ou un rÃ©seau absent laisse donc exactement l'image de
+ * fond, sans chrome YouTube ni perte du focus D-pad.
+ *
+ * Comportement Netflix : le trailer ne se lance qu'aprÃ¨s un dÃ©lai de
+ * ~2.2s pour laisser l'utilisateur admirer le backdrop Ken Burns ;
+ * une fois lancÃ©, le fade-in est doux (400ms) au lieu du snap binaire
+ * d'avant. */
 @Composable
 private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: Modifier = Modifier) {
     val key = trailerKeys.firstOrNull { it.matches(Regex("[A-Za-z0-9_-]{6,}")) } ?: return
+    var ready by remember(key) { mutableStateOf(false) }
     var playing by remember(key) { mutableStateOf(false) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val bridge = remember(key) {
-        AmbientTrailerBridge { mainHandler.post { playing = true } }
+        AmbientTrailerBridge(
+            onPlaying = { mainHandler.post { playing = true } },
+            onError = { mainHandler.post { ready = false } },
+        )
     }
-    LaunchedEffect(key) { playing = false }
 
-    // LA MÊME WebView sert pendant toute la durée du hero : le factory ne
-    // capture rien (donc stable — AndroidView garde la vue) et chaque
-    // rotation recharge juste la vidéo via update. Avant ce correctif : une
-    // WebView NEUVE à chaque rotation, jamais détruite — les moteurs
-    // s'empilaient en mémoire (fuite visible sur Chromecast 4K) et chaque
-    // rotation payait la création du moteur + le rechargement de l'iframe
-    // API YouTube (jank au moment du changement).
-    AndroidView(
-        factory = remember { { ctx: Context -> TrailerWebViewPool.obtain(ctx) } },
-        update = { view -> TrailerWebViewPool.prepare(view, key, title, bridge) },
-        onRelease = { view -> TrailerWebViewPool.release(view) },
-        modifier = modifier.graphicsLayer { alpha = if (playing) 1f else 0f },
+    // DÃ©lai avant le lancement du trailer â€” Netflix laisse ~2-3s le temps
+    // au backdrop Ken Burns de s'installer avant de lancer la bande-annonce.
+    // `ready` passe Ã  true aprÃ¨s le dÃ©lai, ce qui dÃ©clenche le chargement
+    // de la WebView. Si la clÃ© change pendant le dÃ©lai, l'ancien LaunchedEffect
+    // est annulÃ© proprement.
+    LaunchedEffect(key) {
+        playing = false
+        ready = false
+        delay(AMBIENT_TRAILER_DELAY_MS)
+        ready = true
+    }
+
+    // Fade-in doux quand le trailer commence Ã  jouer â€” au lieu du snap
+    // binaire alpha=0â†’1, on anime sur 400ms pour une transition Netflix-like.
+    val trailerAlpha by animateFloatAsState(
+        targetValue = if (playing) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = if (playing) 400 else 250,
+        ),
+        label = "trailer_alpha",
     )
+
+    // LA MÃŠME WebView sert pendant toute la durÃ©e du hero : le factory ne
+    // capture rien (donc stable â€” AndroidView garde la vue) et chaque
+    // rotation recharge juste la vidÃ©o via update. Avant ce correctif : une
+    // WebView NEUVE Ã  chaque rotation, jamais dÃ©truite â€” les moteurs
+    // s'empilaient en mÃ©moire (fuite visible sur Chromecast 4K) et chaque
+    // rotation payait la crÃ©ation du moteur + le rechargement de l'iframe
+    // API YouTube (jank au moment du changement).
+    if (ready) {
+        AndroidView(
+            factory = { ctx: Context -> TrailerWebViewPool.obtain(ctx) },
+            update = { view -> TrailerWebViewPool.prepare(view, key, title, bridge) },
+            onRelease = { view -> TrailerWebViewPool.release(view) },
+            modifier = modifier.graphicsLayer { alpha = trailerAlpha },
+        )
+    }
 }
 
-private class AmbientTrailerBridge(private val onPlaying: () -> Unit) {
+private class AmbientTrailerBridge(
+    private val onPlaying: () -> Unit,
+    private val onError: () -> Unit = {},
+) {
     @JavascriptInterface fun playing() = onPlaying()
+    @JavascriptInterface fun error() = onError()
 }
 
 /** Pool de WebViews de bandes-annonces ambiantes : maximum 2 instances
- *  vivantes (une à l'écran, une au repos), aucune création/destruction à
- *  chaque rotation du hero. La préparation est idempotente : update est
- *  appelé à chaque recomposition, prepare ne recharge la vidéo que si la
- *  clé (trailer) a changé. */
+ *  vivantes (une Ã  l'Ã©cran, une au repos), aucune crÃ©ation/destruction Ã 
+ *  chaque rotation du hero. La prÃ©paration est idempotente : update est
+ *  appelÃ© Ã  chaque recomposition, prepare ne recharge la vidÃ©o que si la
+ *  clÃ© (trailer) a changÃ©. */
 @SuppressLint("SetJavaScriptEnabled")
 private object TrailerWebViewPool {
     private val idle = ArrayDeque<WebView>()
@@ -915,7 +960,45 @@ private fun ambientTrailerHtml(key: String, title: String): String = """
     <!doctype html><html><body style="margin:0;background:transparent;overflow:hidden">
     <div id="player"></div><script src="https://www.youtube.com/iframe_api"></script>
     <script>
-      var p; function onYouTubeIframeAPIReady(){p=new YT.Player('player',{videoId:'$key',playerVars:{autoplay:1,mute:1,controls:0,playsinline:1,rel:0,modestbranding:1,loop:1,playlist:'$key'},events:{onReady:function(e){e.target.mute();e.target.playVideo()},onStateChange:function(e){if(e.data===YT.PlayerState.PLAYING){MovvizAmbient.playing()}},onError:function(){}}})}
+      var p; function onYouTubeIframeAPIReady(){
+        p=new YT.Player('player',{
+          videoId:'$key',
+          playerVars:{
+            autoplay:1,
+            mute:1,
+            controls:0,
+            playsinline:1,
+            rel:0,
+            modestbranding:1,
+            loop:1,
+            playlist:'$key',
+            disablekb:1,
+            fs:0,
+            iv_load_policy:3,
+            cc_load_policy:0
+          },
+          events:{
+            onReady:function(e){
+              e.target.mute();
+              e.target.playVideo();
+            },
+            onStateChange:function(e){
+              if(e.data===YT.PlayerState.PLAYING){
+                MovvizAmbient.playing();
+              } else if(e.data===YT.PlayerState.ENDED){
+                // RedÃ©marrer le loop proprement si l'API looprate
+                e.target.seekTo(0, true);
+                e.target.playVideo();
+              }
+            },
+            onError:function(e){
+              // e.data: 2=paramÃ¨tre, 3=HTML5, 5=vidÃ©o non trouvÃ©e,
+              // 100=privÃ©e/supprimÃ©e, 101/150=dÃ©sactivÃ©e intÃ©gration
+              MovvizAmbient.error();
+            }
+          }
+        });
+      }
     </script></body></html>
 """.trimIndent()
 
@@ -926,20 +1009,16 @@ internal fun TitleRow(
     onClick: (TvTitleCard) -> Unit,
     firstItemFocusRequester: FocusRequester? = null,
 ) {
-    // État de focus partagé par toutes les cartes de la rangée — il vit ici
-    // (pas dans PosterCard) pour survivre à la destruction des items par la
-    // LazyRow, et n'est lu QUE par les deux enfants dédiés (précharge des
-    // images + call-out Netflix) : la rangée elle-même et ses cartes ne
-    // recomposent JAMAIS pendant un scroll latéral, seul le bandeau bouge.
+    // Ã‰tat de focus partagÃ© par toutes les cartes de la rangÃ©e â€” il vit ici
+    // (pas dans PosterCard) pour survivre Ã  la destruction des items par la
+    // LazyRow, et n'est lu QUE par les deux enfants dÃ©diÃ©s (prÃ©charge des
+    // images + call-out Netflix) : la rangÃ©e elle-mÃªme et ses cartes ne
+    // recomposent JAMAIS pendant un scroll latÃ©ral, seul le bandeau bouge.
     val focusedCardState = remember { mutableStateOf<TvTitleCard?>(null) }
-    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+    Column(modifier = Modifier.padding(bottom = 48.dp)) {
         RowHeading(heading)
         TvLazyRow(
-            // Padding end négatif = "peaking" Netflix : la dernière carte de
-            // la rangée reste légèrement coupée au bord droit, signalant
-            // qu'il y a encore du contenu à faire défiler (au lieu d'un
-            // vide de 64dp en fin de rangée).
-            contentPadding = PaddingValues(start = 64.dp, end = (-12).dp),
+            contentPadding = PaddingValues(start = 64.dp, end = 64.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             itemsIndexed(items, key = { _, item -> item.id }, contentType = { _, _ -> "card" }) { index, card ->
@@ -951,8 +1030,8 @@ internal fun TitleRow(
                 )
             }
         }
-        // Précharge des 2 posters suivants la carte focalisée (zéro pop-in)
-        // + call-out Netflix (synopsis/métadonnées) — voir chaque composable.
+        // PrÃ©charge des 2 posters suivants la carte focalisÃ©e (zÃ©ro pop-in)
+        // + call-out Netflix (synopsis/mÃ©tadonnÃ©es) â€” voir chaque composable.
         val ctx = LocalContext.current
         val imageLoader = LocalImageLoader.current
         LaunchedEffect(focusedCardState.value) {
@@ -965,17 +1044,18 @@ internal fun TitleRow(
                     imageLoader.enqueue(
                         ImageRequest.Builder(ctx)
                             .data("$TMDB_IMAGE_BASE$path")
-                            .size(Size(342, 513))
+                            .size(Size(500, 750))
                             .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
                             .build()
                     )
                 }
             }
         }
-        // Bandeau call-out Netflix : synopsis + métadonnées de la carte
-        // focalisée, avec debounce pour éviter le scintillement pendant le
-        // scroll rapide. Seul ce composable se recompose au changement de
-        // focus — la rangée et ses cartes restent intactes.
+        // Bandeau call-out Netflix : carte semi-transparente avec titre
+        // en gras, mÃ©tadonnÃ©es, synopsis tronquÃ© et lien CTA â€” compact,
+        // pas dominateur. L'ensemble vit dans un fond glass dark pour
+        // sÃ©parer visuellement le call-out des cartes postÃ©rieures.
+        // Netflix-style call-out tooltip — clean dark glass card
         val focusedCard = focusedCardState.value
         AnimatedVisibility(
             visible = focusedCard != null,
@@ -983,26 +1063,63 @@ internal fun TitleRow(
             exit = fadeOut(tween(150)) + shrinkVertically(tween(150)),
         ) {
             focusedCard?.let { card ->
-                Column(modifier = Modifier.padding(start = 64.dp, top = 8.dp, end = 64.dp)) {
-                    card.overview?.let { overview ->
+                Box(
+                    modifier = Modifier
+                        .padding(start = 64.dp, top = 8.dp, end = 64.dp)
+                        .fillMaxWidth()
+                        .background(
+                            Color.Black.copy(alpha = 0.7f),
+                            RoundedCornerShape(8.dp),
+                        )
+                        .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
+                ) {
+                    Column {
                         Text(
-                            text = overview,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MovvizInkSoft,
-                            maxLines = 2,
+                            text = card.title,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            ),
+                            maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
-                    }
-                    val meta = listOfNotNull(
-                        card.year?.toString(),
-                        if (card.isMovie) "Film" else "Série",
-                    ).joinToString("  ·  ")
-                    if (meta.isNotEmpty()) {
+                        // Ligne de mÃ©tadonnÃ©es : annÃ©e Â· durÃ©e Â· genre Â· type
+                        val meta = listOfNotNull(
+                            card.year?.toString(),
+                            card.runtime?.let { "$it min" },
+                            card.genres.firstOrNull(),
+                            if (card.isMovie) "Film" else "SÃ©rie",
+                        ).joinToString("  Â·  ")
+                        if (meta.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = meta,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MovvizInkSoft,
+                                maxLines = 1,
+                            )
+                        }
+                        // Synopsis 2 lignes max avec ellipsis
+                        card.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = overview,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MovvizInkSoft,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        // Lien CTA Â« Voir la fiche â€º Â» â€” pas un bouton
+                        // focusable (D-pad reste sur la carte), juste un
+                        // indicateur visuel que l'action est disponible.
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = meta,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MovvizInkDim,
-                            maxLines = 1,
+                            text = "Voir la fiche â€º",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                color = Color.White.copy(alpha = 0.8f),
+                            ),
                         )
                     }
                 }
@@ -1011,25 +1128,25 @@ internal fun TitleRow(
     }
 }
 
-/** Titre de rangée — style titleLarge Netflix, marge basse cohérente,
+/** Titre de rangÃ©e â€” style titleLarge Netflix, marge basse cohÃ©rente,
  *  padding start identique au padding de la LazyRow pour un alignement
- *  parfait avec la première carte. */
+ *  parfait avec la premiÃ¨re carte. */
 @Composable
 private fun RowHeading(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleLarge,
-        color = MaterialTheme.colorScheme.onBackground,
-        modifier = Modifier.padding(start = 64.dp, bottom = 12.dp),
-    )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 64.dp, bottom = 16.dp),
+        )
 }
 
-/** Carte poster — l'effet "focus" central du 10-foot UI : agrandissement
- *  (tvFocusLift, scale ~1.08) + liseré blanc subtil quand la carte prend le
- *  focus D-pad, façon Netflix — une bordure nette (2dp, blanc à 90%) se lit
- *  depuis le canapé, là où le dégradé de marque passait pour du flou à
- *  distance. `onFocusedChange` remonte l'état de focus à la rangée pour la
- *  précharge et le call-out, sans faire recomposer la rangée elle-même. */
+/** Carte poster â€” l'effet "focus" central du 10-foot UI : agrandissement
+ *  (tvFocusLift, scale ~1.08) + liserÃ© blanc subtil quand la carte prend le
+ *  focus D-pad, faÃ§on Netflix â€” une bordure nette (2dp, blanc Ã  90%) se lit
+ *  depuis le canapÃ©, lÃ  oÃ¹ le dÃ©gradÃ© de marque passait pour du flou Ã 
+ *  distance. `onFocusedChange` remonte l'Ã©tat de focus Ã  la rangÃ©e pour la
+ *  prÃ©charge et le call-out, sans faire recomposer la rangÃ©e elle-mÃªme. */
 @Composable
 internal fun PosterCard(
     card: TvTitleCard,
@@ -1040,18 +1157,18 @@ internal fun PosterCard(
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
 
-    Column(modifier = Modifier.width(160.dp)) {
-        // Surface (tv-material3) gère nativement le focus D-pad + le clic OK,
-        // mais PAS le clic souris/tactile (confirmé : un tap synthétique sur
-        // l'émulateur ne déclenchait rien) — tvPointerClick comble ce trou
-        // sans dupliquer le déclenchement côté D-pad (voir Theme.kt).
+    Column(modifier = Modifier.width(200.dp)) {
+        // Surface (tv-material3) gÃ¨re nativement le focus D-pad + le clic OK,
+        // mais PAS le clic souris/tactile (confirmÃ© : un tap synthÃ©tique sur
+        // l'Ã©mulateur ne dÃ©clenchait rien) â€” tvPointerClick comble ce trou
+        // sans dupliquer le dÃ©clenchement cÃ´tÃ© D-pad (voir Theme.kt).
         Surface(
             onClick = onClick,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .tvFocusLift(focused, shape = MovvizCardShape, maxScale = 1.08f, maxElevation = 28.dp)
+                .tvFocusLift(focused, shape = MovvizCardShape, maxScale = 1.06f, maxElevation = 24.dp)
                 .onFocusChanged {
                     focused = it.isFocused
                     onFocusedChange?.invoke(it.isFocused)
@@ -1061,7 +1178,7 @@ internal fun PosterCard(
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizSurfaceStrong),
             border = androidx.tv.material3.ClickableSurfaceDefaults.border(
                 focusedBorder = Border(
-                    border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.9f)),
+                    border = androidx.compose.foundation.BorderStroke(2.5.dp, Color.White.copy(alpha = 0.85f)),
                     shape = MovvizCardShape,
                 ),
             ),
@@ -1076,7 +1193,7 @@ internal fun PosterCard(
                         modifier = Modifier.fillMaxSize(),
                     )
                 } else {
-                    // Repli dashboard : tuile noire marquée Movviz, fixe et
+                    // Repli dashboard : tuile noire marquÃ©e Movviz, fixe et
                     // sans animation pour rester calme au milieu des posters.
                     Box(
                         modifier = Modifier.fillMaxSize().background(Color.Black),
@@ -1085,15 +1202,15 @@ internal fun PosterCard(
                         StaticLogoWithGlow(size = 54.dp)
                     }
                 }
-                // Même paire de pastilles que la grille bibliothèque desktop
-                // (note ★ en haut-gauche, statut en bas-gauche) — voir
+                // MÃªme paire de pastilles que la grille bibliothÃ¨que desktop
+                // (note â˜… en haut-gauche, statut en bas-gauche) â€” voir
                 // ui/theme/Badges.kt. Le statut n'existe que pour les films
-                // (LibrarySeriesDto n'a pas ce champ côté API) donc absent
-                // pour une carte série.
-                // Certaines sources (titres similaires, découverte) ne
-                // renvoient pas toujours de note — 0.0 par défaut n'est pas
-                // une vraie note "zéro étoile", juste une valeur absente,
-                // donc pas de pastille du tout dans ce cas plutôt que "★0.0"
+                // (LibrarySeriesDto n'a pas ce champ cÃ´tÃ© API) donc absent
+                // pour une carte sÃ©rie.
+                // Certaines sources (titres similaires, dÃ©couverte) ne
+                // renvoient pas toujours de note â€” 0.0 par dÃ©faut n'est pas
+                // une vraie note "zÃ©ro Ã©toile", juste une valeur absente,
+                // donc pas de pastille du tout dans ce cas plutÃ´t que "â˜…0.0"
                 // trompeur.
                 if (card.rating > 0) {
                     RatingBadge(
@@ -1107,9 +1224,9 @@ internal fun PosterCard(
                         modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
                     )
                 }
-                // Qualité réelle du fichier (pas TMDb) — même donnée que les
-                // badges FHD/4K/HDR de la grille bibliothèque desktop
-                // (MediaBadges.tsx), jusqu'ici jamais mappée côté TV.
+                // QualitÃ© rÃ©elle du fichier (pas TMDb) â€” mÃªme donnÃ©e que les
+                // badges FHD/4K/HDR de la grille bibliothÃ¨que desktop
+                // (MediaBadges.tsx), jusqu'ici jamais mappÃ©e cÃ´tÃ© TV.
                 if (card.qualityLabel != null) {
                     Text(
                         text = if (card.hasHdr) "${card.qualityLabel} HDR" else card.qualityLabel,
@@ -1117,7 +1234,7 @@ internal fun PosterCard(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(6.dp)
-                            .background(Color.Black.copy(alpha = 0.55f), RoundedCornerShape(50))
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
@@ -1145,40 +1262,45 @@ internal fun PosterCard(
             color = MaterialTheme.colorScheme.onBackground,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier
+                .width(192.dp)
+                .padding(top = 8.dp),
         )
-        val metadata = listOfNotNull(card.year?.toString(), if (card.isMovie) "Film" else "Série").joinToString("  ·  ")
+        val metadata = listOfNotNull(card.year?.toString(), if (card.isMovie) "Film" else "SÃ©rie").joinToString("  Â·  ")
         Text(
             text = metadata,
             style = MaterialTheme.typography.labelSmall,
             color = MovvizInkDim,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 3.dp),
+            modifier = Modifier
+                .width(192.dp)
+                .padding(top = 2.dp),
         )
     }
 }
 
 /**
- * Rangée "Téléchargements en cours" — c'est tout l'intérêt de Movviz par
- * rapport à un simple client de lecture façon Plex : la recherche/le
- * téléchargement de nouveau contenu est le cœur du produit, pas un
- * détail admin cantonné à un écran séparé. Cartes horizontales (pas des
- * posters) avec barre de progression, vitesse et statut — même modèle de
- * données que QueueTab.tsx/DownloadQueue.tsx côté desktop, condensé pour le
+ * RangÃ©e "TÃ©lÃ©chargements en cours" â€” c'est tout l'intÃ©rÃªt de Movviz par
+ * rapport Ã  un simple client de lecture faÃ§on Plex : la recherche/le
+ * tÃ©lÃ©chargement de nouveau contenu est le cÅ“ur du produit, pas un
+ * dÃ©tail admin cantonnÃ© Ã  un Ã©cran sÃ©parÃ©. Cartes horizontales (pas des
+ * posters) avec barre de progression, vitesse et statut â€” mÃªme modÃ¨le de
+ * donnÃ©es que QueueTab.tsx/DownloadQueue.tsx cÃ´tÃ© desktop, condensÃ© pour le
  * 10-foot UI.
  */
 @Composable
 private fun DownloadQueueRow(items: List<QueueItemDto>, onOpenTitle: (type: String, tmdbId: Int) -> Unit) {
-    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+    Column(modifier = Modifier.padding(bottom = 48.dp)) {
         Text(
-            text = "Téléchargements en cours",
-            style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
-            modifier = Modifier.padding(start = 48.dp, bottom = 12.dp),
+            text = "TÃ©lÃ©chargements en cours",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 64.dp, bottom = 16.dp),
         )
         TvLazyRow(
-            contentPadding = PaddingValues(horizontal = 48.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 64.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             itemsIndexed(items, key = { _, item -> item.id }) { _, item ->
                 DownloadCard(
@@ -1200,9 +1322,9 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
     val clickable = item.media.tmdbId != null
     val shape = RoundedCornerShape(14.dp)
 
-    // Une entrée de file n'est pas un poster tronqué. C'est une carte de
-    // travail : artwork à gauche, informations et progression à droite, avec
-    // un vrai état de focus qui dit sans ambiguïté qu'elle ouvre la fiche.
+    // Une entrÃ©e de file n'est pas un poster tronquÃ©. C'est une carte de
+    // travail : artwork Ã  gauche, informations et progression Ã  droite, avec
+    // un vrai Ã©tat de focus qui dit sans ambiguÃ¯tÃ© qu'elle ouvre la fiche.
     Surface(
         onClick = onClick,
         enabled = clickable,
@@ -1239,8 +1361,8 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
                     Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)))
                 } else {
                     Text(
-                        text = "↓",
-                        style = TextStyle(fontSize = 38.sp, fontWeight = FontWeight.Light, color = Color.White.copy(alpha = 0.9f)),
+                        text = "â†“",
+                        style = TextStyle(fontSize = 38.sp, fontWeight = FontWeight.Light, color = Color.White.copy(alpha = 0.85f)),
                     )
                 }
             }
@@ -1277,24 +1399,24 @@ private fun DownloadCard(item: QueueItemDto, onClick: () -> Unit) {
     }
 }
 
-/** Pastille de statut de FILE DE TÉLÉCHARGEMENT (torrent) — distincte de
- *  StatusPill (ui/theme/Badges.kt) qui couvre le statut de DISPONIBILITÉ
- *  bibliothèque (available/downloading/searching/upcoming/missing) : ce sont
- *  deux domaines de valeurs différents (ex. "seeding"/"stalled"/"verifying"
- *  n'existent pas côté bibliothèque), d'où un nom distinct plutôt qu'une
- *  redéfinition qui masquerait silencieusement l'autre dans ce fichier. */
+/** Pastille de statut de FILE DE TÃ‰LÃ‰CHARGEMENT (torrent) â€” distincte de
+ *  StatusPill (ui/theme/Badges.kt) qui couvre le statut de DISPONIBILITÃ‰
+ *  bibliothÃ¨que (available/downloading/searching/upcoming/missing) : ce sont
+ *  deux domaines de valeurs diffÃ©rents (ex. "seeding"/"stalled"/"verifying"
+ *  n'existent pas cÃ´tÃ© bibliothÃ¨que), d'oÃ¹ un nom distinct plutÃ´t qu'une
+ *  redÃ©finition qui masquerait silencieusement l'autre dans ce fichier. */
 @Composable
 private fun QueueStatusPill(status: String, modifier: Modifier = Modifier) {
     val (label, color) = when (status) {
-        "downloading" -> "Téléchargement" to MovvizCyan
+        "downloading" -> "TÃ©lÃ©chargement" to MovvizCyan
         "queued" -> "En attente" to MovvizAmber
         "paused" -> "En pause" to MovvizAmber
-        "stalled" -> "Bloqué" to MovvizDown
-        "verifying" -> "Vérification" to MovvizCyan
+        "stalled" -> "BloquÃ©" to MovvizDown
+        "verifying" -> "VÃ©rification" to MovvizCyan
         "importing" -> "Import" to MovvizCyan
         "seeding" -> "Partage" to MovvizOk
-        "completed" -> "Terminé" to MovvizOk
-        "failed" -> "Échec" to MovvizDown
+        "completed" -> "TerminÃ©" to MovvizOk
+        "failed" -> "Ã‰chec" to MovvizDown
         else -> status to MovvizCyan
     }
     Box(
@@ -1307,13 +1429,13 @@ private fun QueueStatusPill(status: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** "68% · 4,2 Mo/s" ou "Terminé · scène partagée" selon l'état — même esprit
- *  que formatSpeed/formatEta côté desktop (src/lib/utils.ts), version
+/** "68% Â· 4,2 Mo/s" ou "TerminÃ© Â· scÃ¨ne partagÃ©e" selon l'Ã©tat â€” mÃªme esprit
+ *  que formatSpeed/formatEta cÃ´tÃ© desktop (src/lib/utils.ts), version
  *  compacte pour une carte de 140dp de large. */
 private fun downloadSubtitle(item: QueueItemDto): String {
     val percent = Math.round(item.download.progress * 100).coerceIn(0, 100)
     val speed = formatSpeed(item.download.downloadSpeed)
-    return if (speed != null) "$percent% · $speed" else "$percent%"
+    return if (speed != null) "$percent% Â· $speed" else "$percent%"
 }
 
 private fun formatSpeed(bytesPerSec: Double): String? {
@@ -1328,10 +1450,10 @@ private fun formatSpeed(bytesPerSec: Double): String? {
     return "%.1f %s".format(value, units[unitIndex])
 }
 
-/** Grain cinéma : bitmap de bruit 256x128 généré UNE FOIS par process, puis
- *  étalé en motif répété par l'overlay du hero (BitmapShader Repeat).
- *  Blanc/noir aléatoire à alpha très faible — texture photo discrète, pas
- *  un effet « neige d'écran ». */
+/** Grain cinÃ©ma : bitmap de bruit 256x128 gÃ©nÃ©rÃ© UNE FOIS par process, puis
+ *  Ã©talÃ© en motif rÃ©pÃ©tÃ© par l'overlay du hero (BitmapShader Repeat).
+ *  Blanc/noir alÃ©atoire Ã  alpha trÃ¨s faible â€” texture photo discrÃ¨te, pas
+ *  un effet Â« neige d'Ã©cran Â». */
 private fun createFilmGrain(): Bitmap {
     val bmp = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888)
     val rnd = java.util.Random()
@@ -1345,13 +1467,13 @@ private fun createFilmGrain(): Bitmap {
     return bmp
 }
 
-/** Cache des luminances moyennes par URL de backdrop — calculées une fois,
- *  jamais recalculées à chaque rotation du hero. */
+/** Cache des luminances moyennes par URL de backdrop â€” calculÃ©es une fois,
+ *  jamais recalculÃ©es Ã  chaque rotation du hero. */
 private val luminanceCache = HashMap<String, Float>()
 
-/** Luminance moyenne pondérée (Rec. 709) d'un échantillon 64x36 : 0 = noir
- *  profond, 1 = blanc. Un sous-échantillon de 1 pixel sur 2 suffit pour une
- *  valeur stable à ±0.02 près. */
+/** Luminance moyenne pondÃ©rÃ©e (Rec. 709) d'un Ã©chantillon 64x36 : 0 = noir
+ *  profond, 1 = blanc. Un sous-Ã©chantillon de 1 pixel sur 2 suffit pour une
+ *  valeur stable Ã  Â±0.02 prÃ¨s. */
 private fun averageLuminance(bmp: Bitmap): Float {
     var sum = 0.0
     var count = 0
@@ -1365,8 +1487,8 @@ private fun averageLuminance(bmp: Bitmap): Float {
     return if (count == 0) 0.5f else (sum / count).toFloat()
 }
 
-/** Force du scrim vertical selon la luminosité du backdrop : sombre → scrim
- *  léger (l'image porte sa propre lisibilité), clair → scrim renforcé pour
+/** Force du scrim vertical selon la luminositÃ© du backdrop : sombre â†’ scrim
+ *  lÃ©ger (l'image porte sa propre lisibilitÃ©), clair â†’ scrim renforcÃ© pour
  *  garder le texte blanc lisible. */
 private fun scrimStrengthFor(luminance: Float): Float = when {
     luminance < 0.2f -> 0.45f
