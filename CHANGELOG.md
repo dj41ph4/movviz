@@ -4,6 +4,16 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.65 — August 2026
+
+### Android TV : bump version pour build de test
+
+#### Notes
+- Version bump pour build de test sur Google TV.
+- Aucune modification de code — même contenu que v1.16.64.
+
+---
+
 ## v1.16.64 — August 2026
 
 ### Android TV : polish visuel premium + toggle auto-update + crash fixes
