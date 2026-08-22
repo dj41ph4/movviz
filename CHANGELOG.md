@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.16.76 — August 2026
+
+- Synchronise la version web et Android TV pour la release suivante.
+
 ## v1.16.75 — August 2026
 
 ### Correctifs release et lecture locale
