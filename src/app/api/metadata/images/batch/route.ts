@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { mapWithConcurrency } from "@/lib/concurrency";
-import { getTitleImages } from "@/lib/metadata/tmdb";
+import { getTitleImages, pickEditorialArtwork } from "@/lib/metadata/tmdb";
+import { cacheTitleArtwork, loadCachedTitleArtwork } from "@/lib/metadata/titleArtworkCache";
 
 export const dynamic = "force-dynamic";
 
@@ -32,8 +33,8 @@ function parseArtworkRefs(raw: string | null): ArtworkRef[] | null {
 /**
  * Resolves the small amount of artwork needed by an editorial screen in one
  * browser request. Individual cards must never fan out into one TMDb request
- * each; TMDb's process cache remains the source for the upstream responses,
- * while this route bounds cold-cache work to four concurrent requests.
+ * each. The selected 16:9 backdrop and logo are stored durably in Movviz, so
+ * normal page loads resolve here without waiting for TMDb at all.
  */
 export async function GET(req: NextRequest) {
   const user = requireUser(req);
@@ -43,18 +44,40 @@ export async function GET(req: NextRequest) {
   if (!refs) return NextResponse.json({ error: "invalid_items" }, { status: 400 });
   const locale = req.nextUrl.searchParams.get("locale") ?? undefined;
 
-  const entries = await mapWithConcurrency(refs, TMDB_ARTWORK_CONCURRENCY, async (ref) => {
+  const cached = loadCachedTitleArtwork(refs, locale);
+  const missing = refs.filter((ref) => !cached[`${ref.type}:${ref.tmdbId}`]);
+  const freshEntries = await mapWithConcurrency(missing, TMDB_ARTWORK_CONCURRENCY, async (ref) => {
     const images = await getTitleImages(ref.tmdbId, ref.type, locale);
-    return [
-      `${ref.type}:${ref.tmdbId}`,
-      {
-        // A backdrop is an actual TMDb 16:9 editorial image. Cards must not
-        // silently turn a vertical poster into a pseudo-landscape crop.
-        backdropPath: images.backdrops[0]?.filePath ?? null,
-        logoPath: images.logos[0]?.filePath ?? null,
-      },
-    ] as const;
+    const artwork = pickEditorialArtwork(images);
+    return {
+      type: ref.type,
+      tmdbId: ref.tmdbId,
+      // The pair is intentionally blank if TMDb has no neutral backdrop:
+      // a duplicate title treatment is worse than Movviz's text fallback.
+      ...artwork,
+    };
   });
+  cacheTitleArtwork(freshEntries, locale);
+  const artwork: Record<string, { backdropPath: string | null; logoPath: string | null }> = {};
+  for (const [key, entry] of Object.entries(cached)) {
+    artwork[key] = { backdropPath: entry.backdropPath, logoPath: entry.logoPath };
+  }
+  for (const entry of freshEntries) {
+    artwork[`${entry.type}:${entry.tmdbId}`] = {
+      backdropPath: entry.backdropPath,
+      logoPath: entry.logoPath,
+    };
+  }
 
-  return NextResponse.json({ artwork: Object.fromEntries(entries) });
+  return NextResponse.json(
+    { artwork },
+    {
+      headers: {
+        // The URL is deterministic for one title set + locale. Browser cache
+        // makes tab changes/back-navigation instant; the durable server cache
+        // remains the fallback after a browser restart.
+        "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
+      },
+    }
+  );
 }

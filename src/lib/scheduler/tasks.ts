@@ -25,6 +25,7 @@ import { findUpgradeCandidates } from "@/lib/library/searchAndReplace";
 import { findEpisodeUpgradeCandidates } from "@/lib/library/searchAndReplaceSeries";
 import { backfillMovieLanguages, backfillSeriesLanguages } from "@/lib/tasks/languageDetectionTask";
 import { syncPlexMarkers } from "@/lib/plex/markerSync";
+import { runArtworkCacheWarm } from "@/lib/metadata/artworkCacheWarm";
 
 export interface ScheduledTask {
   id: string;
@@ -241,6 +242,17 @@ export const TASKS: ScheduledTask[] = [
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
       await refreshLibraryMetadata();
+    },
+  },
+  {
+    id: "artwork-cache-refresh",
+    name: "Complément incrémental des visuels TMDb",
+    intervalMs: 24 * 60 * 60 * 1000, // daily safety net; visible titles fill immediately
+    run: async () => {
+      // New library/search titles cache themselves in real time. This small
+      // daily pass only recovers titles created off-screen or a transient
+      // earlier TMDb failure, never re-downloads known immutable images.
+      await runArtworkCacheWarm("incremental", { limit: 30 });
     },
   },
   {

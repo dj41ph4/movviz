@@ -985,6 +985,13 @@ export const nl: Dictionary = {
     warmHint: "Laadt je hele bibliotheek vooraf in de op schijf opgeslagen TMDb-cache — daarna laden films en series onmiddellijk, zelfs na een herstart.",
     warmButton: "Cache vullen",
     warmDone: "{n} titels in cache opgeslagen.",
+    artworkTitle: "Kaartillustraties",
+    artworkHint: "Slaat voor elke film en serie een neutrale TMDb-achtergrond in 16:9 en het officiële logo op. Zichtbare kaarten en zoekresultaten vullen dit al in realtime.",
+    artworkComplete: "Cache aanvullen",
+    artworkIncremental: "Incrementeel vernieuwen",
+    artworkProgress: "{done}/{total} titels verwerkt",
+    artworkDone: "{n} titelillustratie(s) in cache opgeslagen.",
+    artworkDaily: "Een dagelijkse taak controleert alleen nieuwe, ontbrekende of jaarlijks te controleren titels.",
   },
 
   webhooks: {

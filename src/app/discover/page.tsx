@@ -12,7 +12,7 @@ import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
 import { TitleMark } from "@/components/media/TitleMark";
-import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
+import { useTitleArtworkBatch, type TitleArtworkByKey } from "@/components/media/useTitleArtworkBatch";
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
@@ -469,7 +469,7 @@ function DiscoverPageInner() {
           {isBrowsing && (
             <>
               {loading && page === 1 && (
-                <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                   {[...Array(12)].map((_, i) => (
                     <div key={i}>
                       <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
@@ -485,7 +485,7 @@ function DiscoverPageInner() {
 
               {results.length > 0 && (
                 <>
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
                     {results.map((r, i) => (
                       <DiscoverCard
                         key={`${r.type}:${r.tmdbId}`}
@@ -493,6 +493,7 @@ function DiscoverPageInner() {
                         result={r}
                         status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
                         watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
+                        backdropPath={titleArtwork[`${r.type}:${r.tmdbId}`]?.backdropPath ?? r.backdropPath}
                         logoPath={titleArtwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
                         onAdded={() => setLibStatus((m) => new Map(m).set(`${r.type}:${r.tmdbId}`, "missing"))}
                       />
@@ -588,7 +589,7 @@ function HomeRows({
   rows, artwork, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onWatchProviderClick,
 }: {
   rows: { key: string; results: MetaSearchResult[]; ranked?: boolean }[];
-  artwork: Record<string, { logoPath: string | null }>;
+  artwork: TitleArtworkByKey;
   loading: boolean;
   companyTiles: LogoTile[];
   watchProviderTiles: LogoTile[];
@@ -611,7 +612,7 @@ function HomeRows({
             <div className="h-6 w-48 animate-pulse rounded-lg bg-white/8" />
             <div className="flex gap-4 overflow-hidden">
               {[...Array(6)].map((_, j) => (
-                <div key={j} className="w-[205px] shrink-0 lg:w-[210px] xl:w-[205px]">
+                <div key={j} className="w-[300px] shrink-0 lg:w-[320px] xl:w-[340px] 2xl:w-[360px]">
                   <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
                 </div>
               ))}
@@ -701,7 +702,7 @@ function PosterRow({
 }: {
   title: string;
   results: MetaSearchResult[];
-  artwork: Record<string, { logoPath: string | null }>;
+  artwork: TitleArtworkByKey;
   libStatus: Map<string, string>;
   libLoaded: boolean;
   watchedSet: Set<number>;
@@ -712,12 +713,13 @@ function PosterRow({
   return (
     <SharedPosterRow title={title} onSeeAll={onSeeAll}>
       {results.map((r, i) => (
-        <div key={`${r.type}:${r.tmdbId}`} className="w-[205px] shrink-0 lg:w-[210px] xl:w-[205px]">
+        <div key={`${r.type}:${r.tmdbId}`} className="w-[300px] shrink-0 lg:w-[320px] xl:w-[340px] 2xl:w-[360px]">
           <DiscoverCard
             index={i}
             result={r}
             status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
             watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
+            backdropPath={artwork[`${r.type}:${r.tmdbId}`]?.backdropPath ?? r.backdropPath}
             logoPath={artwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
             onAdded={() => onAdded(`${r.type}:${r.tmdbId}`)}
           />
@@ -868,11 +870,12 @@ function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank
 }
 
 function DiscoverCard({
-  result, status, watched, logoPath, onAdded, index = 0,
+  result, status, watched, backdropPath, logoPath, onAdded, index = 0,
 }: {
   result: MetaSearchResult;
   status: string | null;
   watched: boolean;
+  backdropPath: string | null;
   logoPath: string | null;
   onAdded: () => void;
   index?: number;
@@ -941,7 +944,7 @@ function DiscoverCard({
           type={result.type}
           title={result.title}
           posterPath={result.posterPath}
-          backdropPath={result.backdropPath}
+          backdropPath={backdropPath}
           logoPath={logoPath}
           rating={result.rating}
           badge={cardBadge}

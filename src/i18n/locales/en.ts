@@ -985,6 +985,13 @@ export const en: Dictionary = {
     warmHint: "Preloads your entire library into the disk-persisted TMDb cache — after that, movies and series load instantly, even after a restart.",
     warmButton: "Fill the cache",
     warmDone: "{n} titles cached.",
+    artworkTitle: "Card artwork",
+    artworkHint: "Stores a neutral TMDb 16:9 backdrop and official logo for every movie and series. Visible cards and search results already fill it in real time.",
+    artworkComplete: "Complete the cache",
+    artworkIncremental: "Refresh incrementally",
+    artworkProgress: "{done}/{total} titles processed",
+    artworkDone: "{n} title artwork item(s) cached.",
+    artworkDaily: "A daily pass checks only new, missing, or annually due titles.",
   },
 
   webhooks: {

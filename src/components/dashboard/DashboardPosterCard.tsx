@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useRef, useState } from "react";
-import { Star, Film, Tv, Play } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Star, Film, Tv, Play, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BADGE_SHAPE } from "@/components/library/MediaBadges";
+import { useT } from "@/i18n/provider";
 
 const POSTER_BASE = "/tmdb/w500";
 const BACKDROP_BASE = "/tmdb/w780";
@@ -69,33 +70,56 @@ export function DashboardPosterCard({
   /** Keeps the title mark clear of an action supplied by the parent card. */
   reserveBottomRight?: boolean;
 }) {
+  const t = useT();
   const [hovered, setHovered] = useState(false);
   const [popover, setPopover] = useState<{ left: number; top: number; width: number; above: boolean } | null>(null);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const poster = posterPath ? `${POSTER_BASE}${posterPath}` : null;
   const backdrop = backdropPath ? `${BACKDROP_BASE}${backdropPath}` : null;
   const logo = logoPath ? `${LOGO_BASE}${logoPath}` : null;
   const previewImage = backdrop;
   const hasMeta = !subtitle && (!!year || !!runtime || (genres && genres.length > 0));
   const showRank = !!rank && rank >= 1 && rank <= 10;
+
+  const clearTimers = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    hoverTimer.current = null;
+    leaveTimer.current = null;
+  };
+  const closePreview = () => {
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    // The tiny delay lets the pointer cross from the source card to its
+    // portalled preview. Without it, the old pointer-events-none preview
+    // disappeared at the exact moment it became useful.
+    leaveTimer.current = setTimeout(() => setHovered(false), 110);
+  };
+  const openPreview = (target: HTMLElement) => {
+    const rect = target.getBoundingClientRect();
+    const width = Math.min(Math.max(Math.round(rect.width * 1.24), 360), 480, window.innerWidth - 16);
+    const estimatedHeight = Math.round(width * 0.5625) + 116;
+    const above = rect.top + estimatedHeight > window.innerHeight - 12;
+    const left = Math.max(8, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 8));
+    // Netflix-style: the preview grows from the hovered tile rather than
+    // appearing below it as a detached tooltip.
+    setPopover({ left, top: above ? rect.bottom + 12 : Math.max(8, rect.top - 12), width, above });
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    if (hoverTimer.current) clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setHovered(true), 520);
+  };
+
+  useEffect(() => () => clearTimers(), []);
+
   return (
     <>
     <Link
       href={`/title/${type}/${tmdbId}`}
-      onMouseEnter={(event) => {
-        const rect = event.currentTarget.getBoundingClientRect();
-        const width = Math.min(Math.max(rect.width + 72, 270), window.innerWidth - 16);
-        const above = rect.top > 250 && (rect.bottom > window.innerHeight - 220 || rect.top > 360);
-        const left = Math.max(8, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 8));
-        setPopover({ left, top: above ? rect.top - 10 : rect.bottom + 10, width, above });
-        if (hoverTimer.current) clearTimeout(hoverTimer.current);
-        hoverTimer.current = setTimeout(() => setHovered(true), 700);
-      }}
-      onMouseLeave={() => {
-        if (hoverTimer.current) clearTimeout(hoverTimer.current);
-        setHovered(false);
-      }}
-      className={cn("group shrink-0", showRank ? "flex w-[190px] items-end sm:w-[220px]" : layout === "fill" ? "block w-full" : "block w-[205px] lg:w-[210px] xl:w-[205px]")}
+      onMouseEnter={(event) => openPreview(event.currentTarget)}
+      onMouseLeave={closePreview}
+      className={cn("group shrink-0 transition-opacity duration-200", showRank ? "flex w-[190px] items-end sm:w-[220px]" : layout === "fill" ? "block w-full" : "block w-[300px] lg:w-[320px] xl:w-[340px] 2xl:w-[360px]", hovered && "opacity-0 sm:opacity-35")}
     >
       {showRank && (
         <span
@@ -169,47 +193,50 @@ export function DashboardPosterCard({
     </Link>
     {hovered && popover && typeof document !== "undefined" && createPortal(
       <div
-        aria-hidden="true"
-        className="pointer-events-none fixed z-[80] hidden overflow-hidden rounded-2xl border border-white/20 bg-[#171522]/98 shadow-2xl shadow-black/70 ring-1 ring-white/10 backdrop-blur-xl sm:block"
+        onMouseEnter={() => {
+          if (leaveTimer.current) clearTimeout(leaveTimer.current);
+          if (hoverTimer.current) clearTimeout(hoverTimer.current);
+          setHovered(true);
+        }}
+        onMouseLeave={closePreview}
+        className="fixed z-[80] hidden overflow-hidden rounded-[18px] border border-white/20 bg-[#171522]/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] ring-1 ring-white/10 backdrop-blur-xl sm:block"
         style={{ left: popover.left, top: popover.top, width: popover.width, transform: popover.above ? "translateY(-100%)" : undefined }}
       >
-        <div className="relative aspect-video overflow-hidden">
-          {previewImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={previewImage} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/10 to-transparent" />
-          <div className="absolute inset-x-4 bottom-3 flex items-end justify-between gap-3">
-            <div className="min-w-0">
+        <Link href={`/title/${type}/${tmdbId}`} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow">
+          <div className="relative aspect-video overflow-hidden">
+            {previewImage ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={previewImage} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/10 to-transparent" />
+            <div className="absolute inset-x-4 bottom-3 min-w-0">
               {logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt="" className="max-h-10 max-w-[190px] object-contain object-left drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
+                <img src={logo} alt="" className="max-h-11 max-w-[210px] object-contain object-left drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
               ) : (
                 <span className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
               )}
             </div>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-lg">
-              <Play className="ml-0.5 h-4 w-4 fill-current" />
-            </span>
           </div>
-        </div>
-        <div className="space-y-2 p-3">
-          <div className="flex items-center gap-2 text-xs font-semibold text-white/90">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-lg"><Play className="ml-0.5 h-3.5 w-3.5 fill-current" /></span>
-            <span className="truncate text-sm">{title}</span>
+          <div className="space-y-2.5 p-3.5">
+            <div className="flex items-center gap-2.5 text-xs font-semibold text-white/90">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform duration-150 group-hover:scale-105"><Play className="ml-0.5 h-4 w-4 fill-current" /></span>
+              <span className="flex h-9 min-w-0 flex-1 items-center rounded-full bg-white/10 px-3 text-sm text-white transition-colors group-hover:bg-white/16">{t("dashboard.hero.moreInfo")}</span>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/25 text-white/85"><Info className="h-4 w-4" /></span>
+            </div>
+            {subtitle && <p className="truncate text-[11px] text-white/70">{subtitle}</p>}
+            {(hasMeta || showRank) && <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold text-white/80">
+              {showRank && <span className="text-brand-glow">Top {rank}</span>}
+              {year && <span>{year}</span>}
+              {runtime && <><span className="text-white/40">•</span><span>{runtime} min</span></>}
+            </div>}
+            {genres && genres.length > 0 && <div className="flex flex-wrap gap-1">
+              {genres.slice(0, 2).map((g) => <span key={g} className="rounded-full border border-white/20 px-1.5 py-0.5 text-[10px] text-white/80">{g}</span>)}
+            </div>}
           </div>
-          {subtitle && <p className="truncate text-[11px] text-white/70">{subtitle}</p>}
-          {(hasMeta || showRank) && <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold text-white/80">
-            {showRank && <span className="text-brand-glow">Top {rank}</span>}
-            {year && <span>{year}</span>}
-            {runtime && <><span className="text-white/40">•</span><span>{runtime} min</span></>}
-          </div>}
-          {genres && genres.length > 0 && <div className="flex flex-wrap gap-1">
-            {genres.slice(0, 2).map((g) => <span key={g} className="rounded-full border border-white/20 px-1.5 py-0.5 text-[10px] text-white/80">{g}</span>)}
-          </div>}
-        </div>
+        </Link>
       </div>, document.body
     )}
     </>

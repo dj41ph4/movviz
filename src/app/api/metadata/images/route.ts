@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { getTitleImages } from "@/lib/metadata/tmdb";
+import { getTitleImages, pickEditorialArtwork } from "@/lib/metadata/tmdb";
+import { cacheTitleArtwork } from "@/lib/metadata/titleArtworkCache";
 
 export const dynamic = "force-dynamic";
 
@@ -17,5 +18,16 @@ export async function GET(req: NextRequest) {
   if (type !== "movie" && type !== "series") return NextResponse.json({ error: "invalid_type" }, { status: 400 });
 
   const images = await getTitleImages(tmdbId, type, locale);
-  return NextResponse.json(images);
+  const artwork = pickEditorialArtwork(images);
+  // The hero and the artwork picker share this route. Once either one has
+  // seen a title, the editorial-card batch can reuse its chosen backdrop and
+  // official title mark without another TMDb call.
+  cacheTitleArtwork([{
+    type,
+    tmdbId,
+    ...artwork,
+  }], locale);
+  return NextResponse.json(images, {
+    headers: { "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800" },
+  });
 }

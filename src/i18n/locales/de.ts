@@ -985,6 +985,13 @@ export const de: Dictionary = {
     warmHint: "Lädt deine gesamte Bibliothek vorab in den auf der Festplatte gespeicherten TMDb-Cache — danach laden Filme und Serien sofort, selbst nach einem Neustart.",
     warmButton: "Cache füllen",
     warmDone: "{n} Titel im Cache gespeichert.",
+    artworkTitle: "Kartenmotive",
+    artworkHint: "Speichert für jeden Film und jede Serie einen neutralen TMDb-Hintergrund im 16:9-Format und das offizielle Logo. Sichtbare Karten und Suchergebnisse füllen ihn bereits in Echtzeit.",
+    artworkComplete: "Cache vervollständigen",
+    artworkIncremental: "Inkrementell aktualisieren",
+    artworkProgress: "{done}/{total} Titel verarbeitet",
+    artworkDone: "{n} Titelmotiv(e) im Cache gespeichert.",
+    artworkDaily: "Ein täglicher Durchlauf prüft nur neue, fehlende oder jährlich fällige Titel.",
   },
 
   update: {

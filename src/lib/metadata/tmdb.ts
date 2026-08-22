@@ -685,6 +685,25 @@ export async function getTitleImages(tmdbId: number, type: "movie" | "series", l
   return { backdrops: mapTitleImages(data?.backdrops, lang), logos: mapTitleImages(data?.logos, lang) };
 }
 
+/**
+ * Editorial cards deliberately use a language-neutral backdrop. TMDb marks
+ * key art containing a localized title treatment with an ISO language; using
+ * that behind a second official logo creates the ugly doubled-title look.
+ * If TMDb has no neutral backdrop we return no pair at all — the caller can
+ * keep its normal fallback image and title text instead of guessing.
+ */
+export function pickEditorialArtwork(images: { backdrops: TitleImageOption[]; logos: TitleImageOption[] }): {
+  backdropPath: string | null;
+  logoPath: string | null;
+} {
+  const backdrop = images.backdrops.find((image) => image.language === null);
+  if (!backdrop) return { backdropPath: null, logoPath: null };
+  return {
+    backdropPath: backdrop.filePath,
+    logoPath: images.logos[0]?.filePath ?? null,
+  };
+}
+
 /** Overview + cast + similar titles + franchise collection, for a detail page. */
 const KEY_CREW_JOBS = new Set(["Director", "Writer", "Screenplay", "Producer", "Editor", "Creator"]);
 

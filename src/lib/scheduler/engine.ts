@@ -62,6 +62,7 @@ const TASK_JOB_TYPE: Record<string, JobType> = {
   "plex-full-reconcile": "plexLibrarySync",
   "release-day-search": "rssScan",
   "metadata-refresh": "metadataRefresh",
+  "artwork-cache-refresh": "metadataRefresh",
   "rss-indexer-scan": "rssScan",
   "download-state-reconcile": "reconcile",
   "anime-vf-calendar-refresh": "metadataRefresh",

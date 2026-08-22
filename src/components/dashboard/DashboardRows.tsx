@@ -27,7 +27,14 @@ type ArtworkByKey = Record<string, {
   backdropPath: string | null;
   logoPath: string | null;
 }>;
-type LocalArtwork = { backdropPath: string | null; logoPath: string | null };
+type LocalArtwork = {
+  /** The library's normal TMDb backdrop, useful before the artwork batch lands. */
+  backdropPath: string | null;
+  /** A deliberate user artwork override: it must always beat the TMDb cache. */
+  customBackdropPath: string | null;
+  logoPath: string | null;
+};
+type ResolvedArtwork = Pick<LocalArtwork, "backdropPath" | "logoPath">;
 
 /** Keep a mixed home row genuinely mixed without inventing a second ranking:
  * both source lists retain their own order and alternate while either has
@@ -176,13 +183,15 @@ export function DashboardRows({
     const artwork = new Map<string, LocalArtwork>();
     for (const movie of movies) {
       artwork.set(`movie:${movie.tmdbId}`, {
-        backdropPath: movie.customBackdropPath ?? movie.backdropPath,
+        backdropPath: movie.backdropPath,
+        customBackdropPath: movie.customBackdropPath ?? null,
         logoPath: movie.customLogoPath ?? null,
       });
     }
     for (const show of series) {
       artwork.set(`series:${show.tmdbId}`, {
-        backdropPath: show.customBackdropPath ?? show.backdropPath,
+        backdropPath: show.backdropPath,
+        customBackdropPath: show.customBackdropPath ?? null,
         logoPath: show.customLogoPath ?? null,
       });
     }
@@ -193,8 +202,10 @@ export function DashboardRows({
     const refs = new Map<string, { type: "movie" | "series"; tmdbId: number }>();
     const add = (type: "movie" | "series", tmdbId: number) => {
       const key = `${type}:${tmdbId}`;
-      // A user-selected Movviz logo already wins; no TMDb lookup is needed.
-      if (!localArtwork.get(key)?.logoPath) refs.set(key, { type, tmdbId });
+      // Skip TMDb only if the user explicitly supplied both parts. Otherwise
+      // the row gets its horizontal TMDb backdrop + official logo pair.
+      const local = localArtwork.get(key);
+      if (!local?.customBackdropPath || !local.logoPath) refs.set(key, { type, tmdbId });
     };
 
     if (visible.has("continueWatching")) {
@@ -217,14 +228,14 @@ export function DashboardRows({
   }, [artworkRefs, locale]);
   const { data: artworkData } = useSWR<{ artwork: ArtworkByKey }>(artworkRequest);
 
-  const resolveArtwork = (type: "movie" | "series", tmdbId: number, fallbackBackdrop?: string | null): LocalArtwork => {
+  const resolveArtwork = (type: "movie" | "series", tmdbId: number, fallbackBackdrop?: string | null): ResolvedArtwork => {
     const key = `${type}:${tmdbId}`;
     const local = localArtwork.get(key);
     return {
-      // Every editorial card gets a true TMDb backdrop before the visual
-      // fallback is considered. A local/custom backdrop remains the explicit
-      // user choice and always wins.
-      backdropPath: local?.backdropPath ?? fallbackBackdrop ?? artworkData?.artwork[key]?.backdropPath ?? null,
+      // Every editorial card gets a true TMDb backdrop. A user-selected
+      // Movviz backdrop remains the explicit choice and always wins; the
+      // library/row path is only the instant first-paint fallback.
+      backdropPath: local?.customBackdropPath ?? artworkData?.artwork[key]?.backdropPath ?? local?.backdropPath ?? fallbackBackdrop ?? null,
       logoPath: local?.logoPath ?? artworkData?.artwork[key]?.logoPath ?? null,
     };
   };

@@ -985,6 +985,13 @@ export const it: Dictionary = {
     warmHint: "Precarica l'intera libreria nella cache TMDb persistente su disco — dopodiché, film e serie si caricano istantaneamente, anche dopo un riavvio.",
     warmButton: "Riempi la cache",
     warmDone: "{n} titoli memorizzati nella cache.",
+    artworkTitle: "Immagini delle schede",
+    artworkHint: "Memorizza per ogni film e serie uno sfondo TMDb neutro 16:9 e il logo ufficiale. Le schede visibili e i risultati di ricerca lo popolano già in tempo reale.",
+    artworkComplete: "Completa la cache",
+    artworkIncremental: "Aggiorna in modo incrementale",
+    artworkProgress: "{done}/{total} titoli elaborati",
+    artworkDone: "{n} immagine/i di titolo memorizzata/e nella cache.",
+    artworkDaily: "Un passaggio giornaliero controlla solo i titoli nuovi, mancanti o da rivedere annualmente.",
   },
 
   webhooks: {

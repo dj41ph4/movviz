@@ -47,17 +47,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "images.unsplash.com" },
     ],
   },
-  // Proxy TMDb images through our domain so the browser never sees a
-  // cross-origin request — kills the "No Access-Control-Allow-Origin"
-  // console noise entirely, server-side, at zero cost.
-  async rewrites() {
-    return [
-      {
-        source: "/tmdb/:size/:path*",
-        destination: "https://image.tmdb.org/t/p/:size/:path*",
-      },
-    ];
-  },
+  // `/tmdb/:size/:path*` is served by the App Router route, which persists
+  // the immutable image bytes under the Movviz config directory and gives
+  // browsers a one-year cache lifetime.
 };
 
 export default nextConfig;

@@ -983,6 +983,13 @@ export const fr = {
     warmHint: "Précharge toute ta bibliothèque dans le cache TMDb, persisté sur disque — après ça, films et séries s'affichent instantanément, même après un redémarrage.",
     warmButton: "Remplir le cache",
     warmDone: "{n} titres mis en cache.",
+    artworkTitle: "Visuels des cartes",
+    artworkHint: "Mémorise pour chaque film et série un fond TMDb 16:9 neutre et son logo officiel. Les cartes visibles et les recherches le remplissent déjà en temps réel.",
+    artworkComplete: "Compléter le cache",
+    artworkIncremental: "Rafraîchir incrémentalement",
+    artworkProgress: "{done}/{total} titres traités",
+    artworkDone: "{n} visuel(s) de titre mis en cache.",
+    artworkDaily: "Un passage quotidien contrôle uniquement les titres nouveaux, absents ou arrivés à leur révision annuelle.",
   },
 
   webhooks: {

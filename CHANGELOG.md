@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.16.79 — August 2026
+
+### Desktop — cartes éditoriales et cache d'images
+
+- Les rangées éditoriales d'Accueil, Films et Séries passent à de grandes
+  cartes 16:9 (300–360 px) avec une preview de survol proportionnée.
+- Chaque carte choisit un backdrop TMDb neutre, puis lui applique le logo
+  officiel ; lorsqu'aucun fond neutre n'est disponible, Movviz conserve le
+  titre texte au lieu de doubler un logo déjà imprimé dans l'image.
+- Ajoute un cache persistant des couples backdrop/logo, rempli immédiatement
+  depuis l'Accueil, le hero et la recherche. Les fichiers TMDb immuables sont
+  réellement conservés sur disque par Movviz et un an dans le navigateur,
+  sans requête TMDb par carte.
+- Réglages → Cache ajoute « Compléter le cache » et « Rafraîchir
+  incrémentalement ». Une tâche quotidienne rattrape seulement les nouveaux
+  titres, absences ou rares échecs réseau, sans retarder l'interface.
+- Aligne les versions web, Android TV, package lock, badge et métadonnées de
+  release sur `1.16.79`.
+
 ## v1.16.78 — August 2026
 
 ### Desktop — découverte, séries et lecture
