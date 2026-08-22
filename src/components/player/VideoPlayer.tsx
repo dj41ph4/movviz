@@ -982,7 +982,11 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       // silence. A genuine silence verdict escalates to the local ffmpeg
       // remux first (audio transcoded to AAC, video untouched) — HLS is
       // only the last resort if ffmpeg is unavailable or inapplicable.
-      if (expectAudio) {
+      // Metadata responses from local files can omit the aggregate codec
+      // while still exposing one or more audio tracks. Keep the live probe
+      // armed in that case too; otherwise a direct leg can run silently
+      // forever and never reach the audio-only remux fallback.
+      if (expectAudio || localPlayback || (Array.isArray(infoRef.current.audioStreams) && infoRef.current.audioStreams.length > 0)) {
         stopSilentWatchRef.current?.();
         stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToFfmpeg(), { windowMs: 800, requireStarted: true });
       }
@@ -1990,7 +1994,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     // net) as the default first-attempt path — a manual retry is no longer
     // a weaker, unwired duplicate of it. Resumes from the current position
     // instead of restarting from 0.
-    startDirectRef.current?.(el.currentTime > 0 ? el.currentTime : undefined, !!infoRef.current.audioCodec);
+    startDirectRef.current?.(el.currentTime > 0 ? el.currentTime : undefined, !!infoRef.current.audioCodec || localPlayback);
   };
 
   const handleReturnToHls = () => {
@@ -2257,7 +2261,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
               {activeMarker && !showResume && (
                 <button
                   onClick={handleSkipMarker}
-                  className="absolute bottom-24 right-5 z-30 rounded-full border border-white/20 bg-black/80 px-5 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md transition hover:bg-black"
+                  className="pointer-events-auto absolute bottom-28 right-5 z-50 rounded-full border border-white/20 bg-black/80 px-5 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md transition hover:bg-black hover:border-brand-glow/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
                 >
                   {activeMarker.type === "intro" ? "Passer l’intro" : "Passer le générique"}
                 </button>

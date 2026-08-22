@@ -389,7 +389,11 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       return;
     }
     let cancelled = false;
-    void fetch(`/api/playback/items/${encodeURIComponent(libraryMatch.plexRatingKey)}`, { cache: "no-store" })
+    // The player writes progress under the stable Movviz id and only keeps
+    // the Plex rating key as a legacy alias. Read the same canonical record
+    // here; otherwise the CTA could show an older Plex-keyed timestamp while
+    // the player dialog showed the newer Movviz timestamp.
+    void fetch(`/api/playback/items/${encodeURIComponent(libraryMatch.plexRatingKey)}?mediaId=${encodeURIComponent(libraryMatch.id ?? libraryMatch.plexRatingKey)}`, { cache: "no-store" })
       .then((r) => r.ok ? r.json() : null)
       .then((data: { watched?: boolean; resumeOffsetMs?: number | null } | null) => {
         if (cancelled) return;
@@ -399,7 +403,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       })
       .catch(() => { if (!cancelled) setResumeSeconds(getSavedProgressSeconds(libraryMatch.plexRatingKey)); });
     return () => { cancelled = true; };
-  }, [playerRequest, betaPlayer, libraryMatch?.plexRatingKey]);
+  }, [playerRequest, betaPlayer, libraryMatch?.plexRatingKey, libraryMatch?.id]);
   const resumePercent = resumeSeconds != null && detail?.runtime
     ? Math.min(100, Math.max(0, (resumeSeconds / (detail.runtime * 60)) * 100))
     : null;
