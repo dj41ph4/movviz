@@ -32,7 +32,8 @@ export interface VideoPlayerProps {
   /** Identifiant brut de la série — distinct de `movvizId` qui encode aussi
    * saison/épisode pour la progression. */
   seriesId?: string;
-  plexUrl: string;
+  /** Optional for a local Movviz source which Plex has not indexed yet. */
+  plexUrl?: string | null;
   title: string;
   onClose: () => void;
   useTranscode?: boolean;
@@ -2257,16 +2258,18 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
             </div>
           </div>
           <div className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-full border border-white/12 bg-black/45 p-1 shadow-lg backdrop-blur-2xl">
-            <a
-              href={plexUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => openPlexLink(e, plexUrl)}
-              className={iconButtonClass}
-              title={t("library.watchOnPlex")}
-            >
-              <ExternalLink className="h-4 w-4" />
-            </a>
+            {plexUrl && (
+              <a
+                href={plexUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => openPlexLink(e, plexUrl)}
+                className={iconButtonClass}
+                title={t("library.watchOnPlex")}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            )}
             <button
               onClick={onClose}
               className={iconButtonClass}
@@ -2296,16 +2299,18 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
               <div className="flex w-[calc(100vw-2rem)] max-w-sm flex-col items-center gap-4 rounded-2xl glass-strong p-8 text-center shadow-2xl animate-overlay-pop">
                 <AlertTriangle className="h-6 w-6 text-down/70" />
                 <p className="text-sm leading-relaxed text-ink-soft">{error}</p>
-                <a
-                  href={plexUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => openPlexLink(e, plexUrl)}
-                  className="flex h-11 items-center gap-2 rounded-xl glass px-5 text-sm font-semibold text-ink transition-all duration-150 hover:text-white active:scale-95"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  {t("library.watchOnPlex")}
-                </a>
+                {plexUrl && (
+                  <a
+                    href={plexUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => openPlexLink(e, plexUrl)}
+                    className="flex h-11 items-center gap-2 rounded-xl glass px-5 text-sm font-semibold text-ink transition-all duration-150 hover:text-white active:scale-95"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    {t("library.watchOnPlex")}
+                  </a>
+                )}
               </div>
             </div>
           ) : (

@@ -251,6 +251,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       ? libraryMatch.status ?? null
       : overallSeriesStatus({ seasons: libraryMatch.seasons ?? [] })
     : null;
+  // A completed, indexed Movviz file is a first-class playback source.
+  // Plex can enrich it later without turning it into an unplayable title.
+  const hasLocalPlayback = libraryStatus === "available" && !!libraryMatch?.id && !!libraryMatch.file;
+  const playbackRatingKey = libraryMatch?.plexRatingKey ?? libraryMatch?.id ?? null;
 
   const watchedEpisodes = new Set(
     (watchData?.episodes ?? [])
@@ -380,7 +384,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       if (document.fullscreenElement) { try { document.exitFullscreen(); } catch { /* unsupported */ } }
     };
   }, [showTrailer]);
-  const usePlayLabelResult = usePlayLabel(libraryMatch?.plexRatingKey);
+  const usePlayLabelResult = usePlayLabel(playbackRatingKey, hasLocalPlayback);
   const { enabled: titlePageVideoEnabled } = useTitlePageVideo();
 
   // Resume position for the primary CTA (Netflix-style "Reprendre à
@@ -391,7 +395,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const [resumeSeconds, setResumeSeconds] = useState<number | null>(null);
   useEffect(() => {
     if (playerRequest) return;
-    if (!betaPlayer || !libraryMatch?.plexRatingKey) {
+    if (!betaPlayer || !playbackRatingKey) {
       setResumeSeconds(null);
       return;
     }
@@ -400,17 +404,17 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     // the Plex rating key as a legacy alias. Read the same canonical record
     // here; otherwise the CTA could show an older Plex-keyed timestamp while
     // the player dialog showed the newer Movviz timestamp.
-    void fetch(`/api/playback/items/${encodeURIComponent(libraryMatch.plexRatingKey)}?mediaId=${encodeURIComponent(libraryMatch.id ?? libraryMatch.plexRatingKey)}`, { cache: "no-store" })
+    void fetch(`/api/playback/items/${encodeURIComponent(playbackRatingKey)}?mediaId=${encodeURIComponent(libraryMatch?.id ?? playbackRatingKey)}`, { cache: "no-store" })
       .then((r) => r.ok ? r.json() : null)
       .then((data: { watched?: boolean; resumeOffsetMs?: number | null } | null) => {
         if (cancelled) return;
         if (data && !data.watched && Number.isFinite(Number(data.resumeOffsetMs)) && Number(data.resumeOffsetMs) > 0) setResumeSeconds(Number(data.resumeOffsetMs) / 1000);
-        else if (!data) setResumeSeconds(getSavedProgressSeconds(libraryMatch.plexRatingKey));
+        else if (!data) setResumeSeconds(getSavedProgressSeconds(playbackRatingKey));
         else setResumeSeconds(null);
       })
-      .catch(() => { if (!cancelled) setResumeSeconds(getSavedProgressSeconds(libraryMatch.plexRatingKey)); });
+      .catch(() => { if (!cancelled) setResumeSeconds(getSavedProgressSeconds(playbackRatingKey)); });
     return () => { cancelled = true; };
-  }, [playerRequest, betaPlayer, libraryMatch?.plexRatingKey, libraryMatch?.id]);
+  }, [playerRequest, betaPlayer, playbackRatingKey, libraryMatch?.id]);
   const resumePercent = resumeSeconds != null && detail?.runtime
     ? Math.min(100, Math.max(0, (resumeSeconds / (detail.runtime * 60)) * 100))
     : null;
@@ -579,12 +583,12 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     (
       seasonNumber: number,
       episodeNumber: number,
-      episode: { plexRatingKey?: string | null; plexUrl?: string | null; title?: string },
+      episode: { file?: LibraryFile | null; plexRatingKey?: string | null; plexUrl?: string | null; title?: string },
       originRect: DOMRect,
     ) => {
-      if (!libraryMatch?.id || !episode.plexRatingKey || !episode.plexUrl) return;
+      if (!libraryMatch?.id || (!episode.file && !episode.plexRatingKey)) return;
       play({
-        ratingKey: episode.plexRatingKey,
+        ratingKey: episode.plexRatingKey ?? `${libraryMatch.id}:s${seasonNumber}e${episodeNumber}`,
         // The source resolver recognises this stable episode identity and
         // chooses the local Movviz file before falling back to Plex.
         movvizId: `${libraryMatch.id}:s${seasonNumber}e${episodeNumber}`,
@@ -1288,10 +1292,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 </button>
               ) : (
                 <>
-                  {libraryStatus === "available" && !libraryMatch?.plexUrl && (
-                    // File is ready in Movviz but Plex hasn't scanned/matched it into
-                    // its own library yet (plexUrl/plexRatingKey populate asynchronously,
-                    // see librarySync.ts — automatic incremental sync every 5 min).
+                  {libraryStatus === "available" && !hasLocalPlayback && !libraryMatch?.plexUrl && (
+                    // It is incomplete only when neither Movviz nor Plex
+                    // can provide a source. A local file launches directly.
                     <div className="flex items-center gap-2">
                       <button
                         disabled
@@ -1313,8 +1316,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                       )}
                     </div>
                   )}
-                  {libraryStatus === "available" && libraryMatch?.plexUrl && (
-                    betaPlayer && libraryMatch?.plexRatingKey ? (
+                  {libraryStatus === "available" && (hasLocalPlayback || libraryMatch?.plexUrl) && (
+                    playbackRatingKey && (betaPlayer || hasLocalPlayback) ? (
                       resumeSeconds != null ? (
                         // Resume pill (Netflix-style) — same play() call as the
                         // plain CTA below, just a different label/shape. The
@@ -1325,9 +1328,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         <>
                         <button
                           onClick={(e) => play({
-                            ratingKey: libraryMatch.plexRatingKey!,
+                            ratingKey: playbackRatingKey,
                             movvizId: libraryMatch.id,
-                            plexUrl: libraryMatch.plexUrl!,
+                            plexUrl: libraryMatch.plexUrl,
                             title: detail?.title ?? "",
                             useTranscode: betaPlayer,
                             tmdbId: detail?.tmdbId,
@@ -1352,9 +1355,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         </button>
                         <button
                           onClick={(e) => play({
-                            ratingKey: libraryMatch.plexRatingKey!,
+                            ratingKey: playbackRatingKey,
                             movvizId: libraryMatch.id,
-                            plexUrl: libraryMatch.plexUrl!,
+                            plexUrl: libraryMatch.plexUrl,
                             title: detail?.title ?? "",
                             useTranscode: betaPlayer,
                             tmdbId: detail?.tmdbId,
@@ -1374,9 +1377,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                       ) : (
                       <button
                         onClick={(e) => play({
-                          ratingKey: libraryMatch.plexRatingKey!,
+                          ratingKey: playbackRatingKey,
                           movvizId: libraryMatch.id,
-                          plexUrl: libraryMatch.plexUrl!,
+                          plexUrl: libraryMatch.plexUrl,
                           title: detail?.title ?? "",
                           useTranscode: betaPlayer,
                           tmdbId: detail?.tmdbId,
@@ -1391,7 +1394,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         {usePlayLabelResult.label}
                       </button>
                       )
-                    ) : (
+                    ) : libraryMatch?.plexUrl ? (
                       <a
                         href={libraryMatch.plexUrl}
                         target="_blank"
@@ -1402,7 +1405,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         <Play className="h-4 w-4 fill-black" />
                         {t("library.watchOnPlex")}
                       </a>
-                    )
+                    ) : null
                   )}
                   {canSearch && (
                     <button

@@ -20,7 +20,8 @@ export interface PlayNowRequest {
   /** Series identity is kept separate from its episode source id so the
    * player can resolve exactly the immediate next episode. */
   seriesId?: string;
-  plexUrl: string;
+  /** Optional: a local Movviz file may be playable before Plex indexes it. */
+  plexUrl?: string | null;
   title: string;
   useTranscode: boolean;
   /** TMDb identity of the watched item — lets Movviz record "quoi + quand"

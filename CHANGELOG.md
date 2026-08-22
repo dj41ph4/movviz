@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.17.03 — August 2026
+
+### Lecture — source locale indépendante de Plex
+
+- Corrige les fiches qui affichaient « En attente de synchronisation Plex »
+  malgré un fichier local déjà disponible. Un film ou épisode Movviz terminé
+  ouvre désormais immédiatement le lecteur via sa source locale ; la liaison
+  Plex reste un enrichissement asynchrone et ne bloque plus la lecture.
+- Le lecteur masque proprement le lien « Lire sur Plex » lorsqu’aucune URL
+  Plex n’est encore connue.
+
 ## v1.17.02 — August 2026
 
 ### Desktop — logos des cartes

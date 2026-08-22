@@ -329,7 +329,9 @@ function SeasonRow({
                         </div>
                       </>
                     );
-                    const playableHere = ep.status === "available" && !!ep.plexRatingKey && !!ep.plexUrl && !!onPlayEpisode;
+                    // A valid local file is sufficient. Plex enriches the
+                    // episode but must never block a finished download.
+                    const playableHere = ep.status === "available" && !!(ep.file || ep.plexRatingKey) && !!onPlayEpisode;
                     const episodeDetailHref = seriesId && ep.episodeNumber != null
                       ? `/library/series/${seriesId}/season/${season.seasonNumber}/episode/${ep.episodeNumber}`
                       : null;

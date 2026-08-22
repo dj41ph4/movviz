@@ -4,16 +4,20 @@ import { useT } from "@/i18n/provider";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 
 /**
- * "Lire" when the Beta player will actually handle this play action,
- * "Lire sur Plex" when it's a genuine hand-off to Plex — derived from the
- * same enabled + plexRatingKey gating condition every call site already
- * uses to pick its button-vs-link branch, so the label always matches what
- * actually happens on click.
+ * "Lire" when Movviz can open the player, "Lire sur Plex" only for a
+ * genuine hand-off. `playbackId` is normally the Plex key, but can be the
+ * stable Movviz id while the Plex enrichment is still pending.
  */
-export function usePlayLabel(plexRatingKey: string | null | undefined) {
+export function usePlayLabel(
+  playbackId: string | null | undefined,
+  /** A validated Movviz file can be played even before Plex has indexed it. */
+  hasLocalPlayback = false,
+) {
   const t = useT();
   const { enabled: betaPlayer } = useBetaPlayer();
-  const willUseTheater = betaPlayer && !!plexRatingKey;
+  // A Movviz-managed file must stay readable even if the optional Plex
+  // enrichment is disabled or has not completed yet.
+  const willUseTheater = !!playbackId && (betaPlayer || hasLocalPlayback);
   return {
     willUseTheater,
     label: willUseTheater ? t("library.play") : t("library.watchOnPlex"),
