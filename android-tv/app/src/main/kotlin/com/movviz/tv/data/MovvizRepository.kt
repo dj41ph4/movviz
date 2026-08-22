@@ -149,6 +149,11 @@ class MovvizRepository(private val baseUrl: String) {
      *  s'applique automatiquement (même OkHttpClient/CookieJar partagé). */
     fun streamUrl(plexRatingKey: String): String = "$baseUrl/api/stream/$plexRatingKey"
 
+    /** Direct local playback selected by the Movviz library resolver. */
+    fun localMovieUrl(movvizId: String): String = "$baseUrl/api/stream/local/${java.net.URLEncoder.encode(movvizId, "UTF-8")}"
+    fun localEpisodeUrl(seriesId: String, season: Int, episode: Int): String =
+        "$baseUrl/api/stream/local/episode/${java.net.URLEncoder.encode(seriesId, "UTF-8")}/$season/$episode"
+
     /** URL de repli quand le direct-play échoue (codec non décodable
      *  nativement par ExoPlayer) — démarre une session de transcodage Plex
      *  côté serveur. tv=0&ta=1 = la vidéo est copiée en bitstream (jamais

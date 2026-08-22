@@ -66,12 +66,26 @@ function ensure(userId: string, ratingKey: string, input: { mediaId?: string; me
   const markers = getPlaybackMarkers(ratingKey);
   const boundary = completionBoundaryMs(input.durationMs, markers, input.mediaType);
   if (prior) {
+    // Promote legacy Plex-keyed progress to the canonical Movviz identity as
+    // soon as the player provides it. This keeps old resume data usable while
+    // ensuring future writes are independent from Plex rating keys.
+    if (input.mediaId && prior.mediaId !== input.mediaId) {
+      const bucket = store().byUser[userId] ?? {};
+      const oldKey = Object.keys(bucket).find((key) => bucket[key] === prior);
+      if (oldKey && oldKey !== input.mediaId) {
+        delete bucket[oldKey];
+        bucket[input.mediaId] = prior;
+      }
+      prior.mediaId = input.mediaId;
+    }
     prior.durationMs = input.durationMs || prior.durationMs;
     prior.mediaType = input.mediaType;
     prior.completionBoundaryMs = boundary.boundaryMs;
     prior.boundarySource = boundary.source;
     if (input.tmdbId != null) prior.tmdbId = input.tmdbId;
     if (input.title) prior.title = input.title;
+    if (input.seasonNumber != null) prior.seasonNumber = input.seasonNumber;
+    if (input.episodeNumber != null) prior.episodeNumber = input.episodeNumber;
     return prior;
   }
   const now = Date.now();
@@ -80,7 +94,7 @@ function ensure(userId: string, ratingKey: string, input: { mediaId?: string; me
   return next;
 }
 
-export function getPlaybackProgress(userId: string, ratingKey: string): PlaybackProgress | null { return get(userId, ratingKey); }
+export function getPlaybackProgress(userId: string, ratingKey: string, mediaId?: string): PlaybackProgress | null { return get(userId, ratingKey, mediaId); }
 export function listPlaybackProgress(userId: string): PlaybackProgress[] { return Object.values(store().byUser[userId] ?? {}).filter((p) => !p.watched && p.eligibleForResume && (p.resumeOffsetMs ?? 0) > 0); }
 
 export function openPlaybackSession(userId: string, input: { ratingKey: string; mediaId?: string; mediaType: "movie" | "episode"; durationMs: number; tmdbId?: number; seasonNumber?: number; episodeNumber?: number; title?: string }): { session: PlaybackSession; progress: PlaybackProgress } {
