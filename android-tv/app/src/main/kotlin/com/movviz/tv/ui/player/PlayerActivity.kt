@@ -607,14 +607,17 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         fallbackLevel = 0
         fallbackNotice = null
         val localEpisode = current.localKey != null && current.seasonNumber > 0 && current.episodeNumber > 0
-        val info = if (localEpisode) {
+        val localInfo = if (localEpisode) {
             (repository.localEpisodeInfo(current.localKey!!, current.seasonNumber, current.episodeNumber) as? ApiResult.Success)?.data
         } else null
         val plexInfo = if (!localEpisode) (repository.streamInfo(current.ratingKey) as? ApiResult.Success)?.data else null
         // Markers du média — store local Movviz. Absence = [] = player
         // strictement identique à avant, aucun message, aucune requête.
-        markers = (info?.markers ?: plexInfo?.markers).orEmpty()
+        markers = (localInfo?.markers ?: plexInfo?.markers).orEmpty()
         activeMarker = null
+        // Local info currently exposes availability/markers; codec and duration
+        // probing remains a Plex/Media3 concern and is optional for local direct play.
+        val info = plexInfo
         val knownDuration = plexInfo?.durationMs
         val playbackSession = knownDuration?.takeIf { it > 0 }?.let {
             repository.openPlaybackSession(
