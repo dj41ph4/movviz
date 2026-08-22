@@ -92,6 +92,4 @@ jobs:
           append_body: true
           body: |
             ---
-            **Movviz-Android-TV-client-retail.apk** — client Android TV (Kotlin/Compose), signé pour installation retail, sans auto-update. Se connecte à un serveur Movviz déjà installé (voir l'installeur Windows ci-dessus ou l'image Docker) ; ne fonctionne pas seul.
-
-            **Movviz-Android-TV-client-AU.apk** — variante auto-update : vérifie GitHub au lancement, télécharge et installe la prochaine version AU avec un écran « Mise à jour, veuillez patienter… ». La signature retail est partagée : l'AU se met à jour par-dessus sans perte de données.
+            **Movviz-Android-TV-client.apk** — client Android TV unique (Kotlin/Compose), signé pour installation retail et intégrant l'auto-update. Il vérifie les releases GitHub au lancement, télécharge et installe la prochaine version compatible par-dessus l'existante, sans perte de données.
