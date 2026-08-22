@@ -36,6 +36,8 @@ data class LibraryMovieDto(
     val status: String,
     val file: LibraryFileDto?,
     val plexRatingKey: String? = null,
+    val playbackSource: String? = null,
+    val plexLinkStatus: String? = null,
 )
 
 // status absent du DTO volontairement : contrairement aux films, l'API ne
@@ -307,6 +309,8 @@ data class SeriesEpisodeDto(
     val title: String,
     val status: String,
     val plexRatingKey: String?,
+    val playbackSource: String? = null,
+    val plexLinkStatus: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
