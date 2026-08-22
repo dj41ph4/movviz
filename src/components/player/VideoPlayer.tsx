@@ -138,6 +138,16 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
   betaRef.current = beta;
   const playbackId = movvizId ?? ratingKey;
   const localPlayback = Boolean(movvizId);
+  // Episodes use the series identity plus season/episode coordinates.  Keep
+  // this in one place so every local leg (direct playback and metadata probe)
+  // resolves to the same endpoint; falling back to the movie route here used
+  // to make Desktop episode playback report "not found" even though Android
+  // and the library both knew the file was local.
+  const localStreamPath = localPlayback
+    ? mediaType === "episode" && seasonNumber != null && episodeNumber != null
+      ? `/api/stream/local/episode/${encodeURIComponent(movvizId!)}/${encodeURIComponent(String(seasonNumber))}/${encodeURIComponent(String(episodeNumber))}`
+      : `/api/stream/local/${encodeURIComponent(movvizId!)}`
+    : null;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -565,7 +575,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     if (!videoRef.current) return;
 
     const hlsUrl = `/api/stream/${ratingKey}/transcode`;
-    const directUrl = localPlayback ? `/api/stream/local/${encodeURIComponent(movvizId!)}` : `/api/stream/${ratingKey}`;
+    const directUrl = localStreamPath ?? `/api/stream/${ratingKey}`;
 
     // --- Prébuffer partagé (legs HLS + DASH) ---
     const armPrebuffer = () => {
@@ -995,7 +1005,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       let localePreferredAudio: StreamTrack | undefined;
       try {
         const res = await fetch(localPlayback
-          ? `/api/stream/local/${encodeURIComponent(movvizId!)}/info`
+          ? `${localStreamPath}/info`
           : `/api/stream/${ratingKey}/info`, { cache: "no-store" });
         if (res.ok) {
           info = (await res.json()) as StreamInfo;
@@ -1414,7 +1424,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       prebufferClearRef.current?.();
       prebufferClearRef.current = null;
     };
-  }, [ratingKey, useTranscode]);
+  }, [ratingKey, useTranscode, localStreamPath]);
 
   useEffect(() => {
     setActiveMarker(markers.find((m) => currentTime * 1000 >= m.startMs && currentTime * 1000 < m.endMs) ?? null);
