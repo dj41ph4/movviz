@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { requestMedia } from "@/lib/requests/requestMedia";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
+import { loadTrash } from "@/lib/library/trashStore";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,8 @@ export async function GET(req: NextRequest) {
     ...m,
     plexUrl: m.plexRatingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, m.plexRatingKey) : null,
   }));
-  return NextResponse.json({ movies });
+  const readdable = !!tmdbId && loadTrash().some((t) => t.type === "movie" && t.tmdbId === tmdbId);
+  return NextResponse.json({ movies, readdable });
 }
 
 /**
@@ -47,6 +49,6 @@ export async function POST(req: NextRequest) {
   if ("error" in result) return NextResponse.json(result, { status: 404 });
   if ("alreadyInLibrary" in result) return NextResponse.json(result, { status: 200 });
   if ("duplicateRequest" in result) return NextResponse.json(result, { status: 200 });
-  if ("added" in result) return NextResponse.json({ ...result.added, searchResult: result.searchResult }, { status: 201 });
+  if ("added" in result) return NextResponse.json({ ...result.added, searchResult: result.searchResult, readded: result.readded === true }, { status: 201 });
   return NextResponse.json({ pendingRequest: result.pendingRequest }, { status: 202 });
 }

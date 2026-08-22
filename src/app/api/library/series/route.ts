@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { requestMedia } from "@/lib/requests/requestMedia";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
+import { loadTrash } from "@/lib/library/trashStore";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,8 @@ export async function GET(req: NextRequest) {
     ...s,
     plexUrl: urlFor(s.plexRatingKey),
   }));
-  return NextResponse.json({ series });
+  const readdable = !!tmdbId && loadTrash().some((t) => t.type === "series" && t.tmdbId === tmdbId);
+  return NextResponse.json({ series, readdable });
 }
 
 /** Same auto-approve/pending-request split as movies (see /api/library/movies). */
@@ -43,6 +45,6 @@ export async function POST(req: NextRequest) {
   if ("error" in result) return NextResponse.json(result, { status: 404 });
   if ("alreadyInLibrary" in result) return NextResponse.json(result, { status: 200 });
   if ("duplicateRequest" in result) return NextResponse.json(result, { status: 200 });
-  if ("added" in result) return NextResponse.json({ ...result.added, searchResult: result.searchResult }, { status: 201 });
+  if ("added" in result) return NextResponse.json({ ...result.added, searchResult: result.searchResult, readded: result.readded === true }, { status: 201 });
   return NextResponse.json({ pendingRequest: result.pendingRequest }, { status: 202 });
 }

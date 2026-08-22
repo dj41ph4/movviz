@@ -213,12 +213,13 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     type === "movie" ? "/api/library/movies" : "/api/library/series";
 
   const { data: libraryData, mutate: mutateLibrary } = useSWR<
-    Record<string, LibraryListItem[]>
+    Record<string, LibraryListItem[] | boolean>
   >(`${libEndpoint}?tmdbId=${tmdbId}`, fetcher);
 
   const libraryMatchRaw = (
-    (type === "movie" ? libraryData?.movies : libraryData?.series) ?? []
+    ((type === "movie" ? libraryData?.movies : libraryData?.series) as LibraryListItem[] | undefined) ?? []
   ).find((x) => x.tmdbId === tmdbId) ?? null;
+  const readdable = libraryData?.readdable === true;
 
   const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{
     items: { tmdbId: number; type: string }[];
@@ -1241,7 +1242,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                   ) : (
                     <Plus className="h-4 w-4" />
                   )}
-                  {t("discover.addToLibrary")}
+                  {readdable ? "Réajouter" : t("discover.addToLibrary")}
                 </button>
               ) : (
                 <>

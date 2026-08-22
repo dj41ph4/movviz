@@ -7,6 +7,7 @@ import { logActivity } from "@/lib/activity/store";
 import { isBlocked } from "@/lib/blocklist/store";
 import type { User } from "@/lib/auth/types";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
+import { loadTrash, restoreFromTrash } from "@/lib/library/trashStore";
 
 function addApprovedRequest(
   user: User,
@@ -57,6 +58,15 @@ export async function requestMedia(
   // titre à la bibliothèque" failure in the link-before-download picker).
   if (alreadyInLibrary) return { alreadyInLibrary: true as const, item: alreadyInLibrary };
 
+  // A removed title is not a brand-new acquisition.  Keep the normal add
+  // pipeline (quality rules, blocklist, search locks and engine callbacks),
+  // but expose the distinction to the caller and consume the metadata
+  // tombstone only after the new library record has been created.  This
+  // prevents a stale Requests entry or a deleted Plex ratingKey from making
+  // the second add look like a duplicate, while preserving the existing
+  // first-acquisition behaviour for titles never seen by Movviz.
+  const wasDeleted = loadTrash().some((t) => t.type === type && t.tmdbId === tmdbId);
+
   const limit = type === "movie" ? user.requestLimitMovies : user.requestLimitSeries;
   if (user.role !== "admin" && limit != null) {
     const outstanding = loadRequests().filter(
@@ -89,7 +99,8 @@ export async function requestMedia(
     // Reused/duplicate-title entries are returned without the callback; they
     // still represent this explicit request and must appear in Requests.
     approvedRequest ??= addApprovedRequest(user, type, item, seasonNumbers);
-    return { added: item, searchResult: result.searchResult };
+    if (wasDeleted) restoreFromTrash(tmdbId, type);
+    return { added: item, searchResult: result.searchResult, readded: wasDeleted as true | false };
   }
 
   // Not just this user's own pending ask — anyone's. A title someone else
