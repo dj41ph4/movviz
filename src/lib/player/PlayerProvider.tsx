@@ -15,6 +15,8 @@ export interface OriginRect {
 
 export interface PlayNowRequest {
   ratingKey: string;
+  /** Stable Movviz media identity. When present, playback resolves the local file first. */
+  movvizId?: string;
   plexUrl: string;
   title: string;
   useTranscode: boolean;
@@ -71,6 +73,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           <TheaterModePlayer
             key={request.ratingKey}
             ratingKey={request.ratingKey}
+            movvizId={request.movvizId}
             plexUrl={request.plexUrl}
             title={request.title}
             tmdbId={request.tmdbId}

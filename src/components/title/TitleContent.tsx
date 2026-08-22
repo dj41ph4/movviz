@@ -970,6 +970,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
             <button
               onClick={(e) => play({
                 ratingKey: libraryMatch.plexRatingKey!,
+                movvizId: libraryMatch.id,
                 plexUrl: libraryMatch.plexUrl!,
                 title: detail?.title ?? "",
                 useTranscode: betaPlayer,
@@ -1283,6 +1284,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         <button
                           onClick={(e) => play({
                             ratingKey: libraryMatch.plexRatingKey!,
+                            movvizId: libraryMatch.id,
                             plexUrl: libraryMatch.plexUrl!,
                             title: detail?.title ?? "",
                             useTranscode: betaPlayer,
@@ -1309,6 +1311,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                       <button
                         onClick={(e) => play({
                           ratingKey: libraryMatch.plexRatingKey!,
+                          movvizId: libraryMatch.id,
                           plexUrl: libraryMatch.plexUrl!,
                           title: detail?.title ?? "",
                           useTranscode: betaPlayer,
