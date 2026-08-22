@@ -22,6 +22,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -37,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -895,6 +897,23 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         if (currentIndex < queue.size - 1) currentIndex += 1
     }
 
+    // Les marqueurs ne sont pas de simples décorations : à l'entrée dans une
+    // intro/générique, on révèle l'action et on lui donne un vrai point
+    // d'entrée D-pad. La barre de contrôle reste visible en arrière-plan,
+    // mais OK déclenche immédiatement le saut attendu au lieu de demander
+    // une navigation spatiale hasardeuse jusqu'en bas à droite.
+    val skipMarkerFocus = remember { FocusRequester() }
+    LaunchedEffect(activeMarker?.type, activeMarker?.startMs, activeMarker?.endMs) {
+        if (activeMarker == null || errorMessage != null) return@LaunchedEffect
+        lastInteraction = System.currentTimeMillis()
+        showControls = true
+        repeat(6) { attempt ->
+            val granted = runCatching { skipMarkerFocus.requestFocus() }.isSuccess
+            if (granted) return@LaunchedEffect
+            if (attempt < 5) withFrameNanos { }
+        }
+    }
+
     LaunchedEffect(Unit) {
         onRegisterMediaKeyHandler?.invoke { keyCode ->
             when (keyCode) {
@@ -1198,9 +1217,16 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         }
 
         // Zone d'actions playback unifiée ("Skip Intro/Credits" + "Up
-        // Next") — un seul emplacement en bas à droite, jamais deux overlays
-        // indépendants qui se superposent (PHASE 39).
+        // Next") — le marqueur est toujours au-dessus du dock de contrôle
+        // et du teaser d'épisode. Les deux actions ne se superposent jamais,
+        // y compris si l'intro se termine tout près du prochain épisode.
         val hasSkip = activeMarker != null
+        val skipBottom = when {
+            showNextEpisodeTeaser && hasNext && showControls -> 300.dp
+            showNextEpisodeTeaser && hasNext -> 210.dp
+            showControls -> 190.dp
+            else -> 56.dp
+        }
         // "Passer l'intro / générique" — bottom-right, au-dessus du
         // panneau "Épisode suivant" s'il existe ; visible même quand les
         // contrôles sont masqués, mais ne vole jamais le focus d'un menu
@@ -1210,13 +1236,15 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             enter = fadeIn(tween(200)) + slideInVertically(tween(220)) { it / 2 },
             exit = fadeOut(tween(160)),
             modifier = Modifier
-                // Au-dessus du teaser "Up Next" s'il est là, sinon à la
-                // hauteur standard du teaser — la même zone d'actions.
                 .align(Alignment.BottomEnd)
-                .padding(end = 56.dp, bottom = if (showNextEpisodeTeaser && hasNext) 210.dp else 130.dp),
+                .padding(end = 56.dp, bottom = skipBottom),
         ) {
             val label = if (activeMarker?.type == "intro") "Passer l'intro" else "Passer le générique"
-            SkipMarkerButton(label = label, onSkip = { skipMarkerAction() })
+            SkipMarkerButton(
+                label = label,
+                focusRequester = skipMarkerFocus,
+                onSkip = { skipMarkerAction() },
+            )
         }
 
         // Panneau "Épisode suivant" en bas à droite — visible dans les
@@ -1389,6 +1417,15 @@ private fun PlayerProgressBar(player: ExoPlayer, modifier: Modifier = Modifier) 
                         size = Size(w, core),
                         cornerRadius = CornerRadius(core / 2f),
                     )
+                    // Curseur permanent : sur TV la ligne seule est trop
+                    // fine pour que la position soit lisible à distance. Le
+                    // point blanc reste discret hors focus mais donne un
+                    // repère immédiat, comme le player desktop.
+                    drawCircle(
+                        color = Color.White,
+                        radius = core * 1.05f,
+                        center = Offset(w.coerceIn(core, size.width - core), core / 2f),
+                    )
                 }
             }
         }
@@ -1400,12 +1437,10 @@ private fun PlayerProgressBar(player: ExoPlayer, modifier: Modifier = Modifier) 
     }
 }
 
-/** Overlay de contrôles premium "Netflix" : titre en haut (scrim dégradé +
- *  ombre portée sur le texte pour la lisibilité sur image claire), boutons
- *  au centre, barre de progression en bas. Trois zones distinctes qui
- *  s'animent ensemble — le parent AnimatedVisibility ne fait qu'un fade
- *  global, jamais de slide : un glissement est un changement de layout
- *  perçu, Netflix ne fait que des fondus. */
+/** Overlay premium : un titre calme en haut, les gestes de lecture au centre
+ * et un vrai dock en verre au bas. La hiérarchie reste Netflix (lecture
+ * immédiate), la finition adopte le volume/les séparations d'Apple TV et
+ * d'Infuse — sans cacher l'image sous trois barres opaques. */
 @Composable
 private fun ControlsOverlay(
     title: String,
@@ -1463,9 +1498,16 @@ private fun ControlsOverlay(
             }
         }
 
-        // Zone centrale : boutons de contrôle
+        // Zone centrale : les gestes de lecture sont réunis dans une capsule
+        // flottante. Le fond les rend lisibles sur une scène claire, sans
+        // jamais former un écran de réglages qui écrase le film.
         Row(
-            modifier = Modifier.align(Alignment.Center),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .clip(RoundedCornerShape(40.dp))
+                .background(Color.Black.copy(alpha = 0.52f))
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(40.dp))
+                .padding(horizontal = 18.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -1486,20 +1528,38 @@ private fun ControlsOverlay(
             }
         }
 
-        // Zone basse : progression + accès pistes
+        // Dock bas : progression très lisible, puis actions de piste dans le
+        // même volume. Il laisse une zone dédiée aux actions contextuelles
+        // (intro/générique, épisode suivant) juste au-dessus.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f))))
-                .padding(horizontal = 56.dp, vertical = 28.dp),
+                .padding(horizontal = 48.dp, vertical = 28.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(
+                    Brush.verticalGradient(listOf(Color(0xE60E0E14), Color(0xF008080C))),
+                    RoundedCornerShape(20.dp),
+                )
+                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
+                .padding(horizontal = 28.dp, vertical = 20.dp),
         ) {
             PlayerProgressBar(player = player)
-            Spacer(modifier = Modifier.height(14.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true)
-                Spacer(modifier = Modifier.width(12.dp))
-                ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true)
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    text = "Lecture Movviz",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MovvizInkDim,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true)
+                    ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true)
+                }
             }
         }
     }
@@ -1688,12 +1748,17 @@ private fun NextEpisodeTeaser(
  *  endMs : pas d'état consumed — un retour arrière refait apparaître le
  *  bouton. */
 @Composable
-private fun SkipMarkerButton(label: String, onSkip: () -> Unit) {
+private fun SkipMarkerButton(
+    label: String,
+    focusRequester: FocusRequester,
+    onSkip: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onSkip,
         modifier = Modifier
+            .focusRequester(focusRequester)
             .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onSkip),

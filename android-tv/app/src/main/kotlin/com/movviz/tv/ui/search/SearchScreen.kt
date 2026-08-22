@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.focusable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
@@ -111,9 +112,22 @@ fun SearchScreen(
             Spacer(Modifier.height(18.dp))
         }
         when {
-            searching -> Text("Recherche…", color = MovvizInkDim, fontSize = 15.sp)
-            query.isBlank() -> Text("Recherchez un film ou une série", color = MovvizInkDim, fontSize = 15.sp)
-            results.isEmpty() -> Text("Aucun résultat pour « $query »", color = MovvizInkDim, fontSize = 15.sp)
+            searching -> SearchFocusMessage(
+                text = "Recherche…",
+                focusRequester = resultFocusRequester,
+            )
+            // Les états vides restent une destination D-pad visible. Avant,
+            // la NavRail tentait le premier poster inexistant, retombait sur
+            // son ancre technique et l'utilisateur avait l'impression que
+            // BAS ne quittait jamais le menu.
+            query.isBlank() -> SearchFocusMessage(
+                text = "Recherchez un film ou une série",
+                focusRequester = resultFocusRequester,
+            )
+            results.isEmpty() -> SearchFocusMessage(
+                text = "Aucun résultat pour « $query »",
+                focusRequester = resultFocusRequester,
+            )
             else -> TvLazyVerticalGrid(columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
                 // contentType : indique à la grille que toutes les cellules
                 // partagent la même structure — elle peut réutiliser les
@@ -129,6 +143,21 @@ fun SearchScreen(
             }
         }
     }
+}
+
+@Composable
+private fun SearchFocusMessage(text: String, focusRequester: FocusRequester?) {
+    var focused by remember { mutableStateOf(false) }
+    Text(
+        text = text,
+        color = if (focused) MovvizInk else MovvizInkDim,
+        fontSize = 15.sp,
+        modifier = Modifier
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .focusable()
+            .onFocusChanged { focused = it.isFocused }
+            .padding(vertical = 8.dp),
+    )
 }
 
 @Composable

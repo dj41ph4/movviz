@@ -65,9 +65,15 @@ fun CatalogScreen(
             series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
         }
     }
-    val editorial = remember(editorialRows) {
-        editorialRows.mapNotNull { row ->
-            val rowCards = row.results.map {
+    val wantedType = if (type == HomeTab.MOVIES) "movie" else "series"
+    val editorial = remember(editorialRows, wantedType) {
+        // Un onglet Films ne montre que des films et inversement. Les rangées
+        // éditoriales sont partagées par l'API desktop, elles peuvent donc
+        // ponctuellement contenir un mélange de résultats : le filtrage doit
+        // rester côté client TV pour préserver le contrat de chaque onglet.
+        // "kids" est explicitement hors produit TV (pas de profil Jeunesse).
+        editorialRows.filterNot { it.key == "kids" }.mapNotNull { row ->
+            val rowCards = row.results.filter { it.type == wantedType }.map {
                 TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, null, it.tmdbId,
                     isMovie = it.type == "movie", year = it.year, rating = it.rating)
             }
@@ -80,7 +86,6 @@ fun CatalogScreen(
             if (cards.isNotEmpty()) add("library" to cards)
         }
     }
-    val wantedType = if (type == HomeTab.MOVIES) "movie" else "series"
     val heroItems = remember(dashboardHero, cards) {
         dashboardHero.filter { it.detail.type == wantedType }.map { slide ->
             val d = slide.detail
@@ -101,6 +106,10 @@ fun CatalogScreen(
     // rangée (mutuellement exclusifs — voir plus bas) : c'est elle que la
     // NavRail vise pour la flèche bas.
     val heroFocus = entryFocusRequester ?: remember { FocusRequester() }
+    // Pendant le premier chargement, aucune rangée n'est encore composée.
+    // Le message d'attente devient alors la vraie cible visible de la
+    // NavRail, plutôt que de tomber dans l'ancre de secours invisible.
+    val emptyStateFocus = heroFocus
     // Palier invisible au-dessus du hero — voir le premier item de la
     // LazyColumn plus bas (UP depuis le CTA : scroll retour en haut avant
     // la NavRail).
@@ -123,7 +132,14 @@ fun CatalogScreen(
     // Même structure que l'accueil : le hero démarre tout en haut, sans
     // bandeau de titre — le tab actif est déjà indiqué par la NavRail.
     Column(Modifier.fillMaxSize()) {
-        if (rows.isEmpty()) Text("Aucun titre pour le moment", color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.padding(start = 64.dp, top = 48.dp))
+        if (rows.isEmpty()) Text(
+            "Aucun titre pour le moment",
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier
+                .padding(start = 64.dp, top = 96.dp)
+                .focusRequester(emptyStateFocus)
+                .focusable(),
+        )
         else LazyColumn(Modifier.fillMaxSize()) {
             // Palier D-pad invisible TOUT EN HAUT (identique à l'accueil) :
             // UP depuis le CTA y atterrit d'abord, ramène le scroll à
@@ -177,7 +193,6 @@ private fun catalogRowLabel(key: String): String = when (key) {
     "onAir" -> "En ce moment"
     "newSeriesRenewed" -> "Nouvelles séries et renouvellements"
     "nowPlayingBoxOffice" -> "En salles"
-    "kids" -> "Jeunesse"
     else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
 }
 

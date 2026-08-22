@@ -91,6 +91,7 @@ import com.movviz.tv.ui.theme.RatingBadge
 import com.movviz.tv.ui.theme.StatusPill
 import com.movviz.tv.ui.theme.statusTone
 import com.movviz.tv.ui.theme.tvFocusLift
+import com.movviz.tv.ui.theme.tvCardFocusHalo
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
 
@@ -242,7 +243,12 @@ TvTitleCard(
     // déjà ordonnées depuis /api/metadata/rows : la TV ne fabrique donc pas
     // de faux contenus et reste cohérente avec les préférences du serveur.
     val editorialCards = remember(movieRows, seriesRows) {
-        (movieRows + seriesRows).mapNotNull { row ->
+        // La TV Movviz ne propose pas d'espace Jeunesse : ne jamais faire
+        // réapparaître cette rangée au gré d'un changement d'algorithme côté
+        // serveur. Les profils ne sont pas segmentés par âge, donc afficher
+        // "kids" ici serait à la fois une régression produit et un faux
+        // raccourci de navigation.
+        (movieRows + seriesRows).filterNot { it.key == "kids" }.mapNotNull { row ->
             val cards = row.results.map {
                 TvTitleCard("editorial-${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, null,
                     it.tmdbId, it.type == "movie", it.year, it.rating)
@@ -481,7 +487,6 @@ private fun homeRowLabel(key: String): String = when (key) {
     "onAir" -> "En ce moment"
     "newSeriesRenewed" -> "Nouvelles séries"
     "nowPlayingBoxOffice" -> "En salles"
-    "kids" -> "Jeunesse"
     else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
 }
 
@@ -1214,12 +1219,10 @@ private fun RowHeading(text: String) {
         )
 }
 
-/** Carte poster — l'effet "focus" central du 10-foot UI : agrandissement
- *  (tvFocusLift, scale ~1.08) + liseré blanc subtil quand la carte prend le
- *  focus D-pad, façon Netflix — une bordure nette (2dp, blanc à 90%) se lit
- *  depuis le canapé, là où le dégradé de marque passait pour du flou à
- *  distance. `onFocusedChange` remonte l'état de focus à la rangée pour la
- *  précharge et le call-out, sans faire recomposer la rangée elle-même. */
+/** Carte poster — le focus Netflix garde la grille stable : aucun scale ni
+ * déplacement des voisins, seulement un contour blanc et un halo doux
+ * pulsant. `onFocusedChange` remonte l'état à la rangée pour la précharge et
+ * le call-out, sans refaire composer les autres cartes. */
 @Composable
 internal fun PosterCard(
     card: TvTitleCard,
@@ -1241,7 +1244,7 @@ internal fun PosterCard(
                 .fillMaxWidth()
                 .aspectRatio(2f / 3f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .tvFocusLift(focused, shape = MovvizCardShape, maxScale = 1.06f, maxElevation = 24.dp)
+                .tvCardFocusHalo(focused, shape = MovvizCardShape)
                 .onFocusChanged {
                     focused = it.isFocused
                     onFocusedChange?.invoke(it.isFocused)

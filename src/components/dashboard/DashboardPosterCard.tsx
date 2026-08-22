@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Star, Film, Tv } from "lucide-react";
+import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
+import { Star, Film, Tv, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BADGE_SHAPE } from "@/components/library/MediaBadges";
 
@@ -53,13 +55,28 @@ export function DashboardPosterCard({
    *  make sense for a specific in-progress episode. */
   subtitle?: string;
 }) {
+  const [hovered, setHovered] = useState(false);
+  const [popover, setPopover] = useState<{ left: number; top: number; width: number; above: boolean } | null>(null);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const poster = posterPath ? `${POSTER_BASE}${posterPath}` : null;
   const hasMeta = !subtitle && (!!year || !!runtime || (genres && genres.length > 0));
   const showRank = !!rank && rank >= 1 && rank <= 10;
   return (
+    <>
     <Link
       href={`/title/${type}/${tmdbId}`}
-      className={cn("group shrink-0", showRank ? "flex w-[190px] items-end sm:w-[220px]" : "block w-[150px] sm:w-[170px]")}
+      onMouseEnter={(event) => {
+        const rect = event.currentTarget.getBoundingClientRect();
+        const above = rect.top > 190;
+        setPopover({ left: Math.max(8, Math.min(rect.left, window.innerWidth - rect.width - 8)), top: above ? rect.top - 12 : rect.bottom + 12, width: rect.width, above });
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+        hoverTimer.current = setTimeout(() => setHovered(true), 700);
+      }}
+      onMouseLeave={() => {
+        if (hoverTimer.current) clearTimeout(hoverTimer.current);
+        setHovered(false);
+      }}
+      className={cn("group shrink-0", showRank ? "flex w-[190px] items-end sm:w-[220px]" : "block w-[205px] lg:w-[210px] xl:w-[205px]")}
     >
       {showRank && (
         <span
@@ -70,8 +87,8 @@ export function DashboardPosterCard({
           {rank}
         </span>
       )}
-      <div className="w-[150px] shrink-0 sm:w-[170px]">
-      <div className="relative aspect-[2/3] w-[150px] shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30 sm:w-[170px]">
+      <div className={cn("shrink-0", showRank ? "w-[150px] sm:w-[170px]" : "w-full")}>
+      <div className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30", showRank ? "aspect-[2/3] w-[150px] sm:w-[170px]" : "aspect-video w-full")}>
         {poster ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={poster} alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
@@ -87,28 +104,8 @@ export function DashboardPosterCard({
           </div>
         )}
         {badge && (
-          <div className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 border-white/15 bg-brand text-white")}>
+          <div className={cn(BADGE_SHAPE, "pointer-events-none absolute right-2 top-2 border-white/15 bg-black/60 text-white/85 backdrop-blur-md")}>
             {badge}
-          </div>
-        )}
-        {hasMeta && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden flex-col gap-1 bg-gradient-to-t from-black/90 via-black/60 to-transparent px-2.5 pb-2.5 pt-6 opacity-0 transition-opacity duration-200 group-hover:opacity-100 sm:flex">
-            <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold text-white/85">
-              {year && <span>{year}</span>}
-              {runtime && (
-                <>
-                  {year && <span className="text-white/40">•</span>}
-                  <span>{runtime} min</span>
-                </>
-              )}
-            </div>
-            {genres && genres.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {genres.slice(0, 2).map((g) => (
-                  <span key={g} className="rounded-full border border-white/20 px-1.5 py-0.5 text-[10px] text-white/80">{g}</span>
-                ))}
-              </div>
-            )}
           </div>
         )}
         {typeof progressPercent === "number" && (
@@ -117,9 +114,31 @@ export function DashboardPosterCard({
           </div>
         )}
       </div>
-      <p className="mt-1.5 truncate text-center text-sm font-semibold text-ink">{title}</p>
-      {subtitle && <p className="truncate text-center text-xs text-ink-dim">{subtitle}</p>}
+      {showRank && <p className="mt-1.5 truncate text-center text-sm font-semibold text-ink">{title}</p>}
+      {showRank && subtitle && <p className="truncate text-center text-xs text-ink-dim">{subtitle}</p>}
       </div>
     </Link>
+    {hovered && popover && typeof document !== "undefined" && createPortal(
+      <div
+        className="pointer-events-none fixed z-[80] hidden overflow-hidden rounded-2xl border border-white/15 bg-[#171522]/95 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl sm:block"
+        style={{ left: popover.left, top: popover.top, width: popover.width, transform: popover.above ? "translateY(-100%)" : undefined }}
+      >
+        {poster && <img src={poster} alt="" className="absolute inset-0 h-full w-full object-cover opacity-20" />}
+        <div className="relative flex items-center gap-2 text-xs font-semibold text-white/90">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-lg"><Play className="ml-0.5 h-3.5 w-3.5 fill-current" /></span>
+          <span className="truncate text-sm">{title}</span>
+        </div>
+        {subtitle && <p className="relative mt-1 truncate text-[11px] text-white/70">{subtitle}</p>}
+        {(hasMeta || showRank) && <div className="relative mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold text-white/80">
+          {showRank && <span className="text-brand-glow">Top {rank}</span>}
+          {year && <span>{year}</span>}
+          {runtime && <><span className="text-white/40">•</span><span>{runtime} min</span></>}
+        </div>}
+        {genres && genres.length > 0 && <div className="relative mt-1 flex flex-wrap gap-1">
+          {genres.slice(0, 2).map((g) => <span key={g} className="rounded-full border border-white/20 px-1.5 py-0.5 text-[10px] text-white/80">{g}</span>)}
+        </div>}
+      </div>, document.body
+    )}
+    </>
   );
 }

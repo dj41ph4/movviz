@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.16.77 — August 2026
+
+### Desktop et Android TV
+
+- Modernise le lecteur desktop : dock cinématique, progression persistante,
+  menus unifiés et actions intro/générique plus lisibles, sans retirer les
+  modes Auto, Direct, transcodage audio/vidéo ou HLS Plex.
+- Prépare les rangées Accueil desktop pour des cartes éditoriales 16:9 et un
+  survol flottant, tout en conservant la Bibliothèque technique verticale.
+- Android TV : corrige les retours de focus D-pad, lance directement un épisode
+  disponible et harmonise les états de focus, recherche et lecture.
+- Ajoute le plan de suivi versionné de la refonte UX desktop.
+- Aligne les versions web, Android TV et métadonnées de release sur `1.16.77`.
+
 ## v1.16.76 — August 2026
 
 - Synchronise la version web et Android TV pour la release suivante.

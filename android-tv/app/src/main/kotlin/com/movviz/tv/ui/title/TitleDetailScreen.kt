@@ -73,6 +73,7 @@ import com.movviz.tv.ui.theme.MovvizOk
 import com.movviz.tv.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.ui.theme.statusTone
 import com.movviz.tv.ui.theme.tvFocusLift
+import com.movviz.tv.ui.theme.tvCardFocusHalo
 import com.movviz.tv.ui.theme.tvPointerClick
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
@@ -806,9 +807,20 @@ fun TitleDetailScreen(
                                 watchedEpisodeKeys = watchedEpisodeKeys,
                                 downloading = searchingSeason == season.seasonNumber,
                                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, season.seasonNumber) },
-                            ) { episode, episodeMetadata ->
-                            selectedEpisode = EpisodeSelection(season, episode, episodeMetadata)
-                        }
+                            ) { episode, _ ->
+                                // Une tuile épisode est une action de lecture,
+                                // pas un bouton "confirmer" déguisé : OK lance
+                                // immédiatement l'épisode choisi. La fiche
+                                // détaillée reste réservée aux parcours qui
+                                // l'ouvrent explicitement (reprise/retour), et
+                                // le téléchargement de saison conserve son
+                                // action dédiée juste au-dessus de la liste.
+                                val index = playableEpisodes.indexOfFirst {
+                                    it.seasonNumber == season.seasonNumber &&
+                                        it.episodeNumber == episode.episodeNumber
+                                }
+                                if (index >= 0) onPlay(d.title, playableEpisodes, index, d.posterPath)
+                            }
                     }
                     }
                 }
@@ -965,7 +977,9 @@ private fun SeasonEpisodeList(
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(text = season.name.ifBlank { "Saison ${season.seasonNumber}" }, style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
             Spacer(modifier = Modifier.weight(1f))
-            val hasReadyEpisode = season.episodes.any { it.plexRatingKey != null && it.status == "available" }
+            val hasReadyEpisode = season.episodes.any {
+                (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available"
+            }
             if (!hasReadyEpisode) {
                 PrimaryPill(
                     text = if (downloading) "Recherche…" else "Télécharger la saison",
@@ -993,7 +1007,8 @@ private fun SeasonEpisodeList(
 @Composable
 private fun EpisodeCard(episode: SeriesEpisodeDto, metadata: MetadataEpisodeDto?, watched: Boolean = false, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val available = episode.plexRatingKey != null && episode.status == "available"
+    val available = (episode.plexRatingKey != null || episode.playbackSource == "movviz") &&
+        episode.status == "available"
     val shape = RoundedCornerShape(8.dp)
     Box {
     Surface(
@@ -1001,7 +1016,7 @@ private fun EpisodeCard(episode: SeriesEpisodeDto, metadata: MetadataEpisodeDto?
         enabled = available,
         modifier = Modifier
             .fillMaxWidth()
-            .tvFocusLift(focused && available, shape = shape, maxScale = 1.06f, maxElevation = 12.dp)
+            .tvCardFocusHalo(focused && available, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .let { if (available) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),

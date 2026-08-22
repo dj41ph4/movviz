@@ -2105,13 +2105,19 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
   };
 
   const playedPct = ((seekPreview ?? currentTime) / (duration || 1)) * 100;
+  // The playback engine deliberately stays independent from this visual
+  // system.  These shared surfaces give the desktop player one calm,
+  // cinematic vocabulary instead of a collection of unrelated dark buttons.
+  const iconButtonClass = "flex h-11 w-11 items-center justify-center rounded-full text-white/80 transition-all duration-200 hover:bg-white/14 hover:text-white hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80";
+  const menuPanelClass = "absolute right-0 bottom-full mb-4 rounded-[20px] border border-white/12 bg-[#111218]/95 p-2 shadow-[0_24px_80px_rgba(0,0,0,0.62)] backdrop-blur-2xl max-w-[calc(100vw-2rem)]";
+  const menuItemClass = "flex w-full items-center rounded-xl px-3.5 py-3 text-left text-[13px] text-white/75 transition-all duration-150 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70";
 
   return (
-    <div className={cn(!embedded && "fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm", embedded && "h-full w-full overscroll-none")}>
+    <div className={cn(!embedded && "fixed inset-0 z-[100] flex items-center justify-center bg-[#030407] backdrop-blur-sm", embedded && "h-full w-full overscroll-none")}>
       <div
         ref={playerRef}
         className={cn(
-          "relative flex flex-col overflow-hidden shadow-2xl",
+          "relative isolate flex flex-col overflow-hidden bg-[#030407] shadow-[0_32px_120px_rgba(0,0,0,0.7)]",
           // `fullscreen:*` isn't a registered Tailwind variant in this
           // project (no @custom-variant for :fullscreen) — those classes
           // were always dead CSS. Driven from the real `fullscreen` state
@@ -2124,60 +2130,62 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
         <div
           aria-hidden={embedded && !controlsVisible && playing && !buffering ? true : undefined}
           className={cn(
-            "flex items-center justify-between gap-2 px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3 pl-[max(env(safe-area-inset-left),1rem)] pr-[max(env(safe-area-inset-right),1rem)]",
-            embedded
-              ? "absolute inset-x-0 top-0 z-40 pointer-events-none bg-gradient-to-b from-black/70 via-black/35 to-transparent pb-16 transition-opacity duration-300 " +
-                (controlsVisible || !playing || buffering ? "opacity-100" : "opacity-0")
-              : "border-b border-white/8"
+            "pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-4 bg-gradient-to-b from-black/85 via-black/45 to-transparent px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-20 pl-[max(env(safe-area-inset-left),1.25rem)] pr-[max(env(safe-area-inset-right),1.25rem)] transition-opacity duration-300",
+            controlsVisible || !playing || buffering ? "opacity-100" : "opacity-0"
           )}
         >
-          <div className="pointer-events-auto flex items-center gap-2 min-w-0">
-            {usingFallback && (
-              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-md">
-                <span className={cn("h-1.5 w-1.5 rounded-full", transcodeVideoRef.current || transcodeAudioRef.current ? "bg-amber" : "bg-ok")} />
-                {transcodeVideoRef.current && transcodeAudioRef.current
-                  ? t("player.betaTranscoded")
-                  : transcodeVideoRef.current
-                    ? t("player.betaTranscodedVideo")
-                    : transcodeAudioRef.current
-                      ? t("player.betaTranscodedAudio")
-                      : t("player.betaDirectStream")}
-              </span>
-            )}
-            {directMode && (
-              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-md">
-                <span className="h-1.5 w-1.5 rounded-full bg-ok" />
-                {t("player.betaDirectActive")}
-              </span>
-            )}
-            {mseActive && (
-              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-md">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan" />
-                {t("player.betaMseStream")}
-              </span>
-            )}
-            {ffmpegActive && (
-              <span className="flex h-6 shrink-0 items-center gap-1.5 rounded-full bg-black/50 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-md">
-                <span className="h-1.5 w-1.5 rounded-full bg-purple" />
-                {t("player.betaFfmpegLocal")}
-              </span>
-            )}
-            <p className="truncate text-sm font-semibold text-white/95 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">{title}</p>
+          <div className="pointer-events-auto flex min-w-0 items-start gap-3">
+            <div className="mt-0.5 flex h-9 w-1 shrink-0 rounded-full bg-[linear-gradient(180deg,var(--color-brand-glow),var(--color-brand))] shadow-[0_0_18px_color-mix(in_oklab,var(--color-brand-glow)_65%,transparent)]" />
+            <div className="min-w-0">
+              <p className="truncate text-[15px] font-semibold tracking-[-0.01em] text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">{title}</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                {usingFallback && (
+                  <span className="flex h-6 items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-xl">
+                    <span className={cn("h-1.5 w-1.5 rounded-full shadow-[0_0_8px_currentColor]", transcodeVideoRef.current || transcodeAudioRef.current ? "bg-amber text-amber" : "bg-ok text-ok")} />
+                    {transcodeVideoRef.current && transcodeAudioRef.current
+                      ? t("player.betaTranscoded")
+                      : transcodeVideoRef.current
+                        ? t("player.betaTranscodedVideo")
+                        : transcodeAudioRef.current
+                          ? t("player.betaTranscodedAudio")
+                          : t("player.betaDirectStream")}
+                  </span>
+                )}
+                {directMode && (
+                  <span className="flex h-6 items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-xl">
+                    <span className="h-1.5 w-1.5 rounded-full bg-ok text-ok shadow-[0_0_8px_currentColor]" />
+                    {t("player.betaDirectActive")}
+                  </span>
+                )}
+                {mseActive && (
+                  <span className="flex h-6 items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-xl">
+                    <span className="h-1.5 w-1.5 rounded-full bg-cyan text-cyan shadow-[0_0_8px_currentColor]" />
+                    {t("player.betaMseStream")}
+                  </span>
+                )}
+                {ffmpegActive && (
+                  <span className="flex h-6 items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-xl">
+                    <span className="h-1.5 w-1.5 rounded-full bg-purple text-purple shadow-[0_0_8px_currentColor]" />
+                    {t("player.betaFfmpegLocal")}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="pointer-events-auto flex items-center gap-2 shrink-0">
+          <div className="pointer-events-auto flex shrink-0 items-center gap-1 rounded-full border border-white/12 bg-black/45 p-1 shadow-lg backdrop-blur-2xl">
             <a
               href={plexUrl}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => openPlexLink(e, plexUrl)}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white/80 backdrop-blur-xl transition-all duration-150 hover:text-white hover:scale-105 active:scale-95"
+              className={iconButtonClass}
               title={t("library.watchOnPlex")}
             >
               <ExternalLink className="h-4 w-4" />
             </a>
             <button
               onClick={onClose}
-              className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white/80 backdrop-blur-xl transition-all duration-150 hover:text-white hover:scale-105 active:scale-95"
+              className={iconButtonClass}
               aria-label={t("player.betaClose")}
             >
               <X className="h-4 w-4" />
@@ -2293,7 +2301,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
               {activeMarker && !showResume && (
                 <button
                   onClick={handleSkipMarker}
-                  className="pointer-events-auto absolute bottom-28 right-5 z-50 rounded-full border border-white/20 bg-black/80 px-5 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md transition hover:bg-black hover:border-brand-glow/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
+                  className="pointer-events-auto absolute bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
                 >
                   {activeMarker.type === "intro" ? "Passer l’intro" : "Passer le générique"}
                 </button>
@@ -2301,21 +2309,22 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
 
               {showResume && (
                 <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 backdrop-blur-[2px]">
-                  <div className="w-[calc(100vw-2rem)] max-w-sm rounded-2xl glass-strong p-6 text-center shadow-2xl animate-overlay-pop">
-                    <p className="text-base font-semibold text-ink">
+                  <div className="w-[calc(100vw-2rem)] max-w-md rounded-[28px] border border-white/12 bg-[#12121a]/92 p-7 text-center shadow-[0_32px_100px_rgba(0,0,0,0.65)] backdrop-blur-2xl animate-overlay-pop">
+                    <div className="mx-auto mb-5 h-1.5 w-12 rounded-full brand-gradient shadow-[0_0_18px_color-mix(in_oklab,var(--color-brand-glow)_55%,transparent)]" />
+                    <p className="text-lg font-semibold tracking-[-0.02em] text-white">
                       {t("player.betaResumeFrom")} {formatTime(savedPos)}
                     </p>
                     <div className="mt-5 flex items-center justify-center gap-3 flex-wrap">
                       <button
                         onClick={handleResume}
-                        className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-6 text-sm font-bold text-white transition-all duration-150 hover:brightness-110 active:scale-95"
+                        className="flex h-12 items-center gap-2 rounded-full brand-gradient px-7 text-sm font-bold text-white shadow-[0_12px_30px_color-mix(in_oklab,var(--color-brand)_28%,transparent)] transition-all duration-150 hover:brightness-110 hover:scale-[1.02] active:scale-[0.97]"
                       >
                         <Play className="h-4 w-4" />
                         {t("player.betaResume")}
                       </button>
                       <button
                         onClick={handleStartOver}
-                        className="flex h-11 items-center gap-2 rounded-xl glass-strong px-6 text-sm font-semibold text-ink transition-all duration-150 hover:text-brand-glow active:scale-95"
+                        className="flex h-12 items-center gap-2 rounded-full border border-white/14 bg-white/8 px-7 text-sm font-semibold text-white transition-all duration-150 hover:border-white/25 hover:bg-white/13 active:scale-[0.97]"
                       >
                         <RotateCcw className="h-4 w-4" />
                         {t("player.betaStartOver")}
@@ -2329,11 +2338,16 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                 <div
                   aria-hidden={undefined}
                   className={cn(
-                    "absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/80 via-black/45 to-transparent pt-14 pb-[max(env(safe-area-inset-bottom),0.25rem)] sm:pb-2 transition-opacity duration-300",
+                    "pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/95 via-black/72 to-transparent pt-24 pb-[max(env(safe-area-inset-bottom),0.75rem)] transition-opacity duration-300",
                     "opacity-100"
                   )}
                 >
-                  <div className="px-3 relative group">
+                  <div className="pointer-events-auto mx-auto max-w-[1600px] px-4 sm:px-6">
+                    <div className="relative group rounded-[22px] border border-white/10 bg-[#0d0e14]/72 px-4 pt-3 pb-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.28)] backdrop-blur-2xl sm:px-5">
+                    <div className="mb-1.5 flex items-center justify-between gap-4 text-[11px] font-medium tabular-nums text-white/72">
+                      <span>{formatTime(seekPreview ?? currentTime)}</span>
+                      <span>{formatTime(duration)}</span>
+                    </div>
                     {scrubPreview && (
                       <div
                         className="pointer-events-none absolute bottom-full mb-3 -translate-x-1/2 flex flex-col items-center"
@@ -2360,13 +2374,13 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                       aria-valuemax={Math.round(duration)}
                       aria-valuenow={Math.round(seekPreview ?? currentTime)}
                       aria-valuetext={formatTime(seekPreview ?? currentTime)}
-                      className="group relative h-8 sm:h-6 cursor-pointer select-none touch-none"
+                      className="group relative h-9 cursor-pointer select-none touch-none"
                       onMouseDown={handleProgressDown}
                       onTouchStart={handleProgressDown}
                       onMouseMove={handleProgressHover}
                       onMouseLeave={handleProgressLeave}
                     >
-                      <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 origin-center scale-y-100 rounded-full bg-white/10 transition-transform duration-150 ease-out">
+                      <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 origin-center scale-y-100 rounded-full bg-white/14 shadow-inner transition-transform duration-150 ease-out">
                         <div
                           className="absolute inset-y-0 rounded-full bg-white/20 transition-[width] duration-300 ease-out"
                           style={{ left: `${playedPct}%`, width: `${Math.max(0, bufferedPct - playedPct)}%` }}
@@ -2377,19 +2391,19 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                         />
                         <div
                           className={cn(
-                            "absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-brand-glow)_35%,transparent)] transition-[opacity,transform] duration-150",
-                            seekPreview !== null || "opacity-100 group-hover:scale-110"
+                            "absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#13131b] bg-white shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-brand-glow)_36%,transparent)] transition-transform duration-150",
+                            seekPreview !== null || "group-hover:scale-125"
                           )}
                           style={{ left: `${playedPct}%` }}
                         />
                       </div>
                     </div>
-                  </div>
+                    </div>
 
-                  <div className="flex flex-wrap items-center gap-0.5 px-2 pb-1">
+                  <div className="pointer-events-auto mt-2 flex flex-wrap items-center gap-1 rounded-[24px] border border-white/10 bg-[#0d0e14]/82 px-2 py-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.42)] backdrop-blur-2xl">
                     <button
                       onClick={togglePlay}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+                      className="flex h-11 w-11 items-center justify-center rounded-full brand-gradient text-white shadow-[0_6px_18px_color-mix(in_oklab,var(--color-brand)_30%,transparent)] transition-all duration-200 hover:brightness-110 hover:scale-105 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
                       aria-label={playing ? t("player.betaPause") : t("player.betaPlay")}
                     >
                       {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 ml-0.5" />}
@@ -2397,7 +2411,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
 
                     <button
                       onClick={() => { skip(-10); resetHideTimer(); }}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+                      className={iconButtonClass}
                       aria-label={t("player.betaSkipBack")}
                     >
                       <SkipBack className="h-4 w-4" />
@@ -2405,11 +2419,13 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
 
                     <button
                       onClick={() => { skip(10); resetHideTimer(); }}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+                      className={iconButtonClass}
                       aria-label={t("player.betaSkipForward")}
                     >
                       <SkipForward className="h-4 w-4" />
                     </button>
+
+                    <span className="mx-1 hidden h-5 w-px bg-white/12 sm:block" aria-hidden="true" />
 
                     <div
                       className="flex items-center"
@@ -2418,7 +2434,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                     >
                       <button
                         onClick={toggleMute}
-                        className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+                        className={iconButtonClass}
                         aria-label={muted ? t("player.betaUnmute") : t("player.betaMute")}
                       >
                         {muted || volume === 0
@@ -2443,32 +2459,34 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                       </div>
                     </div>
 
-                    <span className="ml-1 text-xs tabular-nums text-white/85 whitespace-nowrap select-none">
+                    <span className="ml-1 hidden rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] tabular-nums text-white/80 whitespace-nowrap select-none lg:inline">
                       {formatTime(seekPreview ?? currentTime)} / {formatTime(duration)}
                     </span>
 
                     <div className="flex-1" />
 
                     {usingFallback && qualityLabel() && (
-                      <span className="hidden sm:inline-flex h-6 items-center rounded-full bg-black/50 px-2 text-[10px] font-semibold text-white/70 backdrop-blur-md">{qualityLabel()}</span>
+                      <span className="hidden sm:inline-flex h-6 items-center rounded-full border border-white/10 bg-white/6 px-2.5 text-[10px] font-semibold text-white/75">{qualityLabel()}</span>
                     )}
+
+                    <span className="mx-1 hidden h-5 w-px bg-white/12 md:block" aria-hidden="true" />
 
                     <div className="relative">
                       <button
                         onClick={() => toggleMenu("quality")}
-                        className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+                        className={iconButtonClass}
                         aria-label={t("player.betaQuality")}
                       >
                         <Monitor className="h-5 w-5" />
                       </button>
                       {menuOpen === "quality" && (
-                        <div className="absolute right-0 bottom-full mb-3 w-max min-w-[9.5rem] animate-menu-pop rounded-2xl border border-white/10 bg-black/80 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
+                        <div className={cn(menuPanelClass, "w-max min-w-[10.5rem] animate-menu-pop")}>
                           {QUALITY_PRESETS.map((preset) => (
                             <button
                               key={preset.label}
                               onClick={() => handleQualityChange(preset.maxWidth)}
                               className={cn(
-                                "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors duration-100 hover:bg-white/8",
+                                "flex w-full items-center justify-between gap-3 rounded-xl px-3.5 py-3 text-left text-[13px] transition-colors duration-150 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70",
                                 qualityMaxWidthRef.current === preset.maxWidth ? "font-semibold text-brand-glow" : "text-white/75"
                               )}
                             >
@@ -2483,19 +2501,19 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                     <div className="relative">
                       <button
                         onClick={() => toggleMenu("speed")}
-                        className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+                        className={iconButtonClass}
                         aria-label={t("player.betaSpeed")}
                       >
                         <Gauge className="h-5 w-5" />
                       </button>
                       {menuOpen === "speed" && (
-                        <div className="absolute right-0 bottom-full mb-3 w-24 animate-menu-pop rounded-2xl border border-white/10 bg-black/80 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
+                        <div className={cn(menuPanelClass, "w-28 animate-menu-pop")}>
                           {SPEEDS.map((s) => (
                             <button
                               key={s}
                               onClick={() => setSpeed(s)}
                               className={cn(
-                                "flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-[13px] transition-colors duration-100 hover:bg-white/8",
+                                "flex w-full items-center justify-between gap-2 rounded-xl px-3.5 py-3 text-[13px] transition-colors duration-150 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70",
                                 playbackRate === s ? "font-semibold text-brand-glow" : "text-white/75"
                               )}
                             >
@@ -2512,7 +2530,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                         <button
                           onClick={() => toggleMenu("audio")}
                           disabled={audioStreams.length === 0}
-                          className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90 disabled:opacity-40 disabled:active:scale-100"
+                          className={cn(iconButtonClass, "disabled:opacity-40 disabled:hover:scale-100 disabled:hover:bg-transparent")}
                           title={t("player.betaAudio")}
                           aria-label={t("player.betaAudio")}
                         >
@@ -2521,14 +2539,14 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                         <button
                           onClick={() => toggleMenu("subtitle")}
                           disabled={subtitleStreams.length === 0 && !currentSubtitle}
-                          className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90 disabled:opacity-40 disabled:active:scale-100"
+                          className={cn(iconButtonClass, "disabled:opacity-40 disabled:hover:scale-100 disabled:hover:bg-transparent")}
                           title={t("player.betaSubtitle")}
                           aria-label={t("player.betaSubtitle")}
                         >
                           <Captions className="h-5 w-5" />
                         </button>
                         {menuOpen && (menuOpen === "audio" || menuOpen === "subtitle") && (
-                          <div className="absolute right-0 bottom-full mb-3 max-h-[50vh] w-56 overflow-y-auto animate-menu-pop rounded-2xl border border-white/10 bg-black/80 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
+                          <div className={cn(menuPanelClass, "max-h-[50vh] w-60 overflow-y-auto animate-menu-pop")}>
                             {menuOpen === "audio" && (
                               <>
                                 {audioStreams.map((s) => (
@@ -2536,7 +2554,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                                     key={s.id}
                                     onClick={() => handleAudioSelect(s.id)}
                                     className={cn(
-                                      "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors duration-100 hover:bg-white/8",
+                                      "flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-[13px] transition-colors duration-150 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70",
                                       currentAudio === s.id ? "font-semibold text-brand-glow" : "text-white/75"
                                     )}
                                   >
@@ -2551,7 +2569,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                                 <button
                                   onClick={handleSubtitleOff}
                                   className={cn(
-                                      "flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors duration-100 hover:bg-white/8",
+                                      "flex w-full items-center rounded-xl px-3.5 py-3 text-left text-[13px] transition-colors duration-150 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70",
                                       !currentSubtitle ? "font-semibold text-brand-glow" : "text-white/75"
                                   )}
                                 >
@@ -2562,7 +2580,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                                     key={s.id}
                                     onClick={() => handleSubtitleSelect(s.id)}
                                     className={cn(
-                                      "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] transition-colors duration-100 hover:bg-white/8",
+                                      "flex w-full items-center justify-between rounded-xl px-3.5 py-3 text-left text-[13px] transition-colors duration-150 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70",
                                       currentSubtitle === s.id ? "font-semibold text-brand-glow" : "text-white/75"
                                     )}
                                   >
@@ -2576,41 +2594,41 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                         <div className="relative hidden sm:block">
                           <button
                             onClick={() => toggleMenu("playback")}
-                            className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-brand-glow active:scale-90"
+                            className={cn(iconButtonClass, "hover:text-brand-glow")}
                             title={t("player.betaTranscodeMode")}
                             aria-label={t("player.betaTranscodeMode")}
                           >
                             <Zap className="h-5 w-5" />
                           </button>
                           {menuOpen === "playback" && (
-                            <div className="absolute right-0 bottom-full mb-3 w-60 animate-menu-pop rounded-2xl border border-white/10 bg-black/85 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
+                            <div className={cn(menuPanelClass, "w-64 animate-menu-pop")}>
                               <button
                                 onClick={handleAutoPlayback}
-                                className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                                className={cn(menuItemClass, "justify-between")}
                               >
                                 <span>{t("player.betaTranscodeAuto")}</span><Check className="h-3.5 w-3.5 text-brand-glow" />
                               </button>
                               <button
                                 onClick={handleDirectPlay}
-                                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                                className={menuItemClass}
                               >
                                 {t("player.betaDirectActive")}
                               </button>
                               <button
                                 onClick={() => handlePlexPlayback("audio")}
-                                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                                className={menuItemClass}
                               >
                                 {t("player.betaTranscodeAudio")}
                               </button>
                               <button
                                 onClick={() => handlePlexPlayback("video")}
-                                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                                className={menuItemClass}
                               >
                                 {t("player.betaTranscodeVideo")}
                               </button>
                               <button
                                 onClick={() => handlePlexPlayback("full")}
-                                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                                className={menuItemClass}
                               >
                                 {t("player.betaEngineHls")}
                               </button>
@@ -2623,7 +2641,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                     {directMode && (
                       <button
                         onClick={handleReturnToHls}
-                        className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-amber active:scale-90"
+                        className={cn(iconButtonClass, "hover:text-amber")}
                         title={t("player.betaReturnHls")}
                         aria-label={t("player.betaReturnHls")}
                       >
@@ -2634,7 +2652,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                     {pipSupported && (
                       <button
                         onClick={togglePiP}
-                        className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+                        className={iconButtonClass}
                         aria-label={t("player.betaPiP")}
                       >
                         <PictureInPicture2 className="h-5 w-5" />
@@ -2643,11 +2661,12 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
 
                     <button
                       onClick={toggleFullscreen}
-                      className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
+                      className={iconButtonClass}
                       aria-label={fullscreen ? t("player.betaExitFullscreen") : t("player.betaFullscreen")}
                     >
                       {fullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
                     </button>
+                  </div>
                   </div>
                 </div>
               )}

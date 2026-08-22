@@ -115,7 +115,7 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
     : undefined;
 
   return (
-    <div className="fixed inset-0 z-[100] h-[100dvh] w-screen" style={ambienceStyle}>
+    <div className="fixed inset-0 z-[100] isolate h-[100dvh] w-screen overflow-hidden bg-[#030407]" style={ambienceStyle}>
       {/* Always-opaque base, rendered unconditionally and before anything
        * else — confirmed live: making VideoPlayer's own background
        * transparent (so the ambience below can show through in the
@@ -128,7 +128,7 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
        * This solid layer guarantees the page can never show through again,
        * with or without ambience data (e.g. no backdrop/poster URL).
        */}
-      <div className="absolute inset-0 bg-[#07070b]" />
+      <div className="absolute inset-0 bg-[#030407]" />
       {/* Stacking order (spec section 13): page (blurred here) → blurred/
           color-graded backdrop → dark scrim → player → controls. */}
       <motion.div
@@ -172,6 +172,17 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
         exit={{ opacity: 0 }}
         transition={{ duration: reduceMotion ? 0.15 : DURATION, ease: EASE }}
         style={{ background: "radial-gradient(ellipse 80% 75% at 50% 45%, transparent 55%, rgba(2,3,8,0.5) 100%)" }}
+      />
+
+      {/* A restrained screen edge makes the theater feel like a dedicated
+       * viewing space without ever sitting in the interaction layer. */}
+      <motion.div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-3 z-[70] rounded-[28px] border border-white/[0.07] shadow-[inset_0_0_80px_rgba(0,0,0,0.28)] max-sm:inset-0 max-sm:rounded-none"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: reduceMotion ? 0.15 : DURATION, ease: EASE }}
       />
 
       <motion.div

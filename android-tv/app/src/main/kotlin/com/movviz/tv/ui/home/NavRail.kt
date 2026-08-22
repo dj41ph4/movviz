@@ -226,6 +226,17 @@ Spacer(modifier = Modifier.weight(1f))
             onClick = { onSelect(HomeTab.SETTINGS) },
             modifier = Modifier
                 .size(42.dp)
+                // Paramètres n'est plus un TopNavItem depuis la refonte :
+                // l'icône doit donc porter elle-même la cible de retour
+                // contenu → NavRail. Sans ce requester, HAUT depuis les
+                // réglages visait un noeud qui n'existait plus.
+                .let {
+                    if (selected == HomeTab.SETTINGS && navRailFocusRequester != null) {
+                        it.focusRequester(navRailFocusRequester)
+                    } else {
+                        it
+                    }
+                }
                 .onFocusChanged { gearFocused = it.isFocused }
                 .tvPointerClick { onSelect(HomeTab.SETTINGS) },
             shape = ClickableSurfaceDefaults.shape(shape = gearShape),
