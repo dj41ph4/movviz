@@ -1670,6 +1670,18 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
           skip(10);
           resetHideTimer();
           break;
+        case "j":
+        case "J":
+          e.preventDefault();
+          skip(-10);
+          resetHideTimer();
+          break;
+        case "l":
+        case "L":
+          e.preventDefault();
+          skip(10);
+          resetHideTimer();
+          break;
         case "ArrowUp": {
           e.preventDefault();
           const el = videoRef.current;
@@ -1698,7 +1710,10 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
           toggleMute();
           break;
         case "Escape":
-          onClose();
+          // First dismiss an open menu, like the native TV/streaming
+          // players. Only a second Escape closes the player itself.
+          if (menuOpen) setMenuOpen(null);
+          else onClose();
           break;
         case "0": case "1": case "2": case "3": case "4":
         case "5": case "6": case "7": case "8": case "9":
@@ -1715,7 +1730,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, skip, seekTo, resetHideTimer, duration]);
+  }, [onClose, skip, seekTo, resetHideTimer, duration, menuOpen]);
 
   const togglePiP = async () => {
     const el = videoRef.current;
@@ -2125,6 +2140,9 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
         </div>
 
         <div
+          tabIndex={0}
+          role="application"
+          aria-label={title}
           className={cn(
             "relative flex flex-1 items-center justify-center",
             embedded ? "bg-transparent" : "bg-black",
