@@ -20,6 +20,7 @@ export async function getLocalStreamInfo(plexRatingKey: string | null, userId: s
       audioStreams: [],
       subtitleStreams: [],
       ffmpegAvailable: false,
+      durationMs: null,
       markers,
     };
   }
@@ -36,6 +37,7 @@ export async function getLocalStreamInfo(plexRatingKey: string | null, userId: s
       audioStreams: [],
       subtitleStreams: [],
       ffmpegAvailable: false,
+      durationMs: null,
       markers,
     };
   }
@@ -64,6 +66,7 @@ export async function getLocalStreamInfo(plexRatingKey: string | null, userId: s
     // A binary alone is not enough: the FFmpeg route needs this exact Plex
     // source too, so do not advertise remux when metadata resolution failed.
     ffmpegAvailable,
+    durationMs: part.durationMs,
     markers,
   };
 }

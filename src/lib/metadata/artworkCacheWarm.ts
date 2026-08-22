@@ -85,11 +85,12 @@ export async function runArtworkCacheWarm(
     for (const target of targets) {
       try {
         const key = `${target.type}:${target.tmdbId}`;
-        let artwork = loadCachedTitleArtwork([target], "fr")[key];
+        let artwork: { backdropPath: string | null; logoPath: string | null; titleEmbedded: boolean } | undefined =
+          loadCachedTitleArtwork([target], "fr")[key];
         let requestedTmdb = false;
         if (!artwork) {
           const images = await getTitleImages(target.tmdbId, target.type, "fr");
-          artwork = { ...pickEditorialArtwork(images), fetchedAt: Date.now() };
+          artwork = pickEditorialArtwork(images);
           requestedTmdb = true;
           cacheTitleArtwork([{ ...target, ...artwork }], "fr");
         }
@@ -97,7 +98,12 @@ export async function runArtworkCacheWarm(
           prefetchTmdbImage("w780", artwork.backdropPath),
           prefetchTmdbImage("w500", artwork.logoPath),
         ]);
-        if (!backdropCached || !logoCached) throw new Error("tmdb_image_download_failed");
+        // A localized key-art fallback deliberately has no separate logo;
+        // similarly TMDb can legitimately provide only one of the two assets.
+        // Treat only a requested asset that failed to download as a failure.
+        if ((artwork.backdropPath && !backdropCached) || (artwork.logoPath && !logoCached)) {
+          throw new Error("tmdb_image_download_failed");
+        }
         state.cached++;
         // Respect TMDb's API cadence only when a metadata request was made.
         // Reading locally cached image bytes is safe to continue immediately.

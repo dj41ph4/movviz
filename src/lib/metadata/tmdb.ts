@@ -704,37 +704,61 @@ export async function getTitleImages(tmdbId: number, type: "movie" | "series", l
  * TMDb does not label an asset "poster-like key art" versus "scene". The
  * closest reliable proxy is therefore a neutral 16:9 image with substantial
  * community approval and sufficient source resolution. If TMDb has no such
- * neutral backdrop we return no pair at all — the caller can keep its normal
- * fallback image and title text instead of guessing.
+ * neutral backdrop but does expose localized 16:9 key art, the card uses that
+ * image on its own and explicitly suppresses a second title treatment.
  */
 export function pickEditorialArtwork(images: { backdrops: TitleImageOption[]; logos: TitleImageOption[] }): {
   backdropPath: string | null;
   logoPath: string | null;
+  /** True only when the selected 16:9 image is localized key art and already
+   * contains its own title treatment. Cards must not add a second logo/text. */
+  titleEmbedded: boolean;
 } {
   const targetAspect = 16 / 9;
-  const backdrop = images.backdrops
+  const score = (image: TitleImageOption) => {
+    const aspect = image.width / image.height;
+    const resolution = Math.min(1, (image.width * image.height) / (1920 * 1080));
+    // `vote_count` removes the bias of a single perfect vote. It is a
+    // ranking signal only, not a claim that TMDb understands the scene.
+    const confidence = Math.log1p(Math.max(0, image.voteCount ?? 0)) / 3;
+    return image.voteAverage * (1 + confidence) + resolution * 1.5 - Math.abs(aspect - targetAspect) * 1.2;
+  };
+  const landscape = images.backdrops
     .filter((image) => {
-      if (image.language !== null || image.width <= 0 || image.height <= 0) return false;
+      if (image.width <= 0 || image.height <= 0) return false;
       const aspect = image.width / image.height;
       // Avoid near-square/portrait promotional assets masquerading as a
       // backdrop: the cards are actual 16:9 canvases, never cropped posters.
       return aspect >= 1.55 && aspect <= 1.95;
     })
-    .sort((a, b) => {
-      const score = (image: TitleImageOption) => {
-        const aspect = image.width / image.height;
-        const resolution = Math.min(1, (image.width * image.height) / (1920 * 1080));
-        // `vote_count` removes the bias of a single perfect vote. It is a
-        // ranking signal only, not a claim that TMDb understands the scene.
-        const confidence = Math.log1p(Math.max(0, image.voteCount ?? 0)) / 3;
-        return image.voteAverage * (1 + confidence) + resolution * 1.5 - Math.abs(aspect - targetAspect) * 1.2;
-      };
-      return score(b) - score(a);
-    })[0];
-  if (!backdrop) return { backdropPath: null, logoPath: null };
+    .sort((a, b) => score(b) - score(a));
+  const neutral = landscape.find((image) => image.language === null);
+  if (neutral) {
+    return {
+      backdropPath: neutral.filePath,
+      logoPath: images.logos[0]?.filePath ?? null,
+      titleEmbedded: false,
+    };
+  }
+
+  // A number of valid titles only expose localized 16:9 key art through the
+  // image endpoint. Leaving their card empty just because it is not neutral
+  // is worse than using that artwork. It already contains the title, so the
+  // card receives an explicit marker that forbids a second injected logo.
+  const localizedKeyArt = landscape[0];
+  if (localizedKeyArt) {
+    return {
+      backdropPath: localizedKeyArt.filePath,
+      logoPath: null,
+      titleEmbedded: true,
+    };
+  }
+
+  // No usable 16:9 asset at all: a logo can still improve the neutral card.
   return {
-    backdropPath: backdrop.filePath,
+    backdropPath: null,
     logoPath: images.logos[0]?.filePath ?? null,
+    titleEmbedded: false,
   };
 }
 

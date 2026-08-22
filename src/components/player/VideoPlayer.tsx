@@ -1051,6 +1051,21 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           const localeSub = localeAudio ? null : findTrackForLocale(subTracks, localeRef.current);
           const selSub = localeSub ?? subTracks.find((s) => s.selected);
           if (selSub) setCurrentSubtitle(selSub.id);
+
+          // The playback session opens before the stream metadata arrives so
+          // the resume decision remains responsive. Correct its duration as
+          // soon as Plex tells us the real one; otherwise a fragmented MP4
+          // can leave progress logic using a guessed 16-minute duration.
+          const sessionId = playbackSessionRef.current;
+          const durationMs = Number(info.durationMs);
+          if (sessionId && Number.isFinite(durationMs) && durationMs > 0) {
+            void fetch(`/api/playback/sessions/${encodeURIComponent(sessionId)}/metadata`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ durationMs }),
+              keepalive: true,
+            }).catch(() => void 0);
+          }
         }
       } catch { /* ignore */ }
 
@@ -1250,6 +1265,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         ffmpegEngineRef.current = null;
         void engine.destroy().catch(() => void 0);
       }
+      // Les évènements media peuvent arriver avant le prochain rendu React.
+      // Le ref doit donc refléter immédiatement l'arrêt du moteur, sinon ils
+      // additionnent à tort un ancien seekBase à une leg native suivante.
+      ffmpegActiveRef.current = false;
       setFfmpegActive(false);
       setFfmpegStats(null);
     };
@@ -1308,6 +1327,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           onDebug: (stats) => setFfmpegStats(stats),
         });
         ffmpegEngineRef.current = engine;
+        // Idem au démarrage : `loadeddata` d'un fMP4 peut être émis avant le
+        // rendu qui propage `ffmpegActive` dans son ref. La durée Plex doit
+        // déjà être utilisée à ce tout premier évènement.
+        ffmpegActiveRef.current = true;
         setFfmpegActive(true);
         setDirectMode(false);
         setBuffering(true);
@@ -1517,7 +1540,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       // en direct) plutôt que de refléter la durée réelle du film. La durée
       // Plex connue à l'avance est toujours la bonne source pour cette leg.
       const known = infoRef.current?.durationMs;
-      setDuration(ffmpegActiveRef.current && known ? known / 1000 : el.duration);
+      const isFfmpegStream = ffmpegEngineRef.current !== null;
+      setDuration(isFfmpegStream && known ? known / 1000 : el.duration);
       setVolume(el.volume);
       setMuted(el.muted);
     };
@@ -1530,9 +1554,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         const end = el.buffered.end(el.buffered.length - 1);
         const base = ffmpegEngineRef.current?.seekBase ?? 0;
         const known = infoRef.current?.durationMs;
-        const total = ffmpegActiveRef.current && known ? known / 1000 : el.duration;
+        const isFfmpegStream = ffmpegEngineRef.current !== null;
+        const total = isFfmpegStream && known ? known / 1000 : el.duration;
         if (total > 0) {
-          const bufferedEnd = ffmpegActiveRef.current ? base + end : end;
+          const bufferedEnd = isFfmpegStream ? base + end : end;
           setBufferedPct((bufferedEnd / total) * 100);
         }
       }
@@ -1583,23 +1608,42 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     // gestes double-tap) restent affichés et tout passe par notre pipeline.
     const el = playerRef.current ?? videoRef.current;
     if (!el) return;
-    if (document.fullscreenElement) {
-      await document.exitFullscreen();
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitFullscreenEnabled?: boolean;
+    };
+    try {
+      if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+        await document.exitFullscreen?.();
+        setFullscreen(false);
+      } else if (document.fullscreenEnabled || doc.webkitFullscreenEnabled) {
+        // `navigationUI: "hide"` asks Chromium/Edge to hide browser chrome
+        // as well: this is the platform fullscreen API, not a CSS-only
+        // enlargement inside the browser tab. The player container stays the
+        // fullscreen element so Movviz keeps its own identical controls.
+        await el.requestFullscreen({ navigationUI: "hide" });
+        setFullscreen(true);
+      } else {
+        // iPhone : pas de Fullscreen API sur un <div> — seul le <video>
+        // supporte le plein écran natif (UI navigateur imposée, inévitable).
+        (videoRef.current as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen?.();
+      }
+    } catch {
+      // A browser can refuse fullscreen only when the user gesture expired.
+      // Keep the player usable in-page rather than showing a false state.
       setFullscreen(false);
-    } else if (document.fullscreenEnabled || (document as Document & { webkitFullscreenEnabled?: boolean }).webkitFullscreenEnabled) {
-      await el.requestFullscreen();
-      setFullscreen(true);
-    } else {
-      // iPhone : pas de Fullscreen API sur un <div> — seul le <video>
-      // supporte le plein écran natif (UI navigateur imposée, inévitable).
-      (videoRef.current as HTMLVideoElement & { webkitEnterFullscreen?: () => void }).webkitEnterFullscreen?.();
     }
   };
 
   useEffect(() => {
-    const onFsChange = () => setFullscreen(!!document.fullscreenElement);
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
+    const onFsChange = () => setFullscreen(!!(doc.fullscreenElement || doc.webkitFullscreenElement));
     document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
   }, []);
 
   const qualityLabel = (): string | null => {
@@ -1630,6 +1674,20 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       }
     }, 3000);
   }, [playing, buffering, menuOpen]);
+
+  // Un film qui démarre ne doit pas laisser le lecteur posé à l'écran.
+  // Après une très courte fenêtre d'orientation, l'overlay revient seulement
+  // au mouvement de souris, au clic, à la pause ou à l'ouverture d'un menu.
+  useEffect(() => {
+    if (!playing || buffering || menuOpen || showResume) {
+      setControlsVisible(true);
+      return;
+    }
+    const timer = setTimeout(() => {
+      if (!seekingRef.current) setControlsVisible(false);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [playing, buffering, menuOpen, showResume]);
 
   // Sortie du pointeur hors de la vidéo → les contrôles se replient vite
   // (800ms au lieu de 3s, comportement Plex/Netflix).
@@ -2139,7 +2197,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           // were always dead CSS. Driven from the real `fullscreen` state
           // instead: true browser fullscreen always gets a solid black,
           // unrounded, unconstrained box regardless of embedded/panel mode.
-          fullscreen ? "h-full w-full rounded-none max-w-none bg-black" : embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface",
+          fullscreen ? "fixed inset-0 h-[100dvh] w-[100dvw] rounded-none max-w-none bg-black" : embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface",
           !fullscreen && !embedded ? "rounded-2xl h-[80vh] w-[90vw] max-w-5xl" : undefined
         )}
       >
@@ -2147,7 +2205,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           aria-hidden={embedded && !controlsVisible && playing && !buffering ? true : undefined}
           className={cn(
             "pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-4 bg-gradient-to-b from-black/85 via-black/45 to-transparent px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-20 pl-[max(env(safe-area-inset-left),1.25rem)] pr-[max(env(safe-area-inset-right),1.25rem)] transition-opacity duration-300",
-            controlsVisible || !playing || buffering ? "opacity-100" : "opacity-0"
+            controlsVisible || !playing || buffering || menuOpen ? "opacity-100" : "opacity-0"
           )}
         >
           <div className="pointer-events-auto flex min-w-0 items-start gap-3">
@@ -2365,7 +2423,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                   aria-hidden={undefined}
                   className={cn(
                     "pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/95 via-black/72 to-transparent pt-24 pb-[max(env(safe-area-inset-bottom),0.75rem)] transition-opacity duration-300",
-                    "opacity-100"
+                    controlsVisible || !playing || buffering || menuOpen || showResume ? "opacity-100" : "opacity-0"
                   )}
                 >
                   <div className="pointer-events-auto mx-auto max-w-[1600px] px-4 sm:px-6">

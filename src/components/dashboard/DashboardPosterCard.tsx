@@ -5,16 +5,28 @@ import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
 import { Star, Film, Tv, Play, Plus, ThumbsUp, ChevronDown, Loader2, Clock3 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, openPlexLink } from "@/lib/utils";
 import { BADGE_SHAPE } from "@/components/library/MediaBadges";
 import { useI18n } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import type { MetaDetail } from "@/lib/metadata/types";
+import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { usePlayer } from "@/lib/player/PlayerProvider";
 
 const POSTER_BASE = "/tmdb/w500";
 const BACKDROP_BASE = "/tmdb/w780";
 const LOGO_BASE = "/tmdb/w500";
 const fetcher = (url: string) => fetch(url).then((response) => (response.ok ? response.json() : null));
+
+export type DashboardCardPlayback = {
+  ratingKey: string;
+  plexUrl: string;
+  movvizId?: string;
+  seriesId?: string;
+  type: "movie" | "series";
+  seasonNumber?: number;
+  episodeNumber?: number;
+};
 
 function formatRuntime(minutes: number | null | undefined): string | null {
   if (!minutes || minutes <= 0) return null;
@@ -40,6 +52,7 @@ export function DashboardPosterCard({
   posterPath,
   backdropPath,
   logoPath,
+  titleEmbedded = false,
   rating,
   badge,
   year,
@@ -51,6 +64,7 @@ export function DashboardPosterCard({
   inLibrary = false,
   layout = "row",
   reserveBottomRight = false,
+  playback,
 }: {
   tmdbId: number;
   type: "movie" | "series";
@@ -59,6 +73,8 @@ export function DashboardPosterCard({
   backdropPath?: string | null;
   /** Pre-resolved by the row-level artwork batch, or a Movviz custom logo. */
   logoPath?: string | null;
+  /** True when the selected 16:9 key art already carries its title. */
+  titleEmbedded?: boolean;
   rating?: number;
   badge?: string;
   year?: number | null;
@@ -83,8 +99,12 @@ export function DashboardPosterCard({
   layout?: "row" | "fill";
   /** Keeps the title mark clear of an action supplied by the parent card. */
   reserveBottomRight?: boolean;
+  /** Present only for a concrete locally available movie or episode. */
+  playback?: DashboardCardPlayback;
 }) {
   const { t, locale } = useI18n();
+  const { enabled: betaPlayer } = useBetaPlayer();
+  const { play } = usePlayer();
   const [hovered, setHovered] = useState(false);
   const [popover, setPopover] = useState<{ left: number; top: number; width: number; above: boolean } | null>(null);
   const [adding, setAdding] = useState(false);
@@ -146,6 +166,27 @@ export function DashboardPosterCard({
     } finally {
       setRatingSaving(false);
     }
+  };
+
+  const startPlayback = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (!playback) return;
+    event.preventDefault();
+    event.stopPropagation();
+    play({
+      ratingKey: playback.ratingKey,
+      movvizId: playback.movvizId,
+      seriesId: playback.seriesId,
+      plexUrl: playback.plexUrl,
+      title,
+      useTranscode: betaPlayer,
+      tmdbId,
+      type: playback.type,
+      seasonNumber: playback.seasonNumber,
+      episodeNumber: playback.episodeNumber,
+      originRect: event.currentTarget.getBoundingClientRect(),
+      backdropUrl: backdrop,
+      posterUrl: poster,
+    });
   };
 
   const clearTimers = () => {
@@ -234,9 +275,9 @@ export function DashboardPosterCard({
               {logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logo} alt="" loading="lazy" className="max-h-10 max-w-[78%] object-contain object-left drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
-              ) : (
+              ) : !titleEmbedded ? (
                 <span className="line-clamp-2 text-sm font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
-              )}
+              ) : null}
             </div>
           )}
 
@@ -284,24 +325,47 @@ export function DashboardPosterCard({
               {logo ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logo} alt="" className="max-h-11 max-w-[210px] object-contain object-left drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
-              ) : (
+              ) : !titleEmbedded ? (
                 <span className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
-              )}
+              ) : null}
             </div>
           </div>
         </Link>
         <div className="space-y-2.5 p-3.5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              {inLibrary ? (
-                <Link
-                  href={`/title/${type}/${tmdbId}`}
-                  title={t("common.play")}
-                  aria-label={t("common.play")}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+              {playback ? (
+                betaPlayer ? (
+                  <button
+                    type="button"
+                    onClick={startPlayback}
+                    title={t("common.play")}
+                    aria-label={t("common.play")}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+                  >
+                    <Play className="ml-0.5 h-5 w-5 fill-current" />
+                  </button>
+                ) : (
+                  <a
+                    href={playback.plexUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(event) => openPlexLink(event, playback.plexUrl)}
+                    title={t("library.watchOnPlex")}
+                    aria-label={t("library.watchOnPlex")}
+                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+                  >
+                    <Play className="ml-0.5 h-5 w-5 fill-current" />
+                  </a>
+                )
+              ) : inLibrary ? (
+                <span
+                  title={t("common.inLibrary")}
+                  aria-label={t("common.inLibrary")}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/20 text-white/55"
                 >
-                  <Play className="ml-0.5 h-5 w-5 fill-current" />
-                </Link>
+                  <Clock3 className="h-5 w-5" />
+                </span>
               ) : (
                 <button
                   type="button"

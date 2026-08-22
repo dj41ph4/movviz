@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PosterRow } from "@/components/media/PosterRow";
-import { DashboardPosterCard } from "./DashboardPosterCard";
+import { DashboardPosterCard, type DashboardCardPlayback } from "./DashboardPosterCard";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useI18n, useT } from "@/i18n/provider";
 import { daysUntil } from "@/lib/library/releaseSchedule";
@@ -20,12 +20,13 @@ interface UpgradeCandidate {
 }
 
 type EditorialLibraryItem =
-  | { type: "movie"; item: LibraryMovie }
+  | { type: "movie"; item: DashboardMovie }
   | { type: "series"; item: LibrarySeries };
 
 type ArtworkByKey = Record<string, {
   backdropPath: string | null;
   logoPath: string | null;
+  titleEmbedded: boolean;
 }>;
 type LocalArtwork = {
   /** The library's normal TMDb backdrop, useful before the artwork batch lands. */
@@ -34,7 +35,18 @@ type LocalArtwork = {
   customBackdropPath: string | null;
   logoPath: string | null;
 };
-type ResolvedArtwork = Pick<LocalArtwork, "backdropPath" | "logoPath">;
+type ResolvedArtwork = Pick<LocalArtwork, "backdropPath" | "logoPath"> & { titleEmbedded: boolean };
+type DashboardMovie = LibraryMovie & { plexUrl?: string | null };
+
+function moviePlayback(movie: DashboardMovie): DashboardCardPlayback | undefined {
+  if (movie.status !== "available" || !movie.file || !movie.plexRatingKey || !movie.plexUrl) return undefined;
+  return {
+    ratingKey: movie.plexRatingKey,
+    plexUrl: movie.plexUrl,
+    movvizId: movie.id,
+    type: "movie",
+  };
+}
 
 /** Keep a mixed home row genuinely mixed without inventing a second ranking:
  * both source lists retain their own order and alternate while either has
@@ -63,7 +75,7 @@ export function DashboardRows({
   minYear,
 }: {
   sections: DashboardLayout["sections"];
-  movies: LibraryMovie[];
+  movies: DashboardMovie[];
   series: LibrarySeries[];
   minYear?: number | null;
 }) {
@@ -173,7 +185,7 @@ export function DashboardRows({
     const byId = new Map(movies.map((m) => [m.id, m] as const));
     return upgradeData.candidates
       .map((c) => ({ candidate: c, movie: byId.get(c.movieId) }))
-      .filter((x): x is { candidate: UpgradeCandidate; movie: LibraryMovie } => !!x.movie && afterMinYear(x.movie));
+      .filter((x): x is { candidate: UpgradeCandidate; movie: DashboardMovie } => !!x.movie && afterMinYear(x.movie));
   }, [upgradeData, movies, afterMinYear]);
 
   // The only per-title artwork data not carried by row APIs is the official
@@ -242,6 +254,7 @@ export function DashboardRows({
       // library/row path is only the instant first-paint fallback.
       backdropPath: local?.customBackdropPath ?? artworkData?.artwork[key]?.backdropPath ?? local?.backdropPath ?? fallbackBackdrop ?? null,
       logoPath: local?.logoPath ?? artworkData?.artwork[key]?.logoPath ?? null,
+      titleEmbedded: !local?.customBackdropPath && artworkData?.artwork[key]?.titleEmbedded === true,
     };
   };
 
@@ -258,6 +271,17 @@ export function DashboardRows({
               {continueWatching.map((item, i) => {
                 const type = item.type === "movie" ? "movie" : "series";
                 const artwork = resolveArtwork(type, item.tmdbId);
+                const playback = item.plexRatingKey && item.plexUrl
+                  ? {
+                      ratingKey: item.plexRatingKey,
+                      plexUrl: item.plexUrl,
+                      movvizId: item.movvizId,
+                      seriesId: item.seriesId,
+                      type,
+                      seasonNumber: item.seasonNumber,
+                      episodeNumber: item.episodeNumber,
+                    } satisfies DashboardCardPlayback
+                  : undefined;
                 return (
                   <CardErrorBoundary key={`${item.type}:${item.tmdbId}:${i}`}>
                     <DashboardPosterCard
@@ -267,11 +291,13 @@ export function DashboardRows({
                       posterPath={item.posterPath}
                       backdropPath={artwork.backdropPath}
                       logoPath={artwork.logoPath}
+                      titleEmbedded={artwork.titleEmbedded}
                       rating={item.rating}
                       year={item.year ?? undefined}
                       progressPercent={item.progressPercent}
                       subtitle={item.type === "episode" ? `S${item.seasonNumber} E${item.episodeNumber} — ${item.episodeTitle}` : undefined}
                       inLibrary={libraryTitleKeys.has(`${type}:${item.tmdbId}`)}
+                      playback={playback}
                     />
                   </CardErrorBoundary>
                 );
@@ -287,7 +313,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
                   </CardErrorBoundary>
                 );
               })}
@@ -309,11 +335,13 @@ export function DashboardRows({
                       posterPath={movie.posterPath}
                       backdropPath={artwork.backdropPath}
                       logoPath={artwork.logoPath}
+                      titleEmbedded={artwork.titleEmbedded}
                       rating={movie.rating}
                       year={movie.year}
                       runtime={movie.runtime}
                       genres={movie.genres}
                       inLibrary={true}
+                      playback={moviePlayback(movie)}
                     />
                   </CardErrorBoundary>
                 );
@@ -336,11 +364,13 @@ export function DashboardRows({
                       posterPath={item.posterPath}
                       backdropPath={artwork.backdropPath}
                       logoPath={artwork.logoPath}
+                      titleEmbedded={artwork.titleEmbedded}
                       rating={item.rating}
                       year={item.year}
                       runtime={type === "movie" ? item.runtime : undefined}
                       genres={item.genres}
                       inLibrary={true}
+                      playback={type === "movie" ? moviePlayback(item) : undefined}
                     />
                   </CardErrorBoundary>
                 );
@@ -363,6 +393,7 @@ export function DashboardRows({
                       posterPath={m.posterPath}
                       backdropPath={artwork.backdropPath}
                       logoPath={artwork.logoPath}
+                      titleEmbedded={artwork.titleEmbedded}
                       badge={days <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: days })}
                       year={m.year}
                       runtime={m.runtime}
@@ -394,11 +425,13 @@ export function DashboardRows({
                       posterPath={movie.posterPath}
                       backdropPath={artwork.backdropPath}
                       logoPath={artwork.logoPath}
+                      titleEmbedded={artwork.titleEmbedded}
                       badge={candidate.detectedVersion}
                       year={movie.year}
                       runtime={movie.runtime}
                       genres={movie.genres}
                       inLibrary={true}
+                      playback={moviePlayback(movie)}
                     />
                   </CardErrorBoundary>
                 );
@@ -414,7 +447,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} rating={r.rating} year={r.year} rank={i + 1} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} titleEmbedded={artwork.titleEmbedded} rating={r.rating} year={r.year} rank={i + 1} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
                   </CardErrorBoundary>
                 );
               })}

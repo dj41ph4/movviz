@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
-import { getPlexOnDeck } from "@/lib/plex/client";
+import { buildPlexWebUrl, getPlexOnDeck } from "@/lib/plex/client";
 import { resolveToken } from "@/lib/plex/watchWrite";
 import { getMovieByPlexRatingKey, findEpisodeByPlexRatingKey } from "@/lib/library/store";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
@@ -25,6 +25,12 @@ export interface OnDeckEntry {
   seasonNumber?: number;
   episodeNumber?: number;
   episodeTitle?: string;
+  /** Exact playback identity, so the dashboard's play button starts the
+   * player instead of routing back through the title panel. */
+  plexRatingKey: string | null;
+  plexUrl: string | null;
+  movvizId?: string;
+  seriesId?: string;
 }
 
 /**
@@ -43,6 +49,8 @@ export async function GET(req: NextRequest) {
   if (!cfg.hostname) return NextResponse.json({ items: [] });
   const auth = resolveToken(user, cfg);
   if (!auth) return NextResponse.json({ items: [] });
+  const plexUrlFor = (ratingKey: string | null) =>
+    ratingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, ratingKey) : null;
 
   const onDeck = await getPlexOnDeck(cfg, auth.token, auth.managedUserId);
   // Bug fix (confirmed live, reverted): a v1.14.44 safety net cross-checked
@@ -68,13 +76,15 @@ export async function GET(req: NextRequest) {
     const movie = getMovieByPlexRatingKey(p.ratingKey);
     if (movie) {
       localKeys.add(p.ratingKey);
-      items.push({ type: "movie", tmdbId: movie.tmdbId, title: movie.title, posterPath: movie.posterPath, year: movie.year, rating: movie.rating, progressPercent: Math.min(100, Math.round((p.resumeOffsetMs / p.durationMs) * 100)), offsetMs: p.resumeOffsetMs });
+      const plexRatingKey = movie.plexRatingKey ?? p.ratingKey;
+      items.push({ type: "movie", tmdbId: movie.tmdbId, title: movie.title, posterPath: movie.posterPath, year: movie.year, rating: movie.rating, progressPercent: Math.min(100, Math.round((p.resumeOffsetMs / p.durationMs) * 100)), offsetMs: p.resumeOffsetMs, plexRatingKey, plexUrl: plexUrlFor(plexRatingKey), movvizId: movie.id });
       continue;
     }
     const found = findEpisodeByPlexRatingKey(p.ratingKey);
     if (found) {
       localKeys.add(p.ratingKey);
-      items.push({ type: "episode", tmdbId: found.series.tmdbId, title: found.series.title, posterPath: found.series.posterPath, year: found.series.year, rating: found.series.rating, progressPercent: Math.min(100, Math.round((p.resumeOffsetMs / p.durationMs) * 100)), offsetMs: p.resumeOffsetMs, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber, episodeTitle: found.episode.title });
+      const plexRatingKey = found.episode.plexRatingKey ?? p.ratingKey;
+      items.push({ type: "episode", tmdbId: found.series.tmdbId, title: found.series.title, posterPath: found.series.posterPath, year: found.series.year, rating: found.series.rating, progressPercent: Math.min(100, Math.round((p.resumeOffsetMs / p.durationMs) * 100)), offsetMs: p.resumeOffsetMs, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber, episodeTitle: found.episode.title, plexRatingKey, plexUrl: plexUrlFor(plexRatingKey), movvizId: `${found.series.id}:s${found.season.seasonNumber}e${found.episode.episodeNumber}`, seriesId: found.series.id });
     }
   }
   for (const d of onDeck) {
@@ -91,6 +101,7 @@ export async function GET(req: NextRequest) {
     if (d.type === "movie") {
       const movie = getMovieByPlexRatingKey(d.ratingKey);
       if (!movie) continue;
+      const plexRatingKey = movie.plexRatingKey ?? d.ratingKey;
       items.push({
         type: "movie",
         tmdbId: movie.tmdbId,
@@ -100,10 +111,14 @@ export async function GET(req: NextRequest) {
         rating: movie.rating,
         progressPercent,
         offsetMs: d.viewOffset,
+        plexRatingKey,
+        plexUrl: plexUrlFor(plexRatingKey),
+        movvizId: movie.id,
       });
     } else {
       const found = findEpisodeByPlexRatingKey(d.ratingKey);
       if (!found) continue;
+      const plexRatingKey = found.episode.plexRatingKey ?? d.ratingKey;
       items.push({
         type: "episode",
         tmdbId: found.series.tmdbId,
@@ -116,6 +131,10 @@ export async function GET(req: NextRequest) {
         seasonNumber: found.season.seasonNumber,
         episodeNumber: found.episode.episodeNumber,
         episodeTitle: found.episode.title,
+        plexRatingKey,
+        plexUrl: plexUrlFor(plexRatingKey),
+        movvizId: `${found.series.id}:s${found.season.seasonNumber}e${found.episode.episodeNumber}`,
+        seriesId: found.series.id,
       });
     }
   }

@@ -52,6 +52,9 @@ export interface PlexPartRef {
   partId: number | null;
   /** Base Plex (`http(s)://host:port`) — pour construire d'autres endpoints (BIF, chapitres) sans re-résoudre la config. */
   base: string;
+  /** Durée totale Plex, en millisecondes. Indispensable pour un MP4
+   * fragmenté FFmpeg : le navigateur ne connaît que la durée déjà reçue. */
+  durationMs: number | null;
 }
 
 export async function resolvePlexPartUrl(
@@ -115,6 +118,9 @@ export async function resolvePlexPartUrl(
       subtitleStreams,
       partId: typeof part.id === "number" ? part.id : null,
       base,
+      durationMs: typeof metadata?.duration === "number" && metadata.duration > 0
+        ? metadata.duration
+        : null,
     };
   } catch (e) {
     console.error("[plexSource] resolve failed", ratingKey, e);

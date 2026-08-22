@@ -8,6 +8,10 @@ export type CachedTitleArtwork = {
   /** TMDb paths; the matching immutable bytes live in `tmdb-artwork/` on disk. */
   backdropPath: string | null;
   logoPath: string | null;
+  /** The selected backdrop already includes its own title treatment. */
+  titleEmbedded: boolean;
+  /** Selection rules version, distinct from the JSON store schema. */
+  selectionVersion: number;
   fetchedAt: number;
 };
 
@@ -28,6 +32,11 @@ const CONFIG_DIR =
   path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "title-artwork-cache.json");
 const STORE_VERSION = 2;
+// v2 selects a localized 16:9 key-art fallback when TMDb has no neutral
+// backdrop. Previous cached null pairs must be revisited once, otherwise a
+// title that has art in its full detail page remains empty on dashboard cards
+// for a year.
+const EDITORIAL_SELECTION_VERSION = 2;
 
 // TMDb's artwork file paths are immutable. Keep the selected backdrop/logo
 // pair for a full year: daily maintenance then needs to process only newly
@@ -70,7 +79,12 @@ export function loadCachedTitleArtwork(
 
   for (const ref of refs) {
     const entry = entries[keyOf(ref.type, ref.tmdbId, locale)];
-    if (entry && Number.isFinite(entry.fetchedAt) && now - entry.fetchedAt < ARTWORK_REVALIDATE_MS) {
+    if (
+      entry &&
+      entry.selectionVersion === EDITORIAL_SELECTION_VERSION &&
+      Number.isFinite(entry.fetchedAt) &&
+      now - entry.fetchedAt < ARTWORK_REVALIDATE_MS
+    ) {
       found[`${ref.type}:${ref.tmdbId}`] = entry;
     }
   }
@@ -113,6 +127,7 @@ export function cacheTitleArtwork(
     tmdbId: number;
     backdropPath: string | null;
     logoPath: string | null;
+    titleEmbedded: boolean;
   }[],
   locale?: string
 ): void {
@@ -125,6 +140,8 @@ export function cacheTitleArtwork(
     store.entries[keyOf(value.type, value.tmdbId, locale)] = {
       backdropPath: value.backdropPath,
       logoPath: value.logoPath,
+      titleEmbedded: value.titleEmbedded,
+      selectionVersion: EDITORIAL_SELECTION_VERSION,
       fetchedAt,
     };
   }

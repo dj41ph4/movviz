@@ -58,14 +58,19 @@ export async function GET(req: NextRequest) {
     };
   });
   cacheTitleArtwork(freshEntries, locale);
-  const artwork: Record<string, { backdropPath: string | null; logoPath: string | null }> = {};
+  const artwork: Record<string, { backdropPath: string | null; logoPath: string | null; titleEmbedded: boolean }> = {};
   for (const [key, entry] of Object.entries(cached)) {
-    artwork[key] = { backdropPath: entry.backdropPath, logoPath: entry.logoPath };
+    artwork[key] = {
+      backdropPath: entry.backdropPath,
+      logoPath: entry.logoPath,
+      titleEmbedded: entry.titleEmbedded,
+    };
   }
   for (const entry of freshEntries) {
     artwork[`${entry.type}:${entry.tmdbId}`] = {
       backdropPath: entry.backdropPath,
       logoPath: entry.logoPath,
+      titleEmbedded: entry.titleEmbedded,
     };
   }
 

@@ -107,6 +107,29 @@ export function openPlaybackSession(userId: string, input: { ratingKey: string; 
 
 export function getPlaybackSession(sessionId: string): PlaybackSession | null { return g.__movvizPlaybackSessions?.get(sessionId) ?? null; }
 
+/**
+ * The player learns the authoritative Plex duration while opening its stream.
+ * A fragmented MP4 only exposes the few seconds buffered by the browser, so
+ * keep the session and durable progress record on that authoritative value
+ * before the first heartbeat can decide a resume/completion boundary.
+ */
+export function updatePlaybackDuration(sessionId: string, durationMs: number): PlaybackProgress | null {
+  const session = getPlaybackSession(sessionId);
+  if (!session || !Number.isFinite(durationMs) || durationMs <= 0) return null;
+  const progress = get(session.userId, session.ratingKey, session.mediaId);
+  if (!progress) return null;
+  const normalized = Math.round(durationMs);
+  const boundary = completionBoundaryMs(normalized, getPlaybackMarkers(session.ratingKey), progress.mediaType);
+  session.durationMs = normalized;
+  progress.durationMs = normalized;
+  progress.completionBoundaryMs = boundary.boundaryMs;
+  progress.boundarySource = boundary.source;
+  progress.updatedAt = Date.now();
+  progress.revision++;
+  persist();
+  return progress;
+}
+
 export function applyHeartbeat(sessionId: string, input: { sequence: number; positionMs: number; isPlaying: boolean; playbackRate?: number; nowMs?: number }): PlaybackProgress {
   const session = getPlaybackSession(sessionId); if (!session) throw new Error("session_not_found");
   if (input.sequence <= session.lastSequence) return get(session.userId, session.ratingKey, session.mediaId)!;

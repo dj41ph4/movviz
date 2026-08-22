@@ -11,16 +11,16 @@ test("editorial artwork uses a neutral backdrop before placing the official logo
     logos: [{ filePath: "/official-logo.png", width: 1000, height: 300, language: "fr", voteAverage: 8 }],
   });
 
-  assert.deepEqual(artwork, { backdropPath: "/clean-backdrop.jpg", logoPath: "/official-logo.png" });
+  assert.deepEqual(artwork, { backdropPath: "/clean-backdrop.jpg", logoPath: "/official-logo.png", titleEmbedded: false });
 });
 
-test("editorial artwork refuses to overlay a logo when TMDb offers no neutral background", () => {
+test("editorial artwork uses localized 16:9 key art without overlaying a second logo", () => {
   const artwork = pickEditorialArtwork({
     backdrops: [{ filePath: "/key-art-with-title.jpg", width: 1920, height: 1080, language: "en", voteAverage: 9 }],
     logos: [{ filePath: "/official-logo.png", width: 1000, height: 300, language: "en", voteAverage: 8 }],
   });
 
-  assert.deepEqual(artwork, { backdropPath: null, logoPath: null });
+  assert.deepEqual(artwork, { backdropPath: "/key-art-with-title.jpg", logoPath: null, titleEmbedded: true });
 });
 
 test("editorial artwork favors a well-voted true landscape over a poorly framed neutral asset", () => {
@@ -33,5 +33,5 @@ test("editorial artwork favors a well-voted true landscape over a poorly framed 
     logos: [{ filePath: "/official-logo.png", width: 1000, height: 300, language: "fr", voteAverage: 8 }],
   });
 
-  assert.deepEqual(artwork, { backdropPath: "/community-pick.jpg", logoPath: "/official-logo.png" });
+  assert.deepEqual(artwork, { backdropPath: "/community-pick.jpg", logoPath: "/official-logo.png", titleEmbedded: false });
 });

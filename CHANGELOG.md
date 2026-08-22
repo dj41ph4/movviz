@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.16.82 — August 2026
+
+### Desktop — lecture fiable
+
+- Corrige la durée réelle des flux FFmpeg fragmentés : le lecteur, la barre
+  d'avancement, les reprises et le seuil de fin utilisent maintenant la durée
+  Plex du média, plutôt que les quelques secondes déjà tamponnées.
+- Les contrôles du lecteur se replient pendant la lecture et réapparaissent
+  au mouvement de souris, à la pause, au buffering ou à l'ouverture d'un
+  menu. L'aperçu image sur la barre d'avancement est conservé.
+- Le plein écran cible le conteneur Movviz avec l'API navigateur : les mêmes
+  commandes, le seek réel et les sous-titres restent donc présents, au lieu
+  de basculer vers les contrôles vidéo natifs.
+
+### Desktop — cartes éditoriales
+
+- Le bouton Lecture d'une carte disponible lance désormais directement le
+  lecteur Movviz (films, reprises et épisodes), au lieu de rouvrir sa fiche.
+- Lorsqu'un titre ne possède pas de fond TMDb neutre, les cartes utilisent
+  son illustration 16:9 localisée et n'ajoutent ni logo ni titre une seconde
+  fois. Les choix vides de l'ancien cache sont rafraîchis automatiquement.
+
 ## v1.16.81 — August 2026
 
 ### Desktop — preview des cartes
