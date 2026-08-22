@@ -22,3 +22,16 @@ test("editorial artwork refuses to overlay a logo when TMDb offers no neutral ba
 
   assert.deepEqual(artwork, { backdropPath: null, logoPath: null });
 });
+
+test("editorial artwork favors a well-voted true landscape over a poorly framed neutral asset", () => {
+  const artwork = pickEditorialArtwork({
+    backdrops: [
+      { filePath: "/portrait-promo.jpg", width: 1000, height: 1400, language: null, voteAverage: 10, voteCount: 100 },
+      { filePath: "/community-pick.jpg", width: 1920, height: 1080, language: null, voteAverage: 8.4, voteCount: 20 },
+      { filePath: "/single-vote.jpg", width: 1920, height: 1080, language: null, voteAverage: 10, voteCount: 1 },
+    ],
+    logos: [{ filePath: "/official-logo.png", width: 1000, height: 300, language: "fr", voteAverage: 8 }],
+  });
+
+  assert.deepEqual(artwork, { backdropPath: "/community-pick.jpg", logoPath: "/official-logo.png" });
+});

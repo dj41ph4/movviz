@@ -6,6 +6,7 @@ import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { computeMorphOrigin, estimateFullscreenGeometry, type MorphTransform, type Rect } from "@/lib/motion/morphOrigin";
 import { getDominantColor, type DominantColorResult } from "@/lib/media/dominantColor";
 import { VideoPlayer, type VideoPlayerProps } from "./VideoPlayer";
+import { lockBodyScroll } from "@/lib/dom/bodyScrollLock";
 
 type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "movvizId" | "seriesId" | "plexUrl" | "title" | "useTranscode" | "prebufferSeconds" | "startFromBeginning" | "onNextEpisode"> & {
   tmdbId?: number;
@@ -85,17 +86,7 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
   }, []);
 
   useEffect(() => {
-    const prevOverflow = document.body.style.overflow;
-    const prevPaddingRight = document.body.style.paddingRight;
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-    return () => {
-      document.body.style.overflow = prevOverflow;
-      document.body.style.paddingRight = prevPaddingRight;
-    };
+    return lockBodyScroll();
   }, []);
 
   // Very bright source art still gets a darker scrim (spec: "contenu très

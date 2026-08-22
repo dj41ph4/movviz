@@ -3,14 +3,25 @@
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
-import { Star, Film, Tv, Play, Info } from "lucide-react";
+import useSWR from "swr";
+import { Star, Film, Tv, Play, Plus, ThumbsUp, ChevronDown, Loader2, Clock3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BADGE_SHAPE } from "@/components/library/MediaBadges";
-import { useT } from "@/i18n/provider";
+import { useI18n } from "@/i18n/provider";
+import { toast } from "@/components/ui/Toast";
+import type { MetaDetail } from "@/lib/metadata/types";
 
 const POSTER_BASE = "/tmdb/w500";
 const BACKDROP_BASE = "/tmdb/w780";
 const LOGO_BASE = "/tmdb/w500";
+const fetcher = (url: string) => fetch(url).then((response) => (response.ok ? response.json() : null));
+
+function formatRuntime(minutes: number | null | undefined): string | null {
+  if (!minutes || minutes <= 0) return null;
+  const hours = Math.floor(minutes / 60);
+  const remaining = minutes % 60;
+  return hours > 0 ? `${hours} h${remaining ? ` ${remaining} min` : ""}` : `${minutes} min`;
+}
 
 /**
  * Single editorial landscape card for Dashboard, Films and Series. It owns
@@ -37,6 +48,7 @@ export function DashboardPosterCard({
   rank,
   progressPercent,
   subtitle,
+  inLibrary = false,
   layout = "row",
   reserveBottomRight = false,
 }: {
@@ -64,23 +76,77 @@ export function DashboardPosterCard({
    *  in place of the hover-only year/runtime/genres strip which doesn't
    *  make sense for a specific in-progress episode. */
   subtitle?: string;
+  /** A non-owned title gets an add action, never a misleading play icon. */
+  inLibrary?: boolean;
   /** `row` owns its editorial carousel width; `fill` lets a catalogue grid
    *  decide the column width while keeping the exact same visual card. */
   layout?: "row" | "fill";
   /** Keeps the title mark clear of an action supplied by the parent card. */
   reserveBottomRight?: boolean;
 }) {
-  const t = useT();
+  const { t, locale } = useI18n();
   const [hovered, setHovered] = useState(false);
   const [popover, setPopover] = useState<{ left: number; top: number; width: number; above: boolean } | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [addedHere, setAddedHere] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [ratingSaving, setRatingSaving] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const poster = posterPath ? `${POSTER_BASE}${posterPath}` : null;
   const backdrop = backdropPath ? `${BACKDROP_BASE}${backdropPath}` : null;
   const logo = logoPath ? `${LOGO_BASE}${logoPath}` : null;
   const previewImage = backdrop;
-  const hasMeta = !subtitle && (!!year || !!runtime || (genres && genres.length > 0));
+  const { data: previewDetail } = useSWR<MetaDetail | null>(
+    hovered ? `/api/metadata/detail?type=${type}&tmdbId=${tmdbId}&lang=${locale}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5 * 60 * 1000 }
+  );
+  const previewYear = year ?? previewDetail?.year ?? null;
+  const previewRuntime = runtime ?? previewDetail?.runtime ?? null;
+  const previewGenres = genres?.length ? genres : (previewDetail?.genres ?? []);
+  const hasMeta = !!previewYear || !!previewRuntime;
   const showRank = !!rank && rank >= 1 && rank <= 10;
+
+  useEffect(() => setAddedHere(false), [inLibrary, tmdbId, type]);
+
+  const addToLibrary = async () => {
+    if (adding || inLibrary || addedHere) return;
+    setAdding(true);
+    try {
+      const endpoint = type === "movie" ? "/api/library/movies" : "/api/library/series";
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tmdbId }),
+      });
+      const body = await response.json().catch(() => null) as { blocked?: boolean } | null;
+      if (!response.ok || body?.blocked) throw new Error("add_failed");
+      setAddedHere(true);
+    } catch {
+      toast("error", t("ai.addFailed"));
+    } finally {
+      setAdding(false);
+    }
+  };
+
+  const rateFiveStars = async () => {
+    if (liked || ratingSaving) return;
+    setRatingSaving(true);
+    try {
+      const response = await fetch("/api/ai/ratings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tmdbId, type, title, rating: 5 }),
+      });
+      if (!response.ok) throw new Error("rating_failed");
+      setLiked(true);
+    } catch {
+      toast("error", t("title.ratingError"));
+    } finally {
+      setRatingSaving(false);
+    }
+  };
 
   const clearTimers = () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
@@ -100,7 +166,10 @@ export function DashboardPosterCard({
   const openPreview = (target: HTMLElement) => {
     const rect = target.getBoundingClientRect();
     const width = Math.min(Math.max(Math.round(rect.width * 1.24), 360), 480, window.innerWidth - 16);
-    const estimatedHeight = Math.round(width * 0.5625) + 116;
+    // Action row + metadata badges + three genres can be taller than the
+    // old single “Informations” line; use the real preview footprint when
+    // deciding whether it must grow upward near the bottom of the viewport.
+    const estimatedHeight = Math.round(width * 0.5625) + 158;
     const above = rect.top + estimatedHeight > window.innerHeight - 12;
     const left = Math.max(8, Math.min(rect.left + rect.width / 2 - width / 2, window.innerWidth - width - 8));
     // Netflix-style: the preview grows from the hovered tile rather than
@@ -220,23 +289,69 @@ export function DashboardPosterCard({
               )}
             </div>
           </div>
-          <div className="space-y-2.5 p-3.5">
-            <div className="flex items-center gap-2.5 text-xs font-semibold text-white/90">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform duration-150 group-hover:scale-105"><Play className="ml-0.5 h-4 w-4 fill-current" /></span>
-              <span className="flex h-9 min-w-0 flex-1 items-center rounded-full bg-white/10 px-3 text-sm text-white transition-colors group-hover:bg-white/16">{t("dashboard.hero.moreInfo")}</span>
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/25 text-white/85"><Info className="h-4 w-4" /></span>
-            </div>
-            {subtitle && <p className="truncate text-[11px] text-white/70">{subtitle}</p>}
-            {(hasMeta || showRank) && <div className="flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold text-white/80">
-              {showRank && <span className="text-brand-glow">Top {rank}</span>}
-              {year && <span>{year}</span>}
-              {runtime && <><span className="text-white/40">•</span><span>{runtime} min</span></>}
-            </div>}
-            {genres && genres.length > 0 && <div className="flex flex-wrap gap-1">
-              {genres.slice(0, 2).map((g) => <span key={g} className="rounded-full border border-white/20 px-1.5 py-0.5 text-[10px] text-white/80">{g}</span>)}
-            </div>}
-          </div>
         </Link>
+        <div className="space-y-2.5 p-3.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {inLibrary ? (
+                <Link
+                  href={`/title/${type}/${tmdbId}`}
+                  title={t("common.play")}
+                  aria-label={t("common.play")}
+                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+                >
+                  <Play className="ml-0.5 h-5 w-5 fill-current" />
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void addToLibrary()}
+                  disabled={adding || addedHere}
+                  title={t("common.addToLibrary")}
+                  aria-label={t("common.addToLibrary")}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/45 text-white transition-colors hover:border-white hover:bg-white/10 disabled:cursor-default disabled:opacity-90"
+                >
+                  {adding ? <Loader2 className="h-5 w-5 animate-spin" /> : addedHere ? <Clock3 className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void rateFiveStars()}
+                disabled={ratingSaving}
+                title={t("title.rateStars", { n: 5 })}
+                aria-label={t("title.rateStars", { n: 5 })}
+                className={cn("flex h-10 w-10 items-center justify-center rounded-full border transition-colors disabled:cursor-wait", liked ? "border-amber bg-amber text-black" : "border-white/45 text-white hover:border-white hover:bg-white/10")}
+              >
+                {ratingSaving ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <ThumbsUp className={cn("h-[18px] w-[18px]", liked && "fill-current")} />}
+              </button>
+            </div>
+            <Link
+              href={`/title/${type}/${tmdbId}`}
+              title={t("common.open")}
+              aria-label={t("common.open")}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/45 text-white transition-colors hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+            >
+              <ChevronDown className="h-5 w-5" />
+            </Link>
+          </div>
+          {subtitle && <p className="truncate text-[11px] text-white/70">{subtitle}</p>}
+          {hasMeta && (
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-white/85">
+              {previewYear && <span className="rounded-full border border-white/30 px-2 py-0.5">{previewYear}</span>}
+              {formatRuntime(previewRuntime) && <span className="rounded-full border border-white/30 px-2 py-0.5">{formatRuntime(previewRuntime)}</span>}
+            </div>
+          )}
+          {previewGenres.length > 0 && (
+            <div className="flex flex-wrap items-center gap-x-2 text-[12px] font-semibold text-white/90">
+              {previewGenres.slice(0, 3).map((genre, index) => (
+                <span key={genre} className="flex items-center gap-x-2">
+                  {index > 0 && <span className="text-white/45">•</span>}
+                  {genre}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>, document.body
     )}
     </>

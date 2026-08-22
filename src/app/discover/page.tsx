@@ -949,6 +949,7 @@ function DiscoverCard({
           rating={result.rating}
           badge={cardBadge}
           year={result.year}
+          inLibrary={!!status}
         />
         <button
           type="button"

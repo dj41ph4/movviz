@@ -220,7 +220,16 @@ class NamedCache {
   }
 }
 
-const registry = new Map<string, NamedCache>();
+// Next compiles API routes into separate server bundles. A module-local Map
+// therefore makes /api/metadata/*, /api/cache and the scheduler silently use
+// different caches in one Node process: misses climb in the active route
+// while the settings panel reports another instance's old counters. Keep the
+// registry on globalThis so TMDb responses, statistics and Clear all refer to
+// the same cache regardless of which route loaded this module first.
+const g = globalThis as typeof globalThis & {
+  __movvizNamedCaches?: Map<string, NamedCache>;
+};
+const registry: Map<string, NamedCache> = (g.__movvizNamedCaches ??= new Map());
 
 export function getCache(name: string, ttlMs: number, persistFile?: string): NamedCache {
   let cache = registry.get(name);

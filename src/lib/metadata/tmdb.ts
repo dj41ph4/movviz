@@ -645,6 +645,8 @@ export interface TitleImageOption {
   height: number;
   language: string | null;
   voteAverage: number;
+  /** TMDb community confidence for voteAverage; optional for hand-built data. */
+  voteCount?: number;
 }
 
 interface RawTitleImage {
@@ -653,6 +655,7 @@ interface RawTitleImage {
   height: number;
   iso_639_1: string | null;
   vote_average?: number;
+  vote_count?: number;
 }
 
 interface RawTitleImages {
@@ -666,7 +669,14 @@ interface RawTitleImages {
  *  by language rather than just sorting by score. */
 function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string): TitleImageOption[] {
   return (list ?? [])
-    .map((i) => ({ filePath: i.file_path, width: i.width, height: i.height, language: i.iso_639_1, voteAverage: i.vote_average ?? 0 }))
+    .map((i) => ({
+      filePath: i.file_path,
+      width: i.width,
+      height: i.height,
+      language: i.iso_639_1,
+      voteAverage: i.vote_average ?? 0,
+      voteCount: i.vote_count ?? 0,
+    }))
     .sort((a, b) => {
       const aMatch = a.language === preferredLang ? 1 : 0;
       const bMatch = b.language === preferredLang ? 1 : 0;
@@ -675,12 +685,14 @@ function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string
     });
 }
 
-/** Alternate backdrops/logos for a title, viewer's language first then best-rated — feeds the "customize this title's artwork" picker. `include_image_language` keeps the viewer's language plus English and language-less (most logos) art in scope, matching how TMDb's own website presents the choice. */
+/** Alternate backdrops/logos for a title, viewer's language first then best-rated — feeds the "customize this title's artwork" picker. The query explicitly uses the interface's regional language (French is always `fr-FR`), with base-language and neutral fallbacks for TMDb's image API. */
 export async function getTitleImages(tmdbId: number, type: "movie" | "series", locale?: string): Promise<{ backdrops: TitleImageOption[]; logos: TitleImageOption[] }> {
-  const lang = toTmdbLanguage(locale).split("-")[0];
+  const preferredLocale = toTmdbLanguage(locale);
+  const lang = preferredLocale.split("-")[0];
   const data = await tmdbGet<RawTitleImages>(
     `/${type === "movie" ? "movie" : "tv"}/${tmdbId}/images`,
-    { include_image_language: `${lang},en,null` }
+    { include_image_language: `${preferredLocale},${lang},en,null` },
+    preferredLocale
   );
   return { backdrops: mapTitleImages(data?.backdrops, lang), logos: mapTitleImages(data?.logos, lang) };
 }
@@ -689,14 +701,36 @@ export async function getTitleImages(tmdbId: number, type: "movie" | "series", l
  * Editorial cards deliberately use a language-neutral backdrop. TMDb marks
  * key art containing a localized title treatment with an ISO language; using
  * that behind a second official logo creates the ugly doubled-title look.
- * If TMDb has no neutral backdrop we return no pair at all — the caller can
- * keep its normal fallback image and title text instead of guessing.
+ * TMDb does not label an asset "poster-like key art" versus "scene". The
+ * closest reliable proxy is therefore a neutral 16:9 image with substantial
+ * community approval and sufficient source resolution. If TMDb has no such
+ * neutral backdrop we return no pair at all — the caller can keep its normal
+ * fallback image and title text instead of guessing.
  */
 export function pickEditorialArtwork(images: { backdrops: TitleImageOption[]; logos: TitleImageOption[] }): {
   backdropPath: string | null;
   logoPath: string | null;
 } {
-  const backdrop = images.backdrops.find((image) => image.language === null);
+  const targetAspect = 16 / 9;
+  const backdrop = images.backdrops
+    .filter((image) => {
+      if (image.language !== null || image.width <= 0 || image.height <= 0) return false;
+      const aspect = image.width / image.height;
+      // Avoid near-square/portrait promotional assets masquerading as a
+      // backdrop: the cards are actual 16:9 canvases, never cropped posters.
+      return aspect >= 1.55 && aspect <= 1.95;
+    })
+    .sort((a, b) => {
+      const score = (image: TitleImageOption) => {
+        const aspect = image.width / image.height;
+        const resolution = Math.min(1, (image.width * image.height) / (1920 * 1080));
+        // `vote_count` removes the bias of a single perfect vote. It is a
+        // ranking signal only, not a claim that TMDb understands the scene.
+        const confidence = Math.log1p(Math.max(0, image.voteCount ?? 0)) / 3;
+        return image.voteAverage * (1 + confidence) + resolution * 1.5 - Math.abs(aspect - targetAspect) * 1.2;
+      };
+      return score(b) - score(a);
+    })[0];
   if (!backdrop) return { backdropPath: null, logoPath: null };
   return {
     backdropPath: backdrop.filePath,

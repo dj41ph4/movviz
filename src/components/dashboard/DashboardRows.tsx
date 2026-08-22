@@ -198,6 +198,11 @@ export function DashboardRows({
     return artwork;
   }, [movies, series]);
 
+  const libraryTitleKeys = useMemo(() => new Set([
+    ...movies.map((movie) => `movie:${movie.tmdbId}`),
+    ...series.map((show) => `series:${show.tmdbId}`),
+  ]), [movies, series]);
+
   const artworkRefs = useMemo(() => {
     const refs = new Map<string, { type: "movie" | "series"; tmdbId: number }>();
     const add = (type: "movie" | "series", tmdbId: number) => {
@@ -266,6 +271,7 @@ export function DashboardRows({
                       year={item.year ?? undefined}
                       progressPercent={item.progressPercent}
                       subtitle={item.type === "episode" ? `S${item.seasonNumber} E${item.episodeNumber} — ${item.episodeTitle}` : undefined}
+                      inLibrary={libraryTitleKeys.has(`${type}:${item.tmdbId}`)}
                     />
                   </CardErrorBoundary>
                 );
@@ -281,7 +287,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} rating={r.rating} year={r.year} />
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} rating={r.rating} year={r.year} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
                   </CardErrorBoundary>
                 );
               })}
@@ -307,6 +313,7 @@ export function DashboardRows({
                       year={movie.year}
                       runtime={movie.runtime}
                       genres={movie.genres}
+                      inLibrary={true}
                     />
                   </CardErrorBoundary>
                 );
@@ -333,6 +340,7 @@ export function DashboardRows({
                       year={item.year}
                       runtime={type === "movie" ? item.runtime : undefined}
                       genres={item.genres}
+                      inLibrary={true}
                     />
                   </CardErrorBoundary>
                 );
@@ -359,6 +367,7 @@ export function DashboardRows({
                       year={m.year}
                       runtime={m.runtime}
                       genres={m.genres}
+                      inLibrary={true}
                     />
                   </CardErrorBoundary>
                 );
@@ -389,6 +398,7 @@ export function DashboardRows({
                       year={movie.year}
                       runtime={movie.runtime}
                       genres={movie.genres}
+                      inLibrary={true}
                     />
                   </CardErrorBoundary>
                 );
@@ -404,7 +414,7 @@ export function DashboardRows({
                 const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
                 return (
                   <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} rating={r.rating} year={r.year} rank={i + 1} />
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} rating={r.rating} year={r.year} rank={i + 1} inLibrary={libraryTitleKeys.has(`${r.type}:${r.tmdbId}`)} />
                   </CardErrorBoundary>
                 );
               })}

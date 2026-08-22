@@ -12,17 +12,22 @@ export type CachedTitleArtwork = {
 };
 
 type ArtworkStore = {
-  version: 1;
+  version: 2;
   entries: Record<string, CachedTitleArtwork>;
   /** Persistent round-robin position for the daily incremental byte check. */
   incrementalCursor?: number;
 };
+
+// v1 had the same entries format but no incremental cursor. Keep this loose
+// on purpose so an installed v1 cache survives the schema bump to v2.
+type PersistedArtworkStore = Omit<ArtworkStore, "version"> & { version?: 1 | 2 };
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
   process.env.MOVVIZ_DATA_DIR ??
   path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "title-artwork-cache.json");
+const STORE_VERSION = 2;
 
 // TMDb's artwork file paths are immutable. Keep the selected backdrop/logo
 // pair for a full year: daily maintenance then needs to process only newly
@@ -40,10 +45,15 @@ function keyOf(type: ArtworkTitleType, tmdbId: number, locale?: string): string 
 }
 
 function loadStore(): ArtworkStore {
-  const raw = readJsonCached<Partial<ArtworkStore> | null>(FILE, null);
-  return raw?.version === 1 && raw.entries && typeof raw.entries === "object"
-    ? { version: 1, entries: raw.entries }
-    : { version: 1, entries: {} };
+  const raw = readJsonCached<PersistedArtworkStore | null>(FILE, null);
+  // Version 2 only adds the round-robin cursor. Existing v1 backdrop/logo
+  // pairs are already valid immutable TMDb paths, so throwing them away on a
+  // code upgrade would make every card look bare after the next reboot. Keep
+  // them and write the new version lazily on the next normal cache update.
+  const compatibleVersion = raw?.version === 1 || raw?.version === STORE_VERSION;
+  return compatibleVersion && raw?.entries && typeof raw.entries === "object"
+    ? { version: STORE_VERSION, entries: raw.entries, incrementalCursor: raw.incrementalCursor }
+    : { version: STORE_VERSION, entries: {} };
 }
 
 /**

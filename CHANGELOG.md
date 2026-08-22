@@ -1,5 +1,30 @@
 # Changelog
 
+## v1.16.81 — August 2026
+
+### Desktop — preview des cartes
+
+- Le survol n'affiche plus le bouton « Informations » : cliquer l'image
+  ouvre directement la fiche Movviz. Les actions reprennent le langage
+  Netflix : lecture si le titre est en bibliothèque, ajout réel sinon,
+  J'aime et accès à la fiche.
+- J'aime enregistre immédiatement une note explicite de cinq étoiles.
+- La preview affiche ensuite les badges année/durée, puis jusqu'à trois genres
+  pertinents, récupérés seulement au survol si la rangée ne les possède pas.
+- Les appels de visuels demandent explicitement `fr-FR` ; le cache des choix
+  de visuels migre sans effacer les fonds et logos déjà téléchargés.
+- La sélection de fond privilégie désormais un vrai format 16:9, une bonne
+  résolution et les votes TMDb plutôt qu'un visuel mal cadré ou isolé.
+
+### Desktop — stabilité du défilement
+
+- Corrige la barre de défilement qui pouvait disparaître après une fermeture
+  de fiche ou de lecteur : les overlays partagent désormais un verrou de
+  scroll compté, compatible avec leurs animations de sortie.
+- Le registre de cache est partagé entre tous les bundles Next : les compteurs
+  « abouties / manquées », le cache TMDb et son action de vidage reflètent à
+  présent la même instance après navigation ou reboot.
+
 ## v1.16.80 — August 2026
 
 ### Cache visuel — incrémental complet
