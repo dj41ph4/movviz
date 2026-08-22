@@ -1,4 +1,4 @@
-import type { PlexAccount, PlexCollectionSummary, PlexFriend, PlexHomeUser, PlexWatchlistItem, PlexServerConfig, PlexSection, PlexLibraryItem, PlexEpisodeItem, PlexMediaInfo, PlexVideoStream, PlexAudioStream, PlexSubtitleStream, PlexChapter, PlexMediaVersion } from "./types";
+import type { PlexAccount, PlexCollectionSummary, PlexFriend, PlexHomeUser, PlexWatchlistItem, PlexServerConfig, PlexSection, PlexLibraryItem, PlexEpisodeItem, PlexMediaInfo, PlexVideoStream, PlexAudioStream, PlexSubtitleStream, PlexChapter, PlexMediaVersion, PlexMarker } from "./types";
 import { loadPlexConfig } from "./store";
 import { safePlexUrl } from "./safeUrl";
 import { findByExternalId } from "@/lib/metadata/tmdb";
@@ -1031,4 +1031,88 @@ export async function getPlexCollectionDetail(
   } catch {
     return null;
   }
+}
+
+// ── Markers intro/credits (batch includeMarkers=1) ──────────────────────────
+
+export type PlexMarkerFetchResult =
+  | { ok: true; ratingKey: string; markers: PlexMarker[] }
+  | { ok: false; ratingKey: string; error: string };
+
+interface RawPlexMarker {
+  id?: string | number;
+  type?: string;
+  startTimeOffset?: number;
+  endTimeOffset?: number;
+  final?: boolean;
+  version?: number;
+}
+
+/** Récupération BATCH des markers Plex — `includeMarkers=1` sur l'endpoint
+ *  metadata groupé, même mécanique que batchTmdbIds (chunks de 50, jamais
+ *  une requête par média). Toujours appelé avec `cfg.adminToken` : les
+ *  markers sont des métadonnées du MÉDIA sur le serveur, pas des données de
+ *  profil — jamais le token du compte Movviz courant, jamais un profil
+ *  Plex Home. La distinction ok:false est CRITIQUE pour l'appelant :
+ *  erreur ≠ zéro marker (voir markerSync.ts — une panne Plex ne supprime
+ *  jamais les données locales). */
+export async function batchMarkers(
+  cfg: PlexServerConfig,
+  adminToken: string,
+  ratingKeys: string[],
+): Promise<Map<string, PlexMarkerFetchResult>> {
+  const result = new Map<string, PlexMarkerFetchResult>();
+  const chunkSize = 50;
+  for (let i = 0; i < ratingKeys.length; i += chunkSize) {
+    const chunk = ratingKeys.slice(i, i + chunkSize);
+    let batchFailed = false;
+    let batchError = "unknown";
+    try {
+      const res = await fetchWithRetry(
+        `${serverBase(cfg)}/library/metadata/${chunk.join(",")}?includeMarkers=1`,
+        { headers: serverHeaders(cfg, adminToken), cache: "no-store" },
+      );
+      if (!res.ok) {
+        batchFailed = true;
+        batchError = `HTTP ${res.status}`;
+      } else {
+        const data = await res.json();
+        const rawItems: Array<{ ratingKey?: string; Marker?: RawPlexMarker[] }> =
+          data?.MediaContainer?.Metadata ?? [];
+        const byKey = new Map(rawItems.filter((x) => x.ratingKey).map((x) => [String(x.ratingKey), x]));
+        for (const key of chunk) {
+          const item = byKey.get(key);
+          if (!item) {
+            // Média absent de la réponse groupée : Plex ne le reconnaît pas
+            // (supprimé/ratingKey invalide) — erreur, PAS "zéro marker".
+            result.set(key, { ok: false, ratingKey: key, error: "not_in_response" });
+            continue;
+          }
+          const rawMarkers = Array.isArray(item.Marker) ? item.Marker : [];
+          const markers: PlexMarker[] = [];
+          for (const m of rawMarkers) {
+            if (typeof m.startTimeOffset !== "number" || typeof m.endTimeOffset !== "number") continue;
+            markers.push({
+              id: m.id != null ? String(m.id) : null,
+              type: String(m.type ?? ""),
+              startTimeOffset: m.startTimeOffset,
+              endTimeOffset: m.endTimeOffset,
+              final: Boolean(m.final),
+              version: typeof m.version === "number" ? m.version : null,
+            });
+          }
+          result.set(key, { ok: true, ratingKey: key, markers });
+        }
+      }
+    } catch (e) {
+      batchFailed = true;
+      batchError = e instanceof Error ? e.message : String(e);
+    }
+    if (batchFailed) {
+      for (const key of chunk) {
+        if (!result.has(key)) result.set(key, { ok: false, ratingKey: key, error: batchError });
+      }
+    }
+  }
+  return result;
 }

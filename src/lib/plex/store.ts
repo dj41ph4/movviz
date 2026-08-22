@@ -18,6 +18,7 @@ const DEFAULT: PlexServerConfig = {
   clientId: "",
   syncLibrary: false,
   watchlistSyncEnabled: true,
+  markerSyncEnabled: false,
   machineIdentifier: null,
 };
 

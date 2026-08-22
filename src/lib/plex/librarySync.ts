@@ -15,6 +15,7 @@ import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as 
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
 import { learnPathMapping, applyLearnedPathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
+import { registerMarkerCandidate } from "./markerSync";
 
 // A run does hundreds of sequential awaited TMDb/Plex calls, so two overlapping
 // triggers (manual + scheduled, or a double click) would otherwise interleave
@@ -289,6 +290,10 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
     await yieldToUser("sync Plex films");
     if (item.tmdbId == null) continue;
     seenTmdbIds.add(item.tmdbId);
+    // Signal markers : ce ratingKey existe chez Plex avec cet updatedAt —
+    // le moteur markerSync décide seul (new/updated/rien) au prochain
+    // passage quotidien. Gratuit : profite de cette synchro existante.
+    registerMarkerCandidate(item.ratingKey, item.updatedAt);
     const existing = getMovieByTmdbId(item.tmdbId);
     const file = toLibraryFileReconciled(item, existing?.file?.path);
 
@@ -385,6 +390,11 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
     if (show.tmdbId == null) continue;
     seenTmdbIds.add(show.tmdbId);
     const episodes = await getShowEpisodes(cfg, show.ratingKey, token);
+    // Signal markers pour CHAQUE épisode présent chez Plex (même boucle
+    // unique : couvre les séries nouvelles ET existantes en un seul endroit).
+    for (const pe of episodes) {
+      if (pe.ratingKey) registerMarkerCandidate(pe.ratingKey, pe.updatedAt);
+    }
     const existing = getSeriesByTmdbId(show.tmdbId);
 
     if (!existing) {

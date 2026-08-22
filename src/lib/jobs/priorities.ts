@@ -22,6 +22,7 @@ export const DEFAULT_PRIORITIES: Record<JobType, number> = {
   reconcile: 60,
   plexWatchlistSync: 55,
   plexLibrarySync: 50,
+  plexMarkerSync: 50,
   rssScan: 45,
   seerrImport: 40,
   importLists: 40,

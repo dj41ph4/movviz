@@ -404,19 +404,35 @@ data class StreamSubtitleTrackDto(
 )
 
 @JsonClass(generateAdapter = true)
+/** Marqueur temporel générique (intro / générique) — source Movviz locale.
+ *  Android TV ne connaît NI Plex NI la synchro : il reçoit des bornes
+ *  start/end en ms et fait un seek dessus. */
+@JsonClass(generateAdapter = true)
+data class PlaybackMarkerDto(
+    val id: String,
+    val type: String, // "intro" | "credits"
+    val startMs: Long,
+    val endMs: Long,
+    val final: Boolean = false,
+)
+
 data class StreamInfoDto(
     val videoCodec: String? = null,
     val audioCodec: String? = null,
     val audioStreams: List<StreamAudioTrackDto> = emptyList(),
     val subtitleStreams: List<StreamSubtitleTrackDto> = emptyList(),
     val durationMs: Long? = null,
-    // Binaire ffmpeg présent côté serveur — voir /api/playback-ffmpeg/{ratingKey}
+    // Binaire ffmpeg présent côté serveur - voir /api/playback-ffmpeg/{ratingKey}
     // (remux local : copie vidéo + audio AAC, sans jamais passer par le moteur
     // de décision de Plex). C'est le repli utilisé par le desktop en premier,
-    // AVANT tout transcode Plex — Plex "MDE" refuse parfois silencieusement de
+    // AVANT tout transcode Plex - Plex "MDE" refuse parfois silencieusement de
     // copier la vidéo (tv=0 ignoré, prouvé en investigation) même quand c'est
     // demandé correctement ; le remux local ne dépend pas de cette décision.
     val ffmpegAvailable: Boolean = false,
+    // Markers intro/credits synchronisés par le backend (store Movviz).
+    // Défaut emptyList = compatible avec un backend plus ancien qui ne
+    // renvoie pas le champ — aucun crash Moshi possible.
+    val markers: List<PlaybackMarkerDto> = emptyList(),
 )
 
 @JsonClass(generateAdapter = true)

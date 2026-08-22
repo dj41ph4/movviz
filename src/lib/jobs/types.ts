@@ -5,6 +5,7 @@ export const JOB_TYPES = [
   "reconcile",
   "qualityUpgrade",
   "plexLibrarySync",
+  "plexMarkerSync",
   "plexWatchlistSync",
   "metadataRefresh",
   "rssScan",

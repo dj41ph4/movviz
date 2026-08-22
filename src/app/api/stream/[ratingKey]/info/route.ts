@@ -5,6 +5,7 @@ import { safePlexUrl } from "@/lib/plex/safeUrl";
 import { plexClientHeaders } from "@/lib/player/plexStream";
 import { isFfmpegAvailable } from "@/lib/playback/ffmpeg/remuxSession";
 import { isSubtitleToTextCodec } from "@/lib/playback/plexSource";
+import { getPlaybackMarkers } from "@/lib/playback/markers/store";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,17 @@ export async function GET(req: NextRequest, context: Ctx) {
     // ce champ est true.
     const ffmpegAvailable = await isFfmpegAvailable().catch(() => false);
 
+    // Markers intro/credits depuis le STORE LOCAL Movviz — ZÉRO requête
+    // Plex ici : la lecture n'attend jamais la synchro, un store vide ou
+    // indisponible renvoie [] et le player se comporte exactement comme
+    // avant (feature invisible quand inutile).
+    let markers: ReturnType<typeof getPlaybackMarkers> = [];
+    try {
+      markers = getPlaybackMarkers(ratingKey);
+    } catch {
+      markers = [];
+    }
+
     return NextResponse.json(
       {
         videoCodec,
@@ -105,6 +117,7 @@ export async function GET(req: NextRequest, context: Ctx) {
         // déjà reçue (confirmé en direct : "0:02" figé). Le lecteur préfère
         // cette valeur pour cette leg précisément.
         durationMs: typeof metadata?.duration === "number" ? metadata.duration : null,
+        markers,
       },
       {
         headers: {

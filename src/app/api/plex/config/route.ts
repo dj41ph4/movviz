@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
     connected: !!cfg.adminToken,
     syncLibrary: cfg.syncLibrary,
     watchlistSyncEnabled: cfg.watchlistSyncEnabled,
+    markerSyncEnabled: cfg.markerSyncEnabled,
+    // Jamais le token Plex ici — GET n'expose que des booléens/URL.
   });
 }
 
@@ -35,6 +37,7 @@ export async function PUT(req: NextRequest) {
     useSsl: !!body.useSsl,
     syncLibrary: body.syncLibrary ?? cfg.syncLibrary,
     watchlistSyncEnabled: body.watchlistSyncEnabled ?? cfg.watchlistSyncEnabled,
+    markerSyncEnabled: body.markerSyncEnabled ?? cfg.markerSyncEnabled,
   });
   return NextResponse.json({ ok: true });
 }

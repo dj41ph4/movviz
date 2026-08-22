@@ -24,6 +24,7 @@ import { runLibraryHealthCheck } from "@/lib/library/libraryHealthCheck";
 import { findUpgradeCandidates } from "@/lib/library/searchAndReplace";
 import { findEpisodeUpgradeCandidates } from "@/lib/library/searchAndReplaceSeries";
 import { backfillMovieLanguages, backfillSeriesLanguages } from "@/lib/tasks/languageDetectionTask";
+import { syncPlexMarkers } from "@/lib/plex/markerSync";
 
 export interface ScheduledTask {
   id: string;
@@ -158,6 +159,19 @@ export const TASKS: ScheduledTask[] = [
           { movies: result.moviesAdded, series: result.seriesAdded }
         );
       }
+    },
+  },
+  {
+    id: "plex-marker-sync",
+    name: "Synchronisation des intros et génériques Plex",
+    // Quotidien — PAS toutes les 5 minutes : la synchro bibliothèque
+    // alimente la dirty-list à chaque passage, mais le fetch markers
+    // n'a pas besoin de repartir si souvent (découplage voulu, on ne
+    // surcharge pas Plex).
+    intervalMs: 24 * 60 * 60 * 1000,
+    run: async () => {
+      if (!loadPlexConfig().markerSyncEnabled) return;
+      await syncPlexMarkers({ mode: "incremental" });
     },
   },
   {

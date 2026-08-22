@@ -15,6 +15,7 @@ interface PlexConfig {
   connected: boolean;
   syncLibrary: boolean;
   watchlistSyncEnabled: boolean;
+  markerSyncEnabled: boolean;
 }
 
 export function PlexSettings() {
@@ -28,6 +29,7 @@ export function PlexSettings() {
   const [linking, setLinking] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<{ moviesAdded: number; moviesMatched: number; seriesAdded: number; seriesMatched: number } | null>(null);
+  const [markerInfo, setMarkerInfo] = useState<{ stats: { mediaWithMarkers: number; intros: number; credits: number }; lastIncrementalAt: number | null; lastFullAt: number | null; jobRunning: boolean; lastJob: { status: string; result?: unknown; current: number; total: number } | null } | null>(null);
 
   const load = () =>
     fetch("/api/plex/config", { cache: "no-store" })
@@ -111,6 +113,22 @@ export function PlexSettings() {
     } finally {
       setSyncing(false);
     }
+  };
+
+  const loadMarkerInfo = async () => {
+    try {
+      const r = await fetch("/api/plex/marker-sync", { cache: "no-store" });
+      if (r.ok) setMarkerInfo(await r.json());
+    } catch {}
+  };
+  useEffect(() => {
+    if (cfg?.connected) loadMarkerInfo();
+    const id = setInterval(() => { if (cfg?.connected) loadMarkerInfo(); }, 3000);
+    return () => clearInterval(id);
+  }, [cfg?.connected]);
+  const syncMarkers = async (mode: "incremental" | "full") => {
+    const r = await fetch("/api/plex/marker-sync", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ mode }) });
+    if (r.ok) loadMarkerInfo();
   };
 
   if (!cfg) return null;
@@ -238,6 +256,34 @@ export function PlexSettings() {
               <p className="text-xs text-ink-dim">{t("plex.watchlistSyncGlobalHint")}</p>
             </div>
             <Toggle on={cfg.watchlistSyncEnabled} onChange={() => save({ watchlistSyncEnabled: !cfg.watchlistSyncEnabled })} />
+          </div>
+        </div>
+      )}
+
+      {cfg.connected && (
+        <div className="mt-5 border-t border-white/8 pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-ink">Intros et génériques</p>
+              <p className="text-xs text-ink-dim">Synchroniser automatiquement les marqueurs détectés par Plex.</p>
+            </div>
+            <Toggle on={!!cfg.markerSyncEnabled} onChange={() => save({ markerSyncEnabled: !cfg.markerSyncEnabled })} />
+          </div>
+          {cfg.markerSyncEnabled && markerInfo && (
+            <div className="mt-3 space-y-2 text-xs text-ink-dim">
+              <p>Dernière incrémentale : {markerInfo.lastIncrementalAt ? new Date(markerInfo.lastIncrementalAt).toLocaleString() : "—"}</p>
+              <p>Dernière complète : {markerInfo.lastFullAt ? new Date(markerInfo.lastFullAt).toLocaleString() : "—"}</p>
+              <p>Médias avec marqueurs : {markerInfo.stats.mediaWithMarkers} · Intros : {markerInfo.stats.intros} · Génériques : {markerInfo.stats.credits}</p>
+              {markerInfo.jobRunning && <p className="text-amber">Synchronisation en cours{markerInfo.lastJob ? ` ${markerInfo.lastJob.current}/${markerInfo.lastJob.total}` : ""}…</p>}
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button onClick={() => syncMarkers("incremental")} disabled={!!markerInfo?.jobRunning} className="flex h-9 items-center gap-2 rounded-xl glass-strong text-ink-soft px-3 font-semibold text-xs disabled:opacity-50">
+              <RefreshCw className="h-3.5 w-3.5" /> Synchronisation incrémentale
+            </button>
+            <button onClick={() => syncMarkers("full")} disabled={!!markerInfo?.jobRunning} className="flex h-9 items-center gap-2 rounded-xl glass-strong text-ink-soft px-3 font-semibold text-xs disabled:opacity-50">
+              <RefreshCw className="h-3.5 w-3.5" /> Synchronisation complète
+            </button>
           </div>
         </div>
       )}

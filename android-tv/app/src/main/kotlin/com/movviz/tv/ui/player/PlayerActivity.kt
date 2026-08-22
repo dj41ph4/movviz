@@ -446,6 +446,11 @@ private fun PlayerScreen(
     // sélectionnée pour que le remux ré-encode la bonne piste audio.
     var level1FfmpegAvailable by remember { mutableStateOf(false) }
     var level1AudioStreamId by remember { mutableStateOf<String?>(null) }
+    // Markers intro/credits venus du backend Movviz (via streamInfo — ZÉRO
+    // appel Plex ici). Associés au ratingKey courant : changement d'épisode
+    // → nouveau StreamInfo → anciens markers remplacés intégralement.
+    var markers by remember(current.ratingKey) { mutableStateOf<List<com.movviz.tv.data.PlaybackMarkerDto>>(emptyList()) }
+    var activeMarker by remember { mutableStateOf<com.movviz.tv.data.PlaybackMarkerDto?>(null) }
 
     val exoPlayer = remember {
         val upstream = OkHttpDataSource.Factory(com.movviz.tv.data.ApiClient.httpClient())
@@ -592,6 +597,10 @@ LaunchedEffect(current.ratingKey) {
         fallbackNotice = null
         val infoResult = repository.streamInfo(current.ratingKey)
         val info = (infoResult as? ApiResult.Success)?.data
+        // Markers du média — store local Movviz. Absence = [] = player
+        // strictement identique à avant, aucun message, aucune requête.
+        markers = info?.markers.orEmpty()
+        activeMarker = null
         val knownDuration = info?.durationMs
         // Pré-décision du niveau de lecture, d'après les codecs réels du
         // titre (streamInfo) et les décodeurs RÉELS du boîtier sondés via
@@ -792,6 +801,22 @@ LaunchedEffect(current.ratingKey) {
         }
     }
 
+    // Détection du marker actif (intro/credits) — même cadence que la
+    // position du player (500 ms), aucun timer haute fréquence. Timeline
+    // décide : si la position est dans [startMs, endMs) → bouton visible ;
+    // après seekTo(endMs) la position en sort → bouton disparaît ; un
+    // retour arrière dans la zone fait revenir le bouton (PAS d'état
+    // "consumed"). Fonctionne en reprise, en seek manuel et dans tous les
+    // modes playback (direct, ffmpeg, DASH, HLS) sans conversion de
+    // timeline — Plex envoie déjà des ms alignés sur ExoPlayer.
+    LaunchedEffect(current, markers) {
+        while (true) {
+            delay(500L)
+            val pos = exoPlayer.currentPosition
+            activeMarker = markers.firstOrNull { pos >= it.startMs && pos < it.endMs }
+        }
+    }
+
     // Auto-hide des contrôles — toute interaction relance le minuteur.
     var lastInteraction by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(lastInteraction, showAudioDialog, showSubtitleDialog) {
@@ -825,6 +850,11 @@ LaunchedEffect(current.ratingKey) {
     fun prevEpisodeAction() {
         poke()
         if (currentIndex > 0) currentIndex -= 1
+    }
+    fun skipMarkerAction() {
+        val m = activeMarker ?: return
+        poke()
+        exoPlayer.seekTo(m.endMs)
     }
     fun nextEpisodeAction() {
         poke()
@@ -1131,6 +1161,28 @@ LaunchedEffect(current.ratingKey) {
                     )
                 }
             }
+        }
+
+        // Zone d'actions playback unifiée ("Skip Intro/Credits" + "Up
+        // Next") — un seul emplacement en bas à droite, jamais deux overlays
+        // indépendants qui se superposent (PHASE 39).
+        val hasSkip = activeMarker != null
+        // "Passer l'intro / générique" — bottom-right, au-dessus du
+        // panneau "Épisode suivant" s'il existe ; visible même quand les
+        // contrôles sont masqués, mais ne vole jamais le focus d'un menu
+        // ouvert (audio, sous-titres, contrôles, erreur).
+        AnimatedVisibility(
+            visible = hasSkip && !showAudioDialog && !showSubtitleDialog && errorMessage == null,
+            enter = fadeIn(tween(200)) + slideInVertically(tween(220)) { it / 2 },
+            exit = fadeOut(tween(160)),
+            modifier = Modifier
+                // Au-dessus du teaser "Up Next" s'il est là, sinon à la
+                // hauteur standard du teaser — la même zone d'actions.
+                .align(Alignment.BottomEnd)
+                .padding(end = 56.dp, bottom = if (showNextEpisodeTeaser && hasNext) 210.dp else 130.dp),
+        ) {
+            val label = if (activeMarker?.type == "intro") "Passer l'intro" else "Passer le générique"
+            SkipMarkerButton(label = label, onSkip = { skipMarkerAction() })
         }
 
         // Panneau "Épisode suivant" en bas à droite — visible dans les
@@ -1592,6 +1644,38 @@ private fun NextEpisodeTeaser(
                 tint = Color.White,
                 modifier = Modifier.size(28.dp),
             )
+        }
+    }
+}
+
+/** Bouton "Passer l'intro / générique" — compact, glass liquid, lisible à
+ *  distance, focus visible qui ne vole jamais le focus d'un menu (contrôles,
+ *  audio, sous-titres, erreur). Entrée fade+slide ~200 ms. Seek direct vers
+ *  endMs : pas d'état consumed — un retour arrière refait apparaître le
+ *  bouton. */
+@Composable
+private fun SkipMarkerButton(label: String, onSkip: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = onSkip,
+        modifier = Modifier
+            .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onSkip),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(containerColor = MovvizSurface.copy(alpha = 0.92f), contentColor = Color.White),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = shape),
+        ),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp),
+        ) {
+            Text(text = label, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold))
+            Icon(imageVector = MovvizIconSkipNext, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
         }
     }
 }

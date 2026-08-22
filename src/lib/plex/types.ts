@@ -10,8 +10,28 @@ export interface PlexServerConfig {
   syncLibrary: boolean;
   /** Master switch for the watchlist-sync scheduled job — off pauses it for every user regardless of their own per-user toggle. */
   watchlistSyncEnabled: boolean;
+  /** Synchronisation automatique des markers intro/credits détectés par
+   *  Plex (tâche quotidienne). false par défaut : une upgrade ne doit pas
+   *  déclencher spontanément un énorme premier scan Plex — l'admin active,
+   *  puis lance idéalement une synchronisation complète manuelle. */
+  markerSyncEnabled: boolean;
   /** Server's own id — resolved once from /identity, needed to build "Watch on Plex" deep links. */
   machineIdentifier: string | null;
+}
+
+/** Marker BRUT Plex (Metadata.Marker) — interne à la couche Plex.
+ *  Le player Android ne reçoit jamais ce type : il passe par la
+ *  normalisation PlaybackMarker (markerSync.ts) et le store Movviz. */
+export interface PlexMarker {
+  id: string | null;
+  /** "intro" | "credits" côté Plex — d'autres types peuvent apparaître un
+   *  jour, le moteur ne conserve que ceux supportés en V1. */
+  type: string;
+  startTimeOffset: number; // ms
+  endTimeOffset: number; // ms
+  final: boolean;
+  /** version du marker côté Plex (analyse ré-passée), informatif. */
+  version: number | null;
 }
 
 export interface PlexSection {

@@ -4,6 +4,34 @@ All notable changes to Movviz, grouped by development milestone.
 
 ---
 
+## v1.16.71 — August 2026
+
+### Plex Intro/Credits → Movviz → Android TV (Passer l'intro / générique)
+
+**Architecture :** `Plex → sync Movviz (cfg.adminToken) → playback-markers.json → /api/stream/{ratingKey}/info → Android TV → ExoPlayer → bouton contextuel`. Aucune requête Plex au lancement d'une lecture, aucun token Plex côté TV.
+
+**Backend :**
+- Nouveau modèle générique `PlaybackMarker` (intro/credits) et store `playback-markers.json` (lookup O(1) par ratingKey, version 1, migration, readJsonCached/writeJsonCached).
+- Nouvel état `plex-marker-sync-state.json` (dirty, knownUpdatedAt, emptyRetry 7j, auditBucket 0..6).
+- Type brut `PlexMarker` interne plex, extension `PlexServerConfig.markerSyncEnabled` (défaut false, jamais exposé côté client).
+- `batchMarkers(cfg,cfg.adminToken,ratingKeys)` chunks 50, `includeMarkers=1`, distinction erreur ≠ zéro marker (panne Plex ne supprime jamais les données locales).
+- Normalisation (intro/credits uniquement, validation, tri ASC), signature déterministe SHA16, préservation multi-blocs credits (mid/post-credit non fusionnés).
+- Moteur `markerSync.ts` : incr (dirty + jamais-sync + retries échus + bucket audit du jour), full (tous les plexRatingKey Movviz), retry 7j, audit tournant stableHash%7, GC uniquement si full complet, progression réelle, yieldToUser entre batches, logs sobres, withKeyLock + sourceId `plex-marker-sync`.
+- Hooks `registerMarkerCandidate` dans `librarySync` (films + chaque épisode), découplage library 5min → marker 24h.
+- Tâche planifiée quotidienne `plex-marker-sync` (24h, check markerSyncEnabled), mapping JobType `plexMarkerSync` + priorités.
+- Route `POST /api/plex/marker-sync` (admin, enqueueJob sourceId, retour immédiat queued/jobId) + `GET` stats, route `GET /api/plex/config` et `PUT` étendues (markerSyncEnabled, jamais de token).
+
+**Desktop Réglages > Plex :** section Intros et génériques (toggle ON/OFF, dates, compteurs, boutons incrémentale/complète, polling jobRunning via /api/plex/marker-sync + /api/jobs).
+
+**API lecture :** `GET /api/stream/{ratingKey}/info` injecte `markers[]` depuis le store local (try/catch → [] si indisponible).
+
+**Android TV :**
+- `PlaybackMarkerDto` + `StreamInfoDto.markers` (emptyList défaut, compatible backend ancien).
+- `PlayerActivity` : chargement markers via streamInfo, détection activeMarker toutes les 500ms, libellés Passer l'intro/générique, seekTo(endMs) sans état consumed, reprise/seek/fallback/palette inchangés.
+- Focus D-pad conditionnel, PlaybackActionOverlay unifié (Skip au-dessus de Up Next), visuel glass 150-250ms.
+
+---
+
 ## v1.16.70 — August 2026
 
 ### Android TV : Paramètres en icône engrenage
