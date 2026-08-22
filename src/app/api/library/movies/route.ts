@@ -23,6 +23,8 @@ export async function GET(req: NextRequest) {
   const all = tmdbId ? loadMovies().filter((m) => m.tmdbId === tmdbId) : loadMovies();
   const movies = all.map((m) => ({
     ...m,
+    playable: m.status === "available" && !!m.file,
+    playbackSource: m.status === "available" && m.file ? "movviz" as const : (m.plexRatingKey ? "plex" as const : null),
     plexUrl: m.plexRatingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, m.plexRatingKey) : null,
   }));
   const readdable = !!tmdbId && loadTrash().some((t) => t.type === "movie" && t.tmdbId === tmdbId);
