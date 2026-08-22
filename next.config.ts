@@ -28,6 +28,16 @@ const nextConfig: NextConfig = {
       "**/engine/**",
       "./resolver/**",
       "**/resolver/**",
+      // Tracing exclusions are resolved relative to each route's `.nft.json`
+      // directory (not the repository root). Cover the route depths used by
+      // App Router so a local media library is never copied into standalone.
+      "../.movviz-data/**",
+      "../../.movviz-data/**",
+      "../../../.movviz-data/**",
+      "../../../../.movviz-data/**",
+      "../../../../../.movviz-data/**",
+      "../../../../../../.movviz-data/**",
+      "../../../../../../../.movviz-data/**",
     ],
   },
   images: {
