@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
+import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
@@ -68,6 +69,8 @@ export interface TrashItem {
   rating: number;
   overview: string;
   deletedAt: number;
+  /** Full library snapshot when available. Older tombstones only contain metadata above. */
+  snapshot?: LibraryMovie | LibrarySeries;
 }
 
 function loadTrashRaw(): TrashItem[] {

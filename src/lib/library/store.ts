@@ -239,6 +239,7 @@ export function removeMovie(id: string) {
       year: movie.year,
       rating: movie.rating,
       overview: movie.overview,
+      snapshot: movie,
       deletedAt: Date.now(),
     });
   }
@@ -428,6 +429,7 @@ export function removeSeries(id: string) {
       year: series.year,
       rating: series.rating,
       overview: series.overview,
+      snapshot: series,
       deletedAt: Date.now(),
     });
   }

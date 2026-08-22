@@ -20,7 +20,8 @@ export async function POST(
   const item = restoreFromTrash(tmdbId, type as "movie" | "series");
   if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
   if (type === "movie") {
-    addMovie({
+    const snapshot = item.snapshot && "file" in item.snapshot ? item.snapshot : null;
+    addMovie(snapshot ?? {
       id: `mv_${Date.now()}_${tmdbId}`,
       tmdbId: item.tmdbId,
       imdbId: null,
@@ -45,7 +46,8 @@ export async function POST(
       plexMediaInfo: null,
     });
   } else {
-    addSeries({
+    const snapshot = item.snapshot && "seasons" in item.snapshot ? item.snapshot : null;
+    addSeries(snapshot ?? {
       id: `sr_${Date.now()}_${tmdbId}`,
       tmdbId: item.tmdbId,
       imdbId: null,
