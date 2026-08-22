@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.16.80 — August 2026
+
+### Cache visuel — incrémental complet
+
+- Le passage incrémental tourne désormais durablement dans toute la
+  bibliothèque, y compris les titres déjà présents : il vérifie les fichiers
+  locaux backdrop/logo et ne retélécharge que ceux qui manquent. L'affichage
+  temps réel d'une carte ou d'un résultat de recherche alimente le même cache.
+- La capacité du cache de réponses API passe à 3 500 clés ; Réglages → Cache
+  affiche désormais le nombre utilisé et sa limite explicite.
+
 ## v1.16.79 — August 2026
 
 ### Desktop — cartes éditoriales et cache d'images

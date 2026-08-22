@@ -977,7 +977,7 @@ export const nl: Dictionary = {
     name: "Cachenaam",
     hits: "Hits",
     misses: "Missers",
-    keys: "Totaal aantal sleutels",
+    keys: "Sleutels / limiet",
     size: "Grootte",
     clear: "Cache leegmaken",
     empty: "Nog geen actieve cache — deze vult zich naarmate TMDb-aanroepen plaatsvinden.",
@@ -986,12 +986,12 @@ export const nl: Dictionary = {
     warmButton: "Cache vullen",
     warmDone: "{n} titels in cache opgeslagen.",
     artworkTitle: "Kaartillustraties",
-    artworkHint: "Slaat voor elke film en serie een neutrale TMDb-achtergrond in 16:9 en het officiële logo op. Zichtbare kaarten en zoekresultaten vullen dit al in realtime.",
+    artworkHint: "Downloadt en bewaart een neutrale TMDb-achtergrond in 16:9 en het officiële logo op schijf. Elke zichtbare kaart en elk zoekresultaat vult deze cache ook realtime.",
     artworkComplete: "Cache aanvullen",
     artworkIncremental: "Incrementeel vernieuwen",
     artworkProgress: "{done}/{total} titels verwerkt",
     artworkDone: "{n} titelillustratie(s) in cache opgeslagen.",
-    artworkDaily: "Een dagelijkse taak controleert alleen nieuwe, ontbrekende of jaarlijks te controleren titels.",
+    artworkDaily: "Elke dag controleert een deel van de bibliotheek — ook bestaande titels — en herstelt alleen ontbrekende bestanden.",
   },
 
   webhooks: {

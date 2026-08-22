@@ -977,7 +977,7 @@ export const en: Dictionary = {
     name: "Cache name",
     hits: "Hits",
     misses: "Misses",
-    keys: "Total keys",
+    keys: "Keys / limit",
     size: "Size",
     clear: "Clear cache",
     empty: "No active cache yet — it fills up as TMDb calls happen.",
@@ -986,12 +986,12 @@ export const en: Dictionary = {
     warmButton: "Fill the cache",
     warmDone: "{n} titles cached.",
     artworkTitle: "Card artwork",
-    artworkHint: "Stores a neutral TMDb 16:9 backdrop and official logo for every movie and series. Visible cards and search results already fill it in real time.",
+    artworkHint: "Downloads and keeps a neutral TMDb 16:9 backdrop and official logo on disk. Every visible card and search result also fills this cache in real time.",
     artworkComplete: "Complete the cache",
     artworkIncremental: "Refresh incrementally",
     artworkProgress: "{done}/{total} titles processed",
     artworkDone: "{n} title artwork item(s) cached.",
-    artworkDaily: "A daily pass checks only new, missing, or annually due titles.",
+    artworkDaily: "Each day, one library slice — including existing titles — verifies and restores only missing files.",
   },
 
   webhooks: {

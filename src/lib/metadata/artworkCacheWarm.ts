@@ -4,7 +4,7 @@ import { prefetchTmdbImage } from "@/lib/metadata/tmdbImageCache";
 import {
   cacheTitleArtwork,
   loadCachedTitleArtwork,
-  selectTitleArtworkForWarm,
+  takeIncrementalArtworkSlice,
   type ArtworkTitleType,
 } from "@/lib/metadata/titleArtworkCache";
 
@@ -63,11 +63,13 @@ export async function runArtworkCacheWarm(
   const libraryRefs = allLibraryRefs();
   // A complete pass guarantees bytes for every library title, even if its
   // URL pair was already learned earlier by a visible card or a search.
-  // Incremental stays deliberately tiny and touches only missing/stale data.
+  // Incremental rotates through *all* titles too: its purpose is to refill a
+  // missing local image file, not merely to notice a missing metadata entry.
+  const incrementalLimit = Math.max(1, options.limit ?? 30);
   let targets = mode === "complete"
     ? libraryRefs
-    : selectTitleArtworkForWarm(libraryRefs, mode, "fr");
-  if (options.limit != null) targets = targets.slice(0, Math.max(0, options.limit));
+    : takeIncrementalArtworkSlice(libraryRefs, incrementalLimit);
+  if (mode === "complete" && options.limit != null) targets = targets.slice(0, Math.max(0, options.limit));
 
   state.running = true;
   state.mode = mode;

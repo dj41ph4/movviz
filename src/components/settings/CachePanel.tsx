@@ -10,6 +10,7 @@ interface CacheStats {
   hits: number;
   misses: number;
   keys: number;
+  maxEntries: number;
   keySizeBytes: number;
   valueSizeBytes: number;
 }
@@ -221,7 +222,7 @@ export function CachePanel() {
               <td className="px-4 py-3 font-semibold text-ink">{c.name}</td>
               <td className="px-4 py-3 text-ok">{c.hits}</td>
               <td className="px-4 py-3 text-ink-dim">{c.misses}</td>
-              <td className="px-4 py-3 text-ink-soft">{c.keys}</td>
+              <td className="px-4 py-3 text-ink-soft">{c.keys} / {c.maxEntries}</td>
               <td className="px-4 py-3 text-ink-dim">{formatBytes(c.keySizeBytes + c.valueSizeBytes)}</td>
               <td className="px-4 py-3 text-right">
                 <button

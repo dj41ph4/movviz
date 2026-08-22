@@ -14,6 +14,8 @@ export type CachedTitleArtwork = {
 type ArtworkStore = {
   version: 1;
   entries: Record<string, CachedTitleArtwork>;
+  /** Persistent round-robin position for the daily incremental byte check. */
+  incrementalCursor?: number;
 };
 
 const CONFIG_DIR =
@@ -66,23 +68,32 @@ export function loadCachedTitleArtwork(
 }
 
 /**
- * Selects library artwork that needs a TMDb metadata refresh without fetching
- * anything. The complete pass itself still verifies/downloads the image bytes
- * for every title; the incremental pass also revisits the rare entry that has
- * reached its annual metadata revalidation date.
+ * Takes the next stable slice of the entire library, not just metadata
+ * misses. This means the daily incremental task also verifies titles already
+ * known to Movviz: if their immutable backdrop/logo files were never written
+ * or were manually removed, they are restored without re-downloading healthy
+ * files. The cursor is persisted so restarts do not make the task rescan the
+ * same first titles forever.
  */
-export function selectTitleArtworkForWarm(
+export function takeIncrementalArtworkSlice(
   refs: readonly { type: ArtworkTitleType; tmdbId: number }[],
-  mode: "complete" | "incremental",
-  locale?: string
+  limit: number
 ): { type: ArtworkTitleType; tmdbId: number }[] {
-  const entries = loadStore().entries;
-  const now = Date.now();
-  return refs.filter((ref) => {
-    const entry = entries[keyOf(ref.type, ref.tmdbId, locale)];
-    if (!entry) return true;
-    return mode === "incremental" && (!Number.isFinite(entry.fetchedAt) || now - entry.fetchedAt >= ARTWORK_REVALIDATE_MS);
-  });
+  const unique = [...new Map(
+    refs
+      .filter((ref) => Number.isInteger(ref.tmdbId) && ref.tmdbId > 0)
+      .map((ref) => [`${ref.type}:${ref.tmdbId}`, ref] as const)
+  ).values()].sort((a, b) => `${a.type}:${a.tmdbId}`.localeCompare(`${b.type}:${b.tmdbId}`));
+  if (unique.length === 0 || limit <= 0) return [];
+
+  const store = loadStore();
+  const start = Math.min(Math.max(0, store.incrementalCursor ?? 0), unique.length - 1);
+  const count = Math.min(Math.floor(limit), unique.length);
+  const slice = Array.from({ length: count }, (_, index) => unique[(start + index) % unique.length]);
+  store.incrementalCursor = (start + count) % unique.length;
+  fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  writeJsonCached(FILE, store);
+  return slice;
 }
 
 /** Persists compact TMDb paths; downloaded image files use tmdbImageCache.ts. */

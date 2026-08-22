@@ -977,7 +977,7 @@ export const it: Dictionary = {
     name: "Nome cache",
     hits: "Hit",
     misses: "Miss",
-    keys: "Chiavi totali",
+    keys: "Chiavi / limite",
     size: "Dimensione",
     clear: "Svuota cache",
     empty: "Nessuna cache attiva ancora — si riempie man mano che avvengono chiamate a TMDb.",
@@ -986,12 +986,12 @@ export const it: Dictionary = {
     warmButton: "Riempi la cache",
     warmDone: "{n} titoli memorizzati nella cache.",
     artworkTitle: "Immagini delle schede",
-    artworkHint: "Memorizza per ogni film e serie uno sfondo TMDb neutro 16:9 e il logo ufficiale. Le schede visibili e i risultati di ricerca lo popolano già in tempo reale.",
+    artworkHint: "Scarica e conserva su disco uno sfondo TMDb neutro 16:9 e il logo ufficiale. Ogni scheda visibile e risultato di ricerca alimenta inoltre questa cache in tempo reale.",
     artworkComplete: "Completa la cache",
     artworkIncremental: "Aggiorna in modo incrementale",
     artworkProgress: "{done}/{total} titoli elaborati",
     artworkDone: "{n} immagine/i di titolo memorizzata/e nella cache.",
-    artworkDaily: "Un passaggio giornaliero controlla solo i titoli nuovi, mancanti o da rivedere annualmente.",
+    artworkDaily: "Ogni giorno una parte della libreria — inclusi i titoli già presenti — verifica e ripristina solo i file mancanti.",
   },
 
   webhooks: {

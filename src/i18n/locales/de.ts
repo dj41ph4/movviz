@@ -977,7 +977,7 @@ export const de: Dictionary = {
     name: "Cache-Name",
     hits: "Treffer",
     misses: "Fehltreffer",
-    keys: "Schlüssel insgesamt",
+    keys: "Schlüssel / Limit",
     size: "Größe",
     clear: "Cache leeren",
     empty: "Noch kein aktiver Cache — er füllt sich, während TMDb-Aufrufe stattfinden.",
@@ -986,12 +986,12 @@ export const de: Dictionary = {
     warmButton: "Cache füllen",
     warmDone: "{n} Titel im Cache gespeichert.",
     artworkTitle: "Kartenmotive",
-    artworkHint: "Speichert für jeden Film und jede Serie einen neutralen TMDb-Hintergrund im 16:9-Format und das offizielle Logo. Sichtbare Karten und Suchergebnisse füllen ihn bereits in Echtzeit.",
+    artworkHint: "Lädt einen neutralen TMDb-Hintergrund im 16:9-Format und das offizielle Logo herunter und speichert sie auf der Festplatte. Jede sichtbare Karte und Suche füllt diesen Cache auch in Echtzeit.",
     artworkComplete: "Cache vervollständigen",
     artworkIncremental: "Inkrementell aktualisieren",
     artworkProgress: "{done}/{total} Titel verarbeitet",
     artworkDone: "{n} Titelmotiv(e) im Cache gespeichert.",
-    artworkDaily: "Ein täglicher Durchlauf prüft nur neue, fehlende oder jährlich fällige Titel.",
+    artworkDaily: "Jeden Tag prüft ein Abschnitt der Bibliothek — auch vorhandene Titel — und stellt nur fehlende Dateien wieder her.",
   },
 
   update: {

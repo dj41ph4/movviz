@@ -19,7 +19,7 @@ interface Entry<T> {
   /**
    * JSON size of `value`, computed once at set(). stats() used to
    * re-serialize every cached value on each call — with the TMDb cache full
-   * (2000 entries, ~12 MB of JSON) that meant megabytes of stringify work
+   * (3,500 entries, tens of MB of JSON) that meant megabytes of stringify work
    * per poll of the cache panel, on the main thread. Absent on entries
    * loaded from a persist file written before this field existed.
    */
@@ -32,8 +32,9 @@ interface Entry<T> {
 // read of that exact expired key. That grew until the process ran out of
 // heap. Map preserves insertion order, so capping here just means "evict the
 // oldest entry" — an approximation of LRU that's good enough for an API
-// response cache.
-const MAX_ENTRIES = 2000;
+// response cache. 3,500 entries keeps the full TMDb working set warm while
+// still giving the process a firm memory ceiling.
+const MAX_ENTRIES = 3500;
 
 // The persist file is only a warm-start optimization: losing its tail on a
 // crash costs one extra upstream fetch per lost entry, nothing more. It was
@@ -211,6 +212,7 @@ class NamedCache {
       hits: this.hits,
       misses: this.misses,
       keys: this.store.size,
+      maxEntries: MAX_ENTRIES,
       keySizeBytes: keySize,
       valueSizeBytes: valueSize,
       persisted: !!this.persistFile,
