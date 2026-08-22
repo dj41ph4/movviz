@@ -143,6 +143,12 @@ export interface LibraryMovie {
    *  edit permission as tags (any authenticated user, not admin-gated). */
   customBackdropPath?: string | null;
   customLogoPath?: string | null;
+  /** Source de lecture résolue par Movviz, indépendante du lien Plex. */
+  playbackSource?: "movviz" | "plex" | null;
+  /** État d'enrichissement/lien Plex, sans impact sur la disponibilité locale. */
+  plexLinkStatus?: "pending" | "linked" | "failed";
+  lastPlexSyncAt?: number | null;
+  lastLocalValidationAt?: number | null;
 }
 
 export interface LibraryEpisode {
@@ -156,6 +162,10 @@ export interface LibraryEpisode {
   activeInfoHash: string | null;
   /** Plex library item id for this exact episode — set by the Plex library sync, powers "Watch on Plex". */
   plexRatingKey: string | null;
+  playbackSource?: "movviz" | "plex" | null;
+  plexLinkStatus?: "pending" | "linked" | "failed";
+  lastPlexSyncAt?: number | null;
+  lastLocalValidationAt?: number | null;
 }
 
 export interface LibrarySeason {
@@ -196,6 +206,8 @@ export interface LibrarySeries {
   /** See the identical fields on LibraryMovie. */
   customBackdropPath?: string | null;
   customLogoPath?: string | null;
+  plexLinkStatus?: "pending" | "linked" | "failed";
+  lastPlexSyncAt?: number | null;
 }
 
 /**
