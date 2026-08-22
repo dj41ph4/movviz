@@ -16,6 +16,21 @@ import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix"
 import { learnPathMapping, applyLearnedPathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { registerMarkerCandidate } from "./markerSync";
+import { offlineInstancesSnapshot } from "@/lib/engine/stateFile";
+import path from "node:path";
+
+/** A Plex outage/removal must not erase a file that Movviz still owns locally. */
+function hasValidLocalFile(file: LibraryFile | null | undefined): boolean {
+  const candidate = file?.diskPath ?? file?.path;
+  if (!candidate || !path.isAbsolute(candidate)) return false;
+  const resolved = path.resolve(candidate);
+  return offlineInstancesSnapshot().some((instance) => {
+    const root = path.resolve(instance.completedPath);
+    const relative = path.relative(root, resolved);
+    if (!relative || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return false;
+    try { return fs.statSync(resolved).isFile(); } catch { return false; }
+  });
+}
 
 // A run does hundreds of sequential awaited TMDb/Plex calls, so two overlapping
 // triggers (manual + scheduled, or a double click) would otherwise interleave
@@ -480,6 +495,17 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
             return ep;
           }
           if (ep.status === "available" || ep.file || ep.plexRatingKey) {
+            if (hasValidLocalFile(ep.file)) {
+              return {
+                ...ep,
+                status: "available" as const,
+                playbackSource: "movviz" as const,
+                plexRatingKey: null,
+                plexLinkStatus: "failed" as const,
+                lastPlexSyncAt: Date.now(),
+                lastLocalValidationAt: Date.now(),
+              };
+            }
             return { ...ep, status: episodeStatus(ep.airDate, ep.title), file: null, activeInfoHash: null, plexRatingKey: null };
           }
           return ep;
@@ -502,6 +528,18 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
 function markMissingFromPlex(seenMovieTmdbIds: Set<number>, seenSeriesTmdbIds: Set<number>) {
   for (const movie of loadMovies()) {
     if (movie.plexRatingKey && !seenMovieTmdbIds.has(movie.tmdbId)) {
+      if (hasValidLocalFile(movie.file)) {
+        updateMovie(movie.id, {
+          status: "available",
+          plexRatingKey: null,
+          plexMediaInfo: null,
+          playbackSource: "movviz",
+          plexLinkStatus: "failed",
+          lastPlexSyncAt: Date.now(),
+          lastLocalValidationAt: Date.now(),
+        });
+        continue;
+      }
       updateMovie(movie.id, {
         status: "missing",
         file: null,
@@ -518,10 +556,12 @@ function markMissingFromPlex(seenMovieTmdbIds: Set<number>, seenSeriesTmdbIds: S
         ...s,
         episodes: s.episodes.map((ep) => ({
           ...ep,
-          status: "missing" as const,
-          file: null,
-          activeInfoHash: null,
+          ...(hasValidLocalFile(ep.file)
+            ? { status: "available" as const, playbackSource: "movviz" as const, lastLocalValidationAt: Date.now() }
+            : { status: "missing" as const, file: null, activeInfoHash: null }),
           plexRatingKey: null,
+          plexLinkStatus: "failed" as const,
+          lastPlexSyncAt: Date.now(),
         })),
       }));
       updateSeries(series.id, { seasons: newSeasons, plexRatingKey: null });
