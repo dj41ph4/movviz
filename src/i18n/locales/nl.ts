@@ -992,6 +992,9 @@ export const nl: Dictionary = {
     artworkProgress: "{done}/{total} titels verwerkt",
     artworkDone: "{n} titelillustratie(s) in cache opgeslagen.",
     artworkDaily: "Elke dag controleert een deel van de bibliotheek — ook bestaande titels — en herstelt alleen ontbrekende bestanden.",
+    artworkClearAll: "Volledige visuele cache wissen",
+    artworkClearLogos: "Logo's wissen",
+    artworkClearBackdrops: "Achtergronden wissen",
   },
 
   webhooks: {

@@ -327,6 +327,10 @@ function DiscoverPageInner() {
   );
   const titleArtwork = useTitleArtworkBatch(isBrowsing ? browseArtworkRefs : homeArtworkRefs, locale);
   const selectedGenreName = genres.find((item) => String(item.id) === genre)?.name ?? null;
+  // A genre is an editorial destination, not merely a grid filter: feature
+  // its strongest resolved result in the same cinematic hero as Films/Séries.
+  // Wait for the new page before rendering so a previous genre never flashes.
+  const genreHero = genre && !q.trim() && !loading ? results[0] ?? null : null;
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-8">
@@ -393,6 +397,7 @@ function DiscoverPageInner() {
       {configured && (
         <>
           {!isBrowsing && catalogHero && <CatalogHero result={catalogHero} />}
+          {genreHero && <CatalogHero result={genreHero} label={selectedGenreName ?? undefined} />}
 
           <div className="flex items-center gap-3 rounded-2xl glass px-5">
             <Search className="h-5 w-5 text-ink-dim" />
@@ -536,7 +541,7 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 /** A type-specific editorial entry point for Films and Series. It is only a
  * visual invitation; its Link is caught by useTitlePanel, preserving the one
  * floating Movviz detail implementation and the caller's scroll position. */
-function CatalogHero({ result }: { result: MetaSearchResult }) {
+function CatalogHero({ result, label }: { result: MetaSearchResult; label?: string }) {
   const { t, locale } = useI18n();
   const backdrop = result.backdropPath ? `/tmdb/w1280${result.backdropPath}` : null;
   const poster = result.posterPath ? `/tmdb/w500${result.posterPath}` : null;
@@ -544,11 +549,11 @@ function CatalogHero({ result }: { result: MetaSearchResult }) {
   return (
     <Link
       href={`/title/${result.type}/${result.tmdbId}`}
-      className="group relative block min-h-[260px] overflow-hidden rounded-3xl border border-white/10 bg-[#12111c] sm:min-h-[340px]"
+      className="group relative block min-h-[320px] overflow-hidden rounded-3xl border border-white/10 bg-[#12111c] sm:min-h-[420px] lg:h-[clamp(28rem,42vw,40rem)] lg:min-h-[28rem]"
     >
       {backdrop ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={backdrop} alt={result.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]" />
+        <img src={backdrop} alt={result.title} className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.02]" />
       ) : poster ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -559,9 +564,9 @@ function CatalogHero({ result }: { result: MetaSearchResult }) {
       ) : null}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/95 via-black/55 to-transparent" />
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
-      <div className="relative z-10 flex min-h-[260px] max-w-xl flex-col justify-end gap-3 p-5 sm:min-h-[340px] sm:p-8">
+      <div className="relative z-10 flex min-h-[320px] max-w-xl flex-col justify-end gap-3 p-5 sm:min-h-[420px] sm:p-8 lg:h-full lg:min-h-[28rem] lg:p-8 xl:p-10">
         <span className="w-fit rounded-full border border-white/15 bg-black/35 px-3 py-1 text-xs font-semibold text-white/85 backdrop-blur">
-          {result.type === "movie" ? t("common.movies") : t("common.series")}
+          {label ?? (result.type === "movie" ? t("common.movies") : t("common.series"))}
         </span>
         <TitleMark
           key={`${result.type}:${result.tmdbId}`}

@@ -33,13 +33,17 @@ function toTmdbLanguage(locale?: string): string {
 
 const TMDB_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes — enough to dedupe repeated calls without going stale
 const TMDB_CACHE_NAME = "The Movie Database API";
+// A warm Movviz library needs several TMDb responses per title (detail,
+// images, search/list variants). Keep enough durable metadata to avoid
+// churning a 3,500-entry cache, while retaining a firm memory/disk ceiling.
+const TMDB_CACHE_MAX_ENTRIES = 35_000;
 const TMDB_CACHE_FILE = path.join(
   process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data"),
   "tmdb-cache.json"
 );
 
 function tmdbCache() {
-  return getCache(TMDB_CACHE_NAME, TMDB_CACHE_TTL_MS, TMDB_CACHE_FILE);
+  return getCache(TMDB_CACHE_NAME, TMDB_CACHE_TTL_MS, TMDB_CACHE_FILE, TMDB_CACHE_MAX_ENTRIES);
 }
 
 /**
@@ -663,10 +667,10 @@ interface RawTitleImages {
   logos?: RawTitleImage[];
 }
 
-/** Viewer's language first (best-rated among those), then everything else
- *  by rating — a French viewer gets French logos/backdrops ahead of a
- *  higher-voted English one, matching how TMDb's own site lets you filter
- *  by language rather than just sorting by score. */
+/** Viewer language first, then neutral artwork, then English. TMDb only
+ * exposes ISO-639-1 for artwork ("fr", never fr-FR vs fr-CA), therefore a
+ * French UI must never let a higher-voted English/Canadian-looking fallback
+ * outrank an available French asset. */
 function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string): TitleImageOption[] {
   return (list ?? [])
     .map((i) => ({
@@ -678,9 +682,11 @@ function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string
       voteCount: i.vote_count ?? 0,
     }))
     .sort((a, b) => {
-      const aMatch = a.language === preferredLang ? 1 : 0;
-      const bMatch = b.language === preferredLang ? 1 : 0;
-      if (aMatch !== bMatch) return bMatch - aMatch;
+      const priority = (language: string | null) =>
+        language === preferredLang ? 3 : language === null ? 2 : language === "en" ? 1 : 0;
+      const aPriority = priority(a.language);
+      const bPriority = priority(b.language);
+      if (aPriority !== bPriority) return bPriority - aPriority;
       return b.voteAverage - a.voteAverage;
     });
 }

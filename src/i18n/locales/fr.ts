@@ -990,6 +990,9 @@ export const fr = {
     artworkProgress: "{done}/{total} titres traités",
     artworkDone: "{n} visuel(s) de titre mis en cache.",
     artworkDaily: "Chaque jour, une tranche de la bibliothèque — y compris les titres déjà présents — vérifie et restaure seulement les fichiers absents.",
+    artworkClearAll: "Vider tout le cache visuel",
+    artworkClearLogos: "Vider les logos",
+    artworkClearBackdrops: "Vider les affiches",
   },
 
   webhooks: {

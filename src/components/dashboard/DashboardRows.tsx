@@ -4,11 +4,12 @@ import useSWR from "swr";
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PosterRow } from "@/components/media/PosterRow";
-import { DashboardPosterCard, type DashboardCardPlayback } from "./DashboardPosterCard";
+import { DashboardPosterCard, type DashboardCardPlayback, type DashboardCardTechnical } from "./DashboardPosterCard";
+import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useI18n, useT } from "@/i18n/provider";
 import { daysUntil } from "@/lib/library/releaseSchedule";
-import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
+import type { LibraryFile, LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
@@ -23,11 +24,6 @@ type EditorialLibraryItem =
   | { type: "movie"; item: DashboardMovie }
   | { type: "series"; item: LibrarySeries };
 
-type ArtworkByKey = Record<string, {
-  backdropPath: string | null;
-  logoPath: string | null;
-  titleEmbedded: boolean;
-}>;
 type LocalArtwork = {
   /** The library's normal TMDb backdrop, useful before the artwork batch lands. */
   backdropPath: string | null;
@@ -46,6 +42,12 @@ function moviePlayback(movie: DashboardMovie): DashboardCardPlayback | undefined
     movvizId: movie.id,
     type: "movie",
   };
+}
+
+function technicalFromFile(file: LibraryFile | null | undefined): DashboardCardTechnical | undefined {
+  if (!file) return undefined;
+  const { resolution, videoCodec, audioCodec, hdr } = file;
+  return resolution || videoCodec || audioCodec || hdr ? { resolution, videoCodec, audioCodec, hdr } : undefined;
 }
 
 /** Keep a mixed home row genuinely mixed without inventing a second ranking:
@@ -235,15 +237,9 @@ export function DashboardRows({
     if (visible.has("comingSoon")) upcoming.forEach(({ m }) => add("movie", m.tmdbId));
     if (visible.has("upgradesAvailable")) upgrades.forEach(({ movie }) => add("movie", movie.tmdbId));
 
-    return [...refs.values()].slice(0, 160);
+    return [...refs.values()];
   }, [visible, continueWatching, recommended, shortSessions, trending, recentlyAdded, upcoming, upgrades, localArtwork]);
-
-  const artworkRequest = useMemo(() => {
-    if (artworkRefs.length === 0) return null;
-    const items = artworkRefs.map(({ type, tmdbId }) => `${type}:${tmdbId}`).join(",");
-    return `/api/metadata/images/batch?items=${encodeURIComponent(items)}&locale=${encodeURIComponent(locale)}`;
-  }, [artworkRefs, locale]);
-  const { data: artworkData } = useSWR<{ artwork: ArtworkByKey }>(artworkRequest);
+  const artworkData = useTitleArtworkBatch(artworkRefs, locale);
 
   const resolveArtwork = (type: "movie" | "series", tmdbId: number, fallbackBackdrop?: string | null): ResolvedArtwork => {
     const key = `${type}:${tmdbId}`;
@@ -252,9 +248,9 @@ export function DashboardRows({
       // Every editorial card gets a true TMDb backdrop. A user-selected
       // Movviz backdrop remains the explicit choice and always wins; the
       // library/row path is only the instant first-paint fallback.
-      backdropPath: local?.customBackdropPath ?? artworkData?.artwork[key]?.backdropPath ?? local?.backdropPath ?? fallbackBackdrop ?? null,
-      logoPath: local?.logoPath ?? artworkData?.artwork[key]?.logoPath ?? null,
-      titleEmbedded: !local?.customBackdropPath && artworkData?.artwork[key]?.titleEmbedded === true,
+      backdropPath: local?.customBackdropPath ?? artworkData[key]?.backdropPath ?? local?.backdropPath ?? fallbackBackdrop ?? null,
+      logoPath: local?.logoPath ?? artworkData[key]?.logoPath ?? null,
+      titleEmbedded: !local?.customBackdropPath && artworkData[key]?.titleEmbedded === true,
     };
   };
 
@@ -280,8 +276,15 @@ export function DashboardRows({
                       type,
                       seasonNumber: item.seasonNumber,
                       episodeNumber: item.episodeNumber,
-                    } satisfies DashboardCardPlayback
+                  } satisfies DashboardCardPlayback
                   : undefined;
+                const technical = type === "movie"
+                  ? technicalFromFile(movies.find((movie) => movie.tmdbId === item.tmdbId)?.file)
+                  : technicalFromFile(series
+                    .find((show) => show.tmdbId === item.tmdbId)
+                    ?.seasons.find((season) => season.seasonNumber === item.seasonNumber)
+                    ?.episodes.find((episode) => episode.episodeNumber === item.episodeNumber)
+                    ?.file);
                 return (
                   <CardErrorBoundary key={`${item.type}:${item.tmdbId}:${i}`}>
                     <DashboardPosterCard
@@ -295,9 +298,11 @@ export function DashboardRows({
                       rating={item.rating}
                       year={item.year ?? undefined}
                       progressPercent={item.progressPercent}
+                      resumeSeconds={item.offsetMs / 1000}
                       subtitle={item.type === "episode" ? `S${item.seasonNumber} E${item.episodeNumber} — ${item.episodeTitle}` : undefined}
                       inLibrary={libraryTitleKeys.has(`${type}:${item.tmdbId}`)}
                       playback={playback}
+                      technical={technical}
                     />
                   </CardErrorBoundary>
                 );

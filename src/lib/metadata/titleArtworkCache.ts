@@ -36,7 +36,9 @@ const STORE_VERSION = 2;
 // backdrop. Previous cached null pairs must be revisited once, otherwise a
 // title that has art in its full detail page remains empty on dashboard cards
 // for a year.
-const EDITORIAL_SELECTION_VERSION = 2;
+// v3 re-ranks title marks by UI language (French → neutral → English) and
+// makes old blank logo selections eligible for a one-time repair.
+const EDITORIAL_SELECTION_VERSION = 3;
 
 // TMDb's artwork file paths are immutable. Keep the selected backdrop/logo
 // pair for a full year: daily maintenance then needs to process only newly
@@ -89,6 +91,13 @@ export function loadCachedTitleArtwork(
     }
   }
   return found;
+}
+
+/** All stored title/image bindings, used only when clearing visual bytes. */
+export function listCachedTitleArtwork(): CachedTitleArtwork[] {
+  return Object.values(loadStore().entries).filter((entry): entry is CachedTitleArtwork =>
+    !!entry && typeof entry === "object" && (typeof entry.backdropPath === "string" || typeof entry.logoPath === "string")
+  );
 }
 
 /**

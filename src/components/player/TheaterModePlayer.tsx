@@ -8,7 +8,7 @@ import { getDominantColor, type DominantColorResult } from "@/lib/media/dominant
 import { VideoPlayer, type VideoPlayerProps } from "./VideoPlayer";
 import { lockBodyScroll } from "@/lib/dom/bodyScrollLock";
 
-type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "movvizId" | "seriesId" | "plexUrl" | "title" | "useTranscode" | "prebufferSeconds" | "startFromBeginning" | "onNextEpisode"> & {
+type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "movvizId" | "seriesId" | "plexUrl" | "title" | "useTranscode" | "prebufferSeconds" | "startFromBeginning" | "resumeFromSeconds" | "onNextEpisode"> & {
   tmdbId?: number;
   type?: "movie" | "series";
   seasonNumber?: number;

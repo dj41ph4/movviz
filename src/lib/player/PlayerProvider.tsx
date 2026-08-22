@@ -35,6 +35,9 @@ export interface PlayNowRequest {
   posterUrl?: string | null;
   /** Explicit Netflix-style restart action: skip the resume prompt once. */
   startFromBeginning?: boolean;
+  /** An explicit "Resume at …" click already made the choice. Do not show
+   * the player prompt again; seek straight to this seconds value. */
+  resumeFromSeconds?: number;
 }
 
 interface PlayerContextValue {
@@ -134,6 +137,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             backdropUrl={request.backdropUrl}
             posterUrl={request.posterUrl}
             startFromBeginning={request.startFromBeginning}
+            resumeFromSeconds={request.resumeFromSeconds}
             onNextEpisode={request.type === "series" && request.seriesId ? () => void playNextEpisode(request) : undefined}
           />
         )}

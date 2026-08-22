@@ -4,14 +4,15 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import useSWR from "swr";
-import { Star, Film, Tv, Play, Plus, ThumbsUp, ChevronDown, Loader2, Clock3 } from "lucide-react";
+import { Star, Film, Tv, Play, Plus, ThumbsUp, ChevronDown, Loader2, Clock3, RotateCcw } from "lucide-react";
 import { cn, openPlexLink } from "@/lib/utils";
-import { BADGE_SHAPE } from "@/components/library/MediaBadges";
+import { BADGE_SHAPE, buildMediaBadgeItems, type BadgeInfo } from "@/components/library/MediaBadges";
 import { useI18n } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import type { MetaDetail } from "@/lib/metadata/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { usePlayer } from "@/lib/player/PlayerProvider";
+import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
 
 const POSTER_BASE = "/tmdb/w500";
 const BACKDROP_BASE = "/tmdb/w780";
@@ -34,6 +35,19 @@ function formatRuntime(minutes: number | null | undefined): string | null {
   const remaining = minutes % 60;
   return hours > 0 ? `${hours} h${remaining ? ` ${remaining} min` : ""}` : `${minutes} min`;
 }
+
+function formatResumeTime(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const remaining = total % 60;
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remaining).padStart(2, "0")}`
+    : `${minutes}:${String(remaining).padStart(2, "0")}`;
+}
+
+/** Technical facts attached to the exact local file being resumed. */
+export type DashboardCardTechnical = Pick<BadgeInfo, "resolution" | "videoCodec" | "audioCodec" | "hdr">;
 
 /**
  * Single editorial landscape card for Dashboard, Films and Series. It owns
@@ -60,11 +74,13 @@ export function DashboardPosterCard({
   genres,
   rank,
   progressPercent,
+  resumeSeconds,
   subtitle,
   inLibrary = false,
   layout = "row",
   reserveBottomRight = false,
   playback,
+  technical,
 }: {
   tmdbId: number;
   type: "movie" | "series";
@@ -88,6 +104,8 @@ export function DashboardPosterCard({
    *  edge of the poster, same visual language as every other progress bar
    *  in the app (h-1 track + brand-gradient fill). */
   progressPercent?: number;
+  /** Exact position for a Continue Watching item, in seconds. */
+  resumeSeconds?: number;
   /** Continue Watching only — the episode label ("S2 E5") under the title,
    *  in place of the hover-only year/runtime/genres strip which doesn't
    *  make sense for a specific in-progress episode. */
@@ -101,6 +119,8 @@ export function DashboardPosterCard({
   reserveBottomRight?: boolean;
   /** Present only for a concrete locally available movie or episode. */
   playback?: DashboardCardPlayback;
+  /** File facts for the exact item being played, never inferred from TMDb. */
+  technical?: DashboardCardTechnical;
 }) {
   const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
@@ -125,7 +145,7 @@ export function DashboardPosterCard({
   const previewYear = year ?? previewDetail?.year ?? null;
   const previewRuntime = runtime ?? previewDetail?.runtime ?? null;
   const previewGenres = genres?.length ? genres : (previewDetail?.genres ?? []);
-  const hasMeta = !!previewYear || !!previewRuntime;
+  const hasMeta = !!previewYear || !!previewRuntime || !!technical;
   const showRank = !!rank && rank >= 1 && rank <= 10;
 
   useEffect(() => setAddedHere(false), [inLibrary, tmdbId, type]);
@@ -168,7 +188,10 @@ export function DashboardPosterCard({
     }
   };
 
-  const startPlayback = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const startPlayback = (
+    event: React.MouseEvent<HTMLButtonElement>,
+    options?: { resumeFromSeconds?: number; startFromBeginning?: boolean },
+  ) => {
     if (!playback) return;
     event.preventDefault();
     event.stopPropagation();
@@ -186,6 +209,8 @@ export function DashboardPosterCard({
       originRect: event.currentTarget.getBoundingClientRect(),
       backdropUrl: backdrop,
       posterUrl: poster,
+      resumeFromSeconds: options?.resumeFromSeconds,
+      startFromBeginning: options?.startFromBeginning,
     });
   };
 
@@ -256,8 +281,19 @@ export function DashboardPosterCard({
             <>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={backdrop} alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.035]" />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-black/5" />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/45 via-transparent to-transparent" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/78 via-black/10 to-black/0" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/32 via-transparent to-transparent" />
+            </>
+          ) : poster ? (
+            <>
+              {/* A title with no landscape artwork must not become an empty
+                * card. Keep its real cover legible over a blurred extension
+                * rather than cropping a portrait into fake 16:9 artwork. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={poster} alt="" loading="lazy" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-xl" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={poster} alt={title} loading="lazy" className="relative z-[1] h-full w-full object-contain drop-shadow-2xl" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/15" />
             </>
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.32),transparent_45%),#12111c] p-4 text-center">
@@ -273,8 +309,7 @@ export function DashboardPosterCard({
               )}
             >
               {logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt="" loading="lazy" className="max-h-10 max-w-[78%] object-contain object-left drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
+                <AdaptiveTitleLogo src={logo} className="max-h-10 max-w-[78%] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
               ) : !titleEmbedded ? (
                 <span className="line-clamp-2 text-sm font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
               ) : null}
@@ -320,11 +355,10 @@ export function DashboardPosterCard({
             ) : (
               <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/10 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/8 to-transparent" />
             <div className="absolute inset-x-4 bottom-3 min-w-0">
               {logo ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={logo} alt="" className="max-h-11 max-w-[210px] object-contain object-left drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
+                <AdaptiveTitleLogo src={logo} className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
               ) : !titleEmbedded ? (
                 <span className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
               ) : null}
@@ -336,15 +370,39 @@ export function DashboardPosterCard({
             <div className="flex items-center gap-2">
               {playback ? (
                 betaPlayer ? (
-                  <button
-                    type="button"
-                    onClick={startPlayback}
-                    title={t("common.play")}
-                    aria-label={t("common.play")}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
-                  >
-                    <Play className="ml-0.5 h-5 w-5 fill-current" />
-                  </button>
+                  resumeSeconds && resumeSeconds > 0 ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={(event) => startPlayback(event, { resumeFromSeconds: resumeSeconds })}
+                        title={`${t("player.betaResumeFrom")} ${formatResumeTime(resumeSeconds)}`}
+                        aria-label={`${t("player.betaResumeFrom")} ${formatResumeTime(resumeSeconds)}`}
+                        className="flex h-10 items-center gap-2 rounded-full bg-white px-4 text-sm font-bold text-black shadow-lg transition-transform duration-150 hover:scale-[1.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+                      >
+                        <Play className="h-4 w-4 fill-current" />
+                        {t("player.betaResumeFrom")} {formatResumeTime(resumeSeconds)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => startPlayback(event, { startFromBeginning: true })}
+                        title={t("player.betaStartOver")}
+                        aria-label={t("player.betaStartOver")}
+                        className="flex h-10 w-10 items-center justify-center rounded-full border border-white/45 text-white transition-colors hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+                      >
+                        <RotateCcw className="h-[18px] w-[18px]" />
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={startPlayback}
+                      title={t("common.play")}
+                      aria-label={t("common.play")}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black shadow-lg transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+                    >
+                      <Play className="ml-0.5 h-5 w-5 fill-current" />
+                    </button>
+                  )
                 ) : (
                   <a
                     href={playback.plexUrl}
@@ -403,6 +461,7 @@ export function DashboardPosterCard({
             <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-white/85">
               {previewYear && <span className="rounded-full border border-white/30 px-2 py-0.5">{previewYear}</span>}
               {formatRuntime(previewRuntime) && <span className="rounded-full border border-white/30 px-2 py-0.5">{formatRuntime(previewRuntime)}</span>}
+              {technical && buildMediaBadgeItems({ ...technical, source: null }, "surface")}
             </div>
           )}
           {previewGenres.length > 0 && (

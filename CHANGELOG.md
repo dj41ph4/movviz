@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.17.00 — August 2026
+
+### Desktop — visuels, découverte et lecture
+
+- Les visuels des cartes disposent de trois suppressions séparées : tout le
+  cache visuel, seulement les logos, ou seulement les fonds/affiches. Les
+  associations durables titre → image sont conservées : compléter le cache
+  restaure uniquement le fichier manquant, sans retélécharger l'autre.
+- Le cache de réponses TMDb passe à 35 000 entrées afin qu'une bibliothèque
+  complète ne soit plus évincée prématurément à la limite de 3 500 clés.
+- Les genres disposent maintenant de leur propre hero éditorial, comme Films
+  et Séries. Le hero est plus haut et adapte correctement les fonds 16:9.
+- Les logos transparents sont agrandis selon leur zone visible : les petites
+  marques avec de grandes marges gagnent en lisibilité sans grossir les logos
+  naturellement larges. Une carte sans fond utilise au minimum son poster,
+  au lieu de rester vide.
+- Sur un écran ultralarge, le lecteur préserve le ratio de la vidéo en plein
+  écran (bandes latérales si nécessaire). Le curseur disparaît avec les
+  contrôles après l'inactivité, et une reprise explicite démarre directement
+  sans second popup ; les offsets de session sont convertis de ms en s.
+- Tous les titres visibles sont désormais traités, découpés uniquement en
+  paquets réseau internes : aucun plafond global ne prive les rangées basses
+  (Top, suggestions, ajouts récents…) de leurs logos ou de leurs fonds.
+- Les aperçus de « Reprendre » affichent l'action horodatée et « Depuis le
+  début », avec les badges de résolution, HDR, vidéo et audio du vrai fichier.
+
 ## v1.16.82 — August 2026
 
 ### Desktop — lecture fiable

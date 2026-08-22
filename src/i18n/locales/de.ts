@@ -992,6 +992,9 @@ export const de: Dictionary = {
     artworkProgress: "{done}/{total} Titel verarbeitet",
     artworkDone: "{n} Titelmotiv(e) im Cache gespeichert.",
     artworkDaily: "Jeden Tag prüft ein Abschnitt der Bibliothek — auch vorhandene Titel — und stellt nur fehlende Dateien wieder her.",
+    artworkClearAll: "Gesamten Bildcache leeren",
+    artworkClearLogos: "Logos leeren",
+    artworkClearBackdrops: "Hintergründe leeren",
   },
 
   update: {

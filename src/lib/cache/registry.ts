@@ -32,9 +32,11 @@ interface Entry<T> {
 // read of that exact expired key. That grew until the process ran out of
 // heap. Map preserves insertion order, so capping here just means "evict the
 // oldest entry" — an approximation of LRU that's good enough for an API
-// response cache. 3,500 entries keeps the full TMDb working set warm while
-// still giving the process a firm memory ceiling.
-const MAX_ENTRIES = 3500;
+// Generic caches should remain modest. The TMDb metadata cache gets an
+// explicit larger limit at creation: one library item naturally creates
+// several distinct detail/image/search responses, so 3,500 caused useful
+// entries to be evicted while the library was still being warmed.
+const DEFAULT_MAX_ENTRIES = 3500;
 
 // The persist file is only a warm-start optimization: losing its tail on a
 // crash costs one extra upstream fetch per lost entry, nothing more. It was
@@ -56,7 +58,12 @@ class NamedCache {
   /** Single pending write value when a write is in progress. */
   private pendingWrite: string | null = null;
 
-  constructor(public readonly name: string, private ttlMs: number, private persistFile?: string) {
+  constructor(
+    public readonly name: string,
+    private ttlMs: number,
+    private persistFile?: string,
+    private readonly maxEntries = DEFAULT_MAX_ENTRIES
+  ) {
     if (persistFile) this.loadFromDisk();
   }
 
@@ -173,7 +180,7 @@ class NamedCache {
       // Unserializable values can't be persisted anyway; 0 keeps stats honest enough.
     }
     this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs, sizeBytes });
-    while (this.store.size > MAX_ENTRIES) {
+    while (this.store.size > this.maxEntries) {
       const oldest = this.store.keys().next().value;
       if (oldest === undefined) break;
       this.store.delete(oldest);
@@ -189,7 +196,7 @@ class NamedCache {
     this.lastDiagAt = now;
     const mem = process.memoryUsage();
     console.log(
-      `[cache:${this.name}] entries=${this.store.size}/${MAX_ENTRIES} heapUsed=${Math.round(mem.heapUsed / 1024 / 1024)}MB rss=${Math.round(mem.rss / 1024 / 1024)}MB`
+      `[cache:${this.name}] entries=${this.store.size}/${this.maxEntries} heapUsed=${Math.round(mem.heapUsed / 1024 / 1024)}MB rss=${Math.round(mem.rss / 1024 / 1024)}MB`
     );
   }
 
@@ -212,7 +219,7 @@ class NamedCache {
       hits: this.hits,
       misses: this.misses,
       keys: this.store.size,
-      maxEntries: MAX_ENTRIES,
+      maxEntries: this.maxEntries,
       keySizeBytes: keySize,
       valueSizeBytes: valueSize,
       persisted: !!this.persistFile,
@@ -231,10 +238,10 @@ const g = globalThis as typeof globalThis & {
 };
 const registry: Map<string, NamedCache> = (g.__movvizNamedCaches ??= new Map());
 
-export function getCache(name: string, ttlMs: number, persistFile?: string): NamedCache {
+export function getCache(name: string, ttlMs: number, persistFile?: string, maxEntries = DEFAULT_MAX_ENTRIES): NamedCache {
   let cache = registry.get(name);
   if (!cache) {
-    cache = new NamedCache(name, ttlMs, persistFile);
+    cache = new NamedCache(name, ttlMs, persistFile, maxEntries);
     registry.set(name, cache);
   }
   return cache;

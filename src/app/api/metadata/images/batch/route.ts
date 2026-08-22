@@ -8,7 +8,9 @@ export const dynamic = "force-dynamic";
 
 type ArtworkRef = { tmdbId: number; type: "movie" | "series" };
 
-const MAX_ARTWORK_ITEMS = 160;
+// Request chunk guard, not a library-wide limit. Clients split arbitrary
+// result sets into these bounded batches.
+const MAX_ARTWORK_ITEMS = 120;
 const TMDB_ARTWORK_CONCURRENCY = 4;
 
 function parseArtworkRefs(raw: string | null): ArtworkRef[] | null {

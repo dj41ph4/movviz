@@ -47,6 +47,8 @@ export interface VideoPlayerProps {
   episodeNumber?: number;
   tmdbId?: number;
   startFromBeginning?: boolean;
+  /** A page-level resume CTA already chose its exact start point (seconds). */
+  resumeFromSeconds?: number;
   /** Provided only for a series episode whose immediate successor is known. */
   onNextEpisode?: () => void;
 }
@@ -130,7 +132,7 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId, startFromBeginning = false, onNextEpisode }: VideoPlayerProps) {
+export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId, startFromBeginning = false, resumeFromSeconds, onNextEpisode }: VideoPlayerProps) {
   const { t, locale } = useI18n();
   const tRef = useRef(t);
   tRef.current = t;
@@ -1372,8 +1374,15 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       sessionReady = true;
       playbackSessionRef.current = data.sessionId;
       const saved = Number(data.resumeOffsetMs);
-      if (!startFromBeginning && !data.watched && saved > 0 && Number.isFinite(saved)) {
-        setSavedPos(saved);
+      const explicitResume = Number(resumeFromSeconds);
+      if (Number.isFinite(explicitResume) && explicitResume > 0) {
+        // The page CTA already explicitly chose this resume point. Session
+        // offsets are milliseconds; begin() accepts seconds.
+        void begin(explicitResume);
+      } else if (!startFromBeginning && !data.watched && saved > 0 && Number.isFinite(saved)) {
+        // API contract is resumeOffsetMs. Treating it as seconds produced
+        // prompts such as 162:55:11 for a real 9:46 position.
+        setSavedPos(saved / 1000);
         setShowResume(true);
       } else {
         void begin();
@@ -2198,6 +2207,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           // instead: true browser fullscreen always gets a solid black,
           // unrounded, unconstrained box regardless of embedded/panel mode.
           fullscreen ? "fixed inset-0 h-[100dvh] w-[100dvw] rounded-none max-w-none bg-black" : embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface",
+          !controlsVisible && playing && !buffering && !menuOpen ? "cursor-none" : undefined,
           !fullscreen && !embedded ? "rounded-2xl h-[80vh] w-[90vw] max-w-5xl" : undefined
         )}
       >
@@ -2205,7 +2215,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           aria-hidden={embedded && !controlsVisible && playing && !buffering ? true : undefined}
           className={cn(
             "pointer-events-none absolute inset-x-0 top-0 z-40 flex items-start justify-between gap-4 bg-gradient-to-b from-black/85 via-black/45 to-transparent px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-20 pl-[max(env(safe-area-inset-left),1.25rem)] pr-[max(env(safe-area-inset-right),1.25rem)] transition-opacity duration-300",
-            controlsVisible || !playing || buffering || menuOpen ? "opacity-100" : "opacity-0"
+            controlsVisible || !playing || buffering || menuOpen ? "opacity-100" : "opacity-0 [&>*]:pointer-events-none"
           )}
         >
           <div className="pointer-events-auto flex min-w-0 items-start gap-3">
@@ -2302,7 +2312,11 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
             <>
               <video
                 ref={videoRef}
-                className="h-full w-full cursor-pointer touch-manipulation"
+                // Preserve the source aspect ratio in fullscreen. On an
+                // ultrawide monitor this deliberately produces side bars:
+                // filling the width would crop the lower part of a 16:9
+                // movie and hide player controls/content.
+                className="h-full w-full cursor-pointer touch-manipulation object-contain bg-black"
                 autoPlay
                 playsInline
                 onClick={handleVideoClick}
@@ -2423,7 +2437,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                   aria-hidden={undefined}
                   className={cn(
                     "pointer-events-none absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/95 via-black/72 to-transparent pt-24 pb-[max(env(safe-area-inset-bottom),0.75rem)] transition-opacity duration-300",
-                    controlsVisible || !playing || buffering || menuOpen || showResume ? "opacity-100" : "opacity-0"
+                    controlsVisible || !playing || buffering || menuOpen || showResume ? "opacity-100" : "opacity-0 [&>*]:pointer-events-none"
                   )}
                 >
                   <div className="pointer-events-auto mx-auto max-w-[1600px] px-4 sm:px-6">

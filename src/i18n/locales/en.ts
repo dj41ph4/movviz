@@ -992,6 +992,9 @@ export const en: Dictionary = {
     artworkProgress: "{done}/{total} titles processed",
     artworkDone: "{n} title artwork item(s) cached.",
     artworkDaily: "Each day, one library slice — including existing titles — verifies and restores only missing files.",
+    artworkClearAll: "Clear all visual cache",
+    artworkClearLogos: "Clear logos",
+    artworkClearBackdrops: "Clear backdrops",
   },
 
   webhooks: {

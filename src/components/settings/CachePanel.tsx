@@ -46,6 +46,7 @@ export function CachePanel() {
   const t = useT();
   const [caches, setCaches] = useState<CacheStats[]>([]);
   const [clearing, setClearing] = useState<string | null>(null);
+  const [clearingArtwork, setClearingArtwork] = useState<"all" | "logos" | "backdrops" | null>(null);
   const [warm, setWarm] = useState<WarmState | null>(null);
   const [artworkWarm, setArtworkWarm] = useState<ArtworkWarmState | null>(null);
 
@@ -79,6 +80,19 @@ export function CachePanel() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ mode }),
     }).then(loadArtworkWarm);
+  const clearArtwork = async (part: "all" | "logos" | "backdrops") => {
+    setClearingArtwork(part);
+    try {
+      await fetch("/api/cache/artwork/clear", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ part }),
+      });
+    } finally {
+      setClearingArtwork(null);
+      await loadArtworkWarm();
+    }
+  };
   const warmPct = warm && warm.total > 0 ? Math.round((warm.done / warm.total) * 100) : 0;
   const artworkWarmPct = artworkWarm && artworkWarm.total > 0 ? Math.round((artworkWarm.done / artworkWarm.total) * 100) : 0;
 
@@ -162,6 +176,34 @@ export function CachePanel() {
             ? artworkWarm.error
             : t("cache.artworkDone", { n: artworkWarm.cached })}
         </p>
+      )}
+      {!artworkWarm?.running && (
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-white/8 pt-3">
+          <button
+            onClick={() => clearArtwork("all")}
+            disabled={clearingArtwork !== null}
+            className="flex h-9 items-center gap-1.5 rounded-lg glass-strong px-3 text-xs font-semibold text-down disabled:opacity-50"
+          >
+            {clearingArtwork === "all" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            {t("cache.artworkClearAll")}
+          </button>
+          <button
+            onClick={() => clearArtwork("logos")}
+            disabled={clearingArtwork !== null}
+            className="flex h-9 items-center gap-1.5 rounded-lg glass-strong px-3 text-xs font-semibold text-ink disabled:opacity-50"
+          >
+            {clearingArtwork === "logos" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            {t("cache.artworkClearLogos")}
+          </button>
+          <button
+            onClick={() => clearArtwork("backdrops")}
+            disabled={clearingArtwork !== null}
+            className="flex h-9 items-center gap-1.5 rounded-lg glass-strong px-3 text-xs font-semibold text-ink disabled:opacity-50"
+          >
+            {clearingArtwork === "backdrops" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            {t("cache.artworkClearBackdrops")}
+          </button>
+        </div>
       )}
       <p className="mt-3 text-[11px] text-ink-dim">{t("cache.artworkDaily")}</p>
     </div>

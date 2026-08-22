@@ -21,6 +21,7 @@ import { BrandIcon } from "@/components/ui/BrandIcon";
 import { TagEditor } from "@/components/library/TagEditor";
 import { MediaBadges, buildMediaBadgeItems } from "@/components/library/MediaBadges";
 import { TrailerHeader, TrailerModalPlayer } from "@/components/media/TrailerHeader";
+import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { reportIssue } from "@/lib/issues/store";
@@ -313,10 +314,14 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     }
   }, [togglingWatched, type, tmdbId, watchedMovie, allSeriesWatched, seriesEpisodes, detail?.title, mutateWatch]);
 
+  // Cards and details deliberately share one durable editorial selection.
+  // A custom user choice still wins, but otherwise opening a title must not
+  // download/display a second arbitrary TMDb backdrop for the same media.
+  const editorialArtwork = useTitleArtworkBatch([{ tmdbId, type }], locale)[`${type}:${tmdbId}`];
   const backdrop = libraryMatch?.customBackdropPath
     ? `/tmdb/original${libraryMatch.customBackdropPath}`
-    : detail?.backdropPath
-      ? `/tmdb/original${detail.backdropPath}`
+    : (editorialArtwork?.backdropPath ?? detail?.backdropPath)
+      ? `/tmdb/w1280${editorialArtwork?.backdropPath ?? detail?.backdropPath}`
       : null;
   const poster = detail?.posterPath
     ? `/tmdb/w500${detail.posterPath}`
@@ -417,7 +422,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     detail?.tmdbId ? `/api/metadata/images?tmdbId=${detail.tmdbId}&type=${type}&locale=${locale}` : null,
     fetcher
   );
-  const logoPath = libraryMatch?.customLogoPath ?? imagesData?.logos?.[0]?.filePath ?? null;
+  const logoPath = libraryMatch?.customLogoPath
+    ?? (editorialArtwork ? editorialArtwork.logoPath : imagesData?.logos?.[0]?.filePath ?? null);
   const logoUrl = logoPath ? `/tmdb/w500${logoPath}` : null;
   const [resyncingAnime, setResyncingAnime] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
@@ -1106,8 +1112,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               className="h-full w-full"
             />
           </ErrorBoundary>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void via-void/70 to-transparent" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-void/60 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void/88 via-void/55 to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-void/48 via-transparent to-transparent" />
           {libraryMatch?.id && (
             <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-8 sm:top-8">
               <ReportIssueButton
@@ -1326,6 +1332,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                             useTranscode: betaPlayer,
                             tmdbId: detail?.tmdbId,
                             type,
+                            resumeFromSeconds: resumeSeconds,
                             originRect: e.currentTarget.getBoundingClientRect(),
                             backdropUrl: backdrop,
                             posterUrl: poster,

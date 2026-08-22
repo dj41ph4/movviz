@@ -17,16 +17,30 @@ const g = globalThis as typeof globalThis & { __movvizTmdbImageInFlight?: Map<st
 const inFlight: Map<string, Promise<string | null>> = (g.__movvizTmdbImageInFlight ??= new Map());
 
 export type TmdbImageSize = "w45" | "w92" | "w154" | "w185" | "w200" | "w300" | "w342" | "w500" | "w780" | "w1280" | "original";
+export type TmdbArtworkCachePart = "all" | "logos" | "backdrops";
 
 function fileNameOf(value: string): string | null {
   const name = value.replace(/^\/+/, "");
   return IMAGE_FILE.test(name) ? name : null;
 }
 
+// Card artwork and detail heroes intentionally share the same high-quality
+// background bytes. Requests historically mixed w780 (card) and w1280/original
+// (detail), creating two or three files for the exact same TMDb path.
+function canonicalSize(size: string): string {
+  return size === "w780" || size === "original" ? "w1280" : size;
+}
+
 function imageFile(size: string, rawPath: string): string | null {
   const filename = fileNameOf(rawPath);
-  if (!IMAGE_SIZES.has(size) || !filename) return null;
-  return path.join(CACHE_DIR, size, filename);
+  const canonical = canonicalSize(size);
+  if (!IMAGE_SIZES.has(size) || !IMAGE_SIZES.has(canonical) || !filename) return null;
+  return path.join(CACHE_DIR, canonical, filename);
+}
+
+function legacyW780File(rawPath: string): string | null {
+  const filename = fileNameOf(rawPath);
+  return filename ? path.join(CACHE_DIR, "w780", filename) : null;
 }
 
 async function exists(file: string): Promise<boolean> {
@@ -34,6 +48,24 @@ async function exists(file: string): Promise<boolean> {
     return (await fs.stat(file)).isFile();
   } catch {
     return false;
+  }
+}
+
+function safeCacheTarget(file: string): boolean {
+  const relative = path.relative(CACHE_DIR, file);
+  return relative.length > 0 && !relative.startsWith("..") && !path.isAbsolute(relative);
+}
+
+async function removeImage(size: TmdbImageSize, rawPath: string | null): Promise<number> {
+  if (!rawPath) return 0;
+  const target = imageFile(size, rawPath);
+  if (!target || !safeCacheTarget(target)) return 0;
+  try {
+    await fs.unlink(target);
+    return 1;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return 0;
+    throw error;
   }
 }
 
@@ -47,15 +79,24 @@ async function ensureTmdbImage(size: string, rawPath: string): Promise<string | 
   const target = imageFile(size, rawPath);
   const filename = fileNameOf(rawPath);
   if (!target || !filename) return null;
-  if (await exists(target)) return target;
+  const sourceSize = canonicalSize(size);
+  const legacy = sourceSize === "w1280" ? legacyW780File(rawPath) : null;
+  const removeLegacy = async () => {
+    if (!legacy || !safeCacheTarget(legacy) || legacy === target) return;
+    await fs.unlink(legacy).catch(() => {});
+  };
+  if (await exists(target)) {
+    await removeLegacy();
+    return target;
+  }
 
-  const cacheKey = `${size}/${filename}`;
+  const cacheKey = `${sourceSize}/${filename}`;
   const pending = inFlight.get(cacheKey);
   if (pending) return pending;
 
   const download = (async () => {
     try {
-      const response = await fetch(`https://image.tmdb.org/t/p/${size}/${filename}`, { cache: "no-store" });
+      const response = await fetch(`https://image.tmdb.org/t/p/${sourceSize}/${filename}`, { cache: "no-store" });
       if (!response.ok) return null;
       const body = Buffer.from(await response.arrayBuffer());
       if (body.length === 0) return null;
@@ -68,7 +109,11 @@ async function ensureTmdbImage(size: string, rawPath: string): Promise<string | 
         // Another request may have completed the exact same immutable file.
         await fs.rm(tmp, { force: true }).catch(() => {});
       }
-      return (await exists(target)) ? target : null;
+      if (await exists(target)) {
+        await removeLegacy();
+        return target;
+      }
+      return null;
     } catch {
       return null;
     } finally {
@@ -83,6 +128,39 @@ async function ensureTmdbImage(size: string, rawPath: string): Promise<string | 
 export async function prefetchTmdbImage(size: TmdbImageSize, filePath: string | null): Promise<boolean> {
   if (!filePath) return true;
   return !!(await ensureTmdbImage(size, filePath));
+}
+
+/**
+ * Removes only visual bytes. The durable title -> TMDb path mapping stays in
+ * title-artwork-cache.json, so the next warm pass can restore just the
+ * missing asset without asking TMDb again or redownloading the other half of
+ * a card.
+ */
+export async function clearTmdbArtworkCache(
+  part: TmdbArtworkCachePart,
+  entries: readonly { backdropPath: string | null; logoPath: string | null }[] = []
+): Promise<{ removed: number }> {
+  if (part === "all") {
+    // This is intentionally narrow: only Movviz's dedicated immutable image
+    // cache may ever be recursively removed.
+    const resolvedCache = path.resolve(CACHE_DIR);
+    const resolvedConfig = path.resolve(CONFIG_DIR);
+    if (path.basename(resolvedCache) !== "tmdb-artwork" || path.dirname(resolvedCache) !== resolvedConfig) {
+      throw new Error("unsafe_tmdb_artwork_cache_path");
+    }
+    try {
+      await fs.rm(resolvedCache, { recursive: true, force: true });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    return { removed: -1 };
+  }
+
+  const size: TmdbImageSize = part === "logos" ? "w500" : "w780";
+  const paths = new Set(entries.map((entry) => part === "logos" ? entry.logoPath : entry.backdropPath).filter((value): value is string => !!value));
+  let removed = 0;
+  for (const filePath of paths) removed += await removeImage(size, filePath);
+  return { removed };
 }
 
 export async function readTmdbImage(size: string, rawPath: string): Promise<{ body: Buffer; contentType: string } | null> {
