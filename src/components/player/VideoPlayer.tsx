@@ -27,6 +27,8 @@ import { PROGRESS_STORAGE_KEY } from "@/lib/player/watchProgress";
 
 export interface VideoPlayerProps {
   ratingKey: string;
+  /** Identité Movviz stable pour une lecture locale ; optionnel pour préserver les appels Plex. */
+  movvizId?: string;
   plexUrl: string;
   title: string;
   onClose: () => void;
@@ -122,7 +124,7 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId }: VideoPlayerProps) {
+export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId }: VideoPlayerProps) {
   const { t, locale } = useI18n();
   const tRef = useRef(t);
   tRef.current = t;
@@ -134,6 +136,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const beta = useBetaPlayer();
   const betaRef = useRef(beta);
   betaRef.current = beta;
+  const playbackId = movvizId ?? ratingKey;
+  const localPlayback = Boolean(movvizId);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -561,7 +565,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     if (!videoRef.current) return;
 
     const hlsUrl = `/api/stream/${ratingKey}/transcode`;
-    const directUrl = `/api/stream/${ratingKey}`;
+    const directUrl = localPlayback ? `/api/stream/local/${encodeURIComponent(movvizId!)}` : `/api/stream/${ratingKey}`;
 
     // --- Prébuffer partagé (legs HLS + DASH) ---
     const armPrebuffer = () => {
@@ -990,7 +994,9 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       // ci-dessous (même piste, jamais recalculée différemment).
       let localePreferredAudio: StreamTrack | undefined;
       try {
-        const res = await fetch(`/api/stream/${ratingKey}/info`, { cache: "no-store" });
+        const res = await fetch(localPlayback
+          ? `/api/stream/local/${encodeURIComponent(movvizId!)}/info`
+          : `/api/stream/${ratingKey}/info`, { cache: "no-store" });
         if (res.ok) {
           info = (await res.json()) as StreamInfo;
           info.container = (info as any).container ?? null;
