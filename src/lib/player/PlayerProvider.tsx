@@ -30,6 +30,8 @@ export interface PlayNowRequest {
   originRect?: OriginRect;
   backdropUrl?: string | null;
   posterUrl?: string | null;
+  /** Explicit Netflix-style restart action: skip the resume prompt once. */
+  startFromBeginning?: boolean;
 }
 
 interface PlayerContextValue {
@@ -86,6 +88,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             originRect={request.originRect}
             backdropUrl={request.backdropUrl}
             posterUrl={request.posterUrl}
+            startFromBeginning={request.startFromBeginning}
           />
         )}
       </AnimatePresence>

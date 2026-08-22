@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { openPlaybackSession } from "@/lib/playback/progressStore";
-import { loadPlexConfig } from "@/lib/plex/store";
-import { getPlexOnDeck } from "@/lib/plex/client";
-import { resolveToken } from "@/lib/plex/watchWrite";
+import { mergePlexResume } from "@/lib/playback/plexResume";
 
 export const dynamic = "force-dynamic";
 
@@ -21,15 +19,6 @@ export async function POST(req: NextRequest) {
   // stale local timestamp while opening a session. This is best-effort and
   // never blocks local playback when Plex is unavailable.
   let resumeOffsetMs = result.progress.watched ? null : result.progress.resumeOffsetMs;
-  if (!result.progress.watched) {
-    try {
-      const cfg = loadPlexConfig();
-      const auth = cfg.hostname ? resolveToken(user, cfg) : null;
-      if (auth) {
-        const plexItem = (await getPlexOnDeck(cfg, auth.token, auth.managedUserId)).find((item) => item.ratingKey === ratingKey);
-        if (plexItem && plexItem.viewOffset > 0) resumeOffsetMs = plexItem.viewOffset;
-      }
-    } catch { /* local progress remains authoritative when Plex is offline */ }
-  }
+  if (!result.progress.watched) resumeOffsetMs = await mergePlexResume(user, ratingKey, resumeOffsetMs);
   return NextResponse.json({ sessionId: result.session.id, resumeOffsetMs, watched: result.progress.watched, eligibleForResume: result.progress.eligibleForResume, completionBoundaryMs: result.progress.completionBoundaryMs, boundarySource: result.progress.boundarySource });
 }

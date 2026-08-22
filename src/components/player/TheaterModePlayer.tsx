@@ -7,7 +7,7 @@ import { computeMorphOrigin, estimateFullscreenGeometry, type MorphTransform, ty
 import { getDominantColor, type DominantColorResult } from "@/lib/media/dominantColor";
 import { VideoPlayer, type VideoPlayerProps } from "./VideoPlayer";
 
-type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "movvizId" | "plexUrl" | "title" | "useTranscode" | "prebufferSeconds"> & {
+type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "movvizId" | "plexUrl" | "title" | "useTranscode" | "prebufferSeconds" | "startFromBeginning"> & {
   tmdbId?: number;
   type?: "movie" | "series";
   seasonNumber?: number;
@@ -18,6 +18,7 @@ type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "movvizId" | 
    *  call sites (LibraryMovieCard) that only ever have a poster on hand. */
   backdropUrl?: string | null;
   posterUrl?: string | null;
+  startFromBeginning?: boolean;
 };
 
 const EASE = [0.22, 1, 0.36, 1] as const;

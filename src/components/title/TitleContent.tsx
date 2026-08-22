@@ -37,7 +37,7 @@ import { toast } from "@/components/ui/Toast";
 import {
   Star, Plus, Check, Loader2, Bookmark,
   Clock, HardDriveDownload, Search, SearchCheck, Hash, Play,
-  ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, Pencil, Eye,
+  ListFilter, Layers, Boxes, ChevronDown, Calendar, X, Trash2, RefreshCw, RotateCcw, Pencil, Eye,
   type LucideIcon,
 } from "lucide-react";
 
@@ -1285,6 +1285,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         // here: VideoPlayer always shows that dialog on its
                         // own whenever a saved position exists, so clicking
                         // this never silently jumps ahead.
+                        <>
                         <button
                           onClick={(e) => play({
                             ratingKey: libraryMatch.plexRatingKey!,
@@ -1311,6 +1312,27 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                             <span className="truncate">{t("player.betaResumeFrom")} {formatResumeTime(resumeSeconds)}</span>
                           </span>
                         </button>
+                        <button
+                          onClick={(e) => play({
+                            ratingKey: libraryMatch.plexRatingKey!,
+                            movvizId: libraryMatch.id,
+                            plexUrl: libraryMatch.plexUrl!,
+                            title: detail?.title ?? "",
+                            useTranscode: betaPlayer,
+                            tmdbId: detail?.tmdbId,
+                            type,
+                            startFromBeginning: true,
+                            originRect: e.currentTarget.getBoundingClientRect(),
+                            backdropUrl: backdrop,
+                            posterUrl: poster,
+                          })}
+                          title="Recommencer depuis le début"
+                          aria-label="Recommencer depuis le début"
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white/85 backdrop-blur transition-transform hover:scale-105 hover:bg-white/20 active:scale-95"
+                        >
+                          <RotateCcw className="h-4 w-4" />
+                        </button>
+                        </>
                       ) : (
                       <button
                         onClick={(e) => play({

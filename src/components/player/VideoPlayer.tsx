@@ -43,6 +43,7 @@ export interface VideoPlayerProps {
   seasonNumber?: number;
   episodeNumber?: number;
   tmdbId?: number;
+  startFromBeginning?: boolean;
 }
 
 interface StreamTrack {
@@ -124,7 +125,7 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId }: VideoPlayerProps) {
+export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId, startFromBeginning = false }: VideoPlayerProps) {
   const { t, locale } = useI18n();
   const tRef = useRef(t);
   tRef.current = t;
@@ -1330,7 +1331,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       sessionReady = true;
       playbackSessionRef.current = data.sessionId;
       const saved = Number(data.resumeOffsetMs);
-      if (!data.watched && saved > 0 && Number.isFinite(saved)) {
+      if (!startFromBeginning && !data.watched && saved > 0 && Number.isFinite(saved)) {
         setSavedPos(saved);
         setShowResume(true);
       } else {
