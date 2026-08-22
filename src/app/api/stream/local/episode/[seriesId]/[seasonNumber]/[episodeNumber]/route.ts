@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (raw) {
     const m = /^bytes=(\d*)-(\d*)$/i.exec(raw.trim());
     if (!m) return new NextResponse(null, { status: 416, headers: { "content-range": `bytes */${size}` } });
-    start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]) - 1);
+    start = m[1] ? Number(m[1]) : Math.max(0, size - Number(m[2]));
     end = m[2] ? Number(m[2]) : end;
     if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || start >= size) return new NextResponse(null, { status: 416, headers: { "content-range": `bytes */${size}` } });
     end = Math.min(end, size - 1);

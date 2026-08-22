@@ -16,7 +16,7 @@ function rangeBounds(raw: string | null, size: number): { start: number; end: nu
   if (!raw) return { start: 0, end: size - 1 };
   const match = /^bytes=(\d*)-(\d*)$/i.exec(raw.trim());
   if (!match) return null;
-  const start = match[1] ? Number(match[1]) : Math.max(0, size - Number(match[2]) - 1);
+  const start = match[1] ? Number(match[1]) : Math.max(0, size - Number(match[2]));
   const end = match[2] ? Number(match[2]) : size - 1;
   if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start < 0 || end < start || start >= size) return null;
   return { start, end: Math.min(end, size - 1) };

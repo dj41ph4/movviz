@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.16.75 — August 2026
+
+### Correctifs release et lecture locale
+
+- Aligne les versions Web, Android TV et métadonnées de release.
+- Corrige les requêtes HTTP `Range` suffixes du streaming local.
+
 ## v1.16.73 — August 2026
 
 ### Correctifs compilation Android TV
