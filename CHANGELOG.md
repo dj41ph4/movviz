@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.17.02 — August 2026
+
+### Desktop — logos des cartes
+
+- Les logos officiels entourés de grandes marges transparentes gagnent
+  désormais jusqu’à 90 % de taille visuelle. Les marques déjà larges et
+  serrées restent à leur échelle naturelle, pour conserver une hiérarchie
+  propre d’une carte à l’autre.
+
 ## v1.17.01 — August 2026
 
 ### Découverte — C411

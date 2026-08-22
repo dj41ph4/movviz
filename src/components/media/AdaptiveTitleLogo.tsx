@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
  */
 export function AdaptiveTitleLogo({ src, className }: { src: string; className?: string }) {
   const [scale, setScale] = useState(1);
+
+  // Cards are recycled as rows change. Never retain the preceding title's
+  // alpha-derived scale while the next logo is still loading.
+  useEffect(() => setScale(1), [src]);
 
   const inspectAlphaBounds = (image: HTMLImageElement) => {
     try {
@@ -36,9 +40,17 @@ export function AdaptiveTitleLogo({ src, className }: { src: string; className?:
       }
       if (right < left || bottom < top) return;
       const coverage = Math.max((right - left + 1) / width, (bottom - top + 1) / height);
-      // A tight image is unchanged. Padded artwork grows up to 55%, which
-      // makes small franchise marks readable without swallowing the card.
-      setScale(Math.min(1.55, Math.max(1, 0.92 / Math.max(coverage, 0.2))));
+      // The first pass only allowed +55%, so exactly the small franchise
+      // marks the feature was made for (Simpsons, Dragon Ball, Saw…) still
+      // read as timid beside a naturally broad/tight mark such as The
+      // International. A logo filling at least 82% of one axis is already
+      // visually full-size and remains untouched. Otherwise let the padded
+      // canvas grow up to 90%; anchoring bottom-left preserves the card's
+      // composition and avoids the old arbitrary one-size-fits-all height.
+      const nextScale = coverage >= 0.82
+        ? 1
+        : Math.min(1.9, Math.max(1, 1.1 / Math.max(coverage, 0.2)));
+      setScale(nextScale);
     } catch {
       // Canvas inspection is an enhancement only; the unscaled logo remains.
     }
