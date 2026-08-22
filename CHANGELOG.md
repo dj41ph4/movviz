@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.17.04 — August 2026
+
+### Desktop — largeur des logos de cartes
+
+- Les logos dont la zone réellement visible est inférieure à 40 % de la
+  largeur d’une carte atteignent maintenant ce seuil, en gardant strictement
+  leurs proportions. Les logos déjà plus larges ne sont jamais réduits.
+
 ## v1.17.03 — August 2026
 
 ### Lecture — source locale indépendante de Plex

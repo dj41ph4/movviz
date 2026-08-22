@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 /**
  * TMDb logo PNGs are wildly inconsistent: some use their canvas tightly,
  * while others reserve half the file as transparent padding. Measure the
- * visible alpha bounds once, then enlarge only padded marks. A naturally
- * wide/tight logo (e.g. The International) therefore stays restrained.
+ * visible alpha bounds once, then bring only undersized marks up to 40% of
+ * their card width. A naturally broad/tight logo is never reduced.
  */
 export function AdaptiveTitleLogo({ src, className }: { src: string; className?: string }) {
   const [scale, setScale] = useState(1);
@@ -39,17 +39,18 @@ export function AdaptiveTitleLogo({ src, className }: { src: string; className?:
         }
       }
       if (right < left || bottom < top) return;
-      const coverage = Math.max((right - left + 1) / width, (bottom - top + 1) / height);
-      // The first pass only allowed +55%, so exactly the small franchise
-      // marks the feature was made for (Simpsons, Dragon Ball, Saw…) still
-      // read as timid beside a naturally broad/tight mark such as The
-      // International. A logo filling at least 82% of one axis is already
-      // visually full-size and remains untouched. Otherwise let the padded
-      // canvas grow up to 90%; anchoring bottom-left preserves the card's
-      // composition and avoids the old arbitrary one-size-fits-all height.
-      const nextScale = coverage >= 0.82
-        ? 1
-        : Math.min(1.9, Math.max(1, 1.1 / Math.max(coverage, 0.2)));
+      const visibleWidthRatio = (right - left + 1) / width;
+      // `offsetWidth` deliberately ignores CSS transforms, so this is the
+      // intrinsic, unscaled canvas width even when a recycled card briefly
+      // still carries the preceding logo's transform. The direct parent is
+      // the bottom-left logo rail and its parent is the actual 16:9 card.
+      const cardWidth = image.parentElement?.parentElement?.getBoundingClientRect().width ?? 0;
+      const visibleWidth = image.offsetWidth * visibleWidthRatio;
+      if (!cardWidth || !visibleWidth) return;
+      // Never shrink a logo that already occupies more than 40% of the
+      // card (The International), but make smaller transparent/franchise
+      // marks reach that exact visual width while preserving their ratio.
+      const nextScale = Math.max(1, (cardWidth * 0.4) / visibleWidth);
       setScale(nextScale);
     } catch {
       // Canvas inspection is an enhancement only; the unscaled logo remains.
