@@ -36,9 +36,10 @@ const STORE_VERSION = 2;
 // backdrop. Previous cached null pairs must be revisited once, otherwise a
 // title that has art in its full detail page remains empty on dashboard cards
 // for a year.
-// v3 re-ranks title marks by UI language (French → neutral → English) and
-// makes old blank logo selections eligible for a one-time repair.
-const EDITORIAL_SELECTION_VERSION = 3;
+// v4 applies the explicit French regional preference (France → neutral
+// French → Canada → English), and makes older cached logo choices eligible
+// for one safe re-selection without deleting any downloaded artwork bytes.
+const EDITORIAL_SELECTION_VERSION = 4;
 
 // TMDb's artwork file paths are immutable. Keep the selected backdrop/logo
 // pair for a full year: daily maintenance then needs to process only newly

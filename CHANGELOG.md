@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.17.05 — August 2026
+
+### Visuels — priorité des logos TMDb
+
+- Pour l’interface française, les logos sont désormais classés dans l’ordre
+  France, français neutre, Canada, anglais. Les autres interfaces privilégient
+  l’anglais. Le cache des visuels re-sélectionne les anciens choix sans
+  supprimer les images déjà téléchargées.
+
 ## v1.17.04 — August 2026
 
 ### Desktop — largeur des logos de cartes

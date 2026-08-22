@@ -648,6 +648,8 @@ export interface TitleImageOption {
   width: number;
   height: number;
   language: string | null;
+  /** TMDb sometimes provides a regional variant for localized artwork. */
+  country?: string | null;
   voteAverage: number;
   /** TMDb community confidence for voteAverage; optional for hand-built data. */
   voteCount?: number;
@@ -658,6 +660,7 @@ interface RawTitleImage {
   width: number;
   height: number;
   iso_639_1: string | null;
+  iso_3166_1?: string | null;
   vote_average?: number;
   vote_count?: number;
 }
@@ -667,10 +670,12 @@ interface RawTitleImages {
   logos?: RawTitleImage[];
 }
 
-/** Viewer language first, then neutral artwork, then English. TMDb only
- * exposes ISO-639-1 for artwork ("fr", never fr-FR vs fr-CA), therefore a
- * French UI must never let a higher-voted English/Canadian-looking fallback
- * outrank an available French asset. */
+/**
+ * Logo language policy: French UI uses France, neutral French, Canadian
+ * French, then English. Other UI languages use English first. TMDb commonly
+ * exposes only `iso_639_1`; when it does provide `iso_3166_1`, it lets us
+ * honour the France/Canada distinction without guessing from the title.
+ */
 function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string): TitleImageOption[] {
   return (list ?? [])
     .map((i) => ({
@@ -678,26 +683,36 @@ function mapTitleImages(list: RawTitleImage[] | undefined, preferredLang: string
       width: i.width,
       height: i.height,
       language: i.iso_639_1,
+      country: i.iso_3166_1 ?? null,
       voteAverage: i.vote_average ?? 0,
       voteCount: i.vote_count ?? 0,
     }))
     .sort((a, b) => {
-      const priority = (language: string | null) =>
-        language === preferredLang ? 3 : language === null ? 2 : language === "en" ? 1 : 0;
-      const aPriority = priority(a.language);
-      const bPriority = priority(b.language);
+      const priority = (image: TitleImageOption) => {
+        if (preferredLang === "fr") {
+          if (image.language === "fr" && image.country === "FR") return 5;
+          if (image.language === "fr" && !image.country) return 4;
+          if (image.language === "fr" && image.country === "CA") return 3;
+          if (image.language === "en") return 2;
+          return image.language === null ? 1 : 0;
+        }
+        if (image.language === "en") return 2;
+        return image.language === null ? 1 : 0;
+      };
+      const aPriority = priority(a);
+      const bPriority = priority(b);
       if (aPriority !== bPriority) return bPriority - aPriority;
       return b.voteAverage - a.voteAverage;
     });
 }
 
-/** Alternate backdrops/logos for a title, viewer's language first then best-rated — feeds the "customize this title's artwork" picker. The query explicitly uses the interface's regional language (French is always `fr-FR`), with base-language and neutral fallbacks for TMDb's image API. */
+/** Alternate backdrops/logos for a title — feeds the artwork picker. */
 export async function getTitleImages(tmdbId: number, type: "movie" | "series", locale?: string): Promise<{ backdrops: TitleImageOption[]; logos: TitleImageOption[] }> {
   const preferredLocale = toTmdbLanguage(locale);
   const lang = preferredLocale.split("-")[0];
   const data = await tmdbGet<RawTitleImages>(
     `/${type === "movie" ? "movie" : "tv"}/${tmdbId}/images`,
-    { include_image_language: `${preferredLocale},${lang},en,null` },
+    { include_image_language: lang === "fr" ? "fr,en,null" : "en,null" },
     preferredLocale
   );
   return { backdrops: mapTitleImages(data?.backdrops, lang), logos: mapTitleImages(data?.logos, lang) };
