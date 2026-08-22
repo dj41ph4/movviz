@@ -1653,12 +1653,11 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               </h2>
               <div className="grid grid-cols-3 gap-4 sm:grid-cols-4">
                 {(() => {
+                  const similarLibraryItems = type === "movie"
+                    ? libraryData?.movies
+                    : libraryData?.series;
                   const libraryTmdbIds = new Set(
-                    (
-                      (type === "movie"
-                        ? libraryData?.movies
-                        : libraryData?.series) ?? []
-                    ).map((x) => x.tmdbId),
+                    (Array.isArray(similarLibraryItems) ? similarLibraryItems : []).map((x) => x.tmdbId),
                   );
                   return detail.similar.map((s) => {
                     const owned = libraryTmdbIds.has(s.tmdbId);
