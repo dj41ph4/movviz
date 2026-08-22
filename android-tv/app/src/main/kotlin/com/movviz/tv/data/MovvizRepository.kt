@@ -196,6 +196,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun streamInfo(plexRatingKey: String): ApiResult<StreamInfoDto> =
         safeCall { api.streamInfo(plexRatingKey) }
 
+    suspend fun localEpisodeInfo(seriesId: String, seasonNumber: Int, episodeNumber: Int): ApiResult<LocalPlaybackInfoDto> =
+        safeCall { api.localEpisodeInfo(seriesId, seasonNumber, episodeNumber) }
+
     /** Ping "best-effort" de progression — jamais fatal pour la lecture,
      *  Plex n'a besoin de savoir où on en est que pour la reprise/l'état
      *  "en cours de lecture" côté serveur, un échec réseau ponctuel ne doit

@@ -98,6 +98,13 @@ interface MovvizApiService {
     @GET("api/stream/{ratingKey}/info")
     suspend fun streamInfo(@Path("ratingKey") ratingKey: String): Response<StreamInfoDto>
 
+    @GET("api/stream/local/episode/{seriesId}/{seasonNumber}/{episodeNumber}/info")
+    suspend fun localEpisodeInfo(
+        @Path("seriesId") seriesId: String,
+        @Path("seasonNumber") seasonNumber: Int,
+        @Path("episodeNumber") episodeNumber: Int,
+    ): Response<LocalPlaybackInfoDto>
+
     @POST("api/stream/{ratingKey}/progress")
     suspend fun streamProgress(
         @Path("ratingKey") ratingKey: String,

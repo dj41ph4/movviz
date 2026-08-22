@@ -267,10 +267,10 @@ fun TitleDetailScreen(
     val playableEpisodes = remember(seasons) {
         seasons.flatMap { season ->
             season.episodes
-                .filter { it.plexRatingKey != null && it.status == "available" }
+                .filter { (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available" }
                 .map { ep ->
                     QueueItem(
-                        ratingKey = ep.plexRatingKey!!,
+                        ratingKey = ep.plexRatingKey ?: "${localSeriesId}:s${season.seasonNumber}e${ep.episodeNumber}",
                         label = "S${season.seasonNumber} · Ép ${ep.episodeNumber} · ${ep.title}",
                         seasonNumber = season.seasonNumber,
                         episodeNumber = ep.episodeNumber,

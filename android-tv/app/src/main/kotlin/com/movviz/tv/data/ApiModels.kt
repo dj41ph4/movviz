@@ -439,6 +439,19 @@ data class StreamInfoDto(
 )
 
 @JsonClass(generateAdapter = true)
+data class LocalPlaybackInfoDto(
+    val seriesId: String? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val movvizId: String? = null,
+    val source: String? = null,
+    val playable: Boolean = false,
+    val plexRatingKey: String? = null,
+    val size: Long? = null,
+    val markers: List<PlaybackMarkerDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
 data class ProgressRequest(
     val offset: Long,
     val state: String,

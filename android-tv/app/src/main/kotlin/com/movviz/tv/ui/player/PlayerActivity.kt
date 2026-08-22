@@ -602,17 +602,20 @@ ExoPlayer.Builder(context)
     // MovvizRepository.resumeOffsetMs pour le détail (durationMs ne sert
     // plus qu'à ignorer un offset aberrant si le fichier a changé entre
     // temps).
-LaunchedEffect(current.ratingKey) {
+LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, current.episodeNumber) {
         networkRetryCount = 0
         fallbackLevel = 0
         fallbackNotice = null
-        val infoResult = repository.streamInfo(current.ratingKey)
-        val info = (infoResult as? ApiResult.Success)?.data
+        val localEpisode = current.localKey != null && current.seasonNumber > 0 && current.episodeNumber > 0
+        val info = if (localEpisode) {
+            (repository.localEpisodeInfo(current.localKey!!, current.seasonNumber, current.episodeNumber) as? ApiResult.Success)?.data
+        } else null
+        val plexInfo = if (!localEpisode) (repository.streamInfo(current.ratingKey) as? ApiResult.Success)?.data else null
         // Markers du média — store local Movviz. Absence = [] = player
         // strictement identique à avant, aucun message, aucune requête.
-        markers = info?.markers.orEmpty()
+        markers = (info?.markers ?: plexInfo?.markers).orEmpty()
         activeMarker = null
-        val knownDuration = info?.durationMs
+        val knownDuration = plexInfo?.durationMs
         val playbackSession = knownDuration?.takeIf { it > 0 }?.let {
             repository.openPlaybackSession(
                 ratingKey = current.ratingKey,
