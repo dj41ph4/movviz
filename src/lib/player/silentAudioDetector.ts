@@ -13,6 +13,46 @@
  * already uses) — so the native/WebCodecs/MSE-first priority stays intact
  * and HLS becomes a true fallback instead of a manual escape hatch.
  */
+type AudioProbe = {
+  context: AudioContext;
+  source: MediaElementAudioSourceNode;
+  analyser: AnalyserNode;
+  analyserConnected: boolean;
+};
+
+// A browser only permits one MediaElementSourceNode for a given <video> for
+// its entire lifetime. The player may restart direct playback on that same
+// element (resume, retry, route change), so keep and reuse the probe instead
+// of silently losing the detector after its first use.
+const probes = new WeakMap<HTMLMediaElement, AudioProbe>();
+
+function getProbe(el: HTMLMediaElement): AudioProbe | null {
+  try {
+    let probe = probes.get(el);
+    if (!probe) {
+      const AudioContextCtor =
+        window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextCtor) return null;
+      const context = new AudioContextCtor();
+      const source = context.createMediaElementSource(el);
+      const analyser = context.createAnalyser();
+      analyser.fftSize = 512;
+      source.connect(analyser);
+      source.connect(context.destination);
+      probe = { context, source, analyser, analyserConnected: true };
+      probes.set(el, probe);
+    } else if (!probe.analyserConnected) {
+      probe.source.connect(probe.analyser);
+      probe.analyserConnected = true;
+    }
+    if (probe.context.state === "suspended") void probe.context.resume();
+    return probe;
+  } catch (err) {
+    console.warn("[player] silent-audio watch unavailable:", err);
+    return null;
+  }
+}
+
 export function watchForSilentAudio(
   el: HTMLMediaElement,
   onSilent: () => void,
@@ -32,8 +72,12 @@ export function watchForSilentAudio(
   let raf = 0;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let maxLevel = 0;
-  let source: MediaElementAudioSourceNode | null = null;
-  let analyser: AnalyserNode | null = null;
+  const decodedBytes = el as HTMLMediaElement & { webkitAudioDecodedByteCount?: number };
+  const initialDecodedBytes = typeof decodedBytes.webkitAudioDecodedByteCount === "number"
+    ? decodedBytes.webkitAudioDecodedByteCount
+    : null;
+  let maxDecodedBytes = initialDecodedBytes ?? 0;
+  const probe = getProbe(el);
 
   const stop = () => {
     if (stopped) return;
@@ -47,45 +91,38 @@ export function watchForSilentAudio(
     // the default output path). Disconnecting here would silence playback
     // — including a later HLS/WebCodecs leg reusing the same <video>
     // element. Only the analyser tap is torn down.
-    try { if (source && analyser) source.disconnect(analyser); } catch { /* already gone */ }
+    if (probe?.analyserConnected) {
+      try { probe.source.disconnect(probe.analyser); } catch { /* already gone */ }
+      probe.analyserConnected = false;
+    }
   };
 
-  try {
-    const AudioContextCtor =
-      window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextCtor) return stop;
-
-    const audioCtx = new AudioContextCtor();
-    // Autoplay policy can create the context "suspended" until it picks up
-    // the page's existing user-activation — a suspended context feeds the
-    // analyser nothing, which would otherwise read as false silence (and,
-    // since createMediaElementSource reroutes the element's own output
-    // through this same context, could even cause the real silence it's
-    // meant to detect). Resume proactively and re-check before deciding.
-    if (audioCtx.state === "suspended") void audioCtx.resume();
-    source = audioCtx.createMediaElementSource(el);
-    analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 512;
-    source.connect(analyser);
-    source.connect(audioCtx.destination);
-
-    const data = new Uint8Array(analyser.frequencyBinCount);
+  if (probe || initialDecodedBytes != null) {
+    const data = new Uint8Array(probe?.analyser.frequencyBinCount ?? 0);
     const sample = () => {
-      if (stopped || !analyser) return;
-      if (audioCtx.state === "suspended") void audioCtx.resume();
-      analyser.getByteTimeDomainData(data);
-      for (let i = 0; i < data.length; i++) {
-        const v = Math.abs(data[i] - 128) / 128;
-        if (v > maxLevel) maxLevel = v;
+      if (stopped) return;
+      if (probe) {
+        if (probe.context.state === "suspended") void probe.context.resume();
+        probe.analyser.getByteTimeDomainData(data);
+        for (let i = 0; i < data.length; i++) {
+          const v = Math.abs(data[i] - 128) / 128;
+          if (v > maxLevel) maxLevel = v;
+        }
+      }
+      if (typeof decodedBytes.webkitAudioDecodedByteCount === "number") {
+        maxDecodedBytes = Math.max(maxDecodedBytes, decodedBytes.webkitAudioDecodedByteCount);
       }
       raf = requestAnimationFrame(sample);
     };
     raf = requestAnimationFrame(sample);
 
     const verdict = () => {
-      // Never conclude "silent" while the context couldn't even run — that
-      // would be a false positive, not a real detection.
-      const wasSilent = !stopped && audioCtx.state === "running" && maxLevel < threshold;
+      // The Web Audio meter catches output silence; Chromium's decoded-byte
+      // counter covers the cases where a media element cannot be reattached
+      // to a meter. Both are checked only after actual video playback began.
+      const meterSilent = probe?.context.state === "running" && maxLevel < threshold;
+      const decoderSilent = initialDecodedBytes != null && maxDecodedBytes <= initialDecodedBytes;
+      const wasSilent = !stopped && (meterSilent || (!probe && decoderSilent));
       stop();
       if (wasSilent) onSilent();
     };
@@ -104,13 +141,6 @@ export function watchForSilentAudio(
     };
     const armedAt = Date.now();
     armWindow();
-  } catch (err) {
-    // Web Audio unavailable/blocked, or createMediaElementSource() already
-    // called once for this <video> element (throws InvalidStateError on a
-    // second call, e.g. React StrictMode's double-invoked effects reusing
-    // the same DOM node) — no-op. Playback continues on its normal path,
-    // we just lose the safety net for this session.
-    console.warn("[player] silent-audio watch unavailable:", err);
   }
 
   return stop;

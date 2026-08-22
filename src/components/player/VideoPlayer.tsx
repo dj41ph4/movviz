@@ -983,14 +983,13 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       // silence. A genuine silence verdict escalates to the local ffmpeg
       // remux first (audio transcoded to AAC, video untouched) — HLS is
       // only the last resort if ffmpeg is unavailable or inapplicable.
-      // Metadata responses from local files can omit the aggregate codec
-      // while still exposing one or more audio tracks. Keep the live probe
-      // armed in that case too; otherwise a direct leg can run silently
-      // forever and never reach the audio-only remux fallback.
-      if (expectAudio || localPlayback || (Array.isArray(infoRef.current.audioStreams) && infoRef.current.audioStreams.length > 0)) {
-        stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToFfmpeg(), { windowMs: 800, requireStarted: true });
-      }
+      // Metadata is not reliable enough to decide whether a title has audio:
+      // some local and Plex files omit the aggregate codec and stream list.
+      // Every direct movie/episode is therefore live-verified. A genuinely
+      // silent title is rare; a browser silently failing an AC-3/DTS/TrueHD
+      // track is not, and must always trigger the audio-only fallback.
+      stopSilentWatchRef.current?.();
+      stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToFfmpeg(), { windowMs: 800, requireStarted: true });
     };
     startDirectRef.current = startDirect;
 
