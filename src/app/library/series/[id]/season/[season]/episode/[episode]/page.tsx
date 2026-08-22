@@ -105,6 +105,8 @@ export default function EpisodeDetailPage({
             <button
               onClick={(e) => play({
                 ratingKey: ep.plexRatingKey!,
+                movvizId: `${series.id}:s${seasonNumber}e${episodeNumber}`,
+                seriesId: series.id,
                 plexUrl: ep.plexUrl!,
                 title: ep.title,
                 useTranscode: betaPlayer,

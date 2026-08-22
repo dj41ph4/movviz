@@ -173,6 +173,8 @@ type LibraryListItem = {
       monitored: boolean; status: LibraryStatus; episodeNumber?: number;
       title?: string; airDate?: string | null; activeInfoHash?: string | null;
       file?: LibraryFile | null;
+      plexRatingKey?: string | null;
+      plexUrl?: string | null;
     }[];
   }[];
 };
@@ -189,6 +191,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const router = useRouter();
   const user = useCurrentUser();
   const { enabled: betaPlayer } = useBetaPlayer();
+  const { play, request: playerRequest } = usePlayer();
   const { enabled: specialEpisodesEnabled } = useSpecialEpisodes();
 
   /* ── data fetching ──────────────────────────────────────────────────── */
@@ -372,7 +375,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       if (document.fullscreenElement) { try { document.exitFullscreen(); } catch { /* unsupported */ } }
     };
   }, [showTrailer]);
-  const { play, request: playerRequest } = usePlayer();
   const usePlayLabelResult = usePlayLabel(libraryMatch?.plexRatingKey);
   const { enabled: titlePageVideoEnabled } = useTitlePageVideo();
 
@@ -565,6 +567,35 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       }
     },
     [libraryMatch?.id, mutateLibrary],
+  );
+
+  const playEpisode = useCallback(
+    (
+      seasonNumber: number,
+      episodeNumber: number,
+      episode: { plexRatingKey?: string | null; plexUrl?: string | null; title?: string },
+      originRect: DOMRect,
+    ) => {
+      if (!libraryMatch?.id || !episode.plexRatingKey || !episode.plexUrl) return;
+      play({
+        ratingKey: episode.plexRatingKey,
+        // The source resolver recognises this stable episode identity and
+        // chooses the local Movviz file before falling back to Plex.
+        movvizId: `${libraryMatch.id}:s${seasonNumber}e${episodeNumber}`,
+        seriesId: libraryMatch.id,
+        plexUrl: episode.plexUrl,
+        title: `${detail?.title ?? ""} — ${seasonNumber}x${pad(episodeNumber)}${episode.title ? ` · ${episode.title}` : ""}`,
+        useTranscode: betaPlayer,
+        tmdbId: detail?.tmdbId,
+        type: "series",
+        seasonNumber,
+        episodeNumber,
+        originRect,
+        backdropUrl: backdrop,
+        posterUrl: poster,
+      });
+    },
+    [libraryMatch?.id, play, detail?.title, detail?.tmdbId, betaPlayer, backdrop, poster],
   );
 
   const searchCompleteSeries = useCallback(() => {
@@ -1664,6 +1695,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                     ? openManualSearchEpisode
                     : undefined
                 }
+                onPlayEpisode={betaPlayer ? playEpisode : undefined}
                 searchingSeason={effectiveSearchingSeason}
                 searchingEpisodeKey={effectiveSearchingEpisode}
                 watchedEpisodes={watchedEpisodes}

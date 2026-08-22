@@ -7,7 +7,7 @@ import { computeMorphOrigin, estimateFullscreenGeometry, type MorphTransform, ty
 import { getDominantColor, type DominantColorResult } from "@/lib/media/dominantColor";
 import { VideoPlayer, type VideoPlayerProps } from "./VideoPlayer";
 
-type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "movvizId" | "plexUrl" | "title" | "useTranscode" | "prebufferSeconds" | "startFromBeginning"> & {
+type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "movvizId" | "seriesId" | "plexUrl" | "title" | "useTranscode" | "prebufferSeconds" | "startFromBeginning" | "onNextEpisode"> & {
   tmdbId?: number;
   type?: "movie" | "series";
   seasonNumber?: number;

@@ -9,6 +9,7 @@ import { CollectionContent } from "@/components/title/CollectionContent";
 import type { PanelView } from "@/components/title/useTitlePanel";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { computeMorphOrigin, estimateModalGeometry, type MorphTransform, type Rect } from "@/lib/motion/morphOrigin";
+import { useT } from "@/i18n/provider";
 
 interface TitlePanelProps {
   view: PanelView;
@@ -21,6 +22,7 @@ function estimateMorph(originRect: Rect): MorphTransform | null {
 }
 
 export function TitlePanel({ view, onClose }: TitlePanelProps) {
+  const t = useT();
   const scrollRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useShouldReduceMotion();
   const originRect = view.kind === "title" ? view.originRect : undefined;
@@ -76,17 +78,16 @@ export function TitlePanel({ view, onClose }: TitlePanelProps) {
         transition={morph ? { duration: 0.45, ease: [0.22, 1, 0.36, 1] } : { duration: 0.25, ease: "easeOut" }}
         style={{ transformOrigin: "center center" }}
       >
-        {/* Fully transparent sticky bar — just a floating circular close
-            button at the top-right of the card, Netflix-style, no label/
-            background/border of its own. pointer-events-none on the bar
-            keeps it from blocking clicks on the video/content underneath. */}
+        {/* The panel shell owns the sticky close action; TitleContent stays
+            content-only and therefore renders identically everywhere. */}
         <div className="sticky top-0 z-30 flex items-center justify-end px-4 py-3 pointer-events-none sm:px-6">
           <button
             onClick={onClose}
-            aria-label="Fermer"
-            className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-white backdrop-blur transition-colors hover:bg-black/70"
+            aria-label={t("common.close")}
+            className="pointer-events-auto flex h-10 items-center gap-1.5 rounded-full bg-black/50 px-3 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-black/70"
           >
             <X className="h-4 w-4" />
+            <span className="hidden sm:inline">{t("common.close")}</span>
           </button>
         </div>
         {/* px-6/pt-6 (sm:px-10/pt-10) matches what TitleContent's video

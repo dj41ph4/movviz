@@ -18,6 +18,7 @@ import {
 const SECTION_LABEL_KEY: Record<DashboardSectionId, string> = {
   continueWatching: "dashboard.continueWatching",
   becauseYouLike: "dashboard.rowRecommended",
+  shortSessions: "dashboard.shortSessions",
   availableNow: "dashboard.recentlyAdded",
   comingSoon: "dashboard.rowUpcoming",
   upgradesAvailable: "dashboard.upgradesAvailable",

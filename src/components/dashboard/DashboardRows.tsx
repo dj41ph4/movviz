@@ -6,9 +6,9 @@ import { useRouter } from "next/navigation";
 import { PosterRow } from "@/components/media/PosterRow";
 import { DashboardPosterCard } from "./DashboardPosterCard";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
-import { useT } from "@/i18n/provider";
+import { useI18n, useT } from "@/i18n/provider";
 import { daysUntil } from "@/lib/library/releaseSchedule";
-import type { LibraryMovie } from "@/lib/library/types";
+import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
@@ -19,15 +19,49 @@ interface UpgradeCandidate {
   detectedVersion: string;
 }
 
+type EditorialLibraryItem =
+  | { type: "movie"; item: LibraryMovie }
+  | { type: "series"; item: LibrarySeries };
+
+type ArtworkByKey = Record<string, {
+  backdropPath: string | null;
+  logoPath: string | null;
+}>;
+type LocalArtwork = { backdropPath: string | null; logoPath: string | null };
+
+/** Keep a mixed home row genuinely mixed without inventing a second ranking:
+ * both source lists retain their own order and alternate while either has
+ * items left. */
+function interleave<T>(first: T[], second: T[]): T[] {
+  const mixed: T[] = [];
+  const total = Math.max(first.length, second.length);
+  for (let index = 0; index < total; index++) {
+    if (first[index]) mixed.push(first[index]);
+    if (second[index]) mixed.push(second[index]);
+  }
+  return mixed;
+}
+
 /**
- * The 5 carousels below the Hero — each one gated by the matching entry in
+ * The editorial carousels below the Hero — each one gated by the matching entry in
  * `layout.sections` (same `DashboardSectionId`s defined in LOT5.1), so
  * hiding a row in Réglages (LOT5.6) doesn't need a second toggle system.
  * Reuses `findUpgradeCandidates`/`getRecommendations` verbatim via their
  * existing API routes — no second scoring/search engine.
  */
-export function DashboardRows({ sections, movies, minYear }: { sections: DashboardLayout["sections"]; movies: LibraryMovie[]; minYear?: number | null }) {
+export function DashboardRows({
+  sections,
+  movies,
+  series,
+  minYear,
+}: {
+  sections: DashboardLayout["sections"];
+  movies: LibraryMovie[];
+  series: LibrarySeries[];
+  minYear?: number | null;
+}) {
   const t = useT();
+  const { locale } = useI18n();
   const router = useRouter();
   const visible = useMemo(() => new Set(sections.filter((s) => s.visible).map((s) => s.id)), [sections]);
   const afterMinYear = useMemo(
@@ -38,8 +72,14 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
   const { data: rowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[] }[] }>(
     visible.has("discover") ? "/api/metadata/rows?type=movie" : null
   );
+  const { data: seriesRowsData } = useSWR<{ rows: { key: string; results: MetaSearchResult[] }[] }>(
+    visible.has("discover") ? "/api/metadata/rows?type=series" : null
+  );
   const { data: recData } = useSWR<{ results: MetaSearchResult[] }>(
     visible.has("becauseYouLike") ? "/api/metadata/recommendations?type=movie" : null
+  );
+  const { data: seriesRecData } = useSWR<{ results: MetaSearchResult[] }>(
+    visible.has("becauseYouLike") ? "/api/metadata/recommendations?type=series" : null
   );
   // Reflects Plex's own "on deck" state, which Movviz's own player also
   // reports into (see /api/stream/[ratingKey]/progress) — one row, one
@@ -75,11 +115,38 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
     { revalidateOnFocus: false, dedupingInterval: 10 * 60 * 1000 }
   );
 
-  const trending = (rowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter(afterMinYear).slice(0, 10);
-  const recommended = (recData?.results ?? []).filter(afterMinYear);
+  const movieTrending = (rowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter(afterMinYear);
+  const seriesTrending = (seriesRowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter(afterMinYear);
+  const trending = interleave(movieTrending, seriesTrending).slice(0, 10);
+  const recommended = interleave(
+    (recData?.results ?? []).filter(afterMinYear),
+    (seriesRecData?.results ?? []).filter(afterMinYear)
+  );
 
   const recentlyAdded = useMemo(
-    () => [...movies].filter((m) => m.status === "available" && afterMinYear(m)).sort((a, b) => b.addedAt - a.addedAt).slice(0, 20),
+    () => {
+      const availableMovies: EditorialLibraryItem[] = movies
+        .filter((m) => m.status === "available" && afterMinYear(m))
+        .map((item) => ({ type: "movie", item }));
+      const availableSeries: EditorialLibraryItem[] = series
+        .filter((s) => s.seasons.some((season) => season.episodes.some((episode) => episode.status === "available")) && afterMinYear(s))
+        .map((item) => ({ type: "series", item }));
+      return [...availableMovies, ...availableSeries]
+        .sort((a, b) => b.item.addedAt - a.item.addedAt)
+        .slice(0, 20);
+    },
+    [movies, series, afterMinYear]
+  );
+
+  // Netflix's "short on time" idea, grounded in Movviz data rather than an
+  // invented runtime: only files that are actually available and whose movie
+  // runtime is known make the row. Series are intentionally excluded until
+  // episode duration is part of their persisted library model.
+  const shortSessions = useMemo(
+    () => movies
+      .filter((movie) => movie.status === "available" && movie.runtime !== null && movie.runtime <= 40 && afterMinYear(movie))
+      .sort((a, b) => b.addedAt - a.addedAt)
+      .slice(0, 20),
     [movies, afterMinYear]
   );
 
@@ -102,7 +169,67 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
       .filter((x): x is { candidate: UpgradeCandidate; movie: LibraryMovie } => !!x.movie && afterMinYear(x.movie));
   }, [upgradeData, movies, afterMinYear]);
 
-  const sectionOrder: DashboardSectionId[] = ["discover", "continueWatching", "becauseYouLike", "availableNow", "comingSoon", "upgradesAvailable"];
+  // The only per-title artwork data not carried by row APIs is the official
+  // TMDb logo. Gather all currently visible rows first, then resolve them in
+  // one bounded request; cards themselves never issue network requests.
+  const localArtwork = useMemo(() => {
+    const artwork = new Map<string, LocalArtwork>();
+    for (const movie of movies) {
+      artwork.set(`movie:${movie.tmdbId}`, {
+        backdropPath: movie.customBackdropPath ?? movie.backdropPath,
+        logoPath: movie.customLogoPath ?? null,
+      });
+    }
+    for (const show of series) {
+      artwork.set(`series:${show.tmdbId}`, {
+        backdropPath: show.customBackdropPath ?? show.backdropPath,
+        logoPath: show.customLogoPath ?? null,
+      });
+    }
+    return artwork;
+  }, [movies, series]);
+
+  const artworkRefs = useMemo(() => {
+    const refs = new Map<string, { type: "movie" | "series"; tmdbId: number }>();
+    const add = (type: "movie" | "series", tmdbId: number) => {
+      const key = `${type}:${tmdbId}`;
+      // A user-selected Movviz logo already wins; no TMDb lookup is needed.
+      if (!localArtwork.get(key)?.logoPath) refs.set(key, { type, tmdbId });
+    };
+
+    if (visible.has("continueWatching")) {
+      continueWatching.forEach((item) => add(item.type === "movie" ? "movie" : "series", item.tmdbId));
+    }
+    if (visible.has("becauseYouLike")) recommended.forEach((item) => add(item.type, item.tmdbId));
+    if (visible.has("shortSessions")) shortSessions.forEach((item) => add("movie", item.tmdbId));
+    if (visible.has("discover")) trending.forEach((item) => add(item.type, item.tmdbId));
+    if (visible.has("availableNow")) recentlyAdded.forEach(({ type, item }) => add(type, item.tmdbId));
+    if (visible.has("comingSoon")) upcoming.forEach(({ m }) => add("movie", m.tmdbId));
+    if (visible.has("upgradesAvailable")) upgrades.forEach(({ movie }) => add("movie", movie.tmdbId));
+
+    return [...refs.values()].slice(0, 160);
+  }, [visible, continueWatching, recommended, shortSessions, trending, recentlyAdded, upcoming, upgrades, localArtwork]);
+
+  const artworkRequest = useMemo(() => {
+    if (artworkRefs.length === 0) return null;
+    const items = artworkRefs.map(({ type, tmdbId }) => `${type}:${tmdbId}`).join(",");
+    return `/api/metadata/images/batch?items=${encodeURIComponent(items)}&locale=${encodeURIComponent(locale)}`;
+  }, [artworkRefs, locale]);
+  const { data: artworkData } = useSWR<{ artwork: ArtworkByKey }>(artworkRequest);
+
+  const resolveArtwork = (type: "movie" | "series", tmdbId: number, fallbackBackdrop?: string | null): LocalArtwork => {
+    const key = `${type}:${tmdbId}`;
+    const local = localArtwork.get(key);
+    return {
+      // Every editorial card gets a true TMDb backdrop before the visual
+      // fallback is considered. A local/custom backdrop remains the explicit
+      // user choice and always wins.
+      backdropPath: local?.backdropPath ?? fallbackBackdrop ?? artworkData?.artwork[key]?.backdropPath ?? null,
+      logoPath: local?.logoPath ?? artworkData?.artwork[key]?.logoPath ?? null,
+    };
+  };
+
+  const sectionOrder: DashboardSectionId[] = ["continueWatching", "becauseYouLike", "shortSessions", "discover", "availableNow", "comingSoon", "upgradesAvailable"];
 
   return (
     <div className="space-y-8">
@@ -112,20 +239,26 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
         if (id === "continueWatching" && continueWatching.length > 0) {
           return (
             <PosterRow key={id} title={t("dashboard.continueWatching")}>
-              {continueWatching.map((item, i) => (
-                <CardErrorBoundary key={`${item.type}:${item.tmdbId}:${i}`}>
-                  <DashboardPosterCard
-                    tmdbId={item.tmdbId}
-                    type={item.type === "movie" ? "movie" : "series"}
-                    title={item.title}
-                    posterPath={item.posterPath}
-                    rating={item.rating}
-                    year={item.year ?? undefined}
-                    progressPercent={item.progressPercent}
-                    subtitle={item.type === "episode" ? `S${item.seasonNumber} E${item.episodeNumber} — ${item.episodeTitle}` : undefined}
-                  />
-                </CardErrorBoundary>
-              ))}
+              {continueWatching.map((item, i) => {
+                const type = item.type === "movie" ? "movie" : "series";
+                const artwork = resolveArtwork(type, item.tmdbId);
+                return (
+                  <CardErrorBoundary key={`${item.type}:${item.tmdbId}:${i}`}>
+                    <DashboardPosterCard
+                      tmdbId={item.tmdbId}
+                      type={type}
+                      title={item.title}
+                      posterPath={item.posterPath}
+                      backdropPath={artwork.backdropPath}
+                      logoPath={artwork.logoPath}
+                      rating={item.rating}
+                      year={item.year ?? undefined}
+                      progressPercent={item.progressPercent}
+                      subtitle={item.type === "episode" ? `S${item.seasonNumber} E${item.episodeNumber} — ${item.episodeTitle}` : undefined}
+                    />
+                  </CardErrorBoundary>
+                );
+              })}
             </PosterRow>
           );
         }
@@ -133,11 +266,40 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
         if (id === "becauseYouLike" && recommended.length > 0) {
           return (
             <PosterRow key={id} title={t("dashboard.rowRecommended")} onSeeAll={() => router.push("/discover?type=movie&row=recommendedTop")}>
-              {recommended.map((r) => (
-                <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                  <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} />
-                </CardErrorBoundary>
-              ))}
+              {recommended.map((r) => {
+                const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
+                return (
+                  <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} rating={r.rating} year={r.year} />
+                  </CardErrorBoundary>
+                );
+              })}
+            </PosterRow>
+          );
+        }
+
+        if (id === "shortSessions" && shortSessions.length > 0) {
+          return (
+            <PosterRow key={id} title={t("dashboard.shortSessions")}>
+              {shortSessions.map((movie) => {
+                const artwork = resolveArtwork("movie", movie.tmdbId, movie.backdropPath);
+                return (
+                  <CardErrorBoundary key={movie.id}>
+                    <DashboardPosterCard
+                      tmdbId={movie.tmdbId}
+                      type="movie"
+                      title={movie.title}
+                      posterPath={movie.posterPath}
+                      backdropPath={artwork.backdropPath}
+                      logoPath={artwork.logoPath}
+                      rating={movie.rating}
+                      year={movie.year}
+                      runtime={movie.runtime}
+                      genres={movie.genres}
+                    />
+                  </CardErrorBoundary>
+                );
+              })}
             </PosterRow>
           );
         }
@@ -145,11 +307,25 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
         if (id === "availableNow" && recentlyAdded.length > 0) {
           return (
             <PosterRow key={id} title={t("dashboard.recentlyAdded")} onSeeAll={() => router.push("/library?filter=available&sort=recent")}>
-              {recentlyAdded.map((m) => (
-                <CardErrorBoundary key={m.id}>
-                  <DashboardPosterCard tmdbId={m.tmdbId} type="movie" title={m.title} posterPath={m.posterPath} rating={m.rating} year={m.year} runtime={m.runtime} genres={m.genres} />
-                </CardErrorBoundary>
-              ))}
+              {recentlyAdded.map(({ type, item }) => {
+                const artwork = resolveArtwork(type, item.tmdbId, item.backdropPath);
+                return (
+                  <CardErrorBoundary key={`${type}:${item.id}`}>
+                    <DashboardPosterCard
+                      tmdbId={item.tmdbId}
+                      type={type}
+                      title={item.title}
+                      posterPath={item.posterPath}
+                      backdropPath={artwork.backdropPath}
+                      logoPath={artwork.logoPath}
+                      rating={item.rating}
+                      year={item.year}
+                      runtime={type === "movie" ? item.runtime : undefined}
+                      genres={item.genres}
+                    />
+                  </CardErrorBoundary>
+                );
+              })}
             </PosterRow>
           );
         }
@@ -157,41 +333,55 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
         if (id === "comingSoon" && upcoming.length > 0) {
           return (
             <PosterRow key={id} title={t("dashboard.rowUpcoming")} onSeeAll={() => router.push("/library?filter=upcoming")}>
-              {upcoming.map(({ m, days }) => (
-                <CardErrorBoundary key={m.id}>
-                  <DashboardPosterCard
-                    tmdbId={m.tmdbId}
-                    type="movie"
-                    title={m.title}
-                    posterPath={m.posterPath}
-                    badge={days <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: days })}
-                    year={m.year}
-                    runtime={m.runtime}
-                    genres={m.genres}
-                  />
-                </CardErrorBoundary>
-              ))}
+              {upcoming.map(({ m, days }) => {
+                const artwork = resolveArtwork("movie", m.tmdbId, m.backdropPath);
+                return (
+                  <CardErrorBoundary key={m.id}>
+                    <DashboardPosterCard
+                      tmdbId={m.tmdbId}
+                      type="movie"
+                      title={m.title}
+                      posterPath={m.posterPath}
+                      backdropPath={artwork.backdropPath}
+                      logoPath={artwork.logoPath}
+                      badge={days <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: days })}
+                      year={m.year}
+                      runtime={m.runtime}
+                      genres={m.genres}
+                    />
+                  </CardErrorBoundary>
+                );
+              })}
             </PosterRow>
           );
         }
 
-        if (id === "upgradesAvailable" && upgrades.length > 0) {
+        // A single technical upgrade rendered as a lone landscape card leaves
+        // an otherwise editorial home shelf visibly empty. Keep this shelf
+        // for a real selection; the one-off optimisation remains accessible
+        // from the existing library/quality workflow.
+        if (id === "upgradesAvailable" && upgrades.length > 1) {
           return (
             <PosterRow key={id} title={t("dashboard.upgradesAvailable")}>
-              {upgrades.map(({ candidate, movie }) => (
-                <CardErrorBoundary key={candidate.movieId}>
-                  <DashboardPosterCard
-                    tmdbId={movie.tmdbId}
-                    type="movie"
-                    title={movie.title}
-                    posterPath={movie.posterPath}
-                    badge={candidate.detectedVersion}
-                    year={movie.year}
-                    runtime={movie.runtime}
-                    genres={movie.genres}
-                  />
-                </CardErrorBoundary>
-              ))}
+              {upgrades.map(({ candidate, movie }) => {
+                const artwork = resolveArtwork("movie", movie.tmdbId, movie.backdropPath);
+                return (
+                  <CardErrorBoundary key={candidate.movieId}>
+                    <DashboardPosterCard
+                      tmdbId={movie.tmdbId}
+                      type="movie"
+                      title={movie.title}
+                      posterPath={movie.posterPath}
+                      backdropPath={artwork.backdropPath}
+                      logoPath={artwork.logoPath}
+                      badge={candidate.detectedVersion}
+                      year={movie.year}
+                      runtime={movie.runtime}
+                      genres={movie.genres}
+                    />
+                  </CardErrorBoundary>
+                );
+              })}
             </PosterRow>
           );
         }
@@ -199,11 +389,14 @@ export function DashboardRows({ sections, movies, minYear }: { sections: Dashboa
         if (id === "discover" && trending.length > 0) {
           return (
             <PosterRow key={id} title={t("dashboard.rowTrending")} onSeeAll={() => router.push("/discover?type=movie&row=trendingPopular")}>
-              {trending.map((r, i) => (
-                <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
-                  <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} rating={r.rating} year={r.year} rank={i + 1} />
-                </CardErrorBoundary>
-              ))}
+              {trending.map((r, i) => {
+                const artwork = resolveArtwork(r.type, r.tmdbId, r.backdropPath);
+                return (
+                  <CardErrorBoundary key={`${r.type}:${r.tmdbId}`}>
+                    <DashboardPosterCard tmdbId={r.tmdbId} type={r.type} title={r.title} posterPath={r.posterPath} backdropPath={artwork.backdropPath} logoPath={artwork.logoPath} rating={r.rating} year={r.year} rank={i + 1} />
+                  </CardErrorBoundary>
+                );
+              })}
             </PosterRow>
           );
         }

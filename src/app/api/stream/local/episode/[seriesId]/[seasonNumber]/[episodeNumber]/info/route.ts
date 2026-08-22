@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { resolveEpisodePlayback } from "@/lib/playback/sourceResolver";
-import { getPlaybackMarkers } from "@/lib/playback/markers/store";
+import { getLocalStreamInfo } from "@/lib/playback/localStreamInfo";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ seriesId: string; seasonNumber: string; episodeNumber: string }> };
@@ -21,6 +21,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (resolved.value.path) {
     try { size = fs.statSync(resolved.value.path).size; } catch { /* stream route reports availability */ }
   }
+  const streamInfo = await getLocalStreamInfo(resolved.value.plexRatingKey, user.id);
   return NextResponse.json({
     seriesId, seasonNumber, episodeNumber,
     movvizId: resolved.value.movvizId,
@@ -30,6 +31,6 @@ export async function GET(req: NextRequest, context: Ctx) {
     size,
     // Markers are keyed by the Plex rating key when available. Local-only
     // episodes simply return an empty list until a marker scan links them.
-    markers: getPlaybackMarkers(resolved.value.plexRatingKey ?? ""),
+    ...streamInfo,
   }, { headers: { "cache-control": "private, no-store" } });
 }

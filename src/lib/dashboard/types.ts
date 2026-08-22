@@ -18,6 +18,7 @@ export type DashboardMode = (typeof DASHBOARD_MODES)[number];
 export const DASHBOARD_SECTION_IDS = [
   "continueWatching",
   "becauseYouLike",
+  "shortSessions",
   "availableNow",
   "comingSoon",
   "upgradesAvailable",

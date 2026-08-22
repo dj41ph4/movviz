@@ -29,6 +29,9 @@ export interface VideoPlayerProps {
   ratingKey: string;
   /** Identité Movviz stable pour une lecture locale ; optionnel pour préserver les appels Plex. */
   movvizId?: string;
+  /** Identifiant brut de la série — distinct de `movvizId` qui encode aussi
+   * saison/épisode pour la progression. */
+  seriesId?: string;
   plexUrl: string;
   title: string;
   onClose: () => void;
@@ -44,6 +47,8 @@ export interface VideoPlayerProps {
   episodeNumber?: number;
   tmdbId?: number;
   startFromBeginning?: boolean;
+  /** Provided only for a series episode whose immediate successor is known. */
+  onNextEpisode?: () => void;
 }
 
 interface StreamTrack {
@@ -125,7 +130,7 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId, startFromBeginning = false }: VideoPlayerProps) {
+export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId, startFromBeginning = false, onNextEpisode }: VideoPlayerProps) {
   const { t, locale } = useI18n();
   const tRef = useRef(t);
   tRef.current = t;
@@ -138,17 +143,23 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
   const betaRef = useRef(beta);
   betaRef.current = beta;
   const playbackId = movvizId ?? ratingKey;
-  const localPlayback = Boolean(movvizId);
+  const onNextEpisodeRef = useRef(onNextEpisode);
+  onNextEpisodeRef.current = onNextEpisode;
+  const inferredSeriesId = movvizId?.match(/^(.*):s\d+e\d+$/)?.[1] ?? null;
   // Episodes use the series identity plus season/episode coordinates.  Keep
   // this in one place so every local leg (direct playback and metadata probe)
   // resolves to the same endpoint; falling back to the movie route here used
   // to make Desktop episode playback report "not found" even though Android
   // and the library both knew the file was local.
-  const localStreamPath = localPlayback
-    ? mediaType === "episode" && seasonNumber != null && episodeNumber != null
-      ? `/api/stream/local/episode/${encodeURIComponent(movvizId!)}/${encodeURIComponent(String(seasonNumber))}/${encodeURIComponent(String(episodeNumber))}`
-      : `/api/stream/local/${encodeURIComponent(movvizId!)}`
-    : null;
+  const episodeSeriesId = seriesId ?? inferredSeriesId;
+  const localStreamPath = mediaType === "episode"
+    ? episodeSeriesId && seasonNumber != null && episodeNumber != null
+      ? `/api/stream/local/episode/${encodeURIComponent(episodeSeriesId)}/${encodeURIComponent(String(seasonNumber))}/${encodeURIComponent(String(episodeNumber))}`
+      : null
+    : movvizId
+      ? `/api/stream/local/${encodeURIComponent(movvizId)}`
+      : null;
+  const localPlayback = Boolean(localStreamPath);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -249,14 +260,15 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
   const prebufferRef = useRef(Math.min(prebufferSeconds ?? 0, PREBUFFER_SECONDS));
   prebufferRef.current = Math.min(prebufferSeconds ?? 0, PREBUFFER_SECONDS);
 
-  // HLS (Plex transcode) est une option MANUELLE (Réglages → Plex). Tous les
-  // replis vers la leg HLS passent par ici : autorisés seulement si la leg
-  // HLS est déjà active (reload de piste, retry réseau, escalade ta=1) ou si
-  // l'admin a explicitement choisi "hls"/"native". Sinon, erreur explicite
-  // au lieu du transcode Plex silencieux — le défaut reste direct/ffmpeg.
-  const maybeStartHls = (subtitleId?: string | null) => {
+  // HLS (Plex transcode) is never the preferred start path: Auto tries
+  // direct/MSE/FFmpeg first. It *is* the mandatory final fallback when those
+  // legs genuinely fail, otherwise a temporary FFmpeg issue degenerates into
+  // the misleading “HLS disabled” message instead of preserving playback.
+  // `allowFailureFallback` is deliberately explicit so merely opening Auto
+  // cannot silently start a Plex transcode.
+  const maybeStartHls = (subtitleId?: string | null, allowFailureFallback = false) => {
     const b = betaRef.current;
-    if (hlsRef.current || dashRef.current || b.playbackEngine === "hls" || b.playbackEngine === "native") {
+    if (allowFailureFallback || hlsRef.current || dashRef.current || b.playbackEngine === "hls" || b.playbackEngine === "native") {
       startHlsRef.current?.(subtitleId ? `subtitleStreamID=${subtitleId}` : undefined);
       return;
     }
@@ -305,7 +317,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     const needDash = tv === "1" || ta === "1" || /hevc|h265|hev1|hvc1|av1|av01|vp9/.test(srcVideo);
     if (needDash) {
       fallbackGuardRef.current = false;
-      maybeStartHls();
+      maybeStartHls(undefined, true);
       return;
     }
     const hls = hlsRef.current;
@@ -339,7 +351,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     const engine = ffmpegEngineRef.current;
     if (!engine) {
       // Pas de moteur actif (état incohérent) — retombe sur la leg HLS.
-      maybeStartHls();
+      maybeStartHls(undefined, true);
       return;
     }
     // Leg ffmpeg : el.currentTime est relatif au flux (qui part de seekBase)
@@ -358,7 +370,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     } catch {
       // Filet de sécurité — le moteur déclenche déjà onError → fallback HLS
       // pour tout échec de lecture (piste invalide, 502, 429...).
-      maybeStartHls();
+      maybeStartHls(undefined, true);
     }
   };
 
@@ -386,7 +398,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     setUsingFallback(false);
     setDirectMode(false);
     setBuffering(true);
-    maybeStartHls(subtitleId);
+    maybeStartHls(subtitleId, true);
   };
 
   // --- Sous-titres leg ffmpeg (100% local, sans Plex) ---
@@ -635,7 +647,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
         setFfmpegStats(null);
       }
       fallbackGuardRef.current = false;
-      maybeStartHls();
+      maybeStartHls(undefined, true);
     };
 
     // Escalade de la leg directe uniquement : le verdict de silence (fenêtre
@@ -670,7 +682,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       setBuffering(true);
       // Remux ffmpeg d'abord (transcode du son), HLS en dernier recours.
       void (async () => {
-        if (!(await tryStartFfmpegRemux(infoRef.current))) maybeStartHls();
+        if (!(await tryStartFfmpegRemux(infoRef.current))) maybeStartHls(undefined, true);
       })();
     };
 
@@ -963,7 +975,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       const recoverFromDirect = async () => {
         if (directRecoveryStarted || fallbackGuardRef.current || hlsRef.current || mseEngineRef.current || ffmpegEngineRef.current) return;
         directRecoveryStarted = true;
-        if (!(await tryStartMse(infoRef.current, seekTo)) && !(await tryStartFfmpegRemux(infoRef.current, seekTo))) maybeStartHls();
+        if (!(await tryStartMse(infoRef.current, seekTo)) && !(await tryStartFfmpegRemux(infoRef.current, seekTo))) maybeStartHls(undefined, true);
       };
 
       // Direct play can now be (re)started more than once per mount — the
@@ -1137,10 +1149,10 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
           // La leg MSE ne renverra jamais "mse" avec engine "ffmpeg"
           // (orchestrate exige "mse" ou "auto") — remux directement, HLS
           // en dernier recours.
-          if (!(await tryStartFfmpegRemux(info, seekTo))) maybeStartHls();
+          if (!(await tryStartFfmpegRemux(info, seekTo))) maybeStartHls(undefined, true);
           return;
         }
-        if (!(await tryStartMse(info, seekTo)) && !(await tryStartFfmpegRemux(info, seekTo))) maybeStartHls();
+        if (!(await tryStartMse(info, seekTo)) && !(await tryStartFfmpegRemux(info, seekTo))) maybeStartHls(undefined, true);
         return;
       }
 
@@ -1164,7 +1176,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       mseSkippedRef.current = true;
       setBuffering(true);
       fallbackGuardRef.current = false;
-      maybeStartHls();
+      maybeStartHls(undefined, true);
     };
 
     // MSE leg: replaces the HLS-transcode leg for MP4 files whose codecs are
@@ -1247,7 +1259,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       ffmpegSkippedRef.current = true;
       setBuffering(true);
       fallbackGuardRef.current = false;
-      maybeStartHls();
+      maybeStartHls(undefined, true);
     };
 
     // FFmpeg remux leg: takes over exactly where the JS-only MSE parser
@@ -1263,7 +1275,10 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       if (!video) return false;
       const b = betaRef.current;
       if (!b.enabled || ffmpegSkippedRef.current || b.playbackEngine === "native") return false;
-      if (seekTo && seekTo > 0) return false; // resume path stays on proven engines
+      // Unlike MSE, the local remux endpoint natively accepts `seekTo` and
+      // restarts FFmpeg with `-ss`. Refusing that path sent every resume to
+      // the now-manual HLS leg, producing the “HLS disabled” screen even
+      // though FFmpeg was available and built for this exact operation.
       const media: MediaInfo = {
         ratingKey,
         container: info.container,
@@ -1533,6 +1548,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       const sessionId = playbackSessionRef.current;
       if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/ended`, { method: "POST", keepalive: true }).catch(() => void 0);
       localStorage.removeItem(PROGRESS_KEY(ratingKey));
+      onNextEpisodeRef.current?.();
     };
 
     el.addEventListener("timeupdate", onTimeUpdate);
@@ -2049,7 +2065,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       setFfmpegStats(null);
       void engine.destroy().catch(() => void 0);
     }
-    maybeStartHls();
+    maybeStartHls(undefined, true);
   };
 
   const QUALITY_PRESETS = [
@@ -2096,12 +2112,12 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
         if (await tryStartFfmpegRemuxRef.current?.(infoRef.current, undefined)) {
           if (pos && pos > 0) await ffmpegEngineRef.current?.seek(pos);
         } else {
-          maybeStartHls();
+          maybeStartHls(undefined, true);
         }
       })();
       return;
     }
-    maybeStartHls();
+    maybeStartHls(undefined, true);
   };
 
   const playedPct = ((seekPreview ?? currentTime) / (duration || 1)) * 100;
@@ -2304,6 +2320,16 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                   className="pointer-events-auto absolute bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
                 >
                   {activeMarker.type === "intro" ? "Passer l’intro" : "Passer le générique"}
+                </button>
+              )}
+
+              {onNextEpisode && mediaType === "episode" && duration > 0 && currentTime >= Math.max(0, duration - 30) && !showResume && (
+                <button
+                  onClick={onNextEpisode}
+                  className="pointer-events-auto absolute bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
+                >
+                  <SkipForward className="h-4 w-4" />
+                  {t("player.betaNextEpisode")}
                 </button>
               )}
 

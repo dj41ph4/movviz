@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.16.78 — August 2026
+
+### Desktop — découverte, séries et lecture
+
+- Les cartes éditoriales d'Accueil, Films et Séries utilisent désormais de
+  vrais backdrops TMDb 16:9, avec le logo officiel du titre ou un titre texte
+  stable lorsqu'aucun logo n'est disponible. Une absence réelle de backdrop
+  affiche une carte Movviz neutre au lieu de recadrer une affiche verticale.
+- Accueil enrichi : hero au fallback stable après trois secondes, rangées
+  mixtes intentionnelles, formats courts, survol desktop flottant et retrait
+  des faux indicateurs de défilement vides.
+- Films et Séries ont leurs catalogues dédiés, un hero propre à leur type et
+  un sélecteur Genre, tout en conservant l'ouverture des fiches dans le
+  panneau Movviz unique.
+- Fiches séries : saisons absentes correctement téléchargeables, saison 0
+  masquée quand elle n'existe pas, lancement direct d'un épisode disponible,
+  bouton et enchaînement de l'épisode suivant si celui-ci est présent.
+- Répare le chemin Auto de lecture : une reprise peut repartir par FFmpeg,
+  les fichiers locaux remontent codecs/pistes audio/disponibilité FFmpeg, et
+  HLS Plex redevient le secours final après un échec réel — jamais une fausse
+  erreur « Lecture HLS désactivée ».
+- Aligne les versions web, Android TV, package lock, badge et métadonnées de
+  release sur `1.16.78`.
+
 ## v1.16.77 — August 2026
 
 ### Desktop et Android TV

@@ -6,7 +6,7 @@ import useSWR from "swr";
 
 import { useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
-import { ChevronDown, Check, Clock, HardDriveDownload, Search, Loader2, ListFilter, Eye, Calendar } from "lucide-react";
+import { ChevronDown, Check, Clock, HardDriveDownload, Search, Loader2, ListFilter, Eye, Calendar, Info } from "lucide-react";
 import type { LibraryStatus, LibraryFile } from "@/lib/library/types";
 import { MediaBadges } from "@/components/library/MediaBadges";
 
@@ -34,6 +34,8 @@ interface LibraryEpisodeInfo {
   airDate?: string | null;
   activeInfoHash?: string | null;
   file?: LibraryFile | null;
+  plexRatingKey?: string | null;
+  plexUrl?: string | null;
 }
 
 interface LibrarySeasonInfo {
@@ -92,6 +94,7 @@ function SeasonRow({
   onManualSearchSeason,
   onSearchEpisode,
   onManualSearchEpisode,
+  onPlayEpisode,
   searchingSeason,
   searchingEpisodeKey,
   watchedEpisodes,
@@ -108,6 +111,12 @@ function SeasonRow({
   onManualSearchSeason?: (n: number) => void;
   onSearchEpisode?: (s: number, e: number) => void;
   onManualSearchEpisode?: (s: number, e: number) => void;
+  onPlayEpisode?: (
+    seasonNumber: number,
+    episodeNumber: number,
+    episode: LibraryEpisodeInfo,
+    originRect: DOMRect,
+  ) => void;
   searchingSeason?: number | null;
   searchingEpisodeKey?: string | null;
   watchedEpisodes?: Set<string>;
@@ -224,7 +233,7 @@ function SeasonRow({
               {togglingWatched === `s${season.seasonNumber}` ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className={cn("h-3.5 w-3.5", seasonAllWatched && "fill-ok/30")} />}
             </button>
           )}
-          {onSearchSeason && libSeason && (
+          {onSearchSeason && (
             <button
               onClick={(e) => { e.stopPropagation(); onSearchSeason(season.seasonNumber); }}
               disabled={searchingSeason === season.seasonNumber}
@@ -234,7 +243,7 @@ function SeasonRow({
               {searchingSeason === season.seasonNumber ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
             </button>
           )}
-          {onManualSearchSeason && libSeason && (
+          {onManualSearchSeason && (
             <button
               onClick={(e) => { e.stopPropagation(); onManualSearchSeason(season.seasonNumber); }}
               title={t("library.manualSearch")}
@@ -320,20 +329,48 @@ function SeasonRow({
                         </div>
                       </>
                     );
+                    const playableHere = ep.status === "available" && !!ep.plexRatingKey && !!ep.plexUrl && !!onPlayEpisode;
+                    const episodeDetailHref = seriesId && ep.episodeNumber != null
+                      ? `/library/series/${seriesId}/season/${season.seasonNumber}/episode/${ep.episodeNumber}`
+                      : null;
+                    const interactiveRow = playableHere ? (
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={(event) => onPlayEpisode?.(season.seasonNumber, epNumber, ep, event.currentTarget.getBoundingClientRect())}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            onPlayEpisode?.(season.seasonNumber, epNumber, ep, event.currentTarget.getBoundingClientRect());
+                          }
+                        }}
+                        className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg outline-none transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-brand/70"
+                        title={t("player.play")}
+                      >
+                        {rowContent}
+                      </div>
+                    ) : episodeDetailHref ? (
+                      <Link href={episodeDetailHref} className="flex min-w-0 flex-1 items-start gap-3">
+                        {rowContent}
+                      </Link>
+                    ) : (
+                      <div className="flex min-w-0 flex-1 items-start gap-3">{rowContent}</div>
+                    );
                     return (
                       <div key={idx} className="flex items-start gap-3 rounded-lg px-3 py-2 hover:bg-white/5">
-                        {seriesId && ep.episodeNumber != null ? (
-                          <Link
-                            href={`/library/series/${seriesId}/season/${season.seasonNumber}/episode/${ep.episodeNumber}`}
-                            className="flex min-w-0 flex-1 items-start gap-3"
-                          >
-                            {rowContent}
-                          </Link>
-                        ) : (
-                          <div className="flex min-w-0 flex-1 items-start gap-3">{rowContent}</div>
-                        )}
+                        {interactiveRow}
                         {ep.status !== "downloading" && ep.status !== "searching" && ep.episodeNumber != null && (
                           <div className="flex shrink-0 items-center gap-2 self-center">
+                            {playableHere && episodeDetailHref && (
+                              <Link
+                                href={episodeDetailHref}
+                                onClick={(event) => event.stopPropagation()}
+                                title={t("common.open")}
+                                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg glass-strong text-ink-soft hover:text-ink"
+                              >
+                                <Info className="h-3.5 w-3.5" />
+                              </Link>
+                            )}
                             {onSearchEpisode && (
                               <button
                                 onClick={() => onSearchEpisode(season.seasonNumber, ep.episodeNumber!)}
@@ -439,6 +476,7 @@ export function SeasonAccordion({
   onManualSearchSeason,
   onSearchEpisode,
   onManualSearchEpisode,
+  onPlayEpisode,
   searchingSeason,
   searchingEpisodeKey,
   watchedEpisodes,
@@ -453,6 +491,12 @@ export function SeasonAccordion({
   onManualSearchSeason?: (seasonNumber: number) => void;
   onSearchEpisode?: (seasonNumber: number, episodeNumber: number) => void;
   onManualSearchEpisode?: (seasonNumber: number, episodeNumber: number) => void;
+  onPlayEpisode?: (
+    seasonNumber: number,
+    episodeNumber: number,
+    episode: LibraryEpisodeInfo,
+    originRect: DOMRect,
+  ) => void;
   searchingSeason?: number | null;
   searchingEpisodeKey?: string | null;
   watchedEpisodes?: Set<string>;
@@ -460,18 +504,37 @@ export function SeasonAccordion({
   const { t, locale } = useI18n();
   const [expanded, setExpanded] = useState<number | null>(null);
 
-  // When the library has more seasons than TMDb (e.g. after a TVDB resync
-  // for anime), derive the visible list from the library data so every
-  // season the user owns actually shows up in the UI.
+  // TMDb supplies the canonical season list while the library can contain
+  // additional seasons after an anime/TVDB resync. Merge both sources rather
+  // than replacing one with the other. In particular, never manufacture a
+  // fake season 0 from an undefined library value: specials are only shown
+  // when they genuinely contain episodes.
   const effectiveSeasons = useMemo(() => {
-    if (librarySeasons && librarySeasons.length > seasons.length) {
-      return librarySeasons.map((ls) => ({
-        seasonNumber: ls.seasonNumber ?? 0,
-        name: seasons.find((s) => s.seasonNumber === ls.seasonNumber)?.name ?? `${t("title.season")} ${ls.seasonNumber}`,
-        episodeCount: ls.episodes.length,
-      }));
+    const byNumber = new Map<number, SeasonInfo>();
+    for (const season of seasons) {
+      if (!Number.isInteger(season.seasonNumber) || season.seasonNumber < 0) continue;
+      byNumber.set(season.seasonNumber, season);
     }
-    return seasons;
+    for (const librarySeason of librarySeasons ?? []) {
+      const seasonNumber = librarySeason.seasonNumber;
+      if (!Number.isInteger(seasonNumber) || seasonNumber == null || seasonNumber < 0) continue;
+      const existing = byNumber.get(seasonNumber);
+      const libraryCount = librarySeason.episodes.length;
+      if (existing) {
+        if (libraryCount > existing.episodeCount) {
+          byNumber.set(seasonNumber, { ...existing, episodeCount: libraryCount });
+        }
+      } else {
+        byNumber.set(seasonNumber, {
+          seasonNumber,
+          name: `${t("title.season")} ${seasonNumber}`,
+          episodeCount: libraryCount,
+        });
+      }
+    }
+    return [...byNumber.values()].filter(
+      (season) => season.seasonNumber !== 0 || season.episodeCount > 0,
+    );
   }, [seasons, librarySeasons, t]);
 
   const sorted = [...effectiveSeasons].sort((a, b) => b.seasonNumber - a.seasonNumber);
@@ -494,6 +557,7 @@ export function SeasonAccordion({
             onManualSearchSeason={onManualSearchSeason}
             onSearchEpisode={onSearchEpisode}
             onManualSearchEpisode={onManualSearchEpisode}
+            onPlayEpisode={onPlayEpisode}
             searchingSeason={searchingSeason}
             searchingEpisodeKey={searchingEpisodeKey}
             watchedEpisodes={watchedEpisodes}

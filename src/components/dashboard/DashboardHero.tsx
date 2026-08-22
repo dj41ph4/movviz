@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Info, Play, Pause, Plus, Loader2, Check } from "lucide-react";
 import { HeroSlideshow } from "./HeroSlideshow";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
+import { TitleMark } from "@/components/media/TitleMark";
 import { MediaBadges } from "@/components/library/MediaBadges";
 import { useT, useI18n } from "@/i18n/provider";
 import { cn, openPlexLink } from "@/lib/utils";
@@ -63,16 +64,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   const { enabled: betaPlayer } = useBetaPlayer();
   const { play } = usePlayer();
   const { label: playLabel } = usePlayLabel(active?.plexRatingKey);
-
-  // Best-rated TMDb logo for the active slide — same "logo instead of text
-  // title" treatment as the title page's own hero. Auto-picked only here
-  // (the per-title custom override from the artwork picker isn't threaded
-  // through the suggestion engine yet); falls back to the plain text title
-  // when TMDb has no logo at all.
-  const { data: heroImages } = useSWR<{ logos: { filePath: string }[] }>(
-    active ? `/api/metadata/images?tmdbId=${active.detail.tmdbId}&type=${active.detail.type}&locale=${locale}` : null
-  );
-  const heroLogoUrl = heroImages?.logos?.[0]?.filePath ? `/tmdb/w500${heroImages.logos[0].filePath}` : null;
 
   const addActiveToLibrary = async () => {
     if (!active) return;
@@ -153,22 +144,13 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             {statusLabel}
           </span>
 
-          <h2 className="max-w-2xl text-2xl font-black tracking-tight text-white drop-shadow-lg sm:text-4xl">
-            {heroLogoUrl ? (
-              <>
-                <span className="sr-only">{active.detail.title}</span>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={heroLogoUrl}
-                  alt=""
-                  loading="lazy"
-                  className="max-h-16 max-w-[70vw] object-contain object-left align-middle sm:max-h-24 sm:max-w-md"
-                />
-              </>
-            ) : (
-              active.detail.title
-            )}
-          </h2>
+          <TitleMark
+            key={`${active.detail.type}:${active.detail.tmdbId}`}
+            tmdbId={active.detail.tmdbId}
+            type={active.detail.type}
+            title={active.detail.title}
+            locale={locale}
+          />
 
           <div className="flex flex-wrap items-center gap-2 text-sm text-white/80">
             {active.detail.year && <span>{active.detail.year}</span>}

@@ -74,15 +74,6 @@ export function PosterRow({
         )}
       </div>
 
-      {scrollState.overflowing && (
-        <div className="h-0.5 w-full overflow-hidden rounded-full bg-white/8">
-          <div
-            className="h-full rounded-full bg-white/30 transition-[width]"
-            style={{ width: "20%", transform: `translateX(${scrollState.progress * 400}%)` }}
-          />
-        </div>
-      )}
-
       <div className="relative">
         {scrollState.overflowing && !scrollState.atStart && (
           <button

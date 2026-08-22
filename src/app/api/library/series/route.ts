@@ -24,6 +24,17 @@ export async function GET(req: NextRequest) {
   const all = tmdbId ? loadSeries().filter((s) => s.tmdbId === tmdbId) : loadSeries();
   const series = all.map((s) => ({
     ...s,
+    // The title panel needs the exact episode URL to launch a selected
+    // episode directly. This is additive to the existing response and
+    // mirrors the single-series route below; it never changes a Plex link
+    // already used by another client.
+    seasons: s.seasons.map((season) => ({
+      ...season,
+      episodes: season.episodes.map((episode) => ({
+        ...episode,
+        plexUrl: urlFor(episode.plexRatingKey),
+      })),
+    })),
     playable: s.seasons.some((season) => season.episodes.some((ep) => ep.status === "available" && !!ep.file)),
     playbackSource: s.seasons.some((season) => season.episodes.some((ep) => ep.status === "available" && !!ep.file)) ? "movviz" as const : (s.plexRatingKey ? "plex" as const : null),
     plexUrl: urlFor(s.plexRatingKey),

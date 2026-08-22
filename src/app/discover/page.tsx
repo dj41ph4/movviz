@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
@@ -11,12 +11,15 @@ import { cn, formatDate } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
+import { TitleMark } from "@/components/media/TitleMark";
+import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
+import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import {
-  Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, Calendar, Clock, CalendarCheck,
+  Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, ChevronDown, Calendar, Clock, CalendarCheck, Info,
 } from "lucide-react";
 
 const SORT_OPTIONS = ["popularity.desc", "vote_average.desc", "primary_release_date.desc"] as const;
@@ -37,6 +40,7 @@ export default function DiscoverPage() {
 
 function DiscoverPageInner() {
   const t = useT();
+  const { locale } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -61,6 +65,7 @@ function DiscoverPageInner() {
     const name = searchParams.get("watchProviderName");
     return id && name ? { id, name } : null;
   });
+  const [genreMenuOpen, setGenreMenuOpen] = useState(false);
 
   // Browse view — paginated grid, used for search and any active filter/tile selection.
   const [results, setResults] = useState<MetaSearchResult[]>([]);
@@ -184,6 +189,7 @@ function DiscoverPageInner() {
     setSort("popularity.desc");
     setCompany(null);
     setRowCategory(null);
+    setGenreMenuOpen(false);
     setMediaType(mt);
   };
 
@@ -301,11 +307,36 @@ function DiscoverPageInner() {
     }
   };
 
+  const homeRows = useMemo(
+    () => [
+      ...rows.map((row) => ({ ...row, results: row.results.filter(afterMinYear) })),
+      ...c411Rows
+        .map((row) => ({ ...row, results: row.results.filter((item) => item.type === mediaType).filter(afterMinYear) }))
+        .filter((row) => row.results.length > 0),
+    ],
+    [rows, c411Rows, mediaType, minYear]
+  );
+  const catalogHero = homeRows.find((row) => row.key === "recommendedTop")?.results[0] ?? homeRows[0]?.results[0] ?? null;
+  const homeArtworkRefs = useMemo(
+    () => homeRows.flatMap((row) => row.results.map((result) => ({ tmdbId: result.tmdbId, type: result.type }))),
+    [homeRows]
+  );
+  const browseArtworkRefs = useMemo(
+    () => results.map((result) => ({ tmdbId: result.tmdbId, type: result.type })),
+    [results]
+  );
+  const titleArtwork = useTitleArtworkBatch(isBrowsing ? browseArtworkRefs : homeArtworkRefs, locale);
+  const selectedGenreName = genres.find((item) => String(item.id) === genre)?.name ?? null;
+
   return (
     <div className="mx-auto max-w-[1500px] space-y-8">
-      <PageHeader eyebrow={t("discover.eyebrow")} title={t("discover.title")} description={t("discover.description")}>
+      <PageHeader
+        eyebrow={t("discover.eyebrow")}
+        title={mediaType === "movie" ? t("common.movies") : t("common.series")}
+        description={t("discover.description")}
+      >
         {configured && (
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {(["movie", "series"] as const).map((mt) => (
               <button
                 key={mt}
@@ -318,6 +349,39 @@ function DiscoverPageInner() {
                 {mt === "movie" ? t("common.movies") : t("common.series")}
               </button>
             ))}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setGenreMenuOpen((open) => !open)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
+                  genre ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"
+                )}
+              >
+                {selectedGenreName ?? t("discover.genres")} <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {genreMenuOpen && (
+                <div className="absolute right-0 top-full z-30 mt-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl">
+                  <button
+                    type="button"
+                    onClick={() => { setGenre(""); setGenreMenuOpen(false); }}
+                    className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", !genre ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
+                  >
+                    {t("common.all")}
+                  </button>
+                  {genres.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => { setGenre(String(item.id)); setGenreMenuOpen(false); }}
+                      className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", genre === String(item.id) ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </PageHeader>
@@ -328,6 +392,8 @@ function DiscoverPageInner() {
 
       {configured && (
         <>
+          {!isBrowsing && catalogHero && <CatalogHero result={catalogHero} />}
+
           <div className="flex items-center gap-3 rounded-2xl glass px-5">
             <Search className="h-5 w-5 text-ink-dim" />
             <input
@@ -339,16 +405,6 @@ function DiscoverPageInner() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-              className="h-10 rounded-xl glass px-3 text-sm text-ink outline-none"
-            >
-              <option value="">{t("common.all")}</option>
-              {genres.map((g) => (
-                <option key={g.id} value={g.id}>{g.name}</option>
-              ))}
-            </select>
             <input
               value={year}
               onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
@@ -386,12 +442,8 @@ function DiscoverPageInner() {
 
           {!isBrowsing && (
             <HomeRows
-              rows={[
-                ...rows.map((r) => ({ ...r, results: r.results.filter(afterMinYear) })),
-                ...c411Rows
-                  .map((r) => ({ ...r, results: r.results.filter((x) => x.type === mediaType).filter(afterMinYear) }))
-                  .filter((r) => r.results.length > 0),
-              ]}
+              rows={homeRows}
+              artwork={titleArtwork}
               loading={rowsLoading}
               companyTiles={companyTiles}
               watchProviderTiles={watchProviderTiles}
@@ -420,11 +472,8 @@ function DiscoverPageInner() {
                 <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                   {[...Array(12)].map((_, i) => (
                     <div key={i}>
-                      <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/6" />
-                      <div className="mt-2.5 space-y-1.5 px-0.5">
-                        <div className="h-3 w-3/4 animate-pulse rounded bg-white/8" />
-                        <div className="h-2.5 w-1/2 animate-pulse rounded bg-white/6" />
-                      </div>
+                      <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
+                      <div className="mt-1.5 h-2.5 w-1/2 animate-pulse rounded bg-white/6" />
                     </div>
                   ))}
                 </div>
@@ -443,8 +492,8 @@ function DiscoverPageInner() {
                         index={i}
                         result={r}
                         status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
-                        libLoaded={libLoaded}
                         watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
+                        logoPath={titleArtwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
                         onAdded={() => setLibStatus((m) => new Map(m).set(`${r.type}:${r.tmdbId}`, "missing"))}
                       />
                     ))}
@@ -483,10 +532,63 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
   );
 }
 
+/** A type-specific editorial entry point for Films and Series. It is only a
+ * visual invitation; its Link is caught by useTitlePanel, preserving the one
+ * floating Movviz detail implementation and the caller's scroll position. */
+function CatalogHero({ result }: { result: MetaSearchResult }) {
+  const { t, locale } = useI18n();
+  const backdrop = result.backdropPath ? `/tmdb/w1280${result.backdropPath}` : null;
+  const poster = result.posterPath ? `/tmdb/w500${result.posterPath}` : null;
+
+  return (
+    <Link
+      href={`/title/${result.type}/${result.tmdbId}`}
+      className="group relative block min-h-[260px] overflow-hidden rounded-3xl border border-white/10 bg-[#12111c] sm:min-h-[340px]"
+    >
+      {backdrop ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={backdrop} alt={result.title} className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.02]" />
+      ) : poster ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={poster} alt="" className="absolute inset-0 h-full w-full scale-125 object-cover opacity-45 blur-2xl" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={poster} alt={result.title} className="absolute right-[10%] top-0 h-full max-w-[42%] object-contain drop-shadow-2xl" />
+        </>
+      ) : null}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/95 via-black/55 to-transparent" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+      <div className="relative z-10 flex min-h-[260px] max-w-xl flex-col justify-end gap-3 p-5 sm:min-h-[340px] sm:p-8">
+        <span className="w-fit rounded-full border border-white/15 bg-black/35 px-3 py-1 text-xs font-semibold text-white/85 backdrop-blur">
+          {result.type === "movie" ? t("common.movies") : t("common.series")}
+        </span>
+        <TitleMark
+          key={`${result.type}:${result.tmdbId}`}
+          tmdbId={result.tmdbId}
+          type={result.type}
+          title={result.title}
+          locale={locale}
+          className="min-h-11 text-2xl sm:min-h-16 sm:text-3xl"
+          logoClassName="max-h-14 max-w-[60vw] sm:max-h-16 sm:max-w-sm"
+        />
+        <div className="flex flex-wrap items-center gap-x-2 text-sm font-semibold text-white/85">
+          {result.year && <span>{result.year}</span>}
+          {result.rating > 0 && <><span className="text-white/45">•</span><span className="text-amber">★ {result.rating.toFixed(1)}</span></>}
+        </div>
+        {result.overview && <p className="line-clamp-2 text-sm text-white/75 sm:line-clamp-3">{result.overview}</p>}
+        <span className="mt-1 flex w-fit items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-black shadow-lg transition-transform group-hover:scale-105">
+          <Info className="h-4 w-4" /> {t("dashboard.hero.moreInfo")}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
 function HomeRows({
-  rows, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onWatchProviderClick,
+  rows, artwork, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onWatchProviderClick,
 }: {
   rows: { key: string; results: MetaSearchResult[]; ranked?: boolean }[];
+  artwork: Record<string, { logoPath: string | null }>;
   loading: boolean;
   companyTiles: LogoTile[];
   watchProviderTiles: LogoTile[];
@@ -509,9 +611,8 @@ function HomeRows({
             <div className="h-6 w-48 animate-pulse rounded-lg bg-white/8" />
             <div className="flex gap-4 overflow-hidden">
               {[...Array(6)].map((_, j) => (
-                <div key={j} className="w-[150px] shrink-0 sm:w-[170px]">
-                  <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/6" />
-                  <div className="mt-2.5 h-3 w-24 animate-pulse rounded bg-white/8" />
+                <div key={j} className="w-[205px] shrink-0 lg:w-[210px] xl:w-[205px]">
+                  <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
                 </div>
               ))}
             </div>
@@ -543,6 +644,7 @@ function HomeRows({
             libStatus={libStatus}
             libLoaded={libLoaded}
             watchedSet={watchedSet}
+            artwork={artwork}
             onAdded={onAdded}
             onSeeAll={() => onSeeAll(row.key)}
           />
@@ -595,10 +697,11 @@ function LogoRow({ title, tiles, onClick }: { title: string; tiles: LogoTile[]; 
 }
 
 function PosterRow({
-  title, results, libStatus, libLoaded, watchedSet, onAdded, onSeeAll,
+  title, results, artwork, libStatus, libLoaded, watchedSet, onAdded, onSeeAll,
 }: {
   title: string;
   results: MetaSearchResult[];
+  artwork: Record<string, { logoPath: string | null }>;
   libStatus: Map<string, string>;
   libLoaded: boolean;
   watchedSet: Set<number>;
@@ -609,13 +712,13 @@ function PosterRow({
   return (
     <SharedPosterRow title={title} onSeeAll={onSeeAll}>
       {results.map((r, i) => (
-        <div key={`${r.type}:${r.tmdbId}`} className="w-[150px] shrink-0 sm:w-[170px]">
+        <div key={`${r.type}:${r.tmdbId}`} className="w-[205px] shrink-0 lg:w-[210px] xl:w-[205px]">
           <DiscoverCard
             index={i}
             result={r}
             status={libLoaded ? (libStatus.get(`${r.type}:${r.tmdbId}`) ?? null) : null}
-            libLoaded={libLoaded}
             watched={watchedSet.has(r.tmdbId) && r.type === "movie"}
+            logoPath={artwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
             onAdded={() => onAdded(`${r.type}:${r.tmdbId}`)}
           />
         </div>
@@ -765,12 +868,12 @@ function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank
 }
 
 function DiscoverCard({
-  result, status, libLoaded, watched, onAdded, index = 0,
+  result, status, watched, logoPath, onAdded, index = 0,
 }: {
   result: MetaSearchResult;
   status: string | null;
-  libLoaded: boolean;
   watched: boolean;
+  logoPath: string | null;
   onAdded: () => void;
   index?: number;
 }) {
@@ -778,7 +881,6 @@ function DiscoverCard({
   const reduceMotion = useShouldReduceMotion();
   const [adding, setAdding] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [imgLoaded, setImgLoaded] = useState(false);
 
   const add = async () => {
     setAdding(true);
@@ -802,115 +904,66 @@ function DiscoverCard({
     }
   };
 
-  const poster = result.posterPath ? `/tmdb/w500${result.posterPath}` : null;
-  // Same day-count treatment as the library card and dashboard row — a
-  // not-yet-released movie already being monitored shouldn't be
-  // indistinguishable from any other TMDb browse result.
   const daysToRelease = result.type === "movie" ? daysUntil(result.releaseDate) : null;
 
   const cascadeAnim = reduceMotion ? {} : {
-    initial: { opacity: 0, y: 20, scale: 0.95 },
-    animate: { opacity: 1, y: 0, scale: 1 },
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
     transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
-    whileHover: { scale: 1.03, y: -2, boxShadow: "0 0 25px rgba(168, 130, 255, 0.15)" },
     whileTap: { scale: 0.98 },
     style: { willChange: "transform" } as React.CSSProperties,
   };
-  const btnSpring = reduceMotion ? {} : {
-    whileTap: { scale: 0.95 },
-    transition: { type: "spring" as const, stiffness: 400, damping: 17 },
-  };
+
+  const isBusy = adding || status === "downloading" || status === "searching";
+  const ActionIcon = isBusy ? Loader2 : status === "available" ? Check : status === "missing" ? Clock : status === "upcoming" ? CalendarCheck : Plus;
+  const buttonTone = status === "available"
+    ? "bg-ok/95 text-white"
+    : status === "missing"
+      ? "bg-amber/95 text-black"
+      : status === "upcoming"
+        ? "bg-black/70 text-brand-glow ring-1 ring-white/15"
+        : status
+          ? "bg-purple-500/95 text-white"
+          : "brand-gradient text-white";
+  const cardBadge = watched
+    ? t("watch.watched")
+    : status === "upcoming" && daysToRelease != null
+      ? daysToRelease <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: daysToRelease })
+      : undefined;
 
   return (
-    <motion.article className="group w-full" {...cascadeAnim}>
-      <Link href={`/title/${result.type}/${result.tmdbId}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30">
-        {poster ? (
-          <motion.img
-            src={poster}
-            alt={result.title}
-            loading="lazy"
-            className="h-full w-full object-cover"
-            initial={reduceMotion ? undefined : { opacity: 0 }}
-            animate={reduceMotion ? undefined : { opacity: imgLoaded ? 1 : 0 }}
-            transition={{ duration: 0.4 }}
-            onLoad={() => setImgLoaded(true)}
-          />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
-            {result.type === "movie" ? <Film className="h-7 w-7 text-ink-soft/70" /> : <Tv className="h-7 w-7 text-ink-soft/70" />}
-            <span className="line-clamp-3 text-sm font-semibold text-ink/90">{result.title}</span>
-          </div>
-        )}
-        <div className="absolute left-2 top-2 flex items-center gap-1 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold backdrop-blur">
-          {watched ? <Check className="h-3 w-3 text-ok" /> : <Star className="h-3 w-3 fill-amber text-amber" />}
-          {watched ? (<span className="text-ok">Vu</span>) : result.rating.toFixed(1)}
-        </div>
-        {status === "downloading" && (
-          <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full bg-purple-500/90 px-2 py-1 text-[11px] font-bold text-white backdrop-blur">
-            <Loader2 className="h-3 w-3 animate-spin" />
-          </div>
-        )}
-        {status === "available" && libLoaded && (
-          <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full bg-ok/90 px-2 py-1 text-[11px] font-bold text-white backdrop-blur">
-            <Check className="h-3 w-3" />
-          </div>
-        )}
-        {status === "missing" && libLoaded && (
-          <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full bg-amber/80 px-2 py-1 text-[11px] font-bold text-white backdrop-blur">
-            <Clock className="h-3 w-3" />
-          </div>
-        )}
-        {status === "upcoming" && libLoaded && (
-          <div className="pointer-events-none absolute right-2 top-2 flex items-center gap-1 rounded-full border border-white/15 bg-black/55 px-2 py-1 text-[11px] font-bold text-brand-glow backdrop-blur">
-            <CalendarCheck className="h-3 w-3" />
-            {daysToRelease != null && (
-              <span>{daysToRelease <= 1 ? t("dashboard.hero.inOneDay") : t("dashboard.hero.inDays", { n: daysToRelease })}</span>
-            )}
-          </div>
-        )}
-        <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-          <motion.button
-            {...btnSpring}
-            onClick={(e) => { e.preventDefault(); add(); }}
-            disabled={adding || !!status}
-            className={cn(
-              "flex h-9 items-center justify-center gap-1.5 rounded-xl text-xs font-bold",
-              status ? "bg-ok/20 text-ok" : "brand-gradient text-white"
-            )}
-          >
-            {adding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : status ? <Check className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
-            {status ? t("discover.added") : adding ? t("discover.adding") : t("discover.addToLibrary")}
-          </motion.button>
-        </div>
-      </Link>
-
-      {/* Actions mobiles (toujours visibles) */}
-      <div className="mt-2.5 lg:hidden">
+    <motion.article className="w-full" {...cascadeAnim}>
+      <div className="relative">
+        <DashboardPosterCard
+          layout="fill"
+          reserveBottomRight
+          tmdbId={result.tmdbId}
+          type={result.type}
+          title={result.title}
+          posterPath={result.posterPath}
+          backdropPath={result.backdropPath}
+          logoPath={logoPath}
+          rating={result.rating}
+          badge={cardBadge}
+          year={result.year}
+        />
         <button
-          onClick={(e) => { e.preventDefault(); add(); }}
+          type="button"
+          onClick={(event) => { event.preventDefault(); event.stopPropagation(); void add(); }}
           disabled={adding || !!status}
-          className={cn(
-            "flex h-11 w-full items-center justify-center gap-1.5 rounded-xl text-sm font-bold",
-            status ? "bg-ok/20 text-ok" : "brand-gradient text-white"
-          )}
+          title={status ? t("discover.added") : t("discover.addToLibrary")}
+          className={cn("absolute bottom-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 disabled:cursor-default disabled:opacity-100", buttonTone)}
         >
-          {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : status ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-          {status ? t("discover.added") : adding ? t("discover.adding") : t("discover.addToLibrary")}
+          <ActionIcon className={cn("h-4 w-4", isBusy && "animate-spin")} />
         </button>
       </div>
-
-      <div className="mt-1.5 px-0.5">
-        <Link href={`/title/${result.type}/${result.tmdbId}`} className="block truncate text-sm font-semibold text-ink transition-all duration-200 hover:text-brand-glow">{result.title}</Link>
-        <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-dim">
-          {formatDate(result.releaseDate, locale) ? (
-            <span className="flex items-center gap-1">
-              <Calendar className="h-2.5 w-2.5" /> {formatDate(result.releaseDate, locale)}
-            </span>
-          ) : (
-            <span>{result.year ?? "—"}</span>
-          )}
-          {feedback && <span className="truncate text-amber">{feedback}</span>}
-        </div>
+      <div className="mt-1.5 flex items-center gap-2 px-0.5 text-xs text-ink-dim">
+        {formatDate(result.releaseDate, locale) ? (
+          <span className="flex items-center gap-1"><Calendar className="h-2.5 w-2.5" /> {formatDate(result.releaseDate, locale)}</span>
+        ) : (
+          <span>{result.year ?? "—"}</span>
+        )}
+        {feedback && <span className="truncate text-amber">{feedback}</span>}
       </div>
     </motion.article>
   );
