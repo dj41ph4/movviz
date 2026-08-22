@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.17.01 — August 2026
+
+### Découverte — C411
+
+- Corrige les rangées C411 : chaque entrée est de nouveau résolue par sa
+  fiche TMDb complète (affiche, fond 16:9, titre et note). Si l'identifiant
+  transmis par C411 est absent, périmé ou ambigu, le titre et l'année servent
+  de repli sûr au lieu de laisser une carte noire.
+
 ## v1.17.00 — August 2026
 
 ### Desktop — visuels, découverte et lecture

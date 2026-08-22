@@ -1,5 +1,6 @@
 import { c411FetchJson, loadC411ListsConfig } from "./session";
-import { classifyTmdbId, resolveReleases, posterPathFromUrl } from "./resolve";
+import { classifyTmdbId, resolveRelease, resolveReleases } from "./resolve";
+import { getMovie, getSeries } from "@/lib/metadata/tmdb";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { mapWithConcurrency } from "@/lib/concurrency";
 
@@ -7,9 +8,10 @@ import { mapWithConcurrency } from "@/lib/concurrency";
  * C411 front-page lists for the Discover tab.
  *
  * The homepage's own "Nouvelles Sorties" section is served by
- * /api/homepage as three pre-enriched lists (popular / recent / release
- * date) whose items already carry tmdbId + TMDb artwork — no extra TMDb
- * calls. The "uploaded today" counter links to /api/torrents/today, which
+ * /api/homepage as three lists carrying an optional TMDb id/title/year. The
+ * homepage payload is not guaranteed to include artwork, so each valid item
+ * is hydrated through Movviz's durable TMDb cache before reaching a card.
+ * The "uploaded today" counter links to /api/torrents/today, which
  * has no tmdbId — those release names are resolved through TMDb search
  * (disk-cached, see resolve.ts).
  *
@@ -37,7 +39,6 @@ interface C411ExclusiveItem {
   tmdbId: number | null;
   tmdbTitle: string | null;
   tmdbYear: number | null;
-  posterUrl: string | null;
 }
 
 interface C411Homepage {
@@ -61,25 +62,43 @@ const MEDIA_SUBCATS = new Set(["films-videos"]);
 
 async function mapExclusiveItems(items: C411ExclusiveItem[]): Promise<MetaSearchResult[]> {
   const out = await mapWithConcurrency(items.slice(0, 14), 5, async (item): Promise<MetaSearchResult | null> => {
-    if (!item.tmdbId) return null;
-    const type = await classifyTmdbId(item.tmdbId, { title: item.tmdbTitle, year: item.tmdbYear });
-    if (!type) return null;
-    return {
-      tmdbId: item.tmdbId,
-      type,
-      title: item.tmdbTitle?.trim() || "",
-      year: item.tmdbYear,
-      releaseDate: null,
-      overview: "",
-      posterPath: posterPathFromUrl(item.posterUrl),
-      backdropPath: null,
-      rating: 0,
-    };
+    // C411's homepage sometimes returns a valid id but no artwork at all;
+    // other times it only has a display title/year. Resolve a proper TMDb
+    // result here, not in the card, so the first paint already has poster +
+    // 16:9 backdrop and the normal visual cache merely improves it further.
+    if (item.tmdbId) {
+      const type = await classifyTmdbId(item.tmdbId, { title: item.tmdbTitle, year: item.tmdbYear });
+      const detail = type === "movie"
+        ? await getMovie(item.tmdbId)
+        : type === "series"
+          ? await getSeries(item.tmdbId)
+          : null;
+      if (detail) {
+        return {
+          tmdbId: detail.tmdbId,
+          type: type!,
+          title: detail.title,
+          year: detail.year,
+          releaseDate: detail.releaseDate,
+          overview: detail.overview,
+          posterPath: detail.posterPath,
+          backdropPath: detail.backdropPath,
+          rating: detail.rating,
+        };
+      }
+    }
+
+    // The tracker title remains a safe fallback when its embedded TMDb id is
+    // absent, stale, or belongs to a colliding movie/TV id-space. Adding the
+    // year lets resolveRelease reject similarly named unrelated titles.
+    const title = item.tmdbTitle?.trim();
+    return title ? resolveRelease(`${title}${item.tmdbYear ? ` ${item.tmdbYear}` : ""}`) : null;
   });
-  const seen = new Set<number>();
+  const seen = new Set<string>();
   return out.filter((r): r is MetaSearchResult => {
-    if (!r || seen.has(r.tmdbId)) return false;
-    seen.add(r.tmdbId);
+    const key = r ? `${r.type}:${r.tmdbId}` : "";
+    if (!r || seen.has(key)) return false;
+    seen.add(key);
     return true;
   });
 }
