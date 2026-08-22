@@ -22,6 +22,8 @@ export interface PlayNowRequest {
    *  for direct playback (feeds the AI's recent-watches memory). */
   tmdbId?: number;
   type?: "movie" | "series";
+  seasonNumber?: number;
+  episodeNumber?: number;
   /** Clicked element's getBoundingClientRect() — feeds Theater Mode's expand-from-origin animation (Phase B). Undefined for a programmatic play with no click origin. */
   originRect?: OriginRect;
   backdropUrl?: string | null;
@@ -73,6 +75,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             title={request.title}
             tmdbId={request.tmdbId}
             type={request.type}
+            seasonNumber={request.seasonNumber}
+            episodeNumber={request.episodeNumber}
             onClose={close}
             useTranscode={request.useTranscode}
             prebufferSeconds={PREBUFFER_SECONDS}

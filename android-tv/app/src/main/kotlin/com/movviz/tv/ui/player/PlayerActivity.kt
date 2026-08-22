@@ -451,6 +451,7 @@ private fun PlayerScreen(
     // → nouveau StreamInfo → anciens markers remplacés intégralement.
     var markers by remember(current.ratingKey) { mutableStateOf<List<com.movviz.tv.data.PlaybackMarkerDto>>(emptyList()) }
     var activeMarker by remember { mutableStateOf<com.movviz.tv.data.PlaybackMarkerDto?>(null) }
+    var playbackSessionId by remember(current.ratingKey) { mutableStateOf<String?>(null) }
 
     val exoPlayer = remember {
         val upstream = OkHttpDataSource.Factory(com.movviz.tv.data.ApiClient.httpClient())
@@ -602,6 +603,16 @@ LaunchedEffect(current.ratingKey) {
         markers = info?.markers.orEmpty()
         activeMarker = null
         val knownDuration = info?.durationMs
+        val playbackSession = knownDuration?.takeIf { it > 0 }?.let {
+            repository.openPlaybackSession(
+                ratingKey = current.ratingKey,
+                durationMs = it,
+                tmdbId = tmdbId,
+                title = current.label ?: mainTitle,
+                mediaType = if (type == "series") "episode" else "movie",
+            )
+        }
+        playbackSessionId = playbackSession?.sessionId
         // Pré-décision du niveau de lecture, d'après les codecs réels du
         // titre (streamInfo) et les décodeurs RÉELS du boîtier sondés via
         // MediaCodecUtil — la même API qu'ExoPlayer utilise pour choisir ses
@@ -643,7 +654,7 @@ LaunchedEffect(current.ratingKey) {
         } else if (startLevel == 1) {
             fallbackNotice = "Compatibilité optimisée…"
         }
-        val resume = if (startFromBeginning && currentIndex == startIndex) 0L else repository.resumeOffsetMs(
+        val resume = if (startFromBeginning && currentIndex == startIndex) 0L else playbackSession?.resumeOffsetMs ?: repository.resumeOffsetMs(
             type = type,
             tmdbId = tmdbId,
             durationMs = knownDuration,
@@ -676,9 +687,10 @@ LaunchedEffect(current.ratingKey) {
                     // lisant le code : `hasNext` figé à true incrémentait
                     // currentIndex au-delà de queue.size - 1).
                     if (currentIndex < queue.size - 1) {
+                        playbackSessionId?.let { id -> scope.launch { repository.playbackEnded(id) } }
                         currentIndex += 1
                     } else {
-                        scope.launch { repository.reportStop(queue[currentIndex].ratingKey) }
+                        playbackSessionId?.let { id -> scope.launch { repository.playbackEnded(id) } }
                         onExit()
                     }
                 }
@@ -747,6 +759,8 @@ LaunchedEffect(current.ratingKey) {
         onDispose {
             runCatching {
                 kotlinx.coroutines.runBlocking {
+                    val id = playbackSessionId
+                    if (id != null) repository.playbackStop(id, exoPlayer.currentPosition)
                     repository.reportStop(queue[currentIndex].ratingKey)
                 }
             }
@@ -759,8 +773,11 @@ LaunchedEffect(current.ratingKey) {
     // la lecture, jamais la racine PlayerScreen ni les boutons de contrôle
     // (règle du lecteur : 60 fps constants, zéro recomposition à la frame).
     LaunchedEffect(current.ratingKey) {
+        var sequence = 0L
         while (true) {
             delay(PROGRESS_REPORT_INTERVAL_MS)
+            val id = playbackSessionId
+            if (id != null) repository.playbackHeartbeat(id, ++sequence, exoPlayer.currentPosition, isPlaying)
             repository.reportProgress(current.ratingKey, exoPlayer.currentPosition, if (isPlaying) "playing" else "paused")
         }
     }
@@ -854,6 +871,7 @@ LaunchedEffect(current.ratingKey) {
     fun skipMarkerAction() {
         val m = activeMarker ?: return
         poke()
+        playbackSessionId?.let { id -> scope.launch { repository.playbackSeek(id, m.endMs, "skip_marker", m.type) } }
         exoPlayer.seekTo(m.endMs)
     }
     fun nextEpisodeAction() {

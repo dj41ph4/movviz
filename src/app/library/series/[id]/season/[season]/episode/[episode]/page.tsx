@@ -110,6 +110,8 @@ export default function EpisodeDetailPage({
                 useTranscode: betaPlayer,
                 tmdbId: series.tmdbId,
                 type: "series",
+                seasonNumber,
+                episodeNumber,
                 originRect: e.currentTarget.getBoundingClientRect(),
                 backdropUrl: still,
               })}

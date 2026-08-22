@@ -107,6 +107,21 @@ interface MovvizApiService {
     @POST("api/stream/{ratingKey}/stop")
     suspend fun streamStop(@Path("ratingKey") ratingKey: String): Response<Map<String, Any?>>
 
+    @POST("api/playback/sessions")
+    suspend fun playbackSession(@Body body: PlaybackSessionRequest): Response<PlaybackSessionResponse>
+
+    @POST("api/playback/sessions/{sessionId}/heartbeat")
+    suspend fun playbackHeartbeat(@Path("sessionId") sessionId: String, @Body body: PlaybackHeartbeatRequest): Response<Map<String, Any?>>
+
+    @POST("api/playback/sessions/{sessionId}/seek")
+    suspend fun playbackSeek(@Path("sessionId") sessionId: String, @Body body: Map<String, Any?>): Response<Map<String, Any?>>
+
+    @POST("api/playback/sessions/{sessionId}/stop")
+    suspend fun playbackStop(@Path("sessionId") sessionId: String, @Body body: Map<String, Any?> = emptyMap()): Response<Map<String, Any?>>
+
+    @POST("api/playback/sessions/{sessionId}/ended")
+    suspend fun playbackEnded(@Path("sessionId") sessionId: String): Response<Map<String, Any?>>
+
     @GET("api/plex/on-deck")
     suspend fun onDeck(): Response<OnDeckResponseDto>
 

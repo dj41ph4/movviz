@@ -10,6 +10,8 @@ import { VideoPlayer, type VideoPlayerProps } from "./VideoPlayer";
 type TheaterModePlayerProps = Pick<VideoPlayerProps, "ratingKey" | "plexUrl" | "title" | "useTranscode" | "prebufferSeconds"> & {
   tmdbId?: number;
   type?: "movie" | "series";
+  seasonNumber?: number;
+  episodeNumber?: number;
   originRect?: Rect;
   onClose: () => void;
   /** Backdrop wins for ambience extraction; poster is the fallback for
@@ -34,7 +36,7 @@ const DURATION = 0.45;
  * difference from TitlePanel: the end geometry is always true fullscreen,
  * never a bounded modal.
  */
-export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl, tmdbId, type, title, ...playerProps }: TheaterModePlayerProps) {
+export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl, tmdbId, type, title, seasonNumber, episodeNumber, ...playerProps }: TheaterModePlayerProps) {
   const reduceMotion = useShouldReduceMotion();
   const ambienceSrc = backdropUrl ?? posterUrl ?? null;
   const [ambience, setAmbience] = useState<DominantColorResult | null>(null);
@@ -179,7 +181,7 @@ export function TheaterModePlayer({ originRect, onClose, backdropUrl, posterUrl,
         transition={{ duration: reduceMotion ? 0.15 : DURATION, ease: EASE }}
         style={{ transformOrigin: "center center" }}
       >
-        <VideoPlayer {...playerProps} title={title} onClose={onClose} embedded />
+        <VideoPlayer {...playerProps} title={title} onClose={onClose} tmdbId={tmdbId} seasonNumber={seasonNumber} episodeNumber={episodeNumber} mediaType={type === "series" ? "episode" : "movie"} embedded />
       </motion.div>
     </div>
   );

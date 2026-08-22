@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.16.72 — August 2026
+
+### Backend Movviz de progression et reprise multi-client
+
+- Ajoute le stockage backend par utilisateur, sessions, heartbeats et protection contre les seeks accidentels.
+- Desktop et Android TV utilisent désormais les sessions Playback Movviz.
+- Les marqueurs intro/crédits v1.16.71 restent servis depuis le cache Movviz.
+- La complétion synchronise le statut vu vers Plex et enrichit Continue Watching avec les reprises Movviz.
+
 All notable changes to Movviz, grouped by development milestone.
 
 ---

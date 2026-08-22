@@ -387,7 +387,17 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       setResumeSeconds(null);
       return;
     }
-    setResumeSeconds(getSavedProgressSeconds(libraryMatch.plexRatingKey));
+    let cancelled = false;
+    void fetch(`/api/playback/items/${encodeURIComponent(libraryMatch.plexRatingKey)}`, { cache: "no-store" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { watched?: boolean; resumeOffsetMs?: number | null } | null) => {
+        if (cancelled) return;
+        if (data && !data.watched && Number.isFinite(Number(data.resumeOffsetMs)) && Number(data.resumeOffsetMs) > 0) setResumeSeconds(Number(data.resumeOffsetMs) / 1000);
+        else if (!data) setResumeSeconds(getSavedProgressSeconds(libraryMatch.plexRatingKey));
+        else setResumeSeconds(null);
+      })
+      .catch(() => { if (!cancelled) setResumeSeconds(getSavedProgressSeconds(libraryMatch.plexRatingKey)); });
+    return () => { cancelled = true; };
   }, [playerRequest, betaPlayer, libraryMatch?.plexRatingKey]);
   const resumePercent = resumeSeconds != null && detail?.runtime
     ? Math.min(100, Math.max(0, (resumeSeconds / (detail.runtime * 60)) * 100))

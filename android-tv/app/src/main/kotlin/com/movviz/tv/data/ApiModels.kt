@@ -441,6 +441,32 @@ data class ProgressRequest(
     val state: String,
 )
 
+@JsonClass(generateAdapter = true)
+data class PlaybackSessionRequest(
+    val ratingKey: String,
+    val mediaType: String = "movie",
+    val durationMs: Long,
+    val tmdbId: Int? = null,
+    val title: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlaybackHeartbeatRequest(
+    val sequence: Long,
+    val positionMs: Long,
+    val isPlaying: Boolean,
+    val playbackRate: Double = 1.0,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlaybackSessionResponse(
+    val sessionId: String,
+    val resumeOffsetMs: Long? = null,
+    val watched: Boolean = false,
+    val eligibleForResume: Boolean = false,
+    val completionBoundaryMs: Long? = null,
+)
+
 // Miroir de OnDeckEntry (src/app/api/plex/on-deck/route.ts) — sert à la fois
 // à retrouver la position de reprise pour la lecture (offsetMs, le
 // viewOffset Plex brut exact en ms — progressPercent reste présent en repli

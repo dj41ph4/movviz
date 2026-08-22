@@ -37,6 +37,10 @@ export interface VideoPlayerProps {
    *  sizing, and the backdrop — skips this component's own fixed/backdrop
    *  wrapper so it doesn't fight the parent's animated geometry. */
   embedded?: boolean;
+  mediaType?: "movie" | "episode";
+  seasonNumber?: number;
+  episodeNumber?: number;
+  tmdbId?: number;
 }
 
 interface StreamTrack {
@@ -78,6 +82,7 @@ interface StreamInfo {
   height?: number | null;
   ffmpegAvailable?: boolean;
   durationMs?: number | null;
+  markers?: { id: string; type: "intro" | "credits"; startMs: number; endMs: number; final?: boolean }[];
 }
 
 /**
@@ -117,7 +122,7 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded }: VideoPlayerProps) {
+export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId }: VideoPlayerProps) {
   const { t, locale } = useI18n();
   const tRef = useRef(t);
   tRef.current = t;
@@ -140,6 +145,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const startHlsRef = useRef<((extraParams?: string, isCopyNetworkRetry?: boolean) => void) | null>(null);
   const stopSilentWatchRef = useRef<(() => void) | null>(null);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const playbackSessionRef = useRef<string | null>(null);
+  const playbackSequenceRef = useRef(0);
   const infoRef = useRef<StreamInfo>({ videoCodec: null, audioCodec: null, container: null });
   const progressRef = useRef<HTMLDivElement>(null);
   const volumeTrackRef = useRef<HTMLDivElement>(null);
@@ -217,6 +224,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const [skipToast, setSkipToast] = useState<{ n: number; delta: number } | null>(null);
   const [pipSupported, setPipSupported] = useState(false);
   const [showResume, setShowResume] = useState(false);
+  const [markers, setMarkers] = useState<NonNullable<StreamInfo["markers"]>>([]);
+  const [activeMarker, setActiveMarker] = useState<NonNullable<StreamInfo["markers"]>[number] | null>(null);
   const [savedPos, setSavedPos] = useState(0);
   const [cacheProgress, setCacheProgress] = useState<{ current: number; target: number } | null>(null);
   // Hard cap: no caller can reintroduce a multi-minute loading wall by
@@ -986,6 +995,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           info = (await res.json()) as StreamInfo;
           info.container = (info as any).container ?? null;
           infoRef.current = info;
+          setMarkers(info.markers ?? []);
           const audioTracks = Array.isArray(info.audioStreams) ? info.audioStreams : [];
           const subTracks = Array.isArray(info.subtitleStreams) ? info.subtitleStreams : [];
           setAudioStreams(audioTracks);
@@ -1290,13 +1300,23 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     };
     tryStartFfmpegRemuxRef.current = tryStartFfmpegRemux;
 
-    const saved = Number(localStorage.getItem(PROGRESS_KEY(ratingKey)));
-    if (saved > 5 && Number.isFinite(saved)) {
-      setSavedPos(saved);
-      setShowResume(true);
-    } else {
-      void begin();
-    }
+    let sessionReady = false;
+    void fetch("/api/playback/sessions", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ratingKey, mediaType, durationMs: Math.max(1, Math.round((infoRef.current.durationMs ?? 0) || 1_000_000)), tmdbId, seasonNumber, episodeNumber, title }),
+    }).then((r) => r.ok ? r.json() : null).then((data: { sessionId?: string; resumeOffsetMs?: number | null; watched?: boolean } | null) => {
+      if (!data?.sessionId) return begin();
+      sessionReady = true;
+      playbackSessionRef.current = data.sessionId;
+      const saved = Number(data.resumeOffsetMs);
+      if (!data.watched && saved > 0 && Number.isFinite(saved)) {
+        setSavedPos(saved);
+        setShowResume(true);
+      } else {
+        void begin();
+      }
+    }).catch(() => { if (!sessionReady) void begin(); });
 
     const el = videoRef.current;
     if (!el) return;
@@ -1318,6 +1338,15 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       const displayTime = (ffmpegActiveRef.current ? base + ve.currentTime : ve.currentTime);
       const offset = Math.floor(displayTime * 1000);
       localStorage.setItem(PROGRESS_KEY(ratingKey), String(displayTime));
+      const sessionId = playbackSessionRef.current;
+      if (sessionId) {
+        void fetch(`/api/playback/sessions/${sessionId}/heartbeat`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sequence: ++playbackSequenceRef.current, positionMs: Math.round(displayTime * 1000), isPlaying: !ve.paused, playbackRate: ve.playbackRate }),
+          keepalive: true,
+        }).catch(() => void 0);
+      }
       void fetch(`/api/stream/${ratingKey}/progress`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -1341,6 +1370,8 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
           method: "POST",
           keepalive: true,
         }).catch(() => void 0);
+        const sessionId = playbackSessionRef.current;
+        if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/stop`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ positionMs: Math.round((ffmpegActiveRef.current ? base + el.currentTime : el.currentTime) * 1000) }), keepalive: true }).catch(() => void 0);
       } catch { /* ignore */ }
       if (mseEngineRef.current) {
         try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
@@ -1378,6 +1409,10 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       prebufferClearRef.current = null;
     };
   }, [ratingKey, useTranscode]);
+
+  useEffect(() => {
+    setActiveMarker(markers.find((m) => currentTime * 1000 >= m.startMs && currentTime * 1000 < m.endMs) ?? null);
+  }, [markers, currentTime]);
 
   // Point d'entrée unique pour tout seek programmatique (barre de
   // progression, boutons ±10s, raccourcis clavier) — la leg ffmpeg n'a pas
@@ -1470,6 +1505,11 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       setMuted(el.muted);
     };
     const onRateChange = () => setPlaybackRate(el.playbackRate);
+    const onEnded = () => {
+      const sessionId = playbackSessionRef.current;
+      if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/ended`, { method: "POST", keepalive: true }).catch(() => void 0);
+      localStorage.removeItem(PROGRESS_KEY(ratingKey));
+    };
 
     el.addEventListener("timeupdate", onTimeUpdate);
     el.addEventListener("loadeddata", onLoadedData);
@@ -1478,6 +1518,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
     el.addEventListener("pause", onPause);
     el.addEventListener("volumechange", onVolumeChange);
     el.addEventListener("ratechange", onRateChange);
+    el.addEventListener("ended", onEnded);
 
     return () => {
       el.removeEventListener("timeupdate", onTimeUpdate);
@@ -1487,6 +1528,7 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
       el.removeEventListener("pause", onPause);
       el.removeEventListener("volumechange", onVolumeChange);
       el.removeEventListener("ratechange", onRateChange);
+      el.removeEventListener("ended", onEnded);
     };
   }, []);
 
@@ -1818,6 +1860,14 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
   const handleStartOver = () => {
     setShowResume(false);
     void beginRef.current?.(0);
+  };
+
+  const handleSkipMarker = () => {
+    const marker = activeMarker;
+    if (!marker) return;
+    const sessionId = playbackSessionRef.current;
+    if (sessionId) void fetch(`/api/playback/sessions/${sessionId}/seek`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ fromMs: Math.round(currentTime * 1000), toMs: marker.endMs, reason: "skip_marker", markerType: marker.type }), keepalive: true }).catch(() => void 0);
+    seekTo(marker.endMs / 1000);
   };
 
   const handleDirectPlay = () => {
@@ -2168,6 +2218,15 @@ export function VideoPlayer({ ratingKey, plexUrl, title, onClose, useTranscode, 
                     </p>
                   </div>
                 </div>
+              )}
+
+              {activeMarker && !showResume && (
+                <button
+                  onClick={handleSkipMarker}
+                  className="absolute bottom-24 right-5 z-30 rounded-full border border-white/20 bg-black/80 px-5 py-3 text-sm font-bold text-white shadow-xl backdrop-blur-md transition hover:bg-black"
+                >
+                  {activeMarker.type === "intro" ? "Passer l’intro" : "Passer le générique"}
+                </button>
               )}
 
               {showResume && (

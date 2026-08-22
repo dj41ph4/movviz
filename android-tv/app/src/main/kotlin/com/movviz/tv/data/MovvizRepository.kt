@@ -203,6 +203,25 @@ class MovvizRepository(private val baseUrl: String) {
         runCatching { api.streamStop(plexRatingKey) }
     }
 
+    suspend fun openPlaybackSession(ratingKey: String, durationMs: Long, tmdbId: Int, title: String, mediaType: String = "movie"): PlaybackSessionResponse? =
+        runCatching { api.playbackSession(PlaybackSessionRequest(ratingKey, mediaType, durationMs.coerceAtLeast(1), tmdbId, title)) }.getOrNull()?.body()
+
+    suspend fun playbackHeartbeat(sessionId: String, sequence: Long, positionMs: Long, isPlaying: Boolean) {
+        runCatching { api.playbackHeartbeat(sessionId, PlaybackHeartbeatRequest(sequence, positionMs.coerceAtLeast(0), isPlaying)) }
+    }
+
+    suspend fun playbackSeek(sessionId: String, positionMs: Long, reason: String, markerType: String? = null) {
+        runCatching { api.playbackSeek(sessionId, mapOf("toMs" to positionMs.coerceAtLeast(0), "reason" to reason, "markerType" to markerType)) }
+    }
+
+    suspend fun playbackStop(sessionId: String, positionMs: Long) {
+        runCatching { api.playbackStop(sessionId, mapOf("positionMs" to positionMs.coerceAtLeast(0))) }
+    }
+
+    suspend fun playbackEnded(sessionId: String) {
+        runCatching { api.playbackEnded(sessionId) }
+    }
+
     /** Position de reprise (ms) — l'entrée on-deck expose désormais offsetMs
      *  (viewOffset Plex brut, exact) en plus de progressPercent, donc plus
      *  besoin de reconstituer un offset approximatif à partir du pourcentage

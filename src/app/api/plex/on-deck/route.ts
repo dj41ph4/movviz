@@ -4,6 +4,7 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { getPlexOnDeck } from "@/lib/plex/client";
 import { resolveToken } from "@/lib/plex/watchWrite";
 import { getMovieByPlexRatingKey, findEpisodeByPlexRatingKey } from "@/lib/library/store";
+import { listPlaybackProgress } from "@/lib/playback/progressStore";
 
 export const dynamic = "force-dynamic";
 
@@ -61,6 +62,21 @@ export async function GET(req: NextRequest) {
   // protection isn't the right call. Back to trusting resolveToken's own
   // per-account token scoping, same as every other per-user Plex read here.
   const items: OnDeckEntry[] = [];
+  const localKeys = new Set<string>();
+  for (const p of listPlaybackProgress(user.id)) {
+    if (p.watched || !p.eligibleForResume || !p.resumeOffsetMs || !p.durationMs) continue;
+    const movie = getMovieByPlexRatingKey(p.ratingKey);
+    if (movie) {
+      localKeys.add(p.ratingKey);
+      items.push({ type: "movie", tmdbId: movie.tmdbId, title: movie.title, posterPath: movie.posterPath, year: movie.year, rating: movie.rating, progressPercent: Math.min(100, Math.round((p.resumeOffsetMs / p.durationMs) * 100)), offsetMs: p.resumeOffsetMs });
+      continue;
+    }
+    const found = findEpisodeByPlexRatingKey(p.ratingKey);
+    if (found) {
+      localKeys.add(p.ratingKey);
+      items.push({ type: "episode", tmdbId: found.series.tmdbId, title: found.series.title, posterPath: found.series.posterPath, year: found.series.year, rating: found.series.rating, progressPercent: Math.min(100, Math.round((p.resumeOffsetMs / p.durationMs) * 100)), offsetMs: p.resumeOffsetMs, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber, episodeTitle: found.episode.title });
+    }
+  }
   for (const d of onDeck) {
     // Bug fix (confirmed live): Plex's on-deck list mixes two different
     // things — content actually paused mid-playback, AND the "next episode
@@ -70,6 +86,7 @@ export async function GET(req: NextRequest) {
     // showing an empty progress bar, on a real account (Plex itself keeps
     // these separate in its own UI, this list just doesn't).
     if (!d.duration || d.viewOffset <= 0) continue;
+    if (localKeys.has(d.ratingKey)) continue;
     const progressPercent = Math.min(100, Math.round((d.viewOffset / d.duration) * 100));
     if (d.type === "movie") {
       const movie = getMovieByPlexRatingKey(d.ratingKey);
