@@ -212,6 +212,12 @@ fun TitleDetailScreen(
             else null
         }
     }
+    val localMovieId = remember(type, tmdbId, movies) {
+        if (type == "movie") movies.firstOrNull { it.tmdbId == tmdbId && it.playbackSource == "movviz" }?.id else null
+    }
+    val localSeriesId = remember(type, tmdbId, series) {
+        if (type == "series") series.firstOrNull { it.tmdbId == tmdbId }?.id else null
+    }
 
     // Reprise pour un film déjà entamé — via /api/plex/on-deck (déjà chargé
     // pour la rangée "Continuer à regarder" de l'accueil), PAS un stockage
@@ -268,6 +274,7 @@ fun TitleDetailScreen(
                         label = "S${season.seasonNumber} · Ép ${ep.episodeNumber} · ${ep.title}",
                         seasonNumber = season.seasonNumber,
                         episodeNumber = ep.episodeNumber,
+                        localKey = localSeriesId,
                     )
                 }
         }
@@ -620,12 +627,12 @@ fun TitleDetailScreen(
                         if (plexKey != null) {
                             val ctaText = if (movieResume != null) "Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "Lire"
                             PrimaryPill(text = ctaText, brush = null, solidWhite = true, icon = MovvizIconPlay, focusRequester = initialFocusRequester) {
-                                onPlay(d.title, listOf(QueueItem(plexKey, null, -1, -1)), 0, d.posterPath)
+                                onPlay(d.title, listOf(QueueItem(plexKey, null, -1, -1, localMovieId)), 0, d.posterPath)
                             }
                             if (movieResume != null) {
                                 Spacer(modifier = Modifier.width(12.dp))
                                 PrimaryPill(text = "Lire depuis le début", brush = null, solidWhite = false, icon = MovvizIconReplay) {
-                                    onPlayFromStart(d.title, listOf(QueueItem(plexKey, null, -1, -1)), 0, d.posterPath)
+                                    onPlayFromStart(d.title, listOf(QueueItem(plexKey, null, -1, -1, localMovieId)), 0, d.posterPath)
                                 }
                             }
                         } else if (!inLibrary) {

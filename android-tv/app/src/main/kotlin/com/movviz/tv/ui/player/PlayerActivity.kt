@@ -121,6 +121,7 @@ private const val EXTRA_EPISODES = "extra_episodes"
 private const val EXTRA_START_FROM_BEGINNING = "extra_start_from_beginning"
 private const val EXTRA_INDEX = "extra_index"
 private const val EXTRA_POSTER_PATH = "extra_poster_path"
+private const val EXTRA_LOCAL_KEYS = "extra_local_keys"
 
 /**
  * Une seule Activity dédiée à la lecture, quel que soit le contenu (film ou
@@ -150,6 +151,7 @@ class PlayerActivity : ComponentActivity() {
 
         val baseUrl = intent.getStringExtra(EXTRA_BASE_URL) ?: run { finish(); return }
         val keys = intent.getStringArrayListExtra(EXTRA_KEYS)?.takeIf { it.isNotEmpty() } ?: run { finish(); return }
+        val localKeys = intent.getStringArrayListExtra(EXTRA_LOCAL_KEYS) ?: arrayListOf()
         val labels = intent.getStringArrayListExtra(EXTRA_LABELS) ?: arrayListOf()
         val seasons = intent.getIntArrayExtra(EXTRA_SEASONS) ?: IntArray(keys.size) { -1 }
         val episodes = intent.getIntArrayExtra(EXTRA_EPISODES) ?: IntArray(keys.size) { -1 }
@@ -166,6 +168,7 @@ val mainTitle = intent.getStringExtra(EXTRA_TITLE) ?: ""
                 label = labels.getOrNull(i)?.takeIf { it.isNotBlank() },
                 seasonNumber = seasons.getOrElse(i) { -1 },
                 episodeNumber = episodes.getOrElse(i) { -1 },
+                localKey = localKeys.getOrNull(i)?.takeIf { it.isNotBlank() },
             )
         }
 
@@ -221,6 +224,7 @@ fun forQueue(
             putExtra(EXTRA_INDEX, startIndex)
             putExtra(EXTRA_START_FROM_BEGINNING, startFromBeginning)
             putExtra(EXTRA_POSTER_PATH, posterPath)
+            putStringArrayListExtra(EXTRA_LOCAL_KEYS, ArrayList(queue.map { it.localKey ?: "" }))
         }
     }
 }
@@ -230,6 +234,8 @@ data class QueueItem(
     val label: String?,
     val seasonNumber: Int,
     val episodeNumber: Int,
+    /** Movie library id, or series id for an episode; null keeps Plex path. */
+    val localKey: String? = null,
 )
 
 private fun isMediaKey(keyCode: Int): Boolean = keyCode in intArrayOf(
@@ -578,7 +584,10 @@ ExoPlayer.Builder(context)
                     .build()
             }
             else -> MediaItem.Builder()
-                .setUri(repository.streamUrl(item.ratingKey))
+                .setUri(if (item.localKey != null && item.seasonNumber > 0 && item.episodeNumber > 0)
+                    repository.localEpisodeUrl(item.localKey, item.seasonNumber, item.episodeNumber)
+                else if (item.localKey != null) repository.localMovieUrl(item.localKey)
+                else repository.streamUrl(item.ratingKey))
                 .setMediaMetadata(metadata)
                 .build()
         }
