@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.16.73 — August 2026
+
+### Correctifs compilation Android TV
+
+- Corrige l’annotation Moshi du modèle de marqueurs.
+- Ajoute l’import de l’animation `slideInVertically` utilisé par le bouton skip.
+
 ## v1.16.72 — August 2026
 
 ### Backend Movviz de progression et reprise multi-client

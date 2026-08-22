@@ -403,7 +403,6 @@ data class StreamSubtitleTrackDto(
     val selected: Boolean = false,
 )
 
-@JsonClass(generateAdapter = true)
 /** Marqueur temporel générique (intro / générique) — source Movviz locale.
  *  Android TV ne connaît NI Plex NI la synchro : il reçoit des bornes
  *  start/end en ms et fait un seek dessus. */
