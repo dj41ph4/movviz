@@ -243,7 +243,10 @@ export function DashboardPosterCard({
     setPopover({ left, top: above ? rect.bottom + 12 : Math.max(8, rect.top - 12), width, above });
     if (leaveTimer.current) clearTimeout(leaveTimer.current);
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    hoverTimer.current = setTimeout(() => setHovered(true), 520);
+    // The artwork is already preloaded on the source card; a short intent
+    // delay keeps accidental passes from opening the preview without making
+    // the logo feel late when the pointer deliberately rests on a tile.
+    hoverTimer.current = setTimeout(() => setHovered(true), 240);
   };
 
   useEffect(() => () => clearTimers(), []);

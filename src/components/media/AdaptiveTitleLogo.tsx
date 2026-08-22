@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
+// The same TMDb logo is rendered both on the card and in its hover preview.
+// Keep the alpha-derived scale in memory so the preview can use its final
+// dimensions immediately instead of measuring the same PNG a second time.
+const logoScaleCache = new Map<string, number>();
+
 /**
  * TMDb logo PNGs are wildly inconsistent: some use their canvas tightly,
  * while others reserve half the file as transparent padding. Measure the
@@ -10,11 +15,17 @@ import { cn } from "@/lib/utils";
  * their card width. A naturally broad/tight logo is never reduced.
  */
 export function AdaptiveTitleLogo({ src, className }: { src: string; className?: string }) {
-  const [layout, setLayout] = useState({ scale: 1, ready: false });
+  const [layout, setLayout] = useState(() => {
+    const cachedScale = logoScaleCache.get(src);
+    return { scale: cachedScale ?? 1, ready: cachedScale !== undefined };
+  });
 
   // Cards are recycled as rows change. Never retain the preceding title's
   // alpha-derived scale while the next logo is still loading.
-  useEffect(() => setLayout({ scale: 1, ready: false }), [src]);
+  useEffect(() => {
+    const cachedScale = logoScaleCache.get(src);
+    setLayout({ scale: cachedScale ?? 1, ready: cachedScale !== undefined });
+  }, [src]);
 
   const inspectAlphaBounds = (image: HTMLImageElement) => {
     try {
@@ -63,6 +74,7 @@ export function AdaptiveTitleLogo({ src, className }: { src: string; className?:
       // card (The International), but make smaller transparent/franchise
       // marks reach that exact visual width while preserving their ratio.
       const nextScale = Math.max(1, (cardWidth * 0.4) / visibleWidth);
+      logoScaleCache.set(src, nextScale);
       setLayout({ scale: nextScale, ready: true });
     } catch {
       // Canvas inspection is an enhancement only; the unscaled logo remains.

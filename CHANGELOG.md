@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.17.08 — August 2026
+
+### Desktop — survol des cartes
+
+- La taille calculée des logos est réutilisée entre la carte et son aperçu
+  flottant, pour un affichage immédiat au survol.
+- Le délai d’intention du survol est réduit sans modifier le comportement
+  des liens ni des actions de lecture.
+
 ## v1.17.07 — August 2026
 
 ### Desktop — logos de cartes stables
