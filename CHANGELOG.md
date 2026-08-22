@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.17.07 — August 2026
+
+### Desktop — logos de cartes stables
+
+- Les logos TMDb sont mesurés localement avant affichage afin d’apparaître
+  directement à leur taille finale, sans animation de grossissement.
+- Le chargement des logos reste stable pendant le défilement et les erreurs
+  d’image ne laissent plus une carte dans un état invisible.
+
 ## v1.17.06 — August 2026
 
 ### Android TV — refonte 10-foot

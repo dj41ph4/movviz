@@ -10,16 +10,19 @@ import { cn } from "@/lib/utils";
  * their card width. A naturally broad/tight logo is never reduced.
  */
 export function AdaptiveTitleLogo({ src, className }: { src: string; className?: string }) {
-  const [scale, setScale] = useState(1);
+  const [layout, setLayout] = useState({ scale: 1, ready: false });
 
   // Cards are recycled as rows change. Never retain the preceding title's
   // alpha-derived scale while the next logo is still loading.
-  useEffect(() => setScale(1), [src]);
+  useEffect(() => setLayout({ scale: 1, ready: false }), [src]);
 
   const inspectAlphaBounds = (image: HTMLImageElement) => {
     try {
       const longest = Math.max(image.naturalWidth, image.naturalHeight);
-      if (!longest) return;
+      if (!longest) {
+        setLayout({ scale: 1, ready: true });
+        return;
+      }
       const ratio = Math.min(1, 256 / longest);
       const width = Math.max(1, Math.round(image.naturalWidth * ratio));
       const height = Math.max(1, Math.round(image.naturalHeight * ratio));
@@ -27,7 +30,10 @@ export function AdaptiveTitleLogo({ src, className }: { src: string; className?:
       canvas.width = width;
       canvas.height = height;
       const context = canvas.getContext("2d", { willReadFrequently: true });
-      if (!context) return;
+      if (!context) {
+        setLayout({ scale: 1, ready: true });
+        return;
+      }
       context.drawImage(image, 0, 0, width, height);
       const pixels = context.getImageData(0, 0, width, height).data;
       let left = width, top = height, right = -1, bottom = -1;
@@ -38,7 +44,10 @@ export function AdaptiveTitleLogo({ src, className }: { src: string; className?:
           top = Math.min(top, y); bottom = Math.max(bottom, y);
         }
       }
-      if (right < left || bottom < top) return;
+      if (right < left || bottom < top) {
+        setLayout({ scale: 1, ready: true });
+        return;
+      }
       const visibleWidthRatio = (right - left + 1) / width;
       // `offsetWidth` deliberately ignores CSS transforms, so this is the
       // intrinsic, unscaled canvas width even when a recycled card briefly
@@ -46,14 +55,18 @@ export function AdaptiveTitleLogo({ src, className }: { src: string; className?:
       // the bottom-left logo rail and its parent is the actual 16:9 card.
       const cardWidth = image.parentElement?.parentElement?.getBoundingClientRect().width ?? 0;
       const visibleWidth = image.offsetWidth * visibleWidthRatio;
-      if (!cardWidth || !visibleWidth) return;
+      if (!cardWidth || !visibleWidth) {
+        setLayout({ scale: 1, ready: true });
+        return;
+      }
       // Never shrink a logo that already occupies more than 40% of the
       // card (The International), but make smaller transparent/franchise
       // marks reach that exact visual width while preserving their ratio.
       const nextScale = Math.max(1, (cardWidth * 0.4) / visibleWidth);
-      setScale(nextScale);
+      setLayout({ scale: nextScale, ready: true });
     } catch {
       // Canvas inspection is an enhancement only; the unscaled logo remains.
+      setLayout({ scale: 1, ready: true });
     }
   };
 
@@ -62,10 +75,12 @@ export function AdaptiveTitleLogo({ src, className }: { src: string; className?:
     <img
       src={src}
       alt=""
-      loading="lazy"
+      loading="eager"
+      decoding="async"
       onLoad={(event) => inspectAlphaBounds(event.currentTarget)}
-      className={cn("origin-bottom-left object-contain object-left transition-transform duration-300", className)}
-      style={{ transform: `scale(${scale})` }}
+      onError={() => setLayout({ scale: 1, ready: true })}
+      className={cn("origin-bottom-left object-contain object-left", !layout.ready && "opacity-0", className)}
+      style={{ transform: `scale(${layout.scale})` }}
     />
   );
 }
