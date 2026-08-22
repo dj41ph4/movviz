@@ -1310,7 +1310,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     void fetch("/api/playback/sessions", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ratingKey, mediaType, durationMs: Math.max(1, Math.round((infoRef.current.durationMs ?? 0) || 1_000_000)), tmdbId, seasonNumber, episodeNumber, title }),
+      body: JSON.stringify({ ratingKey, mediaId: movvizId, mediaType, durationMs: Math.max(1, Math.round((infoRef.current.durationMs ?? 0) || 1_000_000)), tmdbId, seasonNumber, episodeNumber, title }),
     }).then((r) => r.ok ? r.json() : null).then((data: { sessionId?: string; resumeOffsetMs?: number | null; watched?: boolean } | null) => {
       if (!data?.sessionId) return begin();
       sessionReady = true;
@@ -1343,7 +1343,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       const base = ffmpegEngineRef.current?.seekBase ?? 0;
       const displayTime = (ffmpegActiveRef.current ? base + ve.currentTime : ve.currentTime);
       const offset = Math.floor(displayTime * 1000);
-      localStorage.setItem(PROGRESS_KEY(ratingKey), String(displayTime));
+      localStorage.setItem(PROGRESS_KEY(playbackId), String(displayTime));
       const sessionId = playbackSessionRef.current;
       if (sessionId) {
         void fetch(`/api/playback/sessions/${sessionId}/heartbeat`, {
@@ -1353,7 +1353,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
           keepalive: true,
         }).catch(() => void 0);
       }
-      void fetch(`/api/stream/${ratingKey}/progress`, {
+      if (!localPlayback) void fetch(`/api/stream/${ratingKey}/progress`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ offset }),
