@@ -161,7 +161,9 @@ fun NavRail(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .height(68.dp)
+            // Barre haute volontairement fine : la navigation reste
+            // atteignable sans prendre la place des cartes et du hero.
+            .height(56.dp)
             .then(navDownKeyHandler)
             .background(
                 // Scrim renforcé côté haut : sur un backdrop clair (ciel,
@@ -183,18 +185,18 @@ fun NavRail(
                     strokeWidth = 1.dp.toPx(),
                 )
             }
-            .padding(horizontal = 34.dp),
+            .padding(horizontal = 26.dp),
     ) {
         // Même logo animé que l'accueil/login : halo, ondes et particules
         // font partie de l'identité Movviz, ce n'est pas une icône carrée.
         // Preset `sm` du Sidebar desktop : outer 40, mark 40, wordmark animé.
-        AnimatedLogo(size = 40.dp)
-        Spacer(modifier = Modifier.width(10.dp))
-        MovvizWordmark(fontSize = 18.sp)
+        AnimatedLogo(size = 32.dp)
+        Spacer(modifier = Modifier.width(8.dp))
+        MovvizWordmark(fontSize = 16.sp)
 
-        Spacer(modifier = Modifier.width(56.dp))
+        Spacer(modifier = Modifier.width(38.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             // SETTINGS retiré des onglets texte : devient l'icône engrenage
             // entre la loupe et l'avatar (voir plus bas).
             HomeTab.entries.filter { it != HomeTab.SETTINGS }.forEach { tab ->
@@ -216,7 +218,7 @@ Spacer(modifier = Modifier.weight(1f))
             downFocus = contentFocusRequester,
             fallbackFocus = fallbackFocusRequester,
         )
-        Spacer(modifier = Modifier.width(22.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         // Paramètres en ICÔNE engrenage entre la loupe et l'avatar profil
         // (demandé en direct) — même langage visuel que la loupe : trait
         // blanc, fond discret au focus, bordure nette au D-pad.
@@ -225,7 +227,7 @@ Spacer(modifier = Modifier.weight(1f))
         Surface(
             onClick = { onSelect(HomeTab.SETTINGS) },
             modifier = Modifier
-                .size(42.dp)
+                .size(36.dp)
                 // Paramètres n'est plus un TopNavItem depuis la refonte :
                 // l'icône doit donc porter elle-même la cible de retour
                 // contenu → NavRail. Sans ce requester, HAUT depuis les
@@ -255,7 +257,7 @@ Spacer(modifier = Modifier.weight(1f))
                 GearIcon(color = Color.White.copy(alpha = if (gearFocused || selected == HomeTab.SETTINGS) 1f else 0.75f))
             }
         }
-        Spacer(modifier = Modifier.width(22.dp))
+        Spacer(modifier = Modifier.width(14.dp))
         // À la place du texte "MOVVIZ TV" : l'avatar du profil actif, toujours
         // visible — même composition que Netflix. Le menu donne accès au
         // changement d'utilisateur (→ écran "Qui est-ce ?") et, pour l'admin,
@@ -284,7 +286,7 @@ private fun ProfileMenuButton(
         Surface(
             onClick = { open = !open },
             modifier = Modifier
-                .size(42.dp)
+                .size(36.dp)
                 .tvPointerClick { open = !open },
             shape = ClickableSurfaceDefaults.shape(avatarShape),
             colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = .12f), focusedContainerColor = Color.White.copy(alpha = .22f)),
@@ -461,7 +463,7 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
     val inputRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     LaunchedEffect(open) { if (open) inputRequester.requestFocus() }
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(22.dp)
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
     Surface(
         onClick = onToggle,
         modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick(onToggle),
@@ -477,10 +479,10 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
             ),
         ),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)) {
-            Canvas(Modifier.size(24.dp)) {
-                drawCircle(Color.White, radius = 7.dp.toPx(), center = androidx.compose.ui.geometry.Offset(9.dp.toPx(), 9.dp.toPx()), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
-                drawLine(Color.White, androidx.compose.ui.geometry.Offset(14.dp.toPx(), 14.dp.toPx()), androidx.compose.ui.geometry.Offset(21.dp.toPx(), 21.dp.toPx()), strokeWidth = 2.dp.toPx())
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)) {
+            Canvas(Modifier.size(20.dp)) {
+                drawCircle(Color.White, radius = 6.dp.toPx(), center = androidx.compose.ui.geometry.Offset(8.dp.toPx(), 8.dp.toPx()), style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.dp.toPx()))
+                drawLine(Color.White, androidx.compose.ui.geometry.Offset(12.dp.toPx(), 12.dp.toPx()), androidx.compose.ui.geometry.Offset(18.dp.toPx(), 18.dp.toPx()), strokeWidth = 2.dp.toPx())
             }
             if (open) {
                 Spacer(Modifier.width(8.dp))
@@ -488,7 +490,7 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                     value = query,
                     onValueChange = onQueryChange,
                     singleLine = true,
-                    textStyle = TextStyle(fontSize = 16.sp, color = Color.White),
+                    textStyle = TextStyle(fontSize = 14.sp, color = Color.White),
                     // Même piège que WizardScreen.TvTextField : BasicTextField
                     // avale la flèche bas (mouvement de curseur) et le focus
                     // resterait piégé dans le champ, sans jamais atteindre la
@@ -502,7 +504,7 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                         keyboardController?.hide()
                     }),
                     modifier = Modifier
-                        .width(180.dp)
+                        .width(160.dp)
                         .focusRequester(inputRequester)
                         .onPreviewKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
@@ -522,7 +524,7 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
 @Composable
 private fun TopNavItem(tab: HomeTab, active: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
-    val shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
+    val shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
 
     Surface(
         onClick = onClick,
@@ -553,13 +555,13 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, onClick: () -> Unit, focus
         Text(
             text = tab.label,
             style = TextStyle(
-                fontSize = 15.sp,
+                fontSize = 13.sp,
                 fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
                 color = if (active) Color.White else MovvizInkDim,
             ),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 11.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
         )
     }
 }

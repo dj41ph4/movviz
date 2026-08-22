@@ -356,6 +356,9 @@ data class SearchResultDto(
     val title: String,
     val year: Int?,
     val posterPath: String?,
+    /** Visuel paysage éditorial. Les rangées TV doivent réutiliser le même
+     * fond 16:9 que le dashboard desktop, au lieu de recadrer un poster. */
+    val backdropPath: String? = null,
     val rating: Double = 0.0,
 )
 

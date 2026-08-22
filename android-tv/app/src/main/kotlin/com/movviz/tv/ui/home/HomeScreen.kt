@@ -230,9 +230,9 @@ TvTitleCard(
     val ownedSeriesIds = remember(series) { series.map { it.tmdbId }.toSet() }
     val discoverCards = remember(trendingMovies, trendingSeries, ownedMovieIds, ownedSeriesIds) {
         val moviesRow = trendingMovies.filter { it.tmdbId !in ownedMovieIds }
-            .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, null, it.tmdbId, isMovie = true) }
+            .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true) }
         val seriesRow = trendingSeries.filter { it.tmdbId !in ownedSeriesIds }
-            .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, null, it.tmdbId, isMovie = false) }
+            .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = false) }
         // Alterné plutôt que "tous les films puis toutes les séries" — une
         // rangée Découverte doit ressembler à un mélange éditorial, pas à
         // une simple concaténation de deux listes.
@@ -250,7 +250,7 @@ TvTitleCard(
         // raccourci de navigation.
         (movieRows + seriesRows).filterNot { it.key == "kids" }.mapNotNull { row ->
             val cards = row.results.map {
-                TvTitleCard("editorial-${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, null,
+                TvTitleCard("editorial-${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath,
                     it.tmdbId, it.type == "movie", it.year, it.rating)
             }
             if (cards.isEmpty()) null else row.key to cards
@@ -610,13 +610,13 @@ internal fun HeroCarousel(
         }
     }
 
-    // Hero = PLEIN ÉCRAN VISIBLE (pas une valeur fixe) : à 780dp fixes le
-    // contenu ancré en bas tombait SOUS le viewport (~540dp en 1080p TV) —
-    // logo/méta/CTA invisibles, seul le label "À LA UNE" dépassait en bas
-    // d'écran (constaté en direct sur émulateur). Hauteur = hauteur écran +
-    // 40dp pour laisser deviner la première rangée en dessous.
+    // Un hero TV ne doit jamais monopoliser tout le viewport : on garde une
+    // rangée visible sous la vedette, comme les références Netflix fournies.
+    // Cela rend la page immédiatement parcourable avec la télécommande au
+    // lieu de donner l'impression d'une affiche géante à faire défiler.
     val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
-    Box(modifier = Modifier.fillMaxWidth().height((screenHeightDp + 40).dp).clipToBounds()) {
+    val heroHeight = (screenHeightDp * 0.62f).coerceIn(390f, 600f)
+    Box(modifier = Modifier.fillMaxWidth().height(heroHeight.dp).clipToBounds()) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
             transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
@@ -708,8 +708,8 @@ internal fun HeroCarousel(
                 .align(Alignment.BottomStart)
                 // bottom = dépassement du hero sous le pli (40dp) + marge
                 // visuelle : le CTA reste ENTièrement au-dessus de l'écran.
-                .padding(start = 64.dp, end = 48.dp, bottom = 72.dp)
-                .widthIn(max = 760.dp),
+                .padding(start = 52.dp, end = 40.dp, bottom = 46.dp)
+                .widthIn(max = 620.dp),
         ) {
             // Zone texte animée en fondu + glissement à chaque rotation.
             // Le CTA (plus bas) reste HORS de cette colonne : le focus D-pad
@@ -737,20 +737,20 @@ internal fun HeroCarousel(
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart,
                     modifier = Modifier
-                        .width(520.dp)
-                        .height(104.dp),
+                        .width(440.dp)
+                        .height(82.dp),
                 )
             } else if (showTitleFallback) {
                 Text(
                     text = current.title,
-                    style = TextStyle(fontSize = 48.sp, fontWeight = FontWeight.Black, color = MovvizInk, lineHeight = 52.sp),
+                    style = TextStyle(fontSize = 40.sp, fontWeight = FontWeight.Black, color = MovvizInk, lineHeight = 44.sp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             } else {
                 // Réserve la place du logo pendant son chargement : aucun
                 // titre texte ne clignote avant de laisser sa place au logo.
-                Spacer(modifier = Modifier.height(120.dp).widthIn(max = 560.dp))
+                Spacer(modifier = Modifier.height(90.dp).widthIn(max = 460.dp))
             }
             // Badge statut bibliothèque (même pastille que la fiche titre)
             current.status?.let { st ->
@@ -804,8 +804,8 @@ internal fun HeroCarousel(
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     text = current.overview,
-                    style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft, lineHeight = 21.sp),
-                    maxLines = 3,
+                    style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft, lineHeight = 19.sp),
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 580.dp),
                 )
@@ -830,7 +830,7 @@ internal fun HeroCarousel(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                     ) {
                         // Icône vectorielle : le glyphe ▶ rendait en carré
                         // (pas dans Inter).
@@ -841,7 +841,7 @@ internal fun HeroCarousel(
                             modifier = Modifier.size(15.dp),
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Lire", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color.Black))
+                        Text(text = "Lire", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.Black))
                     }
                 }
 
@@ -863,7 +863,7 @@ internal fun HeroCarousel(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                     ) {
                         // Le glyphe ℹ rendait en carré (pas dans Inter) —
                         // simple pastille "i" dessinée en vectoriel local.
@@ -876,7 +876,7 @@ internal fun HeroCarousel(
                             Text(text = "i", style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = Color.White))
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Plus d'infos", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White))
+                        Text(text = "Plus d'infos", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White))
                     }
                 }
 
@@ -1092,12 +1092,12 @@ internal fun TitleRow(
     // images + call-out Netflix) : la rangée elle-même et ses cartes ne
     // recomposent JAMAIS pendant un scroll latéral, seul le bandeau bouge.
     val focusedCardState = remember { mutableStateOf<TvTitleCard?>(null) }
-    Column(modifier = Modifier.padding(bottom = 48.dp)) {
+    Column(modifier = Modifier.padding(bottom = 32.dp)) {
         RowHeading(heading)
         LazyRow(
             modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(start = 64.dp, end = 64.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             foundationItemsIndexed(items, key = { _, item -> item.id }, contentType = { _, _ -> "card" }) { index, card ->
                 PosterCard(
@@ -1143,7 +1143,7 @@ internal fun TitleRow(
             focusedCard?.let { card ->
                 Box(
                     modifier = Modifier
-                        .padding(start = 64.dp, top = 8.dp, end = 64.dp)
+                        .padding(start = 52.dp, top = 6.dp, end = 52.dp)
                         .fillMaxWidth()
                         .background(
                             Color.Black.copy(alpha = 0.7f),
@@ -1215,7 +1215,7 @@ private fun RowHeading(text: String) {
             text = text,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 64.dp, bottom = 20.dp),
+            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
         )
 }
 
@@ -1233,7 +1233,13 @@ internal fun PosterCard(
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
 
-    Column(modifier = Modifier.width(200.dp)) {
+    // Les rangées d'accueil utilisent le format paysage, plus dense et plus
+    // confortable à balayer au D-pad qu'une succession de grands posters.
+    // Le fallback poster reste volontaire : certaines réponses anciennes ne
+    // fournissent pas encore backdropPath, mais ne doivent jamais créer une
+    // carte vide.
+    val visualUrl = card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" } ?: posterUrl
+    Column(modifier = Modifier.width(230.dp)) {
         // Surface (tv-material3) gère nativement le focus D-pad + le clic OK,
         // mais PAS le clic souris/tactile (confirmé : un tap synthétique sur
         // l'émulateur ne déclenchait rien) — tvPointerClick comble ce trou
@@ -1242,7 +1248,7 @@ internal fun PosterCard(
             onClick = onClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(2f / 3f)
+                .aspectRatio(16f / 9f)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 .tvCardFocusHalo(focused, shape = MovvizCardShape)
                 .onFocusChanged {
@@ -1260,8 +1266,8 @@ internal fun PosterCard(
             ),
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                if (posterUrl != null) {
-                    val painter = rememberAsyncImagePainter(model = posterUrl)
+                if (visualUrl != null) {
+                    val painter = rememberAsyncImagePainter(model = visualUrl)
                     Image(
                         painter = painter,
                         contentDescription = card.title,
@@ -1291,13 +1297,13 @@ internal fun PosterCard(
                 if (card.rating > 0) {
                     RatingBadge(
                         rating = card.rating,
-                        modifier = Modifier.align(Alignment.TopStart).padding(6.dp),
+                        modifier = Modifier.align(Alignment.TopStart).padding(5.dp),
                     )
                 }
                 card.status?.let { status ->
                     StatusPill(
                         status = status,
-                        modifier = Modifier.align(Alignment.BottomStart).padding(6.dp),
+                        modifier = Modifier.align(Alignment.BottomStart).padding(5.dp),
                     )
                 }
                 // Qualité réelle du fichier (pas TMDb) — même donnée que les
@@ -1309,7 +1315,7 @@ internal fun PosterCard(
                         style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(6.dp)
+                            .padding(5.dp)
                             .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
@@ -1340,7 +1346,7 @@ internal fun PosterCard(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp),
+                .padding(top = 6.dp),
         )
         val metadata = listOfNotNull(card.year?.toString(), if (card.isMovie) "Film" else "Série").joinToString("  ·  ")
         Text(
@@ -1351,7 +1357,7 @@ internal fun PosterCard(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 2.dp),
+                .padding(top = 1.dp),
         )
     }
 }

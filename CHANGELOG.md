@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.17.06 — August 2026
+
+### Android TV — refonte 10-foot
+
+- Barre de navigation et hero resserrés pour afficher davantage de contenu dès l’arrivée.
+- Cartes d’accueil en 16:9 avec réutilisation des fonds éditoriaux du desktop et repli poster fiable.
+- Sélecteur de profils compact, pilotable au D-pad, avec aperçu du profil et ajout d’utilisateur.
+
 ## v1.17.05 — August 2026
 
 ### Visuels — priorité des logos TMDb

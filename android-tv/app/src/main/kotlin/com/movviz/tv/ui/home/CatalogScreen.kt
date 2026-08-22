@@ -74,7 +74,7 @@ fun CatalogScreen(
         // "kids" est explicitement hors produit TV (pas de profil Jeunesse).
         editorialRows.filterNot { it.key == "kids" }.mapNotNull { row ->
             val rowCards = row.results.filter { it.type == wantedType }.map {
-                TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, null, it.tmdbId,
+                TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath, it.tmdbId,
                     isMovie = it.type == "movie", year = it.year, rating = it.rating)
             }
             if (rowCards.isEmpty()) null else row.key to rowCards

@@ -1,12 +1,14 @@
 package com.movviz.tv.ui.profile
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,8 +25,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -37,48 +40,72 @@ import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.tvPointerClick
 
-/** Tuile de profil TV — partagée par l'écran « Qui est-ce ? » et l'écran
- *  d'ajout d'un membre au foyer (même rendu, une seule implémentation). */
+/** Ligne profil compacte ; le halo et le contour ne s'affichent qu'au focus. */
 @Composable
-fun ProfileTile(profile: TvProfile, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+fun ProfileTile(
+    profile: TvProfile,
+    selected: Boolean,
+    onFocus: () -> Unit,
+    onClick: () -> Unit,
+    focusRequester: FocusRequester? = null,
+) {
     var focused by remember { mutableStateOf(false) }
-    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(170.dp)) {
-        Surface(
-            onClick = onClick,
-            modifier = Modifier
-                .size(160.dp)
-                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .onFocusChanged { focused = it.isFocused }
-                .tvPointerClick(onClick),
-            shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(10.dp)),
-            colors = ClickableSurfaceDefaults.colors(
-                containerColor = Color(0xFF242424),
-                focusedContainerColor = Color(0xFF383838),
-            ),
-            border = ClickableSurfaceDefaults.border(
-                focusedBorder = Border(
-                    border = BorderStroke(4.dp, MovvizBrand2),
-                    shape = RoundedCornerShape(10.dp),
-                ),
-            ),
-        ) {
-            ProfileAvatar(profile, Modifier.fillMaxSize())
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.width(336.dp).height(76.dp)
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus() }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (selected) Color.White.copy(alpha = .08f) else Color.Transparent,
+            focusedContainerColor = Color.White.copy(alpha = .14f), contentColor = Color.White,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = BorderStroke(2.dp, Color.White.copy(alpha = .92f)), shape = shape),
+        ),
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            ProfileAvatar(profile, Modifier.size(54.dp), 10.dp)
+            Spacer(Modifier.width(14.dp))
+            Text(profile.name, color = if (focused || selected) Color.White else Color.White.copy(alpha = .72f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Spacer(Modifier.height(12.dp))
-        Text(profile.name, color = if (focused) Color.White else Color(0xFF999999), fontSize = 18.sp)
     }
 }
 
-/** Avatar d'un profil : image Plex si disponible, sinon initiales sur fond
- *  dégradé de marque. */
 @Composable
-fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier) {
+fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.width(336.dp).height(68.dp)
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color.White.copy(alpha = .12f), contentColor = MovvizBrand2),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = BorderStroke(2.dp, MovvizBrand2), shape = shape),
+        ),
+    ) {
+        Row(Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(Modifier.size(28.dp).background(MovvizBrand2.copy(alpha = .18f), RoundedCornerShape(8.dp)), contentAlignment = Alignment.Center) {
+                Text("+", color = MovvizBrand2, fontSize = 24.sp, fontWeight = FontWeight.Medium)
+            }
+            Text("Ajouter un utilisateur", color = MovvizBrand2, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+fun ProfileAvatar(profile: TvProfile, modifier: Modifier = Modifier, cornerRadius: Dp = 10.dp) {
+    val shape = RoundedCornerShape(cornerRadius)
     val url = profile.avatar
     if (!url.isNullOrBlank() && url.startsWith("http")) {
-        AsyncImage(model = url, contentDescription = profile.name, modifier = modifier.clip(RoundedCornerShape(10.dp)))
+        AsyncImage(model = url, contentDescription = profile.name, modifier = modifier.clip(shape))
     } else {
-        Box(modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
-            Text(profile.name.take(2).uppercase(), color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Black)
+        Box(modifier.clip(shape).background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2))), contentAlignment = Alignment.Center) {
+            Text(profile.name.take(2).uppercase(), color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
         }
     }
 }
