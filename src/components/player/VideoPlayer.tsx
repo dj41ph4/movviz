@@ -12,7 +12,7 @@ import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLangu
 import {
   X, Maximize2, Minimize2, ExternalLink, AlertTriangle, Loader2, Check, RotateCcw,
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
-  SkipBack, SkipForward, PictureInPicture2, Zap, Monitor, Settings,
+  SkipBack, SkipForward, PictureInPicture2, Zap, Monitor,
 } from "lucide-react";
 import { detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, shouldForceAudioTranscode, type CodecCapabilities } from "@/lib/player/webcodecs";
 import { watchForSilentAudio } from "@/lib/player/silentAudioDetector";
@@ -216,7 +216,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
   // et déclencherait un repli HLS non voulu.
   const subtitleAbortRef = useRef<AbortController | null>(null);
   const [currentLevel, setCurrentLevel] = useState<number | null>(null);
-  const [menuOpen, setMenuOpen] = useState<null | "audio" | "subtitle" | "speed" | "quality" | "transcode">(null);
+  const [menuOpen, setMenuOpen] = useState<null | "audio" | "subtitle" | "speed" | "quality" | "playback">(null);
   const [directMode, setDirectMode] = useState(false);
   const qualityMaxWidthRef = useRef<number | null>(null);
   // Profil de compression ffmpeg local (leg ffmpeg uniquement — la leg HLS
@@ -800,6 +800,10 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       }
       runHlsLeg(tv, ta, extraParams, isCopyNetworkRetry);
     };
+    // The manual playback-mode picker must be able to enter Plex/HLS even
+    // when the automatic path started in direct mode and has never called
+    // startHls before.
+    startHlsRef.current = startHls;
 
     const runHlsLeg = (tv: string, ta: string, extraParams?: string, isCopyNetworkRetry?: boolean) => {
       const mode = transcodeModeRef.current;
@@ -1883,7 +1887,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     setMenuOpen(null);
   };
 
-  const toggleMenu = (menu: "audio" | "subtitle" | "speed" | "quality" | "transcode") => {
+  const toggleMenu = (menu: "audio" | "subtitle" | "speed" | "quality" | "playback") => {
     setMenuOpen((prev) => (prev === menu ? null : menu));
   };
 
@@ -1905,54 +1909,15 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
     seekTo(marker.endMs / 1000);
   };
 
-  const handleDirectPlay = () => {
+  const currentPlaybackPosition = () => {
     const el = videoRef.current;
-    if (!el) return;
-    // Moteur ffmpeg : la lecture directe est interdite — le clic relance le
-    // remux ffmpeg depuis la position courante, HLS en dernier recours.
-    if (betaRef.current.playbackEngine === "ffmpeg") {
-      // Position réelle AVANT destruction du moteur : en leg ffmpeg
-      // el.currentTime est relatif au flux, la position du film est
-      // seekBase + el.currentTime.
-      const pos = el.currentTime > 0 ? el.currentTime + (ffmpegEngineRef.current?.seekBase ?? 0) : undefined;
-      if (mseEngineRef.current) {
-        try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
-        mseEngineRef.current = null;
-        mseSkippedRef.current = true;
-        setMseActive(false);
-        setMseStats(null);
-      }
-      if (ffmpegEngineRef.current) {
-        const engine = ffmpegEngineRef.current;
-        ffmpegEngineRef.current = null;
-        setFfmpegActive(false);
-        setFfmpegStats(null);
-        void engine.destroy().catch(() => void 0);
-      }
-      if (hlsRef.current) {
-        try { hlsRef.current.destroy(); } catch { /* ignore */ }
-        hlsRef.current = null;
-      }
-      if (dashRef.current) {
-        try { dashRef.current.reset(); } catch { /* ignore */ }
-        dashRef.current = null;
-      }
-      ffmpegSkippedRef.current = false;
-      fallbackGuardRef.current = false;
-      setUsingFallback(false);
-      setBuffering(true);
-      void (async () => {
-        // tryStartFfmpegRemux refuse tout seekTo > 0 (chemin "resume"
-        // réservé à HLS) — démarrage sans seek, repositionnement via
-        // seek() une fois le moteur chargé.
-        if (await tryStartFfmpegRemuxRef.current?.(infoRef.current, undefined)) {
-          if (pos && pos > 0) await ffmpegEngineRef.current?.seek(pos);
-        } else {
-          maybeStartHls();
-        }
-      })();
-      return;
-    }
+    if (!el) return 0;
+    return Math.max(0, el.currentTime + (ffmpegEngineRef.current?.seekBase ?? 0));
+  };
+
+  const tearDownActiveLegs = () => {
+    stopSilentWatchRef.current?.();
+    stopSilentWatchRef.current = null;
     if (mseEngineRef.current) {
       try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
       mseEngineRef.current = null;
@@ -1968,15 +1933,82 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
       setFfmpegStats(null);
       void engine.destroy().catch(() => void 0);
     }
-    // Direct play can't select an audio track — if a fallback track was chosen
-    // (audio bypass) or the user picked a non-default track, the browser would
-    // play the file's default (undecodable) track → silent video. Stay on HLS.
-    if (
-      audioStreamIdRef.current !== null &&
-      audioStreamIdRef.current !== defaultAudioIdRef.current
-    ) {
-      maybeStartHls();
-      return;
+    if (hlsRef.current) {
+      try { hlsRef.current.destroy(); } catch { /* ignore */ }
+      hlsRef.current = null;
+    }
+    if (dashRef.current) {
+      try { dashRef.current.reset(); } catch { /* ignore */ }
+      dashRef.current = null;
+    }
+  };
+
+  const preservePositionOnNextSource = (position: number) => {
+    const el = videoRef.current;
+    if (!el || position <= 0) return;
+    el.addEventListener("loadedmetadata", () => {
+      if (el.duration && position < el.duration) el.currentTime = position;
+    }, { once: true });
+  };
+
+  const handlePlexPlayback = (mode: "audio" | "video" | "full") => {
+    const position = currentPlaybackPosition();
+    setMenuOpen(null);
+    transcodeModeRef.current = mode;
+    transcodeVideoRef.current = mode === "video" || mode === "full";
+    transcodeAudioRef.current = mode === "audio" || mode === "full";
+    hlsCopyEscalatedRef.current = false;
+    hlsCopyNetworkRetriedRef.current = false;
+    tearDownActiveLegs();
+    fallbackGuardRef.current = false;
+    setDirectMode(false);
+    setUsingFallback(false);
+    setBuffering(true);
+    preservePositionOnNextSource(position);
+    // This is an explicit user choice: do not apply the automatic HLS guard
+    // intended for background fallbacks when Plex/HLS was disabled in settings.
+    startHlsRef.current?.();
+  };
+
+  const handleAutoPlayback = () => {
+    const position = currentPlaybackPosition();
+    setMenuOpen(null);
+    transcodeModeRef.current = "auto";
+    hlsCopyEscalatedRef.current = false;
+    hlsCopyNetworkRetriedRef.current = false;
+    tearDownActiveLegs();
+    fallbackGuardRef.current = false;
+    setDirectMode(false);
+    setUsingFallback(false);
+    setBuffering(true);
+    void beginRef.current?.(position > 0 ? position : undefined);
+  };
+
+  const handleDirectPlay = () => {
+    const el = videoRef.current;
+    if (!el) return;
+    setMenuOpen(null);
+    if (mseEngineRef.current) {
+      try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
+      mseEngineRef.current = null;
+      mseSkippedRef.current = true;
+      setMseActive(false);
+      setMseStats(null);
+    }
+    if (ffmpegEngineRef.current) {
+      const engine = ffmpegEngineRef.current;
+      ffmpegEngineRef.current = null;
+      ffmpegSkippedRef.current = true;
+      setFfmpegActive(false);
+      setFfmpegStats(null);
+      void engine.destroy().catch(() => void 0);
+    }
+    // The direct source can only expose its default track. Selecting Direct
+    // is an explicit request, so reset a previously selected Plex track
+    // instead of silently changing the user's chosen mode back to HLS.
+    if (audioStreamIdRef.current !== defaultAudioIdRef.current) {
+      audioStreamIdRef.current = defaultAudioIdRef.current;
+      setCurrentAudio(defaultAudioIdRef.current);
     }
     if (hlsRef.current) {
       try { hlsRef.current.destroy(); } catch { /* ignore */ }
@@ -2295,10 +2327,10 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
 
               {!error && (
                 <div
-                  aria-hidden={controlsVisible || !playing || buffering ? undefined : true}
+                  aria-hidden={undefined}
                   className={cn(
                     "absolute inset-x-0 bottom-0 z-40 bg-gradient-to-t from-black/80 via-black/45 to-transparent pt-14 pb-[max(env(safe-area-inset-bottom),0.25rem)] sm:pb-2 transition-opacity duration-300",
-                    controlsVisible || !playing || buffering ? "opacity-100" : "opacity-0 pointer-events-none"
+                    "opacity-100"
                   )}
                 >
                   <div className="px-3 relative group">
@@ -2334,7 +2366,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                       onMouseMove={handleProgressHover}
                       onMouseLeave={handleProgressLeave}
                     >
-                      <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 origin-center scale-y-[0.35] rounded-full bg-white/10 transition-transform duration-150 ease-out group-hover:scale-y-100 group-focus-visible:scale-y-100">
+                      <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 origin-center scale-y-100 rounded-full bg-white/10 transition-transform duration-150 ease-out">
                         <div
                           className="absolute inset-y-0 rounded-full bg-white/20 transition-[width] duration-300 ease-out"
                           style={{ left: `${playedPct}%`, width: `${Math.max(0, bufferedPct - playedPct)}%` }}
@@ -2346,7 +2378,7 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                         <div
                           className={cn(
                             "absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-brand-glow)_35%,transparent)] transition-[opacity,transform] duration-150",
-                            seekPreview !== null || "opacity-0 group-hover:opacity-100 group-hover:scale-110"
+                            seekPreview !== null || "opacity-100 group-hover:scale-110"
                           )}
                           style={{ left: `${playedPct}%` }}
                         />
@@ -2541,49 +2573,50 @@ export function VideoPlayer({ ratingKey, movvizId, plexUrl, title, onClose, useT
                             )}
                           </div>
                         )}
-                        {!ffmpegActive && (
-                          <div className="relative">
-                            <button
-                              onClick={() => toggleMenu("transcode")}
-                              className="hidden sm:flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-white active:scale-90"
-                              title={t("player.betaTranscodeMode")}
-                            >
-                              <Settings className="h-5 w-5" />
-                            </button>
-                            {menuOpen === "transcode" && (
-                              <div className="absolute right-0 bottom-full mb-3 w-36 animate-menu-pop rounded-2xl border border-white/10 bg-black/80 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
-                                {(["auto", "audio", "video", "full"] as const).map((m) => (
-                                  <button
-                                    key={m}
-                                    onClick={() => {
-                                      transcodeModeRef.current = m;
-                                      setMenuOpen(null);
-                                      if (hlsRef.current) reloadHls(currentAudio, currentSubtitle);
-                                      else maybeStartHls();
-                                    }}
-                                    className={cn(
-                                      "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-[13px] transition-colors duration-100 hover:bg-white/8",
-                                      transcodeModeRef.current === m ? "font-semibold text-brand-glow" : "text-white/75"
-                                    )}
-                                  >
-                                    {m === "auto" ? t("player.betaTranscodeAuto")
-                                      : m === "audio" ? t("player.betaTranscodeAudio")
-                                      : m === "video" ? t("player.betaTranscodeVideo")
-                                      : t("player.betaTranscodeFull")}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <button
-                          onClick={handleDirectPlay}
-                          className="hidden sm:flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-green active:scale-90"
-                          title={t("player.betaDirectPlay")}
-                          aria-label={t("player.betaDirectPlay")}
-                        >
-                          <Zap className="h-5 w-5" />
-                        </button>
+                        <div className="relative hidden sm:block">
+                          <button
+                            onClick={() => toggleMenu("playback")}
+                            className="flex h-11 w-11 items-center justify-center rounded-xl text-white/85 transition-all duration-150 hover:bg-white/10 hover:text-brand-glow active:scale-90"
+                            title={t("player.betaTranscodeMode")}
+                            aria-label={t("player.betaTranscodeMode")}
+                          >
+                            <Zap className="h-5 w-5" />
+                          </button>
+                          {menuOpen === "playback" && (
+                            <div className="absolute right-0 bottom-full mb-3 w-60 animate-menu-pop rounded-2xl border border-white/10 bg-black/85 p-1.5 shadow-2xl backdrop-blur-xl max-w-[calc(100vw-2rem)]">
+                              <button
+                                onClick={handleAutoPlayback}
+                                className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                              >
+                                <span>{t("player.betaTranscodeAuto")}</span><Check className="h-3.5 w-3.5 text-brand-glow" />
+                              </button>
+                              <button
+                                onClick={handleDirectPlay}
+                                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                              >
+                                {t("player.betaDirectActive")}
+                              </button>
+                              <button
+                                onClick={() => handlePlexPlayback("audio")}
+                                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                              >
+                                {t("player.betaTranscodeAudio")}
+                              </button>
+                              <button
+                                onClick={() => handlePlexPlayback("video")}
+                                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                              >
+                                {t("player.betaTranscodeVideo")}
+                              </button>
+                              <button
+                                onClick={() => handlePlexPlayback("full")}
+                                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-[13px] text-white/75 transition-colors duration-100 hover:bg-white/8"
+                              >
+                                {t("player.betaEngineHls")}
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
 
