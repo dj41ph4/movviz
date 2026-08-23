@@ -976,6 +976,7 @@ export const en: Dictionary = {
       seerrImport: "Seerr import",
       importLists: "Import lists",
       maintenance: "System maintenance (indexers, sessions)",
+      mediaProbe: "Technical file analysis (ffprobe)",
     },
   },
 
@@ -1538,6 +1539,14 @@ export const en: Dictionary = {
     clean: "No empty folders found.",
     deletedCount: "{count} empty folder(s) deleted.",
     confirmDelete: "Delete {count} empty folder(s)? This cannot be undone.",
+  },
+
+  mediaProbe: {
+    title: "Technical library analysis",
+    intro: "Analyzes every movie via ffprobe (codec, HDR/Dolby Vision, exact audio and subtitle tracks) and caches the result — future playback decisions won't need to re-analyze the file. Can take several minutes on a large library.",
+    scan: "Run analysis",
+    scanning: "Analyzing…",
+    resultSummary: "{probed} analyzed, {skipped} skipped, {failed} failed out of {total}.",
   },
 
   customFormats: {

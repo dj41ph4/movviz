@@ -34,6 +34,7 @@ import { TrashPanel } from "@/components/settings/TrashPanel";
 import { RepairPathsPanel } from "@/components/settings/RepairPathsPanel";
 import { CleanDirsPanel } from "@/components/settings/CleanDirsPanel";
 import { RecoverDownloadsPanel } from "@/components/settings/RecoverDownloadsPanel";
+import { MediaProbePanel } from "@/components/settings/MediaProbePanel";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { ChevronDown, X, Search } from "lucide-react";
 import { AboutPanel } from "@/components/settings/AboutPanel";
@@ -273,6 +274,7 @@ function SettingsPageInner() {
               <RecoverDownloadsPanel />
               <RepairPathsPanel />
               <CleanDirsPanel />
+              <MediaProbePanel />
               <TrashPanel />
             </div>
           )}

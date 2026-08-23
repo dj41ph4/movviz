@@ -20,7 +20,8 @@ type JobType =
   | "importLists"
   | "libraryIndex"
   | "libraryRename"
-  | "maintenance";
+  | "maintenance"
+  | "mediaProbe";
 
 interface Job {
   id: string;
@@ -49,6 +50,7 @@ const JOB_TYPE_ORDER: JobType[] = [
   "libraryIndex",
   "libraryRename",
   "maintenance",
+  "mediaProbe",
 ];
 
 const STATUS_ICON: Record<JobStatus, typeof Clock> = {

@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.19.00 — August 2026
+
+### Analyse technique de la bibliothèque (ffprobe)
+
+- Nouveau bouton dans Réglages > Maintenance : analyse chaque film via ffprobe (codec exact, profil, HDR/Dolby Vision, pistes audio et sous-titres réelles) et met le résultat en cache par fichier — première brique du futur moteur de lecture, qui pourra ainsi décider la meilleure stratégie de lecture sans ré-analyser un fichier déjà connu.
+- Fonctionne en tâche de fond comme les autres analyses de bibliothèque, avec sa propre barre de progression.
+
 ## v1.18.08 — August 2026
 
 ### Bibliothèque : barre d'outils allégée (Films et Séries)

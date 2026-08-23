@@ -14,6 +14,7 @@ export const JOB_TYPES = [
   "libraryIndex",
   "libraryRename",
   "maintenance",
+  "mediaProbe",
 ] as const;
 
 export type JobType = (typeof JOB_TYPES)[number];

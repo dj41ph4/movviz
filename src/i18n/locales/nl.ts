@@ -976,6 +976,7 @@ export const nl: Dictionary = {
       seerrImport: "Seerr-import",
       importLists: "Importlijsten",
       maintenance: "Systeemonderhoud (indexers, sessies)",
+      mediaProbe: "Technische bestandsanalyse (ffprobe)",
     },
   },
 
@@ -1538,6 +1539,14 @@ export const nl: Dictionary = {
     clean: "Geen lege mappen gevonden.",
     deletedCount: "{count} lege map(pen) verwijderd.",
     confirmDelete: "{count} lege map(pen) verwijderen? Dit kan niet ongedaan worden gemaakt.",
+  },
+
+  mediaProbe: {
+    title: "Technische analyse van de bibliotheek",
+    intro: "Analyseert elke film via ffprobe (codec, HDR/Dolby Vision, exacte audio- en ondertitelsporen) en cachet het resultaat — toekomstige afspeelbeslissingen hoeven het bestand niet opnieuw te analyseren. Kan bij een grote bibliotheek meerdere minuten duren.",
+    scan: "Analyse starten",
+    scanning: "Analyseren…",
+    resultSummary: "{probed} geanalyseerd, {skipped} overgeslagen, {failed} mislukt van {total}.",
   },
 
   customFormats: {

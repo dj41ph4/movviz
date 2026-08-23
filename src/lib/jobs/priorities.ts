@@ -31,6 +31,7 @@ export const DEFAULT_PRIORITIES: Record<JobType, number> = {
   libraryIndex: 20,
   libraryRename: 20,
   maintenance: 15,
+  mediaProbe: 15,
 };
 
 export function getPriorities(): Record<JobType, number> {

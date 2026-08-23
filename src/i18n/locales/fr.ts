@@ -974,6 +974,7 @@ export const fr = {
       seerrImport: "Import Seerr",
       importLists: "Listes d'import",
       maintenance: "Maintenance système (indexeurs, sessions)",
+      mediaProbe: "Analyse technique des fichiers (ffprobe)",
     },
   },
 
@@ -1536,6 +1537,14 @@ export const fr = {
     clean: "Aucun dossier vide trouvé.",
     deletedCount: "{count} dossier(s) vide(s) supprimé(s).",
     confirmDelete: "Supprimer {count} dossier(s) vide(s) ? Cette action est irréversible.",
+  },
+
+  mediaProbe: {
+    title: "Analyse technique de la bibliothèque",
+    intro: "Analyse chaque film via ffprobe (codec, HDR/Dolby Vision, pistes audio et sous-titres exactes) et met le résultat en cache — les futures décisions de lecture n'auront plus besoin de ré-analyser le fichier. Peut prendre plusieurs minutes sur une grande bibliothèque.",
+    scan: "Lancer l'analyse",
+    scanning: "Analyse en cours…",
+    resultSummary: "{probed} analysé(s), {skipped} ignoré(s), {failed} échoué(s) sur {total}.",
   },
 
   customFormats: {
