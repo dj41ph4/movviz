@@ -34,6 +34,14 @@ test("hardware acceleration flags reflect compiled encoder/decoder name suffixes
   assert.equal(caps.hardwareAcceleration.videotoolbox, false);
 });
 
+test("does not misparse the legend lines (\" V..... = Video\" etc.) as a bogus \"=\" entry — found via a real end-to-end run", async () => {
+  const caps = await detectServerCapabilities();
+  assert.ok(!caps.videoEncoders.includes("="));
+  assert.ok(!caps.videoDecoders.includes("="));
+  assert.ok(!caps.audioEncoders.includes("="));
+  assert.ok(!caps.audioDecoders.includes("="));
+});
+
 test("does not misparse the encoder/decoder flag column's 'D' (direct rendering) as a type letter", async () => {
   const caps = await detectServerCapabilities();
   // Every parsed name must be a real codec/implementation name, never a

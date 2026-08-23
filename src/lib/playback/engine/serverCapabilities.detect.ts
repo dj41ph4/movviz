@@ -58,6 +58,12 @@ function parseCodecList(raw: string): { video: string[]; audio: string[] } {
     const m = LIST_LINE_RE.exec(line);
     if (!m) continue;
     const [, type, name] = m;
+    // The 3 legend lines (" V..... = Video", " A..... = Audio",
+    // " S..... = Subtitle" — confirmed live, always right before the
+    // "------" separator) match this same regex shape and would otherwise
+    // add a bogus "=" entry to the list — real entries never have "=" as a
+    // name, so this is a safe, targeted exclusion rather than a fragile line-count skip.
+    if (name === "=") continue;
     if (type === "V") video.push(name);
     else if (type === "A") audio.push(name);
   }
