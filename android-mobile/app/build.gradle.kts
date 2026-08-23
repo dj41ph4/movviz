@@ -18,8 +18,8 @@ android {
         applicationId = "com.movviz.mobile"
         minSdk = 24
         targetSdk = 35
-        versionCode = 11709
-        versionName = "1.17.09"
+        versionCode = 11710
+        versionName = "1.17.10"
     }
 
     signingConfigs {

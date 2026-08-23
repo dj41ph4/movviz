@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.17.09 — August 2026
+## v1.17.10 — August 2026
 
 ### Android smartphone — première base native
 
