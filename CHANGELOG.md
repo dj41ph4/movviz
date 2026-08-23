@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.18.05 — August 2026
+
+### Correctif : menu d'actions coupé sur les cartes Bibliothèque
+
+- Le menu "•••" (optimiser, recherche, tags, suppression) des cartes Films/Séries pouvait apparaître tronqué — il vivait dans un conteneur qui masquait tout débordement. Il s'affiche désormais toujours en entier.
+
 ## v1.18.04 — August 2026
 
 ### Menu latéral réorganisé

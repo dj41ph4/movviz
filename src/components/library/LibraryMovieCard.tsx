@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, memo } from "react";
+import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
@@ -30,13 +31,21 @@ const STATUS_ICON: Record<LibraryStatus, React.ElementType> = {
   upcoming: Calendar,
 };
 
-/** Same click-outside/Escape idiom as UserMenu.tsx and Découverte's genre menu. */
+/** Same click-outside/Escape idiom as UserMenu.tsx and Découverte's genre
+ *  menu — the dropdown itself is portalled to document.body (position fixed,
+ *  computed from the button's own rect) because this button lives inside
+ *  DashboardPosterCard's popover, which clips overflow to its own rounded
+ *  panel; an absolutely-positioned dropdown got silently cut off there. */
 function CardMenu({ label, children }: { label: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
-    const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node) && btnRef.current && !btnRef.current.contains(e.target as Node)) setOpen(false);
+    };
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     document.addEventListener("mousedown", onClick);
     window.addEventListener("keydown", onKey);
@@ -45,23 +54,37 @@ function CardMenu({ label, children }: { label: string; children: React.ReactNod
       window.removeEventListener("keydown", onKey);
     };
   }, [open]);
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ left: Math.min(rect.right - 224, window.innerWidth - 232), top: rect.bottom + 8 });
+    }
+    setOpen((v) => !v);
+  };
   return (
-    <div className="relative" ref={ref}>
+    <>
       <button
+        ref={btnRef}
         type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((v) => !v); }}
+        onClick={(e) => { e.stopPropagation(); toggle(); }}
         title={label}
         aria-label={label}
         className="flex h-10 w-10 items-center justify-center rounded-full border border-white/45 text-white transition-colors hover:border-white hover:bg-white/10"
       >
         <MoreVertical className="h-[18px] w-[18px]" />
       </button>
-      {open && (
-        <div className="absolute right-0 top-full z-20 mt-2 w-56 overflow-hidden rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl" onClick={() => setOpen(false)}>
+      {open && pos && typeof document !== "undefined" && createPortal(
+        <div
+          ref={menuRef}
+          className="fixed z-[90] w-56 overflow-hidden rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl"
+          style={{ left: pos.left, top: pos.top }}
+          onClick={() => setOpen(false)}
+        >
           {children}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
