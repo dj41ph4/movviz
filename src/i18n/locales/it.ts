@@ -1545,6 +1545,8 @@ export const it: Dictionary = {
     intro: "Analizza ogni film tramite ffprobe (codec, HDR/Dolby Vision, tracce audio e sottotitoli esatte) e mette in cache il risultato — le future decisioni di riproduzione non dovranno più ri-analizzare il file. Può richiedere diversi minuti su una libreria grande.",
     scan: "Avvia analisi",
     scanning: "Analisi in corso…",
+    full: "Analisi completa",
+    fullHint: "Ignora la cache e ri-analizza tutto, anche i film già analizzati",
     resultSummary: "{probed} analizzati, {skipped} saltati, {failed} falliti su {total}.",
   },
 

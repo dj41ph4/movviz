@@ -58,8 +58,15 @@ function saveAll(entries: CacheEntry[]) {
  * doesn't exist — a missing file is a normal, expected caller-facing state
  * here (e.g. a library entry whose disk file was moved/deleted), not an
  * exceptional one.
+ *
+ * `force: true` (TODO_POST_MOTEUR_LECTURE.md item 2 — "analyse complète")
+ * skips the cache-match check entirely and always re-probes, for a user who
+ * explicitly wants to bypass the cache rather than trust it — the normal
+ * incremental behavior above already re-probes on its own whenever the file
+ * actually changed, so `force` is only ever about a caller's own doubt in
+ * the cache, not a correctness requirement.
  */
-export async function getOrProbeMediaDescriptor(mediaId: string, filePath: string): Promise<MediaDescriptor | null> {
+export async function getOrProbeMediaDescriptor(mediaId: string, filePath: string, force = false): Promise<MediaDescriptor | null> {
   let stat: fs.Stats;
   try {
     stat = fs.statSync(filePath);
@@ -71,6 +78,7 @@ export async function getOrProbeMediaDescriptor(mediaId: string, filePath: strin
   const existing = entries.find((e) => e.mediaId === mediaId);
   const ffprobeVersion = await getFfprobeVersion();
   if (
+    !force &&
     existing &&
     existing.probeVersion === PROBE_VERSION &&
     existing.ffprobeVersion === ffprobeVersion &&

@@ -1563,6 +1563,8 @@ export const de: Dictionary = {
     intro: "Analysiert jeden Film per ffprobe (Codec, HDR/Dolby Vision, genaue Audio- und Untertitelspuren) und speichert das Ergebnis im Cache — künftige Wiedergabeentscheidungen müssen die Datei nicht erneut analysieren. Kann bei einer großen Bibliothek mehrere Minuten dauern.",
     scan: "Analyse starten",
     scanning: "Analyse läuft…",
+    full: "Vollständige Analyse",
+    fullHint: "Ignoriert den Cache und analysiert alles neu, auch bereits analysierte Filme",
     resultSummary: "{probed} analysiert, {skipped} übersprungen, {failed} fehlgeschlagen von {total}.",
   },
 

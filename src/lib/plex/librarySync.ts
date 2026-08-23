@@ -13,6 +13,7 @@ import { episodeStatus } from "@/lib/library/releaseSchedule";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
+import { probeMovieInBackground } from "@/lib/playback/engine/probeLibrary";
 import { learnPathMapping, applyLearnedPathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { registerMarkerCandidate } from "./markerSync";
@@ -327,6 +328,9 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
       if (Object.keys(patch).length > 0) {
         updateMovie(existing.id, patch);
         matched++;
+        // TODO_POST_MOTEUR_LECTURE.md item 1 — only when the file itself
+        // actually changed, not on every metadata-only touch of this movie.
+        if (patch.file) probeMovieInBackground(existing.id, patch.file.diskPath ?? patch.file.path);
       }
       continue;
     }
@@ -390,6 +394,8 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
     };
     addMovie(movie);
     added++;
+    // TODO_POST_MOTEUR_LECTURE.md item 1
+    probeMovieInBackground(movie.id, movie.file?.diskPath ?? movie.file?.path);
   }
 
   return { added, matched };

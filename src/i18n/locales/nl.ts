@@ -1546,6 +1546,8 @@ export const nl: Dictionary = {
     intro: "Analyseert elke film via ffprobe (codec, HDR/Dolby Vision, exacte audio- en ondertitelsporen) en cachet het resultaat — toekomstige afspeelbeslissingen hoeven het bestand niet opnieuw te analyseren. Kan bij een grote bibliotheek meerdere minuten duren.",
     scan: "Analyse starten",
     scanning: "Analyseren…",
+    full: "Volledige analyse",
+    fullHint: "Negeert de cache en analyseert alles opnieuw, ook al geanalyseerde films",
     resultSummary: "{probed} geanalyseerd, {skipped} overgeslagen, {failed} mislukt van {total}.",
   },
 

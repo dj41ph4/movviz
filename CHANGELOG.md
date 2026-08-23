@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.19.01 — August 2026
+
+### Analyse technique : automatique dès la récupération d'un film, et bouton "Analyse complète"
+
+- Un film analysé techniquement (ffprobe) dès qu'il est récupéré — plus besoin de lancer l'analyse manuellement pour qu'un film fraîchement téléchargé soit couvert.
+- Réglages > Maintenance propose désormais deux boutons : l'analyse habituelle (ignore ce qui est déjà à jour) et une "Analyse complète" qui force la ré-analyse de tout le catalogue.
+
 ## v1.19.00 — August 2026
 
 ### Analyse technique de la bibliothèque (ffprobe)

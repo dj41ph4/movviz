@@ -13,6 +13,7 @@ import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules";
 import { recordDecision } from "@/lib/library/decisionLog";
 import { withKeyLock } from "@/lib/library/locks";
+import { probeMovieInBackground } from "@/lib/playback/engine/probeLibrary";
 import path from "node:path";
 import fsp from "node:fs/promises";
 
@@ -373,6 +374,8 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       file: versioned.file,
       versions: versioned.versions,
     });
+    // TODO_POST_MOTEUR_LECTURE.md item 1 — fire-and-forget, never blocks import.
+    probeMovieInBackground(movie.id, versioned.file?.diskPath ?? versioned.file?.path);
     emitNotification("import_movie_available", `${movie.title} est maintenant disponible`, "/library", { title: movie.title });
     logActivity("imported", "system", movie.title, "/library", {
       libraryRef: encodeLibraryRef({ kind: "movie", movieId: movie.id }),

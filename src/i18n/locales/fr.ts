@@ -1544,6 +1544,8 @@ export const fr = {
     intro: "Analyse chaque film via ffprobe (codec, HDR/Dolby Vision, pistes audio et sous-titres exactes) et met le résultat en cache — les futures décisions de lecture n'auront plus besoin de ré-analyser le fichier. Peut prendre plusieurs minutes sur une grande bibliothèque.",
     scan: "Lancer l'analyse",
     scanning: "Analyse en cours…",
+    full: "Analyse complète",
+    fullHint: "Ignore le cache et ré-analyse tout, même les films déjà analysés",
     resultSummary: "{probed} analysé(s), {skipped} ignoré(s), {failed} échoué(s) sur {total}.",
   },
 

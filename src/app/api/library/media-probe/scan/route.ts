@@ -15,13 +15,21 @@ export async function POST(req: NextRequest) {
   if (!admin) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   if (isSourceActive(SOURCE_ID)) return NextResponse.json({ queued: true });
 
+  // TODO_POST_MOTEUR_LECTURE.md item 2 — "force" bypasses the cache
+  // entirely (re-probes every file); the default already behaves as an
+  // incremental scan since getOrProbeMediaDescriptor skips anything whose
+  // path/size/mtime hasn't changed since it was last probed.
+  const force = req.nextUrl.searchParams.get("force") === "1";
+  const label = force ? "Analyse complète de la bibliothèque" : "Analyse technique de la bibliothèque";
+
   enqueueJob(
     "mediaProbe",
-    "Analyse technique de la bibliothèque",
+    label,
     1,
     async (setProgress, ctx) =>
       probeAllLibraryMovies((current, total) => setProgress(current, total), {
         shouldCancel: () => isJobCancelled(ctx.jobId),
+        force,
       }),
     SOURCE_ID
   );

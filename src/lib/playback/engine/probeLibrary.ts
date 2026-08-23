@@ -19,7 +19,7 @@ export interface ProbeLibraryResult {
 
 export async function probeAllLibraryMovies(
   onProgress?: (current: number, total: number) => void,
-  opts?: { shouldCancel?: () => boolean }
+  opts?: { shouldCancel?: () => boolean; force?: boolean }
 ): Promise<ProbeLibraryResult> {
   const movies = loadMovies().filter((m) => m.file);
   const total = movies.length;
@@ -38,7 +38,7 @@ export async function probeAllLibraryMovies(
       continue;
     }
     try {
-      const descriptor = await getOrProbeMediaDescriptor(movie.id, filePath);
+      const descriptor = await getOrProbeMediaDescriptor(movie.id, filePath, opts?.force);
       if (descriptor) probed++;
       else skipped++; // file missing on disk — getOrProbeMediaDescriptor already returned null gracefully
     } catch (err) {
@@ -49,4 +49,20 @@ export async function probeAllLibraryMovies(
 
   onProgress?.(total, total);
   return { probed, skipped, failed, total };
+}
+
+/**
+ * Fire-and-forget probe for one movie right after its file lands (a fresh
+ * import, an auto-grab completion, a Plex sync reconciliation…) — see
+ * TODO_POST_MOTEUR_LECTURE.md item 1. Never awaited by callers: probing
+ * must not add latency to the import/sync path it's called from, and a
+ * probe failure here must never surface as an import failure — the file is
+ * genuinely in the library either way, only the cache entry is missing
+ * (which getOrProbeMediaDescriptor already tries again next time on-demand).
+ */
+export function probeMovieInBackground(movieId: string, filePath: string | null | undefined): void {
+  if (!filePath) return;
+  void getOrProbeMediaDescriptor(movieId, filePath).catch((err) => {
+    console.error(`[media-probe] échec en arrière-plan pour ${movieId}:`, err);
+  });
 }

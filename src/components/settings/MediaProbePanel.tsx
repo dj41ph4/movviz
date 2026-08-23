@@ -23,20 +23,20 @@ const SOURCE_ID = "media-probe-library";
  *  les manquants" button (poll /api/jobs, match by sourceId). */
 export function MediaProbePanel() {
   const t = useT();
-  const [starting, setStarting] = useState(false);
+  const [starting, setStarting] = useState<"incremental" | "full" | null>(null);
   const { data: jobsData, mutate } = useSWR<{ jobs: Job[] }>("/api/jobs", { refreshInterval: 2000 });
   const job = jobsData?.jobs.find((j) => j.sourceId === SOURCE_ID);
   const active = job?.status === "queued" || job?.status === "running";
-  const running = starting || active;
+  const running = !!starting || active;
   const lastResult = job?.status === "completed" ? job.result : undefined;
 
-  const start = async () => {
-    setStarting(true);
+  const start = async (force: boolean) => {
+    setStarting(force ? "full" : "incremental");
     try {
-      await fetch("/api/library/media-probe/scan", { method: "POST" });
+      await fetch(`/api/library/media-probe/scan${force ? "?force=1" : ""}`, { method: "POST" });
       await mutate();
     } finally {
-      setStarting(false);
+      setStarting(null);
     }
   };
 
@@ -52,14 +52,25 @@ export function MediaProbePanel() {
         </div>
       </div>
 
-      <button
-        onClick={start}
-        disabled={running}
-        className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-60"
-      >
-        {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
-        {running && job && job.total > 1 ? `${job.current} / ${job.total}` : running ? t("mediaProbe.scanning") : t("mediaProbe.scan")}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => start(false)}
+          disabled={running}
+          className="flex h-10 items-center gap-2 rounded-xl brand-gradient px-4 text-sm font-bold text-white disabled:opacity-60"
+        >
+          {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
+          {running && job && job.total > 1 ? `${job.current} / ${job.total}` : running ? t("mediaProbe.scanning") : t("mediaProbe.scan")}
+        </button>
+        <button
+          onClick={() => start(true)}
+          disabled={running}
+          title={t("mediaProbe.fullHint")}
+          className="flex h-10 items-center gap-2 rounded-xl glass-strong px-4 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-60"
+        >
+          <ScanLine className="h-4 w-4" />
+          {t("mediaProbe.full")}
+        </button>
+      </div>
 
       {running && job && job.total > 1 && (
         <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/8">

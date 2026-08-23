@@ -1546,6 +1546,8 @@ export const en: Dictionary = {
     intro: "Analyzes every movie via ffprobe (codec, HDR/Dolby Vision, exact audio and subtitle tracks) and caches the result — future playback decisions won't need to re-analyze the file. Can take several minutes on a large library.",
     scan: "Run analysis",
     scanning: "Analyzing…",
+    full: "Full analysis",
+    fullHint: "Ignores the cache and re-analyzes everything, even already-analyzed movies",
     resultSummary: "{probed} analyzed, {skipped} skipped, {failed} failed out of {total}.",
   },
 
