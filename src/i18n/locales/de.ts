@@ -1561,10 +1561,12 @@ export const de: Dictionary = {
   mediaProbe: {
     title: "Technische Bibliotheksanalyse",
     intro: "Analysiert jeden Film per ffprobe (Codec, HDR/Dolby Vision, genaue Audio- und Untertitelspuren) und speichert das Ergebnis im Cache — künftige Wiedergabeentscheidungen müssen die Datei nicht erneut analysieren. Kann bei einer großen Bibliothek mehrere Minuten dauern.",
+    introSeries: "Dieselbe ffprobe-Analyse, Episode für Episode, für alle Serien. Kann bei gleicher Dateimenge länger dauern als eine Filmbibliothek (deutlich mehr Dateien zu durchlaufen).",
     scan: "Analyse starten",
     scanning: "Analyse läuft…",
     full: "Vollständige Analyse",
     fullHint: "Ignoriert den Cache und analysiert alles neu, auch bereits analysierte Filme",
+    fullHintSeries: "Ignoriert den Cache und analysiert alles neu, auch bereits analysierte Episoden",
     resultSummary: "{probed} analysiert, {skipped} übersprungen, {failed} fehlgeschlagen von {total}.",
   },
 

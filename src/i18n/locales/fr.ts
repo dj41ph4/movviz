@@ -1542,10 +1542,12 @@ export const fr = {
   mediaProbe: {
     title: "Analyse technique de la bibliothèque",
     intro: "Analyse chaque film via ffprobe (codec, HDR/Dolby Vision, pistes audio et sous-titres exactes) et met le résultat en cache — les futures décisions de lecture n'auront plus besoin de ré-analyser le fichier. Peut prendre plusieurs minutes sur une grande bibliothèque.",
+    introSeries: "Même analyse ffprobe, épisode par épisode, pour toutes les séries. Peut prendre plus longtemps qu'une bibliothèque de films à volume de fichiers égal (beaucoup plus de fichiers à parcourir).",
     scan: "Lancer l'analyse",
     scanning: "Analyse en cours…",
     full: "Analyse complète",
     fullHint: "Ignore le cache et ré-analyse tout, même les films déjà analysés",
+    fullHintSeries: "Ignore le cache et ré-analyse tout, même les épisodes déjà analysés",
     resultSummary: "{probed} analysé(s), {skipped} ignoré(s), {failed} échoué(s) sur {total}.",
   },
 

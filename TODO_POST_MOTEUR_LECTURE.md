@@ -43,3 +43,29 @@ largeur (le width d'un disque 4K reste ~3840 quel que soit le crop) — vérifi�
 sur 72 films réellement accessibles depuis cette machine, 35 changements,
 zéro régression après correction (tout ce qui était juste avant reste juste,
 tout ce qui était faux/absent est maintenant correct).
+
+**Deuxième correction, signalée par l'utilisateur** : le badge audio prenait
+la piste flaggée "default" par ffprobe (souvent juste l'ordre des pistes dans
+le fichier, ex. anglais en premier), sans lien avec la langue réellement
+regardée — un fichier français en TrueHD + anglais en AAC affichait le badge
+AAC. Corrigé avec `findTrackForLocale()` (déjà partagé avec la sélection auto
+des pistes du lecteur, `detectLanguage.ts`) sur `DEFAULT_LOCALE` ("fr",
+French-first) : le badge préfère maintenant la piste française si elle
+existe, sinon retombe sur l'ancien comportement (default ffprobe puis
+première piste). Vérifié sur 3 cas réels (FR non-default, aucune piste FR,
+tag ISO 3 lettres "fra").
+
+## 4. Adapter la qualité/vitesse d'encodage à la puissance réelle du serveur — pas fait
+
+Soulevé pendant la Phase 6 (détection des capacités serveur) : `serverCapabilities.detect.ts`
+détecte seulement CE QUE ffmpeg sait faire (encodeurs/hwaccel compilés), jamais
+la puissance réelle du CPU/GPU. Sur un NAS faible (typiquement aucun
+NVENC/QSV — `hardwareAcceleration` tout à `false`), un transcodage logiciel
+`libx264` au preset par défaut peut être plus lent que la lecture temps réel
+→ lag/buffering. Couvert plus loin dans le plan (§30 sélection du backend de
+transcodage, §40-42 modes de qualité) :
+1. Préférer un encodeur matériel dispo (quasi toujours plus rapide).
+2. Sinon, baisser le preset x264 (`veryfast`/`superfast`) et/ou plafonner
+   résolution/bitrate cible selon la puissance détectée.
+3. Idéalement mesurer le facteur de vitesse ffmpeg en direct et dégrader
+   encore, ou basculer en `PLEX_FALLBACK` si insuffisant.

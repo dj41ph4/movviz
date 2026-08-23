@@ -23,6 +23,8 @@
 
 import type { LibraryFile } from "@/lib/library/types";
 import type { MediaDescriptor } from "./mediaDescriptor";
+import { findTrackForLocale } from "@/lib/library/detectLanguage";
+import { DEFAULT_LOCALE } from "@/i18n/config";
 
 function resolutionLabel(width?: number, height?: number): string | null {
   // Bucketing by WIDTH, not height — live-verified this matters: a real
@@ -98,13 +100,30 @@ function audioCodecLabel(codec: string): string | null {
 }
 
 /**
- * The audio track actually worth showing as "this file's audio codec" — the
- * default track if one is flagged, otherwise the first track ffprobe
- * reported (its own natural stream order, same convention Plex/scene
- * releases use for "the main audio track").
+ * The audio track actually worth showing as "this file's audio codec". A
+ * file's ffprobe-flagged "default" track is frequently just stream order
+ * from the source release (e.g. English first, French second) and has
+ * nothing to do with which language the badge should represent — a French
+ * TrueHD + English AAC file must show TrueHD, not whichever happened to be
+ * first/default in the container. This enrichment runs app-wide in a
+ * background job with no per-viewer context, so it can't follow a specific
+ * user's language preference — it uses Movviz's own DEFAULT_LOCALE ("fr",
+ * see i18n/config.ts, French-first) via the same findTrackForLocale() helper
+ * already shared with player track auto-selection. Falls back to the
+ * ffprobe-default/first track only when no French track exists at all.
  */
 function primaryAudioCodec(descriptor: MediaDescriptor): string | null {
-  const track = descriptor.audioTracks.find((t) => t.default) ?? descriptor.audioTracks[0];
+  const track =
+    // AudioTrack.language is optional — findTrackForLocale's generic wants a
+    // required (nullable) field, so normalize undefined→null just for this
+    // call; the spread keeps every original field (codec included) on what
+    // gets returned.
+    findTrackForLocale(
+      descriptor.audioTracks.map((t) => ({ ...t, language: t.language ?? null })),
+      DEFAULT_LOCALE
+    ) ??
+    descriptor.audioTracks.find((t) => t.default) ??
+    descriptor.audioTracks[0];
   return track ? audioCodecLabel(track.codec) : null;
 }
 

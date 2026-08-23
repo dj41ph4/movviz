@@ -7,12 +7,23 @@
  * see /api/library/media-probe/scan.
  */
 
-import { getMovie, loadMovies, updateMovie } from "@/lib/library/store";
+import { getMovie, getSeries, loadMovies, loadSeries, updateMovie, updateSeries } from "@/lib/library/store";
 import { getPrimaryFile, setPrimaryFile } from "@/lib/library/versions";
 import type { LibraryFile } from "@/lib/library/types";
 import { getOrProbeMediaDescriptor } from "./mediaProbeCache";
 import { fileFieldsFromDescriptor } from "./mediaDescriptorEnrich";
 import type { MediaDescriptor } from "./mediaDescriptor";
+
+/**
+ * Episodes have no versions[]/multi-version concept (see LibraryEpisode in
+ * src/lib/library/types.ts — a bare `file: LibraryFile | null`), so unlike
+ * movies there's no shared movie id to key the probe cache on. Build a
+ * stable synthetic id instead — collision-free against real movie/series ids
+ * (those are prefixed "mv_"/"sr_", this always has a literal ":s"/"e" in it).
+ */
+function episodeMediaId(seriesId: string, seasonNumber: number, episodeNumber: number): string {
+  return `${seriesId}:s${seasonNumber}e${episodeNumber}`;
+}
 
 export interface ProbeLibraryResult {
   probed: number;
@@ -58,6 +69,109 @@ function enrichMovieFromDescriptor(movieId: string, descriptor: MediaDescriptor)
 
   const updated = setPrimaryFile(movie, nextFile, { versionSource: "ffprobe", reason: "Analyse technique (ffprobe)" });
   updateMovie(movieId, { file: updated.file, versions: updated.versions });
+}
+
+/** Episode equivalent of enrichMovieFromDescriptor — same ffprobe-truth-wins
+ *  policy on resolution/videoCodec/audioCodec/hdr, but patches `episode.file`
+ *  directly (no setPrimaryFile/versions[] — episodes don't have that concept). */
+function enrichEpisodeFromDescriptor(seriesId: string, seasonNumber: number, episodeNumber: number, descriptor: MediaDescriptor): void {
+  const series = getSeries(seriesId);
+  if (!series) return;
+
+  const enriched = fileFieldsFromDescriptor(descriptor);
+  let changed = false;
+  const seasons = series.seasons.map((season) => {
+    if (season.seasonNumber !== seasonNumber) return season;
+    const episodes = season.episodes.map((ep) => {
+      if (ep.episodeNumber !== episodeNumber || !ep.file) return ep;
+      const current = ep.file;
+      const nextFile: LibraryFile = {
+        ...current,
+        resolution: enriched.resolution ?? current.resolution,
+        videoCodec: enriched.videoCodec ?? current.videoCodec,
+        audioCodec: enriched.audioCodec ?? current.audioCodec,
+        hdr: enriched.hdr, // see enrichMovieFromDescriptor's identical comment — ffprobe's "no HDR" is authoritative
+      };
+      if (
+        nextFile.resolution === current.resolution &&
+        nextFile.videoCodec === current.videoCodec &&
+        nextFile.audioCodec === current.audioCodec &&
+        nextFile.hdr === current.hdr
+      ) {
+        return ep;
+      }
+      changed = true;
+      return { ...ep, file: nextFile };
+    });
+    return { ...season, episodes };
+  });
+
+  if (changed) updateSeries(seriesId, { seasons });
+}
+
+export interface ProbeLibrarySeriesResult extends ProbeLibraryResult {
+  /** Number of series walked (for progress display — total/probed/skipped/failed above count episodes). */
+  seriesCount: number;
+}
+
+export async function probeAllLibrarySeries(
+  onProgress?: (current: number, total: number) => void,
+  opts?: { shouldCancel?: () => boolean; force?: boolean }
+): Promise<ProbeLibrarySeriesResult> {
+  const allSeries = loadSeries();
+  const episodeRefs = allSeries.flatMap((series) =>
+    series.seasons.flatMap((season) =>
+      season.episodes
+        .filter((ep) => ep.file)
+        .map((ep) => ({ seriesId: series.id, seasonNumber: season.seasonNumber, episodeNumber: ep.episodeNumber, file: ep.file! }))
+    )
+  );
+  const total = episodeRefs.length;
+  let probed = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (let i = 0; i < episodeRefs.length; i++) {
+    if (opts?.shouldCancel?.()) break;
+    onProgress?.(i, total);
+
+    const ref = episodeRefs[i];
+    const filePath = ref.file.diskPath ?? ref.file.path;
+    if (!filePath) {
+      skipped++;
+      continue;
+    }
+    const mediaId = episodeMediaId(ref.seriesId, ref.seasonNumber, ref.episodeNumber);
+    try {
+      const descriptor = await getOrProbeMediaDescriptor(mediaId, filePath, opts?.force);
+      if (descriptor) {
+        probed++;
+        enrichEpisodeFromDescriptor(ref.seriesId, ref.seasonNumber, ref.episodeNumber, descriptor);
+      } else {
+        skipped++;
+      }
+    } catch (err) {
+      failed++;
+      console.error(`[media-probe] échec pour l'épisode S${ref.seasonNumber}E${ref.episodeNumber} (${ref.seriesId}):`, err);
+    }
+  }
+
+  onProgress?.(total, total);
+  return { probed, skipped, failed, total, seriesCount: allSeries.length };
+}
+
+/** Episode equivalent of probeMovieInBackground — same fire-and-forget,
+ *  never-blocks-the-import, never-fails-the-import contract. */
+export function probeEpisodeInBackground(seriesId: string, seasonNumber: number, episodeNumber: number, filePath: string | null | undefined): void {
+  if (!filePath) return;
+  const mediaId = episodeMediaId(seriesId, seasonNumber, episodeNumber);
+  void getOrProbeMediaDescriptor(mediaId, filePath)
+    .then((descriptor) => {
+      if (descriptor) enrichEpisodeFromDescriptor(seriesId, seasonNumber, episodeNumber, descriptor);
+    })
+    .catch((err) => {
+      console.error(`[media-probe] échec en arrière-plan pour l'épisode S${seasonNumber}E${episodeNumber} (${seriesId}):`, err);
+    });
 }
 
 export async function probeAllLibraryMovies(

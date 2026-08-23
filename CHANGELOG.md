@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.19.03 — August 2026
+
+### Analyse technique étendue aux séries, et badge audio corrigé sur la langue française
+
+- L'analyse technique (ffprobe) couvre désormais aussi les épisodes de séries, pas seulement les films : Réglages > Maintenance propose une section dédiée aux séries (mêmes deux boutons, analyse habituelle et analyse complète), et un épisode fraîchement récupéré est analysé automatiquement dès son arrivée, comme c'était déjà le cas pour les films.
+- Correctif : sur un fichier avec plusieurs pistes audio (ex. français en TrueHD, anglais en AAC), la pastille codec audio pouvait afficher la piste anglaise alors qu'elle n'était pas la piste principale — elle privilégie désormais la piste française quand elle existe.
+
 ## v1.19.02 — August 2026
 
 ### Pastilles qualité corrigées automatiquement par l'analyse technique

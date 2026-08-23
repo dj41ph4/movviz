@@ -1544,10 +1544,12 @@ export const nl: Dictionary = {
   mediaProbe: {
     title: "Technische analyse van de bibliotheek",
     intro: "Analyseert elke film via ffprobe (codec, HDR/Dolby Vision, exacte audio- en ondertitelsporen) en cachet het resultaat — toekomstige afspeelbeslissingen hoeven het bestand niet opnieuw te analyseren. Kan bij een grote bibliotheek meerdere minuten duren.",
+    introSeries: "Dezelfde ffprobe-analyse, aflevering voor aflevering, voor alle series. Kan langer duren dan een filmbibliotheek met evenveel bestanden (veel meer bestanden om te doorlopen).",
     scan: "Analyse starten",
     scanning: "Analyseren…",
     full: "Volledige analyse",
     fullHint: "Negeert de cache en analyseert alles opnieuw, ook al geanalyseerde films",
+    fullHintSeries: "Negeert de cache en analyseert alles opnieuw, ook al geanalyseerde afleveringen",
     resultSummary: "{probed} geanalyseerd, {skipped} overgeslagen, {failed} mislukt van {total}.",
   },
 

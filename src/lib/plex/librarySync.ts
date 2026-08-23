@@ -13,7 +13,7 @@ import { episodeStatus } from "@/lib/library/releaseSchedule";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
-import { probeMovieInBackground } from "@/lib/playback/engine/probeLibrary";
+import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
 import { learnPathMapping, applyLearnedPathMapping } from "./pathMappingStore";
 import { yieldToUser } from "@/lib/priority/userActivity";
 import { registerMarkerCandidate } from "./markerSync";
@@ -443,8 +443,9 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         });
         seasons.push({ seasonNumber: s.seasonNumber, name: s.name, monitored: monitoredByDefault, episodes: eps });
       }
+      const newSeriesId = `sr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
       addSeries({
-        id: `sr_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`,
+        id: newSeriesId,
         tmdbId: meta.tmdbId,
         imdbId: meta.imdbId,
         title: meta.title,
@@ -465,6 +466,13 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         originalTitle: meta.originalTitle,
       });
       added++;
+      // TODO_POST_MOTEUR_LECTURE.md item 1 (série) — même contrat que
+      // probeMovieInBackground : fire-and-forget, sans latence ajoutée au sync.
+      for (const s of seasons) {
+        for (const ep of s.episodes) {
+          if (ep.file) probeEpisodeInBackground(newSeriesId, s.seasonNumber, ep.episodeNumber, ep.file.diskPath ?? ep.file.path);
+        }
+      }
       continue;
     }
 
@@ -490,13 +498,21 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
     }
 
     if (changed || needsLanguageBackfill) {
+      const probedEpisodes: { season: number; episode: number; path: string }[] = [];
       const newSeasons = existing.seasons.map((season) => ({
         ...season,
         episodes: season.episodes.map((ep) => {
           const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {
-              return { ...ep, status: "available" as const, file: toLibraryFileReconciled(plexEp, ep.file?.path) ?? ep.file, plexRatingKey: plexEp.ratingKey };
+              const nextFile = toLibraryFileReconciled(plexEp, ep.file?.path) ?? ep.file;
+              // Only worth a fresh probe when the file actually changed (new
+              // path, first time it exists) — same "only on real file change,
+              // not metadata-only touch" rule as the movie sync path above.
+              if (nextFile && nextFile.path !== ep.file?.path) {
+                probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: nextFile.diskPath ?? nextFile.path });
+              }
+              return { ...ep, status: "available" as const, file: nextFile, plexRatingKey: plexEp.ratingKey };
             }
             return ep;
           }
@@ -519,6 +535,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
       }));
       updateSeries(existing.id, { seasons: newSeasons, plexRatingKey: existing.plexRatingKey ?? show.ratingKey });
       matched++;
+      for (const pe of probedEpisodes) probeEpisodeInBackground(existing.id, pe.season, pe.episode, pe.path);
     }
   }
 

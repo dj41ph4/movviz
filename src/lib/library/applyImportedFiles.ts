@@ -13,7 +13,7 @@ import { ENGINE_BASE, engineHeaders } from "@/lib/engine/server";
 import { matchesBlockedWord, loadReleaseRules } from "@/lib/library/releaseRules";
 import { recordDecision } from "@/lib/library/decisionLog";
 import { withKeyLock } from "@/lib/library/locks";
-import { probeMovieInBackground } from "@/lib/playback/engine/probeLibrary";
+import { probeMovieInBackground, probeEpisodeInBackground } from "@/lib/playback/engine/probeLibrary";
 import path from "node:path";
 import fsp from "node:fs/promises";
 
@@ -414,11 +414,13 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // (f.season == null, e.g. a bare "01.mkv" the engine couldn't season-tag)
     // is still accepted — that's a real gap in the filename, not a mismatch.
     const seasonFiles = normalizedFiles.filter((f) => f.season == null || f.season === ref.season);
+    const probedEpisodes: { season: number; episode: number; path: string }[] = [];
     const seasons = series.seasons.map((season) => {
       if (season.seasonNumber !== ref.season) return season;
       const episodes = season.episodes.map((ep) => {
         const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
         if (!match) return releaseIfOrphaned(ep, infoHash);
+        probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: match.path });
         return {
           ...ep,
           status: "available" as const,
@@ -439,6 +441,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       return { ...season, episodes };
     });
     updateSeries(series.id, { seasons });
+    for (const pe of probedEpisodes) probeEpisodeInBackground(series.id, pe.season, pe.episode, pe.path);
     // Zero files means every targeted episode was just released back to
     // "missing" above (releaseIfOrphaned), not made available — none of
     // this "it's ready" signal (notification, activity log, Seerr) applies.
@@ -467,11 +470,13 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
     // Complete-series pack — dispatch each file to its correct episode
     // across multiple seasons. Files without season/episode metadata are
     // skipped (they don't belong to any tracked episode).
+    const probedEpisodes: { season: number; episode: number; path: string }[] = [];
     const seasons = series.seasons.map((season) => {
       const seasonFiles = normalizedFiles.filter((f) => f.season === season.seasonNumber);
       const episodes = season.episodes.map((ep) => {
         const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
         if (!match) return releaseIfOrphaned(ep, infoHash);
+        probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: match.path });
         return {
           ...ep,
           status: "available" as const,
@@ -492,6 +497,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       return { ...season, episodes };
     });
     updateSeries(series.id, { seasons });
+    for (const pe of probedEpisodes) probeEpisodeInBackground(series.id, pe.season, pe.episode, pe.path);
     const importedCount = normalizedFiles.filter((f) => f.season != null && f.episode != null).length;
     // Zero matched episodes means every target was just released back to
     // "missing" above (releaseIfOrphaned) — skip the false "available"
@@ -531,11 +537,13 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
   const singleFile = normalizedFiles.length === 1 ? normalizedFiles[0] : null;
   // Same season-consistency guard as the "season" branch above.
   const seasonFiles = normalizedFiles.filter((f) => f.season == null || f.season === ref.season);
+  const probedEpisodes: { season: number; episode: number; path: string }[] = [];
   const seasons = series.seasons.map((season) => {
     if (season.seasonNumber !== ref.season) return season;
     const episodes = season.episodes.map((ep) => {
       if (singleFile) {
         if (ep.episodeNumber !== ref.episode) return releaseIfOrphaned(ep, infoHash);
+        probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: singleFile.path });
         return {
           ...ep,
           status: "available" as const,
@@ -555,6 +563,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
       }
       const match = seasonFiles.find((f) => movedFileCoversEpisode(f, ep.episodeNumber));
       if (!match) return releaseIfOrphaned(ep, infoHash);
+      probedEpisodes.push({ season: season.seasonNumber, episode: ep.episodeNumber, path: match.path });
       return {
         ...ep,
         status: "available" as const,
@@ -576,6 +585,7 @@ async function applyImportedFilesLocked(ref: LibraryImportRef, files: ImportedFi
   });
 
   updateSeries(series.id, { seasons });
+  for (const pe of probedEpisodes) probeEpisodeInBackground(series.id, pe.season, pe.episode, pe.path);
   // Zero files means every targeted episode was just released back to
   // "missing" above (releaseIfOrphaned) — skip the false "available" signal
   // (see the season branch's matching comment).
