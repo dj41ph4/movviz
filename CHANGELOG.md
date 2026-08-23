@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.18.02 — August 2026
+
+### Bibliothèque : même langage visuel que Découverte
+
+- Menu Genres de Découverte : se ferme désormais au clic à l'extérieur ou à la touche Échap (restait ouvert auparavant).
+- Cartes Films/Séries de la Bibliothèque : agrandissement au survol plus marqué et bandeau genres/durée, dans le même esprit que Découverte — toutes les actions existantes (optimiser, recherche manuelle, tags, suppression) restent identiques.
+
 ## v1.18.01 — August 2026
 
 ### Correctif : icône coupée dans la barre de navigation mobile sur écran étroit

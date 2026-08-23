@@ -53,7 +53,7 @@ export function LibrarySeriesCard({ series, index = 0, onChange }: { series: Lib
     animate: { opacity: 1, y: 0, scale: 1 },
     exit: { opacity: 0, y: 20, scale: 0.95, transition: { duration: 0.25, ease: "easeInOut" as const } },
     transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
-    whileHover: { scale: 1.03, y: -2 },
+    whileHover: { scale: 1.06, y: -4, zIndex: 10 },
     whileTap: { scale: 0.98 },
   };
   const btnSpring = reduceMotion ? {} : {
@@ -62,7 +62,7 @@ export function LibrarySeriesCard({ series, index = 0, onChange }: { series: Lib
   };
 
   return (
-    <motion.div className="group block w-full transition-shadow duration-300 hover:shadow-[0_0_25px_rgba(168,130,255,0.15)]" {...cascadeAnim}>
+    <motion.div className="group relative block w-full transition-shadow duration-300 hover:shadow-[0_0_32px_rgba(168,130,255,0.22)]" {...cascadeAnim}>
       <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
         <Link href={`/title/series/${series.tmdbId}`} className="absolute inset-0 block">
           {poster ? (
@@ -105,6 +105,13 @@ export function LibrarySeriesCard({ series, index = 0, onChange }: { series: Lib
 
         {/* Hover action bar — desktop (lg+) */}
         <div className="pointer-events-none absolute inset-0 hidden lg:flex flex-col justify-end bg-gradient-to-t from-black/90 via-black/10 to-transparent p-3 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          {series.genres.length > 0 && (
+            <div className="mb-2 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-white/85">
+              {series.genres.slice(0, 2).map((g) => (
+                <span key={g} className="rounded-full border border-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-white/80">{g}</span>
+              ))}
+            </div>
+          )}
           {hasAvailableEpisodes && (
             <div className="pointer-events-auto flex gap-2">
               <motion.button {...btnSpring} onClick={handleOptimize} disabled={busy} title="Optimiser (rechercher une meilleure version et remplacer)" className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-xl glass-strong text-xs font-bold text-brand-glow hover:text-ink">

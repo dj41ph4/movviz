@@ -66,6 +66,20 @@ function DiscoverPageInner() {
     return id && name ? { id, name } : null;
   });
   const [genreMenuOpen, setGenreMenuOpen] = useState(false);
+  const genreMenuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!genreMenuOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (genreMenuRef.current && !genreMenuRef.current.contains(e.target as Node)) setGenreMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setGenreMenuOpen(false); };
+    document.addEventListener("mousedown", onClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClick);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [genreMenuOpen]);
 
   // Browse view — paginated grid, used for search and any active filter/tile selection.
   const [results, setResults] = useState<MetaSearchResult[]>([]);
@@ -353,7 +367,7 @@ function DiscoverPageInner() {
                 {mt === "movie" ? t("common.movies") : t("common.series")}
               </button>
             ))}
-            <div className="relative">
+            <div className="relative" ref={genreMenuRef}>
               <button
                 type="button"
                 onClick={() => setGenreMenuOpen((open) => !open)}
