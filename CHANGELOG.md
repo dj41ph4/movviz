@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.19.08 — August 2026
+
+### Nouveau moteur (expérimental) : correctif critique, validé en conditions réelles
+
+Activation du mode "Auto" testée pour de vrai sur le serveur de production (matériel modeste, sans carte graphique dédiée) — un premier film (copie vidéo + audio transcodé) a fonctionné parfaitement, mais un second (4K HDR, transcodage vidéo complet) a échoué immédiatement avec un message trompeur invitant à ouvrir dans Plex, alors que ce film n'a aucun lien Plex.
+
+- **Cause trouvée et corrigée** : le serveur se fiait à la liste des encodeurs vidéo compilés dans ffmpeg pour décider s'il pouvait utiliser l'accélération matérielle — mais un encodeur compilé ne veut pas dire que le matériel correspondant est réellement présent. Sur ce serveur, un encodeur Intel QuickSync était bien compilé mais aucune puce Intel compatible n'y est exposée, et la tentative d'encodage plantait aussitôt, sans filet de secours. Le serveur tente maintenant un vrai micro-encodage de vérification pour chaque famille d'accélération matérielle avant de lui faire confiance, et bascule sur l'encodage logiciel si ce test échoue réellement.
+
 ## v1.19.07 — August 2026
 
 ### Nouveau moteur (expérimental) : audit complet et corrections de fond

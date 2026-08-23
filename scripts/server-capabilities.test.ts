@@ -22,16 +22,37 @@ test("memoizes across calls (same object reference)", async () => {
   assert.equal(a, b);
 });
 
-test("hardware acceleration flags reflect compiled encoder/decoder name suffixes", async () => {
+test("hardware acceleration flags reflect a REAL verification encode, not just the compiled name list", async () => {
   const caps = await detectServerCapabilities();
-  // Confirmed live on this dev machine (no real NVIDIA/Intel hardware) that
-  // ffmpeg still lists these compiled-in names — so these should read true
-  // here even without matching physical hardware, per the file's own caveat.
-  assert.equal(caps.hardwareAcceleration.nvenc, caps.videoEncoders.some((n) => n.endsWith("_nvenc")));
-  assert.equal(caps.hardwareAcceleration.nvdec, caps.videoDecoders.some((n) => n.endsWith("_cuvid")));
-  assert.equal(caps.hardwareAcceleration.qsv, [...caps.videoEncoders, ...caps.videoDecoders].some((n) => n.endsWith("_qsv")));
+  // This sandbox has a real NVIDIA GPU (confirmed live: a 320x240 h264_nvenc
+  // test encode genuinely exits 0) but no Intel/AMD hardware (h264_qsv fails
+  // with "Error creating a MFX session", h264_amf fails with "DLL amfrt64.dll
+  // failed to open") and vaapi is Linux-only (no /dev/dri on Windows) — so
+  // nvenc must verify true while qsv/amf/vaapi must verify false, even though
+  // ffmpeg's own -encoders list claims all four are compiled in. This is
+  // exactly the production bug this fix exists for: av1_qsv was compiled in
+  // on the Synology's ffmpeg build, got picked for a real transcode, and
+  // failed at runtime with no QSV device actually present.
+  assert.equal(caps.hardwareAcceleration.nvenc, true);
+  assert.equal(caps.hardwareAcceleration.qsv, false);
+  assert.equal(caps.hardwareAcceleration.amf, false);
+  assert.equal(caps.hardwareAcceleration.vaapi, false);
   // videotoolbox is macOS-only — must be false on this Windows box.
   assert.equal(caps.hardwareAcceleration.videotoolbox, false);
+});
+
+test("videoEncoders drops unverified hardware names but keeps verified ones and all software encoders", async () => {
+  const caps = await detectServerCapabilities();
+  // nvenc genuinely works here — its compiled names must survive the filter.
+  assert.ok(caps.videoEncoders.includes("h264_nvenc"));
+  // qsv/amf/vaapi don't work here — their compiled names must NOT survive,
+  // even though a raw `ffmpeg -encoders` on this same machine lists them.
+  assert.ok(!caps.videoEncoders.some((n) => n.endsWith("_qsv")));
+  assert.ok(!caps.videoEncoders.some((n) => n.endsWith("_amf")));
+  assert.ok(!caps.videoEncoders.some((n) => n.endsWith("_vaapi")));
+  // Software encoders never go through verification — always kept.
+  assert.ok(caps.videoEncoders.includes("libx264"));
+  assert.ok(caps.videoEncoders.includes("libx265"));
 });
 
 test("does not misparse the legend lines (\" V..... = Video\" etc.) as a bogus \"=\" entry — found via a real end-to-end run", async () => {

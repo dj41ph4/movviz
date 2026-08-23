@@ -168,3 +168,39 @@ dégrader encore (résolution/bitrate) ou basculer en `PLEX_FALLBACK` si même
 le preset rapide logiciel ne suit pas — nécessite un vrai process ffmpeg qui
 tourne, donc seulement possible une fois le Playback Executor (phase plus
 loin dans le plan) écrit.
+
+## 6. Validation réelle en prod (movviz.dj41ph4.ovh) — bug trouvé et corrigé, 2026-08-23/24
+
+Une fois le mode "Auto" activé en prod (le seul réglage qui expose le nouveau
+moteur pour du contenu purement local, sans toucher au chemin Plex existant
+pour tout le reste), deux vrais films locaux ont été testés en direct sur le
+vrai Synology : "The Raid" (AVC 1080p + AC3, cas de base — copie vidéo, audio
+transcodé et downmixé en 2.0) a fonctionné parfaitement, durée correcte,
+lecture fluide, buffer confortablement devant la lecture. "Dragons" (HEVC 4K
+Dolby Vision, cas dur — transcodage vidéo complet + tone-mapping) a échoué
+immédiatement avec un message "Impossible de lire cette vidéo, ouvrez-la dans
+Plex à la place" — trompeur, puisque ce film n'a justement aucun lien Plex.
+
+**Cause réelle trouvée** : `serverCapabilities.detect.ts` ne faisait que lire
+la liste des encodeurs COMPILÉS dans le binaire ffmpeg (`ffmpeg -encoders`) —
+jamais si le matériel derrière existe vraiment. Sur ce Synology, l'encodeur
+`av1_qsv` (Intel Quick Sync) est bien compilé dans l'image ffmpeg mais aucun
+périphérique QSV n'est exposé au conteneur Docker — `decidePlayback()` le
+choisissait quand même (raisonnement correct sur des données fausses),
+`pickVideoEncoderImpl()` renvoyait `av1_qsv`, et la tentative d'encodage
+plantait immédiatement au runtime, sans repli. C'est exactement la limite que
+le fichier documentait déjà lui-même en commentaire ("hardwareAcceleration.*
+veut dire que ffmpeg tenterait, pas que le matériel existe") — mais jamais
+corrigée jusqu'à ce que ce test en conditions réelles la fasse apparaître.
+
+**Corrigé** : `detectServerCapabilities()` tente maintenant un vrai micro-
+encodage (320×240, 1 frame, `-f null -`) pour chaque famille matérielle que
+la liste compilée prétend supporter, et retire de `videoEncoders` tout nom
+dont la famille échoue réellement ce test — un seul point de filtrage,
+puisque `pickVideoEncoderImpl()` ne fait que vérifier `videoEncoders.includes(...)`.
+Vérifié en direct sur la machine de dev (vrai GPU NVIDIA présent) : `h264_nvenc`
+réussit véritablement et reste disponible, tandis que `h264_qsv`/`h264_amf`
+échouent véritablement ("Error creating a MFX session", "DLL amfrt64.dll
+failed to open") et sont bien exclus — la distinction que ce correctif existe
+pour faire. 310 tests passent (2 nouveaux remplacent l'ancien test qui
+n'attendait que la présence dans la liste compilée, pour un solde net de +1).
