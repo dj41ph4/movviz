@@ -181,6 +181,7 @@ export const nl: Dictionary = {
     goHome: "Home",
     previous: "Vorige",
     next: "Volgende",
+    more: "Meer",
   },
 
   error: {
@@ -563,6 +564,8 @@ export const nl: Dictionary = {
     },
     searchAndReplaceIgnored: "{title} genegeerd",
     optimize: "Optimaliseren",
+    tags: "Tags",
+    versionsCount: "{n} versies",
   },
 
   wanted: {

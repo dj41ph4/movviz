@@ -179,6 +179,7 @@ export const fr = {
     goHome: "Accueil",
     previous: "Précédent",
     next: "Suivant",
+    more: "Plus",
   },
 
   error: {
@@ -561,6 +562,8 @@ export const fr = {
       videoCodecUpgrade: "Codec vidéo {to} détecté (fichier actuel {from})",
     },
     optimize: "Optimiser",
+    tags: "Tags",
+    versionsCount: "{n} versions",
   },
 
   wanted: {

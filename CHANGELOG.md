@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.18.03 — August 2026
+
+### Bibliothèque : refonte complète sur le langage visuel de Découverte/Tableau de bord
+
+- Les cartes Films/Séries de la Bibliothèque adoptent désormais la même carte que Découverte et le Tableau de bord : vrai visuel 16:9 avec logo du titre superposé (plutôt qu'une affiche verticale), et l'aperçu enrichi au survol (année, durée, genres) au lieu d'un simple bandeau.
+- Toutes les actions existantes restent accessibles au survol via un menu compact : marquer vu, optimiser, recherche automatique, recherche manuelle, tags, suppression (admin) — rien n'a été retiré, juste réorganisé pour rester minimaliste.
+
 ## v1.18.02 — August 2026
 
 ### Bibliothèque : même langage visuel que Découverte

@@ -7,7 +7,8 @@ import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { LibrarySeriesCard } from "@/components/library/LibrarySeriesCard";
 import { SearchAndReplacePanel } from "@/components/library/SearchAndReplacePanel";
-import { useT } from "@/i18n/provider";
+import { useT, useI18n } from "@/i18n/provider";
+import { useTitleArtworkBatch, type TitleArtworkRef } from "@/components/media/useTitleArtworkBatch";
 import { cn } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
@@ -65,6 +66,7 @@ export function LibraryGrid({ fixedType }: { fixedType: "all" | "movie" | "serie
 
 function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series" }) {
   const t = useT();
+  const { locale } = useI18n();
   const user = useCurrentUser();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -261,6 +263,17 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
 
   const visibleItems = combinedItems.slice(0, visibleCount);
 
+  // One batch call for every card currently rendered — never per-card (see
+  // useTitleArtworkBatch's own docs) — same 16:9 backdrop + logo resolution
+  // Découverte/Tableau de bord use, so library cards share their exact look.
+  const artworkRefs = useMemo<TitleArtworkRef[]>(
+    () => visibleItems.map((entry) => entry.kind === "movie"
+      ? { type: "movie" as const, tmdbId: entry.movie.tmdbId }
+      : { type: "series" as const, tmdbId: entry.series.tmdbId }),
+    [visibleItems]
+  );
+  const artworkByKey = useTitleArtworkBatch(artworkRefs, locale);
+
   const progressFor = (movie: LibraryMovie) =>
     movie.activeInfoHash ? torrents.find((t) => t.infoHash === movie.activeInfoHash) : null;
 
@@ -401,28 +414,43 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
       </div>
 
       <AnimatePresence mode="sync">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-          {visibleItems.map((entry, i) =>
-            entry.kind === "movie" ? (
-              <LibraryMovieCard key={entry.movie.id} index={i} movie={entry.movie} torrent={progressFor(entry.movie)} watched={watchedMovies.has(entry.movie.tmdbId)} onChange={refresh} />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+          {visibleItems.map((entry, i) => {
+            const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[`series:${entry.series.tmdbId}`];
+            return entry.kind === "movie" ? (
+              <LibraryMovieCard
+                key={entry.movie.id}
+                index={i}
+                movie={entry.movie}
+                torrent={progressFor(entry.movie)}
+                watched={watchedMovies.has(entry.movie.tmdbId)}
+                onChange={refresh}
+                backdropPath={art?.backdropPath}
+                logoPath={art?.logoPath}
+                titleEmbedded={art?.titleEmbedded}
+              />
             ) : (
-              <LibrarySeriesCard key={entry.series.id} index={i} series={entry.series} onChange={refresh} />
-            )
-          )}
+              <LibrarySeriesCard
+                key={entry.series.id}
+                index={i}
+                series={entry.series}
+                onChange={refresh}
+                backdropPath={art?.backdropPath}
+                logoPath={art?.logoPath}
+                titleEmbedded={art?.titleEmbedded}
+              />
+            );
+          })}
         </div>
       </AnimatePresence>
 
       {visibleCount < total && <div ref={sentinelRef} className="h-1" />}
 
       {loading && total === 0 && (
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
           {[...Array(12)].map((_, i) => (
             <div key={i}>
-              <div className="aspect-[2/3] animate-pulse rounded-2xl bg-white/6" />
-              <div className="mt-2.5 space-y-1.5 px-0.5">
-                <div className="h-3 w-3/4 animate-pulse rounded bg-white/8" />
-                <div className="h-2.5 w-1/2 animate-pulse rounded bg-white/6" />
-              </div>
+              <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
             </div>
           ))}
         </div>

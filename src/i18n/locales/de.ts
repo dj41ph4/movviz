@@ -181,6 +181,7 @@ export const de: Dictionary = {
     goHome: "Startseite",
     previous: "Zurück",
     next: "Weiter",
+    more: "Mehr",
   },
 
   error: {
@@ -563,6 +564,8 @@ export const de: Dictionary = {
     },
     searchAndReplaceIgnored: "{title} ignoriert",
     optimize: "Optimieren",
+    tags: "Tags",
+    versionsCount: "{n} Versionen",
   },
 
   wanted: {

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import useSWR from "swr";
 import { Star, Film, Tv, Play, Plus, ThumbsUp, ChevronDown, Loader2, Clock3, RotateCcw } from "lucide-react";
 import { cn, openPlexLink } from "@/lib/utils";
@@ -81,6 +81,8 @@ export function DashboardPosterCard({
   reserveBottomRight = false,
   playback,
   technical,
+  popoverActions,
+  popoverFooter,
 }: {
   tmdbId: number;
   type: "movie" | "series";
@@ -92,10 +94,20 @@ export function DashboardPosterCard({
   /** True when the selected 16:9 key art already carries its title. */
   titleEmbedded?: boolean;
   rating?: number;
-  badge?: string;
+  /** Usually a short status label, but any node works — e.g. a colored
+   *  status pill or a watched-toggle button (see LibraryMovieCard). */
+  badge?: ReactNode;
   year?: number | null;
   runtime?: number | null;
   genres?: string[];
+  /** Extra buttons rendered in the popover's action row, after the like
+   *  button — e.g. Bibliothèque's optimize/search/tags/delete menu. Kept
+   *  as a single slot so this shared card stays unaware of library-specific
+   *  actions; the caller owns their icons, handlers and confirm states. */
+  popoverActions?: ReactNode;
+  /** Extra content rendered at the bottom of the popover, below genres —
+   *  e.g. Bibliothèque's tag chips. */
+  popoverFooter?: ReactNode;
   /** 1-based chart position — only ever set for a genuinely ranked row (e.g.
    *  TMDb's own trending order), never invented client-side. Only 1-10
    *  render the numeral treatment; anything past that is a plain card. */
@@ -449,6 +461,7 @@ export function DashboardPosterCard({
               >
                 {ratingSaving ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <ThumbsUp className={cn("h-[18px] w-[18px]", liked && "fill-current")} />}
               </button>
+              {popoverActions}
             </div>
             <Link
               href={`/title/${type}/${tmdbId}`}
@@ -477,6 +490,7 @@ export function DashboardPosterCard({
               ))}
             </div>
           )}
+          {popoverFooter}
         </div>
       </div>, document.body
     )}
