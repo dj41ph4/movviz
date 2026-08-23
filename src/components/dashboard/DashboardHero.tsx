@@ -60,7 +60,12 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
   }, [anchored, slides.length]);
 
   const active = slides[Math.min(index, slides.length - 1)];
-  const activeReasons = useMemo(() => active?.score.reasons.filter((r) => r.matched) ?? [], [active]);
+  // Defensive, not decorative: a slide missing `score` or `detail.genres`
+  // (stale cached payload from before a schema change, or a real API gap
+  // for some edge-case title) used to throw here — since this runs inside
+  // CardErrorBoundary, that silently blanked the whole hero, not just this
+  // one field, for as long as that slide stayed the featured one.
+  const activeReasons = useMemo(() => active?.score?.reasons?.filter((r) => r.matched) ?? [], [active]);
   const { enabled: betaPlayer } = useBetaPlayer();
   const { play } = usePlayer();
   const { label: playLabel } = usePlayLabel(active?.plexRatingKey);
@@ -156,7 +161,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
             {active.detail.year && <span>{active.detail.year}</span>}
             {active.detail.runtime && <span>{active.detail.runtime} min</span>}
             {active.detail.rating > 0 && <span>★ {active.detail.rating.toFixed(1)}</span>}
-            {active.detail.genres.slice(0, 3).map((g) => (
+            {(active.detail.genres ?? []).slice(0, 3).map((g) => (
               <span key={g} className="rounded-full border border-white/20 px-2 py-0.5 text-xs">{g}</span>
             ))}
           </div>

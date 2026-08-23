@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.18.07 — August 2026
+
+### Correctif : le hero du tableau de bord disparaissait au hasard
+
+- Cause identifiée en console : une bande-annonce (lecteur YouTube) pouvait entrer en collision avec l'animation de transition au moment exact où le hero se démonte, ce qui le faisait disparaître jusqu'au rechargement complet de la page. Il se réaffiche désormais tout seul quelques instants après.
+- Durcissement au passage : deux champs manquants dans les données d'une suggestion (genres, raisons du choix) ne peuvent plus faire planter le hero.
+
 ## v1.18.06 — August 2026
 
 ### Menu latéral : Collections ne restait pas surligné, Téléchargement déplacé
