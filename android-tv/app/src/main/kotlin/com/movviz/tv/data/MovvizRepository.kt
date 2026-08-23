@@ -315,6 +315,12 @@ class MovvizRepository(private val baseUrl: String) {
         runCatching { api.logout() }
     }
 
+    // ── IA — identique au desktop, hermétique par userId (même session) ──
+    suspend fun aiSession(): ApiResult<AiSessionResponseDto> = safeCall { api.aiSession() }
+    suspend fun aiChat(message: String, pageContext: AiPageContextDto? = null): ApiResult<AiChatResponseDto> =
+        safeCall { api.aiChat(AiChatRequestDto(message, pageContext)) }
+    suspend fun aiClearSession(): ApiResult<Unit> = safeCall { api.aiClearSession(mapOf("clear" to true)) }.map { }
+
     private fun <T, R> ApiResult<T>.map(transform: (T) -> R): ApiResult<R> = when (this) {
         is ApiResult.Success -> ApiResult.Success(transform(data))
         is ApiResult.Failure -> this

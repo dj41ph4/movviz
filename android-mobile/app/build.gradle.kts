@@ -18,8 +18,8 @@ android {
         applicationId = "com.movviz.mobile"
         minSdk = 24
         targetSdk = 35
-        versionCode = 11713
-        versionName = "1.17.13"
+        versionCode = 11800
+        versionName = "1.18.00"
     }
 
     signingConfigs {
@@ -60,8 +60,17 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.compose.material.icons.core)
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.material3:material3:1.3.1")
     implementation(libs.navigation.compose)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.exoplayer.hls)
+    implementation(libs.media3.exoplayer.dash)
+    implementation(libs.media3.session)
+    implementation(libs.media3.common)
+    implementation(libs.media3.datasource.okhttp)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.datasource)
 }

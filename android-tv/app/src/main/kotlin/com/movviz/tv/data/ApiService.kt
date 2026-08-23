@@ -187,4 +187,14 @@ interface MovvizApiService {
     // après une "déconnexion" purement locale.
     @POST("api/auth/logout")
     suspend fun logout(): Response<Map<String, Any?>>
+
+    // IA — même conversation que le desktop, hermétique par profil (userId)
+    @GET("api/ai/session")
+    suspend fun aiSession(): Response<AiSessionResponseDto>
+
+    @POST("api/ai/chat")
+    suspend fun aiChat(@Body body: AiChatRequestDto): Response<AiChatResponseDto>
+
+    @POST("api/ai/session")
+    suspend fun aiClearSession(@Body body: Map<String, Any>): Response<Map<String, Any?>>
 }

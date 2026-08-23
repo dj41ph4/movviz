@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.18.00 — August 2026
+
+### Android smartphone — lecteur natif
+
+- Nouveau lecteur natif (Media3/ExoPlayer) avec service de lecture en arrière-plan — remplace l'ancienne lecture embarquée, contrôles verrouillables à l'écran et notification média persistante.
+
 ## v1.17.11 — August 2026
 
 ### Android smartphone — premium UX polish (40% Netflix / 60% TV)
@@ -1969,7 +1975,7 @@ All notable changes to Movviz, grouped by development milestone.
 
 ### Crayon de modification sur tous les indexeurs
 
-- **Nouveau** : chaque indexeur configuré (Torznab, Prowlarr, C411…) dispose d'un crayon pour éditer ses réglages sans le recréer — le formulaire affiche les secrets existants masqués et ne les écrase pas si le champ est laissé vide.
+- **Nouveau** : chaque indexeur configuré (Torznab, C411…) dispose d'un crayon pour éditer ses réglages sans le recréer — le formulaire affiche les secrets existants masqués et ne les écrase pas si le champ est laissé vide.
 
 ### Désinstallateur Windows — choix de suppression des données personnelles
 
@@ -2199,7 +2205,7 @@ Security hardening (path traversal, database protections, CodeQL alerts), the tr
 
 ## v1.1.67 – v1.4.4 — July 2026
 
-In-app player with automatic Plex transcode fallback, Overseerr (Seerr) request import, multi-architecture Docker builds, and a reduction of the settings navigation from 26 tabs down to 18.
+In-app player with automatic Plex transcode fallback, third-party request import (Seerr-compatible), multi-architecture Docker builds, and a reduction of the settings navigation from 26 tabs down to 18.
 
 ## v1.1.50 – v1.1.66 — July 2026
 
