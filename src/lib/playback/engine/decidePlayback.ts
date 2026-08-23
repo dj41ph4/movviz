@@ -187,11 +187,27 @@ function pickVideoEncoderImpl(codec: string, server: ServerPlaybackCapabilities)
   return { impl, preset: SOFTWARE_ENCODER_PRESET };
 }
 
-function pickTranscodeAudioCodec(client: ClientPlaybackProfile): string {
+/**
+ * Picks the transcode target codec AND how many channels to actually mix
+ * down to. A browser has no API to learn how many real speakers/channels
+ * the user's output device has — assuming "the source's own channel count
+ * is fine" is wrong more often than not (confirmed live: a 5.1 source
+ * transcoded to 5.1 AAC with no downmix played back over a real 2.0 setup
+ * with dialogue missing — the center channel, where dialogue usually
+ * lives, was silently dropped instead of folded into L/R). channels stays
+ * undefined only when the client's own declared cap already covers the
+ * source's channel count, in which case ffmpeg is left to copy it through
+ * as-is (no reason to downmix audio the client can genuinely play).
+ */
+function pickTranscodeAudioCodec(client: ClientPlaybackProfile, sourceChannels: number | undefined): { codec: string; channels?: number } {
   // aac is the one codec every real client in this app already declares
   // decode:true for (see clientProfile.detect.ts) — the safe universal target.
-  const hasAac = client.audioCapabilities.some((c) => normalizeCodecName(c.codec) === "aac" && c.decode);
-  return hasAac ? "aac" : (client.audioCapabilities[0]?.codec ?? "aac");
+  const aacCap = client.audioCapabilities.find((c) => normalizeCodecName(c.codec) === "aac" && c.decode);
+  const codec = aacCap ? "aac" : (client.audioCapabilities[0]?.codec ?? "aac");
+  const cap = client.audioCapabilities.find((c) => normalizeCodecName(c.codec) === codec);
+  const maxChannels = cap?.maxChannels;
+  const channels = maxChannels && sourceChannels && sourceChannels > maxChannels ? maxChannels : undefined;
+  return { codec, channels };
 }
 
 export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
@@ -218,6 +234,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   // Rule §1.3: a container-only mismatch is a remux, never promoted to a
   // codec transcode — only reached when video didn't already need one.
   const needsRemuxOnly = !containerOk && !needsVideoTranscode;
+  const audioTranscodeTarget = needsAudioTranscode ? pickTranscodeAudioCodec(client, audioTrack?.channels) : null;
 
   if (needsVideoTranscode) {
     if (!server.ffmpegAvailable) {
@@ -227,7 +244,8 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
         targetContainer: "mp4",
         videoAction: "TRANSCODE",
         audioAction: needsAudioTranscode ? "TRANSCODE" : "COPY",
-        targetAudioCodec: needsAudioTranscode ? pickTranscodeAudioCodec(client) : undefined,
+        targetAudioCodec: audioTranscodeTarget?.codec,
+        targetAudioChannels: audioTranscodeTarget?.channels,
         subtitleAction,
         reasons: [...reasons, "FFMPEG_UNAVAILABLE", "PLEX_FALLBACK_REQUESTED"],
       };
@@ -244,7 +262,8 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       encoderPreset: encoder.preset,
       toneMap: videoCheck.toneMapNeeded || undefined,
       audioAction: needsAudioTranscode ? "TRANSCODE" : "COPY",
-      targetAudioCodec: needsAudioTranscode ? pickTranscodeAudioCodec(client) : undefined,
+      targetAudioCodec: audioTranscodeTarget?.codec,
+      targetAudioChannels: audioTranscodeTarget?.channels,
       subtitleAction,
       protocol: client.protocols.hls ? "HLS" : "PROGRESSIVE",
       reasons,
@@ -269,7 +288,8 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       targetContainer: needsRemuxOnly ? "mp4" : undefined,
       videoAction: "COPY",
       audioAction: "TRANSCODE",
-      targetAudioCodec: pickTranscodeAudioCodec(client),
+      targetAudioCodec: audioTranscodeTarget?.codec,
+      targetAudioChannels: audioTranscodeTarget?.channels,
       subtitleAction,
       protocol: "PROGRESSIVE",
       reasons,

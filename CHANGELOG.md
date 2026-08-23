@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.19.06 — August 2026
+
+### Nouveau moteur (expérimental) activé par défaut pour le contenu local, et correctif audio important
+
+- Le "Nouveau moteur" ne se limite plus au choix manuel dans Réglages → Plex : en mode "Auto" (le défaut), il prend maintenant automatiquement le relais pour un film/épisode local (non lié à Plex) dont l'audio ou la vidéo doit être adapté — un cas qui n'avait jusqu'ici aucun filet de secours fonctionnel et échouait systématiquement.
+- Correctif important : une piste audio 5.1/7.1 transcodée n'était pas ramenée au bon nombre de canaux — elle ressortait en 5.1/7.1 même sur une sortie audio 2.0, avec des voix manquantes (la piste centrale, où se trouve généralement le dialogue, n'était pas correctement repliée sur les canaux gauche/droite). Un système ne déclarant pas explicitement plus de 2 canaux est maintenant traité comme stéréo par défaut, et l'audio est correctement ramené au bon nombre de canaux au moment du transcodage.
+- Correctif : un seek pendant qu'un précédent était encore en cours pouvait, dans de rares cas, se résoudre dans le désordre et laisser jouer un flux correspondant à une position différente de celle affichée — désormais, seule la toute dernière demande de déplacement peut prendre effet.
+
 ## v1.19.05 — August 2026
 
 ### Nouveau moteur (expérimental) : gestion HDR / Dolby Vision affinée

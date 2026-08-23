@@ -77,6 +77,13 @@ export interface PlaybackPlan {
 
   audioAction: TrackAction;
   targetAudioCodec?: string;
+  /** Only set when the source has MORE channels than the client's declared
+   *  cap for targetAudioCodec — an explicit downmix instruction (ffmpeg -ac),
+   *  never just "copy the source's channel count through unexamined". See
+   *  pickTranscodeAudioCodec()'s own comment for the real bug this exists
+   *  to prevent (a 5.1 source encoded as 5.1 AAC and played on a genuine
+   *  2.0 output silently lost its center-channel dialogue). */
+  targetAudioChannels?: number;
 
   subtitleAction: SubtitleAction;
 

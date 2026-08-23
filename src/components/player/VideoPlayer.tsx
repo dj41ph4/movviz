@@ -686,10 +686,11 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       setUsingFallback(false);
       setBuffering(true);
       // Remux ffmpeg d'abord (transcode du son), HLS en dernier recours —
-      // sauf moteur engine-v2 explicitement choisi, qui remplace entièrement
-      // cette leg pour le contenu local (voir tryStartLocalEngine).
+      // sauf moteur engine-v2 (ou "auto" sur du contenu local, voir
+      // tryStartLocalEngine), qui remplace entièrement cette leg.
       void (async () => {
-        if (betaRef.current.playbackEngine === "engine-v2") {
+        const b = betaRef.current;
+        if (b.playbackEngine === "engine-v2" || (b.playbackEngine === "auto" && localPlayback)) {
           if (!(await tryStartLocalEngine())) maybeStartHls(undefined, true);
           return;
         }
@@ -986,9 +987,12 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const recoverFromDirect = async () => {
         if (directRecoveryStarted || fallbackGuardRef.current || hlsRef.current || mseEngineRef.current || ffmpegEngineRef.current) return;
         directRecoveryStarted = true;
-        if (betaRef.current.playbackEngine === "engine-v2") {
-          if (!(await tryStartLocalEngine(seekTo))) maybeStartHls(undefined, true);
-          return;
+        {
+          const b = betaRef.current;
+          if (b.playbackEngine === "engine-v2" || (b.playbackEngine === "auto" && localPlayback)) {
+            if (!(await tryStartLocalEngine(seekTo))) maybeStartHls(undefined, true);
+            return;
+          }
         }
         if (!(await tryStartMse(infoRef.current, seekTo)) && !(await tryStartFfmpegRemux(infoRef.current, seekTo))) maybeStartHls(undefined, true);
       };
@@ -1175,7 +1179,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       }
 
       if (strategy === "transcode") {
-        if (betaRef.current.playbackEngine === "engine-v2") {
+        if (betaRef.current.playbackEngine === "engine-v2" || (betaRef.current.playbackEngine === "auto" && localPlayback)) {
           if (!(await tryStartLocalEngine(seekTo))) maybeStartHls(undefined, true);
           return;
         }
@@ -1381,11 +1385,20 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     };
     tryStartFfmpegRemuxRef.current = tryStartFfmpegRemux;
 
-    // Nouveau moteur de décision (Phases 9-13, PLAN_REFONTE_MOTEUR_LECTURE_MOVVIZ.md)
-    // — jamais choisi automatiquement (voir EngineConfig dans types.ts) : ne
-    // s'engage QUE quand betaRef.current.playbackEngine === "engine-v2" est
-    // explicitement sélectionné dans Réglages → Plex, et seulement pour du
-    // contenu local (movvizId présent, pas de dépendance à Plex). Réutilise
+    // Nouveau moteur de décision (Phases 9-16, PLAN_REFONTE_MOTEUR_LECTURE_MOVVIZ.md)
+    // — s'engage quand betaRef.current.playbackEngine === "engine-v2" est
+    // explicitement sélectionné dans Réglages → Plex, OU quand le moteur est
+    // sur "auto" ET que le contenu est local (Phase 16 : "auto" n'a
+    // aujourd'hui AUCUN filet de secours qui fonctionne pour un fichier
+    // local nécessitant un remux/transcode — confirmé en direct, la leg
+    // ffmpeg-remux et la leg HLS échouent toutes les deux car aucune vraie
+    // clé Plex n'existe pour ce contenu — donc câbler ce moteur dans "auto"
+    // pour ce cas précis ne peut que corriger un cas déjà cassé, jamais
+    // remplacer un chemin qui fonctionnait). Les choix manuels autres que
+    // "auto"/"engine-v2" (mse/ffmpeg/native/hls) ne déclenchent jamais cette
+    // leg — un choix explicite de dépannage reste intact. Dans tous les cas,
+    // seulement pour du contenu local (movvizId présent, pas de dépendance à
+    // Plex). Réutilise
     // FfmpegRemuxEngine tel quel côté client (même pipe fMP4/MSE-less déjà
     // éprouvé) — seul le préfixe d'URL change, vers la nouvelle route de
     // session du moteur (/api/playback/session/{id}/stream) au lieu de
@@ -1394,7 +1407,19 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const video = videoRef.current;
       if (!video) return false;
       const b = betaRef.current;
-      if (!b.enabled || b.playbackEngine !== "engine-v2" || !localPlayback || !movvizId) return false;
+      // Phase 16 — reachable from "auto" too, not just the explicit
+      // "engine-v2" manual choice: for local (non-Plex) content that needs
+      // a remux/transcode, "auto" today has NO working fallback at all
+      // (confirmed live — the ffmpeg-remux leg needs a real Plex ratingKey,
+      // the HLS leg needs a real Plex transcode session; a local-only movie
+      // has neither, so both fail every time). Wiring this engine into
+      // "auto" for exactly that gap can only fix a case that was always
+      // broken — it never displaces a path that used to work, and manual
+      // selections other than "auto"/"engine-v2" (mse/ffmpeg/native/hls)
+      // are left completely alone, respecting an explicit troubleshooting
+      // choice.
+      const engineSelected = b.playbackEngine === "engine-v2" || b.playbackEngine === "auto";
+      if (!b.enabled || !engineSelected || !localPlayback || !movvizId) return false;
       try {
         const clientProfile = await detectDesktopClientProfile(getOrCreateDeviceId(), "1.0");
         const prepRes = await fetch("/api/playback/prepare", {
@@ -1482,8 +1507,13 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         try {
           await engine.load(prep.sessionId, { seekTo, debug: b.debug });
         } catch {
+          // Ownership was already taken above (ffmpegEngineRef/setFfmpegActive)
+          // and onLocalEngineFailure() already ran its own fallback/error —
+          // return true, not false, so the caller (recoverFromDirect /
+          // begin() / escalateSilentToFfmpeg) never ALSO triggers a second,
+          // redundant fallback on top of the one just handled internally.
           onLocalEngineFailure();
-          return false;
+          return true;
         }
         return true;
       } catch {

@@ -49,6 +49,49 @@ test("§60: MKV/HEVC/DTS source, MP4/HEVC/AAC client → DIRECT_STREAM, video CO
   assert.equal(plan.targetContainer, "mp4");
 });
 
+// ── real bug found live: a 5.1 source transcoded with no downmix played back missing dialogue on a real 2.0 setup ──
+test("a 6-channel source transcoded for a client capped at 2 channels sets targetAudioChannels — no silent channel drop", () => {
+  const plan = decidePlayback({
+    media: media({ audioTracks: [{ index: 1, codec: "dts", channels: 6, default: true, forced: false }] }),
+    client: client({ audioCapabilities: [{ codec: "aac", decode: true, maxChannels: 2 }] }),
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.audioAction, "TRANSCODE");
+  assert.equal(plan.targetAudioCodec, "aac");
+  assert.equal(plan.targetAudioChannels, 2);
+});
+
+test("a 2-channel source transcoded for a client capped at 2 channels never sets targetAudioChannels — nothing to downmix", () => {
+  const plan = decidePlayback({
+    media: media({ audioTracks: [{ index: 1, codec: "dts", channels: 2, default: true, forced: false }] }),
+    client: client({ audioCapabilities: [{ codec: "aac", decode: true, maxChannels: 2 }] }),
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.audioAction, "TRANSCODE"); // still transcodes: DTS itself isn't decodable
+  assert.equal(plan.targetAudioChannels, undefined);
+});
+
+test("a client with no declared maxChannels at all never forces a downmix (channel count assumed fine)", () => {
+  const plan = decidePlayback({
+    media: media({ audioTracks: [{ index: 1, codec: "dts", channels: 6, default: true, forced: false }] }),
+    client: client({ audioCapabilities: [{ codec: "aac", decode: true }] }), // no maxChannels
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.audioAction, "TRANSCODE");
+  assert.equal(plan.targetAudioChannels, undefined);
+});
+
+test("a 6-channel AAC source (codec already decodable) still gets flagged incompatible and downmixed when it exceeds the client's channel cap", () => {
+  const plan = decidePlayback({
+    media: media({ audioTracks: [{ index: 1, codec: "aac", channels: 6, default: true, forced: false }] }),
+    client: client({ audioCapabilities: [{ codec: "aac", decode: true, maxChannels: 2 }] }),
+    server: FFMPEG_OK,
+  });
+  assert.ok(plan.reasons.includes("AUDIO_CHANNELS_UNSUPPORTED"));
+  assert.equal(plan.audioAction, "TRANSCODE");
+  assert.equal(plan.targetAudioChannels, 2);
+});
+
 // ── plan §61 non-regression guarantees ──
 test("§61: audio incompatible never forces a video transcode", () => {
   const plan = decidePlayback({

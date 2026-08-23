@@ -29,7 +29,15 @@ export async function detectDesktopClientProfile(deviceId: string, appVersion: s
   if (codecs.av1) videoCapabilities.push({ codec: "av1" });
 
   const audioCapabilities: AudioCapability[] = [];
-  if (codecs.aac) audioCapabilities.push({ codec: "aac", decode: true });
+  // maxChannels: 2 on AAC specifically — a browser has no API to learn how
+  // many real speakers/channels the user's actual output device has.
+  // Confirmed live: leaving this unset let a 5.1 source get transcoded to
+  // 5.1 AAC with no downmix, and played over a real 2.0 setup with the
+  // center channel (where dialogue usually lives) dropped instead of
+  // folded into L/R. Stereo is the safe default assumption for a general
+  // desktop web client; a platform with a real channel-count API (Android
+  // TV/mobile, once their detectors exist) can declare a higher cap.
+  if (codecs.aac) audioCapabilities.push({ codec: "aac", decode: true, maxChannels: 2 });
   if (codecs.ac3 || codecs.mseAc3) audioCapabilities.push({ codec: "ac3", decode: true });
   if (codecs.eac3 || codecs.mseEac3) audioCapabilities.push({ codec: "eac3", decode: true });
   if (codecs.opus) audioCapabilities.push({ codec: "opus", decode: true });

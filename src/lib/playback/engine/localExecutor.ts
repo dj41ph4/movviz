@@ -262,6 +262,16 @@ export function startLocalSession(
 
   if (plan.audioAction === "TRANSCODE") {
     args.push("-c:a", plan.targetAudioCodec === "aac" || !plan.targetAudioCodec ? "aac" : plan.targetAudioCodec, "-b:a", `${bitrateK}k`);
+    // -ac is NOT optional whenever the plan set a target — omitting it
+    // leaves ffmpeg's default "keep the source's own channel count",
+    // which for a 5.1/7.1 source produces 5.1/7.1 AAC. Confirmed live:
+    // played over a genuine 2.0 output, that silently dropped the center
+    // channel (dialogue) instead of ffmpeg properly folding it into L/R —
+    // "missing voices", not a subtle quality loss. decidePlayback() only
+    // ever sets targetAudioChannels when the source truly exceeds the
+    // client's declared cap, so this never downmixes audio the client can
+    // actually play natively.
+    if (plan.targetAudioChannels) args.push("-ac", String(plan.targetAudioChannels));
   } else {
     args.push("-c:a", "copy");
   }
