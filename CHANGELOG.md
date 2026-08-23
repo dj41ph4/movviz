@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.17.09 — August 2026
+
+### Android smartphone — première base native
+
+- Nouveau client Jetpack Compose tactile, séparé du desktop et d’Android TV.
+- Onboarding serveur connecté aux API Movviz existantes, navigation mobile et
+  couche partagée pour les modèles, la session et le réseau.
+- APK debug et release signés avec la même clé retail que l’application TV.
+
 ## v1.17.08 — August 2026
 
 ### Desktop — survol des cartes

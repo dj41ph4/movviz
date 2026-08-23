@@ -19,8 +19,8 @@ android {
         applicationId = "com.movviz.tv.au"
         minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-        versionCode = 11708
-        versionName = "1.17.08"
+        versionCode = 11709
+        versionName = "1.17.09"
         // Canal unique depuis le retrait de la variante retail : l'APK livré
         // s'auto-met à jour via GitHub au lancement (voir UpdateManager).
         buildConfigField("boolean", "AUTO_UPDATE", "true")
