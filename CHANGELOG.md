@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.18.01 — August 2026
+
+### Correctif : icône coupée dans la barre de navigation mobile sur écran étroit
+
+- Sur un téléphone à écran plus étroit que la moyenne (ex. Galaxy Z Flip6), la dernière icône de la barre de navigation du bas débordait hors de l'écran, à moitié invisible. Les 5 icônes se répartissent désormais toujours à parts égales sur la largeur réelle de l'écran, quel que soit l'appareil.
+
 ## v1.18.00 — August 2026
 
 ### Android smartphone — lecteur natif

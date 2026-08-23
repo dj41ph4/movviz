@@ -656,7 +656,16 @@ private data class NavEntry(val icon: ImageVector, val label: String)
 @Composable private fun FloatingCapsuleNav(entries: List<NavEntry>, selected: Int, onSelect: (Int) -> Unit) {
     Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 18.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
         Row(
-            Modifier.clip(CapsuleShape)
+            // fillMaxWidth + weight(1f) per item ci-dessous : sans ça, la Row
+            // ne se contentait que de la largeur intrinsèque de ses 5 enfants
+            // (icônes + libellé de l'onglet sélectionné) — sur un écran assez
+            // étroit (ex. Galaxy Z Flip6, ~360-406dp de large), cette somme
+            // dépassait la largeur réelle et le dernier item (étoile "IA")
+            // débordait purement et simplement hors de l'écran, à moitié
+            // invisible. Le partage à parts égales garantit que ça tient
+            // toujours, quelle que soit la largeur de l'appareil.
+            Modifier.fillMaxWidth()
+                .clip(CapsuleShape)
                 .background(Color(0xFF12121E).copy(0.92f))
                 .border(1.dp, Color.White.copy(0.07f), CapsuleShape)
                 .padding(horizontal = 6.dp, vertical = 6.dp),
@@ -667,11 +676,12 @@ private data class NavEntry(val icon: ImageVector, val label: String)
                 val scale by animateFloatAsState(if (isSel) 1f else 0.96f, spring(dampingRatio = 0.65f, stiffness = 420f), label = "navScale")
                 val hapticNav = LocalHapticFeedback.current
                 Box(
-                    Modifier.clip(CapsuleShape)
+                    Modifier.weight(1f)
+                        .clip(CapsuleShape)
                         .background(if (isSel) Color.White else Color.Transparent)
                         .heightIn(min = 44.dp)
                         .clickable { hapticNav.performHapticFeedback(HapticFeedbackType.LongPress); onSelect(i) }
-                        .padding(horizontal = 18.dp, vertical = 9.dp)
+                        .padding(horizontal = 8.dp, vertical = 9.dp)
                         .scale(scale),
                     contentAlignment = Alignment.Center,
                 ) {
