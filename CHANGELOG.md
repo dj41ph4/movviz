@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.18.04 — August 2026
+
+### Menu latéral réorganisé
+
+- Films, Séries et Collections ont désormais chacun leur propre entrée directe dans le menu (au lieu d'être repliés sous « Bibliothèque »).
+- « Recherche » renommé en « Torrent ».
+- Nouvelle section repliable « Gestion » regroupant Demandes, Activité, Historique, Corbeille, Problèmes et Utilisateurs.
+
 ## v1.18.03 — August 2026
 
 ### Bibliothèque : refonte complète sur le langage visuel de Découverte/Tableau de bord

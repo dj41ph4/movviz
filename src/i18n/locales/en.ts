@@ -41,6 +41,11 @@ export const en: Dictionary = {
     trashHint: "Recently removed titles",
     more: "More",
     moreHint: "Rest of the menu",
+    moviesHint: "Your movies",
+    seriesHint: "Your series",
+    torrent: "Torrent",
+    torrentHint: "Search every indexer",
+    management: "Management",
   },
 
   downloads: {

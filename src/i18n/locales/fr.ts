@@ -39,6 +39,11 @@ export const fr = {
     trashHint: "Titres récemment supprimés",
     more: "Plus",
     moreHint: "Reste du menu",
+    moviesHint: "Tes films",
+    seriesHint: "Tes séries",
+    torrent: "Torrent",
+    torrentHint: "Interroger tous les indexeurs",
+    management: "Gestion",
   },
 
   downloads: {

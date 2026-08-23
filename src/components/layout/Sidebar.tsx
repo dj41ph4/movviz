@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import useSWR from "swr";
-import { NAV } from "@/lib/nav";
+import { NAV, GESTION_NAV } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { toast } from "@/components/ui/Toast";
@@ -15,7 +15,7 @@ import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
-import { ChevronDown, Download, Loader2, X } from "lucide-react";
+import { ChevronDown, ClipboardList, Download, Loader2, X } from "lucide-react";
 
 interface UpdateInfo {
   currentVersion: string;
@@ -118,61 +118,31 @@ export function Sidebar({ version }: { version: string }) {
 
       {/* Nav */}
       <nav className="flex flex-1 flex-col gap-1">
-        {items.map((item) => {
-          // Bibliothèque renders as a collapsible group (Tout / Films /
-          // Séries) — the Library page already reads `?type=` from the URL
-          // (and fully dissociates the two types), so the submenu only
-          // builds links, it doesn't know the page's own filter logic.
-          if (item.href === "/library") {
-            return <LibraryNavItem key={item.href} item={item} pathname={pathname} />;
-          }
-          const active =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
-          const Icon = item.icon;
-          const liveCount =
-            item.liveBadge === "pendingRequests" ? pendingRequests
-            : item.liveBadge === "pendingUsers" ? pendingUsers
-            : item.liveBadge === "activeDownloads" ? activeDownloads
-            : 0;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-base font-semibold transition-colors ring-focus",
-                active ? "text-brand-glow" : "text-ink-soft hover:text-ink"
-              )}
-            >
-              {active && (
-                <motion.span
-                  layoutId="nav-active"
-                  className="absolute inset-0 -z-10 rounded-xl border border-brand/30 bg-brand/12"
-                  transition={{ type: "spring", stiffness: 380, damping: 32 }}
-                />
-              )}
-              <Icon
-                className={cn(
-                  "h-[18px] w-[18px] transition-colors",
-                  active ? "text-brand-glow" : "text-ink-dim group-hover:text-ink-soft"
-                )}
-              />
-              <span className="flex-1">{t(item.labelKey)}</span>
-              {liveCount > 0 && (
-                <span
-                  key={`${item.liveBadge}-${liveCount}`}
-                  className={cn(
-                    "flex h-5 min-w-5 items-center justify-center rounded-full brand-gradient px-1.5 text-[10px] font-bold text-white animate-badge-pop",
-                    pulseBadge === item.liveBadge && "animate-badge-pulse"
-                  )}
-                >
-                  {liveCount}
-                </span>
-              )}
-            </Link>
-          );
-        })}
+        {items.filter((item) => item.href !== "/settings").map((item) => (
+          <NavRow
+            key={item.href}
+            item={item}
+            pathname={pathname}
+            liveCount={
+              item.liveBadge === "pendingRequests" ? pendingRequests
+              : item.liveBadge === "pendingUsers" ? pendingUsers
+              : item.liveBadge === "activeDownloads" ? activeDownloads
+              : 0
+            }
+            pulseBadge={pulseBadge}
+          />
+        ))}
+        <GestionNavItem
+          pathname={pathname}
+          pendingRequests={pendingRequests}
+          pendingUsers={pendingUsers}
+          activeDownloads={activeDownloads}
+          pulseBadge={pulseBadge}
+          isAdmin={user?.role === "admin"}
+        />
+        {items.filter((item) => item.href === "/settings").map((item) => (
+          <NavRow key={item.href} item={item} pathname={pathname} liveCount={0} pulseBadge={pulseBadge} />
+        ))}
       </nav>
 
       {/* Version + Update button */}
@@ -263,67 +233,114 @@ export function Sidebar({ version }: { version: string }) {
   );
 }
 
-/** Item de navigation à sous-menu (Bibliothèque : Tout / Films / Séries).
- *  Le clic sur le label navigue comme avant ET déroule le sous-menu ; le
- *  chevron ne fait que dérouler/replier sans naviguer. Chaque entrée du
- *  sous-menu pointe vers une page dédiée : /library (Tout, mélange les deux
- *  types), /movies (films uniquement) et /series (séries uniquement). Le
- *  sous-menu suit l'URL : il s'ouvre quand on est sur l'une des trois pages,
- *  se replie en quittant, et l'entrée active est déduite du pathname. Les
- *  libellés réutilisent les clés des chips de la page Bibliothèque
- *  (common.all/common.movies/common.series) — aucune nouvelle clé i18n. */
-function LibraryNavItem({ item, pathname }: { item: (typeof NAV)[number]; pathname: string }) {
+/** A single flat sidebar row — extracted so both the main list and the
+ *  trailing Réglages row (rendered after the Gestion group) share it. */
+function NavRow({ item, pathname, liveCount, pulseBadge }: { item: (typeof NAV)[number]; pathname: string; liveCount: number; pulseBadge: string | null }) {
   const t = useT();
-  const onLibrary =
-    pathname.startsWith("/library") || pathname.startsWith("/movies") || pathname.startsWith("/series");
-  const [open, setOpen] = useState(onLibrary);
+  // The series detail page lives at /library/series/[id] (season/episode
+  // routes nested under it), not /series/[id] — without this, opening a
+  // series' fiche left the sidebar showing nothing as active.
+  const active = item.href === "/"
+    ? pathname === "/"
+    : item.href === "/series"
+      ? pathname.startsWith("/series") || pathname.startsWith("/library/series")
+      : pathname.startsWith(item.href);
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-base font-semibold transition-colors ring-focus",
+        active ? "text-brand-glow" : "text-ink-soft hover:text-ink"
+      )}
+    >
+      {active && (
+        <motion.span
+          layoutId="nav-active"
+          className="absolute inset-0 -z-10 rounded-xl border border-brand/30 bg-brand/12"
+          transition={{ type: "spring", stiffness: 380, damping: 32 }}
+        />
+      )}
+      <Icon
+        className={cn(
+          "h-[18px] w-[18px] transition-colors",
+          active ? "text-brand-glow" : "text-ink-dim group-hover:text-ink-soft"
+        )}
+      />
+      <span className="flex-1">{t(item.labelKey)}</span>
+      {liveCount > 0 && (
+        <span
+          key={`${item.liveBadge}-${liveCount}`}
+          className={cn(
+            "flex h-5 min-w-5 items-center justify-center rounded-full brand-gradient px-1.5 text-[10px] font-bold text-white animate-badge-pop",
+            pulseBadge === item.liveBadge && "animate-badge-pulse"
+          )}
+        >
+          {liveCount}
+        </span>
+      )}
+    </Link>
+  );
+}
+
+/** "Gestion" — collapsible group (Demandes / Activité / Historique /
+ *  Corbeille / Problèmes / Utilisateurs), same open/close-follows-URL
+ *  pattern the old Bibliothèque submenu used. Live badge counts are kept
+ *  on their sub-row (not just summed on the parent) so an admin still sees
+ *  at a glance which one has something waiting. */
+function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloads, pulseBadge, isAdmin }: {
+  pathname: string;
+  pendingRequests: number;
+  pendingUsers: number;
+  activeDownloads: number;
+  pulseBadge: string | null;
+  isAdmin: boolean;
+}) {
+  const t = useT();
+  const subs = GESTION_NAV.filter((s) => !s.adminOnly || isAdmin);
+  const onGestion = subs.some((s) => pathname.startsWith(s.href));
+  const [open, setOpen] = useState(onGestion);
 
   useEffect(() => {
-    setOpen(onLibrary);
-  }, [onLibrary]);
+    setOpen(onGestion);
+  }, [onGestion]);
 
-  const subs: { id: "all" | "movie" | "series"; labelKey: string; href: string }[] = [
-    { id: "all", labelKey: "common.all", href: "/library" },
-    { id: "movie", labelKey: "common.movies", href: "/movies" },
-    { id: "series", labelKey: "common.series", href: "/series" },
-  ];
-  // The series detail page (src/app/library/series/[id]) belongs to the
-  // series view — count it as the "Séries" entry active.
-  const isActive = (href: string) =>
-    href === "/library" ? pathname === "/library" : pathname.startsWith(href) || (href === "/series" && pathname.startsWith("/library/series"));
-  const Icon = item.icon;
+  const liveCountFor = (item: (typeof GESTION_NAV)[number]) =>
+    item.liveBadge === "pendingRequests" ? pendingRequests
+    : item.liveBadge === "pendingUsers" ? pendingUsers
+    : item.liveBadge === "activeDownloads" ? activeDownloads
+    : 0;
 
   return (
     <div>
       <div
         className={cn(
           "group relative flex items-center rounded-xl ring-focus",
-          onLibrary ? "text-brand-glow" : "text-ink-soft hover:text-ink"
+          onGestion ? "text-brand-glow" : "text-ink-soft hover:text-ink"
         )}
       >
-        {onLibrary && (
+        {onGestion && (
           <motion.span
             layoutId="nav-active"
             className="absolute inset-0 -z-10 rounded-xl border border-brand/30 bg-brand/12"
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
           />
         )}
-        <Link
-          href={item.href}
-          onClick={() => setOpen(true)}
-          className="flex flex-1 items-center gap-3 px-3 py-2.5 text-base font-semibold ring-focus"
-        >
-          <Icon
-            className={cn(
-              "h-[18px] w-[18px] transition-colors",
-              onLibrary ? "text-brand-glow" : "text-ink-dim group-hover:text-ink-soft"
-            )}
-          />
-          <span className="flex-1">{t(item.labelKey)}</span>
-        </Link>
         <button
           onClick={() => setOpen((o) => !o)}
-          aria-label={t(item.labelKey)}
+          className="flex flex-1 items-center gap-3 px-3 py-2.5 text-base font-semibold ring-focus"
+        >
+          <ClipboardList
+            className={cn(
+              "h-[18px] w-[18px] transition-colors",
+              onGestion ? "text-brand-glow" : "text-ink-dim group-hover:text-ink-soft"
+            )}
+          />
+          <span className="flex-1 text-left">{t("nav.management")}</span>
+        </button>
+        <button
+          onClick={() => setOpen((o) => !o)}
+          aria-label={t("nav.management")}
           aria-expanded={open}
           className="mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-ink-dim ring-focus transition-colors hover:text-ink"
         >
@@ -342,10 +359,11 @@ function LibraryNavItem({ item, pathname }: { item: (typeof NAV)[number]; pathna
           >
             <div className="flex flex-col gap-0.5 pb-1 pt-0.5">
               {subs.map((s) => {
-                const active = isActive(s.href);
+                const active = pathname.startsWith(s.href);
+                const liveCount = liveCountFor(s);
                 return (
                   <Link
-                    key={s.id}
+                    key={s.href}
                     href={s.href}
                     className={cn(
                       "ml-2.5 mr-1.5 flex items-center gap-2 rounded-lg px-3 py-2 pl-8 text-sm font-semibold transition-colors ring-focus",
@@ -353,7 +371,18 @@ function LibraryNavItem({ item, pathname }: { item: (typeof NAV)[number]; pathna
                     )}
                   >
                     <span className={cn("h-1.5 w-1.5 rounded-full", active ? "bg-brand-glow" : "bg-ink-dim/40")} />
-                    {t(s.labelKey)}
+                    <span className="flex-1">{t(s.labelKey)}</span>
+                    {liveCount > 0 && (
+                      <span
+                        key={`${s.liveBadge}-${liveCount}`}
+                        className={cn(
+                          "flex h-5 min-w-5 items-center justify-center rounded-full brand-gradient px-1.5 text-[10px] font-bold text-white animate-badge-pop",
+                          pulseBadge === s.liveBadge && "animate-badge-pulse"
+                        )}
+                      >
+                        {liveCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

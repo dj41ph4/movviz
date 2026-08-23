@@ -41,6 +41,11 @@ export const nl: Dictionary = {
     trashHint: "Recent verwijderde titels",
     more: "Meer",
     moreHint: "Rest van het menu",
+    moviesHint: "Jouw films",
+    seriesHint: "Jouw series",
+    torrent: "Torrent",
+    torrentHint: "Doorzoek alle indexers",
+    management: "Beheer",
   },
 
   downloads: {
