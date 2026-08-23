@@ -180,11 +180,36 @@ const HARDWARE_SUFFIXES = ["_nvenc", "_qsv", "_vaapi", "_amf"];
  * a fast software preset only when no hardware encoder is available at all —
  * the "weak Synology" case this item exists to cover.
  */
-function pickVideoEncoderImpl(codec: string, server: ServerPlaybackCapabilities): { impl: string; preset?: string } {
+function pickVideoEncoderImpl(codec: string, server: ServerPlaybackCapabilities): { impl: string; preset?: string; isHardware: boolean } {
   const hwCandidate = HARDWARE_SUFFIXES.map((suffix) => `${codec}${suffix}`).find((name) => server.videoEncoders.includes(name));
-  if (hwCandidate) return { impl: hwCandidate };
+  if (hwCandidate) return { impl: hwCandidate, isHardware: true };
   const impl = SOFTWARE_ENCODER[codec] ?? `lib${codec}`;
-  return { impl, preset: SOFTWARE_ENCODER_PRESET };
+  return { impl, preset: SOFTWARE_ENCODER_PRESET, isHardware: false };
+}
+
+// A software encoder with no hardware backend has to actually keep up with
+// real-time playback on whatever CPU the server has — a 4K source encoded
+// in software on a weak NAS is a real, previously-flagged risk
+// (TODO_POST_MOTEUR_LECTURE.md item 4), not a hypothetical one. 1920 is the
+// same practical ceiling the OLD quality-preset system already uses for its
+// own "fhd" profile (remuxSession.ts FFMPEG_QUALITY_PRESETS) — a proven,
+// not invented, number for "safe on modest hardware."
+const SOFTWARE_TRANSCODE_MAX_WIDTH = 1920;
+
+/**
+ * Only ever downscales — never upscales, and never touches a hardware
+ * encode (a real GPU/QSV/etc. encoder handles 4K at real-time speed; the
+ * risk this exists for is specifically the software fallback path).
+ * Client-declared resolution incompatibility (§23 step 9,
+ * VIDEO_RESOLUTION_UNSUPPORTED) always wins over the generic software-speed
+ * cap when both would apply, since it's the more specific, better-known
+ * constraint.
+ */
+function pickTargetVideoWidth(sourceWidth: number | undefined, clientMaxWidth: number | undefined, isHardwareEncoder: boolean): number | undefined {
+  if (!sourceWidth) return undefined;
+  if (clientMaxWidth && sourceWidth > clientMaxWidth) return clientMaxWidth;
+  if (!isHardwareEncoder && sourceWidth > SOFTWARE_TRANSCODE_MAX_WIDTH) return SOFTWARE_TRANSCODE_MAX_WIDTH;
+  return undefined;
 }
 
 /**
@@ -252,6 +277,8 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
     }
     const targetVideoCodec = pickTranscodeVideoCodec(client);
     const encoder = pickVideoEncoderImpl(targetVideoCodec, server);
+    const targetCap = client.videoCapabilities.find((c) => normalizeCodecName(c.codec) === targetVideoCodec);
+    const clientMaxWidth = targetCap?.maxWidth ?? client.maxWidth;
     return {
       mode: "TRANSCODE",
       containerAction: "REMUX",
@@ -260,6 +287,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       targetVideoCodec,
       videoEncoderImpl: encoder.impl,
       encoderPreset: encoder.preset,
+      targetVideoWidth: pickTargetVideoWidth(media.video.width, clientMaxWidth, encoder.isHardware),
       toneMap: videoCheck.toneMapNeeded || undefined,
       audioAction: needsAudioTranscode ? "TRANSCODE" : "COPY",
       targetAudioCodec: audioTranscodeTarget?.codec,

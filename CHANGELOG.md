@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.19.07 — August 2026
+
+### Nouveau moteur (expérimental) : audit complet et corrections de fond
+
+Suite à un audit systématique des fondamentaux de transcodage (deux passes dédiées, dont une relecture complète des vérifications par rapport au plan d'origine) :
+
+- **Qualité vidéo corrigée sur encodeur matériel** : le réglage de qualité (`-crf`) était silencieusement ignoré par tout encodeur matériel (NVENC/QuickSync/VAAPI/AMD), produisant un débit fixe très bas quelle que soit la résolution — vérifié en direct sur du matériel NVIDIA réel, un encodage 4K en sortait avec la même qualité qu'un encodage minuscule. Chaque famille d'encodeur utilise maintenant son propre réglage de qualité réel.
+- **Plafond de résolution pour un encodage logiciel** (aucun encodeur matériel disponible, typiquement un NAS) : une source 4K est maintenant ramenée à 1080p avant l'encodage logiciel, pour rester capable de suivre la lecture en temps réel plutôt que de risquer de prendre du retard.
+- **Défilement (scrub) plus précis pendant un transcodage** : un intervalle d'images-clés était absent, faisant retomber le curseur ~10 secondes en arrière au lieu de la position cliquée — corrigé à 2 secondes.
+- **Polices manquantes pour l'incrustation de sous-titres en production** : les sous-titres image (PGS/VobSub, la quasi-totalité des BluRay) rendaient du texte invisible ou faisaient planter le transcodage — l'image Docker installe maintenant les polices nécessaires.
+- **Détection des capacités du navigateur affinée** : la profondeur de couleur (8/10 bits) et la résolution maximale décodable sont maintenant vérifiées précisément par codec, au lieu d'être ignorées faute de donnée — un fichier HDR 10 bits que le navigateur ne peut pas réellement décoder est maintenant correctement identifié comme incompatible plutôt que laissé en lecture directe.
+- **Correctif AC-3/E-AC-3** : une piste jugée compatible sur la seule foi d'un signal technique qui ne concerne pas ce moteur pouvait produire un flux muet — corrigé pour se fier au bon signal.
+
+Reste noté pour plus tard (voir `TODO_POST_MOTEUR_LECTURE.md`) : encodage des sous-titres non-UTF-8 (anciennes releases françaises), cascade de repli interne en cas d'échec pendant la lecture, panneau de diagnostic détaillé.
+
 ## v1.19.06 — August 2026
 
 ### Nouveau moteur (expérimental) activé par défaut pour le contenu local, et correctif audio important

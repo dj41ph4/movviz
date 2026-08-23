@@ -28,7 +28,15 @@ import type { PlaybackPlan } from "./playbackPlan";
 
 export const MAX_CONCURRENT = 3;
 export const SESSION_TTL_MS = 5 * 60_000;
-export const AUDIO_BITRATE_K = 192;
+/** Per-channel-pair AAC bitrate — 192k total for a 2.0 downmix is generous
+ *  (Fraunhofer's own guidance puts transparent stereo AAC around 128k), but
+ *  a flat 192k applied unscaled to a genuinely-preserved 5.1/7.1 track
+ *  (client capable enough that decidePlayback() didn't force a downmix)
+ *  would starve it — 192k for 6 channels is ~32k/channel, thin for busy
+ *  surround content. Scaling by channel count keeps the CURRENT stereo
+ *  default's real bitrate unchanged while giving a not-downmixed multichannel
+ *  target a proportionally fair share instead of the same total. */
+export const AUDIO_BITRATE_PER_CHANNEL_K = 96;
 
 export class DuplicateLocalSessionError extends Error {
   constructor(public readonly key: string) {
@@ -147,6 +155,36 @@ function escapeForSubtitlesFilter(p: string): string {
   return p.replace(/\\/g, "/").replace(/:/g, "\\:");
 }
 
+/**
+ * Per-encoder-family constant-quality rate control. Verified live against
+ * real hardware on this dev machine (RTX 5070 Ti): `-crf` is silently
+ * ignored by every hardware encoder (nvenc/qsv/vaapi/amf don't implement
+ * that AVOption at all) — a 4K encode with `-c:v h264_nvenc -crf 23` came
+ * out at a flat, resolution-independent ~2 Mbit/s, badly blocky at 4K.
+ * Switching to nvenc's own `-rc vbr -cq 23` confirmed correct
+ * resolution-scaled output (~103 kbit/s at 320x240 vs ~782 kbit/s at 4K on
+ * the same test source). qsv/vaapi/amf flags below are taken from each
+ * encoder's real `ffmpeg -h encoder=...` option list (confirmed to exist)
+ * but NOT verified against real hardware output the way nvenc was — no QSV/
+ * VAAPI/AMD hardware was available on this dev machine to test against.
+ */
+function rateControlArgs(impl: string): string[] {
+  if (impl.endsWith("_nvenc")) return ["-rc", "vbr", "-cq", "23"];
+  if (impl.endsWith("_qsv")) return ["-global_quality", "23"];
+  if (impl.endsWith("_vaapi")) return ["-rc_mode", "CQP", "-qp", "23"];
+  if (impl.endsWith("_amf")) return ["-rc", "cqp", "-qp_i", "23", "-qp_p", "23"];
+  return ["-crf", "23"]; // libx264/libx265/libsvtav1 and any other software encoder
+}
+
+// Same 2s-resync reasoning and exact values as remuxSession.ts's own
+// quality-downscale transcode path (see its comment) — without a forced
+// keyframe interval, libx264 veryfast on a 24fps source only keyframes
+// every ~10s (confirmed live: frames 1/251/501), so scrubbing within an
+// already-buffered portion of a transcode session snaps back up to ~10s
+// from wherever the user actually clicked. Applies to every codec family —
+// GOP flags are generic AVOptions, not encoder-specific.
+const GOP_ARGS = ["-g", "48", "-keyint_min", "48", "-sc_threshold", "0"];
+
 export interface StartLocalSessionResult {
   proc: ChildProcess;
   stream: ReadableStream<Uint8Array>;
@@ -175,7 +213,11 @@ export function startLocalSession(
   const audioIndex = opts.audioIndex ?? media.audioTracks.find((t) => t.default)?.index ?? media.audioTracks[0]?.index ?? 0;
   const subtitleIndex = opts.subtitleIndex ?? null;
   const seekSec = opts.seekToSec && opts.seekToSec > 0 ? Math.floor(opts.seekToSec) : 0;
-  const bitrateK = opts.audioBitrateK ?? AUDIO_BITRATE_K;
+  // Scaled by the ACTUAL output channel count (post-downmix, when
+  // decidePlayback() forced one) — see AUDIO_BITRATE_PER_CHANNEL_K's own
+  // comment for why a flat total regardless of channel count is wrong.
+  const outputAudioChannels = plan.targetAudioChannels ?? media.audioTracks.find((t) => t.index === audioIndex)?.channels ?? 2;
+  const bitrateK = opts.audioBitrateK ?? outputAudioChannels * AUDIO_BITRATE_PER_CHANNEL_K;
   const key = sessionKey(mediaId, userId, audioIndex, subtitleIndex, seekSec);
 
   const reg = registry();
@@ -224,6 +266,18 @@ export function startLocalSession(
   args.push("-map", `0:${media.video.index}`, "-map", `0:${audioIndex}`);
 
   const videoFilters: string[] = [];
+  if (plan.targetVideoWidth) {
+    // Scale FIRST, before tonemap/subtitles — the whole point of a
+    // resolution cap is keeping a weak server's software encode ahead of
+    // real-time (TODO_POST_MOTEUR_LECTURE.md item 4), so every subsequent
+    // filter should operate on the smaller frame, not the original. -2
+    // keeps height even (required by yuv420p chroma subsampling) while
+    // preserving the source aspect ratio. min(...) guards against ever
+    // upscaling — decidePlayback() already only sets this when the source
+    // is wider, but this is what makes that a real guarantee, not just a
+    // caller convention.
+    videoFilters.push(`scale=min(${plan.targetVideoWidth}\\,iw):-2`);
+  }
   if (toneMapping) {
     // Standard zscale+tonemap HDR→SDR chain (Hable operator, the same one
     // Jellyfin/Plex use) — verified live against a real Dolby Vision
@@ -246,7 +300,7 @@ export function startLocalSession(
     args.push("-c:v", impl);
     if (plan.encoderPreset) args.push("-preset", plan.encoderPreset);
     if (videoFilters.length) args.push("-vf", videoFilters.join(","));
-    args.push("-crf", "23", "-pix_fmt", "yuv420p");
+    args.push(...rateControlArgs(impl), ...GOP_ARGS, "-pix_fmt", "yuv420p");
   } else if (videoFilters.length) {
     // Burn-in with no OTHER reason to transcode still needs SOME video
     // encoder — reuse the same server-aware pick decidePlayback already
@@ -254,7 +308,8 @@ export function startLocalSession(
     // didn't (pure burn-in with an otherwise-compatible codec), fall back
     // to the universal-baseline software encoder, same default as Phase 4's
     // own pickTranscodeVideoCodec() fallback.
-    args.push("-c:v", plan.videoEncoderImpl || "libx264", "-vf", videoFilters.join(","), "-crf", "23", "-pix_fmt", "yuv420p");
+    const impl = plan.videoEncoderImpl || "libx264";
+    args.push("-c:v", impl, "-vf", videoFilters.join(","), ...rateControlArgs(impl), ...GOP_ARGS, "-pix_fmt", "yuv420p");
     if (plan.encoderPreset) args.push("-preset", plan.encoderPreset);
   } else {
     args.push("-c:v", "copy");

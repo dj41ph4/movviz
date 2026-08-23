@@ -356,6 +356,46 @@ test("§29: an SDR source never sets toneMap even when the video needs a transco
   assert.equal(plan.toneMap, undefined);
 });
 
+// ── resolution cap on forced transcodes (real gap found by an audit agent — no downscale ever applied before this) ──
+test("client resolution limit forces the transcode down to the client's own maxWidth", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }),
+    client: client({ videoCapabilities: [{ codec: "h264", maxWidth: 1920, maxHeight: 1080 }] }), // hevc unsupported at all → target h264, and h264 itself caps at 1080p
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.equal(plan.targetVideoWidth, 1920);
+});
+
+test("a software encoder (no hardware available) caps a 4K source at 1920 even with no client resolution limit — weak-server speed safety net", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }),
+    client: client({ videoCapabilities: [{ codec: "h264" }] }), // no maxWidth declared
+    server: { ...FFMPEG_OK, videoEncoders: ["libx264"], hardwareAcceleration: {} }, // no hardware encoder
+  });
+  assert.equal(plan.videoEncoderImpl, "libx264");
+  assert.equal(plan.targetVideoWidth, 1920);
+});
+
+test("a hardware encoder never gets a software-speed resolution cap — real GPU/QSV/etc. keeps up with 4K at real time", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }),
+    client: client({ videoCapabilities: [{ codec: "h264" }] }),
+    server: { ...FFMPEG_OK, videoEncoders: ["libx264", "h264_nvenc"], hardwareAcceleration: { nvenc: true } },
+  });
+  assert.equal(plan.videoEncoderImpl, "h264_nvenc");
+  assert.equal(plan.targetVideoWidth, undefined);
+});
+
+test("a source already at or under 1920 wide never gets a resolution target — nothing to downscale", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", width: 1280, height: 720 } }),
+    client: client({ videoCapabilities: [{ codec: "h264" }] }),
+    server: { ...FFMPEG_OK, videoEncoders: ["libx264"], hardwareAcceleration: {} },
+  });
+  assert.equal(plan.targetVideoWidth, undefined);
+});
+
 // ── subtitles ──
 test("PGS (image) subtitle with no image-capable client → BURN, and only then a video transcode", () => {
   const plan = decidePlayback({

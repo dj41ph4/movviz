@@ -74,6 +74,17 @@ export interface PlaybackPlan {
    * one of the reasons a transcode was needed, never a separate step.
    */
   toneMap?: boolean;
+  /**
+   * Only set when the source needs to be downscaled — either because it
+   * genuinely exceeds the client's declared maxWidth/maxHeight
+   * (VIDEO_RESOLUTION_UNSUPPORTED), or as a software-encoder speed safety
+   * net (no hardware encoder available, source width above a size a weak
+   * server's CPU can plausibly keep ahead of real-time on — see
+   * TODO_POST_MOTEUR_LECTURE.md item 4's own "reste à faire" note, now
+   * unblocked now that a real executor exists to apply it). Width only —
+   * height is always computed from it to preserve the source aspect ratio.
+   */
+  targetVideoWidth?: number;
 
   audioAction: TrackAction;
   targetAudioCodec?: string;

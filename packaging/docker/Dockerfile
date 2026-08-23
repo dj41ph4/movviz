@@ -39,7 +39,13 @@ ENV NODE_ENV=production \
 RUN addgroup -g 1001 movviz && adduser -u 1001 -G movviz -S movviz
 # su-exec drops from root (needed at start to chown/switch user) to movviz
 # right before running the app — same pattern as most NAS-friendly images.
-RUN apk add --no-cache su-exec aria2 rtorrent ffmpeg
+# fontconfig + ttf-dejavu: the subtitle burn-in filter (libass, ffmpeg) needs
+# real font files and a way to discover them — Alpine ships neither by
+# default. Without this, every burned-in subtitle (PGS/VobSub — image-based
+# tracks always go through burn-in, see decidePlayback.ts's subtitle
+# pipeline) either renders invisible text or fails the whole ffmpeg process
+# outright, found auditing the production image, not hypothetically.
+RUN apk add --no-cache su-exec aria2 rtorrent ffmpeg fontconfig ttf-dejavu
 
 # Standalone server + assets only (small image).
 COPY --from=builder --chown=movviz:movviz /app/.next/standalone ./

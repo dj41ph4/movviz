@@ -24,6 +24,27 @@ export interface CodecCapabilities {
   mseEac3: boolean;
   mseMp3: boolean;
   webcodecsAvailable: boolean;
+  /**
+   * HEVC codec strings encode profile in their 2nd dotted field —
+   * "hev1.1.6..." is profile_idc 1 (Main, 8-bit); "hev1.2.4..." is
+   * profile_idc 2 (Main10, 10-bit). The plain `hevc` flag above only ever
+   * probed the 8-bit Main string, so it says nothing about 10-bit support —
+   * and virtually all real HDR/UHD content (this app's own test library
+   * included) is Main10. Needed so the new decision engine (Phase 4) can
+   * populate VideoCapability.bitDepths instead of leaving it unset.
+   */
+  hevcMain10: boolean;
+  /** AV1 codec strings encode bit depth as their trailing 2-digit field
+   *  ("av01.0.09M.08" = 8-bit, "...10" = 10-bit) — same reasoning as
+   *  hevcMain10 above: the base `av1` flag only ever probed 8-bit. */
+  av1Main10: boolean;
+  /** Whether each codec's decoder reports support at 3840x2160, not just
+   *  the 1080p config the base flags above probe — feeds
+   *  VideoCapability.maxWidth/maxHeight so a genuinely resolution-limited
+   *  decoder isn't treated as unlimited. */
+  hevc4k: boolean;
+  av1_4k: boolean;
+  h264_4k: boolean;
 }
 
 let cachedCapabilities: CodecCapabilities | null = null;
@@ -45,6 +66,11 @@ export async function detectCodecs(): Promise<CodecCapabilities> {
     mseEac3: false,
     mseMp3: false,
     webcodecsAvailable: false,
+    hevcMain10: false,
+    av1Main10: false,
+    hevc4k: false,
+    av1_4k: false,
+    h264_4k: false,
   };
 
   // MediaSource.isTypeSupported is the authoritative check for what hls.js
@@ -83,6 +109,25 @@ export async function detectCodecs(): Promise<CodecCapabilities> {
           codedWidth: 1920,
           codedHeight: 1080,
         });
+        result[key] = supported?.supported === true;
+      } catch {
+        result[key] = false;
+      }
+    }
+
+    // Separate probes: bit depth (HEVC profile_idc 2 = Main10) and 4K
+    // resolution, verified live to be independently queryable via
+    // VideoDecoder.isConfigSupported — see webcodecs.ts's own class comment.
+    const extraChecks: Array<[keyof CodecCapabilities, string, number, number]> = [
+      ["hevcMain10", "hev1.2.4.L153.B0", 1920, 1080],
+      ["av1Main10", "av01.0.09M.10", 1920, 1080],
+      ["hevc4k", "hev1.1.6.L153.B0", 3840, 2160],
+      ["av1_4k", "av01.0.09M.08", 3840, 2160],
+      ["h264_4k", "avc1.640033", 3840, 2160],
+    ];
+    for (const [key, codec, codedWidth, codedHeight] of extraChecks) {
+      try {
+        const supported = await (window as any).VideoDecoder.isConfigSupported({ codec, codedWidth, codedHeight });
         result[key] = supported?.supported === true;
       } catch {
         result[key] = false;

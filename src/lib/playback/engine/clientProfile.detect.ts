@@ -23,10 +23,26 @@ import type { AudioCapability, ClientPlaybackProfile, SubtitleCapability, VideoC
 export async function detectDesktopClientProfile(deviceId: string, appVersion: string): Promise<ClientPlaybackProfile> {
   const [codecs, browserCaps] = await Promise.all([detectCodecs(), detectCapabilities()]);
 
+  // maxWidth/maxHeight left unset (unbounded) once the codec is confirmed
+  // to decode at 3840x2160 — checkVideoCompatibility() (decidePlayback.ts)
+  // treats an unset cap as "no resolution limit to enforce", which is
+  // correct here (there's no reason to invent an artificial ceiling above
+  // the one real resolution actually probed). When the 4K probe comes back
+  // false, the known-good 1080p ceiling from the base flag above is the
+  // honest limit — NOT "leave it unset", which previously meant every video
+  // capability silently skipped the VIDEO_RESOLUTION_UNSUPPORTED check
+  // entirely regardless of the source's real resolution.
+  const res4k = (supports4k: boolean) => (supports4k ? {} : { maxWidth: 1920, maxHeight: 1080 });
+
   const videoCapabilities: VideoCapability[] = [];
-  if (codecs.h264) videoCapabilities.push({ codec: "h264" });
-  if (codecs.hevc) videoCapabilities.push({ codec: "hevc" });
-  if (codecs.av1) videoCapabilities.push({ codec: "av1" });
+  if (codecs.h264) videoCapabilities.push({ codec: "h264", bitDepths: [8], ...res4k(codecs.h264_4k) });
+  // bitDepths: [8] always (the base `hevc` flag only ever probed 8-bit Main)
+  // — 10 added only when hevcMain10 independently confirms it, since most
+  // real HDR/UHD content (this app's own test library included) is Main10
+  // and a browser that can't decode it needs VIDEO_BIT_DEPTH_UNSUPPORTED to
+  // actually fire instead of being silently skipped.
+  if (codecs.hevc) videoCapabilities.push({ codec: "hevc", bitDepths: codecs.hevcMain10 ? [8, 10] : [8], ...res4k(codecs.hevc4k) });
+  if (codecs.av1) videoCapabilities.push({ codec: "av1", bitDepths: codecs.av1Main10 ? [8, 10] : [8], ...res4k(codecs.av1_4k) });
 
   const audioCapabilities: AudioCapability[] = [];
   // maxChannels: 2 on AAC specifically — a browser has no API to learn how
@@ -38,8 +54,21 @@ export async function detectDesktopClientProfile(deviceId: string, appVersion: s
   // desktop web client; a platform with a real channel-count API (Android
   // TV/mobile, once their detectors exist) can declare a higher cap.
   if (codecs.aac) audioCapabilities.push({ codec: "aac", decode: true, maxChannels: 2 });
-  if (codecs.ac3 || codecs.mseAc3) audioCapabilities.push({ codec: "ac3", decode: true });
-  if (codecs.eac3 || codecs.mseEac3) audioCapabilities.push({ codec: "eac3", decode: true });
+  // Deliberately codecs.ac3/eac3 ONLY here, never OR'd with mseAc3/mseEac3.
+  // This engine's client delivers the stream via native <video> src
+  // (progressive fMP4 pipe, no MediaSource) — see FfmpegRemuxEngine.ts's own
+  // header comment. mseAc3/mseEac3 answer "can hls.js/MSE play this",
+  // a completely different consumption path; treating it as proof native
+  // playback works reproduces the exact bug remuxSession.ts's
+  // COPY_SAFE_AUDIO whitelist was written to avoid (see its own comment:
+  // "ici le flux est lu par le décodeur NATIF... copier l'AC-3 produirait
+  // un flux muet"). The OLD ffmpeg-remux leg has a live silent-audio
+  // watcher as a safety net for a wrong "yes" here; this engine has no such
+  // live monitoring, so the declared capability itself has to be the
+  // trustworthy signal instead of leaning on a probe answering a different
+  // question.
+  if (codecs.ac3) audioCapabilities.push({ codec: "ac3", decode: true });
+  if (codecs.eac3) audioCapabilities.push({ codec: "eac3", decode: true });
   if (codecs.opus) audioCapabilities.push({ codec: "opus", decode: true });
   if (codecs.flac) audioCapabilities.push({ codec: "flac", decode: true });
   if (codecs.mp3 || codecs.mseMp3) audioCapabilities.push({ codec: "mp3", decode: true });
