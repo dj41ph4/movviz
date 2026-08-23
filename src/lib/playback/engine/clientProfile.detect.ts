@@ -40,7 +40,12 @@ export async function detectDesktopClientProfile(deviceId: string, appVersion: s
   // browser probe — matches how the existing player actually treats each
   // format today (see TitleContent.tsx / VideoPlayer.tsx subtitle handling).
   const subtitleCapabilities: SubtitleCapability[] = [
-    { codec: "srt", externalSupported: true, convertible: true },
+    // ffprobe's own codec_name for SRT is "subrip", never "srt" — confirmed
+    // live against real files during Phase 2 testing. Keying this list on
+    // ffprobe's vocabulary matters: decidePlayback (Phase 4) matches a
+    // MediaDescriptor subtitle track's codec against this list verbatim, so
+    // a wrong key here silently falls through to BURN for every SRT track.
+    { codec: "subrip", externalSupported: true, convertible: true },
     { codec: "webvtt", nativeRender: true },
     { codec: "ass", convertible: true },
     { codec: "ssa", convertible: true },

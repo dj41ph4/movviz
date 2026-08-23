@@ -17,3 +17,4 @@ export * from "./mediaDescriptor";
 export * from "./clientProfile";
 export * from "./serverCapabilities";
 export * from "./playbackPlan";
+export * from "./decidePlayback";
