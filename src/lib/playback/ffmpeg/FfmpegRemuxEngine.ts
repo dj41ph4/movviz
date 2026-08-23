@@ -45,6 +45,9 @@ export class FfmpegRemuxEngine {
   private active = false;
   private debugTimer: ReturnType<typeof setInterval> | null = null;
   private _seekBase = 0;
+  /** Monotonic counter guarding against overlapping seek() calls resolving
+   *  out of order — see seek()'s own comment for the real bug this fixes. */
+  private _seekSeq = 0;
   /** Route prefix this engine streams from — defaults to the CURRENT
    *  Plex-backed production route. The new local decision-engine (Phases
    *  9-13, /api/playback/session/{id}/stream) reuses this exact client-side
@@ -197,9 +200,22 @@ export class FfmpegRemuxEngine {
     // a fire-and-forget DELETE could arrive at the server AFTER the new
     // GET, and stopAllForRatingKey would kill the just-created session —
     // the seek would always fall back to HLS.
+    const mySeq = ++this._seekSeq;
     if (this.ratingKey) {
       await fetch(`${this.urlPrefix}/${this.ratingKey}${this.urlSuffix}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
     }
+    // A NEWER seek() call started while this one's DELETE was still in
+    // flight (rapid progress-bar scrubbing fires seekTo() repeatedly with
+    // no debounce). Without this guard, two overlapping seeks race and can
+    // resolve in EITHER order — confirmed live: dragging the seek bar
+    // produced audio/video that didn't match what was on screen, because
+    // an earlier-requested-but-later-resolving seek's load() ran last and
+    // silently won, setting video.src to the WRONG (stale) position even
+    // though the UI already displayed the newer, correct timestamp
+    // (setCurrentTime() in seekTo() is synchronous and always reflects the
+    // latest request). Abandoning every superseded seek here — only the
+    // most recent one is ever allowed to actually call load().
+    if (mySeq !== this._seekSeq) return;
     await this.load(this.ratingKey, { ...this.lastOptions, seekTo: time });
   }
 
