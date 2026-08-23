@@ -45,9 +45,9 @@ private val TextMuted = Color(0xFFA9A5BE)
 private const val POSTER = "https://image.tmdb.org/t/p/w500"
 private const val BACKDROP = "https://image.tmdb.org/t/p/w780"
 
-private sealed interface MobileState { data object Server : MobileState; data class Login(val base: String) : MobileState; data class Ready(val base: String, val user: String) : MobileState }
+internal sealed interface MobileState { data object Server : MobileState; data class Login(val base: String) : MobileState; data class Ready(val base: String, val user: String) : MobileState }
 
-private class MobileViewModel : ViewModel() {
+internal class MobileViewModel : ViewModel() {
     private val _state = MutableStateFlow<MobileState>(MobileState.Server); val state: StateFlow<MobileState> = _state.asStateFlow()
     private val _busy = MutableStateFlow(false); val busy = _busy.asStateFlow()
     private val _error = MutableStateFlow<String?>(null); val error = _error.asStateFlow()
