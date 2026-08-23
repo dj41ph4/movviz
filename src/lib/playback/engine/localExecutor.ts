@@ -191,22 +191,25 @@ export function startLocalSession(
   }
 
   const burning = plan.subtitleAction === "BURN" && subtitleIndex !== null;
+  const toneMapping = plan.toneMap === true;
   // §1.4 (never a video transcode just for burn-in unless the plan already
   // requires one) is decidePlayback's job, already baked into plan.videoAction
   // — this executor just checks what it was told.
-  const needsVideoFilters = burning;
+  const needsVideoFilters = burning || toneMapping;
   const needsVideoTranscode = plan.videoAction === "TRANSCODE";
 
-  // Output-seeking (-ss AFTER -i) is REQUIRED whenever a filter graph reads
-  // its own independent copy of the file (the `subtitles` filter's si=
-  // does exactly that) — input-seeking (-ss before -i) rebases the output
-  // timeline near 0 while the subtitles filter still expects the file's
-  // original absolute timestamps, so cues silently render at the wrong
-  // moment. Confirmed live: with input-seeking, a cue timed at 00:00:59
-  // never appeared; moving -ss after -i fixed it immediately. Copy-only
-  // sessions keep input-seeking (matches remuxSession.ts — faster, no
-  // filter graph to desync).
-  const outputSeek = needsVideoFilters;
+  // Output-seeking (-ss AFTER -i) is REQUIRED only for burn-in: the
+  // `subtitles` filter's si= opens its own independent copy of the file,
+  // and input-seeking (-ss before -i) rebases the output timeline near 0
+  // while that second read still expects the file's original absolute
+  // timestamps, so cues silently render at the wrong moment. Confirmed
+  // live: with input-seeking, a cue timed at 00:00:59 never appeared;
+  // moving -ss after -i fixed it immediately. Tone mapping has no such
+  // self-reference (zscale/tonemap operate purely on frames already
+  // flowing through this same graph) and copy-only sessions don't touch a
+  // filter graph at all — both keep the faster input-seeking (matches
+  // remuxSession.ts).
+  const outputSeek = burning;
 
   const args: string[] = ["-v", "error"];
   if (seekSec > 0 && !outputSeek) args.push("-ss", String(seekSec));
@@ -221,6 +224,17 @@ export function startLocalSession(
   args.push("-map", `0:${media.video.index}`, "-map", `0:${audioIndex}`);
 
   const videoFilters: string[] = [];
+  if (toneMapping) {
+    // Standard zscale+tonemap HDR→SDR chain (Hable operator, the same one
+    // Jellyfin/Plex use) — verified live against a real Dolby Vision
+    // profile 8.1 file (RoboCop 2014): produces a valid, correctly-graded
+    // SDR frame (compressed highlights, no blown-out/washed-out colors)
+    // rather than raw HDR sample values just re-encoded unconverted, which
+    // is what shipped before this filter existed. Must run BEFORE any
+    // subtitle burn-in below — burning in first would composite text using
+    // the pre-conversion (HDR) colorimetry.
+    videoFilters.push("zscale=t=linear:npl=100", "format=gbrpf32le", "zscale=p=bt709", "tonemap=tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv", "format=yuv420p");
+  }
   if (burning && subtitleIndex !== null) {
     const si = subtitleRelativeIndex(media, subtitleIndex);
     if (si >= 0) videoFilters.push(`subtitles='${escapeForSubtitlesFilter(filePath)}':si=${si}`);

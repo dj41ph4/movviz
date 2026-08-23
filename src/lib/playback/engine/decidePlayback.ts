@@ -54,6 +54,9 @@ function isContainerCompatible(rawContainer: string, client: ClientPlaybackProfi
 interface CompatibilityResult {
   compatible: boolean;
   reasons: PlaybackReasonCode[];
+  /** Set when the HDR mismatch has no cheaper fix than converting to SDR
+   *  (§29) — see the HDR block below for exactly when this applies. */
+  toneMapNeeded?: boolean;
 }
 
 /** Ordered per plan §23 steps 4-10: codec → profile → level → bit depth → HDR/DV → resolution → FPS. */
@@ -71,10 +74,27 @@ function checkVideoCompatibility(video: VideoStreamDescriptor, client: ClientPla
   if (cap.bitDepths && video.bitDepth && !cap.bitDepths.includes(video.bitDepth)) {
     reasons.push("VIDEO_BIT_DEPTH_UNSUPPORTED");
   }
+  let toneMapNeeded = false;
   if (video.hdr) {
     const supportedHdr = cap.hdr ?? [];
-    if (!supportedHdr.includes(video.hdr.type)) {
+    const directMatch = supportedHdr.includes(video.hdr.type);
+    // §29 — a backward-compatible Dolby Vision file (profile 7/8 with a real
+    // base-layer compatibility id) is perfectly playable on a client that
+    // only declares HDR10/SDR/HLG support: a non-DV decoder just renders
+    // the base layer using its own baked-in colorimetry and ignores the DV
+    // RPU metadata entirely. Confirmed against real ffprobe output (RoboCop
+    // 2014, dv_profile=8, dv_bl_signal_compatibility_id=1→hdr10) — forcing
+    // a transcode here would waste CPU re-encoding a file that already
+    // plays correctly. A non-backward-compatible profile (5, no base-layer
+    // id) has no such fallback and keeps the normal incompatible path.
+    const dvFallback = video.hdr.type === "dolby-vision" && video.hdr.dolbyVisionBaseLayerCompatibility && supportedHdr.includes(video.hdr.dolbyVisionBaseLayerCompatibility);
+    if (!directMatch && !dvFallback) {
       reasons.push(video.hdr.type === "dolby-vision" ? "DOLBY_VISION_UNSUPPORTED" : "HDR_UNSUPPORTED");
+      // No exact match and no DV base-layer fallback landed on something the
+      // client declared — the only remaining universal target is SDR.
+      // Converting between two different HDR encodings (client=hlg,
+      // source=hdr10) without passing through SDR is out of scope here.
+      toneMapNeeded = true;
     }
   }
   const maxWidth = cap.maxWidth ?? client.maxWidth;
@@ -85,7 +105,7 @@ function checkVideoCompatibility(video: VideoStreamDescriptor, client: ClientPla
   if (cap.maxFps && video.fps && video.fps > cap.maxFps) {
     reasons.push("VIDEO_FPS_UNSUPPORTED");
   }
-  return { compatible: reasons.length === 0, reasons };
+  return { compatible: reasons.length === 0, reasons, toneMapNeeded };
 }
 
 /** Steps 11-12: audio codec → channel count. */
@@ -222,6 +242,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       targetVideoCodec,
       videoEncoderImpl: encoder.impl,
       encoderPreset: encoder.preset,
+      toneMap: videoCheck.toneMapNeeded || undefined,
       audioAction: needsAudioTranscode ? "TRANSCODE" : "COPY",
       targetAudioCodec: needsAudioTranscode ? pickTranscodeAudioCodec(client) : undefined,
       subtitleAction,

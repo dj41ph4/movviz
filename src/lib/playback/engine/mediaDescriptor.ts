@@ -48,6 +48,18 @@ export interface VideoStreamDescriptor {
     type: HdrType;
     /** Only meaningful when type === "dolby-vision". */
     dolbyVisionProfile?: number;
+    /**
+     * Only meaningful when type === "dolby-vision" — what a non-DV decoder
+     * sees when it decodes the base layer and ignores the DV RPU metadata
+     * (ffprobe's dv_bl_signal_compatibility_id, ISO/IEC 23001-8 mapping:
+     * 1→hdr10, 2→sdr, 4→hlg). Undefined means either no base-layer
+     * compatibility (single-layer non-backward-compatible profile, e.g. 5)
+     * or the file predates this field. decidePlayback() uses this to allow
+     * DIRECT_PLAY on an HDR10-capable client for a backward-compatible DV
+     * file instead of forcing a transcode purely because the client didn't
+     * declare "dolby-vision" support (plan §29).
+     */
+    dolbyVisionBaseLayerCompatibility?: "hdr10" | "sdr" | "hlg";
   };
 }
 

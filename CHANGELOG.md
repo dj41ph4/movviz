@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.19.05 — August 2026
+
+### Nouveau moteur (expérimental) : gestion HDR / Dolby Vision affinée
+
+- Un fichier Dolby Vision dont la couche de base reste compatible HDR10 (la grande majorité des BluRay UHD récents) se lit maintenant directement, sans transcodage inutile, même si l'appareil ne déclare pas de support Dolby Vision explicite.
+- Quand aucune conversion directe n'est possible (Dolby Vision non compatible HDR10, ou HDR10/HLG sur un appareil qui n'en déclare aucun), la vidéo est correctement convertie en SDR pendant le transcodage au lieu d'être ré-encodée avec des couleurs HDR brutes mal interprétées.
+- Concerne uniquement le "Nouveau moteur (expérimental)" introduit en v1.19.04 — comportement par défaut inchangé.
+
 ## v1.19.04 — August 2026
 
 ### Nouveau moteur de lecture (expérimental, manuel, fichiers locaux)

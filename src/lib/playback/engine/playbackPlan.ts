@@ -65,6 +65,15 @@ export interface PlaybackPlan {
    *  preset so encoding doesn't fall behind real-time playback; hardware
    *  encoders don't take this kind of preset, so it stays unset for those. */
   encoderPreset?: string;
+  /**
+   * §29 — set when the source is HDR (any type) and the client declared no
+   * matching HDR capability at all (not even a Dolby-Vision-to-HDR10
+   * base-layer fallback) — the video must be converted to SDR as part of
+   * the transcode, not just re-encoded in the same dynamic range. Always
+   * false/absent unless videoAction is TRANSCODE; tone mapping is itself
+   * one of the reasons a transcode was needed, never a separate step.
+   */
+  toneMap?: boolean;
 
   audioAction: TrackAction;
   targetAudioCodec?: string;

@@ -266,6 +266,53 @@ test("HDR10 supported by client → no transcode needed for HDR alone", () => {
   assert.equal(plan.mode, "DIRECT_PLAY");
 });
 
+// ── Phase 14: DV base-layer fallback + HDR→SDR tone mapping ──
+test("§29: a backward-compatible Dolby Vision file (real base-layer id) direct-plays on an HDR10-only client, no transcode", () => {
+  const plan = decidePlayback({
+    media: media({
+      container: "mov,mp4,m4a",
+      video: { index: 0, codec: "hevc", width: 1920, height: 1080, hdr: { type: "dolby-vision", dolbyVisionProfile: 8, dolbyVisionBaseLayerCompatibility: "hdr10" } },
+      audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true, forced: false }],
+    }),
+    client: client({ videoCapabilities: [{ codec: "hevc", hdr: ["sdr", "hdr10"] }] }), // no dolby-vision declared
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "DIRECT_PLAY");
+  assert.ok(!plan.reasons.includes("DOLBY_VISION_UNSUPPORTED"));
+});
+
+test("§29: a non-backward-compatible Dolby Vision profile (no base-layer id) still forces a transcode on an HDR10-only client", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", width: 1920, height: 1080, hdr: { type: "dolby-vision", dolbyVisionProfile: 5 } } }),
+    client: client({ videoCapabilities: [{ codec: "hevc", hdr: ["sdr", "hdr10"] }] }),
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.ok(plan.reasons.includes("DOLBY_VISION_UNSUPPORTED"));
+  assert.equal(plan.toneMap, true);
+});
+
+test("§29: HDR10 source with no matching client HDR capability at all → forced transcode sets toneMap", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", width: 1920, height: 1080, hdr: { type: "hdr10" } } }),
+    client: client({ videoCapabilities: [{ codec: "hevc" }] }), // no hdr array at all
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.ok(plan.reasons.includes("HDR_UNSUPPORTED"));
+  assert.equal(plan.toneMap, true);
+});
+
+test("§29: an SDR source never sets toneMap even when the video needs a transcode for an unrelated reason", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }), // no hdr field at all — SDR
+    client: client({ videoCapabilities: [{ codec: "h264" }] }), // hevc unsupported → forces transcode
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.equal(plan.toneMap, undefined);
+});
+
 // ── subtitles ──
 test("PGS (image) subtitle with no image-capable client → BURN, and only then a video transcode", () => {
   const plan = decidePlayback({

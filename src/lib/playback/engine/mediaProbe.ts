@@ -68,6 +68,13 @@ interface FfprobeDisposition {
 interface FfprobeSideData {
   side_data_type?: string;
   dv_profile?: number;
+  /** 0=none, 1=HDR10, 2=SDR, 4=HLG — what a non-Dolby-Vision decoder sees
+   *  when it just decodes the base layer and ignores the DV RPU metadata.
+   *  Confirmed live against a real profile 8.1 UHD BluRay remux (RoboCop
+   *  2014): dv_profile=8, dv_bl_signal_compatibility_id=1 — this field is
+   *  the authoritative "can I fall back to HDR10 without transcoding"
+   *  signal, more precise than inferring it from the profile number alone. */
+  dv_bl_signal_compatibility_id?: number;
 }
 
 interface FfprobeStream {
@@ -173,10 +180,16 @@ function detectBitDepth(stream: FfprobeStream): number | undefined {
   return stream.pix_fmt ? 8 : undefined;
 }
 
+const DV_BL_COMPATIBILITY: Record<number, "hdr10" | "sdr" | "hlg"> = { 1: "hdr10", 2: "sdr", 4: "hlg" };
+
 function detectHdr(stream: FfprobeStream): MediaDescriptor["video"]["hdr"] {
   const dovi = stream.side_data_list?.find((s) => s.side_data_type === "DOVI configuration record");
   if (dovi) {
-    return { type: "dolby-vision" as HdrType, dolbyVisionProfile: dovi.dv_profile };
+    return {
+      type: "dolby-vision" as HdrType,
+      dolbyVisionProfile: dovi.dv_profile,
+      dolbyVisionBaseLayerCompatibility: dovi.dv_bl_signal_compatibility_id ? DV_BL_COMPATIBILITY[dovi.dv_bl_signal_compatibility_id] : undefined,
+    };
   }
   // smpte2084 = PQ transfer function (HDR10/HDR10+ — ffprobe doesn't
   // distinguish the "+" without a separate side-data check we don't need
