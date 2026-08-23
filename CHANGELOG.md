@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.17.11 — August 2026
+
+### Android smartphone — premium UX polish (40% Netflix / 60% TV)
+
+- **Design system Movviz mobile** : palette Void/Abyss + violet/magenta en accents 80/20 (le contenu reste la star), surfaces profondes, glass contrôlé, tokens unifiés TV.
+- **Capsule flottante** : bottom nav translucide sombre avec bord subtil, derrière le contenu, animation spring sur l’onglet actif (icône + label), respect total de navigationBarsPadding — plus de barre Material pleine largeur.
+- **Top bar** : transparente sur le contenu, glass progressif au scroll, contenu qui remonte derrière.
+- **Hero** : 62% viewport, edge-to-edge, double gradient (haut transparent → bas profond), logo/titre, métadonnées concises, CTA “Lecture” blanc + actions glass [ + ] [ ⓘ ], amorce douce des rangées en dessous.
+- **Rails** : densité Netflix — ~3 posters + amorce du suivant, LazyRow + peeking (end 12dp), tap scale 0.96 spring, titres 16sp bold, rating ★.
+- **Recherche** : champ immédiat, debounce 280ms, leading/trailing icons, états vide / aucun résultat, résultats denses (poster 52×74 + titre + année/type).
+- **Profils** : carte glass “Profil actif” avec avatar gradient et chevron, déconnexion.
+- Aucune régression fonctionnelle : backend, API, android-shared, auth, profils, repository, Media3, Direct Play, fallback, sous-titres réutilisés tels quels.
+
 ## v1.17.10 — August 2026
 
 ### Android smartphone — première base native
