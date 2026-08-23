@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import useSWR from "swr";
@@ -33,6 +33,7 @@ function fetcher(url: string) {
 
 export function Sidebar({ version }: { version: string }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const t = useT();
   const user = useCurrentUser();
   const pendingRequests = usePendingRequests();
@@ -123,6 +124,7 @@ export function Sidebar({ version }: { version: string }) {
             key={item.href}
             item={item}
             pathname={pathname}
+            searchParams={searchParams}
             liveCount={
               item.liveBadge === "pendingRequests" ? pendingRequests
               : item.liveBadge === "pendingUsers" ? pendingUsers
@@ -235,16 +237,23 @@ export function Sidebar({ version }: { version: string }) {
 
 /** A single flat sidebar row — extracted so both the main list and the
  *  trailing Réglages row (rendered after the Gestion group) share it. */
-function NavRow({ item, pathname, liveCount, pulseBadge }: { item: (typeof NAV)[number]; pathname: string; liveCount: number; pulseBadge: string | null }) {
+function NavRow({ item, pathname, searchParams, liveCount, pulseBadge }: { item: (typeof NAV)[number]; pathname: string; searchParams?: ReturnType<typeof useSearchParams>; liveCount: number; pulseBadge: string | null }) {
   const t = useT();
   // The series detail page lives at /library/series/[id] (season/episode
   // routes nested under it), not /series/[id] — without this, opening a
-  // series' fiche left the sidebar showing nothing as active.
+  // series' fiche left the sidebar showing nothing as active. Collections'
+  // href points straight at /library?tab=collection (see nav.ts) — pathname
+  // alone always reads "/library" there, so the query param must be checked
+  // too, or this row never lit up as active.
+  const [hrefPath, hrefQuery] = item.href.split("?");
+  const hrefParams = hrefQuery ? new URLSearchParams(hrefQuery) : null;
   const active = item.href === "/"
     ? pathname === "/"
     : item.href === "/series"
       ? pathname.startsWith("/series") || pathname.startsWith("/library/series")
-      : pathname.startsWith(item.href);
+      : hrefParams
+        ? pathname === hrefPath && [...hrefParams.entries()].every(([k, v]) => searchParams?.get(k) === v)
+        : pathname.startsWith(item.href);
   const Icon = item.icon;
   return (
     <Link

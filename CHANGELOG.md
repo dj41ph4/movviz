@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.18.06 — August 2026
+
+### Menu latéral : Collections ne restait pas surligné, Téléchargement déplacé
+
+- « Collections » redirigeait vers la Bibliothèque avant que le surlignage actif ne se calcule — il reste désormais bien entouré une fois sur la page.
+- « Activité » renommé « Téléchargements » et déplacé juste sous Collections.
+
 ## v1.18.05 — August 2026
 
 ### Correctif : menu d'actions coupé sur les cartes Bibliothèque
