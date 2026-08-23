@@ -138,6 +138,35 @@ function pickTranscodeVideoCodec(client: ClientPlaybackProfile): string {
   return client.videoCapabilities[0]?.codec ?? "h264";
 }
 
+// One software fallback encoder per codec family, all confirmed present on
+// a real ffmpeg build during Phase 6 testing — libsvtav1 specifically over
+// libaom-av1 because it's the realtime-capable one (libaom-av1 is far too
+// slow for this exact "don't fall behind playback" problem).
+const SOFTWARE_ENCODER: Record<string, string> = { h264: "libx264", hevc: "libx265", av1: "libsvtav1" };
+// TODO_POST_MOTEUR_LECTURE.md item 4 — matches Plex Media Server's own
+// default x264 preset for the same reason: fast enough to stay ahead of
+// real-time playback on a weak server (e.g. an underpowered Synology with no
+// hardware encoder) without collapsing quality as hard as ultrafast/superfast.
+const SOFTWARE_ENCODER_PRESET = "veryfast";
+const HARDWARE_SUFFIXES = ["_nvenc", "_qsv", "_vaapi", "_amf"];
+
+/**
+ * TODO_POST_MOTEUR_LECTURE.md item 4 — picks the actual ffmpeg -c:v
+ * implementation for a forced video transcode, preferring hardware over
+ * software whenever the server's own compiled encoder list (Phase 6, real
+ * `ffmpeg -encoders` output — never guessed from the hardwareAcceleration
+ * booleans alone, since e.g. h264_nvenc existing says nothing about
+ * hevc_nvenc existing) actually has one for this exact codec. Falls back to
+ * a fast software preset only when no hardware encoder is available at all —
+ * the "weak Synology" case this item exists to cover.
+ */
+function pickVideoEncoderImpl(codec: string, server: ServerPlaybackCapabilities): { impl: string; preset?: string } {
+  const hwCandidate = HARDWARE_SUFFIXES.map((suffix) => `${codec}${suffix}`).find((name) => server.videoEncoders.includes(name));
+  if (hwCandidate) return { impl: hwCandidate };
+  const impl = SOFTWARE_ENCODER[codec] ?? `lib${codec}`;
+  return { impl, preset: SOFTWARE_ENCODER_PRESET };
+}
+
 function pickTranscodeAudioCodec(client: ClientPlaybackProfile): string {
   // aac is the one codec every real client in this app already declares
   // decode:true for (see clientProfile.detect.ts) — the safe universal target.
@@ -183,12 +212,16 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
         reasons: [...reasons, "FFMPEG_UNAVAILABLE", "PLEX_FALLBACK_REQUESTED"],
       };
     }
+    const targetVideoCodec = pickTranscodeVideoCodec(client);
+    const encoder = pickVideoEncoderImpl(targetVideoCodec, server);
     return {
       mode: "TRANSCODE",
       containerAction: "REMUX",
       targetContainer: "mp4",
       videoAction: "TRANSCODE",
-      targetVideoCodec: pickTranscodeVideoCodec(client),
+      targetVideoCodec,
+      videoEncoderImpl: encoder.impl,
+      encoderPreset: encoder.preset,
       audioAction: needsAudioTranscode ? "TRANSCODE" : "COPY",
       targetAudioCodec: needsAudioTranscode ? pickTranscodeAudioCodec(client) : undefined,
       subtitleAction,

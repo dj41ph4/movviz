@@ -55,17 +55,28 @@ existe, sinon retombe sur l'ancien comportement (default ffprobe puis
 première piste). Vérifié sur 3 cas réels (FR non-default, aucune piste FR,
 tag ISO 3 lettres "fra").
 
-## 4. Adapter la qualité/vitesse d'encodage à la puissance réelle du serveur — pas fait
+## 4. Adapter la qualité/vitesse d'encodage à la puissance réelle du serveur — ✅ fait (partie décision)
 
 Soulevé pendant la Phase 6 (détection des capacités serveur) : `serverCapabilities.detect.ts`
 détecte seulement CE QUE ffmpeg sait faire (encodeurs/hwaccel compilés), jamais
 la puissance réelle du CPU/GPU. Sur un NAS faible (typiquement aucun
 NVENC/QSV — `hardwareAcceleration` tout à `false`), un transcodage logiciel
 `libx264` au preset par défaut peut être plus lent que la lecture temps réel
-→ lag/buffering. Couvert plus loin dans le plan (§30 sélection du backend de
-transcodage, §40-42 modes de qualité) :
-1. Préférer un encodeur matériel dispo (quasi toujours plus rapide).
-2. Sinon, baisser le preset x264 (`veryfast`/`superfast`) et/ou plafonner
-   résolution/bitrate cible selon la puissance détectée.
-3. Idéalement mesurer le facteur de vitesse ffmpeg en direct et dégrader
-   encore, ou basculer en `PLEX_FALLBACK` si insuffisant.
+→ lag/buffering.
+
+`decidePlayback()` (Phase 4) choisit maintenant l'encodeur exact (`videoEncoderImpl`,
+nouveau champ du `PlaybackPlan`) : un encodeur matériel compilé POUR CE CODEC
+PRÉCIS (jamais juste "le serveur a du nvenc quelque part" — un `h264_nvenc`
+dispo ne dit rien sur `hevc_nvenc`) est toujours préféré ; sinon repli logiciel
+(`libx264`/`libx265`/`libsvtav1` — ce dernier choisi plutôt que `libaom-av1`,
+bien trop lent pour rester devant la lecture temps réel) avec un preset rapide
+`veryfast` (`encoderPreset`, même choix par défaut que Plex Media Server pour
+la même raison). Vérifié par 3 tests dédiés, dont un qui confirme explicitement
+qu'un nvenc h264 n'est jamais utilisé à tort pour une cible hevc.
+
+**Reste à faire, hors scope de ce point (décision pure, pas exécution)** :
+mesurer le facteur de vitesse ffmpeg en direct pendant un vrai transcodage et
+dégrader encore (résolution/bitrate) ou basculer en `PLEX_FALLBACK` si même
+le preset rapide logiciel ne suit pas — nécessite un vrai process ffmpeg qui
+tourne, donc seulement possible une fois le Playback Executor (phase plus
+loin dans le plan) écrit.

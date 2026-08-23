@@ -99,6 +99,42 @@ test("§61: Plex is never chosen while ffmpeg is available, even when a transcod
   assert.notEqual(plan.mode, "PLEX_FALLBACK");
 });
 
+// ── TODO_POST_MOTEUR_LECTURE.md item 4 — server-power-aware encoder pick ──
+test("item 4: no hardware encoder available → falls back to software with a fast preset (weak-server case)", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }),
+    client: client({ videoCapabilities: [{ codec: "h264" }] }),
+    server: { ...FFMPEG_OK, videoEncoders: ["libx264"], hardwareAcceleration: {} },
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.equal(plan.targetVideoCodec, "h264");
+  assert.equal(plan.videoEncoderImpl, "libx264");
+  assert.equal(plan.encoderPreset, "veryfast");
+});
+
+test("item 4: a hardware encoder for the exact target codec is preferred over software, no preset needed", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }),
+    client: client({ videoCapabilities: [{ codec: "h264" }] }),
+    server: { ...FFMPEG_OK, videoEncoders: ["libx264", "h264_nvenc"], hardwareAcceleration: { nvenc: true } },
+  });
+  assert.equal(plan.targetVideoCodec, "h264");
+  assert.equal(plan.videoEncoderImpl, "h264_nvenc");
+  assert.equal(plan.encoderPreset, undefined);
+});
+
+test("item 4: a hardware encoder for a DIFFERENT codec never gets picked for this one (per-codec check, not just the aggregate hardwareAcceleration flag)", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "mpeg2video", width: 1920, height: 1080 } }),
+    client: client({ videoCapabilities: [{ codec: "hevc" }] }), // only hevc offered → target is hevc
+    // Server has an nvenc encoder, but only for h264 — not for the hevc target.
+    server: { ...FFMPEG_OK, videoEncoders: ["libx264", "libx265", "h264_nvenc"], hardwareAcceleration: { nvenc: true } },
+  });
+  assert.equal(plan.targetVideoCodec, "hevc");
+  assert.equal(plan.videoEncoderImpl, "libx265");
+  assert.equal(plan.encoderPreset, "veryfast");
+});
+
 test("§61: Plex is only chosen once ffmpeg itself is unavailable", () => {
   const plan = decidePlayback({
     media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }),

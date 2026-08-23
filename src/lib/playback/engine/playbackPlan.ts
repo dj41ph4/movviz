@@ -55,6 +55,16 @@ export interface PlaybackPlan {
 
   videoAction: TrackAction;
   targetVideoCodec?: string;
+  /** Exact ffmpeg -c:v implementation name for the transcode (e.g. "libx264",
+   *  "hevc_nvenc") — only set when videoAction is TRANSCODE. Decided against
+   *  the server's actual compiled encoder list (Phase 6), preferring
+   *  hardware when the server genuinely has it for this exact codec. */
+  videoEncoderImpl?: string;
+  /** x264/x265/svtav1-style speed preset — only set alongside a SOFTWARE
+   *  videoEncoderImpl. A weak server (no hardware encoder) needs a fast
+   *  preset so encoding doesn't fall behind real-time playback; hardware
+   *  encoders don't take this kind of preset, so it stays unset for those. */
+  encoderPreset?: string;
 
   audioAction: TrackAction;
   targetAudioCodec?: string;
