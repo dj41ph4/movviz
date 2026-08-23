@@ -24,18 +24,22 @@ ignore le cache et ré-analyse tout). Testé : un hit de cache normal prend
 ~0.06ms, un appel forcé relance bien un vrai ffprobe (~30ms sur le fichier
 de test).
 
-## 3. Remplacer/enrichir les pastilles qualité de la fiche avec MediaDescriptor — en attente
+## 3. Remplacer/enrichir les pastilles qualité de la fiche avec MediaDescriptor — ✅ fait
 
-Les pastilles actuelles (résolution/codec/HDR sur la fiche film/série)
-viennent de `LibraryFile` (synchro Plex ou parsing du nom de fichier au
-moment du grab) — une source moins fiable que ffprobe, qui lit le vrai
-fichier. Une fois `MediaDescriptor` disponible pour (quasi) tout le
-catalogue, envisager de l'utiliser comme source de vérité pour l'affichage
-aussi, pas seulement pour les décisions de lecture.
+`mediaDescriptorEnrich.ts` : après chaque probe réussi, les champs
+resolution/videoCodec/audioCodec/hdr de `LibraryFile` (primaire, via
+`setPrimaryFile` — jamais un hand-patch direct, `versions[]` reste
+synchronisé) sont mis à jour avec la vérité ffprobe, canonicalisée dans le
+même vocabulaire que `MediaBadges.tsx` (HEVC/AVC/AV1…, TrueHD/DTS/AAC…,
+HDR10/Dolby Vision/HLG). Un film jamais analysé garde ses champs actuels
+intacts — aucune régression pour la partie du catalogue pas encore
+couverte.
 
-**Volontairement pas encore fait** : contrairement aux points 1 et 2, c'est
-un changement plus risqué (remplace une source de donnée utilisée partout
-dans l'app — dashboard, découverte, fiches, bibliothèque) et ça touche à la
-couverture réelle du cache (tout le catalogue n'est pas encore analysé). À
-discuter avant de s'y lancer : remplacement total, ou juste enrichissement
-en complément quand Plex ne sait pas ?
+**Bug trouvé et corrigé pendant les tests réels** : le bucket de résolution
+était calculé sur la hauteur ffprobe — cassait sur tout titre UHD cropé pour
+un ratio cinéma (ex. RoboCop 2014 : 3840×1604 réel, hauteur bien en dessous
+de 2160 à cause du crop 2.39:1, classé à tort en 1080p). Recalculé sur la
+largeur (le width d'un disque 4K reste ~3840 quel que soit le crop) — vérifié
+sur 72 films réellement accessibles depuis cette machine, 35 changements,
+zéro régression après correction (tout ce qui était juste avant reste juste,
+tout ce qui était faux/absent est maintenant correct).

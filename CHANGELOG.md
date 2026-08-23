@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.19.02 — August 2026
+
+### Pastilles qualité corrigées automatiquement par l'analyse technique
+
+- Une fois un film analysé (ffprobe), ses pastilles résolution/codec vidéo/codec audio/HDR sur la fiche se corrigent automatiquement si elles étaient fausses ou manquantes — sans jamais rien effacer pour un film pas encore analysé.
+- Corrige au passage un vrai bug trouvé pendant les tests : un film 4K recadré pour un ratio cinéma pouvait être mal classé en 1080p.
+
 ## v1.19.01 — August 2026
 
 ### Analyse technique : automatique dès la récupération d'un film, et bouton "Analyse complète"
