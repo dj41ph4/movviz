@@ -35,9 +35,7 @@ interface Job {
 const FILTERS: { id: "all" | LibraryStatus; key: string }[] = [
   { id: "all", key: "common.all" },
   { id: "available", key: "status.available" },
-  { id: "downloading", key: "status.downloading" },
   { id: "missing", key: "status.missing" },
-  { id: "upcoming", key: "status.upcoming" },
 ];
 const TYPES: { id: "all" | "movie" | "series"; key: string; href: string }[] = [
   { id: "all", key: "common.all", href: "/library" },
@@ -106,7 +104,10 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     }
   }, [filter, sort, tagFilter, searchParams, router, pathname]);
   const { data: tagsData } = useSWR<{ tags: string[] }>("/api/tags");
-  const allTags = tagsData?.tags ?? [];
+  // "plex" is auto-applied to every title synced from Plex (librarySync.ts)
+  // — on a Plex-backed library nearly everything carries it, making it
+  // useless as a filter dimension, so it's excluded from this picker.
+  const allTags = (tagsData?.tags ?? []).filter((tag) => tag !== "plex");
 
   // Poll the job queue for any admin visit to this page (not just while
   // *this* component instance triggered a run) so a "search all missing"
@@ -279,40 +280,47 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
 
   return (
     <div>
-      <div className="mb-6 space-y-4 rounded-2xl glass p-5">
+      <div className="mb-4 space-y-3 rounded-2xl glass p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-ink">
             <Film className="h-4 w-4 text-brand-glow" />
             <span className="text-sm font-semibold">{total} {t("common.titles")}</span>
           </div>
           {user?.role === "admin" && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 onClick={searchMissing}
                 disabled={searchingMissing}
-                className="flex h-9 items-center gap-2 rounded-lg glass-strong px-3.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50 whitespace-nowrap"
+                title={
+                  searchMissingJob?.status === "queued"
+                    ? t("library.searchMissingWaiting")
+                    : searchingMissing && searchMissingJob && searchMissingJob.total > 1
+                      ? `${searchMissingLabel} — ${searchMissingJob.current} / ${searchMissingJob.total}`
+                      : searchMissingLabel
+                }
+                className="relative flex h-9 w-9 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
               >
                 {searchingMissing ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchCheck className="h-4 w-4" />}
-                {searchMissingJob?.status === "queued"
-                  ? t("library.searchMissingWaiting")
-                  : searchingMissing && searchMissingJob && searchMissingJob.total > 1
-                    ? `${searchMissingJob.current} / ${searchMissingJob.total}`
-                    : searchMissingLabel}
+                {searchingMissing && searchMissingJob && searchMissingJob.total > 1 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full brand-gradient px-1 text-[9px] font-bold text-white">
+                    {searchMissingJob.current}/{searchMissingJob.total}
+                  </span>
+                )}
               </button>
               <button
                 onClick={rescan}
                 disabled={rescanning}
-                className="flex h-9 items-center gap-2 rounded-lg glass-strong px-3.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50 whitespace-nowrap"
+                title={t("library.rescan")}
+                className="flex h-9 w-9 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
               >
                 {rescanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
-                {t("library.rescan")}
               </button>
               <button
                 onClick={() => setSearchAndReplaceOpen(true)}
-                className="flex h-9 items-center gap-2 rounded-lg glass-strong px-3.5 text-sm font-semibold text-ink-soft transition-colors hover:text-ink whitespace-nowrap"
+                title={t("library.searchAndReplace")}
+                className="flex h-9 w-9 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-ink"
               >
                 <RefreshCw className="h-4 w-4" />
-                {t("library.searchAndReplace")}
               </button>
             </div>
           )}
@@ -349,7 +357,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
                     key={tp.id}
                     href={tp.href}
                     className={cn(
-                      "rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
+                      "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                       active ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
                     )}
                   >
@@ -383,7 +391,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
               key={f.id}
               onClick={() => setFilter(f.id)}
               className={cn(
-                "rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
+                "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
                 filter === f.id ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
               )}
             >

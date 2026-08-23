@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.18.08 — August 2026
+
+### Bibliothèque : barre d'outils allégée (Films et Séries)
+
+- Filtres « Téléchargement » et « À venir » retirés (redondants avec le badge de statut affiché sur chaque carte).
+- Le tag automatique « plex » (appliqué à tout ce qui vient d'une synchronisation Plex, donc jamais un vrai filtre utile) n'apparaît plus dans la liste des tags.
+- Les 3 actions admin (recherche des manquants, réconciliation disque, recherche et remplacer) passent en icônes compactes avec info-bulle — la recherche des manquants garde son compteur de progression en petit badge.
+
 ## v1.18.07 — August 2026
 
 ### Correctif : le hero du tableau de bord disparaissait au hasard
