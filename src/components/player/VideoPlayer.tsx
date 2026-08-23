@@ -1439,13 +1439,34 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           }
         }
 
+        // §44-46/49 (Plex n'est un filet de secours QUE s'il existe
+        // vraiment) : pour un titre purement local, `ratingKey` n'est PAS
+        // une vraie clé Plex — TitleContent.tsx retombe sur l'id Movviz
+        // lui-même quand plexRatingKey est absent (playbackRatingKey =
+        // libraryMatch?.plexRatingKey ?? libraryMatch?.id). Router un échec
+        // vers la leg Plex/DASH dans ce cas produirait une boucle de 502
+        // garantie (§49) plutôt qu'un vrai filet de secours — mieux vaut un
+        // échec honnête que ça.
+        const hasRealPlexLink = ratingKey !== movvizId;
+        const onLocalEngineFailure = () => {
+          destroyFfmpeg();
+          ffmpegSkippedRef.current = true;
+          if (hasRealPlexLink) {
+            setBuffering(true);
+            fallbackGuardRef.current = false;
+            maybeStartHls(undefined, true);
+          } else {
+            setError(tRef.current("player.betaError"));
+          }
+        };
+
         const engine = new FfmpegRemuxEngine(
           {
             onBuffering: (buffering) => setBuffering(buffering),
             onError: (_msg, fatal) => {
               if (!fatal) return;
               if (!ffmpegEngineRef.current) return;
-              fallbackFromFfmpeg();
+              onLocalEngineFailure();
             },
             onDebug: (stats) => setFfmpegStats(stats),
           },
@@ -1461,7 +1482,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         try {
           await engine.load(prep.sessionId, { seekTo, debug: b.debug });
         } catch {
-          fallbackFromFfmpeg();
+          onLocalEngineFailure();
           return false;
         }
         return true;
