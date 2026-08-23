@@ -85,7 +85,19 @@ export async function POST(req: NextRequest) {
     videoAction: plan.videoAction,
     audioAction: plan.audioAction,
     subtitleAction: plan.subtitleAction,
+    plan,
   });
+
+  // DIRECT_PLAY needs no ffmpeg process at all — point straight at the
+  // existing, already-working byte-range route (Range support, 206 partial
+  // content) instead of routing through a session-backed stream endpoint
+  // that would spawn a process for zero reason. Every other mode (REMUX/
+  // DIRECT_STREAM/TRANSCODE) needs the real ffmpeg session, executed by
+  // localExecutor.ts (Phases 9-13) via the session-stream route below.
+  const streamUrl =
+    plan.mode === "DIRECT_PLAY"
+      ? `/api/stream/local/${encodeURIComponent(mediaId)}`
+      : `/api/playback/session/${session.sessionId}/stream`;
 
   return NextResponse.json({
     sessionId: session.sessionId,
@@ -99,11 +111,7 @@ export async function POST(req: NextRequest) {
     markers: {},
     resume: {},
     stream: {
-      // Not yet backed by a real route — Phase 9-12 wire the actual
-      // Direct Play/Remux/Direct Stream/Transcode streaming endpoints.
-      // Deliberately "session" (singular) to avoid colliding with the
-      // CURRENT production route namespace (/api/playback/sessions/*, plural).
-      url: `/api/playback/session/${session.sessionId}/stream`,
+      url: streamUrl,
       protocol: (plan.protocol ?? "PROGRESSIVE").toLowerCase(),
     },
   });

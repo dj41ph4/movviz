@@ -17,7 +17,7 @@
  */
 
 import type { ClientType } from "./clientProfile";
-import type { PlaybackMode, SubtitleAction, TrackAction } from "./playbackPlan";
+import type { PlaybackMode, PlaybackPlan, SubtitleAction, TrackAction } from "./playbackPlan";
 
 export interface PlaybackSession {
   sessionId: string;
@@ -32,6 +32,18 @@ export interface PlaybackSession {
   videoAction: TrackAction;
   audioAction: TrackAction;
   subtitleAction: SubtitleAction;
+  /**
+   * The full plan decidePlayback() produced — the decomposed fields above
+   * mirror its top-level shape for convenience (debug overlay, §52) but
+   * don't carry targetVideoCodec/videoEncoderImpl/encoderPreset/
+   * targetAudioCodec. A later route (the actual stream endpoint, Phase 9-13)
+   * needs those exact values to execute the plan without re-deciding — and
+   * re-deciding isn't even possible there without also persisting the
+   * client's full declared capabilities, which this session intentionally
+   * does not store (§56: the server already resolved everything it needs,
+   * nothing beyond mediaId should have to round-trip again).
+   */
+  plan: PlaybackPlan;
 
   createdAt: number;
   lastActivity: number;
@@ -55,6 +67,7 @@ export interface CreateSessionInput {
   videoAction: TrackAction;
   audioAction: TrackAction;
   subtitleAction: SubtitleAction;
+  plan: PlaybackPlan;
 }
 
 // §36 — "aucune activité depuis 5 minutes" — configurable per that section's
@@ -79,8 +92,15 @@ interface SessionState {
   cleanupTimer: ReturnType<typeof setInterval> | null;
 }
 
-const g = globalThis as typeof globalThis & { __movvizPlaybackSessions?: SessionState };
-const state: SessionState = (g.__movvizPlaybackSessions ??= { sessions: new Map(), cleanupHooks: [], cleanupTimer: null });
+// Deliberately NOT __movvizPlaybackSessions — progressStore.ts (the CURRENT
+// production session store, unrelated PlaybackSession shape) already owns
+// that exact key as a bare Map. Confirmed live: the collision made this
+// module's `??=` bind to the OTHER store's Map (already set first, since
+// the old system's session opens on every player mount before this new
+// engine ever runs), so `state.sessions` was undefined at runtime — a real
+// crash caught during Phase 9-13 browser verification, not a hypothetical.
+const g = globalThis as typeof globalThis & { __movvizPlaybackEngineSessions?: SessionState };
+const state: SessionState = (g.__movvizPlaybackEngineSessions ??= { sessions: new Map(), cleanupHooks: [], cleanupTimer: null });
 
 function nextSessionId(): string {
   return `pbs_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
@@ -100,6 +120,7 @@ export function createSession(input: CreateSessionInput): PlaybackSession {
     videoAction: input.videoAction,
     audioAction: input.audioAction,
     subtitleAction: input.subtitleAction,
+    plan: input.plan,
     createdAt: now,
     lastActivity: now,
     position: 0,

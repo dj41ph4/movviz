@@ -2028,6 +2028,8 @@ export const nl: Dictionary = {
     betaEngineMse: "MSE (bitstream-kopie)",
     betaEngineFfmpeg: "Lokale FFmpeg (remux)",
     betaEngineHls: "HLS (Plex-transcode) — handmatig",
+    betaEngineV2: "Nieuwe engine (experimenteel) — handmatig",
+    betaEngineV2Hint: "Experimenteel: nieuwe beslissingsengine (ffprobe-analyse, keuze hardware-encoder, ondertitels inbranden), alleen lokale bestanden. Alleen handmatige selectie — nooit automatisch gekozen.",
     betaHlsDisabled: "HLS-weergave uitgeschakeld — schakel deze in via Instellingen → Plex (Afspeelmotor).",
     segmentCache: "Segmentcache",
     segmentCacheHint: "seconden video vooraf gebufferd (0 = uitgeschakeld).",

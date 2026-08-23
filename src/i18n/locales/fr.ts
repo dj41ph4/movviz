@@ -2026,6 +2026,8 @@ export const fr = {
     betaEngineMse: "MSE (copie bitstream)",
     betaEngineFfmpeg: "FFmpeg local (remux)",
     betaEngineHls: "HLS (transcode Plex) — manuel",
+    betaEngineV2: "Nouveau moteur (expérimental) — manuel",
+    betaEngineV2Hint: "Expérimental : nouveau moteur de décision (analyse ffprobe, choix d'encodeur matériel, incrustation de sous-titres), fichiers locaux uniquement. Sélection manuelle seulement — jamais choisi automatiquement.",
     betaHlsDisabled: "Lecture HLS désactivée — activez-la dans Réglages → Plex (Moteur de lecture).",
     segmentCache: "Cache segment",
     segmentCacheHint: "secondes de vidéo mises en réserve à l'avance (0 = désactivé).",

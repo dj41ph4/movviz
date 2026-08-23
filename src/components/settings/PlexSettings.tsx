@@ -342,7 +342,7 @@ export function PlexSettings() {
               <label className="text-xs text-ink-dim">{t("player.betaEngine")} :</label>
               <select
                 value={playbackEngine}
-                onChange={(e) => setPlaybackEngine(e.target.value as "auto" | "native" | "mse" | "ffmpeg" | "hls")}
+                onChange={(e) => setPlaybackEngine(e.target.value as "auto" | "native" | "mse" | "ffmpeg" | "hls" | "engine-v2")}
                 className="h-8 rounded-lg border border-white/8 bg-black/30 px-2 text-xs text-ink outline-none focus:border-brand/40"
               >
                 <option value="auto">{t("player.betaEngineAuto")}</option>
@@ -350,9 +350,11 @@ export function PlexSettings() {
                 <option value="mse">{t("player.betaEngineMse")}</option>
                 <option value="ffmpeg">{t("player.betaEngineFfmpeg")}</option>
                 <option value="hls">{t("player.betaEngineHls")}</option>
+                <option value="engine-v2">{t("player.betaEngineV2")}</option>
               </select>
             </div>
             <p className="text-[11px] text-ink-dim">{t("player.betaEngineHint")}</p>
+            {playbackEngine === "engine-v2" && <p className="text-[11px] text-amber">{t("player.betaEngineV2Hint")}</p>}
           </div>
         )}
       </div>

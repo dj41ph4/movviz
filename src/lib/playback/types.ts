@@ -8,7 +8,15 @@
 
 export type PlaybackEngineKind = "direct" | "webcodecs" | "mse" | "ffmpeg" | "transcode";
 
-export type EngineConfig = "auto" | "native" | "mse" | "ffmpeg" | "hls";
+/**
+ * "engine-v2" — the NEW decision-engine-driven leg (Phases 9-13,
+ * PLAN_REFONTE_MOTEUR_LECTURE_MOVVIZ.md). Deliberately MANUAL-ONLY, never
+ * reachable via "auto": orchestrate() (src/lib/playback/orchestrator.ts)
+ * never returns it, VideoPlayer's tryStartLocalEngine only engages when
+ * this exact value is picked, and only for local (non-Plex) files. The
+ * existing four values and their behavior are completely unchanged.
+ */
+export type EngineConfig = "auto" | "native" | "mse" | "ffmpeg" | "hls" | "engine-v2";
 
 export interface MediaTrackInfo {
   id: string;

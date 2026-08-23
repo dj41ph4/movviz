@@ -24,6 +24,8 @@ import type { FfmpegQuality } from "@/lib/playback/ffmpeg/remuxSession";
 import type { MediaInfo } from "@/lib/playback/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { PROGRESS_STORAGE_KEY } from "@/lib/player/watchProgress";
+import { detectDesktopClientProfile } from "@/lib/playback/engine/clientProfile.detect";
+import { getOrCreateDeviceId } from "@/lib/playback/engine/deviceId";
 
 export interface VideoPlayerProps {
   ratingKey: string;
@@ -683,8 +685,14 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       setDirectMode(false);
       setUsingFallback(false);
       setBuffering(true);
-      // Remux ffmpeg d'abord (transcode du son), HLS en dernier recours.
+      // Remux ffmpeg d'abord (transcode du son), HLS en dernier recours —
+      // sauf moteur engine-v2 explicitement choisi, qui remplace entièrement
+      // cette leg pour le contenu local (voir tryStartLocalEngine).
       void (async () => {
+        if (betaRef.current.playbackEngine === "engine-v2") {
+          if (!(await tryStartLocalEngine())) maybeStartHls(undefined, true);
+          return;
+        }
         if (!(await tryStartFfmpegRemux(infoRef.current))) maybeStartHls(undefined, true);
       })();
     };
@@ -978,6 +986,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const recoverFromDirect = async () => {
         if (directRecoveryStarted || fallbackGuardRef.current || hlsRef.current || mseEngineRef.current || ffmpegEngineRef.current) return;
         directRecoveryStarted = true;
+        if (betaRef.current.playbackEngine === "engine-v2") {
+          if (!(await tryStartLocalEngine(seekTo))) maybeStartHls(undefined, true);
+          return;
+        }
         if (!(await tryStartMse(infoRef.current, seekTo)) && !(await tryStartFfmpegRemux(infoRef.current, seekTo))) maybeStartHls(undefined, true);
       };
 
@@ -1163,6 +1175,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       }
 
       if (strategy === "transcode") {
+        if (betaRef.current.playbackEngine === "engine-v2") {
+          if (!(await tryStartLocalEngine(seekTo))) maybeStartHls(undefined, true);
+          return;
+        }
         if (betaRef.current.playbackEngine === "ffmpeg") {
           // La leg MSE ne renverra jamais "mse" avec engine "ffmpeg"
           // (orchestrate exige "mse" ou "auto") — remux directement, HLS
@@ -1364,6 +1380,95 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       }
     };
     tryStartFfmpegRemuxRef.current = tryStartFfmpegRemux;
+
+    // Nouveau moteur de décision (Phases 9-13, PLAN_REFONTE_MOTEUR_LECTURE_MOVVIZ.md)
+    // — jamais choisi automatiquement (voir EngineConfig dans types.ts) : ne
+    // s'engage QUE quand betaRef.current.playbackEngine === "engine-v2" est
+    // explicitement sélectionné dans Réglages → Plex, et seulement pour du
+    // contenu local (movvizId présent, pas de dépendance à Plex). Réutilise
+    // FfmpegRemuxEngine tel quel côté client (même pipe fMP4/MSE-less déjà
+    // éprouvé) — seul le préfixe d'URL change, vers la nouvelle route de
+    // session du moteur (/api/playback/session/{id}/stream) au lieu de
+    // /api/playback-ffmpeg/{ratingKey}.
+    const tryStartLocalEngine = async (seekTo?: number): Promise<boolean> => {
+      const video = videoRef.current;
+      if (!video) return false;
+      const b = betaRef.current;
+      if (!b.enabled || b.playbackEngine !== "engine-v2" || !localPlayback || !movvizId) return false;
+      try {
+        const clientProfile = await detectDesktopClientProfile(getOrCreateDeviceId(), "1.0");
+        const prepRes = await fetch("/api/playback/prepare", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          // Piste audio/sous-titres non transmises volontairement dans cette
+          // première intégration : decidePlayback() choisit déjà une piste
+          // par défaut sensée (langue préférée si connue, sinon défaut du
+          // fichier) — brancher la sélection manuelle de piste sur ce moteur
+          // est un raffinement séparé, pas un pré-requis pour la capacité
+          // de base (remux/transcode/burn-in local).
+          body: JSON.stringify({ mediaId: movvizId, clientProfile }),
+        });
+        if (!prepRes.ok) return false;
+        const prep = (await prepRes.json()) as {
+          sessionId: string;
+          plan: { mode: string };
+          stream: { url: string };
+          media: { durationMs?: number };
+        };
+        // DIRECT_PLAY et PLEX_FALLBACK/UNSUPPORTED ne concernent pas cette
+        // leg : le premier est déjà couvert par startDirect, les seconds
+        // n'ont rien qu'un remux/transcode local puisse résoudre.
+        if (prep.plan.mode !== "REMUX" && prep.plan.mode !== "DIRECT_STREAM" && prep.plan.mode !== "TRANSCODE") return false;
+
+        // Même raison que la leg ffmpeg existante (onLoadedData plus bas) :
+        // un MP4 fragmenté empty_moov n'a pas de durée totale connue côté
+        // <video> natif — infoRef.current.durationMs est la seule source
+        // fiable pour l'affichage ET la barre de buffer. La durée réelle
+        // vient ici directement du MediaDescriptor ffprobe (Phase 2), plus
+        // fiable encore que la durée Plex utilisée par l'ancienne leg.
+        if (prep.media.durationMs) {
+          infoRef.current = { ...infoRef.current, durationMs: prep.media.durationMs };
+          const sessionId = playbackSessionRef.current;
+          if (sessionId) {
+            void fetch(`/api/playback/sessions/${encodeURIComponent(sessionId)}/metadata`, {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ durationMs: prep.media.durationMs }),
+              keepalive: true,
+            }).catch(() => void 0);
+          }
+        }
+
+        const engine = new FfmpegRemuxEngine(
+          {
+            onBuffering: (buffering) => setBuffering(buffering),
+            onError: (_msg, fatal) => {
+              if (!fatal) return;
+              if (!ffmpegEngineRef.current) return;
+              fallbackFromFfmpeg();
+            },
+            onDebug: (stats) => setFfmpegStats(stats),
+          },
+          "/api/playback/session",
+          "/stream"
+        );
+        ffmpegEngineRef.current = engine;
+        ffmpegActiveRef.current = true;
+        setFfmpegActive(true);
+        setDirectMode(false);
+        setBuffering(true);
+        engine.attach(video);
+        try {
+          await engine.load(prep.sessionId, { seekTo, debug: b.debug });
+        } catch {
+          fallbackFromFfmpeg();
+          return false;
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    };
 
     let sessionReady = false;
     void fetch("/api/playback/sessions", {

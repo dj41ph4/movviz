@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.19.04 — August 2026
+
+### Nouveau moteur de lecture (expérimental, manuel, fichiers locaux)
+
+- Réglages → Plex → Lecteur bêta propose une nouvelle option de moteur de lecture, "Nouveau moteur (expérimental)" — jamais activée automatiquement, à choisir explicitement. Pour un film ou une série récupéré localement, elle remplace/adapte le fichier via une vraie analyse technique (ffprobe) au lieu de simples suppositions : remux de conteneur, adaptation audio, transcodage vidéo avec choix d'encodeur matériel si le serveur en a un, et incrustation des sous-titres quand aucune autre solution n'est possible.
+- Comble un vrai manque : jusqu'ici, un fichier local (non lié à Plex) dont l'audio n'était pas lisible par le navigateur n'avait aucun filet de secours — la lecture échouait simplement. Cette option corrige ce cas précis, sans rien changer au comportement par défaut.
+
 ## v1.19.03 — August 2026
 
 ### Analyse technique étendue aux séries, et badge audio corrigé sur la langue française

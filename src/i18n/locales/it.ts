@@ -2027,6 +2027,8 @@ export const it: Dictionary = {
     betaEngineMse: "MSE (copia bitstream)",
     betaEngineFfmpeg: "FFmpeg locale (remux)",
     betaEngineHls: "HLS (transcode Plex) — manuale",
+    betaEngineV2: "Nuovo motore (sperimentale) — manuale",
+    betaEngineV2Hint: "Sperimentale: nuovo motore di decisione (analisi ffprobe, scelta encoder hardware, incrostazione sottotitoli), solo file locali. Selezione manuale soltanto — mai scelto automaticamente.",
     betaHlsDisabled: "Riproduzione HLS disattivata — attivala in Impostazioni → Plex (Motore di riproduzione).",
     segmentCache: "Cache segmento",
     segmentCacheHint: "secondi di video preparati in anticipo (0 = disattivato).",

@@ -45,6 +45,17 @@ export class FfmpegRemuxEngine {
   private active = false;
   private debugTimer: ReturnType<typeof setInterval> | null = null;
   private _seekBase = 0;
+  /** Route prefix this engine streams from — defaults to the CURRENT
+   *  Plex-backed production route. The new local decision-engine (Phases
+   *  9-13, /api/playback/session/{id}/stream) reuses this exact client-side
+   *  MSE-piping logic by pointing it at its own prefix instead — every
+   *  existing caller is unaffected since they never pass this option. */
+  private urlPrefix: string;
+  /** Appended after the id, before the query string — the new engine's
+   *  route is /api/playback/session/{id}/stream (a nested route so
+   *  /subtitle can be a sibling), unlike the old flat
+   *  /api/playback-ffmpeg/{ratingKey}. Empty by default (old behavior). */
+  private urlSuffix: string;
 
   /** Base de temps du flux courant (0 en début normal de lecture). Le fMP4
    *  servi par le serveur cherche réellement à cette position (option `-ss`),
@@ -55,8 +66,10 @@ export class FfmpegRemuxEngine {
     return this._seekBase;
   }
 
-  constructor(callbacks: FfmpegEngineCallbacks) {
+  constructor(callbacks: FfmpegEngineCallbacks, urlPrefix = "/api/playback-ffmpeg", urlSuffix = "") {
     this.cb = callbacks;
+    this.urlPrefix = urlPrefix;
+    this.urlSuffix = urlSuffix;
   }
 
   attach(video: HTMLVideoElement): void {
@@ -95,7 +108,7 @@ export class FfmpegRemuxEngine {
       params.set("quality", options.quality);
     }
     const qs = params.toString();
-    this.src = `/api/playback-ffmpeg/${ratingKey}${qs ? `?${qs}` : ""}`;
+    this.src = `${this.urlPrefix}/${ratingKey}${this.urlSuffix}${qs ? `?${qs}` : ""}`;
 
     this.attachVideoListeners();
 
@@ -185,7 +198,7 @@ export class FfmpegRemuxEngine {
     // GET, and stopAllForRatingKey would kill the just-created session —
     // the seek would always fall back to HLS.
     if (this.ratingKey) {
-      await fetch(`/api/playback-ffmpeg/${this.ratingKey}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
+      await fetch(`${this.urlPrefix}/${this.ratingKey}${this.urlSuffix}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
     }
     await this.load(this.ratingKey, { ...this.lastOptions, seekTo: time });
   }
@@ -202,7 +215,7 @@ export class FfmpegRemuxEngine {
       this.debugTimer = null;
     }
     if (this.ratingKey) {
-      await fetch(`/api/playback-ffmpeg/${this.ratingKey}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
+      await fetch(`${this.urlPrefix}/${this.ratingKey}${this.urlSuffix}`, { method: "DELETE", keepalive: true }).catch(() => void 0);
     }
     const video = this.video;
     if (video) {

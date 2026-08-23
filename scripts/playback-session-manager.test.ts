@@ -21,6 +21,14 @@ function baseInput(mediaId: string) {
     videoAction: "COPY" as const,
     audioAction: "COPY" as const,
     subtitleAction: "NONE" as const,
+    plan: {
+      mode: "DIRECT_PLAY" as const,
+      containerAction: "COPY" as const,
+      videoAction: "COPY" as const,
+      audioAction: "COPY" as const,
+      subtitleAction: "NONE" as const,
+      reasons: [],
+    },
   };
 }
 
