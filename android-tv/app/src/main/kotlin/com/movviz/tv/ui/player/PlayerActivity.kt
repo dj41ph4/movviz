@@ -91,6 +91,7 @@ import com.movviz.tv.data.ApiResult
 import com.movviz.tv.data.MovvizRepository
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizBrandGlow
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizIconCheck
 import com.movviz.tv.ui.theme.MovvizIconForward
@@ -105,6 +106,7 @@ import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.MovvizInkSoft
 import com.movviz.tv.ui.theme.MovvizSurface
 import com.movviz.tv.ui.theme.MovvizTvTheme
+import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvPointerClick
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -1032,9 +1034,15 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
 
         // Voile de chargement/buffering — fondu d'apparition/disparition
         // (jamais de flash : un voile qui apparaît d'un coup "clignote"
-        // l'écran) et scrim léger (alpha 0.4, pas un bloc opaque) pour le
-        // chargement initial. Le re-buffering en cours de lecture reste un
-        // indicateur discret en coin, la dernière image affichée.
+        // l'écran). Le re-buffering en cours de lecture reste un indicateur
+        // discret en coin, la dernière image affichée. Le chargement INITIAL
+        // (rien encore décodé) reprend le voile "optimizing" du player
+        // desktop à l'identique (VideoPlayer.tsx ~L2553-2559) : fond noir
+        // OPAQUE + le mark de marque animé + "Optimisation en cours…", au
+        // lieu d'un scrim translucide générique — c'est le même instant
+        // (sélection direct-play/repli avant la toute première image) que
+        // desktop couvre avec ce voile, distinct du spinner de re-buffering
+        // ci-dessous qui lui correspond au `buffering` desktop (mi-lecture).
         AnimatedVisibility(
             visible = loading && errorMessage == null,
             enter = fadeIn(tween(200)),
@@ -1052,16 +1060,19 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     )
                 } else {
                     Box(
-                        modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f)),
+                        modifier = Modifier.fillMaxSize().background(Color.Black),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            BufferingSpinner(size = 40.dp)
-                            Spacer(modifier = Modifier.height(14.dp))
+                            // "lg" desktop (h-16 w-16 = 64dp) — même mark de
+                            // marque que login/rail/à propos, pas un spinner
+                            // générique inventé pour le lecteur.
+                            AnimatedLogo(size = 64.dp)
+                            Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "Chargement…",
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MovvizInk,
+                                text = "Optimisation en cours…",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.6f),
                             )
                         }
                     }
@@ -1385,16 +1396,27 @@ private fun PlayerProgressBar(player: ExoPlayer, modifier: Modifier = Modifier) 
     }
     val progress = if (durationMs > 0) (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
     val buffered = (bufferedPercent / 100f).coerceIn(0f, 1f)
+    // Même langage visuel que la barre desktop (VideoPlayer.tsx ~L2717-2733) :
+    // piste bg-white/14, tampon bg-white/20 posé PAR-DESSUS, remplissage
+    // dégradé de marque avec halo, poignée blanche cerclée d'un anneau sombre
+    // + halo de marque. Hauteur légèrement plus épaisse qu'en web (6dp au
+    // lieu de 1.5px≈6px CSS à l'échelle desktop, mais lu ici à plusieurs
+    // mètres) pour rester lisible depuis le canapé — seule adaptation
+    // délibérée à la distance TV, la palette/les formes ne changent pas.
     Column(modifier = modifier) {
-        Box(modifier = Modifier.fillMaxWidth().height(4.dp)) {
-            // Piste de fond
-            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.15f), RoundedCornerShape(2.dp)))
-            // Zone déjà tamponnée
+        Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+            // Piste de fond — bg-white/14 desktop.
+            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(3.dp)))
+            // Zone déjà tamponnée — bg-white/20 desktop, posée sur toute la
+            // largeur tamponnée (le remplissage de lecture, dessiné après,
+            // recouvre la portion déjà lue : le résultat visuel est identique
+            // au segment "joué → tamponné" du desktop sans matcher son calcul
+            // de largeur relative).
             Box(
                 modifier = Modifier
                     .fillMaxWidth(buffered)
                     .fillMaxHeight()
-                    .background(Color.White.copy(alpha = 0.3f), RoundedCornerShape(2.dp)),
+                    .background(Color.White.copy(alpha = 0.2f), RoundedCornerShape(3.dp)),
             )
             // Progression — dessinée au Canvas pour le halo : la lueur sous
             // le trait net (même dégradé en alpha faible, plus épaisse)
@@ -1403,8 +1425,8 @@ private fun PlayerProgressBar(player: ExoPlayer, modifier: Modifier = Modifier) 
             // dessin sans recomposer le reste de l'overlay.
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val w = size.width * progress
+                val core = size.height
                 if (w > 0f) {
-                    val core = size.height
                     drawRoundRect(
                         brush = Brush.horizontalGradient(listOf(MovvizBrand.copy(alpha = 0.35f), MovvizBrand2.copy(alpha = 0.35f))),
                         topLeft = Offset(0f, core / 2f - core * 1.6f),
@@ -1417,25 +1439,43 @@ private fun PlayerProgressBar(player: ExoPlayer, modifier: Modifier = Modifier) 
                         size = Size(w, core),
                         cornerRadius = CornerRadius(core / 2f),
                     )
-                    // Curseur permanent : sur TV la ligne seule est trop
-                    // fine pour que la position soit lisible à distance. Le
-                    // point blanc reste discret hors focus mais donne un
-                    // repère immédiat, comme le player desktop.
-                    drawCircle(
-                        color = Color.White,
-                        radius = core * 1.05f,
-                        center = Offset(w.coerceIn(core, size.width - core), core / 2f),
-                    )
                 }
+                // Poignée permanente : sur TV la ligne seule est trop fine
+                // pour que la position soit lisible à distance, contrairement
+                // au desktop où elle n'apparaît qu'au survol — même trio que
+                // desktop (cercle blanc + anneau sombre + halo de marque),
+                // juste toujours visible ici plutôt que conditionné au hover
+                // qui n'existe pas au D-pad.
+                val handleX = w.coerceIn(core, size.width - core)
+                val handleCenter = Offset(handleX, core / 2f)
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        listOf(MovvizBrandGlow.copy(alpha = 0.55f), Color.Transparent),
+                        center = handleCenter,
+                        radius = core * 3.2f,
+                    ),
+                    radius = core * 3.2f,
+                    center = handleCenter,
+                )
+                drawCircle(color = Color(0xFF13131B), radius = core * 1.3f, center = handleCenter)
+                drawCircle(color = Color.White, radius = core * 1.0f, center = handleCenter)
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(text = formatTime(positionMs), style = MaterialTheme.typography.labelSmall, color = MovvizInkSoft)
-            Text(text = formatTime(durationMs), style = MaterialTheme.typography.labelSmall, color = MovvizInkSoft)
+            // tabular-nums desktop : chiffres à chasse fixe pour que le
+            // libellé ne "gigote" pas seconde par seconde.
+            Text(text = formatTime(positionMs), style = timeLabelStyle())
+            Text(text = formatTime(durationMs), style = timeLabelStyle())
         }
     }
 }
+
+@Composable
+private fun timeLabelStyle() = MaterialTheme.typography.labelSmall.copy(
+    color = Color.White.copy(alpha = 0.72f),
+    fontFeatureSettings = "tnum",
+)
 
 /** Overlay premium : un titre calme en haut, les gestes de lecture au centre
  * et un vrai dock en verre au bas. La hiérarchie reste Netflix (lecture
@@ -1536,12 +1576,20 @@ private fun ControlsOverlay(
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
                 .padding(horizontal = 48.dp, vertical = 28.dp)
-                .clip(RoundedCornerShape(20.dp))
+                // rounded-[22px] desktop (VideoPlayer.tsx ~L2680) — même rayon
+                // que le panneau flottant du player web. Le fond reste un
+                // dégradé opaque plutôt qu'un vrai backdrop-blur : Compose n'a
+                // pas d'équivalent bon marché, et un flou temps réel derrière
+                // un décodeur vidéo actif est exactement le genre de coût GPU
+                // à éviter sur un boîtier TV bas de gamme (priorité perf de
+                // cette tâche) — le dégradé sombre approche déjà le rendu
+                // "glass" sans repasser la scène entière au shader.
+                .clip(RoundedCornerShape(22.dp))
                 .background(
                     Brush.verticalGradient(listOf(Color(0xE60E0E14), Color(0xF008080C))),
-                    RoundedCornerShape(20.dp),
+                    RoundedCornerShape(22.dp),
                 )
-                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(20.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(22.dp))
                 .padding(horizontal = 28.dp, vertical = 20.dp),
         ) {
             PlayerProgressBar(player = player)

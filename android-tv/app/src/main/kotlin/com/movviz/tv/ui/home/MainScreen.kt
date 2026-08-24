@@ -31,6 +31,12 @@ fun MainScreen(
     // Ouverture d'une série depuis "Continuer à regarder" — sur le bon
     // épisode plutôt que la saison 1 par défaut (voir HomeScreen).
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
+    // "Voir tout" d'une rangée éditoriale (accueil ou catalogue) — voir
+    // HomeScreen.onSeeAllRow/CatalogScreen.onSeeAllRow.
+    onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit = { _, _, _ -> },
+    // Sélection d'un genre dans le sélecteur Genres du catalogue — voir
+    // CatalogScreen.onOpenGenre.
+    onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit = { _, _, _ -> },
     onLoggedOut: () -> Unit,
     tab: HomeTab,
     searchOpen: Boolean,
@@ -90,9 +96,9 @@ fun MainScreen(
                 showSearchField = false,
                 resultFocusRequester = contentFocusRequester,
             )
-            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, entryFocusRequester = contentFocusRequester)
-            tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
-            tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow, onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow, onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)
         }
     }

@@ -53,11 +53,13 @@ import com.movviz.tv.data.ApiResult
 import com.movviz.tv.data.SeriesEpisodeDto
 import com.movviz.tv.data.SeriesSeasonDto
 import com.movviz.tv.data.MetadataEpisodeDto
+import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.ui.home.TitleRow
 import com.movviz.tv.ui.home.TvTitleCard
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
+import com.movviz.tv.ui.theme.MovvizBrandGlow
 import com.movviz.tv.ui.theme.MovvizCyan
 import com.movviz.tv.ui.theme.MovvizDown
 import com.movviz.tv.ui.theme.MovvizIconCheck
@@ -161,6 +163,17 @@ fun TitleDetailScreen(
     val activeDownload = remember(queue, type, tmdbId) {
         queue.firstOrNull { it.media.tmdbId == tmdbId && it.status != "completed" && it.status != "seeding" }
     }
+    // Fichiers en cours de téléchargement pour CETTE série, indexés
+    // "saison.épisode" — permet à chaque EpisodeCard d'afficher SA PROPRE
+    // progression en direct (voir SeasonEpisodeList/EpisodeCard plus bas),
+    // au lieu d'un statut unique pour toute la série (parité avec le pill
+    // par épisode du mobile, poussée jusqu'à la vraie progression puisque
+    // la donnée queue est déjà chargée sur cette même fiche).
+    val episodeDownloads = remember(queue, type, tmdbId) {
+        if (type != "series") emptyMap()
+        else queue.filter { it.media.tmdbId == tmdbId && it.media.season != null && it.media.episode != null }
+            .associateBy { "${it.media.season}.${it.media.episode}" }
+    }
 
     LaunchedEffect(type, tmdbId) {
         viewModel.loadDetail(type, tmdbId)
@@ -202,9 +215,22 @@ fun TitleDetailScreen(
         }
     }
 
-    // Charger les saisons quand la série vient d'être ajoutée
+    // Saisons : chargées à l'ajout PUIS rafraîchies en boucle tant que la
+    // fiche reste ouverte — sans cette boucle (avant ce correctif, un seul
+    // chargement), le statut de chaque épisode restait figé sur "Recherche…"
+    // /"Téléchargement" même une fois le fichier réellement prêt côté Plex,
+    // contrairement au film qui a déjà sa propre boucle ci-dessus. Rythme
+    // accéléré (4s) tant qu'un épisode de CETTE série est activement en
+    // cours (mêmes seuils que le film), sinon 10s — pas la peine de re-tirer
+    // toute la liste des saisons aussi souvent qu'une seule entrée film.
     LaunchedEffect(type, tmdbId, inLibrary) {
-        if (type == "series" && inLibrary) viewModel.loadSeriesSeasons(tmdbId)
+        if (type != "series" || !inLibrary) return@LaunchedEffect
+        viewModel.loadSeriesSeasons(tmdbId)
+        while (true) {
+            val active = viewModel.seriesSeasons.value.any { s -> s.episodes.any { it.status == "downloading" || it.status == "searching" } }
+            delay(if (active) 4_000 else 10_000)
+            viewModel.loadSeriesSeasons(tmdbId)
+        }
     }
 
     val plexRatingKey by remember(type, tmdbId, movies) {
@@ -806,6 +832,7 @@ fun TitleDetailScreen(
                                 metadata = seasonMetadata[viewModel.seasonMetadataKey(tmdbId, season.seasonNumber)],
                                 watchedEpisodeKeys = watchedEpisodeKeys,
                                 downloading = searchingSeason == season.seasonNumber,
+                                episodeDownloads = episodeDownloads,
                                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, season.seasonNumber) },
                             ) { episode, _ ->
                                 // Une tuile épisode est une action de lecture,
@@ -969,6 +996,13 @@ private fun SeasonEpisodeList(
     metadata: com.movviz.tv.data.MetadataSeasonDto?,
     watchedEpisodeKeys: Set<String> = emptySet(),
     downloading: Boolean,
+    // File de téléchargement, indexée "saison.épisode" — même source vivante
+    // (queue pollée 3s) que la pilule de progression du film, pour que
+    // chaque épisode en cours affiche sa PROPRE progression/vitesse en
+    // direct plutôt qu'un statut figé (parité avec le mobile, voir
+    // MainActivity.kt qItem/epStatus, ici poussé un cran plus loin puisque
+    // la donnée est déjà disponible côté TV).
+    episodeDownloads: Map<String, QueueItemDto> = emptyMap(),
     onDownloadSeason: () -> Unit,
     onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
 ) {
@@ -997,6 +1031,7 @@ private fun SeasonEpisodeList(
                     episode = ep,
                     metadata = metadataByEpisode[ep.episodeNumber],
                     watched = watchedEpisodeKeys.contains("${season.seasonNumber}.${ep.episodeNumber}"),
+                    queueItem = episodeDownloads["${season.seasonNumber}.${ep.episodeNumber}"],
                     onClick = { onOpenEpisode(ep, metadataByEpisode[ep.episodeNumber]) },
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -1005,7 +1040,13 @@ private fun SeasonEpisodeList(
 }
 
 @Composable
-private fun EpisodeCard(episode: SeriesEpisodeDto, metadata: MetadataEpisodeDto?, watched: Boolean = false, onClick: () -> Unit) {
+private fun EpisodeCard(
+    episode: SeriesEpisodeDto,
+    metadata: MetadataEpisodeDto?,
+    watched: Boolean = false,
+    queueItem: QueueItemDto? = null,
+    onClick: () -> Unit,
+) {
     var focused by remember { mutableStateOf(false) }
     val available = (episode.plexRatingKey != null || episode.playbackSource == "movviz") &&
         episode.status == "available"
@@ -1043,10 +1084,69 @@ private fun EpisodeCard(episode: SeriesEpisodeDto, metadata: MetadataEpisodeDto?
                 Spacer(modifier = Modifier.width(14.dp))
             }
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = episode.title, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkDim), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = episode.title,
+                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkDim),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    // Pastille de statut par ÉPISODE — même trio couleur/texte
+                    // que statusTone() (available/downloading/searching/
+                    // missing/upcoming), pas juste "disponible ou grisé" comme
+                    // avant. Parité avec la pastille par épisode du mobile
+                    // (MainActivity.kt epStatus/epColor) : chaque épisode a
+                    // son propre état visible, jamais un statut unique pour
+                    // toute la série.
+                    if (!available) {
+                        val tone = statusTone(episode.status)
+                        Box(
+                            modifier = Modifier
+                                .background(tone.color.copy(alpha = 0.14f), RoundedCornerShape(50))
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                        ) {
+                            Text(text = tone.label, style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = tone.color))
+                        }
+                    }
+                }
                 metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
                     Spacer(modifier = Modifier.height(5.dp))
                     Text(text = overview, style = TextStyle(fontSize = 12.sp, color = if (available) MovvizInkSoft else MovvizInkDim, lineHeight = 17.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                // Progression EN DIRECT de CET épisode précis (pas juste une
+                // pastille "Téléchargement" figée) quand un torrent de la file
+                // le concerne — pourcentage + vitesse + fine barre, même
+                // formatage que la pilule de téléchargement du film
+                // (formatSpeedShort/formatEta), mis à jour au même rythme que
+                // la file (3s, voir le LaunchedEffect plus haut).
+                if (queueItem != null && (episode.status == "downloading" || episode.status == "searching")) {
+                    Spacer(modifier = Modifier.height(5.dp))
+                    if (episode.status == "searching") {
+                        Text(text = "Recherche en cours…", style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizBrandGlow))
+                    } else {
+                        val pct = (queueItem.download.progress.coerceIn(0.0, 1.0) * 100).toInt()
+                        val speed = formatSpeedShort(queueItem.download.downloadSpeed)
+                        val eta = formatEta(queueItem.download.eta)
+                        Text(
+                            text = listOfNotNull("$pct%", speed?.let { "$it/s" }, eta?.let { "$it restantes" }).joinToString(" · "),
+                            style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = MovvizCyan),
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .width(160.dp)
+                                .height(3.dp)
+                                .background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(2.dp)),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(fraction = queueItem.download.progress.coerceIn(0.0, 1.0).toFloat())
+                                    .fillMaxHeight()
+                                    .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(2.dp)),
+                            )
+                        }
+                    }
                 }
             }
         }

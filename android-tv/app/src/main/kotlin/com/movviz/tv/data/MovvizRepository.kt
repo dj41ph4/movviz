@@ -131,6 +131,19 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun metadataRows(type: String): ApiResult<List<MetadataRowDto>> =
         safeCall { api.metadataRows(type) }.map { it.rows }
 
+    /** "Voir tout" d'une rangée éditoriale — voir RowPageResponseDto. */
+    suspend fun rowPage(type: String, key: String, page: Int): ApiResult<RowPageResponseDto> =
+        safeCall { api.rowPage(type, key, page) }
+
+    /** Genres TMDb réels pour un type — le sélecteur Genres y ajoute les deux
+     *  entrées synthétiques (Anime/Romance ado) côté client. */
+    suspend fun genres(type: String): ApiResult<List<GenreDto>> =
+        safeCall { api.genres(type) }.map { it.genres }
+
+    /** Grille filtrée par genre (réel ou synthétique) — voir discover/route.ts. */
+    suspend fun discoverByGenre(type: String, genre: String, page: Int): ApiResult<SearchResponseDto> =
+        safeCall { api.discoverByGenre(type, genre, page = page) }
+
     suspend fun addToLibrary(type: String, tmdbId: Int): ApiResult<Unit> {
         val result = safeCall {
             if (type == "movie") api.addMovie(AddToLibraryRequest(tmdbId))
