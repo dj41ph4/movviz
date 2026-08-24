@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.30 — August 2026
+
+### L'aperçu agrandi restait affiché après avoir ouvert une fiche
+
+Cliquer sur une affiche pour ouvrir sa fiche laissait l'aperçu agrandi (avec sa vidéo) flotter par-dessus, au lieu de se refermer. Il se ferme désormais immédiatement au clic.
+
 ## v1.19.29 — August 2026
 
 ### Plus de bande-annonce au format portrait dans les aperçus

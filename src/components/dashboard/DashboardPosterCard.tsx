@@ -288,6 +288,16 @@ export function DashboardPosterCard({
     hoverTimer.current = null;
     leaveTimer.current = null;
   };
+  // Clicking through to the fiche opens TitlePanel on top of this same spot
+  // (useTitlePanel intercepts the Link's navigation) without ever firing a
+  // real mouseleave on this card — left alone, the popover (video playing,
+  // sound button and all) just stayed floating over the newly-opened panel
+  // forever. Closing it immediately on click is simpler and more honest
+  // than trying to choreograph a card-grows-into-panel morph transition.
+  const closeOnClick = () => {
+    clearTimers();
+    setHovered(false);
+  };
   const closePreview = () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     hoverTimer.current = null;
@@ -327,6 +337,7 @@ export function DashboardPosterCard({
       href={`/title/${type}/${tmdbId}`}
       onMouseEnter={(event) => openPreview(event.currentTarget)}
       onMouseLeave={closePreview}
+      onClick={closeOnClick}
       className={cn("group shrink-0 transition-opacity duration-200", showRank ? "flex w-[190px] items-end sm:w-[220px]" : layout === "fill" ? "block w-full" : "block w-[300px] lg:w-[320px] xl:w-[340px] 2xl:w-[360px]", hovered && "opacity-0 sm:opacity-35")}
     >
       {showRank && (
@@ -420,7 +431,7 @@ export function DashboardPosterCard({
         className="fixed z-[80] hidden overflow-hidden rounded-[18px] border border-white/20 bg-[#171522]/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] ring-1 ring-white/10 backdrop-blur-xl sm:block"
         style={{ left: popover.left, top: popover.top, width: popover.width, transform: popover.above ? "translateY(-100%)" : undefined }}
       >
-        <Link href={`/title/${type}/${tmdbId}`} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow">
+        <Link href={`/title/${type}/${tmdbId}`} onClick={closeOnClick} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow">
           <div className="relative aspect-video overflow-hidden">
             {videoReady && videoPreviewEnabled && ambientVideoKeys.length > 0 ? (
               <TrailerHeader
@@ -541,6 +552,7 @@ export function DashboardPosterCard({
             </div>
             <Link
               href={`/title/${type}/${tmdbId}`}
+              onClick={closeOnClick}
               title={t("common.open")}
               aria-label={t("common.open")}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/45 text-white transition-colors hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
