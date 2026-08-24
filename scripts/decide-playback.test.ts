@@ -313,13 +313,22 @@ test("selectedAudio picks the requested track over the default one", () => {
 });
 
 // ── HDR / Dolby Vision ──
-test("Dolby Vision unsupported by client forces a video transcode, not just a tag change", () => {
+// Absolute rule (explicit instruction, 2026-08-24, after a real weak-hardware
+// transcode fell permanently behind real time on HDR/DV content): an HDR/DV
+// mismatch alone NEVER forces a video transcode any more — only a genuinely
+// hard reason does. The video is still copied as-is; only audio/container
+// change if THEY need it. Reason codes are still recorded for diagnostics.
+test("Dolby Vision unsupported by client no longer forces a video transcode by itself — video stays COPY, DOLBY_VISION_UNSUPPORTED still recorded", () => {
   const plan = decidePlayback({
     media: media({ video: { index: 0, codec: "hevc", width: 1920, height: 1080, hdr: { type: "dolby-vision", dolbyVisionProfile: 7 } } }),
     client: client({ videoCapabilities: [{ codec: "hevc", hdr: ["sdr", "hdr10"] }] }), // no dolby-vision
     server: FFMPEG_OK,
   });
-  assert.equal(plan.mode, "TRANSCODE");
+  // media()'s default audio (dts) and container (matroska,webm) both still
+  // mismatch client()'s defaults (aac-only, mp4-only) — DIRECT_STREAM, not
+  // DIRECT_PLAY, but video itself is never touched for the DV mismatch.
+  assert.equal(plan.mode, "DIRECT_STREAM");
+  assert.equal(plan.videoAction, "COPY");
   assert.ok(plan.reasons.includes("DOLBY_VISION_UNSUPPORTED"));
 });
 
@@ -351,24 +360,43 @@ test("§29: a backward-compatible Dolby Vision file (real base-layer id) direct-
   assert.ok(!plan.reasons.includes("DOLBY_VISION_UNSUPPORTED"));
 });
 
-test("§29: a non-backward-compatible Dolby Vision profile (no base-layer id) still forces a transcode on an HDR10-only client", () => {
+test("§29: a non-backward-compatible Dolby Vision profile (no base-layer id) ALSO never forces a video transcode by itself now — same absolute rule applies regardless of backward-compatibility", () => {
   const plan = decidePlayback({
     media: media({ video: { index: 0, codec: "hevc", width: 1920, height: 1080, hdr: { type: "dolby-vision", dolbyVisionProfile: 5 } } }),
     client: client({ videoCapabilities: [{ codec: "hevc", hdr: ["sdr", "hdr10"] }] }),
     server: FFMPEG_OK,
   });
-  assert.equal(plan.mode, "TRANSCODE");
+  assert.equal(plan.mode, "DIRECT_STREAM");
+  assert.equal(plan.videoAction, "COPY");
   assert.ok(plan.reasons.includes("DOLBY_VISION_UNSUPPORTED"));
-  assert.equal(plan.toneMap, true);
+  // No video transcode is happening at all, so there's nothing to tonemap.
+  assert.equal(plan.toneMap, undefined);
 });
 
-test("§29: HDR10 source with no matching client HDR capability at all → forced transcode sets toneMap", () => {
+test("§29: HDR10 source with no matching client HDR capability at all → no longer forces a video transcode by itself, video still copied", () => {
   const plan = decidePlayback({
     media: media({ video: { index: 0, codec: "hevc", width: 1920, height: 1080, hdr: { type: "hdr10" } } }),
     client: client({ videoCapabilities: [{ codec: "hevc" }] }), // no hdr array at all
     server: FFMPEG_OK,
   });
+  assert.equal(plan.mode, "DIRECT_STREAM");
+  assert.equal(plan.videoAction, "COPY");
+  assert.ok(plan.reasons.includes("HDR_UNSUPPORTED"));
+  assert.equal(plan.toneMap, undefined);
+});
+
+test("§29: an HDR mismatch STILL sets toneMap and gets tonemapped when a video transcode is ALREADY forced for a real (hard) reason", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "hevc", profile: "Main 10", width: 1920, height: 1080, hdr: { type: "hdr10" } } }),
+    // Main 10 profile unsupported (hard reason, forces TRANSCODE regardless
+    // of HDR) + no HDR capability declared (soft, sets toneMapNeeded) —
+    // since a video transcode is happening anyway, the free color
+    // correction is still applied.
+    client: client({ videoCapabilities: [{ codec: "hevc", profiles: ["Main"] }] }),
+    server: FFMPEG_OK,
+  });
   assert.equal(plan.mode, "TRANSCODE");
+  assert.ok(plan.reasons.includes("VIDEO_PROFILE_UNSUPPORTED"));
   assert.ok(plan.reasons.includes("HDR_UNSUPPORTED"));
   assert.equal(plan.toneMap, true);
 });
@@ -411,14 +439,22 @@ test("a software encoder (no hardware available) caps a 4K source at 1920 even w
 // by elimination (same-resolution SDR 4K software transcode, no tonemap,
 // stayed ahead of real time at the same 1920px cap — see "Soixante 9" in
 // the same session). ──
+// Video Profile "Main" (not "Main 10") is the hard reason forcing TRANSCODE
+// here — HDR mismatch alone no longer would (absolute rule above). Keeps
+// this test's real purpose (tonemap's resolution/preset impact once a
+// transcode is already unavoidable) intact without relying on behavior that
+// no longer exists, and avoids declaring a client maxWidth (which would
+// short-circuit pickTargetVideoWidth before the tonemap-specific cap ever
+// applies).
 test("software encoding a source that ALSO needs HDR→SDR tonemap gets a tighter resolution cap than plain software transcode", () => {
   const plan = decidePlayback({
     media: media({
-      video: { index: 0, codec: "hevc", width: 3840, height: 2160, hdr: { type: "hdr10" } },
+      video: { index: 0, codec: "hevc", profile: "Main 10", width: 3840, height: 2160, hdr: { type: "hdr10" } },
     }),
-    client: client({ videoCapabilities: [{ codec: "hevc" }] }), // hevc decode ok, but no matching HDR capability → toneMap, not a codec transcode
+    client: client({ videoCapabilities: [{ codec: "hevc", profiles: ["Main"] }] }),
     server: { ...FFMPEG_OK, videoEncoders: ["libx264", "libx265"], hardwareAcceleration: {} },
   });
+  assert.equal(plan.mode, "TRANSCODE");
   assert.equal(plan.toneMap, true);
   assert.equal(plan.videoEncoderImpl, "libx265");
   assert.equal(plan.targetVideoWidth, 720);
@@ -428,11 +464,12 @@ test("software encoding a source that ALSO needs HDR→SDR tonemap gets a tighte
 test("a hardware encoder with tonemap still gets NO software-speed cap — a real GPU handles tonemap+encode at real time too", () => {
   const plan = decidePlayback({
     media: media({
-      video: { index: 0, codec: "hevc", width: 3840, height: 2160, hdr: { type: "hdr10" } },
+      video: { index: 0, codec: "hevc", profile: "Main 10", width: 3840, height: 2160, hdr: { type: "hdr10" } },
     }),
-    client: client({ videoCapabilities: [{ codec: "hevc" }] }),
+    client: client({ videoCapabilities: [{ codec: "hevc", profiles: ["Main"] }] }),
     server: { ...FFMPEG_OK, videoEncoders: ["libx265", "hevc_nvenc"], hardwareAcceleration: { nvenc: true } },
   });
+  assert.equal(plan.mode, "TRANSCODE");
   assert.equal(plan.toneMap, true);
   assert.equal(plan.videoEncoderImpl, "hevc_nvenc");
   assert.equal(plan.targetVideoWidth, undefined);

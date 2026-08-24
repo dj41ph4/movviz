@@ -305,3 +305,64 @@ logiciel + tonemap (était 1280px). Toujours un point de départ raisonné à
 revalider en conditions réelles, pas une valeur mesurée en laboratoire —
 impossible de profiler ce NAS précis depuis l'extérieur. 314 tests passent
 (valeur attendue mise à jour dans le test existant).
+
+## 10. Changement de fond — le HDR/Dolby Vision ne force plus de transcodage vidéo, 2026-08-24
+
+Après la 1.19.12, l'utilisateur a confirmé son modèle réel : **Synology
+DS923+**. Recherche faite, confirmée par plusieurs sources indépendantes —
+le DS923+ tourne sur un AMD Ryzen R1600, **2 cœurs**, **sans aucun GPU
+intégré**. Ce n'est pas un problème de pilote ou de configuration Docker à
+corriger : il n'y a littéralement aucune puce à exposer au conteneur. Ça
+confirme définitivement que le plafond logiciel mesuré aux points 6-9 est
+réel et non contournable par du réglage fin supplémentaire — décision prise
+d'arrêter cette piste-là.
+
+L'utilisateur a alors posé la vraie question qui débloque tout :
+**pourquoi transcoder la vidéo du tout pour un problème purement HDR ?**
+Un décodeur qui ne comprend pas le Dolby Vision affiche quand même l'image
+en utilisant la couche de base — juste avec un rendu des couleurs un peu
+moins précis, jamais une image cassée ou absente. Forcer un transcodage
+(cher, et sur ce NAS, voué à ne jamais suivre le temps réel) uniquement
+pour corriger la précision des couleurs est le mauvais compromis sur du
+matériel modeste. Règle absolue posée par l'utilisateur : *"le HDR ou DoVi,
+tu n'y touches pas ; seules les vidéos où l'image n'apparaît pas déclenchent
+un transcodage automatique de l'image ; sinon c'est audio seulement."*
+
+**Bug annexe découvert en creusant la question** : `clientProfile.detect.ts`
+ne renseignait JAMAIS le champ `hdr` des capacités vidéo du client desktop —
+ce qui signifie que même un vrai écran HDR n'aurait jamais pu bénéficier du
+repli déjà existant pour Dolby Vision rétrocompatible (§29). Vérifié en
+direct dans un vrai navigateur : `matchMedia('(dynamic-range: high)')` vaut
+`true` sur cette machine (l'écran est HDR) mais
+`matchMedia('(video-dynamic-range: high)')` vaut `false` (le mode vidéo HDR
+n'est pas actif) — la bonne détection existe et fonctionne, mais un
+correctif basé uniquement dessus n'aurait pas résolu le cas réel de
+l'utilisateur aujourd'hui. Non traité pour l'instant (noté ici, pas encore
+implémenté) — la règle absolue ci-dessous rend la question largement
+secondaire de toute façon.
+
+**Corrigé** : `checkVideoCompatibility()` distingue maintenant les raisons
+"dures" (codec/profil/palier/profondeur de couleur/résolution/fps — l'image
+ne s'afficherait vraiment pas) des raisons HDR/DV (toujours enregistrées
+pour diagnostic, mais qui ne comptent plus dans le calcul de compatibilité).
+Un décalage HDR/DV seul → vidéo toujours COPY, seuls l'audio et le
+conteneur changent si besoin. `toneMapNeeded` reste honoré si un
+transcodage vidéo est de toute façon déclenché pour une vraie raison dure
+(ou pour l'incrustation de sous-titres) — pas de raison de se priver d'une
+correction de couleur gratuite dans ce cas. 315 tests passent (3 tests
+réécrits pour refléter le nouveau comportement, 1 nouveau test qui vérifie
+que le tonemap reste appliqué quand un transcodage est déjà forcé pour une
+vraie raison).
+
+**Reste signalé par l'utilisateur, pas encore traité** : le sélecteur
+manuel "Mode transcodage" (Auto / Lecture directe / Audio seulement / Vidéo
+seulement / HLS manuel) dans les contrôles du lecteur ne pilote QUE
+l'ancien chemin Plex/HLS (`reloadHls()`) — pour du contenu purement local
+(sans lien Plex réel, comme "Dragons"), choisir "Audio seulement" tente de
+recharger une session Plex qui n'existe pas et échoue, alors que "Auto"
+fonctionne car il route correctement vers le nouveau moteur local. Signalé
+par l'utilisateur comme confus/à refaire entièrement. Pas encore corrigé —
+la priorité immédiate était la règle absolue HDR/DV ci-dessus, qui rend déjà
+"Auto" fiable pour ce cas. Le ménage de ce sélecteur (le désactiver pour du
+contenu sans lien Plex réel, ou le reconnecter au nouveau moteur) reste à
+faire séparément.

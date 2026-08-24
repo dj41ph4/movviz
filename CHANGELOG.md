@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.13 — August 2026
+
+### Nouveau moteur (expérimental) : le HDR/Dolby Vision ne force plus jamais un transcodage vidéo
+
+Changement de fond plutôt qu'un réglage de plus : un décalage HDR ou Dolby Vision entre le fichier et l'appareil de lecture ne déclenche plus, à lui seul, un transcodage vidéo. La vidéo est copiée telle quelle — un décodeur non compatible Dolby Vision affiche quand même l'image correctement, juste avec un rendu des couleurs légèrement moins précis que la version parfaitement calibrée. Sur du matériel modeste, éviter un transcodage vidéo coûteux (souvent voué à ne jamais suivre la lecture en temps réel) l'emporte largement sur ce compromis de rendu. Un vrai transcodage vidéo reste déclenché normalement pour toute incompatibilité réelle (codec, profil, palier, profondeur de couleur, résolution) — dans ce cas, la conversion HDR→SDR reste appliquée au passage.
+
 ## v1.19.12 — August 2026
 
 ### Nouveau moteur (expérimental) : la conversion HDR→SDR restait trop lourde même après la 1.19.11

@@ -59,41 +59,55 @@ interface CompatibilityResult {
   toneMapNeeded?: boolean;
 }
 
-/** Ordered per plan §23 steps 4-10: codec → profile → level → bit depth → HDR/DV → resolution → FPS. */
+/**
+ * Ordered per plan §23 steps 4-10: codec → profile → level → bit depth →
+ * HDR/DV → resolution → FPS.
+ *
+ * Absolute product rule (explicit instruction, 2026-08-24, after a real user
+ * report of a weak-hardware transcode falling permanently behind real time
+ * on HDR/Dolby Vision content): an HDR/DV mismatch by ITSELF never counts
+ * toward `compatible: false` — only a genuinely hard reason does (codec,
+ * profile, level, bit depth, resolution, fps: cases where the client
+ * literally cannot decode/render the picture at all). A non-DV-aware
+ * decoder still renders an HDR10/DV base layer correctly as a picture —
+ * just without the exact extra grading — so forcing an expensive tonemap
+ * transcode purely to fix color accuracy is the wrong trade on weak
+ * hardware. The desktop client detector doesn't even populate `cap.hdr`
+ * today (a separate, real gap — see clientProfile.detect.ts), which made
+ * this the ONLY working path for HDR/DV content on desktop; this rule
+ * makes that the correct behavior everywhere, not just an accidental one.
+ * `toneMapNeeded` is still recorded and still gets honored when a video
+ * transcode ends up happening anyway for a real (hard) reason, or for
+ * subtitle burn-in — no reason to skip a free color correction once
+ * already paying for a transcode.
+ */
 function checkVideoCompatibility(video: VideoStreamDescriptor, client: ClientPlaybackProfile): CompatibilityResult {
   const reasons: PlaybackReasonCode[] = [];
   const cap = client.videoCapabilities.find((c) => normalizeCodecName(c.codec) === normalizeCodecName(video.codec));
   if (!cap) return { compatible: false, reasons: ["VIDEO_CODEC_UNSUPPORTED"] };
 
+  let hasHardReason = false;
   if (cap.profiles && video.profile && !cap.profiles.includes(video.profile)) {
     reasons.push("VIDEO_PROFILE_UNSUPPORTED");
+    hasHardReason = true;
   }
   if (cap.levels && video.level && !cap.levels.includes(video.level)) {
     reasons.push("VIDEO_LEVEL_UNSUPPORTED");
+    hasHardReason = true;
   }
   if (cap.bitDepths && video.bitDepth && !cap.bitDepths.includes(video.bitDepth)) {
     reasons.push("VIDEO_BIT_DEPTH_UNSUPPORTED");
+    hasHardReason = true;
   }
   let toneMapNeeded = false;
   if (video.hdr) {
     const supportedHdr = cap.hdr ?? [];
     const directMatch = supportedHdr.includes(video.hdr.type);
-    // §29 — a backward-compatible Dolby Vision file (profile 7/8 with a real
-    // base-layer compatibility id) is perfectly playable on a client that
-    // only declares HDR10/SDR/HLG support: a non-DV decoder just renders
-    // the base layer using its own baked-in colorimetry and ignores the DV
-    // RPU metadata entirely. Confirmed against real ffprobe output (RoboCop
-    // 2014, dv_profile=8, dv_bl_signal_compatibility_id=1→hdr10) — forcing
-    // a transcode here would waste CPU re-encoding a file that already
-    // plays correctly. A non-backward-compatible profile (5, no base-layer
-    // id) has no such fallback and keeps the normal incompatible path.
     const dvFallback = video.hdr.type === "dolby-vision" && video.hdr.dolbyVisionBaseLayerCompatibility && supportedHdr.includes(video.hdr.dolbyVisionBaseLayerCompatibility);
     if (!directMatch && !dvFallback) {
+      // Recorded for transparency/diagnostics — deliberately NOT added to
+      // hasHardReason, per the absolute rule above.
       reasons.push(video.hdr.type === "dolby-vision" ? "DOLBY_VISION_UNSUPPORTED" : "HDR_UNSUPPORTED");
-      // No exact match and no DV base-layer fallback landed on something the
-      // client declared — the only remaining universal target is SDR.
-      // Converting between two different HDR encodings (client=hlg,
-      // source=hdr10) without passing through SDR is out of scope here.
       toneMapNeeded = true;
     }
   }
@@ -101,11 +115,13 @@ function checkVideoCompatibility(video: VideoStreamDescriptor, client: ClientPla
   const maxHeight = cap.maxHeight ?? client.maxHeight;
   if ((maxWidth && video.width && video.width > maxWidth) || (maxHeight && video.height && video.height > maxHeight)) {
     reasons.push("VIDEO_RESOLUTION_UNSUPPORTED");
+    hasHardReason = true;
   }
   if (cap.maxFps && video.fps && video.fps > cap.maxFps) {
     reasons.push("VIDEO_FPS_UNSUPPORTED");
+    hasHardReason = true;
   }
-  return { compatible: reasons.length === 0, reasons, toneMapNeeded };
+  return { compatible: !hasHardReason, reasons, toneMapNeeded };
 }
 
 /** Steps 11-12: audio codec → channel count. */
