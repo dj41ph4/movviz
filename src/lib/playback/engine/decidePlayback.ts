@@ -254,11 +254,24 @@ const SOFTWARE_TRANSCODE_MAX_WIDTH = 1920;
 // decode+scale+encode, confirmed by elimination: a same-resolution SDR 4K
 // software transcode with no tonemap (see the "Soixante 9" case, same
 // session) stayed comfortably ahead of real time at the same 1920px cap.
-// Tonemap-on-software needs a tighter ceiling than plain software transcode
-// to have a real chance of staying ahead — this number is a starting point
-// to re-verify live on the same hardware, not a value derived from a
-// benchmark (no way to profile this specific weak NAS from outside it).
-const SOFTWARE_TONEMAP_MAX_WIDTH = 1280;
+//
+// 1280 alone (plus the ultrafast preset below) still wasn't enough — measured
+// live on the same real Synology, same file, with NO other load on the box
+// (confirmed via a clean re-test after the exact confound above was ruled
+// out): a sustained ~0.29-0.31x realtime factor over two consecutive 22s
+// windows, not a cold-start blip. Decode cost is fixed regardless of this
+// target (the scale filter runs AFTER decode, so a smaller output never
+// makes the decoder read fewer source pixels) — only the scale+tonemap+encode
+// portion shrinks with resolution. The "Soixante 9" A/B (no tonemap, same
+// decode-class 4K source, 1920px, ~1x factor) implies decode+scale+encode
+// alone comfortably fit the budget, so tonemap itself is the dominant extra
+// cost — and tonemap cost scales with pixel count. Closing a ~3.3x gap
+// (0.3x → 1x) by shrinking only the tonemap-scaling portion needs roughly a
+// sqrt(3.3)≈1.8x cut in width; 1280/1.8≈720, which also happens to be the
+// standard "safe" software-HDR floor other transcoders (Plex/Jellyfin) fall
+// back to for exactly this reason — not an arbitrary number, but still a
+// reasoned estimate to re-verify live, not a lab-measured value.
+const SOFTWARE_TONEMAP_MAX_WIDTH = 720;
 
 /**
  * Only ever downscales — never upscales, and never touches a hardware

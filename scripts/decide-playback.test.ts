@@ -421,7 +421,7 @@ test("software encoding a source that ALSO needs HDR→SDR tonemap gets a tighte
   });
   assert.equal(plan.toneMap, true);
   assert.equal(plan.videoEncoderImpl, "libx265");
-  assert.equal(plan.targetVideoWidth, 1280);
+  assert.equal(plan.targetVideoWidth, 720);
   assert.equal(plan.encoderPreset, "ultrafast");
 });
 

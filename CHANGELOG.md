@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.19.12 — August 2026
+
+### Nouveau moteur (expérimental) : la conversion HDR→SDR restait trop lourde même après la 1.19.11
+
+Mesuré en direct sur le contenu le plus exigeant possible (4K Dolby Vision), sans aucune autre charge sur le serveur : la lecture n'avançait qu'à environ 30 % de la vitesse réelle nécessaire, de façon stable sur plusieurs mesures — pas un simple ralentissement au démarrage.
+
+- **Corrigé** : la limite de résolution pour la combinaison encodage logiciel + conversion HDR→SDR passe de 1280 à 720 pixels de large. La conversion HDR→SDR elle-même (pas le décodage, fixe quelle que soit la résolution de sortie) domine largement le temps de calcul sur ce type de contenu — réduire encore la résolution cible réduit directement son coût. Reste à reconfirmer en conditions réelles.
+
 ## v1.19.11 — August 2026
 
 ### Nouveau moteur (expérimental) : préset d'encodage plus rapide pour le cas HDR→SDR le plus exigeant

@@ -277,3 +277,31 @@ cas qui sinon ne joue pas du tout). N'importe qui d'autre (encodage logiciel
 seul, encodage matériel avec tonemap) garde son réglage précédent — testé
 et confirmé qu'aucune régression n'est introduite ailleurs. 314 tests
 passent.
+
+## 9. Suite du test réel en prod — le plafond 1280px ne suffisait toujours pas, 2026-08-24
+
+Une fois la 1.19.11 déployée, "Dragons" a été retesté avec zéro autre charge
+sur le serveur ("300" venait de finir son téléchargement) : plus aucun
+plantage, mais mesure directe sur deux fenêtres consécutives de ~22
+secondes confirme un facteur temps réel stable d'environ 0.29-0.31x — la
+lecture s'éloigne continuellement de ce qui est réellement disponible,
+pas un simple retard au démarrage qui se rattrape.
+
+**Raisonnement** : le filtre de redimensionnement s'exécute APRÈS le
+décodage — réduire la résolution de sortie ne réduit jamais le coût du
+décodage lui-même. La comparaison avec "Soixante 9" (point 7-8, source 4K de
+classe de décodage comparable, sans tonemap, plafond 1920px, facteur temps
+réel proche de 1x) suggère que décodage + redimensionnement + encodage
+tiennent déjà seuls dans le budget — c'est bien la conversion HDR→SDR
+elle-même qui domine le surcoût, et son coût suit le nombre de pixels
+traités. Fermer un écart de ~3.3x seulement en réduisant sa part
+(tonemap+encodage) demande environ racine(3.3)≈1.8x de réduction de
+largeur ; 1280/1.8≈720 — qui correspond aussi au plancher "sécurisé" que
+d'autres solutions de transcodage (Plex, Jellyfin) utilisent déjà pour ce
+même cas.
+
+**Corrigé** : plafond resserré à 720px pour la combinaison encodage
+logiciel + tonemap (était 1280px). Toujours un point de départ raisonné à
+revalider en conditions réelles, pas une valeur mesurée en laboratoire —
+impossible de profiler ce NAS précis depuis l'extérieur. 314 tests passent
+(valeur attendue mise à jour dans le test existant).
