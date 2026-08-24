@@ -2496,7 +2496,18 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           role="application"
           aria-label={title}
           className={cn(
-            "relative flex flex-1 items-center justify-center",
+            // min-h-0 overrides the flex item's default auto min-height —
+            // without it, a flex-1 child never shrinks below its content's
+            // natural size. The <video> below has no intrinsic CSS height,
+            // so its "natural size" is computed from ITS OWN width via the
+            // source's aspect ratio — on a viewport wider than the video
+            // (ultrawide monitor, 16:9 source), that's taller than the
+            // available space. Without this, the flex-1 box grows to match,
+            // pushing the video past the visible area (clipped top/bottom by
+            // the ancestor's overflow-hidden) instead of shrinking to fit —
+            // confirmed live via computed styles on a 2560×1080 viewport
+            // (this box measured 1427px tall vs. 907px available).
+            "relative flex min-h-0 flex-1 items-center justify-center",
             embedded ? "bg-transparent" : "bg-black",
             controlsVisible || !playing || buffering ? "" : "cursor-none"
           )}

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.27 — August 2026
+
+### La vidéo débordait en haut et en bas sur un écran ultra-large
+
+Sur un écran plus large que 16:9 (ultra-wide), le lecteur ne mettait plus la vidéo à l'échelle correctement : au lieu de garder ses proportions avec des bandes noires sur les côtés, elle s'étirait à la largeur de la fenêtre et débordait en haut et en bas, coupant le haut et le bas de l'image. Corrigé — la vidéo garde toujours ses proportions d'origine, quel que soit le format de l'écran.
+
 ## v1.19.26 — August 2026
 
 ### Les nouvelles rangées Découverte n'apparaissaient pas pour tout le monde
