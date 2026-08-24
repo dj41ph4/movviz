@@ -4,8 +4,7 @@ import { Readable } from "node:stream";
 import { stat, readFile } from "node:fs/promises";
 import { requireUser } from "@/lib/auth/guard";
 import { getSession } from "@/lib/playback/engine/sessionManager";
-import { getMovie } from "@/lib/library/store";
-import { getPrimaryFile } from "@/lib/library/versions";
+import { resolveLocalFilePath } from "@/lib/playback/sourceResolver";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import { findLiveSubtitleVtt } from "@/lib/playback/engine/localExecutor";
 
@@ -30,11 +29,14 @@ export async function GET(req: NextRequest, context: Ctx) {
   const session = getSession(sessionId);
   if (!session || session.userId !== user.id) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const movie = getMovie(session.mediaId);
-  if (!movie) return NextResponse.json({ error: "media_not_found" }, { status: 404 });
-  const file = getPrimaryFile(movie);
-  const filePath = file?.diskPath ?? file?.path;
-  if (!filePath) return NextResponse.json({ error: "media_unavailable" }, { status: 404 });
+  const resolution = resolveLocalFilePath(session.mediaId);
+  if (!resolution.ok) {
+    return NextResponse.json(
+      { error: resolution.code === "not_found" ? "media_not_found" : "media_unavailable" },
+      { status: 404 }
+    );
+  }
+  const filePath = resolution.path;
 
   const media = await getOrProbeMediaDescriptor(session.mediaId, filePath);
   if (!media) return NextResponse.json({ error: "file_missing" }, { status: 404 });

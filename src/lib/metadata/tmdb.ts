@@ -83,13 +83,21 @@ const refreshing: Set<string> = (gRefresh.__movvizTmdbRefreshing ??= new Set());
 
 const TMDb_FETCH_MAX_ATTEMPTS = 3;
 const TMDb_FETCH_RETRY_DELAYS_MS = [300, 800];
+// Confirmed live (2026-08-24): this fetch had NO timeout at all — a TMDb
+// connection that hangs (accepts the TCP connection but never sends a
+// response, as opposed to erroring outright, which the existing catch below
+// already retries) blocked forever, which is exactly what made a title page
+// never finish loading (504 at the reverse proxy, only after ITS OWN much
+// longer timeout). AbortSignal.timeout turns a stall into a normal
+// rejection the existing retry loop already knows how to handle.
+const TMDb_FETCH_TIMEOUT_MS = 8000;
 
 async function fetchAndCache<T>(url: string): Promise<T | null> {
   const cache = tmdbCache();
   const logUrl = url.replace(/\?api_key=[^&]+/, "?api_key=***");
   for (let attempt = 1; attempt <= TMDb_FETCH_MAX_ATTEMPTS; attempt++) {
     try {
-      const res = await fetch(url, { cache: "no-store" });
+      const res = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(TMDb_FETCH_TIMEOUT_MS) });
       if (!res.ok) {
         // 429/5xx = TMDb surchargé ou en panne — transitoire, on réessaie.
         // Les 4xx (404…) sont définitifs : un film absent ne se matérialise

@@ -99,16 +99,26 @@ function checkVideoCompatibility(video: VideoStreamDescriptor, client: ClientPla
     reasons.push("VIDEO_BIT_DEPTH_UNSUPPORTED");
     hasHardReason = true;
   }
-  let toneMapNeeded = false;
+  // Absolute product rule (explicit instruction, 2026-08-24): HDR/DV content
+  // NEVER gets tonemapped to SDR, full stop — not even as a "free" add-on to
+  // a transcode already happening for a real hard reason (codec/profile/
+  // resolution). This is a step further than the rule above (which only kept
+  // an HDR mismatch from FORCING a transcode by itself) — toneMapNeeded is
+  // now permanently false; a non-DV-aware client renders the HDR10/DV base
+  // layer as-is (colors not display-corrected, never a black screen or
+  // crash), which is the accepted trade-off. This also removes the exact
+  // failure mode that motivated the rule above in the first place (a real
+  // production HDR→SDR tonemap transcode falling permanently behind
+  // real-time on weak hardware, see localExecutor.ts's own history of that
+  // incident) — there is now no code path that can ever select it.
+  const toneMapNeeded = false;
   if (video.hdr) {
     const supportedHdr = cap.hdr ?? [];
     const directMatch = supportedHdr.includes(video.hdr.type);
     const dvFallback = video.hdr.type === "dolby-vision" && video.hdr.dolbyVisionBaseLayerCompatibility && supportedHdr.includes(video.hdr.dolbyVisionBaseLayerCompatibility);
     if (!directMatch && !dvFallback) {
-      // Recorded for transparency/diagnostics — deliberately NOT added to
-      // hasHardReason, per the absolute rule above.
+      // Recorded for transparency/diagnostics only — never acted on.
       reasons.push(video.hdr.type === "dolby-vision" ? "DOLBY_VISION_UNSUPPORTED" : "HDR_UNSUPPORTED");
-      toneMapNeeded = true;
     }
   }
   const maxWidth = cap.maxWidth ?? client.maxWidth;

@@ -56,7 +56,7 @@ export async function orchestrate(config: PlaybackConfig): Promise<PlaybackDecis
     capabilities.mseAvailable &&
     MP4_CONTAINERS.has(container) &&
     !subtitleActive &&
-    (engine === "mse" || engine === "auto");
+    (engine === "mse" || engine === "auto" || engine === "stable");
 
   if (canMse) {
     const vc = (media.videoCodec ?? "").toLowerCase();
@@ -88,7 +88,7 @@ export async function orchestrate(config: PlaybackConfig): Promise<PlaybackDecis
   // côté serveur (champ ffmpegAvailable de /api/stream/[ratingKey]/info) —
   // jamais tenté sans confirmation, jamais si des sous-titres sont brûlés
   // (le remux copy ne gère aucun burn-in).
-  if (!subtitleActive && ffmpegAvailable && (engine === "ffmpeg" || engine === "auto")) {
+  if (!subtitleActive && ffmpegAvailable && (engine === "ffmpeg" || engine === "auto" || engine === "stable")) {
     return {
       engine: "ffmpeg",
       reason: `FFmpeg remux: ${container || media.container || "?"} ${media.videoCodec ?? "?"}+${media.audioCodec ?? "?"} — video copy, audio AAC`,

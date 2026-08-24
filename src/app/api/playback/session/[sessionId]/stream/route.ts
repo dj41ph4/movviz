@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { getSession, setTranscoderPid, touchSession } from "@/lib/playback/engine/sessionManager";
-import { getMovie } from "@/lib/library/store";
-import { getPrimaryFile } from "@/lib/library/versions";
+import { resolveLocalFilePath } from "@/lib/playback/sourceResolver";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import {
   DuplicateLocalSessionError,
@@ -20,10 +19,11 @@ export const runtime = "nodejs";
 type Ctx = { params: Promise<{ sessionId: string }> };
 
 /**
- * Phases 9-13 of the playback engine rewrite: the actual streaming endpoint
- * a `/api/playback/prepare` response points a REMUX/DIRECT_STREAM/TRANSCODE
- * plan at (DIRECT_PLAY never reaches here — prepare points it straight at
- * the existing byte-range route instead, see prepare/route.ts). Mirrors
+ * The actual streaming endpoint a `/api/playback/prepare` response points a
+ * REMUX/DIRECT_STREAM/TRANSCODE plan at (DIRECT_PLAY never reaches here —
+ * prepare points it straight at the existing byte-range route instead, see
+ * prepare/route.ts). Movies and episodes both flow through here identically
+ * (see resolveLocalFilePath). Mirrors
  * /api/playback-ffmpeg/[ratingKey]/route.ts's exact shape (abort handling,
  * error codes) — the CURRENT production route for Plex-sourced streams —
  * but executes a local file through localExecutor.ts instead.
@@ -37,11 +37,14 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (!session || session.userId !== user.id) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (session.mode === "DIRECT_PLAY") return NextResponse.json({ error: "wrong_route_for_direct_play" }, { status: 400 });
 
-  const movie = getMovie(session.mediaId);
-  if (!movie) return NextResponse.json({ error: "media_not_found" }, { status: 404 });
-  const file = getPrimaryFile(movie);
-  const filePath = file?.diskPath ?? file?.path;
-  if (!filePath) return NextResponse.json({ error: "media_unavailable" }, { status: 404 });
+  const resolution = resolveLocalFilePath(session.mediaId);
+  if (!resolution.ok) {
+    return NextResponse.json(
+      { error: resolution.code === "not_found" ? "media_not_found" : "media_unavailable" },
+      { status: 404 }
+    );
+  }
+  const filePath = resolution.path;
 
   const media = await getOrProbeMediaDescriptor(session.mediaId, filePath);
   if (!media) return NextResponse.json({ error: "file_missing" }, { status: 404 });

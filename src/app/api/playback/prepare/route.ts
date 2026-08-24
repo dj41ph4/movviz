@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { getMovie } from "@/lib/library/store";
-import { getPrimaryFile } from "@/lib/library/versions";
+import { resolveLocalFilePath } from "@/lib/playback/sourceResolver";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import { detectServerCapabilities } from "@/lib/playback/engine/serverCapabilities.detect";
 import { decidePlayback } from "@/lib/playback/engine/decidePlayback";
@@ -11,21 +10,16 @@ import type { ClientPlaybackProfile } from "@/lib/playback/engine/clientProfile"
 export const dynamic = "force-dynamic";
 
 /**
- * Phase 8 of the playback engine rewrite (see PLAN_REFONTE_MOTEUR_LECTURE_MOVVIZ.md
- * §32-33): the client/server contract for the NEW engine. Nothing calls this
- * yet — the live player still goes through the existing
- * /api/playback/sessions + /api/playback-ffmpeg routes untouched. This is
- * the endpoint a future migrated player would call first.
- *
- * Answers, in code, the three questions raised before Phase 3 started:
- * a movie with no MediaDescriptor cached yet gets probed right here
- * on-demand (getOrProbeMediaDescriptor already does this transparently —
- * "never probe at every playback" only means "don't re-probe an unchanged
- * file", not "never probe on a cache miss"); the session this creates is
- * exactly what a future "Lecture/Transcodage" Settings button would report
- * on/manage; and this is the one and only place a MediaDescriptor and a
- * PlaybackPlan get produced for a real playback request, so there is no
- * second code path to keep in sync.
+ * The client/server contract for the decidePlayback()-driven engine — the
+ * one and only place a MediaDescriptor and a PlaybackPlan get produced for a
+ * real playback request. Called live from VideoPlayer.tsx's
+ * tryStartLocalEngine() for both movies and (now) episodes, whenever the
+ * playback engine setting is "auto"/"stable"/"beta" and the title is a real
+ * local file (see resolveLocalFilePath in sourceResolver.ts). A file with no
+ * MediaDescriptor cached yet gets probed right here on-demand
+ * (getOrProbeMediaDescriptor already does this transparently — "never probe
+ * at every playback" only means "don't re-probe an unchanged file", not
+ * "never probe on a cache miss").
  */
 export async function POST(req: NextRequest) {
   const user = requireUser(req);
@@ -54,14 +48,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_client_profile" }, { status: 400 });
   }
 
-  // Series/episode playback needs its own mediaId scheme once the player
-  // actually migrates (Phase 9+) — deliberately movie-only for now so this
-  // contract phase doesn't half-implement episode support nothing calls yet.
-  const movie = getMovie(mediaId);
-  if (!movie) return NextResponse.json({ error: "media_not_found" }, { status: 404 });
-  const file = getPrimaryFile(movie);
-  const filePath = file?.diskPath ?? file?.path;
-  if (!filePath) return NextResponse.json({ error: "media_unavailable" }, { status: 404 });
+  // Movie mediaId or `${seriesId}:s{season}e{episode}` episode mediaId —
+  // resolveLocalFilePath tells the two apart (see sourceResolver.ts) so this
+  // route needs no branching of its own.
+  const resolution = resolveLocalFilePath(mediaId);
+  if (!resolution.ok) {
+    return NextResponse.json(
+      { error: resolution.code === "not_found" ? "media_not_found" : "media_unavailable" },
+      { status: 404 }
+    );
+  }
+  const filePath = resolution.path;
 
   const media = await getOrProbeMediaDescriptor(mediaId, filePath);
   if (!media) return NextResponse.json({ error: "file_missing" }, { status: 404 });
@@ -94,9 +91,12 @@ export async function POST(req: NextRequest) {
   // that would spawn a process for zero reason. Every other mode (REMUX/
   // DIRECT_STREAM/TRANSCODE) needs the real ffmpeg session, executed by
   // localExecutor.ts (Phases 9-13) via the session-stream route below.
+  const episodeMatch = /^(.+):s(\d+)e(\d+)$/.exec(mediaId);
   const streamUrl =
     plan.mode === "DIRECT_PLAY"
-      ? `/api/stream/local/${encodeURIComponent(mediaId)}`
+      ? episodeMatch
+        ? `/api/stream/local/episode/${encodeURIComponent(episodeMatch[1])}/${episodeMatch[2]}/${episodeMatch[3]}`
+        : `/api/stream/local/${encodeURIComponent(mediaId)}`
       : `/api/playback/session/${session.sessionId}/stream`;
 
   return NextResponse.json({

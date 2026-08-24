@@ -9,14 +9,20 @@
 export type PlaybackEngineKind = "direct" | "webcodecs" | "mse" | "ffmpeg" | "transcode";
 
 /**
- * "engine-v2" — the NEW decision-engine-driven leg (Phases 9-13,
- * PLAN_REFONTE_MOTEUR_LECTURE_MOVVIZ.md). Deliberately MANUAL-ONLY, never
- * reachable via "auto": orchestrate() (src/lib/playback/orchestrator.ts)
- * never returns it, VideoPlayer's tryStartLocalEngine only engages when
- * this exact value is picked, and only for local (non-Plex) files. The
- * existing four values and their behavior are completely unchanged.
+ * "beta" (formerly "engine-v2") — the decidePlayback()-driven leg
+ * (src/lib/playback/engine/*). Already live for local (non-Plex) files: both
+ * "auto" and "beta" reach VideoPlayer's tryStartLocalEngine whenever
+ * localPlayback is true, falling back to the legacy ffmpeg/HLS leg
+ * otherwise — the two are functionally identical today. "beta" exists as a
+ * separate, explicit value so it can diverge from "auto" later without a
+ * silent behavior change for anyone who picked it manually.
+ *
+ * "stable" pins today's "auto" resolution byte-for-byte (see every
+ * `engine === "auto"` check across orchestrator.ts/VideoPlayer.tsx — each
+ * now also accepts "stable") so a future change to what "auto" points at
+ * can never silently change anyone's behavior who explicitly chose "stable".
  */
-export type EngineConfig = "auto" | "native" | "mse" | "ffmpeg" | "hls" | "engine-v2";
+export type EngineConfig = "auto" | "stable" | "native" | "mse" | "ffmpeg" | "hls" | "beta";
 
 export interface MediaTrackInfo {
   id: string;

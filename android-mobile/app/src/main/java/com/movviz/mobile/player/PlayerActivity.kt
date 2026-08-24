@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import coil.compose.AsyncImage
 import com.movviz.mobile.ui.theme.AnimatedLogo
 import com.movviz.mobile.ui.theme.MovvizBrand
@@ -168,6 +171,18 @@ private fun hasPlatformVideoDecoder(mime: String?): Boolean {
 class PlayerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Immersive fullscreen — the status bar (clock, notification icons)
+        // was never hidden here, so it sat on top of the video for the whole
+        // playback. Swiping from the edge still reveals it temporarily
+        // (standard system gesture), and it comes back on its own once the
+        // player closes since this is a dedicated, short-lived Activity.
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).let { controller ->
+            controller.hide(WindowInsetsCompat.Type.systemBars())
+            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+
         val baseUrl = intent.getStringExtra(EXTRA_BASE_URL) ?: run { finish(); return }
         val keys = intent.getStringArrayListExtra(EXTRA_KEYS)?.takeIf { it.isNotEmpty() } ?: run { finish(); return }
         val localKeys = intent.getStringArrayListExtra(EXTRA_LOCAL_KEYS) ?: arrayListOf()
@@ -254,6 +269,18 @@ private fun PlayerScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val repository = remember(baseUrl) { MovvizRepository(baseUrl) }
+
+    // Playback is watched fullscreen landscape almost exclusively — the
+    // control panel below used the exact same fixed dp sizing regardless of
+    // orientation, which is comfortable in portrait's tall column but eats a
+    // disproportionate share of a landscape phone's much shorter height
+    // (confirmed live in the emulator: progress bar + transport row + title
+    // row together covered close to half the screen). Landscape gets a
+    // visibly tighter version of the same panel — smaller controls, less
+    // padding between rows, sitting closer to the bottom edge — portrait is
+    // untouched.
+    val isLandscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation ==
+        android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
     val view = androidx.compose.ui.platform.LocalView.current
     DisposableEffect(Unit) {
@@ -659,10 +686,20 @@ private fun PlayerScreen(
             enter = fadeIn(), exit = fadeOut(),
             modifier = Modifier.align(Alignment.BottomCenter)
         ) {
+            val edgeBtn = if (isLandscape) 38.dp else 44.dp
+            val edgeIcon = if (isLandscape) 19.dp else 22.dp
+            val centerBtn = if (isLandscape) 48.dp else 56.dp
+            val centerIcon = if (isLandscape) 24.dp else 28.dp
             Column(
                 Modifier.fillMaxWidth()
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.85f))))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    // Hugs the actual screen edge — navigationBarsPadding()
+                    // adds real inset room back only where a gesture pill or
+                    // 3-button nav bar would otherwise sit on top of it
+                    // (system bars are hidden during playback, but the swipe-
+                    // to-reveal gesture can still bring them back momentarily).
+                    .navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = if (isLandscape) 6.dp else 12.dp)
             ) {
                 // Barre progression + temps — glass card flottante, piste
                 // fine + fill brand-gradient + poignée à halo, aperçu au
@@ -670,7 +707,7 @@ private fun PlayerScreen(
                 // (VideoPlayer.tsx ~2680-2735).
                 PlayerProgressBar(exoPlayer = exoPlayer, baseUrl = baseUrl, ratingKey = current.ratingKey, onSeek = { poke() })
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(if (isLandscape) 4.dp else 8.dp))
 
                 // Transport — pill glass, identique desktop (~2737-2770+) ;
                 // bouton central brand-gradient (CTA primaire, cf. charte
@@ -680,64 +717,65 @@ private fun PlayerScreen(
                         .clip(RoundedCornerShape(24.dp))
                         .background(Color(0xFF12121E).copy(alpha = 0.92f))
                         .border(1.dp, Color.White.copy(0.07f), RoundedCornerShape(24.dp))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                        .padding(horizontal = 10.dp, vertical = if (isLandscape) 4.dp else 8.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     // Gauche : prev + -10s
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { prevEpisodeAction() }, enabled = hasPrev, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(if (hasPrev) 0.14f else 0.06f))) {
-                            Icon(Icons.Rounded.SkipPrevious, null, tint = Color.White.copy(if (hasPrev) 1f else 0.35f), modifier = Modifier.size(22.dp))
+                        IconButton(onClick = { prevEpisodeAction() }, enabled = hasPrev, modifier = Modifier.size(edgeBtn).clip(CircleShape).background(Color.White.copy(if (hasPrev) 0.14f else 0.06f))) {
+                            Icon(Icons.Rounded.SkipPrevious, null, tint = Color.White.copy(if (hasPrev) 1f else 0.35f), modifier = Modifier.size(edgeIcon))
                         }
-                        IconButton(onClick = { seekBackAction() }, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(0.14f))) {
-                            Icon(Icons.Rounded.Replay10, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                        IconButton(onClick = { seekBackAction() }, modifier = Modifier.size(edgeBtn).clip(CircleShape).background(Color.White.copy(0.14f))) {
+                            Icon(Icons.Rounded.Replay10, null, tint = Color.White, modifier = Modifier.size(edgeIcon))
                         }
                     }
 
                     // Centre : play/pause — brand-gradient (primaire), plus grand que les actions secondaires
                     Box(
-                        Modifier.size(56.dp).clip(CircleShape)
+                        Modifier.size(centerBtn).clip(CircleShape)
                             .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrandGlow)))
                             .clickable { playPauseAction() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            null, tint = Color.White, modifier = Modifier.size(28.dp)
+                            null, tint = Color.White, modifier = Modifier.size(centerIcon)
                         )
                     }
 
                     // Droite : +10s + next
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { seekForwardAction() }, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(0.14f))) {
-                            Icon(Icons.Rounded.Forward10, null, tint = Color.White, modifier = Modifier.size(22.dp))
+                        IconButton(onClick = { seekForwardAction() }, modifier = Modifier.size(edgeBtn).clip(CircleShape).background(Color.White.copy(0.14f))) {
+                            Icon(Icons.Rounded.Forward10, null, tint = Color.White, modifier = Modifier.size(edgeIcon))
                         }
-                        IconButton(onClick = { nextEpisodeAction() }, enabled = hasNext, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(if (hasNext) 0.14f else 0.06f))) {
-                            Icon(Icons.Rounded.SkipNext, null, tint = Color.White.copy(if (hasNext) 1f else 0.35f), modifier = Modifier.size(22.dp))
+                        IconButton(onClick = { nextEpisodeAction() }, enabled = hasNext, modifier = Modifier.size(edgeBtn).clip(CircleShape).background(Color.White.copy(if (hasNext) 0.14f else 0.06f))) {
+                            Icon(Icons.Rounded.SkipNext, null, tint = Color.White.copy(if (hasNext) 1f else 0.35f), modifier = Modifier.size(edgeIcon))
                         }
-                    }
-                }
-
-                // Top info titre + close
-                Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    Column(Modifier.weight(1f)) {
-                        Text(mainTitle, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        current.label?.let { Text(it, color = Color.White.copy(0.7f), fontSize = 11.sp, maxLines = 1) }
-                    }
-                    IconButton(onClick = onExit, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Close, null, tint = Color.White.copy(0.7f), modifier = Modifier.size(20.dp))
                     }
                 }
             }
         }
 
-        // Top gradient + titre discret quand contrôles masqués
-        if (!showControls && hasRenderedFrame) {
-            Box(
+        // Titre + fermeture — en haut à gauche en permanence (même
+        // emplacement qu'Android TV, jamais dupliqué en bas) ; le panneau du
+        // bas n'a donc plus qu'à porter progression + transport, au plus
+        // près du bord inférieur de l'image.
+        if (hasRenderedFrame && errorMessage == null) {
+            Row(
                 Modifier.fillMaxWidth().align(Alignment.TopCenter)
                     .background(Brush.verticalGradient(listOf(Color.Black.copy(0.55f), Color.Transparent)))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .padding(horizontal = 16.dp, vertical = if (isLandscape) 6.dp else 12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text(mainTitle, color = Color.White.copy(0.9f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Column(Modifier.weight(1f)) {
+                    Text(mainTitle, color = Color.White.copy(0.9f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    if (showControls) current.label?.let { Text(it, color = Color.White.copy(0.65f), fontSize = 11.sp, maxLines = 1) }
+                }
+                if (showControls) {
+                    IconButton(onClick = onExit, modifier = Modifier.size(if (isLandscape) 30.dp else 36.dp)) {
+                        Icon(Icons.Rounded.Close, null, tint = Color.White.copy(0.7f), modifier = Modifier.size(if (isLandscape) 17.dp else 20.dp))
+                    }
+                }
             }
         }
 

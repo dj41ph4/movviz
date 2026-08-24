@@ -385,20 +385,22 @@ test("§29: HDR10 source with no matching client HDR capability at all → no lo
   assert.equal(plan.toneMap, undefined);
 });
 
-test("§29: an HDR mismatch STILL sets toneMap and gets tonemapped when a video transcode is ALREADY forced for a real (hard) reason", () => {
+test("§29 (superseded 2026-08-24, absolute rule): an HDR mismatch NEVER sets toneMap, even when a video transcode is ALREADY forced for a real (hard) reason", () => {
   const plan = decidePlayback({
     media: media({ video: { index: 0, codec: "hevc", profile: "Main 10", width: 1920, height: 1080, hdr: { type: "hdr10" } } }),
     // Main 10 profile unsupported (hard reason, forces TRANSCODE regardless
-    // of HDR) + no HDR capability declared (soft, sets toneMapNeeded) —
-    // since a video transcode is happening anyway, the free color
-    // correction is still applied.
+    // of HDR) + no HDR capability declared — HDR_UNSUPPORTED is still
+    // recorded for diagnostics, but toneMap is never set: HDR/DV content is
+    // never tonemapped to SDR, full stop, not even as a "free" add-on to an
+    // already-forced transcode (explicit product rule, 2026-08-24 — a
+    // non-DV-aware client just renders the HDR10/DV base layer as-is).
     client: client({ videoCapabilities: [{ codec: "hevc", profiles: ["Main"] }] }),
     server: FFMPEG_OK,
   });
   assert.equal(plan.mode, "TRANSCODE");
   assert.ok(plan.reasons.includes("VIDEO_PROFILE_UNSUPPORTED"));
   assert.ok(plan.reasons.includes("HDR_UNSUPPORTED"));
-  assert.equal(plan.toneMap, true);
+  assert.equal(plan.toneMap, undefined);
 });
 
 test("§29: an SDR source never sets toneMap even when the video needs a transcode for an unrelated reason", () => {
@@ -446,7 +448,7 @@ test("a software encoder (no hardware available) caps a 4K source at 1920 even w
 // no longer exists, and avoids declaring a client maxWidth (which would
 // short-circuit pickTargetVideoWidth before the tonemap-specific cap ever
 // applies).
-test("software encoding a source that ALSO needs HDR→SDR tonemap gets a tighter resolution cap than plain software transcode", () => {
+test("§29 (superseded 2026-08-24): software encoding an HDR source that needs a forced transcode gets the PLAIN software cap (1920), never the old tighter tonemap-specific one (720) — toneMap can no longer be true, so that cap can no longer apply", () => {
   const plan = decidePlayback({
     media: media({
       video: { index: 0, codec: "hevc", profile: "Main 10", width: 3840, height: 2160, hdr: { type: "hdr10" } },
@@ -455,13 +457,13 @@ test("software encoding a source that ALSO needs HDR→SDR tonemap gets a tighte
     server: { ...FFMPEG_OK, videoEncoders: ["libx264", "libx265"], hardwareAcceleration: {} },
   });
   assert.equal(plan.mode, "TRANSCODE");
-  assert.equal(plan.toneMap, true);
+  assert.equal(plan.toneMap, undefined);
   assert.equal(plan.videoEncoderImpl, "libx265");
-  assert.equal(plan.targetVideoWidth, 720);
-  assert.equal(plan.encoderPreset, "ultrafast");
+  assert.equal(plan.targetVideoWidth, 1920);
+  assert.equal(plan.encoderPreset, "veryfast");
 });
 
-test("a hardware encoder with tonemap still gets NO software-speed cap — a real GPU handles tonemap+encode at real time too", () => {
+test("§29 (superseded 2026-08-24): a hardware encoder with an HDR source needing a forced transcode gets no tonemap and no software-speed cap", () => {
   const plan = decidePlayback({
     media: media({
       video: { index: 0, codec: "hevc", profile: "Main 10", width: 3840, height: 2160, hdr: { type: "hdr10" } },
@@ -470,10 +472,82 @@ test("a hardware encoder with tonemap still gets NO software-speed cap — a rea
     server: { ...FFMPEG_OK, videoEncoders: ["libx265", "hevc_nvenc"], hardwareAcceleration: { nvenc: true } },
   });
   assert.equal(plan.mode, "TRANSCODE");
-  assert.equal(plan.toneMap, true);
+  assert.equal(plan.toneMap, undefined);
   assert.equal(plan.videoEncoderImpl, "hevc_nvenc");
   assert.equal(plan.targetVideoWidth, undefined);
   assert.equal(plan.encoderPreset, undefined);
+});
+
+test("dolby-vision source needing a forced transcode (unrelated hard reason) never gets toneMap either — the absolute rule covers DV, not just HDR10", () => {
+  const plan = decidePlayback({
+    media: media({
+      video: { index: 0, codec: "hevc", profile: "Main 10", width: 3840, height: 2160, hdr: { type: "dolby-vision" } },
+    }),
+    client: client({ videoCapabilities: [{ codec: "hevc", profiles: ["Main"] }] }),
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.ok(plan.reasons.includes("DOLBY_VISION_UNSUPPORTED"));
+  assert.equal(plan.toneMap, undefined);
+});
+
+// container "mp4" + an aac audio track matching the default client's own
+// aac-decode capability — isolates the assertion to HDR alone, since a
+// container or audio mismatch would force a REMUX/DIRECT_STREAM plan on its
+// own regardless of HDR.
+const mp4AacVideo = (overrides: Partial<MediaDescriptor["video"]> = {}) =>
+  media({
+    container: "mp4",
+    video: { index: 0, codec: "hevc", profile: "Main", width: 1920, height: 1080, ...overrides },
+    audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true, forced: false }],
+  });
+
+test("a fully compatible HDR source (no hard reason at all) direct-plays untouched — HDR mismatch alone never forces anything", () => {
+  const plan = decidePlayback({
+    media: mp4AacVideo({ hdr: { type: "hdr10" } }),
+    client: client({ videoCapabilities: [{ codec: "hevc", profiles: ["Main"] }] }), // decodes hevc fine, no hdr capability declared
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "DIRECT_PLAY");
+  assert.equal(plan.toneMap, undefined);
+  assert.ok(plan.reasons.includes("HDR_UNSUPPORTED"));
+});
+
+test("a client that DOES declare HDR support never gets HDR_UNSUPPORTED recorded at all", () => {
+  const plan = decidePlayback({
+    media: mp4AacVideo({ hdr: { type: "hdr10" } }),
+    client: client({ videoCapabilities: [{ codec: "hevc", profiles: ["Main"], hdr: ["hdr10"] }] }),
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "DIRECT_PLAY");
+  assert.equal(plan.toneMap, undefined);
+  assert.ok(!plan.reasons.includes("HDR_UNSUPPORTED"));
+});
+
+test("dolby-vision with a matching base-layer-compatibility fallback (client declares hdr10 support) never gets DOLBY_VISION_UNSUPPORTED or toneMap", () => {
+  const plan = decidePlayback({
+    media: mp4AacVideo({ hdr: { type: "dolby-vision", dolbyVisionBaseLayerCompatibility: "hdr10" } }),
+    client: client({ videoCapabilities: [{ codec: "hevc", profiles: ["Main"], hdr: ["hdr10"] }] }),
+    server: FFMPEG_OK,
+  });
+  assert.equal(plan.mode, "DIRECT_PLAY");
+  assert.equal(plan.toneMap, undefined);
+  assert.ok(!plan.reasons.includes("DOLBY_VISION_UNSUPPORTED"));
+});
+
+test("HDR source needing subtitle BURN (unrelated to HDR) still never gets toneMap", () => {
+  const plan = decidePlayback({
+    media: media({
+      video: { index: 0, codec: "hevc", profile: "Main", width: 1920, height: 1080, hdr: { type: "hdr10" } },
+      subtitleTracks: [{ index: 3, codec: "hdmv_pgs_subtitle", type: "image" }],
+    }),
+    client: client({ videoCapabilities: [{ codec: "hevc", profiles: ["Main"] }], subtitleCapabilities: [] }),
+    server: FFMPEG_OK,
+    selectedSubtitle: 3,
+  });
+  assert.equal(plan.subtitleAction, "BURN");
+  assert.equal(plan.videoAction, "TRANSCODE");
+  assert.equal(plan.toneMap, undefined);
 });
 
 test("a hardware encoder never gets a software-speed resolution cap — real GPU/QSV/etc. keeps up with 4K at real time", () => {

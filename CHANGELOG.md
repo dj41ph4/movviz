@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.19.38 — August 2026
+
+### Une fiche pouvait rester bloquée en chargement indéfiniment
+
+Corrigé : la récupération des informations d'un titre auprès de TMDb n'avait aucune limite de temps — une réponse anormalement lente suffisait à bloquer la fiche indéfiniment sur son écran de chargement, sans jamais échouer ni réessayer. Une limite de temps raisonnable est maintenant en place, avec nouvelle tentative automatique comme pour toute autre erreur réseau.
+
+### Réglage "Moteur de lecture" clarifié : Stable / Auto / Beta
+
+Le réglage administrateur Réglages → Plex gagne deux nouvelles options. "Stable" fige explicitement le comportement de lecture actuel, garanti de ne jamais changer même si "Auto" est repointé plus tard. "Bêta" est le nouveau moteur de décision, désormais capable de gérer aussi bien les films que les épisodes de séries (limité aux films jusqu'ici). Migration automatique et ponctuelle à cette mise à jour : quel que soit le choix actuel, il repasse une seule fois sur "Auto" — pour protéger quiconque avait sélectionné manuellement l'ancien moteur expérimental en pensant, à raison jusqu'ici, que ça ne changerait rien.
+
+### Le contenu HDR/Dolby Vision n'est plus jamais reconverti en SDR
+
+Règle absolue désormais : un titre HDR ou Dolby Vision se lit tel quel, jamais avec une conversion de couleurs vers un rendu standard, même quand un transcodage est de toute façon nécessaire pour une autre raison. Un appareil qui ne gère pas nativement le HDR affiche l'image telle quelle plutôt que d'attendre une conversion coûteuse.
+
+### Indicateur de lecture plus précis
+
+Le badge affiché pendant la lecture (copie/remux/transcodage local) précise désormais si l'encodage matériel (GPU) ou logiciel (CPU) est utilisé.
+
 ## v1.19.37 — August 2026
 
 ### Aperçus vidéo verticaux dans les tendances et sur les fiches

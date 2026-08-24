@@ -258,6 +258,21 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const ffmpegActiveRef = useRef(false);
   ffmpegActiveRef.current = ffmpegActive;
   const [ffmpegStats, setFfmpegStats] = useState<FfmpegDebugStats | null>(null);
+  // Detail behind the top-left "Transcodé (local)" badge when the beta/auto
+  // local engine (decidePlayback) is what's actually running — null for the
+  // legacy Plex ffmpeg leg, which has no PlaybackPlan to report. Surfaces
+  // exactly the two things a user actually needs to see at a glance: is this
+  // a real HDR→SDR tonemap (the exact operation that fell behind real-time
+  // on a weak Synology before — see localExecutor.ts's own comments) and is
+  // it running on a hardware or software encoder (software is the slow,
+  // CPU-bound path most likely to struggle).
+  const [localEnginePlanInfo, setLocalEnginePlanInfo] = useState<{
+    mode: string;
+    toneMap: boolean;
+    videoAction: string;
+    audioAction: string;
+    hardwareEncoder: boolean | null;
+  } | null>(null);
   const [audioStreams, setAudioStreams] = useState<StreamTrack[]>([]);
   const [subtitleStreams, setSubtitleStreams] = useState<StreamTrack[]>([]);
   const [currentAudio, setCurrentAudio] = useState<string | null>(null);
@@ -506,6 +521,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     }
     ffmpegSkippedRef.current = true;
     setFfmpegActive(false);
+    setLocalEnginePlanInfo(null);
     setFfmpegStats(null);
     fallbackGuardRef.current = false;
     setUsingFallback(false);
@@ -763,6 +779,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         ffmpegEngineRef.current = null;
         ffmpegSkippedRef.current = true;
         setFfmpegActive(false);
+        setLocalEnginePlanInfo(null);
         setFfmpegStats(null);
       }
       fallbackGuardRef.current = false;
@@ -795,6 +812,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         ffmpegEngineRef.current = null;
         ffmpegSkippedRef.current = true;
         setFfmpegActive(false);
+        setLocalEnginePlanInfo(null);
         setFfmpegStats(null);
       }
       fallbackGuardRef.current = false;
@@ -802,11 +820,11 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       setUsingFallback(false);
       setBuffering(true);
       // Remux ffmpeg d'abord (transcode du son), HLS en dernier recours —
-      // sauf moteur engine-v2 (ou "auto" sur du contenu local, voir
+      // sauf moteur beta (ou "auto"/"stable" sur du contenu local, voir
       // tryStartLocalEngine), qui remplace entièrement cette leg.
       void (async () => {
         const b = betaRef.current;
-        if (b.playbackEngine === "engine-v2" || (b.playbackEngine === "auto" && localPlayback)) {
+        if (b.playbackEngine === "beta" || ((b.playbackEngine === "auto" || b.playbackEngine === "stable") && localPlayback)) {
           if (!(await tryStartLocalEngine())) maybeStartHls(undefined, true);
           return;
         }
@@ -1107,7 +1125,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         setOptimizing(true);
         {
           const b = betaRef.current;
-          if (b.playbackEngine === "engine-v2" || (b.playbackEngine === "auto" && localPlayback)) {
+          if (b.playbackEngine === "beta" || ((b.playbackEngine === "auto" || b.playbackEngine === "stable") && localPlayback)) {
             if (!(await tryStartLocalEngine(seekTo))) maybeStartHls(undefined, true);
             return;
           }
@@ -1306,7 +1324,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       }
 
       if (strategy === "transcode") {
-        if (betaRef.current.playbackEngine === "engine-v2" || (betaRef.current.playbackEngine === "auto" && localPlayback)) {
+        if (betaRef.current.playbackEngine === "beta" || ((betaRef.current.playbackEngine === "auto" || betaRef.current.playbackEngine === "stable") && localPlayback)) {
           if (!(await tryStartLocalEngine(seekTo))) maybeStartHls(undefined, true);
           return;
         }
@@ -1420,6 +1438,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       // additionnent à tort un ancien seekBase à une leg native suivante.
       ffmpegActiveRef.current = false;
       setFfmpegActive(false);
+      setLocalEnginePlanInfo(null);
       setFfmpegStats(null);
     };
 
@@ -1478,6 +1497,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         });
         ffmpegEngineRef.current = engine;
         isLocalEngineV2Ref.current = false;
+        // Leg historique (pas de PlaybackPlan à rapporter) — efface tout
+        // détail laissé par une tentative précédente du nouveau moteur.
+        setLocalEnginePlanInfo(null);
         // Idem au démarrage : `loadeddata` d'un fMP4 peut être émis avant le
         // rendu qui propage `ffmpegActive` dans son ref. La durée Plex doit
         // déjà être utilisée à ce tout premier évènement.
@@ -1513,20 +1535,19 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     };
     tryStartFfmpegRemuxRef.current = tryStartFfmpegRemux;
 
-    // Nouveau moteur de décision (Phases 9-16, PLAN_REFONTE_MOTEUR_LECTURE_MOVVIZ.md)
-    // — s'engage quand betaRef.current.playbackEngine === "engine-v2" est
-    // explicitement sélectionné dans Réglages → Plex, OU quand le moteur est
-    // sur "auto" ET que le contenu est local (Phase 16 : "auto" n'a
-    // aujourd'hui AUCUN filet de secours qui fonctionne pour un fichier
-    // local nécessitant un remux/transcode — confirmé en direct, la leg
-    // ffmpeg-remux et la leg HLS échouent toutes les deux car aucune vraie
-    // clé Plex n'existe pour ce contenu — donc câbler ce moteur dans "auto"
-    // pour ce cas précis ne peut que corriger un cas déjà cassé, jamais
-    // remplacer un chemin qui fonctionnait). Les choix manuels autres que
-    // "auto"/"engine-v2" (mse/ffmpeg/native/hls) ne déclenchent jamais cette
-    // leg — un choix explicite de dépannage reste intact. Dans tous les cas,
-    // seulement pour du contenu local (movvizId présent, pas de dépendance à
-    // Plex). Réutilise
+    // Moteur de décision (decidePlayback(), src/lib/playback/engine/*) — s'engage
+    // quand betaRef.current.playbackEngine === "beta" est explicitement
+    // sélectionné dans Réglages → Plex, OU quand le moteur est sur
+    // "auto"/"stable" ET que le contenu est local ("auto" n'a aujourd'hui
+    // AUCUN filet de secours qui fonctionne pour un fichier local nécessitant
+    // un remux/transcode — confirmé en direct, la leg ffmpeg-remux et la leg
+    // HLS échouent toutes les deux car aucune vraie clé Plex n'existe pour ce
+    // contenu — donc câbler ce moteur dans "auto" pour ce cas précis ne peut
+    // que corriger un cas déjà cassé, jamais remplacer un chemin qui
+    // fonctionnait). Les choix manuels autres que "auto"/"stable"/"beta"
+    // (mse/ffmpeg/native/hls) ne déclenchent jamais cette leg — un choix
+    // explicite de dépannage reste intact. Dans tous les cas, seulement pour
+    // du contenu local (movvizId présent, pas de dépendance à Plex). Réutilise
     // FfmpegRemuxEngine tel quel côté client (même pipe fMP4/MSE-less déjà
     // éprouvé) — seul le préfixe d'URL change, vers la nouvelle route de
     // session du moteur (/api/playback/session/{id}/stream) au lieu de
@@ -1535,18 +1556,18 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const video = videoRef.current;
       if (!video) return false;
       const b = betaRef.current;
-      // Phase 16 — reachable from "auto" too, not just the explicit
-      // "engine-v2" manual choice: for local (non-Plex) content that needs
-      // a remux/transcode, "auto" today has NO working fallback at all
+      // Reachable from "auto"/"stable" too, not just the explicit "beta"
+      // manual choice: for local (non-Plex) content that needs a
+      // remux/transcode, "auto" today has NO working fallback at all
       // (confirmed live — the ffmpeg-remux leg needs a real Plex ratingKey,
       // the HLS leg needs a real Plex transcode session; a local-only movie
       // has neither, so both fail every time). Wiring this engine into
       // "auto" for exactly that gap can only fix a case that was always
       // broken — it never displaces a path that used to work, and manual
-      // selections other than "auto"/"engine-v2" (mse/ffmpeg/native/hls)
+      // selections other than "auto"/"stable"/"beta" (mse/ffmpeg/native/hls)
       // are left completely alone, respecting an explicit troubleshooting
       // choice.
-      const engineSelected = b.playbackEngine === "engine-v2" || b.playbackEngine === "auto";
+      const engineSelected = b.playbackEngine === "beta" || b.playbackEngine === "auto" || b.playbackEngine === "stable";
       if (!b.enabled || !engineSelected || !localPlayback || !movvizId) return false;
       try {
         const clientProfile = await detectDesktopClientProfile(getOrCreateDeviceId(), "1.0");
@@ -1564,7 +1585,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         if (!prepRes.ok) return false;
         const prep = (await prepRes.json()) as {
           sessionId: string;
-          plan: { mode: string };
+          plan: { mode: string; toneMap?: boolean; videoAction?: string; audioAction?: string; videoEncoderImpl?: string };
           stream: { url: string };
           media: { durationMs?: number };
           tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] };
@@ -1573,6 +1594,19 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         // leg : le premier est déjà couvert par startDirect, les seconds
         // n'ont rien qu'un remux/transcode local puisse résoudre.
         if (prep.plan.mode !== "REMUX" && prep.plan.mode !== "DIRECT_STREAM" && prep.plan.mode !== "TRANSCODE") return false;
+        // videoEncoderImpl carries the exact ffmpeg -c:v value (e.g.
+        // "hevc_nvenc" vs "libx265") — matches localExecutor.ts's own
+        // HARDWARE_SUFFIXES convention for telling the two apart.
+        const HARDWARE_ENCODER_SUFFIXES = ["_nvenc", "_qsv", "_vaapi", "_amf"];
+        setLocalEnginePlanInfo({
+          mode: prep.plan.mode,
+          toneMap: !!prep.plan.toneMap,
+          videoAction: prep.plan.videoAction ?? "COPY",
+          audioAction: prep.plan.audioAction ?? "COPY",
+          hardwareEncoder: prep.plan.videoEncoderImpl
+            ? HARDWARE_ENCODER_SUFFIXES.some((suffix) => prep.plan.videoEncoderImpl!.endsWith(suffix))
+            : null,
+        });
 
         // Même raison que la leg ffmpeg existante (onLoadedData plus bas) :
         // un MP4 fragmenté empty_moov n'a pas de durée totale connue côté
@@ -2311,6 +2345,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       ffmpegEngineRef.current = null;
       ffmpegSkippedRef.current = true;
       setFfmpegActive(false);
+      setLocalEnginePlanInfo(null);
       setFfmpegStats(null);
       void engine.destroy().catch(() => void 0);
     }
@@ -2341,6 +2376,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       ffmpegEngineRef.current = null;
       ffmpegSkippedRef.current = true;
       setFfmpegActive(false);
+      setLocalEnginePlanInfo(null);
       setFfmpegStats(null);
       void engine.destroy().catch(() => void 0);
     }
@@ -2462,7 +2498,23 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                 {ffmpegActive && (
                   <span className="flex h-6 items-center gap-1.5 rounded-full border border-white/10 bg-black/45 px-2.5 text-[10px] font-semibold text-white/85 backdrop-blur-xl">
                     <span className="h-1.5 w-1.5 rounded-full bg-purple text-purple shadow-[0_0_8px_currentColor]" />
-                    {t("player.betaFfmpegLocal")}
+                    {localEnginePlanInfo
+                      ? [
+                          localEnginePlanInfo.mode === "REMUX"
+                            ? t("player.betaModeRemux")
+                            : localEnginePlanInfo.mode === "DIRECT_STREAM"
+                              ? t("player.betaModeDirectStream")
+                              : t("player.betaModeTranscode"),
+                          localEnginePlanInfo.toneMap ? t("player.betaToneMap") : null,
+                          localEnginePlanInfo.mode === "TRANSCODE" && localEnginePlanInfo.hardwareEncoder !== null
+                            ? localEnginePlanInfo.hardwareEncoder
+                              ? t("player.betaHardwareEncoder")
+                              : t("player.betaSoftwareEncoder")
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")
+                      : t("player.betaFfmpegLocal")}
                   </span>
                 )}
               </div>
