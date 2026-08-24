@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.29 — August 2026
+
+### Plus de bande-annonce au format portrait dans les aperçus
+
+Depuis que le teaser est privilégié à la bande-annonce classique pour les fonds animés (carrousel, fiche, survol d'affiche), certains studios publient leur teaser en format vertical (pensé pour les réseaux sociaux) — étiré/recadré dans une boîte 16:9, le rendu était mauvais. Les vidéos verticales sont désormais écartées de la sélection ; le teaser reste toujours privilégié quand une version au bon format existe.
+
 ## v1.19.28 — August 2026
 
 ### Aperçu vidéo au survol d'une affiche

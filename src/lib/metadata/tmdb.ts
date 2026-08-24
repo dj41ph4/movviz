@@ -12,6 +12,7 @@ import { loadTmdbKey } from "./store";
 import { getCache } from "@/lib/cache/registry";
 import { omdbConfigured, getOmdbRatings } from "./omdb";
 import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
+import { excludePortrait } from "./youtubeOrientation";
 import { translateStatus } from "./statusTranslations";
 import { STREAMING_PLATFORMS } from "./curated";
 import { LOCALES } from "@/i18n/config";
@@ -1108,10 +1109,11 @@ async function selectVideoCandidates(
   }
 
   const ctx = { userLanguage: preferLanguage, originalLanguage, supportedLanguages: LOCALES };
-  return {
-    trailerKeys: selectMediaVideo(pool, { ...ctx, context: "details" }),
-    ambientVideoKeys: selectMediaVideo(pool, { ...ctx, context: "carousel" }),
-  };
+  const [trailerKeys, ambientVideoKeys] = await Promise.all([
+    excludePortrait(selectMediaVideo(pool, { ...ctx, context: "details" })),
+    excludePortrait(selectMediaVideo(pool, { ...ctx, context: "carousel" })),
+  ]);
+  return { trailerKeys, ambientVideoKeys };
 }
 
 interface RawWatchProviders {
