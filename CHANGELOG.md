@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.19.33 — August 2026
+
+### Découverte sur Android TV et smartphone
+
+Les deux clients Android rattrapent Découverte : mêmes rangées éditoriales que le web (dont la rangée personnalisée "parce que vous avez regardé/aimé"), même filtre par genre avec Anime et Romance ado inclus, "Tout voir" en grille paginée. Nouveau sur smartphone, où cette section n'existait pas encore.
+
+### Lecteur Android — même habillage que le web
+
+Barre de progression et écran "Optimisation en cours" (avec le logo animé) repris à l'identique sur les deux clients Android, pour une expérience cohérente quel que soit l'appareil. Sur smartphone, la vignette qui apparaît en faisant glisser le curseur affiche maintenant un vrai aperçu de l'image à cet instant, plus un simple repère temporel.
+
+### Suivi de téléchargement en temps réel des séries sur Android TV
+
+La fiche d'une série sur Android TV affiche désormais, pour chaque épisode en cours de récupération, sa progression, sa vitesse et le temps restant — mis à jour en direct, sans avoir à quitter puis rouvrir la fiche. Aligné sur ce que le client smartphone proposait déjà.
+
 ## v1.19.32 — August 2026
 
 ### Images chargées directement depuis Internet (optionnel)
