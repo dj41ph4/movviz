@@ -323,7 +323,7 @@ export const TASKS: ScheduledTask[] = [
       try {
         const result = await recoverDownloads();
         if (result.recovered.length > 0) {
-          emitNotification("downloads_recovered", `${result.recovered.length} téléchargement(s) terminé(s) récupéré(s) depuis le dossier de téléchargement`, "/activity?tab=queue", { count: result.recovered.length });
+          emitNotification("downloads_recovered", `${result.recovered.length} téléchargement(s) terminé(s) récupéré(s) depuis le dossier de téléchargement`, "/downloads?tab=queue", { count: result.recovered.length });
         }
         console.log(`[scheduler] stuck-downloads-recover: ${result.recovered.length} récupéré(s), ${result.failed.length} ignoré(s), ${result.duplicates.length} doublon(s)`);
       } catch (e) {

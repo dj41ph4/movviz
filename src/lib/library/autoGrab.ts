@@ -23,7 +23,7 @@ import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
 import { notifySeerrProcessingOnce } from "@/lib/seerr/mediaMap";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { searchMovie, searchIndexer } from "@/lib/indexers/torznab";
-import { normalizeTitle } from "@/lib/library/matching";
+import { normalizeTitle, pickSearchTitle } from "@/lib/library/matching";
 import { loadIndexers } from "@/lib/indexers/store";
 import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
 import { movieHasReleased } from "@/lib/library/releaseSchedule";
@@ -195,11 +195,13 @@ async function searchAndGrabMovieInner(movie: LibraryMovie) {
   // Scene/tracker releases are always named after the ORIGINAL title (e.g.
   // "The Man from Toronto" vs the French "Un homme de Toronto") — searching
   // the localized title alone misses real releases. The original title
-  // becomes the primary search target; the localized title stays as an alias.
-  const searchTitle = movie.originalTitle && movie.originalTitle !== movie.title ? movie.originalTitle : movie.title;
+  // becomes the primary search target; the localized title stays as an
+  // alias. Unless the original title is itself in a non-Latin script — see
+  // pickSearchTitle's own comment.
+  const searchTitle = pickSearchTitle(movie.title, movie.originalTitle);
   const searchAliases = [
     ...(movie.aliases ?? []),
-    ...(movie.originalTitle && movie.originalTitle !== movie.title ? [movie.originalTitle] : []),
+    ...(searchTitle !== movie.title ? [searchTitle] : []),
   ];
 
   const rules = loadReleaseRules();

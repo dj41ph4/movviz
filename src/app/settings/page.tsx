@@ -37,7 +37,7 @@ import { CleanDirsPanel } from "@/components/settings/CleanDirsPanel";
 import { RecoverDownloadsPanel } from "@/components/settings/RecoverDownloadsPanel";
 import { MediaProbePanel } from "@/components/settings/MediaProbePanel";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { ChevronDown, X, Search } from "lucide-react";
+import { ChevronDown, X, Search, LayoutGrid } from "lucide-react";
 import { AboutPanel } from "@/components/settings/AboutPanel";
 import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
@@ -45,7 +45,8 @@ import { DashboardExperiencePanel } from "@/components/settings/DashboardExperie
 import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
 import { GpuSettingsPanel } from "@/components/settings/GpuSettingsPanel";
 import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
-import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT } from "@/lib/settingsNav";
+import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT, matchesSettingsQuery } from "@/lib/settingsNav";
+import { SettingsHome } from "@/components/settings/SettingsHome";
 
 const TABS = SETTINGS_TABS;
 const GROUP_ORDER = SETTINGS_GROUP_ORDER;
@@ -65,28 +66,29 @@ function SettingsPageInner() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const initialTab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "clients";
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab);
+  const initialTab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "home";
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"] | "home">(initialTab);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
   const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
-  const activeTab = visibleTabs.find((tb) => tb.id === tab) ?? visibleTabs[0];
+  // "home" is deliberately not a SETTINGS_TABS entry (not a searchable
+  // "setting", it's the pre-selection landing state) — null here means the
+  // sidebar/mobile header show a generic fallback instead of a highlighted tab.
+  const activeTab = tab === "home" ? null : (visibleTabs.find((tb) => tb.id === tab) ?? visibleTabs[0]);
 
-  const pushTab = (id: (typeof TABS)[number]["id"]) => {
+  const pushTab = (id: (typeof TABS)[number]["id"] | "home") => {
     setTab(id);
     const p = new URLSearchParams(params.toString());
-    if (id === "clients") p.delete("tab");
+    if (id === "home") p.delete("tab");
     else p.set("tab", id);
     router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
   };
 
-  // "où est l'option X" — filtre par nom ET par description (hintKey), pas
-  // juste le libellé du bouton, pour retrouver un réglage même sans en
-  // connaître le nom exact de l'onglet qui le contient.
+  // "où est l'option X" — filtre par nom, description (hintKey) ET mots-clés
+  // d'intention, pas juste le libellé du bouton, pour retrouver un réglage
+  // même sans en connaître le nom exact de l'onglet qui le contient.
   const q = filterQuery.trim().toLowerCase();
-  const matchingTabs = q
-    ? visibleTabs.filter((tb) => t(tb.labelKey).toLowerCase().includes(q) || t(tb.hintKey).toLowerCase().includes(q))
-    : visibleTabs;
+  const matchingTabs = q ? visibleTabs.filter((tb) => matchesSettingsQuery(tb, q, t)) : visibleTabs;
 
   const groups = GROUP_ORDER.map((g) => ({
     id: g,
@@ -159,8 +161,8 @@ function SettingsPageInner() {
         onClick={() => setMobileNavOpen(true)}
         className="mb-5 flex w-full items-center gap-2.5 rounded-xl glass px-4 py-3 text-sm font-semibold text-ink md:hidden"
       >
-        {activeTab && <activeTab.icon className="h-4 w-4 shrink-0 text-brand-glow" />}
-        <span className="flex-1 truncate text-left">{activeTab ? t(activeTab.labelKey) : ""}</span>
+        {activeTab ? <activeTab.icon className="h-4 w-4 shrink-0 text-brand-glow" /> : <LayoutGrid className="h-4 w-4 shrink-0 text-brand-glow" />}
+        <span className="flex-1 truncate text-left">{activeTab ? t(activeTab.labelKey) : t("settings.title")}</span>
         <ChevronDown className="h-4 w-4 shrink-0 text-ink-dim" />
       </button>
 
@@ -192,6 +194,13 @@ function SettingsPageInner() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
+              <button
+                onClick={() => { pushTab("home"); setMobileNavOpen(false); }}
+                className="mb-3 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold text-ink-soft ring-focus hover:text-ink"
+              >
+                <LayoutGrid className="h-4 w-4 shrink-0" />
+                {t("settings.homeLink")}
+              </button>
               <div className="relative mb-3">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim" />
                 <input
@@ -211,6 +220,16 @@ function SettingsPageInner() {
 
       <div className="md:grid md:grid-cols-[224px_1fr] md:items-start md:gap-8">
         <nav className="hidden flex-col gap-4 md:sticky md:top-24 md:flex">
+          <button
+            onClick={() => pushTab("home")}
+            className={cn(
+              "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold ring-focus",
+              tab === "home" ? "text-brand-glow" : "text-ink-soft hover:text-ink"
+            )}
+          >
+            <LayoutGrid className="h-4 w-4 shrink-0" />
+            {t("settings.homeLink")}
+          </button>
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim" />
             <input
@@ -226,6 +245,8 @@ function SettingsPageInner() {
         </nav>
 
         <div className="min-w-0">
+          {tab === "home" && <SettingsHome onNavigate={pushTab} />}
+
           {tab === "dashboard" && <DashboardExperiencePanel />}
           {tab === "experience" && <ExperiencePanel />}
           {tab === "gpu" && <GpuSettingsPanel />}

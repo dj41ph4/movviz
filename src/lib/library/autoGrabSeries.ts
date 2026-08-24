@@ -8,7 +8,7 @@ import type { IndexerRelease } from "@/lib/indexers/types";
 import { TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { parseRelease } from "@/lib/naming/parser";
 import type { ReleaseInfo } from "@/lib/naming/types";
-import { releaseTitleMatches, yearIsCompatible, partPackInfo } from "@/lib/library/matching";
+import { releaseTitleMatches, yearIsCompatible, partPackInfo, pickSearchTitle } from "@/lib/library/matching";
 import { getReleaseMatchPool } from "@/lib/workers/releaseMatchPool";
 import { withinSizeLimit, loadReleaseRules, compareBySizePreference, perceptualSizeBytes, type ReleaseRules } from "@/lib/library/releaseRules";
 import { isBlockedForAutoGrab } from "@/lib/library/decisionGuard";
@@ -567,11 +567,15 @@ async function grabRelease(
   // "My.Life.With.The.Walter.Boys") never matches anything. The original
   // title becomes the primary search target; the localized title stays as
   // an alias (verified live: C411 + TR4KER both return 0 for the FR title,
-  // plenty of hits for the EN one).
-  const searchTitle = series.originalTitle && series.originalTitle !== series.title ? series.originalTitle : series.title;
+  // plenty of hits for the EN one). Unless the original title is itself in a
+  // non-Latin script (pickSearchTitle) — no release is ever named in
+  // Japanese/Chinese/Korean/etc, so it would be a guaranteed zero-match
+  // search target instead of a better one (confirmed live: "BAKI-DOU : Le
+  // samouraï invincible", original title "刃牙道", matched 0 of 75 releases).
+  const searchTitle = pickSearchTitle(series.title, series.originalTitle);
   const searchAliases = [
     ...(series.aliases ?? []),
-    ...(series.originalTitle && series.originalTitle !== series.title ? [series.originalTitle] : []),
+    ...(searchTitle !== series.title ? [searchTitle] : []),
   ];
 
   recordSearchLog("debug", "grab_release.cache_read", `${label} — cache RSS donne ${releases.length} release(s) (${cacheMs}ms)`, cacheMs);
@@ -1427,13 +1431,12 @@ export async function searchCompleteSeriesCandidates(
   const targets = collectMissingTargets(series).filter((t) => !seasonFilter || seasonFilter.has(t.season));
   if (targets.length === 0) return null;
   const targetSeasons = [...new Set(targets.map((t) => t.season))];
-  // Same original-title preference as grabRelease: scene releases are named
-  // after the original (usually English) title — a French title alone never
-  // matches a pack release. The localized title stays as an alias.
-  const searchTitle = series.originalTitle && series.originalTitle !== series.title ? series.originalTitle : series.title;
+  // Same original-title preference (and non-Latin-script guard) as
+  // grabRelease — see pickSearchTitle's own comment.
+  const searchTitle = pickSearchTitle(series.title, series.originalTitle);
   const searchAliases = [
     ...(series.aliases ?? []),
-    ...(series.originalTitle && series.originalTitle !== series.title ? [series.originalTitle] : []),
+    ...(searchTitle !== series.title ? [searchTitle] : []),
   ];
 
   const t0 = performance.now();

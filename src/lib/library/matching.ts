@@ -17,6 +17,33 @@ const DIACRITICS_RE = new RegExp(
   "g"
 );
 
+// Non-Latin scripts a title can legitimately be written in — CJK, Hangul,
+// Cyrillic, Arabic, Hebrew, Thai, Devanagari. Scene/tracker releases are
+// virtually always named in Latin script regardless of the work's actual
+// origin (confirmed live: "BAKI-DOU : Le samouraï invincible", TMDb original
+// title "刃牙道", has zero releases matching against the Japanese title
+// across 75 raw indexer results — every release is named "BAKI DOU..." in
+// Latin script). A single character in one of these ranges is enough to
+// disqualify the whole string as a search target.
+const NON_LATIN_SCRIPT_RE = /[぀-ヿ㐀-鿿가-힯Ѐ-ӿ؀-ۿ֐-׿฀-๿ऀ-ॿ]/;
+
+/**
+ * Picks the best title to search torrent indexers with. The original title
+ * usually wins over the localized one (a French title like "Ma vie avec les
+ * Walter Boys" never matches a release named "My.Life.With.The.Walter.Boys"
+ * — scene releases are named after the original). But when the original
+ * title is itself written in a non-Latin script, it's useless as a search
+ * target — no scene release is ever named in Japanese/Chinese/Korean/
+ * Cyrillic/etc — so the localized title (whatever script it's actually
+ * released under in the West) is the only usable fallback, imperfect as it
+ * may be.
+ */
+export function pickSearchTitle(title: string, originalTitle: string | null | undefined): string {
+  if (!originalTitle || originalTitle === title) return title;
+  if (NON_LATIN_SCRIPT_RE.test(originalTitle)) return title;
+  return originalTitle;
+}
+
 export function normalizeTitle(s: string): string {
   return s
     .toLowerCase()

@@ -38,7 +38,7 @@ export const NAV: NavItem[] = [
   // and a redirect happens before the client ever sees "/collections" as
   // the pathname, which silently broke this row's active state.
   { href: "/library?tab=collection", labelKey: "nav.collections", hintKey: "nav.collectionsHint", icon: LibraryBig },
-  { href: "/activity", labelKey: "nav.downloads", hintKey: "nav.activityHint", icon: Download, liveBadge: "activeDownloads" },
+  { href: "/downloads", labelKey: "nav.downloads", hintKey: "nav.activityHint", icon: Download, liveBadge: "activeDownloads" },
   { href: "/calendar", labelKey: "nav.calendar", hintKey: "nav.calendarHint", icon: CalendarDays },
   { href: "/search", labelKey: "nav.torrent", hintKey: "nav.torrentHint", icon: Search },
   { href: "/settings", labelKey: "nav.settings", hintKey: "nav.settingsHint", icon: Settings },

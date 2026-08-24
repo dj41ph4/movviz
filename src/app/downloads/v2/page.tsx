@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function ActivityPageV2Redirect() {
+export default function DownloadsPageV2Redirect() {
   redirect("/downloads");
 }

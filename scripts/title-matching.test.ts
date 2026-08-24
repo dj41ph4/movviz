@@ -1,7 +1,27 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { titleSimilarity, releaseTitleMatches } from "@/lib/library/matching";
+import { titleSimilarity, releaseTitleMatches, pickSearchTitle } from "@/lib/library/matching";
 import { sanitizeQuery } from "@/lib/indexers/torznab";
+
+test("pickSearchTitle : un titre original en script non-latin est inexploitable, retombe sur le titre localisé (cas réel : BAKI-DOU, titre original 刃牙道, 0 résultat sur 75 releases indexées)", () => {
+  assert.equal(pickSearchTitle("BAKI-DOU : Le samouraï invincible", "刃牙道"), "BAKI-DOU : Le samouraï invincible");
+});
+
+test("pickSearchTitle : préfère le titre original en script latin (les releases scene sont nommées d'après lui)", () => {
+  assert.equal(pickSearchTitle("Un homme de Toronto", "The Man from Toronto"), "The Man from Toronto");
+});
+
+test("pickSearchTitle : pas de titre original distinct => garde le titre tel quel", () => {
+  assert.equal(pickSearchTitle("Inception", null), "Inception");
+  assert.equal(pickSearchTitle("Inception", "Inception"), "Inception");
+});
+
+test("pickSearchTitle : rejette aussi le cyrillique, l'arabe, le coréen et le thaï, pas seulement le CJK", () => {
+  assert.equal(pickSearchTitle("Le titre localisé", "Оригинал"), "Le titre localisé");
+  assert.equal(pickSearchTitle("Le titre localisé", "العنوان الأصلي"), "Le titre localisé");
+  assert.equal(pickSearchTitle("Le titre localisé", "오리지널 제목"), "Le titre localisé");
+  assert.equal(pickSearchTitle("Le titre localisé", "ชื่อเรื่องต้นฉบับ"), "Le titre localisé");
+});
 
 test("un mot entièrement différent rejette le match même si les caractères sont proches (How I Met Your Father != Mother)", () => {
   // Confirmed live: this exact pair scored ~0.91 (well above the 0.72

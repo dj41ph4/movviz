@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.19.23 — August 2026
+
+### Recherche de release en échec pour un titre original en script non-latin
+
+Un film ou une série dont le titre original TMDb est écrit en japonais, chinois, coréen, russe, arabe, thaï… ne trouvait plus aucune release à télécharger : la recherche automatique privilégiait toujours le titre original, mais aucune release scene n'est jamais nommée dans ces écritures. Elle retombe désormais sur le titre localisé (celui affiché dans Movviz) dès que le titre original n'est pas exploitable pour une recherche, aussi bien pour les films que pour les séries.
+
+### Nouvel accueil des réglages
+
+La page Réglages s'ouvre désormais sur un accueil avec une recherche par intention ("film absent", "lenteur", "Plex"…), des cartes d'état (Plex, client de téléchargement, métadonnées, stockage) et des raccourcis vers les réglages les plus utilisés. La barre latérale existante reste accessible telle quelle depuis n'importe quel réglage — tous les liens `?tab=...` déjà en circulation continuent de fonctionner à l'identique.
+
+### La page "Activité" s'appelle maintenant "Téléchargements"
+
+Le menu appelait déjà cette section "Téléchargements", mais la page elle-même affichait encore "Activité" / "Centre d'activité", et son adresse restait `/activity`. Les deux sont maintenant alignés : la page vit à `/downloads` et affiche "Téléchargements" partout. L'ancienne adresse `/activity` redirige automatiquement vers la nouvelle, avec l'onglet actif préservé — aucun lien ni marque-page existant ne casse.
+
 ## v1.19.22 — August 2026
 
 ### Changement de piste audio/sous-titres : fin du repli silencieux vers l'ancien circuit

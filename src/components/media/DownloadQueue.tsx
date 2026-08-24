@@ -114,7 +114,7 @@ export function DownloadQueue() {
       </div>
 
       {queued.length > VISIBLE_LIMIT && (
-          <Link href="/activity" className="mt-3 block text-center text-xs font-semibold text-brand-glow hover:text-brand">
+          <Link href="/downloads" className="mt-3 block text-center text-xs font-semibold text-brand-glow hover:text-brand">
             {t("dashboard.viewQueue", { n: queued.length - VISIBLE_LIMIT })}
           </Link>
         )}

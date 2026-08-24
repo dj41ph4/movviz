@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { Search, CornerDownLeft, Compass, Loader2, Film, Tv, SlidersHorizontal } from "lucide-react";
 import { NAV } from "@/lib/nav";
-import { SETTINGS_TABS } from "@/lib/settingsNav";
+import { SETTINGS_TABS, matchesSettingsQuery } from "@/lib/settingsNav";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
@@ -151,14 +151,14 @@ export function CommandPaletteProvider({
     );
     const settingsTabs = SETTINGS_TABS
       .filter((tb) => !tb.adminOnly || user?.role === "admin")
+      .filter((tb) => matchesSettingsQuery(tb, q, t))
       .map((tb) => ({
         kind: "setting" as const,
         id: `settings-${tb.id}`,
         label: t(tb.labelKey),
         sub: t(tb.hintKey),
-        href: tb.id === "clients" ? "/settings" : `/settings?tab=${tb.id}`,
-      }))
-      .filter((s) => !q || s.label.toLowerCase().includes(q) || s.sub.toLowerCase().includes(q));
+        href: `/settings?tab=${tb.id}`,
+      }));
     const matchedTitles = titles
       .filter((m) => !q || m.title.toLowerCase().includes(q))
       .slice(0, 4)
