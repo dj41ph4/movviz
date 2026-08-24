@@ -206,6 +206,18 @@ function pickTranscodeVideoCodec(client: ClientPlaybackProfile, server: ServerPl
   return client.videoCapabilities[0]?.codec ?? "h264";
 }
 
+// x264/x265/svtav1 presets trade compression efficiency for encode speed —
+// "the less we ask the encoder to compress, the less CPU it burns finding
+// how" (the same principle already behind SOFTWARE_ENCODER_PRESET, just
+// pushed further for the one case that needed it). Reserved for software +
+// tonemap together (see SOFTWARE_TONEMAP_MAX_WIDTH above) rather than
+// applied everywhere — "veryfast" already comfortably kept up in the same
+// live session for plain SDR software transcodes (no reason to trade away
+// quality nobody needs), it was specifically the tonemap combination that
+// fell behind. A bigger file for a case that was otherwise unplayable is a
+// trade worth making.
+const SOFTWARE_TONEMAP_PRESET = "ultrafast";
+
 /**
  * TODO_POST_MOTEUR_LECTURE.md item 4 — picks the actual ffmpeg -c:v
  * implementation for a forced video transcode, preferring hardware over
@@ -216,11 +228,11 @@ function pickTranscodeVideoCodec(client: ClientPlaybackProfile, server: ServerPl
  * a fast software preset only when no hardware encoder is available at all —
  * the "weak Synology" case this item exists to cover.
  */
-function pickVideoEncoderImpl(codec: string, server: ServerPlaybackCapabilities): { impl: string; preset?: string; isHardware: boolean } {
+function pickVideoEncoderImpl(codec: string, server: ServerPlaybackCapabilities, needsToneMap: boolean): { impl: string; preset?: string; isHardware: boolean } {
   const hwCandidate = HARDWARE_SUFFIXES.map((suffix) => `${codec}${suffix}`).find((name) => server.videoEncoders.includes(name));
   if (hwCandidate) return { impl: hwCandidate, isHardware: true };
   const impl = SOFTWARE_ENCODER[codec] ?? `lib${codec}`;
-  return { impl, preset: SOFTWARE_ENCODER_PRESET, isHardware: false };
+  return { impl, preset: needsToneMap ? SOFTWARE_TONEMAP_PRESET : SOFTWARE_ENCODER_PRESET, isHardware: false };
 }
 
 // A software encoder with no hardware backend has to actually keep up with
@@ -330,7 +342,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       };
     }
     const targetVideoCodec = pickTranscodeVideoCodec(client, server);
-    const encoder = pickVideoEncoderImpl(targetVideoCodec, server);
+    const encoder = pickVideoEncoderImpl(targetVideoCodec, server, videoCheck.toneMapNeeded === true);
     const targetCap = client.videoCapabilities.find((c) => normalizeCodecName(c.codec) === targetVideoCodec);
     const clientMaxWidth = targetCap?.maxWidth ?? client.maxWidth;
     return {

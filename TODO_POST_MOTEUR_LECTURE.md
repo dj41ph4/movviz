@@ -267,3 +267,13 @@ parallèle sur le même NAS — le débit du téléchargement s'est effondré de
 34,5 Mo/s à 4,3 Mo/s pendant le test de lecture, la preuve que les deux
 activités se disputaient les mêmes ressources limitées. Le téléchargement a
 dû être mis en pause pour obtenir une mesure fiable, isolée de ce bruit.
+
+**Complété dans la foulée, même principe poussé plus loin** : en plus du
+plafond de résolution plus strict, le préset d'encodeur logiciel passe à
+`ultrafast` (au lieu de `veryfast`) spécifiquement pour la combinaison
+encodage logiciel + tonemap — moins de compression demandée à l'encodeur =
+moins de calcul par image, fichier plus gros en échange (acceptable pour un
+cas qui sinon ne joue pas du tout). N'importe qui d'autre (encodage logiciel
+seul, encodage matériel avec tonemap) garde son réglage précédent — testé
+et confirmé qu'aucune régression n'est introduite ailleurs. 314 tests
+passent.

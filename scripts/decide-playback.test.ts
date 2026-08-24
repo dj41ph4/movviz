@@ -422,6 +422,7 @@ test("software encoding a source that ALSO needs HDR→SDR tonemap gets a tighte
   assert.equal(plan.toneMap, true);
   assert.equal(plan.videoEncoderImpl, "libx265");
   assert.equal(plan.targetVideoWidth, 1280);
+  assert.equal(plan.encoderPreset, "ultrafast");
 });
 
 test("a hardware encoder with tonemap still gets NO software-speed cap — a real GPU handles tonemap+encode at real time too", () => {
@@ -435,6 +436,7 @@ test("a hardware encoder with tonemap still gets NO software-speed cap — a rea
   assert.equal(plan.toneMap, true);
   assert.equal(plan.videoEncoderImpl, "hevc_nvenc");
   assert.equal(plan.targetVideoWidth, undefined);
+  assert.equal(plan.encoderPreset, undefined);
 });
 
 test("a hardware encoder never gets a software-speed resolution cap — real GPU/QSV/etc. keeps up with 4K at real time", () => {

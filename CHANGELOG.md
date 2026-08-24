@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.11 — August 2026
+
+### Nouveau moteur (expérimental) : préset d'encodage plus rapide pour le cas HDR→SDR le plus exigeant
+
+Complète directement le correctif de la 1.19.10 : demander à l'encodeur logiciel de moins optimiser la compression (fichier un peu plus gros, en échange de bien moins de calcul par image) lui laisse une vraie marge pour rester devant la lecture — appliqué uniquement à la combinaison encodage logiciel + conversion HDR→SDR, la seule qui en avait besoin ; tout le reste (y compris un simple encodage logiciel sans HDR) garde exactement le même réglage qu'avant.
+
 ## v1.19.10 — August 2026
 
 ### Nouveau moteur (expérimental) : la conversion HDR→SDR avait besoin de sa propre limite de résolution
