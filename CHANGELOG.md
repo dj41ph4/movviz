@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.19.10 — August 2026
+
+### Nouveau moteur (expérimental) : la conversion HDR→SDR avait besoin de sa propre limite de résolution
+
+Troisième correctif trouvé en testant en direct sur le serveur de production, sur un contenu encore plus exigeant (4K Dolby Vision) : même après les deux correctifs de la 1.19.08 et de la 1.19.09, ce contenu précis retombait toujours en mémoire tampon sans jamais avancer.
+
+- **Cause trouvée et corrigée** : la conversion HDR vers SDR (nécessaire quand l'appareil de lecture ne sait pas afficher le HDR) ajoute un vrai coût de calcul supplémentaire, au-delà du simple encodage — confirmé par comparaison directe avec un contenu 4K de résolution équivalente ne nécessitant pas cette conversion, qui lui suivait parfaitement la lecture. La limite de résolution pour un encodage logiciel est maintenant plus stricte spécifiquement quand une conversion HDR→SDR est aussi nécessaire, pour donner à ce cas plus exigeant une vraie chance de rester devant la lecture en temps réel.
+
 ## v1.19.09 — August 2026
 
 ### Nouveau moteur (expérimental) : la vidéo cible de secours suivait mal le direct sur serveur modeste

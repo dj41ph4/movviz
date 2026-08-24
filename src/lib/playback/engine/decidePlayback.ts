@@ -232,6 +232,22 @@ function pickVideoEncoderImpl(codec: string, server: ServerPlaybackCapabilities)
 // not invented, number for "safe on modest hardware."
 const SOFTWARE_TRANSCODE_MAX_WIDTH = 1920;
 
+// Reproduced live on the real production Synology (2026-08-24, "Dragons" —
+// a 4K Dolby Vision profile 8 source): even AFTER both the h264 software
+// target fix and the 1920px cap above, playback still fell hopelessly
+// behind real time (stuck buffering, 0 forward progress over 15+ seconds
+// with zero other load on the box). The zscale/tonemap HDR→SDR chain
+// (decidePlayback's own toneMap flag) does a full linear-light float32
+// round-trip on every frame — a real, substantial extra cost on top of
+// decode+scale+encode, confirmed by elimination: a same-resolution SDR 4K
+// software transcode with no tonemap (see the "Soixante 9" case, same
+// session) stayed comfortably ahead of real time at the same 1920px cap.
+// Tonemap-on-software needs a tighter ceiling than plain software transcode
+// to have a real chance of staying ahead — this number is a starting point
+// to re-verify live on the same hardware, not a value derived from a
+// benchmark (no way to profile this specific weak NAS from outside it).
+const SOFTWARE_TONEMAP_MAX_WIDTH = 1280;
+
 /**
  * Only ever downscales — never upscales, and never touches a hardware
  * encode (a real GPU/QSV/etc. encoder handles 4K at real-time speed; the
@@ -241,10 +257,12 @@ const SOFTWARE_TRANSCODE_MAX_WIDTH = 1920;
  * cap when both would apply, since it's the more specific, better-known
  * constraint.
  */
-function pickTargetVideoWidth(sourceWidth: number | undefined, clientMaxWidth: number | undefined, isHardwareEncoder: boolean): number | undefined {
+function pickTargetVideoWidth(sourceWidth: number | undefined, clientMaxWidth: number | undefined, isHardwareEncoder: boolean, needsToneMap: boolean): number | undefined {
   if (!sourceWidth) return undefined;
   if (clientMaxWidth && sourceWidth > clientMaxWidth) return clientMaxWidth;
-  if (!isHardwareEncoder && sourceWidth > SOFTWARE_TRANSCODE_MAX_WIDTH) return SOFTWARE_TRANSCODE_MAX_WIDTH;
+  if (isHardwareEncoder) return undefined;
+  const cap = needsToneMap ? SOFTWARE_TONEMAP_MAX_WIDTH : SOFTWARE_TRANSCODE_MAX_WIDTH;
+  if (sourceWidth > cap) return cap;
   return undefined;
 }
 
@@ -323,7 +341,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       targetVideoCodec,
       videoEncoderImpl: encoder.impl,
       encoderPreset: encoder.preset,
-      targetVideoWidth: pickTargetVideoWidth(media.video.width, clientMaxWidth, encoder.isHardware),
+      targetVideoWidth: pickTargetVideoWidth(media.video.width, clientMaxWidth, encoder.isHardware, videoCheck.toneMapNeeded === true),
       toneMap: videoCheck.toneMapNeeded || undefined,
       audioAction: needsAudioTranscode ? "TRANSCODE" : "COPY",
       targetAudioCodec: audioTranscodeTarget?.codec,

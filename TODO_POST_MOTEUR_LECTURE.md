@@ -234,3 +234,36 @@ même raison. Vérifié par 2 nouveaux tests dédiés (`scripts/decide-playback.
 aucun encodeur matériel vérifié → h264 malgré une préférence client pour av1 ;
 un encodeur matériel av1 réellement vérifié → av1 reste préféré, sans
 régression. 312 tests passent.
+
+## 8. Suite du test réel en prod — le tonemap HDR→SDR avait besoin de sa propre limite, 2026-08-24
+
+Une fois le correctif du point 7 déployé, "Dragons" retombait TOUJOURS en
+mémoire tampon sans jamais avancer (0 progression sur 15+ secondes), cette
+fois avec `videoEncoderImpl=libx264` confirmé correct — donc pas un problème
+de choix d'encodeur. Isolé par élimination : "Soixante 9" (HEVC 4K SDR,
+même plafond 1920px, encodage logiciel) suivait parfaitement la lecture en
+temps réel dans le même test de session. La seule vraie différence entre
+les deux : "Dragons" est Dolby Vision et nécessite la conversion HDR→SDR
+(`toneMap`), "Soixante 9" est SDR et n'en a pas besoin.
+
+**Cause réelle** : la chaîne `zscale`/`tonemap` (conversion en lumière
+linéaire 32 bits flottant, tone mapping, reconversion) ajoute un vrai coût
+de calcul par image, en plus du décodage + redimensionnement + encodage —
+jamais pris en compte par le plafond de résolution existant, qui traitait
+tout encodage logiciel de la même façon qu'il y ait tonemap ou non.
+
+**Corrigé** : `pickTargetVideoWidth()` applique maintenant un plafond plus
+strict (1280px, contre 1920px) spécifiquement quand un encodage logiciel ET
+une conversion HDR→SDR sont tous les deux nécessaires en même temps ; un
+encodeur matériel réel n'est jamais concerné (un vrai GPU encaisse le
+tonemap sans problème). Le chiffre 1280 est un point de départ raisonné
+(zone d'ombre : impossible de profiler ce NAS précis depuis l'extérieur),
+explicitement à revalider en conditions réelles après déploiement — pas une
+valeur mesurée en laboratoire. 2 nouveaux tests dédiés, 314 tests passent.
+
+**Complication du test lui-même, notée pour la prochaine fois** : ce
+correctif a été mesuré alors qu'un téléchargement de ~52 Go tournait en
+parallèle sur le même NAS — le débit du téléchargement s'est effondré de
+34,5 Mo/s à 4,3 Mo/s pendant le test de lecture, la preuve que les deux
+activités se disputaient les mêmes ressources limitées. Le téléchargement a
+dû être mis en pause pour obtenir une mesure fiable, isolée de ce bruit.

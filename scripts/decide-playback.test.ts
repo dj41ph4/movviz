@@ -404,6 +404,39 @@ test("a software encoder (no hardware available) caps a 4K source at 1920 even w
   assert.equal(plan.targetVideoWidth, 1920);
 });
 
+// ── real bug found live in production (2026-08-24): "Dragons" (4K Dolby
+// Vision) still fell hopelessly behind real time even after the h264
+// software-target fix AND the 1920px cap — the zscale/tonemap HDR→SDR chain
+// is a real, substantial extra cost on top of decode+scale+encode, isolated
+// by elimination (same-resolution SDR 4K software transcode, no tonemap,
+// stayed ahead of real time at the same 1920px cap — see "Soixante 9" in
+// the same session). ──
+test("software encoding a source that ALSO needs HDR→SDR tonemap gets a tighter resolution cap than plain software transcode", () => {
+  const plan = decidePlayback({
+    media: media({
+      video: { index: 0, codec: "hevc", width: 3840, height: 2160, hdr: { type: "hdr10" } },
+    }),
+    client: client({ videoCapabilities: [{ codec: "hevc" }] }), // hevc decode ok, but no matching HDR capability → toneMap, not a codec transcode
+    server: { ...FFMPEG_OK, videoEncoders: ["libx264", "libx265"], hardwareAcceleration: {} },
+  });
+  assert.equal(plan.toneMap, true);
+  assert.equal(plan.videoEncoderImpl, "libx265");
+  assert.equal(plan.targetVideoWidth, 1280);
+});
+
+test("a hardware encoder with tonemap still gets NO software-speed cap — a real GPU handles tonemap+encode at real time too", () => {
+  const plan = decidePlayback({
+    media: media({
+      video: { index: 0, codec: "hevc", width: 3840, height: 2160, hdr: { type: "hdr10" } },
+    }),
+    client: client({ videoCapabilities: [{ codec: "hevc" }] }),
+    server: { ...FFMPEG_OK, videoEncoders: ["libx265", "hevc_nvenc"], hardwareAcceleration: { nvenc: true } },
+  });
+  assert.equal(plan.toneMap, true);
+  assert.equal(plan.videoEncoderImpl, "hevc_nvenc");
+  assert.equal(plan.targetVideoWidth, undefined);
+});
+
 test("a hardware encoder never gets a software-speed resolution cap — real GPU/QSV/etc. keeps up with 4K at real time", () => {
   const plan = decidePlayback({
     media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }),
