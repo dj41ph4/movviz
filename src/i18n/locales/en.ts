@@ -501,6 +501,8 @@ export const en: Dictionary = {
     rowGenreComedy: "Comedy",
     rowGenreHorror: "Guaranteed chills",
     rowGenreSciFi: "Sci-Fi",
+    rowBecauseYouWatched: "In the spirit of {title}",
+    rowBecauseYouLiked: "Since you liked {title}",
     genreAnime: "Anime",
     genreTeen: "Teen romance",
     loadMore: "Load more",

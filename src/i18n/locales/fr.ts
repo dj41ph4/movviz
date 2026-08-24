@@ -499,6 +499,8 @@ export const fr = {
     rowGenreComedy: "Comédie",
     rowGenreHorror: "Frissons garantis",
     rowGenreSciFi: "Science-fiction",
+    rowBecauseYouWatched: "Dans la lignée de {title}",
+    rowBecauseYouLiked: "Puisque {title} vous a plu",
     genreAnime: "Anime",
     genreTeen: "Romance ado",
     loadMore: "Charger plus",

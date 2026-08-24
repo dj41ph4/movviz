@@ -31,6 +31,14 @@ interface LogoTile {
   logoPath: string | null;
 }
 
+/** Carried by a "becauseYouWatched:{id}" row so its label can be interpolated
+ *  client-side — the API stays locale-agnostic, see becauseYouWatched.ts. */
+interface RowMeta {
+  anchorTmdbId: number;
+  anchorTitle: string;
+  verb: "watched" | "liked";
+}
+
 export default function DiscoverPage() {
   return (
     <Suspense fallback={null}>
@@ -56,6 +64,11 @@ function DiscoverPageInner() {
     return id && name ? { id, name } : null;
   });
   const [rowCategory, setRowCategory] = useState<string | null>(() => searchParams.get("row") ?? null);
+  // Only meaningful when rowCategory is a "becauseYouWatched:*" key — filled
+  // either from the clicked row's own `meta` (seeAllRow) or, when the page
+  // loads directly on a `?row=becauseYouWatched:...` URL with no click ever
+  // happening, from the first row-page response's `meta` (see loadPage).
+  const [rowCategoryMeta, setRowCategoryMeta] = useState<RowMeta | undefined>(undefined);
   // Unlike company, a TMDb watch-provider id is valid for BOTH movies and
   // series — this filter survives a Films/Séries tab switch instead of
   // being cleared with the rest. (The old "Diffuseurs"/TV-network filter —
@@ -168,9 +181,10 @@ function DiscoverPageInner() {
     setCompany(null);
     setWatchProvider(null);
     setRowCategory(null);
+    setRowCategoryMeta(undefined);
   };
 
-  const seeAllRow = (key: string) => {
+  const seeAllRow = (key: string, meta?: RowMeta) => {
     setQ("");
     setGenre("");
     setYear("");
@@ -178,6 +192,7 @@ function DiscoverPageInner() {
     setCompany(null);
     setWatchProvider(null);
     setRowCategory(key);
+    setRowCategoryMeta(meta);
   };
 
   // Genres are media-type-specific and reload on every Films/Séries switch.
@@ -204,12 +219,13 @@ function DiscoverPageInner() {
     setSort("popularity.desc");
     setCompany(null);
     setRowCategory(null);
+    setRowCategoryMeta(undefined);
     setGenreMenuOpen(false);
     setMediaType(mt);
   };
 
   // Home rows — fetched whenever no filter/search is active.
-  const { data: rowsData, isLoading: rowsLoading } = useSWR<{ rows: { key: string; results: MetaSearchResult[]; ranked?: boolean }[] }>(
+  const { data: rowsData, isLoading: rowsLoading } = useSWR<{ rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[] }>(
     configured && !isBrowsing ? `/api/metadata/rows?type=${mediaType}` : null
   );
   const rows = rowsData?.rows ?? [];
@@ -252,7 +268,7 @@ function DiscoverPageInner() {
     try {
       let url: string;
       if (rowCategory) {
-        url = `/api/metadata/row-page?type=${mediaType}&key=${rowCategory}&page=${targetPage}`;
+        url = `/api/metadata/row-page?type=${mediaType}&key=${encodeURIComponent(rowCategory)}&page=${targetPage}`;
       } else if (q.trim()) {
         url = `/api/metadata/search?q=${encodeURIComponent(q)}&page=${targetPage}&type=${mediaType}`;
       } else {
@@ -275,6 +291,9 @@ function DiscoverPageInner() {
       setResults((prev) => (targetPage === 1 ? list : [...prev, ...list]));
       setPage(d.page ?? targetPage);
       setTotalPages(d.totalPages ?? 0);
+      // Direct/bookmarked "?row=becauseYouWatched:..." load — no click ever
+      // set rowCategoryMeta, so the "voir tout" label recovers it here.
+      if (targetPage === 1 && d.meta) setRowCategoryMeta(d.meta);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -296,7 +315,12 @@ function DiscoverPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isBrowsing, loading, loadingMore, page, totalPages]);
 
-  const rowLabel = (key: string) => {
+  const rowLabel = (key: string, meta?: RowMeta) => {
+    if (key.startsWith("becauseYouWatched:") && meta) {
+      return meta.verb === "liked"
+        ? t("discover.rowBecauseYouLiked", { title: meta.anchorTitle })
+        : t("discover.rowBecauseYouWatched", { title: meta.anchorTitle });
+    }
     switch (key) {
       case "recommendedTop": return t("discover.rowRecommendedTop");
       case "trendingPopular": return t("discover.rowTrendingPopular");
@@ -474,7 +498,7 @@ function DiscoverPageInner() {
               <FilterChip label={watchProvider.name} onClear={() => setWatchProvider(null)} />
             )}
             {rowCategory && (
-              <FilterChip label={rowLabel(rowCategory)} onClear={() => setRowCategory(null)} />
+              <FilterChip label={rowLabel(rowCategory, rowCategoryMeta)} onClear={() => { setRowCategory(null); setRowCategoryMeta(undefined); }} />
             )}
             {isBrowsing && (
               <button
@@ -634,7 +658,7 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
 function HomeRows({
   rows, artwork, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onWatchProviderClick,
 }: {
-  rows: { key: string; results: MetaSearchResult[]; ranked?: boolean }[];
+  rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[];
   artwork: TitleArtworkByKey;
   loading: boolean;
   companyTiles: LogoTile[];
@@ -643,8 +667,8 @@ function HomeRows({
   libLoaded: boolean;
   watchedSet: Set<number>;
   onAdded: (key: string) => void;
-  rowLabel: (key: string) => string;
-  onSeeAll: (key: string) => void;
+  rowLabel: (key: string, meta?: RowMeta) => string;
+  onSeeAll: (key: string, meta?: RowMeta) => void;
   onCompanyClick: (tile: LogoTile) => void;
   onWatchProviderClick: (tile: LogoTile) => void;
 }) {
@@ -675,25 +699,25 @@ function HomeRows({
         row.ranked ? (
           <RankedList
             key={row.key}
-            title={rowLabel(row.key)}
+            title={rowLabel(row.key, row.meta)}
             results={row.results}
             libStatus={libStatus}
             libLoaded={libLoaded}
             watchedSet={watchedSet}
             onAdded={onAdded}
-            onSeeAll={() => onSeeAll(row.key)}
+            onSeeAll={() => onSeeAll(row.key, row.meta)}
           />
         ) : (
           <PosterRow
             key={row.key}
-            title={rowLabel(row.key)}
+            title={rowLabel(row.key, row.meta)}
             results={row.results}
             libStatus={libStatus}
             libLoaded={libLoaded}
             watchedSet={watchedSet}
             artwork={artwork}
             onAdded={onAdded}
-            onSeeAll={() => onSeeAll(row.key)}
+            onSeeAll={() => onSeeAll(row.key, row.meta)}
           />
         )
       )}

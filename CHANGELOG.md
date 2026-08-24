@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.31 — August 2026
+
+### Découverte se personnalise vraiment
+
+Films et Séries gagnent chacun une rangée ancrée sur ce que vous regardez le plus (ou avez le mieux noté) — jamais affichée s'il n'y a pas encore assez d'historique. Les titres proposés vont au-delà du simple genre : le moteur de goût déjà utilisé ailleurs dans l'app affine le classement selon le style réel du titre qui a servi de point de départ, pas juste sa catégorie TMDb.
+
 ## v1.19.30 — August 2026
 
 ### L'aperçu agrandi restait affiché après avoir ouvert une fiche

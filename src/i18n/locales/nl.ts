@@ -501,6 +501,8 @@ export const nl: Dictionary = {
     rowGenreComedy: "Komedie",
     rowGenreHorror: "Gegarandeerde rillingen",
     rowGenreSciFi: "Sciencefiction",
+    rowBecauseYouWatched: "In de lijn van {title}",
+    rowBecauseYouLiked: "Omdat je {title} leuk vond",
     genreAnime: "Anime",
     genreTeen: "Tienerromantiek",
     loadMore: "Meer laden",

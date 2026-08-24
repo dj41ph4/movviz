@@ -373,17 +373,19 @@ export async function browseCategory(
 }
 
 /** TMDB recommendations for a single movie — `/movie/{id}/recommendations`. */
-export async function getMovieRecommendations(tmdbId: number): Promise<PagedResults> {
+export async function getMovieRecommendations(tmdbId: number, page = 1): Promise<PagedResults> {
   const data = await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>(
-    `/movie/${tmdbId}/recommendations`
+    `/movie/${tmdbId}/recommendations`,
+    { page: String(page) }
   );
   return mapPaged(data, "movie");
 }
 
 /** TMDB recommendations for a single series — `/tv/{id}/recommendations`. */
-export async function getTvRecommendations(tmdbId: number): Promise<PagedResults> {
+export async function getTvRecommendations(tmdbId: number, page = 1): Promise<PagedResults> {
   const data = await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>(
-    `/tv/${tmdbId}/recommendations`
+    `/tv/${tmdbId}/recommendations`,
+    { page: String(page) }
   );
   return mapPaged(data, "series");
 }

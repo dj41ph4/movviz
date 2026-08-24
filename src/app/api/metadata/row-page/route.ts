@@ -6,6 +6,7 @@ import { GENRE_ROWS } from "@/lib/metadata/genreTaxonomy";
 import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
+import { getBecauseYouWatchedPage } from "@/lib/recommender/becauseYouWatched";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
@@ -29,6 +30,17 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, Number(req.nextUrl.searchParams.get("page")) || 1);
   const user = requireUser(req);
   const originCountries = countriesForContinents(user?.discoverContinents ?? []);
+
+  // Anchor id-based key (see becauseYouWatched.ts) — handled before the
+  // switch since it needs its own `meta` field in the response, which the
+  // generic tail below doesn't carry for any other key.
+  if (key.startsWith("becauseYouWatched:")) {
+    const anchorTmdbId = Number(key.slice("becauseYouWatched:".length));
+    if (!Number.isFinite(anchorTmdbId)) return NextResponse.json({ error: "invalid anchor" }, { status: 400 });
+    const paged = await getBecauseYouWatchedPage(user?.id ?? "", type, anchorTmdbId, page);
+    if (!paged) return NextResponse.json({ error: "unknown row" }, { status: 400 });
+    return NextResponse.json({ results: filterSuggestable(paged.results), page: paged.page, totalPages: paged.totalPages, meta: paged.meta });
+  }
 
   const result = await (async () => {
     switch (key) {
