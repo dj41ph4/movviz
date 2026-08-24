@@ -13,6 +13,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -26,10 +27,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.AsyncImage
+import com.movviz.mobile.ui.theme.AnimatedLogo
+import com.movviz.mobile.ui.theme.MovvizBrand
+import com.movviz.mobile.ui.theme.MovvizBrandGlow
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
@@ -560,12 +567,18 @@ private fun PlayerScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // Voile chargement initial
+        // Voile "optimisation" — identique desktop (VideoPlayer.tsx ~2553-2559) :
+        // fond opaque + logo animé + libellé fixe pendant toute la phase de
+        // sélection d'engine/escalation de niveau (load() remet hasRenderedFrame
+        // à false à chaque tentative — voir plus haut). Jamais le spinner de
+        // buffering mi-lecture, qui reste un overlay séparé (hasRenderedFrame &&
+        // loading, plus bas) — même distinction que côté desktop entre
+        // `optimizing` et le spinner `buffering` normal.
         if (!hasRenderedFrame && loading) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(0.85f)), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(36.dp))
-                    Text(if (fallbackNotice != null) fallbackNotice!! else "Chargement…", color = Color.White.copy(0.8f), fontSize = 13.sp)
+            Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    AnimatedLogo(size = 64.dp)
+                    Text("Optimisation en cours…", color = Color.White.copy(0.6f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                 }
             }
         } else if (!hasRenderedFrame && errorMessage != null) {
@@ -651,12 +664,25 @@ private fun PlayerScreen(
                     .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.85f))))
                     .padding(horizontal = 16.dp, vertical = 12.dp)
             ) {
-                // Barre progression + temps
-                PlayerProgressBar(exoPlayer = exoPlayer, onSeek = { poke() })
+                // Barre progression + temps — glass card flottante, piste
+                // fine + fill brand-gradient + poignée à halo, aperçu au
+                // scrub — même langage visuel que le lecteur desktop
+                // (VideoPlayer.tsx ~2680-2735).
+                PlayerProgressBar(exoPlayer = exoPlayer, baseUrl = baseUrl, ratingKey = current.ratingKey, onSeek = { poke() })
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(8.dp))
 
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                // Transport — pill glass, identique desktop (~2737-2770+) ;
+                // bouton central brand-gradient (CTA primaire, cf. charte
+                // visuelle Movviz), prev/-10s/+10s/next inchangés en glass.
+                Row(
+                    Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(Color(0xFF12121E).copy(alpha = 0.92f))
+                        .border(1.dp, Color.White.copy(0.07f), RoundedCornerShape(24.dp))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
                     // Gauche : prev + -10s
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                         IconButton(onClick = { prevEpisodeAction() }, enabled = hasPrev, modifier = Modifier.size(44.dp).clip(CircleShape).background(Color.White.copy(if (hasPrev) 0.14f else 0.06f))) {
@@ -667,15 +693,16 @@ private fun PlayerScreen(
                         }
                     }
 
-                    // Centre : play/pause gros
+                    // Centre : play/pause — brand-gradient (primaire), plus grand que les actions secondaires
                     Box(
-                        Modifier.size(56.dp).clip(CircleShape).background(Color.White)
+                        Modifier.size(56.dp).clip(CircleShape)
+                            .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrandGlow)))
                             .clickable { playPauseAction() },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            null, tint = Color.Black, modifier = Modifier.size(32.dp)
+                            null, tint = Color.White, modifier = Modifier.size(28.dp)
                         )
                     }
 
@@ -726,13 +753,22 @@ private fun PlayerScreen(
     }
 }
 
+/** Desktop-parity progress bar (VideoPlayer.tsx ~2680-2735): floating glass
+ *  card, slim track, lighter buffered fill layered under a brand-gradient
+ *  played fill, a small white handle with a soft brand-glow halo, tabular
+ *  time labels either side, and a scrub-preview popover (real BIF thumbnail
+ *  via the same /api/stream/{ratingKey}/scrub-thumb proxy desktop uses,
+ *  debounced 150ms — see ScrubPreview below) while dragging. Touch-drag via
+ *  an invisible Material Slider layered over the hand-drawn track, same
+ *  technique the previous version already used for gesture handling. */
 @Composable
-private fun PlayerProgressBar(exoPlayer: ExoPlayer, onSeek: () -> Unit) {
+private fun PlayerProgressBar(exoPlayer: ExoPlayer, baseUrl: String, ratingKey: String, onSeek: () -> Unit) {
     var duration by remember { mutableStateOf(exoPlayer.duration.coerceAtLeast(0)) }
     var position by remember { mutableStateOf(exoPlayer.currentPosition.coerceAtLeast(0)) }
     var buffered by remember { mutableStateOf(exoPlayer.bufferedPosition.coerceAtLeast(0)) }
     var isDragging by remember { mutableStateOf(false) }
     var dragPosition by remember { mutableStateOf(0L) }
+    var thumbMs by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(exoPlayer) {
         while (true) {
@@ -743,6 +779,16 @@ private fun PlayerProgressBar(exoPlayer: ExoPlayer, onSeek: () -> Unit) {
         }
     }
 
+    // Débattu 150ms comme desktop (requestScrubThumb) — sans ça, un glissé
+    // rapide sur un film de 2h déclencherait des dizaines de requêtes BIF
+    // Plex par seconde. Coil dédoublonne/cache déjà par URL (secondes
+    // arrondies ci-dessous), inutile de recoder un cache manuel côté client.
+    LaunchedEffect(isDragging, dragPosition) {
+        if (!isDragging) { thumbMs = null; return@LaunchedEffect }
+        delay(150L)
+        thumbMs = (dragPosition / 1000L) * 1000L
+    }
+
     fun fmt(ms: Long): String {
         val s = (ms / 1000).toInt()
         val h = s / 3600
@@ -751,34 +797,102 @@ private fun PlayerProgressBar(exoPlayer: ExoPlayer, onSeek: () -> Unit) {
         return if (h > 0) "%d:%02d:%02d".format(h, m, sec) else "%02d:%02d".format(m, sec)
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        BoxWithConstraints(Modifier.fillMaxWidth().height(18.dp)) {
+    val displayPos = if (isDragging) dragPosition else position
+    val playedFrac = if (duration > 0) (displayPos.toFloat() / duration).coerceIn(0f, 1f) else 0f
+    val bufferedFrac = if (duration > 0) (buffered.toFloat() / duration).coerceIn(0f, 1f) else 0f
+
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(Color(0xFF12121E).copy(alpha = 0.88f))
+            .border(1.dp, Color.White.copy(0.07f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(fmt(displayPos), color = Color.White.copy(0.75f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text(fmt(duration), color = Color.White.copy(0.75f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Spacer(Modifier.height(6.dp))
+        BoxWithConstraints(Modifier.fillMaxWidth().height(28.dp)) {
             val maxW = maxWidth
-            // track
-            Box(Modifier.align(Alignment.Center).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(0.25f)))
+            if (isDragging && duration > 0) {
+                val previewW = 108.dp
+                val previewX = (maxW * playedFrac - previewW / 2).coerceIn(0.dp, (maxW - previewW).coerceAtLeast(0.dp))
+                Box(Modifier.offset(x = previewX, y = (-72).dp)) {
+                    ScrubPreview(baseUrl = baseUrl, ratingKey = ratingKey, ms = thumbMs, timeLabel = fmt(dragPosition), width = previewW)
+                }
+            }
+            // piste
+            Box(
+                Modifier.align(Alignment.CenterStart).fillMaxWidth().height(5.dp)
+                    .clip(RoundedCornerShape(2.5.dp)).background(Color.White.copy(0.16f))
+            ) {
+                if (duration > 0) Box(Modifier.fillMaxWidth(bufferedFrac).fillMaxHeight().background(Color.White.copy(0.26f)))
+            }
             if (duration > 0) {
-                val bufFrac = (buffered.toFloat() / duration).coerceIn(0f, 1f)
-                Box(Modifier.align(Alignment.CenterStart).fillMaxWidth(bufFrac).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White.copy(0.45f)))
-                val progFrac = ((if (isDragging) dragPosition else position).toFloat() / duration).coerceIn(0f, 1f)
-                Box(Modifier.align(Alignment.CenterStart).fillMaxWidth(progFrac).height(4.dp).clip(RoundedCornerShape(2.dp)).background(Color.White))
+                Box(
+                    Modifier.align(Alignment.CenterStart).fillMaxWidth(playedFrac).height(5.dp)
+                        .clip(RoundedCornerShape(2.5.dp))
+                        .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrandGlow)))
+                )
+            }
+            // poignée — halo doux + disque blanc, identique desktop (scrubber + brand-glow)
+            val thumbX = (maxW * playedFrac - 9.dp).coerceIn((-9).dp, maxW - 9.dp)
+            Box(Modifier.align(Alignment.CenterStart).offset(x = thumbX), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(22.dp).clip(CircleShape).background(MovvizBrandGlow.copy(alpha = 0.32f)))
+                Box(Modifier.size(14.dp).clip(CircleShape).background(Color.White).border(2.dp, Color(0xFF13131B), CircleShape))
             }
             Slider(
-                value = if (duration > 0) ((if (isDragging) dragPosition else position).toFloat() / duration).coerceIn(0f, 1f) else 0f,
+                value = playedFrac,
                 onValueChange = { frac -> isDragging = true; dragPosition = (frac * duration).toLong() },
                 onValueChangeFinished = {
                     exoPlayer.seekTo(dragPosition)
                     isDragging = false
                     onSeek()
                 },
-                modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+                modifier = Modifier.fillMaxSize(),
+                // Piste/poignée du Slider matériel rendues invisibles — la
+                // piste custom dessinée au-dessus assure le rendu visuel,
+                // le Slider ne sert plus qu'à la logique de geste/drag.
                 colors = SliderDefaults.colors(
-                    thumbColor = Color.White, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent
+                    thumbColor = Color.Transparent, activeTrackColor = Color.Transparent, inactiveTrackColor = Color.Transparent,
+                    disabledThumbColor = Color.Transparent, disabledActiveTrackColor = Color.Transparent, disabledInactiveTrackColor = Color.Transparent,
                 )
             )
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(fmt(if (isDragging) dragPosition else position), color = Color.White.copy(0.8f), fontSize = 11.sp)
-            Text(fmt(duration), color = Color.White.copy(0.6f), fontSize = 11.sp)
+    }
+}
+
+/** Vignette d'aperçu au scrub — même route serveur que le desktop
+ *  (proxy de l'index BIF Plex, voir scrub-thumb/route.ts) ; se dégrade
+ *  silencieusement (pas d'image) si la bibliothèque Plex n'a pas
+ *  "Générer les miniatures d'aperçu vidéo" activé, exactement comme
+ *  desktop. Nécessite que le client Coil de l'app partage l'OkHttpClient
+ *  authentifié (voir MovvizMobileApplication.newImageLoader) — sinon 401. */
+@Composable
+private fun ScrubPreview(baseUrl: String, ratingKey: String, ms: Long?, timeLabel: String, width: Dp) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(
+            Modifier.width(width).height(width * 9f / 16f)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color.Black.copy(0.85f))
+                .border(1.dp, Color.White.copy(0.12f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (ms != null) {
+                AsyncImage(
+                    model = "$baseUrl/api/stream/$ratingKey/scrub-thumb?t=$ms",
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(10.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                CircularProgressIndicator(color = Color.White.copy(0.5f), modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        Box(Modifier.clip(RoundedCornerShape(20.dp)).background(Color.Black.copy(0.7f)).border(1.dp, Color.White.copy(0.1f), RoundedCornerShape(20.dp)).padding(horizontal = 10.dp, vertical = 4.dp)) {
+            Text(timeLabel, color = Color.White.copy(0.9f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }
