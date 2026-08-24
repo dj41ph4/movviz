@@ -52,6 +52,40 @@ async function buildUpcomingRow(user: User | null, originCountries?: string[]): 
 }
 
 /**
+ * The extra editorial rows (salué par la critique, anime, romance ado,
+ * format court, rangées par genre) — appended identically to BOTH layouts
+ * below. They don't belong to either layout's own identity (which is about
+ * section ORDER/grouping, not which extra buckets exist), so a title added
+ * to the taxonomy shows up for every user regardless of which layout they
+ * picked in Settings.
+ */
+async function buildEditorialExtras(
+  type: "movie" | "series",
+  originCountries?: string[]
+): Promise<{ key: string; results: MetaSearchResult[] }[]> {
+  const [acclaimed, animeRow, teenRow, shortFormat, ...genreResults] = await Promise.all([
+    discoverByFilters(type, { sort: "vote_average.desc", originCountries }, 1),
+    getAnimeRow(type, 20, originCountries),
+    getTeenRow(type, 20, originCountries),
+    type === "movie" ? discoverByFilters("movie", { maxRuntime: 40, sort: "popularity.desc", originCountries }, 1) : Promise.resolve({ results: [], page: 1, totalPages: 1 }),
+    ...GENRE_ROWS.map((g) => {
+      const genreId = type === "movie" ? g.movie : g.series;
+      return genreId === null
+        ? Promise.resolve({ results: [], page: 1, totalPages: 1 })
+        : discoverByFilters(type, { genre: String(genreId), sort: "popularity.desc", originCountries }, 1);
+    }),
+  ]);
+
+  return [
+    { key: "acclaimed", results: acclaimed.results },
+    { key: "anime", results: animeRow.results },
+    { key: "teen", results: teenRow.results },
+    ...(type === "movie" ? [{ key: "shortFormat", results: shortFormat.results }] : []),
+    ...GENRE_ROWS.map((g, i) => ({ key: g.key, results: genreResults[i].results })),
+  ];
+}
+
+/**
  * Curated homepage rows for Discover — several TMDb editorial buckets fetched
  * in parallel, so the discover home isn't a single flat list.
  *
@@ -64,6 +98,9 @@ async function buildUpcomingRow(user: User | null, originCountries?: string[]): 
  *   "Tendances" ranked list, then "Kids". For series: "recommendedTop",
  *   "newSeriesRenewed" ("Nouvelles séries" + "Séries renouvelées"),
  *   "Tendances" ranked list.
+ *
+ * Both layouts then get the same buildEditorialExtras() rows appended after
+ * their own picks (see its doc comment).
  *
  * Sources are merged with dedupe (first source wins, by tmdbId) so the same
  * title never appears twice on the page.
@@ -81,7 +118,7 @@ export async function GET(req: NextRequest) {
 
   if (layout === "allocine") {
     if (type === "movie") {
-      const [rec, newVod, nowPlaying, boxOffice, trend, topRated, upcomingResults, kids] = await Promise.all([
+      const [rec, newVod, nowPlaying, boxOffice, trend, topRated, upcomingResults, kids, extras] = await Promise.all([
         recommended,
         getAllocineNewVod(),
         browseCategory("movie", "now_playing", 1, originCountries),
@@ -90,6 +127,7 @@ export async function GET(req: NextRequest) {
         browseCategory("movie", "top_rated", 1, originCountries),
         buildUpcomingRow(user, originCountries),
         getKidsRow("movie", 1, originCountries),
+        buildEditorialExtras("movie", originCountries),
       ]);
       const rows = [
         { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
@@ -97,52 +135,42 @@ export async function GET(req: NextRequest) {
         { key: "upcomingVod", results: dedupe([...upcomingResults, ...newVod.results]) },
         { key: "trending", results: trend.results.slice(0, 10), ranked: true },
         { key: "kids", results: kids.results },
+        ...extras,
       ].filter((r) => r.results.length > 0);
       return NextResponse.json({ configured: true, layout, rows });
     }
 
-    const [rec, newSeries, renewed, trend, topRated] = await Promise.all([
+    const [rec, newSeries, renewed, trend, topRated, extras] = await Promise.all([
       recommended,
       getNewSeries(1, originCountries),
       browseCategory("series", "on_the_air", 1, originCountries),
       getAllocineTrendingSeries(),
       browseCategory("series", "top_rated", 1, originCountries),
+      buildEditorialExtras("series", originCountries),
     ]);
     const rows = [
       { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
       { key: "newSeriesRenewed", results: dedupe([...newSeries.results, ...renewed.results]) },
       { key: "trending", results: trend.results.slice(0, 10), ranked: true },
+      ...extras,
     ].filter((r) => r.results.length > 0);
     return NextResponse.json({ configured: true, layout, rows });
   }
 
-  const [rec, trend, popular, topRated, upcomingResults, acclaimed, animeRow, teenRow, shortFormat, ...genreResults] = await Promise.all([
+  const [rec, trend, popular, topRated, upcomingResults, extras] = await Promise.all([
     recommended,
     trending(type, 1, originCountries),
     browseCategory(type, "popular", 1, originCountries),
     browseCategory(type, "top_rated", 1, originCountries),
     type === "movie" ? buildUpcomingRow(user, originCountries) : browseCategory("series", "on_the_air", 1, originCountries).then((r) => r.results),
-    discoverByFilters(type, { sort: "vote_average.desc", originCountries }, 1),
-    getAnimeRow(type, 20, originCountries),
-    getTeenRow(type, 20, originCountries),
-    type === "movie" ? discoverByFilters("movie", { maxRuntime: 40, sort: "popularity.desc", originCountries }, 1) : Promise.resolve({ results: [], page: 1, totalPages: 1 }),
-    ...GENRE_ROWS.map((g) => {
-      const genreId = type === "movie" ? g.movie : g.series;
-      return genreId === null
-        ? Promise.resolve({ results: [], page: 1, totalPages: 1 })
-        : discoverByFilters(type, { genre: String(genreId), sort: "popularity.desc", originCountries }, 1);
-    }),
+    buildEditorialExtras(type, originCountries),
   ]);
 
   const rows = [
     { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
     { key: "trendingPopular", results: dedupe([...trend.results, ...popular.results]).slice(0, 10) },
     { key: type === "movie" ? "upcoming" : "onAir", results: upcomingResults },
-    { key: "acclaimed", results: acclaimed.results },
-    { key: "anime", results: animeRow.results },
-    { key: "teen", results: teenRow.results },
-    ...(type === "movie" ? [{ key: "shortFormat", results: shortFormat.results }] : []),
-    ...GENRE_ROWS.map((g, i) => ({ key: g.key, results: genreResults[i].results })),
+    ...extras,
   ].filter((r) => r.results.length > 0);
 
   return NextResponse.json({ configured: true, layout, rows });

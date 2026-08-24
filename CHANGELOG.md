@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.26 — August 2026
+
+### Les nouvelles rangées Découverte n'apparaissaient pas pour tout le monde
+
+La page Réglages permet de choisir entre deux présentations pour Découverte ("Movviz" ou "Allociné"). Les nouvelles rangées ajoutées en v1.19.24 (salué par la critique, univers anime, romance ado, format court, rangées par genre) n'avaient été branchées que sur la présentation par défaut — invisibles pour quiconque avait choisi l'autre. Elles apparaissent maintenant sur les deux, avec le même contenu.
+
 ## v1.19.25 — August 2026
 
 ### Boucle de mise à jour infinie sur Android TV
