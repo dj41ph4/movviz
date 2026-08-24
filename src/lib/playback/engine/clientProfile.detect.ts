@@ -10,15 +10,35 @@
  * instead of guessing from the User-Agent (plan §14: "Éviter les règles
  * statiques basées uniquement sur le User-Agent").
  *
- * Known gap, deliberate: HDR support (VideoCapability.hdr) is left
- * undefined below rather than guessed — webcodecs.ts doesn't probe it
- * independently of SDR decode today. Fill this in once a real HDR probe
- * exists rather than assuming "codec decodes ⇒ HDR decodes".
+ * HDR support (VideoCapability.hdr) is probed via `matchMedia`, not
+ * guessed from codec decode alone — see `detectHdrSupport()` below.
  */
 
 import { detectCodecs } from "@/lib/player/webcodecs";
 import { detectCapabilities } from "../capabilities";
 import type { AudioCapability, ClientPlaybackProfile, SubtitleCapability, VideoCapability } from "./clientProfile";
+import type { HdrType } from "./mediaDescriptor";
+
+/**
+ * Real HDR video capability, verified live in a real browser (2026-08-24):
+ * `matchMedia("(dynamic-range: high)")` reports the DISPLAY's general HDR
+ * capability — true even when the browser isn't actually rendering HDR
+ * video right now — while `matchMedia("(video-dynamic-range: high)")` was
+ * false at the exact same time on that same real HDR-capable monitor. The
+ * `video-` variant is deliberately used here despite being more
+ * conservative (fewer clients get "hdr10" declared) because a false "yes"
+ * is the expensive mistake: since v1.19.13, an HDR/DV mismatch never forces
+ * a transcode any more regardless of this value, so the only thing this
+ * capability now controls is whether `toneMapNeeded` is honored — wrongly
+ * skipping a needed tonemap (source HDR values shown raw as if SDR) is a
+ * real visible bug, wrongly tonemapping a client that could have shown
+ * real HDR is just a missed opportunity, not a defect.
+ */
+function detectHdrSupport(): HdrType[] {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return ["sdr"];
+  const hasHdrVideo = window.matchMedia("(video-dynamic-range: high)").matches;
+  return hasHdrVideo ? ["sdr", "hdr10", "hlg"] : ["sdr"];
+}
 
 export async function detectDesktopClientProfile(deviceId: string, appVersion: string): Promise<ClientPlaybackProfile> {
   const [codecs, browserCaps] = await Promise.all([detectCodecs(), detectCapabilities()]);
@@ -34,15 +54,18 @@ export async function detectDesktopClientProfile(deviceId: string, appVersion: s
   // entirely regardless of the source's real resolution.
   const res4k = (supports4k: boolean) => (supports4k ? {} : { maxWidth: 1920, maxHeight: 1080 });
 
+  const hdr = detectHdrSupport();
   const videoCapabilities: VideoCapability[] = [];
   if (codecs.h264) videoCapabilities.push({ codec: "h264", bitDepths: [8], ...res4k(codecs.h264_4k) });
   // bitDepths: [8] always (the base `hevc` flag only ever probed 8-bit Main)
   // — 10 added only when hevcMain10 independently confirms it, since most
   // real HDR/UHD content (this app's own test library included) is Main10
   // and a browser that can't decode it needs VIDEO_BIT_DEPTH_UNSUPPORTED to
-  // actually fire instead of being silently skipped.
-  if (codecs.hevc) videoCapabilities.push({ codec: "hevc", bitDepths: codecs.hevcMain10 ? [8, 10] : [8], ...res4k(codecs.hevc4k) });
-  if (codecs.av1) videoCapabilities.push({ codec: "av1", bitDepths: codecs.av1Main10 ? [8, 10] : [8], ...res4k(codecs.av1_4k) });
+  // actually fire instead of being silently skipped. hdr only declared on
+  // hevc/av1 — real-world HDR-graded H.264 content is exotic enough not to
+  // be worth the extra surface here.
+  if (codecs.hevc) videoCapabilities.push({ codec: "hevc", bitDepths: codecs.hevcMain10 ? [8, 10] : [8], hdr, ...res4k(codecs.hevc4k) });
+  if (codecs.av1) videoCapabilities.push({ codec: "av1", bitDepths: codecs.av1Main10 ? [8, 10] : [8], hdr, ...res4k(codecs.av1_4k) });
 
   const audioCapabilities: AudioCapability[] = [];
   // maxChannels: 2 on AAC specifically — a browser has no API to learn how

@@ -934,6 +934,23 @@ export const en: Dictionary = {
     logsLines: "lines",
   },
 
+  benchmark: {
+    title: "Server benchmark",
+    hint: "Measures this server's real transcode speed directly, instead of discovering it live mid-playback.",
+    run: "Run benchmark",
+    running: "Benchmark running…",
+    never: "No benchmark has run yet.",
+    lastRun: "Last run",
+    hardwareDetected: "Hardware acceleration detected",
+    hardware: "hardware",
+    failed: "Failed",
+    profile: {
+      software_1080p: "Software 1080p (no HDR)",
+      software_720p_tonemap: "Software 720p (HDR→SDR conversion)",
+      hardware_4k: "Hardware 4K",
+    },
+  },
+
   automation: {
     pillSchedule: "Schedule",
     pillQueue: "Queue & priorities",
@@ -1941,6 +1958,7 @@ export const en: Dictionary = {
       "seerr-import": "Seerr/Overseerr request import",
       "disk-scan": "Local disk scan",
       "library-health-check": "Library diagnostic",
+      "server-benchmark": "Server capability benchmark",
       "search-and-replace-check": "Suggested replacement check",
       "language-detection": "Language detection (Plex + filename)",
       "auto-upgrade-all": "Automatic upgrade of the whole library",

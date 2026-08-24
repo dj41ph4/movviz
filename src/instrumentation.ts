@@ -78,5 +78,51 @@ export async function register() {
 
     const { startScheduler } = await import("@/lib/scheduler/engine");
     startScheduler();
+
+    // Real gap found during the playback engine audit (TODO_POST_MOTEUR_LECTURE.md
+    // §5): neither ffmpeg engine (Plex remux, local) had a process-exit
+    // cleanup hook — a container restart/redeploy left any in-flight ffmpeg
+    // child process running orphaned, still holding the source file open
+    // and burning CPU on hardware that (per the DS923+ investigation,
+    // 2026-08-24) has very little to spare. Best-effort SIGTERM to every
+    // tracked session on shutdown; deliberately does NOT call process.exit()
+    // itself — that stays Next.js's own responsibility, this only makes sure
+    // ffmpeg doesn't outlive it. Guarded against double-registration on dev
+    // hot-reload, same pattern as __movvizFetchPatched above.
+    const g2 = globalThis as typeof globalThis & { __movvizShutdownHooksInstalled?: boolean };
+    if (!g2.__movvizShutdownHooksInstalled) {
+      g2.__movvizShutdownHooksInstalled = true;
+      const shutdown = async (signal: string) => {
+        try {
+          const { stopAllLocalSessions } = await import("@/lib/playback/engine/localExecutor");
+          stopAllLocalSessions();
+        } catch { /* module not loaded yet — nothing to stop */ }
+        try {
+          const { stopAllRemuxSessions } = await import("@/lib/playback/ffmpeg/remuxSession");
+          stopAllRemuxSessions();
+        } catch { /* module not loaded yet — nothing to stop */ }
+        console.log(`[shutdown] ${signal} reçu — sessions ffmpeg actives arrêtées`);
+      };
+      process.on("SIGTERM", () => void shutdown("SIGTERM"));
+      process.on("SIGINT", () => void shutdown("SIGINT"));
+    }
+
+    // Explicit user request (2026-08-24): the server capability benchmark
+    // should run automatically right after an update installs, not only
+    // when someone remembers to click the manual button in Réglages →
+    // Performance. shouldAutoRunBenchmark() compares the last result's
+    // recorded app version against the current one — true on first boot
+    // ever, or right after ANY version bump, Windows one-click installer or
+    // Docker/NAS image re-pull alike (both just end in a fresh process
+    // boot). Fire-and-forget: the real encode profiles take a few seconds
+    // each on capable hardware but could take much longer on the exact
+    // weak servers this benchmark exists for — never block server startup
+    // on it.
+    const { shouldAutoRunBenchmark, runServerBenchmark } = await import("@/lib/playback/engine/serverBenchmark");
+    if (shouldAutoRunBenchmark()) {
+      runServerBenchmark()
+        .then((r) => console.log(`[benchmark] auto-run après mise à jour terminé (${r.profiles.length} profil(s))`))
+        .catch((e: unknown) => console.error(`[benchmark] auto-run après mise à jour échoué: ${(e as Error)?.message ?? e}`));
+    }
   }
 }

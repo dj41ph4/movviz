@@ -16,6 +16,7 @@ import { existsSync, unlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { PlexPartRef } from "@/lib/playback/plexSource";
+import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "@/lib/playback/engine/sharedTranscodeLimit";
 
 export const MAX_CONCURRENT = 3;
 export const SESSION_TTL_MS = 5 * 60_000;
@@ -279,8 +280,10 @@ export function startRemux(
     reg.delete(key);
   }
 
-  if (reg.size >= MAX_CONCURRENT) {
-    console.error(`[remux] refus démarrage ${key} — MAX_CONCURRENT=${MAX_CONCURRENT} atteint`);
+  // Shared ceiling with the local engine, not this module's own — see
+  // sharedTranscodeLimit.ts's own comment for why.
+  if (totalActiveTranscodeSessions() >= MAX_CONCURRENT_TRANSCODES) {
+    console.error(`[remux] refus démarrage ${key} — MAX_CONCURRENT_TRANSCODES=${MAX_CONCURRENT_TRANSCODES} atteint (partagé avec le moteur local)`);
     return null;
   }
 
@@ -486,4 +489,11 @@ export function purgeStaleSessions(): void {
       stopRemux(key);
     }
   }
+}
+
+/** See localExecutor.ts's stopAllLocalSessions() — same real gap (no
+ *  process-exit cleanup for either engine), same fix, wired into
+ *  instrumentation.ts's process signal handlers. */
+export function stopAllRemuxSessions(): void {
+  for (const key of Array.from(registry().keys())) stopRemux(key);
 }

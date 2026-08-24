@@ -63,6 +63,13 @@ export async function isFfprobeAvailable(): Promise<boolean> {
 interface FfprobeDisposition {
   default?: number;
   forced?: number;
+  /** Embedded cover art (MP3/FLAC APIC-style, some MP4/M4A) shows up as a
+   *  real video-typed stream — confirmed live via a synthetic MP3 with an
+   *  attached JPEG: ffprobe reports it as `codec_type:"video"` with
+   *  `disposition.attached_pic:1`, distinguishable only by this flag (a
+   *  Matroska attachment, by contrast, never appears in `streams` at all —
+   *  confirmed live it stays 0 there regardless). */
+  attached_pic?: number;
 }
 
 interface FfprobeSideData {
@@ -209,7 +216,15 @@ function detectHdr(stream: FfprobeStream): MediaDescriptor["video"]["hdr"] {
  */
 export async function probeMediaFile(mediaId: string, filePath: string): Promise<MediaDescriptor> {
   const raw = await runFfprobe(filePath);
-  const videoStream = raw.streams.find((s) => s.codec_type === "video");
+  // Embedded cover art is itself a video-typed stream in some containers
+  // (confirmed live — see FfprobeDisposition.attached_pic) — picking the
+  // FIRST video stream unconditionally risked treating a tiny embedded
+  // still image as "the movie" if it happened to precede the real video
+  // stream. Prefer a real (non-attached-pic) video stream; only fall back
+  // to an attached-pic one if that's genuinely the only video stream this
+  // file has (better than throwing outright).
+  const videoStream = raw.streams.find((s) => s.codec_type === "video" && s.disposition?.attached_pic !== 1)
+    ?? raw.streams.find((s) => s.codec_type === "video");
   if (!videoStream) throw new Error(`No video stream found in ${filePath}`);
 
   const audioTracks: AudioTrack[] = raw.streams

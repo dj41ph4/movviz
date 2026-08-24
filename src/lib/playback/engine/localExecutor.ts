@@ -25,6 +25,7 @@ import os from "node:os";
 import path from "node:path";
 import type { MediaDescriptor } from "./mediaDescriptor";
 import type { PlaybackPlan } from "./playbackPlan";
+import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "./sharedTranscodeLimit";
 
 export const MAX_CONCURRENT = 3;
 export const SESSION_TTL_MS = 5 * 60_000;
@@ -227,8 +228,10 @@ export function startLocalSession(
   }
   if (existing) reg.delete(key);
 
-  if (reg.size >= MAX_CONCURRENT) {
-    console.error(`[local-engine] refus démarrage ${key} — MAX_CONCURRENT=${MAX_CONCURRENT} atteint`);
+  // Shared ceiling with the Plex remux engine, not this module's own —
+  // see sharedTranscodeLimit.ts's own comment for why.
+  if (totalActiveTranscodeSessions() >= MAX_CONCURRENT_TRANSCODES) {
+    console.error(`[local-engine] refus démarrage ${key} — MAX_CONCURRENT_TRANSCODES=${MAX_CONCURRENT_TRANSCODES} atteint (partagé avec le moteur Plex)`);
     return null;
   }
 
@@ -427,4 +430,19 @@ export function purgeStaleSessions(): void {
       stopLocalSession(key);
     }
   }
+}
+
+/**
+ * Same gap as the old Plex remux engine (not a regression — TODO_POST_MOTEUR_LECTURE.md
+ * §5's own note: neither engine had a process-exit cleanup hook). A `next
+ * dev` hot-reload restart, or a `docker restart`/`npm run start` respawn,
+ * previously left any in-flight ffmpeg child process running orphaned —
+ * still holding the source file open and burning CPU on a NAS that has very
+ * little to spare (see the DS923+ investigation, 2026-08-24). Wired into
+ * instrumentation.ts's process signal handlers so a graceful shutdown always
+ * kills every child it spawned, mirroring stopLocalSession()'s own
+ * SIGTERM-then-SIGKILL escalation for each one.
+ */
+export function stopAllLocalSessions(): void {
+  for (const key of Array.from(registry().keys())) stopLocalSession(key);
 }

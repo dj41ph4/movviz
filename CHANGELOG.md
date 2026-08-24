@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.19.14 — August 2026
+
+### Benchmark du serveur, nettoyage du sélecteur de lecture manuel, et plusieurs correctifs de fond
+
+- **Benchmark du serveur** (Réglages → Performance) : mesure directement la vitesse réelle de transcodage de ce serveur pour les cas représentatifs (logiciel simple, logiciel avec conversion HDR→SDR, matériel si disponible) — au lieu de le découvrir en pleine lecture. Se lance manuellement, automatiquement juste après l'installation d'une mise à jour, et une fois par mois via une tâche planifiée.
+- **Détection HDR de l'écran corrigée** : le navigateur ne déclarait jamais sa capacité HDR réelle au serveur — corrigé avec une vraie détection.
+- **Sélecteur manuel "Mode transcodage" nettoyé** : ces options (Audio seulement, Vidéo seulement, HLS manuel) ne pilotaient que l'ancien circuit Plex — proposées sur un contenu purement local, elles échouaient silencieusement. N'apparaissent plus que lorsqu'un vrai lien Plex existe.
+- **Cover art embarquée jamais confondue avec la vidéo principale** : un fichier avec une image de couverture intégrée pouvait, dans de rares cas, faire analyser cette image comme si c'était le film.
+- **Limite de sessions de transcodage partagée** entre le nouveau moteur et l'ancien circuit Plex, au lieu de deux limites indépendantes pouvant se cumuler.
+- **Nettoyage à l'arrêt du serveur** : les processus de transcodage encore actifs sont maintenant proprement arrêtés lors d'un redémarrage/redéploiement, au lieu de rester orphelins.
+
 ## v1.19.13 — August 2026
 
 ### Nouveau moteur (expérimental) : le HDR/Dolby Vision ne force plus jamais un transcodage vidéo

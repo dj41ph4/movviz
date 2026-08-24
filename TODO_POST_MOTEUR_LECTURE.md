@@ -278,6 +278,80 @@ seul, encodage matériel avec tonemap) garde son réglage précédent — testé
 et confirmé qu'aucune régression n'est introduite ailleurs. 314 tests
 passent.
 
+## 11. Mode autonome complet — reste du backlog traité en une session, 2026-08-24
+
+Une fois la règle absolue HDR/DV validée en direct sur "Dragons" (facteur
+temps réel confirmé à 0.9999995, quasi-parfait, sur 45.76 secondes de
+lecture continue), l'utilisateur a autorisé une session en mode autonome
+pour traiter le reste du backlog. Livré :
+
+- **Benchmark du serveur** (`serverBenchmark.ts`, explicitement demandé plus
+  tôt dans la session) : mesure un vrai encodage ffmpeg court pour chaque
+  profil réel que `decidePlayback()` produit (logiciel simple, logiciel +
+  tonemap, matériel si un encodeur est vraiment vérifié) et calcule le
+  facteur temps réel obtenu — exactement la métrique qui a servi, à la
+  main, à trouver et calibrer chaque correctif de cette investigation. Trois
+  déclencheurs pour une seule fonction : bouton manuel (Réglages →
+  Performance → nouveau `BenchmarkPanel`), démarrage juste après une mise à
+  jour (`instrumentation.ts`, compare la version enregistrée du dernier
+  résultat à la version courante — fonctionne pareil pour l'installeur
+  Windows et un re-pull d'image Docker/NAS, les deux se terminant par un
+  redémarrage du process), et une tâche planifiée mensuelle
+  (`scheduler/tasks.ts`, apparaît aussi gratuitement dans le panneau
+  Automatisation générique). Piège trouvé et corrigé en vérifiant en
+  direct : la source synthétique `lavfi color=` n'a AUCUNE métadonnée de
+  couleur — `zscale` refuse toute conversion ("no path between
+  colorspaces") tant que primaries/transfer/matrix ne sont pas explicites
+  des DEUX côtés (entrée ET sortie), y compris pour un simple bt709→bt709 ;
+  la chaîne réelle de `localExecutor.ts` n'a jamais ce problème puisque les
+  vrais fichiers HDR portent toujours ces tags.
+- **Détection HDR réelle** (`clientProfile.detect.ts`) : `hdr` n'était
+  jamais renseigné sur les capacités vidéo du client desktop — même un
+  écran HDR réel ne pouvait jamais bénéficier du repli Dolby Vision
+  rétrocompatible (§29). Corrigé avec `matchMedia("(video-dynamic-range:
+  high)")` — vérifié en direct que c'est le bon signal : sur cette machine,
+  `(dynamic-range: high)` vaut `true` (écran HDR) mais `(video-dynamic-
+  range: high)` vaut `false` au même instant (mode vidéo HDR pas actif) ;
+  utiliser le premier aurait produit un faux positif.
+- **Sélecteur manuel "Mode transcodage" nettoyé** : signalé par
+  l'utilisateur comme confus et cassé pour du contenu local ("Audio
+  seulement" échoue, "Auto" fonctionne). Cause réelle : ce menu ne pilote
+  que `handlePlexPlayback()` → l'ancien circuit HLS/Plex, jamais le nouveau
+  moteur local. Le menu entier est maintenant masqué quand
+  `hasRealPlexLink` est faux (calculé une fois au niveau du composant,
+  réutilisé là où il l'était déjà en interne) — la combinaison cassée n'est
+  plus jamais atteignable, plutôt que de laisser chaque option échouer
+  individuellement.
+- **Cover art jamais confondue avec la vidéo principale** (`mediaProbe.ts`) :
+  `disposition.attached_pic` (confirmé en direct via un MP3 avec pochette
+  embarquée, ET qu'une pièce jointe Matroska n'apparaît elle jamais comme un
+  flux — deux mécanismes distincts) exclut maintenant une image de
+  couverture du choix du flux vidéo principal, avec repli si c'est
+  vraiment le seul flux vidéo présent.
+- **Limite de sessions partagée** (`sharedTranscodeLimit.ts`) : le moteur
+  local et l'ancien circuit Plex avaient chacun leur propre plafond de 3,
+  soit jusqu'à 6 process ffmpeg simultanés possibles sans qu'aucun des deux
+  ne le sache — sur un DS923+ à 2 cœurs sans GPU, potentiellement
+  catastrophique. Un seul plafond partagé maintenant, lu directement depuis
+  les deux registres `globalThis` (pas d'import circulaire entre les deux
+  moteurs).
+- **Nettoyage à l'arrêt du serveur** (`instrumentation.ts`) : aucun des deux
+  moteurs ffmpeg n'avait de hook de nettoyage sur SIGTERM/SIGINT — un
+  redémarrage/redéploiement laissait tout process en cours orphelin. Best-
+  effort SIGTERM à chaque session active à l'arrêt, sans jamais appeler
+  `process.exit()` soi-même (reste la responsabilité de Next.js).
+
+**Reste explicitement hors scope** (annoncé comme tel dès le départ, pas
+oublié) : clients natifs Android TV/Mobile/Cast (phases 17-19 du plan —
+codebases séparées, pas réalisable dans une continuation de cette session) ;
+encodage des sous-titres non-UTF-8 (tentative déjà abandonnée une fois cette
+session, nécessite un banc de test plus fiable) ; cascade de repli interne
+Movviz→Movviz en cas d'échec d'exécution (`recordFallbackAttempt()` toujours
+non appelé — le plus gros chantier architectural restant) ; panneau debug,
+logs structurés et métriques dédiés au nouveau moteur ; feature flags
+granulaires par couche (§67) ; séparation `TranscodeBackendSelector` (§30,
+refactor pur sans gain fonctionnel).
+
 ## 9. Suite du test réel en prod — le plafond 1280px ne suffisait toujours pas, 2026-08-24
 
 Une fois la 1.19.11 déployée, "Dragons" a été retesté avec zéro autre charge

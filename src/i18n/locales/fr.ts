@@ -932,6 +932,23 @@ export const fr = {
     logsLines: "lignes",
   },
 
+  benchmark: {
+    title: "Benchmark du serveur",
+    hint: "Mesure la vitesse réelle de transcodage sur ce serveur — en direct, plutôt que de le découvrir en pleine lecture.",
+    run: "Lancer le benchmark",
+    running: "Benchmark en cours…",
+    never: "Aucun benchmark encore lancé.",
+    lastRun: "Dernière exécution",
+    hardwareDetected: "Accélération matérielle détectée",
+    hardware: "matériel",
+    failed: "Échec",
+    profile: {
+      software_1080p: "Logiciel 1080p (sans HDR)",
+      software_720p_tonemap: "Logiciel 720p (conversion HDR→SDR)",
+      hardware_4k: "Matériel 4K",
+    },
+  },
+
   automation: {
     pillSchedule: "Planification",
     pillQueue: "File & priorités",
@@ -1939,6 +1956,7 @@ export const fr = {
       "seerr-import": "Import des demandes Overseerr/Seerr",
       "disk-scan": "Scan disque local",
       "library-health-check": "Diagnostic bibliothèque",
+      "server-benchmark": "Benchmark des capacités du serveur",
       "search-and-replace-check": "Vérification des remplacements suggérés",
       "language-detection": "Détection des langues (Plex + nom de fichier)",
       "auto-upgrade-all": "Mise à niveau automatique de toute la bibliothèque",

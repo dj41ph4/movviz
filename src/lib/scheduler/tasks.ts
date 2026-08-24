@@ -379,4 +379,21 @@ export const TASKS: ScheduledTask[] = [
       await runLibraryHealthCheck();
     },
   },
+  {
+    id: "server-benchmark",
+    name: "Benchmark des capacités du serveur",
+    intervalMs: 30 * 24 * 60 * 60 * 1000, // every 30 days — explicit user request (2026-08-24)
+    // Third of the benchmark's three triggers (see serverBenchmark.ts's own
+    // header) — hardware doesn't change often, but ffmpeg builds, kernel
+    // updates, or a Docker host migration genuinely can shift real
+    // transcode speed over time without a Movviz version bump ever
+    // happening (which is what the OTHER trigger, instrumentation.ts's
+    // shouldAutoRunBenchmark(), actually watches for). Manually launchable
+    // like any task via /api/tasks/[id]/run, same as library-health-check
+    // above.
+    run: async () => {
+      const { runServerBenchmark } = await import("@/lib/playback/engine/serverBenchmark");
+      await runServerBenchmark();
+    },
+  },
 ];

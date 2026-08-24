@@ -6,13 +6,12 @@ import { getPrimaryFile } from "@/lib/library/versions";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import {
   DuplicateLocalSessionError,
-  MAX_CONCURRENT,
-  activeSessionCount,
   markStreamAborted,
   startLocalSession,
   stopAllForMedia,
   stopLocalSession,
 } from "@/lib/playback/engine/localExecutor";
+import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "@/lib/playback/engine/sharedTranscodeLimit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -50,7 +49,8 @@ export async function GET(req: NextRequest, context: Ctx) {
   const seekToRaw = Number(sp.get("seekTo"));
   const seekToSec = Number.isFinite(seekToRaw) && seekToRaw > 0 ? seekToRaw : 0;
 
-  if (activeSessionCount() >= MAX_CONCURRENT) {
+  // Shared ceiling with the Plex remux engine — see sharedTranscodeLimit.ts.
+  if (totalActiveTranscodeSessions() >= MAX_CONCURRENT_TRANSCODES) {
     console.error(`[local-engine] 429 capacité atteinte pour ${sessionId}`);
     return NextResponse.json({ error: "too_many_sessions" }, { status: 429 });
   }

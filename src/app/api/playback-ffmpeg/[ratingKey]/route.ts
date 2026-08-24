@@ -4,8 +4,6 @@ import { resolvePlexPartUrl } from "@/lib/playback/plexSource";
 import {
   DuplicateSessionError,
   FFMPEG_QUALITY_PRESETS,
-  MAX_CONCURRENT,
-  activeSessionCount,
   isFfmpegAvailable,
   isFfmpegQuality,
   markStreamAborted,
@@ -14,6 +12,7 @@ import {
   stopRemux,
   type FfmpegQuality,
 } from "@/lib/playback/ffmpeg/remuxSession";
+import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "@/lib/playback/engine/sharedTranscodeLimit";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -66,7 +65,8 @@ export async function GET(req: NextRequest, context: Ctx) {
   // le cas capacité pleine ET clé non déjà active (le cas "déjà active" est
   // toujours autorisé à passer, c'est startRemux qui distingue via
   // DuplicateSessionError).
-  if (activeSessionCount() >= MAX_CONCURRENT) {
+  // Shared ceiling with the local engine — see sharedTranscodeLimit.ts.
+  if (totalActiveTranscodeSessions() >= MAX_CONCURRENT_TRANSCODES) {
     console.error(`[remux] 429 capacité atteinte pour ${ratingKey}`);
     return NextResponse.json({ error: "too_many_remux_sessions" }, { status: 429 });
   }

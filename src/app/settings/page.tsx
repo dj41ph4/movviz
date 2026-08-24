@@ -15,6 +15,7 @@ import { TranscodeLogsPanel } from "@/components/settings/TranscodeLogsPanel";
 import { EngineLogsPanel } from "@/components/settings/EngineLogsPanel";
 import { ResolverLogsPanel } from "@/components/settings/ResolverLogsPanel";
 import { PerfPanel } from "@/components/settings/PerfPanel";
+import { BenchmarkPanel } from "@/components/settings/BenchmarkPanel";
 import { BackupSettings } from "@/components/settings/BackupSettings";
 import { AutomationSettings } from "@/components/settings/AutomationSettings";
 import { CachePanel } from "@/components/settings/CachePanel";
@@ -290,6 +291,7 @@ function SettingsPageInner() {
 
           {tab === "performance" && user?.role === "admin" && (
             <div className="space-y-6">
+              <BenchmarkPanel />
               <PerfPanel />
               <StatsPanel />
             </div>

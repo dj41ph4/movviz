@@ -934,6 +934,23 @@ export const nl: Dictionary = {
     logsLines: "regels",
   },
 
+  benchmark: {
+    title: "Serverbenchmark",
+    hint: "Meet de echte transcodeersnelheid van deze server rechtstreeks, in plaats van dit tijdens het afspelen te ontdekken.",
+    run: "Benchmark starten",
+    running: "Benchmark bezig…",
+    never: "Nog geen benchmark uitgevoerd.",
+    lastRun: "Laatst uitgevoerd",
+    hardwareDetected: "Hardwareversnelling gedetecteerd",
+    hardware: "hardware",
+    failed: "Mislukt",
+    profile: {
+      software_1080p: "Software 1080p (geen HDR)",
+      software_720p_tonemap: "Software 720p (HDR→SDR-conversie)",
+      hardware_4k: "Hardware 4K",
+    },
+  },
+
   automation: {
     pillSchedule: "Planning",
     pillQueue: "Wachtrij & prioriteiten",
@@ -1941,6 +1958,7 @@ export const nl: Dictionary = {
       "seerr-import": "Seerr/Overseerr aanvragen importeren",
       "disk-scan": "Lokale schijfscan",
       "library-health-check": "Bibliotheekdiagnose",
+      "server-benchmark": "Benchmark van servercapaciteiten",
       "search-and-replace-check": "Controle van voorgestelde vervangingen",
       "language-detection": "Taaldetectie (Plex + bestandsnaam)",
       "auto-upgrade-all": "Automatische upgrade van de hele bibliotheek",

@@ -165,6 +165,17 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       ? `/api/stream/local/${encodeURIComponent(movvizId)}`
       : null;
   const localPlayback = Boolean(localStreamPath);
+  // §44-46/49 (Plex is only a real fallback when it genuinely exists): for a
+  // purely local title, TitleContent.tsx already falls back ratingKey to the
+  // movviz id itself when there's no real plexRatingKey. The manual "Mode
+  // transcodage" menu's Audio/Vidéo/HLS-manuel options only ever drive the
+  // legacy Plex/HLS leg (handlePlexPlayback → startHlsRef) — offering them
+  // for content with no real Plex session produces a guaranteed, confusing
+  // failure (confirmed live: "Audio seulement" failed outright while "Auto"
+  // — which correctly routes to the local engine instead — worked). Gating
+  // the whole menu on this flag prevents that broken combination from being
+  // reachable at all, rather than letting each option fail on its own.
+  const hasRealPlexLink = ratingKey !== movvizId;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerRef = useRef<HTMLDivElement>(null);
@@ -1471,8 +1482,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         // libraryMatch?.plexRatingKey ?? libraryMatch?.id). Router un échec
         // vers la leg Plex/DASH dans ce cas produirait une boucle de 502
         // garantie (§49) plutôt qu'un vrai filet de secours — mieux vaut un
-        // échec honnête que ça.
-        const hasRealPlexLink = ratingKey !== movvizId;
+        // échec honnête que ça. (hasRealPlexLink is computed once at
+        // component scope — see its own comment there.)
         const onLocalEngineFailure = () => {
           destroyFfmpeg();
           ffmpegSkippedRef.current = true;
@@ -2850,50 +2861,59 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                             )}
                           </div>
                         )}
-                        <div className="relative hidden sm:block">
-                          <button
-                            onClick={() => toggleMenu("playback")}
-                            className={cn(iconButtonClass, "hover:text-brand-glow")}
-                            title={t("player.betaTranscodeMode")}
-                            aria-label={t("player.betaTranscodeMode")}
-                          >
-                            <Zap className="h-5 w-5" />
-                          </button>
-                          {menuOpen === "playback" && (
-                            <div className={cn(menuPanelClass, "w-64 animate-menu-pop")}>
-                              <button
-                                onClick={handleAutoPlayback}
-                                className={cn(menuItemClass, "justify-between")}
-                              >
-                                <span>{t("player.betaTranscodeAuto")}</span><Check className="h-3.5 w-3.5 text-brand-glow" />
-                              </button>
-                              <button
-                                onClick={handleDirectPlay}
-                                className={menuItemClass}
-                              >
-                                {t("player.betaDirectActive")}
-                              </button>
-                              <button
-                                onClick={() => handlePlexPlayback("audio")}
-                                className={menuItemClass}
-                              >
-                                {t("player.betaTranscodeAudio")}
-                              </button>
-                              <button
-                                onClick={() => handlePlexPlayback("video")}
-                                className={menuItemClass}
-                              >
-                                {t("player.betaTranscodeVideo")}
-                              </button>
-                              <button
-                                onClick={() => handlePlexPlayback("full")}
-                                className={menuItemClass}
-                              >
-                                {t("player.betaEngineHls")}
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        {hasRealPlexLink && (
+                          // This whole menu only ever drives the legacy
+                          // Plex/HLS leg (handlePlexPlayback → startHlsRef,
+                          // see its own comment) — gated on hasRealPlexLink
+                          // so it's simply not reachable for local-only
+                          // content instead of failing when clicked (see
+                          // hasRealPlexLink's own comment for the real
+                          // failure this fixes).
+                          <div className="relative hidden sm:block">
+                            <button
+                              onClick={() => toggleMenu("playback")}
+                              className={cn(iconButtonClass, "hover:text-brand-glow")}
+                              title={t("player.betaTranscodeMode")}
+                              aria-label={t("player.betaTranscodeMode")}
+                            >
+                              <Zap className="h-5 w-5" />
+                            </button>
+                            {menuOpen === "playback" && (
+                              <div className={cn(menuPanelClass, "w-64 animate-menu-pop")}>
+                                <button
+                                  onClick={handleAutoPlayback}
+                                  className={cn(menuItemClass, "justify-between")}
+                                >
+                                  <span>{t("player.betaTranscodeAuto")}</span><Check className="h-3.5 w-3.5 text-brand-glow" />
+                                </button>
+                                <button
+                                  onClick={handleDirectPlay}
+                                  className={menuItemClass}
+                                >
+                                  {t("player.betaDirectActive")}
+                                </button>
+                                <button
+                                  onClick={() => handlePlexPlayback("audio")}
+                                  className={menuItemClass}
+                                >
+                                  {t("player.betaTranscodeAudio")}
+                                </button>
+                                <button
+                                  onClick={() => handlePlexPlayback("video")}
+                                  className={menuItemClass}
+                                >
+                                  {t("player.betaTranscodeVideo")}
+                                </button>
+                                <button
+                                  onClick={() => handlePlexPlayback("full")}
+                                  className={menuItemClass}
+                                >
+                                  {t("player.betaEngineHls")}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     )}
 
