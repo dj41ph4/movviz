@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.15 — August 2026
+
+### Sous-titres non-UTF-8 (anciennes releases françaises) enfin fiables
+
+Un sous-titre encodé dans un ancien format (Windows-1252, courant sur des releases françaises plus anciennes) faisait planter l'incrustation à l'image et produisait un fichier de sous-titres vide sans erreur visible pour l'extraction. Détection automatique du bon encodage avant traitement — un fichier déjà correctement encodé (l'immense majorité aujourd'hui) n'est jamais touché.
+
 ## v1.19.14 — August 2026
 
 ### Benchmark du serveur, nettoyage du sélecteur de lecture manuel, et plusieurs correctifs de fond

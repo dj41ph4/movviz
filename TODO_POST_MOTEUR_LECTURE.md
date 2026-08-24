@@ -341,16 +341,53 @@ pour traiter le reste du backlog. Livré :
   effort SIGTERM à chaque session active à l'arrêt, sans jamais appeler
   `process.exit()` soi-même (reste la responsabilité de Next.js).
 
+## 12. Encodage des sous-titres non-UTF-8 — repris avec un banc de test fiable, 2026-08-24
+
+Dernier point du point 5 encore ouvert. La tentative précédente avait été
+abandonnée parce que le banc de test lui-même était cassé : muxer un SRT
+externe non-UTF-8 dans un MKV via `-c:s srt` réinterprète/décode-réencode le
+texte au passage, masquant le vrai bug. Cette fois, vérifié fiable via
+`-c:s copy` (vraie copie de flux, confirmée en direct pour préserver les
+octets d'origine sans y toucher — contrairement à `-c:s srt`).
+
+**Deux causes réelles, deux corrections distinctes** :
+- BURN plante ("Invalid UTF-8 in decoded subtitles text") et EXTRACT/CONVERT
+  produit un fichier vide sans erreur visible — confirmés en direct sur un
+  vrai fichier non-UTF-8 (Windows-1252, courant sur les anciennes releases
+  françaises).
+- Forcer WINDOWS-1252 sans condition n'est PAS sûr non plus — vérifié en
+  direct que ça corrompt un fichier réellement UTF-8 en charabia
+  ("café" → "cafÃ©") — la détection doit donc passer par les octets bruts
+  d'abord (`-c:s copy`, qui n'invoque jamais le décodeur et ne plante donc
+  jamais, quel que soit l'encodage) puis un test de validité UTF-8 réel
+  avant de décider quoi que ce soit.
+- Le placement du correctif diffère selon le chemin : EXTRACT/CONVERT lit
+  le flux à travers le décodeur du `-i` principal → `-sub_charenc` en
+  option d'entrée globale AVANT `-i` (produit un avertissement inoffensif
+  pour les flux non-sous-titres du même `-i`, confirmé sans impact réel).
+  BURN rouvre le fichier de façon complètement indépendante (le filtre
+  `subtitles` a son propre paramètre `charenc=`, confirmé via
+  `ffmpeg -h filter=subtitles` — le flag global n'a strictement aucun effet
+  sur ce chemin, contrairement à ce qu'on pourrait attendre).
+
+**Corrigé** : nouvelle fonction `detectSubtitleCharenc()` dans
+`localExecutor.ts` (extraction `-c:s copy` + vérification `TextDecoder`),
+appelée par la route de streaming AVANT `startLocalSession()` (uniquement
+quand un sous-titre est réellement sélectionné pour BURN/EXTRACT/CONVERT —
+jamais pour DIRECT/NONE) et branchée aux deux points d'application corrects.
+Vérifié de bout en bout via les vraies fonctions de production (pas
+seulement en ligne de commande ffmpeg) : BURN produit une vraie sortie vidéo
+sans plantage, EXTRACT produit un VTT avec le texte français correctement
+accentué ("café", "forêt", "Écoute", "où", "allé").
+
 **Reste explicitement hors scope** (annoncé comme tel dès le départ, pas
 oublié) : clients natifs Android TV/Mobile/Cast (phases 17-19 du plan —
 codebases séparées, pas réalisable dans une continuation de cette session) ;
-encodage des sous-titres non-UTF-8 (tentative déjà abandonnée une fois cette
-session, nécessite un banc de test plus fiable) ; cascade de repli interne
-Movviz→Movviz en cas d'échec d'exécution (`recordFallbackAttempt()` toujours
-non appelé — le plus gros chantier architectural restant) ; panneau debug,
-logs structurés et métriques dédiés au nouveau moteur ; feature flags
-granulaires par couche (§67) ; séparation `TranscodeBackendSelector` (§30,
-refactor pur sans gain fonctionnel).
+cascade de repli interne Movviz→Movviz en cas d'échec d'exécution
+(`recordFallbackAttempt()` toujours non appelé — le plus gros chantier
+architectural restant) ; panneau debug, logs structurés et métriques dédiés
+au nouveau moteur ; feature flags granulaires par couche (§67) ; séparation
+`TranscodeBackendSelector` (§30, refactor pur sans gain fonctionnel).
 
 ## 9. Suite du test réel en prod — le plafond 1280px ne suffisait toujours pas, 2026-08-24
 

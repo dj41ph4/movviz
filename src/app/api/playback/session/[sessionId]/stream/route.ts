@@ -6,6 +6,7 @@ import { getPrimaryFile } from "@/lib/library/versions";
 import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import {
   DuplicateLocalSessionError,
+  detectSubtitleCharenc,
   markStreamAborted,
   startLocalSession,
   stopAllForMedia,
@@ -55,12 +56,27 @@ export async function GET(req: NextRequest, context: Ctx) {
     return NextResponse.json({ error: "too_many_sessions" }, { status: 429 });
   }
 
+  // Non-UTF-8 SRT (Windows-1252/ISO-8859-1, common on older French releases)
+  // otherwise crashes BURN outright and silently produces an empty sidecar
+  // for EXTRACT/CONVERT — see detectSubtitleCharenc's own comment. Only
+  // worth the extra real ffmpeg check when a subtitle is actually selected
+  // and will be touched (BURN/EXTRACT/CONVERT — DIRECT and NONE never read
+  // the stream's text at all).
+  let subtitleCharenc: string | null = null;
+  if (
+    session.selectedSubtitle !== null &&
+    (session.plan.subtitleAction === "BURN" || session.plan.subtitleAction === "EXTRACT" || session.plan.subtitleAction === "CONVERT")
+  ) {
+    subtitleCharenc = await detectSubtitleCharenc(filePath, session.selectedSubtitle);
+  }
+
   let result: ReturnType<typeof startLocalSession>;
   try {
     result = startLocalSession(session.mediaId, user.id, filePath, media, session.plan, {
       audioIndex: session.selectedAudio ?? undefined,
       subtitleIndex: session.selectedSubtitle,
       seekToSec,
+      subtitleCharenc,
     });
   } catch (e) {
     if (e instanceof DuplicateLocalSessionError) {

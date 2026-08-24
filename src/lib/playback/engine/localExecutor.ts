@@ -51,6 +51,14 @@ export interface StartLocalSessionOptions {
   subtitleIndex?: number | null;
   seekToSec?: number;
   audioBitrateK?: number;
+  /** Result of detectSubtitleCharenc() — the caller runs that (async) BEFORE
+   *  calling this (sync) function, since a real ffmpeg extraction+decode
+   *  check can't happen inside a synchronous call. null/undefined means
+   *  "the subtitle is valid UTF-8, or wasn't checked" — never force a
+   *  charset override in that case (confirmed live: forcing WINDOWS-1252
+   *  onto genuinely valid UTF-8 text corrupts it into "cafÃ©"-style
+   *  mojibake, it does not no-op). */
+  subtitleCharenc?: string | null;
 }
 
 interface LocalSession {
@@ -112,6 +120,59 @@ export function markStreamAborted(key: string): void {
 
 function ffmpegBin(): string {
   return process.env.MOVVIZ_FFMPEG_PATH?.trim() || "ffmpeg";
+}
+
+/**
+ * TODO_POST_MOTEUR_LECTURE.md §5's own deferred item, revisited with a
+ * reliable test harness (2026-08-24) — the previous attempt's synthetic MKV
+ * mux itself silently reinterpreted the encoding (`-c:s srt` decodes/
+ * re-encodes), masking the real bug. This time verified with `-c:s copy`
+ * (a real stream copy, confirmed live to preserve the exact original bytes
+ * untouched, unlike `-c:s srt`) muxed into a real multi-stream MKV.
+ *
+ * A non-UTF-8 SRT (Windows-1252/ISO-8859-1, common on older French
+ * releases) crashes BURN outright ("Invalid UTF-8 in decoded subtitles
+ * text") and silently produces an empty VTT for EXTRACT/CONVERT — both
+ * confirmed live on a genuinely non-UTF-8 test file. Forcing WINDOWS-1252
+ * unconditionally is NOT safe either — confirmed live it corrupts a
+ * genuinely UTF-8 file into "cafÃ©"-style mojibake — so detection has to
+ * happen first, on the REAL raw bytes: `-c:s copy` extraction never invokes
+ * the subtitle decoder at all (confirmed live it succeeds on files that
+ * make the decode-based paths crash), making it a safe way to read the raw
+ * bytes for a UTF-8 validity check before deciding whether to override
+ * anything.
+ *
+ * Returns "WINDOWS-1252" only when the raw bytes are confirmed NOT valid
+ * UTF-8 — WINDOWS-1252 rather than plain ISO-8859-1 because it's a strict
+ * superset for the printable range that matters here (real ISO-8859-1 text
+ * rarely uses the 0x80-0x9F range where they differ), matching the
+ * TODO's own scoping to exactly this pair of legacy encodings.
+ */
+export async function detectSubtitleCharenc(filePath: string, subtitleIndex: number): Promise<string | null> {
+  const raw = await new Promise<Buffer | null>((resolve) => {
+    let p: ChildProcess;
+    try {
+      p = spawn(ffmpegBin(), [
+        "-v", "error", "-i", filePath,
+        "-map", `0:${subtitleIndex}`, "-c:s", "copy", "-f", "srt", "-",
+      ], { stdio: ["ignore", "pipe", "ignore"] });
+    } catch {
+      resolve(null);
+      return;
+    }
+    const chunks: Buffer[] = [];
+    p.stdout?.on("data", (c: Buffer) => chunks.push(c));
+    const t = setTimeout(() => { try { p.kill(); } catch { /* already dead */ } resolve(null); }, 5000);
+    p.on("error", () => { clearTimeout(t); resolve(null); });
+    p.on("exit", (code) => { clearTimeout(t); resolve(code === 0 ? Buffer.concat(chunks) : null); });
+  });
+  if (!raw || raw.length === 0) return null;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(raw);
+    return null; // already valid UTF-8 — never override
+  } catch {
+    return "WINDOWS-1252";
+  }
 }
 
 function sessionKey(mediaId: string, userId: string, audioIndex: number, subtitleIndex: number | null, seekSec: number): string {
@@ -236,6 +297,7 @@ export function startLocalSession(
   }
 
   const burning = plan.subtitleAction === "BURN" && subtitleIndex !== null;
+  const extractingSubtitle = !burning && subtitleIndex !== null && (plan.subtitleAction === "EXTRACT" || plan.subtitleAction === "CONVERT");
   const toneMapping = plan.toneMap === true;
   // §1.4 (never a video transcode just for burn-in unless the plan already
   // requires one) is decidePlayback's job, already baked into plan.videoAction
@@ -257,6 +319,17 @@ export function startLocalSession(
   const outputSeek = burning;
 
   const args: string[] = ["-v", "error"];
+  // Global INPUT option, must precede -i — only meaningful for EXTRACT/
+  // CONVERT (a real, separate `-map`+`-c:s webvtt` output read through this
+  // same -i's subtitle decoder). BURN does NOT use this: the `subtitles`
+  // filter re-opens the file independently and needs its OWN `charenc=`
+  // filter parameter instead (added below, where the filter string is
+  // built) — confirmed live this global flag has zero effect on that path.
+  // Produces one harmless warning for the non-subtitle streams on this
+  // same input ("Character encoding is only supported with subtitles
+  // codecs") — confirmed live it's non-fatal, the subtitle decode still
+  // succeeds correctly.
+  if (extractingSubtitle && opts.subtitleCharenc) args.push("-sub_charenc", opts.subtitleCharenc);
   if (seekSec > 0 && !outputSeek) args.push("-ss", String(seekSec));
   args.push("-i", filePath);
   if (seekSec > 0 && outputSeek) args.push("-ss", String(seekSec));
@@ -294,7 +367,12 @@ export function startLocalSession(
   }
   if (burning && subtitleIndex !== null) {
     const si = subtitleRelativeIndex(media, subtitleIndex);
-    if (si >= 0) videoFilters.push(`subtitles='${escapeForSubtitlesFilter(filePath)}':si=${si}`);
+    // charenc= is THIS filter's own parameter (`ffmpeg -h filter=subtitles`)
+    // — confirmed live it's the only thing that actually works here; the
+    // global -sub_charenc input flag has no effect since this filter opens
+    // its own independent copy of the file (see -i's own comment above).
+    const charencSuffix = opts.subtitleCharenc ? `:charenc=${opts.subtitleCharenc}` : "";
+    if (si >= 0) videoFilters.push(`subtitles='${escapeForSubtitlesFilter(filePath)}':si=${si}${charencSuffix}`);
     else console.error(`[local-engine] ${key} piste sous-titres ${subtitleIndex} introuvable parmi subtitleTracks — burn-in ignoré`);
   }
 
@@ -348,7 +426,7 @@ export function startLocalSession(
   // BURN (the text is already composited into the video in that case).
   let vttPath: string | null = null;
   let vttSubIndex: number | null = null;
-  if (!burning && subtitleIndex !== null && (plan.subtitleAction === "EXTRACT" || plan.subtitleAction === "CONVERT")) {
+  if (extractingSubtitle && subtitleIndex !== null) {
     vttPath = vttPathFor(key);
     vttSubIndex = subtitleIndex;
     args.push("-map", `0:${subtitleIndex}`, "-c:s", "webvtt", "-f", "webvtt", vttPath);
