@@ -187,6 +187,13 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const fallbackGuardRef = useRef(false);
   const startHlsRef = useRef<((extraParams?: string, isCopyNetworkRetry?: boolean) => void) | null>(null);
   const stopSilentWatchRef = useRef<(() => void) | null>(null);
+  // True only while startDirect()'s own watchForSilentAudio verdict is still
+  // pending — gates the generic onPlaying/onCanPlay handlers below so the
+  // "optimizing" cover isn't lifted by the throwaway direct-play attempt's
+  // OWN playing event, before we actually know whether it'll be kept or
+  // escalated away. Cleared by onConfirmedAudible (kept) or by abandoning
+  // direct play (escalateSilentToFfmpeg / recoverFromDirect).
+  const awaitingAudioConfirmationRef = useRef(false);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackSessionRef = useRef<string | null>(null);
   const playbackSequenceRef = useRef(0);
@@ -229,12 +236,13 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // play out IN FRONT of the user — a real frame (with wrong/missing audio)
   // visibly renders during the small transparent buffering spinner, then
   // visibly jumps when escalation swaps the source. `optimizing` is a
-  // SEPARATE, fully opaque cover shown only for the first moment of a fresh
-  // begin() — cleared as soon as real audio is confirmed (the fast, common
-  // path — see watchForSilentAudio's onConfirmedAudible) or by the flat
-  // safety timeout below, whichever comes first, so it can never get stuck.
+  // SEPARATE, fully opaque cover, tied to real engine-readiness signals
+  // (the video element's own "playing"/"canplay" events — see onPlaying/
+  // onCanPlay below) rather than a fixed timer, so it always tracks
+  // whichever leg actually ends up live: cleared the moment real audio is
+  // confirmed on a kept direct attempt (onConfirmedAudible), or the moment
+  // an escalated/transcoded engine genuinely starts producing frames.
   const [optimizing, setOptimizing] = useState(true);
-  const optimizingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mseActive, setMseActive] = useState(false);
   const [mseStats, setMseStats] = useState<MseDebugStats | null>(null);
   const [ffmpegActive, setFfmpegActive] = useState(false);
@@ -689,6 +697,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       if (hlsCopyEscalatedRef.current) return;
       hlsCopyEscalatedRef.current = true;
       transcodeAudioRef.current = true;
+      awaitingAudioConfirmationRef.current = false;
+      setOptimizing(true);
       stopSilentWatchRef.current?.();
       stopSilentWatchRef.current = null;
       if (mseEngineRef.current) {
@@ -1011,6 +1021,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const recoverFromDirect = async () => {
         if (directRecoveryStarted || fallbackGuardRef.current || hlsRef.current || mseEngineRef.current || ffmpegEngineRef.current) return;
         directRecoveryStarted = true;
+        awaitingAudioConfirmationRef.current = false;
+        setOptimizing(true);
         {
           const b = betaRef.current;
           if (b.playbackEngine === "engine-v2" || (b.playbackEngine === "auto" && localPlayback)) {
@@ -1048,10 +1060,14 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       // silent title is rare; a browser silently failing an AC-3/DTS/TrueHD
       // track is not, and must always trigger the audio-only fallback.
       stopSilentWatchRef.current?.();
+      awaitingAudioConfirmationRef.current = true;
       stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToFfmpeg(), {
         windowMs: 800,
         requireStarted: true,
-        onConfirmedAudible: () => setOptimizing(false),
+        onConfirmedAudible: () => {
+          awaitingAudioConfirmationRef.current = false;
+          setOptimizing(false);
+        },
       });
     };
     startDirectRef.current = startDirect;
@@ -1059,15 +1075,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     const begin = async (seekTo?: number) => {
       setBuffering(true);
       setOptimizing(true);
-      if (optimizingTimerRef.current) clearTimeout(optimizingTimerRef.current);
-      // Flat safety ceiling — longer than the 800ms silence-verdict window
-      // with real margin for an escalated leg to also get its first frame,
-      // but never so long the "optimizing" cover feels like a hang. Neither
-      // signal firing (AudioContext unavailable, escalation taking longer
-      // than this) still lifts the cover on schedule; the existing small
-      // buffering spinner takes over exactly as it already did before this
-      // change, so this can never leave the video permanently hidden.
-      optimizingTimerRef.current = setTimeout(() => setOptimizing(false), 1500);
       hlsCopyEscalatedRef.current = false;
       hlsCopyNetworkRetriedRef.current = false;
       // Reset the engine badge — begin() can re-run (resume-with-seek) and
@@ -1588,8 +1595,17 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     if (!el) return;
 
     const onWaiting = () => setBuffering(true);
-    const onPlaying = () => setBuffering(false);
-    const onCanPlay = () => setBuffering(false);
+    // Universal "a real frame is now flowing" signal — fires regardless of
+    // which engine feeds this same <video> element (direct src, MSE,
+    // ffmpeg-remuxed HLS/progressive). Gated on awaitingAudioConfirmationRef
+    // so it can't prematurely lift the "optimizing" cover for a throwaway
+    // direct-play attempt whose own audio verdict (silent → escalate) is
+    // still pending — see startDirect()/escalateSilentToFfmpeg() above.
+    const clearOptimizingIfSettled = () => {
+      if (!awaitingAudioConfirmationRef.current) setOptimizing(false);
+    };
+    const onPlaying = () => { setBuffering(false); clearOptimizingIfSettled(); };
+    const onCanPlay = () => { setBuffering(false); clearOptimizingIfSettled(); };
     el.addEventListener("waiting", onWaiting);
     el.addEventListener("playing", onPlaying);
     el.addEventListener("canplay", onCanPlay);

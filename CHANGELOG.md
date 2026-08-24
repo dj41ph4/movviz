@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.20 — August 2026
+
+### Le voile "optimisation en cours" ne suivait pas le vrai démarrage de la lecture
+
+Corrige une régression introduite en 1.19.17 : le voile plein écran se refermait sur un minuteur fixe de 1,5s au lieu de suivre le démarrage réel de la lecture, ce qui pouvait le lever trop tôt (avant qu'un basculement audio ne soit vraiment prêt) ou trop tard. Il se ferme désormais exactement quand la lecture démarre réellement — directe si aucun basculement n'est nécessaire, ou transcodée si un basculement a eu lieu.
+
 ## v1.19.19 — August 2026
 
 ### Sélection des bandes-annonces et teasers revue selon le contexte
