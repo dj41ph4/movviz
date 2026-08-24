@@ -12,7 +12,7 @@ import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLangu
 import {
   X, Maximize2, Minimize2, ExternalLink, AlertTriangle, Loader2, Check, RotateCcw,
   Play, Pause, Volume2, Volume1, VolumeX, Gauge, AudioLines, Captions,
-  SkipBack, SkipForward, PictureInPicture2, Zap, Monitor,
+  SkipBack, SkipForward, PictureInPicture2, Monitor,
 } from "lucide-react";
 import { detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, shouldForceAudioTranscode, type CodecCapabilities } from "@/lib/player/webcodecs";
 import { watchForSilentAudio } from "@/lib/player/silentAudioDetector";
@@ -168,14 +168,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const localPlayback = Boolean(localStreamPath);
   // §44-46/49 (Plex is only a real fallback when it genuinely exists): for a
   // purely local title, TitleContent.tsx already falls back ratingKey to the
-  // movviz id itself when there's no real plexRatingKey. The manual "Mode
-  // transcodage" menu's Audio/Vidéo/HLS-manuel options only ever drive the
-  // legacy Plex/HLS leg (handlePlexPlayback → startHlsRef) — offering them
-  // for content with no real Plex session produces a guaranteed, confusing
-  // failure (confirmed live: "Audio seulement" failed outright while "Auto"
-  // — which correctly routes to the local engine instead — worked). Gating
-  // the whole menu on this flag prevents that broken combination from being
-  // reachable at all, rather than letting each option fail on its own.
+  // movviz id itself when there's no real plexRatingKey. Still gates
+  // onLocalEngineFailure()'s decision below: falling back to the legacy
+  // Plex/HLS leg is only ever attempted when a real Plex session actually
+  // exists — otherwise it's a guaranteed, confusing failure (confirmed live).
   const hasRealPlexLink = ratingKey !== movvizId;
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -194,6 +190,19 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   // escalated away. Cleared by onConfirmedAudible (kept) or by abandoning
   // direct play (escalateSilentToFfmpeg / recoverFromDirect).
   const awaitingAudioConfirmationRef = useRef(false);
+  // True only while ffmpegEngineRef holds the NEW engine-v2 (local, session-
+  // based) instance rather than the legacy ffmpeg-remux one — both share the
+  // same ref/ffmpegActive flag, but they speak completely different track-
+  // reload protocols (see reloadLocalEngineTracks() vs reloadFfmpeg()).
+  const isLocalEngineV2Ref = useRef(false);
+  // The exact audio/subtitle track lists (ffprobe index — the real,
+  // unambiguous identifier decidePlayback expects) from the LAST successful
+  // /api/playback/prepare response for this engine-v2 session. Matched to
+  // the classic audioStreams/subtitleStreams menus (a different, Plex-
+  // derived numbering — see reloadLocalEngineTracks()) by ordinal position,
+  // since both simply enumerate the same physical file's streams in order.
+  const localEngineAudioTracksRef = useRef<{ index: number }[]>([]);
+  const localEngineSubtitleTracksRef = useRef<{ index: number }[]>([]);
   const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const playbackSessionRef = useRef<string | null>(null);
   const playbackSequenceRef = useRef(0);
@@ -414,6 +423,73 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const reloadFfmpegAudio = (audioId: string) => void reloadFfmpeg(audioId, qualityRef.current);
 
   /**
+   * Audio/subtitle switch for the NEW engine-v2 (local, session-based)
+   * leg — completely separate protocol from reloadFfmpeg() above (which is
+   * the LEGACY leg's own reload, hard-coded to ratingKey + audioStreamID).
+   * engine-v2 has no live "swap track on the current session" call: the
+   * track selection is baked into the session at /api/playback/prepare
+   * time, so switching means asking prepare for a brand new session with
+   * the desired selection, then pointing the SAME engine instance at it
+   * (mirrors tryStartLocalEngine's own initial call one-for-one).
+   *
+   * The classic audioStreams/subtitleStreams menus carry Plex-derived ids
+   * (see getLocalStreamInfo) — a DIFFERENT numbering from the ffprobe
+   * `index` decidePlayback/prepare actually expects (localEngineAudioTracksRef
+   * /localEngineSubtitleTracksRef, captured from prepare's own `tracks`
+   * response). Both lists simply enumerate the same physical file's streams
+   * in order, so the clicked menu entry's ordinal POSITION — not its id —
+   * is what reliably carries over between the two numbering schemes, even
+   * on a file with mislabeled language tags (confirmed live: "8 Mile" 's
+   * first "Français" entry is actually English audio — position-matching
+   * is unaffected by that kind of label bug, an id/language match would not be).
+   */
+  const reloadLocalEngineTracks = async (nextAudioId: string | null, nextSubtitleId: string | null) => {
+    const engine = ffmpegEngineRef.current;
+    if (!engine || !movvizId) {
+      maybeStartHls(undefined, true);
+      return;
+    }
+    setMenuOpen(null);
+    const toIndex = (id: string | null, streams: StreamTrack[], tracks: { index: number }[]): number | undefined => {
+      if (id === null) return undefined;
+      const position = streams.findIndex((s) => s.id === id);
+      return position >= 0 ? tracks[position]?.index : undefined;
+    };
+    const audioTrack = toIndex(nextAudioId, audioStreams, localEngineAudioTracksRef.current);
+    const subtitleTrack = nextSubtitleId === null ? null : toIndex(nextSubtitleId, subtitleStreams, localEngineSubtitleTracksRef.current);
+    if (nextAudioId !== null && audioTrack === undefined) {
+      // Couldn't resolve the requested track to a real ffprobe index —
+      // an inconsistent-state case (see reloadFfmpeg's own comment), not
+      // a genuine engine failure worth crashing the whole leg over.
+      maybeStartHls(undefined, true);
+      return;
+    }
+    setCurrentAudio(nextAudioId);
+    audioStreamIdRef.current = nextAudioId;
+    if (nextSubtitleId !== undefined) setCurrentSubtitle(nextSubtitleId);
+    const pos = (videoRef.current?.currentTime ?? 0) + engine.seekBase;
+    try {
+      setBuffering(true);
+      const clientProfile = await detectDesktopClientProfile(getOrCreateDeviceId(), "1.0");
+      const prepRes = await fetch("/api/playback/prepare", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mediaId: movvizId, clientProfile, audioTrack, subtitleTrack }),
+      });
+      if (!prepRes.ok) throw new Error("prepare_failed");
+      const prep = (await prepRes.json()) as { sessionId: string; tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] } };
+      localEngineAudioTracksRef.current = prep.tracks?.audio ?? localEngineAudioTracksRef.current;
+      localEngineSubtitleTracksRef.current = prep.tracks?.subtitle ?? localEngineSubtitleTracksRef.current;
+      await engine.load(prep.sessionId, { seekTo: pos, debug: betaRef.current.debug });
+    } catch {
+      // Same safety net as reloadFfmpeg — the engine already fires onError
+      // → fallback for a genuine playback failure; this only covers the
+      // prepare call itself failing (network, invalid state...).
+      maybeStartHls(undefined, true);
+    }
+  };
+
+  /**
    * Bascule ffmpeg → HLS (Plex) quand un sous-titre est demandé : le remux
    * local ne grave aucun sous-titre (orchestrator refuse ffmpeg dès que
    * subtitleActive). Détruit le moteur, puis démarre la leg HLS avec
@@ -579,12 +655,14 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     }
   }, [ratingKey, applyFfmpegSubtitleOffset, clearFfmpegSubtitle]);
 
-  // Handlers des menus audio/sous-titres — mode ffmpeg : la langue audio
-  // reste sur le moteur local (reload), les sous-titres basculent sur la
-  // leg HLS (Plex) car ffmpeg ne gère aucun burn-in. Mode HLS : chemin
-  // existant strictement inchangé (reloadHls).
+  // Handlers des menus audio/sous-titres — 3 protocoles distincts selon la
+  // leg active : engine-v2 (reloadLocalEngineTracks, nouvelle session via
+  // /api/playback/prepare), ffmpeg legacy (reload sur la même session
+  // ratingKey), HLS (reloadHls, chemin existant inchangé).
   const handleAudioSelect = (id: string) => {
-    if (ffmpegActive) {
+    if (isLocalEngineV2Ref.current) {
+      void reloadLocalEngineTracks(id, currentSubtitle);
+    } else if (ffmpegActive) {
       void reloadFfmpegAudio(id);
     } else {
       reloadHls(id, currentSubtitle);
@@ -594,7 +672,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
   const handleSubtitleSelect = (id: string) => {
     setMenuOpen(null);
-    if (ffmpegActive) {
+    if (isLocalEngineV2Ref.current) {
+      void reloadLocalEngineTracks(currentAudio, id);
+    } else if (ffmpegActive) {
       // Leg ffmpeg : piste TEXTE → extraite en WebVTT localement (aucun
       // Plex) et rendue via <track> natif décalé par seekBase. Piste IMAGE
       // (pgs/vobsub, non convertible en texte) → repli HLS comme avant.
@@ -612,7 +692,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
   const handleSubtitleOff = () => {
     setMenuOpen(null);
-    if (ffmpegActive) {
+    if (isLocalEngineV2Ref.current) {
+      void reloadLocalEngineTracks(currentAudio, null);
+    } else if (ffmpegActive) {
       // Leg ffmpeg : on retire le track local, on reste sur le moteur.
       clearFfmpegSubtitle();
       setCurrentSubtitle(null);
@@ -1395,6 +1477,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           onDebug: (stats) => setFfmpegStats(stats),
         });
         ffmpegEngineRef.current = engine;
+        isLocalEngineV2Ref.current = false;
         // Idem au démarrage : `loadeddata` d'un fMP4 peut être émis avant le
         // rendu qui propage `ffmpegActive` dans son ref. La durée Plex doit
         // déjà être utilisée à ce tout premier évènement.
@@ -1484,6 +1567,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           plan: { mode: string };
           stream: { url: string };
           media: { durationMs?: number };
+          tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] };
         };
         // DIRECT_PLAY et PLEX_FALLBACK/UNSUPPORTED ne concernent pas cette
         // leg : le premier est déjà couvert par startDirect, les seconds
@@ -1545,6 +1629,9 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         );
         ffmpegEngineRef.current = engine;
         ffmpegActiveRef.current = true;
+        isLocalEngineV2Ref.current = true;
+        localEngineAudioTracksRef.current = prep.tracks?.audio ?? [];
+        localEngineSubtitleTracksRef.current = prep.tracks?.subtitle ?? [];
         setFfmpegActive(true);
         setDirectMode(false);
         setBuffering(true);
@@ -2237,92 +2324,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     }
   };
 
-  const preservePositionOnNextSource = (position: number) => {
-    const el = videoRef.current;
-    if (!el || position <= 0) return;
-    el.addEventListener("loadedmetadata", () => {
-      if (el.duration && position < el.duration) el.currentTime = position;
-    }, { once: true });
-  };
-
-  const handlePlexPlayback = (mode: "audio" | "video" | "full") => {
-    const position = currentPlaybackPosition();
-    setMenuOpen(null);
-    transcodeModeRef.current = mode;
-    transcodeVideoRef.current = mode === "video" || mode === "full";
-    transcodeAudioRef.current = mode === "audio" || mode === "full";
-    hlsCopyEscalatedRef.current = false;
-    hlsCopyNetworkRetriedRef.current = false;
-    tearDownActiveLegs();
-    fallbackGuardRef.current = false;
-    setDirectMode(false);
-    setUsingFallback(false);
-    setBuffering(true);
-    preservePositionOnNextSource(position);
-    // This is an explicit user choice: do not apply the automatic HLS guard
-    // intended for background fallbacks when Plex/HLS was disabled in settings.
-    startHlsRef.current?.();
-  };
-
-  const handleAutoPlayback = () => {
-    const position = currentPlaybackPosition();
-    setMenuOpen(null);
-    transcodeModeRef.current = "auto";
-    hlsCopyEscalatedRef.current = false;
-    hlsCopyNetworkRetriedRef.current = false;
-    tearDownActiveLegs();
-    fallbackGuardRef.current = false;
-    setDirectMode(false);
-    setUsingFallback(false);
-    setBuffering(true);
-    void beginRef.current?.(position > 0 ? position : undefined);
-  };
-
-  const handleDirectPlay = () => {
-    const el = videoRef.current;
-    if (!el) return;
-    setMenuOpen(null);
-    if (mseEngineRef.current) {
-      try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
-      mseEngineRef.current = null;
-      mseSkippedRef.current = true;
-      setMseActive(false);
-      setMseStats(null);
-    }
-    if (ffmpegEngineRef.current) {
-      const engine = ffmpegEngineRef.current;
-      ffmpegEngineRef.current = null;
-      ffmpegSkippedRef.current = true;
-      setFfmpegActive(false);
-      setFfmpegStats(null);
-      void engine.destroy().catch(() => void 0);
-    }
-    // The direct source can only expose its default track. Selecting Direct
-    // is an explicit request, so reset a previously selected Plex track
-    // instead of silently changing the user's chosen mode back to HLS.
-    if (audioStreamIdRef.current !== defaultAudioIdRef.current) {
-      audioStreamIdRef.current = defaultAudioIdRef.current;
-      setCurrentAudio(defaultAudioIdRef.current);
-    }
-    if (hlsRef.current) {
-      try { hlsRef.current.destroy(); } catch { /* ignore */ }
-      hlsRef.current = null;
-    }
-    if (dashRef.current) {
-      try { dashRef.current.reset(); } catch { /* ignore */ }
-      dashRef.current = null;
-    }
-    fallbackGuardRef.current = false;
-    setDirectMode(true);
-    setUsingFallback(false);
-    setBuffering(true);
-    // Reuses the exact same function (and its error/silent-audio recovery
-    // net) as the default first-attempt path — a manual retry is no longer
-    // a weaker, unwired duplicate of it. Resumes from the current position
-    // instead of restarting from 0.
-    startDirectRef.current?.(el.currentTime > 0 ? el.currentTime : undefined, !!infoRef.current.audioCodec || localPlayback);
-  };
-
   const handleReturnToHls = () => {
     setDirectMode(false);
     setUsingFallback(false);
@@ -2910,59 +2911,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                                   </button>
                                 ))}
                               </>
-                            )}
-                          </div>
-                        )}
-                        {hasRealPlexLink && (
-                          // This whole menu only ever drives the legacy
-                          // Plex/HLS leg (handlePlexPlayback → startHlsRef,
-                          // see its own comment) — gated on hasRealPlexLink
-                          // so it's simply not reachable for local-only
-                          // content instead of failing when clicked (see
-                          // hasRealPlexLink's own comment for the real
-                          // failure this fixes).
-                          <div className="relative hidden sm:block">
-                            <button
-                              onClick={() => toggleMenu("playback")}
-                              className={cn(iconButtonClass, "hover:text-brand-glow")}
-                              title={t("player.betaTranscodeMode")}
-                              aria-label={t("player.betaTranscodeMode")}
-                            >
-                              <Zap className="h-5 w-5" />
-                            </button>
-                            {menuOpen === "playback" && (
-                              <div className={cn(menuPanelClass, "w-64 animate-menu-pop")}>
-                                <button
-                                  onClick={handleAutoPlayback}
-                                  className={cn(menuItemClass, "justify-between")}
-                                >
-                                  <span>{t("player.betaTranscodeAuto")}</span><Check className="h-3.5 w-3.5 text-brand-glow" />
-                                </button>
-                                <button
-                                  onClick={handleDirectPlay}
-                                  className={menuItemClass}
-                                >
-                                  {t("player.betaDirectActive")}
-                                </button>
-                                <button
-                                  onClick={() => handlePlexPlayback("audio")}
-                                  className={menuItemClass}
-                                >
-                                  {t("player.betaTranscodeAudio")}
-                                </button>
-                                <button
-                                  onClick={() => handlePlexPlayback("video")}
-                                  className={menuItemClass}
-                                >
-                                  {t("player.betaTranscodeVideo")}
-                                </button>
-                                <button
-                                  onClick={() => handlePlexPlayback("full")}
-                                  className={menuItemClass}
-                                >
-                                  {t("player.betaEngineHls")}
-                                </button>
-                              </div>
                             )}
                           </div>
                         )}

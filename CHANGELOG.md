@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.22 — August 2026
+
+### Changement de piste audio/sous-titres : fin du repli silencieux vers l'ancien circuit
+
+Corrige une régression sérieuse du nouveau moteur de lecture local : changer de langue audio ou de sous-titre en cours de lecture le faisait échouer et retomber sur l'ancien circuit Plex/HLS (badge "Transcodé (audio)", position réinitialisée à 0). Le changement de piste passe désormais correctement par le nouveau moteur de bout en bout, sans aucun repli. Le bouton "Mode transcodage" (éclair), qui ne pilotait que l'ancien circuit et n'avait plus lieu d'être, a été retiré. Corrige aussi un cas où une piste audio anglaise pouvait s'afficher étiquetée "Français" dans le menu (l'étiquette provenait de Plex, désormais recoupée avec les tags réels du fichier).
+
 ## v1.19.21 — August 2026
 
 ### Le pouce vers le bas partout, et vraiment utile aux suggestions

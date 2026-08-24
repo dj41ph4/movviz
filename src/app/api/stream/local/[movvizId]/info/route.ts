@@ -17,7 +17,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (resolved.value.path) {
     try { size = fs.statSync(resolved.value.path).size; } catch { /* stream route reports availability */ }
   }
-  const streamInfo = await getLocalStreamInfo(resolved.value.plexRatingKey, user.id);
+  const streamInfo = await getLocalStreamInfo(resolved.value.plexRatingKey, user.id, movvizId, resolved.value.path ?? undefined);
   return NextResponse.json({
     movvizId,
     source: resolved.value.source,

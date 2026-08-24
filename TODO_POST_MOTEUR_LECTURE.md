@@ -533,3 +533,58 @@ spinner de rebuffering transparent existant reste inchangé pour les
 coupures en cours de lecture (branche `else`, seulement après la première
 confirmation). 315 tests toujours au vert (aucun test n'existait sur ce
 chemin UI, changement vérifié par typecheck + test manuel en prod).
+
+## 15. Changement de piste audio/sous-titres cassait le moteur local — repli silencieux vers l'ancien circuit, 2026-08-24
+
+**Signalé par l'utilisateur** : "quand c'est transcodé local tout va bien,
+mais un changement dans le film genre changement de langue il passe à
+transcodage audio le badge et plus rien ne va" — reproduit en direct sur
+"8 Mile" (Dolby Vision, vrai lien Plex) : changer de piste audio faisait
+passer le badge de "Transcodé (local)" à "Transcodé (audio)" (badge de
+l'ANCIEN circuit legacy), la position revenait à 0:00, et la source devenait
+une URL `blob:` (dash.js).
+
+**Cause racine** : `handleAudioSelect`/`handleSubtitleSelect` ne
+distinguaient jamais le nouveau moteur local (engine-v2, basé sur une
+session `/api/playback/prepare`) de l'ancien remux ffmpeg legacy — les deux
+partagent le même flag `ffmpegActive`/`ffmpegEngineRef`. Le changement de
+piste appelait donc `reloadFfmpeg()`, codé en dur pour l'ancien circuit
+(`engine.load(ratingKey, …)`, endpoint `/api/playback-ffmpeg/{ratingKey}`)
+— alors qu'engine-v2 attend un `sessionId` de session fraîchement créée, pas
+le `ratingKey` du film. L'appel échouait silencieusement et retombait sur
+`maybeStartHls()` (l'ancien circuit) comme filet de sécurité générique.
+
+**Corrigé** : nouveau ref `isLocalEngineV2Ref` pour distinguer les deux
+moteurs, et nouvelle fonction `reloadLocalEngineTracks()` qui appelle
+`/api/playback/prepare` avec `audioTrack`/`subtitleTrack` (déjà supportés
+côté serveur, jamais câblés côté client jusqu'ici) pour obtenir une
+nouvelle session, puis recharge la MÊME instance de moteur dessus — même
+principe que le démarrage initial de `tryStartLocalEngine`. Les menus
+classiques (`audioStreams`/`subtitleStreams`, numérotation Plex) sont
+recoupés par POSITION ORDINALE avec la vraie liste ffprobe renvoyée par
+`prepare` (`tracks.audio`/`tracks.subtitle`, indexée par `index` ffprobe) —
+pas par id ni par langue, ce qui reste fiable même sur un fichier aux
+étiquettes de langue fausses (voir §16 juste en dessous).
+
+**Retiré dans la foulée** : le bouton "Mode transcodage" (éclair) et son
+menu (Auto/Direct/Audio/Vidéo/HLS) — il ne pilotait QUE l'ancien circuit,
+exactement la source de confusion ci-dessus ; `handlePlexPlayback`,
+`handleAutoPlayback`, `handleDirectPlay` et `preservePositionOnNextSource`
+supprimés avec lui (plus aucun appelant).
+
+## 16. Étiquette de langue audio fausse — "8 Mile" affichait un anglais étiqueté Français, 2026-08-24
+
+**Signalé par l'utilisateur** en creusant le bug ci-dessus : le menu audio
+de "8 Mile" affichait deux pistes "Français" et deux "English" — la
+première piste "Français" est en réalité anglaise. La métadonnée vient de
+Plex (`Stream.language`), qui peut se tromper ; Movviz a sa propre sonde
+ffprobe (`MediaDescriptor`) déjà utilisée par le nouveau moteur, plus fiable
+car elle lit le tag du conteneur directement.
+
+**Corrigé** : `getLocalStreamInfo()` recoupe désormais chaque piste
+Plex avec le tag ffprobe à la MÊME position ordinale (même logique que §15)
+et le préfère quand il existe et diffère — converti en autonyme via
+`Intl.DisplayNames` (ex. code ffprobe `eng` → "English"), pas de table de
+traduction statique à maintenir. N'écrase jamais une étiquette Plex déjà
+correcte, et laisse intact tout ce qu'engine-v2 n'a pas encore (épisodes de
+séries — la sonde MediaDescriptor reste film uniquement pour l'instant).
