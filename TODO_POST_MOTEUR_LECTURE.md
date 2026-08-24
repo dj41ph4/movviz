@@ -380,14 +380,38 @@ seulement en ligne de commande ffmpeg) : BURN produit une vraie sortie vidéo
 sans plantage, EXTRACT produit un VTT avec le texte français correctement
 accentué ("café", "forêt", "Écoute", "où", "allé").
 
+## 13. Le benchmark lui-même prouve sa valeur — délai de 60s ajouté, 2026-08-24
+
+Une fois la 1.19.14 déployée sur le vrai DS923+, l'exécution automatique
+après mise à jour a immédiatement mesuré 0.53x (1080p sans HDR) et 0.40x
+(720p avec tonemap) — nettement en dessous du temps réel. Un ré-essai
+manuel quelques instants plus tard, conteneur bien stabilisé, a mesuré
+1.10x et 0.96x sur exactement le même matériel, pour les mêmes profils.
+La toute première mesure était polluée par la charge de démarrage du
+conteneur lui-même (les autres tâches de `instrumentation.ts`, Next.js qui
+chauffe, etc.), pas un vrai chiffre matériel. Corrigé : un délai de 60
+secondes avant le déclenchement automatique après mise à jour, pour laisser
+le conteneur se stabiliser d'abord. Bon exemple du genre de valeur que
+l'outil est censé apporter — repéré uniquement parce que le benchmark
+existe maintenant pour le montrer.
+
+**Note honnête sur 0.96x (tonemap, mesure propre)** : même après tous les
+correctifs de cette session, le cas HDR→SDR reste tout juste à la limite
+du temps réel sur ce matériel — confirme que la règle absolue du point 10
+(ne jamais transcoder la vidéo pour un décalage HDR/DV seul) était le bon
+choix, pas juste un contournement temporaire.
+
 **Reste explicitement hors scope** (annoncé comme tel dès le départ, pas
 oublié) : clients natifs Android TV/Mobile/Cast (phases 17-19 du plan —
 codebases séparées, pas réalisable dans une continuation de cette session) ;
 cascade de repli interne Movviz→Movviz en cas d'échec d'exécution
 (`recordFallbackAttempt()` toujours non appelé — le plus gros chantier
-architectural restant) ; panneau debug, logs structurés et métriques dédiés
-au nouveau moteur ; feature flags granulaires par couche (§67) ; séparation
-`TranscodeBackendSelector` (§30, refactor pur sans gain fonctionnel).
+architectural restant, volontairement pas commencé cette session : pas de
+vrai scénario d'échec reproductible sous la main pour le vérifier en
+conditions réelles, contrairement à tout le reste de cette liste) ; panneau
+debug, logs structurés et métriques dédiés au nouveau moteur ; feature
+flags granulaires par couche (§67) ; séparation `TranscodeBackendSelector`
+(§30, refactor pur sans gain fonctionnel).
 
 ## 9. Suite du test réel en prod — le plafond 1280px ne suffisait toujours pas, 2026-08-24
 

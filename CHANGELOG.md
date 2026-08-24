@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.16 — August 2026
+
+### Le benchmark automatique attend maintenant que le serveur soit stabilisé
+
+Constaté en conditions réelles juste après le déploiement de la 1.19.14 : la toute première exécution automatique du benchmark (juste après une mise à jour) mesurait un résultat nettement plus bas qu'un second essai manuel quelques instants plus tard, sur le même serveur — pollué par la charge de démarrage du serveur lui-même, pas un vrai reflet de ses capacités. Un court délai avant le déclenchement automatique laisse maintenant le serveur se stabiliser d'abord.
+
 ## v1.19.15 — August 2026
 
 ### Sous-titres non-UTF-8 (anciennes releases françaises) enfin fiables

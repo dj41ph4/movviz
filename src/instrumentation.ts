@@ -118,11 +118,22 @@ export async function register() {
     // each on capable hardware but could take much longer on the exact
     // weak servers this benchmark exists for — never block server startup
     // on it.
+    //
+    // 60s delay before firing — confirmed live on the real production
+    // DS923+ (2026-08-24): the very first auto-run, firing immediately
+    // after a fresh deploy, measured 0.53x/0.40x; a clean manual re-run
+    // moments later (container fully settled) measured 1.10x/0.96x on the
+    // exact same hardware for the exact same profiles — the immediate
+    // reading was contaminated by the container's own startup load (this
+    // same boot sequence's other tasks, Next.js warming up, etc.), not a
+    // real hardware number. A short wait lets that settle first.
     const { shouldAutoRunBenchmark, runServerBenchmark } = await import("@/lib/playback/engine/serverBenchmark");
     if (shouldAutoRunBenchmark()) {
-      runServerBenchmark()
-        .then((r) => console.log(`[benchmark] auto-run après mise à jour terminé (${r.profiles.length} profil(s))`))
-        .catch((e: unknown) => console.error(`[benchmark] auto-run après mise à jour échoué: ${(e as Error)?.message ?? e}`));
+      setTimeout(() => {
+        runServerBenchmark()
+          .then((r) => console.log(`[benchmark] auto-run après mise à jour terminé (${r.profiles.length} profil(s))`))
+          .catch((e: unknown) => console.error(`[benchmark] auto-run après mise à jour échoué: ${(e as Error)?.message ?? e}`));
+      }, 60_000).unref();
     }
   }
 }
