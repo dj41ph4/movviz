@@ -1295,8 +1295,8 @@ export const nl: Dictionary = {
       minYearAll: "Alle jaren",
     },
     experience: {
-      titlePageVideoTitle: "Video op detailpagina's",
-      titlePageVideoHint: "Geanimeerde trailer als achtergrond op film-/seriepagina's. Schakel uit voor een statische afbeelding.",
+      titlePageVideoTitle: "Videovoorbeelden",
+      titlePageVideoHint: "Geanimeerde trailer als achtergrond op film-/seriepagina's en bij het hoveren over een poster in carrousels. Schakel uit voor overal een statische afbeelding.",
       titlePageVideoEnabled: "Video ingeschakeld",
       specialEpisodesTitle: "Speciale afleveringen",
       specialEpisodesHint: "Standaard uit: speciale afleveringen (seizoen 0) tellen niet mee voor de status \"serie volledig bekeken\". Zet aan om ze als gewone afleveringen te tellen.",

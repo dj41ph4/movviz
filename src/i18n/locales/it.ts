@@ -1294,8 +1294,8 @@ export const it: Dictionary = {
       minYearAll: "Tutti gli anni",
     },
     experience: {
-      titlePageVideoTitle: "Video sulle schede",
-      titlePageVideoHint: "Trailer animato sullo sfondo delle pagine film/serie. Disattiva per mantenere un'immagine fissa.",
+      titlePageVideoTitle: "Anteprime video",
+      titlePageVideoHint: "Trailer animato sullo sfondo delle pagine film/serie e al passaggio del mouse su un poster nei caroselli. Disattiva per mantenere un'immagine fissa ovunque.",
       titlePageVideoEnabled: "Video attivo",
       specialEpisodesTitle: "Episodi speciali",
       specialEpisodesHint: "Disattivato di default: gli episodi speciali (stagione 0) non contano nello stato \"serie vista completamente\". Attiva per contarli come episodi normali.",

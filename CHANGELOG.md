@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.19.28 — August 2026
+
+### Aperçu vidéo au survol d'une affiche
+
+Sur desktop, laisser le curseur sur une affiche de film ou série (tableau de bord, découverte) pendant une seconde bascule maintenant l'aperçu agrandi sur la bande-annonce en fond animé, comme sur les pages fiche — désactivable via Réglages → Expérience → Aperçus vidéo (le même réglage couvre maintenant les deux endroits).
+
+### Les suggestions n'incluent plus de titres non notés ou pas encore sortis
+
+Les rangées de suggestions (tableau de bord et Découverte) pouvaient proposer un titre sans aucune note ou pas encore en salle — rien à en dire, rien à regarder. Elles ne montrent plus que des titres déjà notés et déjà sortis, sauf les rangées explicitement dédiées à ce qui arrive bientôt.
+
+### Client Android TV — nouvelles rangées Découverte
+
+Les rangées ajoutées récemment côté web (salué par la critique, univers anime, romance ado, format court, rangées par genre) s'affichent désormais avec leur intitulé français correct sur le client Android TV, au lieu d'un intitulé générique.
+
 ## v1.19.27 — August 2026
 
 ### La vidéo débordait en haut et en bas sur un écran ultra-large

@@ -1295,8 +1295,8 @@ export const en: Dictionary = {
       minYearAll: "All years",
     },
     experience: {
-      titlePageVideoTitle: "Video on detail pages",
-      titlePageVideoHint: "Animated trailer background on movie/series pages. Disable to keep a static image.",
+      titlePageVideoTitle: "Video previews",
+      titlePageVideoHint: "Animated trailer background on movie/series pages, and on hover over a poster in carousels. Disable to keep a static image everywhere.",
       titlePageVideoEnabled: "Video enabled",
       specialEpisodesTitle: "Special episodes",
       specialEpisodesHint: "Off by default: special episodes (season 0) don't count toward a series' \"fully watched\" status. Turn on to count them like regular episodes.",

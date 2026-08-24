@@ -6,12 +6,16 @@ import { GENRE_ROWS } from "@/lib/metadata/genreTaxonomy";
 import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
+import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
 export const dynamic = "force-dynamic";
 
 const PER_PAGE = 20;
 const REC_CACHE_TTL = 10 * 60 * 1000;
+// The only two keys whose entire purpose is showing what's not out yet —
+// every other row gets filterSuggestable applied below.
+const UPCOMING_KEYS = new Set(["upcoming", "upcomingVod"]);
 
 function getRecCache(): Map<string, { data: MetaSearchResult[]; ts: number }> {
   return (globalThis as any).__movvizRecCache ??= new Map();
@@ -183,7 +187,8 @@ export async function GET(req: NextRequest) {
   })();
 
   if (!result) return NextResponse.json({ error: "unknown row" }, { status: 400 });
-  return NextResponse.json({ results: result.results, page: result.page, totalPages: result.totalPages });
+  const results = UPCOMING_KEYS.has(key) ? result.results : filterSuggestable(result.results);
+  return NextResponse.json({ results, page: result.page, totalPages: result.totalPages });
 }
 
 function dedupe(list: MetaSearchResult[]): MetaSearchResult[] {

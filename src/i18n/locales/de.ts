@@ -1312,8 +1312,8 @@ export const de: Dictionary = {
       minYearAll: "Alle Jahre",
     },
     experience: {
-      titlePageVideoTitle: "Video auf Detailseiten",
-      titlePageVideoHint: "Animierter Trailer-Hintergrund auf Film-/Serienseiten. Deaktivieren für ein statisches Bild.",
+      titlePageVideoTitle: "Videovorschauen",
+      titlePageVideoHint: "Animierter Trailer-Hintergrund auf Film-/Serienseiten und beim Überfahren eines Posters in Karussells. Deaktivieren für überall ein statisches Bild.",
       titlePageVideoEnabled: "Video aktiviert",
       specialEpisodesTitle: "Sonderfolgen",
       specialEpisodesHint: "Standardmäßig aus: Sonderfolgen (Staffel 0) zählen nicht für den Status „Serie vollständig gesehen“. Aktivieren, um sie wie normale Folgen zu zählen.",

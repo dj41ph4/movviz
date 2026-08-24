@@ -193,6 +193,14 @@ private fun catalogRowLabel(key: String): String = when (key) {
     "onAir" -> "En ce moment"
     "newSeriesRenewed" -> "Nouvelles séries et renouvellements"
     "nowPlayingBoxOffice" -> "En salles"
+    "acclaimed" -> "Salué par la critique"
+    "anime" -> "Univers anime"
+    "teen" -> "Romance ado"
+    "shortFormat" -> "Format court, grand impact"
+    "genreAction" -> "Action"
+    "genreComedy" -> "Comédie"
+    "genreHorror" -> "Frissons garantis"
+    "genreSciFi" -> "Science-fiction"
     else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
 }
 

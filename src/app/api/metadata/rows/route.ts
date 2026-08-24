@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trending, browseCategory, discoverByFilters, tmdbConfigured, getBoxOffice, getNewSeries, getKidsRow, getAnimeRow, getTeenRow } from "@/lib/metadata/tmdb";
 import { GENRE_ROWS } from "@/lib/metadata/genreTaxonomy";
+import { filterSuggestable } from "@/lib/metadata/suggestable";
 import { getAllocineNewVod } from "@/lib/metadata/allocineVod";
 import { getAllocineTrendingSeries } from "@/lib/metadata/allocineSeries";
 import { loadDiscoverLayout } from "@/lib/metadata/discoverStore";
@@ -82,7 +83,7 @@ async function buildEditorialExtras(
     { key: "teen", results: teenRow.results },
     ...(type === "movie" ? [{ key: "shortFormat", results: shortFormat.results }] : []),
     ...GENRE_ROWS.map((g, i) => ({ key: g.key, results: genreResults[i].results })),
-  ];
+  ].map((row) => ({ ...row, results: filterSuggestable(row.results) }));
 }
 
 /**
@@ -130,11 +131,12 @@ export async function GET(req: NextRequest) {
         buildEditorialExtras("movie", originCountries),
       ]);
       const rows = [
-        { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
-        { key: "nowPlayingBoxOffice", results: dedupe([...nowPlaying.results, ...boxOffice.results]) },
+        { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
+        { key: "nowPlayingBoxOffice", results: filterSuggestable(dedupe([...nowPlaying.results, ...boxOffice.results])) },
+        // upcomingVod is exempt on purpose — its entire point is showing what's not out yet.
         { key: "upcomingVod", results: dedupe([...upcomingResults, ...newVod.results]) },
-        { key: "trending", results: trend.results.slice(0, 10), ranked: true },
-        { key: "kids", results: kids.results },
+        { key: "trending", results: filterSuggestable(trend.results).slice(0, 10), ranked: true },
+        { key: "kids", results: filterSuggestable(kids.results) },
         ...extras,
       ].filter((r) => r.results.length > 0);
       return NextResponse.json({ configured: true, layout, rows });
@@ -149,9 +151,9 @@ export async function GET(req: NextRequest) {
       buildEditorialExtras("series", originCountries),
     ]);
     const rows = [
-      { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
-      { key: "newSeriesRenewed", results: dedupe([...newSeries.results, ...renewed.results]) },
-      { key: "trending", results: trend.results.slice(0, 10), ranked: true },
+      { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
+      { key: "newSeriesRenewed", results: filterSuggestable(dedupe([...newSeries.results, ...renewed.results])) },
+      { key: "trending", results: filterSuggestable(trend.results).slice(0, 10), ranked: true },
       ...extras,
     ].filter((r) => r.results.length > 0);
     return NextResponse.json({ configured: true, layout, rows });
@@ -167,9 +169,12 @@ export async function GET(req: NextRequest) {
   ]);
 
   const rows = [
-    { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
-    { key: "trendingPopular", results: dedupe([...trend.results, ...popular.results]).slice(0, 10) },
-    { key: type === "movie" ? "upcoming" : "onAir", results: upcomingResults },
+    { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
+    { key: "trendingPopular", results: filterSuggestable(dedupe([...trend.results, ...popular.results])).slice(0, 10) },
+    // "upcoming" (movies) is exempt on purpose; "onAir" (series) isn't a
+    // future-dated category (already airing) so it passes the filter fine —
+    // still routed through the same shared key/exempt-list logic below.
+    { key: type === "movie" ? "upcoming" : "onAir", results: type === "movie" ? upcomingResults : filterSuggestable(upcomingResults) },
     ...extras,
   ].filter((r) => r.results.length > 0);
 

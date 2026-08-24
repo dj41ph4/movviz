@@ -11,8 +11,20 @@ import { useI18n } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import type { MetaDetail } from "@/lib/metadata/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
+import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
+import { TrailerHeader } from "@/components/media/TrailerHeader";
+
+/** How long the mouse must stay over the expanded popover before the static
+ *  backdrop is swapped for the ambient trailer video — matches the "after a
+ *  second, not instantly" pacing already used by TrailerHeader's own (unused
+ *  today) hover trigger. Driven from here instead of TrailerHeader's
+ *  trigger="hover" mode: that mode starts its own clock on a real DOM
+ *  mouseenter event, which never fires for a node that mounts while the
+ *  cursor is already over it — exactly the case here, since this box only
+ *  appears once the popover itself is already showing. */
+const CARD_VIDEO_DELAY_MS = 1000;
 
 const POSTER_BASE = "/tmdb/w500";
 const BACKDROP_BASE = "/tmdb/w780";
@@ -136,8 +148,11 @@ export function DashboardPosterCard({
 }) {
   const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
+  const { enabled: videoPreviewEnabled } = useTitlePageVideo();
   const { play } = usePlayer();
   const [hovered, setHovered] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
+  const videoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [popover, setPopover] = useState<{ left: number; top: number; width: number; above: boolean } | null>(null);
   const [adding, setAdding] = useState(false);
   const [addedHere, setAddedHere] = useState(false);
@@ -161,6 +176,19 @@ export function DashboardPosterCard({
   const previewGenres = genres?.length ? genres : (previewDetail?.genres ?? []);
   const hasMeta = !!previewYear || !!previewRuntime || !!technical;
   const showRank = !!rank && rank >= 1 && rank <= 10;
+  const ambientVideoKeys = previewDetail?.ambientVideoKeys ?? [];
+
+  useEffect(() => {
+    if (videoTimer.current) clearTimeout(videoTimer.current);
+    if (hovered) {
+      videoTimer.current = setTimeout(() => setVideoReady(true), CARD_VIDEO_DELAY_MS);
+    } else {
+      setVideoReady(false);
+    }
+    return () => {
+      if (videoTimer.current) clearTimeout(videoTimer.current);
+    };
+  }, [hovered]);
 
   useEffect(() => setAddedHere(false), [inLibrary, tmdbId, type]);
 
@@ -394,7 +422,15 @@ export function DashboardPosterCard({
       >
         <Link href={`/title/${type}/${tmdbId}`} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow">
           <div className="relative aspect-video overflow-hidden">
-            {previewImage ? (
+            {videoReady && videoPreviewEnabled && ambientVideoKeys.length > 0 ? (
+              <TrailerHeader
+                backdropUrl={previewImage}
+                trailerKeys={ambientVideoKeys}
+                title={title}
+                trigger="immediate"
+                className="h-full w-full"
+              />
+            ) : previewImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewImage} alt="" className="h-full w-full object-cover" />
             ) : (

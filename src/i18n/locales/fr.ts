@@ -1292,8 +1292,8 @@ export const fr = {
       minYearAll: "Toutes les années",
     },
     experience: {
-      titlePageVideoTitle: "Vidéo sur les fiches",
-      titlePageVideoHint: "Bande-annonce en fond animé sur les pages film/série. Désactive pour garder une image fixe.",
+      titlePageVideoTitle: "Aperçus vidéo",
+      titlePageVideoHint: "Bande-annonce en fond animé sur les pages film/série, et au survol d'une affiche dans les carrousels. Désactive pour garder une image fixe partout.",
       titlePageVideoEnabled: "Vidéo activée",
       specialEpisodesTitle: "Épisodes spéciaux",
       specialEpisodesHint: "Désactivé par défaut : les épisodes spéciaux (saison 0) ne comptent pas dans le statut « série vue complètement ». Active pour les inclure comme des épisodes normaux.",

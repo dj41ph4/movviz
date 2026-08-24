@@ -4,6 +4,7 @@ import { loadMovies, loadSeries } from "@/lib/library/store";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
+import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
 // Strictly per-account: this row is built ONLY from the target account's own
@@ -63,7 +64,7 @@ export async function getRecommendations(
   // without a cached profile simply gets no taste term, never a penalty.
   const tasteVector = buildTasteVector(userId);
 
-  return entries
+  const ranked = entries
     .map((s) => {
       let taste = 0;
       if (tasteVector) {
@@ -84,4 +85,6 @@ export async function getRecommendations(
     .sort((a, b) => b.composite - a.composite)
     .slice(0, 200)
     .map((s) => s.item);
+
+  return filterSuggestable(ranked);
 }
