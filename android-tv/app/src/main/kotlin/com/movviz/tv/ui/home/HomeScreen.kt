@@ -71,6 +71,7 @@ import android.webkit.WebViewClient
 import android.os.Handler
 import android.os.Looper
 import com.movviz.tv.AppViewModel
+import com.movviz.tv.data.MetadataRowDto
 import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.ui.theme.MovvizAmber
 import com.movviz.tv.ui.theme.MovvizBrand
@@ -151,6 +152,10 @@ fun HomeScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
+    // "Voir tout" d'une rangée éditoriale — ouvre la grille paginée
+    // (RowDetailScreen, GET /api/metadata/row-page), même route que le
+    // bouton "Tout voir" du Discover desktop.
+    onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit = { _, _, _ -> },
     // Cible D-pad « flèche bas depuis la NavRail » (voir MainScreen/NavRail)
     // — attachée plus bas au même élément que le focus initial (CTA hero ou
     // première carte, les deux sont mutuellement exclusifs), jamais appelée
@@ -242,19 +247,13 @@ TvTitleCard(
     // Les mêmes rangées éditoriales que le dashboard desktop. Elles arrivent
     // déjà ordonnées depuis /api/metadata/rows : la TV ne fabrique donc pas
     // de faux contenus et reste cohérente avec les préférences du serveur.
-    val editorialCards = remember(movieRows, seriesRows) {
-        // La TV Movviz ne propose pas d'espace Jeunesse : ne jamais faire
-        // réapparaître cette rangée au gré d'un changement d'algorithme côté
-        // serveur. Les profils ne sont pas segmentés par âge, donc afficher
-        // "kids" ici serait à la fois une régression produit et un faux
-        // raccourci de navigation.
-        (movieRows + seriesRows).filterNot { it.key == "kids" }.mapNotNull { row ->
-            val cards = row.results.map {
-                TvTitleCard("editorial-${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath,
-                    it.tmdbId, it.type == "movie", it.year, it.rating)
-            }
-            if (cards.isEmpty()) null else row.key to cards
-        }
+    // Films et séries sont traités SÉPARÉMENT (pas fusionnés dans un seul
+    // filterNot+mapNotNull comme avant) : chaque rangée doit garder son
+    // propre type "movie"/"series" pour que "Voir tout" sache quelle route
+    // /api/metadata/row-page interroger (le desktop garde cette distinction
+    // via son état mediaType, ici il n'existe pas de tel état global).
+    val editorialSections = remember(movieRows, seriesRows) {
+        buildEditorialSections(movieRows, "movie") + buildEditorialSections(seriesRows, "series")
     }
 
     // Même sélection personnalisée que le dashboard web : ambientVideoKeys
@@ -434,12 +433,14 @@ TvTitleCard(
                 }
             }
 
-            editorialCards.forEach { (key, cards) ->
+            editorialSections.forEach { section ->
                 item(contentType = "row") {
+                    val label = homeRowLabel(section.key, section.meta)
                     TitleRow(
-                        heading = homeRowLabel(key),
-                        items = cards,
+                        heading = label,
+                        items = section.cards,
                         onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                        onSeeAll = { onSeeAllRow(section.mediaType, section.key, label) },
                     )
                 }
             }
@@ -481,22 +482,56 @@ TvTitleCard(
     }
 }
 
-private fun homeRowLabel(key: String): String = when (key) {
-    "recommendedTop" -> "Sélection pour vous"
-    "trendingPopular", "trending" -> "Tendances Movviz"
-    "upcoming", "upcomingVod" -> "Prochainement"
-    "onAir" -> "En ce moment"
-    "newSeriesRenewed" -> "Nouvelles séries"
-    "nowPlayingBoxOffice" -> "En salles"
-    "acclaimed" -> "Salué par la critique"
-    "anime" -> "Univers anime"
-    "teen" -> "Romance ado"
-    "shortFormat" -> "Format court, grand impact"
-    "genreAction" -> "Action"
-    "genreComedy" -> "Comédie"
-    "genreHorror" -> "Frissons garantis"
-    "genreSciFi" -> "Science-fiction"
-    else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
+/** Une rangée éditoriale de l'accueil, avec son type de média propre (voir
+ *  le commentaire sur editorialSections plus haut) — nécessaire pour que
+ *  "Voir tout" sache quelle route interroger, et pour résoudre le libellé
+ *  dynamique "becauseYouWatched:*" (meta). */
+private data class EditorialRowSection(
+    val key: String,
+    val mediaType: String,
+    val meta: com.movviz.tv.data.RowMetaDto?,
+    val cards: List<TvTitleCard>,
+)
+
+private fun buildEditorialSections(rows: List<MetadataRowDto>, mediaType: String): List<EditorialRowSection> =
+    // La TV Movviz ne propose pas d'espace Jeunesse : ne jamais faire
+    // réapparaître cette rangée au gré d'un changement d'algorithme côté
+    // serveur. Les profils ne sont pas segmentés par âge, donc afficher
+    // "kids" ici serait à la fois une régression produit et un faux
+    // raccourci de navigation.
+    rows.filterNot { it.key == "kids" }.mapNotNull { row ->
+        val cards = row.results.map {
+            TvTitleCard("editorial-${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath,
+                it.tmdbId, it.type == "movie", it.year, it.rating)
+        }
+        if (cards.isEmpty()) null else EditorialRowSection(row.key, mediaType, row.meta, cards)
+    }
+
+/** `meta` n'est renseigné que pour la clé dynamique "becauseYouWatched:{id}"
+ *  (voir becauseYouWatched.ts côté serveur) — même deux formulations que
+ *  discover.rowBecauseYouWatched/rowBecauseYouLiked en fr.ts, le reste des
+ *  clés est un simple switch statique comme avant. */
+private fun homeRowLabel(key: String, meta: com.movviz.tv.data.RowMetaDto?): String {
+    if (key.startsWith("becauseYouWatched:") && meta != null) {
+        return if (meta.verb == "liked") "Puisque ${meta.anchorTitle} vous a plu" else "Dans la lignée de ${meta.anchorTitle}"
+    }
+    return when (key) {
+        "recommendedTop" -> "Sélection pour vous"
+        "trendingPopular", "trending" -> "Tendances Movviz"
+        "upcoming", "upcomingVod" -> "Prochainement"
+        "onAir" -> "En ce moment"
+        "newSeriesRenewed" -> "Nouvelles séries"
+        "nowPlayingBoxOffice" -> "En salles"
+        "acclaimed" -> "Salué par la critique"
+        "anime" -> "Univers anime"
+        "teen" -> "Romance ado"
+        "shortFormat" -> "Format court, grand impact"
+        "genreAction" -> "Action"
+        "genreComedy" -> "Comédie"
+        "genreHorror" -> "Frissons garantis"
+        "genreSciFi" -> "Science-fiction"
+        else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
+    }
 }
 
 /** Même mapping que la pastille résolution desktop (MediaBadges.tsx) : 2160→4K,
@@ -1094,6 +1129,13 @@ internal fun TitleRow(
     items: List<TvTitleCard>,
     onClick: (TvTitleCard) -> Unit,
     firstItemFocusRequester: FocusRequester? = null,
+    // "Voir tout" — même route que le bouton du même nom sur le Discover
+    // desktop (GET /api/metadata/row-page). Rendu comme une tuile finale de
+    // la rangée plutôt qu'un bouton séparé dans l'en-tête : ça garde le
+    // parcours D-pad naturel (continuer à droite depuis la dernière carte)
+    // au lieu d'ajouter une seconde cible de focus dans RowHeading, qui
+    // compliquerait la remontée UP déjà réglée avec soin (MainScreen).
+    onSeeAll: (() -> Unit)? = null,
 ) {
     // État de focus partagé par toutes les cartes de la rangée — il vit ici
     // (pas dans PosterCard) pour survivre à la destruction des items par la
@@ -1115,6 +1157,9 @@ internal fun TitleRow(
                     focusRequester = if (index == 0) firstItemFocusRequester else null,
                     onFocusedChange = { focused -> focusedCardState.value = if (focused) card else null },
                 )
+            }
+            if (onSeeAll != null) {
+                item(contentType = "see-all") { SeeAllTile(onClick = onSeeAll) }
             }
         }
         // Précharge des 2 posters suivants la carte focalisée (zéro pop-in)
@@ -1226,6 +1271,46 @@ private fun RowHeading(text: String) {
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
         )
+}
+
+/** Tuile finale d'une rangée éditoriale — même gabarit que PosterCard (230dp,
+ *  16:9, MovvizCardShape) pour que le D-pad continue sans à-coup après la
+ *  dernière carte, mais un fond glass discret plutôt qu'une image : c'est
+ *  une action, pas un titre. Ouvre RowDetailScreen (GET /api/metadata/
+ *  row-page), même contenu que "Tout voir" sur le Discover desktop. */
+@Composable
+private fun SeeAllTile(onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.width(230.dp)) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(16f / 9f)
+                .tvCardFocusHalo(focused, shape = MovvizCardShape)
+                .onFocusChanged { focused = it.isFocused }
+                .tvPointerClick(onClick),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(shape = MovvizCardShape),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = MovvizInk.copy(alpha = 0.08f)),
+            border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+                focusedBorder = Border(
+                    border = androidx.compose.foundation.BorderStroke(2.5.dp, Color.White.copy(alpha = 0.85f)),
+                    shape = MovvizCardShape,
+                ),
+            ),
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(text = "›", style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+                    Text(text = "Tout voir", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
+                }
+            }
+        }
+        // Espace réservé sous la tuile, symétrique au titre+métadonnées des
+        // PosterCard voisines — évite un décalage vertical visible dans la
+        // rangée quand cette tuile est la dernière alignée avec les autres.
+        Spacer(modifier = Modifier.height(6.dp).fillMaxWidth())
+    }
 }
 
 /** Carte poster — le focus Netflix garde la grille stable : aucun scale ni

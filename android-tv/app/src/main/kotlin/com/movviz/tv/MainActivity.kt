@@ -40,6 +40,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import com.movviz.tv.ui.discover.RowDetailScreen
 import com.movviz.tv.ui.home.HomeTab
 import com.movviz.tv.ui.home.MainScreen
 import com.movviz.tv.ui.home.NavRail
@@ -61,6 +62,11 @@ private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_HOME = "home"
 private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}?season={season}&episode={episode}"
 private const val ROUTE_PERSON = "person/{id}"
+// "Voir tout" d'une rangée éditoriale ("row") ou grille filtrée par genre
+// ("genre") — voir RowDetailScreen. `key` porte soit la clé de rangée
+// (ex. "acclaimed", "becauseYouWatched:123456"), soit l'id de genre (TMDb
+// numérique en string, ou l'un des deux synthétiques "anime"/"teen").
+private const val ROUTE_ROW = "row/{mode}/{mediaType}/{key}?label={label}"
 
 /** Login ouvert en mode « ajouter un utilisateur au foyer » : après la
  *  connexion, le compte rejoint le foyer (ou est détecté déjà présent)
@@ -71,7 +77,7 @@ private const val ROUTE_LOGIN_ADD = "login?add=true"
  *  titre, fiche acteur. Absente sur wizard/login/profils (avant qu'il y
  *  ait quoi que ce soit à naviguer). */
 private fun routeShowsNavRail(route: String?): Boolean =
-    route != null && (route.startsWith("home") || route.startsWith("detail/") || route.startsWith("person/"))
+    route != null && (route.startsWith("home") || route.startsWith("detail/") || route.startsWith("person/") || route.startsWith("row/"))
 
 fun detailRoute(type: String, tmdbId: Int, season: Int? = null, episode: Int? = null): String {
     val base = "detail/$type/$tmdbId"
@@ -80,6 +86,14 @@ fun detailRoute(type: String, tmdbId: Int, season: Int? = null, episode: Int? = 
 }
 
 fun personRoute(id: Int): String = "person/$id"
+
+/** `key`/`label` sont pourcentage-encodés explicitement : `key` peut contenir
+ *  ':' ("becauseYouWatched:123456") et `label` du texte libre (accents,
+ *  apostrophes) — Navigation Compose décode déjà les arguments de route,
+ *  mais l'encodage à l'écriture reste la seule garantie que ces caractères
+ *  ne perturbent jamais le découpage de la route par '/'/'?'/'&'. */
+fun rowDetailRoute(mode: String, mediaType: String, key: String, label: String): String =
+    "row/$mode/$mediaType/${android.net.Uri.encode(key)}?label=${android.net.Uri.encode(label)}"
 
 class MainActivity : ComponentActivity() {
     private val appViewModel: AppViewModel by viewModels()
@@ -379,6 +393,12 @@ composable(ROUTE_PROFILES) {
                 onOpenEpisode = { tmdbId, season, episode ->
                     navController.navigate(detailRoute("series", tmdbId, season, episode))
                 },
+                onSeeAllRow = { mediaType, key, label ->
+                    navController.navigate(rowDetailRoute("row", mediaType, key, label))
+                },
+                onOpenGenre = { mediaType, genreId, label ->
+                    navController.navigate(rowDetailRoute("genre", mediaType, genreId, label))
+                },
                 onLoggedOut = {
                     navController.navigate(ROUTE_LOGIN) {
                         popUpTo(ROUTE_HOME) { inclusive = true }
@@ -462,6 +482,38 @@ composable(ROUTE_PROFILES) {
                 PersonScreen(
                     viewModel = viewModel,
                     personId = personId,
+                    onOpenTitle = { newType, newTmdbId ->
+                        navController.navigate(detailRoute(newType, newTmdbId))
+                    },
+                    entryFocusRequester = contentFocusRequester,
+                )
+            }
+        }
+        composable(
+            route = ROUTE_ROW,
+            arguments = listOf(
+                navArgument("mode") { type = NavType.StringType },
+                navArgument("mediaType") { type = NavType.StringType },
+                navArgument("key") { type = NavType.StringType },
+                navArgument("label") { type = NavType.StringType; defaultValue = "" },
+            ),
+        ) { backStackEntry ->
+            val mode = backStackEntry.arguments?.getString("mode") ?: "row"
+            val mediaType = backStackEntry.arguments?.getString("mediaType") ?: "movie"
+            // Navigation Compose décode déjà l'argument extrait de la route —
+            // un second Uri.decode() est un no-op inoffensif s'il n'y a plus
+            // rien à décoder, et une garantie si jamais ce n'était pas déjà
+            // fait (voir le commentaire sur rowDetailRoute()).
+            val key = android.net.Uri.decode(backStackEntry.arguments?.getString("key") ?: "")
+            val label = android.net.Uri.decode(backStackEntry.arguments?.getString("label") ?: "")
+            // Même symétrie HAUT que la fiche titre/acteur (voir DetailUpToNavHandler).
+            DetailUpToNavHandler(navRailFocusRequester = navRailFocusRequester) {
+                RowDetailScreen(
+                    viewModel = viewModel,
+                    mode = mode,
+                    mediaType = mediaType,
+                    rowKey = key,
+                    label = label,
                     onOpenTitle = { newType, newTmdbId ->
                         navController.navigate(detailRoute(newType, newTmdbId))
                     },

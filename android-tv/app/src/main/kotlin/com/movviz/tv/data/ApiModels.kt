@@ -374,18 +374,59 @@ data class SearchResponseDto(
     val totalPages: Int = 1,
 )
 
+/** Porté par une rangée dynamique "becauseYouWatched:{anchorTmdbId}" (voir
+ *  becauseYouWatched.ts côté serveur) — permet au client d'interpoler son
+ *  propre libellé ("Dans la lignée de {title}" / "Puisque {title} vous a
+ *  plu") sans que l'API n'ait à connaître la locale. `verb` vaut "watched"
+ *  ou "liked". */
+@JsonClass(generateAdapter = true)
+data class RowMetaDto(
+    val anchorTmdbId: Int,
+    val anchorTitle: String,
+    val verb: String,
+)
+
 /** Rangées éditoriales déjà assemblées par le backend pour le dashboard web.
  * La TV les consomme telles quelles afin de garder les mêmes catégories sans
- * dupliquer la logique de sélection côté client. */
+ * dupliquer la logique de sélection côté client. `meta` n'est présent que
+ * pour la rangée dynamique "becauseYouWatched:*" ci-dessus. */
 @JsonClass(generateAdapter = true)
 data class MetadataRowDto(
     val key: String,
     val results: List<SearchResultDto> = emptyList(),
+    val meta: RowMetaDto? = null,
 )
 
 @JsonClass(generateAdapter = true)
 data class MetadataRowsResponseDto(
     val rows: List<MetadataRowDto> = emptyList(),
+)
+
+/** Réponse de GET /api/metadata/row-page ("voir tout" d'une rangée) — même
+ *  forme que SearchResponseDto, plus `meta` pour la rangée dynamique
+ *  becauseYouWatched (résolu même sur un chargement direct de la page, voir
+ *  route.ts). */
+@JsonClass(generateAdapter = true)
+data class RowPageResponseDto(
+    val results: List<SearchResultDto> = emptyList(),
+    val page: Int = 1,
+    val totalPages: Int = 1,
+    val meta: RowMetaDto? = null,
+)
+
+/** Miroir de MetaGenre (src/lib/metadata/tmdb.ts) — liste de genres TMDb
+ *  réels pour un type donné. Les deux genres synthétiques (Anime, Romance
+ *  ado — genreTaxonomy.ts) n'ont pas d'id TMDb numérique : ils sont ajoutés
+ *  côté client, jamais renvoyés ici. */
+@JsonClass(generateAdapter = true)
+data class GenreDto(
+    val id: Int,
+    val name: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class GenresResponseDto(
+    val genres: List<GenreDto> = emptyList(),
 )
 
 // Miroir de la réponse de /api/stream/{ratingKey}/info (voir

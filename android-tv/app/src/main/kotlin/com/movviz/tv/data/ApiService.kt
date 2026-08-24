@@ -163,6 +163,37 @@ interface MovvizApiService {
     @GET("api/metadata/rows")
     suspend fun metadataRows(@Query("type") type: String): Response<MetadataRowsResponseDto>
 
+    // "Voir tout" d'une rangée — même route que le bouton "Tout voir" du
+    // Discover desktop (discover/page.tsx loadPage). `key` est passé tel
+    // quel : Retrofit form-encode chaque @Query au niveau OkHttp/HttpUrl,
+    // donc le ':' de "becauseYouWatched:123456" est déjà pourcenté-encodé
+    // dans la requête réelle sans rien faire de spécial ici.
+    @GET("api/metadata/row-page")
+    suspend fun rowPage(
+        @Query("type") type: String,
+        @Query("key") key: String,
+        @Query("page") page: Int,
+    ): Response<RowPageResponseDto>
+
+    // Liste des genres TMDb réels pour le sélecteur Genres du Discover TV —
+    // même route que le dropdown desktop (discover/page.tsx). Les deux
+    // genres synthétiques (Anime/Romance ado) sont ajoutés côté client.
+    @GET("api/metadata/genres")
+    suspend fun genres(@Query("type") type: String): Response<GenresResponseDto>
+
+    // Grille filtrée par genre — même route que le Discover desktop en mode
+    // navigation (pas de recherche texte, pas de rangée). `genre` accepte
+    // aussi bien un id TMDb numérique (as string) que l'un des deux ids
+    // synthétiques "anime"/"teen" (genreTaxonomy.ts) : la route serveur les
+    // route elle-même vers getAnimeRow/getTeenRow, voir discover/route.ts.
+    @GET("api/metadata/discover")
+    suspend fun discoverByGenre(
+        @Query("type") type: String,
+        @Query("genre") genre: String,
+        @Query("sort") sort: String = "popularity.desc",
+        @Query("page") page: Int = 1,
+    ): Response<SearchResponseDto>
+
     // Statut "vu" manuel par utilisateur (films + épisodes) — voir
     // WatchStatusDto. Sert la fiche titre TV (badge "Vu" sur un film déjà
     // terminé, coche sur les épisodes déjà regardés).

@@ -139,6 +139,25 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _seriesRows = MutableStateFlow<List<MetadataRowDto>>(emptyList())
     val seriesRows: StateFlow<List<MetadataRowDto>> = _seriesRows.asStateFlow()
 
+    // Genres TMDb réels pour le sélecteur Genres du Discover TV (voir
+    // CatalogScreen) — même route que le dropdown Genres desktop. Les deux
+    // synthétiques (Anime/Romance ado) sont ajoutés côté écran, jamais ici.
+    private val _movieGenres = MutableStateFlow<List<com.movviz.tv.data.GenreDto>>(emptyList())
+    val movieGenres: StateFlow<List<com.movviz.tv.data.GenreDto>> = _movieGenres.asStateFlow()
+
+    private val _seriesGenres = MutableStateFlow<List<com.movviz.tv.data.GenreDto>>(emptyList())
+    val seriesGenres: StateFlow<List<com.movviz.tv.data.GenreDto>> = _seriesGenres.asStateFlow()
+
+    fun loadGenres(type: String) {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val r = repo.genres(type)) {
+                is ApiResult.Success -> if (type == "series") _seriesGenres.value = r.data else _movieGenres.value = r.data
+                else -> Unit
+            }
+        }
+    }
+
     // Rangée "Continuer à regarder" de l'accueil — ordre Netflix (Continuer
     // → Bibliothèque → Découverte). Réutilise le même /api/plex/on-deck que
     // resumeOffsetMs, mais garde la liste entière plutôt qu'une seule entrée.
