@@ -13,13 +13,26 @@ import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
  * (confirmed live: since teasers were prioritized over trailers for the
  * carousel context, more of the vertical social-cut teasers studios now
  * publish were surfacing there, stretched/cropped into a 16:9 box).
+ *
+ * Must query oEmbed through the `/shorts/{id}` URL, never `/watch?v={id}` —
+ * confirmed live on a real vertical Mutiny teaser (e4AzAqWaQyg): querying
+ * via `/watch?v=` always returns YouTube's generic default embed size
+ * (1000x563, 16:9) regardless of the video's real shape, while the exact
+ * same video queried via `/shorts/` correctly returns 563x1000 (9:16). The
+ * `/shorts/` path also returns the correct (landscape) size for an ordinary
+ * non-Short video — verified against a real Mutiny trailer — so there is no
+ * need to special-case a 404 or try both paths.
  */
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
   process.env.MOVVIZ_DATA_DIR ??
   path.join(process.cwd(), ".movviz-data");
-const FILE = path.join(CONFIG_DIR, "youtube-orientation-cache.json");
+// v2: every entry recorded before the /shorts/ URL fix (below) was computed
+// from oEmbed's generic default (always landscape) and is wrong for every
+// real Short. A new filename abandons that cache instead of trusting stale
+// `false` results forever — the old file is simply never read again.
+const FILE = path.join(CONFIG_DIR, "youtube-orientation-cache-v2.json");
 const OEMBED_TIMEOUT_MS = 3000;
 
 type Store = Record<string, boolean>;
@@ -43,7 +56,7 @@ export async function isPortraitYouTubeVideo(key: string): Promise<boolean> {
 
   const check = (async () => {
     try {
-      const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${key}`)}&format=json`;
+      const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/shorts/${key}`)}&format=json`;
       const response = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(OEMBED_TIMEOUT_MS) });
       if (!response.ok) return false;
       const data = (await response.json()) as { width?: number; height?: number };

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.37 — August 2026
+
+### Aperçus vidéo verticaux dans les tendances et sur les fiches
+
+Corrigé : certains aperçus vidéo (carrousel, fiche) s'affichaient en format vertical façon réseaux sociaux au lieu du format cinéma habituel. La détection qui devait écarter ces clips verticaux interrogeait la mauvaise donnée et ne fonctionnait en réalité jamais depuis sa mise en place — elle est maintenant fiable. Un studio peut aussi publier une vraie rafale de clips verticaux d'affilée pour un même titre ; la sélection retombe désormais correctement sur la bande-annonce classique dans ce cas plutôt que de rester bloquée. Corrigé au passage un lecteur vidéo qui pouvait s'afficher en taille réduite au lieu de remplir tout le cadre.
+
 ## v1.19.36 — August 2026
 
 ### Versions web, Android TV et smartphone alignées

@@ -151,15 +151,20 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
         },
         events: {
           onReady: (e: any) => {
-            // The IFrame API replaces our placeholder <div> (which carries
-            // pointer-events-none) with a brand-new <iframe> that does NOT
-            // inherit its class/style — without this, the iframe silently
-            // starts intercepting clicks over its whole (oversized, cover-
-            // trick) area, including the mute button rendered on top of it,
-            // even though the button visually sits above it via z-index.
+            // The IFrame API replaces our placeholder <div> with a brand-new
+            // <iframe> that does NOT inherit its class/style — left alone,
+            // the iframe falls back to YouTube's default 640x390 box instead
+            // of the "cover trick" sizing (cqw/cqh units, oversized past the
+            // container so overflow-hidden crops instead of letterboxing),
+            // and — separately — starts intercepting clicks over whatever
+            // area it does get, including the mute button rendered on top of
+            // it via z-index. Copying the host's own (already-correct)
+            // className onto the iframe fixes both at once: same absolute
+            // positioning/cover sizing, and pointer-events-none is one of
+            // those classes already.
             try {
               const iframe = e.target.getIframe?.();
-              if (iframe) iframe.style.pointerEvents = "none";
+              if (iframe && hostRef.current) iframe.className = hostRef.current.className;
             } catch { /* best-effort */ }
             if (muted) e.target.mute();
             else e.target.unMute();
@@ -414,6 +419,17 @@ export function TrailerModalPlayer({ trailerKeys, title }: { trailerKeys: string
         videoId: trailerKey,
         playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
         events: {
+          onReady: (e: any) => {
+            try {
+              const iframe = e.target.getIframe?.();
+              if (iframe && hostRef.current) iframe.className = hostRef.current.className;
+            } catch { /* best-effort */ }
+            e.target.setPlaybackQuality(MIN_QUALITY);
+          },
+          onStateChange: (e: any) => {
+            const YTNS = (window as any).YT;
+            if (e.data === YTNS.PlayerState.PLAYING) e.target.setPlaybackQuality(MIN_QUALITY);
+          },
           onError: () => setCandidateIndex((i) => i + 1),
         },
       });

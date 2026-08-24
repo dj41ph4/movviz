@@ -1055,6 +1055,23 @@ function rankVideosByType(
   return ordered;
 }
 
+// A studio can publish a whole BATCH of vertical, Shorts-style Teasers —
+// confirmed live on Mutiny: its 15 most recent "Teaser" entries were ALL
+// actually YouTube Shorts, back to back. A single combined pool sliced to
+// one size can't survive that: if the pool is teaser-first (carousel
+// context) and every one of those teasers is portrait, the real, reliably-
+// landscape Trailers never even make it into the pool to be considered,
+// because they'd been truncated away long before excludePortrait runs.
+// Capping EACH type's ranked list separately guarantees Trailers are always
+// in the candidate pool as a fallback, no matter how many vertical Teasers
+// precede them — in practice a studio's own official Trailer is never
+// Shorts-shaped, so this pool virtually always has a landscape survivor.
+// excludePortrait() checks the whole pool in parallel, so the extra size
+// costs concurrent requests, not extra latency; final callers only ever see
+// FINAL_KEY_COUNT keys regardless (selectVideoCandidates below).
+const TEASER_POOL_SIZE = 15;
+const TRAILER_POOL_SIZE = 10;
+
 /** Pure selector — see rankVideosByType() above for the full priority rules. */
 export function selectMediaVideo(
   videos: RawVideo[] | undefined,
@@ -1066,10 +1083,10 @@ export function selectMediaVideo(
   }
 ): string[] {
   const yt = (videos ?? []).filter((v) => v.site === "YouTube" && v.key);
-  const teasers = rankVideosByType(yt, "Teaser", opts);
-  const trailers = rankVideosByType(yt, "Trailer", opts);
+  const teasers = rankVideosByType(yt, "Teaser", opts).slice(0, TEASER_POOL_SIZE);
+  const trailers = rankVideosByType(yt, "Trailer", opts).slice(0, TRAILER_POOL_SIZE);
   const ordered = opts.context === "carousel" ? [...teasers, ...trailers] : [...trailers, ...teasers];
-  return ordered.slice(0, 5).map((v) => v.key);
+  return ordered.map((v) => v.key);
 }
 
 /**
@@ -1110,12 +1127,20 @@ async function selectVideoCandidates(
     }
   }
 
+  // Downstream consumers (TrailerHeader's ordered-fallback list, the API
+  // response) only ever need a handful of candidates — the wider
+  // CANDIDATE_POOL_SIZE above exists purely to give excludePortrait enough
+  // room to find a landscape one, not to hand callers a 15-deep list.
+  const FINAL_KEY_COUNT = 5;
   const ctx = { userLanguage: preferLanguage, originalLanguage, supportedLanguages: LOCALES };
   const [trailerKeys, ambientVideoKeys] = await Promise.all([
     excludePortrait(selectMediaVideo(pool, { ...ctx, context: "details" })),
     excludePortrait(selectMediaVideo(pool, { ...ctx, context: "carousel" })),
   ]);
-  return { trailerKeys, ambientVideoKeys };
+  return {
+    trailerKeys: trailerKeys.slice(0, FINAL_KEY_COUNT),
+    ambientVideoKeys: ambientVideoKeys.slice(0, FINAL_KEY_COUNT),
+  };
 }
 
 interface RawWatchProviders {
