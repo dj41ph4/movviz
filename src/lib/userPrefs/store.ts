@@ -58,6 +58,15 @@ export interface UserPrefs {
    *  because a missing/unwatched special always blocked it. true opts back
    *  into counting specials like any other episode. */
   specialEpisodesEnabled?: boolean;
+  /** Posters/backdrops/logos load from TMDb's own CDN instead of the
+   *  same-origin NAS-backed route. Absent/false (default) keeps today's
+   *  behavior — opt-in only, per explicit request. */
+  cdnImagesEnabled?: boolean;
+  /** Only meaningful alongside cdnImagesEnabled — stay on the same-origin
+   *  route when the request is detected as coming from the local network.
+   *  Absent/true (default): once CDN images are on at all, local-network
+   *  requests are protected from needless internet round-trips by default. */
+  localNetworkPriorityEnabled?: boolean;
 }
 
 const VALID_TIERS: GpuTier[] = ["high", "medium", "low", "ultraLow"];
@@ -92,6 +101,8 @@ function sanitize(prefs: unknown): UserPrefs {
   }
   if (typeof p.titlePageVideoEnabled === "boolean") clean.titlePageVideoEnabled = p.titlePageVideoEnabled;
   if (typeof p.specialEpisodesEnabled === "boolean") clean.specialEpisodesEnabled = p.specialEpisodesEnabled;
+  if (typeof p.cdnImagesEnabled === "boolean") clean.cdnImagesEnabled = p.cdnImagesEnabled;
+  if (typeof p.localNetworkPriorityEnabled === "boolean") clean.localNetworkPriorityEnabled = p.localNetworkPriorityEnabled;
   return clean;
 }
 

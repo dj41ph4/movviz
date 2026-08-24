@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.19.34 — August 2026
+
+### Le toggle "Images depuis Internet" se désactivait tout seul
+
+Corrigé : l'activer semblait fonctionner un instant puis revenait sur off. La sauvegarde du réglage était silencieusement rejetée côté serveur (liste des réglages reconnus pas encore mise à jour) — le réglage tient maintenant correctement.
+
+### Logo du titre manquant sur la fiche, smartphone
+
+La fiche d'un film ou d'une série sur Android smartphone n'affichait jamais le logo TMDb du titre (juste le titre en texte), contrairement au reste de l'app. Corrigé — même logique que partout ailleurs : le logo remplace le titre texte quand TMDb en a un.
+
 ## v1.19.33 — August 2026
 
 ### Découverte sur Android TV et smartphone

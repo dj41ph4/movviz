@@ -944,6 +944,13 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
             }
         } else {
             val d = detail!!
+            // Même mécanisme que HeroCard (loadHeroLogo, cache clé "type-tmdbId")
+            // — le logo TMDb du titre remplace le titre texte, superposé sur le
+            // fond, exactement comme partout ailleurs dans l'app (Hero) et sur
+            // desktop/TV.
+            LaunchedEffect(type, tmdbId) { vm.loadHeroLogo(type, tmdbId) }
+            val heroLogos by vm.heroLogos.collectAsState()
+            val logoPath = heroLogos["$type-$tmdbId"]
             LazyColumn(Modifier.fillMaxSize().background(Void), contentPadding = PaddingValues(bottom = 24.dp)) {
                 item {
                     Box(Modifier.fillMaxWidth().height(320.dp).background(Surface)) {
@@ -951,6 +958,16 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                         if (bg != null) AsyncImage(bg, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.55f to Color.Transparent, 1f to Color(0xFF050508))))
                         Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color(0x55050508), 0.22f to Color.Transparent)))
+                        if (logoPath != null) {
+                            AsyncImage(
+                                "https://image.tmdb.org/t/p/w500$logoPath",
+                                contentDescription = d.title,
+                                modifier = Modifier.align(Alignment.BottomStart).padding(horizontal = 20.dp, vertical = 16.dp)
+                                    .fillMaxWidth(0.7f).heightIn(max = 72.dp),
+                                contentScale = ContentScale.Fit,
+                                alignment = Alignment.BottomStart
+                            )
+                        }
                         // Top bar
                         Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             val hapticBack = LocalHapticFeedback.current
@@ -963,7 +980,10 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                 }
                 item {
                     Column(Modifier.padding(horizontal = 20.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(d.title, color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Black, lineHeight = 26.sp, letterSpacing = (-0.4).sp)
+                        // Titre texte seulement si aucun logo TMDb — le logo (dans
+                        // l'image ci-dessus) le remplace déjà visuellement, comme
+                        // partout ailleurs dans l'app.
+                        if (logoPath == null) Text(d.title, color = TextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Black, lineHeight = 26.sp, letterSpacing = (-0.4).sp)
                         run { val ot = d.originalTitle; if (!ot.isNullOrBlank() && ot != d.title) Text(ot, color = TextMuted, fontSize = 12.sp, fontStyle = androidx.compose.ui.text.font.FontStyle.Italic) }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (d.rating > 0) Row(Modifier.background(Color.White.copy(0.10f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) { Text("★", color = Color(0xFFFFD54F), fontSize = 11.sp, fontWeight = FontWeight.Bold); Text("%.1f".format(d.rating), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
