@@ -2001,6 +2001,7 @@ export const fr = {
     betaUserToggleNeedsAdmin: "Cette fonctionnalité doit d'abord être activée par un administrateur dans Réglages.",
     betaError: "Impossible de lire cette vidéo dans le navigateur. Ouvrez-la dans Plex à la place.",
     betaLoading: "Mise en mémoire tampon…",
+    betaOptimizing: "Optimisation en cours…",
     betaWebcodecs: "WebCodecs HEVC détecté — lecture directe",
     betaTranscoded: "Transcodé",
     betaTranscodedVideo: "Transcodé (vidéo)",

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.17 — August 2026
+
+### Fin du flash "lecture directe puis bascule audio" au démarrage
+
+En lecture directe, la détection du silence audio se faisait en arrière-plan pendant que la vidéo était déjà visible et audible côté utilisateur — quand le son s'avérait incompatible, le lancement direct puis le basculement vers le transcodage audio étaient visibles à l'écran, avec un flash disgracieux. Un voile plein écran avec l'animation du logo Movviz masque maintenant tout le démarrage, le temps de confirmer que le son fonctionne (confirmation quasi immédiate dans le cas normal, jusqu'à 800ms dans le cas rare d'un silence réel à détecter).
+
 ## v1.19.16 — August 2026
 
 ### Le benchmark automatique attend maintenant que le serveur soit stabilisé

@@ -56,10 +56,23 @@ function getProbe(el: HTMLMediaElement): AudioProbe | null {
 export function watchForSilentAudio(
   el: HTMLMediaElement,
   onSilent: () => void,
-  options?: { windowMs?: number; threshold?: number; requireStarted?: boolean }
+  options?: { windowMs?: number; threshold?: number; requireStarted?: boolean; onConfirmedAudible?: () => void }
 ): () => void {
   const windowMs = options?.windowMs ?? 6000;
   const threshold = options?.threshold ?? 0.01;
+  // Deliberately NOT a shorter windowMs — a real silent-open (studio logo,
+  // fade-in) needs the full window to avoid a false "no audio" verdict,
+  // confirmed by this file's own existing comments/callers. But confirming
+  // the OPPOSITE — "yes, there is real audio" — doesn't need to wait at
+  // all: the moment ANY sample crosses the threshold, silence is already
+  // ruled out for good (maxLevel only grows). Real content almost always
+  // has audio well inside the window (music/effects under a logo, dialogue
+  // a few frames in), so this fires far sooner than windowMs in the
+  // overwhelmingly common "everything's fine" case — only a genuinely
+  // silent track ever waits out the full window, which is exactly the
+  // (rare) case that needs to.
+  const onConfirmedAudible = options?.onConfirmedAudible;
+  let audibleConfirmed = false;
   // Gate de démarrage : avec une fenêtre < 1s (leg directe, voir VideoPlayer),
   // un média encore en buffering réseau décoderait 0 échantillon → faux
   // silence. Ne conclure qu'une fois le décodage réellement commencé
@@ -107,6 +120,10 @@ export function watchForSilentAudio(
         for (let i = 0; i < data.length; i++) {
           const v = Math.abs(data[i] - 128) / 128;
           if (v > maxLevel) maxLevel = v;
+        }
+        if (!audibleConfirmed && maxLevel >= threshold) {
+          audibleConfirmed = true;
+          onConfirmedAudible?.();
         }
       }
       if (typeof decodedBytes.webkitAudioDecodedByteCount === "number") {

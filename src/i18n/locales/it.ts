@@ -2002,6 +2002,7 @@ export const it: Dictionary = {
     betaUserToggleNeedsAdmin: "Questa funzione deve prima essere attivata da un amministratore in Impostazioni.",
     betaError: "Impossibile riprodurre questo video nel browser. Aprilo su Plex.",
     betaLoading: "Buffering…",
+    betaOptimizing: "Ottimizzazione in corso…",
     betaWebcodecs: "WebCodecs HEVC rilevato — riproduzione diretta",
     betaTranscoded: "Transcodificato",
     betaTranscodedVideo: "Transcodificato (video)",

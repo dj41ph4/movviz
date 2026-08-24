@@ -2003,6 +2003,7 @@ export const nl: Dictionary = {
     betaUserToggleNeedsAdmin: "Deze functie moet eerst door een beheerder worden ingeschakeld in Instellingen.",
     betaError: "Kan deze video niet afspelen in de browser. Open hem in Plex.",
     betaLoading: "Bufferen…",
+    betaOptimizing: "Optimaliseren…",
     betaWebcodecs: "WebCodecs HEVC gedetecteerd — direct afspelen",
     betaTranscoded: "Getranscodeerd",
     betaTranscodedVideo: "Getranscodeerd (video)",

@@ -2002,6 +2002,7 @@ export const de: Dictionary = {
     betaUserToggleNeedsAdmin: "Diese Funktion muss zuerst von einem Administrator in den Einstellungen aktiviert werden.",
     betaError: "Dieses Video kann nicht im Browser abgespielt werden. Stattdessen in Plex öffnen.",
     betaLoading: "Zwischenspeichern…",
+    betaOptimizing: "Optimierung läuft…",
     betaWebcodecs: "WebCodecs HEVC erkannt — Direct Play",
     betaTranscoded: "Transcodiert",
     betaTranscodedVideo: "Transcodiert (Video)",

@@ -496,8 +496,40 @@ l'ancien chemin Plex/HLS (`reloadHls()`) — pour du contenu purement local
 (sans lien Plex réel, comme "Dragons"), choisir "Audio seulement" tente de
 recharger une session Plex qui n'existe pas et échoue, alors que "Auto"
 fonctionne car il route correctement vers le nouveau moteur local. Signalé
-par l'utilisateur comme confus/à refaire entièrement. Pas encore corrigé —
-la priorité immédiate était la règle absolue HDR/DV ci-dessus, qui rend déjà
-"Auto" fiable pour ce cas. Le ménage de ce sélecteur (le désactiver pour du
-contenu sans lien Plex réel, ou le reconnecter au nouveau moteur) reste à
-faire séparément.
+par l'utilisateur comme confus/à refaire entièrement. Corrigé entre-temps
+en mode autonome (§11) : le menu entier est maintenant masqué quand il n'y
+a pas de vrai lien Plex, plutôt que reconnecté à l'ancien chemin.
+
+## 14. Masquer le flash "lecture directe → bascule audio" au démarrage, 2026-08-24
+
+**Signalé par l'utilisateur** : en desktop, la lecture directe démarre
+visible/audible pendant que la détection de silence tourne en arrière-plan
+(fenêtre de 800ms) — si le son s'avère incompatible et qu'un basculement
+vers le transcodage audio est nécessaire, l'utilisateur voit le flash du
+démarrage direct puis le saut vers le mode transcodé. Le mobile n'a pas ce
+problème (message "optimisation" avant lancement). Demande explicite :
+cacher cette bascule, réduire les 800ms si possible sans régression, et
+utiliser une animation dans les règles visuelles de Movviz plutôt qu'un
+"buffering" générique.
+
+**Corrigé** : `watchForSilentAudio()` (`silentAudioDetector.ts`) gagne un
+callback `onConfirmedAudible` distinct du verdict `onSilent` — il se
+déclenche dès que le niveau audio dépasse le seuil PENDANT la boucle
+d'échantillonnage, sans attendre la fin de la fenêtre de 800ms. Le cas
+normal (son présent) se confirme donc quasi instantanément ; le cas rare
+(silence réel, ex. logo de studio muet) attend toujours la fenêtre complète
+avant de conclure — aucune régression sur la fiabilité de la détection
+elle-même, seule la confirmation positive est accélérée. Les 800ms de la
+fenêtre `onSilent` n'ont pas été réduits (risque de faux positifs sur un
+silence légitime en tout début de piste).
+
+Côté `VideoPlayer.tsx` : nouvel état `optimizing`, actif dès `begin()` avec
+un plafond de sécurité de 1500ms, levé dès que `onConfirmedAudible` (ou la
+détection de silence) tranche. Pendant cet état, un voile plein écran
+opaque recouvre entièrement la vidéo avec le composant `AnimatedLogo`
+existant (déjà utilisé login/setup/sidebar — cohérence de marque, respecte
+`useShouldReduceMotion()`) plus un libellé "Optimisation en cours…". Le
+spinner de rebuffering transparent existant reste inchangé pour les
+coupures en cours de lecture (branche `else`, seulement après la première
+confirmation). 315 tests toujours au vert (aucun test n'existait sur ce
+chemin UI, changement vérifié par typecheck + test manuel en prod).

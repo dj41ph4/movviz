@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, shouldForceAudioTranscode, type CodecCapabilities } from "@/lib/player/webcodecs";
 import { watchForSilentAudio } from "@/lib/player/silentAudioDetector";
+import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { orchestrate } from "@/lib/playback/orchestrator";
 import { detectCapabilities } from "@/lib/playback/capabilities";
 import { MSEPlaybackEngine, type MseDebugStats } from "@/lib/playback/mse/MSEPlaybackEngine";
@@ -222,6 +223,18 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const [usingFallback, setUsingFallback] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [buffering, setBuffering] = useState(false);
+  // Explicit user request (2026-08-24): the direct→silent-detection→escalate
+  // dance (startDirect's 800ms watchForSilentAudio) is real and needed (the
+  // "old baseline method" this whole engine has to match), but it used to
+  // play out IN FRONT of the user — a real frame (with wrong/missing audio)
+  // visibly renders during the small transparent buffering spinner, then
+  // visibly jumps when escalation swaps the source. `optimizing` is a
+  // SEPARATE, fully opaque cover shown only for the first moment of a fresh
+  // begin() — cleared as soon as real audio is confirmed (the fast, common
+  // path — see watchForSilentAudio's onConfirmedAudible) or by the flat
+  // safety timeout below, whichever comes first, so it can never get stuck.
+  const [optimizing, setOptimizing] = useState(true);
+  const optimizingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [mseActive, setMseActive] = useState(false);
   const [mseStats, setMseStats] = useState<MseDebugStats | null>(null);
   const [ffmpegActive, setFfmpegActive] = useState(false);
@@ -1035,12 +1048,26 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       // silent title is rare; a browser silently failing an AC-3/DTS/TrueHD
       // track is not, and must always trigger the audio-only fallback.
       stopSilentWatchRef.current?.();
-      stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToFfmpeg(), { windowMs: 800, requireStarted: true });
+      stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToFfmpeg(), {
+        windowMs: 800,
+        requireStarted: true,
+        onConfirmedAudible: () => setOptimizing(false),
+      });
     };
     startDirectRef.current = startDirect;
 
     const begin = async (seekTo?: number) => {
       setBuffering(true);
+      setOptimizing(true);
+      if (optimizingTimerRef.current) clearTimeout(optimizingTimerRef.current);
+      // Flat safety ceiling — longer than the 800ms silence-verdict window
+      // with real margin for an escalated leg to also get its first frame,
+      // but never so long the "optimizing" cover feels like a hang. Neither
+      // signal firing (AudioContext unavailable, escalation taking longer
+      // than this) still lifts the cover on schedule; the existing small
+      // buffering spinner takes over exactly as it already did before this
+      // change, so this can never leave the video permanently hidden.
+      optimizingTimerRef.current = setTimeout(() => setOptimizing(false), 1500);
       hlsCopyEscalatedRef.current = false;
       hlsCopyNetworkRetriedRef.current = false;
       // Reset the engine badge — begin() can re-run (resume-with-seek) and
@@ -2495,13 +2522,22 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                 onTouchEnd={handleVideoTouchEnd}
               />
 
-              {buffering && !mseActive && (
-                <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+              {optimizing ? (
+                <div className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black">
                   <div className="flex flex-col items-center gap-4">
-                    <div className="h-14 w-14 animate-spin rounded-full border-2 border-white/15 border-t-brand-glow" />
-                    <span className="text-xs font-medium text-white/60">{t("player.betaLoading")}</span>
+                    <AnimatedLogo size="lg" />
+                    <span className="text-xs font-medium text-white/60">{t("player.betaOptimizing")}</span>
                   </div>
                 </div>
+              ) : (
+                buffering && !mseActive && (
+                  <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="h-14 w-14 animate-spin rounded-full border-2 border-white/15 border-t-brand-glow" />
+                      <span className="text-xs font-medium text-white/60">{t("player.betaLoading")}</span>
+                    </div>
+                  </div>
+                )
               )}
 
               {skipToast && (
