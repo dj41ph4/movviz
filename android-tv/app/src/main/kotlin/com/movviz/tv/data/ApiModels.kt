@@ -185,10 +185,15 @@ data class MetaDetailDto(
     val rating: Double,
     val genres: List<String> = emptyList(),
     val runtime: Int?,
-    /** Même liste ordonnée de candidats YouTube que le hero et la fiche web.
-     * Le client TV joue l'ambiance muette si possible et conserve le
-     * backdrop en repli : aucune nouvelle source ni API serveur. */
+    /** Contexte "fiche" (Trailer > Teaser) — non consommé côté TV pour
+     * l'instant (aucune action "regarder la bande-annonce" sur l'écran
+     * titre), gardé pour rester au même contrat que le web. */
     val trailerKeys: List<String> = emptyList(),
+    /** Contexte "carrousel" (Teaser > Trailer, voir selectMediaVideo() dans
+     * tmdb.ts) — même liste ordonnée que le hero web. Le client TV joue
+     * l'ambiance muette si possible et conserve le backdrop en repli :
+     * aucune nouvelle source ni API serveur. */
+    val ambientVideoKeys: List<String> = emptyList(),
     // Déjà renvoyé par /api/metadata/detail (voir tmdb.ts, "similar":
     // data.recommendations.results) mais jusqu'ici ignoré côté TV — sert la
     // rangée "Titres similaires" en bas de la fiche (même esprit Netflix/

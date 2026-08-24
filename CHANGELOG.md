@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.19 — August 2026
+
+### Sélection des bandes-annonces et teasers revue selon le contexte
+
+Le carrousel du tableau de bord et le fond animé de la fiche titre privilégient maintenant un teaser (aperçu court) plutôt qu'une bande-annonce complète, avec repli automatique si aucun teaser n'existe — l'inverse pour l'action "regarder la bande-annonce" volontaire sur la fiche, qui privilégie toujours la bande-annonce complète. Dans les deux cas, l'ordre respecte la langue active de l'utilisateur, puis la langue originale du film ou de la série, puis les 4 autres langues de Movviz. Le client Android TV bénéficie de la même sélection sur son propre carrousel d'accueil.
+
 ## v1.19.18 — August 2026
 
 ### Pouce vers le bas sur les suggestions

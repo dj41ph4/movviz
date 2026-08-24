@@ -257,9 +257,10 @@ TvTitleCard(
         }
     }
 
-    // Même sélection personnalisée que le dashboard web : trailerKeys,
-    // synopsis et statut viennent de /api/dashboard/hero. Le tri local reste
-    // un repli instantané pendant le chargement ou hors-ligne.
+    // Même sélection personnalisée que le dashboard web : ambientVideoKeys
+    // (contexte carrousel, Teaser > Trailer — voir selectMediaVideo() dans
+    // tmdb.ts), synopsis et statut viennent de /api/dashboard/hero. Le tri
+    // local reste un repli instantané pendant le chargement ou hors-ligne.
     val heroItems = remember(dashboardHero, recentMovies, recentSeries) {
         dashboardHero.map { slide ->
             val detail = slide.detail
@@ -276,7 +277,7 @@ TvTitleCard(
                 status = slide.libraryStatus,
                 overview = detail.overview,
                 runtime = detail.runtime,
-                trailerKeys = detail.trailerKeys,
+                trailerKeys = detail.ambientVideoKeys,
             )
         }.filter { it.backdropPath != null }.take(HERO_COUNT).ifEmpty {
             (recentMovies + recentSeries)

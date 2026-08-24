@@ -142,7 +142,8 @@ export interface MetaDetail {
   revenue: number | null; // movies only, TMDb doesn't report this for series
   budget: number | null; // movies only
   trailerKey: string | null; // YouTube video id, or null if none found — first (best) entry of trailerKeys
-  trailerKeys: string[]; // Ordered fallback candidates — a video can be geo/embed-blocked per-viewer in ways TMDb's own metadata never flags, so the player tries the next one instead of just failing.
+  trailerKeys: string[]; // "Details" context (Trailer > Teaser) — the fiche's explicit "watch trailer" action. Ordered fallback candidates — a video can be geo/embed-blocked per-viewer in ways TMDb's own metadata never flags, so the player tries the next one instead of just failing.
+  ambientVideoKeys: string[]; // "Carousel" context (Teaser > Trailer) — every autoplay/ambient background (dashboard hero, fiche header). Same ordered-fallback contract as trailerKeys. See selectMediaVideo() in tmdb.ts.
   rtScore: number | null; // Rotten Tomatoes critics score (0-100) — only set when an OMDb key is configured
   metascore: number | null; // Metacritic (0-100) — same
   imdbRating: number | null; // real IMDb score (0-10, distinct from TMDb's own community score) — same

@@ -129,7 +129,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px]">
         <TrailerHeader
           backdropUrl={backdropUrl}
-          trailerKeys={active.detail.trailerKeys}
+          trailerKeys={active.detail.ambientVideoKeys}
           title={active.detail.title}
           trigger="immediate"
           enabled={trailerEnabled}

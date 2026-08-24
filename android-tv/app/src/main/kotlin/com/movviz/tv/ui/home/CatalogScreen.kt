@@ -94,7 +94,7 @@ fun CatalogScreen(
                 posterPath = d.posterPath, backdropPath = d.backdropPath,
                 tmdbId = d.tmdbId, isMovie = wantedType == "movie", year = d.year,
                 rating = d.rating, genres = d.genres, status = slide.libraryStatus,
-                overview = d.overview, runtime = d.runtime, trailerKeys = d.trailerKeys,
+                overview = d.overview, runtime = d.runtime, trailerKeys = d.ambientVideoKeys,
             )
         }.filter { it.backdropPath != null }.take(5).ifEmpty {
             cards.filter { it.isMovie == (wantedType == "movie") && it.backdropPath != null }.take(5)

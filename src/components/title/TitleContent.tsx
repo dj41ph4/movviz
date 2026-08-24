@@ -1109,7 +1109,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
           }>
             <TrailerHeader
               backdropUrl={backdrop}
-              trailerKeys={detail.trailerKeys}
+              trailerKeys={detail.ambientVideoKeys}
               title={detail.title}
               trigger="immediate"
               enabled={titlePageVideoEnabled}

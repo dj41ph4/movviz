@@ -14,6 +14,7 @@ import { omdbConfigured, getOmdbRatings } from "./omdb";
 import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
 import { translateStatus } from "./statusTranslations";
 import { STREAMING_PLATFORMS } from "./curated";
+import { LOCALES } from "@/i18n/config";
 
 /**
  * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
@@ -794,17 +795,16 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
     // a trailer out of a `videos.results` list that was already French-only.
     // An English-UI request could never see an English trailer this way
     // (nor a properly-localized overview/tagline/genres). Now the whole
-    // detail fetch — and therefore the video list `pickTrailer` picks
+    // detail fetch — and therefore the video list `selectMediaVideo` picks
     // from — matches the caller's actual locale. `include_video_language`
-    // broadens the video list beyond just the target language (many
-    // trailers on TMDb are only ever tagged "en" even for foreign titles),
-    // so pickTrailer's own English-then-any fallback chain has real
-    // candidates to work with instead of an empty list.
+    // requests every Movviz-supported language (LOCALES) plus untagged
+    // videos, so selectMediaVideo's "another Movviz language" fallback tier
+    // has real candidates instead of an empty list.
     tmdbGet<RawDetail>(
       `/${kind}/${tmdbId}`,
       {
         append_to_response: "credits,recommendations,keywords,external_ids,videos,release_dates",
-        include_video_language: `${preferLanguage ?? "fr"},en,null`,
+        include_video_language: `${LOCALES.join(",")},null`,
       },
       toTmdbLanguage(preferLanguage)
     ),
@@ -814,7 +814,14 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
   const imdbId = data.external_ids?.imdb_id ?? null;
   const omdb = imdbId && omdbConfigured() ? await getOmdbRatings(imdbId) : null;
   const keywords = type === "movie" ? data.keywords?.keywords : data.keywords?.results;
-  const trailerKeys = await pickTrailerCandidates(data.videos?.results, preferLanguage, data.title ?? data.name ?? "", yearOf(data.release_date ?? data.first_air_date), !!opts?.youtubeTrailerSearch);
+  const { trailerKeys, ambientVideoKeys } = await selectVideoCandidates(
+    data.videos?.results,
+    preferLanguage,
+    data.original_language ?? null,
+    data.title ?? data.name ?? "",
+    yearOf(data.release_date ?? data.first_air_date),
+    !!opts?.youtubeTrailerSearch
+  );
   return {
     tmdbId: data.id,
     type,
@@ -853,6 +860,7 @@ export async function getDetail(type: "movie" | "series", tmdbId: number, prefer
     budget: type === "movie" && data.budget ? data.budget : null,
     trailerKey: trailerKeys[0] ?? null,
     trailerKeys,
+    ambientVideoKeys,
     rtScore: omdb?.rtScore ?? null,
     metascore: omdb?.metascore ?? null,
     imdbRating: omdb?.imdbRating ?? null,
@@ -930,65 +938,129 @@ interface RawVideo {
   official?: boolean;
   iso_639_1?: string;
   iso_3166_1?: string;
+  published_at?: string;
 }
 
 /**
- * Ordered YouTube trailer candidates in the user's language, best first.
+ * Centralized Teaser/Trailer selection — the single source of truth behind
+ * every "which video should play" decision across desktop web (carousel
+ * hero + fiche) and the native Android TV client's ambient hero, which
+ * consumes the same server-computed lists over the API rather than
+ * re-implementing this logic. Classification is TMDb's own `type` field
+ * only ("Teaser"/"Trailer") — never guessed from a video's title — and
+ * "Clip"/"Featurette"/"Behind the Scenes"/"Bloopers" etc. are ignored
+ * entirely for both contexts.
  *
- * Priority:
- *  1. TMDb trailer in the user's language
- *  2. YouTube search fallback (title + lang terms, e.g. "bande-annonce VF") — opt-in, see `youtubeTrailerSearch`
- *  3. Every other TMDb trailer (English first, then any), then teasers
- *
- * Returns a LIST rather than a single pick: TMDb has no reliable signal for
- * "this specific video is embed-blocked for third-party sites" (a
- * per-rightsholder embed restriction — Kaamelott's trailer blocked by Calt
- * Distribution was the case that surfaced this) — that only shows up live,
- * client-side, when the YouTube player itself reports an error. Handing the
- * player an ordered fallback list lets it try the next candidate instead of
- * just failing.
+ * `context: "carousel"` (autoplay hero/row background, always muted) rates
+ * Teasers ahead of Trailers — a Trailer never outranks a valid Teaser here,
+ * even an official/newer/better one. `context: "details"` (the fiche's
+ * explicit "watch trailer" action) is the mirror: Trailer first, Teaser only
+ * once every Trailer candidate is exhausted. Within each type, the order is
+ * always: official in the user's language → any in the user's language →
+ * official in the original language → any in the original language → any
+ * other Movviz-supported language → any other exploitable video of that
+ * type. Ties within a tier favor `official`, then the most recent
+ * `published_at`.
  */
-async function pickTrailerCandidates(videos: RawVideo[] | undefined, preferLanguage: string | undefined, title: string, year: number | null, youtubeTrailerSearch: boolean): Promise<string[]> {
-  const yt = (videos ?? []).filter((v) => v.site === "YouTube");
-  const candidates: string[] = [];
-  const add = (key: string | null | undefined) => {
-    if (key && !candidates.includes(key)) candidates.push(key);
+function rankVideosByType(
+  videos: RawVideo[],
+  type: "Teaser" | "Trailer",
+  ctx: { userLanguage?: string; originalLanguage?: string | null; supportedLanguages: readonly string[] }
+): RawVideo[] {
+  const pool = videos.filter((v) => v.type === type);
+  const seen = new Set<string>();
+  const ordered: RawVideo[] = [];
+  const add = (list: RawVideo[]) => {
+    const sorted = [...list].sort((a, b) => {
+      if (!!a.official !== !!b.official) return a.official ? -1 : 1;
+      return (b.published_at ?? "").localeCompare(a.published_at ?? "");
+    });
+    for (const v of sorted) {
+      if (!seen.has(v.key)) {
+        seen.add(v.key);
+        ordered.push(v);
+      }
+    }
   };
 
-  // ── 1. TMDb trailer in preferred language ──
-  if (preferLanguage && yt.length > 0) {
-    add(yt.find((v) => v.type === "Trailer" && v.iso_639_1 === preferLanguage)?.key);
+  const { userLanguage, originalLanguage, supportedLanguages } = ctx;
+  if (userLanguage) {
+    add(pool.filter((v) => v.iso_639_1 === userLanguage && v.official));
+    add(pool.filter((v) => v.iso_639_1 === userLanguage));
   }
+  if (originalLanguage && originalLanguage !== userLanguage) {
+    add(pool.filter((v) => v.iso_639_1 === originalLanguage && v.official));
+    add(pool.filter((v) => v.iso_639_1 === originalLanguage));
+  }
+  for (const lang of supportedLanguages) {
+    if (lang === userLanguage || lang === originalLanguage) continue;
+    add(pool.filter((v) => v.iso_639_1 === lang));
+  }
+  add(pool); // untagged, or a language outside Movviz's 5 — still exploitable
 
-  // ── 2. YouTube search fallback ──────────────────────────────────────
-  // Opt-in (Réglages → Tableau de bord) — this is a page scrape, not an
-  // official API, and depends on YouTube not rate-limiting the server's own
-  // IP, so it stays off unless explicitly enabled instead of silently
-  // degrading everyone's trailers if it gets blocked.
+  return ordered;
+}
+
+/** Pure selector — see rankVideosByType() above for the full priority rules. */
+export function selectMediaVideo(
+  videos: RawVideo[] | undefined,
+  opts: {
+    context: "carousel" | "details";
+    userLanguage?: string;
+    originalLanguage?: string | null;
+    supportedLanguages: readonly string[];
+  }
+): string[] {
+  const yt = (videos ?? []).filter((v) => v.site === "YouTube" && v.key);
+  const teasers = rankVideosByType(yt, "Teaser", opts);
+  const trailers = rankVideosByType(yt, "Trailer", opts);
+  const ordered = opts.context === "carousel" ? [...teasers, ...trailers] : [...trailers, ...teasers];
+  return ordered.slice(0, 5).map((v) => v.key);
+}
+
+/**
+ * Builds both context-specific candidate lists for a title in one pass.
+ * The opt-in YouTube search fallback (title + lang terms, e.g. "bande-
+ * annonce officielle VF" — a page scrape, not an official API, so it stays
+ * off unless explicitly enabled in Réglages → Tableau de bord) is modeled
+ * as one more unofficial Trailer candidate in the user's language rather
+ * than a second parallel priority list — it then flows through the exact
+ * same selectMediaVideo() ranking as every TMDb-sourced video, in both
+ * contexts, and can never be consulted when TMDb already has a real trailer
+ * in that language.
+ */
+async function selectVideoCandidates(
+  videos: RawVideo[] | undefined,
+  preferLanguage: string | undefined,
+  originalLanguage: string | null,
+  title: string,
+  year: number | null,
+  youtubeTrailerSearch: boolean
+): Promise<{ trailerKeys: string[]; ambientVideoKeys: string[] }> {
+  let pool = videos ?? [];
+
   if (youtubeTrailerSearch) {
-    const lang = preferLanguage ?? "fr";
-    const cacheKey = `yt:${title}:${year ?? 0}:${lang}`;
-    const cache = getCache("YouTube Search", 24 * 60 * 60 * 1000);
-    const cached = cache.getStale<string>(cacheKey);
-    if (cached !== undefined) {
-      // Cached null just skips this step — a prior failed search doesn't
-      // prevent the TMDb-sourced candidates below from being added.
-      add(cached.value);
-    } else {
-      const ytResult = await searchYouTubeTrailer(title, year, lang);
-      cache.set(cacheKey, ytResult);
-      add(ytResult);
+    const yt = pool.filter((v) => v.site === "YouTube");
+    const hasUserLangTrailer = yt.some((v) => v.type === "Trailer" && v.iso_639_1 === preferLanguage);
+    if (!hasUserLangTrailer) {
+      const lang = preferLanguage ?? "fr";
+      const cacheKey = `yt:${title}:${year ?? 0}:${lang}`;
+      const cache = getCache("YouTube Search", 24 * 60 * 60 * 1000);
+      const cached = cache.getStale<string>(cacheKey);
+      const found = cached !== undefined ? cached.value : await (async () => {
+        const result = await searchYouTubeTrailer(title, year, lang);
+        cache.set(cacheKey, result);
+        return result;
+      })();
+      if (found) pool = [...pool, { key: found, site: "YouTube", type: "Trailer", official: false, iso_639_1: preferLanguage }];
     }
   }
 
-  // ── 3. Every other TMDb trailer, then teasers as a last resort ──────
-  if (yt.length > 0) {
-    if (preferLanguage !== "en") add(yt.find((v) => v.type === "Trailer" && v.iso_639_1 === "en")?.key);
-    for (const v of yt.filter((v) => v.type === "Trailer")) add(v.key);
-    for (const v of yt.filter((v) => v.type === "Teaser")) add(v.key);
-  }
-
-  return candidates.slice(0, 5);
+  const ctx = { userLanguage: preferLanguage, originalLanguage, supportedLanguages: LOCALES };
+  return {
+    trailerKeys: selectMediaVideo(pool, { ...ctx, context: "details" }),
+    ambientVideoKeys: selectMediaVideo(pool, { ...ctx, context: "carousel" }),
+  };
 }
 
 interface RawWatchProviders {
