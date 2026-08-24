@@ -178,6 +178,33 @@ test("item 4: a hardware encoder for a DIFFERENT codec never gets picked for thi
   assert.equal(plan.encoderPreset, "veryfast");
 });
 
+// ── real bug found live in production (2026-08-24): "ça retranscode toutes
+// les 5 secondes" — a 4K source with no verified hardware encoder got
+// targetVideoCodec=av1 purely from the client's decode preference, handing
+// libsvtav1 a software encode it could not keep up with in real time
+// (sampled live: ~2.0s of new playback per ~5.3s wall time). ──
+test("no verified hardware encoder for ANY codec the client prefers → falls back to h264 target, not av1/hevc, to stay realtime-capable in software", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "mpeg2video", width: 3840, height: 2160 } }),
+    client: client({ videoCapabilities: [{ codec: "av1" }, { codec: "hevc" }, { codec: "h264" }] }),
+    server: { ...FFMPEG_OK, videoEncoders: ["libx264", "libx265", "libsvtav1"], hardwareAcceleration: {} },
+  });
+  assert.equal(plan.targetVideoCodec, "h264");
+  assert.equal(plan.videoEncoderImpl, "libx264");
+  assert.equal(plan.encoderPreset, "veryfast");
+});
+
+test("a verified hardware encoder for av1 IS trusted and still preferred over h264 — hardware encoding doesn't have the software realtime problem", () => {
+  const plan = decidePlayback({
+    media: media({ video: { index: 0, codec: "mpeg2video", width: 3840, height: 2160 } }),
+    client: client({ videoCapabilities: [{ codec: "av1" }, { codec: "hevc" }, { codec: "h264" }] }),
+    server: { ...FFMPEG_OK, videoEncoders: ["libx264", "libx265", "libsvtav1", "av1_nvenc"], hardwareAcceleration: { nvenc: true } },
+  });
+  assert.equal(plan.targetVideoCodec, "av1");
+  assert.equal(plan.videoEncoderImpl, "av1_nvenc");
+  assert.equal(plan.encoderPreset, undefined);
+});
+
 test("§61: Plex is only chosen once ffmpeg itself is unavailable", () => {
   const plan = decidePlayback({
     media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }),

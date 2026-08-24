@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.19.09 — August 2026
+
+### Nouveau moteur (expérimental) : la vidéo cible de secours suivait mal le direct sur serveur modeste
+
+Encore trouvé en testant pour de vrai en production, cette fois signalé par un vrai visionnage : sur un contenu 4K sans encodeur matériel réellement utilisable (voir le correctif de la 1.19.08), le transcodage retombait en boucle sur la mémoire tampon toutes les quelques secondes au lieu de suivre la lecture normalement.
+
+- **Cause trouvée et corrigée** : quand aucun encodeur matériel n'est réellement disponible, le format vidéo cible du transcodage était choisi uniquement d'après ce que l'appareil de lecture préfère décoder (souvent le plus compressé, donc le plus coûteux à produire) — sans jamais tenir compte du fait que l'encodage allait se faire en logiciel. Or un encodage logiciel de ce format est nettement plus lent qu'un format plus simple, au point de ne plus suivre la lecture en temps réel sur du matériel modeste. Le serveur choisit maintenant le format le plus simple à encoder en logiciel dès qu'aucun encodeur matériel n'est réellement utilisable, tout en gardant le format le plus efficace dès qu'un vrai encodeur matériel est disponible.
+
 ## v1.19.08 — August 2026
 
 ### Nouveau moteur (expérimental) : correctif critique, validé en conditions réelles

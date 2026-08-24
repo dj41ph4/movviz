@@ -204,3 +204,33 @@ réussit véritablement et reste disponible, tandis que `h264_qsv`/`h264_amf`
 failed to open") et sont bien exclus — la distinction que ce correctif existe
 pour faire. 310 tests passent (2 nouveaux remplacent l'ancien test qui
 n'attendait que la présence dans la liste compilée, pour un solde net de +1).
+
+## 7. Suite du test réel en prod — le format vidéo cible ne tenait pas compte du coût logiciel, 2026-08-24
+
+Une fois le correctif du point 6 déployé (`av1_qsv` retiré à raison), "Dragons"
+échouait toujours, et un deuxième film local ("Soixante 9", HEVC 4K SDR) a
+été observé en train de rebufferiser en boucle toutes les ~5 secondes. Mesure
+en direct sur le flux réel : les événements `waiting` du `<video>` tombaient
+toutes les ~5.3s et ne faisaient avancer la lecture que d'environ 2.0s à
+chaque fois (soit une durée de GOP) — un facteur temps réel soutenu
+d'environ 0.38x, pas un simple aléa réseau.
+
+**Cause réelle** : `pickTranscodeVideoCodec()` choisissait le format cible
+(av1 > hevc > h264, dans cet ordre) uniquement d'après ce que l'appareil de
+lecture déclare pouvoir décoder — sans jamais regarder si le serveur allait
+devoir encoder ce format en logiciel. Un encodage AV1 logiciel (`libsvtav1`,
+même au preset le plus rapide) est nettement plus lent qu'un encodage H.264
+logiciel (`libx264`) à résolution égale — l'écart de coût encodeur est bien
+plus grand que l'écart de coût décodeur, que cette fonction ignorait
+complètement. Exactement le point que Plex Media Server tranche déjà en
+choisissant toujours H.264 pour ses transcodages logiciels.
+
+**Corrigé** : `pickTranscodeVideoCodec()` reçoit maintenant aussi les
+capacités serveur. Un format n'est préféré pour sa meilleure compression que
+si un encodeur matériel RÉELLEMENT vérifié (point 6) existe pour lui ; sinon,
+h264 est choisi en priorité pour rester réalisable en temps réel en
+logiciel — cohérent avec le choix par défaut de Plex Media Server pour la
+même raison. Vérifié par 2 nouveaux tests dédiés (`scripts/decide-playback.test.ts`) :
+aucun encodeur matériel vérifié → h264 malgré une préférence client pour av1 ;
+un encodeur matériel av1 réellement vérifié → av1 reste préféré, sans
+régression. 312 tests passent.

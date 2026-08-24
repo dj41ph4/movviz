@@ -149,15 +149,6 @@ function selectSubtitleTrack(media: MediaDescriptor, selectedIndex: number | nul
   return media.subtitleTracks.find((t) => t.index === selectedIndex) ?? null;
 }
 
-/** The client's own best-supported video codec, for a forced transcode target — falls back to h264 as the universal baseline every decoder handles. */
-function pickTranscodeVideoCodec(client: ClientPlaybackProfile): string {
-  const preferenceOrder = ["av1", "hevc", "h264"];
-  for (const codec of preferenceOrder) {
-    if (client.videoCapabilities.some((c) => normalizeCodecName(c.codec) === codec)) return codec;
-  }
-  return client.videoCapabilities[0]?.codec ?? "h264";
-}
-
 // One software fallback encoder per codec family, all confirmed present on
 // a real ffmpeg build during Phase 6 testing — libsvtav1 specifically over
 // libaom-av1 because it's the realtime-capable one (libaom-av1 is far too
@@ -169,6 +160,51 @@ const SOFTWARE_ENCODER: Record<string, string> = { h264: "libx264", hevc: "libx2
 // hardware encoder) without collapsing quality as hard as ultrafast/superfast.
 const SOFTWARE_ENCODER_PRESET = "veryfast";
 const HARDWARE_SUFFIXES = ["_nvenc", "_qsv", "_vaapi", "_amf"];
+
+function hasHardwareEncoderForCodec(codec: string, server: ServerPlaybackCapabilities): boolean {
+  return HARDWARE_SUFFIXES.some((suffix) => server.videoEncoders.includes(`${codec}${suffix}`));
+}
+
+/**
+ * The video codec to transcode INTO, for a forced transcode target.
+ *
+ * Reproduced live on the production Synology (2026-08-24, real user report
+ * "ça retranscode toutes les 5 secondes"): with no verified hardware encoder
+ * (see serverCapabilities.detect.ts), picking av1 purely from the client's
+ * decode preference handed libsvtav1 a real 4K→1080p encode it could not
+ * keep up with — the stream's own `waiting` events, sampled live, landed
+ * every ~5.3s and only advanced playback by ~2.0s each time (one GOP) — a
+ * sustained ~0.38x realtime factor, not a one-off hiccup. AV1 is dramatically
+ * more expensive to ENCODE in software than H.264 for the same resolution
+ * (unlike decode, where the gap is much smaller) — the client's decode
+ * preference says nothing about how expensive the server's own encode side
+ * will be. Hardware encoding doesn't have this problem (any codec is cheap
+ * once a real GPU/QSV/etc. does the work — confirmed live: av1_nvenc on a
+ * real GPU stayed comfortably ahead of realtime), so the codec choice only
+ * needs to change for the software-fallback case — matches Plex Media
+ * Server's own long-standing default of H.264 for software transcodes, for
+ * this exact reason.
+ */
+function pickTranscodeVideoCodec(client: ClientPlaybackProfile, server: ServerPlaybackCapabilities): string {
+  const preferenceOrder = ["av1", "hevc", "h264"];
+  const clientSupports = (codec: string) => client.videoCapabilities.some((c) => normalizeCodecName(c.codec) === codec);
+  // Pass 1: a codec the client can decode AND the server can encode in
+  // hardware — free to prefer the client's own top choice here.
+  for (const codec of preferenceOrder) {
+    if (clientSupports(codec) && hasHardwareEncoderForCodec(codec, server)) return codec;
+  }
+  // No working hardware encoder for anything the client prefers — software
+  // encoding it is, and h264 is the only one fast enough in software to
+  // reliably stay ahead of real-time playback (libx264 veryfast vs. libx265
+  // or libsvtav1 veryfast at the same resolution). h264 decode is supported
+  // by every real client (see clientProfile.detect.ts) so this is only a
+  // theoretical fallback-of-the-fallback.
+  if (clientSupports("h264")) return "h264";
+  for (const codec of preferenceOrder) {
+    if (clientSupports(codec)) return codec;
+  }
+  return client.videoCapabilities[0]?.codec ?? "h264";
+}
 
 /**
  * TODO_POST_MOTEUR_LECTURE.md item 4 — picks the actual ffmpeg -c:v
@@ -275,7 +311,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
         reasons: [...reasons, "FFMPEG_UNAVAILABLE", "PLEX_FALLBACK_REQUESTED"],
       };
     }
-    const targetVideoCodec = pickTranscodeVideoCodec(client);
+    const targetVideoCodec = pickTranscodeVideoCodec(client, server);
     const encoder = pickVideoEncoderImpl(targetVideoCodec, server);
     const targetCap = client.videoCapabilities.find((c) => normalizeCodecName(c.codec) === targetVideoCodec);
     const clientMaxWidth = targetCap?.maxWidth ?? client.maxWidth;
