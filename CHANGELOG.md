@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.18 — August 2026
+
+### Pouce vers le bas sur les suggestions
+
+Un bouton "pas intéressé" apparaît maintenant à côté du pouce vers le haut sur les rangées "Recommandé pour vous" et "Tendances" du tableau de bord : un clic exclut définitivement le titre des futures recommandations personnalisées et le retire immédiatement de la rangée affichée.
+
 ## v1.19.17 — August 2026
 
 ### Fin du flash "lecture directe puis bascule audio" au démarrage

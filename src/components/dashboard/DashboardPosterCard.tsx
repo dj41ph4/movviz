@@ -4,7 +4,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import useSWR from "swr";
-import { Star, Film, Tv, Play, Plus, ThumbsUp, ChevronDown, Loader2, Clock3, RotateCcw } from "lucide-react";
+import { Star, Film, Tv, Play, Plus, ThumbsUp, ThumbsDown, ChevronDown, Loader2, Clock3, RotateCcw } from "lucide-react";
 import { cn, openPlexLink } from "@/lib/utils";
 import { BADGE_SHAPE, buildMediaBadgeItems, type BadgeInfo } from "@/components/library/MediaBadges";
 import { useI18n } from "@/i18n/provider";
@@ -83,6 +83,7 @@ export function DashboardPosterCard({
   technical,
   popoverActions,
   popoverFooter,
+  dislikable = false,
 }: {
   tmdbId: number;
   type: "movie" | "series";
@@ -133,6 +134,13 @@ export function DashboardPosterCard({
   playback?: DashboardCardPlayback;
   /** File facts for the exact item being played, never inferred from TMDb. */
   technical?: DashboardCardTechnical;
+  /** Opt-in for non-owned suggestion rows (Recommandé pour vous, Tendances) —
+   *  shows a 👎 that hard-excludes this title from future personalized
+   *  recommendations (same /api/ai/feedback signal as the AI chat cards)
+   *  and removes the card from view immediately. Never set on rows backed
+   *  by the user's own library (Continue Watching, Récemment ajouté…) —
+   *  disliking a suggestion must never look like it touches ownership. */
+  dislikable?: boolean;
 }) {
   const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
@@ -143,6 +151,8 @@ export function DashboardPosterCard({
   const [addedHere, setAddedHere] = useState(false);
   const [liked, setLiked] = useState(false);
   const [ratingSaving, setRatingSaving] = useState(false);
+  const [dislikeSaving, setDislikeSaving] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const poster = posterPath ? `${POSTER_BASE}${posterPath}` : null;
@@ -197,6 +207,24 @@ export function DashboardPosterCard({
       toast("error", t("title.ratingError"));
     } finally {
       setRatingSaving(false);
+    }
+  };
+
+  const dislike = async () => {
+    if (dislikeSaving) return;
+    setDislikeSaving(true);
+    try {
+      const response = await fetch("/api/ai/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tmdbId, type, title, liked: false }),
+      });
+      if (!response.ok) throw new Error("feedback_failed");
+      setDismissed(true);
+    } catch {
+      toast("error", t("title.ratingError"));
+    } finally {
+      setDislikeSaving(false);
     }
   };
 
@@ -262,6 +290,8 @@ export function DashboardPosterCard({
   };
 
   useEffect(() => () => clearTimers(), []);
+
+  if (dismissed) return null;
 
   return (
     <>
@@ -461,6 +491,18 @@ export function DashboardPosterCard({
               >
                 {ratingSaving ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <ThumbsUp className={cn("h-[18px] w-[18px]", liked && "fill-current")} />}
               </button>
+              {dislikable && (
+                <button
+                  type="button"
+                  onClick={() => void dislike()}
+                  disabled={dislikeSaving}
+                  title={t("ai.feedbackDislike")}
+                  aria-label={t("ai.feedbackDislike")}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-white/45 text-white transition-colors hover:border-white hover:bg-white/10 disabled:cursor-wait"
+                >
+                  {dislikeSaving ? <Loader2 className="h-[18px] w-[18px] animate-spin" /> : <ThumbsDown className="h-[18px] w-[18px]" />}
+                </button>
+              )}
               {popoverActions}
             </div>
             <Link
