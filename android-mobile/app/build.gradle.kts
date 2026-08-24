@@ -68,6 +68,14 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.coroutines.android)
+    // Discover feature's own Retrofit/Moshi surface (com.movviz.mobile.discover.*)
+    // lives in :app, not :android-shared — android-shared's own retrofit/moshi/
+    // okhttp deps are `implementation`-scoped there and don't leak transitively,
+    // so :app needs the same libs directly to compile DiscoverApi.kt.
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.moshi)
+    implementation(libs.moshi.kotlin)
+    implementation(libs.okhttp)
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.exoplayer.dash)

@@ -624,7 +624,7 @@ private data class NavEntry(val icon: ImageVector, val label: String)
     var selected by remember { mutableStateOf(0) }
     var detailStack by remember { mutableStateOf(emptyList<Pair<String, Int>>()) }
     val hero by vm.hero.collectAsState(); val movies by vm.movies.collectAsState(); val series by vm.series.collectAsState()
-    val entries = remember(user) { listOf(NavEntry(Icons.Rounded.Home, "Accueil"), NavEntry(Icons.Rounded.Search, "Recherche"), NavEntry(Icons.Rounded.FavoriteBorder, "Ma liste"), NavEntry(Icons.Rounded.Person, user), NavEntry(Icons.Rounded.Star, "IA")) }
+    val entries = remember(user) { listOf(NavEntry(Icons.Rounded.Home, "Accueil"), NavEntry(Icons.Rounded.Explore, "Découverte"), NavEntry(Icons.Rounded.Search, "Recherche"), NavEntry(Icons.Rounded.FavoriteBorder, "Ma liste"), NavEntry(Icons.Rounded.Person, user), NavEntry(Icons.Rounded.Star, "IA")) }
     val haptic = LocalHapticFeedback.current
     val onTitleClick: (String, Int) -> Unit = { type, tmdbId -> haptic.performHapticFeedback(HapticFeedbackType.LongPress); detailStack = detailStack + (type to tmdbId); vm.loadDetail(type, tmdbId) }
     Box(Modifier.fillMaxSize().background(Void)) {
@@ -634,9 +634,10 @@ private data class NavEntry(val icon: ImageVector, val label: String)
         ) { padding ->
             when (selected) {
                 0 -> HomeScreen(padding, hero, movies, series, onTitleClick)
-                1 -> SearchScreen(padding, vm, onTitleClick)
-                2 -> Placeholder(padding, "Ma liste", "Tes titres favoris apparaîtront ici. Ajoute des films et séries depuis leur fiche.")
-                3 -> ProfileScreen(padding, user) { vm.disconnect() }
+                1 -> com.movviz.mobile.discover.DiscoverScreen(padding, vm, onTitleClick)
+                2 -> SearchScreen(padding, vm, onTitleClick)
+                3 -> Placeholder(padding, "Ma liste", "Tes titres favoris apparaîtront ici. Ajoute des films et séries depuis leur fiche.")
+                4 -> ProfileScreen(padding, user) { vm.disconnect() }
                 else -> AiChatScreen(padding, vm, onTitleClick)
             }
         }

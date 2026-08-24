@@ -27,6 +27,12 @@ class MovvizMobileApplication : Application(), ImageLoaderFactory {
                 .build()
         }
         .crossfade(false)
+        // Same shared OkHttpClient as the rest of the app (ApiClient.httpClient(),
+        // same PersistentCookieJar) — most images (TMDb posters/backdrops) don't
+        // need it, but the player's scrub-thumb preview (/api/stream/{ratingKey}/
+        // scrub-thumb, a Movviz-authenticated proxy, not TMDb) 401s without the
+        // session cookie Coil's own default client wouldn't otherwise carry.
+        .okHttpClient { ApiClient.httpClient() }
         .build()
 
     @Synchronized
