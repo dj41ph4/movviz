@@ -23,13 +23,13 @@ android {
         // movvizVersionCode/movvizVersionName) pour rester synchronisés avec
         // les releases GitHub que UpdateManager.checkForUpdate() compare.
         // Avant ce correctif, ces deux valeurs étaient figées en dur : chaque
-        // build restait étiqueté "1.18.01" quel que soit le tag réellement
+        // build restait étiqueté avec une ancienne valeur quel que soit le tag réellement
         // publié, donc checkForUpdate() se croyait perpétuellement en retard
         // et proposait/installait une "mise à jour" à chaque lancement, même
         // juste après l'avoir déjà installée — boucle infinie constatée.
         // Repli ci-dessous : build local (Android Studio) sans CI.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 11801
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.18.01"
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 11936
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.19.36"
         // Canal unique depuis le retrait de la variante retail : l'APK livré
         // s'auto-met à jour via GitHub au lancement (voir UpdateManager).
         buildConfigField("boolean", "AUTO_UPDATE", "true")

@@ -65,7 +65,7 @@ jobs:
 
       # Sans ceci, versionName/versionCode restaient figés à leur valeur par
       # défaut dans build.gradle.kts quel que soit le tag publié — l'app
-      # comparait alors indéfiniment "sa" version (toujours 1.18.01) au tag
+      # comparait alors indéfiniment son ancienne version de repli au tag
       # GitHub le plus récent et se croyait éternellement en retard : boucle
       # de mise à jour à chaque lancement, même juste après avoir installé.
       - name: Compute app version from tag

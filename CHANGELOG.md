@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.36 — August 2026
+
+### Versions web, Android TV et smartphone alignées
+
+Les valeurs de repli des deux projets Android sont désormais `1.19.36` avec le `versionCode` `11936`, comme le serveur web et le tag de release. Les APK construits par la CI utilisent déjà le tag, et les builds locaux / écrans « À propos » ne peuvent plus annoncer une ancienne version.
+
 ## v1.19.35 — August 2026
 
 ### Carrousel cinéma qui disparaissait puis revenait en boucle

@@ -144,7 +144,7 @@ aussi par `npm run typecheck` à la racine.
 1. Modifier le code dans `android-tv/app/src/main/kotlin/com/movviz/tv/`.
 2. **Bump de version partout, en même temps** :
    - `android-tv/app/build.gradle.kts` → `versionCode` (incrément, format `1XXXX`)
-     et `versionName` (ex. `1.16.20`) ;
+     et `versionName` (ex. `1.19.36`) ;
    - `package.json`, `package-lock.json`, `README.md` (ligne « Version actuelle »),
      `CHANGELOG.md` (entrée française, en tête). Le badge README n'est pas touché.
 3. Compiler/vérifier localement (voir plus haut) + `npm run typecheck` à la racine.
