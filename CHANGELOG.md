@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.25 — August 2026
+
+### Boucle de mise à jour infinie sur Android TV
+
+L'application se réinstallait "une mise à jour" à chaque lancement, même juste après en avoir déjà appliqué une : son numéro de version interne restait figé sur une ancienne valeur au lieu de suivre la version réellement publiée, donc elle se croyait perpétuellement en retard. Elle ne propose désormais une mise à jour que lorsqu'il y en a vraiment une. Le numéro de version affiché dans "À propos" du client Android smartphone était figé de la même façon (sans conséquence, ce client n'a pas encore de mise à jour automatique) et est corrigé au passage.
+
 ## v1.19.24 — August 2026
 
 ### Découverte largement enrichie, et deux nouveaux genres partagés

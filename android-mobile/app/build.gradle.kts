@@ -18,8 +18,11 @@ android {
         applicationId = "com.movviz.mobile"
         minSdk = 24
         targetSdk = 35
-        versionCode = 11801
-        versionName = "1.18.01"
+        // Same fix as android-tv/app/build.gradle.kts — derived from the Git
+        // tag by CI instead of a frozen value, so BuildConfig.VERSION_NAME
+        // (shown in "About") tracks the actual published release.
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 11801
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.18.01"
     }
 
     signingConfigs {

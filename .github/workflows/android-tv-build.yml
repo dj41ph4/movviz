@@ -63,12 +63,36 @@ jobs:
           fi
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$keystore" "$store_password" "$key_alias" "$key_password" > android-tv/keystore.properties
 
+      # Sans ceci, versionName/versionCode restaient figés à leur valeur par
+      # défaut dans build.gradle.kts quel que soit le tag publié — l'app
+      # comparait alors indéfiniment "sa" version (toujours 1.18.01) au tag
+      # GitHub le plus récent et se croyait éternellement en retard : boucle
+      # de mise à jour à chaque lancement, même juste après avoir installé.
+      - name: Compute app version from tag
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            tag="${GITHUB_REF_NAME#v}"
+            IFS='.' read -r major minor patch <<< "$tag"
+            # 10# force la base 10 : un patch comme "08"/"09" (courant dans
+            # l'historique des tags, ex. v1.19.08) serait sinon lu comme un
+            # littéral octal invalide et ferait échouer le build.
+            code=$(( 10#$major * 10000 + 10#$minor * 100 + 10#$patch ))
+            echo "name=$tag" >> "$GITHUB_OUTPUT"
+            echo "code=$code" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=" >> "$GITHUB_OUTPUT"
+            echo "code=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Build APK
         working-directory: android-tv
         # Canal unique depuis le retrait de la variante retail : l'APK livré
         # embarque l'auto-update (BuildConfig.AUTO_UPDATE=true) — l'application
         # se met à jour elle-même via GitHub au lancement.
-        run: gradle assembleRelease --no-daemon
+        run: |
+          gradle assembleRelease --no-daemon \
+            ${{ steps.ver.outputs.name != '' && format('-PmovvizVersionName={0} -PmovvizVersionCode={1}', steps.ver.outputs.name, steps.ver.outputs.code) || '' }}
 
       # Renommé explicitement "client" — contrairement à l'installeur Windows
       # (qui contient le serveur complet), cet APK est un client TV qui se

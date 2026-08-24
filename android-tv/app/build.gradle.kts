@@ -19,8 +19,17 @@ android {
         applicationId = "com.movviz.tv.au"
         minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-        versionCode = 11801
-        versionName = "1.18.01"
+        // Dérivés du tag Git par la CI (voir android-tv-build.yml, propriétés
+        // movvizVersionCode/movvizVersionName) pour rester synchronisés avec
+        // les releases GitHub que UpdateManager.checkForUpdate() compare.
+        // Avant ce correctif, ces deux valeurs étaient figées en dur : chaque
+        // build restait étiqueté "1.18.01" quel que soit le tag réellement
+        // publié, donc checkForUpdate() se croyait perpétuellement en retard
+        // et proposait/installait une "mise à jour" à chaque lancement, même
+        // juste après l'avoir déjà installée — boucle infinie constatée.
+        // Repli ci-dessous : build local (Android Studio) sans CI.
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 11801
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.18.01"
         // Canal unique depuis le retrait de la variante retail : l'APK livré
         // s'auto-met à jour via GitHub au lancement (voir UpdateManager).
         buildConfigField("boolean", "AUTO_UPDATE", "true")
