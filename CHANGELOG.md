@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.21 — August 2026
+
+### Le pouce vers le bas partout, et vraiment utile aux suggestions
+
+Le pouce vers le bas apparaît maintenant sur toutes les fiches (bibliothèque comprise, sans jamais retirer le titre de votre collection) — cliquer dessus retire seulement la carte de la rangée affichée. Il transmet aussi le genre du titre au moteur de recommandation, qui peut désormais éviter les titres similaires à l'avenir plutôt que de seulement exclure ce titre précis.
+
 ## v1.19.20 — August 2026
 
 ### Le voile "optimisation en cours" ne suivait pas le vrai démarrage de la lecture
