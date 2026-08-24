@@ -15,10 +15,9 @@ import type { DashboardHeroSettings } from "@/lib/dashboard/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { usePlayLabel } from "@/lib/player/usePlayLabel";
+import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null };
-
-const POSTER_BASE = "/tmdb/w1280";
 
 // The featured slide is a deterministic ranking over data that barely moves
 // day to day (library/watch/request state) — with no anchoring, every fresh
@@ -98,12 +97,14 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
 
   if (!settings.enabled || slides.length === 0 || !active) return null;
 
-  const backdropUrl =
+  const { path: heroBackdropPath, size: heroBackdropSize } =
     isMobile && active.detail.posterPath
-      ? `/tmdb/w780${active.detail.posterPath}`
-      : active.detail.backdropPath
-        ? `${POSTER_BASE}${active.detail.backdropPath}`
-        : null;
+      ? { path: active.detail.posterPath, size: "w780" as const }
+      : { path: active.detail.backdropPath, size: "w1280" as const };
+  // Only needed for play()'s backdropUrl (Tier 3, no fallback — see
+  // useTmdbImageUrl's doc comment); TrailerHeader below resolves its own
+  // CDN-vs-local (with fallback) directly from heroBackdropPath/Size.
+  const backdropUrl = useTmdbImageUrl(heroBackdropPath, heroBackdropSize);
   const trailerEnabled = settings.trailerAutoplay;
 
   const statusLabel =
@@ -128,7 +129,8 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
     >
       <div className="relative h-[52vh] min-h-[320px] w-full sm:h-[62vh] sm:min-h-[420px]">
         <TrailerHeader
-          backdropUrl={backdropUrl}
+          backdropPath={heroBackdropPath}
+          size={heroBackdropSize}
           trailerKeys={active.detail.ambientVideoKeys}
           title={active.detail.title}
           trigger="immediate"

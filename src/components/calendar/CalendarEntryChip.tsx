@@ -6,6 +6,7 @@ import { useT } from "@/i18n/provider";
 import { Film, Tv, Search, Loader2 } from "lucide-react";
 import type { CalendarEntry } from "@/app/api/calendar/route";
 import type { LibraryStatus } from "@/lib/library/types";
+import { TmdbImage } from "@/components/media/TmdbImage";
 
 /** Same status vocabulary/colors as TitleContent.tsx's STATUS_TONE — one
  *  visual language for "what state is this title in" across the whole app. */
@@ -27,7 +28,6 @@ interface CalendarEntryChipProps {
 
 export function CalendarEntryChip({ entry, onQuickSearch, searching, compact }: CalendarEntryChipProps) {
   const t = useT();
-  const poster = entry.posterPath ? `/tmdb/w92${entry.posterPath}` : null;
   // Anime-VF-launch rows (kind "series") are informational — there's no
   // single grabbable file behind "the dub launched", so no quick action.
   const canQuickSearch = entry.libraryRef && entry.kind !== "series";
@@ -52,9 +52,8 @@ export function CalendarEntryChip({ entry, onQuickSearch, searching, compact }: 
     <div className={cn("flex items-center gap-3 rounded-xl glass px-3 py-2.5 transition-colors hover:bg-white/5")}>
       <Link href={entry.href} className="flex min-w-0 flex-1 items-center gap-3">
         <div className="h-14 w-10 shrink-0 overflow-hidden rounded bg-surface">
-          {poster ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={poster} alt={entry.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+          {entry.posterPath ? (
+            <TmdbImage path={entry.posterPath} size="w92" alt={entry.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center">
               {entry.kind === "movie" ? <Film className="h-4 w-4 text-ink-soft/50" /> : <Tv className="h-4 w-4 text-ink-soft/50" />}

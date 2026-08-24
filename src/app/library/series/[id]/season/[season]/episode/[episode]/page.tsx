@@ -11,6 +11,8 @@ import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { Play, Check, Search, Clock, HardDriveDownload, ArrowLeft, Tv, Calendar } from "lucide-react";
+import { TmdbImage } from "@/components/media/TmdbImage";
+import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 
 type EpisodeWithPlexUrl = LibraryEpisode & { plexUrl?: string | null };
 
@@ -74,7 +76,11 @@ export default function EpisodeDetailPage({
   );
 
   const Icon = STATUS_ICON[ep.status];
-  const still = meta?.stillPath ? `/tmdb/original${meta.stillPath}` : null;
+  const stillPath = meta?.stillPath ?? null;
+  // Only needed for play()'s backdropUrl below (Tier 3, no fallback — see
+  // useTmdbImageUrl's doc comment); the <img> right below resolves its own
+  // CDN-vs-local (with fallback) directly via TmdbImage.
+  const still = useTmdbImageUrl(stillPath, "original");
 
   return (
     <div className="mx-auto max-w-[1000px]">
@@ -83,9 +89,8 @@ export default function EpisodeDetailPage({
       </Link>
 
       <div className="relative -mx-6 mb-6 aspect-video overflow-hidden rounded-2xl border border-white/5 bg-surface sm:-mx-0">
-        {still ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={still} alt={ep.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        {stillPath ? (
+          <TmdbImage path={stillPath} size="original" alt={ep.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <Tv className="h-10 w-10 text-ink-soft/40" />

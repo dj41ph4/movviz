@@ -1294,6 +1294,11 @@ export const fr = {
       minYearAll: "Toutes les années",
     },
     experience: {
+      cdnImagesTitle: "Images depuis Internet",
+      cdnImagesHint: "Charge les affiches et fonds directement depuis TMDb au lieu de passer par ton serveur — plus rapide si ta connexion montante est limitée. Repli automatique sur ton serveur si TMDb est indisponible.",
+      cdnImagesEnabled: "Activé",
+      localNetworkPriorityTitle: "Priorité au réseau local",
+      localNetworkPriorityHint: "Sur ton réseau domestique, utilise directement ton serveur plutôt qu'Internet — aucun intérêt à sortir du réseau local pour revenir dessus.",
       titlePageVideoTitle: "Aperçus vidéo",
       titlePageVideoHint: "Bande-annonce en fond animé sur les pages film/série, et au survol d'une affiche dans les carrousels. Désactive pour garder une image fixe partout.",
       titlePageVideoEnabled: "Vidéo activée",

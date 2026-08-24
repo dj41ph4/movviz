@@ -7,6 +7,10 @@ import { useCroppedBackdrop } from "@/lib/media/useCroppedBackdrop";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { registerAmbientVideo } from "@/lib/player/ambientVideoRegistry";
+import { useShouldUseCdn } from "@/lib/settings/useShouldUseCdn";
+import type { TmdbImageSize } from "@/lib/metadata/tmdbImageCache";
+
+const CDN_BASE = "https://image.tmdb.org/t/p";
 
 /**
  * Shared "video instead of a static backdrop" header — used by the title
@@ -86,7 +90,8 @@ function createSafeYouTubePlayer(
 }
 
 export interface TrailerHeaderProps {
-  backdropUrl: string | null;
+  backdropPath: string | null;
+  size: TmdbImageSize;
   /** Ordered fallback candidates, best first — see pickTrailerCandidates() in tmdb.ts. A video can be embed-blocked (rights holder restriction, e.g. Kaamelott's trailer blocked by Calt Distribution) in a way TMDb's own metadata never flags; the player advances to the next candidate on error instead of just failing. */
   trailerKeys: string[];
   title: string;
@@ -233,7 +238,14 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
   );
 }
 
-export function TrailerHeader({ backdropUrl, trailerKeys, title, trigger, enabled = true, muted: initialMuted = true, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, title, trigger, enabled = true, muted: initialMuted = true, className }: TrailerHeaderProps) {
+  const useCdn = useShouldUseCdn();
+  const [backdropFellBack, setBackdropFellBack] = useState(false);
+  useEffect(() => setBackdropFellBack(false), [backdropPath]);
+  const backdropUrl = backdropPath
+    ? (useCdn && !backdropFellBack ? `${CDN_BASE}/${size}${backdropPath}` : `/tmdb/${size}${backdropPath}`)
+    : null;
+  const onBackdropError = useCdn && !backdropFellBack ? () => setBackdropFellBack(true) : undefined;
   const croppedBackdrop = useCroppedBackdrop(backdropUrl);
   const [soundOn, setSoundOn] = useState(!initialMuted);
   const muted = !soundOn;
@@ -312,7 +324,7 @@ export function TrailerHeader({ backdropUrl, trailerKeys, title, trigger, enable
           there is only ever one exit-removal in flight for this subtree. */}
       {croppedBackdrop ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={croppedBackdrop} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={croppedBackdrop} alt="" loading="lazy" onError={onBackdropError} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <div className="absolute inset-0 h-full w-full bg-surface" />
       )}
@@ -336,7 +348,7 @@ export function TrailerHeader({ backdropUrl, trailerKeys, title, trigger, enable
           >
             {croppedBackdrop ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={croppedBackdrop} alt="" className="h-full w-full object-cover" />
+              <img src={croppedBackdrop} alt="" onError={onBackdropError} className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full bg-surface" />
             )}

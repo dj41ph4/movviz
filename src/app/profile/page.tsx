@@ -8,6 +8,7 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { relativeTime } from "@/lib/utils";
 import { Key, Copy, Check, Trash2, Loader2, Plus, Star, X, Film, Tv, Sun, Moon, MonitorSmartphone } from "lucide-react";
 import { ContinentPicker } from "@/components/discover/ContinentPicker";
+import { TmdbImage } from "@/components/media/TmdbImage";
 import { mutate as mutateGlobal } from "swr";
 import Link from "next/link";
 import type { WatchlistItem } from "@/lib/watchlist/types";
@@ -245,14 +246,12 @@ export default function ProfilePage() {
         <h3 className="mb-4 text-sm font-bold text-ink-soft">{t("watchlist.title")}</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {watchlistItems.map((item) => {
-            const poster = item.posterPath ? `/tmdb/w500${item.posterPath}` : null;
             const key = `${item.type}:${item.tmdbId}`;
             return (
               <article key={key} className="group w-full">
                 <Link href={`/title/${item.type}/${item.tmdbId}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
-                  {poster ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={poster} alt={item.title} loading="lazy" className="h-full w-full object-cover" />
+                  {item.posterPath ? (
+                    <TmdbImage path={item.posterPath} size="w500" alt={item.title} loading="lazy" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center">
                       {item.type === "movie" ? <Film className="h-7 w-7 text-ink-soft/70" /> : <Tv className="h-7 w-7 text-ink-soft/70" />}

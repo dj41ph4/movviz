@@ -14,6 +14,7 @@ import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
 import { TitleMark } from "@/components/media/TitleMark";
 import { useTitleArtworkBatch, type TitleArtworkByKey } from "@/components/media/useTitleArtworkBatch";
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
+import { TmdbImage } from "@/components/media/TmdbImage";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
@@ -608,23 +609,17 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
  * floating Movviz detail implementation and the caller's scroll position. */
 function CatalogHero({ result, label }: { result: MetaSearchResult; label?: string }) {
   const { t, locale } = useI18n();
-  const backdrop = result.backdropPath ? `/tmdb/w1280${result.backdropPath}` : null;
-  const poster = result.posterPath ? `/tmdb/w500${result.posterPath}` : null;
-
   return (
     <Link
       href={`/title/${result.type}/${result.tmdbId}`}
       className="group relative block min-h-[320px] overflow-hidden rounded-3xl border border-white/10 bg-[#12111c] sm:min-h-[420px] lg:h-[clamp(28rem,42vw,40rem)] lg:min-h-[28rem]"
     >
-      {backdrop ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={backdrop} alt={result.title} className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.02]" />
-      ) : poster ? (
+      {result.backdropPath ? (
+        <TmdbImage path={result.backdropPath} size="w1280" alt={result.title} className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.02]" />
+      ) : result.posterPath ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={poster} alt="" className="absolute inset-0 h-full w-full scale-125 object-cover opacity-45 blur-2xl" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={poster} alt={result.title} className="absolute right-[10%] top-0 h-full max-w-[42%] object-contain drop-shadow-2xl" />
+          <TmdbImage path={result.posterPath} size="w500" alt="" className="absolute inset-0 h-full w-full scale-125 object-cover opacity-45 blur-2xl" />
+          <TmdbImage path={result.posterPath} size="w500" alt={result.title} className="absolute right-[10%] top-0 h-full max-w-[42%] object-contain drop-shadow-2xl" />
         </>
       ) : null}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/95 via-black/55 to-transparent" />
@@ -750,9 +745,9 @@ function LogoRow({ title, tiles, onClick }: { title: string; tiles: LogoTile[]; 
           >
             {tile.logoPath ? (
               <div className="flex h-full w-full items-center justify-center rounded-full bg-white/95 p-2 sm:rounded-xl sm:p-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/tmdb/w500${tile.logoPath}`}
+                <TmdbImage
+                  path={tile.logoPath}
+                  size="w500"
                   alt={tile.name}
                   className="h-full w-full object-contain"
                 />
@@ -886,7 +881,6 @@ function RankedList({
 function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank: number; result: MetaSearchResult; status: string | null; libLoaded: boolean; watched: boolean; onAdded: () => void }) {
   const t = useT();
   const [adding, setAdding] = useState(false);
-  const poster = result.posterPath ? `/tmdb/w92${result.posterPath}` : null;
   const inLib = !!status;
 
   const StatusIcon = status === "available" ? Check : status === "downloading" ? Loader2 : status === "missing" ? Clock : null;
@@ -908,9 +902,8 @@ function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank
     <Link href={`/title/${result.type}/${result.tmdbId}`} className="flex items-center gap-3 rounded-xl glass px-3 py-2 transition-colors hover:bg-white/5">
       <span className="w-6 shrink-0 text-center text-lg font-black text-ink-dim">{rank}</span>
       <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded-lg bg-surface">
-        {poster ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={poster} alt={result.title} loading="lazy" className="h-full w-full object-cover" />
+        {result.posterPath ? (
+          <TmdbImage path={result.posterPath} size="w92" alt={result.title} loading="lazy" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             {result.type === "movie" ? <Film className="h-4 w-4 text-ink-soft/50" /> : <Tv className="h-4 w-4 text-ink-soft/50" />}

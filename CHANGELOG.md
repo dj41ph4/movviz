@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.32 — August 2026
+
+### Images chargées directement depuis Internet (optionnel)
+
+Nouveau réglage dans Réglages → Expérience : les affiches, fonds et logos peuvent maintenant être chargés directement depuis TMDb plutôt que de systématiquement transiter par ton propre serveur — utile si ta connexion montante est limitée. Repli automatique sur ton serveur si TMDb est indisponible. Désactivé par défaut : rien ne change tant que tu ne l'actives pas. Un second réglage, disponible une fois le premier activé, garde la priorité à ton serveur quand tu es sur ton réseau domestique (aucun intérêt à sortir sur Internet dans ce cas).
+
 ## v1.19.31 — August 2026
 
 ### Découverte se personnalise vraiment

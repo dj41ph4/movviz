@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime, cn } from "@/lib/utils";
 import type { Issue } from "@/lib/issues/types";
+import { TmdbImage } from "@/components/media/TmdbImage";
 import { AlertTriangle, CheckCircle2, RotateCcw, Film, Tv, Send, MessageSquare } from "lucide-react";
 
 const STATUS_TONE: Record<Issue["status"], string> = {
@@ -93,7 +94,6 @@ export default function IssuesPage() {
       <div className="space-y-4">
         <AnimatePresence mode="sync">
           {visible.map((i) => {
-            const poster = i.posterPath ? `/tmdb/w200${i.posterPath}` : null;
             const isOpen = expanded === i.id;
             return (
               <motion.div
@@ -106,9 +106,8 @@ export default function IssuesPage() {
               >
                 <div className="flex gap-4">
                   <div className="h-24 w-16 shrink-0 overflow-hidden rounded-xl bg-surface">
-                    {poster ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={poster} alt={i.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    {i.posterPath ? (
+                      <TmdbImage path={i.posterPath} size="w200" alt={i.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center">
                         {i.libraryType === "movie" ? <Film className="h-5 w-5 text-ink-soft/50" /> : <Tv className="h-5 w-5 text-ink-soft/50" />}

@@ -7,6 +7,7 @@ import { useT } from "@/i18n/provider";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Trash2, RotateCcw, Loader2, AlertTriangle, Film, Tv, Check, X } from "lucide-react";
 import type { TrashItem } from "@/lib/library/trashStore";
+import { TmdbImage } from "@/components/media/TmdbImage";
 
 function fetcher(url: string) { return fetch(url, { cache: "no-store" }).then((r) => r.json()); }
 
@@ -104,8 +105,9 @@ export default function TrashPage() {
                 >
                   <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
                     {item.posterPath ? (
-                      <img
-                        src={`/tmdb/w342${item.posterPath}`}
+                      <TmdbImage
+                        path={item.posterPath}
+                        size="w342"
                         alt={item.title}
                         className="h-full w-full object-cover"
                         loading="lazy"

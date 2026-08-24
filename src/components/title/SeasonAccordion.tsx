@@ -6,6 +6,7 @@ import useSWR from "swr";
 
 import { useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
+import { TmdbImage } from "@/components/media/TmdbImage";
 import { ChevronDown, Check, Clock, HardDriveDownload, Search, Loader2, ListFilter, Eye, Calendar, Info } from "lucide-react";
 import type { LibraryStatus, LibraryFile } from "@/lib/library/types";
 import { MediaBadges } from "@/components/library/MediaBadges";
@@ -285,9 +286,9 @@ function SeasonRow({
                       <>
                         <span className="w-6 shrink-0 pt-2 text-center text-xs font-bold text-ink-dim">{epNumber}</span>
                         {tmdbEp?.stillPath ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={`/tmdb/w300${tmdbEp.stillPath}`}
+                          <TmdbImage
+                            path={tmdbEp.stillPath}
+                            size="w300"
                             alt=""
                             loading="lazy"
                             className="h-14 w-24 shrink-0 rounded-lg object-cover sm:h-16 sm:w-28"
@@ -415,9 +416,9 @@ function SeasonRow({
                 <div key={ep.episodeNumber} className="flex items-start gap-3 rounded-lg p-2 hover:bg-white/5">
                   <span className="w-6 shrink-0 pt-2 text-center text-xs font-bold text-ink-dim">{ep.episodeNumber}</span>
                   {ep.stillPath ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={`/tmdb/w300${ep.stillPath}`}
+                    <TmdbImage
+                      path={ep.stillPath}
+                      size="w300"
                       alt=""
                       loading="lazy"
                       decoding="async"

@@ -22,6 +22,9 @@ import { TagEditor } from "@/components/library/TagEditor";
 import { MediaBadges, buildMediaBadgeItems } from "@/components/library/MediaBadges";
 import { TrailerHeader, TrailerModalPlayer } from "@/components/media/TrailerHeader";
 import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
+import { TmdbImage } from "@/components/media/TmdbImage";
+import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
+import type { TmdbImageSize } from "@/lib/metadata/tmdbImageCache";
 import { ReportIssueButton } from "@/components/issues/ReportIssueButton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { reportIssue } from "@/lib/issues/store";
@@ -322,14 +325,15 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   // A custom user choice still wins, but otherwise opening a title must not
   // download/display a second arbitrary TMDb backdrop for the same media.
   const editorialArtwork = useTitleArtworkBatch([{ tmdbId, type }], locale)[`${type}:${tmdbId}`];
-  const backdrop = libraryMatch?.customBackdropPath
-    ? `/tmdb/original${libraryMatch.customBackdropPath}`
-    : (editorialArtwork?.backdropPath ?? detail?.backdropPath)
-      ? `/tmdb/w1280${editorialArtwork?.backdropPath ?? detail?.backdropPath}`
-      : null;
-  const poster = detail?.posterPath
-    ? `/tmdb/w500${detail.posterPath}`
-    : null;
+  // Raw path + size — feeds TmdbImage/TrailerHeader (Tier 1/2, CDN+fallback
+  // resolved internally by those). Same custom > editorial > detail
+  // precedence as before.
+  const backdropPath = libraryMatch?.customBackdropPath ?? editorialArtwork?.backdropPath ?? detail?.backdropPath ?? null;
+  const backdropSize: TmdbImageSize = libraryMatch?.customBackdropPath ? "original" : "w1280";
+  // Resolved single-URL strings — still needed for play()'s backdropUrl/
+  // posterUrl (Tier 3, no automatic fallback — see useTmdbImageUrl's doc).
+  const backdrop = useTmdbImageUrl(backdropPath, backdropSize);
+  const poster = useTmdbImageUrl(detail?.posterPath ?? null, "w500");
 
   /* ── local state ────────────────────────────────────────────────────── */
 
@@ -428,7 +432,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   );
   const logoPath = libraryMatch?.customLogoPath
     ?? (editorialArtwork ? editorialArtwork.logoPath : imagesData?.logos?.[0]?.filePath ?? null);
-  const logoUrl = logoPath ? `/tmdb/w500${logoPath}` : null;
   const [resyncingAnime, setResyncingAnime] = useState(false);
   const [resyncResult, setResyncResult] = useState<string | null>(null);
   const [forcingPlexSync, setForcingPlexSync] = useState(false);
@@ -996,8 +999,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 className="h-8 w-8 overflow-hidden rounded-lg border border-white/10 bg-surface"
               >
                 {p.logoPath ? (
-                  <img
-                    src={`/tmdb/w92${p.logoPath}`}
+                  <TmdbImage
+                    path={p.logoPath}
+                    size="w92"
                     alt={p.name}
                     className="h-full w-full object-cover"
                     loading="lazy"
@@ -1108,7 +1112,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
             backdrop ? <img src={backdrop} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <div className="h-full w-full bg-void" />
           }>
             <TrailerHeader
-              backdropUrl={backdrop}
+              backdropPath={backdropPath}
+              size={backdropSize}
               trailerKeys={detail.ambientVideoKeys}
               title={detail.title}
               trigger="immediate"
@@ -1188,12 +1193,12 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               </span>
             )}
             <h1 className="max-w-2xl text-3xl font-black tracking-tight text-white drop-shadow-lg sm:text-5xl">
-              {logoUrl ? (
+              {logoPath ? (
                 <>
                   <span className="sr-only">{detail.title}</span>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={logoUrl}
+                  <TmdbImage
+                    path={logoPath}
+                    size="w500"
                     alt=""
                     loading="lazy"
                     className="max-h-20 max-w-[70vw] object-contain object-left align-middle sm:max-h-28 sm:max-w-md"
@@ -1543,8 +1548,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                     >
                       <div className="mx-auto h-24 w-24 overflow-hidden rounded-xl bg-surface transition-transform group-hover:scale-105">
                         {c.profilePath ? (
-                          <img
-                            src={`/tmdb/w185${c.profilePath}`}
+                          <TmdbImage
+                            path={c.profilePath}
+                            size="w185"
                             alt={c.name}
                             className="h-full w-full object-cover"
                             loading="lazy"
@@ -1737,8 +1743,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                       >
                         <div className="overflow-hidden rounded-lg border border-white/5 bg-surface aspect-[2/3]">
                           {s.posterPath ? (
-                            <img
-                              src={`/tmdb/w342${s.posterPath}`}
+                            <TmdbImage
+                              path={s.posterPath}
+                              size="w342"
                               alt={s.title}
                               className="h-full w-full object-cover"
                               loading="lazy"

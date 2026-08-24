@@ -5,6 +5,7 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Loader2, RefreshCw, Search, Check, X, FolderOpen, Film, Tv, ShieldAlert, HardDrive, Scan } from "lucide-react";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { TmdbImage } from "@/components/media/TmdbImage";
 
 interface IndexMatch {
   tmdbId: number;
@@ -230,8 +231,7 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
                     />
                     <div className="h-14 w-10 shrink-0 overflow-hidden rounded-lg bg-black/30">
                       {match?.posterPath ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={`/tmdb/w92${match.posterPath}`} alt="" className="h-full w-full object-cover" />
+                        <TmdbImage path={match.posterPath} size="w92" alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-ink-dim">
                           {type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}

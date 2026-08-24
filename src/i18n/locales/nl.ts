@@ -1297,6 +1297,11 @@ export const nl: Dictionary = {
       minYearAll: "Alle jaren",
     },
     experience: {
+      cdnImagesTitle: "Afbeeldingen via internet",
+      cdnImagesHint: "Laadt posters en achtergronden rechtstreeks van TMDb in plaats van via je server — sneller bij beperkte uploadbandbreedte. Valt automatisch terug op je server als TMDb onbereikbaar is.",
+      cdnImagesEnabled: "Ingeschakeld",
+      localNetworkPriorityTitle: "Voorrang voor lokaal netwerk",
+      localNetworkPriorityHint: "Gebruik op je thuisnetwerk rechtstreeks je server in plaats van internet — geen voordeel om het lokale netwerk te verlaten om er meteen weer op terug te komen.",
       titlePageVideoTitle: "Videovoorbeelden",
       titlePageVideoHint: "Geanimeerde trailer als achtergrond op film-/seriepagina's en bij het hoveren over een poster in carrousels. Schakel uit voor overal een statische afbeelding.",
       titlePageVideoEnabled: "Video ingeschakeld",

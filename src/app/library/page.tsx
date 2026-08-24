@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { LibraryGrid, RENDER_BATCH_INITIAL, RENDER_BATCH_STEP } from "@/components/library/LibraryGrid";
 import { useT, useI18n } from "@/i18n/provider";
 import { cn, relativeTime, formatDate } from "@/lib/utils";
+import { TmdbImage } from "@/components/media/TmdbImage";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import { decodeLibraryRef } from "@/lib/library/types";
 import type { Collection } from "@/lib/collections/types";
@@ -276,8 +277,7 @@ function SagasSection() {
               >
                 <div className="h-14 w-14 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-brand-glow/20 to-purple/20">
                   {s.posterPath ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={`/tmdb/w185${s.posterPath}`} alt={s.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    <TmdbImage path={s.posterPath} size="w185" alt={s.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center"><Layers className="h-5 w-5 text-ink-soft/60" /></div>
                   )}
@@ -305,8 +305,7 @@ function SagasSection() {
               >
                 <div className="aspect-[2/3]">
                   {s.posterPath ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={`/tmdb/w342${s.posterPath}`} alt={s.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    <TmdbImage path={s.posterPath} size="w342" alt={s.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/20 to-purple/20">
                       <Layers className="h-8 w-8 text-ink-soft/60" />
@@ -421,8 +420,7 @@ function UserCollectionsSection() {
                         className="group relative h-24 w-16 shrink-0 overflow-hidden rounded-lg border border-white/5 bg-surface transition hover:border-brand/30"
                       >
                         {item.posterPath ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={`/tmdb/w154${item.posterPath}`} alt={item.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                          <TmdbImage path={item.posterPath} size="w154" alt={item.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-brand/20 to-purple/20">
                             {item.type === "movie" ? <Film className="h-4 w-4 text-ink-soft/60" /> : <Tv className="h-4 w-4 text-ink-soft/60" />}

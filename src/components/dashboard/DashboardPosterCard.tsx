@@ -15,6 +15,8 @@ import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
+import { TmdbImage } from "@/components/media/TmdbImage";
+import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 
 /** How long the mouse must stay over the expanded popover before the static
  *  backdrop is swapped for the ambient trailer video — matches the "after a
@@ -26,9 +28,6 @@ import { TrailerHeader } from "@/components/media/TrailerHeader";
  *  appears once the popover itself is already showing. */
 const CARD_VIDEO_DELAY_MS = 1000;
 
-const POSTER_BASE = "/tmdb/w500";
-const BACKDROP_BASE = "/tmdb/w780";
-const LOGO_BASE = "/tmdb/w500";
 const fetcher = (url: string) => fetch(url).then((response) => (response.ok ? response.json() : null));
 
 export type DashboardCardPlayback = {
@@ -162,9 +161,14 @@ export function DashboardPosterCard({
   const [dismissed, setDismissed] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const poster = posterPath ? `${POSTER_BASE}${posterPath}` : null;
-  const backdrop = backdropPath ? `${BACKDROP_BASE}${backdropPath}` : null;
-  const logo = logoPath ? `${LOGO_BASE}${logoPath}` : null;
+  // Only still needed for play()'s backdropUrl/posterUrl (TheaterModePlayer's
+  // ambient background) — every other usage in this file now passes raw
+  // posterPath/backdropPath/logoPath straight to TmdbImage/AdaptiveTitleLogo/
+  // TrailerHeader, which resolve CDN-vs-local (with onError fallback)
+  // themselves. See useTmdbImageUrl's doc comment for why this one case
+  // stays fallback-less.
+  const poster = useTmdbImageUrl(posterPath, "w500");
+  const backdrop = useTmdbImageUrl(backdropPath ?? null, "w780");
   const previewImage = backdrop;
   const { data: previewDetail } = useSWR<MetaDetail | null>(
     hovered ? `/api/metadata/detail?type=${type}&tmdbId=${tmdbId}&lang=${locale}` : null,
@@ -353,8 +357,7 @@ export function DashboardPosterCard({
         <div className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30", showRank ? "aspect-[2/3] w-[150px] sm:w-[170px]" : "aspect-video w-full")}>
           {showRank ? (
             poster ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={poster} alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+              <TmdbImage path={posterPath} size="w500" alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
                 {type === "movie" ? <Film className="h-7 w-7 text-ink-soft/70" /> : <Tv className="h-7 w-7 text-ink-soft/70" />}
@@ -363,8 +366,7 @@ export function DashboardPosterCard({
             )
           ) : backdrop ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={backdrop} alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.035]" />
+              <TmdbImage path={backdropPath ?? null} size="w780" alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.035]" />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/78 via-black/10 to-black/0" />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/32 via-transparent to-transparent" />
             </>
@@ -373,10 +375,8 @@ export function DashboardPosterCard({
               {/* A title with no landscape artwork must not become an empty
                 * card. Keep its real cover legible over a blurred extension
                 * rather than cropping a portrait into fake 16:9 artwork. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={poster} alt="" loading="lazy" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-xl" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={poster} alt={title} loading="lazy" className="relative z-[1] h-full w-full object-contain drop-shadow-2xl" />
+              <TmdbImage path={posterPath} size="w500" alt="" loading="lazy" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-45 blur-xl" />
+              <TmdbImage path={posterPath} size="w500" alt={title} loading="lazy" className="relative z-[1] h-full w-full object-contain drop-shadow-2xl" />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-black/15" />
             </>
           ) : (
@@ -392,8 +392,8 @@ export function DashboardPosterCard({
                 reserveBottomRight ? "right-14" : "right-3",
               )}
             >
-              {logo ? (
-                <AdaptiveTitleLogo src={logo} className="max-h-10 max-w-[78%] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
+              {logoPath ? (
+                <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-10 max-w-[78%] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
               ) : !titleEmbedded ? (
                 <span className="line-clamp-2 text-sm font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
               ) : null}
@@ -435,7 +435,8 @@ export function DashboardPosterCard({
           <div className="relative aspect-video overflow-hidden">
             {videoReady && videoPreviewEnabled && ambientVideoKeys.length > 0 ? (
               <TrailerHeader
-                backdropUrl={previewImage}
+                backdropPath={backdropPath ?? null}
+                size="w780"
                 trailerKeys={ambientVideoKeys}
                 title={title}
                 trigger="immediate"
@@ -449,8 +450,8 @@ export function DashboardPosterCard({
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/8 to-transparent" />
             <div className="absolute inset-x-4 bottom-3 min-w-0">
-              {logo ? (
-                <AdaptiveTitleLogo src={logo} className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
+              {logoPath ? (
+                <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
               ) : !titleEmbedded ? (
                 <span className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
               ) : null}

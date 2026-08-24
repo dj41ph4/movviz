@@ -1296,6 +1296,11 @@ export const it: Dictionary = {
       minYearAll: "Tutti gli anni",
     },
     experience: {
+      cdnImagesTitle: "Immagini da Internet",
+      cdnImagesHint: "Carica locandine e sfondi direttamente da TMDb invece di passare dal tuo server — più veloce se la tua banda in upload è limitata. Ripiego automatico sul tuo server se TMDb non è raggiungibile.",
+      cdnImagesEnabled: "Attivo",
+      localNetworkPriorityTitle: "Priorità alla rete locale",
+      localNetworkPriorityHint: "Sulla tua rete domestica, usa direttamente il tuo server invece di Internet — nessun vantaggio a uscire dalla rete locale solo per tornarci.",
       titlePageVideoTitle: "Anteprime video",
       titlePageVideoHint: "Trailer animato sullo sfondo delle pagine film/serie e al passaggio del mouse su un poster nei caroselli. Disattiva per mantenere un'immagine fissa ovunque.",
       titlePageVideoEnabled: "Video attivo",

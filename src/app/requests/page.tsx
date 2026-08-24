@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime, cn } from "@/lib/utils";
 import type { MediaRequest } from "@/lib/requests/types";
+import { TmdbImage } from "@/components/media/TmdbImage";
 import type { LibraryStatus } from "@/lib/library/types";
 import { Check, X, Clock, CheckCircle2, Star, Film, HardDriveDownload, Search, Loader2, RotateCw, AlertTriangle, Calendar } from "lucide-react";
 
@@ -181,7 +182,6 @@ function RequestsPageInner() {
       <div className="space-y-4">
         <AnimatePresence mode="sync">
           {visible.map((r) => {
-            const poster = r.posterPath ? `/tmdb/w200${r.posterPath}` : null;
             return (
               <motion.div
                 key={r.id}
@@ -192,9 +192,8 @@ function RequestsPageInner() {
                 className="flex gap-4 rounded-2xl glass p-4"
               >
                 <div className="h-28 w-20 shrink-0 overflow-hidden rounded-xl bg-surface">
-                  {poster ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={poster} alt={r.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  {r.posterPath ? (
+                    <TmdbImage path={r.posterPath} size="w200" alt={r.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center"><Film className="h-6 w-6 text-ink-soft/50" /></div>
                   )}

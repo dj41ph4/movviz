@@ -4,6 +4,7 @@ import { useState } from "react";
 import useSWR from "swr";
 import { useT, useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
+import { TmdbImage } from "@/components/media/TmdbImage";
 import { Loader2, Check, RotateCcw } from "lucide-react";
 
 interface TitleImageOption {
@@ -114,9 +115,9 @@ export function ArtworkFields({
                 current === opt.filePath ? "border-brand" : "border-white/8 hover:border-white/20"
               )}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={`/tmdb/w342${opt.filePath}`}
+              <TmdbImage
+                path={opt.filePath}
+                size="w342"
                 alt=""
                 loading="lazy"
                 className={cn("h-full w-full", tab === "logo" ? "object-contain bg-black/40 p-2" : "object-cover")}

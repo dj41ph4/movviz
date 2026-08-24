@@ -1297,6 +1297,11 @@ export const en: Dictionary = {
       minYearAll: "All years",
     },
     experience: {
+      cdnImagesTitle: "Images from the internet",
+      cdnImagesHint: "Load posters and backdrops directly from TMDb instead of routing through your server — faster if your upload bandwidth is limited. Falls back to your server automatically if TMDb is unreachable.",
+      cdnImagesEnabled: "Enabled",
+      localNetworkPriorityTitle: "Prefer local network",
+      localNetworkPriorityHint: "On your home network, use your server directly rather than the internet — there's no benefit to leaving the local network only to come back to it.",
       titlePageVideoTitle: "Video previews",
       titlePageVideoHint: "Animated trailer background on movie/series pages, and on hover over a poster in carousels. Disable to keep a static image everywhere.",
       titlePageVideoEnabled: "Video enabled",

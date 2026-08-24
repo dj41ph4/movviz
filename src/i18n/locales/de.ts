@@ -1314,6 +1314,11 @@ export const de: Dictionary = {
       minYearAll: "Alle Jahre",
     },
     experience: {
+      cdnImagesTitle: "Bilder aus dem Internet",
+      cdnImagesHint: "Lädt Poster und Hintergründe direkt von TMDb statt über deinen Server — schneller bei begrenzter Upload-Bandbreite. Fällt automatisch auf deinen Server zurück, wenn TMDb nicht erreichbar ist.",
+      cdnImagesEnabled: "Aktiviert",
+      localNetworkPriorityTitle: "Priorität für lokales Netzwerk",
+      localNetworkPriorityHint: "In deinem Heimnetzwerk direkt deinen Server statt des Internets nutzen — kein Vorteil, das lokale Netzwerk zu verlassen, nur um wieder darauf zuzugreifen.",
       titlePageVideoTitle: "Videovorschauen",
       titlePageVideoHint: "Animierter Trailer-Hintergrund auf Film-/Serienseiten und beim Überfahren eines Posters in Karussells. Deaktivieren für überall ein statisches Bild.",
       titlePageVideoEnabled: "Video aktiviert",

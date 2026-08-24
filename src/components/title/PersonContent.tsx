@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useT } from "@/i18n/provider";
 import type { MetaPerson } from "@/lib/metadata/tmdb";
 import { Film, Tv, User } from "lucide-react";
+import { TmdbImage } from "@/components/media/TmdbImage";
 
 /**
  * Person detail view, shared by the standalone /person/[id] page and the
@@ -28,15 +29,12 @@ export function PersonContent({ id }: { id: string }) {
     </div>
   );
 
-  const photo = person.profilePath ? `/tmdb/w342${person.profilePath}` : null;
-
   return (
     <div className="mx-auto max-w-[1200px]">
       <div className="mb-8 flex gap-6">
         <div className="h-56 w-40 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl">
-          {photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={photo} alt={person.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+          {person.profilePath ? (
+            <TmdbImage path={person.profilePath} size="w342" alt={person.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center"><User className="h-8 w-8 text-ink-soft/50" /></div>
           )}
@@ -55,8 +53,7 @@ export function PersonContent({ id }: { id: string }) {
           <Link key={`${c.type}:${c.tmdbId}`} href={`/title/${c.type}/${c.tmdbId}`} className="group block">
             <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-white/5 bg-surface">
               {c.posterPath ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={`/tmdb/w342${c.posterPath}`} alt={c.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                <TmdbImage path={c.posterPath} size="w342" alt={c.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center">
                   {c.type === "movie" ? <Film className="h-6 w-6 text-ink-soft/60" /> : <Tv className="h-6 w-6 text-ink-soft/60" />}

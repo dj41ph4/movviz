@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useT } from "@/i18n/provider";
 import { Film, Loader2, Info, X, Download } from "lucide-react";
 import type { MetaDetail } from "@/lib/metadata/types";
+import { TmdbImage } from "@/components/media/TmdbImage";
 
 export function RequestMovieModal({
   detail,
@@ -61,7 +62,7 @@ export function RequestMovieModal({
 
         <div className="mt-4 flex items-center gap-4 rounded-xl bg-surface/50 p-3">
           {detail.posterPath ? (
-            <img src={`/tmdb/w92${detail.posterPath}`} alt="" className="h-16 w-11 rounded-lg object-cover" />
+            <TmdbImage path={detail.posterPath} size="w92" alt="" className="h-16 w-11 rounded-lg object-cover" />
           ) : (
             <div className="flex h-16 w-11 items-center justify-center rounded-lg bg-surface"><Film className="h-5 w-5 text-ink-dim" /></div>
           )}

@@ -7,6 +7,7 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Film, Check, Clock, Loader2, Download } from "lucide-react";
 import type { MetaCollectionDetail } from "@/lib/metadata/types";
+import { TmdbImage } from "@/components/media/TmdbImage";
 
 /**
  * Collection detail view, shared by the standalone /collection/[id] page and
@@ -70,14 +71,11 @@ export function CollectionContent({ id }: { id: number }) {
     }
   };
 
-  const backdrop = data.backdropPath ? `/tmdb/w1280${data.backdropPath}` : null;
-
   return (
     <div className="mx-auto max-w-[1280px]">
-      {backdrop && (
+      {data.backdropPath && (
         <div className="relative -mx-4 mb-6 h-[220px] overflow-hidden sm:-mx-5 md:-mx-8 md:h-[300px]">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={backdrop} alt={data.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+          <TmdbImage path={data.backdropPath} size="w1280" alt={data.name} loading="lazy" decoding="async" className="h-full w-full object-cover" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-abyss via-abyss/40 to-transparent" />
         </div>
       )}
@@ -100,13 +98,11 @@ export function CollectionContent({ id }: { id: number }) {
       <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         {data.parts.map((part) => {
           const status = libStatus.get(part.tmdbId);
-          const poster = part.posterPath ? `/tmdb/w500${part.posterPath}` : null;
           return (
             <Link key={part.tmdbId} href={`/title/movie/${part.tmdbId}`} className="group block">
               <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
-                {poster ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={poster} alt={part.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                {part.posterPath ? (
+                  <TmdbImage path={part.posterPath} size="w500" alt={part.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
                 ) : (
                   <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-3 text-center">
                     <Film className="h-6 w-6 text-ink-soft/70" />
