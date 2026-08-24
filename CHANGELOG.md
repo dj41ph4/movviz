@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.35 — August 2026
+
+### Carrousel cinéma qui disparaissait puis revenait en boucle
+
+Corrigé : l'API YouTube remplaçait elle-même un nœud que React devait retirer à la sortie d'une diapositive. Cela déclenchait une erreur `removeChild`, puis le mécanisme de récupération remontait sans cesse le héros. Le lecteur YouTube est maintenant isolé du DOM géré par React ; une erreur persistante ne peut plus relancer le carrousel indéfiniment.
+
 ## v1.19.34 — August 2026
 
 ### Le toggle "Images depuis Internet" se désactivait tout seul

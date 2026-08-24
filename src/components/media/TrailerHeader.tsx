@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
 
 import { useCroppedBackdrop } from "@/lib/media/useCroppedBackdrop";
@@ -69,24 +69,33 @@ export function loadYouTubeApi(): Promise<void> {
   return apiLoadPromise;
 }
 
-/** Shared guard used by every YT.Player creation site: the container node
- *  can be detached by framer-motion's exit animation (AnimatePresence
- *  physically removes leaving nodes) or by a fast panel close while the
- *  async API load is still in flight. Creating a player on a detached node
- *  makes YouTube's internal DOM bookkeeping desync from React's, which ends
- *  in exactly the "removeChild ... is not a child of this node" crash seen
- *  on the title page. */
+/**
+ * The YouTube API REPLACES its target div with an iframe. That target must
+ * therefore be created imperatively: if it were a React child, React would
+ * later try to remove the original div during a slide exit, although YouTube
+ * has already removed it. The outer host remains React-owned but its content
+ * is deliberately opaque to React.
+ */
 function createSafeYouTubePlayer(
-  containerId: string,
+  host: HTMLElement | null,
   options: any
 ): any | null {
   try {
-    const el = document.getElementById(containerId);
-    if (!el?.isConnected) return null;
-    return new (window as any).YT.Player(containerId, options);
+    if (!host?.isConnected) return null;
+    const mountPoint = document.createElement("div");
+    host.replaceChildren(mountPoint);
+    return new (window as any).YT.Player(mountPoint, options);
   } catch {
     return null;
   }
+}
+
+function destroyYouTubePlayer(player: any, host: HTMLElement | null) {
+  try { player?.destroy(); } catch { /* already gone */ }
+  // The contents were never rendered by React, so removing them here cannot
+  // invalidate React's child bookkeeping. It also prevents a late iframe
+  // paint while Framer Motion is finishing a slide's exit transition.
+  try { host?.replaceChildren(); } catch { /* host already detached */ }
 }
 
 export interface TrailerHeaderProps {
@@ -115,7 +124,7 @@ const LOOP_BEFORE_END_SEC = 0.75;
 const LOOP_POLL_MS = 250;
 
 function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void }) {
-  const containerId = `yt-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
   useEffect(() => {
@@ -126,7 +135,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
       if (cancelled) return;
       const YT = (window as any).YT;
       if (!YT?.Player) return;
-      const player = createSafeYouTubePlayer(containerId, {
+      const player = createSafeYouTubePlayer(hostRef.current, {
         videoId: trailerKey,
         playerVars: {
           autoplay: 1,
@@ -206,7 +215,8 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
     return () => {
       if (loopTimer) clearInterval(loopTimer);
       cancelled = true;
-      try { playerRef.current?.destroy(); } catch { /* already gone */ }
+      destroyYouTubePlayer(playerRef.current, hostRef.current);
+      playerRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trailerKey]);
@@ -231,7 +241,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
       // of defense at the embed level. YouTube's small branding mark in the
       // corner is required by their ToS and cannot be removed even via the
       // official API — modestbranding=1 is the only lever available.
-      id={containerId}
+      ref={hostRef}
       title={title}
       className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2"
     />
@@ -389,7 +399,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, title, trigger,
  */
 export function TrailerModalPlayer({ trailerKeys, title }: { trailerKeys: string[]; title: string }) {
   const t = useT();
-  const containerId = `yt-modal-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [candidateIndex, setCandidateIndex] = useState(0);
   const trailerKey = trailerKeys[candidateIndex] ?? null;
@@ -400,7 +410,7 @@ export function TrailerModalPlayer({ trailerKeys, title }: { trailerKeys: string
     loadYouTubeApi().then(() => {
       if (cancelled) return;
       if (!(window as any).YT?.Player) return;
-      const player = createSafeYouTubePlayer(containerId, {
+      const player = createSafeYouTubePlayer(hostRef.current, {
         videoId: trailerKey,
         playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
         events: {
@@ -412,9 +422,10 @@ export function TrailerModalPlayer({ trailerKeys, title }: { trailerKeys: string
     });
     return () => {
       cancelled = true;
-      try { playerRef.current?.destroy(); } catch { /* already gone */ }
+      destroyYouTubePlayer(playerRef.current, hostRef.current);
+      playerRef.current = null;
     };
-  }, [containerId, trailerKey]);
+  }, [trailerKey]);
 
   if (!trailerKey) {
     // Every candidate failed — a plain YouTube link at least gives the user
@@ -440,5 +451,5 @@ export function TrailerModalPlayer({ trailerKeys, title }: { trailerKeys: string
     );
   }
 
-  return <div id={containerId} title={title} className="aspect-video w-full" />;
+  return <div ref={hostRef} title={title} className="aspect-video w-full" />;
 }

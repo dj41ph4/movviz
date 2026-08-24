@@ -8,18 +8,17 @@ interface CardErrorBoundaryProps {
 
 interface CardErrorBoundaryState {
   hasError: boolean;
+  hasRetried: boolean;
 }
 
 // Live-observed on the dashboard hero: React's commit phase throws
 // "NotFoundError: Failed to execute 'removeChild' on 'Node'" when the
 // YouTube IFrame API mutates the trailer embed's DOM at the same moment
 // framer-motion's AnimatePresence is mid-exit-removal of the same subtree
-// (see TrailerHeader.tsx's own extensive comments — already hardened at
-// that layer, but the race can't be fully eliminated since the iframe API
-// mutates outside React's control). The actual browser DOM is generally
-// fine by then; it's React's own bookkeeping that got confused. A short
-// auto-retry silently re-mounts the subtree instead of leaving it hidden
-// until a full page reload — a flicker instead of a permanent gap.
+// (the TrailerHeader now isolates that iframe DOM from React). A recovery
+// may still help for a transient rendering error, but it must never
+// continually unmount/remount a carousel when an underlying browser error
+// persists.
 const AUTO_RETRY_MS = 600;
 
 /**
@@ -32,17 +31,19 @@ const AUTO_RETRY_MS = 600;
  * full-screen error) — then quietly retries once, see AUTO_RETRY_MS above.
  */
 export class CardErrorBoundary extends Component<CardErrorBoundaryProps, CardErrorBoundaryState> {
-  state: CardErrorBoundaryState = { hasError: false };
+  state: CardErrorBoundaryState = { hasError: false, hasRetried: false };
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-  static getDerivedStateFromError(): CardErrorBoundaryState {
+  static getDerivedStateFromError(): Partial<CardErrorBoundaryState> {
     return { hasError: true };
   }
 
   componentDidCatch(error: unknown) {
     console.error("[CardErrorBoundary]", error);
-    if (this.retryTimer) clearTimeout(this.retryTimer);
-    this.retryTimer = setTimeout(() => this.setState({ hasError: false }), AUTO_RETRY_MS);
+    if (!this.state.hasRetried) {
+      if (this.retryTimer) clearTimeout(this.retryTimer);
+      this.retryTimer = setTimeout(() => this.setState({ hasError: false, hasRetried: true }), AUTO_RETRY_MS);
+    }
   }
 
   componentWillUnmount() {
