@@ -19,6 +19,7 @@ export interface MetaMovie {
   vfReleaseDate: string | null; // France digital/physical release date — when the title is actually obtainable
   collectionId: number | null; // TMDb franchise id (belongs_to_collection) — null if this movie isn't part of one
   originalTitle: string; // TMDb's non-localized title — what a scene release is actually named after
+  isAnime: boolean; // original_language "ja" + genre Animation — movies have no origin_country at the detail level (TV-only in TMDb's schema), unlike MetaSeries.isAnime below
 }
 
 export interface MetaEpisode {
@@ -67,6 +68,10 @@ export interface MetaSearchResult {
   posterPath: string | null;
   backdropPath: string | null;
   rating: number;
+  /** Raw TMDb genre ids (list-level field, never resolved to names here) — feeds genreTaxonomy.ts's list-friendly matchers (Anime/Teen) without a second per-title fetch. Optional: only populated by mapPaged() (trending/browseCategory/discoverByFilters); other MetaSearchResult producers (recommendations, similar titles...) predate this field and don't set it — absent means "no signal", never treated as a match. */
+  genreIds?: number[];
+  /** ISO 639-1, e.g. "ja" — list-level field TMDb provides on every search/discover/trending item, unlike origin_country which is TV-only. Same optionality as genreIds. */
+  originalLanguage?: string | null;
 }
 
 export interface MetaCastMember {

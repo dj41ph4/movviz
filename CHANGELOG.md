@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.24 — August 2026
+
+### Découverte largement enrichie, et deux nouveaux genres partagés
+
+La page Découverte affiche désormais beaucoup plus de rangées éditoriales (salué par la critique, univers anime, romance ado, format court, plus plusieurs rangées par genre) en plus de celles déjà en place. Deux nouveaux genres apparaissent dans le menu Genres, partout où il existe déjà : "Anime" et "Romance ado" (pensé pour un public adolescent actuel, pas pour les enfants). Les pages Films et Séries gagnent aussi un filtre par genre à côté des filtres existants, avec la même liste de genres qu'en Découverte — y compris Anime et Romance ado, pour retrouver facilement ce que vous possédez déjà.
+
 ## v1.19.23 — August 2026
 
 ### Recherche de release en échec pour un titre original en script non-latin

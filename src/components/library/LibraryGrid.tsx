@@ -15,6 +15,7 @@ import type { EngineTorrent } from "@/lib/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { motion, AnimatePresence } from "framer-motion";
 import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X } from "lucide-react";
+import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames } from "@/lib/metadata/genreTaxonomy";
 
 export const RENDER_BATCH_INITIAL = 100;
 export const RENDER_BATCH_STEP = 150;
@@ -76,6 +77,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     () => (SORTS.find((s) => s.id === searchParams.get("sort"))?.id ?? "title") as (typeof SORTS)[number]["id"]
   );
   const [tagFilter, setTagFilter] = useState(() => searchParams.get("tag") ?? "");
+  const [genreFilter, setGenreFilter] = useState(() => searchParams.get("genre") ?? "");
   const [rescanning, setRescanning] = useState(false);
   const [issues, setIssues] = useState<RescanIssue[] | null>(null);
   const [searchAndReplaceOpen, setSearchAndReplaceOpen] = useState(false);
@@ -98,11 +100,12 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     if (filter !== "all") p.set("filter", filter); else p.delete("filter");
     if (sort !== "title") p.set("sort", sort); else p.delete("sort");
     if (tagFilter) p.set("tag", tagFilter); else p.delete("tag");
+    if (genreFilter) p.set("genre", genreFilter); else p.delete("genre");
     const qs = p.toString();
     if (qs !== searchParams.toString()) {
       router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
     }
-  }, [filter, sort, tagFilter, searchParams, router, pathname]);
+  }, [filter, sort, tagFilter, genreFilter, searchParams, router, pathname]);
   const { data: tagsData } = useSWR<{ tags: string[] }>("/api/tags");
   // "plex" is auto-applied to every title synced from Plex (librarySync.ts)
   // — on a Plex-backed library nearly everything carries it, making it
@@ -165,6 +168,17 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   const loading = !moviesData || !seriesData;
   const refresh = () => { mutateMovies(); mutateSeries(); };
 
+  // Union of real genres actually present in this library, sorted — plus
+  // the two synthetic genres (genreTaxonomy.ts) ALWAYS offered, even with
+  // zero matching titles yet, so the taxonomy reads the same on Films/
+  // Séries as it does on Découverte (same ids, same two extra entries).
+  const allGenres = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of movies) for (const g of m.genres) set.add(g);
+    for (const s of series) for (const g of s.genres) set.add(g);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [movies, series]);
+
   const rescan = async () => {
     setRescanning(true);
     setIssues(null);
@@ -181,9 +195,15 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   const { data: watchData } = useSWR<{ movies: number[] }>("/api/watch-status");
   const watchedMovies = useMemo(() => new Set<number>(watchData?.movies ?? []), [watchData]);
 
+  const movieMatchesGenre = (m: LibraryMovie) => {
+    if (!genreFilter) return true;
+    if (genreFilter === ANIME_GENRE_ID) return matchesAnimeByNames(m.genres, m.isAnime);
+    if (genreFilter === TEEN_GENRE_ID) return matchesTeenByNames("movie", m.genres);
+    return m.genres.includes(genreFilter);
+  };
   const movieItems = useMemo(
-    () => (type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && (!tagFilter || (m.tags ?? []).includes(tagFilter)))),
-    [movies, filter, type, tagFilter]
+    () => (type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && (!tagFilter || (m.tags ?? []).includes(tagFilter)) && movieMatchesGenre(m))),
+    [movies, filter, type, tagFilter, genreFilter]
   );
   const seriesStatus = (s: LibrarySeries): LibraryStatus => {
     const monitored = s.seasons.flatMap((se) => se.episodes).filter((e) => e.monitored);
@@ -194,9 +214,15 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     if (monitored.length > 0 && monitored.every((e) => e.status === "available" || e.status === "upcoming")) return "available";
     return "missing";
   };
+  const seriesMatchesGenre = (s: LibrarySeries) => {
+    if (!genreFilter) return true;
+    if (genreFilter === ANIME_GENRE_ID) return matchesAnimeByNames(s.genres, s.isAnime);
+    if (genreFilter === TEEN_GENRE_ID) return matchesTeenByNames("series", s.genres);
+    return s.genres.includes(genreFilter);
+  };
   const seriesItems = useMemo(
-    () => (type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && (!tagFilter || (s.tags ?? []).includes(tagFilter)))),
-    [series, filter, type, tagFilter]
+    () => (type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && (!tagFilter || (s.tags ?? []).includes(tagFilter)) && seriesMatchesGenre(s))),
+    [series, filter, type, tagFilter, genreFilter]
   );
 
   // When "Tout" mixes movies and series, they must be sorted TOGETHER — every
@@ -419,6 +445,28 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
             ))}
           </div>
         )}
+
+        <div className="flex flex-wrap gap-1.5 border-t border-white/5 pt-3.5">
+          {[
+            { id: ANIME_GENRE_ID, label: t("discover.genreAnime") },
+            { id: TEEN_GENRE_ID, label: t("discover.genreTeen") },
+            ...allGenres.map((g) => ({ id: g, label: g })),
+          ].map((g) => (
+            <button
+              key={g.id}
+              onClick={() => setGenreFilter(genreFilter === g.id ? "" : g.id)}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                genreFilter === g.id
+                  ? "bg-brand/20 text-brand-glow shadow-lg"
+                  : "glass-strong text-ink-soft hover:text-ink"
+              )}
+            >
+              {g.label}
+              {genreFilter === g.id && <X className="ml-1 inline h-3 w-3" />}
+            </button>
+          ))}
+        </div>
       </div>
 
       <AnimatePresence mode="sync">

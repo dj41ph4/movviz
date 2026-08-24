@@ -90,6 +90,14 @@ export interface LibraryMovie {
   rating: number;
   runtime: number | null;
   genres: string[];
+  /** Real signal for the Anime library filter (genreTaxonomy.ts) — origin
+   *  country isn't stored on this type otherwise, so this is set once at
+   *  add time from the same detail fetch that already computes it
+   *  (MetaDetail.isAnime). Undefined for entries added before this field
+   *  existed; the filter falls back to `genres.includes("Animation")` for
+   *  those (imprecise — also matches Western animation — until this gets
+   *  backfilled by a future metadata refresh). */
+  isAnime?: boolean;
   monitored: boolean;
   qualityProfileId: string;
   status: LibraryStatus;
@@ -191,6 +199,8 @@ export interface LibrarySeries {
   backdropPath: string | null;
   rating: number;
   genres: string[];
+  /** See the identical field on LibraryMovie for why this exists and its fallback behavior. */
+  isAnime?: boolean;
   tvStatus: string;
   monitored: boolean;
   qualityProfileId: string;

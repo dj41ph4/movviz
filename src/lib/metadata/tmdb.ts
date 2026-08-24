@@ -15,6 +15,7 @@ import { searchYouTubeTrailer } from "@/lib/media/youtubeSearch";
 import { translateStatus } from "./statusTranslations";
 import { STREAMING_PLATFORMS } from "./curated";
 import { LOCALES } from "@/i18n/config";
+import { matchesAnimeByIds, matchesTeenByIds } from "./genreTaxonomy";
 
 /**
  * Movviz's own 2-letter locale (`src/i18n/config.ts`'s `LOCALES`) → the full
@@ -200,6 +201,8 @@ function mapPaged(
         posterPath: r.poster_path ?? null,
         backdropPath: r.backdrop_path ?? null,
         rating: r.vote_average ?? 0,
+        genreIds: r.genre_ids ?? [],
+        originalLanguage: r.original_language ?? null,
       })),
     page: data.page ?? 1,
     // TMDb caps pagination at 500 pages regardless of reported total.
@@ -425,6 +428,50 @@ export async function getKidsRow(type: "movie" | "series", page = 1, originCount
   return discoverByFilters(type, { genre: KIDS_GENRE_ID[type], sort: "popularity.desc", originCountries }, page);
 }
 
+/**
+ * Anime/Teen rows — genreTaxonomy.ts's two synthetic genres, neither a real
+ * TMDb genre id. TMDb has no server-side "AND"/exclusion syntax that can
+ * express either rule in one query, so both fetch a real, single-genre
+ * pre-filtered pool (broad enough that filtering client-side still leaves a
+ * full row) and then apply the exact shared predicate — the SAME rule the
+ * library-side filter (LibraryGrid.tsx) uses, just against list-level
+ * genreIds/originalLanguage instead of stored genre names.
+ */
+async function fetchFilteredRow(
+  type: "movie" | "series",
+  preFilterGenre: string,
+  matches: (r: MetaSearchResult) => boolean,
+  target: number,
+  originCountries?: string[],
+  rowPage = 1
+): Promise<PagedResults> {
+  const results: MetaSearchResult[] = [];
+  // "See all" pagination: since filtering shrinks an unpredictable number of
+  // raw TMDb pages down to `target` matches, a "row page" can't map 1:1 to a
+  // TMDb page — instead each row page scans its OWN 3-TMDb-page slice
+  // (rowPage 1 → TMDb pages 1-3, rowPage 2 → pages 4-6...), giving "load
+  // more" real forward progress without needing an exact resumable cursor.
+  const startPage = (rowPage - 1) * 3 + 1;
+  let page = startPage;
+  let hitLastPage = false;
+  while (results.length < target && page < startPage + 3) {
+    const batch = await discoverByFilters(type, { genre: preFilterGenre, sort: "popularity.desc", originCountries }, page);
+    for (const r of batch.results) if (matches(r)) results.push(r);
+    if (page >= batch.totalPages) { hitLastPage = true; break; }
+    page++;
+  }
+  return { results: results.slice(0, target), page: rowPage, totalPages: hitLastPage ? rowPage : rowPage + 1 };
+}
+
+export async function getAnimeRow(type: "movie" | "series", target = 20, originCountries?: string[], rowPage = 1): Promise<PagedResults> {
+  return fetchFilteredRow(type, String(16 /* Animation */), (r) => matchesAnimeByIds(r.genreIds ?? [], r.originalLanguage), target, originCountries, rowPage);
+}
+
+export async function getTeenRow(type: "movie" | "series", target = 20, originCountries?: string[], rowPage = 1): Promise<PagedResults> {
+  const preFilter = type === "movie" ? "10749" /* Romance */ : "18" /* Drama */;
+  return fetchFilteredRow(type, preFilter, (r) => matchesTeenByIds(type, r.genreIds ?? []), target, originCountries, rowPage);
+}
+
 export async function getMovie(tmdbId: number): Promise<MetaMovie | null> {
   const data = await tmdbGet<RawMovie>(`/movie/${tmdbId}`, { append_to_response: "external_ids,release_dates" });
   if (!data) return null;
@@ -443,6 +490,7 @@ export async function getMovie(tmdbId: number): Promise<MetaMovie | null> {
     vfReleaseDate: extractFrDigitalOrPhysicalDate(data.release_dates?.results),
     collectionId: data.belongs_to_collection?.id ?? null,
     originalTitle: data.original_title || data.title,
+    isAnime: data.original_language === "ja" && !!data.genres?.some((g) => g.name === "Animation"),
   };
 }
 
@@ -538,6 +586,8 @@ export interface DiscoverFilters {
   /** with_watch_providers — streaming service filter (Netflix, Prime Video...). Unlike company, the SAME provider id works for both movies and series, so this is the one filter that survives a Films/Séries tab switch. */
   watchProvider?: string;
   originCountries?: string[]; // with_origin_country — user's Discover continent preference
+  /** with_runtime.lte — movies only, TMDb's TV discover endpoint has no runtime filter (episode length isn't a fixed per-show fact the way movie runtime is). */
+  maxRuntime?: number;
 }
 
 const DATE_FIELD: Record<"movie" | "series", string> = { movie: "primary_release_date", series: "first_air_date" };
@@ -568,6 +618,7 @@ export async function discoverByFilters(
   if (filters.originCountries && filters.originCountries.length > 0) {
     params.with_origin_country = filters.originCountries.join("|");
   }
+  if (filters.maxRuntime && type === "movie") params["with_runtime.lte"] = String(filters.maxRuntime);
   // Sorting by rating alone surfaces obscure titles with a single 10/10 vote;
   // TMDb's own "top rated" needs a minimum sample size to mean anything.
   if (sortBy === "vote_average.desc") params["vote_count.gte"] = "200";
@@ -1168,6 +1219,8 @@ interface RawMultiResult {
   vote_average?: number;
   vote_count?: number;
   popularity?: number;
+  genre_ids?: number[];
+  original_language?: string;
 }
 
 interface RawMovie {
@@ -1182,6 +1235,7 @@ interface RawMovie {
   vote_average?: number;
   runtime?: number | null;
   genres?: { id: number; name: string }[];
+  original_language?: string;
   external_ids?: { imdb_id?: string | null };
   release_dates?: { results?: RawReleaseDatesCountry[] };
   belongs_to_collection?: { id: number; name: string; poster_path: string | null } | null;

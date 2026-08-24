@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { trending, browseCategory, getBoxOffice, getNewSeries, getKidsRow, tmdbConfigured } from "@/lib/metadata/tmdb";
+import { trending, browseCategory, discoverByFilters, getBoxOffice, getNewSeries, getKidsRow, getAnimeRow, getTeenRow, tmdbConfigured } from "@/lib/metadata/tmdb";
 import { getAllocineNewVod } from "@/lib/metadata/allocineVod";
 import { getC411RowPage } from "@/lib/c411/catalog";
+import { GENRE_ROWS } from "@/lib/metadata/genreTaxonomy";
 import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
@@ -46,6 +47,18 @@ export async function GET(req: NextRequest) {
         return { results, page, totalPages };
       }
       case "renewed": return browseCategory("series", "on_the_air", page, originCountries);
+      case "acclaimed": return discoverByFilters(type, { sort: "vote_average.desc", originCountries }, page);
+      case "anime": return getAnimeRow(type, PER_PAGE, originCountries, page);
+      case "teen": return getTeenRow(type, PER_PAGE, originCountries, page);
+      case "shortFormat": return type === "movie" ? discoverByFilters("movie", { maxRuntime: 40, sort: "popularity.desc", originCountries }, page) : null;
+      case "genreAction":
+      case "genreComedy":
+      case "genreHorror":
+      case "genreSciFi": {
+        const row = GENRE_ROWS.find((g) => g.key === key)!;
+        const genreId = type === "movie" ? row.movie : row.series;
+        return genreId === null ? null : discoverByFilters(type, { genre: String(genreId), sort: "popularity.desc", originCountries }, page);
+      }
       case "recommended": {
         const cache = getRecCache();
         const cacheKey = `${user?.id ?? ""}:${type}`;

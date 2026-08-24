@@ -17,6 +17,7 @@ import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard"
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
+import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, ChevronDown, Calendar, Clock, CalendarCheck, Info,
@@ -317,6 +318,14 @@ function DiscoverPageInner() {
       case "c411Popular": return t("discover.c411Popular");
       case "c411Recent": return t("discover.c411Recent");
       case "c411Today": return t("discover.c411Today");
+      case "acclaimed": return t("discover.rowAcclaimed");
+      case "anime": return t("discover.rowAnime");
+      case "teen": return t("discover.rowTeen");
+      case "shortFormat": return t("discover.rowShortFormat");
+      case "genreAction": return t("discover.rowGenreAction");
+      case "genreComedy": return t("discover.rowGenreComedy");
+      case "genreHorror": return t("discover.rowGenreHorror");
+      case "genreSciFi": return t("discover.rowGenreSciFi");
       default: return key;
     }
   };
@@ -340,7 +349,14 @@ function DiscoverPageInner() {
     [results]
   );
   const titleArtwork = useTitleArtworkBatch(isBrowsing ? browseArtworkRefs : homeArtworkRefs, locale);
-  const selectedGenreName = genres.find((item) => String(item.id) === genre)?.name ?? null;
+  // Two genres TMDb has no id for at all (genreTaxonomy.ts) — rendered as
+  // extra entries in the same dropdown, string ids never colliding with a
+  // TMDb numeric one.
+  const synthGenres = [
+    { id: ANIME_GENRE_ID, name: t("discover.genreAnime") },
+    { id: TEEN_GENRE_ID, name: t("discover.genreTeen") },
+  ];
+  const selectedGenreName = genres.find((item) => String(item.id) === genre)?.name ?? synthGenres.find((item) => item.id === genre)?.name ?? null;
   // A genre is an editorial destination, not merely a grid filter: feature
   // its strongest resolved result in the same cinematic hero as Films/Séries.
   // Wait for the new page before rendering so a previous genre never flashes.
@@ -387,6 +403,17 @@ function DiscoverPageInner() {
                   >
                     {t("common.all")}
                   </button>
+                  {synthGenres.map((item) => (
+                    <button
+                      type="button"
+                      key={item.id}
+                      onClick={() => { setGenre(item.id); setGenreMenuOpen(false); }}
+                      className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", genre === item.id ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                  <div className="my-1 border-t border-white/8" />
                   {genres.map((item) => (
                     <button
                       type="button"

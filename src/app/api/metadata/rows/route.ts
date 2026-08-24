@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { trending, browseCategory, tmdbConfigured, getBoxOffice, getNewSeries, getKidsRow } from "@/lib/metadata/tmdb";
+import { trending, browseCategory, discoverByFilters, tmdbConfigured, getBoxOffice, getNewSeries, getKidsRow, getAnimeRow, getTeenRow } from "@/lib/metadata/tmdb";
+import { GENRE_ROWS } from "@/lib/metadata/genreTaxonomy";
 import { getAllocineNewVod } from "@/lib/metadata/allocineVod";
 import { getAllocineTrendingSeries } from "@/lib/metadata/allocineSeries";
 import { loadDiscoverLayout } from "@/lib/metadata/discoverStore";
@@ -115,18 +116,33 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ configured: true, layout, rows });
   }
 
-  const [rec, trend, popular, topRated, upcomingResults] = await Promise.all([
+  const [rec, trend, popular, topRated, upcomingResults, acclaimed, animeRow, teenRow, shortFormat, ...genreResults] = await Promise.all([
     recommended,
     trending(type, 1, originCountries),
     browseCategory(type, "popular", 1, originCountries),
     browseCategory(type, "top_rated", 1, originCountries),
     type === "movie" ? buildUpcomingRow(user, originCountries) : browseCategory("series", "on_the_air", 1, originCountries).then((r) => r.results),
+    discoverByFilters(type, { sort: "vote_average.desc", originCountries }, 1),
+    getAnimeRow(type, 20, originCountries),
+    getTeenRow(type, 20, originCountries),
+    type === "movie" ? discoverByFilters("movie", { maxRuntime: 40, sort: "popularity.desc", originCountries }, 1) : Promise.resolve({ results: [], page: 1, totalPages: 1 }),
+    ...GENRE_ROWS.map((g) => {
+      const genreId = type === "movie" ? g.movie : g.series;
+      return genreId === null
+        ? Promise.resolve({ results: [], page: 1, totalPages: 1 })
+        : discoverByFilters(type, { genre: String(genreId), sort: "popularity.desc", originCountries }, 1);
+    }),
   ]);
 
   const rows = [
     { key: "recommendedTop", results: dedupe([...rec, ...topRated.results]) },
     { key: "trendingPopular", results: dedupe([...trend.results, ...popular.results]).slice(0, 10) },
     { key: type === "movie" ? "upcoming" : "onAir", results: upcomingResults },
+    { key: "acclaimed", results: acclaimed.results },
+    { key: "anime", results: animeRow.results },
+    { key: "teen", results: teenRow.results },
+    ...(type === "movie" ? [{ key: "shortFormat", results: shortFormat.results }] : []),
+    ...GENRE_ROWS.map((g, i) => ({ key: g.key, results: genreResults[i].results })),
   ].filter((r) => r.results.length > 0);
 
   return NextResponse.json({ configured: true, layout, rows });

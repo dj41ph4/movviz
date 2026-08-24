@@ -23,6 +23,7 @@ export async function refreshLibraryMetadata() {
       backdropPath: meta.backdropPath,
       rating: meta.rating,
       genres: meta.genres,
+      isAnime: meta.isAnime,
       releaseDate: meta.releaseDate,
       // Digital/physical dates are usually announced well after the initial
       // add (which often only has a theatrical date yet) — refreshing this
@@ -46,6 +47,7 @@ export async function refreshLibraryMetadata() {
       backdropPath: meta.backdropPath,
       rating: meta.rating,
       genres: meta.genres,
+      isAnime: meta.isAnime,
       tvStatus: meta.status,
       originalTitle: meta.originalTitle,
       imdbId: meta.imdbId,
