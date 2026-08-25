@@ -72,6 +72,11 @@ export interface MetaSearchResult {
   genreIds?: number[];
   /** ISO 639-1, e.g. "ja" — list-level field TMDb provides on every search/discover/trending item, unlike origin_country which is TV-only. Same optionality as genreIds. */
   originalLanguage?: string | null;
+  /** Raw TMDb vote count — same optionality/provenance as genreIds (only
+   *  mapPaged() sets it). Used to weight a tie-break by statistical
+   *  significance, never rating alone: a handful of votes can produce a
+   *  misleadingly high average (see resolveAiItemOnce's tie-break). */
+  voteCount?: number;
 }
 
 export interface MetaCastMember {

@@ -65,17 +65,42 @@ const MIN_AI_MATCH_SCORE = 0.45;
 // after this sort) still wins whenever the model actually supplied one —
 // this tiebreak only decides what "no year given" falls back to.
 const SCORE_TIE_EPSILON = 0.02;
-function byScoreThenRating(a: { score: number; hit: { rating: number } }, b: { score: number; hit: { rating: number } }): number {
+// Bug fix (confirmed live: "un film comme The Platform" resolved to a
+// bonus-content TMDb entry titled plain "The Platform" (2001, rating 7.8)
+// instead of the real film (2019, El Hoyo) — a raw-rating tiebreak, tried
+// first, is itself unreliable: a handful of votes can produce a misleadingly
+// high average). Vote COUNT (statistical significance) decides the tie
+// first; rating only breaks a further tie between two well-known titles.
+function byScoreThenRating(a: { score: number; hit: { rating: number; voteCount?: number } }, b: { score: number; hit: { rating: number; voteCount?: number } }): number {
   if (Math.abs(a.score - b.score) > SCORE_TIE_EPSILON) return b.score - a.score;
+  const voteDiff = (b.hit.voteCount ?? 0) - (a.hit.voteCount ?? 0);
+  if (voteDiff !== 0) return voteDiff;
   return b.hit.rating - a.hit.rating;
+}
+
+// Bonus/extra-content TMDb entries (deleted scenes, making-of, behind-the-
+// scenes reels) sometimes share their parent film's exact title and resolve
+// with a deceptively high similarity score — the overview is the one
+// reliable tell available at this point (no genre id is set on these,
+// confirmed live on the "The Platform" (2001) incident above). Same
+// discipline as the documentary-genre filter in recommendMedia: reject
+// deterministically rather than hope the model's own judgment catches it.
+const BONUS_CONTENT_OVERVIEW_RE = /sc[eè]nes? coupées|deleted scenes?|making[- ]of|behind[- ]the[- ]scenes?|bonus|coffret|bêtisier|bloopers?/i;
+function looksLikeBonusContent(hit: { overview: string }): boolean {
+  return BONUS_CONTENT_OVERVIEW_RE.test(hit.overview);
 }
 
 async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null> {
   const res = await searchMulti(item.title, 1);
   if (!res.results.length) return null;
-  let hits = res.results;
+  // Drop bonus/extra-content entries before scoring — never what "a film
+  // called X" means, regardless of add vs recommend intent (unlike the
+  // documentary-genre filter below, which only applies to recommend).
+  const withoutBonusContent = res.results.filter((r) => !looksLikeBonusContent(r));
+  const candidates = withoutBonusContent.length ? withoutBonusContent : res.results;
+  let hits = candidates;
   if (item.type) hits = hits.filter((r) => r.type === item.type);
-  if (!hits.length) hits = res.results;
+  if (!hits.length) hits = candidates;
 
   const scored = hits
     .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
@@ -89,7 +114,7 @@ async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null
   // aucun rapport, ajouté pour de bon à la bibliothèque. Quand un candidat
   // d'un AUTRE type colle nettement mieux au titre demandé, il l'emporte
   // sur la supposition de type du modèle.
-  const scoredAll = res.results
+  const scoredAll = candidates
     .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
     .sort(byScoreThenRating);
   const bestTyped = scored[0];
@@ -265,9 +290,19 @@ const DOCUMENTARY_GENRE_ID = 99;
 export async function recommendMedia(items: AiRecommendIntentItem[]): Promise<{ item: ResolvedAiItem; source: AiRecommendIntentItem }[]> {
   const resolved = await mapWithConcurrency(items, 4, resolveAiItem);
   const pairs: { item: ResolvedAiItem; source: AiRecommendIntentItem }[] = [];
+  // Bug fix (confirmed live: the exact same "The Platform" (2001) bonus-
+  // content mismatch appeared FOUR times in one recommend reply) — the
+  // model can suggest overlapping/duplicate titles across its own item
+  // list, and each independently resolves to the same real tmdbId. Nothing
+  // downstream deduped that before rendering.
+  const seen = new Set<string>();
   for (let i = 0; i < items.length; i++) {
     const r = resolved[i];
-    if (r && !r.genreIds?.includes(DOCUMENTARY_GENRE_ID)) pairs.push({ item: r, source: items[i] });
+    if (!r || r.genreIds?.includes(DOCUMENTARY_GENRE_ID)) continue;
+    const key = `${r.type}:${r.tmdbId}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pairs.push({ item: r, source: items[i] });
   }
   return pairs;
 }

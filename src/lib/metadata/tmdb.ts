@@ -212,6 +212,7 @@ function mapPaged(
         rating: r.vote_average ?? 0,
         genreIds: r.genre_ids ?? [],
         originalLanguage: r.original_language ?? null,
+        voteCount: r.vote_count ?? 0,
       })),
     page: data.page ?? 1,
     // TMDb caps pagination at 500 pages regardless of reported total.

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.47 — August 2026
+
+### Chat intelligent : un contenu bonus pouvait passer pour le vrai film
+
+Une fiche "scènes coupées" ou "making-of" partageant le même titre qu'un vrai film pouvait, dans de rares cas, être proposée à sa place dans une recommandation — la note affichée n'était alors basée que sur une poignée de votes. Ce type de contenu est désormais écarté d'office, le départage entre deux titres identiques se base sur le volume réel de votes plutôt que sur la seule note, et une même suggestion ne peut plus apparaître plusieurs fois dans la même réponse.
+
 ## v1.19.46 — August 2026
 
 ### Réglages : les indexeurs et clients de téléchargement n'étaient pas réservés à l'admin
