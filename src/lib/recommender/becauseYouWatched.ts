@@ -246,7 +246,7 @@ export async function getBecauseYouWatchedPage(
   type: "movie" | "series",
   anchorTmdbId: number,
   page: number
-): Promise<{ results: MetaSearchResult[]; page: number; totalPages: number; meta: { anchorTitle: string; verb: BecauseVerb } } | null> {
+): Promise<{ results: MetaSearchResult[]; page: number; totalPages: number; meta: { anchorTmdbId: number; anchorTitle: string; verb: BecauseVerb } } | null> {
   const anchor = await resolveAnchorMeta(userId, type, anchorTmdbId);
   if (!anchor) return null;
 
@@ -255,5 +255,5 @@ export async function getBecauseYouWatchedPage(
   const raw = type === "movie" ? await getMovieRecommendations(anchorTmdbId, page) : await getTvRecommendations(anchorTmdbId, page);
   const results = await rankCandidates(userId, type, anchor, raw.results, excluded);
 
-  return { results, page: raw.page, totalPages: raw.totalPages, meta: { anchorTitle: anchor.title, verb: anchor.verb } };
+  return { results, page: raw.page, totalPages: raw.totalPages, meta: { anchorTmdbId, anchorTitle: anchor.title, verb: anchor.verb } };
 }

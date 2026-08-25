@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.51 — August 2026
+
+### Chat intelligent : durée et qualité de fichier inventées, corrigé
+
+Confirmé en direct : sur la fiche d'un film, une question sur sa durée exacte ou sa qualité (4K, HD...) pouvait recevoir une réponse inventée — parfois même en insistant dessus après correction, alors que rien de tout ça n'était réellement transmis par Movviz. La durée et la qualité réelles du fichier en bibliothèque sont désormais fournies, ou l'absence de donnée est signalée franchement au lieu d'un chiffre approximatif présenté comme réel.
+
 ## v1.19.50 — August 2026
 
 ### Étiquettes supprimées

@@ -400,6 +400,35 @@ export function isEpisodeListRequest(message: string): boolean {
   return EPISODE_LIST_RE.test(message);
 }
 
+function formatRuntime(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h}h${String(m).padStart(2, "0")}` : `${m} min`;
+}
+
+/** Real technical facts (durée, résolution, HDR) for the title currently on
+ *  screen — confirmed live: with nothing but the title/tmdbId in context,
+ *  the model answered exact-sounding runtimes and "disponible en 4K" from
+ *  its own training guesses instead of Movviz's real file, and — worse —
+ *  insisted the guess was "les données réelles" when corrected instead of
+ *  backing down. Injected unconditionally (single short line, unlike the
+ *  episode list) so the model always has real numbers to ground on, or an
+ *  explicit instruction not to invent any when there aren't any. */
+export function buildTechnicalContext(type: "movie" | "series", tmdbId: number): string {
+  if (type === "movie") {
+    const movie = getMovieByTmdbId(tmdbId);
+    const file = movie?.file;
+    const bits: string[] = [];
+    if (movie?.runtime) bits.push(`durée ${formatRuntime(movie.runtime)}`);
+    if (file?.resolution) bits.push(`résolution ${file.resolution}`);
+    if (file?.hdr) bits.push(file.hdr);
+    if (bits.length > 0) {
+      return `\n\nDONNÉES TECHNIQUES RÉELLES DU FICHIER EN BIBLIOTHÈQUE : ${bits.join(", ")}. Ce sont les seuls chiffres exacts disponibles — ne jamais en citer d'autres (durée, résolution, qualité) pour ce titre, même approximatifs.`;
+    }
+  }
+  return "\n\nAucune donnée technique de fichier (durée exacte, résolution, qualité) n'est fournie pour ce titre. Si l'utilisateur la demande, dis clairement que tu n'as pas cette info précise au lieu d'en inventer une — jamais de chiffre approximatif présenté comme réel.";
+}
+
 const MAX_EPISODE_LIST_LINES = 400;
 
 /** Real episode list from Movviz's own library data (never invented) —
