@@ -1,5 +1,5 @@
 import { loadPlexConfig } from "./store";
-import { setPlexWatched } from "./client";
+import { setPlexWatched, deletePlexItem } from "./client";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
@@ -41,6 +41,26 @@ export async function pushMovieWatchedToPlex(user: User, tmdbId: number, watched
     "plex.watchWrite",
     `${user.username} (plexId:${user.plexId ?? "?"}${auth.managedUserId ? `, managed:${auth.managedUserId}` : ""}) — « ${movie.title} » ${watched ? "marqué vu" : "marqué non vu"} sur Plex : ${ok ? "ok" : "échec"}`
   );
+}
+
+/**
+ * Best-effort: asks Plex to delete its own reference to an item permanently
+ * removed from Movviz's trash, so Plex's own library sync (syncMovieSection)
+ * doesn't re-add it the next time it scans and still sees it. Never throws,
+ * never blocks the caller's local deletion on failing.
+ */
+export async function deleteItemFromPlex(user: User, ratingKey: string): Promise<boolean> {
+  const cfg = loadPlexConfig();
+  if (!cfg.hostname) return false;
+  const auth = resolveToken(user, cfg);
+  if (!auth) return false;
+  const ok = await deletePlexItem(cfg, auth.token, ratingKey);
+  recordSearchLog(
+    ok ? "info" : "warn",
+    "plex.trashDelete",
+    `${user.username} — suppression Plex de ratingKey ${ratingKey} (corbeille vidée) : ${ok ? "ok" : "échec"}`
+  );
+  return ok;
 }
 
 export async function pushEpisodesWatchedToPlex(

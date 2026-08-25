@@ -1560,6 +1560,10 @@ export const de: Dictionary = {
     restore: "Wiederherstellen",
     deleteForever: "Endgültig löschen",
     deleteForeverConfirm: "Endgültiges Löschen bestätigen",
+    originExternal: "Von der Festplatte verschwunden",
+    filterAll: "Alle",
+    filterManual: "Manuell gelöscht",
+    filterExternal: "Von der Festplatte verschwunden",
   },
 
   rename: {

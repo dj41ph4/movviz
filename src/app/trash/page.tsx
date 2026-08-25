@@ -5,11 +5,20 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useT } from "@/i18n/provider";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Trash2, RotateCcw, Loader2, AlertTriangle, Film, Tv, Check, X } from "lucide-react";
+import { Trash2, RotateCcw, Loader2, AlertTriangle, Film, Tv, Check, X, HardDriveDownload } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { TrashItem } from "@/lib/library/trashStore";
 import { TmdbImage } from "@/components/media/TmdbImage";
 
 function fetcher(url: string) { return fetch(url, { cache: "no-store" }).then((r) => r.json()); }
+
+/** Episodes share their series' tmdbId, so the key needs season/episode too
+ *  to stay unique — must match the trash API routes' id parsing exactly. */
+function itemKey(item: TrashItem): string {
+  return item.type === "episode" ? `episode_${item.tmdbId}_${item.seasonNumber}_${item.episodeNumber}` : `${item.type}_${item.tmdbId}`;
+}
+
+type OriginFilter = "all" | "manual" | "externalDeletion";
 
 export default function TrashPage() {
   const t = useT();
@@ -18,11 +27,13 @@ export default function TrashPage() {
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDeleteKey, setConfirmDeleteKey] = useState<string | null>(null);
+  const [filter, setFilter] = useState<OriginFilter>("all");
 
-  const items = data?.items ?? [];
+  const allItems = data?.items ?? [];
+  const items = filter === "all" ? allItems : allItems.filter((i) => (i.origin ?? "manual") === filter);
 
   const restore = async (item: TrashItem) => {
-    const key = `${item.type}_${item.tmdbId}`;
+    const key = itemKey(item);
     setRestoring((s) => new Set(s).add(key));
     try {
       await fetch(`/api/library/trash/${key}/restore`, { method: "POST" });
@@ -33,7 +44,7 @@ export default function TrashPage() {
   };
 
   const permanentlyDelete = async (item: TrashItem) => {
-    const key = `${item.type}_${item.tmdbId}`;
+    const key = itemKey(item);
     setConfirmDeleteKey(null);
     setDeleting((s) => new Set(s).add(key));
     try {
@@ -78,6 +89,27 @@ export default function TrashPage() {
         )}
       </PageHeader>
 
+      {allItems.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          {([
+            ["all", t("trash.filterAll")],
+            ["manual", t("trash.filterManual")],
+            ["externalDeletion", t("trash.filterExternal")],
+          ] as [OriginFilter, string][]).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setFilter(value)}
+              className={cn(
+                "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                filter === value ? "bg-brand/20 text-brand-glow shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="h-8 w-8 animate-spin text-ink-dim" />
@@ -92,7 +124,7 @@ export default function TrashPage() {
         <AnimatePresence mode="sync">
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             {items.map((item) => {
-              const key = `${item.type}_${item.tmdbId}`;
+              const key = itemKey(item);
               const isRestoring = restoring.has(key);
               const isDeleting = deleting.has(key);
               const isConfirming = confirmDeleteKey === key;
@@ -104,6 +136,12 @@ export default function TrashPage() {
                   className="group relative"
                 >
                   <div className="aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
+                    {item.origin === "externalDeletion" && (
+                      <span className="absolute left-2 top-2 z-10 flex items-center gap-1 rounded-full border border-amber/25 bg-amber/12 px-2 py-0.5 text-[10px] font-bold text-amber">
+                        <HardDriveDownload className="h-3 w-3" />
+                        {t("trash.originExternal")}
+                      </span>
+                    )}
                     {item.posterPath ? (
                       <TmdbImage
                         path={item.posterPath}

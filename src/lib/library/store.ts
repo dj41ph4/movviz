@@ -225,7 +225,7 @@ export function pruneMovies(ids: Set<string>): number {
   saveMovies(filtered);
   return list.length - filtered.length;
 }
-export function removeMovie(id: string) {
+export function removeMovie(id: string, origin?: "manual" | "externalDeletion") {
   const list = loadMovies();
   const movie = list.find((m) => m.id === id);
   if (movie) {
@@ -241,6 +241,7 @@ export function removeMovie(id: string) {
       overview: movie.overview,
       snapshot: movie,
       deletedAt: Date.now(),
+      origin,
     });
   }
   saveMovies(list.filter((m) => m.id !== id));
@@ -415,7 +416,7 @@ export function pruneSeries(ids: Set<string>): number {
   saveSeries(filtered);
   return list.length - filtered.length;
 }
-export function removeSeries(id: string) {
+export function removeSeries(id: string, origin?: "manual" | "externalDeletion") {
   const list = loadSeries();
   const series = list.find((s) => s.id === id);
   if (series) {
@@ -431,9 +432,74 @@ export function removeSeries(id: string) {
       overview: series.overview,
       snapshot: series,
       deletedAt: Date.now(),
+      origin,
     });
   }
   saveSeries(list.filter((s) => s.id !== id));
+}
+
+/**
+ * Pulls a single episode's file out of the missing/auto-grab pool without
+ * removing the series itself (unlike removeMovie/removeSeries, which soft-
+ * delete the whole title) — see the "external deletion" trash flow in
+ * reconcile.ts. The episode stays in its season exactly where it was, just
+ * with status/file cleared; a Trash entry (added by the caller, which still
+ * has the pre-clear episode object for its snapshot) is what actually keeps
+ * it out of RSS/retry eligibility.
+ */
+export function clearEpisodeFile(seriesId: string, seasonNumber: number, episodeNumber: number): boolean {
+  const list = loadSeries();
+  const series = list.find((s) => s.id === seriesId);
+  if (!series) return false;
+  let found = false;
+  const seasons = series.seasons.map((season) => {
+    if (season.seasonNumber !== seasonNumber) return season;
+    return {
+      ...season,
+      episodes: season.episodes.map((ep) => {
+        if (ep.episodeNumber !== episodeNumber) return ep;
+        found = true;
+        // monitored:false reuses the exact gate every RSS/retry/auto-grab
+        // call site already checks (`e.monitored && e.status === "missing"`)
+        // instead of threading a brand-new field through a dozen scattered
+        // filters — restoreEpisodeMonitoring() below puts the original
+        // value back from the trash snapshot.
+        return { ...ep, status: "missing" as const, file: null, activeInfoHash: null, monitored: false };
+      }),
+    };
+  });
+  if (!found) return false;
+  saveSeries(list.map((s) => (s.id === seriesId ? { ...s, seasons } : s)));
+  invalidateSeriesCaches();
+  eventBus.emit({ type: "series_updated", seriesId });
+  return true;
+}
+
+/** Restores an episode's `monitored` flag (to its pre-trash value) without
+ *  touching status/file — used when un-trashing an "external deletion"
+ *  entry, so the episode stays "missing" and re-enters normal RSS/retry
+ *  eligibility instead of pretending the file is back. */
+export function restoreEpisodeMonitoring(seriesId: string, seasonNumber: number, episodeNumber: number, monitored: boolean): boolean {
+  const list = loadSeries();
+  const series = list.find((s) => s.id === seriesId);
+  if (!series) return false;
+  let found = false;
+  const seasons = series.seasons.map((season) => {
+    if (season.seasonNumber !== seasonNumber) return season;
+    return {
+      ...season,
+      episodes: season.episodes.map((ep) => {
+        if (ep.episodeNumber !== episodeNumber) return ep;
+        found = true;
+        return { ...ep, monitored };
+      }),
+    };
+  });
+  if (!found) return false;
+  saveSeries(list.map((s) => (s.id === seriesId ? { ...s, seasons } : s)));
+  invalidateSeriesCaches();
+  eventBus.emit({ type: "series_updated", seriesId });
+  return true;
 }
 /** Danger zone: wipe every series from Movviz's own database. Never touches Plex or files on disk. */
 export function clearSeries() {

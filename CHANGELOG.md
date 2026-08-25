@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.44 — August 2026
+
+### Un fichier supprimé à la main sur le disque n'est plus re-téléchargé automatiquement
+
+Un film, un épisode ou une série entière supprimé directement sur le disque (en dehors de Movviz) part désormais dans la Corbeille au lieu de repartir immédiatement en recherche automatique — avec un badge "Disparu du disque" qui le distingue d'une suppression manuelle, et un filtre dédié dans la page Corbeille. Une entrée en Corbeille n'est jamais purgée automatiquement : restaurez-la pour redéclencher un téléchargement (utile en cas de suppression accidentelle), ou videz-la définitivement — dans ce cas Movviz demande aussi à Plex de retirer sa propre référence, pour que sa prochaine synchronisation ne le fasse pas réapparaître tout seul. Supprimer une série entière regroupe tout en une seule entrée plutôt qu'une par épisode ; supprimer seulement quelques épisodes laisse le reste de la série intact.
+
 ## v1.19.43 — August 2026
 
 ### Les logos disparaissaient parfois de toutes les cartes en même temps

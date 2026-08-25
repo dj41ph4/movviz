@@ -666,6 +666,27 @@ export async function refreshSection(cfg: PlexServerConfig, token: string, secti
 }
 
 /**
+ * Deletes a single library item (movie, show, or episode) from Plex —
+ * used only when a user permanently empties a Movviz trash entry that came
+ * from a confirmed on-disk deletion, so Plex's own library sync doesn't
+ * resurrect it on the next scan (it re-adds anything it still reports, see
+ * syncMovieSection). Best-effort: never throws, caller shouldn't block the
+ * local trash deletion on this succeeding.
+ */
+export async function deletePlexItem(cfg: PlexServerConfig, token: string, ratingKey: string): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/library/metadata/${ratingKey}`, {
+      method: "DELETE",
+      headers: serverHeaders(cfg, token),
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Marks a single library item watched/unwatched — Plex's real scrobble API
  * (`/:/scrobble` and `/:/unscrobble`, both GET requests despite the verb-
  * like names). Whichever account authenticates the request (this call's

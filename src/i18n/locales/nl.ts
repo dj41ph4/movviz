@@ -1543,6 +1543,10 @@ export const nl: Dictionary = {
     restore: "Herstellen",
     deleteForever: "Permanent verwijderen",
     deleteForeverConfirm: "Permanente verwijdering bevestigen",
+    originExternal: "Verdwenen van schijf",
+    filterAll: "Alles",
+    filterManual: "Handmatig verwijderd",
+    filterExternal: "Verdwenen van schijf",
   },
 
   rename: {

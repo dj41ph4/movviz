@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/auth/guard";
 import { restoreFromTrash } from "@/lib/library/trashStore";
-import { addMovie, addSeries } from "@/lib/library/store";
+import { addMovie, addSeries, restoreEpisodeMonitoring, loadSeries } from "@/lib/library/store";
+import type { LibraryEpisode } from "@/lib/library/types";
 
 export const dynamic = "force-dynamic";
 
@@ -12,15 +13,34 @@ export async function POST(
   const user = requireAdmin(req);
   if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   const { id } = await params;
-  const [type, rawTmdb] = id.split("_");
+  const parts = id.split("_");
+  const [type, rawTmdb] = parts;
   const tmdbId = Number(rawTmdb);
-  if (!tmdbId || !type || !["movie", "series"].includes(type)) {
+  if (!tmdbId || !type || !["movie", "series", "episode"].includes(type)) {
     return NextResponse.json({ error: "invalid id" }, { status: 400 });
   }
+
+  if (type === "episode") {
+    const seasonNumber = Number(parts[2]);
+    const episodeNumber = Number(parts[3]);
+    if (!seasonNumber || !episodeNumber) return NextResponse.json({ error: "invalid id" }, { status: 400 });
+    const item = restoreFromTrash(tmdbId, "episode", { season: seasonNumber, episode: episodeNumber });
+    if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
+    // The episode was never removed from its series (see clearEpisodeFile) —
+    // restoring only means putting its original `monitored` value back so it
+    // re-enters normal RSS/retry eligibility as a plain "missing" episode.
+    const series = loadSeries().find((s) => s.tmdbId === item.seriesTmdbId);
+    const snapshot = item.snapshot as LibraryEpisode | undefined;
+    if (series) restoreEpisodeMonitoring(series.id, item.seasonNumber!, item.episodeNumber!, snapshot?.monitored ?? true);
+    return NextResponse.json({ ok: true });
+  }
+
   const item = restoreFromTrash(tmdbId, type as "movie" | "series");
   if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
   if (type === "movie") {
-    const snapshot = item.snapshot && "file" in item.snapshot ? item.snapshot : null;
+    // "runtime" is unique to LibraryMovie among the three snapshot shapes —
+    // "file" alone would also match a LibraryEpisode snapshot now.
+    const snapshot = item.snapshot && "runtime" in item.snapshot ? item.snapshot : null;
     addMovie(snapshot ?? {
       id: `mv_${Date.now()}_${tmdbId}`,
       tmdbId: item.tmdbId,

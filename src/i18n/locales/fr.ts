@@ -1541,6 +1541,10 @@ export const fr = {
     restore: "Restaurer",
     deleteForever: "Supprimer définitivement",
     deleteForeverConfirm: "Confirmer la suppression définitive",
+    originExternal: "Disparu du disque",
+    filterAll: "Tout",
+    filterManual: "Supprimé manuellement",
+    filterExternal: "Disparu du disque",
   },
 
   rename: {

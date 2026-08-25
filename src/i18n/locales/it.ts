@@ -1542,6 +1542,10 @@ export const it: Dictionary = {
     restore: "Ripristina",
     deleteForever: "Elimina definitivamente",
     deleteForeverConfirm: "Conferma eliminazione definitiva",
+    originExternal: "Scomparso dal disco",
+    filterAll: "Tutti",
+    filterManual: "Eliminato manualmente",
+    filterExternal: "Scomparso dal disco",
   },
 
   rename: {

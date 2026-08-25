@@ -4,6 +4,7 @@ import { rssMatchIndexers } from "@/lib/library/rssScan";
 import { refreshRssCache } from "@/lib/indexers/rssCache";
 import { reconcileDownloadingItems } from "@/lib/library/downloadState";
 import { reconcileLibrary } from "@/lib/library/reconcile";
+import { applyMissingFileTrash } from "@/lib/library/reconcileTrash";
 import { loadIndexers, updateIndexer } from "@/lib/indexers/store";
 import { testIndexer } from "@/lib/indexers/torznab";
 import { purgeExpiredSessions, loadUsers } from "@/lib/auth/store";
@@ -61,7 +62,16 @@ export const TASKS: ScheduledTask[] = [
     intervalMs: 24 * 60 * 60 * 1000, // daily
     run: async () => {
       const issues = await reconcileLibrary();
-      if (issues.length > 0) {
+      const trashed = applyMissingFileTrash(issues);
+      const trashedCount = trashed.movies + trashed.episodes + trashed.series;
+      if (trashedCount > 0) {
+        emitNotification(
+          "reconcile_issues",
+          `Réconciliation : ${trashedCount} fichier(s) disparu(s) du disque déplacé(s) vers la corbeille`,
+          "/trash",
+          { count: trashedCount }
+        );
+      } else if (issues.length > 0) {
         emitNotification("reconcile_issues", `Réconciliation : ${issues.length} anomalie(s) détectée(s)`, "/library", { count: issues.length });
       }
     },

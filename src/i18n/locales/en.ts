@@ -1543,6 +1543,10 @@ export const en: Dictionary = {
     restore: "Restore",
     deleteForever: "Delete permanently",
     deleteForeverConfirm: "Confirm permanent deletion",
+    originExternal: "Missing from disk",
+    filterAll: "All",
+    filterManual: "Deleted manually",
+    filterExternal: "Missing from disk",
   },
 
   rename: {
