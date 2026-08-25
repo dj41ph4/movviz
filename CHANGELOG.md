@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.40 — August 2026
+
+### Nettoyage de la publication
+
+Les documents internes utilisés pour préparer la refonte des réglages ont été retirés de la distribution publique. Le fonctionnement du centre de contrôle et des réglages reste strictement inchangé.
+
 ## v1.19.39 — August 2026
 
 ### Les réglages deviennent un véritable centre de contrôle
