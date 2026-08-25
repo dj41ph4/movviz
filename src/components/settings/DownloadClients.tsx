@@ -375,7 +375,7 @@ function ConfigRow({ icon: Icon, label, value, mono }: { icon: React.ElementType
     <div className="flex items-center gap-3 p-4">
       <Icon className="h-4 w-4 shrink-0 text-ink-dim" />
       <span className="shrink-0 text-sm text-ink-soft">{label}</span>
-      <span className={cn("ml-auto truncate text-sm font-semibold text-ink", mono && "font-mono text-xs")} title={value}>
+      <span className={cn("ml-auto min-w-0 break-words text-right text-sm font-semibold text-ink", mono && "break-all font-mono text-xs")} title={value}>
         {value}
       </span>
     </div>

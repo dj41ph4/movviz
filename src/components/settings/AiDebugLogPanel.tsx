@@ -30,7 +30,7 @@ function EntryRow({ entry }: { entry: AiDebugEntry }) {
         <span className="min-w-[90px] shrink-0 text-xs font-semibold text-ink-soft">
           {t(KIND_LABEL_KEY[entry.kind])}
         </span>
-        <span className="min-w-0 flex-1 truncate text-sm text-ink">{entry.preview}</span>
+        <span className="min-w-0 flex-1 break-words text-sm text-ink">{entry.preview}</span>
         {entry.provider && (
           <span className="shrink-0 rounded-full bg-white/6 px-2 py-0.5 text-[10px] font-bold text-ink-soft">
             {t(`ai.provider.${entry.provider}`)}

@@ -163,7 +163,7 @@ export function CleanDirsPanel() {
                       className="h-4 w-4 shrink-0 rounded border-white/20 bg-white/5 text-brand ring-focus focus:ring-2"
                     />
                     <FolderOpen className="h-4 w-4 shrink-0 text-ink-dim" />
-                    <span className="truncate text-sm text-ink" title={dir}>
+                    <span className="break-all text-sm text-ink" title={dir}>
                       {dir}
                     </span>
                   </label>

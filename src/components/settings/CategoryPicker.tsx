@@ -106,7 +106,7 @@ function FlatGroup({
             className="flex w-full items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-white/5"
           >
             <Checkbox on={value.includes(item.id)} />
-            <span className="truncate text-xs text-ink-soft">{item.name}</span>
+            <span className="break-words text-xs text-ink-soft">{item.name}</span>
             <span className="ml-auto shrink-0 text-[10px] text-ink-dim">{item.id}</span>
           </button>
         ))}

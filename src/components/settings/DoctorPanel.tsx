@@ -142,10 +142,10 @@ export function DoctorPanel() {
                       <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold", d.decision === "accepted" ? "bg-ok/12 text-ok" : "bg-down/12 text-down")}>
                         {d.decision === "accepted" ? t("doctor.accepted") : t("doctor.rejected")}
                       </span>
-                      <span className="truncate text-sm font-semibold text-ink">{d.refTitle}</span>
+                      <span className="break-words text-sm font-semibold text-ink">{d.refTitle}</span>
                       <span className="ml-auto shrink-0 text-[11px] text-ink-dim">{relativeTime(new Date(d.t).toISOString(), locale)}</span>
                     </div>
-                    <p className="mt-1 truncate text-xs text-ink-dim">{d.releaseTitle}</p>
+                    <p className="mt-1 break-words text-xs text-ink-dim">{d.releaseTitle}</p>
                     <p className="mt-1 text-xs text-ink-soft">{d.reasons.map((r) => r.message).join(" · ")}</p>
                   </div>
                 ))}

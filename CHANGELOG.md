@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.19.39 — August 2026
+
+### Les réglages deviennent un véritable centre de contrôle
+
+L'accueil des réglages vérifie désormais en direct Plex, le moteur de téléchargement, les métadonnées et le stockage. Les voyants s'allument successivement, donnent un verdict clair sur l'état de Movviz et ouvrent directement le réglage à corriger lorsqu'une attention est nécessaire.
+
+### Mode Essentiel et parcours guidés
+
+La longue liste technique laisse place, par défaut, à cinq objectifs compréhensibles : Mon expérience, Lecture, Bibliothèque et Plex, Téléchargements, puis Serveur et données. Chaque parcours explique ce qu'il contient, distingue les choix essentiels des outils avancés et conserve un retour contextuel. Le mode Expert mémorisé redonne instantanément accès aux 25 sections, sans aucune option supprimée.
+
+### Recherche et libellés plus humains
+
+La recherche retrouve aussi les réglages avancés depuis le mode Essentiel. Les noms vagues comme « Expérience », « GPU », « Performance » ou « Maintenance » décrivent maintenant leur fonction réelle. Les anciens liens `?tab=` restent compatibles et les utilisateurs standard ne déclenchent plus inutilement les contrôles réservés à l'administrateur.
+
 ## v1.19.38 — August 2026
 
 ### Une fiche pouvait rester bloquée en chargement indéfiniment

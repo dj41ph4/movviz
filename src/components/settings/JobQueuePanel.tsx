@@ -150,7 +150,7 @@ export function JobQueuePanel() {
                   >
                     <div className="flex items-center gap-2.5">
                       <Icon className={cn("h-4 w-4 shrink-0", STATUS_TONE[job.status], job.status === "running" && "animate-spin")} />
-                      <span className="flex-1 truncate text-sm font-medium text-ink">{job.label}</span>
+                      <span className="min-w-0 flex-1 break-words text-sm font-medium text-ink">{job.label}</span>
                       <span className="shrink-0 text-xs text-ink-dim">
                         {job.status === "queued" ? t("jobs.statusQueued") : `${job.current}/${job.total}`}
                       </span>
@@ -185,7 +185,7 @@ export function JobQueuePanel() {
                       className="flex items-center gap-2.5 overflow-hidden rounded-xl glass px-3 py-2 text-xs"
                     >
                       <Icon className={cn("h-3.5 w-3.5 shrink-0", STATUS_TONE[job.status])} />
-                      <span className="flex-1 truncate text-ink-soft">{job.label}</span>
+                      <span className="min-w-0 flex-1 break-words text-ink-soft">{job.label}</span>
                       <span className="text-ink-dim">{job.total > 0 ? `${job.current}/${job.total}` : ""}</span>
                     </motion.div>
                   );

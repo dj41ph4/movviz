@@ -168,7 +168,7 @@ export function IndexerManager() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                    <h3 className="truncate font-bold text-ink">{r.name}</h3>
+                    <h3 className="break-words font-bold text-ink">{r.name}</h3>
                     <span className="flex shrink-0 items-center gap-1.5">
                       <Circle className={cn("h-2 w-2 fill-current", dot)} />
                       <span className={cn("text-xs font-semibold", dot)}>
@@ -182,7 +182,7 @@ export function IndexerManager() {
                       <span title={t("indexerMgr.credentials")}><UserRound className="h-3 w-3 shrink-0 text-ink-dim" /></span>
                     )}
                   </div>
-                  <p className="truncate text-xs text-ink-dim">
+                  <p className="break-all text-xs text-ink-dim">
                     {r.protocol === "torrent" ? t("indexerMgr.torrent") : t("indexerMgr.usenet")} · {r.baseUrl}
                   </p>
                 </div>

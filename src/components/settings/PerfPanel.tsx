@@ -69,7 +69,7 @@ function PerfTable({ rows, emptyLabel, onErrorClick }: { rows: PerfAggregate[]; 
         <tbody>
           {rows.map((a) => (
             <tr key={a.kind + a.label} className="border-b border-white/5 last:border-0">
-              <td className="max-w-[320px] truncate px-3 py-1.5 text-ink-soft" title={a.label}>{a.label}</td>
+              <td className="max-w-[320px] break-words px-3 py-1.5 text-ink-soft" title={a.label}>{a.label}</td>
               <td className="px-3 py-1.5 text-right text-ink-dim">{a.count}</td>
               <td className={cn("px-3 py-1.5 text-right font-bold", msTone(a.avgMs))}>{fmtMs(a.avgMs)}</td>
               <td className={cn("px-3 py-1.5 text-right", msTone(a.maxMs))}>{fmtMs(a.maxMs)}</td>

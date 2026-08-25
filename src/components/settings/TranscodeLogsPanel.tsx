@@ -51,7 +51,7 @@ export function TranscodeLogsPanel() {
                 <span className="font-mono text-[11px] text-ink-soft">{l.ratingKey}</span>
                 <span className="text-[10px] text-ink-dim">{l.step}</span>
               </div>
-              <p className="truncate text-[11px] text-ink-dim">{l.detail}</p>
+              <p className="break-all text-[11px] text-ink-dim">{l.detail}</p>
             </div>
             <span className="shrink-0 text-[10px] text-ink-dim">{new Date(l.time).toLocaleTimeString()}</span>
           </div>

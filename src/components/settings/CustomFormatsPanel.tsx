@@ -55,12 +55,12 @@ export function CustomFormatsPanel() {
             </span>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <h3 className="truncate font-bold text-ink">{cf.i18nKey ? t(cf.i18nKey) : cf.name}</h3>
+                <h3 className="break-words font-bold text-ink">{cf.i18nKey ? t(cf.i18nKey) : cf.name}</h3>
                 <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-bold", cf.score >= 0 ? "bg-ok/12 text-ok" : "bg-down/12 text-down")}>
                   {cf.score >= 0 ? "+" : ""}{cf.score}
                 </span>
               </div>
-              <p className="truncate font-mono text-xs text-ink-dim">{cf.terms.join(", ")}</p>
+              <p className="break-all font-mono text-xs text-ink-dim">{cf.terms.join(", ")}</p>
             </div>
             <Toggle on={cf.enabled} onChange={() => toggle(cf)} />
             <button onClick={() => remove(cf.id)} className="flex h-9 w-9 items-center justify-center rounded-xl glass text-ink-dim transition-colors hover:bg-down/15 hover:text-down">

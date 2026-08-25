@@ -200,7 +200,7 @@ export function NetflixImportPanel() {
                 {showUnmatched && (
                   <ul className="mt-2 max-h-48 space-y-0.5 overflow-y-auto rounded-lg bg-white/4 p-2 text-xs text-ink-dim">
                     {result.unmatched.map((title, i) => (
-                      <li key={i} className="truncate">{title}</li>
+                      <li key={i} className="break-words">{title}</li>
                     ))}
                   </ul>
                 )}

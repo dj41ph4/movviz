@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -37,7 +37,7 @@ import { CleanDirsPanel } from "@/components/settings/CleanDirsPanel";
 import { RecoverDownloadsPanel } from "@/components/settings/RecoverDownloadsPanel";
 import { MediaProbePanel } from "@/components/settings/MediaProbePanel";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { ChevronDown, X, Search, LayoutGrid } from "lucide-react";
+import { ChevronDown, X, Search, LayoutGrid, SlidersHorizontal } from "lucide-react";
 import { AboutPanel } from "@/components/settings/AboutPanel";
 import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { SearchLogsPanel } from "@/components/settings/SearchLogsPanel";
@@ -45,12 +45,16 @@ import { DashboardExperiencePanel } from "@/components/settings/DashboardExperie
 import { ExperiencePanel } from "@/components/settings/ExperiencePanel";
 import { GpuSettingsPanel } from "@/components/settings/GpuSettingsPanel";
 import { NetflixImportPanel } from "@/components/settings/NetflixImportPanel";
-import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT, matchesSettingsQuery } from "@/lib/settingsNav";
+import { SETTINGS_TABS, SETTINGS_GROUP_ORDER, SETTINGS_GROUP_LABEL_KEY, SETTINGS_GROUP_ACCENT, SETTINGS_JOURNEYS, SETTINGS_JOURNEY_BY_ID, matchesSettingsQuery, type SettingsJourney } from "@/lib/settingsNav";
 import { SettingsHome } from "@/components/settings/SettingsHome";
+import { SettingsJourneyOverview } from "@/components/settings/SettingsJourneyOverview";
+import { SettingsContextHeader } from "@/components/settings/SettingsContextHeader";
 
 const TABS = SETTINGS_TABS;
 const GROUP_ORDER = SETTINGS_GROUP_ORDER;
 const GROUP_LABEL_KEY = SETTINGS_GROUP_LABEL_KEY;
+type SettingsMode = "essential" | "expert";
+type SettingsSelection = (typeof TABS)[number]["id"] | "home" | `journey:${SettingsJourney}`;
 
 export default function SettingsPage() {
   return (
@@ -66,35 +70,88 @@ function SettingsPageInner() {
   const params = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const initialTab = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? "home";
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"] | "home">(initialTab);
+  const requestedJourney = SETTINGS_JOURNEYS.find((journey) => journey.id === params.get("section"))?.id;
+  const initialTab: SettingsSelection = TABS.find((tb) => tb.id === params.get("tab"))?.id ?? (requestedJourney ? `journey:${requestedJourney}` : "home");
+  const [tab, setTab] = useState<SettingsSelection>(initialTab);
+  const [mode, setMode] = useState<SettingsMode>("essential");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [filterQuery, setFilterQuery] = useState("");
-  const visibleTabs = TABS.filter((tb) => !("adminOnly" in tb) || user?.role === "admin");
+  const isAdmin = user?.role === "admin";
+  const visibleTabs = TABS.filter((tb) => !tb.adminOnly || isAdmin);
   // "home" is deliberately not a SETTINGS_TABS entry (not a searchable
   // "setting", it's the pre-selection landing state) — null here means the
   // sidebar/mobile header show a generic fallback instead of a highlighted tab.
-  const activeTab = tab === "home" ? null : (visibleTabs.find((tb) => tb.id === tab) ?? visibleTabs[0]);
+  const activeTab = tab === "home" || tab.startsWith("journey:") ? null : (visibleTabs.find((tb) => tb.id === tab) ?? null);
+  const activeJourneyId = tab.startsWith("journey:") ? tab.slice(8) as SettingsJourney : activeTab?.journey;
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem("movviz-settings-mode");
+    if (saved === "expert" || saved === "essential") setMode(saved);
+  }, []);
+
+  const changeMode = (next: SettingsMode) => {
+    setMode(next);
+    window.localStorage.setItem("movviz-settings-mode", next);
+  };
 
   const pushTab = (id: (typeof TABS)[number]["id"] | "home") => {
     setTab(id);
     const p = new URLSearchParams(params.toString());
-    if (id === "home") p.delete("tab");
-    else p.set("tab", id);
+    p.delete("section");
+    if (id === "home") p.delete("tab"); else p.set("tab", id);
     router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
+  };
+
+  const pushJourney = (id: SettingsJourney) => {
+    setTab(`journey:${id}`);
+    const p = new URLSearchParams(params.toString());
+    p.delete("tab");
+    p.set("section", id);
+    router.push(pathname + "?" + p.toString(), { scroll: false });
   };
 
   // "où est l'option X" — filtre par nom, description (hintKey) ET mots-clés
   // d'intention, pas juste le libellé du bouton, pour retrouver un réglage
   // même sans en connaître le nom exact de l'onglet qui le contient.
   const q = filterQuery.trim().toLowerCase();
-  const matchingTabs = q ? visibleTabs.filter((tb) => matchesSettingsQuery(tb, q, t)) : visibleTabs;
+  const matchingTabs = q ? visibleTabs.filter((tb) => matchesSettingsQuery(tb, q, t)) : visibleTabs.filter((tb) => mode === "expert" || !tb.expertOnly);
 
   const groups = GROUP_ORDER.map((g) => ({
     id: g,
     labelKey: GROUP_LABEL_KEY[g],
     items: matchingTabs.filter((tb) => tb.group === g),
   })).filter((g) => g.items.length > 0);
+
+  const renderModeToggle = () => (
+    <div className="grid grid-cols-2 rounded-xl border border-white/8 bg-black/15 p-1">
+      {(["essential", "expert"] as SettingsMode[]).map((item) => (
+        <button key={item} onClick={() => changeMode(item)} className={cn("rounded-lg px-2 py-2 text-xs font-bold ring-focus transition", mode === item ? "bg-white/10 text-ink shadow-sm" : "text-ink-dim hover:text-ink-soft")}>
+          {item === "essential" ? t("settings.modeEssential") : t("settings.modeExpert")}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderJourneys = (onPick: (id: SettingsJourney) => void) => (
+    <div className="flex flex-col gap-1">
+      {SETTINGS_JOURNEYS.map((journey) => {
+        const Icon = journey.icon;
+        const active = activeJourneyId === journey.id;
+        const accessible = journey.tabIds.some((id) => visibleTabs.some((tb) => tb.id === id));
+        if (!accessible) return null;
+        return (
+          <button key={journey.id} onClick={() => onPick(journey.id)} className={cn("group relative flex w-full items-center gap-3 overflow-hidden rounded-xl px-3 py-3 text-left ring-focus transition", active ? "border border-brand/25 bg-brand/12 text-ink" : "border border-transparent text-ink-soft hover:bg-white/6 hover:text-ink")}>
+            <span className={cn("absolute inset-0 bg-gradient-to-r opacity-0 transition-opacity group-hover:opacity-80", journey.accent, active && "opacity-100")} />
+            <Icon className="relative h-4 w-4 shrink-0 text-brand-glow" />
+            <span className="relative min-w-0">
+              <span className="block break-words text-sm font-bold leading-snug">{t(journey.labelKey)}</span>
+              <span className="mt-0.5 block break-words text-[10px] font-normal leading-relaxed text-ink-dim">{t(journey.hintKey)}</span>
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
 
   const renderGroups = (onPick: (id: (typeof TABS)[number]["id"]) => void, layoutId: string) => (
     <>
@@ -137,7 +194,7 @@ function SettingsPageInner() {
                       />
                     )}
                     <Icon className={cn("h-4 w-4 shrink-0", !active && !dangerous && SETTINGS_GROUP_ACCENT[g.id])} />
-                    <span className="truncate">{t(tb.labelKey)}</span>
+                    <span className="break-words leading-snug">{t(tb.labelKey)}</span>
                   </button>
                 </div>
               );
@@ -161,8 +218,8 @@ function SettingsPageInner() {
         onClick={() => setMobileNavOpen(true)}
         className="mb-5 flex w-full items-center gap-2.5 rounded-xl glass px-4 py-3 text-sm font-semibold text-ink md:hidden"
       >
-        {activeTab ? <activeTab.icon className="h-4 w-4 shrink-0 text-brand-glow" /> : <LayoutGrid className="h-4 w-4 shrink-0 text-brand-glow" />}
-        <span className="flex-1 truncate text-left">{activeTab ? t(activeTab.labelKey) : t("settings.title")}</span>
+        {activeTab ? <activeTab.icon className="h-4 w-4 shrink-0 text-brand-glow" /> : activeJourneyId ? (() => { const JourneyIcon = SETTINGS_JOURNEY_BY_ID[activeJourneyId].icon; return <JourneyIcon className="h-4 w-4 shrink-0 text-brand-glow" />; })() : <LayoutGrid className="h-4 w-4 shrink-0 text-brand-glow" />}
+        <span className="min-w-0 flex-1 break-words text-left leading-snug">{activeTab ? t(activeTab.labelKey) : activeJourneyId ? t(SETTINGS_JOURNEY_BY_ID[activeJourneyId].labelKey) : t("settings.title")}</span>
         <ChevronDown className="h-4 w-4 shrink-0 text-ink-dim" />
       </button>
 
@@ -201,6 +258,7 @@ function SettingsPageInner() {
                 <LayoutGrid className="h-4 w-4 shrink-0" />
                 {t("settings.homeLink")}
               </button>
+              <div className="mb-3">{renderModeToggle()}</div>
               <div className="relative mb-3">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim" />
                 <input
@@ -210,15 +268,17 @@ function SettingsPageInner() {
                   className="w-full rounded-xl glass-strong py-2.5 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-ink-dim"
                 />
               </div>
-              <div className="flex flex-col gap-6 pb-2">
-                {renderGroups((id) => { pushTab(id); setMobileNavOpen(false); }, "settings-tab-active-mobile")}
+              <div className="pb-2">
+                {mode === "essential" && !q
+                  ? renderJourneys((id) => { pushJourney(id); setMobileNavOpen(false); })
+                  : <div className="flex flex-col gap-6">{renderGroups((id) => { pushTab(id); setMobileNavOpen(false); }, "settings-tab-active-mobile")}</div>}
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="md:grid md:grid-cols-[224px_1fr] md:items-start md:gap-8">
+      <div className="md:grid md:grid-cols-[268px_1fr] md:items-start md:gap-8">
         <nav className="hidden flex-col gap-4 md:sticky md:top-24 md:flex">
           <button
             onClick={() => pushTab("home")}
@@ -230,6 +290,7 @@ function SettingsPageInner() {
             <LayoutGrid className="h-4 w-4 shrink-0" />
             {t("settings.homeLink")}
           </button>
+          {renderModeToggle()}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-dim" />
             <input
@@ -239,13 +300,24 @@ function SettingsPageInner() {
               className="w-full rounded-xl glass py-2.5 pl-9 pr-3 text-sm text-ink outline-none placeholder:text-ink-dim ring-focus"
             />
           </div>
-          <div className="flex flex-col gap-6">
-            {renderGroups(pushTab, "settings-tab-active")}
-          </div>
+          {mode === "essential" && !q
+            ? renderJourneys(pushJourney)
+            : <div className="flex flex-col gap-6">{renderGroups(pushTab, "settings-tab-active")}</div>}
+          {mode === "essential" && !q && (
+            <button onClick={() => changeMode("expert")} className="flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold text-ink-dim ring-focus hover:bg-white/5 hover:text-ink">
+              <SlidersHorizontal className="h-3.5 w-3.5" /> {t("settings.showAllSettings")}
+            </button>
+          )}
         </nav>
 
         <div className="min-w-0">
-          {tab === "home" && <SettingsHome onNavigate={pushTab} />}
+          {tab === "home" && <SettingsHome onNavigate={pushTab} onOpenJourney={(id) => pushJourney(id as SettingsJourney)} />}
+
+          {tab.startsWith("journey:") && (
+            <SettingsJourneyOverview journeyId={tab.slice(8) as SettingsJourney} isAdmin={isAdmin} onNavigate={pushTab} />
+          )}
+
+          {activeTab && <SettingsContextHeader tab={activeTab} onBack={pushJourney} />}
 
           {tab === "dashboard" && <DashboardExperiencePanel />}
           {tab === "experience" && <ExperiencePanel />}

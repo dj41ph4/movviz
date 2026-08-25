@@ -278,15 +278,15 @@ export function RepairPathsPanel() {
                         <td className="px-3 py-2.5">
                           {c.type === "movie" ? <Film className="h-4 w-4 text-brand-glow" /> : <Tv className="h-4 w-4 text-cyan" />}
                         </td>
-                        <td className="max-w-[280px] truncate px-3 py-2.5 font-medium text-ink" title={c.oldPath}>
-                          <span className="block truncate">{c.title}{c.season != null ? ` — S${c.season}E${String(c.episode).padStart(2, "0")}` : ""}</span>
-                          <span className="block truncate text-[11px] text-ink-dim">{c.oldPath}</span>
+                        <td className="max-w-[280px] break-all px-3 py-2.5 font-medium text-ink" title={c.oldPath}>
+                          <span className="block break-words">{c.title}{c.season != null ? ` — S${c.season}E${String(c.episode).padStart(2, "0")}` : ""}</span>
+                          <span className="block break-all text-[11px] text-ink-dim">{c.oldPath}</span>
                         </td>
                         <td className="max-w-[320px] px-3 py-2.5 text-xs">
                           {manualPaths.has(i) ? (
-                            <span className="block truncate text-brand-glow" title={manualPaths.get(i)}>{manualPaths.get(i)}</span>
+                            <span className="block break-all text-brand-glow" title={manualPaths.get(i)}>{manualPaths.get(i)}</span>
                           ) : (
-                            <span className="block truncate">
+                            <span className="block break-all">
                               {c.matches.length === 0 && <span className="text-down">{t("repairPaths.noMatch")}</span>}
                               {c.matches.length === 1 && !c.contested && (
                                 <span className="text-ok" title={c.matches[0]}>{c.matches[0]}</span>

@@ -109,8 +109,8 @@ export function BlocklistPanel() {
                   {b.type === "movie" ? <Film className="h-4 w-4" /> : <Tv className="h-4 w-4" />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold text-ink">{b.title} <span className="font-normal text-ink-dim">{b.year ?? ""}</span></p>
-                  <p className="truncate text-xs text-ink-dim">
+                  <p className="break-words font-semibold text-ink">{b.title} <span className="font-normal text-ink-dim">{b.year ?? ""}</span></p>
+                  <p className="break-words text-xs text-ink-dim">
                     {b.reason ? b.reason : t("blocklist.noReason")} · {t("blocklist.blockedBy", { user: b.blockedBy })}
                   </p>
                 </div>

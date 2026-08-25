@@ -198,8 +198,8 @@ export function RecoverDownloadsPanel() {
             <div key={i} className="flex items-start gap-2 rounded-lg bg-ok/10 p-2">
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-ok" />
               <div className="min-w-0 flex-1">
-                <p className="truncate font-medium text-ink">{r.title}</p>
-                <p className="truncate text-[11px] text-ink-dim">
+                <p className="break-words font-medium text-ink">{r.title}</p>
+                <p className="break-all text-[11px] text-ink-dim">
                   {r.dest.split("/").pop()?.split("\\").pop()} · {fmtSize(r.size)}
                   {r.season != null ? ` · S${String(r.season).padStart(2, "0")}` : ""}{r.episode != null ? `E${String(r.episode).padStart(2, "0")}` : ""}
                 </p>
@@ -213,7 +213,7 @@ export function RecoverDownloadsPanel() {
             <div key={i} className="flex items-start gap-2 rounded-lg bg-down/10 p-2">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-down" />
               <div className="min-w-0">
-                <p className="truncate text-ink-soft">{f.src.split("/").pop()?.split("\\").pop()} · {fmtSize(f.size)}</p>
+                <p className="break-all text-ink-soft">{f.src.split("/").pop()?.split("\\").pop()} · {fmtSize(f.size)}</p>
                 <p className="text-[11px] text-ink-dim">{f.reason}</p>
               </div>
             </div>

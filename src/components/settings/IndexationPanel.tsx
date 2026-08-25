@@ -239,9 +239,9 @@ export function IndexationPanel({ type }: { type: "movie" | "series" }) {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-xs text-ink-dim" title={c.folderPath}>{c.folderName}</p>
+                      <p className="break-all text-xs text-ink-dim" title={c.folderPath}>{c.folderName}</p>
                       {match ? (
-                        <p className="flex items-center gap-2 truncate text-sm font-semibold text-ink">
+                        <p className="flex items-center gap-2 break-words text-sm font-semibold text-ink">
                           {match.title} {match.year ? <span className="font-normal text-ink-dim">({match.year})</span> : null}
                           {match.existing && (
                             <span className="shrink-0 rounded-full border border-amber/30 bg-amber/12 px-1.5 py-0.5 text-[10px] font-bold text-amber">

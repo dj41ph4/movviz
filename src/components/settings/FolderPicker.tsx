@@ -119,7 +119,7 @@ function BrowseModal({
           >
             <ArrowUp className="h-4 w-4" />
           </button>
-          <code className="min-w-0 flex-1 truncate rounded-lg bg-black/30 px-3 py-1.5 text-xs text-ink-soft">
+          <code className="min-w-0 flex-1 break-all rounded-lg bg-black/30 px-3 py-1.5 text-xs text-ink-soft">
             {listing?.path || t("settings.drives")}
           </code>
         </div>
@@ -151,7 +151,7 @@ function BrowseModal({
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm text-ink-soft transition-colors hover:bg-white/5 hover:text-ink"
               >
                 <Folder className="h-4 w-4 shrink-0 text-brand-glow" />
-                <span className="truncate">{d.name}</span>
+                <span className="break-all">{d.name}</span>
               </button>
             ))
           ) : (

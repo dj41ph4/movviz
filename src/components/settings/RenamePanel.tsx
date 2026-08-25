@@ -548,14 +548,14 @@ export function RenamePanel() {
                     <td className="px-3 py-2.5">
                       {c.type === "movie" ? <Film className="h-4 w-4 text-brand-glow" /> : <Tv className="h-4 w-4 text-cyan" />}
                     </td>
-                    <td className="max-w-[260px] truncate px-3 py-2.5 font-medium text-ink" title={c.currentPath}>
-                      <span className="block truncate">{c.currentFolder}</span>
-                      <span className="block truncate text-[11px] text-ink-dim">{c.title}{c.year ? ` (${c.year})` : ""}</span>
+                    <td className="max-w-[260px] break-all px-3 py-2.5 font-medium text-ink" title={c.currentPath}>
+                      <span className="block break-all">{c.currentFolder}</span>
+                      <span className="block break-words text-[11px] text-ink-dim">{c.title}{c.year ? ` (${c.year})` : ""}</span>
                     </td>
                     <td className="px-3 py-2.5 text-ink-dim"><ArrowRight className="h-4 w-4" /></td>
-                    <td className="max-w-[260px] truncate px-3 py-2.5 font-medium text-ink" title={c.expectedPath}>
-                      <span className="block truncate">{c.expectedFolder}</span>
-                      <span className="block truncate text-[11px] text-brand-glow">{c.translatedTitle}{c.year ? ` (${c.year})` : ""}</span>
+                    <td className="max-w-[260px] break-all px-3 py-2.5 font-medium text-ink" title={c.expectedPath}>
+                      <span className="block break-all">{c.expectedFolder}</span>
+                      <span className="block break-words text-[11px] text-brand-glow">{c.translatedTitle}{c.year ? ` (${c.year})` : ""}</span>
                     </td>
                     <td className="px-3 py-2.5 text-right text-xs text-ink-dim">{c.affectedItems}</td>
                   </tr>

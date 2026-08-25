@@ -131,7 +131,7 @@ export function TvdbSyncAllPanel() {
               ) : (
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-ink-dim" />
               )}
-              <p className="truncate text-ink-soft">
+              <p className="break-words text-ink-soft">
                 {d.ok
                   ? d.oldSeasonCount !== d.newSeasonCount
                     ? t("tvdbSyncAll.seasonsChanged", { title: d.title, old: d.oldSeasonCount ?? 0, new: d.newSeasonCount ?? 0 })
