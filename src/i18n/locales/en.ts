@@ -560,6 +560,7 @@ export const en: Dictionary = {
     forcePlexSyncFailed: "Plex sync failed",
     play: "Play",
     sortTitle: "Title",
+    jumpToLetter: "Jump to letter",
     sortRecent: "Recently added",
     sortRating: "Rating",
     searchAndReplace: "Search and replace",
@@ -964,6 +965,8 @@ export const en: Dictionary = {
   },
 
   automation: {
+    killSwitchTitle: "Automatic search for missing content",
+    killSwitchHint: "Server-wide setting, applies to everyone. Turns off the RSS scan, missing-content retry, and today's-releases search — per-title monitoring and the manual \"Search\" button keep working normally.",
     pillSchedule: "Schedule",
     pillQueue: "Queue & priorities",
   },

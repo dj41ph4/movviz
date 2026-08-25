@@ -558,6 +558,7 @@ export const fr = {
     forcePlexSyncFailed: "Échec de la synchronisation Plex",
     play: "Lire",
     sortTitle: "Titre",
+    jumpToLetter: "Aller à la lettre",
     sortRecent: "Récemment ajouté",
     sortRating: "Note",
     searchAndReplace: "Rechercher et remplacer",
@@ -962,6 +963,8 @@ export const fr = {
   },
 
   automation: {
+    killSwitchTitle: "Recherche automatique des manquants",
+    killSwitchHint: "Réglage serveur, pour tous les utilisateurs. Désactive le scan RSS, la relance des manquants et la recherche des sorties du jour — le suivi par titre et le bouton \"Rechercher\" manuel continuent de fonctionner normalement.",
     pillSchedule: "Planification",
     pillQueue: "File & priorités",
   },

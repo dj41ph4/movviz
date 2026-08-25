@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.19.48 — August 2026
+
+### Scroll intelligent dans Films et Séries, avec index alphabétique
+
+Sur une grosse bibliothèque, ouvrir Films ou Séries chargeait tout d'un coup et ralentissait l'affichage. La grille se remplit désormais par lots de 200 titres, et charge automatiquement la suite en approchant du bas — l'espace des titres pas encore affichés reste réservé pour que le scroll ne saute jamais. Un saut brusque loin dans la liste (glisser la barre de défilement, touche Fin) charge directement la zone où l'on atterrit, sans attendre un rattrapage progressif depuis le début. En tri par titre, une réglette A-Z façon Plex apparaît sur le bord de l'écran pour sauter directement aux titres commençant par une lettre donnée.
+
+### Nouveau réglage : désactiver la recherche automatique des manquants
+
+Réglage serveur, réservé à l'admin, dans Réglages → Automatisation : coupe le scan RSS, la relance périodique des films/épisodes manquants et la recherche des sorties du jour, en une seule bascule. Le suivi par titre et le bouton "Rechercher" manuel continuent de fonctionner normalement.
+
 ## v1.19.47 — August 2026
 
 ### Chat intelligent : un contenu bonus pouvait passer pour le vrai film

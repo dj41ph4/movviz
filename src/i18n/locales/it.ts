@@ -560,6 +560,7 @@ export const it: Dictionary = {
     forcePlexSyncFailed: "Sincronizzazione Plex fallita",
     play: "Riproduci",
     sortTitle: "Titolo",
+    jumpToLetter: "Vai alla lettera",
     sortRecent: "Aggiunti di recente",
     sortRating: "Valutazione",
     searchAndReplace: "Cerca e sostituisci",
@@ -964,6 +965,8 @@ export const it: Dictionary = {
   },
 
   automation: {
+    killSwitchTitle: "Ricerca automatica dei contenuti mancanti",
+    killSwitchHint: "Impostazione a livello di server, per tutti gli utenti. Disattiva la scansione RSS, il ritentativo dei contenuti mancanti e la ricerca delle uscite del giorno — il monitoraggio per titolo e il pulsante \"Cerca\" manuale continuano a funzionare normalmente.",
     pillSchedule: "Pianificazione",
     pillQueue: "Coda e priorità",
   },

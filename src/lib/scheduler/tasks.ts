@@ -17,6 +17,7 @@ import { loadPlexConfig } from "@/lib/plex/store";
 import { refreshLibraryMetadata } from "@/lib/library/metadataRefresh";
 import { allAnimeVfLaunches } from "@/lib/metadata/animeVfCalendar";
 import { purgeExpiredTrash } from "@/lib/library/trashPurge";
+import { isAutoSearchMissingEnabled } from "@/lib/settings/automation";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { importSeerrRequests } from "@/lib/seerr/importRequests";
 import { seerrConfigured } from "@/lib/seerr/store";
@@ -240,8 +241,13 @@ export const TASKS: ScheduledTask[] = [
     //    times a day instead of waiting on a manual search or the 6h retry
     //    task — releases routinely land on indexers a bit late.
     run: async () => {
+      // The upcoming→missing status transition always runs — it's just
+      // bookkeeping (makes a title show correctly and searchable by hand),
+      // not itself a search/grab. Only the actual search step is gated by
+      // the kill switch, same as the other two auto-search tasks.
       transitionUpcomingMovies();
       transitionUpcomingEpisodes();
+      if (!isAutoSearchMissingEnabled()) return;
       await searchReleasedMissingMovies();
       await searchReleasedMissingEpisodes();
     },
@@ -276,6 +282,11 @@ export const TASKS: ScheduledTask[] = [
     //    Zero direct indexer calls during matching: 429 rate-limits in
     //    this phase are impossible.
     run: async () => {
+      // Admin kill switch (Réglages → Automatisation, explicit request):
+      // never search/grab anything unattended when off. The RSS cache
+      // itself is harmless to keep warm (no grab happens from refreshing
+      // it alone) — only the actual matching/grab step is gated.
+      if (!isAutoSearchMissingEnabled()) return;
       await refreshRssCache();
       await rssMatchIndexers();
     },
@@ -291,6 +302,7 @@ export const TASKS: ScheduledTask[] = [
     // re-searches them directly (title+year query) respecting all quality
     // rules via the normal searchAndGrabMovie pipeline.
     run: async () => {
+      if (!isAutoSearchMissingEnabled()) return;
       await searchMissingMovies(50);
       await searchMissingEpisodes(20);
     },

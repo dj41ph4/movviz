@@ -560,6 +560,7 @@ export const nl: Dictionary = {
     forcePlexSyncFailed: "Plex-synchronisatie mislukt",
     play: "Afspelen",
     sortTitle: "Titel",
+    jumpToLetter: "Naar letter springen",
     sortRecent: "Onlangs toegevoegd",
     sortRating: "Waardering",
     searchAndReplace: "Zoeken en vervangen",
@@ -964,6 +965,8 @@ export const nl: Dictionary = {
   },
 
   automation: {
+    killSwitchTitle: "Automatisch zoeken naar ontbrekende content",
+    killSwitchHint: "Serverbrede instelling, geldt voor iedereen. Schakelt de RSS-scan, het opnieuw proberen van ontbrekende content en het zoeken naar releases van vandaag uit — het volgen per titel en de handmatige \"Zoeken\"-knop blijven normaal werken.",
     pillSchedule: "Planning",
     pillQueue: "Wachtrij & prioriteiten",
   },

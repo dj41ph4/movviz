@@ -560,6 +560,7 @@ export const de: Dictionary = {
     forcePlexSyncFailed: "Plex-Synchronisierung fehlgeschlagen",
     play: "Abspielen",
     sortTitle: "Titel",
+    jumpToLetter: "Zum Buchstaben springen",
     sortRecent: "Kürzlich hinzugefügt",
     sortRating: "Bewertung",
     searchAndReplace: "Suchen und ersetzen",
@@ -964,6 +965,8 @@ export const de: Dictionary = {
   },
 
   automation: {
+    killSwitchTitle: "Automatische Suche nach fehlenden Inhalten",
+    killSwitchHint: "Servereinstellung, gilt für alle Benutzer. Deaktiviert den RSS-Scan, die Wiederholung fehlender Inhalte und die Suche nach heutigen Neuerscheinungen — die Überwachung pro Titel und der manuelle \"Suchen\"-Button funktionieren weiterhin normal.",
     pillSchedule: "Planung",
     pillQueue: "Warteschlange & Prioritäten",
   },

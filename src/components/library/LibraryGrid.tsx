@@ -17,8 +17,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X } from "lucide-react";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames } from "@/lib/metadata/genreTaxonomy";
 
-export const RENDER_BATCH_INITIAL = 100;
-export const RENDER_BATCH_STEP = 150;
+export const RENDER_BATCH_INITIAL = 200;
+export const RENDER_BATCH_STEP = 200;
 
 interface RescanIssue {
   kind: "missing" | "untracked" | "duplicate";
@@ -48,6 +48,23 @@ const SORTS: { id: "title" | "recent" | "rating"; key: string }[] = [
   { id: "recent", key: "library.sortRecent" },
   { id: "rating", key: "library.sortRating" },
 ];
+
+type CombinedItem = { kind: "movie"; movie: LibraryMovie } | { kind: "series"; series: LibrarySeries };
+function titleOf(c: CombinedItem): string {
+  return c.kind === "movie" ? c.movie.title : c.series.title;
+}
+// Plex-style A-Z jump index. Deliberately the exact same "raw first
+// character" the grid's own sort comparator already uses (titleOf(a)
+// .localeCompare(titleOf(b)), no article-stripping) — an index that grouped
+// "The Matrix"/"Le Fabuleux Destin..." under "M"/"F" instead of "T"/"L"
+// would jump confidently to a letter whose actual titles, in the REAL grid
+// order, are elsewhere: the index has to match the sort it's indexing, not
+// how a human would alphabetize the same list by hand.
+function alphabetKeyOf(title: string): string {
+  const first = title.trim().charAt(0).toUpperCase();
+  return /[A-Z]/.test(first) ? first : "#";
+}
+const ALPHABET_KEYS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 
 /**
  * The library grid, shared by three fixed pages: /library (Tout, mixes both
@@ -230,13 +247,11 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   // its own and simply concatenated (which always put every movie before
   // every series, alphabetical order or not; sorting separately then
   // stitching the two lists together can never interleave them).
-  type CombinedItem = { kind: "movie"; movie: LibraryMovie } | { kind: "series"; series: LibrarySeries };
   const combinedItems = useMemo(() => {
     const combined: CombinedItem[] = [
       ...movieItems.map((movie): CombinedItem => ({ kind: "movie", movie })),
       ...seriesItems.map((series): CombinedItem => ({ kind: "series", series })),
     ];
-    const titleOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.title : c.series.title);
     const addedAtOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.addedAt : c.series.addedAt);
     const ratingOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.rating : c.series.rating);
     return sort === "recent"
@@ -269,24 +284,94 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   // requestIdleCallback only fires during genuinely idle periods — continuous
   // scrolling keeps generating scroll/input events, so on a large library the
   // browser can go a long time without ever considering itself idle, and
-  // growth visibly stalls partway through the alphabet. A sentinel below the
-  // rendered grid grows the list immediately once the user scrolls near it,
-  // independent of idle time — same pattern as the Discover page's paging.
+  // growth visibly stalls partway through the alphabet.
   const totalRef = useRef(total);
   totalRef.current = total;
-  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // A single sentinel right after the last rendered card only ever grows the
+  // list from wherever it already stopped — perfectly fine for a normal
+  // scroll down, but confirmed live: jumping straight to a distant point
+  // (dragging the scrollbar, End key) lands the viewport deep inside the
+  // skeleton region while the sentinel — still sitting right where rendering
+  // left off — never enters it, so nothing loads until a SECOND scroll
+  // nudges it. Checkpoint markers spaced every RENDER_BATCH_STEP items across
+  // the ENTIRE remaining list (not just the next one) fix this: wherever the
+  // viewport lands, the nearest checkpoint is always close by and loads
+  // exactly that neighborhood immediately, not a slow catch-up from the top.
+  const checkpointElsRef = useRef(new Map<number, HTMLDivElement>());
+  const checkpointIndices = useMemo(() => {
+    const indices: number[] = [];
+    for (let i = visibleCount; i < total; i += RENDER_BATCH_STEP) indices.push(i);
+    return indices;
+  }, [visibleCount, total]);
+  // No separate cleanup effect needed: the callback ref below already
+  // adds/removes its own entry (React calls it with `null` on unmount before
+  // this effect's dependency-driven re-run), so the map is always correct by
+  // the time this effect reads it.
+  const checkpointIndexSet = useMemo(() => new Set(checkpointIndices), [checkpointIndices]);
+
+  // Confirmed live: jumping straight from a low visibleCount to a distant
+  // target (checkpoint far ahead, or a late letter in the A-Z index) mounted
+  // every real card in between SYNCHRONOUSLY — each is a real DOM node with
+  // an image, hover state, motion — froze the tab for several seconds.
+  // Ramping the same target across several animation frames (RENDER_BATCH_STEP
+  // per frame, same batch size as every other growth path) reaches it in well
+  // under 200ms while still letting the browser paint/breathe between each
+  // chunk instead of blocking on one huge commit.
+  const rampingRef = useRef(false);
+  const rampVisibleCountTo = (target: number) => {
+    if (rampingRef.current) return;
+    rampingRef.current = true;
+    const step = () => {
+      setVisibleCount((c) => {
+        const next = Math.min(target, totalRef.current, c + RENDER_BATCH_STEP);
+        if (next < target && next < totalRef.current) requestAnimationFrame(step);
+        else rampingRef.current = false;
+        return Math.max(c, next);
+      });
+    };
+    requestAnimationFrame(step);
+  };
+
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el || visibleCount >= total) return;
+    if (checkpointIndices.length === 0) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) setVisibleCount((c) => Math.min(totalRef.current, c + RENDER_BATCH_STEP));
+        const reached = entries.filter((e) => e.isIntersecting).map((e) => Number((e.target as HTMLElement).dataset.checkpointIndex));
+        if (!reached.length) return;
+        const target = Math.min(...reached) + RENDER_BATCH_STEP;
+        rampVisibleCountTo(Math.min(totalRef.current, target));
       },
       { rootMargin: "1000px" }
     );
-    io.observe(el);
+    for (const el of checkpointElsRef.current.values()) io.observe(el);
     return () => io.disconnect();
-  }, [visibleCount, total]);
+  }, [checkpointIndices]);
+
+  // A-Z jump index (Plex-style) — only meaningful in alphabetical sort;
+  // "recent"/"rating" order doesn't group titles by letter at all.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const pendingScrollIndexRef = useRef<number | null>(null);
+  const availableLetters = useMemo(() => {
+    if (sort !== "title") return new Set<string>();
+    return new Set(combinedItems.map((c) => alphabetKeyOf(titleOf(c))));
+  }, [combinedItems, sort]);
+  const jumpToLetter = (letter: string) => {
+    const index = combinedItems.findIndex((c) => alphabetKeyOf(titleOf(c)) === letter);
+    if (index < 0) return;
+    pendingScrollIndexRef.current = index;
+    rampVisibleCountTo(Math.min(totalRef.current, index + RENDER_BATCH_STEP));
+  };
+  // Fires once the target index has actually been promoted from skeleton to
+  // a real rendered card (visibleCount just grew past it) — scrolling any
+  // earlier would land on an empty skeleton slot instead of the real title.
+  useEffect(() => {
+    const target = pendingScrollIndexRef.current;
+    if (target === null || target >= visibleCount) return;
+    pendingScrollIndexRef.current = null;
+    const node = gridRef.current?.children[target] as HTMLElement | undefined;
+    node?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [visibleCount]);
 
   const visibleItems = combinedItems.slice(0, visibleCount);
 
@@ -469,8 +554,34 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
       </div>
 
+      {sort === "title" && total > RENDER_BATCH_INITIAL && (
+        <div
+          className="fixed right-1.5 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-center gap-0.5 rounded-full glass px-1 py-2 sm:flex"
+          aria-label={t("library.jumpToLetter")}
+        >
+          {ALPHABET_KEYS.map((letter) => {
+            const has = availableLetters.has(letter);
+            return (
+              <button
+                key={letter}
+                type="button"
+                disabled={!has}
+                onClick={() => jumpToLetter(letter)}
+                title={letter}
+                className={cn(
+                  "flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold leading-none transition-colors",
+                  has ? "text-ink-dim hover:bg-brand/20 hover:text-brand-glow" : "text-ink-dim/25"
+                )}
+              >
+                {letter}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <AnimatePresence mode="sync">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+        <div ref={gridRef} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
           {visibleItems.map((entry, i) => {
             const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[`series:${entry.series.tmdbId}`];
             return entry.kind === "movie" ? (
@@ -497,10 +608,34 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
               />
             );
           })}
+          {/* Space-reserving skeletons for everything not rendered yet —
+              without these the grid was only ever as tall as what's already
+              painted, so dragging the scrollbar (or any fast scroll) straight
+              to the bottom hit a hard "wall" and the page kept growing/
+              jumping under the cursor as more batches mounted. Filling every
+              remaining slot up front keeps the real scroll height accurate
+              from the very first paint — same discipline for /movies,
+              /series and /library. Every RENDER_BATCH_STEP-th one doubles as
+              a checkpoint marker (see checkpointIndices above) so a distant
+              jump loads exactly the neighborhood landed on. */}
+          {visibleCount < total && checkpointIndexSet && Array.from({ length: total - visibleCount }).map((_, i) => {
+            const absoluteIndex = visibleCount + i;
+            const isCheckpoint = checkpointIndexSet.has(absoluteIndex);
+            return (
+              <div
+                key={`skeleton-${i}`}
+                data-checkpoint-index={isCheckpoint ? absoluteIndex : undefined}
+                ref={isCheckpoint ? (el) => {
+                  if (el) checkpointElsRef.current.set(absoluteIndex, el);
+                  else checkpointElsRef.current.delete(absoluteIndex);
+                } : undefined}
+              >
+                <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
+              </div>
+            );
+          })}
         </div>
       </AnimatePresence>
-
-      {visibleCount < total && <div ref={sentinelRef} className="h-1" />}
 
       {loading && total === 0 && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
