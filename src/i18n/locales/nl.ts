@@ -2081,6 +2081,7 @@ export const nl: Dictionary = {
     betaUserToggleHint: "Speelt video's rechtstreeks af in de browser in plaats van Plex te openen. Persoonlijke keuze — standaard uitgeschakeld, gekoppeld aan je account.",
     betaUserToggleNeedsAdmin: "Deze functie moet eerst door een beheerder worden ingeschakeld in Instellingen.",
     betaError: "Kan deze video niet afspelen in de browser. Open hem in Plex.",
+    betaErrorCodec: "Je browser kan de videocodec van dit bestand niet decoderen (HEVC komt vaak voor bij 4K/HDR-films) — probeer een andere browser, of open het direct in Plex.",
     betaLoading: "Bufferen…",
     betaOptimizing: "Optimaliseren…",
     betaWebcodecs: "WebCodecs HEVC gedetecteerd — direct afspelen",

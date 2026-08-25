@@ -2079,6 +2079,7 @@ export const fr = {
     betaUserToggleHint: "Lit les vidéos directement dans le navigateur au lieu d'ouvrir Plex. Choix personnel — désactivé par défaut, propre à ton compte.",
     betaUserToggleNeedsAdmin: "Cette fonctionnalité doit d'abord être activée par un administrateur dans Réglages.",
     betaError: "Impossible de lire cette vidéo dans le navigateur. Ouvrez-la dans Plex à la place.",
+    betaErrorCodec: "Ton navigateur ne sait pas décoder le codec vidéo de ce fichier (HEVC est fréquent sur les films 4K/HDR) — essaie un autre navigateur, ou ouvre-le directement dans Plex.",
     betaLoading: "Mise en mémoire tampon…",
     betaOptimizing: "Optimisation en cours…",
     betaWebcodecs: "WebCodecs HEVC détecté — lecture directe",

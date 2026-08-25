@@ -167,7 +167,17 @@ export function parseIntent(text: string): ParsedIntent {
   // a truncated reply never has a trailing "}" in the original text at all.
   const start = text.indexOf("{");
   const end = span!.end;
-  const stripped = (start >= 0 && end > start ? text.slice(0, start) + text.slice(end) : text).trim();
+  let stripped = (start >= 0 && end > start ? text.slice(0, start) + text.slice(end) : text).trim();
+  // Bug fix (confirmed live, reproducible on ~7/10 "recommend" replies): the
+  // model frequently wraps its JSON in a ```json ... ``` fence. The span
+  // above only captures the `{...}` object itself, so the fence markers
+  // sit just outside it on both sides and survive the slice — concatenating
+  // to a literal "```json\n\n```" (or an unclosed "```json\n") left dangling
+  // in what the user sees, right before the "Voici ce qui devrait bien
+  // coller :" line built elsewhere. Strip any leftover fence markers next
+  // to where the JSON used to be — never legitimate content here, this
+  // assistant's replies are conversational prose, not code blocks.
+  stripped = stripped.replace(/```(?:json)?/gi, "").replace(/\n{3,}/g, "\n\n").trim();
   return { action, items, rawText: stripped };
 }
 

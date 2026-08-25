@@ -127,6 +127,16 @@ const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2];
  */
 export const PREBUFFER_SECONDS = 30;
 
+// FfmpegRemuxEngine/MSEPlaybackEngine format their onError message as
+// "... (code N): ...", N being the native MediaError.code — pulled back out
+// here rather than widening the shared onError callback signature both
+// engines already expose (lower blast radius, see lastMediaErrorCodeRef).
+function extractMediaErrorCode(msg: string): number | null {
+  const m = /\(code (\d+)\)/.exec(msg);
+  return m ? Number(m[1]) : null;
+}
+const CODEC_MEDIA_ERROR_CODES = new Set([3, 4]); // MEDIA_ERR_DECODE, MEDIA_ERR_SRC_NOT_SUPPORTED
+
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
   const h = Math.floor(seconds / 3600);
@@ -231,6 +241,18 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const defaultAudioIdRef = useRef<string | null>(null);
   const mseEngineRef = useRef<MSEPlaybackEngine | null>(null);
   const mseSkippedRef = useRef(false);
+  // Reasoned blindly from a codec/architecture report with no server logs
+  // available (Mac + Chrome, remux badge "Transcodé (audio)" — i.e. video was
+  // bit-exact copied, never re-encoded by design (remuxSession.ts), so the
+  // browser's own native decode capability is the only thing that changed).
+  // MediaError codes 3 (MEDIA_ERR_DECODE) and 4 (MEDIA_ERR_SRC_NOT_SUPPORTED)
+  // are the two shapes a "my browser can't decode this codec" failure
+  // actually takes — most commonly HEVC, which Chrome's native <video>
+  // support for varies a lot by OS/hardware. Never touches the transcode
+  // pipeline itself (would risk the Stable engine's explicit zero-regression
+  // guarantee) — purely swaps in a more actionable final error message
+  // instead of the generic dead-end one.
+  const lastMediaErrorCodeRef = useRef<number | null>(null);
   const ffmpegEngineRef = useRef<FfmpegRemuxEngine | null>(null);
   const ffmpegSkippedRef = useRef(false);
   const tryStartFfmpegRemuxRef = useRef<((info: StreamInfo, seekTo?: number) => Promise<boolean>) | null>(null);
@@ -1391,6 +1413,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         const engine = new MSEPlaybackEngine({
           onBuffering: (buffering) => setBuffering(buffering),
           onError: (_msg, fatal) => {
+            lastMediaErrorCodeRef.current = extractMediaErrorCode(_msg);
             if (!fatal) return;
             if (!mseEngineRef.current) return;
             fallbackFromMse();
@@ -1489,6 +1512,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         const engine = new FfmpegRemuxEngine({
           onBuffering: (buffering) => setBuffering(buffering),
           onError: (_msg, fatal) => {
+            lastMediaErrorCodeRef.current = extractMediaErrorCode(_msg);
             if (!fatal) return;
             if (!ffmpegEngineRef.current) return;
             fallbackFromFfmpeg();
@@ -1644,7 +1668,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
             fallbackGuardRef.current = false;
             maybeStartHls(undefined, true);
           } else {
-            setError(tRef.current("player.betaError"));
+            const isCodecFailure = lastMediaErrorCodeRef.current !== null && CODEC_MEDIA_ERROR_CODES.has(lastMediaErrorCodeRef.current);
+            setError(tRef.current(isCodecFailure ? "player.betaErrorCodec" : "player.betaError"));
           }
         };
 
@@ -1652,6 +1677,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           {
             onBuffering: (buffering) => setBuffering(buffering),
             onError: (_msg, fatal) => {
+              lastMediaErrorCodeRef.current = extractMediaErrorCode(_msg);
               if (!fatal) return;
               if (!ffmpegEngineRef.current) return;
               onLocalEngineFailure();

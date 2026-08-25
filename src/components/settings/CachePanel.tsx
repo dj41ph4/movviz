@@ -3,7 +3,10 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Trash2, Loader2, Sparkles, Database, Images, RefreshCw } from "lucide-react";
+import { Trash2, Loader2, Sparkles, Database, Images, RefreshCw, Globe } from "lucide-react";
+import { Toggle } from "@/components/ui/Toggle";
+import { useCdnImages } from "@/lib/settings/useCdnImages";
+import { useLocalNetworkPriority } from "@/lib/settings/useLocalNetworkPriority";
 
 interface CacheStats {
   name: string;
@@ -44,6 +47,8 @@ function formatBytes(n: number) {
 
 export function CachePanel() {
   const t = useT();
+  const cdnImages = useCdnImages();
+  const localNetworkPriority = useLocalNetworkPriority();
   const [caches, setCaches] = useState<CacheStats[]>([]);
   const [clearing, setClearing] = useState<string | null>(null);
   const [clearingArtwork, setClearingArtwork] = useState<"all" | "logos" | "backdrops" | null>(null);
@@ -209,6 +214,30 @@ export function CachePanel() {
     </div>
   );
 
+  const cdnSection = (
+    <div className="mb-6 rounded-2xl glass p-5">
+      <h3 className="mb-1 flex items-center gap-1.5 text-sm font-bold text-ink">
+        <Globe className="h-4 w-4 text-brand-glow" /> {t("settings.experience.cdnImagesTitle")}
+      </h3>
+      <p className="mb-4 text-xs text-ink-dim">{t("settings.experience.cdnImagesHint")}</p>
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-ink">{t("settings.experience.cdnImagesEnabled")}</span>
+        <Toggle on={cdnImages.enabled} onChange={() => cdnImages.setEnabled(!cdnImages.enabled)} />
+      </div>
+      <div className={cn("mt-4 border-t border-white/8 pt-4", !cdnImages.enabled && "opacity-40")}>
+        <p className="mb-3 text-xs text-ink-dim">{t("settings.experience.localNetworkPriorityHint")}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-ink">{t("settings.experience.localNetworkPriorityTitle")}</span>
+          <Toggle
+            on={localNetworkPriority.enabled}
+            disabled={!cdnImages.enabled}
+            onChange={() => localNetworkPriority.setEnabled(!localNetworkPriority.enabled)}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   if (caches.length === 0) {
     return (
       <div className="rounded-2xl glass p-5">
@@ -221,6 +250,7 @@ export function CachePanel() {
             <p className="mt-0.5 text-xs text-ink-dim">{t("cache.intro")}</p>
           </div>
         </div>
+        {cdnSection}
         {artworkSection}
         {warmSection}
         <div className="flex flex-col items-center gap-2 rounded-2xl glass py-12 text-center">
@@ -242,6 +272,7 @@ export function CachePanel() {
           <p className="mt-0.5 text-xs text-ink-dim">{t("cache.intro")}</p>
         </div>
       </div>
+      {cdnSection}
       {artworkSection}
       {warmSection}
 

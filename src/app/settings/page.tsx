@@ -325,9 +325,9 @@ function SettingsPageInner() {
           {tab === "gpu" && <GpuSettingsPanel />}
           {tab === "netflix" && <NetflixImportPanel />}
 
-          {tab === "clients" && <DownloadClients />}
+          {tab === "clients" && user?.role === "admin" && <DownloadClients />}
 
-          {tab === "indexers" && <IndexerManager />}
+          {tab === "indexers" && user?.role === "admin" && <IndexerManager />}
 
           {tab === "qualite" && user?.role === "admin" && (
             <div className="space-y-6">

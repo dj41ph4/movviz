@@ -63,8 +63,8 @@ export const SETTINGS_TABS: SettingsTab[] = [
   { id: "gpu", labelKey: "settings.tabGpu", hintKey: "settings.tabGpuHint", icon: Zap, group: "personal", journey: "experience", expertOnly: true, keywords: ["lenteur", "animations", "performance"] },
   { id: "netflix", labelKey: "settings.tabNetflix", hintKey: "settings.tabNetflixHint", icon: Clapperboard, group: "personal", journey: "library" },
   // Téléchargement
-  { id: "clients", labelKey: "settings.tabClients", hintKey: "settings.tabClientsHint", icon: HardDrive, group: "download", journey: "downloads", keywords: ["film absent", "nouveau titre", "téléchargement bloqué"] },
-  { id: "indexers", labelKey: "settings.tabIndexers", hintKey: "settings.tabIndexersHint", icon: Magnet, group: "download", journey: "downloads", keywords: ["film absent", "nouveau titre", "aucune release"] },
+  { id: "clients", labelKey: "settings.tabClients", hintKey: "settings.tabClientsHint", icon: HardDrive, group: "download", journey: "downloads", adminOnly: true, keywords: ["film absent", "nouveau titre", "téléchargement bloqué"] },
+  { id: "indexers", labelKey: "settings.tabIndexers", hintKey: "settings.tabIndexersHint", icon: Magnet, group: "download", journey: "downloads", adminOnly: true, keywords: ["film absent", "nouveau titre", "aucune release"] },
   { id: "qualite", labelKey: "settings.tabQualite", hintKey: "settings.tabQualiteHint", icon: Gauge, group: "download", journey: "downloads", adminOnly: true, keywords: ["renommage", "format de fichier", "mise à niveau"] },
   // Bibliothèque
   { id: "metadata", labelKey: "settings.tabMetadata", hintKey: "settings.tabMetadataHint", icon: BookOpen, group: "library", journey: "library", adminOnly: true },

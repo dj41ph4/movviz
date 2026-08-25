@@ -25,6 +25,10 @@ export interface ResolvedAiItem {
   posterPath: string | null;
   rating: number;
   inLibrary: boolean;
+  /** Raw TMDb genre ids of the resolved match — only carried through for
+   *  recommendMedia's own documentary/off-topic filter (see there); never
+   *  displayed. */
+  genreIds?: number[];
 }
 
 /** Small bounded-concurrency helper (TMDb free tier — AGENTS.md: limit concurrency). */
@@ -49,6 +53,23 @@ export async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (i
 // the wrong movie under the right-sounding title.
 const MIN_AI_MATCH_SCORE = 0.45;
 
+// Bug fix (confirmed live, reproducible: "un film comme The Thing"/"The
+// Grudge"/"Suspiria" independently all surfaced "The Others (1970)" instead
+// of the well-known 2001 film): when several TMDb hits share an identical
+// (or near-identical) title-similarity score — a plain exact-title tie, not
+// a fuzzy-match judgment call — Array.sort's stability just preserves
+// whatever order TMDb's own search endpoint happened to return, which isn't
+// reliably "the famous one first" once combined-multi-search reshuffles
+// movie/tv hits. Only matters for exact/near-exact ties; a genuine
+// best-fuzzy-match is never overridden by this. `item.year` (checked right
+// after this sort) still wins whenever the model actually supplied one —
+// this tiebreak only decides what "no year given" falls back to.
+const SCORE_TIE_EPSILON = 0.02;
+function byScoreThenRating(a: { score: number; hit: { rating: number } }, b: { score: number; hit: { rating: number } }): number {
+  if (Math.abs(a.score - b.score) > SCORE_TIE_EPSILON) return b.score - a.score;
+  return b.hit.rating - a.hit.rating;
+}
+
 async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null> {
   const res = await searchMulti(item.title, 1);
   if (!res.results.length) return null;
@@ -58,7 +79,7 @@ async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null
 
   const scored = hits
     .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
-    .sort((a, b) => b.score - a.score);
+    .sort(byScoreThenRating);
 
   // Le `type` vient du LLM : c'est une SUPPOSITION, jamais une certitude.
   // Bug confirmé en direct : "télécharge lanterns" a été émis en
@@ -70,7 +91,7 @@ async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null
   // sur la supposition de type du modèle.
   const scoredAll = res.results
     .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
-    .sort((a, b) => b.score - a.score);
+    .sort(byScoreThenRating);
   const bestTyped = scored[0];
   const bestAny = scoredAll[0];
   const TYPE_OVERRIDE_MARGIN = 0.12;
@@ -96,6 +117,7 @@ async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null
     posterPath: pick.posterPath,
     rating: pick.rating,
     inLibrary,
+    genreIds: pick.genreIds,
   };
 }
 
@@ -229,12 +251,23 @@ export async function addMedia(user: User, items: AiAddItem[]): Promise<AiAction
  *  instead of returning a plain filtered array: a candidate TMDb fails to
  *  resolve shifts every later index, so reconstructing the reason by
  *  position after the fact silently mismatches it to the wrong title. */
+// TMDb genre id 99 = Documentary. Bug fix (confirmed live: "un film comme
+// Dune" recommended "Elton John: The Nation's Favourite Song", a totally
+// unrelated music documentary) — resolveAiItem only ever checks whether a
+// LLM-suggested title resolves to a REAL TMDb object, never whether it's
+// actually the kind of thing "similar to X" should mean. A documentary the
+// model free-associated to is exactly as "real" as a fiction feature once
+// resolved, so it sailed through untouched. Scoped to recommendMedia only
+// (never resolveAiItem itself, never the add_media path) — an explicit "add
+// this documentary" request must keep working exactly as before.
+const DOCUMENTARY_GENRE_ID = 99;
+
 export async function recommendMedia(items: AiRecommendIntentItem[]): Promise<{ item: ResolvedAiItem; source: AiRecommendIntentItem }[]> {
   const resolved = await mapWithConcurrency(items, 4, resolveAiItem);
   const pairs: { item: ResolvedAiItem; source: AiRecommendIntentItem }[] = [];
   for (let i = 0; i < items.length; i++) {
     const r = resolved[i];
-    if (r) pairs.push({ item: r, source: items[i] });
+    if (r && !r.genreIds?.includes(DOCUMENTARY_GENRE_ID)) pairs.push({ item: r, source: items[i] });
   }
   return pairs;
 }

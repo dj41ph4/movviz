@@ -2081,6 +2081,7 @@ export const en: Dictionary = {
     betaUserToggleHint: "Plays videos directly in the browser instead of opening Plex. Personal choice — off by default, tied to your account.",
     betaUserToggleNeedsAdmin: "An admin needs to enable this feature first, in Settings.",
     betaError: "Cannot play this video in the browser. Open it in Plex instead.",
+    betaErrorCodec: "Your browser can't decode this file's video codec (HEVC is common on 4K/HDR movies) — try a different browser, or open it directly in Plex.",
     betaLoading: "Buffering…",
     betaOptimizing: "Optimizing…",
     betaWebcodecs: "WebCodecs HEVC detected — direct play",

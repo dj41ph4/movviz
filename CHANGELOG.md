@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.19.46 — August 2026
+
+### Réglages : les indexeurs et clients de téléchargement n'étaient pas réservés à l'admin
+
+Les onglets "Indexeurs" et "Clients de téléchargement" étaient visibles par n'importe quel utilisateur dans Réglages, alors que toutes les données sensibles y sont déjà protégées côté serveur — corrigé pour qu'ils ne s'affichent plus que pour un administrateur, comme le reste des réglages serveur.
+
+### Les images depuis Internet deviennent un réglage serveur, plus personnel
+
+Le choix de charger les affiches/logos directement depuis TMDb plutôt que via le serveur (impact réseau/charge pour toute la maison) était jusqu'ici décidé individuellement par chaque compte. Il est désormais un seul réglage serveur, dans Réglages → Cache.
+
+### Chat intelligent : recommandations plus fiables
+
+Trois correctifs après une batterie de tests en conditions réelles : un fragment de code technique (```json```) pouvait s'afficher littéralement dans une réponse ; un titre partageant son nom avec une œuvre plus ancienne/obscure pouvait être confondu avec la bonne version ; un documentaire totalement hors sujet pouvait apparaître dans une liste de films "similaires" à une fiction. Le ton et la personnalité restent strictement inchangés — ces correctifs agissent uniquement sur la fiabilité des données transmises.
+
+### Message d'erreur de lecture plus clair
+
+Quand une vidéo ne peut pas être lue parce que le navigateur ne sait pas décoder son codec (HEVC notamment, fréquent en 4K/HDR), le message l'indique désormais clairement au lieu d'un message générique.
+
 ## v1.19.45 — August 2026
 
 ### Fuite de reprise Plex entre comptes corrigée
