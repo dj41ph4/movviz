@@ -60,6 +60,10 @@ export function useTitlePanel() {
       if (!link) return;
       const href = link.getAttribute("href");
       if (!href) return;
+      // DashboardPosterCard's image/play link opts out when it has its own
+      // action to take (starting playback) — otherwise this handler would
+      // always win the race and open the fiche instead of playing anything.
+      if (link.hasAttribute("data-skip-title-panel")) return;
 
       // Panel open: internal links clicked anywhere (including inside the
       // panel) swap the panel's view instead of navigating. Buttons (close,
@@ -104,6 +108,12 @@ export function useTitlePanel() {
       if (!id) return;
       e.preventDefault();
       e.stopPropagation();
+      // stopPropagation here (capture phase) means the Link's own bubble-
+      // phase onClick={closeOnClick} never fires, so any DashboardPosterCard
+      // hover popover mid-open would otherwise be left floating over the
+      // panel that's about to cover it — confirmed live. This lets it close
+      // itself in response instead of relying on an event that never comes.
+      window.dispatchEvent(new Event("movviz:title-panel-opening"));
       // The poster tile itself (image + rounded frame) is usually a child of
       // the <a> rather than the link's own full clickable area (which often
       // includes title/meta text below the artwork) — preferring it here

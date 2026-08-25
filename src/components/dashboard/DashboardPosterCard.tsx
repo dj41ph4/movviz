@@ -275,7 +275,7 @@ export function DashboardPosterCard({
   };
 
   const startPlayback = (
-    event: React.MouseEvent<HTMLButtonElement>,
+    event: React.MouseEvent<HTMLElement>,
     options?: { resumeFromSeconds?: number; startFromBeginning?: boolean },
   ) => {
     if (!playback) return;
@@ -316,6 +316,17 @@ export function DashboardPosterCard({
     clearTimers();
     setHovered(false);
   };
+  // useTitlePanel intercepts the Link's click in the DOM capture phase and
+  // calls stopPropagation — which stops the native click from ever reaching
+  // this Link's own React onClick={closeOnClick} (attached via bubble-phase
+  // delegation). Without this, the popover was confirmed live to stay
+  // floating over the freshly-opened fiche. This event is the only way for
+  // the card to hear about it.
+  useEffect(() => {
+    const onPanelOpening = () => closeOnClick();
+    window.addEventListener("movviz:title-panel-opening", onPanelOpening);
+    return () => window.removeEventListener("movviz:title-panel-opening", onPanelOpening);
+  }, []);
   const closePreview = () => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
     hoverTimer.current = null;
@@ -372,7 +383,7 @@ export function DashboardPosterCard({
         <div className={cn("relative shrink-0 overflow-hidden rounded-2xl border border-white/5 bg-surface transition-colors duration-200 group-hover:border-brand/30", showRank ? "aspect-[2/3] w-[150px] sm:w-[170px]" : "aspect-video w-full")}>
           {showRank ? (
             poster ? (
-              <TmdbImage path={posterPath} size="w500" alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+              <TmdbImage path={posterPath} size="w500" alt={title} loading="lazy" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center">
                 {type === "movie" ? <Film className="h-7 w-7 text-ink-soft/70" /> : <Tv className="h-7 w-7 text-ink-soft/70" />}
@@ -381,7 +392,7 @@ export function DashboardPosterCard({
             )
           ) : backdrop ? (
             <>
-              <TmdbImage path={backdropPath ?? null} size="w780" alt={title} loading="lazy" className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.035]" />
+              <TmdbImage path={backdropPath ?? null} size="w780" alt={title} loading="lazy" className="h-full w-full object-cover" />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/78 via-black/10 to-black/0" />
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/32 via-transparent to-transparent" />
             </>
@@ -456,7 +467,19 @@ export function DashboardPosterCard({
           ...(popover.above ? { translate: "0 -100%" } : {}),
         }}
       >
-        <Link href={`/title/${type}/${tmdbId}`} prefetch={false} onClick={closeOnClick} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow">
+        <Link
+          href={`/title/${type}/${tmdbId}`}
+          prefetch={false}
+          onClick={(event) => (playback ? startPlayback(event) : closeOnClick())}
+          title={playback ? t("common.play") : undefined}
+          // useTitlePanel intercepts every <a href="/title/..."> click in the
+          // capture phase and opens the fiche unconditionally — this marker
+          // tells it to leave THIS link alone when a play action is available,
+          // so startPlayback (this Link's own onClick, which already calls
+          // preventDefault itself) actually gets to run instead.
+          data-skip-title-panel={playback ? "" : undefined}
+          className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+        >
           <div className="relative aspect-video overflow-hidden">
             {videoReady && videoPreviewEnabled && ambientVideoKeys.length > 0 ? (
               <TrailerHeader
@@ -587,24 +610,31 @@ export function DashboardPosterCard({
               <ChevronDown className="h-5 w-5" />
             </Link>
           </div>
-          {subtitle && <p className="truncate text-[11px] text-white/70">{subtitle}</p>}
-          {hasMeta && (
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-white/85">
-              {previewYear && <span className="rounded-full border border-white/30 px-2 py-0.5">{previewYear}</span>}
-              {formatRuntime(previewRuntime) && <span className="rounded-full border border-white/30 px-2 py-0.5">{formatRuntime(previewRuntime)}</span>}
-              {technical && buildMediaBadgeItems({ ...technical, source: null }, "surface")}
-            </div>
-          )}
-          {previewGenres.length > 0 && (
-            <div className="flex flex-wrap items-center gap-x-2 text-[12px] font-semibold text-white/90">
-              {previewGenres.slice(0, 3).map((genre, index) => (
-                <span key={genre} className="flex items-center gap-x-2">
-                  {index > 0 && <span className="text-white/45">•</span>}
-                  {genre}
-                </span>
-              ))}
-            </div>
-          )}
+          {/* Netflix: clicking the plain background of the popover (year,
+           * runtime, genres — anything that isn't the image/play button or
+           * an explicit icon) opens the fiche, same as the chevron. A real
+           * <Link> here (rather than a div onClick) so useTitlePanel's
+           * capture-phase interception picks it up like every other trigger. */}
+          <Link href={`/title/${type}/${tmdbId}`} prefetch={false} onClick={closeOnClick} className="block space-y-2.5 focus-visible:outline-none">
+            {subtitle && <p className="truncate text-[11px] text-white/70">{subtitle}</p>}
+            {hasMeta && (
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-white/85">
+                {previewYear && <span className="rounded-full border border-white/30 px-2 py-0.5">{previewYear}</span>}
+                {formatRuntime(previewRuntime) && <span className="rounded-full border border-white/30 px-2 py-0.5">{formatRuntime(previewRuntime)}</span>}
+                {technical && buildMediaBadgeItems({ ...technical, source: null }, "surface")}
+              </div>
+            )}
+            {previewGenres.length > 0 && (
+              <div className="flex flex-wrap items-center gap-x-2 text-[12px] font-semibold text-white/90">
+                {previewGenres.slice(0, 3).map((genre, index) => (
+                  <span key={genre} className="flex items-center gap-x-2">
+                    {index > 0 && <span className="text-white/45">•</span>}
+                    {genre}
+                  </span>
+                ))}
+              </div>
+            )}
+          </Link>
           {popoverFooter}
         </div>
       </motion.div>, document.body

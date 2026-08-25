@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.19.49 — August 2026
+
+### Films et Séries ouvrent une fiche au lieu de changer de page
+
+Cliquer une carte dans Films ou Séries rechargeait une page entière — comme sur Découverte ou le Tableau de bord, une fiche s'ouvre désormais par-dessus la grille avec un effet de fondu-agrandissement depuis la carte cliquée, sans jamais quitter la page. Elle est aussi plus large qu'avant, pour laisser plus de place à l'image et aux informations.
+
+### Cliquer l'affiche lance la lecture, cliquer les infos ouvre la fiche
+
+Dans la fiche agrandie au survol d'une carte, cliquer directement l'image ou le bouton de lecture démarre le film immédiatement ; cliquer la zone d'informations (année, durée, genres) ou la flèche ouvre la fiche complète. Le petit aperçu au survol ne reste plus affiché par-dessus une fiche fraîchement ouverte.
+
+### Affichage des cartes allégé
+
+Le zoom au survol de l'image des cartes a été retiré (seule la carte grossissait déjà, l'image qui zoomait en plus alourdissait l'effet). L'apparition des cartes dans une grille au chargement est désormais gérée sans animation JavaScript.
+
 ## v1.19.48 — August 2026
 
 ### Scroll intelligent dans Films et Séries, avec index alphabétique

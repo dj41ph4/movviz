@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
@@ -42,13 +41,7 @@ export function LibrarySeriesCard({
     } finally { setBusy(false); }
   };
 
-  const cascadeAnim = reduceMotion ? {} : {
-    layout: true as const,
-    initial: { opacity: 0, y: 20, scale: 0.95 },
-    animate: { opacity: 1, y: 0, scale: 1 },
-    exit: { opacity: 0, y: 20, scale: 0.95, transition: { duration: 0.25, ease: "easeInOut" as const } },
-    transition: { duration: 0.3, delay: Math.min(index * 0.05, 0.5) },
-  };
+  const cascadeStyle = reduceMotion ? undefined : ({ "--cascade-delay": `${Math.min(index * 0.05, 0.5)}s` } as React.CSSProperties);
 
   const episodesPill = (
     <span className={cn(
@@ -61,7 +54,7 @@ export function LibrarySeriesCard({
   );
 
   return (
-    <motion.div className="w-full" {...cascadeAnim}>
+    <div className={cn("w-full", !reduceMotion && "animate-cascade-in")} style={cascadeStyle}>
       <DashboardPosterCard
         layout="fill"
         tmdbId={series.tmdbId}
@@ -92,6 +85,6 @@ export function LibrarySeriesCard({
           ) : undefined
         }
       />
-    </motion.div>
+    </div>
   );
 }

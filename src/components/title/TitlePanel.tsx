@@ -62,7 +62,7 @@ export function TitlePanel({ view, onClose }: TitlePanelProps) {
           instead of the old slide-from-right drawer. */}
       <motion.div
         ref={scrollRef}
-        className="relative flex h-full w-full flex-col overflow-y-auto overflow-x-hidden bg-void shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-5xl sm:rounded-2xl sm:border sm:border-white/10"
+        className="relative flex h-full w-full flex-col overflow-y-auto overflow-x-hidden bg-void shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-7xl sm:rounded-2xl sm:border sm:border-white/10"
         initial={morph ? { opacity: 0.5, x: morph.x, y: morph.y, scaleX: morph.scaleX, scaleY: morph.scaleY } : { opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, x: 0, y: 0, scaleX: 1, scaleY: 1 }}
         exit={morph ? { opacity: 0, x: morph.x, y: morph.y, scaleX: morph.scaleX, scaleY: morph.scaleY } : { opacity: 0, scale: 0.96 }}

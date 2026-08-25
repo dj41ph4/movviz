@@ -13,7 +13,6 @@ import { cn } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
-import { motion, AnimatePresence } from "framer-motion";
 import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X } from "lucide-react";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames } from "@/lib/metadata/genreTaxonomy";
 
@@ -580,7 +579,6 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
         </div>
       )}
 
-      <AnimatePresence mode="sync">
         <div ref={gridRef} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
           {visibleItems.map((entry, i) => {
             const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[`series:${entry.series.tmdbId}`];
@@ -635,7 +633,6 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
             );
           })}
         </div>
-      </AnimatePresence>
 
       {loading && total === 0 && (
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">

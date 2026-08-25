@@ -87,6 +87,20 @@
 .animate-page-fade-in {
   animation: page-fade-in 0.2s ease-out;
 }
+/* Card grid entrance — CSS pur (pas de FLIP repositionnement ni de fondu de
+ * sortie, comme Netflix : un tri/filtre fait juste réapparaître les cartes
+ * dans leur nouvel ordre sans animation de trajet). Le délai par carte est
+ * posé via --cascade-delay en style inline (voir LibraryMovieCard/
+ * LibrarySeriesCard). animation-fill-mode backwards évite un flash de la
+ * carte à opacité 1 avant que son délai ne démarre. */
+@keyframes cascade-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-cascade-in {
+  animation: cascade-in 0.3s ease-out backwards;
+  animation-delay: var(--cascade-delay, 0s);
+}
 @keyframes float {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-10px); }
