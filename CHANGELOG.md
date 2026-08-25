@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.19.42 — August 2026
+
+### Interface distante beaucoup plus rapide
+
+Movviz peut désormais utiliser un flux de données optimisé, activable par un administrateur dans Réglages → Vitesse et capacité du serveur. Le tableau de bord, la découverte, la recherche locale et les badges de navigation demandent seulement les données nécessaires à l’écran au lieu de télécharger les bibliothèques complètes. Sur la bibliothèque de référence, le tableau de bord transmet environ 89 % de données compressées en moins.
+
+Le réglage est global au serveur, avec un mode Compatibilité qui conserve instantanément le fonctionnement historique pour tous les utilisateurs. Les notifications sont chargées à l’ouverture de la cloche, les mises à jour temps réel ciblent uniquement la donnée concernée et les files de téléchargement adaptent leur fréquence de rafraîchissement à leur activité.
+
 ## v1.19.41 — August 2026
 
 ### Survol des cartes plus dynamique

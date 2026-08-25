@@ -1295,6 +1295,21 @@ export const fr = {
     tabDiagnostics: "État et diagnostic du serveur",
     tabPerformance: "Vitesse et capacité du serveur",
     tabLogs: "Journaux techniques",
+    interfaceData: {
+      title: "Mode de chargement de l’interface",
+      hint: "Choisis comment Movviz transmet les données de l’interface. Ce réglage ne modifie ni la lecture vidéo, ni FFmpeg, ni Plex.",
+      global: "Préférence administrateur globale — appliquée à tous les utilisateurs.",
+      optimized: {
+        title: "Optimisé (recommandé)",
+        description: "Charge uniquement les données utiles, conserve intelligemment les résultats et actualise seulement ce qui change. Idéal pour une connexion distante.",
+      },
+      compatibility: {
+        title: "Compatibilité",
+        description: "Rétablit le chargement complet historique de l’interface. À utiliser temporairement si un écran présente une régression.",
+      },
+      saved: "Mode de chargement appliqué à tous les utilisateurs.",
+      error: "Impossible de modifier le mode de chargement.",
+    },
     dashboardExperience: {
       animationsTitle: "Animations",
       animationsEnabled: "Activer les animations",

@@ -8,6 +8,7 @@ import { useT } from "@/i18n/provider";
 import type { EngineTorrent } from "@/lib/types";
 import { Download, Pause, CheckCircle2, AlertTriangle, Clock, WifiOff, RefreshCw } from "lucide-react";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 
 const VISIBLE_LIMIT = 3;
 
@@ -25,10 +26,18 @@ const STATUS = {
 
 export function DownloadQueue() {
   const t = useT();
+  const { optimized } = useInterfaceDataMode();
   // Shared SWR key with the Téléchargements page and the dashboard grid —
   // one poll feeds all of them, and the queue paints instantly from cache.
   const { data, error } = useSWR<{ torrents: EngineTorrent[] }>(
-    "/api/engine/torrents", { refreshInterval: 500 }
+    "/api/engine/torrents",
+    {
+      refreshInterval: optimized
+        ? (latest) => (latest?.torrents.some((torrent) => torrent.state !== "completed" && torrent.state !== "seeding") ? 1_500 : 30_000)
+        : 500,
+      dedupingInterval: optimized ? 1_000 : 250,
+      revalidateOnFocus: !optimized,
+    },
   );
   const torrents = error ? null : data?.torrents ?? null;
 

@@ -9,7 +9,7 @@ import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useI18n, useT } from "@/i18n/provider";
 import { daysUntil } from "@/lib/library/releaseSchedule";
-import type { LibraryFile, LibraryMovie, LibrarySeries } from "@/lib/library/types";
+import type { DashboardFileTechnical, DashboardLibraryMovie, DashboardLibrarySeries } from "@/lib/dashboard/interfaceTypes";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
@@ -21,8 +21,8 @@ interface UpgradeCandidate {
 }
 
 type EditorialLibraryItem =
-  | { type: "movie"; item: DashboardMovie }
-  | { type: "series"; item: LibrarySeries };
+  | { type: "movie"; item: DashboardLibraryMovie }
+  | { type: "series"; item: DashboardLibrarySeries };
 
 type LocalArtwork = {
   /** The library's normal TMDb backdrop, useful before the artwork batch lands. */
@@ -32,7 +32,7 @@ type LocalArtwork = {
   logoPath: string | null;
 };
 type ResolvedArtwork = Pick<LocalArtwork, "backdropPath" | "logoPath"> & { titleEmbedded: boolean };
-type DashboardMovie = LibraryMovie & { plexUrl?: string | null };
+type DashboardMovie = DashboardLibraryMovie;
 
 function moviePlayback(movie: DashboardMovie): DashboardCardPlayback | undefined {
   if (movie.status !== "available" || !movie.file || !movie.plexRatingKey || !movie.plexUrl) return undefined;
@@ -44,7 +44,7 @@ function moviePlayback(movie: DashboardMovie): DashboardCardPlayback | undefined
   };
 }
 
-function technicalFromFile(file: LibraryFile | null | undefined): DashboardCardTechnical | undefined {
+function technicalFromFile(file: DashboardFileTechnical | null | undefined): DashboardCardTechnical | undefined {
   if (!file) return undefined;
   const { resolution, videoCodec, audioCodec, hdr } = file;
   return resolution || videoCodec || audioCodec || hdr ? { resolution, videoCodec, audioCodec, hdr } : undefined;
@@ -77,8 +77,8 @@ export function DashboardRows({
   minYear,
 }: {
   sections: DashboardLayout["sections"];
-  movies: DashboardMovie[];
-  series: LibrarySeries[];
+  movies: DashboardLibraryMovie[];
+  series: DashboardLibrarySeries[];
   minYear?: number | null;
 }) {
   const t = useT();
@@ -150,7 +150,7 @@ export function DashboardRows({
         .filter((m) => m.status === "available" && afterMinYear(m))
         .map((item) => ({ type: "movie", item }));
       const availableSeries: EditorialLibraryItem[] = series
-        .filter((s) => s.seasons.some((season) => season.episodes.some((episode) => episode.status === "available")) && afterMinYear(s))
+        .filter((s) => s.hasAvailableEpisode && afterMinYear(s))
         .map((item) => ({ type: "series", item }));
       return [...availableMovies, ...availableSeries]
         .sort((a, b) => b.item.addedAt - a.item.addedAt)
@@ -176,7 +176,7 @@ export function DashboardRows({
       movies
         .filter((m) => m.status === "upcoming" && afterMinYear(m))
         .map((m) => ({ m, days: daysUntil(m.vfReleaseDate ?? m.releaseDate) }))
-        .filter((x): x is { m: LibraryMovie; days: number } => x.days !== null)
+        .filter((x): x is { m: DashboardLibraryMovie; days: number } => x.days !== null)
         .sort((a, b) => a.days - b.days)
         .slice(0, 20),
     [movies, afterMinYear]
@@ -278,13 +278,11 @@ export function DashboardRows({
                       episodeNumber: item.episodeNumber,
                   } satisfies DashboardCardPlayback
                   : undefined;
-                const technical = type === "movie"
-                  ? technicalFromFile(movies.find((movie) => movie.tmdbId === item.tmdbId)?.file)
-                  : technicalFromFile(series
-                    .find((show) => show.tmdbId === item.tmdbId)
-                    ?.seasons.find((season) => season.seasonNumber === item.seasonNumber)
-                    ?.episodes.find((episode) => episode.episodeNumber === item.episodeNumber)
-                    ?.file);
+                const technical = item.technical
+                  ? technicalFromFile(item.technical)
+                  : type === "movie"
+                    ? technicalFromFile(movies.find((movie) => movie.tmdbId === item.tmdbId)?.file)
+                    : undefined;
                 return (
                   <CardErrorBoundary key={`${item.type}:${item.tmdbId}:${i}`}>
                     <DashboardPosterCard

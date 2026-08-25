@@ -6,11 +6,18 @@ const BACKOFF_MIN_MS = 1000;
 const BACKOFF_MAX_MS = 30_000;
 
 const EVENT_MUTATIONS: Record<string, string[]> = {
-  library: ["/api/library/movies", "/api/library/series", "/api/activity/v2?tab=wanted", "/api/requests"],
-  download: ["/api/engine/torrents", "/api/activity/v2?tab=queue"],
-  request: ["/api/requests"],
-  notification: ["/api/notifications"],
-  user: ["/api/users"],
+  library: [
+    "/api/library/movies",
+    "/api/library/series",
+    "/api/interface/dashboard",
+    "/api/interface/library-status",
+    "/api/activity/v2?tab=wanted",
+    "/api/requests",
+  ],
+  download: ["/api/engine/torrents", "/api/activity/v2?tab=queue", "/api/interface/summary"],
+  request: ["/api/requests", "/api/interface/summary"],
+  notification: ["/api/notifications", "/api/interface/summary"],
+  user: ["/api/users", "/api/interface/summary"],
   activity: ["/api/activity", "/api/activity/v2?tab=history", "/api/activity/v2?tab=failures", "/api/activity/v2?tab=unlinked"],
 };
 

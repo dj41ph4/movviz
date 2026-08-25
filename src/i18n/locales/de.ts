@@ -1315,6 +1315,21 @@ export const de: Dictionary = {
     tabDiagnostics: "Diagnose",
     tabPerformance: "Leistung",
     tabLogs: "Protokolle",
+    interfaceData: {
+      title: "Lademodus der Benutzeroberfläche",
+      hint: "Legt fest, wie Movviz Oberflächendaten überträgt. Videowiedergabe, FFmpeg und Plex werden dadurch nicht verändert.",
+      global: "Globale Administratoreinstellung — gilt für alle Benutzer.",
+      optimized: {
+        title: "Optimiert (empfohlen)",
+        description: "Lädt nur benötigte Daten, speichert Ergebnisse intelligent und aktualisiert nur Änderungen. Ideal für entfernte Verbindungen.",
+      },
+      compatibility: {
+        title: "Kompatibilität",
+        description: "Stellt das bisherige vollständige Laden der Oberfläche wieder her. Vorübergehend bei einer Regression verwenden.",
+      },
+      saved: "Lademodus für alle Benutzer übernommen.",
+      error: "Der Lademodus konnte nicht geändert werden.",
+    },
     dashboardExperience: {
       animationsTitle: "Animationen",
       animationsEnabled: "Animationen aktivieren",

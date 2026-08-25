@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { useT, useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
 import { TitleMark } from "@/components/media/TitleMark";
@@ -134,18 +135,28 @@ function DiscoverPageInner() {
   // every visit, with a background revalidate keeping it current.
   const { data: keyData, mutate: mutateConfigured } = useSWR<{ configured: boolean }>("/api/metadata/key");
   const configured = keyData?.configured ?? null;
+  const { optimized: optimizedInterface, ready: interfaceModeReady } = useInterfaceDataMode();
+
+  const { data: optimizedStatusData } = useSWR<{
+    movies: { tmdbId: number; status: string }[];
+    series: { tmdbId: number; status: string }[];
+  }>(configured && interfaceModeReady && optimizedInterface ? "/api/interface/library-status" : null);
 
   const { data: moviesData } = useSWR<{ movies: { tmdbId: number; status: string; activeInfoHash: string | null }[] }>(
-    configured ? "/api/library/movies" : null
+    configured && interfaceModeReady && !optimizedInterface ? "/api/library/movies" : null
   );
   const { data: seriesData } = useSWR<{ series: { tmdbId: number; seasons: { episodes: { status: string; activeInfoHash: string | null; monitored: boolean }[] }[] }[] }>(
-    configured ? "/api/library/series" : null
+    configured && interfaceModeReady && !optimizedInterface ? "/api/library/series" : null
   );
   const [libStatus, setLibStatus] = useState<Map<string, string>>(new Map());
   const [libLoaded, setLibLoaded] = useState(false);
   useEffect(() => {
-    if (!moviesData && !seriesData) return;
+    if (!optimizedStatusData && !moviesData && !seriesData) return;
     const m = new Map<string, string>();
+    if (optimizedStatusData) {
+      for (const movie of optimizedStatusData.movies) m.set(`movie:${movie.tmdbId}`, movie.status);
+      for (const series of optimizedStatusData.series) m.set(`series:${series.tmdbId}`, series.status);
+    }
     if (moviesData) {
       for (const x of moviesData.movies) {
         const st = x.activeInfoHash ? "downloading" : x.status;
@@ -167,7 +178,7 @@ function DiscoverPageInner() {
     }
     setLibStatus(m);
     if (!libLoaded) setLibLoaded(true);
-  }, [moviesData, seriesData, libLoaded]);
+  }, [optimizedStatusData, moviesData, seriesData, libLoaded]);
 
   const { data: watchStatusData } = useSWR<{ movies: number[]; episodes: { tmdbId: number; season: number; episode: number }[] }>(
     configured ? "/api/watch-status" : null

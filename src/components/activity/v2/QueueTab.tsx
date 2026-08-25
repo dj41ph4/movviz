@@ -9,6 +9,7 @@ import { useI18n, useT } from "@/i18n/provider";
 import { cn, formatBytes, formatSpeed, formatEta, formatDateTime } from "@/lib/utils";
 import { useSmoothProgress } from "@/lib/media/useSmoothProgress";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
+import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { QueueItem } from "@/lib/activity/v2/types";
@@ -78,6 +79,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const router = useRouter();
   const user = useCurrentUser();
   const reduceMotion = useShouldReduceMotion();
+  const { optimized } = useInterfaceDataMode();
   const btnSpring = reduceMotion ? {} : {
     whileTap: { scale: 0.95 },
     transition: { type: "spring" as const, stiffness: 400, damping: 17 },
@@ -85,8 +87,14 @@ export function QueueTab({ active = true }: { active?: boolean }) {
   const [clearingAll, setClearingAll] = useState(false);
   const SWR_KEY = "/api/activity/v2?tab=queue";
   const { data, error, mutate } = useSWR<{ items: QueueItem[] }>(
-    clearingAll ? null : SWR_KEY,
-    { refreshInterval: 500, dedupingInterval: 250 }
+    clearingAll || !active ? null : SWR_KEY,
+    {
+      refreshInterval: optimized
+        ? (latest) => (latest?.items.some((item) => item.status === "downloading" || item.status === "importing") ? 1_000 : 10_000)
+        : 500,
+      dedupingInterval: optimized ? 750 : 250,
+      revalidateOnFocus: !optimized,
+    }
   );
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);

@@ -1298,6 +1298,21 @@ export const nl: Dictionary = {
     tabDiagnostics: "Diagnostiek",
     tabPerformance: "Prestaties",
     tabLogs: "Logboeken",
+    interfaceData: {
+      title: "Laadmodus van de interface",
+      hint: "Kies hoe Movviz interfacegegevens overdraagt. Deze instelling wijzigt videoweergave, FFmpeg of Plex niet.",
+      global: "Globale beheerdersvoorkeur — geldt voor alle gebruikers.",
+      optimized: {
+        title: "Geoptimaliseerd (aanbevolen)",
+        description: "Laadt alleen nuttige gegevens, bewaart resultaten slim en vernieuwt alleen wat verandert. Ideaal voor externe verbindingen.",
+      },
+      compatibility: {
+        title: "Compatibiliteit",
+        description: "Herstelt het historische volledige laden van de interface. Tijdelijk gebruiken wanneer een scherm een regressie vertoont.",
+      },
+      saved: "Laadmodus toegepast op alle gebruikers.",
+      error: "De laadmodus kon niet worden gewijzigd.",
+    },
     dashboardExperience: {
       animationsTitle: "Animaties",
       animationsEnabled: "Animaties inschakelen",

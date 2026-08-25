@@ -1297,6 +1297,21 @@ export const it: Dictionary = {
     tabDiagnostics: "Diagnostica",
     tabPerformance: "Prestazioni",
     tabLogs: "Registri",
+    interfaceData: {
+      title: "Modalità di caricamento dell’interfaccia",
+      hint: "Scegli come Movviz trasferisce i dati dell’interfaccia. Questa impostazione non modifica la riproduzione video, FFmpeg o Plex.",
+      global: "Preferenza amministratore globale — applicata a tutti gli utenti.",
+      optimized: {
+        title: "Ottimizzata (consigliata)",
+        description: "Carica solo i dati utili, conserva i risultati in modo intelligente e aggiorna solo ciò che cambia. Ideale da remoto.",
+      },
+      compatibility: {
+        title: "Compatibilità",
+        description: "Ripristina il caricamento completo storico dell’interfaccia. Da usare temporaneamente in caso di regressione.",
+      },
+      saved: "Modalità di caricamento applicata a tutti gli utenti.",
+      error: "Impossibile modificare la modalità di caricamento.",
+    },
     dashboardExperience: {
       animationsTitle: "Animazioni",
       animationsEnabled: "Attiva le animazioni",

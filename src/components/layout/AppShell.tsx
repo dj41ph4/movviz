@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import { SWRConfig } from "swr";
@@ -25,6 +25,7 @@ import { useSetupRequired } from "@/lib/auth/useSetupRequired";
 import { GpuProvider } from "@/lib/gpu/GpuProvider";
 import { PlayerProvider } from "@/lib/player/PlayerProvider";
 import { AppErrorBoundary } from "@/components/ui/AppErrorBoundary";
+import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 
 /**
  * Shared data-fetch cache for the whole session. SWR keeps its cache keyed
@@ -53,6 +54,17 @@ const swrConfig = {
   revalidateOnFocus: true,
   dedupingInterval: 2000,
 };
+
+function InterfaceSWRPolicy({ children }: { children: React.ReactNode }) {
+  const { optimized } = useInterfaceDataMode();
+  const policy = useMemo(
+    () => optimized
+      ? { revalidateOnFocus: false, revalidateOnReconnect: true, dedupingInterval: 15_000 }
+      : { revalidateOnFocus: true, dedupingInterval: 2_000 },
+    [optimized],
+  );
+  return <SWRConfig value={policy}>{children}</SWRConfig>;
+}
 
 function PendingApprovalScreen({ username }: { username: string }) {
   const t = useT();
@@ -144,6 +156,7 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
       <SWRConfig value={swrConfig}>
         <I18nProvider>
           <VersionProvider version={version}>
+            <InterfaceSWRPolicy>
             <CommandPaletteProvider>
               <PlayerProvider>
                 <Suspense fallback={null}>
@@ -176,6 +189,7 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
                 </Suspense>
               </PlayerProvider>
             </CommandPaletteProvider>
+            </InterfaceSWRPolicy>
           </VersionProvider>
         </I18nProvider>
       </SWRConfig>

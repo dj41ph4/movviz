@@ -16,6 +16,8 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
+import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySeries } from "@/lib/dashboard/interfaceTypes";
+import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { DASHBOARD_WIDGET_IDS, DEFAULT_DASHBOARD_LAYOUT, type DashboardWidgetId, type DashboardLayout } from "@/lib/dashboard/types";
 import {
   Film, Tv, HardDriveDownload, Download, Search as SearchIcon, Clock, Compass, ListVideo, AlertCircle,
@@ -50,25 +52,47 @@ const TILE_CLASS = "w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.667rem)] lg:w-[cal
 
 export default function DashboardPage() {
   const t = useT();
+  const { optimized, ready: interfaceModeReady } = useInterfaceDataMode();
+  const { data: optimizedData, error: optimizedError, mutate: mutateOptimized } = useSWR<DashboardInterfaceData>(
+    interfaceModeReady && optimized ? "/api/interface/dashboard" : null,
+  );
   const { data: moviesData, error: moviesError, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
-    "/api/library/movies"
+    interfaceModeReady && !optimized ? "/api/library/movies" : null
   );
   const { data: seriesData, error: seriesError } = useSWR<{ series: LibrarySeries[] }>(
-    "/api/library/series"
-  );
-  const { data: torrentsData, error: torrentsError } = useSWR<{ torrents: EngineTorrent[] }>(
-    "/api/engine/torrents"
+    interfaceModeReady && !optimized ? "/api/library/series" : null
   );
   const { data: layoutData, mutate: mutateLayout } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
   const layout = layoutData?.layout ?? DEFAULT_DASHBOARD_LAYOUT;
+  const { data: torrentsData, error: torrentsError } = useSWR<{ torrents: EngineTorrent[] }>(
+    interfaceModeReady && (!optimized || layout.mode === "compact") ? "/api/engine/torrents" : null
+  );
   const { titlePanel } = useTitlePanel();
 
-  const movies = moviesData?.movies ?? [];
-  const series = seriesData?.series ?? [];
+  const movies: DashboardLibraryMovie[] = optimized ? optimizedData?.movies ?? [] : moviesData?.movies ?? [];
+  const series: DashboardLibrarySeries[] = optimized
+    ? optimizedData?.series ?? []
+    : (seriesData?.series ?? []).map((show) => ({
+        id: show.id,
+        tmdbId: show.tmdbId,
+        title: show.title,
+        year: show.year,
+        posterPath: show.posterPath,
+        backdropPath: show.backdropPath,
+        customBackdropPath: show.customBackdropPath ?? null,
+        customLogoPath: show.customLogoPath ?? null,
+        rating: show.rating,
+        genres: show.genres,
+        addedAt: show.addedAt,
+        hasAvailableEpisode: show.seasons.some((season) => season.episodes.some((episode) => episode.status === "available")),
+      }));
   const torrents = torrentsData?.torrents ?? [];
-  const load = () => mutateMovies();
-  const hasError = moviesError || seriesError || torrentsError;
-  const loading = !hasError && !moviesData && !seriesData && !torrentsData;
+  const compactRecentMovies = optimized
+    ? optimizedData?.compactRecentMovies ?? []
+    : [...(moviesData?.movies ?? [])].sort((a, b) => b.addedAt - a.addedAt).slice(0, 12);
+  const load = () => optimized ? mutateOptimized() : mutateMovies();
+  const hasError = optimized ? optimizedError : moviesError || seriesError || torrentsError;
+  const loading = !hasError && (!interfaceModeReady || (optimized ? !optimizedData : !moviesData && !seriesData && !torrentsData));
 
   const available = movies.filter((m) => m.status === "available");
   // "searching" (actively looking for a release, no torrent grabbed yet) no
@@ -79,9 +103,10 @@ export default function DashboardPage() {
   const downloadingMovies = movies.filter((m) => m.status === "downloading");
   const searchingMovies = movies.filter((m) => m.status === "searching");
   const missing = movies.filter((m) => m.status === "missing");
-  const recentlyAdded = [...movies].sort((a, b) => b.addedAt - a.addedAt).slice(0, 12);
+  const recentlyAdded = compactRecentMovies;
 
-  const monitoredEpisodes = series.flatMap((s) => s.seasons.flatMap((se) => se.episodes)).filter((e) => e.monitored);
+  const legacySeries = seriesData?.series ?? [];
+  const monitoredEpisodes = legacySeries.flatMap((s) => s.seasons.flatMap((se) => se.episodes)).filter((e) => e.monitored);
   const availableEpisodes = monitoredEpisodes.filter((e) => e.status === "available");
   const downloadingEpisodes = monitoredEpisodes.filter((e) => e.status === "downloading");
   const searchingEpisodes = monitoredEpisodes.filter((e) => e.status === "searching");
@@ -90,7 +115,7 @@ export default function DashboardPage() {
   const progressFor = (movie: LibraryMovie) =>
     movie.activeInfoHash ? torrents.find((tr) => tr.infoHash === movie.activeInfoHash) : null;
 
-  const widgetValues: Record<DashboardWidgetId, number> = {
+  const legacyWidgetValues: Record<DashboardWidgetId, number> = {
     movies: movies.length,
     series: series.length,
     episodes: monitoredEpisodes.length,
@@ -101,6 +126,7 @@ export default function DashboardPage() {
     missing: missing.length,
     episodesAvailable: availableEpisodes.length,
   };
+  const widgetValues = optimized ? optimizedData?.widgetValues ?? legacyWidgetValues : legacyWidgetValues;
 
   const widgetLabels: Record<DashboardWidgetId, string> = {
     movies: t("dashboard.stats.movies"),
@@ -273,7 +299,7 @@ export default function DashboardPage() {
       )}
 
       {richMode ? (
-        !loading && !moviesError && !seriesError && movies.length + series.length > 0 && (
+        !loading && !hasError && movies.length + series.length > 0 && (
           <DashboardRows sections={layout.sections} movies={movies} series={series} minYear={layout.hero.minYear} />
         )
       ) : (
@@ -287,7 +313,7 @@ export default function DashboardPage() {
                 ))}
               </div>
             </div>
-          ) : moviesError ? null : movies.length === 0 ? (
+          ) : hasError ? null : movies.length === 0 ? (
             <div className="flex flex-col items-center gap-4 rounded-2xl glass py-20 text-center">
               <Compass className="h-8 w-8 text-brand-glow" />
               <p className="font-semibold text-ink">{t("library.empty")}</p>

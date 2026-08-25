@@ -7,6 +7,7 @@ import { Bell } from "lucide-react";
 import { useT, useI18n } from "@/i18n/provider";
 import { relativeTime } from "@/lib/utils";
 import type { NotificationItem } from "@/lib/notifications/types";
+import { useInterfaceSummary } from "@/lib/interface/useInterfaceSummary";
 
 /**
  * Notifications are stored server-side as kind + params, not a rendered
@@ -27,13 +28,14 @@ export function NotificationBell() {
   const { locale } = useI18n();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const summary = useInterfaceSummary();
 
   // Cached by SWR so the bell state survives navigations without refetching.
-  const { data, mutate } = useSWR<{ items: NotificationItem[] }>(
-    "/api/notifications"
+  const { data, mutate: mutateNotifications } = useSWR<{ items: NotificationItem[] }>(
+    !summary.optimized || open ? "/api/notifications" : null
   );
   const items = data?.items ?? [];
-  const load = () => mutate();
+  const load = () => mutateNotifications();
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -43,13 +45,15 @@ export function NotificationBell() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const unread = items.filter((i) => !i.read).length;
+  const unread = summary.optimized
+    ? summary.data?.unreadNotifications ?? 0
+    : items.filter((i) => !i.read).length;
 
   const toggle = async () => {
     setOpen((o) => !o);
     if (!open && unread > 0) {
       await fetch("/api/notifications", { method: "POST" });
-      load();
+      await Promise.all([load(), summary.mutate()]);
     }
   };
 

@@ -266,7 +266,7 @@ export function memoizeByFileMtimes<T>(key: string, files: string[], compute: ()
     .map((f) => {
       try {
         const s = fs.statSync(f);
-        return `${s.mtimeMs}:${s.size}`;
+        return `${s.mtimeMs}:${s.size}:${cache.get(f)?.pending ? "pending" : "disk"}`;
       } catch {
         return "missing";
       }
@@ -296,7 +296,7 @@ export async function memoizeByFileMtimesAsync<T>(
     .map((f) => {
       try {
         const s = fs.statSync(f);
-        return `${s.mtimeMs}:${s.size}`;
+        return `${s.mtimeMs}:${s.size}:${cache.get(f)?.pending ? "pending" : "disk"}`;
       } catch {
         return "missing";
       }

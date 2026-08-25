@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
+import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 
 interface Title {
   id: string;
@@ -59,9 +60,17 @@ export function CommandPaletteProvider({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const requestIdRef = useRef(0);
+  const { optimized, ready: interfaceModeReady } = useInterfaceDataMode();
 
   useEffect(() => {
-    if (!isOpen || titles.length > 0) return;
+    if (!isOpen || !interfaceModeReady || titles.length > 0) return;
+    if (optimized) {
+      fetch("/api/interface/search?limit=4", { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : null))
+        .then((data: { titles?: Title[] } | null) => setTitles(data?.titles ?? []))
+        .catch(() => {});
+      return;
+    }
     Promise.all([
       fetch("/api/library/movies", { cache: "no-store" }).then((r) => r.json()),
       fetch("/api/library/series", { cache: "no-store" }).then((r) => r.json()),
@@ -74,7 +83,7 @@ export function CommandPaletteProvider({
       ]);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, optimized, interfaceModeReady, titles.length]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -105,11 +114,13 @@ export function CommandPaletteProvider({
   // (the classic search-race bug: type "a", then "ab", and "a"'s results
   // arrive last and overwrite "ab"'s).
   useEffect(() => {
+    if (!interfaceModeReady) return;
     const q = query.trim();
     debounceRef.current && clearTimeout(debounceRef.current);
     abortRef.current?.abort();
 
     if (!q) {
+      if (optimized) setTitles([]);
       setTmdbHits([]);
       setSearching(false);
       return;
@@ -120,10 +131,16 @@ export function CommandPaletteProvider({
     debounceRef.current = setTimeout(() => {
       const controller = new AbortController();
       abortRef.current = controller;
-      fetch(`/api/metadata/search?q=${encodeURIComponent(q)}`, { signal: controller.signal, cache: "no-store" })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((d: { results?: TmdbHit[] } | null) => {
+      const catalogRequest = fetch(`/api/metadata/search?q=${encodeURIComponent(q)}`, { signal: controller.signal, cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null)) as Promise<{ results?: TmdbHit[] } | null>;
+      const localRequest = optimized
+        ? fetch(`/api/interface/search?q=${encodeURIComponent(q)}&limit=8`, { signal: controller.signal, cache: "no-store" })
+            .then((r) => (r.ok ? r.json() : null)) as Promise<{ titles?: Title[] } | null>
+        : Promise.resolve(null);
+      Promise.all([catalogRequest, localRequest])
+        .then(([d, local]) => {
           if (requestIdRef.current !== myRequestId) return; // a newer query already superseded this one
+          if (optimized) setTitles(local?.titles ?? []);
           setTmdbHits(d?.results?.slice(0, 6) ?? []);
           setSearching(false);
         })
@@ -136,7 +153,7 @@ export function CommandPaletteProvider({
     return () => {
       debounceRef.current && clearTimeout(debounceRef.current);
     };
-  }, [query]);
+  }, [query, optimized, interfaceModeReady]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
