@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,6 +46,7 @@ import com.movviz.tv.ui.theme.tvPointerClick
 fun ProfileTile(
     profile: TvProfile,
     selected: Boolean,
+    active: Boolean,
     onFocus: () -> Unit,
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
@@ -53,7 +55,7 @@ fun ProfileTile(
     val shape = RoundedCornerShape(12.dp)
     Surface(
         onClick = onClick,
-        modifier = Modifier.width(336.dp).height(76.dp)
+        modifier = Modifier.width(390.dp).height(86.dp)
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .onFocusChanged { focused = it.isFocused; if (it.isFocused) onFocus() }
             .tvPointerClick(onClick),
@@ -67,9 +69,12 @@ fun ProfileTile(
         ),
     ) {
         Row(Modifier.fillMaxSize().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            ProfileAvatar(profile, Modifier.size(54.dp), 10.dp)
+            ProfileAvatar(profile, Modifier.size(62.dp), 12.dp)
             Spacer(Modifier.width(14.dp))
-            Text(profile.name, color = if (focused || selected) Color.White else Color.White.copy(alpha = .72f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Column(Modifier.weight(1f)) {
+                Text(profile.name, color = if (focused || selected) Color.White else Color.White.copy(alpha = .72f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Clip, lineHeight = 21.sp)
+                if (active) Text("Profil actif", color = MovvizBrand2, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 3.dp))
+            }
         }
     }
 }
@@ -79,7 +84,7 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     val shape = RoundedCornerShape(12.dp)
     Surface(
         onClick = onClick,
-        modifier = Modifier.width(336.dp).height(68.dp)
+        modifier = Modifier.width(390.dp).height(72.dp)
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape),

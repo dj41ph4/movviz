@@ -69,6 +69,12 @@ interface MovvizApiService {
     @GET("api/dashboard/hero")
     suspend fun dashboardHero(): Response<DashboardHeroResponseDto>
 
+    // Snapshot compact destiné aux clients Android. Il remplace les deux
+    // appels complets movies() + series() au démarrage, tout en gardant les
+    // routes historiques comme repli pour les anciens serveurs.
+    @GET("api/interface/dashboard")
+    suspend fun interfaceDashboard(): Response<InterfaceDashboardDto>
+
     @GET("api/metadata/images")
     suspend fun metadataImages(
         @Query("tmdbId") tmdbId: Int,

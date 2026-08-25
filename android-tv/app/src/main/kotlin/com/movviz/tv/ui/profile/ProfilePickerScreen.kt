@@ -23,6 +23,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -39,8 +40,11 @@ import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizAmber
 import kotlinx.coroutines.delay
 
-/** Sélecteur 10-foot : liste compacte à gauche, aperçu du profil focalisé à
- * droite. Ainsi, les profils restent tous visibles sans tuiles surdimensionnées. */
+/**
+ * Foyer 10-foot : la navigation reste une liste très lisible au D-pad tandis
+ * que le profil focalisé compose un vrai écran d'accueil à droite. Aucun
+ * profil n'est choisi implicitement : seul l'appui central ouvre sa session.
+ */
 @Composable
 fun ProfilePickerScreen(
     profiles: List<TvProfile>, activeProfile: TvProfile?, notice: String?,
@@ -64,25 +68,41 @@ fun ProfilePickerScreen(
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Color(0xFF090A10))) {
-        Box(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(560.dp)
-            .background(Brush.horizontalGradient(listOf(Color(0xFF090A10), Color(0xFF151626), Color(0xFF10111B)))))
-        Row(Modifier.fillMaxSize().padding(start = 64.dp, end = 86.dp, top = 44.dp, bottom = 44.dp)) {
-            Column(Modifier.width(360.dp).fillMaxHeight()) {
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.radialGradient(
+                colors = listOf(Color(0xFF32205D), Color(0xFF11121D), Color(0xFF07080E)),
+                radius = 1_250f,
+            ),
+        ),
+    ) {
+        Box(
+            Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(690.dp)
+                .background(Brush.horizontalGradient(listOf(Color(0xFF0A0B12).copy(.04f), Color(0xFF10111B).copy(.76f), Color(0xFF090A10))))
+        )
+        Row(Modifier.fillMaxSize().padding(start = 76.dp, end = 94.dp, top = 52.dp, bottom = 48.dp)) {
+            Column(Modifier.width(410.dp).fillMaxHeight()) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    AnimatedLogo(size = 34.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Text("MOVVIZ", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black, letterSpacing = 1.5.sp)
+                    AnimatedLogo(size = 38.dp)
+                    Spacer(Modifier.width(12.dp))
+                    Text("MOVVIZ", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
                 }
-                Spacer(Modifier.height(38.dp))
-                Text("Choisir un profil", style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Bold, color = Color.White))
-                Spacer(Modifier.height(6.dp))
-                Text("Continuez là où vous vous êtes arrêté.", color = Color.White.copy(alpha = .56f), fontSize = 14.sp)
+                Spacer(Modifier.height(50.dp))
+                Text("Qui regarde ?", style = TextStyle(fontSize = 38.sp, fontWeight = FontWeight.Black, color = Color.White))
+                Spacer(Modifier.height(8.dp))
+                Text("Vos reprises, favoris et recommandations restent personnels.", color = Color.White.copy(alpha = .62f), fontSize = 15.sp, lineHeight = 21.sp)
                 shownNotice?.let { Text(it, color = MovvizAmber, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 14.dp)) }
-                Spacer(Modifier.height(22.dp))
-                TvLazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Spacer(Modifier.height(28.dp))
+                TvLazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(visibleProfiles, key = { it.id }) { profile ->
-                        ProfileTile(profile, profile.id == previewProfile?.id, { previewProfile = profile }, { onSelect(profile) }, if (visibleProfiles.firstOrNull()?.id == profile.id) firstTileFocus else null)
+                        ProfileTile(
+                            profile = profile,
+                            selected = profile.id == previewProfile?.id,
+                            active = profile.id == activeProfile?.id,
+                            onFocus = { previewProfile = profile },
+                            onClick = { onSelect(profile) },
+                            focusRequester = if (visibleProfiles.firstOrNull()?.id == profile.id) firstTileFocus else null,
+                        )
                     }
                     item { ProfileAddRow(onAdd, if (visibleProfiles.isEmpty()) firstTileFocus else null) }
                 }
@@ -95,17 +115,30 @@ fun ProfilePickerScreen(
 
 @Composable
 private fun ProfilePreview(profile: TvProfile?) {
-    Column(Modifier.width(410.dp).fillMaxHeight().padding(top = 90.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+    Box(Modifier.width(560.dp).fillMaxHeight()) {
         profile?.let {
-            ProfileAvatar(it, Modifier.size(210.dp), 22.dp)
-            Spacer(Modifier.height(22.dp))
-            Text(it.name, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Spacer(Modifier.height(8.dp))
-            Text("Votre espace Movviz", color = Color.White.copy(alpha = .60f), fontSize = 15.sp)
-            Text("Reprendre vos films, vos séries et vos recommandations personnalisées.", color = Color.White.copy(alpha = .48f), fontSize = 14.sp, lineHeight = 20.sp, modifier = Modifier.width(300.dp).padding(top = 28.dp))
-        } ?: run {
-            Text("Ajoutez un utilisateur", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Bold)
-            Text("Connectez un compte local ou Plex pour commencer.", color = Color.White.copy(alpha = .58f), fontSize = 14.sp, modifier = Modifier.padding(top = 8.dp))
+            // L'avatar devient l'identité visuelle du foyer. Il reste discret
+            // en fond pour ne jamais nuire à la lisibilité 10-foot.
+            ProfileAvatar(it, Modifier.align(Alignment.TopEnd).padding(top = 28.dp, end = 22.dp).size(390.dp).alpha(.16f), 42.dp)
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(listOf(Color.Transparent, Color(0xFF10111B).copy(.20f), Color(0xFF10111B))),
+                ),
+            )
+            Column(Modifier.align(Alignment.BottomStart).padding(start = 36.dp, bottom = 72.dp).width(430.dp)) {
+                Text("PROFIL SÉLECTIONNÉ", color = Color(0xFFC39AFF), fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 1.8.sp)
+                Spacer(Modifier.height(16.dp))
+                ProfileAvatar(it, Modifier.size(126.dp), 20.dp)
+                Spacer(Modifier.height(20.dp))
+                Text(it.name, color = Color.White, fontSize = 36.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Clip, lineHeight = 42.sp)
+                Spacer(Modifier.height(10.dp))
+                Text("Reprendre exactement là où vous vous êtes arrêté, avec vos recommandations personnelles.", color = Color.White.copy(alpha = .64f), fontSize = 16.sp, lineHeight = 23.sp)
+                Spacer(Modifier.height(24.dp))
+                Text("Appuyez sur OK pour continuer", color = Color.White.copy(alpha = .82f), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+        } ?: Column(Modifier.align(Alignment.Center).width(390.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text("Ajoutez un utilisateur", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
+            Text("Connectez un compte local ou Plex pour commencer.", color = Color.White.copy(alpha = .58f), fontSize = 15.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 10.dp))
         }
     }
 }

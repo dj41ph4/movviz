@@ -28,7 +28,9 @@ data class LibraryMovieDto(
     val tmdbId: Int,
     val title: String,
     val year: Int?,
-    val overview: String,
+    // Absent de /api/interface/dashboard : le snapshot d'accueil n'a pas
+    // besoin du synopsis, la fiche le charge ensuite avec metadata/detail.
+    val overview: String = "",
     val posterPath: String?,
     val backdropPath: String?,
     val rating: Double,
@@ -55,7 +57,8 @@ data class LibrarySeriesDto(
     val tmdbId: Int,
     val title: String,
     val year: Int?,
-    val overview: String,
+    // Absent de /api/interface/dashboard (voir commentaire équivalent film).
+    val overview: String = "",
     val posterPath: String?,
     val backdropPath: String?,
     val rating: Double,
@@ -64,6 +67,15 @@ data class LibrarySeriesDto(
     // côté TV permet d'afficher une saison manquante avant même qu'un fichier
     // Plex existe, afin de proposer sa recherche ciblée.
     val seasons: List<SeriesSeasonDto> = emptyList(),
+)
+
+/** Instantané léger de la bibliothèque pour les écrans d'accueil Android.
+ * Cette forme est fournie par /api/interface/dashboard et contient les mêmes
+ * champs utiles à l'UI que les deux routes de bibliothèque historiques. */
+@JsonClass(generateAdapter = true)
+data class InterfaceDashboardDto(
+    val movies: List<LibraryMovieDto> = emptyList(),
+    val series: List<LibrarySeriesDto> = emptyList(),
 )
 
 // Champs qualité confirmés en direct contre /api/library/movies (RoboCop :

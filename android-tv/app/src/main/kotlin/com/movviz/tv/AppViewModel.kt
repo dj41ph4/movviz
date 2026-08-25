@@ -595,23 +595,37 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
 
     private suspend fun refreshLibraryNow() = coroutineScope {
         val repo = repository ?: return@coroutineScope
-        // Les deux appels sont indépendants — les lancer en parallèle
-        // (async/await) plutôt qu'en séquence coupe en deux le temps
-        // avant que l'accueil affiche quoi que ce soit, notable sur un
-        // NAS/serveur distant où chaque aller-retour coûte cher.
+        // Un aller-retour compact remplace les deux listes complètes sur les
+        // serveurs récents. Le repli conserve la compatibilité d'un serveur
+        // plus ancien ou d'une réponse momentanément indisponible.
+        when (val snapshot = repo.interfaceDashboard()) {
+            is ApiResult.Success -> {
+                _movies.value = snapshot.data.movies
+                _series.value = snapshot.data.series
+                return@coroutineScope
+            }
+            ApiResult.Unauthorized -> {
+                _sessionExpired.value = true
+                return@coroutineScope
+            }
+            is ApiResult.Failure -> Unit
+        }
+
+        // Repli historique : les deux appels restent parallèles afin de ne
+        // jamais pénaliser les installations qui n'ont pas encore la route.
         val moviesDeferred = async { repo.movies() }
         val seriesDeferred = async { repo.series() }
-            when (val m = moviesDeferred.await()) {
-                is ApiResult.Success -> _movies.value = m.data
-                ApiResult.Unauthorized -> _sessionExpired.value = true
-                is ApiResult.Failure -> Unit // best-effort — l'écran affiche une liste vide plutôt que de planter
-            }
-            when (val s = seriesDeferred.await()) {
-                is ApiResult.Success -> _series.value = s.data
-                ApiResult.Unauthorized -> _sessionExpired.value = true
-                is ApiResult.Failure -> Unit
-            }
+        when (val m = moviesDeferred.await()) {
+            is ApiResult.Success -> _movies.value = m.data
+            ApiResult.Unauthorized -> _sessionExpired.value = true
+            is ApiResult.Failure -> Unit
         }
+        when (val s = seriesDeferred.await()) {
+            is ApiResult.Success -> _series.value = s.data
+            ApiResult.Unauthorized -> _sessionExpired.value = true
+            is ApiResult.Failure -> Unit
+        }
+    }
 
     /** Même sélection éditoriale personnalisée que le dashboard web. En cas
      * d'indisponibilité, HomeScreen conserve son hero issu de la bibliothèque. */

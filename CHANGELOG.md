@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.52 — August 2026
+
+### Applications Android : démarrage plus rapide, correctif lecture d'épisodes
+
+Les applications TV et mobile chargent désormais la bibliothèque au démarrage via un instantané compact unique au lieu de deux appels complets, avec repli automatique sur l'ancien comportement si besoin. Correctif aussi sur les séries mêlant épisodes Plex et locaux : la source de lecture est maintenant déterminée épisode par épisode plutôt que déduite de la série entière, ce qui provoquait une erreur de lecture sur certains épisodes. Écran de sélection de profil TV retravaillé.
+
 ## v1.19.51 — August 2026
 
 ### Chat intelligent : durée et qualité de fichier inventées, corrigé

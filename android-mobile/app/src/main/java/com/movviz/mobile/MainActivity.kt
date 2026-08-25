@@ -320,7 +320,32 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
 
     fun loadQueue() { val r = repo ?: return; viewModelScope.launch { when (val q = r.queue()) { is ApiResult.Success -> _queue.value = q.data.filter { it.status != "completed" && it.status != "seeding" }; else -> Unit } } }
 
-    private fun refresh(r: MovvizRepository) { viewModelScope.launch { launch { (r.dashboardHero() as? ApiResult.Success)?.let { _hero.value = it.data; preloadHeroLogos(it.data) } }; launch { (r.movies() as? ApiResult.Success)?.let { _movies.value = it.data } }; launch { (r.series() as? ApiResult.Success)?.let { _series.value = it.data } }; launch { loadAiSession() }; launch { loadQueue() } } }
+    private fun refresh(r: MovvizRepository) {
+        viewModelScope.launch {
+            launch {
+                (r.dashboardHero() as? ApiResult.Success)?.let {
+                    _hero.value = it.data
+                    preloadHeroLogos(it.data)
+                }
+            }
+            launch {
+                // Même snapshot compact que la TV : un seul appel à travers
+                // Internet. Le repli protège les serveurs plus anciens.
+                when (val snapshot = r.interfaceDashboard()) {
+                    is ApiResult.Success -> {
+                        _movies.value = snapshot.data.movies
+                        _series.value = snapshot.data.series
+                    }
+                    else -> {
+                        (r.movies() as? ApiResult.Success)?.let { _movies.value = it.data }
+                        (r.series() as? ApiResult.Success)?.let { _series.value = it.data }
+                    }
+                }
+            }
+            launch { loadAiSession() }
+            launch { loadQueue() }
+        }
+    }
 
     // ── Fiche ──
     fun loadDetail(type: String, tmdbId: Int) {
@@ -340,7 +365,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     fun libraryMovieStatus(tmdbId: Int): String? = _movies.value.firstOrNull { it.tmdbId == tmdbId }?.status
     fun libraryMovieFile(tmdbId: Int): LibraryFileDto? = _movies.value.firstOrNull { it.tmdbId == tmdbId }?.file
     fun libraryPlexRatingKey(type: String, tmdbId: Int): String? = if (type == "movie") _movies.value.firstOrNull { it.tmdbId == tmdbId }?.plexRatingKey else null
-    private fun seriesLibraryId(tmdbId: Int): String? = _series.value.firstOrNull { it.tmdbId == tmdbId }?.id
+    fun seriesLibraryId(tmdbId: Int): String? = _series.value.firstOrNull { it.tmdbId == tmdbId }?.id
 
     private fun loadSeriesSeasonsInternal(tmdbId: Int) {
         val r = repo ?: return; val seriesId = seriesLibraryId(tmdbId) ?: return
@@ -1141,6 +1166,7 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                 }
                 // Saisons (séries)
                 if (type == "series") {
+                    val localSeriesId = vm.seriesLibraryId(tmdbId)
                     if (!inLibrary) {
                         item { Box(Modifier.padding(horizontal = 20.dp, vertical = 14.dp).fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surface).padding(14.dp)) { Text("Ajoute la série pour voir ses saisons et épisodes.", color = TextMuted, fontSize = 12.sp, lineHeight = 16.sp) } }
                     } else if (seasons.isEmpty()) {
@@ -1163,7 +1189,13 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                                             val metaEp = meta?.episodes?.firstOrNull { it.episodeNumber == ep.episodeNumber }
                                             val epStatus = when (ep.status) { "available" -> "Dispo"; "missing" -> "Manquant"; "downloading" -> "Téléchargement"; "searching" -> "Recherche"; else -> ep.status }
                                             val epColor = when (ep.status) { "available" -> Cyan; "downloading","searching" -> VioletSoft; "missing" -> Color(0xFFFF6B8A); else -> TextFaint }
-                                            val epRatingKey = ep.plexRatingKey
+                                            val episodeTarget = episodePlaybackTarget(
+                                                seriesId = localSeriesId,
+                                                plexRatingKey = ep.plexRatingKey,
+                                                playbackSource = ep.playbackSource,
+                                                seasonNumber = ep.seasonNumber,
+                                                episodeNumber = ep.episodeNumber,
+                                            )
                                             val epBaseUrl = vm.getBaseUrl()
                                             val epContext = LocalContext.current
                                             val hapticEp = LocalHapticFeedback.current
@@ -1181,28 +1213,37 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                                                         metaEp?.airDate?.let { Text(it, color = TextFaint, fontSize = 10.sp) }
                                                     }
                                                 }
-                                                if (ep.status == "available" && epRatingKey != null && epBaseUrl != null) {
+                                                if (ep.status == "available" && episodeTarget != null && epBaseUrl != null) {
                                                     Spacer(Modifier.width(8.dp))
                                                     // Hitbox 44dp (WCAG) — visuel 36dp reste identique
                                                     Box(Modifier.size(44.dp).clip(CircleShape).clickable {
                                                         hapticEp.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                        // Queue épisodes : tous les disponibles de la saison → next/prev en place
-                                                        val avail = season.episodes.filter { it.plexRatingKey != null && it.status == "available" }.sortedBy { it.episodeNumber }
-                                                        val idx = avail.indexOfFirst { it.episodeNumber == ep.episodeNumber }.coerceAtLeast(0)
-                                                        val queue = avail.map { ae ->
+                                                        // Une série peut mixer des épisodes Plex et locaux. La
+                                                        // source est choisie par épisode, jamais par série.
+                                                        val avail = season.episodes.mapNotNull { available ->
+                                                            episodePlaybackTarget(
+                                                                seriesId = localSeriesId,
+                                                                plexRatingKey = available.plexRatingKey,
+                                                                playbackSource = available.playbackSource,
+                                                                seasonNumber = available.seasonNumber,
+                                                                episodeNumber = available.episodeNumber,
+                                                            )?.takeIf { available.status == "available" }?.let { available to it }
+                                                        }.sortedBy { it.first.episodeNumber }
+                                                        val idx = avail.indexOfFirst { it.first.episodeNumber == ep.episodeNumber }.coerceAtLeast(0)
+                                                        val queue = avail.map { (ae, target) ->
                                                             val aeMeta = seasonMeta[vm.seasonMetadataKey(tmdbId, season.seasonNumber)]?.episodes?.firstOrNull { it.episodeNumber == ae.episodeNumber }
                                                             com.movviz.mobile.player.PlayerQueueItem(
-                                                                ratingKey = ae.plexRatingKey!!,
+                                                                ratingKey = target.ratingKey,
                                                                 label = "S${ae.seasonNumber}:E${ae.episodeNumber} · ${aeMeta?.title?.takeIf { it.isNotBlank() } ?: ae.title}",
                                                                 seasonNumber = ae.seasonNumber,
-                                                                episodeNumber = ae.episodeNumber
+                                                                episodeNumber = ae.episodeNumber,
+                                                                localKey = target.localSeriesId,
                                                             )
                                                         }
-                                                        val intent = if (queue.size > 1) {
-                                                            com.movviz.mobile.player.PlayerActivity.forQueue(epContext, epBaseUrl, "series", tmdbId, d.title, queue, idx, posterPath = d.posterPath)
-                                                        } else {
-                                                            com.movviz.mobile.player.PlayerActivity.forMovie(epContext, epBaseUrl, epRatingKey, tmdbId, metaEp?.title ?: ep.title, d.posterPath)
-                                                        }
+                                                        val intent = com.movviz.mobile.player.PlayerActivity.forQueue(
+                                                            epContext, epBaseUrl, "series", tmdbId, d.title,
+                                                            queue, idx, posterPath = d.posterPath,
+                                                        )
                                                         epContext.startActivity(intent)
                                                     }, contentAlignment = Alignment.Center) {
                                                         Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {

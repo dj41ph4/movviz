@@ -83,6 +83,10 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun dashboardHero(): ApiResult<List<DashboardHeroSlideDto>> =
         safeCall { api.dashboardHero() }.map { it.slides }
 
+    /** Bibliothèque compacte commune aux clients TV et mobile. */
+    suspend fun interfaceDashboard(): ApiResult<InterfaceDashboardDto> =
+        safeCall { api.interfaceDashboard() }
+
     suspend fun metadataImages(type: String, tmdbId: Int): ApiResult<MetadataImagesDto> =
         safeCall { api.metadataImages(tmdbId, type) }
 

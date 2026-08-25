@@ -50,6 +50,7 @@ import androidx.tv.material3.Text
 import coil.compose.rememberAsyncImagePainter
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ApiResult
+import com.movviz.tv.data.episodePlaybackTarget
 import com.movviz.tv.data.SeriesEpisodeDto
 import com.movviz.tv.data.SeriesSeasonDto
 import com.movviz.tv.data.MetadataEpisodeDto
@@ -291,17 +292,24 @@ fun TitleDetailScreen(
     // File de lecture épisode par épisode — à plat sur toutes les saisons,
     // dans l'ordre d'affichage, pour que suivant/précédent dans le lecteur
     // puisse traverser une frontière de saison naturellement (S1E10 → S2E1).
-    val playableEpisodes = remember(seasons) {
+    val playableEpisodes = remember(seasons, localSeriesId) {
         seasons.flatMap { season ->
             season.episodes
-                .filter { (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available" }
-                .map { ep ->
+                .mapNotNull { ep ->
+                    if (ep.status != "available") return@mapNotNull null
+                    val target = episodePlaybackTarget(
+                        seriesId = localSeriesId,
+                        plexRatingKey = ep.plexRatingKey,
+                        playbackSource = ep.playbackSource,
+                        seasonNumber = season.seasonNumber,
+                        episodeNumber = ep.episodeNumber,
+                    ) ?: return@mapNotNull null
                     QueueItem(
-                        ratingKey = ep.plexRatingKey ?: "${localSeriesId}:s${season.seasonNumber}e${ep.episodeNumber}",
+                        ratingKey = target.ratingKey,
                         label = "S${season.seasonNumber} · Ép ${ep.episodeNumber} · ${ep.title}",
                         seasonNumber = season.seasonNumber,
                         episodeNumber = ep.episodeNumber,
-                        localKey = localSeriesId,
+                        localKey = target.localSeriesId,
                     )
                 }
         }
