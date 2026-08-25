@@ -1,9 +1,10 @@
-import { loadPlexConfig } from "./store";
-import { setPlexWatched, deletePlexItem, getPlexOnDeck, type PlexOnDeckItem } from "./client";
+import { loadPlexConfig, savePlexConfig } from "./store";
+import { setPlexWatched, deletePlexItem, getPlexOnDeck, getPlexServerAccessToken, getServerIdentity, switchPlexHomeUser, type PlexOnDeckItem } from "./client";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
 import type { PlexServerConfig } from "./types";
+import { updateUser } from "@/lib/auth/store";
 
 /**
  * Movviz → Plex (demande explicite user — "bidirectionnel"). Push a
@@ -22,25 +23,84 @@ import type { PlexServerConfig } from "./types";
  * sync yet (no known ratingKey) — never blocks or breaks the local toggle
  * either way (callers fire-and-forget this).
  */
-export function resolveToken(user: User, cfg: { adminToken: string | null }): { token: string; managedUserId?: string } | null {
-  if (user.plexToken) return { token: user.plexToken };
-  if (user.plexManagedUserId && cfg.adminToken) return { token: cfg.adminToken, managedUserId: user.plexManagedUserId };
+export function resolveToken(user: User, cfg: { adminToken: string | null }): { token: string } | null {
+  // Never fall back to an account token or `X-Plex-Profile` here.  Those
+  // credentials are not a reliable PMS identity and were the source of the
+  // cross-profile history/resume leak.  Calls that can await use
+  // `resolvePlexServerAuth`, which exchanges the account token for the real
+  // server-scoped token first.
+  if (user.plexServerToken) return { token: user.plexServerToken };
+  if (user.role === "admin" && user.plexToken && user.plexToken === cfg.adminToken) return { token: user.plexToken };
   return null;
+}
+
+export interface PlexServerAuth {
+  token: string;
+  source: "owner" | "account" | "managed";
+}
+
+function isOwnerAccount(user: User, cfg: PlexServerConfig) {
+  return user.role === "admin" && !!cfg.adminToken && user.plexToken === cfg.adminToken;
+}
+
+async function ensureMachineIdentifier(cfg: PlexServerConfig): Promise<string | null> {
+  if (cfg.machineIdentifier) return cfg.machineIdentifier;
+  const machineIdentifier = await getServerIdentity(cfg);
+  if (!machineIdentifier) return null;
+  savePlexConfig({ ...cfg, machineIdentifier });
+  return machineIdentifier;
+}
+
+/**
+ * Obtain an actual PMS credential for this Movviz user.  Plex account tokens
+ * identify a plex.tv session, not necessarily a media-server profile; Home
+ * profiles additionally require `/home/users/{id}/switch`, then a resources
+ * exchange for this specific server.  Persisting only the resulting
+ * server-scoped token avoids an extra plex.tv round-trip on every card row.
+ */
+export async function resolvePlexServerAuth(user: User, cfg: PlexServerConfig): Promise<PlexServerAuth | null> {
+  if (!cfg.hostname) return null;
+  if (isOwnerAccount(user, cfg) && cfg.adminToken) return { token: cfg.adminToken, source: "owner" };
+  if (user.plexServerToken) return { token: user.plexServerToken, source: user.plexManagedUserId ? "managed" : "account" };
+  if (!cfg.adminToken) return null;
+
+  const machineIdentifier = await ensureMachineIdentifier(cfg);
+  if (!machineIdentifier) return null;
+
+  let accountToken = user.plexToken;
+  let source: PlexServerAuth["source"] = "account";
+  if (!accountToken && user.plexManagedUserId) {
+    accountToken = await switchPlexHomeUser(cfg.clientId, cfg.adminToken, user.plexManagedUserId);
+    source = "managed";
+  }
+  if (!accountToken) return null;
+
+  const serverToken = await getPlexServerAccessToken(cfg.clientId, accountToken, machineIdentifier);
+  if (!serverToken) {
+    recordSearchLog(
+      "warn",
+      "plex.profileAuth",
+      `${user.username}: Plex n'a pas fourni de jeton d'accès pour ce serveur — données Plex personnelles ignorées, données Movviz locales conservées.`
+    );
+    return null;
+  }
+  updateUser(user.id, { plexServerToken: serverToken });
+  return { token: serverToken, source };
 }
 
 export async function pushMovieWatchedToPlex(user: User, tmdbId: number, watched: boolean): Promise<void> {
   const cfg = loadPlexConfig();
   if (!cfg.hostname) return;
-  const auth = resolveToken(user, cfg);
+  const auth = await resolvePlexServerAuth(user, cfg);
   if (!auth) return;
   const movie = getMovieByTmdbId(tmdbId);
   if (!movie?.plexRatingKey) return;
 
-  const ok = await setPlexWatched(cfg, auth.token, movie.plexRatingKey, watched, auth.managedUserId);
+  const ok = await setPlexWatched(cfg, auth.token, movie.plexRatingKey, watched);
   recordSearchLog(
     ok ? "info" : "warn",
     "plex.watchWrite",
-    `${user.username} (plexId:${user.plexId ?? "?"}${auth.managedUserId ? `, managed:${auth.managedUserId}` : ""}) — « ${movie.title} » ${watched ? "marqué vu" : "marqué non vu"} sur Plex : ${ok ? "ok" : "échec"}`
+    `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${movie.title} » ${watched ? "marqué vu" : "marqué non vu"} sur Plex : ${ok ? "ok" : "échec"}`
   );
 }
 
@@ -53,7 +113,7 @@ export async function pushMovieWatchedToPlex(user: User, tmdbId: number, watched
 export async function deleteItemFromPlex(user: User, ratingKey: string): Promise<boolean> {
   const cfg = loadPlexConfig();
   if (!cfg.hostname) return false;
-  const auth = resolveToken(user, cfg);
+  const auth = await resolvePlexServerAuth(user, cfg);
   if (!auth) return false;
   const ok = await deletePlexItem(cfg, auth.token, ratingKey);
   recordSearchLog(
@@ -65,37 +125,28 @@ export async function deleteItemFromPlex(user: User, ratingKey: string): Promise
 }
 
 /**
- * Continue Watching / on-deck data, verified before it's trusted for a
- * Plex Home managed profile. `resolveToken` gives those accounts the
- * shared admin token plus a bare `X-Plex-Profile` header — Plex never
- * actually authenticates that header for this endpoint, it's asserted, not
- * proven (unlike a genuinely distinct plexToken, which IS real Plex-side
- * scoping). watchSync.ts hit this exact class of bug for watched-status
- * ("GARDE ANTI-FUITE ENTRE PROFILS": Plex sometimes returns the SERVER
- * OWNER's own data instead of the requested profile's) and fixed it by
- * comparing fingerprints against the owner's own data — same fix here,
- * except compared against a fresh same-request owner fetch rather than a
- * stale cached one (a prior on-deck guard compared against watchSync's own
- * history, cached up to 2h — that dropped legitimately-just-started items
- * that hadn't reached the history log yet, and got reverted for it).
+ * Continue Watching / on-deck data, always read through a real PMS token.
+ * A second, per-item comparison against the owner's On Deck is retained as a
+ * fail-closed guard for an expired/broken scoped token: Plex must never turn
+ * the server owner's position into another Movviz user's resume position.
  */
 export async function getVerifiedOnDeck(user: User, cfg: PlexServerConfig): Promise<PlexOnDeckItem[]> {
-  const auth = resolveToken(user, cfg);
+  const auth = await resolvePlexServerAuth(user, cfg);
   if (!auth) return [];
-  const items = await getPlexOnDeck(cfg, auth.token, auth.managedUserId);
-  if (!auth.managedUserId) return items; // own distinct token — really is Plex-scoped, nothing to verify
+  const items = await getPlexOnDeck(cfg, auth.token);
+  if (auth.source === "owner" || !cfg.adminToken) return items;
 
-  const ownerItems = await getPlexOnDeck(cfg, auth.token);
-  const fingerprint = (list: PlexOnDeckItem[]) => list.map((i) => `${i.ratingKey}:${i.viewOffset}`).sort().join(",");
-  if (items.length > 0 && fingerprint(items) === fingerprint(ownerItems)) {
+  const ownerItems = await getPlexOnDeck(cfg, cfg.adminToken);
+  const ownerPositions = new Set(ownerItems.map((i) => `${i.ratingKey}:${i.viewOffset}:${i.duration}`));
+  const verified = items.filter((i) => !ownerPositions.has(`${i.ratingKey}:${i.viewOffset}:${i.duration}`));
+  if (verified.length !== items.length) {
     recordSearchLog(
       "warn",
       "plex.onDeckLeak",
-      `${user.username} (profil géré ${auth.managedUserId}) : Plex a renvoyé le on-deck du propriétaire au lieu du sien — item(s) ignoré(s).`
+      `${user.username} (${auth.source}) : ${items.length - verified.length} position(s) identique(s) au compte propriétaire rejetée(s) — reprise Movviz locale conservée.`
     );
-    return [];
   }
-  return items;
+  return verified;
 }
 
 export async function pushEpisodesWatchedToPlex(
@@ -105,7 +156,7 @@ export async function pushEpisodesWatchedToPlex(
 ): Promise<void> {
   const cfg = loadPlexConfig();
   if (!cfg.hostname) return;
-  const auth = resolveToken(user, cfg);
+  const auth = await resolvePlexServerAuth(user, cfg);
   if (!auth) return;
 
   const bySeries = new Map<number, { season: number; episode: number }[]>();
@@ -127,14 +178,14 @@ export async function pushEpisodesWatchedToPlex(
         fail++;
         continue;
       }
-      const result = await setPlexWatched(cfg, auth.token, episode.plexRatingKey, watched, auth.managedUserId);
+      const result = await setPlexWatched(cfg, auth.token, episode.plexRatingKey, watched);
       if (result) ok++;
       else fail++;
     }
     recordSearchLog(
       fail === 0 ? "info" : "warn",
       "plex.watchWrite",
-      `${user.username} (plexId:${user.plexId ?? "?"}${auth.managedUserId ? `, managed:${auth.managedUserId}` : ""}) — « ${series.title} » : ${ok} épisode(s) ${watched ? "marqué(s) vu(s)" : "marqué(s) non vu(s)"} sur Plex, ${fail} échec(s)/pas encore synchronisable(s)`
+      `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${series.title} » : ${ok} épisode(s) ${watched ? "marqué(s) vu(s)" : "marqué(s) non vu(s)"} sur Plex, ${fail} échec(s)/pas encore synchronisable(s)`
     );
   }
 }

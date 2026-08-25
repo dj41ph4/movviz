@@ -9,5 +9,8 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const status = getWatchStatus(user.id);
-  return NextResponse.json({ movies: status?.movies ?? [], episodes: status?.episodes ?? [] });
+  return NextResponse.json(
+    { movies: status?.movies ?? [], episodes: status?.episodes ?? [] },
+    { headers: { "Cache-Control": "private, no-store" } }
+  );
 }

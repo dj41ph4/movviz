@@ -170,6 +170,57 @@ export async function getPlexHomeUsers(adminToken: string): Promise<PlexHomeUser
   }
 }
 
+/**
+ * Plex Home's `/switch` endpoint returns an account token for the selected
+ * managed profile.  It is NOT yet a token accepted by a media server: callers
+ * must exchange it through `getPlexServerAccessToken` below.  Keeping those
+ * two steps explicit prevents the old, unsafe `X-Plex-Profile` impersonation
+ * header from leaking the owner's state into another Movviz profile.
+ */
+export async function switchPlexHomeUser(clientId: string, ownerToken: string, managedUserId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://plex.tv/api/home/users/${encodeURIComponent(managedUserId)}/switch`, {
+      method: "POST",
+      headers: headers(clientId, { "x-plex-token": ownerToken }),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const body = await res.text();
+    try {
+      const data = JSON.parse(body) as { authToken?: string; authenticationToken?: string };
+      return data.authToken ?? data.authenticationToken ?? null;
+    } catch {
+      return body.match(/(?:authToken|authenticationToken)=["']([^"']+)/i)?.[1] ?? null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve the PMS-specific access token for one Plex account token. */
+export async function getPlexServerAccessToken(clientId: string, accountToken: string, machineIdentifier: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://plex.tv/api/v2/resources?includeHttps=1&includeRelay=1", {
+      headers: headers(clientId, { "x-plex-token": accountToken }),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as unknown;
+    const root = data as { MediaContainer?: { Device?: unknown[] }; devices?: unknown[] } | unknown[];
+    const devices = Array.isArray(root)
+      ? root
+      : root?.MediaContainer?.Device ?? root?.devices ?? [];
+    const match = devices.find((raw) => {
+      const device = raw as { clientIdentifier?: unknown; machineIdentifier?: unknown };
+      return String(device.clientIdentifier ?? device.machineIdentifier ?? "") === machineIdentifier;
+    }) as { accessToken?: unknown; token?: unknown } | undefined;
+    const token = match?.accessToken ?? match?.token;
+    return typeof token === "string" && token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function testPlexServer(cfg: PlexServerConfig): Promise<boolean> {
   if (!cfg.hostname) return false;
   try {
@@ -878,6 +929,8 @@ export interface PlexHistoryEntry {
   title?: string; // movie title
   grandparentTitle?: string; // show title, for episodes
   viewedAt?: number; // epoch ms — "quoi + quand"
+  /** Account Plex that created this event, returned by PMS itself. */
+  accountId?: number;
 }
 
 interface RawHistoryItem {
@@ -889,6 +942,15 @@ interface RawHistoryItem {
   index?: number;
   title?: string;
   viewedAt?: number;
+  accountID?: number | string;
+}
+
+export interface PlexAccountHistoryResult {
+  entries: PlexHistoryEntry[];
+  /** Events explicitly owned by a different Plex account and rejected. */
+  rejectedForeignEntries: number;
+  /** Older/invalid responses without accountID are never trusted. */
+  rejectedUnattributedEntries: number;
 }
 
 /**
@@ -909,8 +971,10 @@ interface RawHistoryItem {
  * section-scan approach entirely, for both friend and Home-managed
  * accounts alike — one mechanism instead of two.
  */
-export async function getAccountHistory(cfg: PlexServerConfig, adminToken: string, accountId: number): Promise<PlexHistoryEntry[]> {
+export async function getAccountHistory(cfg: PlexServerConfig, adminToken: string, accountId: number): Promise<PlexAccountHistoryResult> {
   const out: PlexHistoryEntry[] = [];
+  let rejectedForeignEntries = 0;
+  let rejectedUnattributedEntries = 0;
   const pageSize = 200;
   let start = 0;
   for (;;) {
@@ -936,8 +1000,20 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
       break;
     }
     for (const item of page) {
+      // PMS documents accountID in each history entry.  Never rely only on
+      // the query parameter: a buggy/proxied response that ignores it must
+      // not become this Movviz user's private watched history.
+      const eventAccountId = Number(item.accountID);
+      if (!Number.isSafeInteger(eventAccountId) || eventAccountId <= 0) {
+        rejectedUnattributedEntries++;
+        continue;
+      }
+      if (eventAccountId !== accountId) {
+        rejectedForeignEntries++;
+        continue;
+      }
       if (item.type === "movie") {
-        out.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, viewedAt: item.viewedAt });
+        out.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, viewedAt: item.viewedAt, accountId: eventAccountId });
       } else if (item.type === "episode" && item.grandparentRatingKey && item.parentIndex != null && item.index != null) {
         out.push({
           ratingKey: item.ratingKey,
@@ -947,13 +1023,14 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
           season: item.parentIndex,
           episode: item.index,
           viewedAt: item.viewedAt,
+          accountId: eventAccountId,
         });
       }
     }
     start += page.length;
     if (page.length === 0 || start >= total) break;
   }
-  return out;
+  return { entries: out, rejectedForeignEntries, rejectedUnattributedEntries };
 }
 
 // ─── Plex native collections ──────────────────────────────────────────────────

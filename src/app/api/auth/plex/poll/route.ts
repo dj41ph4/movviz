@@ -54,6 +54,7 @@ export async function POST(req: NextRequest) {
       canManageRequests: false,
       plexId: account.id,
       plexToken: token,
+      plexServerToken: null,
       plexManagedUserId: null,
       plexAvatar: account.thumb,
       createdAt: Date.now(),
@@ -65,7 +66,9 @@ export async function POST(req: NextRequest) {
     }
   } else if (user.plexToken !== token) {
     // Refresh the stored token so watchlist sync keeps working after Plex rotates it.
-    user = updateUser(user.id, { plexToken: token }) ?? user;
+    // The old PMS token was derived from this account token; discard it so
+    // the next personal Plex request exchanges a fresh, correctly scoped one.
+    user = updateUser(user.id, { plexToken: token, plexServerToken: null }) ?? user;
   }
 
   const { token: sessionToken, expiresAt } = createSession(user.id);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { buildPlexWebUrl } from "@/lib/plex/client";
-import { resolveToken, getVerifiedOnDeck } from "@/lib/plex/watchWrite";
+import { getVerifiedOnDeck } from "@/lib/plex/watchWrite";
 import { getMovieByPlexRatingKey, findEpisodeByPlexRatingKey } from "@/lib/library/store";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
 import type { DashboardFileTechnical } from "@/lib/dashboard/interfaceTypes";
@@ -59,17 +59,13 @@ export async function GET(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const cfg = loadPlexConfig();
-  if (!cfg.hostname) return NextResponse.json({ items: [] });
-  const auth = resolveToken(user, cfg);
-  if (!auth) return NextResponse.json({ items: [] });
+  if (!cfg.hostname) return NextResponse.json({ items: [] }, { headers: { "Cache-Control": "private, no-store" } });
   const plexUrlFor = (ratingKey: string | null) =>
     ratingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, ratingKey) : null;
 
-  // getVerifiedOnDeck cross-checks a Plex Home managed profile's on-deck
-  // response against a fresh admin-token fetch in the same request, and
-  // drops it if Plex returned the owner's own data instead — see its doc
-  // comment (watchWrite.ts) for why the naive per-account token scoping
-  // used everywhere else in this codebase isn't safe for this one endpoint.
+  // Uses a PMS-scoped profile token, then rejects any item with the exact
+  // owner position.  The local `progressStore` below remains authoritative
+  // for a user's own Movviz playback even if Plex is unavailable.
   const onDeck = await getVerifiedOnDeck(user, cfg);
   const items: OnDeckEntry[] = [];
   const localKeys = new Set<string>();
@@ -143,5 +139,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ items });
+  return NextResponse.json({ items }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -36,16 +36,24 @@ export interface User {
   plexId: string | null;
   /** This user's own Plex token — needed to read their watchlist, never sent to the browser. */
   plexToken: string | null;
-  /** Managed user id within the Plex Home — used with X-Plex-Profile to scope watch status. */
+  /**
+   * Token scoped to the configured Plex Media Server, resolved from the
+   * account token (or after a Plex Home profile switch).  It is deliberately
+   * separate from `plexToken`: the latter is a plex.tv account token used for
+   * Discover/watchlist calls, while this one authenticates a concrete PMS
+   * request as this profile.  Optional for a safe migration of existing JSON.
+   */
+  plexServerToken?: string | null;
+  /** Managed user id within Plex Home — exchanged for a scoped PMS token, never sent as an impersonation header. */
   plexManagedUserId: string | null;
   plexAvatar: string | null;
   createdAt: number;
 }
 
 /** Never send passwordHash or plexToken to the browser — but UI needs to know whether one exists. */
-export type PublicUser = Omit<User, "passwordHash" | "plexToken"> & { hasPlexToken: boolean };
+export type PublicUser = Omit<User, "passwordHash" | "plexToken" | "plexServerToken"> & { hasPlexToken: boolean };
 
 export function toPublicUser(u: User): PublicUser {
-  const { passwordHash: _passwordHash, plexToken, ...rest } = u;
+  const { passwordHash: _passwordHash, plexToken, plexServerToken: _plexServerToken, ...rest } = u;
   return { ...rest, hasPlexToken: !!plexToken };
 }

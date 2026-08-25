@@ -1,10 +1,8 @@
 import { loadPlexConfig } from "./store";
-import { getAccountHistory, batchTmdbIds, type PlexHistoryEntry } from "./client";
-import type { PlexServerConfig } from "./types";
+import { getAccountHistory, batchTmdbIds } from "./client";
 import { saveWatchStatus, getWatchStatus, type RecentWatch } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
-import { loadUsers } from "@/lib/auth/store";
 
 /**
  * Read this user's own watch state directly from Plex.
@@ -53,47 +51,31 @@ export async function syncUserWatchStatus(user: User) {
   if (accountId == null || Number.isNaN(accountId)) return;
 
   try {
-    const history = await getAccountHistory(cfg, cfg.adminToken, accountId);
+    const historyResult = await getAccountHistory(cfg, cfg.adminToken, accountId);
+    const history = historyResult.entries;
 
     if (history.length === 0) {
       const previous = getWatchStatus(user.id);
+      const rejected = historyResult.rejectedForeignEntries + historyResult.rejectedUnattributedEntries;
+      // A response containing only another account's events is positive
+      // evidence of a Plex-side scope failure.  Clear the previously imported
+      // state rather than leave the owner's watched history visible forever.
+      // Local playback/reprise lives in progressStore and is not touched.
+      if (rejected > 0 && previous) {
+        saveWatchStatus({ userId: user.id, movies: [], episodes: [], recent: [], updatedAt: Date.now() });
+        recordSearchLog(
+          "warn",
+          "plex.watchSync",
+          `${user.username} (plexId:${accountId}): ${rejected} événement(s) Plex d'un autre compte rejeté(s) — état Plex importé vidé, progression Movviz conservée.`
+        );
+        return;
+      }
       recordSearchLog(
         "warn",
         "plex.watchSync",
         `${user.username} (plexId:${accountId}): aucun historique Plex retourné — sync ignorée, données précédentes conservées (${previous ? `${previous.movies.length} films / ${previous.episodes.length} épisodes` : "aucune donnée existante"})`
       );
       return;
-    }
-
-    // GARDE ANTI-FUITE ENTRE PROFILS (bug constaté en prod : le contexte IA
-    // de chaque ami importé affichait l'activité du compte de liaison —
-    // "294 films vus, Les Simpson 714 ép..." — alors que l'admin se
-    // contente d'importer ses amis Plex, sans autre interaction). Sur
-    // /status/sessions/history/all, Plex applique le filtre accountID pour
-    // certains comptes mais peut l'IGNORER pour d'autres et renvoyer
-    // l'historique COMPLET du serveur (celui du propriétaire) — chaque ami
-    // recevait alors les vues de l'admin. Un compte ne peut pas
-    // légitimement avoir un historique STRICTEMENT IDENTIQUE à celui du
-    // propriétaire (mêmes films, mêmes épisodes, même volume) : on compare
-    // les empreintes (ratingKeys triés) et on refuse d'écrire si elles
-    // correspondent, puis on VIDE les données antérieures contaminées. Un
-    // historique différent = bien le sien → sync normal, personne n'est
-    // privé de ses vraies vues/reprises/préférences.
-    const owner = ownerAccountId();
-    if (owner !== null && accountId !== owner) {
-      const fp = await ownerFingerprint(cfg);
-      if (fp !== null && fingerprint(history) === fp) {
-        const previous = getWatchStatus(user.id);
-        if (previous && (previous.movies.length > 0 || previous.episodes.length > 0 || (previous.recent?.length ?? 0) > 0)) {
-          saveWatchStatus({ userId: user.id, movies: [], episodes: [], recent: [], updatedAt: Date.now() });
-          recordSearchLog(
-            "warn",
-            "plex.watchSync",
-            `${user.username} : Plex a renvoyé l'historique du SERVEUR (celui du compte de liaison) au lieu du sien — refus d'écrire, données contaminées vidées.`
-          );
-        }
-        return;
-      }
     }
 
     const movieRatingKeys = [...new Set(history.filter((h) => h.type === "movie").map((h) => h.ratingKey))];
@@ -149,7 +131,7 @@ export async function syncUserWatchStatus(user: User) {
     recordSearchLog(
       "info",
       "plex.watchSync",
-      `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s), ${recent.length} entrée(s) récente(s) datée(s) (${history.length} évènement(s) d'historique)`
+      `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s), ${recent.length} entrée(s) récente(s) datée(s) (${history.length} événement(s) vérifié(s)${historyResult.rejectedForeignEntries ? `, ${historyResult.rejectedForeignEntries} autre(s) compte(s) rejeté(s)` : ""})`
     );
   } catch (err) {
     const msg = err instanceof Error ? err.message : "erreur inconnue";
@@ -159,36 +141,4 @@ export async function syncUserWatchStatus(user: User) {
       `${user.username} (plexId:${accountId}): échec de synchronisation — ${msg} — données précédentes conservées`
     );
   }
-}
-
-let cachedOwner: number | null | undefined;
-function ownerAccountId(): number | null {
-  if (cachedOwner === undefined) {
-    const owner = loadUsers().find((u) => u.plexToken);
-    const raw = owner ? (owner.plexId ?? owner.plexManagedUserId) : null;
-    cachedOwner = raw ? Number(raw) || null : null;
-  }
-  return cachedOwner;
-}
-
-let cachedOwnerFingerprint: string | null | undefined;
-async function ownerFingerprint(cfg: PlexServerConfig): Promise<string | null> {
-  const owner = ownerAccountId();
-  if (owner === null) return null;
-  if (!cfg.adminToken) return null;
-  if (cachedOwnerFingerprint === undefined) {
-    try {
-      cachedOwnerFingerprint = fingerprint(await getAccountHistory(cfg, cfg.adminToken, owner));
-    } catch {
-      cachedOwnerFingerprint = null;
-    }
-  }
-  return cachedOwnerFingerprint;
-}
-
-function fingerprint(history: PlexHistoryEntry[]): string {
-  return history
-    .map((h) => (h.type === "movie" ? `m:${h.ratingKey}` : `e:${h.ratingKey}`))
-    .sort()
-    .join(",");
 }

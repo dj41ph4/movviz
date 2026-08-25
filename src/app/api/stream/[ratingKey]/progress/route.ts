@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
 import { safePlexUrl } from "@/lib/plex/safeUrl";
-import { resolveToken } from "@/lib/plex/watchWrite";
+import { resolvePlexServerAuth } from "@/lib/plex/watchWrite";
 
 export const dynamic = "force-dynamic";
 
@@ -24,17 +24,10 @@ export async function POST(req: NextRequest, context: Ctx) {
   }
 
   const cfg = loadPlexConfig();
-  // Bug fix (confirmed live while scoping the Continue Watching row): this
-  // call was missing `identifier=com.plexapp.plugins.library` — without it
-  // Plex doesn't recognize the ping as a real library-item timeline update,
-  // so playback through Movviz's own player never actually moved the item
-  // in Plex's on-deck / partially-watched state despite the request itself
-  // succeeding. Also always used the ADMIN token regardless of who was
-  // actually playing — Plex attributes a progress update to whichever
-  // account's token made the request (same principle as setPlexWatched),
-  // so a non-admin user's playback was silently being recorded under the
-  // admin's own watch history instead of their own.
-  const auth = cfg.hostname ? resolveToken(user, cfg) : null;
+  // A timeline update is a write to Plex's per-profile state.  It must use a
+  // real server-scoped token; the former admin token + X-Plex-Profile header
+  // could record another user's progress under the owner account.
+  const auth = cfg.hostname ? await resolvePlexServerAuth(user, cfg) : null;
   if (cfg.hostname && auth) {
     const base = safePlexUrl(`${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`);
     if (!base) return NextResponse.json({ error: "invalid_plex_url" }, { status: 500 });
@@ -50,7 +43,6 @@ export async function POST(req: NextRequest, context: Ctx) {
         headers: {
           "X-Plex-Token": auth.token,
           "X-Plex-Client-Identifier": `movviz-${user.id}`,
-          ...(auth.managedUserId ? { "X-Plex-Profile": auth.managedUserId } : {}),
           accept: "application/json",
         },
         signal: AbortSignal.timeout(5000),

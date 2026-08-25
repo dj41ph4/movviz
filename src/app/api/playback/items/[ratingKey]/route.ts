@@ -8,7 +8,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ ratingK
   const { ratingKey } = await context.params;
   const mediaId = req.nextUrl.searchParams.get("mediaId")?.trim() || undefined;
   const p = getPlaybackProgress(user.id, ratingKey, mediaId);
-  if (!p) return NextResponse.json({ watched: false, resumeOffsetMs: null, eligibleForResume: false });
+  if (!p) return NextResponse.json(
+    { watched: false, resumeOffsetMs: null, eligibleForResume: false },
+    { headers: { "Cache-Control": "private, no-store" } }
+  );
   const resumeOffsetMs = p.watched ? null : await mergePlexResume(user, ratingKey, p.resumeOffsetMs);
-  return NextResponse.json({ ...p, resumeOffsetMs });
+  return NextResponse.json({ ...p, resumeOffsetMs }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
   if (!account) return NextResponse.json({ error: "plex_account_lookup_failed" }, { status: 502 });
 
   savePlexConfig({ ...cfg, adminToken: token });
-  updateUser(admin.id, { plexId: account.id, plexToken: token, plexAvatar: account.thumb });
+  updateUser(admin.id, { plexId: account.id, plexToken: token, plexServerToken: null, plexAvatar: account.thumb });
 
   return NextResponse.json({ done: true });
 }
