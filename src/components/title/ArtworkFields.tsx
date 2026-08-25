@@ -18,9 +18,9 @@ interface TitleImageOption {
 type Kind = "backdrop" | "logo";
 
 /**
- * Backdrop/logo picker — an alternate TMDb pick per title. Same cosmetic-edit
- * permission as tags (PATCH .../[id] is requireUser, not requireAdmin), so
- * this stays visible to every user even inside a modal whose other fields
+ * Backdrop/logo picker — an alternate TMDb pick per title. Cosmetic-edit
+ * permission (PATCH .../[id] is requireUser, not requireAdmin), so this
+ * stays visible to every user even inside a modal whose other fields
  * (monitored, quality profile, aliases, location) are admin-gated by the
  * caller. Lives inline (no modal chrome of its own) so it can sit as one
  * section of EditTitleModal instead of a second, separate entry point.

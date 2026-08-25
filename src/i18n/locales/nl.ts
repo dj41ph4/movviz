@@ -541,8 +541,6 @@ export const nl: Dictionary = {
     seasonPackDownloading: "Seizoenspakket wordt gedownload — {count} afleveringen betrokken",
     autoSearch: "Automatisch zoeken — haalt de beste gevonden release op",
     manualSearch: "Handmatige keuze — kies zelf de release",
-    tagsTitle: "Tags",
-    tagsPlaceholder: "Tag toevoegen…",
     searchMissing: "Ontbrekende zoeken",
     searchMissingMovies: "Ontbrekende film zoeken",
     searchMissingWaiting: "Wachten…",
@@ -582,7 +580,6 @@ export const nl: Dictionary = {
     },
     searchAndReplaceIgnored: "{title} genegeerd",
     optimize: "Optimaliseren",
-    tags: "Tags",
     versionsCount: "{n} versies",
   },
 

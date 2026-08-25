@@ -115,7 +115,6 @@ export interface LibraryMovie {
   /** infoHash of the torrent currently in flight for this movie, if any. */
   activeInfoHash: string | null;
   addedAt: number;
-  tags: string[];
   /**
    * Admin-supplied alternate names for this title (e.g. the romanized
    * original-language title). Only used by release matching, to accept
@@ -147,8 +146,8 @@ export interface LibraryMovie {
    */
   originalTitle?: string | null;
   /** User-picked alternate backdrop/logo (TMDb file_path, not a full URL) —
-   *  absent falls back to the auto-picked TMDb artwork. Cosmetic only, same
-   *  edit permission as tags (any authenticated user, not admin-gated). */
+   *  absent falls back to the auto-picked TMDb artwork. Cosmetic only, open
+   *  to any authenticated user, not admin-gated. */
   customBackdropPath?: string | null;
   customLogoPath?: string | null;
   /** Source de lecture résolue par Movviz, indépendante du lien Plex. */
@@ -206,7 +205,6 @@ export interface LibrarySeries {
   qualityProfileId: string;
   seasons: LibrarySeason[];
   addedAt: number;
-  tags: string[];
   /** See the identical field on LibraryMovie — alternate names used only by release matching. */
   aliases?: string[];
   /** Plex library item id (the show) — set by the Plex library sync, powers "Watch on Plex". */
@@ -264,9 +262,4 @@ export function decodeLibraryRef(s: string): LibraryRef | null {
   }
   if (parts[0] === "series" && parts[1]) return { kind: "series", seriesId: parts[1] };
   return null;
-}
-
-/** Tags a user can attach to any library item for personal organization. */
-export interface Taggable {
-  tags: string[];
 }

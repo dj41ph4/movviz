@@ -541,8 +541,6 @@ export const it: Dictionary = {
     seasonPackDownloading: "Pack di stagione in download — {count} episodi interessati",
     autoSearch: "Ricerca automatica — recupera la migliore release trovata",
     manualSearch: "Scelta manuale — scegli tu stesso la release",
-    tagsTitle: "Tag",
-    tagsPlaceholder: "Aggiungi un tag…",
     searchMissing: "Cerca i mancanti",
     searchMissingMovies: "Cerca film mancante",
     searchMissingWaiting: "In attesa…",
@@ -582,7 +580,6 @@ export const it: Dictionary = {
     },
     searchAndReplaceIgnored: "{title} ignorato",
     optimize: "Ottimizza",
-    tags: "Tag",
     versionsCount: "{n} versioni",
   },
 

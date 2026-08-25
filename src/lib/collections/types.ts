@@ -15,5 +15,4 @@ export interface Collection {
   items: CollectionItem[];
   createdBy: string;
   createdAt: number;
-  tags?: string[];
 }

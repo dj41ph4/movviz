@@ -48,7 +48,7 @@ export function Topbar() {
     <header
       className={cn(
         "sticky top-0 z-30 flex h-16 items-center gap-2 px-4 transition-colors duration-300 sm:gap-4 sm:px-6",
-        scrolled ? "border-b border-white/5 bg-void/60 backdrop-blur-xl" : "border-b border-transparent bg-transparent"
+        scrolled ? "bg-void/60 backdrop-blur-xl" : "bg-transparent"
       )}
     >
       {/* Unified search trigger */}

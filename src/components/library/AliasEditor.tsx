@@ -4,13 +4,7 @@ import { useRef, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { X, Plus } from "lucide-react";
 
-/**
- * Free-text chip list for a title's alternate names. Visually a sibling of
- * TagEditor, deliberately NOT the same component: tags are a shared,
- * library-wide vocabulary with an /api/tags suggestion dropdown, while an
- * alias only ever makes sense for the one title it belongs to — suggesting
- * another title's alias here would be actively wrong.
- */
+/** Free-text chip list for a title's alternate names. */
 export function AliasEditor({
   aliases, onChange,
 }: {

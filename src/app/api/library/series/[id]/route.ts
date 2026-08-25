@@ -31,7 +31,7 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const patch = await req.json();
-  const allowed = ["monitored", "qualityProfileId", "tags", "aliases", "customBackdropPath", "customLogoPath"] as const;
+  const allowed = ["monitored", "qualityProfileId", "aliases", "customBackdropPath", "customLogoPath"] as const;
   const clean: Record<string, unknown> = {};
   for (const k of allowed) if (k in patch) clean[k] = patch[k];
   // See the movie route: aliases feeds release matching, so it's validated

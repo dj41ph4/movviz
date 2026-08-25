@@ -93,7 +93,6 @@ export async function importMovieCandidate(
     file,
     activeInfoHash: null,
     addedAt: Date.now(),
-    tags: [],
     plexRatingKey: null,
     plexMediaInfo: null,
     tmdbCollectionId: meta.collectionId,
@@ -177,7 +176,6 @@ export async function importSeriesCandidate(
     qualityProfileId: qualityProfileId ?? defaultQualityProfile().id,
     seasons,
     addedAt: Date.now(),
-    tags: [],
     plexRatingKey: null,
     originalTitle: meta.originalTitle,
   };

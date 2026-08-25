@@ -62,7 +62,7 @@ export function TitlePanel({ view, onClose }: TitlePanelProps) {
           instead of the old slide-from-right drawer. */}
       <motion.div
         ref={scrollRef}
-        className="relative flex h-full w-full flex-col overflow-y-auto overflow-x-hidden bg-void shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-7xl sm:rounded-2xl sm:border sm:border-white/10"
+        className="no-scrollbar relative flex h-full w-full flex-col overflow-y-auto overflow-x-hidden bg-void shadow-2xl sm:h-auto sm:max-h-[88vh] sm:w-full sm:max-w-7xl sm:rounded-2xl sm:border sm:border-white/10"
         initial={morph ? { opacity: 0.5, x: morph.x, y: morph.y, scaleX: morph.scaleX, scaleY: morph.scaleY } : { opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, x: 0, y: 0, scaleX: 1, scaleY: 1 }}
         exit={morph ? { opacity: 0, x: morph.x, y: morph.y, scaleX: morph.scaleX, scaleY: morph.scaleY } : { opacity: 0, scale: 0.96 }}
@@ -70,8 +70,15 @@ export function TitlePanel({ view, onClose }: TitlePanelProps) {
         style={{ transformOrigin: "center center" }}
       >
         {/* The panel shell owns the sticky close action; TitleContent stays
-            content-only and therefore renders identically everywhere. */}
-        <div className="sticky top-0 z-30 flex items-center justify-end px-4 py-3 pointer-events-none sm:px-6">
+            content-only and therefore renders identically everywhere.
+            -mb-16 cancels this row's own height (h-10 button + py-3 = 64px)
+            so it reserves zero space in flow — sticky still pins it to the
+            top on scroll, but the video right after it in the DOM now
+            starts flush at the panel's top edge instead of a solid bg-void
+            gap showing through where this row "would" have been. Confirmed
+            live: without this, a visible dark band sat between the panel's
+            rounded top edge and the video. */}
+        <div className="sticky top-0 z-30 -mb-16 flex items-center justify-end px-4 py-3 pointer-events-none sm:px-6">
           <button
             onClick={onClose}
             aria-label={t("common.close")}
@@ -86,8 +93,12 @@ export function TitlePanel({ view, onClose }: TitlePanelProps) {
             -mx-6/-mt-6 (sm:-mx-10/-mt-10) — without this, the video would be
             clipped narrower than full width instead of breaking out edge to
             edge, since the panel (unlike the standalone page's AppShell
-            <main>) has no padding of its own to cancel. */}
-        <div className="mx-auto w-full max-w-[1200px] px-6 pt-6 sm:px-10 sm:pt-10">
+            <main>) has no padding of its own to cancel. max-w-7xl matches
+            the panel's own sm:max-w-7xl above — confirmed live: a narrower
+            cap here (1200px vs the panel's 1280px) left a visible ~40px gap
+            of bare bg-void on each side instead of the video reaching the
+            panel's actual edges. */}
+        <div className="mx-auto w-full max-w-7xl px-6 pt-6 sm:px-10 sm:pt-10">
           {view.kind === "title" ? (
             <TitleContent
               tmdbId={view.tmdbId}

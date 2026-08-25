@@ -34,7 +34,7 @@ export function EditTitleModal({
   customLogoPath?: string | null;
   /** Structural fields (monitored, quality profile, aliases, file location)
    *  stay admin-only, same as before — only the artwork picker below is open
-   *  to every user (cosmetic edit, same permission as tags). */
+   *  to every user (cosmetic edit). */
   isAdmin: boolean;
   onClose: () => void;
   onChange: () => void;

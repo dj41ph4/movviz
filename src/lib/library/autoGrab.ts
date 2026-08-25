@@ -107,7 +107,6 @@ export async function addMovieToLibrary(
     file: null,
     activeInfoHash: null,
     addedAt: Date.now(),
-    tags: [],
     originalTitle: meta.originalTitle,
     plexRatingKey: null,
     plexMediaInfo: null,

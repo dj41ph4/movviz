@@ -9,7 +9,7 @@ export function addMediaSilent(tmdbId: number, type: "movie" | "series"): boolea
       overview: "", posterPath: null, backdropPath: null, rating: 0,
       runtime: null, genres: [], monitored: true, qualityProfileId: "qp_hd",
       status: "missing", file: null, activeInfoHash: null, addedAt: Date.now(),
-      tags: [], plexRatingKey: null, vfReleaseDate: null, originalLanguage: null,
+      plexRatingKey: null, vfReleaseDate: null, originalLanguage: null,
     } as any);
     return true;
   }
@@ -19,7 +19,7 @@ export function addMediaSilent(tmdbId: number, type: "movie" | "series"): boolea
     tmdbId, imdbId: null, title: "", year: null, releaseDate: null,
     overview: "", posterPath: null, backdropPath: null, rating: 0,
     genres: [], tvStatus: "unknown", monitored: true, qualityProfileId: "qp_hd",
-    seasons: [], addedAt: Date.now(), tags: [], plexRatingKey: null,
+    seasons: [], addedAt: Date.now(), plexRatingKey: null,
   } as any);
   return true;
 }

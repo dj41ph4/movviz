@@ -10,10 +10,9 @@ import { useShouldReduceMotion } from "@/lib/motion/useReduceMotion";
 import type { LibraryMovie, LibraryStatus } from "@/lib/library/types";
 import { encodeLibraryRef } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
-import { TagEditor } from "./TagEditor";
 import { ManualSearchModal } from "@/components/search/ManualSearchModal";
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
-import { Trash2, RotateCw, Loader2, Check, Search, Clock, HardDriveDownload, Tag, Eye, EyeOff, Calendar, ListFilter, Sparkles, X, Layers, MoreVertical } from "lucide-react";
+import { Trash2, RotateCw, Loader2, Check, Search, Clock, HardDriveDownload, Eye, EyeOff, Calendar, ListFilter, Sparkles, X, Layers, MoreVertical } from "lucide-react";
 
 const STATUS_TONE: Record<LibraryStatus, string> = {
   available: "text-ok bg-ok/12 border-ok/25",
@@ -121,7 +120,6 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
   const reduceMotion = useShouldReduceMotion();
   const user = useCurrentUser();
   const [busy, setBusy] = useState(false);
-  const [editingTags, setEditingTags] = useState(false);
   const [showManualSearch, setShowManualSearch] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -140,15 +138,6 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
     } finally {
       setTogglingWatched(false);
     }
-  };
-
-  const setTags = async (tags: string[]) => {
-    await fetch(`/api/library/movies/${movie.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ tags }),
-    });
-    onChange();
   };
 
   const search = async () => {
@@ -244,7 +233,6 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
             {canGrab && (
               <MenuItem icon={ListFilter} label={t("library.manualSearch")} onClick={() => setShowManualSearch(true)} />
             )}
-            <MenuItem icon={Tag} label={t("library.tags")} onClick={() => setEditingTags((v) => !v)} />
             {user?.role === "admin" && !confirmDelete && (
               <MenuItem icon={Trash2} label={t("common.remove")} onClick={() => setConfirmDelete(true)} tone="danger" disabled={deleting} busy={deleting} />
             )}
@@ -259,22 +247,11 @@ export const LibraryMovieCard = memo(function LibraryMovieCard({
           </CardMenu>
         }
         popoverFooter={
-          <div className="space-y-2">
-            {movie.versions && movie.versions.length > 1 && (
-              <span className="flex w-fit items-center gap-1 rounded-full border border-white/20 px-2 py-0.5 text-[10px] font-semibold text-white/80">
-                <Layers className="h-3 w-3" /> {t("library.versionsCount", { n: movie.versions.length })}
-              </span>
-            )}
-            {editingTags ? (
-              <TagEditor tags={movie.tags ?? []} onChange={setTags} />
-            ) : movie.tags && movie.tags.length > 0 ? (
-              <div className="flex flex-wrap gap-1">
-                {movie.tags.map((tag) => (
-                  <span key={tag} className="rounded-full bg-brand/12 px-1.5 py-0.5 text-[9px] font-semibold text-brand-glow">{tag}</span>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          movie.versions && movie.versions.length > 1 ? (
+            <span className="flex w-fit items-center gap-1 rounded-full border border-white/20 px-2 py-0.5 text-[10px] font-semibold text-white/80">
+              <Layers className="h-3 w-3" /> {t("library.versionsCount", { n: movie.versions.length })}
+            </span>
+          ) : undefined
         }
       />
       {canGrab && (

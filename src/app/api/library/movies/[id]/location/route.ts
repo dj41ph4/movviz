@@ -13,7 +13,7 @@ type Ctx = { params: Promise<{ id: string }> };
 /**
  * Manual "point this movie at its real file" fix — for when the automatic
  * add/import got the wrong file, or none at all. Admin-only (unlike the
- * generic monitored/qualityProfileId/tags PATCH) since it touches what the
+ * generic monitored/qualityProfileId PATCH) since it touches what the
  * library considers the source of truth on disk. Goes through
  * setPrimaryFile() rather than a blind `{ file: {...} }` patch so a movie
  * with multiple versions doesn't desync — see versions.ts.

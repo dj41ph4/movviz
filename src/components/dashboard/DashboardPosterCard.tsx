@@ -113,12 +113,12 @@ export function DashboardPosterCard({
   runtime?: number | null;
   genres?: string[];
   /** Extra buttons rendered in the popover's action row, after the like
-   *  button — e.g. Bibliothèque's optimize/search/tags/delete menu. Kept
+   *  button — e.g. Bibliothèque's optimize/search/delete menu. Kept
    *  as a single slot so this shared card stays unaware of library-specific
    *  actions; the caller owns their icons, handlers and confirm states. */
   popoverActions?: ReactNode;
   /** Extra content rendered at the bottom of the popover, below genres —
-   *  e.g. Bibliothèque's tag chips. */
+   *  e.g. Bibliothèque's versions-count badge. */
   popoverFooter?: ReactNode;
   /** 1-based chart position — only ever set for a genuinely ranked row (e.g.
    *  TMDb's own trending order), never invented client-side. Only 1-10

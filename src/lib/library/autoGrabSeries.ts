@@ -459,7 +459,6 @@ export async function addSeriesToLibrary(
     qualityProfileId: qualityProfileId ?? defaultQualityProfile().id,
     seasons: finalSeasons,
     addedAt: Date.now(),
-    tags: [],
     plexRatingKey: null,
     originalTitle: meta.originalTitle,
   };

@@ -61,7 +61,6 @@ export async function POST(
       file: null,
       activeInfoHash: null,
       addedAt: Date.now(),
-      tags: [],
       plexRatingKey: null,
       plexMediaInfo: null,
     });
@@ -84,7 +83,6 @@ export async function POST(
       qualityProfileId: "default",
       seasons: [],
       addedAt: Date.now(),
-      tags: [],
       plexRatingKey: null,
     });
   }

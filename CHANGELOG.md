@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.19.50 — August 2026
+
+### Étiquettes supprimées
+
+La fonctionnalité d'étiquettes personnalisées sur les films et séries a été entièrement retirée — plus de champ dans la fiche, plus de filtre dans Films/Séries, plus de menu associé sur les cartes.
+
+### Fiche : finitions visuelles
+
+Barre de défilement de la fiche masquée, vidéo étirée jusqu'au bord réel du panneau (elle s'arrêtait un peu avant), voile sombre devant la vidéo moins présent sur la majorité de l'image (ne s'assombrit que vers le bas, pour se fondre avec le reste de la fiche), léger zoom sur l'aperçu vidéo pour masquer les fines bandes noires que certaines bandes-annonces intègrent par moments. La fine barre de séparation sous le menu du haut a aussi été retirée.
+
 ## v1.19.49 — August 2026
 
 ### Films et Séries ouvrent une fiche au lieu de changer de page

@@ -18,7 +18,6 @@ import { StarRating } from "@/components/title/StarRating";
 import { EditTitleModal } from "@/components/title/EditTitleModal";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import { BrandIcon } from "@/components/ui/BrandIcon";
-import { TagEditor } from "@/components/library/TagEditor";
 import { MediaBadges, buildMediaBadgeItems } from "@/components/library/MediaBadges";
 import { TrailerHeader, TrailerModalPlayer } from "@/components/media/TrailerHeader";
 import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
@@ -155,7 +154,6 @@ type LibraryListItem = {
   qualityProfileId?: string;
   plexUrl?: string | null;
   plexRatingKey?: string | null;
-  tags?: string[];
   aliases?: string[];
   customBackdropPath?: string | null;
   customLogoPath?: string | null;
@@ -243,11 +241,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
   /* ── derived ────────────────────────────────────────────────────────── */
 
-  const [tagsOverride, setTagsOverride] = useState<string[] | null>(null);
-  const libraryMatch =
-    libraryMatchRaw && tagsOverride
-      ? { ...libraryMatchRaw, tags: tagsOverride }
-      : libraryMatchRaw;
+  const libraryMatch = libraryMatchRaw;
 
   const libraryStatus: LibraryStatus | null = libraryMatch
     ? type === "movie"
@@ -754,21 +748,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
     [libraryMatch?.id, detail?.title],
   );
 
-  const setTags = useCallback(
-    async (tags: string[]) => {
-      if (!libraryMatch?.id) return;
-      setTagsOverride(tags);
-      await fetch(`${libEndpoint}/${libraryMatch.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tags }),
-      });
-      await mutateLibrary();
-      setTagsOverride(null);
-    },
-    [libraryMatch?.id, libEndpoint, mutateLibrary],
-  );
-
   const remove = useCallback(async () => {
     if (!libraryMatch?.id) return;
     setRemoving(true);
@@ -845,17 +824,6 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
 
   const technicalContent = (
     <>
-      {libraryMatch?.id && (
-        <div className="rounded-2xl glass p-4">
-          <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-ink-dim">
-            {t("library.tagsTitle")}
-          </h3>
-          <TagEditor
-            tags={libraryMatch.tags ?? []}
-            onChange={setTags}
-          />
-        </div>
-      )}
 
       {libraryMatch?.plexMediaInfo && type === "movie" && (
         <div className="rounded-2xl glass p-5">
@@ -1104,8 +1072,15 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
        * ── HEADER ────────────────────────────────────────────────────
        * Full page layout (large backdrop + overlay).
        */}
+      {/* Netflix's own detail-card hero is a clean 16:9 box tied to the
+       * card's own width, not a fraction of viewport height — sizing it
+       * that way here (sm:+ ; mobile stays full-bleed vh, there's no
+       * "width" to speak of at 375px) means it comes out exactly 16:9
+       * regardless of how tall the panel/page happens to be, instead of
+       * drifting wider/narrower than the source video on a very
+       * short/tall viewport the way a vh-based height did. */}
       <div
-        className="relative -mx-6 -mt-6 mb-8 h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:h-[75vh] sm:min-h-[420px]"
+        className="relative -mx-6 -mt-6 mb-8 h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:aspect-video sm:h-auto sm:min-h-0"
         style={{ contain: "paint" }}
       >
           <ErrorBoundary onError={(e) => reportIssue(`Trailer crash: ${e.message}`)} fallback={
@@ -1121,10 +1096,28 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               className="h-full w-full"
             />
           </ErrorBoundary>
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void/88 via-void/55 to-transparent" />
+          {/* Netflix's own fade reaches fully opaque black right at the
+           * bottom edge, so the hero image blends into the solid
+           * background below with no visible seam — matched here by
+           * going all the way to from-void (100%) instead of stopping
+           * short at /88. */}
+          {/* Stops pushed down (35%/60% instead of the default 0/50/100
+           * spread) so the veil stays out of the way for most of the video
+           * — only the bottom third or so darkens, ramping up to fully
+           * opaque right at the edge to still blend seamlessly into the
+           * content below. Confirmed live: the even 3-stop spread read as
+           * "too dark overall", not just dark at the seam. */}
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-void from-0% via-void/15 via-35% to-transparent to-60%" />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-void/48 via-transparent to-transparent" />
+          {/* top-16/sm:top-20 (not top-4/top-8) — the panel's own sticky
+           * "Fermer" close button floats over this same top-right corner at
+           * a fixed ~64px height (see TitlePanel.tsx); without this offset
+           * the two rows collided into one cramped, overlapping cluster —
+           * confirmed live. Pushing this row below it keeps both readable
+           * on the standalone /title/ page too (no close button there, but
+           * the extra headroom under the gradient reads fine either way). */}
           {libraryMatch?.id && (
-            <div className="absolute right-4 top-4 z-10 flex items-center gap-2 sm:right-8 sm:top-8">
+            <div className="absolute right-4 top-16 z-10 flex items-center gap-2 sm:right-8 sm:top-20">
               <ReportIssueButton
                 libraryType={type}
                 libraryId={libraryMatch.id}

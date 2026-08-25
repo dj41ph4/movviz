@@ -539,8 +539,6 @@ export const fr = {
     seasonPackDownloading: "Pack de saison en cours de téléchargement — {count} épisodes concernés",
     autoSearch: "Recherche automatique — récupère la meilleure release trouvée",
     manualSearch: "Sélection manuelle — choisis la release toi-même",
-    tagsTitle: "Étiquettes",
-    tagsPlaceholder: "Ajouter une étiquette…",
     searchMissing: "Rechercher les manquants",
     searchMissingMovies: "Chercher film manquant",
     searchMissingWaiting: "En attente…",
@@ -580,7 +578,6 @@ export const fr = {
       videoCodecUpgrade: "Codec vidéo {to} détecté (fichier actuel {from})",
     },
     optimize: "Optimiser",
-    tags: "Tags",
     versionsCount: "{n} versions",
   },
 

@@ -248,7 +248,30 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
       // official API — modestbranding=1 is the only lever available.
       ref={hostRef}
       title={title}
-      className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2"
+      // scale-110 — a small extra zoom on top of the cover-fit sizing above.
+      // Started at scale-105; bumped after confirming live that some real
+      // trailers (Aladdin 2019, recurring — not a one-off black transition
+      // frame) bake in a thin cinematic letterbox for part of the runtime.
+      // Per-video detection was tried (thumbnail pixel analysis) and
+      // dropped — a single thumbnail frame doesn't represent shots that
+      // toggle in and out of letterbox through the video, so it can't be
+      // reliably automated; a uniform zoom applied to every video is the
+      // simple fix that actually holds up. No per-video logic, so a
+      // perfectly flat 16:9 trailer (Hurlevent) trades a few extra cropped
+      // pixels for consistency — same reasoning as the crop clause below.
+      //
+      // A "render huge, transform-scale it back down" trick was tried here
+      // to nudge YouTube's quality heuristic (which reads the iframe's own
+      // un-transformed layout size) — reverted after confirming live it
+      // broke the video into disconnected fragments. The oversize math
+      // itself checked out on paper (every length scaled by the same
+      // factor, aspect ratio preserved); the actual cause is more likely
+      // YouTube's OWN player switching to a different internal layout
+      // (related-videos strip, TV-sized chrome…) once it believes the
+      // player is that large — not something CSS on our side controls.
+      // Not worth re-attempting without a real way to inspect what
+      // YouTube's iframe renders internally at that size.
+      className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2 scale-110"
     />
   );
 }

@@ -386,7 +386,6 @@ async function syncMovieSection(cfg: PlexServerConfig, token: string, section: P
       versions: initialVersions,
       activeInfoHash: null,
       addedAt: Date.now(),
-      tags: ["plex"],
       plexRatingKey: item.ratingKey,
       plexMediaInfo: item.mediaDetail ?? null,
       tmdbCollectionId: meta.collectionId,
@@ -461,7 +460,6 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         qualityProfileId: defaultQualityProfile().id,
         seasons,
         addedAt: Date.now(),
-        tags: ["plex"],
         plexRatingKey: show.ratingKey,
         originalTitle: meta.originalTitle,
       });
@@ -546,7 +544,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
  * Full-reconcile step: find movies & series that Movviz knows from Plex but
  * Plex no longer reports at all (deleted from disk). Mark their episodes as
  * missing instead of showing stale "available" counts.  Never removes the
- * series/movie record — the user keeps their history, monitoring and tags.
+ * series/movie record — the user keeps their history and monitoring.
  */
 function markMissingFromPlex(seenMovieTmdbIds: Set<number>, seenSeriesTmdbIds: Set<number>) {
   for (const movie of loadMovies()) {

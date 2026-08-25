@@ -92,7 +92,6 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
   const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>(
     () => (SORTS.find((s) => s.id === searchParams.get("sort"))?.id ?? "title") as (typeof SORTS)[number]["id"]
   );
-  const [tagFilter, setTagFilter] = useState(() => searchParams.get("tag") ?? "");
   const [genreFilter, setGenreFilter] = useState(() => searchParams.get("genre") ?? "");
   const [rescanning, setRescanning] = useState(false);
   const [issues, setIssues] = useState<RescanIssue[] | null>(null);
@@ -115,18 +114,12 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     const p = new URLSearchParams(searchParams.toString());
     if (filter !== "all") p.set("filter", filter); else p.delete("filter");
     if (sort !== "title") p.set("sort", sort); else p.delete("sort");
-    if (tagFilter) p.set("tag", tagFilter); else p.delete("tag");
     if (genreFilter) p.set("genre", genreFilter); else p.delete("genre");
     const qs = p.toString();
     if (qs !== searchParams.toString()) {
       router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
     }
-  }, [filter, sort, tagFilter, genreFilter, searchParams, router, pathname]);
-  const { data: tagsData } = useSWR<{ tags: string[] }>("/api/tags");
-  // "plex" is auto-applied to every title synced from Plex (librarySync.ts)
-  // — on a Plex-backed library nearly everything carries it, making it
-  // useless as a filter dimension, so it's excluded from this picker.
-  const allTags = (tagsData?.tags ?? []).filter((tag) => tag !== "plex");
+  }, [filter, sort, genreFilter, searchParams, router, pathname]);
 
   // Poll the job queue for any admin visit to this page (not just while
   // *this* component instance triggered a run) so a "search all missing"
@@ -218,8 +211,8 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     return m.genres.includes(genreFilter);
   };
   const movieItems = useMemo(
-    () => (type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && (!tagFilter || (m.tags ?? []).includes(tagFilter)) && movieMatchesGenre(m))),
-    [movies, filter, type, tagFilter, genreFilter]
+    () => (type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && movieMatchesGenre(m))),
+    [movies, filter, type, genreFilter]
   );
   const seriesStatus = (s: LibrarySeries): LibraryStatus => {
     const monitored = s.seasons.flatMap((se) => se.episodes).filter((e) => e.monitored);
@@ -237,8 +230,8 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
     return s.genres.includes(genreFilter);
   };
   const seriesItems = useMemo(
-    () => (type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && (!tagFilter || (s.tags ?? []).includes(tagFilter)) && seriesMatchesGenre(s))),
-    [series, filter, type, tagFilter, genreFilter]
+    () => (type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && seriesMatchesGenre(s))),
+    [series, filter, type, genreFilter]
   );
 
   // When "Tout" mixes movies and series, they must be sorted TOGETHER — every
@@ -510,25 +503,6 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
           ))}
         </div>
 
-        {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 border-t border-white/5 pt-3.5">
-            {allTags.map((tag) => (
-              <button
-                key={tag}
-                onClick={() => setTagFilter(tagFilter === tag ? "" : tag)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                  tagFilter === tag
-                    ? "bg-brand/20 text-brand-glow shadow-lg"
-                    : "glass-strong text-ink-soft hover:text-ink"
-                )}
-              >
-                {tag}
-                {tagFilter === tag && <X className="ml-1 inline h-3 w-3" />}
-              </button>
-            ))}
-          </div>
-        )}
 
         <div className="flex flex-wrap gap-1.5 border-t border-white/5 pt-3.5">
           {[
