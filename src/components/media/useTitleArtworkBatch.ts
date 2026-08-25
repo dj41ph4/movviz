@@ -35,6 +35,12 @@ export function useTitleArtworkBatch(refs: readonly TitleArtworkRef[], locale: s
     () => allRefs.length ? `title-artwork:${locale}:${allRefs.map(({ type, tmdbId }) => `${type}:${tmdbId}`).join(",")}` : null,
     [allRefs, locale]
   );
+  // keepPreviousData: the row lists feeding this batch (trending, recommended…)
+  // can shift between refreshes, which changes requestKey and would otherwise
+  // make SWR clear `data` to undefined for the instant it takes to refetch —
+  // every card's logo (all keyed off this same batch) would flash to null in
+  // sync across the whole page. Keeping the previous artwork on screen until
+  // the new batch actually lands avoids that flash entirely.
   const { data } = useSWR<TitleArtworkByKey>(requestKey, async () => {
     const merged: TitleArtworkByKey = {};
     for (let start = 0; start < allRefs.length; start += ARTWORK_REQUEST_CHUNK) {
@@ -45,6 +51,6 @@ export function useTitleArtworkBatch(refs: readonly TitleArtworkRef[], locale: s
       Object.assign(merged, payload.artwork ?? {});
     }
     return merged;
-  });
+  }, { keepPreviousData: true });
   return data ?? {};
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.43 — August 2026
+
+### Les logos disparaissaient parfois de toutes les cartes en même temps
+
+Corrigé : un rafraîchissement en arrière-plan des suggestions du tableau de bord pouvait, pendant une fraction de seconde, faire disparaître les logos de titre de toutes les cartes visibles simultanément avant qu'ils ne reviennent. Une fois affiché, un logo reste maintenant en place tant que sa carte est visible, même si les données environnantes se rafraîchissent silencieusement.
+
 ## v1.19.42 — August 2026
 
 ### Interface distante beaucoup plus rapide
