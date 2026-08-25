@@ -33,6 +33,7 @@ import { useJobRunning, useActiveJobSuffix } from "@/lib/jobs/useJobRunning";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
+import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { getSavedProgressSeconds, formatResumeTime } from "@/lib/player/watchProgress";
 import { setPageTitleContext } from "@/lib/ai/pageContext";
@@ -384,6 +385,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   }, [showTrailer]);
   const usePlayLabelResult = usePlayLabel(playbackRatingKey, hasLocalPlayback);
   const { enabled: titlePageVideoEnabled } = useTitlePageVideo();
+  const enhancedTrailerSources = useTrailerSources(type, detail?.tmdbId ?? null, detail?.title ?? null, detail?.year ?? null, detail?.imdbId ?? null);
 
   // Resume position for the primary CTA (Netflix-style "Reprendre à
   // 00:09:24" pill instead of a plain "Lire" button). Re-read whenever the
@@ -1090,6 +1092,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               backdropPath={backdropPath}
               size={backdropSize}
               trailerKeys={detail.ambientVideoKeys}
+              enhancedSources={enhancedTrailerSources}
               title={detail.title}
               trigger="immediate"
               enabled={titlePageVideoEnabled}
@@ -1792,7 +1795,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
             </button>
             <div className="aspect-video w-full overflow-hidden border-white/10 bg-black shadow-2xl sm:rounded-2xl sm:border">
               <ErrorBoundary onError={(e) => reportIssue(`Trailer modal crash: ${e.message}`)}>
-                <TrailerModalPlayer trailerKeys={detail.trailerKeys} title={t("title.trailer")} />
+                <TrailerModalPlayer trailerKeys={detail.trailerKeys} enhancedSources={enhancedTrailerSources} title={t("title.trailer")} />
               </ErrorBoundary>
             </div>
           </div>

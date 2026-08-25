@@ -58,6 +58,11 @@ export interface UserPrefs {
    *  because a missing/unwatched special always blocked it. true opts back
    *  into counting specials like any other episode. */
   specialEpisodesEnabled?: boolean;
+  /** Apple TV/IMDb direct-video trailer sources instead of YouTube embeds —
+   *  absent/false (default) keeps today's YouTube-only behavior untouched.
+   *  Opt-in and reversible in one click: any failure in the new chain falls
+   *  back through to the existing YouTube fields, never blocks playback. */
+  enhancedTrailerSourcesEnabled?: boolean;
 }
 
 const VALID_TIERS: GpuTier[] = ["high", "medium", "low", "ultraLow"];
@@ -92,6 +97,7 @@ function sanitize(prefs: unknown): UserPrefs {
   }
   if (typeof p.titlePageVideoEnabled === "boolean") clean.titlePageVideoEnabled = p.titlePageVideoEnabled;
   if (typeof p.specialEpisodesEnabled === "boolean") clean.specialEpisodesEnabled = p.specialEpisodesEnabled;
+  if (typeof p.enhancedTrailerSourcesEnabled === "boolean") clean.enhancedTrailerSourcesEnabled = p.enhancedTrailerSourcesEnabled;
   return clean;
 }
 

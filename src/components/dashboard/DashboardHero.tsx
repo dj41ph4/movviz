@@ -16,6 +16,7 @@ import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
+import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null };
 
@@ -95,17 +96,31 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
     return () => mq.removeEventListener("change", onChange);
   }, []);
 
-  if (!settings.enabled || slides.length === 0 || !active) return null;
-
   const { path: heroBackdropPath, size: heroBackdropSize } =
-    isMobile && active.detail.posterPath
+    isMobile && active?.detail.posterPath
       ? { path: active.detail.posterPath, size: "w780" as const }
-      : { path: active.detail.backdropPath, size: "w1280" as const };
+      : { path: active?.detail.backdropPath ?? null, size: "w1280" as const };
   // Only needed for play()'s backdropUrl (Tier 3, no fallback — see
   // useTmdbImageUrl's doc comment); TrailerHeader below resolves its own
   // CDN-vs-local (with fallback) directly from heroBackdropPath/Size.
+  // Both hooks below must run on every render regardless of `active` (Rules
+  // of Hooks) — confirmed live: the early `if (!active) return null` used to
+  // sit BEFORE these two calls, which crashed the whole hero with "Rendered
+  // more hooks than during the previous render" the moment a render without
+  // an active slide was followed by one with — now they always run, using
+  // `active?.` so a still-loading/empty slide list just resolves to
+  // null/no-op inputs instead of skipping the hook call itself.
   const backdropUrl = useTmdbImageUrl(heroBackdropPath, heroBackdropSize);
+  const enhancedTrailerSources = useTrailerSources(
+    active?.detail.type ?? "movie",
+    active?.detail.tmdbId ?? null,
+    active?.detail.title ?? null,
+    active?.detail.year ?? null,
+    active?.detail.imdbId ?? null
+  );
   const trailerEnabled = settings.trailerAutoplay;
+
+  if (!settings.enabled || slides.length === 0 || !active) return null;
 
   const statusLabel =
     active.libraryStatus === "available"
@@ -132,6 +147,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
           backdropPath={heroBackdropPath}
           size={heroBackdropSize}
           trailerKeys={active.detail.ambientVideoKeys}
+          enhancedSources={enhancedTrailerSources}
           title={active.detail.title}
           trigger="immediate"
           enabled={trailerEnabled}

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.53 — August 2026
+
+### Bande-annonces : source directe Apple avant YouTube (optionnel)
+
+Nouveau réglage (Réglages → Mon expérience, désactivé par défaut) : Movviz peut désormais essayer une vidéo directe Apple avant de retomber sur YouTube comme aujourd'hui pour l'ambiance de la fiche et le lecteur "Voir la bande-annonce". Aucune perte de fonctionnalité si la source Apple n'est pas trouvée ou échoue — YouTube reste le filet de sécurité automatique, et le réglage se désactive en un clic pour revenir instantanément au comportement actuel.
+
 ## v1.19.52 — August 2026
 
 ### Applications Android : démarrage plus rapide, correctif lecture d'épisodes

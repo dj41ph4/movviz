@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Hls from "hls.js";
 import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
 
 import { useCroppedBackdrop } from "@/lib/media/useCroppedBackdrop";
@@ -9,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { registerAmbientVideo } from "@/lib/player/ambientVideoRegistry";
 import { useShouldUseCdn } from "@/lib/settings/useShouldUseCdn";
 import type { TmdbImageSize } from "@/lib/metadata/tmdbImageCache";
+import type { TrailerSource } from "@/lib/trailers/types";
 
 const CDN_BASE = "https://image.tmdb.org/t/p";
 
@@ -98,11 +100,76 @@ function destroyYouTubePlayer(player: any, host: HTMLElement | null) {
   try { host?.replaceChildren(); } catch { /* host already detached */ }
 }
 
+/**
+ * Direct MP4/HLS playback for the Apple/IMDb enhanced trailer sources —
+ * native <video>, so unlike the YouTube iframe hack above it can just use
+ * object-fit: cover for full-bleed sizing, no oversize-and-crop trick or
+ * letterbox zoom needed. Native `loop` is also seamless (no end-card to
+ * fight, unlike YouTube's ENDED state).
+ */
+function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError }: { source: TrailerSource; muted: boolean; className?: string; onPlayingChange: (playing: boolean) => void; onError: () => void }) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    let hls: Hls | null = null;
+
+    if (source.playbackType === "hls" && Hls.isSupported()) {
+      hls = new Hls();
+      hls.loadSource(source.url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.ERROR, (_evt, data) => {
+        if (data.fatal) onError();
+      });
+    } else {
+      video.src = source.url;
+    }
+    video.play().catch(() => {
+      // Autoplay can be rejected before the user has interacted with the
+      // page at all — the same cover/backdrop crossfade below just stays on
+      // the static image in that case, no different from a slow YouTube load.
+    });
+
+    return () => {
+      hls?.destroy();
+      video.removeAttribute("src");
+      video.load();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source.url, source.playbackType]);
+
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.muted = muted;
+  }, [muted]);
+
+  return (
+    <video
+      ref={videoRef}
+      className={className}
+      muted={muted}
+      loop
+      playsInline
+      onPlaying={() => onPlayingChange(true)}
+      onPause={() => onPlayingChange(false)}
+      onWaiting={() => onPlayingChange(false)}
+      onError={() => onError()}
+    />
+  );
+}
+
+type TrailerCandidate = { kind: "direct"; source: TrailerSource } | { kind: "youtube"; key: string };
+
 export interface TrailerHeaderProps {
   backdropPath: string | null;
   size: TmdbImageSize;
   /** Ordered fallback candidates, best first — see pickTrailerCandidates() in tmdb.ts. A video can be embed-blocked (rights holder restriction, e.g. Kaamelott's trailer blocked by Calt Distribution) in a way TMDb's own metadata never flags; the player advances to the next candidate on error instead of just failing. */
   trailerKeys: string[];
+  /** Apple/IMDb direct-video candidates — tried BEFORE trailerKeys when
+   *  present, per the user's enhancedTrailerSourcesEnabled setting (resolved
+   *  by the caller via useTrailerSources, not fetched here). Empty/absent
+   *  falls straight through to the existing YouTube behavior, unchanged. */
+  enhancedSources?: TrailerSource[];
   title: string;
   /** "immediate" — starts as soon as it's allowed to (title page header).
    *  "hover" — only plays while hovered past HOVER_DELAY_MS (dashboard hero, several slides share the same screen real estate). */
@@ -276,7 +343,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, title, trigger, enabled = true, muted: initialMuted = true, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -287,21 +354,32 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, title, trigger,
   const croppedBackdrop = useCroppedBackdrop(backdropUrl);
   const [soundOn, setSoundOn] = useState(!initialMuted);
   const muted = !soundOn;
+  // Enhanced (Apple/IMDb) sources are tried first, then the existing
+  // YouTube keys — same ordered-fallback contract as trailerKeys alone had,
+  // just with an extra tier prepended.
+  const candidates = useMemo<TrailerCandidate[]>(
+    () => [
+      ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
+      ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
+    ],
+    [enhancedSources, trailerKeys]
+  );
   // Which candidate we're currently trying — advanced by onError below.
   // Reset to 0 whenever the candidate list itself changes (new title), not
   // just on every render, or a slide change would keep replaying whichever
   // fallback the PREVIOUS title happened to land on.
   const [candidateIndex, setCandidateIndex] = useState(0);
-  useEffect(() => { setCandidateIndex(0); }, [trailerKeys]);
-  const trailerKey = trailerKeys[candidateIndex] ?? null;
-  const canPlay = enabled && !!trailerKey;
+  useEffect(() => { setCandidateIndex(0); }, [candidates]);
+  const candidate = candidates[candidateIndex] ?? null;
+  const candidateKey = candidate ? (candidate.kind === "direct" ? candidate.source.url : candidate.key) : null;
+  const canPlay = enabled && !!candidate;
   const [playing, setPlaying] = useState(trigger === "immediate" && canPlay);
-  // YouTube renders its own full "not playing" chrome — title, channel
-  // avatar, suggested videos, logo, center play/pause icon — any time the
-  // player state isn't actively PLAYING (buffering, paused, cued, ended
-  // mid-loop-restart), not just once at first load. The cover stays up
-  // whenever that's true, reset to "covered" on every new video so a slide
-  // change never briefly reuses a stale "was playing" value.
+  // The active player renders its own full "not playing" chrome (YouTube:
+  // title/channel/suggested videos/logo; direct video: none, but the same
+  // state still gates the crossfade) any time it isn't actively playing —
+  // buffering, paused, cued, ended mid-loop-restart — not just once at first
+  // load. The cover stays up whenever that's true, reset to "covered" on
+  // every new video so a slide change never briefly reuses a stale value.
   const [videoPlaying, setVideoPlaying] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -309,11 +387,11 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, title, trigger,
     if (trigger === "immediate") setPlaying(canPlay);
   }, [trigger, canPlay]);
 
-  useEffect(() => { setVideoPlaying(false); }, [trailerKey, playing]);
+  useEffect(() => { setVideoPlaying(false); }, [candidateKey, playing]);
 
   // This exact video is blocked/removed — never a network hiccup (that
   // wouldn't fire onError at all) — so retrying it would just fail again.
-  // Move to the next candidate; once the list is exhausted, trailerKey
+  // Move to the next candidate; once the list is exhausted, candidate
   // resolves to null and canPlay naturally falls back to the static poster.
   const onVideoError = () => setCandidateIndex((i) => i + 1);
 
@@ -367,7 +445,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, title, trigger,
         <div className="absolute inset-0 h-full w-full bg-surface" />
       )}
 
-      {playing && canPlay && trailerKey && (
+      {playing && canPlay && candidate && (
         // "Cover" trick using container-query units: the player is always
         // sized to at least fill the container's width AND height (never
         // letterboxed), cropping top/bottom or sides as needed.
@@ -377,7 +455,18 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, title, trigger,
         // base layer, so this layer appearing is imperceptible — the video
         // reveal itself is what actually crossfades in, via videoPlaying.
         <div className="absolute inset-0 h-full w-full">
-          <YouTubePlayer key={trailerKey} trailerKey={trailerKey} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} />
+          {candidate.kind === "direct" ? (
+            <DirectVideoPlayer
+              key={candidateKey}
+              source={candidate.source}
+              muted={muted}
+              className="absolute inset-0 h-full w-full object-cover"
+              onPlayingChange={setVideoPlaying}
+              onError={onVideoError}
+            />
+          ) : (
+            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} />
+          )}
           <div
             className={cn(
               "absolute inset-0 transition-opacity duration-500",
@@ -425,12 +514,21 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, title, trigger,
  * TMDb/YouTube candidate automatically instead of leaving YouTube's own
  * "Video unavailable" chrome on screen with no way out but closing the modal.
  */
-export function TrailerModalPlayer({ trailerKeys, title }: { trailerKeys: string[]; title: string }) {
+export function TrailerModalPlayer({ trailerKeys, enhancedSources, title }: { trailerKeys: string[]; enhancedSources?: TrailerSource[]; title: string }) {
   const t = useT();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
+  const candidates = useMemo<TrailerCandidate[]>(
+    () => [
+      ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
+      ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
+    ],
+    [enhancedSources, trailerKeys]
+  );
   const [candidateIndex, setCandidateIndex] = useState(0);
-  const trailerKey = trailerKeys[candidateIndex] ?? null;
+  const candidate = candidates[candidateIndex] ?? null;
+  const trailerKey = candidate?.kind === "youtube" ? candidate.key : null;
+  const directSource = candidate?.kind === "direct" ? candidate.source : null;
 
   useEffect(() => {
     if (!trailerKey) return;
@@ -466,7 +564,20 @@ export function TrailerModalPlayer({ trailerKeys, title }: { trailerKeys: string
     };
   }, [trailerKey]);
 
-  if (!trailerKey) {
+  if (directSource) {
+    return (
+      <DirectVideoPlayer
+        key={directSource.url}
+        source={directSource}
+        muted={false}
+        className="aspect-video w-full"
+        onPlayingChange={() => {}}
+        onError={() => setCandidateIndex((i) => i + 1)}
+      />
+    );
+  }
+
+  if (!candidate) {
     // Every candidate failed — a plain YouTube link at least gives the user
     // a way to actually watch it, since youtube.com itself isn't subject to
     // the same third-party embed restriction that blocked it here.
