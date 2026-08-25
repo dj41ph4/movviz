@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.45 — August 2026
+
+### Fuite de reprise Plex entre comptes corrigée
+
+Un profil Plex Home géré partageant le jeton de l'administrateur pouvait, dans certains cas, se voir proposer la reprise de lecture du compte propriétaire du serveur au lieu de la sienne. La réponse de Plex est désormais vérifiée avant d'être utilisée : si elle correspond exactement à celle du propriétaire au lieu du profil demandé, elle est ignorée plutôt que affichée à la mauvaise personne.
+
 ## v1.19.44 — August 2026
 
 ### Un fichier supprimé à la main sur le disque n'est plus re-téléchargé automatiquement

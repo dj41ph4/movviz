@@ -1,8 +1,9 @@
 import { loadPlexConfig } from "./store";
-import { setPlexWatched, deletePlexItem } from "./client";
+import { setPlexWatched, deletePlexItem, getPlexOnDeck, type PlexOnDeckItem } from "./client";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
+import type { PlexServerConfig } from "./types";
 
 /**
  * Movviz → Plex (demande explicite user — "bidirectionnel"). Push a
@@ -61,6 +62,40 @@ export async function deleteItemFromPlex(user: User, ratingKey: string): Promise
     `${user.username} — suppression Plex de ratingKey ${ratingKey} (corbeille vidée) : ${ok ? "ok" : "échec"}`
   );
   return ok;
+}
+
+/**
+ * Continue Watching / on-deck data, verified before it's trusted for a
+ * Plex Home managed profile. `resolveToken` gives those accounts the
+ * shared admin token plus a bare `X-Plex-Profile` header — Plex never
+ * actually authenticates that header for this endpoint, it's asserted, not
+ * proven (unlike a genuinely distinct plexToken, which IS real Plex-side
+ * scoping). watchSync.ts hit this exact class of bug for watched-status
+ * ("GARDE ANTI-FUITE ENTRE PROFILS": Plex sometimes returns the SERVER
+ * OWNER's own data instead of the requested profile's) and fixed it by
+ * comparing fingerprints against the owner's own data — same fix here,
+ * except compared against a fresh same-request owner fetch rather than a
+ * stale cached one (a prior on-deck guard compared against watchSync's own
+ * history, cached up to 2h — that dropped legitimately-just-started items
+ * that hadn't reached the history log yet, and got reverted for it).
+ */
+export async function getVerifiedOnDeck(user: User, cfg: PlexServerConfig): Promise<PlexOnDeckItem[]> {
+  const auth = resolveToken(user, cfg);
+  if (!auth) return [];
+  const items = await getPlexOnDeck(cfg, auth.token, auth.managedUserId);
+  if (!auth.managedUserId) return items; // own distinct token — really is Plex-scoped, nothing to verify
+
+  const ownerItems = await getPlexOnDeck(cfg, auth.token);
+  const fingerprint = (list: PlexOnDeckItem[]) => list.map((i) => `${i.ratingKey}:${i.viewOffset}`).sort().join(",");
+  if (items.length > 0 && fingerprint(items) === fingerprint(ownerItems)) {
+    recordSearchLog(
+      "warn",
+      "plex.onDeckLeak",
+      `${user.username} (profil géré ${auth.managedUserId}) : Plex a renvoyé le on-deck du propriétaire au lieu du sien — item(s) ignoré(s).`
+    );
+    return [];
+  }
+  return items;
 }
 
 export async function pushEpisodesWatchedToPlex(

@@ -1,11 +1,13 @@
 import { loadPlexConfig } from "@/lib/plex/store";
-import { getPlexOnDeck } from "@/lib/plex/client";
-import { resolveToken } from "@/lib/plex/watchWrite";
+import { resolveToken, getVerifiedOnDeck } from "@/lib/plex/watchWrite";
 
 /**
  * Merge the local Movviz position with Plex's Continue Watching position.
  * Plex is queried best-effort: an unavailable Plex server must never prevent
- * local playback or erase a valid local position.
+ * local playback or erase a valid local position. getVerifiedOnDeck (not a
+ * raw getPlexOnDeck call) protects a Plex Home managed profile from ever
+ * being merged with the server owner's own resume position — see its doc
+ * comment in watchWrite.ts.
  */
 export async function mergePlexResume(
   user: Parameters<typeof resolveToken>[0],
@@ -14,9 +16,8 @@ export async function mergePlexResume(
 ): Promise<number | null> {
   try {
     const cfg = loadPlexConfig();
-    const auth = cfg.hostname ? resolveToken(user, cfg) : null;
-    if (!auth) return localOffsetMs;
-    const item = (await getPlexOnDeck(cfg, auth.token, auth.managedUserId))
+    if (!cfg.hostname) return localOffsetMs;
+    const item = (await getVerifiedOnDeck(user, cfg))
       .find((candidate) => candidate.ratingKey === ratingKey);
     return item && item.viewOffset > 0 ? item.viewOffset : localOffsetMs;
   } catch {

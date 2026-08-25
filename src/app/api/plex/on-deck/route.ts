@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadPlexConfig } from "@/lib/plex/store";
-import { buildPlexWebUrl, getPlexOnDeck } from "@/lib/plex/client";
-import { resolveToken } from "@/lib/plex/watchWrite";
+import { buildPlexWebUrl } from "@/lib/plex/client";
+import { resolveToken, getVerifiedOnDeck } from "@/lib/plex/watchWrite";
 import { getMovieByPlexRatingKey, findEpisodeByPlexRatingKey } from "@/lib/library/store";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
 import type { DashboardFileTechnical } from "@/lib/dashboard/interfaceTypes";
@@ -65,23 +65,12 @@ export async function GET(req: NextRequest) {
   const plexUrlFor = (ratingKey: string | null) =>
     ratingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, ratingKey) : null;
 
-  const onDeck = await getPlexOnDeck(cfg, auth.token, auth.managedUserId);
-  // Bug fix (confirmed live, reverted): a v1.14.44 safety net cross-checked
-  // every on-deck item against this user's own SYNCED watch history
-  // (watchSync.ts, refreshed only every 2h from Plex's own history log)
-  // before trusting it — meant to guard against a suspected Plex API quirk,
-  // but it silently dropped perfectly legitimate, currently-in-progress
-  // items: something just started (a few % in) hasn't crossed Plex's own
-  // history-logging threshold yet, so it has no "recent" entry there even
-  // though it's genuinely this user's own on-deck item. Confirmed live: the
-  // admin's own Continue Watching row dropped from 10 real items to 3
-  // after that fix shipped. The theoretical leak this guarded against was
-  // never actually confirmed to be this specific endpoint's fault (a
-  // different, unrelated bug — the SWR client cache never being cleared on
-  // login/logout — already explains the reported cross-account symptom on
-  // its own), so trading away real functionality for an unconfirmed
-  // protection isn't the right call. Back to trusting resolveToken's own
-  // per-account token scoping, same as every other per-user Plex read here.
+  // getVerifiedOnDeck cross-checks a Plex Home managed profile's on-deck
+  // response against a fresh admin-token fetch in the same request, and
+  // drops it if Plex returned the owner's own data instead — see its doc
+  // comment (watchWrite.ts) for why the naive per-account token scoping
+  // used everywhere else in this codebase isn't safe for this one endpoint.
+  const onDeck = await getVerifiedOnDeck(user, cfg);
   const items: OnDeckEntry[] = [];
   const localKeys = new Set<string>();
   for (const p of listPlaybackProgress(user.id)) {
