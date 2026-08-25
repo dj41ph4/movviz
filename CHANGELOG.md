@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.19.41 — August 2026
+
+### Survol des cartes plus dynamique
+
+L'aperçu qui s'agrandit au survol d'une carte reste maintenant à sa place pendant un défilement de la page au lieu de rester figé à l'écran, se referme immédiatement si on scrolle, et apparaît désormais avec un vrai effet de grossissement progressif plutôt qu'un simple fondu. Les cartes du tableau de bord ont aussi été légèrement réduites pour mieux s'harmoniser avec celles de Films et Séries.
+
+### Chargement réseau parasite en arrière-plan réduit
+
+Le préchargement automatique des fiches, qui se déclenchait à chaque carte visible à l'écran alors que la fiche s'ouvre en réalité dans un panneau sans jamais vraiment naviguer, ne se déclenche plus — moins de requêtes inutiles en tâche de fond pendant la navigation.
+
 ## v1.19.40 — August 2026
 
 ### Nettoyage de la publication

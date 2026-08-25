@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { createPortal } from "react-dom";
+import { motion } from "framer-motion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import useSWR from "swr";
 import { Star, Film, Tv, Play, Plus, ThumbsUp, ThumbsDown, ChevronDown, Loader2, Clock3, RotateCcw } from "lucide-react";
@@ -196,6 +197,19 @@ export function DashboardPosterCard({
 
   useEffect(() => setAddedHere(false), [inLibrary, tmdbId, type]);
 
+  // The popover is portalled to document.body and positioned once at open
+  // time (see openPreview) — it never re-anchors to the source card, so a
+  // scroll while hovering would otherwise leave it floating over unrelated
+  // content instead of following the card like Netflix's in-flow preview
+  // does. Closing immediately on any scroll is simpler than re-anchoring and
+  // matches the natural mouseleave Netflix gets for free.
+  useEffect(() => {
+    if (!hovered) return;
+    const onScroll = () => setHovered(false);
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [hovered]);
+
   const addToLibrary = async () => {
     if (adding || inLibrary || addedHere) return;
     setAdding(true);
@@ -339,10 +353,11 @@ export function DashboardPosterCard({
     <>
     <Link
       href={`/title/${type}/${tmdbId}`}
+      prefetch={false}
       onMouseEnter={(event) => openPreview(event.currentTarget)}
       onMouseLeave={closePreview}
       onClick={closeOnClick}
-      className={cn("group shrink-0 transition-opacity duration-200", showRank ? "flex w-[190px] items-end sm:w-[220px]" : layout === "fill" ? "block w-full" : "block w-[300px] lg:w-[320px] xl:w-[340px] 2xl:w-[360px]", hovered && "opacity-0 sm:opacity-35")}
+      className={cn("group shrink-0 transition-opacity duration-200", showRank ? "flex w-[190px] items-end sm:w-[220px]" : layout === "fill" ? "block w-full" : "block w-[240px] sm:w-[250px] lg:w-[260px] xl:w-[270px] 2xl:w-[280px]", hovered && "opacity-0 sm:opacity-35")}
     >
       {showRank && (
         <span
@@ -421,17 +436,27 @@ export function DashboardPosterCard({
       </div>
     </Link>
     {hovered && popover && typeof document !== "undefined" && createPortal(
-      <div
+      <motion.div
         onMouseEnter={() => {
           if (leaveTimer.current) clearTimeout(leaveTimer.current);
           if (hoverTimer.current) clearTimeout(hoverTimer.current);
           setHovered(true);
         }}
         onMouseLeave={closePreview}
+        initial={{ opacity: 0, scale: 0.82, y: popover.above ? 8 : -8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={{ duration: 0.42, ease: [0.25, 0.1, 0.25, 1] }}
         className="fixed z-[80] hidden overflow-hidden rounded-[18px] border border-white/20 bg-[#171522]/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] ring-1 ring-white/10 backdrop-blur-xl sm:block"
-        style={{ left: popover.left, top: popover.top, width: popover.width, transform: popover.above ? "translateY(-100%)" : undefined }}
+        style={{
+          left: popover.left,
+          top: popover.top,
+          width: popover.width,
+          transformOrigin: popover.above ? "center bottom" : "center top",
+          ...(popover.above ? { translate: "0 -100%" } : {}),
+        }}
       >
-        <Link href={`/title/${type}/${tmdbId}`} onClick={closeOnClick} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow">
+        <Link href={`/title/${type}/${tmdbId}`} prefetch={false} onClick={closeOnClick} className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow">
           <div className="relative aspect-video overflow-hidden">
             {videoReady && videoPreviewEnabled && ambientVideoKeys.length > 0 ? (
               <TrailerHeader
@@ -553,6 +578,7 @@ export function DashboardPosterCard({
             </div>
             <Link
               href={`/title/${type}/${tmdbId}`}
+              prefetch={false}
               onClick={closeOnClick}
               title={t("common.open")}
               aria-label={t("common.open")}
@@ -581,7 +607,7 @@ export function DashboardPosterCard({
           )}
           {popoverFooter}
         </div>
-      </div>, document.body
+      </motion.div>, document.body
     )}
     </>
   );
