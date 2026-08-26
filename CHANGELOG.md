@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.00 — August 2026
+
+### Grand nettoyage des releases GitHub
+
+Nettoyage complet de l'historique des releases GitHub : suppression des dizaines d'anciennes versions accumulées, ne conservant que les jalons utiles. Aucun changement fonctionnel côté application.
+
 ## v1.19.63 — August 2026
 
 ### Reprendre : menu de la carte, plus de bouton son
