@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.09 — August 2026
+
+### Chat intelligent : le ton face aux insultes, prise 3
+
+Testé en conditions réelles : le Chat intelligent recyclait la même réplique mot pour mot (juste l'insulte changeait), et dérapait encore parfois vers une liste de recommandations non demandée. Interdiction stricte de toute liste dans ce cas précis, et consigne explicite de ne jamais réutiliser une formule déjà employée plus tôt dans la conversation.
+
 ## v1.20.08 — August 2026
 
 ### Android TV : correctif de build
