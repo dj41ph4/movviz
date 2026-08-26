@@ -100,6 +100,17 @@ function destroyYouTubePlayer(player: any, host: HTMLElement | null) {
   try { host?.replaceChildren(); } catch { /* host already detached */ }
 }
 
+// Live-verified on real-world Edge (not reproducible in a clean/sandboxed
+// browser): a <video src> pointing at the Apple CDN can silently stall
+// forever — currentSrc set, networkState stuck LOADING, zero network
+// activity, no error event ever fires — almost certainly a browser
+// extension intercepting the request rather than a Movviz-side bug, but the
+// exact cause doesn't matter: a direct-video candidate must never be able
+// to hang the page indefinitely. If playable data hasn't arrived within
+// this window, treat it exactly like an error and advance to the next
+// candidate (eventually YouTube, which always still works).
+const DIRECT_VIDEO_STALL_TIMEOUT_MS = 4000;
+
 /**
  * Direct MP4/HLS playback for the Apple/IMDb enhanced trailer sources —
  * native <video>, so unlike the YouTube iframe hack above it can just use
@@ -114,13 +125,22 @@ function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError 
     const video = videoRef.current;
     if (!video) return;
     let hls: Hls | null = null;
+    let settled = false;
+    const onErrorOnce = () => {
+      if (settled) return;
+      settled = true;
+      onError();
+    };
+    const stallTimer = setTimeout(onErrorOnce, DIRECT_VIDEO_STALL_TIMEOUT_MS);
+    const clearStallTimer = () => { settled = true; clearTimeout(stallTimer); };
+    video.addEventListener("loadeddata", clearStallTimer, { once: true });
 
     if (source.playbackType === "hls" && Hls.isSupported()) {
       hls = new Hls();
       hls.loadSource(source.url);
       hls.attachMedia(video);
       hls.on(Hls.Events.ERROR, (_evt, data) => {
-        if (data.fatal) onError();
+        if (data.fatal) onErrorOnce();
       });
     } else {
       video.src = source.url;
@@ -132,6 +152,8 @@ function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError 
     });
 
     return () => {
+      clearTimeout(stallTimer);
+      video.removeEventListener("loadeddata", clearStallTimer);
       hls?.destroy();
       video.removeAttribute("src");
       video.load();

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.54 — August 2026
+
+### Bande-annonces : fiabilité renforcée + recherche de sources élargie
+
+Le lecteur de bande-annonce directe (Apple) a désormais un garde-fou : si le chargement ne progresse pas en quelques secondes (observé en conditions réelles), Movviz bascule automatiquement sur YouTube au lieu de rester bloqué. La chaîne de sources a aussi été élargie à Netflix, Disney+ et Prime Video — après vérification technique poussée, aucune de ces plateformes n'expose de bande-annonce publique exploitable sans contournement de protection ou compte, donc ces trois sources restent inactives pour l'instant (Apple reste la seule source directe, YouTube le filet de sécurité habituel).
+
 ## v1.19.53 — August 2026
 
 ### Bande-annonces : source directe Apple avant YouTube (optionnel)
