@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import useSWR from "swr";
-import { Star, Film, Tv, Play, Plus, ThumbsUp, ThumbsDown, ChevronDown, Loader2, Clock3, RotateCcw } from "lucide-react";
+import { Star, Film, Tv, Play, Plus, ThumbsUp, ThumbsDown, ChevronDown, Loader2, Clock3, RotateCcw, Eye, X } from "lucide-react";
+import { CardMenu, MenuItem } from "@/components/ui/CardMenu";
 import { cn, openPlexLink } from "@/lib/utils";
 import { BADGE_SHAPE, buildMediaBadgeItems, type BadgeInfo } from "@/components/library/MediaBadges";
 import { useI18n } from "@/i18n/provider";
@@ -95,6 +96,8 @@ export function DashboardPosterCard({
   technical,
   popoverActions,
   popoverFooter,
+  onMarkWatched,
+  onRemoveFromResume,
 }: {
   tmdbId: number;
   type: "movie" | "series";
@@ -145,6 +148,13 @@ export function DashboardPosterCard({
   playback?: DashboardCardPlayback;
   /** File facts for the exact item being played, never inferred from TMDb. */
   technical?: DashboardCardTechnical;
+  /** Reprendre row only (confirmed live) — when either callback is
+   *  supplied, the chevron opens a small dropdown ("Marquer comme vue",
+   *  "Retirer de la liste Reprendre") instead of just linking to the fiche.
+   *  Marking watched also removes the card from Reprendre — the caller
+   *  doesn't need to call onRemoveFromResume itself for that case. */
+  onMarkWatched?: () => void | Promise<void>;
+  onRemoveFromResume?: () => void | Promise<void>;
 }) {
   const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
@@ -160,6 +170,7 @@ export function DashboardPosterCard({
   const [ratingSaving, setRatingSaving] = useState(false);
   const [dislikeSaving, setDislikeSaving] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [resumeActionSaving, setResumeActionSaving] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Only still needed for play()'s backdropUrl/posterUrl (TheaterModePlayer's
@@ -271,6 +282,34 @@ export function DashboardPosterCard({
       toast("error", t("title.ratingError"));
     } finally {
       setDislikeSaving(false);
+    }
+  };
+
+  const markWatchedFromResume = async () => {
+    if (!onMarkWatched || resumeActionSaving) return;
+    setResumeActionSaving(true);
+    try {
+      await onMarkWatched();
+      // Marking watched implies leaving Reprendre too — same card, one
+      // action, confirmed live ("et sa retirera de la liste reprendre").
+      setDismissed(true);
+    } catch {
+      toast("error", t("title.ratingError"));
+    } finally {
+      setResumeActionSaving(false);
+    }
+  };
+
+  const removeFromResume = async () => {
+    if (!onRemoveFromResume || resumeActionSaving) return;
+    setResumeActionSaving(true);
+    try {
+      await onRemoveFromResume();
+      setDismissed(true);
+    } catch {
+      toast("error", t("title.ratingError"));
+    } finally {
+      setResumeActionSaving(false);
     }
   };
 
@@ -488,6 +527,7 @@ export function DashboardPosterCard({
                 trailerKeys={ambientVideoKeys}
                 title={title}
                 trigger="immediate"
+                hideSoundToggle
                 className="h-full w-full"
               />
             ) : previewImage ? (
@@ -599,16 +639,41 @@ export function DashboardPosterCard({
               </button>
               {popoverActions}
             </div>
-            <Link
-              href={`/title/${type}/${tmdbId}`}
-              prefetch={false}
-              onClick={closeOnClick}
-              title={t("common.open")}
-              aria-label={t("common.open")}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/45 text-white transition-colors hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
-            >
-              <ChevronDown className="h-5 w-5" />
-            </Link>
+            {onMarkWatched || onRemoveFromResume ? (
+              <CardMenu
+                label={t("common.open")}
+                trigger={({ onClick, ref }) => (
+                  <button
+                    ref={ref}
+                    type="button"
+                    onClick={onClick}
+                    title={t("common.open")}
+                    aria-label={t("common.open")}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/45 text-white transition-colors hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+                  >
+                    <ChevronDown className="h-5 w-5" />
+                  </button>
+                )}
+              >
+                {onMarkWatched && (
+                  <MenuItem icon={Eye} label={t("watch.markWatched")} onClick={markWatchedFromResume} busy={resumeActionSaving} />
+                )}
+                {onRemoveFromResume && (
+                  <MenuItem icon={X} label={t("dashboard.removeFromResume")} onClick={removeFromResume} busy={resumeActionSaving} />
+                )}
+              </CardMenu>
+            ) : (
+              <Link
+                href={`/title/${type}/${tmdbId}`}
+                prefetch={false}
+                onClick={closeOnClick}
+                title={t("common.open")}
+                aria-label={t("common.open")}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/45 text-white transition-colors hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
+              >
+                <ChevronDown className="h-5 w-5" />
+              </Link>
+            )}
           </div>
           {/* Netflix: clicking the plain background of the popover (year,
            * runtime, genres — anything that isn't the image/play button or

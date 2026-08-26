@@ -389,6 +389,7 @@ export const fr = {
     },
     continueWatching: "Reprendre",
     continueWatchingSub: "Reprenez où vous en étiez",
+    removeFromResume: "Retirer de la liste Reprendre",
     recentlyAdded: "Ajouts récents",
     recentlyAddedSub: "Nouveautés de votre bibliothèque",
     pipeline: "Dans le pipeline",

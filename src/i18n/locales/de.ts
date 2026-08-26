@@ -391,6 +391,7 @@ export const de: Dictionary = {
     },
     continueWatching: "Weiterschauen",
     continueWatchingSub: "Dort weitermachen, wo du aufgehört hast",
+    removeFromResume: "Aus „Weiterschauen“ entfernen",
     recentlyAdded: "Kürzlich hinzugefügt",
     recentlyAddedSub: "Neu in deiner Bibliothek",
     pipeline: "In Bearbeitung",

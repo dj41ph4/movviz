@@ -4,7 +4,6 @@ import { useT } from "@/i18n/provider";
 import { Toggle } from "@/components/ui/Toggle";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
-import { useEnhancedTrailerSources } from "@/lib/settings/useEnhancedTrailerSources";
 
 /**
  * General viewing-experience preferences — cross-page personal toggles that
@@ -25,7 +24,6 @@ export function ExperiencePanel() {
   const t = useT();
   const titlePageVideo = useTitlePageVideo();
   const specialEpisodes = useSpecialEpisodes();
-  const enhancedTrailerSources = useEnhancedTrailerSources();
 
   return (
     <div className="space-y-6">
@@ -44,15 +42,6 @@ export function ExperiencePanel() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.specialEpisodesEnabled")}</span>
           <Toggle on={specialEpisodes.enabled} onChange={() => specialEpisodes.setEnabled(!specialEpisodes.enabled)} />
-        </div>
-      </div>
-
-      <div className="rounded-2xl glass p-5">
-        <h3 className="mb-1 font-bold text-ink">{t("settings.experience.enhancedTrailerSourcesTitle")}</h3>
-        <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.enhancedTrailerSourcesHint")}</p>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-ink">{t("settings.experience.enhancedTrailerSourcesEnabled")}</span>
-          <Toggle on={enhancedTrailerSources.enabled} onChange={() => enhancedTrailerSources.setEnabled(!enhancedTrailerSources.enabled)} />
         </div>
       </div>
     </div>

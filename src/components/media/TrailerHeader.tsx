@@ -248,6 +248,12 @@ export interface TrailerHeaderProps {
   enabled?: boolean;
   /** Defaults to true (ambient autoplay is always muted by policy/design) — set to false to let the user opt into sound via their own control. */
   muted?: boolean;
+  /** Hides the sound toggle button — confirmed live for the Reprendre row's
+   *  small hover popover, where a per-card mute control doesn't make sense
+   *  (a whole row of ambient previews, never meant to be individually
+   *  unmuted). Playback stays muted regardless — this only removes the
+   *  button, `muted` itself is untouched by this prop. */
+  hideSoundToggle?: boolean;
   className?: string;
 }
 
@@ -413,7 +419,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -558,16 +564,18 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
               top of and swallow clicks on that corner even on a wide
               screen; top-left is never contested by either consumer,
               regardless of width. */}
-          <button
-            onClick={() => setSoundOn((s) => !s)}
-            className={cn(
-              "absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition-all duration-200",
-              "bg-black/40 text-white/80 hover:bg-white/20 hover:text-white hover:scale-110 active:scale-95"
-            )}
-            aria-label={muted ? "Activer le son" : "Couper le son"}
-          >
-            {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-          </button>
+          {!hideSoundToggle && (
+            <button
+              onClick={() => setSoundOn((s) => !s)}
+              className={cn(
+                "absolute top-4 left-4 z-20 flex h-11 w-11 items-center justify-center rounded-full backdrop-blur transition-all duration-200",
+                "bg-black/40 text-white/80 hover:bg-white/20 hover:text-white hover:scale-110 active:scale-95"
+              )}
+              aria-label={muted ? "Activer le son" : "Couper le son"}
+            >
+              {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -108,7 +108,7 @@ export function DashboardRows({
   // could disagree with what Plex itself shows. Revalidates on focus like
   // every other row here (default SWR behavior) so resuming a title in
   // another tab updates this one without a manual refresh.
-  const { data: onDeckData } = useSWR<{ items: OnDeckEntry[] }>(
+  const { data: onDeckData, mutate: mutateOnDeck } = useSWR<{ items: OnDeckEntry[] }>(
     visible.has("continueWatching") ? "/api/plex/on-deck" : null
   );
   const continueWatching = onDeckData?.items ?? [];
@@ -283,6 +283,34 @@ export function DashboardRows({
                   : type === "movie"
                     ? technicalFromFile(movies.find((movie) => movie.tmdbId === item.tmdbId)?.file)
                     : undefined;
+                // Reprendre row's own dropdown (confirmed live) — only
+                // offered when we have a real plexRatingKey to identify the
+                // item to Plex/the local progress store; without one there's
+                // nothing reliable to mark watched or clear.
+                const markWatched = item.plexRatingKey
+                  ? async () => {
+                      await fetch("/api/watch/toggle", {
+                        method: "POST",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify(
+                          type === "movie"
+                            ? { tmdbId: item.tmdbId, type: "movie", watched: true, title: item.title }
+                            : { tmdbId: item.tmdbId, type: "series", watched: true, title: item.title, episodes: [{ season: item.seasonNumber, episode: item.episodeNumber }] }
+                        ),
+                      });
+                      mutateOnDeck();
+                    }
+                  : undefined;
+                const removeFromResume = item.plexRatingKey
+                  ? async () => {
+                      await fetch("/api/plex/continue-watching/remove", {
+                        method: "POST",
+                        headers: { "content-type": "application/json" },
+                        body: JSON.stringify({ plexRatingKey: item.plexRatingKey, movvizId: item.movvizId }),
+                      });
+                      mutateOnDeck();
+                    }
+                  : undefined;
                 return (
                   <CardErrorBoundary key={`${item.type}:${item.tmdbId}:${i}`}>
                     <DashboardPosterCard
@@ -301,6 +329,8 @@ export function DashboardRows({
                       inLibrary={libraryTitleKeys.has(`${type}:${item.tmdbId}`)}
                       playback={playback}
                       technical={technical}
+                      onMarkWatched={markWatched}
+                      onRemoveFromResume={removeFromResume}
                     />
                   </CardErrorBoundary>
                 );

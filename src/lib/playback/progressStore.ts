@@ -97,6 +97,24 @@ function ensure(userId: string, ratingKey: string, input: { mediaId?: string; me
 export function getPlaybackProgress(userId: string, ratingKey: string, mediaId?: string): PlaybackProgress | null { return get(userId, ratingKey, mediaId); }
 export function listPlaybackProgress(userId: string): PlaybackProgress[] { return Object.values(store().byUser[userId] ?? {}).filter((p) => !p.watched && p.eligibleForResume && (p.resumeOffsetMs ?? 0) > 0); }
 
+/** "Retirer de la liste Reprendre" without marking watched — clears the
+ *  resume position so listPlaybackProgress's own filter naturally excludes
+ *  it, but leaves `watched` false so a later real play starts fresh instead
+ *  of behaving like a rewatch. Mirrors markPlaybackWatched's shape/side
+ *  effects but for the opposite intent. Matches by mediaId first (the
+ *  canonical Movviz identity once known), falling back to the raw
+ *  plexRatingKey — same lookup order ensure()/get() already use. */
+export function clearPlaybackProgress(userId: string, ratingKey: string, mediaId?: string): PlaybackProgress | null {
+  const p = get(userId, ratingKey, mediaId);
+  if (!p) return null;
+  p.resumeOffsetMs = null;
+  p.eligibleForResume = false;
+  p.updatedAt = Date.now();
+  p.revision++;
+  persist();
+  return p;
+}
+
 export function openPlaybackSession(userId: string, input: { ratingKey: string; mediaId?: string; mediaType: "movie" | "episode"; durationMs: number; tmdbId?: number; seasonNumber?: number; episodeNumber?: number; title?: string }): { session: PlaybackSession; progress: PlaybackProgress } {
   const progress = ensure(userId, input.ratingKey, input);
   const now = Date.now();

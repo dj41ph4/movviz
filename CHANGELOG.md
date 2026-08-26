@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.63 — August 2026
+
+### Reprendre : menu de la carte, plus de bouton son
+
+Sur les cartes de la ligne "Reprendre" (et toutes les cartes avec aperçu vidéo), le bouton son a été retiré — l'aperçu reste muet, sans bouton inutile. Le chevron ouvre désormais un menu : "Marquer comme vue" (qui retire aussi la carte de Reprendre) et "Retirer de la liste Reprendre" sans la marquer vue. Au passage, les sources de bande-annonce améliorées (Apple/IMDb) deviennent un réglage serveur unique, plus un choix par utilisateur.
+
 ## v1.19.62 — August 2026
 
 ### Recherche : vraie filmographie des réalisateurs, films et séries mêlés

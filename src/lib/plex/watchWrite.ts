@@ -1,5 +1,5 @@
 import { loadPlexConfig, savePlexConfig } from "./store";
-import { setPlexWatched, deletePlexItem, getPlexOnDeck, getPlexServerAccessToken, getServerIdentity, switchPlexHomeUser, type PlexOnDeckItem } from "./client";
+import { setPlexWatched, deletePlexItem, getPlexOnDeck, getPlexServerAccessToken, getServerIdentity, switchPlexHomeUser, removePlexFromContinueWatching, type PlexOnDeckItem } from "./client";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
@@ -102,6 +102,24 @@ export async function pushMovieWatchedToPlex(user: User, tmdbId: number, watched
     "plex.watchWrite",
     `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${movie.title} » ${watched ? "marqué vu" : "marqué non vu"} sur Plex : ${ok ? "ok" : "échec"}`
   );
+}
+
+/** "Retirer de la liste Reprendre" (Reprendre row's own dropdown, confirmed
+ *  live) — Plex's real removeFromContinueWatching action, distinct from
+ *  scrobbling: drops the item off On Deck without marking it watched, so a
+ *  later real play starts over instead of resuming or counting as a rewatch. */
+export async function removeFromContinueWatchingOnPlex(user: User, ratingKey: string): Promise<boolean> {
+  const cfg = loadPlexConfig();
+  if (!cfg.hostname) return false;
+  const auth = await resolvePlexServerAuth(user, cfg);
+  if (!auth) return false;
+  const ok = await removePlexFromContinueWatching(cfg, auth.token, ratingKey);
+  recordSearchLog(
+    ok ? "info" : "warn",
+    "plex.watchWrite",
+    `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — retrait de "Continuer à regarder" (ratingKey:${ratingKey}) sur Plex : ${ok ? "ok" : "échec"}`
+  );
+  return ok;
 }
 
 /**

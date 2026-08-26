@@ -765,6 +765,23 @@ export async function setPlexWatched(cfg: PlexServerConfig, token: string, ratin
   }
 }
 
+/** Plex's own "Remove from Continue Watching" action (the same one its web/
+ *  mobile apps expose on a long-press/context menu) — resets the item's
+ *  progress without marking it watched, so it drops off On Deck but a real
+ *  next play starts from the beginning rather than resuming. */
+export async function removePlexFromContinueWatching(cfg: PlexServerConfig, token: string, ratingKey: string, managedUserId?: string): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/actions/removeFromContinueWatching?${new URLSearchParams({ ratingKey })}`, {
+      method: "GET",
+      headers: serverHeaders(cfg, token, managedUserId),
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Movie and show sections configured on the server — the entry point for a library scan. */
 export interface PlexOnDeckItem {
   ratingKey: string;

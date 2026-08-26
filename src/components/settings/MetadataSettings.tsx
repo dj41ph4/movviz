@@ -4,9 +4,12 @@ import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { Check, X, ExternalLink, Loader2, RotateCcw, BookOpen } from "lucide-react";
+import { Toggle } from "@/components/ui/Toggle";
+import { useEnhancedTrailerSources } from "@/lib/settings/useEnhancedTrailerSources";
 
 export function MetadataSettings() {
   const t = useT();
+  const enhancedTrailerSources = useEnhancedTrailerSources();
   const [tmdbConfigured, setTmdbConfigured] = useState(false);
   const [tmdbIsDefault, setTmdbIsDefault] = useState(true);
   const [tmdbApiKey, setTmdbApiKey] = useState("");
@@ -343,6 +346,15 @@ export function MetadataSettings() {
               </p>
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="mt-6 border-t border-white/5 pt-5">
+        <h3 className="text-sm font-bold text-ink">{t("settings.experience.enhancedTrailerSourcesTitle")}</h3>
+        <p className="mt-1 mb-3 text-xs text-ink-dim">{t("settings.experience.enhancedTrailerSourcesHint")}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-ink">{t("settings.experience.enhancedTrailerSourcesEnabled")}</span>
+          <Toggle on={enhancedTrailerSources.enabled} onChange={() => enhancedTrailerSources.setEnabled(!enhancedTrailerSources.enabled)} />
         </div>
       </div>
     </div>
