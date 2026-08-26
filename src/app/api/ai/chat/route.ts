@@ -574,14 +574,22 @@ export async function POST(req: NextRequest) {
   // file). A small model malforming JSON once doesn't mean it can't
   // produce it cleanly on a second, more insistent attempt.
   if (intent.action === null && intent.rawText === BROKEN_ACTION_FALLBACK) {
-    try {
-      const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a tenté un JSON structuré ({"action":"add_media"|"recommend",...}) mais il était mal formé et n'a pas pu être lu. Réponds cette fois avec un JSON strictement valide (guillemets doubles, pas de virgule finale, toutes les accolades/crochets fermés) — reprends la même intention que ta réponse précédente.`;
-      const retryRes = await callAi(config, retrySystem, session.messages);
-      const retryIntent = parseIntent(retryRes.text);
-      if (retryIntent.action !== null || retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
-    } catch {
-      // Best-effort, single bounded retry — falls through to the apology
-      // if this also fails, same discipline as every other retry here.
+    // Bounded to 2 attempts (per user's explicit "s'il comprend pas, qu'il
+    // relise 2x" — confirmed live that a single retry can ALSO come back
+    // broken, still leaking the raw technical apology to the user). If both
+    // fail, a warmer conversational line beats the robotic error text.
+    for (let attempt = 0; attempt < 2 && intent.rawText === BROKEN_ACTION_FALLBACK; attempt++) {
+      try {
+        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a tenté un JSON structuré ({"action":"add_media"|"recommend",...}) mais il était mal formé et n'a pas pu être lu. Réponds cette fois avec un JSON strictement valide (guillemets doubles, pas de virgule finale, toutes les accolades/crochets fermés) — reprends la même intention que ta réponse précédente.`;
+        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryIntent = parseIntent(retryRes.text);
+        if (retryIntent.action !== null || retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
+      } catch {
+        break; // provider failure — further attempts won't succeed either
+      }
+    }
+    if (intent.rawText === BROKEN_ACTION_FALLBACK) {
+      intent = { action: null, items: [], rawText: "Hmm, j'ai un peu buggé sur ce coup — tu peux reformuler autrement ? 😅" };
     }
   }
   // Confirmed live: a bare title mention with no action verb ("Hurlevent",
