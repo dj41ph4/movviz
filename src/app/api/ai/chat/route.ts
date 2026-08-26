@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
@@ -491,6 +491,33 @@ export async function POST(req: NextRequest) {
     } catch {
       // Best-effort: the normal response remains available if the provider
       // fails during this single corrective call.
+    }
+  }
+  // Confirmed live, repeatedly (twice with different strong insults, same
+  // failure both times): the prompt-only rule in actions.ts ("no
+  // recommendation list during an insult exchange, unless 3-4 rounds in")
+  // is NOT reliably followed by the small/free-tier model — it dumped a
+  // full 6-item recommend list on the FIRST insult of the exchange, not
+  // after several rounds. Code-level enforcement, since prompt wording
+  // alone has already been tightened three times (v1.20.09/10) without
+  // fully fixing it. insultStreak counts consecutive insulting USER turns
+  // ending at this message (countConsecutiveInsultRounds) — under 3, a
+  // recommend action this message is premature and gets retried into mode
+  // 3; if the retry STILL comes back as recommend, the JSON is discarded
+  // outright rather than trusted a second time, since the model has now
+  // twice ignored the same explicit correction.
+  const insultStreak = countConsecutiveInsultRounds(session.messages);
+  if (insultStreak > 0 && insultStreak < 3 && intent.action === "recommend") {
+    try {
+      const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a répondu à une insulte/provocation par une liste de recommandations JSON — c'est une erreur, l'utilisateur n'a rien demandé de tel, il te charrie seulement. Réponds cette fois en MODE 3 UNIQUEMENT (texte normal, jamais de JSON) avec de la répartie, sans citer aucun titre précis.`;
+      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryIntent = parseIntent(retryRes.text);
+      intent = retryIntent.action === "recommend"
+        ? { action: null, items: [], rawText: "Haha, tu insistes ! On en reparle si tu veux vraiment un film, sinon dis-moi ce qui te chiffonne." }
+        : retryIntent;
+    } catch {
+      // Best-effort — falls through to the original (wrong) recommend
+      // outcome if the provider itself fails during this corrective call.
     }
   }
   // Confirmed live: a recommend/add request the model clearly attempted

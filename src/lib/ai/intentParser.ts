@@ -996,6 +996,39 @@ export function isRecommendationContinuation(previousAssistantMessage: string | 
     && RECOMMENDATION_CONTINUATION_RE.test(userMessage.trim());
 }
 
+// Confirmed live, repeatedly: the prompt-only "no recommendation list
+// during an insult exchange, unless 3-4 rounds in" rule (actions.ts,
+// PERSONNALITÉ) is NOT reliably followed by the small/free-tier model — a
+// single strong insult ("va te faire enculer", "t'es vraiment con") dumped
+// a full 6-item recommend list on round 1, twice in a row. Unlike title-
+// mention detection above (which must stay narrow to avoid false
+// positives), this only needs to spot "does this message contain an
+// insult", so a broader unanchored match is fine — false positives here
+// just mean one extra retry, never a wrong title resolved. Not anchored to
+// the whole string (unlike CHITCHAT_ONLY_RE) — a full sentence around the
+// insult ("tu sais bien que j'ai tout vu abruti") must still count.
+const INSULT_CONTENT_RE = /\b(con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|encul\w*|merde|putain|chier|emmerde)\b/i;
+
+export function isInsultMessage(message: string): boolean {
+  return INSULT_CONTENT_RE.test(message);
+}
+
+/** Counts how many of the most recent USER turns (walking back from just
+ *  before the current message) were also insults, stopping at the first
+ *  non-insult — the "combien de rounds d'affilée" signal the escalation-exit
+ *  rule (actions.ts) needs to know whether a recommendation is actually due
+ *  yet. Does not look at assistant turns at all: only the user's own
+ *  pattern of repeated insults counts as "rounds", not how the AI replied. */
+export function countConsecutiveInsultRounds(messages: { role: "user" | "assistant"; content: string }[]): number {
+  let streak = 0;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role !== "user") continue;
+    if (!isInsultMessage(messages[i].content)) break;
+    streak++;
+  }
+  return streak;
+}
+
 export interface ExplicitTasteRating {
   /** The named work/franchise, without conversational glue such as « aussi ». */
   subject: string;
