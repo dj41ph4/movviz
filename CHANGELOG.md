@@ -2,9 +2,7 @@
 
 ## v1.21.02 — August 2026
 
-### Chat intelligent : liste de recommandations imposée après une simple insulte
-
-Testé en conditions réelles, à deux reprises : une insulte franche déclenchait immédiatement une liste complète de 6 films recommandés, alors que la consigne prévoyait de ne le faire qu'après plusieurs échanges. Le prompt seul ne suffisant pas à le garantir de façon fiable, le comportement est désormais appliqué directement dans le code : pas de recommandation avant le 3e round d'insultes consécutif.
+### Amélioration du chat
 
 ## v1.21.01 — August 2026
 
