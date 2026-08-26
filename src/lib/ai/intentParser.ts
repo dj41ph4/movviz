@@ -1029,6 +1029,23 @@ export function countConsecutiveInsultRounds(messages: { role: "user" | "assista
   return streak;
 }
 
+/** All assistant replies from the current insult streak (most recent
+ *  first), up to `max`. Confirmed live: comparing a new reply only against
+ *  the SINGLE immediately-previous one let an A/B/A/B pattern through
+ *  undetected (round 2 and round 4 shared a template; round 3, different,
+ *  broke the adjacency check) — the caller must check against this whole
+ *  window, not just messages[length - 2]. Messages strictly alternate
+ *  user/assistant within an insult streak, so assistant replies sit at
+ *  length-2, length-4, length-6, ... */
+export function recentInsultStreakReplies(messages: { role: "user" | "assistant"; content: string }[], max = 3): string[] {
+  const out: string[] = [];
+  for (let i = messages.length - 2; i >= 0 && out.length < max; i -= 2) {
+    if (messages[i].role !== "assistant") break;
+    out.push(messages[i].content);
+  }
+  return out;
+}
+
 const REPEATED_PHRASE_MIN_LEN = 25;
 // Confirmed live: the prompt's own "never reuse the same sentence
 // structure, even with one word swapped" rule (actions.ts, RÉPARTIE) was

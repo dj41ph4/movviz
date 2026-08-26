@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, recentInsultStreakReplies } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
@@ -507,40 +507,63 @@ export async function POST(req: NextRequest) {
   // outright rather than trusted a second time, since the model has now
   // twice ignored the same explicit correction.
   const insultStreak = countConsecutiveInsultRounds(session.messages);
+  // Confirmed live: a naive retry can itself come back malformed
+  // (BROKEN_ACTION_FALLBACK) or repeat the very mistake it was asked to
+  // fix — the FIRST version of both insult-related retries below accepted
+  // whatever came back as long as it technically wasn't the exact bug being
+  // checked for, which let a broken/generic "j'ai eu un souci..." apology
+  // slip through as if it were a real reply. Bounded to 2 attempts (per
+  // user's explicit "s'il comprend pas, qu'il relise 2x" — try again rather
+  // than surface the generic error), each attempt re-validated against
+  // EVERY condition that matters (not broken, not a repeat, not the thing
+  // being corrected) before being trusted; the original reply is kept if
+  // both attempts fail to improve on it.
   if (insultStreak > 0 && insultStreak < 3 && intent.action === "recommend") {
-    try {
-      const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a répondu à une insulte/provocation par une liste de recommandations JSON — c'est une erreur, l'utilisateur n'a rien demandé de tel, il te charrie seulement. Réponds cette fois en MODE 3 UNIQUEMENT (texte normal, jamais de JSON) avec de la répartie, sans citer aucun titre précis.`;
-      const retryRes = await callAi(config, retrySystem, session.messages);
-      const retryIntent = parseIntent(retryRes.text);
-      intent = retryIntent.action === "recommend"
-        ? { action: null, items: [], rawText: "Haha, tu insistes ! On en reparle si tu veux vraiment un film, sinon dis-moi ce qui te chiffonne." }
-        : retryIntent;
-    } catch {
-      // Best-effort — falls through to the original (wrong) recommend
-      // outcome if the provider itself fails during this corrective call.
+    for (let attempt = 0; attempt < 2 && intent.action === "recommend"; attempt++) {
+      try {
+        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a répondu à une insulte/provocation par une liste de recommandations JSON — c'est une erreur, l'utilisateur n'a rien demandé de tel, il te charrie seulement. Réponds cette fois en MODE 3 UNIQUEMENT (texte normal, jamais de JSON) avec de la répartie, sans citer aucun titre précis.`;
+        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryIntent = parseIntent(retryRes.text);
+        if (retryIntent.action === null && retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
+      } catch {
+        break; // provider failure — further attempts won't succeed either
+      }
+    }
+    // Both attempts either stayed "recommend" or came back broken — a
+    // fixed, always-safe fallback beats surfacing either to the user.
+    if (intent.action === "recommend" || intent.rawText === BROKEN_ACTION_FALLBACK) {
+      intent = { action: null, items: [], rawText: "Haha, tu insistes ! On en reparle si tu veux vraiment un film, sinon dis-moi ce qui te chiffonne." };
     }
   }
-  // Confirmed live: round 2 and round 3 of the SAME insult exchange came
-  // back as nearly the identical sentence template (shared 100+ character
-  // run), despite the prompt explicitly forbidding exactly that ("jamais
-  // deux fois la même structure de phrase, même avec un mot changé"). Only
-  // checked when there IS a previous insult-round reply to compare against
-  // (insultStreak > 1) and this reply is mode-3 prose (never fights the
-  // recommend-blocking retry above, which already forces a specific static
-  // fallback string of its own).
-  if (insultStreak > 1 && intent.action === null && previousAssistant?.role === "assistant"
-      && sharesRepeatedPhrase(intent.rawText, previousAssistant.content)) {
-    try {
-      const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message reprenait quasiment mot pour mot une réplique déjà utilisée plus haut dans cette conversation ("${previousAssistant.content.slice(0, 120)}..."). Réponds cette fois avec une formulation ENTIÈREMENT différente dans sa structure, pas juste un mot changé — toujours en MODE 3 (texte normal, jamais de JSON), toujours sans citer de titre précis.`;
-      const retryRes = await callAi(config, retrySystem, session.messages);
-      const retryIntent = parseIntent(retryRes.text);
-      if (retryIntent.action === null && !sharesRepeatedPhrase(retryIntent.rawText, previousAssistant.content)) {
-        intent = retryIntent;
+  // Confirmed live TWICE: first against just the immediately-previous
+  // reply (fixed in v1.21.03), then again as an A/B/A/B pattern that skipped
+  // one round (round 2 and round 4 shared a template; round 3, different,
+  // slipped past a check that only looked at messages[length - 2]). Checked
+  // against the WHOLE recent insult-streak window now (recentInsultStreakReplies),
+  // not just the single latest reply. Only checked when there IS at least
+  // one previous insult-round reply to compare against (insultStreak > 1)
+  // and this reply is mode-3 prose (never fights the recommend-blocking
+  // retry above, which already forces a specific static fallback of its own).
+  const recentInsultReplies = insultStreak > 1 ? recentInsultStreakReplies(session.messages) : [];
+  const isRepeat = (text: string) => recentInsultReplies.some((prev) => sharesRepeatedPhrase(text, prev));
+  if (intent.action === null && intent.rawText !== BROKEN_ACTION_FALLBACK && isRepeat(intent.rawText)) {
+    const original = intent;
+    for (let attempt = 0; attempt < 2 && isRepeat(intent.rawText); attempt++) {
+      try {
+        const matched = recentInsultReplies.find((prev) => sharesRepeatedPhrase(intent.rawText, prev))!;
+        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message reprenait quasiment mot pour mot une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}..."). Réponds cette fois avec une formulation ENTIÈREMENT différente dans sa structure, pas juste un mot changé — toujours en MODE 3 (texte normal, jamais de JSON), toujours sans citer de titre précis, et sans jamais mentionner de numéro de "round".`;
+        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryIntent = parseIntent(retryRes.text);
+        if (retryIntent.action === null && retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
+      } catch {
+        break;
       }
-    } catch {
-      // Best-effort — the original (repetitive but not otherwise wrong)
-      // reply remains available if the provider fails during this retry.
     }
+    // Neither attempt produced something non-repetitive and non-broken —
+    // the ORIGINAL (repetitive but coherent) reply is still better than a
+    // broken one, so restore it rather than keep whatever the last failed
+    // attempt left behind.
+    if (intent.rawText === BROKEN_ACTION_FALLBACK || isRepeat(intent.rawText)) intent = original;
   }
   // Confirmed live: a recommend/add request the model clearly attempted
   // ("propose-moi un truc dans le même genre" right after discussing a
