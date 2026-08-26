@@ -970,7 +970,12 @@ export function isSeriesStatusAboutCurrentPage(message: string): boolean {
 // standalone insults (same vocabulary the personality prompt in actions.ts
 // already reacts to) are listed here for the same reason "hep" is: a real
 // film title essentially never hides behind one of these on its own.
-const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|hé|he|hep|ho|oh|ah|eh|coucou|yo|wesh|slt|cc|hola|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|ptdr|haha|hihi|oui|non|ouais|ouep|nan|si|ça va|ca va|comment ça va|comment tu vas|quoi de neuf|à bientôt|a bientot|bye|ciao|au revoir|bonne nuit|stop|arrête|arrete|attends|attend|hmm|hum|bref|voilà|voila|bof|bah|beh|pff|pfff|meh|mouais|bof bof|a[iï]e|ouille|zut|miam|hem|ouf|grrr|hop|ouste|con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|tar[ée]e|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|putain|merde)[\s!.?]*$/i;
+// Confirmed live AGAIN, same failure class: "va te faire foutre" (a common
+// multi-word insult PHRASE, not a single word) resolved to the real film
+// "Va te faire foutre Freddy" (2001) — the single-word list above can never
+// catch this since CHITCHAT_ONLY_RE requires an exact whole-string match;
+// common phrasal insults need their own alternatives, listed separately.
+const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|hé|he|hep|ho|oh|ah|eh|coucou|yo|wesh|slt|cc|hola|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|ptdr|haha|hihi|oui|non|ouais|ouep|nan|si|ça va|ca va|comment ça va|comment tu vas|quoi de neuf|à bientôt|a bientot|bye|ciao|au revoir|bonne nuit|stop|arrête|arrete|attends|attend|hmm|hum|bref|voilà|voila|bof|bah|beh|pff|pfff|meh|mouais|bof bof|a[iï]e|ouille|zut|miam|hem|ouf|grrr|hop|ouste|con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|tar[ée]e|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|putain|merde|va te faire foutre|va te faire voir|va te faire encul[ée]r?|va te faire cuire (?:un [œo]euf|le cul)|casse[- ]toi|ta gueule|ferme[- ]la|d[ée]gage|nique ta m[èe]re|je t'emmerde|tu me fais chier|tu me gonfles|tu me soules|blaireau|bouffon|pourriture|ordure|malotru|casse[- ]pieds|casse[- ]bonbons)[\s!.?]*$/i;
 // Réponses courtes / références implicites à ce qui vient d'être dit —
 // jamais un titre, toujours une réaction/correction à résoudre par rapport
 // au message précédent de Movviz et au sujet actif de la conversation (voir
@@ -1007,7 +1012,7 @@ export function isRecommendationContinuation(previousAssistantMessage: string | 
 // just mean one extra retry, never a wrong title resolved. Not anchored to
 // the whole string (unlike CHITCHAT_ONLY_RE) — a full sentence around the
 // insult ("tu sais bien que j'ai tout vu abruti") must still count.
-const INSULT_CONTENT_RE = /\b(con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|encul\w*|merde|putain|chier|emmerde)\b/i;
+const INSULT_CONTENT_RE = /\b(con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|encul\w*|merde|putain|chier|emmerde|foutre|casse[- ]toi|gueule|f[ée]rme[- ]la|d[ée]gage|gonfles?|soules?|blaireau|bouffon|pourriture|ordure|malotru|casse[- ]pieds|casse[- ]bonbons)\b/i;
 
 export function isInsultMessage(message: string): boolean {
   return INSULT_CONTENT_RE.test(message);
