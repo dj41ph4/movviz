@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.07 — August 2026
+
+### Aperçu au survol : voile noir retiré sur la vidéo
+
+Sur la carte d'aperçu qui s'ouvre au survol d'une souris, le voile noir plaqué sur la bande-annonce en lecture masquait inutilement l'image — retiré uniquement dans ce cas précis (l'aperçu image/placeholder de secours garde son voile pour la lisibilité du titre).
+
 ## v1.20.06 — August 2026
 
 ### Chat intelligent : making-of jamais ajouté sauf demande explicite

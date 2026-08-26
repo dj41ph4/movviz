@@ -531,12 +531,17 @@ export function DashboardPosterCard({
                 className="h-full w-full"
               />
             ) : previewImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewImage} alt="" className="h-full w-full object-cover" />
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={previewImage} alt="" className="h-full w-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/8 to-transparent" />
+              </>
             ) : (
-              <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
+              <>
+                <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/8 to-transparent" />
+              </>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/8 to-transparent" />
             <div className="absolute inset-x-4 bottom-3 min-w-0">
               {logoPath ? (
                 <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
