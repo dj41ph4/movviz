@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.03 — August 2026
+
+### Chat intelligent : recommandations JSON plus fiables
+
+Renforcé les exemples internes que le Chat intelligent suit pour construire une liste de recommandations ou d'ajouts — plusieurs titres à la suite plutôt qu'un seul, avec la syntaxe exacte à respecter. Objectif : moins de cas où le format généré échoue et déclenche un message d'erreur générique.
+
 ## v1.20.02 — August 2026
 
 ### Chat intelligent : questions sur les réalisateurs, filmographie et ton
