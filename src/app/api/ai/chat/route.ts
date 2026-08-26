@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
@@ -518,6 +518,28 @@ export async function POST(req: NextRequest) {
     } catch {
       // Best-effort — falls through to the original (wrong) recommend
       // outcome if the provider itself fails during this corrective call.
+    }
+  }
+  // Confirmed live: round 2 and round 3 of the SAME insult exchange came
+  // back as nearly the identical sentence template (shared 100+ character
+  // run), despite the prompt explicitly forbidding exactly that ("jamais
+  // deux fois la même structure de phrase, même avec un mot changé"). Only
+  // checked when there IS a previous insult-round reply to compare against
+  // (insultStreak > 1) and this reply is mode-3 prose (never fights the
+  // recommend-blocking retry above, which already forces a specific static
+  // fallback string of its own).
+  if (insultStreak > 1 && intent.action === null && previousAssistant?.role === "assistant"
+      && sharesRepeatedPhrase(intent.rawText, previousAssistant.content)) {
+    try {
+      const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message reprenait quasiment mot pour mot une réplique déjà utilisée plus haut dans cette conversation ("${previousAssistant.content.slice(0, 120)}..."). Réponds cette fois avec une formulation ENTIÈREMENT différente dans sa structure, pas juste un mot changé — toujours en MODE 3 (texte normal, jamais de JSON), toujours sans citer de titre précis.`;
+      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryIntent = parseIntent(retryRes.text);
+      if (retryIntent.action === null && !sharesRepeatedPhrase(retryIntent.rawText, previousAssistant.content)) {
+        intent = retryIntent;
+      }
+    } catch {
+      // Best-effort — the original (repetitive but not otherwise wrong)
+      // reply remains available if the provider fails during this retry.
     }
   }
   // Confirmed live: a recommend/add request the model clearly attempted

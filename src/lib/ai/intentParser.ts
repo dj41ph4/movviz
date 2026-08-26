@@ -1029,6 +1029,34 @@ export function countConsecutiveInsultRounds(messages: { role: "user" | "assista
   return streak;
 }
 
+const REPEATED_PHRASE_MIN_LEN = 25;
+// Confirmed live: the prompt's own "never reuse the same sentence
+// structure, even with one word swapped" rule (actions.ts, RÉPARTIE) was
+// STILL violated on round 2 vs round 3 of a real insult exchange — nearly
+// the identical sentence template ("T'as vraiment envie de... pas pour
+// perdre mon temps... soit tu te calmes... punching-ball... reste focus
+// sur ce qui compte") reused twice in a row, differing only in a couple of
+// words. Prompt wording alone has already been tightened multiple times
+// without eliminating this — a literal shared-substring check is a
+// deterministic backstop for exactly this failure shape, distinct from
+// (and complementary to) the recommend-list blocking above.
+function normalizeForRepeatCheck(text: string): string {
+  return text.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+/** True when `text` and `previous` share a run of at least
+ *  REPEATED_PHRASE_MIN_LEN normalized characters — a real reused sentence
+ *  fragment, not just both replies containing a common short word. */
+export function sharesRepeatedPhrase(text: string, previous: string): boolean {
+  const a = normalizeForRepeatCheck(text);
+  const b = normalizeForRepeatCheck(previous);
+  if (a.length < REPEATED_PHRASE_MIN_LEN || b.length < REPEATED_PHRASE_MIN_LEN) return false;
+  for (let i = 0; i + REPEATED_PHRASE_MIN_LEN <= a.length; i++) {
+    if (b.includes(a.slice(i, i + REPEATED_PHRASE_MIN_LEN))) return true;
+  }
+  return false;
+}
+
 export interface ExplicitTasteRating {
   /** The named work/franchise, without conversational glue such as « aussi ». */
   subject: string;
