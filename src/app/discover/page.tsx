@@ -16,7 +16,7 @@ import { TitleMark } from "@/components/media/TitleMark";
 import { useTitleArtworkBatch, type TitleArtworkByKey } from "@/components/media/useTitleArtworkBatch";
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
 import { TmdbImage } from "@/components/media/TmdbImage";
-import type { MetaSearchResult } from "@/lib/metadata/types";
+import type { MetaSearchResult, MetaPersonSearchResult } from "@/lib/metadata/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
@@ -103,6 +103,12 @@ function DiscoverPageInner() {
   const [totalPages, setTotalPages] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+
+  // Acteurs/réalisateurs — only meaningful for a real text search (q), never
+  // for genre/year/company/etc. filters, and shown as its own row above the
+  // movie/series grid rather than mixed into it (a person doesn't fit
+  // DiscoverCard's "add to library" shape at all).
+  const [personResults, setPersonResults] = useState<MetaPersonSearchResult[]>([]);
 
   const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!watchProvider || !!rowCategory;
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -274,6 +280,20 @@ function DiscoverPageInner() {
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, watchProvider, rowCategory]);
+
+  // Same debounce as the browse grid above, kept as its own request since
+  // people aren't paginated/filtered the same way movies and series are.
+  useEffect(() => {
+    if (!configured || !q.trim()) { setPersonResults([]); return; }
+    const query = q.trim();
+    const id = setTimeout(() => {
+      fetch(`/api/metadata/search?q=${encodeURIComponent(query)}&type=person`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { results?: MetaPersonSearchResult[] } | null) => setPersonResults(d?.results?.slice(0, 8) ?? []))
+        .catch(() => setPersonResults([]));
+    }, 350);
+    return () => clearTimeout(id);
+  }, [configured, q]);
 
   const loadPage = async (targetPage: number) => {
     if (targetPage === 1) setLoading(true); else setLoadingMore(true);
@@ -561,7 +581,11 @@ function DiscoverPageInner() {
                 </div>
               )}
 
-              {!loading && results.length === 0 && (
+              {q.trim() && personResults.length > 0 && (
+                <PersonRow title={t("discover.peopleTitle")} results={personResults} />
+              )}
+
+              {!loading && results.length === 0 && personResults.length === 0 && (
                 <div className="rounded-2xl glass py-16 text-center text-sm text-ink-dim">{t("discover.noResults")}</div>
               )}
 
@@ -767,6 +791,45 @@ function LogoRow({ title, tiles, onClick }: { title: string; tiles: LogoTile[]; 
               <span className="line-clamp-2 text-center text-[9px] font-bold leading-tight text-ink sm:text-sm sm:leading-normal">{tile.name}</span>
             )}
           </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** Acteurs/réalisateurs trouvés pour la recherche en cours — une carte
+ *  personne n'a ni "ajouter à la bibliothèque" ni année/note, donc son
+ *  propre composant plutôt qu'un DiscoverCard détourné de son usage. */
+function PersonRow({ title, results }: { title: string; results: MetaPersonSearchResult[] }) {
+  const t = useT();
+  return (
+    <section className="space-y-3">
+      <h2 className="text-base sm:text-lg font-bold tracking-tight text-ink">{title}</h2>
+      <div className="flex gap-4 overflow-x-auto pb-2">
+        {results.map((p) => (
+          <Link
+            key={p.tmdbId}
+            href={`/person/${p.tmdbId}`}
+            className="group flex w-24 shrink-0 flex-col items-center gap-2 text-center sm:w-28"
+          >
+            <div className="h-24 w-24 overflow-hidden rounded-full bg-surface ring-1 ring-white/10 transition-transform group-hover:scale-105 sm:h-28 sm:w-28">
+              {p.profilePath ? (
+                <TmdbImage path={p.profilePath} size="w185" alt={p.name} className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-ink-dim">
+                  <Search className="h-6 w-6 opacity-40" />
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="line-clamp-2 text-xs font-semibold text-ink">{p.name}</p>
+              {p.knownForDepartment && (
+                <span className="text-[11px] text-ink-dim">
+                  {p.knownForDepartment === "Directing" ? t("discover.personDirector") : p.knownForDepartment === "Acting" ? t("discover.personActor") : t("discover.personGeneric")}
+                </span>
+              )}
+            </div>
+          </Link>
         ))}
       </div>
     </section>

@@ -122,12 +122,10 @@ export const SETTINGS_GROUP_LABEL_KEY: Record<SettingsGroup, string> = {
 };
 
 /**
- * The one place "does this tab match this search query" is decided —
- * previously duplicated (label+hint only, no keywords) between the Settings
- * page's own sidebar filter and CommandPalette.tsx's settings-matching
- * block. Checks label, hint AND keywords, so intent-based terms ("film
- * absent", "lenteur") surface a tab even when its own name/description
- * never uses that wording.
+ * The one place "does this tab match this search query" is decided — used
+ * by the Settings page's own sidebar filter. Checks label, hint AND
+ * keywords, so intent-based terms ("film absent", "lenteur") surface a tab
+ * even when its own name/description never uses that wording.
  */
 export function matchesSettingsQuery(tab: SettingsTab, query: string, t: (key: string) => string): boolean {
   const q = query.trim().toLowerCase();

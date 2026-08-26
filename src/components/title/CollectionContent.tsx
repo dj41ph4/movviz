@@ -49,7 +49,7 @@ export function CollectionContent({ id }: { id: number }) {
       // both are re-fetched fresh (no-store) right before the bulk-download
       // loop instead of trusting either cached snapshot. Same pattern already
       // used elsewhere for the library endpoint specifically
-      // (TitleTargetPicker.tsx, CommandPalette.tsx) for the same reason.
+      // (TitleTargetPicker.tsx) for the same reason.
       const [freshLibrary, freshCollection] = await Promise.all([
         fetch("/api/library/movies", { cache: "no-store" }).then((r) => r.json()).catch(() => null),
         fetch(`/api/metadata/collection?id=${id}`, { cache: "no-store" }).then((r) => r.json()).catch(() => null),

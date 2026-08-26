@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.60 — August 2026
+
+### Recherche : direct dans le menu, résultats en cartes
+
+La recherche déménage du menu "Rechercher partout" vers une vraie barre intégrée au menu de gauche — taper un mot ouvre directement Découverte avec les résultats en cartes (films, séries, acteurs, réalisateurs), au lieu d'un petit menu déroulant. Sur mobile, l'icône loupe ouvre Découverte directement.
+
 ## v1.19.59 — August 2026
 
 ### Recherche rapide : acteurs et réalisateurs

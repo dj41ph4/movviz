@@ -375,20 +375,6 @@ export const nl: Dictionary = {
     doneUsersHint: "Het beheerdersaccount is al actief. Toekomstige accounts (registratie of Plex) moeten door jou worden goedgekeurd in Instellingen → Gebruikers.",
   },
 
-  command: {
-    placeholder: "Films, series, acteurs, regisseurs, pagina's…",
-    noMatch: "Geen resultaten voor",
-    page: "Pagina",
-    movie: "Film",
-    seriesOne: "Serie",
-    discoverHint: "om te ontdekken",
-    seeAllResults: "Alle resultaten voor \"{query}\" bekijken",
-    seeAllResultsHint: "Openen in Ontdekken",
-    actor: "Acteur",
-    director: "Regisseur",
-    person: "Persoonlijkheid",
-  },
-
   dashboard: {
     featuredFilm: "Uitgelichte film",
     featuredSeries: "Uitgelichte serie",
@@ -517,13 +503,17 @@ export const nl: Dictionary = {
     tmdbSetupHint: "Gratis API-sleutel van themoviedb.org → Instellingen → API. Nodig om titels te ontdekken en toe te voegen.",
     tmdbKeyPlaceholder: "TMDb API-sleutel",
     saveKey: "Opslaan",
-    searchPlaceholder: "Zoek een film of serie…",
+    searchPlaceholder: "Films, series, acteurs, regisseurs…",
     addToLibrary: "Toevoegen aan bibliotheek",
     added: "Toegevoegd",
     adding: "Toevoegen…",
     searchingRelease: "Zoeken naar een release…",
     noRelease: "Nog geen release gevonden",
     noResults: "Geen resultaten",
+    peopleTitle: "Personen",
+    personActor: "Acteur",
+    personDirector: "Regisseur",
+    personGeneric: "Persoonlijkheid",
   },
 
   library: {

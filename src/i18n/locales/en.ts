@@ -375,20 +375,6 @@ export const en: Dictionary = {
     doneUsersHint: "The administrator account is already active. Future accounts (sign-up or Plex) will need to be approved by you in Settings → Users.",
   },
 
-  command: {
-    placeholder: "Movies, series, actors, directors, pages…",
-    noMatch: "No matches for",
-    page: "Page",
-    movie: "Movie",
-    seriesOne: "Series",
-    discoverHint: "to discover",
-    seeAllResults: "See all results for \"{query}\"",
-    seeAllResultsHint: "Open in Discover",
-    actor: "Actor",
-    director: "Director",
-    person: "Person",
-  },
-
   dashboard: {
     featuredFilm: "Featured Film",
     featuredSeries: "Featured Series",
@@ -517,13 +503,17 @@ export const en: Dictionary = {
     tmdbSetupHint: "Free API key from themoviedb.org → Settings → API. Needed to discover and add titles.",
     tmdbKeyPlaceholder: "TMDb API key",
     saveKey: "Save",
-    searchPlaceholder: "Search a movie or series…",
+    searchPlaceholder: "Movies, series, actors, directors…",
     addToLibrary: "Add to library",
     added: "Added",
     adding: "Adding…",
     searchingRelease: "Searching for a release…",
     noRelease: "No release found yet",
     noResults: "No results",
+    peopleTitle: "People",
+    personActor: "Actor",
+    personDirector: "Director",
+    personGeneric: "Person",
   },
 
   library: {

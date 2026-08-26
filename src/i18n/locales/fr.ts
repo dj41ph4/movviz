@@ -373,20 +373,6 @@ export const fr = {
     doneUsersHint: "Le compte administrateur est déjà actif. Les prochains comptes créés (inscription ou Plex) devront être approuvés par toi dans Réglages → Utilisateurs.",
   },
 
-  command: {
-    placeholder: "Films, séries, acteurs, réalisateurs, pages…",
-    noMatch: "Aucun résultat pour",
-    page: "Page",
-    movie: "Film",
-    seriesOne: "Série",
-    discoverHint: "à découvrir",
-    seeAllResults: "Voir tous les résultats pour « {query} »",
-    seeAllResultsHint: "Ouvrir dans Découverte",
-    actor: "Acteur",
-    director: "Réalisateur",
-    person: "Personnalité",
-  },
-
   dashboard: {
     featuredFilm: "Film à la une",
     featuredSeries: "Série à la une",
@@ -515,13 +501,17 @@ export const fr = {
     tmdbSetupHint: "Clé API gratuite sur themoviedb.org → Paramètres → API. Nécessaire pour découvrir et ajouter des titres.",
     tmdbKeyPlaceholder: "Clé API TMDb",
     saveKey: "Enregistrer",
-    searchPlaceholder: "Rechercher un film ou une série…",
+    searchPlaceholder: "Films, séries, acteurs, réalisateurs…",
     addToLibrary: "Ajouter à la bibliothèque",
     added: "Ajouté",
     adding: "Ajout…",
     searchingRelease: "Recherche d'une release…",
     noRelease: "Aucune release trouvée pour l'instant",
     noResults: "Aucun résultat",
+    peopleTitle: "Personnes",
+    personActor: "Acteur",
+    personDirector: "Réalisateur",
+    personGeneric: "Personnalité",
   },
 
   library: {

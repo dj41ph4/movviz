@@ -13,7 +13,6 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { BottomNav } from "./BottomNav";
 import { ChatWidget } from "@/components/ai/ChatWidget";
-import { CommandPaletteProvider } from "./CommandPalette";
 import { WhatsNewModal } from "./WhatsNewModal";
 import { ToastContainer } from "@/components/ui/Toast";
 import { ConfirmDialogHost } from "@/components/ui/ConfirmDialog";
@@ -157,7 +156,6 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
         <I18nProvider>
           <VersionProvider version={version}>
             <InterfaceSWRPolicy>
-            <CommandPaletteProvider>
               <PlayerProvider>
                 <Suspense fallback={null}>
                   <PageLoaderProvider>
@@ -188,7 +186,6 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
                   </PageLoaderProvider>
                 </Suspense>
               </PlayerProvider>
-            </CommandPaletteProvider>
             </InterfaceSWRPolicy>
           </VersionProvider>
         </I18nProvider>

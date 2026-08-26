@@ -375,20 +375,6 @@ export const it: Dictionary = {
     doneUsersHint: "L'account amministratore è già attivo. I prossimi account creati (registrazione o Plex) dovranno essere approvati da te in Impostazioni → Utenti.",
   },
 
-  command: {
-    placeholder: "Film, serie, attori, registi, pagine…",
-    noMatch: "Nessun risultato per",
-    page: "Pagina",
-    movie: "Film",
-    seriesOne: "Serie",
-    discoverHint: "per scoprire",
-    seeAllResults: "Vedi tutti i risultati per \"{query}\"",
-    seeAllResultsHint: "Apri in Scopri",
-    actor: "Attore",
-    director: "Regista",
-    person: "Personalità",
-  },
-
   dashboard: {
     featuredFilm: "Film in evidenza",
     featuredSeries: "Serie in evidenza",
@@ -517,13 +503,17 @@ export const it: Dictionary = {
     tmdbSetupHint: "Chiave API gratuita da themoviedb.org → Impostazioni → API. Necessaria per scoprire e aggiungere titoli.",
     tmdbKeyPlaceholder: "Chiave API TMDb",
     saveKey: "Salva",
-    searchPlaceholder: "Cerca un film o una serie…",
+    searchPlaceholder: "Film, serie, attori, registi…",
     addToLibrary: "Aggiungi alla libreria",
     added: "Aggiunto",
     adding: "Aggiunta…",
     searchingRelease: "Ricerca di una release…",
     noRelease: "Nessuna release trovata ancora",
     noResults: "Nessun risultato",
+    peopleTitle: "Persone",
+    personActor: "Attore",
+    personDirector: "Regista",
+    personGeneric: "Personalità",
   },
 
   library: {
