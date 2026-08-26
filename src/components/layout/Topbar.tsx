@@ -15,10 +15,9 @@ import { useT } from "@/i18n/provider";
 export function Topbar() {
   const user = useCurrentUser();
   const t = useT();
-  // Same search as the desktop nav rail (Sidebar) — the rail is hidden
-  // below lg, so this is a real inline input here too, not just a link to
-  // Découverte, or a mobile user would have no way to type a query at all
-  // now that Découverte's own inline search box has been removed.
+  // THE search entry point — always visible here (the topbar, at the top of
+  // the screen, is what "navrail" refers to, not the left Sidebar). Typing
+  // pushes to /discover?q=, whose own card grid replaces the dashboard.
   const navSearch = useNavSearch();
 
   // Transparent at the very top of the page (reads seamlessly over a hero
@@ -55,9 +54,8 @@ export function Topbar() {
         scrolled ? "bg-void/60 backdrop-blur-xl" : "bg-transparent"
       )}
     >
-      {/* Mobile/tablet equivalent of the nav rail's search box (hidden below
-       *  lg) — same useNavSearch hook, so typing here behaves identically. */}
-      <div className="group flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-white/8 bg-surface/50 px-3 transition-colors focus-within:border-brand/40 lg:hidden">
+      {/* THE search box — always here, every screen size. */}
+      <div className="group flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-white/8 bg-surface/50 px-3 transition-colors focus-within:border-brand/40 sm:max-w-md">
         <Search className="h-4 w-4 shrink-0 text-ink-dim transition-colors group-focus-within:text-brand-glow" />
         <input
           value={navSearch.value}

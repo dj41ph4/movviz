@@ -308,6 +308,33 @@ function DiscoverPageInner() {
     return () => clearTimeout(id);
   }, [configured, q]);
 
+  // When the query is clearly a real person's exact name, replace the
+  // generic movie/series grid with their REAL filmography instead — live-
+  // verified this mattered: searching "Christopher Nolan" via the plain
+  // text search only ever surfaced documentaries whose title happens to
+  // mention his name, never Inception or Oppenheimer, because TMDb's
+  // /search/multi does literal text matching, not "find what this person
+  // made". Réalisateur credits (getPerson's isDirector) sort first, so a
+  // director's own films lead over titles they merely appeared/cameoed in.
+  useEffect(() => {
+    if (!q.trim() || personResults.length === 0) return;
+    const exactMatch = personResults.find((p) => p.name.toLowerCase() === q.trim().toLowerCase());
+    if (!exactMatch) return;
+    fetch(`/api/metadata/person?id=${exactMatch.tmdbId}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { credits?: (MetaSearchResult & { isDirector?: boolean })[] } | null) => {
+        if (!d?.credits) return;
+        const sorted = [...d.credits].sort(
+          (a, b) => Number(!!b.isDirector) - Number(!!a.isDirector) || b.rating - a.rating
+        );
+        setResults(sorted);
+        setPage(1);
+        setTotalPages(1);
+        setLoading(false);
+      })
+      .catch(() => {});
+  }, [q, personResults]);
+
   const loadPage = async (targetPage: number) => {
     if (targetPage === 1) setLoading(true); else setLoadingMore(true);
     try {
@@ -315,7 +342,12 @@ function DiscoverPageInner() {
       if (rowCategory) {
         url = `/api/metadata/row-page?type=${mediaType}&key=${encodeURIComponent(rowCategory)}&page=${targetPage}`;
       } else if (q.trim()) {
-        url = `/api/metadata/search?q=${encodeURIComponent(q)}&page=${targetPage}&type=${mediaType}`;
+        // No `type=` filter here on purpose — confirmed live the user wants
+        // films et séries mêlés (merged in one grid) for a text search,
+        // unlike the Films/Séries tab toggle which still scopes browsing
+        // (genre/year/sort) below. searchMulti (the API's unfiltered branch)
+        // returns both, each already tagged with its own real type.
+        url = `/api/metadata/search?q=${encodeURIComponent(q)}&page=${targetPage}`;
       } else {
         const params = new URLSearchParams({ type: mediaType, page: String(targetPage) });
         if (genre) params.set("genre", genre);

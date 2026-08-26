@@ -453,6 +453,13 @@ export interface FranchiseSearchHit {
   type: "movie" | "series";
   tmdbId: number;
   inLibrary: boolean;
+  /** Only ever set by buildFilmographyContext's caller (getPerson's own
+   *  isDirector) — true means this person directed the title, not just
+   *  appeared in it (cameo, voice cred, producer credit...). Confirmed live:
+   *  "combien de films j'ai de Zack Snyder" listed Teen Titans Go! and
+   *  Wonder Woman (he didn't direct either) with the same confidence as
+   *  Watchmen or Justice League, because nothing distinguished them. */
+  isDirector?: boolean;
 }
 
 /** How many hits buildMissingFromFranchiseContext expects — the caller
@@ -498,10 +505,21 @@ export const MAX_FILMOGRAPHY_HITS = 25;
  *  the list is complete. */
 export function buildFilmographyContext(query: string, personName: string, hits: FranchiseSearchHit[], totalCreditCount: number): string {
   const fmt = (h: FranchiseSearchHit) => `${h.title}${h.year ? ` (${h.year})` : ""} [${h.type === "movie" ? "film" : "série"}, tmdb:${h.tmdbId}]`;
-  const owned = hits.filter((h) => h.inLibrary);
-  const missing = hits.filter((h) => !h.inLibrary);
+  const directed = hits.filter((h) => h.isDirector);
+  const other = hits.filter((h) => !h.isDirector);
+  const hasRoleInfo = hits.some((h) => h.isDirector !== undefined);
+  const owned = other.filter((h) => h.inLibrary);
+  const missing = other.filter((h) => !h.inLibrary);
   const truncated = totalCreditCount > hits.length;
-  return `\n\nRECHERCHE RÉELLE — filmographie de « ${query} » → identifié comme ${personName} sur TMDb (${hits.length}${truncated ? ` des ${totalCreditCount} crédits réels, les plus notables` : " crédit(s) réel(s)"}, films et séries confondus) :\nDéjà dans ta bibliothèque : ${owned.length ? owned.map(fmt).join(", ") : "aucun parmi ces résultats"}\nPas dans ta bibliothèque : ${missing.length ? missing.map(fmt).join(", ") : "aucun parmi ces résultats"}${truncated ? "\n(Liste plafonnée aux crédits les plus notables — pas exhaustive, ne jamais la présenter comme la filmographie complète.)" : ""}`;
+  // hasRoleInfo is false for buildMissingFromFranchiseContext-shaped callers
+  // that never set isDirector — degrades to the old undivided list rather
+  // than claiming "0 réalisés" when the data just isn't there.
+  const directedLine = hasRoleInfo
+    ? `\nRéalisé(e) par cette personne : ${directed.length ? directed.map((h) => `${fmt(h)}${h.inLibrary ? " (déjà dans ta bibliothèque)" : " (pas dans ta bibliothèque)"}`).join(", ") : "aucun crédit de réalisateur/réalisatrice trouvé parmi ces résultats"}`
+    : "";
+  const otherLabel = hasRoleInfo ? "Autres apparitions (acteur, caméo, production...) déjà dans ta bibliothèque" : "Déjà dans ta bibliothèque";
+  const otherMissingLabel = hasRoleInfo ? "Autres apparitions pas dans ta bibliothèque" : "Pas dans ta bibliothèque";
+  return `\n\nRECHERCHE RÉELLE — filmographie de « ${query} » → identifié comme ${personName} sur TMDb (${hits.length}${truncated ? ` des ${totalCreditCount} crédits réels, les plus notables` : " crédit(s) réel(s)"}, films et séries confondus).${directedLine}\n${otherLabel} : ${owned.length ? owned.map(fmt).join(", ") : "aucun parmi ces résultats"}\n${otherMissingLabel} : ${missing.length ? missing.map(fmt).join(", ") : "aucun parmi ces résultats"}${truncated ? "\n(Liste plafonnée aux crédits les plus notables — pas exhaustive, ne jamais la présenter comme la filmographie complète.)" : ""}${hasRoleInfo ? "\nSi la question porte sur ce que cette personne a RÉALISÉ (pas juste \"ses films\"), réponds avec la ligne \"Réalisé(e) par cette personne\" ci-dessus, jamais avec les autres apparitions — un caméo ou un rôle d'acteur n'est pas un film qu'elle a réalisé." : ""}`;
 }
 
 // ---------------------------------------------------------------------------

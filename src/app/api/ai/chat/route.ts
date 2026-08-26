@@ -250,12 +250,18 @@ export async function POST(req: NextRequest) {
       if (person) {
         const full = await getPerson(person.id);
         if (full) {
-          const hits: FranchiseSearchHit[] = full.credits.slice(0, MAX_FILMOGRAPHY_HITS).map((c) => ({
+          // Director credits sort first so the cap below can never truncate
+          // them out in favor of a more popular but merely-appeared-in title
+          // — the exact failure that let Wonder Woman/Teen Titans Go! push
+          // out real Zack Snyder films from a capped list.
+          const sortedCredits = [...full.credits].sort((a, b) => Number(!!b.isDirector) - Number(!!a.isDirector));
+          const hits: FranchiseSearchHit[] = sortedCredits.slice(0, MAX_FILMOGRAPHY_HITS).map((c) => ({
             title: c.title,
             year: c.year ?? undefined,
             type: c.type,
             tmdbId: c.tmdbId,
             inLibrary: c.type === "movie" ? !!getMovieByTmdbId(c.tmdbId) : !!getSeriesByTmdbId(c.tmdbId),
+            isDirector: c.isDirector,
           }));
           if (hits.length) system += buildFilmographyContext(filmographyQuery, full.name, hits, full.credits.length);
         }

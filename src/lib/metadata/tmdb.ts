@@ -666,12 +666,23 @@ export async function discoverByFilters(
   return mapPaged(data, type);
 }
 
+export interface MetaPersonCredit extends MetaSearchResult {
+  /** True when this person directed the title (TMDb crew job === "Director"
+   *  on this credit) — distinct from merely appearing in it. Confirmed live
+   *  this distinction was missing entirely: Zack Snyder's own filmography
+   *  page and the AI's "combien de films de Zack Snyder" answer both listed
+   *  Wonder Woman (directed by Patty Jenkins) and cameo appearances in Rick
+   *  et Morty/Teen Titans Go! with the exact same weight as Watchmen or
+   *  Justice League, because only the cast list was ever read. */
+  isDirector: boolean;
+}
+
 export interface MetaPerson {
   id: number;
   name: string;
   profilePath: string | null;
   biography: string;
-  credits: MetaSearchResult[]; // combined movie + TV filmography, sorted by popularity
+  credits: MetaPersonCredit[]; // combined movie + TV filmography, sorted by popularity
 }
 
 /**
@@ -687,19 +698,30 @@ export async function getTitleInLanguage(tmdbId: number, type: "movie" | "series
   return data?.title ?? data?.name ?? data?.original_title ?? data?.original_name ?? null;
 }
 
-/** A person's profile + full filmography — powers "see everything with this actor". */
+/** A person's profile + full filmography — powers "see everything with this
+ *  actor/réalisateur". Reads BOTH cast and crew from combined_credits (only
+ *  cast used to be read at all) — a title only ends up marked isDirector
+ *  when a crew entry with job "Director" is found for it, so a title where
+ *  this person only acted (or made a cameo) never gets conflated with one
+ *  they actually directed. */
 export async function getPerson(personId: number): Promise<MetaPerson | null> {
   const [person, credits] = await Promise.all([
     tmdbGet<{ id: number; name: string; profile_path: string | null; biography?: string }>(`/person/${personId}`),
-    tmdbGet<{ cast: RawMultiResult[] }>(`/person/${personId}/combined_credits`),
+    tmdbGet<{ cast: RawMultiResult[]; crew: RawMultiResult[] }>(`/person/${personId}/combined_credits`),
   ]);
   if (!person) return null;
-  const seen = new Set<number>();
-  const filmography = (credits?.cast ?? [])
+  const directedIds = new Set(
+    (credits?.crew ?? [])
+      .filter((c) => c.job === "Director" && (c.media_type === "movie" || c.media_type === "tv"))
+      .map((c) => `${c.media_type}:${c.id}`)
+  );
+  const seen = new Set<string>();
+  const filmography = [...(credits?.cast ?? []), ...(credits?.crew ?? [])]
     .filter((c) => c.media_type === "movie" || c.media_type === "tv")
     .filter((c) => {
-      if (seen.has(c.id)) return false;
-      seen.add(c.id);
+      const key = `${c.media_type}:${c.id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
       return true;
     })
     .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0))
@@ -713,6 +735,7 @@ export async function getPerson(personId: number): Promise<MetaPerson | null> {
       posterPath: c.poster_path ?? null,
       backdropPath: c.backdrop_path ?? null,
       rating: c.vote_average ?? 0,
+      isDirector: directedIds.has(`${c.media_type}:${c.id}`),
     }));
   return {
     id: person.id,
@@ -1283,6 +1306,7 @@ interface RawMultiResult {
   original_language?: string;
   profile_path?: string | null; // person results only
   known_for_department?: string; // person results only — TMDb's own "Acting"/"Directing"/... classification
+  job?: string; // combined_credits' crew entries only, e.g. "Director", "Writer", "Producer"
 }
 
 interface RawMovie {

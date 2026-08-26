@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.62 — August 2026
+
+### Recherche : vraie filmographie des réalisateurs, films et séries mêlés
+
+Chercher un réalisateur (ex. "Christopher Nolan") ne remontait que des titres où son nom apparaissait par hasard dans le texte, jamais ses vrais films. La recherche affiche maintenant sa véritable filmographie, avec ses réalisations mises en avant. Autre correctif : une recherche mélange maintenant films et séries dans les mêmes résultats au lieu d'exiger de changer d'onglet. Le Chat intelligent distingue aussi désormais "réalisé par" d'"apparaît dans" (caméo, production...) — il ne confondra plus, par exemple, un caméo dans une série avec un vrai film réalisé.
+
 ## v1.19.61 — August 2026
 
 ### Recherche : toujours visible dans le menu
