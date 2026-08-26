@@ -1,0 +1,63 @@
+name: Build Linux Release
+
+# Construit le bundle standalone Next.js + le moteur de téléchargement et les
+# empaquette dans une archive prête à l'emploi (movviz-linux-x64.tar.gz),
+# publiée en asset de la Release GitHub du tag. install.sh et la mise à jour
+# en un clic dans l'interface (Réglages → À propos, Linux uniquement) s'en
+# servent tous les deux — un seul bundle pré-construit à télécharger, jamais
+# de recompilation sur la machine cible.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install engine dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: engine
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Package standalone bundle + engine
+        run: |
+          set -euo pipefail
+          STAGE="$(mktemp -d)/movviz"
+          mkdir -p "$STAGE"
+          cp -r .next/standalone/. "$STAGE/"
+          cp -r .next/static "$STAGE/.next/static"
+          [ -d public ] && cp -r public "$STAGE/public"
+          cp -r engine "$STAGE/engine"
+          mkdir -p "$STAGE/packaging/linux"
+          cp packaging/linux/movviz.service "$STAGE/packaging/linux/movviz.service"
+          tar -C "$(dirname "$STAGE")" -czf movviz-linux-x64.tar.gz movviz
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: movviz-linux-x64
+          path: movviz-linux-x64.tar.gz
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: movviz-linux-x64.tar.gz

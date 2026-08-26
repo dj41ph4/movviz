@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.21.00 — August 2026
+
+### Installeur Linux nouvelle génération + mise à jour en un clic
+
+L'installeur Linux (`packaging/linux/install.sh`) détecte désormais une installation existante et propose de la mettre à jour (conserve la bibliothèque), de tout réinstaller, ou de désinstaller — plus besoin de cloner le dépôt : `curl -fsSL .../install.sh | sudo bash` télécharge directement le bundle prêt à l'emploi de la dernière version. Et dans l'interface, le bouton "Mettre à jour en un clic" (Réglages → À propos), jusqu'ici réservé à Windows, fonctionne maintenant aussi sur une installation Linux native (service systemd) — les conteneurs Docker restent à jour via `docker pull`, comme avant.
+
 ## v1.20.12 — August 2026
 
 ### Aperçu au survol des cartes : zoom légèrement augmenté

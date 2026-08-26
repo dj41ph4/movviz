@@ -20,7 +20,11 @@ Environment=MOVVIZ_CONFIG_DIR=/var/lib/movviz
 # your media disk/mount if you prefer, e.g. /mnt/media.
 Environment=MOVVIZ_DATA_DIR=/var/lib/movviz/data
 ExecStart=/usr/bin/node /opt/movviz/.next/standalone/server.js
-Restart=on-failure
+# "always" (not just "on-failure") is what lets the in-app one-click update
+# work: the update handler swaps the files under /opt/movviz then exits
+# cleanly (exit 0) rather than crashing — systemd only respawns a clean exit
+# under this policy, picking up the freshly-installed code automatically.
+Restart=always
 RestartSec=5
 # Restart automatically after errors, indefinitely.
 StartLimitIntervalSec=0

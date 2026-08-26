@@ -11,13 +11,20 @@ interface UpdateCheck {
   updateAvailable: boolean;
   latestVersion: string | null;
   platform: string;
+  /** True for Windows and a native Linux (systemd) install — false for
+   *  Docker (also reports platform "linux" but has no systemd to restart it
+   *  and an ephemeral/image-managed filesystem, see isNativeLinuxInstall()
+   *  server-side) and any other platform without a real one-click path. */
+  oneClickSupported: boolean;
 }
 
 /**
- * Bottom-left pill on the dashboard, admin-only, Windows-only: one click
- * downloads the latest installer and launches it silently. The server gets
- * killed mid-update (the installer stops the service), so once launched we
- * just poll until something answers again and reload.
+ * Bottom-left pill on the dashboard, admin-only: one click downloads the
+ * latest release and applies it. Windows: launches the installer silently,
+ * which stops the service itself. Native Linux (systemd): the API route
+ * swaps the files in place and exits — movviz.service's Restart=always
+ * respawns it automatically. Either way the server goes down mid-update, so
+ * we just poll until something answers again and reload.
  */
 export function UpdateAvailableBanner() {
   const t = useT();
@@ -28,7 +35,7 @@ export function UpdateAvailableBanner() {
   });
   const [phase, setPhase] = useState<"idle" | "updating" | "waiting">("idle");
 
-  if (!isAdmin || !data?.updateAvailable || data.platform !== "win32") return null;
+  if (!isAdmin || !data?.updateAvailable || !data.oneClickSupported) return null;
 
   const start = async () => {
     setPhase("updating");

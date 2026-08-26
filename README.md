@@ -2,7 +2,7 @@
 
 <br>
 
-<img src="https://img.shields.io/badge/Movviz-1.20.12-7c3aed?style=for-the-badge&labelColor=1a1a2e&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTEyIiBmaWxsPSIjN2MzYWVkIi8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjEwOCIgeT0iMTUyIiB3aWR0aD0iMjk2IiBoZWlnaHQ9IjIwIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTUiLz48cGF0aCBkPSJNMCAwaDEyOHYxMDhIMHoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwOCwxMDgpIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIvPjxjaXJjbGUgY3g9IjE2OCIgY3k9IjMwMCIgcj0iMjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC45IiBzdHJva2U9Im5vbmUiLz48Y2lyY2xlIGN4PSIzNDQiIGN5PSIzMDAiIHI9IjI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIgc3Ryb2tlPSJub25lIi8+PC9nPjwvc3ZnPg==" alt="Movviz"/>
+<img src="https://img.shields.io/badge/Movviz-1.21.00-7c3aed?style=for-the-badge&labelColor=1a1a2e&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTEyIiBmaWxsPSIjN2MzYWVkIi8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjEwOCIgeT0iMTUyIiB3aWR0aD0iMjk2IiBoZWlnaHQ9IjIwIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTUiLz48cGF0aCBkPSJNMCAwaDEyOHYxMDhIMHoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwOCwxMDgpIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIvPjxjaXJjbGUgY3g9IjE2OCIgY3k9IjMwMCIgcj0iMjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC45IiBzdHJva2U9Im5vbmUiLz48Y2lyY2xlIGN4PSIzNDQiIGN5PSIzMDAiIHI9IjI0IiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIgc3Ryb2tlPSJub25lIi8+PC9nPjwvc3ZnPg==" alt="Movviz"/>
 
 <h1>Movviz</h1>
 <p><strong>Ton catalogue. Ton serveur. Tes règles.</strong></p>
@@ -58,7 +58,7 @@ Rien de tout ça n'est un service tiers. C'est ton serveur, tes fichiers, tes id
 
 <table>
 <tr>
-<td width="33%" align="center">
+<td width="25%" align="center">
 
 ### Windows
 
@@ -73,7 +73,24 @@ Rien de tout ça n'est un service tiers. C'est ton serveur, tes fichiers, tes id
 Service Windows automatique · Installeur multilingue · Démarrage au boot
 
 </td>
-<td width="33%" align="center">
+<td width="25%" align="center">
+
+### Linux
+
+<a href="packaging/linux/">
+  <img src="https://img.shields.io/badge/Installeur_Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black&labelColor=1a1a2e" alt="Installeur Linux"/>
+</a>
+
+<br>
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dj41ph4/movviz/main/packaging/linux/install.sh | sudo bash
+```
+
+Service systemd · Détecte une install existante · Mise à jour en un clic
+
+</td>
+<td width="25%" align="center">
 
 ### Docker
 
@@ -90,7 +107,7 @@ docker pull dj41ph4/movviz:latest
 amd64 · arm64
 
 </td>
-<td width="33%" align="center">
+<td width="25%" align="center">
 
 ### Android TV
 
