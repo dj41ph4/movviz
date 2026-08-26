@@ -105,8 +105,12 @@ async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null
   if (!res.results.length) return null;
   // Drop bonus/extra-content entries before scoring — never what "a film
   // called X" means, regardless of add vs recommend intent (unlike the
-  // documentary-genre filter below, which only applies to recommend).
-  const withoutBonusContent = res.results.filter((r) => !looksLikeBonusContent(r));
+  // documentary-genre filter below, which only applies to recommend) —
+  // UNLESS the requested title itself explicitly names bonus content (ex.
+  // "le making of de Terminator 2"), in which case that's exactly what the
+  // user asked to add and the filter must not fight that request.
+  const explicitlyWantsBonusContent = BONUS_CONTENT_OVERVIEW_RE.test(item.title) || BONUS_CONTENT_TITLE_RE.test(item.title);
+  const withoutBonusContent = explicitlyWantsBonusContent ? res.results : res.results.filter((r) => !looksLikeBonusContent(r));
   const candidates = withoutBonusContent.length ? withoutBonusContent : res.results;
   let hits = candidates;
   if (item.type) hits = hits.filter((r) => r.type === item.type);

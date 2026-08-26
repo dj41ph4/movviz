@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.20.06 — August 2026
+
+### Chat intelligent : making-of jamais ajouté sauf demande explicite
+
+Ajouter un film ne devait plus jamais faire remonter un making-of ou une websérie dérivée à la place — sauf si vous le demandez vous-même explicitement ("le making of de..."), auquel cas c'est désormais respecté au lieu d'être bloqué.
+
+### Android TV : robustesse au démarrage
+
+Le contrat compact de l'écran d'accueil est maintenant tolérant à une entrée de bibliothèque incomplète — une valeur manquante n'interrompt plus le chargement, elle est simplement ignorée.
+
 ## v1.20.05 — August 2026
 
 ### Chat intelligent : le ton face aux insultes, prise 2

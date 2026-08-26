@@ -69,14 +69,103 @@ data class LibrarySeriesDto(
     val seasons: List<SeriesSeasonDto> = emptyList(),
 )
 
-/** Instantané léger de la bibliothèque pour les écrans d'accueil Android.
- * Cette forme est fournie par /api/interface/dashboard et contient les mêmes
- * champs utiles à l'UI que les deux routes de bibliothèque historiques. */
+/**
+ * Contrat COMPACT de /api/interface/dashboard.
+ *
+ * Ce n'est volontairement pas LibraryMovieDto/LibrarySeriesDto : la route
+ * optimisée omet les saisons, le synopsis et plusieurs champs des routes
+ * /api/library/*. Réutiliser les DTO complets faisait dépendre le démarrage
+ * TV de chaque détail de cette réponse réduite ; un null/une valeur manquante
+ * provenant d'une ancienne entrée de bibliothèque pouvait alors faire lever
+ * Moshi et fermer l'application sur tous les appareils, Google TV compris.
+ */
 @JsonClass(generateAdapter = true)
 data class InterfaceDashboardDto(
-    val movies: List<LibraryMovieDto> = emptyList(),
-    val series: List<LibrarySeriesDto> = emptyList(),
+    val movies: List<InterfaceMovieDto?>? = emptyList(),
+    val series: List<InterfaceSeriesDto?>? = emptyList(),
 )
+
+@JsonClass(generateAdapter = true)
+data class InterfaceMovieDto(
+    val id: String? = null,
+    val tmdbId: Int? = null,
+    val title: String? = null,
+    val year: Int? = null,
+    val posterPath: String? = null,
+    val backdropPath: String? = null,
+    val rating: Double? = null,
+    val genres: List<String?>? = emptyList(),
+    val status: String? = null,
+    val file: InterfaceFileDto? = null,
+    val plexRatingKey: String? = null,
+    val playbackSource: String? = null,
+    val plexLinkStatus: String? = null,
+) {
+    fun toLibraryMovieOrNull(): LibraryMovieDto? {
+        val safeId = id?.takeIf { it.isNotBlank() } ?: return null
+        val safeTmdbId = tmdbId?.takeIf { it > 0 } ?: return null
+        val safeTitle = title?.takeIf { it.isNotBlank() } ?: return null
+        return LibraryMovieDto(
+            id = safeId,
+            tmdbId = safeTmdbId,
+            title = safeTitle,
+            year = year,
+            posterPath = posterPath,
+            backdropPath = backdropPath,
+            rating = rating ?: 0.0,
+            genres = genres.orEmpty().filterNotNull(),
+            status = status ?: "missing",
+            file = file?.toLibraryFile(),
+            plexRatingKey = plexRatingKey,
+            playbackSource = playbackSource,
+            plexLinkStatus = plexLinkStatus,
+        )
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class InterfaceSeriesDto(
+    val id: String? = null,
+    val tmdbId: Int? = null,
+    val title: String? = null,
+    val year: Int? = null,
+    val posterPath: String? = null,
+    val backdropPath: String? = null,
+    val rating: Double? = null,
+    val genres: List<String?>? = emptyList(),
+) {
+    fun toLibrarySeriesOrNull(): LibrarySeriesDto? {
+        val safeId = id?.takeIf { it.isNotBlank() } ?: return null
+        val safeTmdbId = tmdbId?.takeIf { it > 0 } ?: return null
+        val safeTitle = title?.takeIf { it.isNotBlank() } ?: return null
+        return LibrarySeriesDto(
+            id = safeId,
+            tmdbId = safeTmdbId,
+            title = safeTitle,
+            year = year,
+            posterPath = posterPath,
+            backdropPath = backdropPath,
+            rating = rating ?: 0.0,
+            genres = genres.orEmpty().filterNotNull(),
+        )
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class InterfaceFileDto(
+    val resolution: String? = null,
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val hdr: String? = null,
+) {
+    fun toLibraryFile() = LibraryFileDto(
+        plexRatingKey = null,
+        resolution = resolution,
+        videoCodec = videoCodec,
+        audioCodec = audioCodec,
+        hdr = hdr,
+    )
+}
 
 // Champs qualité confirmés en direct contre /api/library/movies (RoboCop :
 // resolution="2160p", videoCodec="HEVC", hdr="HDR10") — jamais mappés côté TV

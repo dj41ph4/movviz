@@ -600,8 +600,13 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         // plus ancien ou d'une réponse momentanément indisponible.
         when (val snapshot = repo.interfaceDashboard()) {
             is ApiResult.Success -> {
-                _movies.value = snapshot.data.movies
-                _series.value = snapshot.data.series
+                // Le contrat compact est volontairement tolérant : une
+                // entrée historique incomplète ne doit jamais abattre toute
+                // l'application. On ignore seulement cette entrée, puis le
+                // repli historique peut encore fournir la liste exhaustive
+                // si la réponse optimisée est inutilisable.
+                _movies.value = snapshot.data.movies.orEmpty().mapNotNull { it?.toLibraryMovieOrNull() }
+                _series.value = snapshot.data.series.orEmpty().mapNotNull { it?.toLibrarySeriesOrNull() }
                 return@coroutineScope
             }
             ApiResult.Unauthorized -> {
