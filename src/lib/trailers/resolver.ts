@@ -32,6 +32,13 @@ const cache = getCache("trailerResolver", TTL_MS);
  * technique at all. Both are kept as real slots (not deleted) in case
  * Netflix's restriction changes or a Disney+ method surfaces later — same
  * reasoning as imdb.ts.
+ *
+ * Providers run IN PARALLEL, not sequentially — live-verified this mattered:
+ * awaiting Apple → IMDb → Netflix → Disney+ → Prime one at a time stacked
+ * their individual timeouts, measured up to ~12s total for a single title
+ * (Apple's own extra HLS-lookup fetch alone can take a few seconds). The
+ * final `sources` array is still built in the documented provider order
+ * regardless of which network call actually finished first.
  */
 export async function resolveTrailerSources(
   type: "movie" | "series",
@@ -44,7 +51,6 @@ export async function resolveTrailerSources(
   const cached = cache.get<TrailerSource[]>(key);
   if (cached) return cached;
 
-  const sources: TrailerSource[] = [];
   // A provider throwing (network error, timeout, rate-limit — see apple.ts)
   // is a TRANSIENT failure, never the same thing as "this title genuinely
   // has no trailer." Confirmed live: a burst of resolve calls tripped
@@ -53,37 +59,19 @@ export async function resolveTrailerSources(
   // working trailer for a day. When any provider throws, the result for
   // this title is served but NOT cached, so the very next request retries
   // fresh instead of being stuck behind a false negative.
-  let hadTransientFailure = false;
-  try {
-    const apple = await resolveAppleTrailer(type, title, year);
-    if (apple) sources.push(apple);
-  } catch {
-    hadTransientFailure = true;
-  }
-  try {
-    const imdb = await resolveImdbTrailer(type, imdbId);
-    if (imdb) sources.push(imdb);
-  } catch {
-    hadTransientFailure = true;
-  }
-  try {
-    const netflix = await resolveNetflixTrailer(type, title, year);
-    if (netflix) sources.push(netflix);
-  } catch {
-    hadTransientFailure = true;
-  }
-  try {
-    const disneyPlus = await resolveDisneyPlusTrailer(type, title, year);
-    if (disneyPlus) sources.push(disneyPlus);
-  } catch {
-    hadTransientFailure = true;
-  }
-  try {
-    const primeVideo = await resolvePrimeVideoTrailer(type, title, year);
-    if (primeVideo) sources.push(primeVideo);
-  } catch {
-    hadTransientFailure = true;
-  }
+  const results = await Promise.allSettled([
+    resolveAppleTrailer(type, title, year),
+    resolveImdbTrailer(type, imdbId),
+    resolveNetflixTrailer(type, title, year),
+    resolveDisneyPlusTrailer(type, title, year),
+    resolvePrimeVideoTrailer(type, title, year),
+  ]);
+
+  const sources = results
+    .filter((r): r is PromiseFulfilledResult<TrailerSource | null> => r.status === "fulfilled")
+    .map((r) => r.value)
+    .filter((v): v is TrailerSource => v != null);
+  const hadTransientFailure = results.some((r) => r.status === "rejected");
 
   if (!hadTransientFailure) cache.set(key, sources);
   return sources;

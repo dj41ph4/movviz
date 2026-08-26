@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.57 — August 2026
+
+### Bande-annonces : correctif de lenteur
+
+Testé en conditions réelles : la recherche de bande-annonce (Apple, Prime...) pouvait prendre jusqu'à 12 secondes car chaque source était vérifiée l'une après l'autre. Elles sont désormais vérifiées toutes en même temps — 4 à 6 secondes au lieu de 12, sans changer le résultat.
+
 ## v1.19.56 — August 2026
 
 ### Bande-annonces : Prime Video ajouté comme source
