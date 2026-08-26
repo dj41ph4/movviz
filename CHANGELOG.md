@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.10 — August 2026
+
+### Chat intelligent : échanges de vannes plus vivants, question répétée taquinée
+
+Le Chat intelligent rebondit maintenant sur le contenu précis de ce que vous dites (pas une réplique passe-partout), garde toujours le dernier mot, et sait clore un échange de vannes prolongé en proposant vraiment un film pour détendre l'atmosphère. Au passage : s'il remarque que vous reposez une question déjà répondue plus haut dans la conversation, il peut vous taquiner gentiment avant de répondre — jamais à la place de la réponse.
+
 ## v1.20.09 — August 2026
 
 ### Chat intelligent : le ton face aux insultes, prise 3
