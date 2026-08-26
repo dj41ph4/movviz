@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.08 — August 2026
+
+### Android TV : correctif de build
+
+Le build Android TV échouait : un commentaire de documentation contenait par erreur une séquence qui, en Kotlin, ouvre un commentaire imbriqué jamais refermé — le reste du fichier devenait invisible pour le compilateur. Corrigé.
+
 ## v1.20.07 — August 2026
 
 ### Aperçu au survol : voile noir retiré sur la vidéo

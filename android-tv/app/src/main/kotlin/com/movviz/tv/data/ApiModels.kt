@@ -74,7 +74,7 @@ data class LibrarySeriesDto(
  *
  * Ce n'est volontairement pas LibraryMovieDto/LibrarySeriesDto : la route
  * optimisée omet les saisons, le synopsis et plusieurs champs des routes
- * /api/library/*. Réutiliser les DTO complets faisait dépendre le démarrage
+ * /api/library/ historiques. Réutiliser les DTO complets faisait dépendre le démarrage
  * TV de chaque détail de cette réponse réduite ; un null/une valeur manquante
  * provenant d'une ancienne entrée de bibliothèque pouvait alors faire lever
  * Moshi et fermer l'application sur tous les appareils, Google TV compris.
