@@ -333,8 +333,11 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
                 // Internet. Le repli protège les serveurs plus anciens.
                 when (val snapshot = r.interfaceDashboard()) {
                     is ApiResult.Success -> {
-                        _movies.value = snapshot.data.movies
-                        _series.value = snapshot.data.series
+                        // Même contrat compact/tolérant que la TV (AppViewModel.kt) :
+                        // une entrée incomplète est ignorée plutôt que de faire
+                        // planter tout l'écran d'accueil mobile.
+                        _movies.value = snapshot.data.movies.orEmpty().mapNotNull { it?.toLibraryMovieOrNull() }
+                        _series.value = snapshot.data.series.orEmpty().mapNotNull { it?.toLibrarySeriesOrNull() }
                     }
                     else -> {
                         (r.movies() as? ApiResult.Success)?.let { _movies.value = it.data }

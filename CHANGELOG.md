@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.11 — August 2026
+
+### Android mobile : correctif de build
+
+Le build Android smartphone échouait pour la même raison que la TV corrigée en v1.20.08 : l'écran d'accueil mobile n'avait pas suivi le changement de contrat compact de /api/interface/dashboard. Même correctif appliqué.
+
 ## v1.20.10 — August 2026
 
 ### Chat intelligent : échanges de vannes plus vivants, question répétée taquinée
