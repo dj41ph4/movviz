@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.05 — August 2026
+
+### Chat intelligent : le ton face aux insultes, prise 2
+
+Testé en conditions réelles : face à une insulte, le Chat intelligent esquivait encore trop mollement ("tu me fais marcher ?") et pire, transformait parfois carrément l'insulte en prétexte pour recaser une liste de recommandations non demandée. Instruction resserrée pour qu'il réagisse d'abord et vraiment à la provocation, sans changer de sujet.
+
 ## v1.20.04 — August 2026
 
 ### Chat intelligent : ajouts/recommandations, moins de mauvaises correspondances
