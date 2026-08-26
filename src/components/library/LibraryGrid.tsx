@@ -383,7 +383,7 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
 
   return (
     <div>
-      <div className="mb-4 space-y-3 rounded-2xl glass p-4">
+      <div className="mb-4 space-y-2.5 rounded-2xl glass p-3.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-ink">
             <Film className="h-4 w-4 text-brand-glow" />
@@ -470,7 +470,24 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
               })}
             </div>
           ) : (
-            <div />
+            // No type toggle needed here (the page itself is fixed to movies
+            // or series) — the status filters take this slot instead of
+            // leaving it an empty placeholder div, so /movies and /series
+            // don't waste a whole row on nothing next to the sort pills.
+            <div className="flex flex-wrap gap-1.5">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    filter === f.id ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
+                  )}
+                >
+                  {t(f.key)}
+                </button>
+              ))}
+            </div>
           )}
           <div className="flex flex-wrap items-center gap-1 rounded-xl glass-strong p-1">
             {SORTS.map((s) => (
@@ -488,23 +505,24 @@ function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series"
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-1.5">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className={cn(
-                "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
-                filter === f.id ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
-              )}
-            >
-              {t(f.key)}
-            </button>
-          ))}
-        </div>
+        {fixedType === "all" && (
+          <div className="flex flex-wrap gap-1.5">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id)}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  filter === f.id ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
+                )}
+              >
+                {t(f.key)}
+              </button>
+            ))}
+          </div>
+        )}
 
-
-        <div className="flex flex-wrap gap-1.5 border-t border-white/5 pt-3.5">
+        <div className="flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
           {[
             { id: ANIME_GENRE_ID, label: t("discover.genreAnime") },
             { id: TEEN_GENRE_ID, label: t("discover.genreTeen") },

@@ -137,7 +137,7 @@ function validItem(raw: unknown): AiRecommendIntentItem | null {
 // ATTEMPTED a structured action but nothing usable came out of it, swap in
 // a short apology instead of the broken JSON.
 const ACTION_JSON_HINT_RE = /"action"\s*:\s*"(?:add_media|recommend)"/;
-const BROKEN_ACTION_FALLBACK = "Désolé, j'ai eu un souci pour formuler ma réponse — tu peux reformuler ta demande ?";
+export const BROKEN_ACTION_FALLBACK = "Désolé, j'ai eu un souci pour formuler ma réponse — tu peux reformuler ta demande ?";
 
 function fallbackRawText(text: string, rawText: string): string {
   return ACTION_JSON_HINT_RE.test(text) ? BROKEN_ACTION_FALLBACK : rawText;

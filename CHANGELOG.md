@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.20.02 — August 2026
+
+### Chat intelligent : questions sur les réalisateurs, filmographie et ton
+
+Plusieurs formulations naturelles ("qu'est-ce que X a réalisé", "combien de films j'ai réalisés par X"...) n'étaient pas reconnues et donnaient une réponse inventée. Corrigé, avec au passage : les documentaires ne sont plus mélangés aux vraies réalisations dans les réponses sur un réalisateur, et une demande de recommandation qui échouait parfois à se formuler correctement se rattrape maintenant automatiquement au lieu d'afficher un message d'erreur générique. Le ton du Chat intelligent a aussi un peu plus de répondant face à une remarque taquine.
+
+### Bibliothèque : mise en page resserrée
+
+Sur les pages Films et Séries, les filtres Disponible/Manquant occupaient une ligne entière à côté d'un espace vide inutile. Mise en page resserrée, moins d'espace perdu.
+
 ## v1.20.01 — August 2026
 
 ### Bibliothèque : recommandations Plex et épisodes ajoutés

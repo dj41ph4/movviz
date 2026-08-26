@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
@@ -491,6 +491,25 @@ export async function POST(req: NextRequest) {
     } catch {
       // Best-effort: the normal response remains available if the provider
       // fails during this single corrective call.
+    }
+  }
+  // Confirmed live: a recommend/add request the model clearly attempted
+  // ("propose-moi un truc dans le même genre" right after discussing a
+  // title) can come back with JSON broken beyond extractJsonObject's own
+  // repair — parseIntent then swaps in BROKEN_ACTION_FALLBACK rather than
+  // leaking raw JSON syntax, but that apology was a dead end for the user
+  // (no retry ever followed it, unlike every other repair path in this
+  // file). A small model malforming JSON once doesn't mean it can't
+  // produce it cleanly on a second, more insistent attempt.
+  if (intent.action === null && intent.rawText === BROKEN_ACTION_FALLBACK) {
+    try {
+      const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a tenté un JSON structuré ({"action":"add_media"|"recommend",...}) mais il était mal formé et n'a pas pu être lu. Réponds cette fois avec un JSON strictement valide (guillemets doubles, pas de virgule finale, toutes les accolades/crochets fermés) — reprends la même intention que ta réponse précédente.`;
+      const retryRes = await callAi(config, retrySystem, session.messages);
+      const retryIntent = parseIntent(retryRes.text);
+      if (retryIntent.action !== null || retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
+    } catch {
+      // Best-effort, single bounded retry — falls through to the apology
+      // if this also fails, same discipline as every other retry here.
     }
   }
   // Confirmed live: a bare title mention with no action verb ("Hurlevent",
