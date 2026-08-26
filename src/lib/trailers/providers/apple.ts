@@ -2,29 +2,61 @@ import { titleSimilarity } from "@/lib/library/matching";
 import type { TrailerSource } from "../types";
 
 /**
- * Apple's classic iTunes Search API is used here — NOT the tv.apple.com
- * catalog originally planned. Live investigation during implementation
- * found: `media=movie`/`entity=movie` filters always return 0 results
- * (confirmed on multiple well-known titles — Apple appears to have broken/
- * retired that filter combo), and tv.apple.com's public search page only
- * renders a generic "related content" shelf in its static HTML, not real
- * query results (those load via an authenticated JS-only endpoint we can't
- * reach). The unfiltered iTunes Search API still works, and each
- * `feature-movie` result carries a `previewUrl` — a real, unauthenticated,
- * directly-fetchable MP4 (confirmed live: 18MB video/x-m4v, HTTP 200, no
- * auth). That IS the trailer/preview clip, with no tv.apple.com scraping or
- * umc.cmc id lookup needed at all.
+ * Apple's classic iTunes Search API is used to FIND the title (`media=movie`/
+ * `entity=movie` filters always return 0 results — Apple appears to have
+ * broken/retired that filter combo — the unfiltered search works). Its
+ * `previewUrl` field is a real, directly-fetchable MP4, but only ~640px
+ * wide (confirmed live) — nowhere near 1080p.
+ *
+ * The actual high-quality source: each result's `trackViewUrl`
+ * (itunes.apple.com/us/movie/...) 301-redirects straight to the matching
+ * tv.apple.com/{region}/movie/{slug}/{umc.cmc.id} page — solving, via the
+ * search API itself, the "which umc.cmc id is this title" lookup problem
+ * that blocked a direct tv.apple.com implementation earlier. That page
+ * embeds several `"hlsUrl":"..."` values in its HTML; the one whose `a=`
+ * query param matches this result's own trackId (and whose path is
+ * `/hls/playlist.m3u8`, not `/hls/subscription/playlist.m3u8` — those are
+ * unrelated subscription-content trailers on the same page) is a genuine
+ * public HLS master playlist with variants confirmed live up to
+ * 3840x2024 (4K) — a real quality upgrade over the MP4. previewUrl is kept
+ * as a fallback for when the HLS extraction fails for any reason.
  */
 
 const FETCH_TIMEOUT_MS = 4000;
 
 interface ITunesResult {
   kind?: string;
+  trackId?: number;
   trackName?: string;
   trackCensoredName?: string;
+  trackViewUrl?: string;
   previewUrl?: string;
   releaseDate?: string;
   country?: string;
+}
+
+/**
+ * Fetches the tv.apple.com page trackViewUrl redirects to and extracts the
+ * trailer's own HLS master playlist URL. Best-effort — any failure here
+ * just means the caller falls back to the MP4 previewUrl instead.
+ */
+async function resolveHlsUrl(trackViewUrl: string, trackId: number): Promise<string | null> {
+  try {
+    const res = await fetch(trackViewUrl, {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const matches = html.matchAll(/"hlsUrl":"(https:\/\/play-edge\.itunes\.apple\.com\/WebObjects\/MZPlayLocal\.woa\/hls\/playlist\.m3u8\?[^"]*)"/g);
+    for (const m of matches) {
+      const rawUrl = m[1].replace(/\\u0026/g, "&").replace(/\\\//g, "/");
+      if (rawUrl.includes(`a=${trackId}`)) return rawUrl;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 // A wrong-movie trailer is worse than none — this only fires for a close
@@ -51,15 +83,17 @@ export async function resolveAppleTrailer(
   if (type !== "movie") return null;
 
   const url = `https://itunes.apple.com/search?term=${encodeURIComponent(title)}&country=${encodeURIComponent(region)}&limit=10`;
-  let results: ITunesResult[];
-  try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    results = Array.isArray(data?.results) ? data.results : [];
-  } catch {
-    return null;
-  }
+  // Network/timeout errors and non-2xx responses (a burst of resolve calls —
+  // e.g. many carousel rows loading at once — was confirmed live to trip
+  // Apple's own rate-limiting on this server's IP) are left to throw here
+  // rather than resolving to null. The resolver's own try/catch treats a
+  // thrown error as "skip caching" instead of "cache as no trailer" — a
+  // transient failure must never bake a false negative into the 24h cache
+  // for a title that genuinely has a trailer.
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`iTunes search returned ${res.status}`);
+  const data = await res.json();
+  const results: ITunesResult[] = Array.isArray(data?.results) ? data.results : [];
 
   const candidates = results.filter((r) => r.kind === "feature-movie" && r.previewUrl);
   if (candidates.length === 0) return null;
@@ -80,6 +114,19 @@ export async function resolveAppleTrailer(
   }
 
   if (!best || !best.previewUrl || bestScore < MIN_TITLE_SIMILARITY) return null;
+
+  if (best.trackViewUrl && best.trackId) {
+    const hlsUrl = await resolveHlsUrl(best.trackViewUrl, best.trackId);
+    if (hlsUrl) {
+      return {
+        provider: "apple",
+        playbackType: "hls",
+        url: hlsUrl,
+        type: "trailer",
+        language: null,
+      };
+    }
+  }
 
   const dims = parseDimensions(best.previewUrl);
   return {

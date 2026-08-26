@@ -136,9 +136,26 @@ function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError 
     video.addEventListener("loadeddata", clearStallTimer, { once: true });
 
     if (source.playbackType === "hls" && Hls.isSupported()) {
-      hls = new Hls();
+      // capLevelToPlayerSize (default true) would otherwise cap quality to
+      // this ambient box's own on-screen pixel size, which can be small —
+      // defeating the point of fetching Apple's up-to-4K HLS variants
+      // (confirmed live: master playlist goes from 494x260 up to 3840x2024).
+      // Once the real ladder is known (MANIFEST_PARSED), currentLevel is set
+      // to the highest available resolution explicitly instead.
+      hls = new Hls({ capLevelToPlayerSize: false });
       hls.loadSource(source.url);
       hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, (_evt, data) => {
+        let bestIndex = 0;
+        let bestHeight = 0;
+        data.levels.forEach((level, i) => {
+          if (level.height > bestHeight) {
+            bestHeight = level.height;
+            bestIndex = i;
+          }
+        });
+        hls!.currentLevel = bestIndex;
+      });
       hls.on(Hls.Events.ERROR, (_evt, data) => {
         if (data.fatal) onErrorOnce();
       });

@@ -43,37 +43,46 @@ export async function resolveTrailerSources(
   if (cached) return cached;
 
   const sources: TrailerSource[] = [];
+  // A provider throwing (network error, timeout, rate-limit — see apple.ts)
+  // is a TRANSIENT failure, never the same thing as "this title genuinely
+  // has no trailer." Confirmed live: a burst of resolve calls tripped
+  // Apple's rate-limiting on this server's IP, and caching that empty
+  // result for the full 24h TTL would have hidden Dune: Part Two's real,
+  // working trailer for a day. When any provider throws, the result for
+  // this title is served but NOT cached, so the very next request retries
+  // fresh instead of being stuck behind a false negative.
+  let hadTransientFailure = false;
   try {
     const apple = await resolveAppleTrailer(type, title, year);
     if (apple) sources.push(apple);
   } catch {
-    // best-effort — falls through to the next provider
+    hadTransientFailure = true;
   }
   try {
     const imdb = await resolveImdbTrailer(type, imdbId);
     if (imdb) sources.push(imdb);
   } catch {
-    // best-effort — falls through to the next provider
+    hadTransientFailure = true;
   }
   try {
     const netflix = await resolveNetflixTrailer(type, title, year);
     if (netflix) sources.push(netflix);
   } catch {
-    // best-effort — falls through to the next provider
+    hadTransientFailure = true;
   }
   try {
     const disneyPlus = await resolveDisneyPlusTrailer(type, title, year);
     if (disneyPlus) sources.push(disneyPlus);
   } catch {
-    // best-effort — falls through to the next provider
+    hadTransientFailure = true;
   }
   try {
     const primeVideo = await resolvePrimeVideoTrailer(type, title, year);
     if (primeVideo) sources.push(primeVideo);
   } catch {
-    // best-effort — falls through to YouTube
+    hadTransientFailure = true;
   }
 
-  cache.set(key, sources);
+  if (!hadTransientFailure) cache.set(key, sources);
   return sources;
 }

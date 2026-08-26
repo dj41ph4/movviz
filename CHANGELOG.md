@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.55 — August 2026
+
+### Bande-annonces Apple : qualité HD/4K + correctif fiabilité
+
+Testé en conditions réelles (25+ essais, activé et désactivé) : un vrai bug a été trouvé et corrigé — une rafale de vérifications pouvait faire croire à tort qu'un film n'avait pas de bande-annonce Apple pendant 24h à cause d'une limite de débit temporaire côté Apple. Profité de ces tests pour aussi améliorer la qualité : la bande-annonce Apple passe désormais par le flux HD/4K natif au lieu d'un fichier basse résolution, avec sélection automatique de la meilleure qualité disponible.
+
 ## v1.19.54 — August 2026
 
 ### Bande-annonces : fiabilité renforcée + recherche de sources élargie
