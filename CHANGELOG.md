@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.59 — August 2026
+
+### Recherche rapide : acteurs et réalisateurs
+
+La recherche rapide (Ctrl/Cmd+K) trouve désormais aussi les acteurs et réalisateurs, en plus des films, séries et pages — un résultat personne ouvre directement sa fiche filmographie. Au passage, le Chat intelligent reconnaît maintenant "combien de films j'ai de [réalisateur]" comme une vraie question de filmographie (avant, seules les formulations type "filmographie de X" étaient reconnues — une question posée autrement recevait une réponse inventée non vérifiée).
+
 ## v1.19.58 — August 2026
 
 ### Bande-annonces : correctif titres traduits

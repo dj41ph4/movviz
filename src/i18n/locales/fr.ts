@@ -374,7 +374,7 @@ export const fr = {
   },
 
   command: {
-    placeholder: "Rechercher un titre, aller à une page, lancer une action…",
+    placeholder: "Films, séries, acteurs, réalisateurs, pages…",
     noMatch: "Aucun résultat pour",
     page: "Page",
     movie: "Film",
@@ -382,6 +382,9 @@ export const fr = {
     discoverHint: "à découvrir",
     seeAllResults: "Voir tous les résultats pour « {query} »",
     seeAllResultsHint: "Ouvrir dans Découverte",
+    actor: "Acteur",
+    director: "Réalisateur",
+    person: "Personnalité",
   },
 
   dashboard: {

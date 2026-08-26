@@ -701,6 +701,14 @@ const FILMOGRAPHY_PATTERNS: RegExp[] = [
   /\bla\s+filmographie\s+(?:complète\s+)?(?:de\s+|d')([^.!?\n]+)/i,
   /quels?\s+(?:films?|s[ée]ries?)\s+a\s+(?:fait|tourn[ée]|jou[ée]|r[ée]alis[ée])\s+([^.!?\n]+)/i,
   /(?:tous|toute)\s+les\s+films?\s+(?:de\s+|d')([^.!?\n]+)/i,
+  // "combien de films j'ai de Snyder" / "combien de films de X j'ai" — a
+  // COUNT question, not a listing one, but it needs the exact same real
+  // cross-referenced-against-the-library search: confirmed live, asked
+  // "combien de films j'ai de Snyder" got a confident "aucun" (none) despite
+  // several being in the library, because this phrasing matched none of the
+  // patterns above and the model fell back to its own unverified guess.
+  /combien\s+(?:de\s+|d')(?:films?|s[ée]ries?)\s+(?:est-ce que\s+)?j'ai\s+(?:de\s+|d')([^.!?\n]+)/i,
+  /combien\s+(?:de\s+|d')(?:films?|s[ée]ries?)\s+(?:de\s+|d')([^.!?\n]+?)\s+(?:est-ce que\s+)?j'ai\b/i,
 ];
 
 /** Detects a plain "give me X's filmography" request (X = actor/director/

@@ -79,6 +79,17 @@ export interface MetaSearchResult {
   voteCount?: number;
 }
 
+export interface MetaPersonSearchResult {
+  tmdbId: number;
+  name: string;
+  profilePath: string | null;
+  /** TMDb's own classification ("Acting", "Directing", "Writing", ...) —
+   *  the search result's best signal for an actor/réalisateur badge without
+   *  an expensive per-person credits fetch. */
+  knownForDepartment: string | null;
+  popularity: number;
+}
+
 export interface MetaCastMember {
   id: number;
   name: string;

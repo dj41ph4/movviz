@@ -376,7 +376,7 @@ export const en: Dictionary = {
   },
 
   command: {
-    placeholder: "Search titles, jump to a page, run a command…",
+    placeholder: "Movies, series, actors, directors, pages…",
     noMatch: "No matches for",
     page: "Page",
     movie: "Movie",
@@ -384,6 +384,9 @@ export const en: Dictionary = {
     discoverHint: "to discover",
     seeAllResults: "See all results for \"{query}\"",
     seeAllResultsHint: "Open in Discover",
+    actor: "Actor",
+    director: "Director",
+    person: "Person",
   },
 
   dashboard: {

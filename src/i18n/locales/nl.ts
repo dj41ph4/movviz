@@ -376,7 +376,7 @@ export const nl: Dictionary = {
   },
 
   command: {
-    placeholder: "Zoek titels, ga naar een pagina, voer een opdracht uit…",
+    placeholder: "Films, series, acteurs, regisseurs, pagina's…",
     noMatch: "Geen resultaten voor",
     page: "Pagina",
     movie: "Film",
@@ -384,6 +384,9 @@ export const nl: Dictionary = {
     discoverHint: "om te ontdekken",
     seeAllResults: "Alle resultaten voor \"{query}\" bekijken",
     seeAllResultsHint: "Openen in Ontdekken",
+    actor: "Acteur",
+    director: "Regisseur",
+    person: "Persoonlijkheid",
   },
 
   dashboard: {

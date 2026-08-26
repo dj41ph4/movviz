@@ -10,7 +10,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, CornerDownLeft, Compass, Loader2, Film, Tv, SlidersHorizontal } from "lucide-react";
+import { Search, CornerDownLeft, Compass, Loader2, Film, Tv, User, SlidersHorizontal } from "lucide-react";
 import { NAV } from "@/lib/nav";
 import { SETTINGS_TABS, matchesSettingsQuery } from "@/lib/settingsNav";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,13 @@ interface TmdbHit {
   posterPath: string | null;
 }
 
+interface PersonHit {
+  tmdbId: number;
+  name: string;
+  profilePath: string | null;
+  knownForDepartment: string | null;
+}
+
 /** Debounce delay for the live catalog search as you type — short enough to
  *  feel instant, long enough that a fast typist doesn't fire a request per
  *  keystroke. */
@@ -53,6 +60,7 @@ export function CommandPaletteProvider({
   const [active, setActive] = useState(0);
   const [titles, setTitles] = useState<Title[]>([]);
   const [tmdbHits, setTmdbHits] = useState<TmdbHit[]>([]);
+  const [personHits, setPersonHits] = useState<PersonHit[]>([]);
   const [searching, setSearching] = useState(false);
   const router = useRouter();
   const t = useT();
@@ -102,6 +110,7 @@ export function CommandPaletteProvider({
       setQuery("");
       setActive(0);
       setTmdbHits([]);
+      setPersonHits([]);
       setSearching(false);
       debounceRef.current && clearTimeout(debounceRef.current);
       abortRef.current?.abort();
@@ -122,6 +131,7 @@ export function CommandPaletteProvider({
     if (!q) {
       if (optimized) setTitles([]);
       setTmdbHits([]);
+      setPersonHits([]);
       setSearching(false);
       return;
     }
@@ -133,15 +143,18 @@ export function CommandPaletteProvider({
       abortRef.current = controller;
       const catalogRequest = fetch(`/api/metadata/search?q=${encodeURIComponent(q)}`, { signal: controller.signal, cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null)) as Promise<{ results?: TmdbHit[] } | null>;
+      const peopleRequest = fetch(`/api/metadata/search?q=${encodeURIComponent(q)}&type=person`, { signal: controller.signal, cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null)) as Promise<{ results?: PersonHit[] } | null>;
       const localRequest = optimized
         ? fetch(`/api/interface/search?q=${encodeURIComponent(q)}&limit=8`, { signal: controller.signal, cache: "no-store" })
             .then((r) => (r.ok ? r.json() : null)) as Promise<{ titles?: Title[] } | null>
         : Promise.resolve(null);
-      Promise.all([catalogRequest, localRequest])
-        .then(([d, local]) => {
+      Promise.all([catalogRequest, peopleRequest, localRequest])
+        .then(([d, people, local]) => {
           if (requestIdRef.current !== myRequestId) return; // a newer query already superseded this one
           if (optimized) setTitles(local?.titles ?? []);
           setTmdbHits(d?.results?.slice(0, 6) ?? []);
+          setPersonHits(people?.results?.slice(0, 4) ?? []);
           setSearching(false);
         })
         .catch(() => {
@@ -202,6 +215,15 @@ export function CommandPaletteProvider({
             icon: h.type,
           }))
       : [];
+    const personHitsMapped = q
+      ? personHits.map((p) => ({
+          kind: "person" as const,
+          id: `person-${p.tmdbId}`,
+          label: p.name,
+          sub: p.knownForDepartment === "Directing" ? t("command.director") : p.knownForDepartment === "Acting" ? t("command.actor") : t("command.person"),
+          href: `/person/${p.tmdbId}`,
+        }))
+      : [];
     const seeAll = q
       ? [{
           kind: "seeAll" as const,
@@ -211,8 +233,8 @@ export function CommandPaletteProvider({
           href: `/discover?q=${encodeURIComponent(query.trim())}`,
         }]
       : [];
-    return [...pages, ...matchedTitles, ...catalogHits, ...seeAll];
-  }, [query, t, titles, tmdbHits]);
+    return [...pages, ...matchedTitles, ...catalogHits, ...personHitsMapped, ...seeAll];
+  }, [query, t, titles, tmdbHits, personHits]);
 
   const go = (href: string) => {
     router.push(href);
@@ -292,11 +314,13 @@ export function CommandPaletteProvider({
                     <span
                       className={cn(
                         "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
-                        r.kind === "page" ? "bg-brand/15 text-brand-glow" : "bg-cyan/15 text-cyan"
+                        r.kind === "page" ? "bg-brand/15 text-brand-glow" : r.kind === "person" ? "bg-purple/15 text-purple" : "bg-cyan/15 text-cyan"
                       )}
                     >
                       {r.kind === "seeAll" ? (
                         <Search className="h-4 w-4" />
+                      ) : r.kind === "person" ? (
+                        <User className="h-4 w-4" />
                       ) : r.kind === "media" && "icon" in r && r.icon === "series" ? (
                         <Tv className="h-4 w-4" />
                       ) : r.kind === "media" ? (

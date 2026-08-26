@@ -6,6 +6,7 @@ import type {
   MetaDetail,
   MetaWatchProvider,
   MetaCollectionDetail,
+  MetaPersonSearchResult,
 } from "./types";
 import path from "node:path";
 import { loadTmdbKey } from "./store";
@@ -244,6 +245,27 @@ export async function searchPerson(query: string): Promise<{ id: number; name: s
   if (!people.length) return null;
   people.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
   return { id: people[0].id, name: people[0].name! };
+}
+
+/** Paginated person search (actors/réalisateurs/...) — same `/search/multi`
+ *  call as searchPerson, but returns every match instead of collapsing to
+ *  one, for a real search UI rather than a single confident chat lookup. */
+export async function searchPeople(query: string, page = 1): Promise<{ results: MetaPersonSearchResult[]; page: number; totalPages: number }> {
+  const data = await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>("/search/multi", {
+    query,
+    page: String(page),
+  });
+  if (!data) return { results: [], page: 1, totalPages: 0 };
+  const results = data.results
+    .filter((r) => r.media_type === "person" && r.name)
+    .map((r) => ({
+      tmdbId: r.id,
+      name: r.name!,
+      profilePath: r.profile_path ?? null,
+      knownForDepartment: r.known_for_department ?? null,
+      popularity: r.popularity ?? 0,
+    }));
+  return { results, page: data.page ?? 1, totalPages: Math.min(data.total_pages ?? 1, 500) };
 }
 
 /**
@@ -1259,6 +1281,8 @@ interface RawMultiResult {
   popularity?: number;
   genre_ids?: number[];
   original_language?: string;
+  profile_path?: string | null; // person results only
+  known_for_department?: string; // person results only — TMDb's own "Acting"/"Directing"/... classification
 }
 
 interface RawMovie {

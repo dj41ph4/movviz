@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { searchMulti, searchTv, tmdbConfigured } from "@/lib/metadata/tmdb";
+import { searchMulti, searchTv, searchPeople, tmdbConfigured } from "@/lib/metadata/tmdb";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,11 @@ export async function GET(req: NextRequest) {
   if (!q) return NextResponse.json({ configured: true, results: [], page: 1, totalPages: 0 });
   const page = Math.max(1, Number(req.nextUrl.searchParams.get("page") ?? "1") || 1);
   const type = req.nextUrl.searchParams.get("type");
+
+  if (type === "person") {
+    const paged = await searchPeople(q, page);
+    return NextResponse.json({ configured: true, ...paged });
+  }
 
   let paged;
   if (type === "series") {
