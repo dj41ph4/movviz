@@ -21,8 +21,8 @@ android {
         // Same fix as android-tv/app/build.gradle.kts — derived from the Git
         // tag by CI instead of a frozen value, so BuildConfig.VERSION_NAME
         // (shown in "About") tracks the actual published release.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 12107
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.21.07"
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 12108
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.21.08"
     }
 
     signingConfigs {

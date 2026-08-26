@@ -1115,6 +1115,24 @@ export function extractExplicitTasteRating(message: string): ExplicitTasteRating
  *  plutôt à du bavardage/une phrase construite. Le caller ne doit l'appeler
  *  que si AUCUN des détecteurs plus spécifiques (question) n'a déjà matché,
  *  pour ne jamais dupliquer le travail. */
+// Confirmed live: "tu te fout de ma gueule en fait" (a full sentence, not a
+// bare title, with an insult word woven in rather than standing alone) is
+// too long/varied for CHITCHAT_ONLY_RE's exact-match list to ever cover —
+// it slipped through to a real TMDb search and got a "no match found"
+// reply. Chasing this by adding yet another word to a list doesn't
+// generalize — the NEXT phrasing that isn't on the list breaks the same
+// way. The real, generalizable signal isn't "contains an insult word", it's
+// "reads as a conjugated French sentence addressed to someone" (subject
+// pronoun + conjugated verb) — a title is a name, never a sentence like
+// that, whether or not it happens to be insulting. This covers every
+// present and future insult phrasing without ever needing another entry
+// added, and also catches ordinary chatty remarks CHITCHAT_ONLY_RE's exact-
+// match list was never going to enumerate either ("tu es sympa", "ça craint
+// grave"). A real title can still contain one of these words in isolation
+// ("C'est arrivé près de chez vous") — this only fires on the PAIRING of a
+// subject pronoun with a conjugated verb form, not either alone.
+const FRENCH_SENTENCE_MARKER_RE = /\b(tu\s+(?:es|es[t]?|as|te|me|m'|t'|fais|dis|crois|sers|vas)|t'es|t'as|j'ai|je\s+(?:suis|te|vous|crois|pense)|on\s+est|vous\s+(?:[êe]tes|me|te))\b/i;
+
 export function extractBareTitleMention(message: string): string | null {
   const trimmed = message.trim();
   if (trimmed.length < 2 || trimmed.length > BARE_TITLE_MAX_LEN) return null;
@@ -1122,6 +1140,7 @@ export function extractBareTitleMention(message: string): string | null {
   if (CHITCHAT_ONLY_RE.test(trimmed)) return null;
   if (CONTEXTUAL_REFERENCE_RE.test(trimmed)) return null;
   const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+  if (wordCount >= 3 && FRENCH_SENTENCE_MARKER_RE.test(trimmed)) return null;
   if (wordCount > BARE_TITLE_MAX_WORDS) return null;
   return trimmed.replace(/[.!]+$/, "").trim();
 }

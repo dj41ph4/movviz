@@ -644,7 +644,17 @@ export function buildTitleMentionContext(
   watchResult: WatchStatusResult | null,
   rating: { rating: number; source: "explicit" | "inferred" } | null
 ): string {
-  if (!resolved) return `\n\nVÉRIFICATION RÉELLE — titre mentionné « ${query} » : ${NO_MATCH_SUFFIX}`;
+  // Confirmed live: a message that was never really about a title at all
+  // ("tu te fous de ma gueule en fait" — a remark/insult, not a film name)
+  // still occasionally reaches here despite the upstream filters
+  // (extractBareTitleMention) — those filters get strengthened each time a
+  // new case like this is found, but they can never be exhaustive by
+  // enumeration alone. This is the backstop: when there's no match, always
+  // give the model the escape hatch to realize the "title" was never a
+  // title and just respond to what the user actually said, instead of
+  // mechanically reporting a failed TMDb search for something that clearly
+  // isn't a work title (a full sentence, an insult, a casual remark).
+  if (!resolved) return `\n\nVÉRIFICATION RÉELLE — titre mentionné « ${query} » : ${NO_MATCH_SUFFIX} Si « ${query} » ne ressemble pas vraiment à un titre d'œuvre (une phrase complète, une remarque, une insulte...), ignore complètement cette recherche manquée — ne dis JAMAIS "aucune correspondance trouvée" pour quelque chose qui n'était de toute façon pas un titre : réponds simplement à ce que l'utilisateur vient réellement de dire.`;
   const inLibrary = "inLibrary" in resolved ? (resolved as ResolvedTitleItem).inLibrary : undefined;
   const presenceText = inLibrary === undefined ? "présence en bibliothèque non vérifiée" : inLibrary ? "déjà dans la bibliothèque" : "PAS dans la bibliothèque";
   const watchText = watchResult === "watched" ? "déjà vu(e) en entier"

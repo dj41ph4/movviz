@@ -1,6 +1,8 @@
 # Changelog
 
-## v1.21.07 — August 2026
+## v1.21.08 — August 2026
+
+### Amélioration du chat
 
 ### Amélioration du chat
 
