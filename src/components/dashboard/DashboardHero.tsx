@@ -115,6 +115,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
     active?.detail.type ?? "movie",
     active?.detail.tmdbId ?? null,
     active?.detail.title ?? null,
+    active?.detail.originalTitle,
     active?.detail.year ?? null,
     active?.detail.imdbId ?? null
   );

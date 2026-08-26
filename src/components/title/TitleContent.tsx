@@ -385,7 +385,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   }, [showTrailer]);
   const usePlayLabelResult = usePlayLabel(playbackRatingKey, hasLocalPlayback);
   const { enabled: titlePageVideoEnabled } = useTitlePageVideo();
-  const enhancedTrailerSources = useTrailerSources(type, detail?.tmdbId ?? null, detail?.title ?? null, detail?.year ?? null, detail?.imdbId ?? null);
+  const enhancedTrailerSources = useTrailerSources(type, detail?.tmdbId ?? null, detail?.title ?? null, detail?.originalTitle, detail?.year ?? null, detail?.imdbId ?? null);
 
   // Resume position for the primary CTA (Netflix-style "Reprendre à
   // 00:09:24" pill instead of a plain "Lire" button). Re-read whenever the

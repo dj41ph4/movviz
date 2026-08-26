@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.58 — August 2026
+
+### Bande-annonces : correctif titres traduits
+
+Testé en conditions réelles : un film comme "L'Idée d'être avec toi" ne trouvait jamais sa bande-annonce Apple/Prime, alors que le titre original "The Idea of You" la trouve immédiatement — ces catalogues référencent presque toujours les films sous leur titre anglais, pas la traduction française. La recherche utilise désormais le titre original en priorité (même logique déjà utilisée pour la recherche de fichiers).
+
 ## v1.19.57 — August 2026
 
 ### Bande-annonces : correctif de lenteur
