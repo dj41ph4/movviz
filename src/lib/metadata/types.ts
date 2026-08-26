@@ -77,6 +77,14 @@ export interface MetaSearchResult {
    *  significance, never rating alone: a handful of votes can produce a
    *  misleadingly high average (see resolveAiItemOnce's tie-break). */
   voteCount?: number;
+  /** TMDb's own (non-localized) title — same optionality/provenance as
+   *  genreIds. Confirmed live: "The Death of Stalin" resolved to an
+   *  obscure 2025 homonym (1 vote) instead of the real 2017 film, because a
+   *  French-locale search returns the real film under its LOCALIZED title
+   *  ("La Mort de Staline") — scoring only against that made the exact-text
+   *  junk duplicate win outright, before the vote-count tiebreak ever got a
+   *  chance to run. See resolveAiItemOnce (actions.ts). */
+  originalTitle?: string;
 }
 
 export interface MetaPersonSearchResult {

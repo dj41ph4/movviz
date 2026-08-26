@@ -214,6 +214,7 @@ function mapPaged(
         genreIds: r.genre_ids ?? [],
         originalLanguage: r.original_language ?? null,
         voteCount: r.vote_count ?? 0,
+        originalTitle: r.original_title ?? r.original_name ?? undefined,
       })),
     page: data.page ?? 1,
     // TMDb caps pagination at 500 pages regardless of reported total.
@@ -1298,6 +1299,7 @@ interface RawMultiResult {
   title?: string;
   name?: string;
   original_title?: string;
+  original_name?: string;
   release_date?: string;
   first_air_date?: string;
   overview?: string;

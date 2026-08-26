@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.04 — August 2026
+
+### Chat intelligent : ajouts/recommandations, moins de mauvaises correspondances
+
+Testé en conditions réelles : demander l'ajout de "Terminator 2" ou "Terminator Salvation" ajoutait parfois un making-of ou une websérie dérivée au lieu du vrai film — un contenu bonus TMDb non reconnu comme tel. Et une recommandation dans le genre de "The Death of Stalin" pouvait remonter un doublon quasi-anonyme (1 vote) au lieu du vrai film, à cause du titre localisé français ne correspondant pas au titre demandé. Les deux sont corrigés.
+
 ## v1.20.03 — August 2026
 
 ### Chat intelligent : recommandations JSON plus fiables

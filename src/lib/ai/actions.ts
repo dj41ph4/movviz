@@ -86,8 +86,18 @@ function byScoreThenRating(a: { score: number; hit: { rating: number; voteCount?
 // discipline as the documentary-genre filter in recommendMedia: reject
 // deterministically rather than hope the model's own judgment catches it.
 const BONUS_CONTENT_OVERVIEW_RE = /sc[eè]nes? coupées|deleted scenes?|making[- ]of|behind[- ]the[- ]scenes?|bonus|coffret|bêtisier|bloopers?/i;
-function looksLikeBonusContent(hit: { overview: string }): boolean {
-  return BONUS_CONTENT_OVERVIEW_RE.test(hit.overview);
+// Confirmed live: bulk-adding "Terminator 2" and "Terminator Salvation"
+// resolved to "The Making of 'Terminator 2: Judgment Day'" (a making-of
+// short) and "Terminator Salvation: The Machinima Series" (a low-budget
+// spin-off webseries) instead of the actual films — both silently added to
+// the library. The overview-only check above missed them because their
+// OVERVIEW text never repeats a trigger word, unlike their TITLE, which
+// does. Checking the title too is purely additive: the original "same
+// title as the parent film" bonus-content case (doc comment above) never
+// has these words IN its title, so this can't reject that case by mistake.
+const BONUS_CONTENT_TITLE_RE = /\bthe making of\b|machinima|webisodes?|\(making[- ]of\)/i;
+function looksLikeBonusContent(hit: { overview: string; title: string }): boolean {
+  return BONUS_CONTENT_OVERVIEW_RE.test(hit.overview) || BONUS_CONTENT_TITLE_RE.test(hit.title);
 }
 
 async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null> {
@@ -102,8 +112,19 @@ async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null
   if (item.type) hits = hits.filter((r) => r.type === item.type);
   if (!hits.length) hits = candidates;
 
+  // Confirmed live: "The Death of Stalin" resolved to a near-zero-vote 2025
+  // homonym instead of the real 2017 film. A French-locale search returns
+  // the real film under its LOCALIZED title ("La Mort de Staline") — scoring
+  // only against `title` made the junk duplicate's exact-text match win
+  // outright before the vote-count tiebreak in byScoreThenRating ever got a
+  // chance to run. Scoring against BOTH the localized and original title,
+  // keeping whichever is higher, is the same fix already used for trailer
+  // search (pickSearchTitle) — applied here at the scoring step instead.
+  const bestTitleScore = (r: { title: string; originalTitle?: string }) =>
+    Math.max(titleSimilarity(item.title, r.title), r.originalTitle ? titleSimilarity(item.title, r.originalTitle) : 0);
+
   const scored = hits
-    .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
+    .map((r) => ({ hit: r, score: bestTitleScore(r) }))
     .sort(byScoreThenRating);
 
   // Le `type` vient du LLM : c'est une SUPPOSITION, jamais une certitude.
@@ -115,7 +136,7 @@ async function resolveAiItemOnce(item: AiAddItem): Promise<ResolvedAiItem | null
   // d'un AUTRE type colle nettement mieux au titre demandé, il l'emporte
   // sur la supposition de type du modèle.
   const scoredAll = candidates
-    .map((r) => ({ hit: r, score: titleSimilarity(item.title, r.title) }))
+    .map((r) => ({ hit: r, score: bestTitleScore(r) }))
     .sort(byScoreThenRating);
   const bestTyped = scored[0];
   const bestAny = scoredAll[0];
