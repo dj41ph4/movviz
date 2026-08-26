@@ -135,6 +135,19 @@ function DiscoverPageInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q, mediaType, genre, year, sort, company, watchProvider, rowCategory, router, pathname]);
 
+  // The search box now lives in the nav rail (Sidebar), not on this page —
+  // typing there pushes a new `?q=` while this page is already mounted
+  // (same route, so the `useState(() => searchParams.get("q") ?? "")`
+  // above only ever ran once and would otherwise go stale). Mirrors the URL
+  // back into local state; safe against the effect above re-firing since it
+  // only pushes when `qs !== searchParams.toString()`, which is already
+  // false once this effect has caught local state up to the URL.
+  useEffect(() => {
+    const urlQ = searchParams.get("q") ?? "";
+    if (urlQ !== q) setQ(urlQ);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   // Every fetch below is SWR-cached by URL — instant render from whatever was
   // last seen for that key (even by another page, e.g. Bibliothèque already
   // having populated /api/library/movies) instead of a blank home screen on
@@ -495,16 +508,6 @@ function DiscoverPageInner() {
         <>
           {!isBrowsing && catalogHero && <CatalogHero result={catalogHero} />}
           {genreHero && <CatalogHero result={genreHero} label={selectedGenreName ?? undefined} />}
-
-          <div className="flex items-center gap-3 rounded-2xl glass px-5">
-            <Search className="h-5 w-5 text-ink-dim" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder={t("discover.searchPlaceholder")}
-              className="h-14 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink-dim"
-            />
-          </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <input

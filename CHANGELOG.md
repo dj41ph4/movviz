@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.61 — August 2026
+
+### Recherche : toujours visible dans le menu
+
+Correctif : la barre de recherche du menu disparaissait une fois sur Découverte (qui avait sa propre barre séparée). Il n'y en a plus qu'une seule, toujours au même endroit, que ce soit sur le tableau de bord ou déjà sur Découverte. Sur mobile, l'icône loupe devient une vraie barre de recherche au lieu d'un simple lien.
+
 ## v1.19.60 — August 2026
 
 ### Recherche : direct dans le menu, résultats en cartes

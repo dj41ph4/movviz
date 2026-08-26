@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Search, Heart } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useNavSearch } from "@/lib/nav/useNavSearch";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { ThemeSwitcher } from "./ThemeSwitcher";
 import { UserMenu } from "./UserMenu";
@@ -15,6 +15,11 @@ import { useT } from "@/i18n/provider";
 export function Topbar() {
   const user = useCurrentUser();
   const t = useT();
+  // Same search as the desktop nav rail (Sidebar) — the rail is hidden
+  // below lg, so this is a real inline input here too, not just a link to
+  // Découverte, or a mobile user would have no way to type a query at all
+  // now that Découverte's own inline search box has been removed.
+  const navSearch = useNavSearch();
 
   // Transparent at the very top of the page (reads seamlessly over a hero
   // banner on pages that have one, and blends into the page's own dark
@@ -50,16 +55,18 @@ export function Topbar() {
         scrolled ? "bg-void/60 backdrop-blur-xl" : "bg-transparent"
       )}
     >
-      {/* Search lives in the nav rail now (Sidebar) — the rail is hidden
-       *  below lg, so this icon is the mobile/tablet equivalent, going
-       *  straight to Découverte's own search box rather than a modal. */}
-      <Link
-        href="/discover"
-        aria-label={t("common.searchEverything")}
-        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/8 bg-surface/50 text-ink-dim transition-all hover:border-brand/30 hover:text-ink-soft hover:bg-surface focus-visible:border-brand/50 focus-visible:ring-2 focus-visible:ring-brand/30 lg:hidden"
-      >
-        <Search className="h-4 w-4" />
-      </Link>
+      {/* Mobile/tablet equivalent of the nav rail's search box (hidden below
+       *  lg) — same useNavSearch hook, so typing here behaves identically. */}
+      <div className="group flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-white/8 bg-surface/50 px-3 transition-colors focus-within:border-brand/40 lg:hidden">
+        <Search className="h-4 w-4 shrink-0 text-ink-dim transition-colors group-focus-within:text-brand-glow" />
+        <input
+          value={navSearch.value}
+          onChange={(e) => navSearch.onChange(e.target.value)}
+          placeholder={t("discover.searchPlaceholder")}
+          aria-label={t("common.searchEverything")}
+          className="h-full min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-dim"
+        />
+      </div>
 
       <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
         <a

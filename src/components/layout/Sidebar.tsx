@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams, useRouter } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import useSWR from "swr";
@@ -15,6 +15,7 @@ import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
+import { useNavSearch } from "@/lib/nav/useNavSearch";
 import { ChevronDown, ClipboardList, Download, Loader2, Search, X } from "lucide-react";
 
 interface UpdateInfo {
@@ -34,38 +35,22 @@ function fetcher(url: string) {
 export function Sidebar({ version }: { version: string }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const t = useT();
   const user = useCurrentUser();
-  // Same search Découverte itself uses (films/séries/acteurs/réalisateurs) —
-  // moved here as THE search entry point (replaces the old "Rechercher
-  // partout" command-palette modal). Typing pushes straight to /discover?q=,
-  // whose own card grid replaces the dashboard — hidden while already on
-  // Découverte since that page has this exact same search inline already;
-  // showing both there would just fight over which one is "live".
-  const [searchInput, setSearchInput] = useState("");
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onSearchChange = (value: string) => {
-    setSearchInput(value);
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-    searchDebounceRef.current = setTimeout(() => {
-      router.push(value.trim() ? `/discover?q=${encodeURIComponent(value.trim())}` : "/discover");
-    }, 300);
-  };
+  // THE search entry point (films/séries/acteurs/réalisateurs) — replaces
+  // the old "Rechercher partout" command-palette modal AND Découverte's own
+  // now-removed inline search box. Always visible here, including while
+  // already on Découverte — confirmed live that hiding it there felt broken
+  // ("il devait être dans le navrail", not disappear depending on the page).
+  // Shared with the mobile topbar's own search box via useNavSearch, so both
+  // stay behind the exact same debounce/navigation behavior.
+  const navSearch = useNavSearch();
   const pendingRequests = usePendingRequests();
   const pendingUsers = usePendingUsers();
   const activeDownloads = useActiveDownloads();
 
   const prevCounts = useRef({ pendingRequests, pendingUsers, activeDownloads });
   const [pulseBadge, setPulseBadge] = useState<string | null>(null);
-
-  // Keeps the box empty once the user has left Découverte (a stale leftover
-  // query would be confusing back on the dashboard) and picks up a
-  // bookmarked/shared "/discover?q=..." link's own value on direct load.
-  useEffect(() => {
-    setSearchInput(pathname === "/discover" ? (searchParams.get("q") ?? "") : "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname]);
 
   useEffect(() => {
     if (activeDownloads > prevCounts.current.activeDownloads && activeDownloads > 0) {
@@ -143,18 +128,19 @@ export function Sidebar({ version }: { version: string }) {
 
       {/* Recherche — films, séries, acteurs, réalisateurs (Découverte). Même
        *  habillage "glass" que la barre de recherche de Découverte elle-même,
-       *  juste redimensionné pour la largeur du nav rail. */}
-      {pathname !== "/discover" && (
-        <div className="group relative mb-3 flex items-center gap-2 rounded-xl glass px-3">
-          <Search className="h-4 w-4 shrink-0 text-ink-dim transition-colors group-focus-within:text-brand-glow" />
-          <input
-            value={searchInput}
-            onChange={(e) => onSearchChange(e.target.value)}
-            placeholder={t("discover.searchPlaceholder")}
-            className="h-10 w-full min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-dim"
-          />
-        </div>
-      )}
+       *  juste redimensionné pour la largeur du nav rail. Toujours visible,
+       *  y compris déjà sur Découverte (dont l'input séparé a été retiré) —
+       *  un seul endroit pour taper une recherche, jamais deux qui se
+       *  marchent dessus ou une barre qui disparaît selon la page. */}
+      <div className="group relative mb-3 flex items-center gap-2 rounded-xl glass px-3">
+        <Search className="h-4 w-4 shrink-0 text-ink-dim transition-colors group-focus-within:text-brand-glow" />
+        <input
+          value={navSearch.value}
+          onChange={(e) => navSearch.onChange(e.target.value)}
+          placeholder={t("discover.searchPlaceholder")}
+          className="h-10 w-full min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-dim"
+        />
+      </div>
 
       {/* Nav */}
       <nav className="flex flex-1 flex-col gap-1">
