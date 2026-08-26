@@ -528,6 +528,7 @@ export function DashboardPosterCard({
                 title={title}
                 trigger="immediate"
                 hideSoundToggle
+                extraZoom
                 className="h-full w-full"
               />
             ) : previewImage ? (

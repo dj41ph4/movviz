@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.20.12 — August 2026
+
+### Aperçu au survol des cartes : zoom légèrement augmenté
+
+Sur certains titres (RoboCop 2014 confirmé), un fin bandeau noir restait visible en haut/bas de l'aperçu vidéo au survol d'une carte — la bande-annonce elle-même intègre un léger letterbox. Zoom augmenté d'un cran, uniquement sur cet aperçu (le carrousel d'accueil et la fiche du titre ne sont pas concernés).
+
 ## v1.20.11 — August 2026
 
 ### Android mobile : correctif de build

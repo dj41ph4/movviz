@@ -254,6 +254,12 @@ export interface TrailerHeaderProps {
    *  unmuted). Playback stays muted regardless — this only removes the
    *  button, `muted` itself is untouched by this prop. */
   hideSoundToggle?: boolean;
+  /** Extra zoom on top of the standard scale-110 (below) — confirmed live
+   *  only on the dashboard card hover-preview popover (small size, thin
+   *  cinematic letterbox bars from the source trailer more noticeable at
+   *  that scale, e.g. RoboCop 2014). Never applied to the hero carousel or
+   *  the title page header, which don't have this complaint. */
+  extraZoom?: boolean;
   className?: string;
 }
 
@@ -266,7 +272,7 @@ export interface TrailerHeaderProps {
 const LOOP_BEFORE_END_SEC = 0.75;
 const LOOP_POLL_MS = 250;
 
-function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void }) {
+function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
@@ -414,12 +420,15 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError }: {
       // player is that large — not something CSS on our side controls.
       // Not worth re-attempting without a real way to inspect what
       // YouTube's iframe renders internally at that size.
-      className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2 scale-110"
+      className={cn(
+        "pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2",
+        extraZoom ? "scale-[1.15]" : "scale-110"
+      )}
     />
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, extraZoom = false, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -541,7 +550,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
               onError={onVideoError}
             />
           ) : (
-            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} />
+            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />
           )}
           <div
             className={cn(
