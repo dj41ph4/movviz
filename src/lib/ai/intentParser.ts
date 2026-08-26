@@ -709,6 +709,15 @@ const FILMOGRAPHY_PATTERNS: RegExp[] = [
   // patterns above and the model fell back to its own unverified guess.
   /combien\s+(?:de\s+|d')(?:films?|s[ée]ries?)\s+(?:est-ce que\s+)?j'ai\s+(?:de\s+|d')([^.!?\n]+)/i,
   /combien\s+(?:de\s+|d')(?:films?|s[ée]ries?)\s+(?:de\s+|d')([^.!?\n]+?)\s+(?:est-ce que\s+)?j'ai\b/i,
+  // Confirmed live: several other natural phrasings around "réalisé" all
+  // missed every pattern above and fell through to an ungrounded model
+  // guess ("qu'est-ce que Zack Snyder a réalisé que j'ai déjà" produced a
+  // self-contradictory answer — "aucun film... Par contre tu as Justice
+  // League" — because nothing ever gave the model real data to work with).
+  /r[ée]alis[ée]\s+par\s+([^.!?\n]+)/i,
+  /est-ce que\s+([^.!?\n]+?)\s+a\s+r[ée]alis[ée]/i,
+  /qu['’]?a\s+r[ée]alis[ée]\s+([^.!?\n]+)/i,
+  /([^.!?\n]+?)\s+a\s+(?:d[ée]j[àa]\s+)?r[ée]alis[ée]\b/i,
 ];
 
 /** Detects a plain "give me X's filmography" request (X = actor/director/

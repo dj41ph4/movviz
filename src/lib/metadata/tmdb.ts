@@ -710,9 +710,13 @@ export async function getPerson(personId: number): Promise<MetaPerson | null> {
     tmdbGet<{ cast: RawMultiResult[]; crew: RawMultiResult[] }>(`/person/${personId}/combined_credits`),
   ]);
   if (!person) return null;
+  // Genre 99 = Documentary on both TMDb's movie and TV genre lists — excluded
+  // from "directed" credits per explicit user request: a director's chat
+  // filmography should only ever surface real films/series they directed,
+  // never documentary work (about them or anyone else) mixed into the list.
   const directedIds = new Set(
     (credits?.crew ?? [])
-      .filter((c) => c.job === "Director" && (c.media_type === "movie" || c.media_type === "tv"))
+      .filter((c) => c.job === "Director" && (c.media_type === "movie" || c.media_type === "tv") && !(c.genre_ids ?? []).includes(99))
       .map((c) => `${c.media_type}:${c.id}`)
   );
   const seen = new Set<string>();

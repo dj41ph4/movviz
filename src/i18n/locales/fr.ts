@@ -391,6 +391,7 @@ export const fr = {
     continueWatchingSub: "Reprenez où vous en étiez",
     removeFromResume: "Retirer de la liste Reprendre",
     recentlyAdded: "Ajouts récents",
+    recentEpisodes: "Épisodes récemment ajoutés",
     recentlyAddedSub: "Nouveautés de votre bibliothèque",
     pipeline: "Dans le pipeline",
     pipelineSub: "Surveillés, recherchés & en téléchargement",
@@ -516,6 +517,7 @@ export const fr = {
   },
 
   library: {
+    moreOf: "Plus de",
     eyebrow: "Votre collection",
     title: "Bibliothèque",
     description:

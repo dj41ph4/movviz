@@ -9,7 +9,7 @@ import { useTitleArtworkBatch } from "@/components/media/useTitleArtworkBatch";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useI18n, useT } from "@/i18n/provider";
 import { daysUntil } from "@/lib/library/releaseSchedule";
-import type { DashboardFileTechnical, DashboardLibraryMovie, DashboardLibrarySeries } from "@/lib/dashboard/interfaceTypes";
+import type { DashboardFileTechnical, DashboardLibraryMovie, DashboardLibrarySeries, DashboardRecentEpisode } from "@/lib/dashboard/interfaceTypes";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
@@ -74,11 +74,13 @@ export function DashboardRows({
   sections,
   movies,
   series,
+  recentEpisodes,
   minYear,
 }: {
   sections: DashboardLayout["sections"];
   movies: DashboardLibraryMovie[];
   series: DashboardLibrarySeries[];
+  recentEpisodes: DashboardRecentEpisode[];
   minYear?: number | null;
 }) {
   const t = useT();
@@ -234,6 +236,7 @@ export function DashboardRows({
     if (visible.has("shortSessions")) shortSessions.forEach((item) => add("movie", item.tmdbId));
     if (visible.has("discover")) trending.forEach((item) => add(item.type, item.tmdbId));
     if (visible.has("availableNow")) recentlyAdded.forEach(({ type, item }) => add(type, item.tmdbId));
+    if (visible.has("availableNow")) recentEpisodes.forEach((episode) => add("series", episode.tmdbId));
     if (visible.has("comingSoon")) upcoming.forEach(({ m }) => add("movie", m.tmdbId));
     if (visible.has("upgradesAvailable")) upgrades.forEach(({ movie }) => add("movie", movie.tmdbId));
 
@@ -339,6 +342,74 @@ export function DashboardRows({
           );
         }
 
+        // Plex distinguishes a newly imported *episode* from a newly added
+        // series. Keep that distinction on Movviz too: this shelf points to
+        // the exact Sx · Ex file and can start it directly, rather than
+        // making the user open the parent series and hunt for the episode.
+        if (id === "availableNow" && (recentEpisodes.length > 0 || recentlyAdded.length > 0)) {
+          return (
+            <div key={id} className="space-y-8">
+              {recentEpisodes.length > 0 && <PosterRow title={t("dashboard.recentEpisodes")}>
+                {recentEpisodes.map((episode) => {
+                const artwork = resolveArtwork("series", episode.tmdbId, episode.backdropPath);
+                const playback = episode.plexRatingKey && episode.plexUrl
+                  ? {
+                      ratingKey: episode.plexRatingKey,
+                      plexUrl: episode.plexUrl,
+                      seriesId: episode.seriesId,
+                      type: "series" as const,
+                      seasonNumber: episode.seasonNumber,
+                      episodeNumber: episode.episodeNumber,
+                    }
+                  : undefined;
+                return (
+                  <CardErrorBoundary key={`${episode.seriesId}:${episode.seasonNumber}:${episode.episodeNumber}`}>
+                    <DashboardPosterCard
+                      tmdbId={episode.tmdbId}
+                      type="series"
+                      title={episode.title}
+                      posterPath={episode.posterPath}
+                      backdropPath={artwork.backdropPath}
+                      logoPath={artwork.logoPath}
+                      titleEmbedded={artwork.titleEmbedded}
+                      rating={episode.rating}
+                      subtitle={`S${episode.seasonNumber} · E${episode.episodeNumber} — ${episode.episodeTitle}`}
+                      inLibrary
+                      playback={playback}
+                      technical={technicalFromFile(episode.file)}
+                    />
+                  </CardErrorBoundary>
+                );
+                })}
+              </PosterRow>}
+              {recentlyAdded.length > 0 && <PosterRow title={t("dashboard.recentlyAdded")} onSeeAll={() => router.push("/library?filter=available&sort=recent")}>
+                {recentlyAdded.map(({ type, item }) => {
+                  const artwork = resolveArtwork(type, item.tmdbId, item.backdropPath);
+                  return (
+                    <CardErrorBoundary key={`${type}:${item.id}`}>
+                      <DashboardPosterCard
+                        tmdbId={item.tmdbId}
+                        type={type}
+                        title={item.title}
+                        posterPath={item.posterPath}
+                        backdropPath={artwork.backdropPath}
+                        logoPath={artwork.logoPath}
+                        titleEmbedded={artwork.titleEmbedded}
+                        rating={item.rating}
+                        year={item.year}
+                        runtime={type === "movie" ? item.runtime : undefined}
+                        genres={item.genres}
+                        inLibrary={true}
+                        playback={type === "movie" ? moviePlayback(item) : undefined}
+                      />
+                    </CardErrorBoundary>
+                  );
+                })}
+              </PosterRow>}
+            </div>
+          );
+        }
+
         if (id === "becauseYouLike" && recommended.length > 0) {
           return (
             <PosterRow key={id} title={t("dashboard.rowRecommended")} onSeeAll={() => router.push("/discover?type=movie&row=recommendedTop")}>
@@ -375,35 +446,6 @@ export function DashboardRows({
                       genres={movie.genres}
                       inLibrary={true}
                       playback={moviePlayback(movie)}
-                    />
-                  </CardErrorBoundary>
-                );
-              })}
-            </PosterRow>
-          );
-        }
-
-        if (id === "availableNow" && recentlyAdded.length > 0) {
-          return (
-            <PosterRow key={id} title={t("dashboard.recentlyAdded")} onSeeAll={() => router.push("/library?filter=available&sort=recent")}>
-              {recentlyAdded.map(({ type, item }) => {
-                const artwork = resolveArtwork(type, item.tmdbId, item.backdropPath);
-                return (
-                  <CardErrorBoundary key={`${type}:${item.id}`}>
-                    <DashboardPosterCard
-                      tmdbId={item.tmdbId}
-                      type={type}
-                      title={item.title}
-                      posterPath={item.posterPath}
-                      backdropPath={artwork.backdropPath}
-                      logoPath={artwork.logoPath}
-                      titleEmbedded={artwork.titleEmbedded}
-                      rating={item.rating}
-                      year={item.year}
-                      runtime={type === "movie" ? item.runtime : undefined}
-                      genres={item.genres}
-                      inLibrary={true}
-                      playback={type === "movie" ? moviePlayback(item) : undefined}
                     />
                   </CardErrorBoundary>
                 );

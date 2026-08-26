@@ -65,6 +65,39 @@ export async function GET(req: NextRequest) {
         };
       });
 
+      // Keep the exact episode/file association: a “recently added series”
+      // shelf is not enough when a long-running show gains one new episode.
+      // Sorting on file.addedAt makes Plex imports and Movviz downloads share
+      // the same, real arrival chronology.
+      const recentEpisodes = series.flatMap((show) =>
+        show.seasons.flatMap((season) => season.episodes
+          .filter((episode) => episode.status === "available" && episode.file)
+          .map((episode) => ({
+            seriesId: show.id,
+            tmdbId: show.tmdbId,
+            title: show.title,
+            year: show.year,
+            posterPath: show.posterPath,
+            backdropPath: show.backdropPath,
+            customBackdropPath: show.customBackdropPath ?? null,
+            customLogoPath: show.customLogoPath ?? null,
+            rating: show.rating,
+            genres: show.genres,
+            seasonNumber: season.seasonNumber,
+            episodeNumber: episode.episodeNumber,
+            episodeTitle: episode.title,
+            addedAt: episode.file!.addedAt,
+            plexRatingKey: episode.plexRatingKey,
+            plexUrl: episode.plexRatingKey && cfg.machineIdentifier
+              ? buildPlexWebUrl(cfg.machineIdentifier, episode.plexRatingKey)
+              : null,
+            file: technical(episode.file),
+          }))
+        )
+      )
+        .sort((a, b) => b.addedAt - a.addedAt)
+        .slice(0, 24);
+
       const compactMovies = movies.map((movie) => ({
         id: movie.id,
         tmdbId: movie.tmdbId,
@@ -106,6 +139,7 @@ export async function GET(req: NextRequest) {
         series: compactSeries,
         widgetValues,
         compactRecentMovies: [...movies].sort((a, b) => b.addedAt - a.addedAt).slice(0, 12),
+        recentEpisodes,
       };
     },
   );

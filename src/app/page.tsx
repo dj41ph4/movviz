@@ -16,7 +16,7 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import type { LibraryMovie, LibrarySeries } from "@/lib/library/types";
 import type { EngineTorrent } from "@/lib/types";
-import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySeries } from "@/lib/dashboard/interfaceTypes";
+import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySeries, DashboardRecentEpisode } from "@/lib/dashboard/interfaceTypes";
 import { useInterfaceDataMode } from "@/lib/settings/useInterfaceDataMode";
 import { DASHBOARD_WIDGET_IDS, DEFAULT_DASHBOARD_LAYOUT, type DashboardWidgetId, type DashboardLayout } from "@/lib/dashboard/types";
 import {
@@ -104,6 +104,34 @@ export default function DashboardPage() {
   const searchingMovies = movies.filter((m) => m.status === "searching");
   const missing = movies.filter((m) => m.status === "missing");
   const recentlyAdded = compactRecentMovies;
+
+  // Legacy mode keeps feature parity with the compact interface payload. It
+  // has no prebuilt Plex Web URL, but the direct-player card still receives
+  // the concrete episode identity once compact mode is enabled (the default).
+  const recentEpisodes: DashboardRecentEpisode[] = optimized
+    ? optimizedData?.recentEpisodes ?? []
+    : (seriesData?.series ?? []).flatMap((show) => show.seasons.flatMap((season) => season.episodes
+      .filter((episode) => episode.status === "available" && episode.file)
+      .map((episode) => ({
+        seriesId: show.id,
+        tmdbId: show.tmdbId,
+        title: show.title,
+        year: show.year,
+        posterPath: show.posterPath,
+        backdropPath: show.backdropPath,
+        customBackdropPath: show.customBackdropPath ?? null,
+        customLogoPath: show.customLogoPath ?? null,
+        rating: show.rating,
+        genres: show.genres,
+        seasonNumber: season.seasonNumber,
+        episodeNumber: episode.episodeNumber,
+        episodeTitle: episode.title,
+        addedAt: episode.file!.addedAt,
+        plexRatingKey: episode.plexRatingKey,
+        file: episode.file,
+      }))))
+      .sort((a, b) => b.addedAt - a.addedAt)
+      .slice(0, 24);
 
   const legacySeries = seriesData?.series ?? [];
   const monitoredEpisodes = legacySeries.flatMap((s) => s.seasons.flatMap((se) => se.episodes)).filter((e) => e.monitored);
@@ -300,7 +328,7 @@ export default function DashboardPage() {
 
       {richMode ? (
         !loading && !hasError && movies.length + series.length > 0 && (
-          <DashboardRows sections={layout.sections} movies={movies} series={series} minYear={layout.hero.minYear} />
+          <DashboardRows sections={layout.sections} movies={movies} series={series} recentEpisodes={recentEpisodes} minYear={layout.hero.minYear} />
         )
       ) : (
         <div className="mt-8">

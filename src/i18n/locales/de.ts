@@ -393,6 +393,7 @@ export const de: Dictionary = {
     continueWatchingSub: "Dort weitermachen, wo du aufgehört hast",
     removeFromResume: "Aus „Weiterschauen“ entfernen",
     recentlyAdded: "Kürzlich hinzugefügt",
+    recentEpisodes: "Kürzlich hinzugefügte Folgen",
     recentlyAddedSub: "Neu in deiner Bibliothek",
     pipeline: "In Bearbeitung",
     pipelineSub: "Überwacht, gesucht und im Download",
@@ -518,6 +519,7 @@ export const de: Dictionary = {
   },
 
   library: {
+    moreOf: "Mehr",
     eyebrow: "Deine Sammlung",
     title: "Bibliothek",
     description:

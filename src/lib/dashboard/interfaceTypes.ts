@@ -45,9 +45,34 @@ export interface DashboardLibrarySeries {
   hasAvailableEpisode: boolean;
 }
 
+/** A concrete file that arrived in a series.  This deliberately models an
+ * episode rather than just its parent show so editorial shelves can answer
+ * the useful question “what is new to watch?” without loading every full
+ * season tree into the dashboard. */
+export interface DashboardRecentEpisode {
+  seriesId: string;
+  tmdbId: number;
+  title: string;
+  year: number | null;
+  posterPath: string | null;
+  backdropPath: string | null;
+  customBackdropPath?: string | null;
+  customLogoPath?: string | null;
+  rating: number;
+  genres: string[];
+  seasonNumber: number;
+  episodeNumber: number;
+  episodeTitle: string;
+  addedAt: number;
+  plexRatingKey: string | null;
+  plexUrl?: string | null;
+  file: DashboardFileTechnical | null;
+}
+
 export interface DashboardInterfaceData {
   movies: DashboardLibraryMovie[];
   series: DashboardLibrarySeries[];
   widgetValues: Record<DashboardWidgetId, number>;
   compactRecentMovies: LibraryMovie[];
+  recentEpisodes: DashboardRecentEpisode[];
 }

@@ -1,18 +1,14 @@
 "use client";
 
-import { PageHeader } from "@/components/ui/PageHeader";
-import { LibraryGrid } from "@/components/library/LibraryGrid";
-import { useT } from "@/i18n/provider";
+import { LibraryMediaPage } from "@/components/library/LibraryMediaPage";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 
 export default function MoviesPage() {
-  const t = useT();
   const { titlePanel } = useTitlePanel();
   return (
-    <div className="mx-auto max-w-[1500px]">
-      <PageHeader eyebrow={t("library.eyebrow")} title={t("common.movies")} description={t("library.description")} />
-      <LibraryGrid fixedType="movie" />
+    <>
+      <LibraryMediaPage type="movie" />
       {titlePanel}
-    </div>
+    </>
   );
 }

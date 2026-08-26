@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.20.01 — August 2026
+
+### Bibliothèque : recommandations Plex et épisodes ajoutés
+
+Films et Séries ouvrent désormais sur un onglet Recommandé, composé exclusivement de votre bibliothèque : reprendre, ajouts récents, sélections personnalisées, meilleures notes et genres. La vue Bibliothèque exhaustive reste disponible dans son propre onglet. Le tableau de bord affiche aussi les épisodes réellement ajoutés récemment, avec leur saison et leur numéro d’épisode.
+
+### IA et métadonnées
+
+Les améliorations en cours sur les actions IA, l’interprétation des intentions et la résolution TMDb font partie de cette version.
+
 ## v1.20.00 — August 2026
 
 ### Grand nettoyage des releases GitHub

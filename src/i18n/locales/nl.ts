@@ -393,6 +393,7 @@ export const nl: Dictionary = {
     continueWatchingSub: "Ga verder waar je gebleven was",
     removeFromResume: "Verwijderen uit Verdergaan",
     recentlyAdded: "Onlangs toegevoegd",
+    recentEpisodes: "Recent toegevoegde afleveringen",
     recentlyAddedSub: "Nieuw in je bibliotheek",
     pipeline: "In behandeling",
     pipelineSub: "Gevolgd, gezocht en aan het downloaden",
@@ -518,6 +519,7 @@ export const nl: Dictionary = {
   },
 
   library: {
+    moreOf: "Meer",
     eyebrow: "Jouw collectie",
     title: "Bibliotheek",
     description:
