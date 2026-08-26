@@ -125,6 +125,8 @@ function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError 
     const video = videoRef.current;
     if (!video) return;
     let hls: Hls | null = null;
+    let dash: import("dashjs").MediaPlayerClass | null = null;
+    let cancelled = false;
     let settled = false;
     const onErrorOnce = () => {
       if (settled) return;
@@ -134,6 +136,11 @@ function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError 
     const stallTimer = setTimeout(onErrorOnce, DIRECT_VIDEO_STALL_TIMEOUT_MS);
     const clearStallTimer = () => { settled = true; clearTimeout(stallTimer); };
     video.addEventListener("loadeddata", clearStallTimer, { once: true });
+    const autoplay = () => video.play().catch(() => {
+      // Autoplay can be rejected before the user has interacted with the
+      // page at all — the same cover/backdrop crossfade below just stays on
+      // the static image in that case, no different from a slow YouTube load.
+    });
 
     if (source.playbackType === "hls" && Hls.isSupported()) {
       // capLevelToPlayerSize (default true) would otherwise cap quality to
@@ -159,19 +166,43 @@ function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError 
       hls.on(Hls.Events.ERROR, (_evt, data) => {
         if (data.fatal) onErrorOnce();
       });
+      autoplay();
+    } else if (source.playbackType === "dash") {
+      // Dynamic import: same reasoning as VideoPlayer.tsx's own dash.js
+      // usage — not SSR-safe (touches window at module scope).
+      import("dashjs").then((djs) => {
+        if (cancelled) return;
+        const player = djs.MediaPlayer().create();
+        dash = player;
+        // Auto ABR would otherwise start conservative and ramp up — same
+        // "always fetch the best available" intent as the HLS branch above,
+        // since Prime Video's manifest (confirmed live) offers a real HD
+        // rung most connections can sustain for a short trailer clip.
+        player.updateSettings({ streaming: { abr: { autoSwitchBitrate: { video: false } } } });
+        player.on(djs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+          try {
+            const representations = player.getRepresentationsByType("video");
+            if (representations?.length) {
+              const best = representations.reduce((a, b) => (b.width > a.width ? b : a));
+              player.setRepresentationForTypeById("video", best.id, true);
+            }
+          } catch { /* best-effort — auto ABR still applies if this fails */ }
+        });
+        player.on(djs.MediaPlayer.events.ERROR, () => onErrorOnce());
+        player.initialize(video, source.url, false);
+        autoplay();
+      }).catch(() => onErrorOnce());
     } else {
       video.src = source.url;
+      autoplay();
     }
-    video.play().catch(() => {
-      // Autoplay can be rejected before the user has interacted with the
-      // page at all — the same cover/backdrop crossfade below just stays on
-      // the static image in that case, no different from a slow YouTube load.
-    });
 
     return () => {
+      cancelled = true;
       clearTimeout(stallTimer);
       video.removeEventListener("loadeddata", clearStallTimer);
       hls?.destroy();
+      try { dash?.reset(); } catch { /* already gone */ }
       video.removeAttribute("src");
       video.load();
     };

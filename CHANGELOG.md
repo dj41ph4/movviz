@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.19.56 — August 2026
+
+### Bande-annonces : Prime Video ajouté comme source
+
+Après vérification technique en direct (segment vidéo téléchargé et confirmé non chiffré), Prime Video rejoint Apple comme source de bande-annonce directe pour les films — même réglage, même repli automatique vers YouTube. Netflix reste désactivé : testé en direct aussi, mais rejeté par Netflix avec une restriction de compte avant même d'arriver au flux vidéo.
+
 ## v1.19.55 — August 2026
 
 ### Bande-annonces Apple : qualité HD/4K + correctif fiabilité

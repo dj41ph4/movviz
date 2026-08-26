@@ -4,8 +4,8 @@
  * the existing YouTube keys, never a replacement for them.
  */
 export interface TrailerSource {
-  provider: "apple" | "imdb";
-  playbackType: "hls" | "mp4";
+  provider: "apple" | "imdb" | "primeVideo";
+  playbackType: "hls" | "mp4" | "dash";
   url: string;
   type: "teaser" | "trailer";
   language: string | null;

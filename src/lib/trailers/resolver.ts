@@ -20,16 +20,18 @@ const cache = getCache("trailerResolver", TTL_MS);
  * broken page.
  *
  * Netflix/Disney+/Prime Video are wired into the chain (same order, same
- * cache, same toggle) per movviz-extension-netflix-disney-prime-concis.md,
- * but each currently always resolves to null — investigated live before
- * writing them (see each provider's own doc comment): the only real,
- * working technique for Netflix/Prime requires session cookies, negotiating
- * a DRM-capable stream, and server-side FFmpeg remuxing of separate audio/
- * video tracks, which fails both this project's "no new FFmpeg
- * transcoding" rule and the plan's own "no cookies/DRM" rule. Disney+ has
- * no known public technique at all. Kept as real slots (not deleted) in
- * case a genuinely public, DRM-free method surfaces later — exactly the
- * same reasoning as imdb.ts.
+ * cache, same toggle) per movviz-extension-netflix-disney-prime-concis.md.
+ * Prime Video is real and live-verified: its public GetPlaybackResources
+ * API needs no auth, and a downloaded segment from its DASH manifest was
+ * confirmed unencrypted (no DRM markers anywhere in the manifest) — see
+ * providers/primeVideo.ts. Netflix was re-investigated live after an
+ * initial (too pessimistic) rejection — the anonymous-cookie technique
+ * itself checks out, but Netflix's own manifest API rejected the request
+ * outright with `RESTRICTED_TO_TESTERS`, a real account-level gate, not a
+ * DRM/stream issue — so it stays null. Disney+ has no known public
+ * technique at all. Both are kept as real slots (not deleted) in case
+ * Netflix's restriction changes or a Disney+ method surfaces later — same
+ * reasoning as imdb.ts.
  */
 export async function resolveTrailerSources(
   type: "movie" | "series",
