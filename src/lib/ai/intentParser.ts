@@ -961,7 +961,16 @@ export function isSeriesStatusAboutCurrentPage(message: string): boolean {
 // listées largement — un titre de film ne se cache quasiment jamais
 // derrière un de ces mots, alors qu'ils reviennent constamment en
 // conversation.
-const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|hé|he|hep|ho|oh|ah|eh|coucou|yo|wesh|slt|cc|hola|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|ptdr|haha|hihi|oui|non|ouais|ouep|nan|si|ça va|ca va|comment ça va|comment tu vas|quoi de neuf|à bientôt|a bientot|bye|ciao|au revoir|bonne nuit|stop|arrête|arrete|attends|attend|hmm|hum|bref|voilà|voila)[\s!.?]*$/i;
+// Confirmed live (same failure class as "hep" above): "bof" (a filler word
+// meaning "meh") resolved to the real film "O Bofe", and "cretin" resolved
+// to "Ce crétin de Malec" (obscure 1920s silent film) — a short, casual
+// word or a bare insult can coincidentally be a substring of some obscure
+// real title, and titleSimilarity's fuzzy scoring is lenient enough on
+// short strings to clear MIN_AI_MATCH_SCORE. Filler words AND common
+// standalone insults (same vocabulary the personality prompt in actions.ts
+// already reacts to) are listed here for the same reason "hep" is: a real
+// film title essentially never hides behind one of these on its own.
+const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|hé|he|hep|ho|oh|ah|eh|coucou|yo|wesh|slt|cc|hola|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|ptdr|haha|hihi|oui|non|ouais|ouep|nan|si|ça va|ca va|comment ça va|comment tu vas|quoi de neuf|à bientôt|a bientot|bye|ciao|au revoir|bonne nuit|stop|arrête|arrete|attends|attend|hmm|hum|bref|voilà|voila|bof|bah|beh|pff|pfff|meh|mouais|bof bof|a[iï]e|ouille|zut|miam|hem|ouf|grrr|hop|ouste|con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|tar[ée]e|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|putain|merde)[\s!.?]*$/i;
 // Réponses courtes / références implicites à ce qui vient d'être dit —
 // jamais un titre, toujours une réaction/correction à résoudre par rapport
 // au message précédent de Movviz et au sujet actif de la conversation (voir

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.21.01 — August 2026
+
+### Chat intelligent : mots courants confondus avec des titres
+
+Testé en conditions réelles : répondre juste "bof" ou "crétin" au Chat intelligent le faisait dérailler sur un film obscur portant coïncidemment ce nom ("O Bofe", "Ce crétin de Malec") au lieu de comprendre la remarque. Liste de mots filtrés élargie (interjections courantes, insultes usuelles) pour ne plus jamais confondre un mot du quotidien avec la mention d'un titre.
+
 ## v1.21.00 — August 2026
 
 ### Installeur Linux nouvelle génération + mise à jour en un clic
