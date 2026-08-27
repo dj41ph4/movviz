@@ -983,7 +983,7 @@ export function isSeriesStatusAboutCurrentPage(message: string): boolean {
 // "Va te faire foutre Freddy" (2001) — the single-word list above can never
 // catch this since CHITCHAT_ONLY_RE requires an exact whole-string match;
 // common phrasal insults need their own alternatives, listed separately.
-const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|hé|he|hep|ho|oh|ah|eh|coucou|yo|wesh|slt|cc|hola|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|ptdr|haha|hihi|oui|non|ouais|ouep|nan|si|ça va|ca va|comment ça va|comment tu vas|quoi de neuf|à bientôt|a bientot|bye|ciao|au revoir|bonne nuit|stop|arrête|arrete|attends|attend|hmm|hum|bref|voilà|voila|bof|bah|beh|pff|pfff|meh|mouais|bof bof|a[iï]e|ouille|zut|miam|hem|ouf|grrr|hop|ouste|con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|tar[ée]e|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|putain|merde|va te faire foutre|va te faire voir|va te faire encul[ée]r?|va te faire cuire (?:un [œo]euf|le cul)|casse[- ]toi|ta gueule|ferme[- ]la|d[ée]gage|nique ta m[èe]re|je t'emmerde|tu me fais chier|tu me gonfles|tu me soules|blaireau|bouffon|pourriture|ordure|malotru|casse[- ]pieds|casse[- ]bonbons)[\s!.?]*$/i;
+const CHITCHAT_ONLY_RE = /^(salut|bonjour|bonsoir|hello|hey|hé|he|hep|ho|oh|ah|eh|coucou|yo|wesh|slt|cc|hola|merci|merci beaucoup|ok|okay|d'accord|dac|cool|super|nickel|top|lol|mdr|ptdr|haha|hihi|oui|non|ouais|ouep|nan|si|ça va|ca va|comment ça va|comment tu vas|quoi de neuf|à bientôt|a bientot|bye|ciao|au revoir|bonne nuit|stop|arrête|arrete|attends|attend|hmm|hum|bref|voilà|voila|bof|bah|beh|pff|pfff|meh|mouais|bof bof|a[iï]e|ouille|zut|miam|hem|ouf|grrr|hop|ouste|con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|tar[ée]e|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|putain|merde|va te faire foutre|va te faire voir|va te faire encul[ée]r?|va te faire cuire (?:un [œo]euf|le cul)|casse[- ]toi|ta gueule|ferme[- ]la|d[ée]gage|nique ta m[èe]re|je t'emmerde|tu me fais chier|tu me gonfles|tu me soules|blaireau|bouffon|pourriture|ordure|malotru|casse[- ]pieds|casse[- ]bonbons|pute|petite pute|sans couilles?|couilles?|papy|mamie|bite|petite bite|bat rien|tu bats? rien|tu sers à rien|t'es nul|t'es con)[\s!.?]*$/i;
 // Réponses courtes / références implicites à ce qui vient d'être dit —
 // jamais un titre, toujours une réaction/correction à résoudre par rapport
 // au message précédent de Movviz et au sujet actif de la conversation (voir
@@ -1020,7 +1020,7 @@ export function isRecommendationContinuation(previousAssistantMessage: string | 
 // just mean one extra retry, never a wrong title resolved. Not anchored to
 // the whole string (unlike CHITCHAT_ONLY_RE) — a full sentence around the
 // insult ("tu sais bien que j'ai tout vu abruti") must still count.
-const INSULT_CONTENT_RE = /\b(con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|encul\w*|merde|putain|chier|emmerde|foutre|casse[- ]toi|gueule|f[ée]rme[- ]la|d[ée]gage|gonfles?|soules?|blaireau|bouffon|pourriture|ordure|malotru|casse[- ]pieds|casse[- ]bonbons)\b/i;
+const INSULT_CONTENT_RE = /\b(con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|encul\w*|merde|putain|chier|emmerde|foutre|casse[- ]toi|gueule|f[ée]rme[- ]la|d[ée]gage|gonfles?|soules?|blaireau|bouffon|pourriture|ordure|malotru|casse[- ]pieds|casse[- ]bonbons|pute|papy|couill\w*|bite|bat rien|sers à rien|dis plus rien|te repetes?|vas y)\b/i;
 
 export function isInsultMessage(message: string): boolean {
   return INSULT_CONTENT_RE.test(message);
@@ -1074,7 +1074,7 @@ export function hasAlreadyExitedInsultStreak(messages: { role: "user" | "assista
   return false;
 }
 
-const REPEATED_PHRASE_MIN_LEN = 25;
+const REPEATED_PHRASE_MIN_LEN = 18;
 // Confirmed live: the prompt's own "never reuse the same sentence
 // structure, even with one word swapped" rule (actions.ts, RÉPARTIE) was
 // STILL violated on round 2 vs round 3 of a real insult exchange — nearly

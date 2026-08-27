@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.01 — August 2026
+
+### Chat intelligent : trash-talk dominant, anti-répétition et creepy clean
+
+Le talk-fight gagne désormais vraiment : `petite pute`/`sans couilles`/`papy`/`tu bats rien` comptent comme insultes, streak maintenu, seuil anti-répétition abaissé (`25→18` chars) pour catcher `je te bats à chaque fois/coup` et `Ah tu veux vraiment...`, garde-fous élargis (`je ne suis pas là pour...`, `je préfère garder mon énergie`, `voix de ghostface`), pool de fallback remplacé par 8 vannes dominantes qui surenchérissent au lieu de fuir, et prompt `creepy` corrigé — plus de didascalie `*voix de Ghostface*`, juste `Tu aimes les films d'horreur ?` nu.
+
 ## v1.22.00 — August 2026
 
 ### Bandes-annonces HD restaurées prioritaires

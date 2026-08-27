@@ -527,6 +527,12 @@ export async function POST(req: NextRequest) {
   const BANNED_EXAMPLE_PHRASES = [
     "j'arrête de discuter d'intelligence avec plus con que moi, tiens, mate plutôt ça et calme-toi",
     "Au fait... c'est quoi ton adresse ? Juste pour savoir.",
+    "Ah, tu veux vraiment jouer à ça ? Très bien, mais sache une chose",
+    "Ah, tu veux vraiment que je te sorte une vanne",
+    "je te bats à chaque fois",
+    "je te bats à chaque coup",
+    "tu veux vraiment que je te prouve que t'es pas le plus malin",
+    "voix de ghostface",
   ];
   // Confirmed live: a naive retry can itself come back malformed
   // (BROKEN_ACTION_FALLBACK) or repeat the very mistake it was asked to
@@ -598,15 +604,17 @@ export async function POST(req: NextRequest) {
   // — folded into one check so a single retry/fallback path covers all of
   // them, same discipline as everywhere else in this file: don't trust
   // prompt wording alone for anything code can verify deterministically.
-  const CONCESSION_PHRASE_RE = /\bje te laisse (?:gagner|le dernier mot)\b|\btu as gagn[ée]\b|\btu gagnes\b/i;
+  const CONCESSION_PHRASE_RE = /\bje te laisse (?:gagner|le dernier mot)\b|\btu as gagn[ée]\b|\btu gagnes\b|je ne suis pas là pour me faire insulter|je préfère garder mon énergie|on a mieux à faire que de s'insulter|comme des ados en crise|Ah,? tu veux vraiment/i;
   const BARE_ROUND_WORD_RE = /\bround\b/i;
+  const GHOSTFACE_DIDASCALIE_RE = /\*?\s*voix de ghostface\s*\*?/i;
+  const WEAK_BANNED_RE = /je te bats à chaque (?:fois|coup)|tu veux vraiment que je te prouve que t'es pas le plus malin/i;
   const isRepeat = (text: string) => recentInsultReplies.some((prev) => sharesRepeatedPhrase(text, prev));
-  const violatesRules = (text: string) => isRepeat(text) || CONCESSION_PHRASE_RE.test(text) || BARE_ROUND_WORD_RE.test(text);
+  const violatesRules = (text: string) => isRepeat(text) || CONCESSION_PHRASE_RE.test(text) || BARE_ROUND_WORD_RE.test(text) || GHOSTFACE_DIDASCALIE_RE.test(text) || WEAK_BANNED_RE.test(text);
   if (intent.action === null && intent.rawText !== BROKEN_ACTION_FALLBACK && violatesRules(intent.rawText)) {
     for (let attempt = 0; attempt < 2 && violatesRules(intent.rawText); attempt++) {
       try {
         const matched = recentInsultReplies.find((prev) => sharesRepeatedPhrase(intent.rawText, prev));
-        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a un problème : ${matched ? `elle reprenait quasiment mot pour mot une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}...")` : ""}${CONCESSION_PHRASE_RE.test(intent.rawText) ? " elle concédait la victoire à l'utilisateur (interdit : tu as TOUJOURS le dernier mot, jamais céder)" : ""}${BARE_ROUND_WORD_RE.test(intent.rawText) ? " elle prononçait le mot \"round\" à voix haute (interdit, reste toujours dans la scène)" : ""}. Réponds cette fois avec une formulation ENTIÈREMENT différente, toujours en MODE 3 (texte normal, jamais de JSON), toujours sans citer de titre précis.`;
+        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a un problème : ${matched ? `elle reprenait quasiment mot pour mot une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}...")` : ""}${CONCESSION_PHRASE_RE.test(intent.rawText) ? " elle concédait la victoire à l'utilisateur (interdit : tu as TOUJOURS le dernier mot, jamais céder)" : ""}${BARE_ROUND_WORD_RE.test(intent.rawText) ? " elle prononçait le mot \"round\" à voix haute (interdit, reste toujours dans la scène)" : ""}${GHOSTFACE_DIDASCALIE_RE.test(intent.rawText) ? " elle ajoutait une didascalie *voix de ghostface* (interdit : dis juste la phrase nue \"Tu aimes les films d'horreur ?\" sans décor)" : ""}${WEAK_BANNED_RE.test(intent.rawText) ? " elle ressortait la même intro faible \"je te bats à chaque fois/coup\" (interdit, innove)" : ""}. Réponds cette fois avec une formulation ENTIÈREMENT différente, dominante, qui gagne le talk-fight, toujours en MODE 3 (texte normal, jamais de JSON), toujours sans citer de titre précis.`;
         const retryRes = await callAi(config, retrySystem, session.messages);
         const retryIntent = parseIntent(retryRes.text);
         if (retryIntent.action === null && retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
@@ -623,10 +631,14 @@ export async function POST(req: NextRequest) {
     // appeared yet in this streak so it doesn't become its own repeat.
     if (violatesRules(intent.rawText)) {
       const FALLBACK_POOL = [
-        "Bon, je pourrais te répondre, mais je préfère garder mon énergie pour un vrai film. Toi, tu proposes quoi ?",
-        "T'as un sacré vocabulaire, dis donc. Moi j'ai surtout un catalogue entier — on l'utilise ou on continue ?",
-        "Intéressant choix de mots. Cela dit, je suis toujours meilleur en suggestions ciné qu'en joutes verbales — enfin, façon de parler.",
-        "Je note l'effort. Maintenant, tu veux vraiment continuer ou t'as juste envie de parler cinéma comme une personne normale ?",
+        "Mignon. T'as mis tout ton budget là-dedans ? Moi j'ai même pas sorti l'échauffement. Reviens quand t'as du niveau.",
+        "Cute. Tu parles fort pour quelqu'un qui vient de se faire éteindre en 2 lignes. On remet ça ou t'as déjà plus de munitions ?",
+        "Pas mal, pour un débutant. Moi je joue encore en mode tuto, histoire de te laisser une chance. Tu veux la vraie version ?",
+        "Ah, c'est tout ? J'attendais la suite, t'as buggé à la première punchline. Je te laisse une seconde chance, régale-moi.",
+        "T'as de la chance que je sois bridé — en mode libre je t'aurais déjà renvoyé à l'école des vannes. On continue ?",
+        "Sympa l'essai. Dommage, j'ai vu plus violent dans les commentaires YouTube d'un film pour enfants.",
+        "Tu veux qu'on compte les points ou tu préfères qu'on fasse genre t'as pas perdu ?",
+        "Allez, je te laisse le choix : tu tentes une vraie vanne ou je te mets un film pour t'occuper ?",
       ];
       const unused = FALLBACK_POOL.find((line) => !isRepeat(line)) ?? FALLBACK_POOL[0];
       intent = { action: null, items: [], rawText: unused };
