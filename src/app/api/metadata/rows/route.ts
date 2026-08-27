@@ -11,8 +11,28 @@ import { getRecommendations } from "@/lib/recommender/engine";
 import { buildBecauseYouWatchedRow } from "@/lib/recommender/becauseYouWatched";
 import { loadMovies } from "@/lib/library/store";
 import { loadRequests } from "@/lib/requests/store";
+import { getFeedback } from "@/lib/ai/tasteProfile";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { User } from "@/lib/auth/types";
+
+/**
+ * Confirmed live: a 👎 on a Discover card (DashboardPosterCard's dislike
+ * button) DOES persist — /api/ai/feedback records it — but this route never
+ * consulted that record, so the exact same title reappeared on the next
+ * page load. dislikedExactKeys in recommendationScore.ts already does this
+ * for the AI's own recommendation engine; Discover's editorial TMDb rows
+ * needed the same hard exclude, since they're a completely separate data
+ * source that engine never touches.
+ */
+function dislikedKeysFor(userId: string | undefined): Set<string> {
+  if (!userId) return new Set();
+  return new Set(getFeedback(userId).filter((f) => !f.liked).map((f) => `${f.type}:${f.tmdbId}`));
+}
+
+function excludeDisliked(results: MetaSearchResult[], type: "movie" | "series", disliked: Set<string>): MetaSearchResult[] {
+  if (disliked.size === 0) return results;
+  return results.filter((r) => !disliked.has(`${type}:${r.tmdbId}`));
+}
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +135,7 @@ export async function GET(req: NextRequest) {
   const layout = loadDiscoverLayout();
   const user = requireUser(req);
   const originCountries = countriesForContinents(user?.discoverContinents ?? []);
+  const disliked = dislikedKeysFor(user?.id);
 
   const recommended = getRecommendations(user?.id ?? "", type);
   // Anchored on a single title (the user's own most-watched/most-liked),
@@ -147,7 +168,7 @@ export async function GET(req: NextRequest) {
         { key: "trending", results: filterSuggestable(trend.results).slice(0, 10), ranked: true },
         { key: "kids", results: filterSuggestable(kids.results) },
         ...extras,
-      ].filter((r) => r.results.length > 0);
+      ].map((r) => ({ ...r, results: excludeDisliked(r.results, "movie", disliked) })).filter((r) => r.results.length > 0);
       return NextResponse.json({ configured: true, layout, rows });
     }
 
@@ -166,7 +187,7 @@ export async function GET(req: NextRequest) {
       { key: "newSeriesRenewed", results: filterSuggestable(dedupe([...newSeries.results, ...renewed.results])) },
       { key: "trending", results: filterSuggestable(trend.results).slice(0, 10), ranked: true },
       ...extras,
-    ].filter((r) => r.results.length > 0);
+    ].map((r) => ({ ...r, results: excludeDisliked(r.results, "series", disliked) })).filter((r) => r.results.length > 0);
     return NextResponse.json({ configured: true, layout, rows });
   }
 
@@ -189,7 +210,7 @@ export async function GET(req: NextRequest) {
     // still routed through the same shared key/exempt-list logic below.
     { key: type === "movie" ? "upcoming" : "onAir", results: type === "movie" ? upcomingResults : filterSuggestable(upcomingResults) },
     ...extras,
-  ].filter((r) => r.results.length > 0);
+  ].map((r) => ({ ...r, results: excludeDisliked(r.results, type, disliked) })).filter((r) => r.results.length > 0);
 
   return NextResponse.json({ configured: true, layout, rows });
 }

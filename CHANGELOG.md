@@ -1,6 +1,10 @@
 # Changelog
 
-## v1.21.14 — August 2026
+## v1.21.15 — August 2026
+
+### Découverte : un titre "je n'aime pas" revenait après actualisation
+
+Le 👎 sur une carte Découverte était bien enregistré, mais les rangées éditoriales (tendances, populaires, mieux notés...) ne le consultaient jamais — le même titre réapparaissait donc à chaque rechargement de page. Ces rangées excluent maintenant les titres marqués "je n'aime pas", de façon permanente.
 
 ### Films/Séries : logos manquants sur Reprendre et Épisodes récemment ajoutés
 
