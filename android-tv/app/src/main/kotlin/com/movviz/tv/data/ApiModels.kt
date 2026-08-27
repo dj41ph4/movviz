@@ -269,22 +269,6 @@ data class SystemInfoDto(
 /** Sous-ensemble de MetaDetail (src/lib/metadata/types.ts) — la fiche titre
  *  TV n'a pas besoin des champs desktop-only (watchProviders, studios...). */
 @JsonClass(generateAdapter = true)
-data class PremiumTrailerCandidateDto(
-    val kind: String = "youtube",
-    val provider: String = "",
-    val key: String? = null,
-    val url: String? = null,
-    val playbackType: String? = null,
-    val title: String? = null,
-    val channelId: String? = null,
-    val contentType: String? = null,
-    val language: String? = null,
-    val restoration: String? = null,
-    val width: Int? = null,
-    val height: Int? = null,
-)
-
-@JsonClass(generateAdapter = true)
 data class MetaDetailDto(
     val type: String = "movie",
     val tmdbId: Int,
@@ -311,10 +295,6 @@ data class MetaDetailDto(
      * l'ambiance muette si possible et conserve le backdrop en repli :
      * aucune nouvelle source ni API serveur. */
     val ambientVideoKeys: List<String> = emptyList(),
-    /** Candidats premium HD restaurés — prioritaires sur ambientVideoKeys
-     *  quand le toggle serveur est ON. Défaut emptyList = compat ancienne APK
-     *  (ignore champ) + ancien backend (ne renvoie pas champ) sans crash Moshi. */
-    val premiumTrailerCandidates: List<PremiumTrailerCandidateDto> = emptyList(),
     // Déjà renvoyé par /api/metadata/detail (voir tmdb.ts, "similar":
     // data.recommendations.results) mais jusqu'ici ignoré côté TV — sert la
     // rangée "Titres similaires" en bas de la fiche (même esprit Netflix/

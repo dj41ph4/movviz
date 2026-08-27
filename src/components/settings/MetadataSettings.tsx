@@ -6,12 +6,10 @@ import { cn } from "@/lib/utils";
 import { Check, X, ExternalLink, Loader2, RotateCcw, BookOpen } from "lucide-react";
 import { Toggle } from "@/components/ui/Toggle";
 import { useEnhancedTrailerSources } from "@/lib/settings/useEnhancedTrailerSources";
-import { useRemasteredTrailers } from "@/lib/settings/useRemasteredTrailers";
 
 export function MetadataSettings() {
   const t = useT();
   const enhancedTrailerSources = useEnhancedTrailerSources();
-  const remasteredTrailers = useRemasteredTrailers();
   const [tmdbConfigured, setTmdbConfigured] = useState(false);
   const [tmdbIsDefault, setTmdbIsDefault] = useState(true);
   const [tmdbApiKey, setTmdbApiKey] = useState("");
@@ -357,15 +355,6 @@ export function MetadataSettings() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.enhancedTrailerSourcesEnabled")}</span>
           <Toggle on={enhancedTrailerSources.enabled} onChange={() => enhancedTrailerSources.setEnabled(!enhancedTrailerSources.enabled)} />
-        </div>
-      </div>
-
-      <div className="mt-6 border-t border-white/5 pt-5">
-        <h3 className="text-sm font-bold text-ink">{t("settings.experience.remasteredTrailersTitle")}</h3>
-        <p className="mt-1 mb-3 text-xs text-ink-dim">{t("settings.experience.remasteredTrailersHint")}</p>
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-ink">{t("settings.experience.remasteredTrailersEnabled")}</span>
-          <Toggle on={remasteredTrailers.enabled} onChange={() => remasteredTrailers.setEnabled(!remasteredTrailers.enabled)} />
         </div>
       </div>
     </div>

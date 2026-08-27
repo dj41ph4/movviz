@@ -221,10 +221,10 @@ export function DashboardPosterCard({
   const hasMeta = !!previewYear || !!previewRuntime || !!technical;
   const showRank = !!rank && rank >= 1 && rank <= 10;
   const ambientVideoKeys = previewDetail?.ambientVideoKeys ?? [];
-  // Same candidate pipeline as the dashboard hero: premium remastered
-  // source, then direct enhanced source, then YouTube. Previously card
-  // previews bypassed this and mounted YouTube directly, which made their
-  // visual startup and video quality noticeably different from the hero.
+  // Same candidate pipeline as the dashboard hero: direct enhanced source
+  // then YouTube. Previously card previews bypassed this and mounted YouTube
+  // directly, which made their visual startup and video quality noticeably
+  // different from the hero.
   const enhancedTrailerSources = useTrailerSources(
     type,
     hovered ? tmdbId : null,
@@ -538,10 +538,10 @@ export function DashboardPosterCard({
           setHovered(true);
         }}
         onMouseLeave={closePreview}
-        initial={{ opacity: 0, scale: 0.82, y: popover.above ? 8 : -8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.9 }}
-        transition={{ duration: 0.42, ease: [0.25, 0.1, 0.25, 1] }}
+        initial={{ opacity: 0, y: popover.above ? 8 : -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
         className="fixed z-[80] hidden overflow-hidden rounded-[18px] border border-white/20 bg-[#171522]/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] ring-1 ring-white/10 backdrop-blur-xl sm:block"
         style={{
           left: popover.left,
@@ -577,16 +577,10 @@ export function DashboardPosterCard({
                 className="h-full w-full"
               />
             ) : previewImage ? (
-              <>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={previewImage} alt="" className="h-full w-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/8 to-transparent" />
-              </>
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={previewImage} alt="" className="h-full w-full object-cover" />
             ) : (
-              <>
-                <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/82 via-black/8 to-transparent" />
-              </>
+              <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
             )}
             <div className="absolute inset-x-4 bottom-3 min-w-0">
               {logoPath ? (

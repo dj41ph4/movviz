@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.22.10 — August 2026
+
+### Retrait remaster HD + vignette statique + dashboard optimisé conservé
+
+Retrait complet du système remaster HD (1.22.00) — trop de faux positifs — retour à `Apple/Netflix/Disney+/Prime/IMDb → TMDb` exactement comme avant, sans régression. Vignette hover : voile noir et zoom retirés, reste statique avant aperçu vidéo. Conservé : splash identique, D-pad, optimisation vitesse, logos SVG.
+
+## v1.22.09 — August 2026
+
+### Archive Linux complète et installable
+
+La release Linux x64 contient désormais l'application précompilée, le moteur, `install.sh`, `uninstall.sh`, le service systemd et un guide Linux réorganisé. L'installateur crée lui-même le compte système `movviz`, installe les dépendances média disponibles, conserve les données lors des mises à jour et peut installer directement le bundle extrait. La CI vérifie le contenu de l'archive avant publication et fournit sa somme SHA-256.
+
 ## v1.22.08 — August 2026
 
 ### Aperçus vidéo fiables et métadonnées unifiées

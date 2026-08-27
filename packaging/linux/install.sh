@@ -5,8 +5,8 @@
 # Détecte une installation existante et propose : mise à jour, réinstallation
 # complète, ou désinstallation. Installe depuis le dépôt cloné localement
 # (build depuis les sources — comportement historique) si le script est
-# lancé depuis un checkout, sinon télécharge le bundle pré-construit de la
-# dernière release GitHub (plus rapide, pas besoin de cloner le dépôt).
+# lancé depuis un checkout, installe directement le bundle pré-construit si
+# le script vient du .tar.gz, sinon télécharge la dernière release GitHub.
 #
 # Usage :
 #     sudo ./packaging/linux/install.sh          (depuis un checkout du dépôt)
@@ -21,6 +21,16 @@ UNIT="/etc/systemd/system/movviz.service"
 WEB_PORT="${MOVVIZ_WEB_PORT:-9810}"
 REPO="dj41ph4/movviz"
 VERSION_FILE="$APP_DIR/.movviz-version"
+
+safe_remove_tree() {
+  local target="$1"
+  local expected="$2"
+  local resolved
+  resolved="$(readlink -m -- "$target")"
+  [[ "$resolved" == "$expected" ]] || die "Suppression refusée : chemin inattendu (${resolved})."
+  [[ "$resolved" != "/" ]] || die "Suppression refusée : chemin racine."
+  rm -rf -- "$resolved"
+}
 
 # --- Style --------------------------------------------------------------
 if [[ -t 1 ]]; then
@@ -55,7 +65,17 @@ fi
 # --- Version à installer --------------------------------------------------
 SRC_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." 2>/dev/null && pwd || true)"
 FROM_SOURCE=false
-if [[ -n "$SRC_DIR" && -f "$SRC_DIR/package.json" ]]; then
+FROM_BUNDLE=false
+if [[ -n "$SRC_DIR" && -f "$SRC_DIR/server.js" && -d "$SRC_DIR/.next" && -f "$SRC_DIR/package.json" ]]; then
+  if [[ "$(readlink -m -- "$SRC_DIR")" == "$(readlink -m -- "$APP_DIR/.next/standalone")" ]]; then
+    command -v curl >/dev/null 2>&1 || die "curl est requis pour rechercher la mise à jour."
+    TARGET_VERSION="$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" | grep -m1 '"tag_name"' | sed -E 's/.*"v?([0-9.]+)".*/\1/')"
+    [[ -n "$TARGET_VERSION" ]] || die "Impossible de déterminer la dernière version (réseau ?)."
+  else
+    FROM_BUNDLE=true
+    TARGET_VERSION="$(node -pe "require('$SRC_DIR/package.json').version" 2>/dev/null || echo "?")"
+  fi
+elif [[ -n "$SRC_DIR" && -f "$SRC_DIR/package.json" && -d "$SRC_DIR/src" && -f "$SRC_DIR/next.config.ts" ]]; then
   FROM_SOURCE=true
   TARGET_VERSION="$(node -pe "require('$SRC_DIR/package.json').version" 2>/dev/null || echo "?")"
 else
@@ -113,10 +133,10 @@ uninstall() {
   rm -f "$UNIT"
   systemctl daemon-reload
   step "Suppression de ${APP_DIR}"
-  rm -rf "$APP_DIR"
+  safe_remove_tree "$APP_DIR" "/opt/movviz"
   if [[ "$wipe_data" == "yes" ]]; then
     step "Suppression de ${DATA_DIR}"
-    rm -rf "$DATA_DIR"
+    safe_remove_tree "$DATA_DIR" "/var/lib/movviz"
   else
     ok "Bibliothèque conservée dans ${DATA_DIR}"
   fi
@@ -154,23 +174,32 @@ if [[ "$ACTION" == "reinstall" ]]; then
 fi
 
 # --- Dépendances système ----------------------------------------------------
+command -v node >/dev/null 2>&1 || die "Node.js 20 ou plus récent est requis mais introuvable."
+NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])" 2>/dev/null || echo 0)"
+[[ "$NODE_MAJOR" =~ ^[0-9]+$ && "$NODE_MAJOR" -ge 20 ]] || die "Node.js 20 ou plus récent est requis (version détectée : $(node --version 2>/dev/null || echo inconnue))."
 if [[ "$FROM_SOURCE" == true ]]; then
-  command -v node >/dev/null 2>&1 || die "Node.js est requis mais introuvable."
   command -v npm  >/dev/null 2>&1 || die "npm est requis mais introuvable."
-else
-  command -v node >/dev/null 2>&1 || die "Node.js est requis mais introuvable (installe-le d'abord, ex. via NodeSource)."
 fi
 
-if ! command -v aria2c >/dev/null 2>&1; then
-  step "Installation d'aria2 (moteur de téléchargement haute performance)"
+install_media_dependencies() {
+  local packages=()
+  command -v aria2c >/dev/null 2>&1 || packages+=(aria2)
+  command -v ffmpeg >/dev/null 2>&1 || packages+=(ffmpeg)
+  [[ ${#packages[@]} -gt 0 ]] || return 0
+
+  step "Installation des dépendances média : ${packages[*]}"
   if command -v apt-get >/dev/null 2>&1; then
-    apt-get install -y aria2 >/dev/null 2>&1 || true
+    apt-get install -y "${packages[@]}" >/dev/null 2>&1 || true
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y aria2 >/dev/null 2>&1 || true
+    dnf install -y "${packages[@]}" >/dev/null 2>&1 || true
   elif command -v apk >/dev/null 2>&1; then
-    apk add --no-cache aria2 >/dev/null 2>&1 || true
+    apk add --no-cache "${packages[@]}" >/dev/null 2>&1 || true
   fi
-fi
+
+  command -v aria2c >/dev/null 2>&1 || warn "aria2 reste introuvable : le moteur utilisera ses solutions de repli."
+  command -v ffmpeg >/dev/null 2>&1 || warn "FFmpeg reste introuvable : le remux et le transcodage locaux seront indisponibles."
+}
+install_media_dependencies
 
 # --- Arrêt de l'ancienne instance avant de toucher ses fichiers ------------
 if systemctl is-active --quiet movviz.service 2>/dev/null; then
@@ -194,6 +223,12 @@ if [[ "$FROM_SOURCE" == true ]]; then
   cp -r "$SRC_DIR/.next/static" "$APP_DIR/.next/standalone/.next/static"
   [[ -d "$SRC_DIR/public" ]] && cp -r "$SRC_DIR/public" "$APP_DIR/.next/standalone/public"
   cp -r "$SRC_DIR/engine" "$APP_DIR/.next/standalone/engine"
+elif [[ "$FROM_BUNDLE" == true ]]; then
+  echo "Movviz — installation depuis le bundle Linux v${TARGET_VERSION}"
+  step "Copie du bundle pré-construit"
+  safe_remove_tree "$APP_DIR/.next/standalone" "/opt/movviz/.next/standalone"
+  mkdir -p "$APP_DIR/.next/standalone"
+  cp -a "$SRC_DIR/." "$APP_DIR/.next/standalone/"
 else
   step "Téléchargement du bundle v${TARGET_VERSION}"
   TMP_TARBALL="$(mktemp -d)/movviz.tar.gz"
@@ -201,7 +236,7 @@ else
   curl -fsSL "$DOWNLOAD_URL" -o "$TMP_TARBALL" || die "Téléchargement échoué (${DOWNLOAD_URL})."
   step "Extraction"
   tar -xzf "$TMP_TARBALL" -C "$(dirname "$TMP_TARBALL")"
-  rm -rf "$APP_DIR/.next/standalone"
+  safe_remove_tree "$APP_DIR/.next/standalone" "/opt/movviz/.next/standalone"
   mkdir -p "$APP_DIR/.next"
   mv "$(dirname "$TMP_TARBALL")/movviz" "$APP_DIR/.next/standalone"
 fi
@@ -220,6 +255,8 @@ chown -R "$APP_USER:$APP_USER" "$APP_DIR" "$DATA_DIR"
 step "Installation du service systemd"
 if [[ "$FROM_SOURCE" == true ]]; then
   cp "$SRC_DIR/packaging/linux/movviz.service" "$UNIT"
+elif [[ "$FROM_BUNDLE" == true ]]; then
+  cp "$APP_DIR/.next/standalone/packaging/linux/movviz.service" "$UNIT"
 else
   cp "$APP_DIR/.next/standalone/packaging/linux/movviz.service" "$UNIT" 2>/dev/null || curl -fsSL "https://raw.githubusercontent.com/$REPO/v${TARGET_VERSION}/packaging/linux/movviz.service" -o "$UNIT"
 fi

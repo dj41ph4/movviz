@@ -281,7 +281,7 @@ const LOOP_POLL_MS = 250;
 // YouTube draws central pause (≈900-1100ms) + top title bar after PLAYING.
 // 1200ms still showed pause on hero THE HATE U GIVE on slower 60fps, 1500ms
 // covers it reliably. Keep backdrop opaque during this window.
-const YOUTUBE_CHROME_SETTLE_MS = 250;
+const YOUTUBE_CHROME_SETTLE_MS = 1500;
 
 function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
