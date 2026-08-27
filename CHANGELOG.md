@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.00 — August 2026
+
+### Bandes-annonces HD restaurées prioritaires
+
+Nouveau réglage global **"Prioriser les bandes-annonces HD restaurées"** dans **Réglages → Informations, images et logos** (désactivé par défaut, réversible en un clic, actif pour tous quand l'admin l'active). Quand activé, Movviz tente en priorité des bandes-annonces restaurées/remasterisées/re-trailer en **Full HD/4K** issues de **5 chaînes YouTube de confiance** (Digital Ciné, HD Retro Trailers, Casu/Re-Trailer, FilmsActu, The Digital Theater) — whitelist stricte par `channelId`, résolution réelle sondée (≥1080p obligatoire, sinon rejet), matching titre ultra-conservateur (≥0,85) + année exacte/±1 (remakes homonymes jamais confondus), langue utilisateur prioritaire, providers en parallèle avec timeouts courts et deadline globale ~3s, ranking dédié, cache séparé (7j positif / 18h vide / pas de cache sur erreur transitoire), fallback immédiat vers le workflow actuel (Apple/IMDb/Prime → YouTube) à la moindre hésitation. Intégration web : `DashboardHero` (contexte carrousel : teaser > trailer) et `TitleContent` (contexte détails : trailer > teaser) via `TrailerHeader`/`TrailerModalPlayer` (`premiumSources` prépendu), `GET /api/trailers/remastered/resolve` vérifie le toggle AVANT toute requête réseau, Android TV/mobile : champ `premiumTrailerCandidates` optionnel (`= emptyList()`) — ancienne APK ignore, ancien backend sans champ ne crashe pas. Zéro régression garantie : toggle OFF = workflow exact inchangé.
+
 ## v1.21.17 — August 2026
 
 ### Fiches acteur : filmographie utile
