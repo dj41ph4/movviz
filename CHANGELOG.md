@@ -1,6 +1,10 @@
 # Changelog
 
-## v1.21.10 — August 2026
+## v1.21.11 — August 2026
+
+### Aperçu carrousel : fine ligne noire sur les bandes-annonces
+
+Un léger décalage d'arrondi entre la vidéo et son cadre laissait parfois apparaître une ligne noire d'un pixel sur un bord du lecteur (bandes-annonces MP4/HLS directes). Zoom minime ajouté pour la faire disparaître.
 
 ### Amélioration du chat
 

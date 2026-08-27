@@ -117,6 +117,13 @@ const DIRECT_VIDEO_STALL_TIMEOUT_MS = 4000;
  * object-fit: cover for full-bleed sizing, no oversize-and-crop trick or
  * letterbox zoom needed. Native `loop` is also seamless (no end-card to
  * fight, unlike YouTube's ENDED state).
+ *
+ * Confirmed live: object-fit: cover alone still left a 1px black hairline
+ * along one edge (a subpixel rounding gap between the video's intrinsic
+ * aspect ratio and the container's actual on-screen size, not something
+ * object-fit itself can close). A minimal scale — far smaller than the
+ * YouTube iframe's own scale-110 hack above, since this only needs to
+ * cover ~1px, not a whole letterbox — pushes that edge off-screen.
  */
 function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError }: { source: TrailerSource; muted: boolean; className?: string; onPlayingChange: (playing: boolean) => void; onError: () => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -545,7 +552,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
               key={candidateKey}
               source={candidate.source}
               muted={muted}
-              className="absolute inset-0 h-full w-full object-cover"
+              className="absolute inset-0 h-full w-full scale-[1.02] object-cover"
               onPlayingChange={setVideoPlaying}
               onError={onVideoError}
             />
