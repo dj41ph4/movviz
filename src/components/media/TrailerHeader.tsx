@@ -284,11 +284,10 @@ export interface TrailerHeaderProps {
 // fires, so that end-card never has a chance to render in the first place.
 const LOOP_BEFORE_END_SEC = 0.75;
 const LOOP_POLL_MS = 250;
-// YouTube briefly draws its own central pause/play chrome immediately after
-// reporting PLAYING. Keeping the static backdrop over the iframe for this
-// short settling window makes both the hero and card previews appear as a
-// clean ambient video rather than a YouTube player starting up.
-const YOUTUBE_CHROME_SETTLE_MS = 450;
+// YouTube draws its central pause/play chrome (~700ms) + top title bar after PLAYING.
+// Keep backdrop over iframe longer so both are hidden. 450ms still showed the pause
+// icon on hero (screenshot THE HATE U GIVE). 900ms covers it reliably.
+const YOUTUBE_CHROME_SETTLE_MS = 900;
 
 function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -589,6 +588,8 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
           ) : (
             <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />
           )}
+          {/* Masque la barre titre/channel YouTube (top) pour que la vignette hover soit clean comme le hero */}
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-black/65 via-black/20 to-transparent" />
           <div
             className={cn(
               "absolute inset-0 transition-opacity duration-500",

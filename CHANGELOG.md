@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.06 — August 2026
+
+### Hero et vignettes : vidéo clean sans UI YouTube
+
+Le `||` central du hero disparaît (délai `YOUTUBE_CHROME_SETTLE 450→900ms` pour couvrir le chrome YouTube) et la vignette au survol masque la barre titre/channel YouTube avec un voile haut, pour n'afficher que la vidéo comme le hero.
+
 ## v1.22.05 — August 2026
 
 ### Splash synchronisé aux images et D-pad TV
