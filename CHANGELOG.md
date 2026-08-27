@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.21.16 — August 2026
+
+### Recommandations personnelles sur Android TV et mobile
+
+Les applications Android reprennent désormais les suggestions de la bibliothèque déjà utilisées sur desktop. Les rangées « Suggestions pour vous », les titres les mieux notés et les sélections par genre sont calculées à partir des films et séries réellement présents, en préservant les rangées éditoriales de Découverte.
+
 ## v1.21.15 — August 2026
 
 ### Découverte : un titre "je n'aime pas" revenait après actualisation
