@@ -678,6 +678,21 @@ export interface MetaPersonCredit extends MetaSearchResult {
   isDirector: boolean;
 }
 
+// TMDb's combined actor credits contain a large amount of promotional TV:
+// late-night shows, talk-shows, award ceremonies and press appearances. They
+// are useful credits for TMDb, but they drown an actor's actual filmography in
+// Movviz. 10767 is TMDb's shared "Talk" genre for movies and TV. A few old
+// records are incorrectly filed under Comedy or News, so keep the narrowly
+// scoped title fallback as a safety net. This is deliberately used only by
+// getPerson(): discovery, search and title pages retain the full catalogue.
+const PERSON_TALK_GENRE_ID = 10767;
+const PERSON_TALK_SHOW_TITLE = /\b(?:the )?(?:tonight|late|daily) show\b|\b(?:saturday night live|conan(?: o['’]brien)?|watch what happens live|graham norton|kelly clarkson|jimmy kimmel|stephen colbert|james corden|seth meyers|ellen(?: degeneres)?|the view|good morning america|today show)\b/i;
+
+function isPersonTalkShowCredit(credit: RawMultiResult): boolean {
+  const title = credit.title ?? credit.name ?? "";
+  return (credit.genre_ids ?? []).includes(PERSON_TALK_GENRE_ID) || PERSON_TALK_SHOW_TITLE.test(title);
+}
+
 export interface MetaPerson {
   id: number;
   name: string;
@@ -723,6 +738,7 @@ export async function getPerson(personId: number): Promise<MetaPerson | null> {
   const seen = new Set<string>();
   const filmography = [...(credits?.cast ?? []), ...(credits?.crew ?? [])]
     .filter((c) => c.media_type === "movie" || c.media_type === "tv")
+    .filter((c) => !isPersonTalkShowCredit(c))
     .filter((c) => {
       const key = `${c.media_type}:${c.id}`;
       if (seen.has(key)) return false;
@@ -740,6 +756,7 @@ export async function getPerson(personId: number): Promise<MetaPerson | null> {
       posterPath: c.poster_path ?? null,
       backdropPath: c.backdrop_path ?? null,
       rating: c.vote_average ?? 0,
+      genreIds: c.genre_ids ?? [],
       isDirector: directedIds.has(`${c.media_type}:${c.id}`),
     }));
   return {

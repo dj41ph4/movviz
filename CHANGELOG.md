@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.21.17 — August 2026
+
+### Fiches acteur : filmographie utile
+
+Les talk-shows, late shows et cérémonies de promotion ne polluent plus les fiches acteur. Movviz exclut le genre TMDb « Talk » et les rares émissions mal catégorisées, sans changer la recherche, la Découverte ou les fiches de titre.
+
 ## v1.21.16 — August 2026
 
 ### Recommandations personnelles sur Android TV et mobile
