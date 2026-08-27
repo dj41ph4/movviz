@@ -2,16 +2,19 @@ package com.movviz.tv.ui.home
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusGroup
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.unit.dp
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.ui.search.SearchScreen
 import com.movviz.tv.ui.settings.SettingsScreen
@@ -58,7 +61,7 @@ fun MainScreen(
 ) {
     val focusManager = LocalFocusManager.current
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize().focusGroup()
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
                     // SYMÉTRIE D-PAD OBLIGATOIRE (bug constaté en direct :

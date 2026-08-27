@@ -1,7 +1,7 @@
 "use client";
 
 import useSWR from "swr";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { PosterRow } from "@/components/media/PosterRow";
 import { DashboardPosterCard, type DashboardCardPlayback, type DashboardCardTechnical } from "./DashboardPosterCard";
@@ -77,12 +77,14 @@ export function DashboardRows({
   series,
   recentEpisodes,
   minYear,
+  onRowsReady,
 }: {
   sections: DashboardLayout["sections"];
   movies: DashboardLibraryMovie[];
   series: DashboardLibrarySeries[];
   recentEpisodes: DashboardRecentEpisode[];
   minYear?: number | null;
+  onRowsReady?: () => void;
 }) {
   const t = useT();
   const { locale } = useI18n();
@@ -138,6 +140,14 @@ export function DashboardRows({
     visible.has("upgradesAvailable") && dashboardScanEnabled ? "/api/library/upgrade-candidates?liveSearch=0" : null,
     { revalidateOnFocus: false, dedupingInterval: 10 * 60 * 1000 }
   );
+
+  // Signale au dashboard parent que la première vague de rangées est prête (même vide)
+  useEffect(() => {
+    if (!onRowsReady) return;
+    const hasMovieRows = !visible.has("discover") || !!rowsData;
+    const hasSeriesRows = !visible.has("discover") || !!seriesRowsData;
+    if (hasMovieRows && hasSeriesRows) onRowsReady();
+  }, [rowsData, seriesRowsData, visible, onRowsReady]);
 
   const movieTrending = (rowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter(afterMinYear);
   const seriesTrending = (seriesRowsData?.rows.find((r) => r.key === "trendingPopular" || r.key === "trending")?.results ?? []).filter(afterMinYear);

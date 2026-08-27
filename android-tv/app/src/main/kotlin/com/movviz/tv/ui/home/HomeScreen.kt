@@ -347,7 +347,7 @@ TvTitleCard(
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 80.dp),
+            contentPadding = PaddingValues(start = 80.dp, bottom = 80.dp),
         ) {
             // Palier D-pad invisible TOUT EN HAUT du contenu (demandé en
             // direct) : UP depuis le CTA du hero y atterrit d'abord — le
@@ -975,7 +975,7 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     val activityManager = remember { context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager }
     val memInfo = remember { android.app.ActivityManager.MemoryInfo() }
     activityManager.getMemoryInfo(memInfo)
-    if (memInfo.totalMem < 4L * 1024 * 1024 * 1024) return
+    if (memInfo.totalMem < 2L * 1024 * 1024 * 1024) return
     var ready by remember(key) { mutableStateOf(false) }
     var playing by remember(key) { mutableStateOf(false) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }

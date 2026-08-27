@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.05 — August 2026
+
+### Splash synchronisé aux images et D-pad TV
+
+Le splash reste désormais jusqu'à ce que **toutes les images du dashboard** soient chargées (timeout 15s demandé) et pas seulement la bibliothèque — plus de splash qui disparaît avant les rangées. Correctifs Android TV : `NavRail` + `LazyColumn` avec `focusGroup`/`padding 80dp` anti-overlay, `focusRestorer` nu, `BringIntoViewSpec`, seuil mémoire WebView `4→2Go`.
+
 ## v1.22.04 — August 2026
 
 ### Dashboard instantané et logos SVG

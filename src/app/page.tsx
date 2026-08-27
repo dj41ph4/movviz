@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Reorder } from "framer-motion";
 import { StatTile } from "@/components/ui/StatTile";
 import { DownloadQueue } from "@/components/media/DownloadQueue";
@@ -174,6 +174,9 @@ export default function DashboardPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
   const [splashProgress, setSplashProgress] = useState(14);
+  const [rowsReady, setRowsReady] = useState(false);
+  const [imagesReady, setImagesReady] = useState(false);
+  const handleRowsReady = useCallback(() => setRowsReady(true), []);
 
   useEffect(() => {
     if (layoutData?.layout) setOrder(layoutData.layout.widgets);
@@ -187,31 +190,58 @@ export default function DashboardPage() {
     if (!seen && loading) {
       setShowSplash(true);
       setSplashProgress(14);
+      setRowsReady(false);
+      setImagesReady(false);
     }
   }, [loading, optimized]);
 
   useEffect(() => {
     if (!showSplash) return;
-    if (loading) {
-      const id = setInterval(() => setSplashProgress((p) => (p < 88 ? p + Math.random() * 7 + 1 : p)), 280);
+    if (loading || !rowsReady) {
+      const id = setInterval(() => setSplashProgress((p) => (p < 82 ? p + Math.random() * 5 + 1 : p)), 300);
       return () => clearInterval(id);
     }
-    // loading terminé → barre intelligente file à 100 puis fade
+    if (!imagesReady) {
+      const id = setInterval(() => setSplashProgress((p) => (p < 92 ? p + 0.6 : p)), 400);
+      return () => clearInterval(id);
+    }
+    // loading + rows + images → 100 puis fade
     setSplashProgress(100);
     const t = setTimeout(() => {
       setShowSplash(false);
       try { sessionStorage.setItem("movviz-splash-seen", "1"); } catch {}
     }, 520);
     return () => clearTimeout(t);
-  }, [showSplash, loading]);
+  }, [showSplash, loading, rowsReady, imagesReady]);
 
-  // Sécurité : si le chargement traîne >4s, on ne bloque pas l'UI indéfiniment
+  // Attente images dashboard avec timeout 15s (demandé) : toutes les affiches/backdrops du dashboard
+  useEffect(() => {
+    if (!showSplash || loading || !rowsReady || imagesReady) return;
+    const urls = new Set<string>();
+    const add = (p: string | null, size: string) => { if (p) urls.add(`/tmdb/${size}${p}`); };
+    for (const m of movies.slice(0, 12)) { add(m.posterPath, "w500"); add(m.backdropPath, "w780"); }
+    for (const s of series.slice(0, 12)) { add(s.posterPath, "w500"); add(s.backdropPath, "w780"); }
+    for (const e of recentEpisodes.slice(0, 8)) { add(e.posterPath, "w500"); }
+    if (urls.size === 0) { setImagesReady(true); return; }
+    let done = 0;
+    const total = urls.size;
+    const checkDone = () => { done++; setSplashProgress(82 + Math.round((done / total) * 10)); if (done >= total) setImagesReady(true); };
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    for (const u of urls) {
+      const img = new window.Image();
+      img.onload = checkDone; img.onerror = checkDone; img.src = u;
+    }
+    const t = setTimeout(() => setImagesReady(true), 15000);
+    return () => { clearTimeout(t); timers.forEach(clearTimeout); };
+  }, [showSplash, loading, rowsReady, imagesReady, movies, series, recentEpisodes]);
+
+  // Sécurité : si le chargement traîne >15s, on ne bloque pas l'UI indéfiniment (images timeout)
   useEffect(() => {
     if (!showSplash) return;
     const t = setTimeout(() => {
       setShowSplash(false);
       try { sessionStorage.setItem("movviz-splash-seen", "1"); } catch {}
-    }, 4000);
+    }, 15000);
     return () => clearTimeout(t);
   }, [showSplash]);
 
@@ -234,7 +264,7 @@ export default function DashboardPage() {
     }
     const t = setTimeout(doPrefetch, 900);
     return () => clearTimeout(t);
-  }, [loading, showSplash]);
+  }, [loading, showSplash, optimized]);
 
   const persist = (widgets: DashboardWidgetId[]) => {
     setOrder(widgets);
@@ -262,6 +292,12 @@ export default function DashboardPage() {
   // minus the hero — only "compact" keeps the older flat stat-grid + simple
   // recently-added grid.
   const richMode = layout.mode === "cinema" || layout.mode === "classic";
+
+  // Si pas de rangées à attendre (classic ou biblio vide), ne bloque pas le splash
+  useEffect(() => {
+    if (!loading && !richMode) setRowsReady(true);
+    if (!loading && richMode && movies.length + series.length === 0) setRowsReady(true);
+  }, [loading, richMode, movies.length, series.length]);
 
   return (
     <>
@@ -390,7 +426,7 @@ export default function DashboardPage() {
 
       {richMode ? (
         !loading && !hasError && movies.length + series.length > 0 && (
-          <DashboardRows sections={layout.sections} movies={movies} series={series} recentEpisodes={recentEpisodes} minYear={layout.hero.minYear} />
+          <DashboardRows sections={layout.sections} movies={movies} series={series} recentEpisodes={recentEpisodes} minYear={layout.hero.minYear} onRowsReady={handleRowsReady} />
         )
       ) : (
         <div className="mt-8">
