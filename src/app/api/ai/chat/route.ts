@@ -587,13 +587,26 @@ export async function POST(req: NextRequest) {
   // and this reply is mode-3 prose (never fights the recommend-blocking
   // retry above, which already forces a specific static fallback of its own).
   const recentInsultReplies = insultStreak > 1 ? recentInsultStreakReplies(session.messages) : [];
+  // Confirmed live: "je te laisse gagner ce round" reused, near word-for-
+  // word, the exact template of an earlier reply ("je te laisse le dernier
+  // mot… pour cette fois. Mais je te préviens, la prochaine fois, je te
+  // sors un truc qui va te…") AND said the literal word "round" (the
+  // instruction bans the WORD, not just "round N") AND is itself a real
+  // concession ("je te laisse gagner"/"je te laisse le dernier mot"
+  // directly contradicts "TU AS TOUJOURS LE DERNIER MOT : jamais céder").
+  // Three separate prompt-only rules, all violated in the same two replies
+  // — folded into one check so a single retry/fallback path covers all of
+  // them, same discipline as everywhere else in this file: don't trust
+  // prompt wording alone for anything code can verify deterministically.
+  const CONCESSION_PHRASE_RE = /\bje te laisse (?:gagner|le dernier mot)\b|\btu as gagn[ée]\b|\btu gagnes\b/i;
+  const BARE_ROUND_WORD_RE = /\bround\b/i;
   const isRepeat = (text: string) => recentInsultReplies.some((prev) => sharesRepeatedPhrase(text, prev));
-  if (intent.action === null && intent.rawText !== BROKEN_ACTION_FALLBACK && isRepeat(intent.rawText)) {
-    const original = intent;
-    for (let attempt = 0; attempt < 2 && isRepeat(intent.rawText); attempt++) {
+  const violatesRules = (text: string) => isRepeat(text) || CONCESSION_PHRASE_RE.test(text) || BARE_ROUND_WORD_RE.test(text);
+  if (intent.action === null && intent.rawText !== BROKEN_ACTION_FALLBACK && violatesRules(intent.rawText)) {
+    for (let attempt = 0; attempt < 2 && violatesRules(intent.rawText); attempt++) {
       try {
-        const matched = recentInsultReplies.find((prev) => sharesRepeatedPhrase(intent.rawText, prev))!;
-        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message reprenait quasiment mot pour mot une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}..."). Réponds cette fois avec une formulation ENTIÈREMENT différente dans sa structure, pas juste un mot changé — toujours en MODE 3 (texte normal, jamais de JSON), toujours sans citer de titre précis, et sans jamais mentionner de numéro de "round".`;
+        const matched = recentInsultReplies.find((prev) => sharesRepeatedPhrase(intent.rawText, prev));
+        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a un problème : ${matched ? `elle reprenait quasiment mot pour mot une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}...")` : ""}${CONCESSION_PHRASE_RE.test(intent.rawText) ? " elle concédait la victoire à l'utilisateur (interdit : tu as TOUJOURS le dernier mot, jamais céder)" : ""}${BARE_ROUND_WORD_RE.test(intent.rawText) ? " elle prononçait le mot \"round\" à voix haute (interdit, reste toujours dans la scène)" : ""}. Réponds cette fois avec une formulation ENTIÈREMENT différente, toujours en MODE 3 (texte normal, jamais de JSON), toujours sans citer de titre précis.`;
         const retryRes = await callAi(config, retrySystem, session.messages);
         const retryIntent = parseIntent(retryRes.text);
         if (retryIntent.action === null && retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
@@ -601,11 +614,23 @@ export async function POST(req: NextRequest) {
         break;
       }
     }
-    // Neither attempt produced something non-repetitive and non-broken —
-    // the ORIGINAL (repetitive but coherent) reply is still better than a
-    // broken one, so restore it rather than keep whatever the last failed
-    // attempt left behind.
-    if (intent.rawText === BROKEN_ACTION_FALLBACK || isRepeat(intent.rawText)) intent = original;
+    // Confirmed live: falling back to the ORIGINAL (still-violating) reply
+    // here just re-surfaces the exact bug being fixed — this model has a
+    // strong, reproducible pull toward this specific template and 2 retries
+    // don't reliably escape it. A small fixed pool of pre-written lines is
+    // a deterministic guarantee of variety that doesn't depend on the
+    // model's creativity under retry pressure; cycles to whichever hasn't
+    // appeared yet in this streak so it doesn't become its own repeat.
+    if (violatesRules(intent.rawText)) {
+      const FALLBACK_POOL = [
+        "Bon, je pourrais te répondre, mais je préfère garder mon énergie pour un vrai film. Toi, tu proposes quoi ?",
+        "T'as un sacré vocabulaire, dis donc. Moi j'ai surtout un catalogue entier — on l'utilise ou on continue ?",
+        "Intéressant choix de mots. Cela dit, je suis toujours meilleur en suggestions ciné qu'en joutes verbales — enfin, façon de parler.",
+        "Je note l'effort. Maintenant, tu veux vraiment continuer ou t'as juste envie de parler cinéma comme une personne normale ?",
+      ];
+      const unused = FALLBACK_POOL.find((line) => !isRepeat(line)) ?? FALLBACK_POOL[0];
+      intent = { action: null, items: [], rawText: unused };
+    }
   }
   // Confirmed live: a recommend/add request the model clearly attempted
   // ("propose-moi un truc dans le même genre" right after discussing a
