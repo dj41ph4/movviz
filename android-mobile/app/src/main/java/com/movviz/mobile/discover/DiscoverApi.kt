@@ -24,6 +24,12 @@ interface DiscoverApiService {
     @GET("api/metadata/rows")
     suspend fun rows(@Query("type") type: String): Response<DiscoverRowsResponseDto>
 
+    // Même moteur personnel que l'onglet « Recommandé » desktop. Les écrans
+    // mobile le croisent avec la bibliothèque locale avant affichage : une
+    // suggestion de cette zone est donc toujours lisible immédiatement.
+    @GET("api/metadata/recommendations")
+    suspend fun recommendations(@Query("type") type: String): Response<DiscoverPageDto>
+
     @GET("api/metadata/genres")
     suspend fun genres(@Query("type") type: String): Response<DiscoverGenresResponseDto>
 

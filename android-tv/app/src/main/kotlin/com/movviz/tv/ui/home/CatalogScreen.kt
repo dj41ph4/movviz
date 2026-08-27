@@ -66,6 +66,8 @@ fun CatalogScreen(
     val series by viewModel.series.collectAsState()
     val movieRows by viewModel.movieRows.collectAsState()
     val seriesRows by viewModel.seriesRows.collectAsState()
+    val movieLibraryRecommendations by viewModel.movieLibraryRecommendations.collectAsState()
+    val seriesLibraryRecommendations by viewModel.seriesLibraryRecommendations.collectAsState()
     val dashboardHero by viewModel.dashboardHero.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
     val movieGenres by viewModel.movieGenres.collectAsState()
@@ -99,6 +101,41 @@ fun CatalogScreen(
             series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
         }
     }
+    // Le même principe que LibraryRecommendedRows desktop : le moteur renvoie
+    // ses idées, mais la page Films/Séries ne conserve que les titres déjà
+    // présents dans la bibliothèque. Ainsi « Suggestions pour vous » ne se
+    // confond jamais avec Découverte et son bouton Ajouter.
+    val recommendationIds = if (type == HomeTab.MOVIES) movieLibraryRecommendations else seriesLibraryRecommendations
+    val availableCards = remember(cards, type) {
+        if (type == HomeTab.MOVIES) cards.filter { it.status == "available" } else cards
+    }
+    val localRecommendations = remember(availableCards, recommendationIds) {
+        val byTmdbId = availableCards.associateBy { it.tmdbId }
+        recommendationIds.mapNotNull { byTmdbId[it.tmdbId] }.distinctBy { it.tmdbId }.take(20)
+    }
+    val bestInLibrary = remember(availableCards) {
+        availableCards.sortedByDescending { it.rating }.take(20)
+    }
+    val favouriteGenres = remember(availableCards) {
+        availableCards.flatMap { it.genres }
+            .groupingBy { it }
+            .eachCount()
+            .filterValues { it >= 4 }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(2)
+            .map { it.first }
+    }
+    val librarySuggestionRows = remember(localRecommendations, bestInLibrary, favouriteGenres, availableCards) {
+        buildList {
+            if (localRecommendations.isNotEmpty()) add(CatalogRow("for-you", null, localRecommendations, seeAll = false))
+            if (bestInLibrary.isNotEmpty()) add(CatalogRow("best-in-library", null, bestInLibrary, seeAll = false))
+            favouriteGenres.forEach { genre ->
+                val matching = availableCards.filter { genre in it.genres }.sortedByDescending { it.rating }.take(20)
+                if (matching.isNotEmpty()) add(CatalogRow("library-genre-$genre", null, matching, seeAll = false))
+            }
+        }
+    }
     val editorial = remember(editorialRows, wantedType) {
         // Un onglet Films ne montre que des films et inversement. Les rangées
         // éditoriales sont partagées par l'API desktop, elles peuvent donc
@@ -115,8 +152,9 @@ fun CatalogScreen(
             if (rowCards.isEmpty()) null else CatalogRow(row.key, row.meta, rowCards, seeAll = true)
         }
     }
-    val rows = remember(editorial, cards) {
+    val rows = remember(editorial, librarySuggestionRows, cards) {
         buildList {
+            addAll(librarySuggestionRows)
             addAll(editorial)
             // La rangée "library" (catalogue local complet) n'est pas une clé
             // serveur paginable via row-page — pas de "Voir tout" dessus.
@@ -257,6 +295,8 @@ private fun catalogRowLabel(key: String, meta: RowMetaDto?): String {
         return if (meta.verb == "liked") "Puisque ${meta.anchorTitle} vous a plu" else "Dans la lignée de ${meta.anchorTitle}"
     }
     return when (key) {
+        "for-you" -> "Suggestions pour vous"
+        "best-in-library" -> "Les mieux notés de votre bibliothèque"
         "recommendedTop" -> "Sélection pour vous"
         "trendingPopular", "trending" -> "Tendances"
         "upcoming", "upcomingVod" -> "Prochainement"
@@ -271,7 +311,7 @@ private fun catalogRowLabel(key: String, meta: RowMetaDto?): String {
         "genreComedy" -> "Comédie"
         "genreHorror" -> "Frissons garantis"
         "genreSciFi" -> "Science-fiction"
-        else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
+        else -> if (key.startsWith("library-genre-")) "Encore plus de ${key.removePrefix("library-genre-")}" else key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
     }
 }
 

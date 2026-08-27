@@ -139,6 +139,16 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _seriesRows = MutableStateFlow<List<MetadataRowDto>>(emptyList())
     val seriesRows: StateFlow<List<MetadataRowDto>> = _seriesRows.asStateFlow()
 
+    // Idées calculées par le moteur personnel. Elles restent séparées des
+    // rangées Découverte (qui peuvent proposer des œuvres hors bibliothèque)
+    // afin que Films/Séries reproduisent le nouvel onglet desktop : des
+    // suggestions qui existent déjà réellement dans la médiathèque.
+    private val _movieLibraryRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList())
+    val movieLibraryRecommendations: StateFlow<List<SearchResultDto>> = _movieLibraryRecommendations.asStateFlow()
+
+    private val _seriesLibraryRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList())
+    val seriesLibraryRecommendations: StateFlow<List<SearchResultDto>> = _seriesLibraryRecommendations.asStateFlow()
+
     // Genres TMDb réels pour le sélecteur Genres du Discover TV (voir
     // CatalogScreen) — même route que le dropdown Genres desktop. Les deux
     // synthétiques (Anime/Romance ado) sont ajoutés côté écran, jamais ici.
@@ -821,10 +831,14 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 val series = async { repo.trending("series") }
                 val movieRows = async { repo.metadataRows("movie") }
                 val seriesRows = async { repo.metadataRows("series") }
+                val movieRecommendations = async { repo.metadataRecommendations("movie") }
+                val seriesRecommendations = async { repo.metadataRecommendations("series") }
                 when (val m = movies.await()) { is ApiResult.Success -> _trendingMovies.value = m.data; else -> Unit }
                 when (val s = series.await()) { is ApiResult.Success -> _trendingSeries.value = s.data; else -> Unit }
                 when (val rows = movieRows.await()) { is ApiResult.Success -> _movieRows.value = rows.data; else -> Unit }
                 when (val rows = seriesRows.await()) { is ApiResult.Success -> _seriesRows.value = rows.data; else -> Unit }
+                when (val recommendations = movieRecommendations.await()) { is ApiResult.Success -> _movieLibraryRecommendations.value = recommendations.data; else -> Unit }
+                when (val recommendations = seriesRecommendations.await()) { is ApiResult.Success -> _seriesLibraryRecommendations.value = recommendations.data; else -> Unit }
             }
         }
     }

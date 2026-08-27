@@ -130,6 +130,7 @@ internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitle
     val mediaType by discoverVm.mediaType.collectAsState()
     val rows by discoverVm.rows.collectAsState()
     val rowsLoading by discoverVm.rowsLoading.collectAsState()
+    val libraryRecommendations by discoverVm.libraryRecommendations.collectAsState()
     val genres by discoverVm.genres.collectAsState()
     val selectedGenreId by discoverVm.selectedGenreId.collectAsState()
     val activeRowKey by discoverVm.activeRowKey.collectAsState()
@@ -142,6 +143,15 @@ internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitle
     val browseLoadingMore by discoverVm.browseLoadingMore.collectAsState()
 
     val isBrowsing = selectedGenreId != null || activeRowKey != null || searchQueryVm.isNotBlank()
+    // « Suggestions pour vous » est la surface bibliothèque de Movviz : le
+    // moteur peut connaître bien plus de titres, mais cette rangée conserve
+    // uniquement ceux disponibles pour CE profil, pas un faux bouton Ajouter.
+    val localRecommendations = remember(libraryRecommendations, moviesState, seriesState, mediaType) {
+        libraryRecommendations.filter { result ->
+            if (mediaType == "movie") moviesState.any { it.tmdbId == result.tmdbId && it.status == "available" }
+            else seriesState.any { it.tmdbId == result.tmdbId }
+        }.distinctBy { it.tmdbId }.take(20)
+    }
     val haptic = LocalHapticFeedback.current
 
     var searchInput by remember { mutableStateOf("") }
@@ -211,7 +221,7 @@ internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitle
 
             if (!isBrowsing) {
                 DiscoverHomeRows(
-                    rows = rows, loading = rowsLoading, moviesState = moviesState, seriesState = seriesState,
+                    rows = rows, libraryRecommendations = localRecommendations, loading = rowsLoading, moviesState = moviesState, seriesState = seriesState,
                     vm = vm, onTitleClick = onTitleClick, onSeeAll = { key, meta -> discoverVm.seeAllRow(key, meta) },
                     bottomPadding = padding.calculateBottomPadding() + 24.dp,
                 )
@@ -280,7 +290,7 @@ private fun GenreRow(name: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun DiscoverHomeRows(
-    rows: List<DiscoverRowDto>,
+    rows: List<DiscoverRowDto>, libraryRecommendations: List<DiscoverResultDto>,
     loading: Boolean,
     moviesState: List<LibraryMovieDto>,
     seriesState: List<LibrarySeriesDto>,
@@ -299,12 +309,26 @@ private fun DiscoverHomeRows(
                 }
             }
         } else {
+            if (libraryRecommendations.isNotEmpty()) {
+                item(key = "library-recommendations") {
+                    PosterRowSection(
+                        row = DiscoverRowDto(key = "library-recommendations", results = libraryRecommendations),
+                        title = "Suggestions pour vous",
+                        moviesState = moviesState, seriesState = seriesState, vm = vm,
+                        onTitleClick = onTitleClick, onSeeAll = {}, showSeeAll = false,
+                    )
+                }
+            }
             items(rows, key = { it.key }) { row ->
                 if (row.results.isEmpty()) return@items
                 if (row.ranked) {
                     RankedRowSection(row, rowLabel(row.key, row.meta), moviesState, seriesState, vm, onTitleClick) { onSeeAll(row.key, row.meta) }
                 } else {
-                    PosterRowSection(row, rowLabel(row.key, row.meta), moviesState, seriesState, vm, onTitleClick) { onSeeAll(row.key, row.meta) }
+                    PosterRowSection(
+                        row, rowLabel(row.key, row.meta), moviesState, seriesState, vm,
+                        onTitleClick = onTitleClick,
+                        onSeeAll = { onSeeAll(row.key, row.meta) },
+                    )
                 }
             }
         }
@@ -336,10 +360,11 @@ private fun RowHeader(title: String, onSeeAll: () -> Unit) {
 @Composable
 private fun PosterRowSection(
     row: DiscoverRowDto, title: String, moviesState: List<LibraryMovieDto>, seriesState: List<LibrarySeriesDto>,
-    vm: MobileViewModel, onTitleClick: (String, Int) -> Unit, onSeeAll: () -> Unit,
+    vm: MobileViewModel, onTitleClick: (String, Int) -> Unit, onSeeAll: () -> Unit, showSeeAll: Boolean = true,
 ) {
     Column(Modifier.padding(top = 16.dp)) {
-        RowHeader(title, onSeeAll)
+        if (showSeeAll) RowHeader(title, onSeeAll)
+        else Text(title, color = MovvizInk, fontSize = 15.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.2).sp, modifier = Modifier.padding(horizontal = 20.dp))
         Spacer(Modifier.height(10.dp))
         LazyRow(contentPadding = PaddingValues(start = 20.dp, end = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(row.results, key = { "${it.type}:${it.tmdbId}" }) { r ->

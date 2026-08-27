@@ -37,6 +37,12 @@ internal class DiscoverViewModel(application: Application) : AndroidViewModel(ap
     private val _rowsLoading = MutableStateFlow(false)
     val rowsLoading: StateFlow<Boolean> = _rowsLoading.asStateFlow()
 
+    // Source distincte de Découverte : les résultats du moteur sont ensuite
+    // restreints par DiscoverScreen aux titres réellement présents dans la
+    // bibliothèque du profil actif, comme sur le desktop.
+    private val _libraryRecommendations = MutableStateFlow<List<DiscoverResultDto>>(emptyList())
+    val libraryRecommendations: StateFlow<List<DiscoverResultDto>> = _libraryRecommendations.asStateFlow()
+
     private val _genres = MutableStateFlow<List<DiscoverGenreOption>>(emptyList())
     val genres: StateFlow<List<DiscoverGenreOption>> = _genres.asStateFlow()
 
@@ -92,6 +98,12 @@ internal class DiscoverViewModel(application: Application) : AndroidViewModel(ap
                 else -> Unit
             }
             _rowsLoading.value = false
+        }
+        viewModelScope.launch {
+            when (val res = r.recommendations(type)) {
+                is ApiResult.Success -> _libraryRecommendations.value = res.data
+                else -> _libraryRecommendations.value = emptyList()
+            }
         }
         viewModelScope.launch {
             val real = (r.genres(type) as? ApiResult.Success)?.data.orEmpty()

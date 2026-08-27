@@ -135,6 +135,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun metadataRows(type: String): ApiResult<List<MetadataRowDto>> =
         safeCall { api.metadataRows(type) }.map { it.rows }
 
+    suspend fun metadataRecommendations(type: String): ApiResult<List<SearchResultDto>> =
+        safeCall { api.metadataRecommendations(type) }.map { it.results }
+
     /** "Voir tout" d'une rangée éditoriale — voir RowPageResponseDto. */
     suspend fun rowPage(type: String, key: String, page: Int): ApiResult<RowPageResponseDto> =
         safeCall { api.rowPage(type, key, page) }

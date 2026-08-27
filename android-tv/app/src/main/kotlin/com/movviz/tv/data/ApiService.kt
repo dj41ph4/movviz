@@ -169,6 +169,13 @@ interface MovvizApiService {
     @GET("api/metadata/rows")
     suspend fun metadataRows(@Query("type") type: String): Response<MetadataRowsResponseDto>
 
+    // Moteur de recommandation personnel Movviz. Les clients filtrent ensuite
+    // ces identifiants contre leur bibliothèque pour construire l'onglet
+    // « Suggestions pour vous » local, exactement comme LibraryRecommendedRows
+    // sur desktop : aucune œuvre externe ne s'y glisse.
+    @GET("api/metadata/recommendations")
+    suspend fun metadataRecommendations(@Query("type") type: String): Response<SearchResponseDto>
+
     // "Voir tout" d'une rangée — même route que le bouton "Tout voir" du
     // Discover desktop (discover/page.tsx loadPage). `key` est passé tel
     // quel : Retrofit form-encode chaque @Query au niveau OkHttp/HttpUrl,

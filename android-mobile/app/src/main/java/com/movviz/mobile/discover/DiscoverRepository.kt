@@ -12,6 +12,9 @@ class DiscoverRepository(baseUrl: String) {
     suspend fun rows(type: String): ApiResult<DiscoverRowsResponseDto> =
         safeCall { api.rows(type) }
 
+    suspend fun recommendations(type: String): ApiResult<List<DiscoverResultDto>> =
+        safeCall { api.recommendations(type) }.map { it.results }
+
     suspend fun genres(type: String): ApiResult<List<DiscoverGenreDto>> =
         safeCall { api.genres(type) }.map { it.genres }
 
