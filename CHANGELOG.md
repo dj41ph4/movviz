@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.02 — August 2026
+
+### Aperçus de bande-annonce homogènes
+
+Les cartes utilisent maintenant la même sélection de sources que le carrousel : bande-annonce HD restaurée, vidéo directe puis YouTube en dernier recours. Au démarrage YouTube reste brièvement masqué par l’illustration afin d’éliminer le gros bouton pause/play central, sur les cartes comme dans le carrousel.
+
 ## v1.22.01 — August 2026
 
 ### Chat intelligent : trash-talk dominant, anti-répétition et creepy clean

@@ -19,6 +19,8 @@ import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
+import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
+import { useRemasteredTrailerSources } from "@/lib/trailers/remastered/useRemasteredTrailerSources";
 
 /** How long the mouse must stay over the expanded popover before the static
  *  backdrop is swapped for the ambient trailer video — matches the "after a
@@ -199,6 +201,28 @@ export function DashboardPosterCard({
   const hasMeta = !!previewYear || !!previewRuntime || !!technical;
   const showRank = !!rank && rank >= 1 && rank <= 10;
   const ambientVideoKeys = previewDetail?.ambientVideoKeys ?? [];
+  // Same candidate pipeline as the dashboard hero: premium remastered
+  // source, then direct enhanced source, then YouTube. Previously card
+  // previews bypassed this and mounted YouTube directly, which made their
+  // visual startup and video quality noticeably different from the hero.
+  const enhancedTrailerSources = useTrailerSources(
+    type,
+    hovered ? tmdbId : null,
+    hovered ? title : null,
+    previewDetail?.originalTitle,
+    previewDetail?.year ?? year ?? null,
+    previewDetail?.imdbId ?? null,
+  );
+  const premiumTrailerSources = useRemasteredTrailerSources(
+    type,
+    hovered ? tmdbId : null,
+    hovered ? title : null,
+    previewDetail?.originalTitle,
+    previewDetail?.year ?? year ?? null,
+    previewDetail?.originalLanguage,
+    "carousel",
+    locale,
+  );
 
   useEffect(() => {
     if (videoTimer.current) clearTimeout(videoTimer.current);
@@ -536,10 +560,11 @@ export function DashboardPosterCard({
                 backdropPath={backdropPath ?? null}
                 size="w780"
                 trailerKeys={ambientVideoKeys}
+                enhancedSources={enhancedTrailerSources}
+                premiumSources={premiumTrailerSources}
                 title={title}
                 trigger="immediate"
                 hideSoundToggle
-                extraZoom
                 className="h-full w-full"
               />
             ) : previewImage ? (

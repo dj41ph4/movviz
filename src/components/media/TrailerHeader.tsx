@@ -284,6 +284,11 @@ export interface TrailerHeaderProps {
 // fires, so that end-card never has a chance to render in the first place.
 const LOOP_BEFORE_END_SEC = 0.75;
 const LOOP_POLL_MS = 250;
+// YouTube briefly draws its own central pause/play chrome immediately after
+// reporting PLAYING. Keeping the static backdrop over the iframe for this
+// short settling window makes both the hero and card previews appear as a
+// clean ambient video rather than a YouTube player starting up.
+const YOUTUBE_CHROME_SETTLE_MS = 450;
 
 function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -292,6 +297,11 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   useEffect(() => {
     let cancelled = false;
     let loopTimer: ReturnType<typeof setInterval> | null = null;
+    let revealTimer: ReturnType<typeof setTimeout> | null = null;
+    const stopReveal = () => {
+      if (revealTimer) clearTimeout(revealTimer);
+      revealTimer = null;
+    };
 
     loadYouTubeApi().then(() => {
       if (cancelled) return;
@@ -358,10 +368,21 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
             // to come back for those too, not just the initial load. ENDED is
             // deliberately not handled here anymore — the poll above loops
             // before the video ever reaches it.
-            onPlayingChange(isPlaying);
             if (isPlaying) {
               e.target.setPlaybackQuality(MIN_QUALITY);
               try { e.target.unloadModule?.("captions"); } catch { /* best-effort */ }
+              // Do not uncover the iframe in the same frame as YouTube's
+              // state transition: its own giant central icon is still drawn
+              // there even with controls=0. If buffering interrupts before
+              // this timer elapses, the static image remains visible.
+              stopReveal();
+              revealTimer = setTimeout(() => {
+                revealTimer = null;
+                if (!cancelled) onPlayingChange(true);
+              }, YOUTUBE_CHROME_SETTLE_MS);
+            } else {
+              stopReveal();
+              onPlayingChange(false);
             }
           },
           // Fires for a removed/private video (100) or one the owner has
@@ -381,6 +402,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
 
     return () => {
       if (loopTimer) clearInterval(loopTimer);
+      stopReveal();
       cancelled = true;
       destroyYouTubePlayer(playerRef.current, hostRef.current);
       playerRef.current = null;
