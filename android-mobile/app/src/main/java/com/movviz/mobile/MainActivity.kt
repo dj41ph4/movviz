@@ -56,20 +56,20 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-// ── Design system — aligné TV/web : fond pure black NETFLIX, accents Movviz ──
-private val Void = Color(0xFF000000)
-private val VoidGlass = Color(0xFF0A0A14)
-private val Surface = Color(0xFF0D0D0D)
-private val SurfaceStrong = Color(0xFF141414)
-private val SurfaceCard = Color(0xFF1E1E32)
+// ── Design system — desktop Movviz : void #05060B, abyss #080A14, surface #0D1020, accents brand ──
+private val Void = Color(0xFF05060B)
+private val VoidGlass = Color(0xFF080A14)
+private val Surface = Color(0xFF0D1020)
+private val SurfaceStrong = Color(0xFF12162A)
+private val SurfaceCard = Color(0xFF12162A)
 private val Violet = Color(0xFF7C5CFF)
 private val VioletSoft = Color(0xFF9B7FFF)
 private val Magenta = Color(0xFFFF4BD0)
-private val Cyan = Color(0xFF5CE0D8)
-private val TextPrimary = Color(0xFFFFFFFF)
-private val TextSoft = Color(0xFFB3B3B3)
-private val TextMuted = Color(0xFF8A87A3)
-private val TextFaint = Color(0xFF6B6B6B)
+private val Cyan = Color(0xFF34E2FF)
+private val TextPrimary = Color(0xFFEEF1FF)
+private val TextSoft = Color(0xFFAEB4D6)
+private val TextMuted = Color(0xFF6B7099)
+private val TextFaint = Color(0xFF6B7099)
 private val MovvizCardShape = RoundedCornerShape(14.dp)
 private val CapsuleShape = RoundedCornerShape(28.dp)
 private val HeroShape = RoundedCornerShape(20.dp)

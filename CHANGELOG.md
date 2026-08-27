@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.07 — August 2026
+
+### Build Android TV réparé + hero/vignette clean + mobile aligné desktop
+
+Build TV `focusGroup` import corrigé (`foundation` pas `ui.focus`), hero pause `||` masqué (`900→1500ms` + voile haut `z-10`), vignette survol seule vidéo comme hero, mobile palette `Void #05060B / Surface #0D1020` alignée desktop.
+
 ## v1.22.06 — August 2026
 
 ### Hero et vignettes : vidéo clean sans UI YouTube
