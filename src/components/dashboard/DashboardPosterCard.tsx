@@ -89,6 +89,7 @@ export function DashboardPosterCard({
   progressPercent,
   resumeSeconds,
   subtitle,
+  episodeBadge,
   inLibrary = false,
   layout = "row",
   reserveBottomRight = false,
@@ -137,6 +138,11 @@ export function DashboardPosterCard({
    *  in place of the hover-only year/runtime/genres strip which doesn't
    *  make sense for a specific in-progress episode. */
   subtitle?: string;
+  /** Reprendre / Épisodes récemment ajoutés only — a persistent bottom-right
+   *  pill ("S03 · E02") so which episode it is reads at a glance, without
+   *  needing the hover popover. Distinct from `subtitle` (a longer label
+   *  including the episode title, shown inside the popover only). */
+  episodeBadge?: string;
   /** A non-owned title gets an add action, never a misleading play icon. */
   inLibrary?: boolean;
   /** `row` owns its editorial carousel width; `fill` lets a catalogue grid
@@ -478,6 +484,11 @@ export function DashboardPosterCard({
           {typeof progressPercent === "number" && (
             <div className="absolute inset-x-0 bottom-0 z-20 h-1 bg-white/8">
               <div className="h-full brand-gradient" style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} />
+            </div>
+          )}
+          {!showRank && episodeBadge && (
+            <div className={cn(BADGE_SHAPE, "pointer-events-none absolute bottom-2 right-2 z-10 border border-white/15 bg-black/60 text-white/85 backdrop-blur-md")}>
+              {episodeBadge}
             </div>
           )}
         </div>

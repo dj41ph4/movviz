@@ -9,6 +9,7 @@ import { useTitleArtworkBatch, type TitleArtworkRef } from "@/components/media/u
 import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySeries } from "@/lib/dashboard/interfaceTypes";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
+import { formatEpisodeBadge } from "@/components/library/MediaBadges";
 
 type MediaType = "movie" | "series";
 type LibraryItem = DashboardLibraryMovie | DashboardLibrarySeries;
@@ -43,18 +44,26 @@ export function LibraryRecommendedRows({ type }: { type: MediaType }) {
     items.forEach((item) => item.genres.forEach((genre) => counts.set(genre, (counts.get(genre) ?? 0) + 1)));
     return [...counts.entries()].filter(([, count]) => count >= 4).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([genre]) => genre);
   }, [items]);
+  const continueWatching = useMemo(() => (onDeck?.items ?? []).filter((item) => (type === "movie" ? item.type === "movie" : item.type !== "movie") && byTmdbId.has(item.tmdbId)), [onDeck, type, byTmdbId]);
+  const recentEpisodes = type === "series" ? dashboard?.recentEpisodes ?? [] : [];
   // Resolve the artwork for just the cards we are about to display.  This is
   // one bounded batch, never a request per card and never the whole 2,500+
   // title library on first paint.
+  // Confirmed live: Reprendre and Épisodes récemment ajoutés cards showed
+  // no logo at all — these two rows' tmdbIds were never included in this
+  // batch, so `artwork[...]?.logoPath` was always empty for them (their
+  // JSX below only ever tried customLogoPath, unlike every other row's
+  // card() helper).
   const artworkRefs = useMemo<TitleArtworkRef[]>(() => {
     const selected = new Map<number, LibraryItem>();
     [...localRecommendations, ...recentlyAdded, ...bestRated].forEach((item) => selected.set(item.tmdbId, item));
     leadingGenres.forEach((genre) => items.filter((item) => item.genres.includes(genre)).slice(0, 20).forEach((item) => selected.set(item.tmdbId, item)));
-    return [...selected.values()].map((item) => ({ type, tmdbId: item.tmdbId }));
-  }, [type, localRecommendations, recentlyAdded, bestRated, leadingGenres, items]);
+    const refs = [...selected.values()].map((item) => ({ type, tmdbId: item.tmdbId }));
+    continueWatching.forEach((entry) => refs.push({ type, tmdbId: entry.tmdbId }));
+    if (type === "series") recentEpisodes.forEach((episode) => refs.push({ type: "series", tmdbId: episode.tmdbId }));
+    return refs;
+  }, [type, localRecommendations, recentlyAdded, bestRated, leadingGenres, items, continueWatching, recentEpisodes]);
   const artwork = useTitleArtworkBatch(artworkRefs, locale);
-  const continueWatching = useMemo(() => (onDeck?.items ?? []).filter((item) => (type === "movie" ? item.type === "movie" : item.type !== "movie") && byTmdbId.has(item.tmdbId)), [onDeck, type, byTmdbId]);
-  const recentEpisodes = type === "series" ? dashboard?.recentEpisodes ?? [] : [];
 
   const moviePlayback = (item: LibraryItem): DashboardCardPlayback | undefined => {
     if (type !== "movie") return undefined;
@@ -91,7 +100,8 @@ export function LibraryRecommendedRows({ type }: { type: MediaType }) {
             ratingKey: entry.plexRatingKey, plexUrl: entry.plexUrl, movvizId: entry.movvizId, seriesId: entry.seriesId,
             type, seasonNumber: entry.seasonNumber, episodeNumber: entry.episodeNumber,
           } satisfies DashboardCardPlayback : undefined;
-          return <DashboardPosterCard key={`${entry.type}:${entry.plexRatingKey}`} tmdbId={item.tmdbId} type={type} title={item.title} posterPath={item.posterPath} backdropPath={item.customBackdropPath ?? item.backdropPath} logoPath={item.customLogoPath ?? null} rating={item.rating} subtitle={entry.type === "episode" ? `S${entry.seasonNumber} · E${entry.episodeNumber} — ${entry.episodeTitle}` : undefined} progressPercent={entry.progressPercent} resumeSeconds={entry.offsetMs / 1000} inLibrary playback={playback} />;
+          const hasEpisodeNumbers = entry.type === "episode" && typeof entry.seasonNumber === "number" && typeof entry.episodeNumber === "number";
+          return <DashboardPosterCard key={`${entry.type}:${entry.plexRatingKey}`} tmdbId={item.tmdbId} type={type} title={item.title} posterPath={item.posterPath} backdropPath={item.customBackdropPath ?? item.backdropPath} logoPath={item.customLogoPath ?? artwork[`${type}:${item.tmdbId}`]?.logoPath ?? null} rating={item.rating} subtitle={entry.type === "episode" ? `S${entry.seasonNumber} · E${entry.episodeNumber} — ${entry.episodeTitle}` : undefined} episodeBadge={hasEpisodeNumbers ? formatEpisodeBadge(entry.seasonNumber!, entry.episodeNumber!) : undefined} progressPercent={entry.progressPercent} resumeSeconds={entry.offsetMs / 1000} inLibrary playback={playback} />;
         })}
       </PosterRow>}
       {type === "series" && recentEpisodes.length > 0 && <PosterRow title={t("dashboard.recentEpisodes")}>
@@ -104,7 +114,7 @@ export function LibraryRecommendedRows({ type }: { type: MediaType }) {
             seasonNumber: episode.seasonNumber,
             episodeNumber: episode.episodeNumber,
           } satisfies DashboardCardPlayback : undefined;
-          return <DashboardPosterCard key={`${episode.seriesId}:${episode.seasonNumber}:${episode.episodeNumber}`} tmdbId={episode.tmdbId} type="series" title={episode.title} posterPath={episode.posterPath} backdropPath={episode.customBackdropPath ?? episode.backdropPath} logoPath={episode.customLogoPath ?? null} rating={episode.rating} subtitle={`S${episode.seasonNumber} · E${episode.episodeNumber} — ${episode.episodeTitle}`} inLibrary technical={episode.file ?? undefined} playback={playback} />;
+          return <DashboardPosterCard key={`${episode.seriesId}:${episode.seasonNumber}:${episode.episodeNumber}`} tmdbId={episode.tmdbId} type="series" title={episode.title} posterPath={episode.posterPath} backdropPath={episode.customBackdropPath ?? episode.backdropPath} logoPath={episode.customLogoPath ?? artwork[`series:${episode.tmdbId}`]?.logoPath ?? null} rating={episode.rating} subtitle={`S${episode.seasonNumber} · E${episode.episodeNumber} — ${episode.episodeTitle}`} episodeBadge={formatEpisodeBadge(episode.seasonNumber, episode.episodeNumber)} inLibrary technical={episode.file ?? undefined} playback={playback} />;
         })}
       </PosterRow>}
       {localRecommendations.length > 0 && <PosterRow title={t("dashboard.rowRecommended")}>{localRecommendations.map(card)}</PosterRow>}

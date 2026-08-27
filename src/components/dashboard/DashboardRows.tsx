@@ -13,6 +13,7 @@ import type { DashboardFileTechnical, DashboardLibraryMovie, DashboardLibrarySer
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { DashboardSectionId, DashboardLayout } from "@/lib/dashboard/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
+import { formatEpisodeBadge } from "@/components/library/MediaBadges";
 
 interface UpgradeCandidate {
   movieId: string;
@@ -329,6 +330,7 @@ export function DashboardRows({
                       progressPercent={item.progressPercent}
                       resumeSeconds={item.offsetMs / 1000}
                       subtitle={item.type === "episode" ? `S${item.seasonNumber} E${item.episodeNumber} — ${item.episodeTitle}` : undefined}
+                      episodeBadge={item.type === "episode" && typeof item.seasonNumber === "number" && typeof item.episodeNumber === "number" ? formatEpisodeBadge(item.seasonNumber, item.episodeNumber) : undefined}
                       inLibrary={libraryTitleKeys.has(`${type}:${item.tmdbId}`)}
                       playback={playback}
                       technical={technical}
@@ -374,6 +376,7 @@ export function DashboardRows({
                       titleEmbedded={artwork.titleEmbedded}
                       rating={episode.rating}
                       subtitle={`S${episode.seasonNumber} · E${episode.episodeNumber} — ${episode.episodeTitle}`}
+                      episodeBadge={formatEpisodeBadge(episode.seasonNumber, episode.episodeNumber)}
                       inLibrary
                       playback={playback}
                       technical={technicalFromFile(episode.file)}

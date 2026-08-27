@@ -1,6 +1,10 @@
 # Changelog
 
-## v1.21.13 — August 2026
+## v1.21.14 — August 2026
+
+### Films/Séries : logos manquants sur Reprendre et Épisodes récemment ajoutés
+
+Sur les pages Films et Séries, les rangées "Reprendre" et "Épisodes récemment ajoutés" affichaient le titre en texte brut à la place du logo — ces cartes n'étaient jamais incluses dans la récupération groupée des logos. Corrigé. Ajout aussi d'un badge permanent en bas à droite de la carte ("S03 · E02") pour repérer l'épisode d'un coup d'œil, sans avoir à survoler.
 
 ### Amélioration du chat
 

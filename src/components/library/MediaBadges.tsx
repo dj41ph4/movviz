@@ -63,6 +63,15 @@ export function TextPill({ text, cls }: { text: string; cls: string }) {
   return <span className={cn(BADGE_SHAPE, cls)}>{text}</span>;
 }
 
+/** Zero-padded "S03 · E02" for DashboardPosterCard's persistent bottom-right
+ *  episodeBadge — distinct from a card's `subtitle` (a longer "S3 · E2 —
+ *  Episode Title" label, popover only). Shared by every row that lists a
+ *  specific episode (Reprendre, Épisodes récemment ajoutés) so the format
+ *  can't drift between the dashboard and the Films/Séries pages. */
+export function formatEpisodeBadge(seasonNumber: number, episodeNumber: number): string {
+  return `S${String(seasonNumber).padStart(2, "0")} · E${String(episodeNumber).padStart(2, "0")}`;
+}
+
 /**
  * Pure badge builder shared by MediaBadges (library files) and the manual
  * search release row (raw indexer release titles) — same visual language,
