@@ -695,16 +695,27 @@ export async function POST(req: NextRequest) {
   // (leaked block / false name denial / degenerate reply), which
   // deliberately stay mode-3-only repairs.
   if (intent.action === null && promisesListWithNothing(intent.rawText)) {
-    try {
-      const retrySystem = `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message annonçait une liste ("${intent.rawText.trim()}") mais ne contenait ensuite AUCUN élément réel — tu as répondu en texte libre au lieu du format JSON attendu pour une vraie recommandation ou un vrai ajout. Réponds cette fois avec le VRAI format JSON décrit plus haut dans ce prompt (mode 1 ou 2), avec de vrais titres dedans — jamais une simple promesse de liste sans contenu derrière.`;
-      const retryRes = await callAi(config, retrySystem, session.messages);
-      const retryIntent = parseIntent(retryRes.text);
-      if (retryIntent.action !== null || !promisesListWithNothing(retryIntent.rawText)) {
-        intent = retryIntent;
+    // Bounded to 2 attempts (per user's "s'il comprend pas, qu'il relise
+    // 2x" — same discipline as every other retry in this file). Confirmed
+    // live: even a caught unfulfilled promise ("Voici ce qui devrait bien
+    // coller :", trailing off with no items — see PROMISED_LIST_MAX_LEN's
+    // own history above) is exactly the kind of thing that can also fail
+    // to correct on the first retry attempt; surfacing the same broken
+    // promise a second time isn't better than a graceful, honest fallback.
+    for (let attempt = 0; attempt < 2 && promisesListWithNothing(intent.rawText); attempt++) {
+      try {
+        const retrySystem = `${system}\n\nATTENTION — CORRECTION IMMÉDIATE : ta réponse précédente à ce même message annonçait une liste ("${intent.rawText.trim()}") mais ne contenait ensuite AUCUN élément réel — tu as répondu en texte libre au lieu du format JSON attendu pour une vraie recommandation ou un vrai ajout. Réponds cette fois avec le VRAI format JSON décrit plus haut dans ce prompt (mode 1 ou 2), avec de vrais titres dedans — jamais une simple promesse de liste sans contenu derrière.`;
+        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryIntent = parseIntent(retryRes.text);
+        if (retryIntent.action !== null || !promisesListWithNothing(retryIntent.rawText)) {
+          intent = retryIntent;
+        }
+      } catch {
+        break;
       }
-    } catch {
-      // Best-effort, single bounded retry — falls through to the original
-      // (unfulfilled-promise) reply if this also fails.
+    }
+    if (intent.action === null && promisesListWithNothing(intent.rawText)) {
+      intent = { action: null, items: [], rawText: "Bon, je te propose un truc si tu veux vraiment — dis-moi juste ce que tu cherches (genre, mood, ou un titre proche) et je te sors ça." };
     }
   }
   const { facts, cleaned: afterFacts } = extractFacts(intent.rawText);

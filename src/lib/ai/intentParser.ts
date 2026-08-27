@@ -466,7 +466,15 @@ export function sanitizeMechanicalBulletReply(text: string): string {
 // specific failure (a real prose reply essentially never ends there) —
 // narrow enough not to fire on legitimate short answers.
 const PROMISED_LIST_RE = /:\s*$/;
-const PROMISED_LIST_MAX_LEN = 200;
+// Confirmed live: a reply combining an insult-exchange joke with the exit-
+// framing ("Bon, allez, je te laisse avec ça pour te calmer :\n\nVoici ce
+// qui devrait bien coller :") ran to ~212 chars and slipped straight past
+// the original 200-char cap, un-flagged. The colon-ending signal itself
+// doesn't get less suspicious just because more text came before it — a
+// genuine complete reply essentially never ends on a bare colon regardless
+// of length — so this is raised generously rather than narrowly patched to
+// this one case's length.
+const PROMISED_LIST_MAX_LEN = 500;
 
 export function promisesListWithNothing(cleaned: string): boolean {
   const t = cleaned.trim();

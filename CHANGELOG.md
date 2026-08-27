@@ -1,6 +1,8 @@
 # Changelog
 
-## v1.21.11 — August 2026
+## v1.21.12 — August 2026
+
+### Amélioration du chat
 
 ### Aperçu carrousel : fine ligne noire sur les bandes-annonces
 
