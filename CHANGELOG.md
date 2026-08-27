@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.04 — August 2026
+
+### Dashboard instantané et logos SVG
+
+Splash Movviz haute qualité au premier démarrage à froid uniquement (jamais à chaque clic) avec barre d'avancement intelligente, préchargement de Découverte en arrière-plan en optimisé (`requestIdleCallback` + `priority:low`), et correction des logos TMDb en `*.svg` qui restaient en 404 (`tmdbImageCache` autorise désormais `svg`).
+
 ## v1.22.03 — August 2026
 
 ### Amélioration du chat

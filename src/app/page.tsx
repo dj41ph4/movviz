@@ -10,6 +10,7 @@ import { UpdateAvailableBanner } from "@/components/system/UpdateAvailableBanner
 import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { DashboardRows } from "@/components/dashboard/DashboardRows";
+import { DashboardSplash } from "@/components/dashboard/DashboardSplash";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { useT } from "@/i18n/provider";
@@ -171,10 +172,69 @@ export default function DashboardPage() {
   const [editMode, setEditMode] = useState(false);
   const [order, setOrder] = useState<DashboardWidgetId[]>([...DASHBOARD_WIDGET_IDS]);
   const [addOpen, setAddOpen] = useState(false);
+  const [showSplash, setShowSplash] = useState(false);
+  const [splashProgress, setSplashProgress] = useState(14);
 
   useEffect(() => {
     if (layoutData?.layout) setOrder(layoutData.layout.widgets);
   }, [layoutData]);
+
+  // Splash cold-start uniquement en optimisé (compatibilité va disparaître) : plein centre Movviz haute qualité, jamais à chaque clic/SWR
+  useEffect(() => {
+    if (!optimized) return;
+    if (typeof window === "undefined") return;
+    const seen = sessionStorage.getItem("movviz-splash-seen");
+    if (!seen && loading) {
+      setShowSplash(true);
+      setSplashProgress(14);
+    }
+  }, [loading, optimized]);
+
+  useEffect(() => {
+    if (!showSplash) return;
+    if (loading) {
+      const id = setInterval(() => setSplashProgress((p) => (p < 88 ? p + Math.random() * 7 + 1 : p)), 280);
+      return () => clearInterval(id);
+    }
+    // loading terminé → barre intelligente file à 100 puis fade
+    setSplashProgress(100);
+    const t = setTimeout(() => {
+      setShowSplash(false);
+      try { sessionStorage.setItem("movviz-splash-seen", "1"); } catch {}
+    }, 520);
+    return () => clearTimeout(t);
+  }, [showSplash, loading]);
+
+  // Sécurité : si le chargement traîne >4s, on ne bloque pas l'UI indéfiniment
+  useEffect(() => {
+    if (!showSplash) return;
+    const t = setTimeout(() => {
+      setShowSplash(false);
+      try { sessionStorage.setItem("movviz-splash-seen", "1"); } catch {}
+    }, 4000);
+    return () => clearTimeout(t);
+  }, [showSplash]);
+
+  // Préchargement Découverte en arrière-plan une fois le dashboard totalement chargé — optimisé uniquement
+  useEffect(() => {
+    if (!optimized || loading || showSplash) return;
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem("movviz-discover-prefetched")) return;
+    const doPrefetch = () => {
+      try { sessionStorage.setItem("movviz-discover-prefetched", "1"); } catch {}
+      const urls = ["/api/metadata/rows?type=movie", "/api/metadata/rows?type=series"];
+      for (const u of urls) fetch(u, { priority: "low" } as RequestInit).catch(() => {});
+      // Précharge aussi la route Next pour un clic instantané
+      try { (import("next/navigation") as unknown as { prefetch?: (href: string) => void }); } catch {}
+    };
+    const w = window as unknown as { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(doPrefetch, { timeout: 2500 });
+      return () => { try { (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(id); } catch {} };
+    }
+    const t = setTimeout(doPrefetch, 900);
+    return () => clearTimeout(t);
+  }, [loading, showSplash]);
 
   const persist = (widgets: DashboardWidgetId[]) => {
     setOrder(widgets);
@@ -204,7 +264,9 @@ export default function DashboardPage() {
   const richMode = layout.mode === "cinema" || layout.mode === "classic";
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-8">
+    <>
+      <DashboardSplash show={showSplash} progress={splashProgress} />
+      <div className="mx-auto max-w-[1500px] space-y-8">
       {layout.mode === "cinema" && (
         <CardErrorBoundary>
           <DashboardHero settings={layout.hero} />
@@ -365,5 +427,6 @@ export default function DashboardPage() {
       <UpdateAvailableBanner />
       {titlePanel}
     </div>
+    </>
   );
 }

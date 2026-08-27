@@ -11,7 +11,7 @@ const CACHE_DIR = path.join(CONFIG_DIR, "tmdb-artwork");
 // Next rewrite, so rejecting one of those sizes would turn an existing card
 // or episode still into a 404.
 const IMAGE_SIZES = new Set(["w45", "w92", "w154", "w185", "w200", "w300", "w342", "w500", "w780", "w1280", "original"]);
-const IMAGE_FILE = /^[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp)$/i;
+const IMAGE_FILE = /^[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp|svg)$/i;
 
 const g = globalThis as typeof globalThis & { __movvizTmdbImageInFlight?: Map<string, Promise<string | null>> };
 const inFlight: Map<string, Promise<string | null>> = (g.__movvizTmdbImageInFlight ??= new Map());
@@ -171,7 +171,9 @@ export async function readTmdbImage(size: string, rawPath: string): Promise<{ bo
     ? "image/png"
     : extension === ".webp"
       ? "image/webp"
-      : "image/jpeg";
+      : extension === ".svg"
+        ? "image/svg+xml"
+        : "image/jpeg";
   try {
     return { body: await fs.readFile(file), contentType };
   } catch {
