@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.08 — August 2026
+
+### Aperçus vidéo fiables et métadonnées unifiées
+
+La recherche « remastered » est retirée de tous les aperçus : elle pouvait associer une vidéo à un mauvais titre. Les sources améliorées fiables restent dans l’ordre Apple TV, Netflix, Disney+, Prime Video puis IMDb, avant le trailer TMDb. Les cartes desktop, mobile et TV affichent désormais des métadonnées plus sobres : durée et technique compactes, genres séparés par des points.
+
 ## v1.22.07 — August 2026
 
 ### Build Android TV réparé + hero/vignette clean + mobile aligné desktop

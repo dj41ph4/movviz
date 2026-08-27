@@ -1018,7 +1018,7 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                             d.year?.let { Text(it.toString(), color = TextMuted, fontSize = 12.sp) }
                             d.runtime?.let { if (it > 0) Text("${it / 60}h ${it % 60}min", color = TextMuted, fontSize = 12.sp) }
                         }
-                        if (d.genres.isNotEmpty()) { Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { d.genres.take(3).forEach { g -> Box(Modifier.background(SurfaceStrong, RoundedCornerShape(8.dp)).border(1.dp, Color.White.copy(0.06f), RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) { Text(g, color = TextSoft, fontSize = 11.sp, fontWeight = FontWeight.Medium) } } } }
+                        if (d.genres.isNotEmpty()) Text(d.genres.take(3).joinToString("  •  "), color = TextSoft, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                         if (d.overview.isNotBlank()) Text(d.overview, color = TextSoft, fontSize = 13.sp, lineHeight = 19.sp)
                     }
                 }

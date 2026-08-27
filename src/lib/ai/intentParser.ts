@@ -1156,8 +1156,11 @@ export function extractExplicitTasteRating(message: string): ExplicitTasteRating
 // subject pronoun with a conjugated verb form, not either alone.
 const FRENCH_SENTENCE_MARKER_RE = /\b(tu\s+(?:es|es[t]?|as|te|me|m'|t'|fais|dis|crois|sers|vas)|t'es|t'as|j'ai|je\s+(?:suis|te|vous|crois|pense)|on\s+est|vous\s+(?:[êe]tes|me|te))\b/i;
 
+const MUSIC_QUESTION_RE = /musique|générique|bande originale|\bOST\b|\bBO\b/i;
+
 export function extractBareTitleMention(message: string): string | null {
   const trimmed = message.trim();
+  if (MUSIC_QUESTION_RE.test(trimmed)) return null;
   if (trimmed.length < 2 || trimmed.length > BARE_TITLE_MAX_LEN) return null;
   if (trimmed.includes("?")) return null;
   if (CHITCHAT_ONLY_RE.test(trimmed)) return null;

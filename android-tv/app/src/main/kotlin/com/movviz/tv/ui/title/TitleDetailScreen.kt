@@ -602,7 +602,7 @@ fun TitleDetailScreen(
                 if (d.genres.isNotEmpty()) {
                     MetaSep()
                     Text(
-                        text = d.genres.take(3).joinToString(", "),
+                        text = d.genres.take(3).joinToString("  •  "),
                         style = metaStyle(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

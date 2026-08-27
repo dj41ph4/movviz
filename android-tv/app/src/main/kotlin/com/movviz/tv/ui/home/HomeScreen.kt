@@ -447,32 +447,35 @@ TvTitleCard(
 
             if (recentMovies.isEmpty() && recentSeries.isEmpty()) {
                 item(contentType = "loading") {
-                    // Prend le focus (firstCardFocus == contentFocusRequester) au lieu
-                    // de laisser MainScreen retomber sur son ancre invisible : cet
-                    // écran de chargement a désormais une vraie cible visible et
-                    // focusable, plutôt qu'un texte statique inerte.
+                    // Splash identique Web/Mobile : plein écran Void #05060B, logo centré, barre progress
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 24.dp),
+                        modifier = Modifier.fillMaxWidth().height(420.dp).background(Color(0xFF05060B)).padding(top = 48.dp, bottom = 24.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
                                 modifier = if (heroItems.isEmpty() && firstRealRowKey == null) {
-                                    // Rien d'autre à l'écran ne dispute firstCardFocus dans
-                                    // ce cas précis (voir firstRealRowKey ci-dessus) — seule
-                                    // cible réelle et visible au tout premier rendu, plus
-                                    // besoin de retomber sur l'ancre invisible de MainScreen.
                                     Modifier.focusRequester(firstCardFocus).focusable()
                                 } else {
                                     Modifier
                                 },
                             ) {
-                                AnimatedLogo(size = 64.dp)
+                                AnimatedLogo(size = 96.dp)
                             }
                             Text(
-                                text = "Chargement de ta bibliothèque…",
-                                style = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onBackground.copy(alpha = .7f)),
+                                text = "MOVVIZ",
+                                style = MaterialTheme.typography.labelLarge.copy(color = Color.White.copy(alpha = 0.45f), letterSpacing = 3.sp),
                                 modifier = Modifier.padding(top = 16.dp),
+                            )
+                            Box(
+                                modifier = Modifier.padding(top = 12.dp).width(200.dp).height(4.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f))
+                            ) {
+                                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(0.42f).clip(RoundedCornerShape(50)).background(Brush.horizontalGradient(listOf(Color(0xFF7C5CFF), Color(0xFFFF4BD0)))))
+                            }
+                            Text(
+                                text = "Préparation de ton cinéma…",
+                                style = MaterialTheme.typography.labelSmall.copy(color = Color.White.copy(alpha = 0.45f)),
+                                modifier = Modifier.padding(top = 8.dp),
                             )
                         }
                     }
@@ -838,7 +841,7 @@ internal fun HeroCarousel(
                     if (current.genres.isNotEmpty()) HeroMetaDot()
                 }
                 Text(
-                    text = current.genres.take(3).joinToString(", "),
+                    text = current.genres.take(3).joinToString("  •  "),
                     style = TextStyle(fontSize = 14.sp, color = MovvizInkSoft),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

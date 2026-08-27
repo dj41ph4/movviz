@@ -372,7 +372,9 @@ export async function POST(req: NextRequest) {
   // Gardé APRÈS les 4 détecteurs "question" ci-dessus et les recherches
   // franchise/filmographie plus haut, pour ne jamais faire un second appel
   // TMDb sur un message qui a déjà déclenché un des blocs plus spécifiques.
-  const bareTitleCandidate = (!recommendationContinuation && !explicitTasteRating && !watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
+  const prevAssistantForBare = session.messages[session.messages.length - 2]?.content ?? "";
+  const isMusicFollowUp = /musique|Crow Zero|bande originale|OST/i.test(prevAssistantForBare) && message.split(/\s+/).filter(Boolean).length <= 6;
+  const bareTitleCandidate = (!isMusicFollowUp && !recommendationContinuation && !explicitTasteRating && !watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
     ? extractBareTitleMention(message)
     : null;
   if (bareTitleCandidate) {

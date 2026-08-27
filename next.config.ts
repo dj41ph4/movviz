@@ -19,6 +19,22 @@ const nextConfig: NextConfig = {
   // (src/instrumentation.ts spawns it) and library data is read at runtime,
   // never imported/bundled.
   outputFileTracingExcludes: {
+    // The standalone server trace is named "next-server" internally, not a
+    // route such as "/api/...". It needs its own key: without it, Next still
+    // recursively reads the local .movviz-data media directory during a
+    // production build and Windows fails on Plex junctions/symlinks.
+    "next-server": [
+      "./.movviz-data/**",
+      "**/.movviz-data/**",
+      "../.movviz-data/**",
+      "../../.movviz-data/**",
+    ],
+    "next-minimal-server": [
+      "./.movviz-data/**",
+      "**/.movviz-data/**",
+      "../.movviz-data/**",
+      "../../.movviz-data/**",
+    ],
     "/*": [
       "./data/**",
       "./dta/**",

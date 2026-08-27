@@ -14,7 +14,7 @@ const TTL_MS = 24 * 60 * 60 * 1000;
 const cache = getCache("trailerResolver", TTL_MS);
 
 /**
- * Apple → IMDb → Netflix → Disney+ → Prime Video → [] (existing YouTube
+ * Apple → Netflix → Disney+ → Prime Video → IMDb → [] (existing YouTube
  * fields are the caller's own fallback, untouched by this module). Never
  * throws — a provider failure degrades to "no enhanced source", not a
  * broken page.
@@ -61,10 +61,10 @@ export async function resolveTrailerSources(
   // fresh instead of being stuck behind a false negative.
   const results = await Promise.allSettled([
     resolveAppleTrailer(type, title, year),
-    resolveImdbTrailer(type, imdbId),
     resolveNetflixTrailer(type, title, year),
     resolveDisneyPlusTrailer(type, title, year),
     resolvePrimeVideoTrailer(type, title, year),
+    resolveImdbTrailer(type, imdbId),
   ]);
 
   const sources = results

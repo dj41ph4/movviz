@@ -17,7 +17,6 @@ import { usePlayer } from "@/lib/player/PlayerProvider";
 import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
-import { useRemasteredTrailerSources } from "@/lib/trailers/remastered/useRemasteredTrailerSources";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null };
 
@@ -120,16 +119,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
     active?.detail.year ?? null,
     active?.detail.imdbId ?? null
   );
-  const premiumTrailerSources = useRemasteredTrailerSources(
-    active?.detail.type ?? "movie",
-    active?.detail.tmdbId ?? null,
-    active?.detail.title ?? null,
-    active?.detail.originalTitle,
-    active?.detail.year ?? null,
-    active?.detail.originalLanguage ?? null,
-    "carousel",
-    locale,
-  );
   const trailerEnabled = settings.trailerAutoplay;
 
   if (!settings.enabled || slides.length === 0 || !active) return null;
@@ -160,7 +149,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
           size={heroBackdropSize}
           trailerKeys={active.detail.ambientVideoKeys}
           enhancedSources={enhancedTrailerSources}
-          premiumSources={premiumTrailerSources}
           title={active.detail.title}
           trigger="immediate"
           enabled={trailerEnabled}

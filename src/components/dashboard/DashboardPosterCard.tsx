@@ -5,10 +5,10 @@ import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import useSWR from "swr";
-import { Star, Film, Tv, Play, Plus, ThumbsUp, ThumbsDown, ChevronDown, Loader2, Clock3, RotateCcw, Eye, X } from "lucide-react";
+import { Star, Film, Tv, Play, Plus, ThumbsUp, ThumbsDown, ChevronDown, Loader2, Clock3, RotateCcw, Eye, X, Volume2 } from "lucide-react";
 import { CardMenu, MenuItem } from "@/components/ui/CardMenu";
 import { cn, openPlexLink } from "@/lib/utils";
-import { BADGE_SHAPE, buildMediaBadgeItems, type BadgeInfo } from "@/components/library/MediaBadges";
+import { BADGE_SHAPE, type BadgeInfo } from "@/components/library/MediaBadges";
 import { useI18n } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import type { MetaDetail } from "@/lib/metadata/types";
@@ -20,7 +20,6 @@ import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
-import { useRemasteredTrailerSources } from "@/lib/trailers/remastered/useRemasteredTrailerSources";
 
 /** How long the mouse must stay over the expanded popover before the static
  *  backdrop is swapped for the ambient trailer video — matches the "after a
@@ -63,6 +62,27 @@ function formatResumeTime(seconds: number): string {
 
 /** Technical facts attached to the exact local file being resumed. */
 export type DashboardCardTechnical = Pick<BadgeInfo, "resolution" | "videoCodec" | "audioCodec" | "hdr">;
+
+/** Compact, Netflix-like facts for a hover card: readable as one sentence,
+ * not a second toolbar made of coloured pills. */
+function PreviewTechnicalMeta({ technical }: { technical?: DashboardCardTechnical }) {
+  if (!technical) return null;
+  const resolution = technical.resolution?.startsWith("2160") ? "4K"
+    : technical.resolution?.startsWith("1080") ? "FHD"
+      : technical.resolution?.startsWith("720") ? "HD"
+        : technical.resolution ?? null;
+  const hdr = technical.hdr?.toUpperCase().includes("DOLBY VISION") ? "Dolby Vision"
+    : technical.hdr?.toUpperCase().includes("HDR") ? "HDR"
+      : null;
+  const audio = technical.audioCodec?.replace(/^E-?AC-?3$/i, "Dolby Digital+")
+    .replace(/^AC-?3$/i, "Dolby Digital") ?? null;
+  if (!resolution && !hdr && !audio) return null;
+  return <>
+    {resolution && <span className="rounded-sm border border-white/65 px-1 py-px text-[10px] font-extrabold tracking-wide text-white">{resolution}</span>}
+    {hdr && <span className="rounded-sm border border-white/40 px-1 py-px text-[10px] font-bold text-white/90">{hdr}</span>}
+    {audio && <span className="inline-flex items-center gap-1 text-white/85"><Volume2 className="h-3.5 w-3.5" aria-hidden />{audio}</span>}
+  </>;
+}
 
 /**
  * Single editorial landscape card for Dashboard, Films and Series. It owns
@@ -212,16 +232,6 @@ export function DashboardPosterCard({
     previewDetail?.originalTitle,
     previewDetail?.year ?? year ?? null,
     previewDetail?.imdbId ?? null,
-  );
-  const premiumTrailerSources = useRemasteredTrailerSources(
-    type,
-    hovered ? tmdbId : null,
-    hovered ? title : null,
-    previewDetail?.originalTitle,
-    previewDetail?.year ?? year ?? null,
-    previewDetail?.originalLanguage,
-    "carousel",
-    locale,
   );
 
   useEffect(() => {
@@ -561,7 +571,6 @@ export function DashboardPosterCard({
                 size="w780"
                 trailerKeys={ambientVideoKeys}
                 enhancedSources={enhancedTrailerSources}
-                premiumSources={premiumTrailerSources}
                 title={title}
                 trigger="immediate"
                 hideSoundToggle
@@ -725,10 +734,12 @@ export function DashboardPosterCard({
           <Link href={`/title/${type}/${tmdbId}`} prefetch={false} onClick={closeOnClick} className="block space-y-2.5 focus-visible:outline-none">
             {subtitle && <p className="truncate text-[11px] text-white/70">{subtitle}</p>}
             {hasMeta && (
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold text-white/85">
-                {previewYear && <span className="rounded-full border border-white/30 px-2 py-0.5">{previewYear}</span>}
-                {formatRuntime(previewRuntime) && <span className="rounded-full border border-white/30 px-2 py-0.5">{formatRuntime(previewRuntime)}</span>}
-                {technical && buildMediaBadgeItems({ ...technical, source: null }, "surface")}
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-semibold text-white/85">
+                {previewYear && <span>{previewYear}</span>}
+                {previewYear && (formatRuntime(previewRuntime) || technical) && <span className="text-white/40">•</span>}
+                {formatRuntime(previewRuntime) && <span>{formatRuntime(previewRuntime)}</span>}
+                {formatRuntime(previewRuntime) && technical && <span className="text-white/40">•</span>}
+                <PreviewTechnicalMeta technical={technical} />
               </div>
             )}
             {previewGenres.length > 0 && (

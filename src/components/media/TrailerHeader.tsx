@@ -11,7 +11,6 @@ import { registerAmbientVideo } from "@/lib/player/ambientVideoRegistry";
 import { useShouldUseCdn } from "@/lib/settings/useShouldUseCdn";
 import type { TmdbImageSize } from "@/lib/metadata/tmdbImageCache";
 import type { TrailerSource } from "@/lib/trailers/types";
-import type { PremiumTrailerCandidate } from "@/lib/trailers/remastered/types";
 
 const CDN_BASE = "https://image.tmdb.org/t/p";
 
@@ -248,11 +247,6 @@ export interface TrailerHeaderProps {
    *  by the caller via useTrailerSources, not fetched here). Empty/absent
    *  falls straight through to the existing YouTube behavior, unchanged. */
   enhancedSources?: TrailerSource[];
-  /** Premium remastered candidates — tried BEFORE enhancedSources when present
-   *  (toggle remasteredTrailersEnabled). Youtube kinds map to YouTube keys,
-   *  direct kinds map to DirectVideoPlayer. Empty/absent keeps EXACT previous
-   *  behavior (enhanced + trailerKeys). */
-  premiumSources?: PremiumTrailerCandidate[];
   title: string;
   /** "immediate" — starts as soon as it's allowed to (title page header).
    *  "hover" — only plays while hovered past HOVER_DELAY_MS (dashboard hero, several slides share the same screen real estate). */
@@ -287,7 +281,7 @@ const LOOP_POLL_MS = 250;
 // YouTube draws central pause (≈900-1100ms) + top title bar after PLAYING.
 // 1200ms still showed pause on hero THE HATE U GIVE on slower 60fps, 1500ms
 // covers it reliably. Keep backdrop opaque during this window.
-const YOUTUBE_CHROME_SETTLE_MS = 1500;
+const YOUTUBE_CHROME_SETTLE_MS = 250;
 
 function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -297,6 +291,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
     let cancelled = false;
     let loopTimer: ReturnType<typeof setInterval> | null = null;
     let revealTimer: ReturnType<typeof setTimeout> | null = null;
+    let revealed = false;
     const stopReveal = () => {
       if (revealTimer) clearTimeout(revealTimer);
       revealTimer = null;
@@ -377,9 +372,17 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
               stopReveal();
               revealTimer = setTimeout(() => {
                 revealTimer = null;
-                if (!cancelled) onPlayingChange(true);
+                if (!cancelled) {
+                  revealed = true;
+                  onPlayingChange(true);
+                }
               }, YOUTUBE_CHROME_SETTLE_MS);
-            } else {
+            // YouTube often emits BUFFERING just after its first PLAYING
+            // event. That is normal startup, not a pause: cancelling the
+            // reveal here left the backdrop permanently on top of a healthy
+            // video. Once revealed, transient buffering must also never
+            // hide an ambient preview again.
+            } else if (e.data !== YTNS.PlayerState.BUFFERING && !revealed) {
               stopReveal();
               onPlayingChange(false);
             }
@@ -462,7 +465,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, premiumSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, extraZoom = false, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, extraZoom = false, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -473,17 +476,15 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   const croppedBackdrop = useCroppedBackdrop(backdropUrl);
   const [soundOn, setSoundOn] = useState(!initialMuted);
   const muted = !soundOn;
-  // Premium > Enhanced > YouTube — strictly additive.
-  // When premiumSources is empty/absent, this is EXACT previous behavior.
+  // Enhanced sources are strictly Apple/Netflix/Disney/Prime/IMDb, already
+  // identity-checked by their resolver. The retired remastered-search chain
+  // is deliberately absent here: it must never select an ambient preview.
   const candidates = useMemo<TrailerCandidate[]>(
     () => [
-      ...(premiumSources ?? []).map((p): TrailerCandidate =>
-        p.kind === "direct" ? { kind: "direct", source: p.source } : { kind: "youtube", key: p.key },
-      ),
       ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
       ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
     ],
-    [premiumSources, enhancedSources, trailerKeys]
+    [enhancedSources, trailerKeys]
   );
   // Which candidate we're currently trying — advanced by onError below.
   // Reset to 0 whenever the candidate list itself changes (new title), not
@@ -639,17 +640,16 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
  * TMDb/YouTube candidate automatically instead of leaving YouTube's own
  * "Video unavailable" chrome on screen with no way out but closing the modal.
  */
-export function TrailerModalPlayer({ trailerKeys, enhancedSources, premiumSources, title }: { trailerKeys: string[]; enhancedSources?: TrailerSource[]; premiumSources?: PremiumTrailerCandidate[]; title: string }) {
+export function TrailerModalPlayer({ trailerKeys, enhancedSources, title }: { trailerKeys: string[]; enhancedSources?: TrailerSource[]; title: string }) {
   const t = useT();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const candidates = useMemo<TrailerCandidate[]>(
     () => [
-      ...(premiumSources ?? []).map((p): TrailerCandidate => (p.kind === "direct" ? { kind: "direct", source: p.source } : { kind: "youtube", key: p.key })),
       ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
       ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
     ],
-    [premiumSources, enhancedSources, trailerKeys]
+    [enhancedSources, trailerKeys]
   );
   const [candidateIndex, setCandidateIndex] = useState(0);
   const candidate = candidates[candidateIndex] ?? null;
