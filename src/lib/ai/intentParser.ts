@@ -1051,6 +1051,21 @@ export function recentInsultStreakReplies(messages: { role: "user" | "assistant"
   return out;
 }
 
+// Confirmed live: two full recommendation dumps landed back to back (round
+// 4 AND round 5 of the same insult exchange), even though the escalation-
+// exit rule in actions.ts explicitly says "une seule fois" — once the exit
+// has already happened, later rounds must go back to being blocked exactly
+// like an under-3 streak, not treated as free to exit again and again.
+// Walks the same alternating streak window as recentInsultStreakReplies,
+// checking each prior assistant reply for a non-empty recommendations list.
+export function hasAlreadyExitedInsultStreak(messages: { role: "user" | "assistant"; recommendations?: unknown[] }[]): boolean {
+  for (let i = messages.length - 2; i >= 0; i -= 2) {
+    if (messages[i].role !== "assistant") break;
+    if ((messages[i].recommendations?.length ?? 0) > 0) return true;
+  }
+  return false;
+}
+
 const REPEATED_PHRASE_MIN_LEN = 25;
 // Confirmed live: the prompt's own "never reuse the same sentence
 // structure, even with one word swapped" rule (actions.ts, RÉPARTIE) was
@@ -1141,6 +1156,19 @@ export function extractBareTitleMention(message: string): string | null {
   if (CONTEXTUAL_REFERENCE_RE.test(trimmed)) return null;
   const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
   if (wordCount >= 3 && FRENCH_SENTENCE_MARKER_RE.test(trimmed)) return null;
+  // Confirmed live: "gros con" (an adjective+insult-noun phrase, no pronoun
+  // or conjugated verb) resolved to the real film "Les Gros Cons" — the
+  // sentence-marker check above only catches insults phrased as a full
+  // sentence, not a short bare phrase like this one. Rather than add yet
+  // another specific exclusion pattern (adjective+noun, "espèce de X",
+  // "bande de X"...), this generalizes the same way the sentence-marker
+  // check does: ANY short message containing a known insult marker
+  // (isInsultMessage, already covers single words AND phrases and keeps
+  // growing) is essentially never someone naming a film — a user who
+  // genuinely wants an obscure title that happens to double as an insult
+  // phrase can always follow up more explicitly if misread. Capped at 5
+  // words so this never reaches into legitimately long title queries.
+  if (wordCount <= 5 && isInsultMessage(trimmed)) return null;
   if (wordCount > BARE_TITLE_MAX_WORDS) return null;
   return trimmed.replace(/[.!]+$/, "").trim();
 }

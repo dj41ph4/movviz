@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, recentInsultStreakReplies } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, recentInsultStreakReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
@@ -507,6 +507,27 @@ export async function POST(req: NextRequest) {
   // outright rather than trusted a second time, since the model has now
   // twice ignored the same explicit correction.
   const insultStreak = countConsecutiveInsultRounds(session.messages);
+  // Confirmed live: the escalation-exit rule ("tu PEUX alors, UNE SEULE
+  // FOIS, clore le sujet") got ignored just as reliably as everything else
+  // prompt-only — two full recommendation dumps landed back to back (round
+  // 4 and round 5). Once an exit has already happened in this streak,
+  // treat any further "recommend" the exact same as an under-3-round one:
+  // premature, retry into mode 3.
+  const alreadyExited = hasAlreadyExitedInsultStreak(session.messages);
+  // Confirmed live: the model copied the prompt's OWN example phrase for the
+  // exit framing ("j'arrête de discuter d'intelligence avec plus con que
+  // moi, tiens, mate plutôt ça et calme-toi") verbatim into a real reason
+  // field, despite that example being explicitly marked "invente ta propre
+  // formule, jamais celle-ci recopiée telle quelle" — the instruction to not
+  // copy an example is, itself, apparently not reliable prompt-only either.
+  // Checked the same way as the round-to-round repetition check
+  // (sharesRepeatedPhrase) against a fixed list of every literal example
+  // string this prompt hands the model, so a new example added later just
+  // needs adding here too.
+  const BANNED_EXAMPLE_PHRASES = [
+    "j'arrête de discuter d'intelligence avec plus con que moi, tiens, mate plutôt ça et calme-toi",
+    "Au fait... c'est quoi ton adresse ? Juste pour savoir.",
+  ];
   // Confirmed live: a naive retry can itself come back malformed
   // (BROKEN_ACTION_FALLBACK) or repeat the very mistake it was asked to
   // fix — the FIRST version of both insult-related retries below accepted
@@ -518,7 +539,7 @@ export async function POST(req: NextRequest) {
   // EVERY condition that matters (not broken, not a repeat, not the thing
   // being corrected) before being trusted; the original reply is kept if
   // both attempts fail to improve on it.
-  if (insultStreak > 0 && insultStreak < 3 && intent.action === "recommend") {
+  if (insultStreak > 0 && (insultStreak < 3 || alreadyExited) && intent.action === "recommend") {
     for (let attempt = 0; attempt < 2 && intent.action === "recommend"; attempt++) {
       try {
         const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a répondu à une insulte/provocation par une liste de recommandations JSON — c'est une erreur, l'utilisateur n'a rien demandé de tel, il te charrie seulement. Réponds cette fois en MODE 3 UNIQUEMENT (texte normal, jamais de JSON) avec de la répartie, sans citer aucun titre précis.`;
@@ -533,6 +554,27 @@ export async function POST(req: NextRequest) {
     // fixed, always-safe fallback beats surfacing either to the user.
     if (intent.action === "recommend" || intent.rawText === BROKEN_ACTION_FALLBACK) {
       intent = { action: null, items: [], rawText: "Haha, tu insistes ! On en reparle si tu veux vraiment un film, sinon dis-moi ce qui te chiffonne." };
+    }
+  }
+  if (intent.action === "recommend" && intent.items.some((it) => BANNED_EXAMPLE_PHRASES.some((ex) => sharesRepeatedPhrase(it.reason ?? "", ex)))) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : le champ "reason" d'un de tes items recopiait mot pour mot un exemple donné dans tes instructions, au lieu d'inventer sa propre formule comme demandé explicitement. Refais le même JSON recommend avec des "reason" entièrement originaux, dans le même esprit mais jamais copiés d'un exemple.`;
+        const retryRes = await callAi(config, retrySystem, session.messages);
+        const retryIntent = parseIntent(retryRes.text);
+        const stillBanned = retryIntent.action === "recommend"
+          && retryIntent.items.some((it) => BANNED_EXAMPLE_PHRASES.some((ex) => sharesRepeatedPhrase(it.reason ?? "", ex)));
+        if (!stillBanned && retryIntent.action !== null) { intent = retryIntent; break; }
+      } catch {
+        break;
+      }
+    }
+    // Still banned after 2 attempts — strip the copied example rather than
+    // show it, the recommendation itself (titles) is still real and useful.
+    if (intent.action === "recommend") {
+      for (const it of intent.items) {
+        if (BANNED_EXAMPLE_PHRASES.some((ex) => sharesRepeatedPhrase(it.reason ?? "", ex))) it.reason = undefined;
+      }
     }
   }
   // Confirmed live TWICE: first against just the immediately-previous
