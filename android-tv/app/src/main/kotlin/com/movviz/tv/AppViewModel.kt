@@ -605,9 +605,24 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 // l'application. On ignore seulement cette entrée, puis le
                 // repli historique peut encore fournir la liste exhaustive
                 // si la réponse optimisée est inutilisable.
-                _movies.value = snapshot.data.movies.orEmpty().mapNotNull { it?.toLibraryMovieOrNull() }
-                _series.value = snapshot.data.series.orEmpty().mapNotNull { it?.toLibrarySeriesOrNull() }
-                return@coroutineScope
+                val rawMovies = snapshot.data.movies.orEmpty()
+                val rawSeries = snapshot.data.series.orEmpty()
+                val compactMovies = rawMovies.mapNotNull { it?.toLibraryMovieOrNull() }
+                val compactSeries = rawSeries.mapNotNull { it?.toLibrarySeriesOrNull() }
+
+                // Une réponse non vide dont aucune entrée n'est exploitable
+                // signale un contrat encore incompatible (donnée Plex legacy,
+                // serveur pendant une migration, etc.). Dans ce cas, ne jamais
+                // laisser l'accueil vide ou dans un état de focus invalide :
+                // les endpoints bibliothèque historiques restent le repli.
+                val compactPayloadUnusable =
+                    (rawMovies.isNotEmpty() && compactMovies.isEmpty()) ||
+                        (rawSeries.isNotEmpty() && compactSeries.isEmpty())
+                if (!compactPayloadUnusable) {
+                    _movies.value = compactMovies
+                    _series.value = compactSeries
+                    return@coroutineScope
+                }
             }
             ApiResult.Unauthorized -> {
                 _sessionExpired.value = true
