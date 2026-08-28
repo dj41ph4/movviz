@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isInsultMessage, recentAssistantReplies, sharesReplyTemplate } from "@/lib/ai/intentParser";
-import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext } from "@/lib/ai/actions";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isInsultMessage, recentAssistantReplies, sharesReplyTemplate } from "@/lib/ai/intentParser";
+import { analyzeDialogueTurn, selectDialogueCandidate, updateDialogueState } from "@/lib/ai/dialogueDirector";
+import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildCompleteFilmographyAnswer, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
   const got = parseIntent('{"action":"add_media","items":[{"title":"Justice League: War","year":2014,"type":"movie"}]}');
@@ -744,6 +745,56 @@ test("buildTitleStatusContext: statut réel injecté tel quel (déjà traduit pa
 test("buildTitleStatusContext: pas de correspondance fiable, honnête plutôt que silencieux", () => {
   const ctx = buildTitleStatusContext("Titre Introuvable", null, null);
   assert.ok(ctx.includes("aucune correspondance fiable trouvée"));
+});
+
+test("filmographie exhaustive et comptage générique acteur/réalisateur", () => {
+  const all = extractFilmographyRequest("donne moi tout les films de Louis de Funès");
+  assert.deepEqual(all, { person: "Louis de Funès", scope: "movie", exhaustive: true, countOnly: false, directorOnly: false });
+  const count = extractFilmographyRequest("combien de films de Snyder j'ai ?");
+  assert.equal(count?.person, "Snyder");
+  assert.equal(count?.scope, "movie");
+  assert.equal(count?.countOnly, true);
+});
+
+test("comptage de filmographie croise exactement la bibliothèque et propose les manquants", () => {
+  const answer = buildCompleteFilmographyAnswer("Zack Snyder", [
+    { title: "300", year: 2007, type: "movie", tmdbId: 1, inLibrary: true, isDirector: true },
+    { title: "Watchmen", year: 2009, type: "movie", tmdbId: 2, inLibrary: false, isDirector: true },
+    { title: "Wonder Woman", year: 2017, type: "movie", tmdbId: 3, inLibrary: true, isDirector: false },
+  ], { scope: "movie", countOnly: true, directorOnly: true });
+  assert.match(answer, /Tu as 1 titre\(s\) réalisé\(s\)/);
+  assert.match(answer, /Tu as : 300/);
+  assert.match(answer, /Il te manque notamment Watchmen/);
+  assert.doesNotMatch(answer, /Wonder Woman/);
+});
+
+test("question musique va au web factuel, jamais à TMDb", () => {
+  assert.equal(extractMusicQuestion("c'est quoi la musique du film Crow Zero ?"), "c'est quoi la musique du film Crow Zero ?");
+  assert.equal(extractMusicQuestion("recommande un film"), null);
+});
+
+test("directeur distingue critique, correction et joute progressive", () => {
+  assert.equal(analyzeDialogueTurn("tu es nul", [], undefined).intent, "playful_provocation");
+  const critique = analyzeDialogueTurn("tu es nul pour une IA censée conseiller selon mes goûts", [], undefined);
+  assert.equal(critique.intent, "critique");
+  assert.equal(critique.tension, 0);
+  const correction = analyzeDialogueTurn("non, j'ai pas regardé ça", [], undefined);
+  assert.equal(correction.intent, "correction");
+  const playful = analyzeDialogueTurn("t'es méchant", [], { tension: 2, scene: "none", lastIntent: "insult", updatedAt: 0 });
+  assert.equal(playful.intent, "playful_provocation");
+  assert.equal(playful.tension, 3);
+});
+
+test("Ghostface avance une étape par tour et le double avis filtre la mauvaise", () => {
+  const plan = analyzeDialogueTurn("pourquoi faire ?", [], { tension: 3, scene: "address_asked", lastIntent: "insult", updatedAt: 0 });
+  assert.equal(plan.intent, "scene_follow_up");
+  const chosen = selectDialogueCandidate([
+    "Tu aimes les films d'horreur ?",
+    "Parce que je voulais voir si tu allais vraiment répondre. Simple curiosité... pour l'instant.",
+  ], plan, [], "pourquoi faire ?");
+  assert.match(chosen, /Parce que/);
+  assert.equal(updateDialogueState(plan, chosen).scene, "address_explained");
+  assert.equal(updateDialogueState(plan, "Parce que ton adresse complète bien le décor.").scene, "address_explained");
 });
 
 test("anti-répétition repère une même structure paraphrasée", () => {

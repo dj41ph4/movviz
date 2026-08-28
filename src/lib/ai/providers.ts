@@ -165,7 +165,7 @@ function extractConversationText(json: unknown): string {
  * (contextBuilder.ts's scene cache) degrades to simply not having a scene
  * to reference, never a broken chat reply.
  */
-export async function searchTitleScene(config: AiConfig, prompt: string): Promise<string | null> {
+export async function searchWeb(config: AiConfig, prompt: string): Promise<string | null> {
   if (!config.webSearchEnabled) return null;
   const provider = config.providers.mistral;
   const model = provider.model.trim() || "mistral-small-latest";
@@ -189,6 +189,44 @@ export async function searchTitleScene(config: AiConfig, prompt: string): Promis
     }
   }
   return null;
+}
+
+/** Compatibility name used by the scene cache. General factual searches
+ *  now share the exact same authenticated Mistral web connector. */
+export async function searchTitleScene(config: AiConfig, prompt: string): Promise<string | null> {
+  return searchWeb(config, prompt);
+}
+
+export interface AiCandidateResult {
+  text: string;
+  provider: AiProviderId;
+}
+
+/** Two independent Mistral opinions, one visible result. The second key is
+ *  an optional quality lane, never a requirement: 0/1 key, a quota error or
+ *  a network failure transparently falls back to the normal provider chain. */
+export async function callAiCandidates(config: AiConfig, system: string, messages: AiChatMessage[]): Promise<AiCandidateResult[]> {
+  const provider = config.providers.mistral;
+  const keys = provider.keys.filter((entry) => entry.key.trim()).slice(0, 2);
+  if (config.primary !== "mistral" || keys.length < 2) return [await callAi(config, system, messages)];
+
+  const model = provider.model.trim() || "mistral-small-latest";
+  const body = {
+    model,
+    messages: [{ role: "system", content: system }, ...toOpenAiMessages(messages)],
+    temperature: 0.35,
+    max_tokens: MAX_RESPONSE_TOKENS,
+  };
+  const settled = await Promise.allSettled(keys.map((entry) => callWithKey(
+    "mistral",
+    "https://api.mistral.ai/v1/chat/completions",
+    { "content-type": "application/json", authorization: `Bearer ${entry.key.trim()}` },
+    body,
+  )));
+  const candidates = settled
+    .filter((result): result is PromiseFulfilledResult<string> => result.status === "fulfilled" && !!result.value.trim())
+    .map((result) => ({ text: result.value, provider: "mistral" as const }));
+  return candidates.length ? candidates : [await callAi(config, system, messages)];
 }
 
 /**

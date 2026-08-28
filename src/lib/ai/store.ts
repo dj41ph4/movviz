@@ -113,6 +113,13 @@ export function setActiveSubject(userId: string, subject: { tmdbId: number; type
   scheduleSessionsFlush();
 }
 
+export function setDialogueState(userId: string, dialogueState: NonNullable<AiChatSession["dialogueState"]>): void {
+  const session = loadAiSession(userId);
+  session.dialogueState = dialogueState;
+  session.updatedAt = Date.now();
+  scheduleSessionsFlush();
+}
+
 /** The only thing that should ever empty a session — the trash icon in the
  *  chat UI. Flushed immediately (not debounced): this is a rare, explicit
  *  user action, not a hot request-path write, and a restart landing inside

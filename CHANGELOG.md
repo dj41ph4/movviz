@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.16 — August 2026
+
+### IA : dialogue dirigé, double Mistral et réponses factuelles complètes
+
+Movviz distingue désormais une critique, une correction factuelle et une vraie provocation avant de répondre. La joute monte progressivement, évite les phrases recyclées et conserve une mini-scène Ghostface cohérente, une étape par message. Avec deux clés Mistral, deux réponses peuvent être évaluées en parallèle pour n'en afficher qu'une ; une seule clé continue de fonctionner normalement. Les filmographies et comptages acteur/réalisateur sont vérifiés contre TMDb et la bibliothèque, avec les titres possédés et des manquants pertinents, tandis que les questions de musique utilisent la recherche web factuelle.
+
 ## v1.22.15 — August 2026
 
 ### Hero 5 visuels garantis + IA profils étanches

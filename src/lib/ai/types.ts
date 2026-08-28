@@ -100,6 +100,15 @@ export interface AiChatSession {
    *  suivant pour que "j'adore", "le top c'est contre X", "celui-là" se
    *  résolvent contre CE titre au lieu de partir en recherche TMDb. */
   activeSubject?: { tmdbId: number; type: "movie" | "series"; title: string; at: number };
+  /** Petit état conversationnel déterministe. Il ne remplace ni l'historique
+   *  ni la personnalité du modèle : il évite seulement qu'une critique soit
+   *  prise pour une insulte et qu'une mini-scène (Ghostface) saute des étapes. */
+  dialogueState?: {
+    tension: number;
+    scene: "none" | "address_asked" | "address_explained" | "horror_question_asked";
+    lastIntent: string;
+    updatedAt: number;
+  };
 }
 
 /** Long-term memory entries — facts about what the user asked the assistant

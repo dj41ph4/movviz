@@ -705,10 +705,11 @@ export function extractMissingFromEntity(message: string): string | null {
 // "manque"/"pas encore" framing so the two detectors stay mutually
 // exclusive rather than double-firing on the same message.
 const FILMOGRAPHY_PATTERNS: RegExp[] = [
-  /(?:donne[- ]moi|montre[- ]moi)\s+la\s+filmographie\s+(?:de\s+|d')([^.!?\n]+)/i,
+  /(?:donne[- ]moi|montre[- ]moi|donne)\s+(?:la\s+filmographie|les\s+films?)\s+(?:de\s+|d')([^.!?\n]+)/i,
   /\bla\s+filmographie\s+(?:complète\s+)?(?:de\s+|d')([^.!?\n]+)/i,
+  /les\s+films?\s+de\s+([^.!?\n]+)/i,
   /quels?\s+(?:films?|s[ée]ries?)\s+a\s+(?:fait|tourn[ée]|jou[ée]|r[ée]alis[ée])\s+([^.!?\n]+)/i,
-  /(?:tous|toute)\s+les\s+films?\s+(?:de\s+|d')([^.!?\n]+)/i,
+  /(?:tout|tous|toute)\s+les\s+films?\s+(?:de\s+|d')([^.!?\n]+)/i,
   // "combien de films j'ai de Snyder" / "combien de films de X j'ai" — a
   // COUNT question, not a listing one, but it needs the exact same real
   // cross-referenced-against-the-library search: confirmed live, asked
@@ -737,7 +738,15 @@ const FILMOGRAPHY_PATTERNS: RegExp[] = [
  *  there) and lists their real, cross-referenced-against-the-library
  *  filmography instead of just a "missing" search. See
  *  buildFilmographyContext (actions.ts). */
-export function extractFilmographyQuestion(message: string): string | null {
+export interface FilmographyRequest {
+  person: string;
+  scope: "movie" | "series" | "all";
+  exhaustive: boolean;
+  countOnly: boolean;
+  directorOnly: boolean;
+}
+
+export function extractFilmographyRequest(message: string): FilmographyRequest | null {
   const normalized = message.replace(/[’‘]/g, "'");
   if (/manque|j'ai pas|je n'ai pas/i.test(normalized)) return null;
   let raw: string | undefined;
@@ -749,7 +758,31 @@ export function extractFilmographyQuestion(message: string): string | null {
   const entity = raw.trim().replace(/^(de |d')/i, "").trim().slice(0, MAX_ENTITY_LEN).trim();
   if (entity.length < 2) return null;
   if (NOT_AN_ENTITY.has(entity.toLowerCase())) return null;
-  return entity;
+  const scope = /s[ée]ries?/i.test(normalized) && !/films?/i.test(normalized)
+    ? "series" as const
+    : /films?/i.test(normalized) && !/s[ée]ries?/i.test(normalized)
+      ? "movie" as const
+      : "all" as const;
+  return {
+    person: entity,
+    scope,
+    exhaustive: /\b(?:tout|tous|toute|complet|compl[èe]te|filmographie)\b/i.test(normalized),
+    countOnly: /\bcombien\b/i.test(normalized),
+    directorOnly: /\b(?:r[ée]alis[ée]|r[ée]alisateur|r[ée]alisatrice)\b/i.test(normalized),
+  };
+}
+
+export function extractFilmographyQuestion(message: string): string | null {
+  return extractFilmographyRequest(message)?.person ?? null;
+}
+
+const MUSIC_FACT_RE = /\b(?:musique|chanson|morceau|g[ée]n[ée]rique|ost|bande[- ]originale|bo\b|soundtrack)\b/i;
+
+/** A music/title question must go to web facts, never to TMDb title search. */
+export function extractMusicQuestion(message: string): string | null {
+  if (!MUSIC_FACT_RE.test(message)) return null;
+  if (!/(?:quel(?:le)?|quoi|nom|c['’]?est|trouve|donne|musique|chanson|ost|bo\b)/i.test(message)) return null;
+  return message.trim().slice(0, 300);
 }
 
 /** Reliable, code-level fallback for the single most common durable fact —

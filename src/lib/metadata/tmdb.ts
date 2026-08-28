@@ -240,12 +240,12 @@ export async function searchMulti(query: string, page = 1): Promise<PagedResults
  *  confident answer, not a page of candidates — a bare name like "Brad
  *  Pitt" is unambiguous enough in practice that the top popularity hit is
  *  reliably the right person. */
-export async function searchPerson(query: string): Promise<{ id: number; name: string } | null> {
+export async function searchPerson(query: string): Promise<{ id: number; name: string; knownForDepartment: string | null } | null> {
   const data = await tmdbGet<{ results: RawMultiResult[] }>("/search/multi", { query });
   const people = (data?.results ?? []).filter((r) => r.media_type === "person" && r.name);
   if (!people.length) return null;
   people.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
-  return { id: people[0].id, name: people[0].name! };
+  return { id: people[0].id, name: people[0].name!, knownForDepartment: people[0].known_for_department ?? null };
 }
 
 /** Paginated person search (actors/réalisateurs/...) — same `/search/multi`
@@ -676,6 +676,8 @@ export interface MetaPersonCredit extends MetaSearchResult {
    *  et Morty/Teen Titans Go! with the exact same weight as Watchmen or
    *  Justice League, because only the cast list was ever read. */
   isDirector: boolean;
+  /** True when TMDb lists the person in the cast for this title. */
+  isCast: boolean;
 }
 
 // TMDb's combined actor credits contain a large amount of promotional TV:
@@ -735,6 +737,11 @@ export async function getPerson(personId: number): Promise<MetaPerson | null> {
       .filter((c) => c.job === "Director" && (c.media_type === "movie" || c.media_type === "tv") && !(c.genre_ids ?? []).includes(99))
       .map((c) => `${c.media_type}:${c.id}`)
   );
+  const castIds = new Set(
+    (credits?.cast ?? [])
+      .filter((c) => c.media_type === "movie" || c.media_type === "tv")
+      .map((c) => `${c.media_type}:${c.id}`)
+  );
   const seen = new Set<string>();
   const filmography = [...(credits?.cast ?? []), ...(credits?.crew ?? [])]
     .filter((c) => c.media_type === "movie" || c.media_type === "tv")
@@ -758,6 +765,7 @@ export async function getPerson(personId: number): Promise<MetaPerson | null> {
       rating: c.vote_average ?? 0,
       genreIds: c.genre_ids ?? [],
       isDirector: directedIds.has(`${c.media_type}:${c.id}`),
+      isCast: castIds.has(`${c.media_type}:${c.id}`),
     }));
   return {
     id: person.id,

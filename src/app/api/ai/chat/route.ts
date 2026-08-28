@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
-import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
+import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setDialogueState } from "@/lib/ai/store";
+import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
-import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
+import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildCompleteFilmographyAnswer, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
+import { analyzeDialogueTurn, selectDialogueCandidate, updateDialogueState } from "@/lib/ai/dialogueDirector";
 import { buildMemoryContext } from "@/lib/ai/memory";
 import { buildFeedbackContext, buildFactsContext, buildContextInsightsSection, buildCorrectionEscalationContext, recordCorrection, rememberFact, getFacts, hasKnownName, buildRatingsContext, setRating, getRating, getAllRatings, getLastProactiveRatingAskAt, markProactiveRatingAsked } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
@@ -93,6 +94,7 @@ export async function POST(req: NextRequest) {
   const wasEmptySession = session.messages.length === 0;
 
   pushAiMessage(user.id, { role: "user", content: message });
+  const dialoguePlan = analyzeDialogueTurn(message, session.messages, session.dialogueState);
 
   // Bug fix (audit finding #5, confirmed live — same class as the brique-9
   // fix, just relocated): this MUST be read before extractSelfIntroName's
@@ -183,6 +185,8 @@ export async function POST(req: NextRequest) {
   const needsName = !hasKnownName(user.id);
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
   system += buildRatingsContext(user.id);
+  system += `\n\nDIRECTEUR DE DIALOGUE — décision déterministe pour CE tour (elle prime sur les règles générales de joute si elles se contredisent) : ${dialoguePlan.directive}`;
+  let groundedAnswer: string | null = null;
   const recentConversationReplies = recentAssistantReplies(session.messages, 10);
   if (recentConversationReplies.length) {
     const usedShapes = recentConversationReplies.slice(0, 8).map((reply, index) => {
@@ -254,19 +258,23 @@ export async function POST(req: NextRequest) {
   // work with. searchMulti (used by the "manque" block above) can't help
   // here: it filters OUT person results entirely, so a bare name like
   // "Brad Pitt" matched nothing. searchPerson keeps exactly those results.
-  const filmographyQuery = extractFilmographyQuestion(message);
-  if (filmographyQuery) {
+  const filmographyRequest = extractFilmographyRequest(message);
+  const filmographyQuery = filmographyRequest?.person ?? null;
+  if (filmographyRequest) {
     try {
-      const person = await searchPerson(filmographyQuery);
+      const personQuery = filmographyRequest.person;
+      const person = await searchPerson(personQuery);
       if (person) {
         const full = await getPerson(person.id);
         if (full) {
-          // Director credits sort first so the cap below can never truncate
-          // them out in favor of a more popular but merely-appeared-in title
-          // — the exact failure that let Wonder Woman/Teen Titans Go! push
-          // out real Zack Snyder films from a capped list.
-          const sortedCredits = [...full.credits].sort((a, b) => Number(!!b.isDirector) - Number(!!a.isDirector));
-          const hits: FranchiseSearchHit[] = sortedCredits.slice(0, MAX_FILMOGRAPHY_HITS).map((c) => ({
+          const effectiveDirectorOnly = filmographyRequest.directorOnly
+            || person.knownForDepartment === "Directing";
+          const selectedCredits = full.credits
+            .filter((credit) => !credit.genreIds?.includes(99))
+            .filter((credit) => filmographyRequest.scope === "all" || credit.type === filmographyRequest.scope)
+            .filter((credit) => !effectiveDirectorOnly || credit.isDirector)
+            .filter((credit) => effectiveDirectorOnly || person.knownForDepartment !== "Acting" || credit.isCast);
+          const hits: FranchiseSearchHit[] = selectedCredits.map((c) => ({
             title: c.title,
             year: c.year ?? undefined,
             type: c.type,
@@ -274,8 +282,18 @@ export async function POST(req: NextRequest) {
             inLibrary: c.type === "movie" ? !!getMovieByTmdbId(c.tmdbId) : !!getSeriesByTmdbId(c.tmdbId),
             isDirector: c.isDirector,
           }));
-          if (hits.length) system += buildFilmographyContext(filmographyQuery, full.name, hits, full.credits.length);
+          groundedAnswer = buildCompleteFilmographyAnswer(full.name, hits, {
+            scope: filmographyRequest.scope,
+            countOnly: filmographyRequest.countOnly,
+            directorOnly: effectiveDirectorOnly,
+          });
         }
+      }
+      // TMDb reste prioritaire car lui seul permet la comparaison exacte
+      // avec la bibliothèque. Le web ne sert que de repli factuel.
+      if (!groundedAnswer && config.webSearchEnabled) {
+        const webResult = await searchWeb(config, `Réponds en français avec la filmographie complète et vérifiée de ${personQuery}. ${filmographyRequest.scope === "movie" ? "Films uniquement." : filmographyRequest.scope === "series" ? "Séries uniquement." : "Films et séries."} N'invente aucun titre.`);
+        if (webResult) groundedAnswer = webResult;
       }
     } catch {
       // Best-effort, same safety net as the franchise-search block above.
@@ -385,7 +403,8 @@ export async function POST(req: NextRequest) {
   // TMDb sur un message qui a déjà déclenché un des blocs plus spécifiques.
   const prevAssistantForBare = session.messages[session.messages.length - 2]?.content ?? "";
   const isMusicFollowUp = /musique|Crow Zero|bande originale|OST/i.test(prevAssistantForBare) && message.split(/\s+/).filter(Boolean).length <= 6;
-  const bareTitleCandidate = (!isMusicFollowUp && !recommendationContinuation && !explicitTasteRating && !watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
+  const musicQuestion = extractMusicQuestion(message) ?? (isMusicFollowUp ? message : null);
+  const bareTitleCandidate = (!musicQuestion && !recommendationContinuation && !explicitTasteRating && !watchStatusTitle && !presenceTitle && !castCrewTitle && !statusTitle && !statusIsCurrentPage && !missingFromEntity && !filmographyQuery)
     ? extractBareTitleMention(message)
     : null;
   if (bareTitleCandidate) {
@@ -463,6 +482,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (musicQuestion && config.webSearchEnabled) {
+    const subject = pageContext?.title ?? session.activeSubject?.title ?? "le film ou la série évoqué(e) dans la conversation";
+    const webResult = await searchWeb(config, [
+      "Réponds en français à cette question factuelle sur une musique de film/série.",
+      `Question : ${musicQuestion}`,
+      `Sujet conversationnel probable : ${subject}`,
+      "Cherche des sources fiables. Identifie le morceau et l'artiste, et précise la scène seulement si elle est confirmée. N'invente rien. Donne une réponse directement exploitable par une chatbox, avec les sources ou liens utiles.",
+    ].join("\n"));
+    if (webResult) {
+      system += `\n\nRECHERCHE WEB FACTUELLE — MUSIQUE (résultat réel à reformuler naturellement, sans changer les faits) :\n${webResult}`;
+    } else {
+      system += "\n\nRECHERCHE WEB FACTUELLE — MUSIQUE : la recherche a été lancée mais n'a retourné aucun résultat fiable. Dis-le sans inventer de morceau.";
+    }
+  }
+
   // Apprentissage conversationnel continu (demande explicite : "la moindre
   // chose qu'il apprend sur moi doit devenir du contexte") — l'extraction
   // des faits tourne EN PARALLÈLE de la réponse (latence invisible) et est
@@ -472,9 +506,18 @@ export async function POST(req: NextRequest) {
   let providerName = "";
   let text: string;
   try {
-    const res = await callAi(config, system, session.messages);
-    text = res.text;
-    providerName = res.provider;
+    if (groundedAnswer) {
+      text = groundedAnswer;
+      providerName = "tmdb";
+    } else if (dialoguePlan.useDualCandidates) {
+      const candidates = await callAiCandidates(config, system, session.messages);
+      text = selectDialogueCandidate(candidates.map((candidate) => candidate.text), dialoguePlan, recentConversationReplies, message);
+      providerName = candidates[0]?.provider ?? config.primary;
+    } else {
+      const res = await callAi(config, system, session.messages);
+      text = res.text;
+      providerName = res.provider;
+    }
   } catch (e) {
     const err = e as { message?: string; provider?: string; quota?: boolean };
     console.log(`[ai] chat fail user=${user.username} provider=${err.provider ?? "?"} quota=${!!err.quota} err=${err.message ?? "?"}`);
@@ -520,6 +563,7 @@ export async function POST(req: NextRequest) {
   // outright rather than trusted a second time, since the model has now
   // twice ignored the same explicit correction.
   const insultStreak = countConsecutiveInsultRounds(session.messages);
+  const dialogueFight = dialoguePlan.intent === "insult" || dialoguePlan.intent === "playful_provocation";
   // Confirmed live: the escalation-exit rule ("tu PEUX alors, UNE SEULE
   // FOIS, clore le sujet") got ignored just as reliably as everything else
   // prompt-only — two full recommendation dumps landed back to back (round
@@ -558,7 +602,7 @@ export async function POST(req: NextRequest) {
   // EVERY condition that matters (not broken, not a repeat, not the thing
   // being corrected) before being trusted; the original reply is kept if
   // both attempts fail to improve on it.
-  if (insultStreak > 0 && (insultStreak < 3 || alreadyExited) && intent.action === "recommend") {
+  if (dialogueFight && (insultStreak < 3 || alreadyExited) && intent.action === "recommend") {
     for (let attempt = 0; attempt < 2 && intent.action === "recommend"; attempt++) {
       try {
         const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente a répondu à une insulte/provocation par une liste de recommandations JSON — c'est une erreur, l'utilisateur n'a rien demandé de tel, il te charrie seulement. Réponds cette fois en MODE 3 UNIQUEMENT (texte normal, jamais de JSON) avec de la répartie, sans citer aucun titre précis.`;
@@ -600,7 +644,7 @@ export async function POST(req: NextRequest) {
   // only during a detected insult streak. A neutral question between two
   // provocations must not disable the anti-repeat safety net.
   const recentReplies = recentAssistantReplies(session.messages, 12);
-  const isTalkFightTurn = insultStreak > 0;
+  const isTalkFightTurn = dialogueFight;
   // Confirmed live: "je te laisse gagner ce round" reused, near word-for-
   // word, the exact template of an earlier reply ("je te laisse le dernier
   // mot… pour cette fois. Mais je te préviens, la prochaine fois, je te
@@ -1080,5 +1124,6 @@ export async function POST(req: NextRequest) {
   });
 
   pushAiMessage(user.id, assistant);
+  setDialogueState(user.id, updateDialogueState(dialoguePlan, assistant.content));
   return NextResponse.json({ message: assistant, provider: providerName });
 }
