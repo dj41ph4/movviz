@@ -44,7 +44,8 @@ jobs:
       - name: Package standalone bundle + engine
         run: |
           set -euo pipefail
-          STAGE="$(mktemp -d)/movviz"
+          STAGE=".release-stage/movviz"
+          rm -rf "$STAGE"
           mkdir -p "$STAGE"
           cp -r .next/standalone/. "$STAGE/"
           cp -r .next/static "$STAGE/.next/static"
@@ -68,13 +69,7 @@ jobs:
           test -f "$STAGE/packaging/linux/movviz.service"
           test -f "$STAGE/README-LINUX.md"
 
-          cd "$(dirname "$STAGE")"
-          tar -czf "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz" movviz
-          cd "$GITHUB_WORKSPACE"
-          tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
-          tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
-          tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
-          sha256sum movviz-linux-x64.tar.gz > movviz-linux-x64.tar.gz.sha256
+          tar -czf movviz-linux-x64.tar.gz -C .release-stage movviz
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
