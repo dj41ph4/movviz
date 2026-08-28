@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.21 — August 2026
+
+### Fiche : jonction du dégradé
+
+Le dégradé inférieur de la fiche recouvre désormais correctement le bord du panneau, supprimant la fine ligne visible entre le visuel et le contenu.
+
 ## v1.22.20 — August 2026
 
 ### Fallback vidéo : sélection fiable

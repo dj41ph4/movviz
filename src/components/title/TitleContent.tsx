@@ -1082,7 +1082,10 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
        * drifting wider/narrower than the source video on a very
        * short/tall viewport the way a vh-based height did. */}
       <div
-        className="relative -mx-6 -mt-6 mb-8 h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:aspect-video sm:h-auto sm:min-h-0"
+        // Pull the following void background up by one pixel so the final
+        // opaque gradient row overlaps the panel edge instead of leaving a
+        // hairline seam between the backdrop and the fiche.
+        className="relative -mx-6 -mt-6 mb-[31px] h-[60vh] min-h-[320px] overflow-hidden sm:-mx-10 sm:-mt-10 sm:aspect-video sm:h-auto sm:min-h-0"
         style={{ contain: "paint" }}
       >
           <ErrorBoundary onError={(e) => reportIssue(`Trailer crash: ${e.message}`)} fallback={
