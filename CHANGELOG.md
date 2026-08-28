@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.19 — August 2026
+
+### Cartes : aperçu stable et sans voile
+
+L’aperçu vidéo des cartes apparaît sans déplacement ni fondu noir supérieur pendant son chargement. Le carrousel et les fiches conservent leur rendu inchangé.
+
 ## v1.22.18 — August 2026
 
 ### Cartes : aperçu vidéo unifié au flux Hero/fiche

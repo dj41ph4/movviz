@@ -538,8 +538,10 @@ export function DashboardPosterCard({
           setHovered(true);
         }}
         onMouseLeave={closePreview}
-        initial={{ opacity: 0, y: popover.above ? 8 : -8 }}
-        animate={{ opacity: 1, y: 0 }}
+        // Fade in without a zoom/slide: the artwork remains visually stable
+        // while the preview video is being mounted and buffered.
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.22, ease: [0.25, 0.1, 0.25, 1] }}
         className="fixed z-[80] hidden overflow-hidden rounded-[18px] border border-white/20 bg-[#171522]/98 shadow-[0_24px_70px_rgba(0,0,0,0.72)] ring-1 ring-white/10 backdrop-blur-xl sm:block"
@@ -574,6 +576,7 @@ export function DashboardPosterCard({
                 title={title}
                 trigger="immediate"
                 enabled={videoPreviewEnabled}
+                hideTopGradient
                 className="h-full w-full"
               />
             ) : previewImage ? (

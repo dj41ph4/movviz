@@ -261,6 +261,10 @@ export interface TrailerHeaderProps {
    *  unmuted). Playback stays muted regardless — this only removes the
    *  button, `muted` itself is untouched by this prop. */
   hideSoundToggle?: boolean;
+  /** Do not add the decorative top fade used to hide YouTube's chrome.
+   *  Hover-card previews already sit behind our own artwork/actions and the
+   *  fade reads as an unwanted black veil while the video starts. */
+  hideTopGradient?: boolean;
   /** Extra zoom on top of the standard scale-110 (below) — confirmed live
    *  only on the dashboard card hover-preview popover (small size, thin
    *  cinematic letterbox bars from the source trailer more noticeable at
@@ -465,7 +469,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, extraZoom = false, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -589,8 +593,11 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
           ) : (
             <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />
           )}
-          {/* Masque la barre titre/channel YouTube (top) pour que vignette hover et hero soient clean */}
-          <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
+          {!hideTopGradient && (
+            /* Masque la barre titre/channel YouTube dans les lecteurs qui le
+             * demandent ; les cartes gardent ainsi leur image sans voile noir. */
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
+          )}
           <div
             className={cn(
               "absolute inset-0 transition-opacity duration-500",
