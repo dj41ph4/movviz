@@ -37,14 +37,10 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
-      - name: Free disk space before packaging
-        run: |
-          rm -rf node_modules .next/cache .pnpm-store
-
       - name: Package standalone bundle + engine
         run: |
           set -euo pipefail
-          STAGE=".release-stage/movviz"
+          STAGE="/tmp/movviz-build/movviz"
           rm -rf "$STAGE"
           mkdir -p "$STAGE"
           cp -r .next/standalone/. "$STAGE/"
@@ -57,7 +53,6 @@ jobs:
           cp packaging/linux/movviz.service "$STAGE/packaging/linux/movviz.service"
           cp packaging/linux/README-LINUX.md "$STAGE/README-LINUX.md"
           chmod +x "$STAGE/packaging/linux/install.sh" "$STAGE/packaging/linux/uninstall.sh"
-          rm -rf .next node_modules
           echo "Stage size: $(du -sh "$STAGE" | cut -f1)"
 
           test -f "$STAGE/server.js"
@@ -69,7 +64,9 @@ jobs:
           test -f "$STAGE/packaging/linux/movviz.service"
           test -f "$STAGE/README-LINUX.md"
 
-          tar --transform='s|^\.release-stage/movviz|movviz|' -cf movviz-linux-x64.tar .release-stage/movviz && gzip -9 -f movviz-linux-x64.tar
+          cd /tmp/movviz-build
+          tar -czf "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz" movviz
+          cd "$GITHUB_WORKSPACE"
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
