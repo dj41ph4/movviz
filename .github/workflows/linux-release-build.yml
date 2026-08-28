@@ -69,8 +69,7 @@ jobs:
           test -f "$STAGE/packaging/linux/movviz.service"
           test -f "$STAGE/README-LINUX.md"
 
-          tar -cf movviz-linux-x64.tar -C .release-stage movviz
-          gzip -9 -f movviz-linux-x64.tar
+          tar --transform='s|^\.release-stage/movviz|movviz|' -cf movviz-linux-x64.tar .release-stage/movviz && gzip -9 -f movviz-linux-x64.tar
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
