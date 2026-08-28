@@ -30,18 +30,22 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
-      - name: Debug standalone contents
+      - name: Diagnose standalone
         run: |
-          echo "=== Special files in standalone ==="
-          find .next/standalone -maxdepth 1 -type p -o -type s -o -type l 2>/dev/null || true
-          echo "=== Top-level size ==="
-          du -sh .next/standalone node_modules engine/node_modules 2>/dev/null || true
-          echo "=== File count ==="
-          find .next/standalone -type f | wc -l
-          echo "=== Symlinks ==="
-          find .next/standalone -type l | head -20 || true
-          echo "=== Inodes ==="
-          df -i .
+          echo "=== file count ==="
+          find .next/standalone -type f 2>/dev/null | wc -l
+          echo "=== total size ==="
+          du -sh .next/standalone 2>/dev/null
+          echo "=== special files (pipes/sockets) ==="
+          find .next/standalone -type p -o -type s 2>/dev/null | head -20
+          echo "=== symlinks ==="
+          find .next/standalone -type l 2>/dev/null | head -20
+          echo "=== tar test small ==="
+          tar -cf /dev/null -C .next/standalone server.js 2>&1 && echo "tar works on server.js"
+          echo "=== tar test node_modules ==="
+          tar -cf /dev/null -C .next/standalone node_modules 2>&1 && echo "tar works on node_modules" || echo "tar FAILED on node_modules"
+          echo "=== tar test full ==="
+          tar -cf /dev/null -C .next/standalone . 2>&1 && echo "tar works on full standalone" || echo "tar FAILED on full standalone"
 
       - name: Package standalone bundle + engine
         run: |
@@ -58,6 +62,7 @@ jobs:
           cp packaging/linux/movviz.service "$STAGE/packaging/linux/movviz.service"
           cp packaging/linux/README-LINUX.md "$STAGE/README-LINUX.md"
           chmod +x "$STAGE/packaging/linux/install.sh" "$STAGE/packaging/linux/uninstall.sh"
+          echo "Stage size: $(du -sh "$STAGE" | cut -f1)"
 
           test -f "$STAGE/server.js"
           test -f "$STAGE/package.json"
