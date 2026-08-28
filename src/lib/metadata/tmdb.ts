@@ -1196,10 +1196,15 @@ async function selectVideoCandidates(
 
   if (youtubeTrailerSearch) {
     const yt = pool.filter((v) => v.site === "YouTube");
-    const hasUserLangTrailer = yt.some((v) => v.type === "Trailer" && v.iso_639_1 === preferLanguage);
-    if (!hasUserLangTrailer) {
+    // Only use the web-search fallback when TMDb has no trailer at all. A
+    // localized spot must never displace a real official trailer in another
+    // language; the normal language ranking below will select that trailer.
+    const hasAnyTrailer = yt.some((v) => v.type === "Trailer");
+    if (!hasAnyTrailer) {
       const lang = preferLanguage ?? "fr";
-      const cacheKey = `yt:${title}:${year ?? 0}:${lang}`;
+      // Bump the namespace whenever the selector changes so an old, wrongly
+      // matched YouTube ID cannot survive in the 24h fallback cache.
+      const cacheKey = `yt:v2:${title}:${year ?? 0}:${lang}`;
       const cache = getCache("YouTube Search", 24 * 60 * 60 * 1000);
       const cached = cache.getStale<string>(cacheKey);
       const found = cached !== undefined ? cached.value : await (async () => {

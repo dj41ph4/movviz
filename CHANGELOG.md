@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.20 — August 2026
+
+### Fallback vidéo : sélection fiable
+
+Le fallback YouTube valide désormais le titre, la langue, la chaîne et le type de vidéo. Les spots, teasers, clips, récaps et interviews sont écartés au profit des bandes-annonces officielles. Les anciennes correspondances erronées sont invalidées par une nouvelle clé de cache.
+
 ## v1.22.19 — August 2026
 
 ### Cartes : aperçu stable et sans voile
