@@ -37,6 +37,10 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
+      - name: Free disk space before packaging
+        run: |
+          rm -rf node_modules .next/cache .pnpm-store
+
       - name: Package standalone bundle + engine
         run: |
           set -euo pipefail
@@ -52,6 +56,7 @@ jobs:
           cp packaging/linux/movviz.service "$STAGE/packaging/linux/movviz.service"
           cp packaging/linux/README-LINUX.md "$STAGE/README-LINUX.md"
           chmod +x "$STAGE/packaging/linux/install.sh" "$STAGE/packaging/linux/uninstall.sh"
+          rm -rf .next node_modules
 
           test -f "$STAGE/server.js"
           test -f "$STAGE/package.json"
