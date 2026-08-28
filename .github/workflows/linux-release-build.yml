@@ -91,12 +91,15 @@ jobs:
           test -f "$STAGE/README-LINUX.md"
 
           cd "$(dirname "$STAGE")"
-          tar -cf - movviz | gzip -9 > "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz"
+          tar -cf - movviz | gzip -9 > /tmp/movviz-linux-x64.tar.gz
+          ls -lh /tmp/movviz-linux-x64.tar.gz
+          sha256sum /tmp/movviz-linux-x64.tar.gz > /tmp/movviz-linux-x64.tar.gz.sha256
+          cp /tmp/movviz-linux-x64.tar.gz "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz"
+          cp /tmp/movviz-linux-x64.tar.gz.sha256 "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz.sha256"
           cd "$GITHUB_WORKSPACE"
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
-          sha256sum movviz-linux-x64.tar.gz > movviz-linux-x64.tar.gz.sha256
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
