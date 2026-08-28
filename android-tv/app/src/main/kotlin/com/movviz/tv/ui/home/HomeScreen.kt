@@ -20,6 +20,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusRestorer
@@ -303,6 +304,7 @@ TvTitleCard(
         if (heroItems.size < 2) return@LaunchedEffect
         while (true) {
             delay(HERO_ROTATE_MS)
+            if (heroItems.size < 2) return@LaunchedEffect
             heroIndex = (heroIndex + 1) % heroItems.size
         }
     }
@@ -330,7 +332,11 @@ TvTitleCard(
             hasRequestedInitialFocus = true
         } else if (continueCards.isNotEmpty() || recentMovies.isNotEmpty() || recentSeries.isNotEmpty()) {
             hasRequestedInitialFocus = true
-            firstCardFocus.requestFocus()
+            repeat(8) { attempt ->
+                val granted = runCatching { firstCardFocus.requestFocus() }.isSuccess
+                if (granted) return@LaunchedEffect
+                if (attempt < 7) withFrameNanos {}
+            }
         }
     }
     // La toute première rangée réellement affichée (Continuer > Films >
@@ -974,11 +980,15 @@ private const val AMBIENT_TRAILER_DELAY_MS = 2_200L
 @Composable
 private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: Modifier = Modifier) {
     val key = trailerKeys.firstOrNull { it.matches(Regex("[A-Za-z0-9_-]{6,}")) } ?: return
-    val context = LocalContext.current
-    val activityManager = remember { context.getSystemService(android.content.Context.ACTIVITY_SERVICE) as android.app.ActivityManager }
-    val memInfo = remember { android.app.ActivityManager.MemoryInfo() }
-    activityManager.getMemoryInfo(memInfo)
-    if (memInfo.totalMem < 2L * 1024 * 1024 * 1024) return
+    val appContext = LocalContext.current.applicationContext
+    val activityManager = remember(appContext) { appContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager }
+    var canUseWebView by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) {
+        val memInfo = android.app.ActivityManager.MemoryInfo()
+        activityManager.getMemoryInfo(memInfo)
+        canUseWebView = memInfo.availMem >= 400L * 1024 * 1024 && memInfo.totalMem >= 2L * 1024 * 1024 * 1024
+    }
+    if (!canUseWebView) return
     var ready by remember(key) { mutableStateOf(false) }
     var playing by remember(key) { mutableStateOf(false) }
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
@@ -1020,12 +1030,13 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     // API YouTube (jank au moment du changement).
     if (ready) {
         AndroidView(
-            factory = { ctx: Context -> TrailerWebViewPool.obtain(ctx) },
+            factory = { TrailerWebViewPool.obtain(appContext) },
             update = { view -> TrailerWebViewPool.prepare(view, key, title, bridge) },
             onRelease = { view -> TrailerWebViewPool.release(view) },
             modifier = modifier.graphicsLayer { alpha = trailerAlpha },
         )
     }
+    DisposableEffect(Unit) { onDispose { TrailerWebViewPool.clearAll() } }
 }
 
 private class AmbientTrailerBridge(
@@ -1036,33 +1047,29 @@ private class AmbientTrailerBridge(
     @JavascriptInterface fun error() = onError()
 }
 
-/** Pool de WebViews de bandes-annonces ambiantes : maximum 2 instances
- *  vivantes (une à l'écran, une au repos), aucune création/destruction à
- *  chaque rotation du hero. La préparation est idempotente : update est
- *  appelé à chaque recomposition, prepare ne recharge la vidéo que si la
- *  clé (trailer) a changé. */
+/** Pool WebView : 1 idle max, applicationContext, pas de fuite Activity. */
 @SuppressLint("SetJavaScriptEnabled")
 private object TrailerWebViewPool {
     private val idle = ArrayDeque<WebView>()
-    private const val MAX_IDLE = 2
+    private const val MAX_IDLE = 1
 
     fun obtain(context: Context): WebView =
-        idle.removeLastOrNull() ?: WebView(context).apply {
+        idle.removeLastOrNull()?.also { it.tag = null } ?: WebView(context.applicationContext).apply {
             setBackgroundColor(AndroidColor.TRANSPARENT)
-            isFocusable = false
-            isFocusableInTouchMode = false
+            isFocusable = false; isFocusableInTouchMode = false
             settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
+            settings.domStorageEnabled = false
             settings.mediaPlaybackRequiresUserGesture = false
-            webChromeClient = WebChromeClient()
-            webViewClient = WebViewClient()
+            webChromeClient = WebChromeClient(); webViewClient = WebViewClient()
         }
 
     fun release(view: WebView) {
-        view.stopLoading()
+        view.stopLoading(); view.loadUrl("about:blank")
         view.removeJavascriptInterface("MovvizAmbient")
+        view.clearHistory(); view.tag = null
         if (idle.size < MAX_IDLE) idle.addLast(view) else view.destroy()
     }
+    fun clearAll() { while (idle.isNotEmpty()) idle.removeLast().destroy() }
 
     fun prepare(view: WebView, key: String, title: String, bridge: AmbientTrailerBridge) {
         if (view.tag == key) return

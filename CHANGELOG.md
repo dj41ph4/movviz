@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.11 — August 2026
+
+### Android TV : crash accueil corrigé définitivement
+
+`HomeScreen` `focusRequester` protégé (`runCatching + withFrameNanos` 8 frames), `heroIndex` garde anti-divide-by-zero, `AmbientTrailer` `availMem` 400Mo + `applicationContext` + pool `1` idle, plus de fuite WebView. D-pad `focusGroup`/`padding 80dp` stable.
+
 ## v1.22.10 — August 2026
 
 ### Retrait remaster HD + vignette statique + dashboard optimisé conservé
