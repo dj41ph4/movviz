@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.24 — August 2026
+
+### Correctif publication Docker
+
+Correction du workflow : les commentaires ne sont plus interprétés comme des tags Docker invalides.
+
 ## v1.22.23 — August 2026
 
 ### Publication Docker indépendante

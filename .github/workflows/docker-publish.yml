@@ -59,10 +59,9 @@ jobs:
           file: packaging/docker/Dockerfile
           platforms: ${{ matrix.platform }}
           push: true
-          tags: |
-            # Le NAS AMD64 doit pouvoir récupérer la version dès que son
-            # propre build est terminé, sans attendre le build ARM ni le
-            # manifeste multi-architecture final.
+            # Le NAS AMD64 doit récupérer latest dès que son propre build est
+            # terminé, sans attendre le build ARM ni le manifeste final.
+            tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/movviz:${{ matrix.latest_tag }}
             ${{ secrets.DOCKERHUB_USERNAME }}/movviz:latest-${{ matrix.arch }}
             ${{ secrets.DOCKERHUB_USERNAME }}/movviz:sha-${{ github.sha }}-${{ matrix.arch }}
