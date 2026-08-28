@@ -30,7 +30,7 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
-      - name: Diagnose standalone
+      - name: Diagnose tar failure
         run: |
           echo "=== file count ==="
           find .next/standalone -type f 2>/dev/null | wc -l
@@ -40,12 +40,29 @@ jobs:
           find .next/standalone -type p -o -type s 2>/dev/null | head -20
           echo "=== symlinks ==="
           find .next/standalone -type l 2>/dev/null | head -20
-          echo "=== tar test small ==="
-          tar -cf /dev/null -C .next/standalone server.js 2>&1 && echo "tar works on server.js"
-          echo "=== tar test node_modules ==="
-          tar -cf /dev/null -C .next/standalone node_modules 2>&1 && echo "tar works on node_modules" || echo "tar FAILED on node_modules"
-          echo "=== tar test full ==="
+          echo "=== tar test standalone only ==="
           tar -cf /dev/null -C .next/standalone . 2>&1 && echo "tar works on full standalone" || echo "tar FAILED on full standalone"
+          echo "=== tar test engine only ==="
+          tar -cf /dev/null -C . engine 2>&1 && echo "tar works on engine" || echo "tar FAILED on engine"
+          echo "=== tar test static only ==="
+          tar -cf /dev/null -C .next static 2>&1 && echo "tar works on static" || echo "tar FAILED on static"
+          echo "=== tar test full STAGE simulation ==="
+          STAGE="$(mktemp -d)/movviz"
+          mkdir -p "$STAGE"
+          cp -r .next/standalone/. "$STAGE/"
+          cp -r .next/static "$STAGE/.next/static"
+          cp -r engine "$STAGE/engine"
+          mkdir -p "$STAGE/packaging/linux"
+          cp packaging/linux/install.sh "$STAGE/packaging/linux/install.sh"
+          cp packaging/linux/README-LINUX.md "$STAGE/README-LINUX.md"
+          chmod +x "$STAGE/packaging/linux/install.sh"
+          cd "$(dirname "$STAGE")"
+          echo "=== tar test STAGE without gzip ==="
+          tar -cf /dev/null movviz 2>&1 && echo "tar works on STAGE uncompressed" || echo "tar FAILED on STAGE uncompressed"
+          echo "=== tar test STAGE with gzip ==="
+          tar -cf - movviz | gzip -9 > /dev/null 2>&1 && echo "tar+gzip works on STAGE" || echo "tar+gzip FAILED on STAGE"
+          echo "=== STAGE size ==="
+          du -sh "$STAGE"
 
       - name: Package standalone bundle + engine
         run: |
