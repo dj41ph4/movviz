@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.23 — August 2026
+
+### Publication Docker indépendante
+
+L’image AMD64 publie désormais le tag `latest` dès que son build est terminé. Le build ARM64 reste parallèle sur son propre tag et le manifeste multi-architecture est assemblé ensuite, ce qui permet aux NAS AMD64 de se mettre à jour sans attendre ARM64.
+
 ## v1.22.22 — August 2026
 
 ### Bandes-annonces : priorité et validation
