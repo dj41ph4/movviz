@@ -68,7 +68,9 @@ jobs:
           test -f "$STAGE/packaging/linux/movviz.service"
           test -f "$STAGE/README-LINUX.md"
 
-          tar -C "$(dirname "$STAGE")" -czf movviz-linux-x64.tar.gz movviz
+          cd "$(dirname "$STAGE")"
+          tar -cf - movviz | gzip -9 > "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz"
+          cd "$GITHUB_WORKSPACE"
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
