@@ -402,15 +402,21 @@ export async function buildHeroSlides(
   const byTmdbId = new Map(movies.map((m) => [m.tmdbId, m] as const));
 
   const slides: HeroSlide[] = [];
+  const skipped: HeroSlide[] = [];
   refs.forEach((ref, i) => {
     const detail = details[i];
     if (!detail) return;
-    // "Année minimale des carrousels" — same rule as the rows below the
-    // Hero: release before minYear (or unknown year) never makes the slate.
-    if (minYear && (detail.year ?? 0) < minYear) return;
     const score = scoreCandidate(detail, ref, { taste, locale, recentlyActiveTmdbIds, requestedKeys });
     const libraryFile = ref.type === "movie" ? byTmdbId.get(ref.tmdbId)?.file ?? null : null;
-    slides.push({ poolId: ref.poolId, libraryStatus: ref.libraryStatus, daysUntilRelease: ref.daysUntilRelease, libraryFile, detail, score });
+    const slide: HeroSlide = { poolId: ref.poolId, libraryStatus: ref.libraryStatus, daysUntilRelease: ref.daysUntilRelease, libraryFile, detail, score };
+    if (minYear && (detail.year ?? 0) < minYear) skipped.push(slide);
+    else slides.push(slide);
   });
-  return slides;
+  // Toujours 5 visuels : si minYear a trop filtré, on complète avec les écartés (triés par score) plutôt que laisser un hero à 2
+  if (slides.length < targetCount && skipped.length > 0) {
+    skipped.sort((a, b) => b.score.total - a.score.total);
+    slides.push(...skipped.slice(0, targetCount - slides.length));
+    slides.sort((a, b) => b.score.total - a.score.total);
+  }
+  return slides.slice(0, targetCount);
 }

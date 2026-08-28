@@ -262,7 +262,7 @@ TvTitleCard(
     // tmdb.ts), synopsis et statut viennent de /api/dashboard/hero. Le tri
     // local reste un repli instantané pendant le chargement ou hors-ligne.
     val heroItems = remember(dashboardHero, recentMovies, recentSeries) {
-        dashboardHero.map { slide ->
+        val primary = dashboardHero.map { slide ->
             val detail = slide.detail
             TvTitleCard(
                 id = "hero-${detail.type}-${detail.tmdbId}",
@@ -279,11 +279,15 @@ TvTitleCard(
                 runtime = detail.runtime,
                 trailerKeys = detail.ambientVideoKeys,
             )
-        }.filter { it.backdropPath != null }.take(HERO_COUNT).ifEmpty {
-            (recentMovies + recentSeries)
-                .filter { it.backdropPath != null }
+        }.filter { it.backdropPath != null }
+        if (primary.size >= HERO_COUNT) primary.take(HERO_COUNT)
+        else {
+            val needed = HERO_COUNT - primary.size
+            val fallback = (recentMovies + recentSeries)
+                .filter { it.backdropPath != null && it.tmdbId !in primary.map { p -> p.tmdbId } }
                 .sortedByDescending { it.rating }
-                .take(HERO_COUNT)
+                .take(needed)
+            (primary + fallback).take(HERO_COUNT)
         }
     }
 

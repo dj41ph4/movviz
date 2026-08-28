@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.15 — August 2026
+
+### Hero 5 visuels garantis + IA profils étanches
+
+Hero ne tombe plus à 2 visuels quand `minYear` filtre trop : les écartés reviennent triés par score pour toujours faire 5. IA : `getWatchStatus` + `getRecommendations` strictement par `userId` (Plex `accountId` vérifié, `rejectedForeignEntries` loggé), plus de film d'un autre profil.
+
 ## v1.22.14 — August 2026
 
 ### Recherche et liaison : Yellowstone corrigé + tri Tout/Films/Séries
