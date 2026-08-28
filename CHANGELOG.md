@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.18 — August 2026
+
+### Cartes : aperçu vidéo unifié au flux Hero/fiche
+
+L'aperçu au survol des cartes (`DashboardPosterCard`) utilise désormais exactement le même `TrailerHeader` que le Hero et la fiche (`trigger="immediate" enabled={videoPreviewEnabled}`) — même `backdrop`, mêmes `trailerKeys/enhancedSources`, même crossfade et même bouton mute. Seul le déclenchement reste à la souris (`videoReady` après 1s), le rendu vidéo est strictement identique.
+
 ## v1.22.17 — August 2026
 
 ### CI : correction du build Linux Release

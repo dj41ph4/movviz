@@ -565,7 +565,7 @@ export function DashboardPosterCard({
           className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
         >
           <div className="relative aspect-video overflow-hidden">
-            {videoReady && videoPreviewEnabled && ambientVideoKeys.length > 0 ? (
+            {videoReady && ambientVideoKeys.length > 0 ? (
               <TrailerHeader
                 backdropPath={backdropPath ?? null}
                 size="w780"
@@ -573,7 +573,7 @@ export function DashboardPosterCard({
                 enhancedSources={enhancedTrailerSources}
                 title={title}
                 trigger="immediate"
-                hideSoundToggle
+                enabled={videoPreviewEnabled}
                 className="h-full w-full"
               />
             ) : previewImage ? (
