@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.25 — August 2026
+
+### Workflow Docker
+
+Correction de l’indentation YAML et ajout d’un nom de workflow explicite pour les publications Docker.
+
 ## v1.22.24 — August 2026
 
 ### Correctif publication Docker
