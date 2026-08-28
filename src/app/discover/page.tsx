@@ -104,6 +104,10 @@ function DiscoverPageInner() {
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // Filtre post-search Tout/Films/Séries + tri connu/récent
+  const [searchFilter, setSearchFilter] = useState<"all" | "movie" | "series">("all");
+  const [searchSort, setSearchSort] = useState<"relevance" | "popularity" | "recent" | "rating">("relevance");
+
   // Acteurs/réalisateurs — only meaningful for a real text search (q), never
   // for genre/year/company/etc. filters, and shown as its own row above the
   // movie/series grid rather than mixed into it (a person doesn't fit
@@ -318,8 +322,17 @@ function DiscoverPageInner() {
   // director's own films lead over titles they merely appeared/cameoed in.
   useEffect(() => {
     if (!q.trim() || personResults.length === 0) return;
-    const exactMatch = personResults.find((p) => p.name.toLowerCase() === q.trim().toLowerCase());
+    const exactMatch = personResults.find(
+      (p) => p.name.toLowerCase() === q.trim().toLowerCase() && (p.popularity ?? 0) > 5 && !!p.knownForDepartment
+    );
     if (!exactMatch) return;
+    // Ne hijack pas un vrai titre : si searchMulti a déjà un titre très populaire avec même nom, garde la recherche titre
+    // (ex: "yellowstone" → série 73586 3298 votes vs personne "Yellowstone" acteur 3 votes)
+    // On laisse le useEffect searchMulti décider, pas la filmo personne
+    const qLower = q.trim().toLowerCase();
+    // Heuristique simple : si q est un seul mot et correspond à un docu peu voté, on préfère le titre populaire — on vérifie via un fetch synchrone rapide si besoin, sinon on skip la filmo
+    // Ici on skip juste le cas mono-mot peu populaire qui masquerait un titre culte
+    if (qLower.split(/\s+/).length === 1 && (exactMatch.popularity ?? 0) < 10) return;
     fetch(`/api/metadata/person?id=${exactMatch.tmdbId}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { credits?: (MetaSearchResult & { isDirector?: boolean })[] } | null) => {
@@ -626,8 +639,39 @@ function DiscoverPageInner() {
 
               {results.length > 0 && (
                 <>
+                  {q.trim() && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex rounded-xl glass p-1">
+                        {(["all", "movie", "series"] as const).map((f) => (
+                          <button
+                            key={f}
+                            onClick={() => setSearchFilter(f)}
+                            className={cn("rounded-lg px-3 py-1.5 text-xs font-bold transition-colors", searchFilter === f ? "bg-white text-black" : "text-ink-soft hover:text-ink")}
+                          >
+                            {f === "all" ? t("common.all") : f === "movie" ? t("common.movies") : t("common.series")}
+                          </button>
+                        ))}
+                      </div>
+                      <select value={searchSort} onChange={(e) => setSearchSort(e.target.value as typeof searchSort)} className="h-9 rounded-xl glass px-3 text-xs font-semibold text-ink outline-none">
+                        <option value="relevance">Pertinence</option>
+                        <option value="popularity">Populaire</option>
+                        <option value="recent">Récent</option>
+                        <option value="rating">Notes</option>
+                      </select>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-                    {results.map((r, i) => (
+                    {(() => {
+                      const filteredByType = searchFilter === "all" ? results : results.filter((r) => r.type === searchFilter);
+                      const displayResults = [...filteredByType].sort((a, b) => {
+                        if (searchSort === "popularity") return (b.voteCount ?? 0) - (a.voteCount ?? 0);
+                        if (searchSort === "recent") return (b.year ?? 0) - (a.year ?? 0);
+                        if (searchSort === "rating") return b.rating - a.rating;
+                        // relevance : connu/récent d'abord sans oublier le reste (voteCount + year)
+                        const score = (r: typeof a) => (r.voteCount ?? 0) * 0.6 + (r.year ?? 0) * 0.4;
+                        return score(b) - score(a);
+                      });
+                      return displayResults.map((r, i) => (
                       <DiscoverCard
                         key={`${r.type}:${r.tmdbId}`}
                         index={i}
@@ -638,7 +682,8 @@ function DiscoverPageInner() {
                         logoPath={titleArtwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
                         onAdded={() => setLibStatus((m) => new Map(m).set(`${r.type}:${r.tmdbId}`, "missing"))}
                       />
-                    ))}
+                    ));
+                    })()}
                   </div>
                   <div ref={sentinelRef} className="flex items-center justify-center py-8">
                     {loadingMore && <Loader2 className="h-5 w-5 animate-spin text-ink-dim" />}

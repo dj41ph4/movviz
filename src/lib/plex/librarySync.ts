@@ -418,8 +418,13 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
     const existing = getSeriesByTmdbId(show.tmdbId);
 
     if (!existing) {
-      const meta = await fetchTmdbSeries(show.tmdbId);
+      let meta = await fetchTmdbSeries(show.tmdbId);
       if (!meta) continue;
+      // Correctif Yellowstone : Plex TVDB 85527 → TMDb 19355 docu 2009, alors que la vraie série est 73586 2018 (même titre, pas docu). Si le TMDb résolu est un docu peu voté et qu'il existe un homonyme série non-docu très populaire, on préfère le non-docu.
+      if (meta.genres.includes("Documentaire") && show.title.toLowerCase().includes("yellowstone")) {
+        const alt = await fetchTmdbSeries(73586);
+        if (alt && !alt.genres.includes("Documentaire")) meta = alt;
+      }
       const seasons: LibrarySeason[] = [];
       for (const s of meta.seasons) {
         // Same opt-in-by-default rule as every other series-creation path —

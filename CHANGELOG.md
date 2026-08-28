@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.14 — August 2026
+
+### Recherche et liaison : Yellowstone corrigé + tri Tout/Films/Séries
+
+La recherche ne bascule plus en filmographie d'un acteur homonyme (`Yellowstone` acteur 3 votes → `Yellowstone` série 73586 3298 votes conservée), docu `19355` non proposé à la place de la série, et la page Découverte gagne un tri `Tout | Films | Séries` + `Pertinence/Populaire/Récent/Notes` sans refetch, avec mise en avant du connu/récent. Liaison Plex `tvdb://85527` → `73586` si docu.
+
 ## v1.22.13 — August 2026
 
 ### IA : anti-répétition généralisée
