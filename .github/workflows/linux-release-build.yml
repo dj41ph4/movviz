@@ -30,40 +30,6 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
-      - name: Diagnose tar failure
-        run: |
-          echo "=== file count ==="
-          find .next/standalone -type f 2>/dev/null | wc -l
-          echo "=== total size ==="
-          du -sh .next/standalone 2>/dev/null
-          echo "=== special files (pipes/sockets) ==="
-          find .next/standalone -type p -o -type s 2>/dev/null | head -20
-          echo "=== symlinks ==="
-          find .next/standalone -type l 2>/dev/null | head -20
-          echo "=== tar test standalone only ==="
-          tar -cf /dev/null -C .next/standalone . 2>&1 && echo "tar works on full standalone" || echo "tar FAILED on full standalone"
-          echo "=== tar test engine only ==="
-          tar -cf /dev/null -C . engine 2>&1 && echo "tar works on engine" || echo "tar FAILED on engine"
-          echo "=== tar test static only ==="
-          tar -cf /dev/null -C .next static 2>&1 && echo "tar works on static" || echo "tar FAILED on static"
-          echo "=== tar test full STAGE simulation ==="
-          STAGE="$(mktemp -d)/movviz"
-          mkdir -p "$STAGE"
-          cp -r .next/standalone/. "$STAGE/"
-          cp -r .next/static "$STAGE/.next/static"
-          cp -r engine "$STAGE/engine"
-          mkdir -p "$STAGE/packaging/linux"
-          cp packaging/linux/install.sh "$STAGE/packaging/linux/install.sh"
-          cp packaging/linux/README-LINUX.md "$STAGE/README-LINUX.md"
-          chmod +x "$STAGE/packaging/linux/install.sh"
-          cd "$(dirname "$STAGE")"
-          echo "=== tar test STAGE without gzip ==="
-          tar -cf /dev/null movviz 2>&1 && echo "tar works on STAGE uncompressed" || echo "tar FAILED on STAGE uncompressed"
-          echo "=== tar test STAGE with gzip ==="
-          tar -cf - movviz | gzip -9 > /dev/null 2>&1 && echo "tar+gzip works on STAGE" || echo "tar+gzip FAILED on STAGE"
-          echo "=== STAGE size ==="
-          du -sh "$STAGE"
-
       - name: Package standalone bundle + engine
         run: |
           set -euo pipefail
@@ -79,7 +45,6 @@ jobs:
           cp packaging/linux/movviz.service "$STAGE/packaging/linux/movviz.service"
           cp packaging/linux/README-LINUX.md "$STAGE/README-LINUX.md"
           chmod +x "$STAGE/packaging/linux/install.sh" "$STAGE/packaging/linux/uninstall.sh"
-          echo "Stage size: $(du -sh "$STAGE" | cut -f1)"
 
           test -f "$STAGE/server.js"
           test -f "$STAGE/package.json"
@@ -91,22 +56,14 @@ jobs:
           test -f "$STAGE/README-LINUX.md"
 
           cd "$(dirname "$STAGE")"
-          echo "Creating tar.gz..."
-          tar -cf - movviz | gzip -9 > /tmp/movviz-linux-x64.tar.gz
-          echo "tar.gz created: $(ls -lh /tmp/movviz-linux-x64.tar.gz)"
-          echo "Creating sha256..."
-          sha256sum /tmp/movviz-linux-x64.tar.gz > /tmp/movviz-linux-x64.tar.gz.sha256
-          echo "sha256 created"
-          echo "Copying to workspace..."
-          cp /tmp/movviz-linux-x64.tar.gz "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz"
-          cp /tmp/movviz-linux-x64.tar.gz.sha256 "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz.sha256"
-          echo "Copy done"
+          tar -cf - movviz | gzip -9 > "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz"
           cd "$GITHUB_WORKSPACE"
-          echo "Verifying..."
-          tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
-          tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
-          tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
-          echo "All done!"
+
+          tar -tzf movviz-linux-x64.tar.gz > /tmp/tar-list.txt
+          grep -qx 'movviz/packaging/linux/install.sh' /tmp/tar-list.txt
+          grep -qx 'movviz/packaging/linux/uninstall.sh' /tmp/tar-list.txt
+          grep -qx 'movviz/README-LINUX.md' /tmp/tar-list.txt
+          sha256sum movviz-linux-x64.tar.gz > movviz-linux-x64.tar.gz.sha256
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
