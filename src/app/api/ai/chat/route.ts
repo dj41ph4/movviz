@@ -596,11 +596,11 @@ export async function POST(req: NextRequest) {
       }
     }
   }
-  // Confirmed live TWICE: first against just the immediately-previous
-  // reply (fixed in v1.21.03), then again as an A/B/A/B pattern that skipped
-  // Compare against assistant prose from the whole recent conversation.
-  // A neutral question between two insults must not reset this memory.
-  const recentInsultReplies = insultStreak > 0 ? recentAssistantReplies(session.messages, 12) : [];
+  // Compare every prose reply against the whole recent conversation, not
+  // only during a detected insult streak. A neutral question between two
+  // provocations must not disable the anti-repeat safety net.
+  const recentReplies = recentAssistantReplies(session.messages, 12);
+  const isTalkFightTurn = insultStreak > 0;
   // Confirmed live: "je te laisse gagner ce round" reused, near word-for-
   // word, the exact template of an earlier reply ("je te laisse le dernier
   // mot… pour cette fois. Mais je te préviens, la prochaine fois, je te
@@ -612,17 +612,20 @@ export async function POST(req: NextRequest) {
   // — folded into one check so a single retry/fallback path covers all of
   // them, same discipline as everywhere else in this file: don't trust
   // prompt wording alone for anything code can verify deterministically.
-  const CONCESSION_PHRASE_RE = /\bje te laisse (?:gagner|le dernier mot)\b|\btu as gagn[ée]\b|\btu gagnes\b|je ne suis pas là pour me faire insulter|je préfère garder mon énergie|on a mieux à faire que de s'insulter|comme des ados en crise|Ah,? tu veux vraiment/i;
+  const CONCESSION_PHRASE_RE = /\bje te laisse (?:gagner|le dernier mot)\b|\btu as gagn[ée]\b|\btu gagnes\b|je ne suis pas là pour me faire insulter|je préfère garder mon énergie|on a mieux à faire que de s'insulter|comme des ados en crise/i;
   const BARE_ROUND_WORD_RE = /\bround\b/i;
   const GHOSTFACE_DIDASCALIE_RE = /\*?\s*voix de ghostface\s*\*?/i;
   const WEAK_BANNED_RE = /je te bats à chaque (?:fois|coup)|tu veux vraiment que je te prouve que t'es pas le plus malin/i;
-  const isRepeat = (text: string) => recentInsultReplies.some((prev) => sharesReplyTemplate(text, prev));
-  const violatesRules = (text: string) => isRepeat(text) || CONCESSION_PHRASE_RE.test(text) || BARE_ROUND_WORD_RE.test(text) || GHOSTFACE_DIDASCALIE_RE.test(text) || WEAK_BANNED_RE.test(text);
+  const isRepeat = (text: string) => recentReplies.some((prev) => sharesReplyTemplate(text, prev));
+  const violatesRules = (text: string) => isRepeat(text) || (isTalkFightTurn && (CONCESSION_PHRASE_RE.test(text) || BARE_ROUND_WORD_RE.test(text) || GHOSTFACE_DIDASCALIE_RE.test(text) || WEAK_BANNED_RE.test(text)));
   if (intent.action === null && intent.rawText !== BROKEN_ACTION_FALLBACK && violatesRules(intent.rawText)) {
-    for (let attempt = 0; attempt < 2 && violatesRules(intent.rawText); attempt++) {
+    for (let attempt = 0; attempt < 3 && violatesRules(intent.rawText); attempt++) {
       try {
-        const matched = recentInsultReplies.find((prev) => sharesReplyTemplate(intent.rawText, prev));
-        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a un problème : ${matched ? `elle reprenait quasiment mot pour mot une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}...")` : ""}${CONCESSION_PHRASE_RE.test(intent.rawText) ? " elle concédait la victoire à l'utilisateur (interdit : tu as TOUJOURS le dernier mot, jamais céder)" : ""}${BARE_ROUND_WORD_RE.test(intent.rawText) ? " elle prononçait le mot \"round\" à voix haute (interdit, reste toujours dans la scène)" : ""}${GHOSTFACE_DIDASCALIE_RE.test(intent.rawText) ? " elle ajoutait une didascalie *voix de ghostface* (interdit : dis juste la phrase nue \"Tu aimes les films d'horreur ?\" sans décor)" : ""}${WEAK_BANNED_RE.test(intent.rawText) ? " elle ressortait la même intro faible \"je te bats à chaque fois/coup\" (interdit, innove)" : ""}. Réponds cette fois avec une formulation ENTIÈREMENT différente, dominante, qui gagne le talk-fight, toujours en MODE 3 (texte normal, jamais de JSON), toujours sans citer de titre précis.`;
+        const matched = recentReplies.find((prev) => sharesReplyTemplate(intent.rawText, prev));
+        const retryStyle = isTalkFightTurn
+          ? "Garde ta répartie et ta personnalité, mais utilise un angle entièrement neuf. Une phrase courte suffit ; ne termine pas systématiquement par une question ou un retour au cinéma."
+          : "Conserve le sens, les faits et ta personnalité, mais reconstruis entièrement la réponse. Ne change pas de sujet et n'ajoute pas une relance artificielle.";
+        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a un problème : ${matched ? `elle reprenait la structure d'une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}...")` : ""}${isTalkFightTurn && CONCESSION_PHRASE_RE.test(intent.rawText) ? " elle concédait la victoire à l'utilisateur (interdit : tu as TOUJOURS le dernier mot, jamais céder)" : ""}${isTalkFightTurn && BARE_ROUND_WORD_RE.test(intent.rawText) ? " elle prononçait le mot \"round\" à voix haute (interdit, reste toujours dans la scène)" : ""}${isTalkFightTurn && GHOSTFACE_DIDASCALIE_RE.test(intent.rawText) ? " elle ajoutait une didascalie *voix de ghostface* (interdit : dis juste la phrase nue \"Tu aimes les films d'horreur ?\" sans décor)" : ""}${isTalkFightTurn && WEAK_BANNED_RE.test(intent.rawText) ? " elle ressortait une ancienne formule faible" : ""}. ${retryStyle}`;
         const retryRes = await callAi(config, retrySystem, session.messages);
         const retryIntent = parseIntent(retryRes.text);
         if (retryIntent.action === null && retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
@@ -632,25 +635,15 @@ export async function POST(req: NextRequest) {
     }
     // Confirmed live: falling back to the ORIGINAL (still-violating) reply
     // here just re-surfaces the exact bug being fixed — this model has a
-    // strong, reproducible pull toward this specific template and 2 retries
-    // don't reliably escape it. A small fixed pool of pre-written lines is
-    // a deterministic guarantee of variety that doesn't depend on the
-    // model's creativity under retry pressure. Keep these as short,
-    // single-angle exits: the old long fallback pool was itself recognisable
-    // as programmed dialogue after a few exchanges.
-    if (violatesRules(intent.rawText)) {
-      const FALLBACK_POOL = [
-        "Cette insulte avait encore l'étiquette du magasin. Personnalise-la la prochaine fois.",
-        "Trois mots, zéro impact. Même ton clavier attendait une meilleure chute.",
-        "Tu fais beaucoup de bruit pour une punchline livrée sans finition.",
-        "Joli brouillon. Préviens-moi quand tu passes à la version finale.",
-        "Ton attaque vient d'arriver, mais son talent est resté en transit.",
-        "C'était une vanne ou ton correcteur a abandonné au milieu ?",
-        "Le culot est là. La précision, elle, a raté le train.",
-        "Tu viens de lancer une insulte en qualité caméra. J'attends le master.",
-      ];
-      const unused = FALLBACK_POOL.find((line) => !isRepeat(line)) ?? FALLBACK_POOL[0];
-      intent = { action: null, items: [], rawText: unused };
+    // strong, reproducible pull toward this specific template and even
+    // three retries may not escape it. Keep the ultimate fallback short and
+    // contextual, especially when the user explicitly spotted the repeat.
+    if (isTalkFightTurn && violatesRules(intent.rawText)) {
+      const userNoticedRepeat = /\br[ée]p[èe]t|toujours (?:la|les) m[êe]me|disque ray[ée]/i.test(message);
+      const fallback = userNoticedRepeat
+        ? "Touché, celle-là était recyclée. Je change de disque — n'en déduis pas que tu as pris l'avantage."
+        : "Ta tentative vient d'arriver sans sa chute. Renvoie la version complète.";
+      intent = { action: null, items: [], rawText: fallback };
     }
   }
   // Confirmed live: a recommend/add request the model clearly attempted

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.13 — August 2026
+
+### IA : anti-répétition généralisée
+
+Le contrôle ne dépend plus d'une suite ininterrompue d'insultes : toutes les réponses conversationnelles sont comparées aux formulations récentes. Les provocations courtes comme « petite frappe » restent correctement identifiées après une question normale, trois reformulations sont tentées avant tout repli, et une remarque explicite sur une répétition reçoit une réponse contextuelle plutôt qu'une réplique générique. La personnalité existante est conservée.
+
 ## v1.22.12 — August 2026
 
 ### IA : personnalité conservée, répétitions supprimées

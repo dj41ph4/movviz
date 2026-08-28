@@ -1020,7 +1020,7 @@ export function isRecommendationContinuation(previousAssistantMessage: string | 
 // just mean one extra retry, never a wrong title resolved. Not anchored to
 // the whole string (unlike CHITCHAT_ONLY_RE) — a full sentence around the
 // insult ("tu sais bien que j'ai tout vu abruti") must still count.
-const INSULT_CONTENT_RE = /\b(con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|encul\w*|merde|putain|chier|emmerde|foutre|casse[- ]toi|gueule|f[ée]rme[- ]la|d[ée]gage|gonfles?|soules?|blaireau|bouffon|pourriture|ordure|malotru|casse[- ]pieds|casse[- ]bonbons|pute|papy|couill\w*|bite|bat rien|sers à rien|dis plus rien|te repetes?|vas y)\b/i;
+const INSULT_CONTENT_RE = /\b(con|connard|connasse|abruti|abrutie|d[ée]bile|cr[ée]tin|cr[ée]tine|nul|nulle|idiot|idiote|stupide|imb[ée]cile|tar[ée]|andouille|boulet|relou|naze|tocard|guignol|couillon|salaud|encul\w*|merde|putain|chier|emmerde|foutre|casse[- ]toi|gueule|f[ée]rme[- ]la|d[ée]gage|gonfles?|soules?|blaireau|bouffon|pourriture|ordure|malotru|casse[- ]pieds|casse[- ]bonbons|pute|papy|frappe|couill\w*|bite|bat rien|sers à rien|dis plus rien|te r[ée]p[èe]tes?|vas y)\b/i;
 
 export function isInsultMessage(message: string): boolean {
   return INSULT_CONTENT_RE.test(message);
