@@ -39,8 +39,7 @@ jobs:
 
       - name: Free disk space before packaging
         run: |
-          rm -rf node_modules .next/cache .pnpm-store /tmp/npm-*
-          df -h .
+          rm -rf node_modules .next/cache .pnpm-store
 
       - name: Package standalone bundle + engine
         run: |
@@ -58,7 +57,7 @@ jobs:
           cp packaging/linux/README-LINUX.md "$STAGE/README-LINUX.md"
           chmod +x "$STAGE/packaging/linux/install.sh" "$STAGE/packaging/linux/uninstall.sh"
           rm -rf .next node_modules
-          du -sh "$STAGE"
+          echo "Stage size: $(du -sh "$STAGE" | cut -f1)"
 
           test -f "$STAGE/server.js"
           test -f "$STAGE/package.json"
@@ -69,8 +68,13 @@ jobs:
           test -f "$STAGE/packaging/linux/movviz.service"
           test -f "$STAGE/README-LINUX.md"
 
-          tar -czf movviz-linux-x64.tar.gz -C "$(dirname "$STAGE")" movviz
-          df -h .
+          cd "$(dirname "$STAGE")"
+          tar -czf "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz" movviz
+          cd "$GITHUB_WORKSPACE"
+          tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
+          tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
+          tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
+          sha256sum movviz-linux-x64.tar.gz > movviz-linux-x64.tar.gz.sha256
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
