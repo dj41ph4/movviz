@@ -1059,6 +1059,19 @@ export function recentInsultStreakReplies(messages: { role: "user" | "assistant"
   return out;
 }
 
+/** Recent assistant prose across the whole conversation, not only the
+ * current insult streak. A normal question can interrupt a talk-fight and
+ * must not erase the formulations already used a few turns earlier. */
+export function recentAssistantReplies(messages: { role: "user" | "assistant"; content: string }[], max = 10): string[] {
+  const out: string[] = [];
+  for (let i = messages.length - 1; i >= 0 && out.length < max; i--) {
+    if (messages[i].role !== "assistant") continue;
+    const content = messages[i].content.trim();
+    if (content) out.push(content);
+  }
+  return out;
+}
+
 // Confirmed live: two full recommendation dumps landed back to back (round
 // 4 AND round 5 of the same insult exchange), even though the escalation-
 // exit rule in actions.ts explicitly says "une seule fois" — once the exit
@@ -1100,6 +1113,39 @@ export function sharesRepeatedPhrase(text: string, previous: string): boolean {
     if (b.includes(a.slice(i, i + REPEATED_PHRASE_MIN_LEN))) return true;
   }
   return false;
+}
+
+function wordNgrams(text: string, size: number): Set<string> {
+  const words = normalizeForRepeatCheck(text).split(" ").filter(Boolean);
+  const out = new Set<string>();
+  for (let i = 0; i + size <= words.length; i++) out.add(words.slice(i, i + size).join(" "));
+  return out;
+}
+
+/** Detects a recycled reply skeleton even when a few nouns/adjectives were
+ * swapped. Literal substring matching alone missed paraphrases such as
+ * "tu veux vraiment… / très bien… / sache une chose… / alors on parle…".
+ * This is deliberately stricter than a generic semantic comparison: it
+ * requires several identical word sequences, so two factual answers merely
+ * mentioning the same title do not become false positives. */
+export function sharesReplyTemplate(text: string, previous: string): boolean {
+  if (sharesRepeatedPhrase(text, previous)) return true;
+
+  const aWords = normalizeForRepeatCheck(text).split(" ").filter(Boolean);
+  const bWords = normalizeForRepeatCheck(previous).split(" ").filter(Boolean);
+  if (aWords.length < 7 || bWords.length < 7) return false;
+
+  const aTri = wordNgrams(text, 3);
+  const bTri = wordNgrams(previous, 3);
+  let sharedTri = 0;
+  for (const gram of aTri) if (bTri.has(gram)) sharedTri++;
+  if (sharedTri >= 2) return true;
+
+  const aBi = wordNgrams(text, 2);
+  const bBi = wordNgrams(previous, 2);
+  let sharedBi = 0;
+  for (const gram of aBi) if (bBi.has(gram)) sharedBi++;
+  return sharedBi >= 5;
 }
 
 export interface ExplicitTasteRating {

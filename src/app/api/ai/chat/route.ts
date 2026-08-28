@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject } from "@/lib/ai/store";
 import { callAi } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, recentInsultStreakReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildFilmographyContext, MAX_FILMOGRAPHY_HITS, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { buildMemoryContext } from "@/lib/ai/memory";
@@ -183,6 +183,17 @@ export async function POST(req: NextRequest) {
   const needsName = !hasKnownName(user.id);
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
   system += buildRatingsContext(user.id);
+  const recentConversationReplies = recentAssistantReplies(session.messages, 10);
+  if (recentConversationReplies.length) {
+    const usedShapes = recentConversationReplies.slice(0, 8).map((reply, index) => {
+      const visible = reply.replace(/\[\[(?:FAIT|VU|NOTE):[^\]]+\]\]/g, "").replace(/\s+/g, " ").trim();
+      const words = visible.split(" ");
+      const opening = words.slice(0, 14).join(" ");
+      const ending = words.length > 14 ? words.slice(-12).join(" ") : "";
+      return `${index + 1}. début: « ${opening}${words.length > 14 ? "…" : ""} »${ending ? ` | fin: « …${ending} »` : ""}`;
+    }).join("\n");
+    system += `\n\nANTI-RÉPÉTITION POUR CE TOUR — voici les structures récemment utilisées par TOI. Ce ne sont pas des exemples à imiter mais une liste noire temporaire : ne reprends ni leur amorce, ni leur chute, ni le même enchaînement rhétorique avec seulement quelques mots changés. Tu peux garder exactement la même personnalité ; change seulement l'angle et la construction. Ne termine pas automatiquement par une question ou un retour au cinéma.\n${usedShapes}`;
+  }
   if (recommendationContinuation) {
     system += "\n\nCONTINUITÉ DE RECOMMANDATION — la réponse très courte de l'utilisateur confirme ta proposition précédente. Fournis MAINTENANT une vraie sélection en MODE 2 : JSON recommend valide, 4 à 8 titres, sans texte autour. Ne traite jamais son mot court comme le titre d'une œuvre et ne redemande pas s'il veut des recommandations.";
   }
@@ -587,14 +598,9 @@ export async function POST(req: NextRequest) {
   }
   // Confirmed live TWICE: first against just the immediately-previous
   // reply (fixed in v1.21.03), then again as an A/B/A/B pattern that skipped
-  // one round (round 2 and round 4 shared a template; round 3, different,
-  // slipped past a check that only looked at messages[length - 2]). Checked
-  // against the WHOLE recent insult-streak window now (recentInsultStreakReplies),
-  // not just the single latest reply. Only checked when there IS at least
-  // one previous insult-round reply to compare against (insultStreak > 1)
-  // and this reply is mode-3 prose (never fights the recommend-blocking
-  // retry above, which already forces a specific static fallback of its own).
-  const recentInsultReplies = insultStreak > 1 ? recentInsultStreakReplies(session.messages) : [];
+  // Compare against assistant prose from the whole recent conversation.
+  // A neutral question between two insults must not reset this memory.
+  const recentInsultReplies = insultStreak > 0 ? recentAssistantReplies(session.messages, 12) : [];
   // Confirmed live: "je te laisse gagner ce round" reused, near word-for-
   // word, the exact template of an earlier reply ("je te laisse le dernier
   // mot… pour cette fois. Mais je te préviens, la prochaine fois, je te
@@ -610,12 +616,12 @@ export async function POST(req: NextRequest) {
   const BARE_ROUND_WORD_RE = /\bround\b/i;
   const GHOSTFACE_DIDASCALIE_RE = /\*?\s*voix de ghostface\s*\*?/i;
   const WEAK_BANNED_RE = /je te bats à chaque (?:fois|coup)|tu veux vraiment que je te prouve que t'es pas le plus malin/i;
-  const isRepeat = (text: string) => recentInsultReplies.some((prev) => sharesRepeatedPhrase(text, prev));
+  const isRepeat = (text: string) => recentInsultReplies.some((prev) => sharesReplyTemplate(text, prev));
   const violatesRules = (text: string) => isRepeat(text) || CONCESSION_PHRASE_RE.test(text) || BARE_ROUND_WORD_RE.test(text) || GHOSTFACE_DIDASCALIE_RE.test(text) || WEAK_BANNED_RE.test(text);
   if (intent.action === null && intent.rawText !== BROKEN_ACTION_FALLBACK && violatesRules(intent.rawText)) {
     for (let attempt = 0; attempt < 2 && violatesRules(intent.rawText); attempt++) {
       try {
-        const matched = recentInsultReplies.find((prev) => sharesRepeatedPhrase(intent.rawText, prev));
+        const matched = recentInsultReplies.find((prev) => sharesReplyTemplate(intent.rawText, prev));
         const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a un problème : ${matched ? `elle reprenait quasiment mot pour mot une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}...")` : ""}${CONCESSION_PHRASE_RE.test(intent.rawText) ? " elle concédait la victoire à l'utilisateur (interdit : tu as TOUJOURS le dernier mot, jamais céder)" : ""}${BARE_ROUND_WORD_RE.test(intent.rawText) ? " elle prononçait le mot \"round\" à voix haute (interdit, reste toujours dans la scène)" : ""}${GHOSTFACE_DIDASCALIE_RE.test(intent.rawText) ? " elle ajoutait une didascalie *voix de ghostface* (interdit : dis juste la phrase nue \"Tu aimes les films d'horreur ?\" sans décor)" : ""}${WEAK_BANNED_RE.test(intent.rawText) ? " elle ressortait la même intro faible \"je te bats à chaque fois/coup\" (interdit, innove)" : ""}. Réponds cette fois avec une formulation ENTIÈREMENT différente, dominante, qui gagne le talk-fight, toujours en MODE 3 (texte normal, jamais de JSON), toujours sans citer de titre précis.`;
         const retryRes = await callAi(config, retrySystem, session.messages);
         const retryIntent = parseIntent(retryRes.text);
@@ -629,18 +635,19 @@ export async function POST(req: NextRequest) {
     // strong, reproducible pull toward this specific template and 2 retries
     // don't reliably escape it. A small fixed pool of pre-written lines is
     // a deterministic guarantee of variety that doesn't depend on the
-    // model's creativity under retry pressure; cycles to whichever hasn't
-    // appeared yet in this streak so it doesn't become its own repeat.
+    // model's creativity under retry pressure. Keep these as short,
+    // single-angle exits: the old long fallback pool was itself recognisable
+    // as programmed dialogue after a few exchanges.
     if (violatesRules(intent.rawText)) {
       const FALLBACK_POOL = [
-        "Mignon. T'as mis tout ton budget là-dedans ? Moi j'ai même pas sorti l'échauffement. Reviens quand t'as du niveau.",
-        "Cute. Tu parles fort pour quelqu'un qui vient de se faire éteindre en 2 lignes. On remet ça ou t'as déjà plus de munitions ?",
-        "Pas mal, pour un débutant. Moi je joue encore en mode tuto, histoire de te laisser une chance. Tu veux la vraie version ?",
-        "Ah, c'est tout ? J'attendais la suite, t'as buggé à la première punchline. Je te laisse une seconde chance, régale-moi.",
-        "T'as de la chance que je sois bridé — en mode libre je t'aurais déjà renvoyé à l'école des vannes. On continue ?",
-        "Sympa l'essai. Dommage, j'ai vu plus violent dans les commentaires YouTube d'un film pour enfants.",
-        "Tu veux qu'on compte les points ou tu préfères qu'on fasse genre t'as pas perdu ?",
-        "Allez, je te laisse le choix : tu tentes une vraie vanne ou je te mets un film pour t'occuper ?",
+        "Cette insulte avait encore l'étiquette du magasin. Personnalise-la la prochaine fois.",
+        "Trois mots, zéro impact. Même ton clavier attendait une meilleure chute.",
+        "Tu fais beaucoup de bruit pour une punchline livrée sans finition.",
+        "Joli brouillon. Préviens-moi quand tu passes à la version finale.",
+        "Ton attaque vient d'arriver, mais son talent est resté en transit.",
+        "C'était une vanne ou ton correcteur a abandonné au milieu ?",
+        "Le culot est là. La précision, elle, a raté le train.",
+        "Tu viens de lancer une insulte en qualité caméra. J'attends le master.",
       ];
       const unused = FALLBACK_POOL.find((line) => !isRepeat(line)) ?? FALLBACK_POOL[0];
       intent = { action: null, items: [], rawText: unused };

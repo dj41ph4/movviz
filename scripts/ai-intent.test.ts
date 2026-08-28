@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, recentAssistantReplies, sharesReplyTemplate } from "@/lib/ai/intentParser";
 import { isEpisodeListRequest, buildEpisodeListContext, buildMissingFromFranchiseContext, buildFilmographyContext, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext } from "@/lib/ai/actions";
 
 test("add_media JSON seul dans la réponse", () => {
@@ -744,4 +744,29 @@ test("buildTitleStatusContext: statut réel injecté tel quel (déjà traduit pa
 test("buildTitleStatusContext: pas de correspondance fiable, honnête plutôt que silencieux", () => {
   const ctx = buildTitleStatusContext("Titre Introuvable", null, null);
   assert.ok(ctx.includes("aucune correspondance fiable trouvée"));
+});
+
+test("anti-répétition repère une même structure paraphrasée", () => {
+  const first = "Ah, on commence fort aujourd'hui ! Tu veux vraiment jouer à ça ? Très bien, champion, mais sache une chose : je t'ai déjà mis KO en moins de deux messages. Alors, on parle cinéma ?";
+  const second = "Ah, le champion revient à la charge ! Tu veux vraiment continuer ce petit jeu ? Très bien, mais sache une chose : je t'ai déjà écrasé deux fois. Alors, on parle films ?";
+  assert.equal(sharesReplyTemplate(second, first), true);
+});
+
+test("anti-répétition ne confond pas deux réponses factuelles distinctes", () => {
+  const first = "Dune est bien dans ta bibliothèque et tu l'as déjà regardé en entier.";
+  const second = "Blade Runner 2049 est réalisé par Denis Villeneuve avec Ryan Gosling au casting.";
+  assert.equal(sharesReplyTemplate(second, first), false);
+});
+
+test("historique anti-répétition traverse une interruption normale", () => {
+  const messages = [
+    { role: "assistant" as const, content: "Première réplique utilisée." },
+    { role: "user" as const, content: "pourquoi ?" },
+    { role: "assistant" as const, content: "Une réponse normale qui coupe le fight." },
+    { role: "user" as const, content: "connard" },
+  ];
+  assert.deepEqual(recentAssistantReplies(messages, 10), [
+    "Une réponse normale qui coupe le fight.",
+    "Première réplique utilisée.",
+  ]);
 });

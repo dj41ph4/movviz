@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.12 — August 2026
+
+### IA : personnalité conservée, répétitions supprimées
+
+L'assistant conserve son ton et sa personnalité, mais mémorise désormais les formulations récentes au-delà d'une interruption normale de la conversation. Les réponses qui recyclent la même structure avec quelques mots changés sont détectées puis régénérées ; les ouvertures, chutes et relances déjà utilisées servent aussi de liste noire temporaire. Les anciens replis trop reconnaissables ont été remplacés par des réponses courtes et variées.
+
 ## v1.22.11 — August 2026
 
 ### Android TV : crash accueil corrigé définitivement
