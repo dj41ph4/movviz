@@ -1,12 +1,5 @@
 name: Build Linux Release
 
-# Construit le bundle standalone Next.js + le moteur de téléchargement et les
-# empaquette dans une archive prête à l'emploi (movviz-linux-x64.tar.gz),
-# publiée en asset de la Release GitHub du tag. install.sh et la mise à jour
-# en un clic dans l'interface (Réglages → À propos, Linux uniquement) s'en
-# servent tous les deux — un seul bundle pré-construit à télécharger, jamais
-# de recompilation sur la machine cible.
-
 on:
   push:
     tags: ["v*"]
@@ -37,11 +30,23 @@ jobs:
       - name: Build production bundle
         run: npm run build
 
+      - name: Debug standalone contents
+        run: |
+          echo "=== Special files in standalone ==="
+          find .next/standalone -maxdepth 1 -type p -o -type s -o -type l 2>/dev/null || true
+          echo "=== Top-level size ==="
+          du -sh .next/standalone node_modules engine/node_modules 2>/dev/null || true
+          echo "=== File count ==="
+          find .next/standalone -type f | wc -l
+          echo "=== Symlinks ==="
+          find .next/standalone -type l | head -20 || true
+          echo "=== Inodes ==="
+          df -i .
+
       - name: Package standalone bundle + engine
         run: |
           set -euo pipefail
-          STAGE="/tmp/movviz-build/movviz"
-          rm -rf "$STAGE"
+          STAGE="$(mktemp -d)/movviz"
           mkdir -p "$STAGE"
           cp -r .next/standalone/. "$STAGE/"
           cp -r .next/static "$STAGE/.next/static"
@@ -53,7 +58,6 @@ jobs:
           cp packaging/linux/movviz.service "$STAGE/packaging/linux/movviz.service"
           cp packaging/linux/README-LINUX.md "$STAGE/README-LINUX.md"
           chmod +x "$STAGE/packaging/linux/install.sh" "$STAGE/packaging/linux/uninstall.sh"
-          echo "Stage size: $(du -sh "$STAGE" | cut -f1)"
 
           test -f "$STAGE/server.js"
           test -f "$STAGE/package.json"
@@ -64,9 +68,7 @@ jobs:
           test -f "$STAGE/packaging/linux/movviz.service"
           test -f "$STAGE/README-LINUX.md"
 
-          cd /tmp/movviz-build
-          tar -czf "$GITHUB_WORKSPACE/movviz-linux-x64.tar.gz" movviz
-          cd "$GITHUB_WORKSPACE"
+          tar -C "$(dirname "$STAGE")" -czf movviz-linux-x64.tar.gz movviz
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
