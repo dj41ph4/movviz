@@ -39,7 +39,8 @@ jobs:
 
       - name: Free disk space before packaging
         run: |
-          rm -rf node_modules .next/cache .pnpm-store
+          rm -rf node_modules .next/cache .pnpm-store /tmp/npm-*
+          df -h .
 
       - name: Package standalone bundle + engine
         run: |
@@ -57,6 +58,7 @@ jobs:
           cp packaging/linux/README-LINUX.md "$STAGE/README-LINUX.md"
           chmod +x "$STAGE/packaging/linux/install.sh" "$STAGE/packaging/linux/uninstall.sh"
           rm -rf .next node_modules
+          du -sh "$STAGE"
 
           test -f "$STAGE/server.js"
           test -f "$STAGE/package.json"
@@ -67,9 +69,8 @@ jobs:
           test -f "$STAGE/packaging/linux/movviz.service"
           test -f "$STAGE/README-LINUX.md"
 
-          TARBALL="$(dirname "$STAGE")/movviz-linux-x64.tar.gz"
-          tar -C "$(dirname "$STAGE")" -czf "$TARBALL" movviz
-          mv "$TARBALL" movviz-linux-x64.tar.gz
+          tar -czf movviz-linux-x64.tar.gz -C "$(dirname "$STAGE")" movviz
+          df -h .
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/install.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/packaging/linux/uninstall.sh'
           tar -tzf movviz-linux-x64.tar.gz | grep -qx 'movviz/README-LINUX.md'
