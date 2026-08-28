@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.17 — August 2026
+
+### CI : correction du build Linux Release
+
+Le step de vérification `tar -tzf | grep -qx` provoquait un SIGPIPE quand grep quittait prématurément après avoir trouvé une correspondance, tuant le pipeline sous `set -euo pipefail`. La vérification écrit désormais la liste des fichiers dans un fichier temporaire avant de grepper, éliminant le signal. Le runner est piné sur `ubuntu-22.04`.
+
 ## v1.22.16 — August 2026
 
 ### IA : dialogue dirigé, double Mistral et réponses factuelles complètes
