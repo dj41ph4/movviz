@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.22 — August 2026
+
+### Bandes-annonces : priorité et validation
+
+Les vidéos liées par TMDb sont désormais la seule source utilisée pour les aperçus ; l’ancien système de sources enrichies est neutralisé. Le fallback YouTube refuse tout résultat dont le titre et le type ne sont pas suffisamment validés, afin d’éviter les bandes-annonces d’un autre film.
+
 ## v1.22.21 — August 2026
 
 ### Fiche : jonction du dégradé

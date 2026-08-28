@@ -485,10 +485,9 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   // is deliberately absent here: it must never select an ambient preview.
   const candidates = useMemo<TrailerCandidate[]>(
     () => [
-      ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
       ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
     ],
-    [enhancedSources, trailerKeys]
+    [trailerKeys]
   );
   // Which candidate we're currently trying — advanced by onError below.
   // Reset to 0 whenever the candidate list itself changes (new title), not
@@ -653,10 +652,9 @@ export function TrailerModalPlayer({ trailerKeys, enhancedSources, title }: { tr
   const playerRef = useRef<any>(null);
   const candidates = useMemo<TrailerCandidate[]>(
     () => [
-      ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
       ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
     ],
-    [enhancedSources, trailerKeys]
+    [trailerKeys]
   );
   const [candidateIndex, setCandidateIndex] = useState(0);
   const candidate = candidates[candidateIndex] ?? null;

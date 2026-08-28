@@ -73,7 +73,10 @@ export async function searchYouTubeTrailer(
       if (!row.duration) score -= 5;
       return { row, score, index };
     }).sort((a, b) => b.score - a.score || a.index - b.index);
-    const winner = scored.find(({ row, score }) => score >= 45 && !excluded.test(row.title)) ?? scored.find(({ row }) => !excluded.test(row.title));
+    // Never return an unverified first result. If YouTube's markup no longer
+    // exposes usable metadata, the safe answer is no fallback at all; TMDb's
+    // validated candidates remain in control.
+    const winner = scored.find(({ row, score }) => score >= 45 && !excluded.test(row.title));
     if (winner) return winner.row.id;
 
 
