@@ -460,9 +460,17 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
           // The layout box (and therefore the iframe's viewport) is truly
           // 1920×1080. `scale()` only affects painting, so the card clips the
           // reduced image while YouTube selects its full-size player chrome.
-          ? "h-[1080px] w-[1920px] scale-[calc(100cqw/1920px)]"
-          : "h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh]",
-        extraZoom ? "scale-[1.15]" : "scale-110"
+          // Keep the normal 110% crop *inside* this same calculation: two
+          // Tailwind scale utilities overwrite one another rather than
+          // multiply, which would leave the 1920px iframe massively zoomed.
+          ? cn(
+              "h-[1080px] w-[1920px]",
+              extraZoom ? "scale-[calc(115cqw/1920px)]" : "scale-[calc(110cqw/1920px)]"
+            )
+          : cn(
+              "h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh]",
+              extraZoom ? "scale-[1.15]" : "scale-110"
+            )
       )}
     />
   );

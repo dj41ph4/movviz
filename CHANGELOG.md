@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.31 — August 2026
+
+### Aperçus vidéo
+
+Correction du redimensionnement du viewport 1920×1080 des cartes : le facteur de réduction et le cadrage normal sont maintenant combinés dans une même règle CSS. Les bandes-annonces ne sont donc plus sur-zoomées dans les cartes.
+
 ## v1.22.30 — August 2026
 
 ### Aperçus et Hero
