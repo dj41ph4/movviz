@@ -303,8 +303,11 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   // headroom for the user to increase the crop further.
   const cardTrailerZoom = Math.max(10, 210 + cardTrailerZoomOffset);
   const [viewportWidth, setViewportWidth] = useState(0);
-  const largeViewportScale = viewportWidth > 0
-    ? (viewportWidth / 1920) * (cardTrailerZoom / 100) * (extraZoom ? 1.05 : 1)
+  // Fallback 400px (= popover moyen) si la mesure n'a pas encore eu lieu
+  // (ResizeObserver dans un popover animé) — évite scale=0 invisible.
+  const effectiveViewportWidth = viewportWidth > 0 ? viewportWidth : 400;
+  const largeViewportScale = largeViewport
+    ? (effectiveViewportWidth / 1920) * (cardTrailerZoom / 100) * (extraZoom ? 1.05 : 1)
     : 0;
   const largeViewportScaleRef = useRef(largeViewportScale);
   largeViewportScaleRef.current = largeViewportScale;
@@ -545,9 +548,10 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   // is deliberately absent here: it must never select an ambient preview.
   const candidates = useMemo<TrailerCandidate[]>(
     () => [
+      ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
       ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
     ],
-    [trailerKeys]
+    [enhancedSources, trailerKeys]
   );
   // Which candidate we're currently trying — advanced by onError below.
   // Reset to 0 whenever the candidate list itself changes (new title), not
@@ -712,9 +716,10 @@ export function TrailerModalPlayer({ trailerKeys, enhancedSources, title }: { tr
   const playerRef = useRef<any>(null);
   const candidates = useMemo<TrailerCandidate[]>(
     () => [
+      ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
       ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
     ],
-    [trailerKeys]
+    [enhancedSources, trailerKeys]
   );
   const [candidateIndex, setCandidateIndex] = useState(0);
   const candidate = candidates[candidateIndex] ?? null;

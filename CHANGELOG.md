@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.39 — August 2026
+
+### Aperçus vidéo — hover réparé et zoom fidèle
+
+Le survol des cartes ne lançait plus la vidéo : l'iframe 1920×1080 était calculée à `scale(0)` tant que le `ResizeObserver` du popover n'avait pas rendu sa mesure. Un fallback à 400px (largeur moyenne du popover) rend la vidéo visible immédiatement puis corrigée à la mesure réelle. Restauration du fallback `enhancedSources` (Apple/IMDb direct) et vignette de réglage recentrée `max-w-[420px] rounded-[18px]` pour ressembler à la vraie carte — le principe reste la fenêtre 1080p YouTube downscalée en CSS pour garder la qualité.
+
 ## v1.22.38 — August 2026
 
 ### Aperçus vidéo
