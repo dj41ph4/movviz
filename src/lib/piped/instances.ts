@@ -178,7 +178,7 @@ export async function getHealthyPipedInstances(): Promise<string[]> {
     return true;
   });
   if (!healthy.length) {
-    // All instances in cooldown — return 2 with earliest expiry to avoid total outage
+    // All instances in cooldown - return 2 with earliest expiry to avoid total outage
     const sorted = [...list].sort((a, b) => {
       const da = map.get(a)?.disabledUntil ?? 0;
       const db = map.get(b)?.disabledUntil ?? 0;
