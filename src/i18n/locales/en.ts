@@ -46,6 +46,21 @@ export const en: Dictionary = {
     torrent: "Torrent",
     torrentHint: "Search every indexer",
     management: "Management",
+    blockedTorrents: "Blocked torrents",
+    blockedTorrentsHint: "Releases forbidden from downloading",
+  },
+
+  blockedTorrents: {
+    title: "Blocked torrents",
+    description: "These exact releases will no longer be selected automatically.",
+    empty: "No blocked torrents",
+    emptyHint: "Block a release from the download queue.",
+    block: "Block this release",
+    unblock: "Unblock",
+    confirmBlock: "Permanently block this release and cancel its download? Other releases for this title remain available.",
+    confirmUnblock: "Unblock this release? It can be selected again.",
+    unknownIndexer: "Unknown indexer",
+    blockedBy: "Blocked by {user} · {date}",
   },
 
   downloads: {

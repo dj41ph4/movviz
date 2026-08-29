@@ -245,12 +245,14 @@ export function QueueTab({ active = true }: { active?: boolean }) {
         case "block": {
           const item = items.find(i => i.id === itemId);
           if (item) {
-            await api(`/api/blocklist`, {
+            if (!(await confirmDialog(t("blockedTorrents.confirmBlock")))) break;
+            await api(`/api/blocked-releases`, {
               method: "POST",
               body: JSON.stringify({
-                type: item.media.type,
-                tmdbId: item.media.id,
-                reason: t("queue.blockedFromQueueReason"),
+                infoHash: item.download.infoHash ?? item.id,
+                releaseTitle: item.release.releaseTitle,
+                mediaTitle: item.media.title,
+                indexer: item.release.indexer,
               }),
             });
             await api(`${BASE}/torrents/${itemId}?deleteData=1`, { method: "DELETE" });
@@ -551,6 +553,7 @@ export function QueueTab({ active = true }: { active?: boolean }) {
                 onSetPriority={setPriority}
                 onToggleSeed={toggleSeed}
                 onRemove={remove}
+                canManage={user?.role === "admin"}
               />
             );
           }
@@ -632,13 +635,14 @@ interface QueueItemRowProps {
   onSetPriority: (id: string, priority: "high" | "medium" | "low") => void;
   onToggleSeed: (id: string, turnOn: boolean) => void;
   onRemove: (id: string, withData: boolean) => void;
+  canManage: boolean;
 }
 
 const PRIORITY_ORDER = ["high", "medium", "low"] as const;
 
 const QueueItemRow = memo(function QueueItemRow({
   item, isExpanded, actionLoading, t, locale,
-  onToggleExpand, onAction, onSetPriority, onToggleSeed, onRemove,
+  onToggleExpand, onAction, onSetPriority, onToggleSeed, onRemove, canManage,
 }: QueueItemRowProps) {
   const reduceMotion = useShouldReduceMotion();
   const displayProgress = useSmoothProgress(item.download.progress, item.release.size, item.download.downloadSpeed);
@@ -899,6 +903,17 @@ const QueueItemRow = memo(function QueueItemRow({
               )}
             >
               {actionLoading === `seed_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+            </motion.button>
+          )}
+          {canManage && (
+            <motion.button
+              {...btnSpring}
+              onClick={(e) => { e.stopPropagation(); onAction(item.id, "block"); }}
+              disabled={actionLoading !== null}
+              title={t("blockedTorrents.block")}
+              className="flex h-11 w-11 items-center justify-center rounded-lg glass text-down transition-colors hover:bg-down/15 disabled:opacity-40"
+            >
+              {actionLoading === `block_${item.id}` ? <Loader className="h-4 w-4 animate-spin" /> : <Ban className="h-4 w-4" />}
             </motion.button>
           )}
           <motion.button

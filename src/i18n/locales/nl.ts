@@ -46,6 +46,21 @@ export const nl: Dictionary = {
     torrent: "Torrent",
     torrentHint: "Doorzoek alle indexers",
     management: "Beheer",
+    blockedTorrents: "Geblokkeerde torrents",
+    blockedTorrentsHint: "Releases die niet gedownload mogen worden",
+  },
+
+  blockedTorrents: {
+    title: "Geblokkeerde torrents",
+    description: "Deze exacte releases worden niet meer automatisch geselecteerd.",
+    empty: "Geen geblokkeerde torrents",
+    emptyHint: "Blokkeer een release vanuit de downloadwachtrij.",
+    block: "Deze release blokkeren",
+    unblock: "Deblokkeren",
+    confirmBlock: "Deze release permanent blokkeren en de download annuleren? Andere releases van deze titel blijven beschikbaar.",
+    confirmUnblock: "Deze release deblokkeren? Hij kan weer geselecteerd worden.",
+    unknownIndexer: "Onbekende indexer",
+    blockedBy: "Geblokkeerd door {user} · {date}",
   },
 
   downloads: {

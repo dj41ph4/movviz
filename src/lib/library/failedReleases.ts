@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
+import { isBlockedRelease } from "@/lib/library/blockedReleases";
 
 /**
  * A release whose torrent the engine abandoned because no peer held the
@@ -40,5 +41,5 @@ export function recordFailedRelease(infoHash: string) {
 export function isRecentlyFailedRelease(infoHash: string | null | undefined): boolean {
   if (!infoHash) return false;
   const now = Date.now();
-  return read().some((r) => r.infoHash === infoHash && now - r.failedAt < COOLDOWN_MS);
+  return isBlockedRelease(infoHash) || read().some((r) => r.infoHash === infoHash && now - r.failedAt < COOLDOWN_MS);
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.27 — August 2026
+
+### Torrents bloqués
+
+Une release précise peut maintenant être interdite depuis la file de téléchargements. Le blocage est lié à son info-hash : les autres releases du même film ou de la même série restent donc disponibles. Une page « Torrents bloqués » dans Gestion permet de consulter et débloquer chaque torrent.
+
 ## v1.22.26 — August 2026
 
 ### Bandes-annonces TMDb

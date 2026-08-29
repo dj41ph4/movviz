@@ -7,6 +7,7 @@ import { logActivityV2, createReleaseRef, createDownloadRef } from "@/lib/activi
 import { requireUser } from "@/lib/auth/guard";
 import { markPendingVersionIntent } from "@/lib/library/pendingVersionIntent";
 import { markManualGrab } from "@/lib/library/manualGrab";
+import { isBlockedRelease } from "@/lib/library/blockedReleases";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,9 @@ export async function POST(req: NextRequest) {
   // acquisition (movie.file === null) : aucune intention, rien à remplacer.
   // Les séries/épisodes ne sont jamais concernés.
   const versionInfoHash = typeof body.infoHash === "string" ? body.infoHash : null;
+  if (isBlockedRelease(versionInfoHash)) {
+    return NextResponse.json({ error: "release_blocked" }, { status: 409 });
+  }
   if (versionInfoHash && decodedRef?.kind === "movie") {
     const movie = getMovie(decodedRef.movieId);
     if (movie?.file) markPendingVersionIntent(versionInfoHash, "replace");

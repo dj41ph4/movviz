@@ -44,6 +44,21 @@ export const fr = {
     torrent: "Torrent",
     torrentHint: "Interroger tous les indexeurs",
     management: "Gestion",
+    blockedTorrents: "Torrents bloqués",
+    blockedTorrentsHint: "Releases interdites au téléchargement",
+  },
+
+  blockedTorrents: {
+    title: "Torrents bloqués",
+    description: "Ces releases précises ne seront plus jamais sélectionnées automatiquement.",
+    empty: "Aucun torrent bloqué",
+    emptyHint: "Bloque une release depuis la file de téléchargements.",
+    block: "Bloquer cette release",
+    unblock: "Débloquer",
+    confirmBlock: "Bloquer définitivement cette release et annuler son téléchargement ? Les autres releases de ce titre restent disponibles.",
+    confirmUnblock: "Débloquer cette release ? Elle pourra à nouveau être sélectionnée.",
+    unknownIndexer: "Indexeur inconnu",
+    blockedBy: "Bloqué par {user} · {date}",
   },
 
   downloads: {
