@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.40 — August 2026
+
+### Aperçus vidéo — suppression des sources directes
+
+Sources Apple/IMDb direct virées : YouTube seul désormais, pas de toggle fiable et ça polluait l'aperçu. Le zoom 1080p downscalé reste.
+
 ## v1.22.39 — August 2026
 
 ### Aperçus vidéo — hover réparé et zoom fidèle

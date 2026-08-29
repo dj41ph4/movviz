@@ -543,15 +543,11 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   const croppedBackdrop = useCroppedBackdrop(backdropUrl);
   const [soundOn, setSoundOn] = useState(!initialMuted);
   const muted = !soundOn;
-  // Enhanced sources are strictly Apple/Netflix/Disney/Prime/IMDb, already
-  // identity-checked by their resolver. The retired remastered-search chain
-  // is deliberately absent here: it must never select an ambient preview.
+  // enhancedSources volontairement ignoré — YouTube seul, pas de toggle
+  // fiable avant, ça polluait l'aperçu sans pouvoir être coupé.
   const candidates = useMemo<TrailerCandidate[]>(
-    () => [
-      ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
-      ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
-    ],
-    [enhancedSources, trailerKeys]
+    () => [...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key }))],
+    [trailerKeys]
   );
   // Which candidate we're currently trying — advanced by onError below.
   // Reset to 0 whenever the candidate list itself changes (new title), not
@@ -715,11 +711,8 @@ export function TrailerModalPlayer({ trailerKeys, enhancedSources, title }: { tr
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const candidates = useMemo<TrailerCandidate[]>(
-    () => [
-      ...(enhancedSources ?? []).map((source): TrailerCandidate => ({ kind: "direct", source })),
-      ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
-    ],
-    [enhancedSources, trailerKeys]
+    () => [...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key }))],
+    [trailerKeys]
   );
   const [candidateIndex, setCandidateIndex] = useState(0);
   const candidate = candidates[candidateIndex] ?? null;
