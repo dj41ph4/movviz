@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.45 — August 2026
+
+### Carte hover — retour au même flux que Hero
+
+Le hover repasse exactement sur `TrailerHeader` comme le Hero (`1920×1080` downscalé, `trigger immediate`, `hideSoundToggle`/`hideTopGradient`), sans nouveau composant. Lié au toggle « Vidéo activée », vignette de réglage aussi en `TrailerHeader` pur et masquée si désactivé. Plus de black screen.
+
 ## v1.22.44 — August 2026
 
 ### Carte hover — black screen corrigé + Hero bouton fonctionnel

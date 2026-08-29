@@ -17,9 +17,10 @@ import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
-import { CardHoverVideo } from "@/components/media/CardHoverVideo";
+import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
+import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 
 /** How long the mouse must stay over the expanded popover before the static
  *  backdrop is swapped for the ambient trailer video — matches the "after a
@@ -222,7 +223,14 @@ export function DashboardPosterCard({
   const hasMeta = !!previewYear || !!previewRuntime || !!technical;
   const showRank = !!rank && rank >= 1 && rank <= 10;
   const ambientVideoKeys = previewDetail?.ambientVideoKeys ?? [];
-  // Pur YouTube, pas de enhanced — voir TrailerHeader
+  const enhancedTrailerSources = useTrailerSources(
+    type,
+    hovered ? tmdbId : null,
+    hovered ? title : null,
+    previewDetail?.originalTitle,
+    previewDetail?.year ?? year ?? null,
+    previewDetail?.imdbId ?? null,
+  );
 
   useEffect(() => {
     if (videoTimer.current) clearTimeout(videoTimer.current);
@@ -557,8 +565,21 @@ export function DashboardPosterCard({
           className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
         >
           <div className="relative aspect-video overflow-hidden bg-black">
-            {videoReady && ambientVideoKeys.length > 0 ? (
-              <CardHoverVideo trailerKeys={ambientVideoKeys} zoomOffset={cardTrailerZoomOffset} enabled={videoPreviewEnabled} />
+            {videoReady && videoPreviewEnabled && ambientVideoKeys.length > 0 ? (
+              <TrailerHeader
+                backdropPath={backdropPath ?? null}
+                size="w780"
+                trailerKeys={ambientVideoKeys}
+                enhancedSources={enhancedTrailerSources}
+                title={title}
+                trigger="immediate"
+                enabled
+                hideSoundToggle
+                hideTopGradient
+                largeViewport
+                cardTrailerZoomOffset={cardTrailerZoomOffset}
+                className="h-full w-full"
+              />
             ) : previewImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewImage} alt="" className="h-full w-full object-cover" />

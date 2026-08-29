@@ -5,7 +5,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
-import { CardHoverVideo } from "@/components/media/CardHoverVideo";
+import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 
 /**
@@ -52,9 +52,13 @@ export function ExperiencePanel() {
         <div className="mt-5 flex justify-center">
           <div className="w-full max-w-[420px] overflow-hidden rounded-[18px] border border-white/20 bg-black">
             <div className="relative aspect-video overflow-hidden bg-black">
-              <CardHoverVideo trailerKeys={["opI0klN3-Pw"]} zoomOffset={cardTrailerZoom.offset} enabled />
+              {titlePageVideo.enabled ? (
+                <TrailerHeader backdropPath={null} size="w780" trailerKeys={["opI0klN3-Pw"]} title="Avengers : Doomsday" trigger="immediate" enabled largeViewport cardTrailerZoomOffset={cardTrailerZoom.offset} hideSoundToggle hideTopGradient className="h-full w-full" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-black px-4 text-center text-sm text-ink-dim">Vidéo désactivée — active « Vidéo activée » pour voir l'aperçu</div>
+              )}
             </div>
-            <p className="px-3 py-2 text-xs text-ink-dim">Avengers : Doomsday — aperçu pur</p>
+            <p className="px-3 py-2 text-xs text-ink-dim">Avengers : Doomsday — aperçu pur {titlePageVideo.enabled ? "" : "(désactivé)"}</p>
           </div>
         </div>
       </div>
