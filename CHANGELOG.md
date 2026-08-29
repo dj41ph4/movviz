@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.43 — August 2026
+
+### Carte hover — logo conservé et débordement masqué
+
+L'image est bien masquée au profit de la vidéo pure `CardHoverVideo`, mais le logo/titre reste par-dessus. Le trop-plein 1080p est simplement rogné par `overflow-hidden rounded-[18px]` du cadre, sans sortir.
+
 ## v1.22.42 — August 2026
 
 ### Aperçus vidéo — refonte pure carte hover

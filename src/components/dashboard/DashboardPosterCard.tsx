@@ -565,15 +565,13 @@ export function DashboardPosterCard({
             ) : (
               <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
             )}
-            {!(videoReady && ambientVideoKeys.length > 0 && videoPreviewEnabled) && (
-              <div className="absolute inset-x-4 bottom-3 min-w-0">
-                {logoPath ? (
-                  <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
-                ) : !titleEmbedded ? (
-                  <span className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
-                ) : null}
-              </div>
-            )}
+            <div className="absolute inset-x-4 bottom-3 min-w-0">
+              {logoPath ? (
+                <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
+              ) : !titleEmbedded ? (
+                <span className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
+              ) : null}
+            </div>
           </div>
         </Link>
         <div className="space-y-2.5 p-3.5">
