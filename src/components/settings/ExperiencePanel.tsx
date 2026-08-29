@@ -5,7 +5,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
-import { TrailerHeader } from "@/components/media/TrailerHeader";
+import { CardHoverVideo } from "@/components/media/CardHoverVideo";
 import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 
 /**
@@ -50,11 +50,11 @@ export function ExperiencePanel() {
           <output className="w-14 text-right text-sm font-bold text-ink">{cardTrailerZoom.offset > 0 ? `+${cardTrailerZoom.offset}` : cardTrailerZoom.offset}</output>
         </div>
         <div className="mt-5 flex justify-center">
-          <div className="w-full max-w-[420px] overflow-hidden rounded-[18px] border border-white/20 bg-[#171522] shadow-[0_24px_70px_rgba(0,0,0,0.32)]">
-            <div className="aspect-video">
-              <TrailerHeader backdropPath={null} size="w780" trailerKeys={["opI0klN3-Pw"]} title="Avengers : Doomsday" trigger="immediate" cardTrailerZoomOffset={cardTrailerZoom.offset} largeViewport className="h-full w-full" />
+          <div className="w-full max-w-[420px] overflow-hidden rounded-[18px] border border-white/20 bg-black">
+            <div className="relative aspect-video overflow-hidden bg-black">
+              <CardHoverVideo trailerKeys={["opI0klN3-Pw"]} zoomOffset={cardTrailerZoom.offset} enabled />
             </div>
-            <p className="px-3 py-2 text-xs text-ink-dim">Avengers : Doomsday — aperçu en direct</p>
+            <p className="px-3 py-2 text-xs text-ink-dim">Avengers : Doomsday — aperçu pur</p>
           </div>
         </div>
       </div>

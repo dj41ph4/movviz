@@ -17,10 +17,9 @@ import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
-import { TrailerHeader } from "@/components/media/TrailerHeader";
+import { CardHoverVideo } from "@/components/media/CardHoverVideo";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
-import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 
 /** How long the mouse must stay over the expanded popover before the static
  *  backdrop is swapped for the ambient trailer video — matches the "after a
@@ -223,18 +222,7 @@ export function DashboardPosterCard({
   const hasMeta = !!previewYear || !!previewRuntime || !!technical;
   const showRank = !!rank && rank >= 1 && rank <= 10;
   const ambientVideoKeys = previewDetail?.ambientVideoKeys ?? [];
-  // Same candidate pipeline as the dashboard hero: direct enhanced source
-  // then YouTube. Previously card previews bypassed this and mounted YouTube
-  // directly, which made their visual startup and video quality noticeably
-  // different from the hero.
-  const enhancedTrailerSources = useTrailerSources(
-    type,
-    hovered ? tmdbId : null,
-    hovered ? title : null,
-    previewDetail?.originalTitle,
-    previewDetail?.year ?? year ?? null,
-    previewDetail?.imdbId ?? null,
-  );
+  // Pur YouTube, pas de enhanced — voir TrailerHeader
 
   useEffect(() => {
     if (videoTimer.current) clearTimeout(videoTimer.current);
@@ -568,33 +556,24 @@ export function DashboardPosterCard({
           data-skip-title-panel={playback ? "" : undefined}
           className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
         >
-          <div className="relative aspect-video overflow-hidden">
+          <div className="relative aspect-video overflow-hidden bg-black">
             {videoReady && ambientVideoKeys.length > 0 ? (
-              <TrailerHeader
-                backdropPath={backdropPath ?? null}
-                size="w780"
-                trailerKeys={ambientVideoKeys}
-                enhancedSources={enhancedTrailerSources}
-                title={title}
-                trigger="immediate"
-                enabled={videoPreviewEnabled}
-                largeViewport
-                cardTrailerZoomOffset={cardTrailerZoomOffset}
-                className="h-full w-full"
-              />
+              <CardHoverVideo trailerKeys={ambientVideoKeys} zoomOffset={cardTrailerZoomOffset} enabled={videoPreviewEnabled} />
             ) : previewImage ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={previewImage} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
             )}
-            <div className="absolute inset-x-4 bottom-3 min-w-0">
-              {logoPath ? (
-                <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
-              ) : !titleEmbedded ? (
-                <span className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
-              ) : null}
-            </div>
+            {!(videoReady && ambientVideoKeys.length > 0 && videoPreviewEnabled) && (
+              <div className="absolute inset-x-4 bottom-3 min-w-0">
+                {logoPath ? (
+                  <AdaptiveTitleLogo path={logoPath} size="w500" className="max-h-11 max-w-[210px] drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]" />
+                ) : !titleEmbedded ? (
+                  <span className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">{title}</span>
+                ) : null}
+              </div>
+            )}
           </div>
         </Link>
         <div className="space-y-2.5 p-3.5">

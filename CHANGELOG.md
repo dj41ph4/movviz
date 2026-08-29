@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.42 — August 2026
+
+### Aperçus vidéo — refonte pure carte hover
+
+Refonte de zéro : la carte hover affiche désormais la vidéo pure 1080p downscalée à la taille exacte de la carte, sans ombrage ni voile, qui remplace l'image au survol. Nouveau composant `CardHoverVideo` (YouTube seul, muet, loop, `400px` fixe), zoom serveur/admin inchangé, vignette de réglage en `CardHoverVideo` pure `max-w-[420px]` sur fond noir.
+
 ## v1.22.41 — August 2026
 
 ### Aperçus vidéo — hover réparé, zoom serveur
