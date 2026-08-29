@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.51 — August 2026
+
+### Carte — délai vidéo à 500ms
+
+`CARD_VIDEO_DELAY_MS` de `1000` → `500` (`DashboardPosterCard.tsx:32`).
+
 ## v1.22.50 — August 2026
 
 ### Revert — retour à la 1.22.27 stable
