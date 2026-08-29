@@ -1367,6 +1367,8 @@ export const en: Dictionary = {
       titlePageVideoTitle: "Video previews",
       titlePageVideoHint: "Animated trailer background on movie/series pages, and on hover over a poster in carousels. Disable to keep a static image everywhere.",
       titlePageVideoEnabled: "Video enabled",
+      cardTrailerZoomTitle: "Card preview zoom",
+      cardTrailerZoomHint: "0 keeps the normal framing. Adjust from -100 to +100 to zoom card trailers out or in.",
       specialEpisodesTitle: "Special episodes",
       specialEpisodesHint: "Off by default: special episodes (season 0) don't count toward a series' \"fully watched\" status. Turn on to count them like regular episodes.",
       specialEpisodesEnabled: "Count special episodes",

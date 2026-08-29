@@ -14,6 +14,7 @@ import { toast } from "@/components/ui/Toast";
 import type { MetaDetail } from "@/lib/metadata/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
+import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
@@ -187,6 +188,7 @@ export function DashboardPosterCard({
   const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
   const { enabled: videoPreviewEnabled } = useTitlePageVideo();
+  const { offset: cardTrailerZoomOffset } = useCardTrailerZoom();
   const { play } = usePlayer();
   const [hovered, setHovered] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
@@ -577,6 +579,7 @@ export function DashboardPosterCard({
                 trigger="immediate"
                 enabled={videoPreviewEnabled}
                 largeViewport
+                cardTrailerZoomOffset={cardTrailerZoomOffset}
                 className="h-full w-full"
               />
             ) : previewImage ? (

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.32 — August 2026
+
+### Aperçus vidéo
+
+Réglage personnel « Zoom des aperçus dans les cartes » ajouté dans Réglages → Images et aperçus. Son curseur va de -100 à +100 autour de 0 et se propage immédiatement aux cartes ouvertes, sans rechargement.
+
 ## v1.22.31 — August 2026
 
 ### Aperçus vidéo

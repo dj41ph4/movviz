@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Hls from "hls.js";
 import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
 
@@ -275,6 +275,7 @@ export interface TrailerHeaderProps {
    *  viewport, then scale that viewport down to the card. This keeps YouTube
    *  out of its small-player chrome without changing the Hero or title page. */
   largeViewport?: boolean;
+  cardTrailerZoomOffset?: number;
   className?: string;
 }
 
@@ -291,7 +292,7 @@ const LOOP_POLL_MS = 250;
 // covers it reliably. Keep backdrop opaque during this window.
 const YOUTUBE_CHROME_SETTLE_MS = 1500;
 
-function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, largeViewport }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; largeViewport?: boolean }) {
+function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, largeViewport, cardTrailerZoomOffset = 0 }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; largeViewport?: boolean; cardTrailerZoomOffset?: number }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
@@ -465,7 +466,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
           // multiply, which would leave the 1920px iframe massively zoomed.
           ? cn(
               "h-[1080px] w-[1920px]",
-              extraZoom ? "scale-[calc(115cqw/1920px)]" : "scale-[calc(110cqw/1920px)]"
+              extraZoom ? "scale-[calc((var(--card-trailer-zoom)+5)*1cqw/1920px)]" : "scale-[calc(var(--card-trailer-zoom)*1cqw/1920px)]"
             )
           : cn(
               "h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh]",
@@ -476,7 +477,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, largeViewport = false, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, largeViewport = false, cardTrailerZoomOffset = 0, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -555,7 +556,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
       // briefly painting past this boundary during ad load — paint
       // containment is a hard clip guarantee at the compositor level,
       // closing that gap regardless of what the embedded iframe does.
-      style={{ containerType: "size", contain: "paint" }}
+      style={{ containerType: "size", contain: "paint", ...(largeViewport ? { "--card-trailer-zoom": Math.max(10, 110 + cardTrailerZoomOffset) } : {}) } as CSSProperties}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -597,7 +598,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
               onError={onVideoError}
             />
           ) : (
-            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} largeViewport={largeViewport} />
+            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} largeViewport={largeViewport} cardTrailerZoomOffset={cardTrailerZoomOffset} />
           )}
           {!hideTopGradient && (
             /* Masque la barre titre/channel de YouTube. Les cartes utilisent

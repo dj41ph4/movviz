@@ -4,6 +4,7 @@ import { useT } from "@/i18n/provider";
 import { Toggle } from "@/components/ui/Toggle";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
+import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
 
 /**
  * General viewing-experience preferences — cross-page personal toggles that
@@ -24,6 +25,7 @@ export function ExperiencePanel() {
   const t = useT();
   const titlePageVideo = useTitlePageVideo();
   const specialEpisodes = useSpecialEpisodes();
+  const cardTrailerZoom = useCardTrailerZoom();
 
   return (
     <div className="space-y-6">
@@ -33,6 +35,15 @@ export function ExperiencePanel() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.titlePageVideoEnabled")}</span>
           <Toggle on={titlePageVideo.enabled} onChange={() => titlePageVideo.setEnabled(!titlePageVideo.enabled)} />
+        </div>
+      </div>
+
+      <div className="rounded-2xl glass p-5">
+        <h3 className="mb-1 font-bold text-ink">{t("settings.experience.cardTrailerZoomTitle")}</h3>
+        <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.cardTrailerZoomHint")}</p>
+        <div className="flex items-center gap-4">
+          <input aria-label={t("settings.experience.cardTrailerZoomTitle")} type="range" min="-100" max="100" step="1" value={cardTrailerZoom.offset} onChange={(event) => cardTrailerZoom.setOffset(Number(event.target.value))} className="w-full accent-brand" />
+          <output className="w-14 text-right text-sm font-bold text-ink">{cardTrailerZoom.offset > 0 ? `+${cardTrailerZoom.offset}` : cardTrailerZoom.offset}</output>
         </div>
       </div>
 

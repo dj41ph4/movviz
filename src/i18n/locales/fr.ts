@@ -1364,6 +1364,8 @@ export const fr = {
       titlePageVideoTitle: "Aperçus vidéo",
       titlePageVideoHint: "Bande-annonce en fond animé sur les pages film/série, et au survol d'une affiche dans les carrousels. Désactive pour garder une image fixe partout.",
       titlePageVideoEnabled: "Vidéo activée",
+      cardTrailerZoomTitle: "Zoom des aperçus dans les cartes",
+      cardTrailerZoomHint: "0 reprend le cadrage normal. Ajuste de -100 à +100 pour reculer ou zoomer les bandes-annonces des cartes.",
       specialEpisodesTitle: "Épisodes spéciaux",
       specialEpisodesHint: "Désactivé par défaut : les épisodes spéciaux (saison 0) ne comptent pas dans le statut « série vue complètement ». Active pour les inclure comme des épisodes normaux.",
       specialEpisodesEnabled: "Compter les épisodes spéciaux",
