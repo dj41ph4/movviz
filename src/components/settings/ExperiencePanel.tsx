@@ -5,6 +5,7 @@ import { Toggle } from "@/components/ui/Toggle";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
 import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
+import { TrailerHeader } from "@/components/media/TrailerHeader";
 
 /**
  * General viewing-experience preferences — cross-page personal toggles that
@@ -44,6 +45,12 @@ export function ExperiencePanel() {
         <div className="flex items-center gap-4">
           <input aria-label={t("settings.experience.cardTrailerZoomTitle")} type="range" min="-100" max="100" step="1" value={cardTrailerZoom.offset} onChange={(event) => cardTrailerZoom.setOffset(Number(event.target.value))} className="w-full accent-brand" />
           <output className="w-14 text-right text-sm font-bold text-ink">{cardTrailerZoom.offset > 0 ? `+${cardTrailerZoom.offset}` : cardTrailerZoom.offset}</output>
+        </div>
+        <div className="mt-5 overflow-hidden rounded-xl border border-white/10">
+          <div className="aspect-video">
+            <TrailerHeader backdropPath={null} size="w780" trailerKeys={["opI0klN3-Pw"]} title="Avengers : Doomsday" trigger="immediate" cardTrailerZoomOffset={cardTrailerZoom.offset} largeViewport className="h-full w-full" />
+          </div>
+          <p className="px-3 py-2 text-xs text-ink-dim">Avengers : Doomsday — aperçu de réglage en direct</p>
         </div>
       </div>
 

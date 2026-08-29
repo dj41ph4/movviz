@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.33 — August 2026
+
+### Aperçus vidéo
+
+La page Images et aperçus contient maintenant une vignette Doomsday en boucle pour régler le zoom des cartes en direct.
+
 ## v1.22.32 — August 2026
 
 ### Aperçus vidéo
