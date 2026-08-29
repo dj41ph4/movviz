@@ -23,6 +23,7 @@ import { loadRequests } from "@/lib/requests/store";
 import { getDetail, trending } from "@/lib/metadata/tmdb";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { getFeedback } from "@/lib/ai/tasteProfile";
 import type { LibraryFile, LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
 import type { MetaDetail } from "@/lib/metadata/types";
 
@@ -268,6 +269,26 @@ function seededShuffle<T>(list: T[], seed: number): T[] {
   return out;
 }
 
+function normalizeGenre(value: string): string {
+  return value
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+/**
+ * A "Moins de ce genre" response is deliberately stronger than a normal
+ * score tie-breaker. The exact title is excluded elsewhere; this penalty
+ * makes nearby titles less likely while still leaving the carousel usable
+ * when the user's available catalogue is small.
+ */
+function dislikedGenrePenalty(detail: MetaDetail, avoidedGenres: Set<string>): number {
+  const overlaps = detail.genres.filter((genre) => avoidedGenres.has(normalizeGenre(genre))).length;
+  return overlaps === 0 ? 0 : Math.min(0.9, overlaps * 0.45);
+}
+
 async function gatherCandidateRefs(userId: string, targetCount: number, mix: HeroContentMixOptions): Promise<HeroCandidateRef[]> {
   const seed = dailySeed(userId);
 /** Dedupes within a single list, preserving first-seen order — called once per list, never re-applied to the same list twice. */
@@ -383,11 +404,25 @@ export async function buildHeroSlides(
   youtubeTrailerSearch = false,
   minYear: number | null = null
 ): Promise<HeroSlide[]> {
+  const negativeFeedback = getFeedback(userId).filter((feedback) => !feedback.liked);
+  const rejectedKeys = new Set(negativeFeedback.map((feedback) => `${feedback.type}:${feedback.tmdbId}`));
+  // `reason` is the explicit set of genres shown on the Hero at the moment
+  // the user asks for less of it. Splitting only on commas keeps multi-word
+  // genres such as "Science-Fiction" intact.
+  const avoidedGenres = new Set(
+    negativeFeedback
+      .flatMap((feedback) => (feedback.reason ?? "").split(","))
+      .map(normalizeGenre)
+      .filter(Boolean)
+  );
   // The year cutoff is evaluated only after resolving TMDb detail. Looking
   // at six refs then filtering them could leave the Hero half empty even
   // though plenty of newer titles exist later in recommendations/trending.
   // Enrich a bounded broader pool instead, then take the first eligible six.
-  const candidateCount = minYear ? Math.max(targetCount * 4, 24) : targetCount;
+  // Rejected titles are hard-filtered only after TMDb enrichment. Fetch a
+  // wider bounded pool whenever feedback exists so a dismissed Hero item is
+  // replaced instead of leaving an empty slot.
+  const candidateCount = minYear || negativeFeedback.length > 0 ? Math.max(targetCount * 4, 24) : targetCount;
   const refs = await gatherCandidateRefs(userId, candidateCount, mix.includeOwned || mix.includeUnowned ? mix : { includeOwned: true, includeUnowned: true });
   if (refs.length === 0) return [];
 
@@ -425,6 +460,7 @@ export async function buildHeroSlides(
   refs.forEach((ref, i) => {
     const detail = details[i];
     if (!detail) return;
+    if (rejectedKeys.has(`${ref.type}:${ref.tmdbId}`)) return;
     const score = scoreCandidate(detail, ref, { taste, locale, recentlyActiveTmdbIds, requestedKeys });
     const libraryFile = ref.type === "movie" ? byTmdbId.get(ref.tmdbId)?.file ?? null : null;
     const slide: HeroSlide = { poolId: ref.poolId, libraryStatus: ref.libraryStatus, daysUntilRelease: ref.daysUntilRelease, libraryFile, detail, score };
@@ -434,5 +470,16 @@ export async function buildHeroSlides(
     if (minYear && (detail.year ?? 0) < minYear) return;
     slides.push(slide);
   });
+  // Keep the normal explainable score as the primary ordering, then apply a
+  // strong but non-destructive avoidance penalty from explicit "less of this
+  // genre" feedback. This gives the user an immediate, meaningful change
+  // without making a single reaction an irreversible catalogue filter.
+  if (avoidedGenres.size > 0) {
+    slides.sort((a, b) => {
+      const aScore = a.score.total - dislikedGenrePenalty(a.detail, avoidedGenres);
+      const bScore = b.score.total - dislikedGenrePenalty(b.detail, avoidedGenres);
+      return bScore - aScore;
+    });
+  }
   return slides.slice(0, targetCount);
 }

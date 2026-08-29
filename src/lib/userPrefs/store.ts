@@ -51,6 +51,8 @@ export interface UserPrefs {
    *  trailerAutoplay (dashboard-layout.json) — two different screens, two
    *  different toggles, same "video vs static image" idea. */
   titlePageVideoEnabled?: boolean;
+  /** Hover card — même idée mais toggle dédié, 30ms, au-dessus de l'image sous le logo */
+  cardVideoEnabled?: boolean;
   /** Per-user crop offset for YouTube previews inside dashboard cards. */
   cardTrailerZoomOffset?: number;
   cardTrailerZoomV2?: boolean;
@@ -94,6 +96,7 @@ function sanitize(prefs: unknown): UserPrefs {
     clean.preferredAudioLanguage = p.preferredAudioLanguage as PreferredAudioLanguage;
   }
   if (typeof p.titlePageVideoEnabled === "boolean") clean.titlePageVideoEnabled = p.titlePageVideoEnabled;
+  if (typeof p.cardVideoEnabled === "boolean") clean.cardVideoEnabled = p.cardVideoEnabled;
   if (typeof p.cardTrailerZoomOffset === "number" && Number.isInteger(p.cardTrailerZoomOffset) && p.cardTrailerZoomOffset >= -100 && p.cardTrailerZoomOffset <= 100) clean.cardTrailerZoomOffset = p.cardTrailerZoomOffset;
   if (typeof p.cardTrailerZoomV2 === "boolean") clean.cardTrailerZoomV2 = p.cardTrailerZoomV2;
   if (typeof p.specialEpisodesEnabled === "boolean") clean.specialEpisodesEnabled = p.specialEpisodesEnabled;

@@ -13,7 +13,7 @@ import { useI18n } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import type { MetaDetail } from "@/lib/metadata/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
-import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
+import { useCardVideo } from "@/lib/settings/useCardVideo";
 import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
@@ -22,15 +22,8 @@ import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 
-/** How long the mouse must stay over the expanded popover before the static
- *  backdrop is swapped for the ambient trailer video — matches the "after a
- *  second, not instantly" pacing already used by TrailerHeader's own (unused
- *  today) hover trigger. Driven from here instead of TrailerHeader's
- *  trigger="hover" mode: that mode starts its own clock on a real DOM
- *  mouseenter event, which never fires for a node that mounts while the
- *  cursor is already over it — exactly the case here, since this box only
- *  appears once the popover itself is already showing. */
-const CARD_VIDEO_DELAY_MS = 1000;
+/** 30ms — vidéo au-dessus de l'image sous le logo, même flux que fiche. */
+const CARD_VIDEO_DELAY_MS = 30;
 
 const fetcher = (url: string) => fetch(url).then((response) => (response.ok ? response.json() : null));
 
@@ -187,7 +180,7 @@ export function DashboardPosterCard({
 }) {
   const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
-  const { enabled: videoPreviewEnabled } = useTitlePageVideo();
+  const { enabled: videoPreviewEnabled } = useCardVideo();
   const { offset: cardTrailerZoomOffset } = useCardTrailerZoom();
   const { play } = usePlayer();
   const [hovered, setHovered] = useState(false);
@@ -570,26 +563,31 @@ export function DashboardPosterCard({
           className="group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow"
         >
           <div className="relative aspect-video overflow-hidden bg-black">
-            {videoReady && videoPreviewEnabled && ambientVideoKeys.length > 0 ? (
-              <TrailerHeader
-                backdropPath={backdropPath ?? null}
-                size="w780"
-                trailerKeys={ambientVideoKeys}
-                enhancedSources={enhancedTrailerSources}
-                title={title}
-                trigger="immediate"
-                enabled
-                hideSoundToggle
-                hideTopGradient
-                largeViewport
-                cardTrailerZoomOffset={cardTrailerZoomOffset}
-                className="h-full w-full"
-              />
-            ) : previewImage ? (
+            {/* image en fond */}
+            {previewImage ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={previewImage} alt="" className="h-full w-full object-cover" />
+              <img src={previewImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
             ) : (
-              <div className="h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
+              <div className="absolute inset-0 h-full w-full bg-[radial-gradient(circle_at_30%_20%,rgba(181,64,255,0.36),transparent_45%),#12111c]" />
+            )}
+            {/* vidéo au-dessus de l'image, en dessous du logo — même flux que fiche */}
+            {videoReady && videoPreviewEnabled && ambientVideoKeys.length > 0 && (
+              <div className="absolute inset-0">
+                <TrailerHeader
+                  backdropPath={backdropPath ?? null}
+                  size="w780"
+                  trailerKeys={ambientVideoKeys}
+                  enhancedSources={enhancedTrailerSources}
+                  title={title}
+                  trigger="immediate"
+                  enabled
+                  hideSoundToggle
+                  hideTopGradient
+                  largeViewport
+                  cardTrailerZoomOffset={cardTrailerZoomOffset}
+                  className="h-full w-full"
+                />
+              </div>
             )}
             <div className="absolute inset-x-4 bottom-3 min-w-0">
               {logoPath ? (

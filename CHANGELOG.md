@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.48 — August 2026
+
+### Carte hover — 30ms, vidéo au-dessus de l'image sous le logo, toggle dédié
+
+Vidéo hover à 30ms au-dessus de l'image sous le logo, même flux YouTube que la fiche. Nouveau toggle `cardVideoEnabled` dans `user-preferences.json` et `ExperiencePanel`. Hero : bouton « Moins de ce genre » fonctionnel avec exclusion immédiate, pénalité de genre et `mutate()`.
+
 ## v1.22.47 — August 2026
 
 ### Aperçus vidéo des cartes
