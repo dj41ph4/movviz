@@ -355,18 +355,15 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
             try {
               const iframe = e.target.getIframe?.();
               if (iframe && hostRef.current) {
-                iframe.className = hostRef.current.className;
-                // The IFrame API creates a new DOM node. Copy the inline
-                // transform too, not just its utility classes, otherwise it
-                // falls back to YouTube's small 640px internal viewport.
-                iframe.style.cssText = hostRef.current.style.cssText;
                 if (largeViewport) {
-                  // The API also adds inline 640×360 dimensions. Inline
-                  // styles win over Tailwind's w-[1920px]/h-[1080px], so set
-                  // the genuine large viewport here as well.
-                  iframe.style.width = "1920px";
-                  iframe.style.height = "1080px";
-                  iframe.style.transform = `translate(-50%, -50%) scale(${largeViewportScaleRef.current})`;
+                  iframe.style.width = "100%";
+                  iframe.style.height = "100%";
+                  iframe.style.position = "absolute";
+                  iframe.style.inset = "0";
+                  iframe.style.transform = "none";
+                } else {
+                  iframe.className = hostRef.current.className;
+                  iframe.style.cssText = hostRef.current.style.cssText;
                 }
               }
             } catch { /* best-effort */ }

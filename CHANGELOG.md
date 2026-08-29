@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.46 — August 2026
+
+### Carte hover — black screen largeViewport corrigé
+
+L'iframe largeViewport recopiait le `transform` du host déjà scalé, doublant le scale et sortant du cadre. L'iframe remplit désormais son host `1920×1080` en `100%` sans transform propre.
+
 ## v1.22.45 — August 2026
 
 ### Carte hover — retour au même flux que Hero
