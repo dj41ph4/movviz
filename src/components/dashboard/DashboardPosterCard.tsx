@@ -576,7 +576,6 @@ export function DashboardPosterCard({
                 title={title}
                 trigger="immediate"
                 enabled={videoPreviewEnabled}
-                hideTopGradient
                 className="h-full w-full"
               />
             ) : previewImage ? (

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.28 — August 2026
+
+### Aperçus vidéo
+
+Les cartes utilisent désormais le même cadrage et le même masque de lecteur YouTube que le Hero et les fiches de titre.
+
 ## v1.22.27 — August 2026
 
 ### Torrents bloqués
