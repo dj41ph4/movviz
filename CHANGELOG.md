@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.29 — August 2026
+
+### Versions Android
+
+Les valeurs de repli Gradle pour Android TV et Android mobile sont maintenant alignées sur la release, y compris le `versionCode` requis par Android.
+
 ## v1.22.28 — August 2026
 
 ### Aperçus vidéo
