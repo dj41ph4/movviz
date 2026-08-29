@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.35 — August 2026
+
+### Aperçus vidéo
+
+Correction robuste du redimensionnement des aperçus YouTube : la carte est maintenant mesurée réellement et l'iframe 1920×1080 reçoit son échelle calculée directement.
+
 ## v1.22.34 — August 2026
 
 ### Aperçus vidéo

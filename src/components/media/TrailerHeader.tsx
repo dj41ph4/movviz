@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Hls from "hls.js";
 import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
 
@@ -293,9 +293,39 @@ const LOOP_POLL_MS = 250;
 const YOUTUBE_CHROME_SETTLE_MS = 1500;
 
 function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, largeViewport, cardTrailerZoomOffset = 0 }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; largeViewport?: boolean; cardTrailerZoomOffset?: number }) {
+  // This wrapper is deliberately NOT the YouTube API target: that API replaces
+  // its target node with an iframe. Keeping a React-owned box lets us measure
+  // the real card width even after the replacement.
+  const viewportRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const cardTrailerZoom = Math.max(10, 110 + cardTrailerZoomOffset);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const largeViewportScale = viewportWidth > 0
+    ? (viewportWidth / 1920) * (cardTrailerZoom / 100) * (extraZoom ? 1.05 : 1)
+    : 0;
+  const largeViewportScaleRef = useRef(largeViewportScale);
+  largeViewportScaleRef.current = largeViewportScale;
+  const largeViewportStyle: CSSProperties | undefined = largeViewport
+    ? {
+        // Do not express this in cqw/calc(): that calculation lives on the
+        // iframe that YouTube creates, where container-unit resolution has
+        // proven inconsistent. Pixels measured from the persistent wrapper
+        // make 1920×1080 reduce to the exact card size, every time.
+        transform: `translate(-50%, -50%) scale(${largeViewportScale})`,
+      }
+    : undefined;
+
+  useLayoutEffect(() => {
+    if (!largeViewport) return;
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const update = () => setViewportWidth(viewport.getBoundingClientRect().width);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [largeViewport]);
 
   useEffect(() => {
     let cancelled = false;
@@ -342,7 +372,13 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
               const iframe = e.target.getIframe?.();
               if (iframe && hostRef.current) {
                 iframe.className = hostRef.current.className;
-                if (largeViewport) iframe.style.setProperty("--card-trailer-zoom", String(cardTrailerZoom));
+                // The IFrame API creates a new DOM node. Copy the inline
+                // transform too, not just its utility classes, otherwise it
+                // falls back to YouTube's small 640px internal viewport.
+                iframe.style.cssText = hostRef.current.style.cssText;
+                if (largeViewport) {
+                  iframe.style.transform = `translate(-50%, -50%) scale(${largeViewportScaleRef.current})`;
+                }
               }
             } catch { /* best-effort */ }
             if (muted) e.target.mute();
@@ -435,15 +471,16 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
     else player.unMute();
   }, [muted]);
 
-  // YouTube replaces the React-owned host with its own iframe. CSS custom
-  // properties therefore do not inherit from TrailerHeader into that nested
-  // document; update the iframe itself whenever the settings slider moves.
+  // YouTube replaces the React-owned target with its own iframe. Update the
+  // resulting node whenever a live card-resize or slider adjustment changes
+  // the measured scale.
   useEffect(() => {
     if (!largeViewport) return;
-    try { playerRef.current?.getIframe?.()?.style.setProperty("--card-trailer-zoom", String(cardTrailerZoom)); } catch { /* player not ready yet */ }
-  }, [largeViewport, cardTrailerZoom]);
+    try { playerRef.current?.getIframe?.()?.style.setProperty("transform", `translate(-50%, -50%) scale(${largeViewportScale})`); } catch { /* player not ready yet */ }
+  }, [largeViewport, largeViewportScale]);
 
   return (
+    <div ref={viewportRef} className="absolute inset-0">
     <div
       // pointer-events-none: this is a decorative ambient background, never a
       // player the user interacts with directly (our own buttons drive
@@ -470,22 +507,18 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
       className={cn(
         "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
         largeViewport
-          // The layout box (and therefore the iframe's viewport) is truly
-          // 1920×1080. `scale()` only affects painting, so the card clips the
-          // reduced image while YouTube selects its full-size player chrome.
-          // Keep the normal 110% crop *inside* this same calculation: two
-          // Tailwind scale utilities overwrite one another rather than
-          // multiply, which would leave the 1920px iframe massively zoomed.
-          ? cn(
-              "h-[1080px] w-[1920px]",
-              extraZoom ? "scale-[calc((var(--card-trailer-zoom)+5)*1cqw/1920px)]" : "scale-[calc(var(--card-trailer-zoom)*1cqw/1920px)]"
-            )
+          // The layout box is genuinely 1920×1080, so YouTube chooses its
+          // large-player layout. Its measured inline transform then shrinks
+          // that box back to the card without CSS unit arithmetic.
+          ? "h-[1080px] w-[1920px]"
           : cn(
               "h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh]",
               extraZoom ? "scale-[1.15]" : "scale-110"
             )
       )}
+      style={largeViewportStyle}
     />
+    </div>
   );
 }
 
