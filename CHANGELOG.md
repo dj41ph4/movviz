@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.41 — August 2026
+
+### Aperçus vidéo — hover réparé, zoom serveur
+
+Le hover ne démarrait plus : le `ResizeObserver` du popover portailé restait à `0px` et l'iframe 1920×1080 était à `scale(0)`. Passé à un calcul fixe `400px` sans mesure, plus de `enhancedSources` (YouTube seul), et zoom déplacé en réglage serveur/admin (`/api/settings/card-trailer-zoom`, `card-trailer-zoom.json`) au lieu de per-user. Vignette de réglage recentrée `max-w-[420px] rounded-[18px]` comme la vraie carte, slider désactivé pour les non-admin.
+
 ## v1.22.40 — August 2026
 
 ### Aperçus vidéo — suppression des sources directes

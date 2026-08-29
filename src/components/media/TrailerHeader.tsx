@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Hls from "hls.js";
 import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
 
@@ -293,44 +293,23 @@ const LOOP_POLL_MS = 250;
 const YOUTUBE_CHROME_SETTLE_MS = 1500;
 
 function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, largeViewport, cardTrailerZoomOffset = 0 }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; largeViewport?: boolean; cardTrailerZoomOffset?: number }) {
-  // This wrapper is deliberately NOT the YouTube API target: that API replaces
-  // its target node with an iframe. Keeping a React-owned box lets us measure
-  // the real card width even after the replacement.
-  const viewportRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   // v1.22.35's former +100 (210%) is the new zero point, leaving real
   // headroom for the user to increase the crop further.
   const cardTrailerZoom = Math.max(10, 210 + cardTrailerZoomOffset);
-  const [viewportWidth, setViewportWidth] = useState(0);
-  // Fallback 400px (= popover moyen) si la mesure n'a pas encore eu lieu
-  // (ResizeObserver dans un popover animé) — évite scale=0 invisible.
-  const effectiveViewportWidth = viewportWidth > 0 ? viewportWidth : 400;
+  // Fixed 400px (= popover moyen) — pas de ResizeObserver, évite les
+  // races dans le popover animé portailé qui laissaient scale=0.
   const largeViewportScale = largeViewport
-    ? (effectiveViewportWidth / 1920) * (cardTrailerZoom / 100) * (extraZoom ? 1.05 : 1)
+    ? (400 / 1920) * (cardTrailerZoom / 100) * (extraZoom ? 1.05 : 1)
     : 0;
   const largeViewportScaleRef = useRef(largeViewportScale);
   largeViewportScaleRef.current = largeViewportScale;
   const largeViewportStyle: CSSProperties | undefined = largeViewport
     ? {
-        // Do not express this in cqw/calc(): that calculation lives on the
-        // iframe that YouTube creates, where container-unit resolution has
-        // proven inconsistent. Pixels measured from the persistent wrapper
-        // make 1920×1080 reduce to the exact card size, every time.
         transform: `translate(-50%, -50%) scale(${largeViewportScale})`,
       }
     : undefined;
-
-  useLayoutEffect(() => {
-    if (!largeViewport) return;
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    const update = () => setViewportWidth(viewport.getBoundingClientRect().width);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(viewport);
-    return () => observer.disconnect();
-  }, [largeViewport]);
 
   useEffect(() => {
     let cancelled = false;
@@ -490,7 +469,6 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   }, [largeViewport, largeViewportScale]);
 
   return (
-    <div ref={viewportRef} className="absolute inset-0">
     <div
       // pointer-events-none: this is a decorative ambient background, never a
       // player the user interacts with directly (our own buttons drive
@@ -528,7 +506,6 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
       )}
       style={largeViewportStyle}
     />
-    </div>
   );
 }
 
