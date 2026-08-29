@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Info, Play, Pause, Plus, Loader2, Check, ThumbsDown } from "lucide-react";
+import { Info, Play, Pause, Plus, Loader2, Check } from "lucide-react";
 import { HeroSlideshow } from "./HeroSlideshow";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { TitleMark } from "@/components/media/TitleMark";
@@ -17,7 +17,6 @@ import { usePlayer } from "@/lib/player/PlayerProvider";
 import { usePlayLabel } from "@/lib/player/usePlayLabel";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
-import { toast } from "@/components/ui/Toast";
 
 type HeroApiSlide = HeroSlide & { plexUrl: string | null; plexRatingKey: string | null };
 
@@ -41,16 +40,8 @@ function reasonLabel(t: ReturnType<typeof useT>, reason: HeroSlide["score"]["rea
 export function DashboardHero({ settings }: { settings: DashboardHeroSettings }) {
   const t = useT();
   const { locale } = useI18n();
-  const { data, mutate } = useSWR<{ slides: HeroApiSlide[] }>(settings.enabled ? `/api/dashboard/hero?locale=${locale}` : null);
-  const [dismissedSlides, setDismissedSlides] = useState<Set<string>>(() => new Set());
-  // A negative response must have an immediate visual effect. Keeping the
-  // rejected title out locally also prevents a stale SWR response from
-  // briefly putting its trailer back on screen while the server re-ranks the
-  // hero list for this user.
-  const slides = useMemo(
-    () => (data?.slides ?? []).filter((slide) => !dismissedSlides.has(`${slide.detail.type}:${slide.detail.tmdbId}`)),
-    [data?.slides, dismissedSlides]
-  );
+  const { data } = useSWR<{ slides: HeroApiSlide[] }>(settings.enabled ? `/api/dashboard/hero?locale=${locale}` : null);
+  const slides = data?.slides ?? [];
 
   const [index, setIndex] = useState(0);
   const [anchored, setAnchored] = useState(false);
@@ -88,45 +79,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       setAdded((prev) => new Set(prev).add(active.detail.tmdbId));
     } finally {
       setAdding(false);
-    }
-  };
-
-  const [dislikingGenre, setDislikingGenre] = useState(false);
-  const dislikeGenre = async () => {
-    if (!active || dislikingGenre) return;
-    const rejected = active;
-    const rejectedKey = `${rejected.detail.type}:${rejected.detail.tmdbId}`;
-
-    // Remove the active slide before the request starts. TrailerHeader is
-    // keyed by the active title, so this unmounts the iframe immediately and
-    // reliably stops the current video instead of merely advancing the
-    // slideshow timer.
-    setDismissedSlides((previous) => new Set(previous).add(rejectedKey));
-    setDislikingGenre(true);
-    try {
-      const genres = (rejected.detail.genres ?? []).slice(0, 3).join(", ");
-      const response = await fetch("/api/ai/feedback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tmdbId: rejected.detail.tmdbId, type: rejected.detail.type, title: rejected.detail.title, liked: false, reason: genres || undefined }),
-      });
-      if (!response.ok) throw new Error("feedback_failed");
-
-      // Fetch the freshly ranked list after the feedback has been persisted.
-      // The dismissed key remains filtered until this component unmounts,
-      // so the rejected trailer can never flash back during this refresh.
-      void mutate();
-    } catch {
-      // Do not silently make a preference look saved when the request failed:
-      // restore the slide and give the user a visible retry opportunity.
-      setDismissedSlides((previous) => {
-        const next = new Set(previous);
-        next.delete(rejectedKey);
-        return next;
-      });
-      toast("error", t("common.error"));
-    } finally {
-      setDislikingGenre(false);
     }
   };
 
@@ -296,17 +248,6 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
               className="rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/80 backdrop-blur transition-transform hover:scale-105"
             >
               {t("dashboard.hero.whyThisTitle")}
-            </button>
-
-            <button
-              type="button"
-              onClick={dislikeGenre}
-              disabled={dislikingGenre}
-              title="Moins de ce genre"
-              className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-white/80 backdrop-blur transition-transform hover:scale-105 disabled:opacity-60"
-            >
-              {dislikingGenre ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ThumbsDown className="h-3.5 w-3.5" />}
-              Moins de ce genre
             </button>
 
             {slides.length > 1 && (

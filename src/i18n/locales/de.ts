@@ -1384,8 +1384,6 @@ export const de: Dictionary = {
       titlePageVideoTitle: "Videovorschauen",
       titlePageVideoHint: "Animierter Trailer-Hintergrund auf Film-/Serienseiten und beim Überfahren eines Posters in Karussells. Deaktivieren für überall ein statisches Bild.",
       titlePageVideoEnabled: "Video aktiviert",
-      cardTrailerZoomTitle: "Zoom der Kartenvorschauen",
-      cardTrailerZoomHint: "0 behält den normalen Bildausschnitt. Von -100 bis +100 anpassen, um Kartentrailer zu verkleinern oder zu vergrößern.",
       specialEpisodesTitle: "Sonderfolgen",
       specialEpisodesHint: "Standardmäßig aus: Sonderfolgen (Staffel 0) zählen nicht für den Status „Serie vollständig gesehen“. Aktivieren, um sie wie normale Folgen zu zählen.",
       specialEpisodesEnabled: "Sonderfolgen mitzählen",

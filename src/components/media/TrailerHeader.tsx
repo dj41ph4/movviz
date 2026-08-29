@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Hls from "hls.js";
 import { Volume2, VolumeX, TriangleAlert, ExternalLink } from "lucide-react";
 
@@ -271,11 +271,6 @@ export interface TrailerHeaderProps {
    *  that scale, e.g. RoboCop 2014). Never applied to the hero carousel or
    *  the title page header, which don't have this complaint. */
   extraZoom?: boolean;
-  /** Dashboard hover cards render the iframe at a real 1920×1080 layout
-   *  viewport, then scale that viewport down to the card. This keeps YouTube
-   *  out of its small-player chrome without changing the Hero or title page. */
-  largeViewport?: boolean;
-  cardTrailerZoomOffset?: number;
   className?: string;
 }
 
@@ -292,24 +287,9 @@ const LOOP_POLL_MS = 250;
 // covers it reliably. Keep backdrop opaque during this window.
 const YOUTUBE_CHROME_SETTLE_MS = 1500;
 
-function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, largeViewport, cardTrailerZoomOffset = 0 }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; largeViewport?: boolean; cardTrailerZoomOffset?: number }) {
+function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
-  // v1.22.35's former +100 (210%) is the new zero point, leaving real
-  // headroom for the user to increase the crop further.
-  const cardTrailerZoom = Math.max(10, 210 + cardTrailerZoomOffset);
-  // Fixed 400px (= popover moyen) — pas de ResizeObserver, évite les
-  // races dans le popover animé portailé qui laissaient scale=0.
-  const largeViewportScale = largeViewport
-    ? (400 / 1920) * (cardTrailerZoom / 100) * (extraZoom ? 1.05 : 1)
-    : 0;
-  const largeViewportScaleRef = useRef(largeViewportScale);
-  largeViewportScaleRef.current = largeViewportScale;
-  const largeViewportStyle: CSSProperties | undefined = largeViewport
-    ? {
-        transform: `translate(-50%, -50%) scale(${largeViewportScale})`,
-      }
-    : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -354,18 +334,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
             // those classes already.
             try {
               const iframe = e.target.getIframe?.();
-              if (iframe && hostRef.current) {
-                if (largeViewport) {
-                  iframe.style.width = "100%";
-                  iframe.style.height = "100%";
-                  iframe.style.position = "absolute";
-                  iframe.style.inset = "0";
-                  iframe.style.transform = "none";
-                } else {
-                  iframe.className = hostRef.current.className;
-                  iframe.style.cssText = hostRef.current.style.cssText;
-                }
-              }
+              if (iframe && hostRef.current) iframe.className = hostRef.current.className;
             } catch { /* best-effort */ }
             if (muted) e.target.mute();
             else e.target.unMute();
@@ -457,14 +426,6 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
     else player.unMute();
   }, [muted]);
 
-  // YouTube replaces the React-owned target with its own iframe. Update the
-  // resulting node whenever a live card-resize or slider adjustment changes
-  // the measured scale.
-  useEffect(() => {
-    if (!largeViewport) return;
-    try { playerRef.current?.getIframe?.()?.style.setProperty("transform", `translate(-50%, -50%) scale(${largeViewportScale})`); } catch { /* player not ready yet */ }
-  }, [largeViewport, largeViewportScale]);
-
   return (
     <div
       // pointer-events-none: this is a decorative ambient background, never a
@@ -489,24 +450,26 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
       // perfectly flat 16:9 trailer (Hurlevent) trades a few extra cropped
       // pixels for consistency — same reasoning as the crop clause below.
       //
+      // A "render huge, transform-scale it back down" trick was tried here
+      // to nudge YouTube's quality heuristic (which reads the iframe's own
+      // un-transformed layout size) — reverted after confirming live it
+      // broke the video into disconnected fragments. The oversize math
+      // itself checked out on paper (every length scaled by the same
+      // factor, aspect ratio preserved); the actual cause is more likely
+      // YouTube's OWN player switching to a different internal layout
+      // (related-videos strip, TV-sized chrome…) once it believes the
+      // player is that large — not something CSS on our side controls.
+      // Not worth re-attempting without a real way to inspect what
+      // YouTube's iframe renders internally at that size.
       className={cn(
-        "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-        largeViewport
-          // The layout box is genuinely 1920×1080, so YouTube chooses its
-          // large-player layout. Its measured inline transform then shrinks
-          // that box back to the card without CSS unit arithmetic.
-          ? "h-[1080px] w-[1920px]"
-          : cn(
-              "h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh]",
-              extraZoom ? "scale-[1.15]" : "scale-110"
-            )
+        "pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2",
+        extraZoom ? "scale-[1.15]" : "scale-110"
       )}
-      style={largeViewportStyle}
     />
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, largeViewport = false, cardTrailerZoomOffset = 0, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -517,10 +480,13 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   const croppedBackdrop = useCroppedBackdrop(backdropUrl);
   const [soundOn, setSoundOn] = useState(!initialMuted);
   const muted = !soundOn;
-  // enhancedSources volontairement ignoré — YouTube seul, pas de toggle
-  // fiable avant, ça polluait l'aperçu sans pouvoir être coupé.
+  // Enhanced sources are strictly Apple/Netflix/Disney/Prime/IMDb, already
+  // identity-checked by their resolver. The retired remastered-search chain
+  // is deliberately absent here: it must never select an ambient preview.
   const candidates = useMemo<TrailerCandidate[]>(
-    () => [...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key }))],
+    () => [
+      ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
+    ],
     [trailerKeys]
   );
   // Which candidate we're currently trying — advanced by onError below.
@@ -582,7 +548,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
       // briefly painting past this boundary during ad load — paint
       // containment is a hard clip guarantee at the compositor level,
       // closing that gap regardless of what the embedded iframe does.
-      style={{ containerType: "size", contain: "paint", ...(largeViewport ? { "--card-trailer-zoom": Math.max(10, 110 + cardTrailerZoomOffset) } : {}) } as CSSProperties}
+      style={{ containerType: "size", contain: "paint" }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
     >
@@ -624,11 +590,11 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
               onError={onVideoError}
             />
           ) : (
-            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} largeViewport={largeViewport} cardTrailerZoomOffset={cardTrailerZoomOffset} />
+            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />
           )}
           {!hideTopGradient && (
-            /* Masque la barre titre/channel de YouTube. Les cartes utilisent
-             * le même masque que le Hero et les fiches. */
+            /* Masque la barre titre/channel YouTube dans les lecteurs qui le
+             * demandent ; les cartes gardent ainsi leur image sans voile noir. */
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
           )}
           <div
@@ -685,7 +651,9 @@ export function TrailerModalPlayer({ trailerKeys, enhancedSources, title }: { tr
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const candidates = useMemo<TrailerCandidate[]>(
-    () => [...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key }))],
+    () => [
+      ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
+    ],
     [trailerKeys]
   );
   const [candidateIndex, setCandidateIndex] = useState(0);

@@ -1367,8 +1367,6 @@ export const nl: Dictionary = {
       titlePageVideoTitle: "Videovoorbeelden",
       titlePageVideoHint: "Geanimeerde trailer als achtergrond op film-/seriepagina's en bij het hoveren over een poster in carrousels. Schakel uit voor overal een statische afbeelding.",
       titlePageVideoEnabled: "Video ingeschakeld",
-      cardTrailerZoomTitle: "Zoom van kaartvoorbeelden",
-      cardTrailerZoomHint: "0 behoudt de normale uitsnede. Pas aan van -100 tot +100 om trailers in kaarten uit of in te zoomen.",
       specialEpisodesTitle: "Speciale afleveringen",
       specialEpisodesHint: "Standaard uit: speciale afleveringen (seizoen 0) tellen niet mee voor de status \"serie volledig bekeken\". Zet aan om ze als gewone afleveringen te tellen.",
       specialEpisodesEnabled: "Speciale afleveringen meetellen",

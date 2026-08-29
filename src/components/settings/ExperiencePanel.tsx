@@ -4,9 +4,6 @@ import { useT } from "@/i18n/provider";
 import { Toggle } from "@/components/ui/Toggle";
 import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useSpecialEpisodes } from "@/lib/settings/useSpecialEpisodes";
-import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
-import { TrailerHeader } from "@/components/media/TrailerHeader";
-import { useCurrentUser } from "@/lib/auth/useCurrentUser";
 
 /**
  * General viewing-experience preferences — cross-page personal toggles that
@@ -25,11 +22,8 @@ import { useCurrentUser } from "@/lib/auth/useCurrentUser";
  */
 export function ExperiencePanel() {
   const t = useT();
-  const user = useCurrentUser();
-  const isAdmin = user?.role === "admin";
   const titlePageVideo = useTitlePageVideo();
   const specialEpisodes = useSpecialEpisodes();
-  const cardTrailerZoom = useCardTrailerZoom();
 
   return (
     <div className="space-y-6">
@@ -39,27 +33,6 @@ export function ExperiencePanel() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.titlePageVideoEnabled")}</span>
           <Toggle on={titlePageVideo.enabled} onChange={() => titlePageVideo.setEnabled(!titlePageVideo.enabled)} />
-        </div>
-      </div>
-
-      <div className="rounded-2xl glass p-5">
-        <h3 className="mb-1 font-bold text-ink">{t("settings.experience.cardTrailerZoomTitle")}</h3>
-        <p className="mb-4 text-sm text-ink-dim">{t("settings.experience.cardTrailerZoomHint")}{!isAdmin && " — Réservé admin."}</p>
-        <div className="flex items-center gap-4">
-          <input aria-label={t("settings.experience.cardTrailerZoomTitle")} type="range" min="-100" max="100" step="1" value={cardTrailerZoom.offset} onChange={(event) => isAdmin && cardTrailerZoom.setOffset(Number(event.target.value))} disabled={!isAdmin || !titlePageVideo.enabled} className="w-full accent-brand disabled:opacity-40" />
-          <output className="w-14 text-right text-sm font-bold text-ink">{cardTrailerZoom.offset > 0 ? `+${cardTrailerZoom.offset}` : cardTrailerZoom.offset}</output>
-        </div>
-        <div className="mt-5 flex justify-center">
-          <div className="w-full max-w-[420px] overflow-hidden rounded-[18px] border border-white/20 bg-black">
-            <div className="relative aspect-video overflow-hidden bg-black">
-              {titlePageVideo.enabled ? (
-                <TrailerHeader backdropPath={null} size="w780" trailerKeys={["opI0klN3-Pw"]} title="Avengers : Doomsday" trigger="immediate" enabled largeViewport cardTrailerZoomOffset={cardTrailerZoom.offset} hideSoundToggle hideTopGradient className="h-full w-full" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-black px-4 text-center text-sm text-ink-dim">Vidéo désactivée — active « Vidéo activée » pour voir l'aperçu</div>
-              )}
-            </div>
-            <p className="px-3 py-2 text-xs text-ink-dim">Avengers : Doomsday — aperçu pur {titlePageVideo.enabled ? "" : "(désactivé)"}</p>
-          </div>
         </div>
       </div>
 

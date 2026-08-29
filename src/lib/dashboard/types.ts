@@ -37,7 +37,7 @@ export interface DashboardHeroSettings {
   includeOwned: boolean;
   /** Whether the Hero can draw from pools of titles NOT in the library (personalized TMDb suggestions, discovery). */
   includeUnowned: boolean;
-  /** Minimum release year for Hero slides — null = show every eligible title. */
+  /** Minimum release year for the discovery carousels (trending/recommended) — null = show everything. */
   minYear: number | null;
 }
 

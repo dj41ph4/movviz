@@ -1366,8 +1366,6 @@ export const it: Dictionary = {
       titlePageVideoTitle: "Anteprime video",
       titlePageVideoHint: "Trailer animato sullo sfondo delle pagine film/serie e al passaggio del mouse su un poster nei caroselli. Disattiva per mantenere un'immagine fissa ovunque.",
       titlePageVideoEnabled: "Video attivo",
-      cardTrailerZoomTitle: "Zoom delle anteprime nelle schede",
-      cardTrailerZoomHint: "0 mantiene l'inquadratura normale. Regola da -100 a +100 per rimpicciolire o ingrandire i trailer nelle schede.",
       specialEpisodesTitle: "Episodi speciali",
       specialEpisodesHint: "Disattivato di default: gli episodi speciali (stagione 0) non contano nello stato \"serie vista completamente\". Attiva per contarli come episodi normali.",
       specialEpisodesEnabled: "Conta gli episodi speciali",
