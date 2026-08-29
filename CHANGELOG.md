@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.30 — August 2026
+
+### Aperçus et Hero
+
+Les aperçus YouTube des cartes utilisent maintenant un viewport interne 1920×1080 réduit à la taille de la carte, afin que YouTube conserve son lecteur grand format sans modifier le cadrage du Hero ou des fiches. La date minimale du Hero est désormais une règle stricte ; le moteur examine aussi davantage de suggestions et de tendances, films comme séries, pour remplacer les slides exclues.
+
 ## v1.22.29 — August 2026
 
 ### Versions Android

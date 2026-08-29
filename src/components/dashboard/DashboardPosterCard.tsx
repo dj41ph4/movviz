@@ -576,6 +576,7 @@ export function DashboardPosterCard({
                 title={title}
                 trigger="immediate"
                 enabled={videoPreviewEnabled}
+                largeViewport
                 className="h-full w-full"
               />
             ) : previewImage ? (

@@ -271,6 +271,10 @@ export interface TrailerHeaderProps {
    *  that scale, e.g. RoboCop 2014). Never applied to the hero carousel or
    *  the title page header, which don't have this complaint. */
   extraZoom?: boolean;
+  /** Dashboard hover cards render the iframe at a real 1920×1080 layout
+   *  viewport, then scale that viewport down to the card. This keeps YouTube
+   *  out of its small-player chrome without changing the Hero or title page. */
+  largeViewport?: boolean;
   className?: string;
 }
 
@@ -287,7 +291,7 @@ const LOOP_POLL_MS = 250;
 // covers it reliably. Keep backdrop opaque during this window.
 const YOUTUBE_CHROME_SETTLE_MS = 1500;
 
-function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean }) {
+function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, largeViewport }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; largeViewport?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
@@ -450,26 +454,21 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
       // perfectly flat 16:9 trailer (Hurlevent) trades a few extra cropped
       // pixels for consistency — same reasoning as the crop clause below.
       //
-      // A "render huge, transform-scale it back down" trick was tried here
-      // to nudge YouTube's quality heuristic (which reads the iframe's own
-      // un-transformed layout size) — reverted after confirming live it
-      // broke the video into disconnected fragments. The oversize math
-      // itself checked out on paper (every length scaled by the same
-      // factor, aspect ratio preserved); the actual cause is more likely
-      // YouTube's OWN player switching to a different internal layout
-      // (related-videos strip, TV-sized chrome…) once it believes the
-      // player is that large — not something CSS on our side controls.
-      // Not worth re-attempting without a real way to inspect what
-      // YouTube's iframe renders internally at that size.
       className={cn(
-        "pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2",
+        "pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+        largeViewport
+          // The layout box (and therefore the iframe's viewport) is truly
+          // 1920×1080. `scale()` only affects painting, so the card clips the
+          // reduced image while YouTube selects its full-size player chrome.
+          ? "h-[1080px] w-[1920px] scale-[calc(100cqw/1920px)]"
+          : "h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh]",
         extraZoom ? "scale-[1.15]" : "scale-110"
       )}
     />
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, largeViewport = false, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -590,11 +589,11 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
               onError={onVideoError}
             />
           ) : (
-            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />
+            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} largeViewport={largeViewport} />
           )}
           {!hideTopGradient && (
-            /* Masque la barre titre/channel YouTube dans les lecteurs qui le
-             * demandent ; les cartes gardent ainsi leur image sans voile noir. */
+            /* Masque la barre titre/channel de YouTube. Les cartes utilisent
+             * le même masque que le Hero et les fiches. */
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
           )}
           <div

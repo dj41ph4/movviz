@@ -283,7 +283,6 @@ async function gatherCandidateRefs(userId: string, targetCount: number, mix: Her
 
   const movies = loadMovies();
   const series = loadSeries();
-  void series;
 
   const unownedRefs: HeroCandidateRef[] = [];
   const ownedRefs: HeroCandidateRef[] = [];
@@ -292,15 +291,31 @@ async function gatherCandidateRefs(userId: string, targetCount: number, mix: Her
     // Pool 1 — priorité 1 (confirmé par l'utilisateur) : suggestions personnalisées.
     // Mélangées (seed du jour) — sans ça, le même sous-ensemble en tête de
     // liste de recommandations restait épinglé indéfiniment.
-    const recs = seededShuffle(await getRecommendations(userId, "movie").catch(() => []), seed);
-    for (const r of recs) unownedRefs.push({ tmdbId: r.tmdbId, type: "movie", poolId: "personalized", libraryStatus: null, daysUntilRelease: null });
+    const [movieRecs, seriesRecs, movieTrend, seriesTrend] = await Promise.all([
+      getRecommendations(userId, "movie").catch(() => []),
+      getRecommendations(userId, "series").catch(() => []),
+      trending("movie", 1, []).catch(() => ({ results: [] })),
+      trending("series", 1, []).catch(() => ({ results: [] })),
+    ]);
+    for (const r of seededShuffle(movieRecs, seed)) {
+      unownedRefs.push({ tmdbId: r.tmdbId, type: "movie", poolId: "personalized", libraryStatus: null, daysUntilRelease: null });
+    }
+    for (const r of seededShuffle(seriesRecs, seed + 1)) {
+      unownedRefs.push({ tmdbId: r.tmdbId, type: "series", poolId: "personalized", libraryStatus: null, daysUntilRelease: null });
+    }
 
     // Pool 6 — découverte TMDb (plus un simple repli — une vraie source de contenu non possédé).
-    const owned = new Set(movies.map((m) => m.tmdbId));
-    const trend = await trending("movie", 1, []).catch(() => ({ results: [] }));
-    for (const r of seededShuffle(trend.results, seed + 1)) {
-      if (owned.has(r.tmdbId)) continue;
+    const owned = new Set([
+      ...movies.map((m) => `movie:${m.tmdbId}`),
+      ...series.map((s) => `series:${s.tmdbId}`),
+    ]);
+    for (const r of seededShuffle(movieTrend.results, seed + 2)) {
+      if (owned.has(`movie:${r.tmdbId}`)) continue;
       unownedRefs.push({ tmdbId: r.tmdbId, type: "movie", poolId: "discovery", libraryStatus: null, daysUntilRelease: null });
+    }
+    for (const r of seededShuffle(seriesTrend.results, seed + 3)) {
+      if (owned.has(`series:${r.tmdbId}`)) continue;
+      unownedRefs.push({ tmdbId: r.tmdbId, type: "series", poolId: "discovery", libraryStatus: null, daysUntilRelease: null });
     }
   }
 
@@ -368,7 +383,12 @@ export async function buildHeroSlides(
   youtubeTrailerSearch = false,
   minYear: number | null = null
 ): Promise<HeroSlide[]> {
-  const refs = await gatherCandidateRefs(userId, targetCount, mix.includeOwned || mix.includeUnowned ? mix : { includeOwned: true, includeUnowned: true });
+  // The year cutoff is evaluated only after resolving TMDb detail. Looking
+  // at six refs then filtering them could leave the Hero half empty even
+  // though plenty of newer titles exist later in recommendations/trending.
+  // Enrich a bounded broader pool instead, then take the first eligible six.
+  const candidateCount = minYear ? Math.max(targetCount * 4, 24) : targetCount;
+  const refs = await gatherCandidateRefs(userId, candidateCount, mix.includeOwned || mix.includeUnowned ? mix : { includeOwned: true, includeUnowned: true });
   if (refs.length === 0) return [];
 
   const [movies, series] = [loadMovies(), loadSeries()];
@@ -402,21 +422,17 @@ export async function buildHeroSlides(
   const byTmdbId = new Map(movies.map((m) => [m.tmdbId, m] as const));
 
   const slides: HeroSlide[] = [];
-  const skipped: HeroSlide[] = [];
   refs.forEach((ref, i) => {
     const detail = details[i];
     if (!detail) return;
     const score = scoreCandidate(detail, ref, { taste, locale, recentlyActiveTmdbIds, requestedKeys });
     const libraryFile = ref.type === "movie" ? byTmdbId.get(ref.tmdbId)?.file ?? null : null;
     const slide: HeroSlide = { poolId: ref.poolId, libraryStatus: ref.libraryStatus, daysUntilRelease: ref.daysUntilRelease, libraryFile, detail, score };
-    if (minYear && (detail.year ?? 0) < minYear) skipped.push(slide);
-    else slides.push(slide);
+    // This is a hard eligibility rule, not a scoring preference. A user who
+    // chooses (for example) 2020 must never see a 2019 title merely because
+    // the candidate pool is otherwise too small.
+    if (minYear && (detail.year ?? 0) < minYear) return;
+    slides.push(slide);
   });
-  // Toujours 5 visuels : si minYear a trop filtré, on complète avec les écartés (triés par score) plutôt que laisser un hero à 2
-  if (slides.length < targetCount && skipped.length > 0) {
-    skipped.sort((a, b) => b.score.total - a.score.total);
-    slides.push(...skipped.slice(0, targetCount - slides.length));
-    slides.sort((a, b) => b.score.total - a.score.total);
-  }
   return slides.slice(0, targetCount);
 }
