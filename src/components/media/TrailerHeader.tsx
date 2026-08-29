@@ -488,7 +488,6 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
 
   return (
     <div ref={viewportRef} className="absolute inset-0">
-    {(!largeViewport || viewportWidth > 0) && (
     <div
       // pointer-events-none: this is a decorative ambient background, never a
       // player the user interacts with directly (our own buttons drive
@@ -526,7 +525,6 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
       )}
       style={largeViewportStyle}
     />
-    )}
     </div>
   );
 }

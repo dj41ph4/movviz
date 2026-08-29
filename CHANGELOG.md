@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.38 — August 2026
+
+### Aperçus vidéo
+
+Le lecteur d'aperçu reste monté pendant la mesure de son cadre, ce qui rétablit aussi la vignette de réglage en direct.
+
 ## v1.22.37 — August 2026
 
 ### Aperçus vidéo
