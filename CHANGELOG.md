@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.44 — August 2026
+
+### Carte hover — black screen corrigé + Hero bouton fonctionnel
+
+L'overlay noir restait bloqué tant que YouTube n'atteignait pas `PLAYING` et l'iframe était doublement scalée. Suppression de l'attente `visible` et correction `iframe 100%` dans son host `1920×1080` scalé. Hero : bouton compact « Moins de ce genre » (ThumbsDown) qui envoie `liked:false` + genres à `/api/ai/feedback` et avance au slide suivant — le `suggestionEngine` pénalise ensuite ce genre.
+
 ## v1.22.43 — August 2026
 
 ### Carte hover — logo conservé et débordement masqué

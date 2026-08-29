@@ -20,13 +20,11 @@ function createPlayer(host: HTMLElement | null, trailerKey: string, muted: boole
         onReady: (e: any) => {
           try {
             const iframe = e.target.getIframe?.();
-            if (iframe && host) {
-              iframe.style.width = "1920px";
-              iframe.style.height = "1080px";
-              // copie le style du host déjà scalé
-              iframe.style.cssText = host.style.cssText;
-              iframe.style.width = "1920px";
-              iframe.style.height = "1080px";
+            if (iframe) {
+              iframe.style.width = "100%";
+              iframe.style.height = "100%";
+              iframe.style.position = "absolute";
+              iframe.style.inset = "0";
             }
           } catch {}
           if (muted) e.target.mute(); else e.target.unMute();
@@ -52,7 +50,6 @@ export function CardHoverVideo({ trailerKeys, zoomOffset = 0, enabled = true }: 
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(false);
   const key = trailerKeys[index] ?? null;
   const canPlay = enabled && !!key;
 
@@ -62,7 +59,6 @@ export function CardHoverVideo({ trailerKeys, zoomOffset = 0, enabled = true }: 
   const style: React.CSSProperties = { transform: `translate(-50%, -50%) scale(${scale})` };
 
   useEffect(() => setIndex(0), [trailerKeys.join(",")]);
-  useEffect(() => setVisible(false), [key]);
 
   useEffect(() => {
     if (!canPlay || !key) return;
@@ -71,7 +67,7 @@ export function CardHoverVideo({ trailerKeys, zoomOffset = 0, enabled = true }: 
     loadYouTubeApi().then(() => {
       if (cancelled) return;
       if (!(window as any).YT?.Player) return;
-      const p = createPlayer(hostRef.current, key, true, () => !cancelled && setVisible(true), () => setIndex((i) => i + 1));
+      const p = createPlayer(hostRef.current, key, true, () => {}, () => setIndex((i) => i + 1));
       if (p) playerRef.current = p;
       else setIndex((i) => i + 1);
       loopTimer = setInterval(() => {
@@ -94,14 +90,11 @@ export function CardHoverVideo({ trailerKeys, zoomOffset = 0, enabled = true }: 
 
   return (
     <div className="absolute inset-0 overflow-hidden bg-black">
-      {/* iframe 1080p downscalée pile à la carte, pure sans ombrage */}
       <div
         ref={hostRef}
         className="pointer-events-none absolute left-1/2 top-1/2 h-[1080px] w-[1920px] -translate-x-1/2 -translate-y-1/2"
         style={style}
       />
-      {/* tant que YouTube n'a pas PLAYING, on garde noir pur (pas d'image) */}
-      {!visible && <div className="absolute inset-0 bg-black" />}
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import Link from "next/link";
-import { Info, Play, Pause, Plus, Loader2, Check } from "lucide-react";
+import { Info, Play, Pause, Plus, Loader2, Check, ThumbsDown } from "lucide-react";
 import { HeroSlideshow } from "./HeroSlideshow";
 import { TrailerHeader } from "@/components/media/TrailerHeader";
 import { TitleMark } from "@/components/media/TitleMark";
@@ -79,6 +79,26 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
       setAdded((prev) => new Set(prev).add(active.detail.tmdbId));
     } finally {
       setAdding(false);
+    }
+  };
+
+  const [dislikingGenre, setDislikingGenre] = useState(false);
+  const [dislikedGenre, setDislikedGenre] = useState(false);
+  useEffect(() => setDislikedGenre(false), [active?.detail.tmdbId]);
+  const dislikeGenre = async () => {
+    if (!active || dislikingGenre || dislikedGenre) return;
+    setDislikingGenre(true);
+    try {
+      const genres = (active.detail.genres ?? []).slice(0, 3).join(", ");
+      await fetch("/api/ai/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tmdbId: active.detail.tmdbId, type: active.detail.type, title: active.detail.title, liked: false, reason: genres || undefined }),
+      });
+      setDislikedGenre(true);
+      setIndex((i) => (i + 1) % slides.length);
+    } finally {
+      setDislikingGenre(false);
     }
   };
 
@@ -248,6 +268,17 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
               className="rounded-xl bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/80 backdrop-blur transition-transform hover:scale-105"
             >
               {t("dashboard.hero.whyThisTitle")}
+            </button>
+
+            <button
+              type="button"
+              onClick={dislikeGenre}
+              disabled={dislikingGenre || dislikedGenre}
+              title="Moins de ce genre"
+              className="flex items-center gap-1.5 rounded-xl bg-white/10 px-3 py-2.5 text-xs font-semibold text-white/80 backdrop-blur transition-transform hover:scale-105 disabled:opacity-60"
+            >
+              {dislikingGenre ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ThumbsDown className="h-3.5 w-3.5" />}
+              {dislikedGenre ? "Pris en compte" : "Moins de ce genre"}
             </button>
 
             {slides.length > 1 && (
