@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.49 — August 2026
+
+### Carte hover — single toggle 30ms
+
+Un seul toggle « Vidéo activée » pour fiche + cartes, délai hover ramené à 30ms (au lieu de 270ms), suppression du toggle `cardVideo` redondant. Vidéo bien au-dessus de l'image sous le logo.
+
 ## v1.22.48 — August 2026
 
 ### Carte hover — 30ms, vidéo au-dessus de l'image sous le logo, toggle dédié

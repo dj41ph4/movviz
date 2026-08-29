@@ -13,7 +13,7 @@ import { useI18n } from "@/i18n/provider";
 import { toast } from "@/components/ui/Toast";
 import type { MetaDetail } from "@/lib/metadata/types";
 import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
-import { useCardVideo } from "@/lib/settings/useCardVideo";
+import { useTitlePageVideo } from "@/lib/settings/useTitlePageVideo";
 import { useCardTrailerZoom } from "@/lib/settings/useCardTrailerZoom";
 import { usePlayer } from "@/lib/player/PlayerProvider";
 import { AdaptiveTitleLogo } from "@/components/media/AdaptiveTitleLogo";
@@ -22,7 +22,6 @@ import { TmdbImage } from "@/components/media/TmdbImage";
 import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 
-/** 30ms — vidéo au-dessus de l'image sous le logo, même flux que fiche. */
 const CARD_VIDEO_DELAY_MS = 30;
 
 const fetcher = (url: string) => fetch(url).then((response) => (response.ok ? response.json() : null));
@@ -180,7 +179,7 @@ export function DashboardPosterCard({
 }) {
   const { t, locale } = useI18n();
   const { enabled: betaPlayer } = useBetaPlayer();
-  const { enabled: videoPreviewEnabled } = useCardVideo();
+  const { enabled: videoPreviewEnabled } = useTitlePageVideo();
   const { offset: cardTrailerZoomOffset } = useCardTrailerZoom();
   const { play } = usePlayer();
   const [hovered, setHovered] = useState(false);
@@ -425,10 +424,7 @@ export function DashboardPosterCard({
     setPopover({ left, top: above ? rect.bottom + 12 : Math.max(8, rect.top - 12), width, above });
     if (leaveTimer.current) clearTimeout(leaveTimer.current);
     if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    // The artwork is already preloaded on the source card; a short intent
-    // delay keeps accidental passes from opening the preview without making
-    // the logo feel late when the pointer deliberately rests on a tile.
-    hoverTimer.current = setTimeout(() => setHovered(true), 240);
+    hoverTimer.current = setTimeout(() => setHovered(true), 0);
   };
 
   useEffect(() => () => clearTimers(), []);
