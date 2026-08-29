@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.53 — August 2026
+
+### Fix build — Piped instances UTF-8
+
+Correction encodage `instances.ts` qui cassait `next build` sur le runner.
+
 ## v1.22.52 — August 2026
 
 ### Piped — lecteur alternatif YouTube 1080p
