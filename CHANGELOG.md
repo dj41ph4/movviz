@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.26 — August 2026
+
+### Bandes-annonces TMDb
+
+Les spots, promos et autres vidéos promotionnelles ne peuvent plus devancer une véritable bande-annonce TMDb. Les aperçus du carrousel, des cartes et des fiches privilégient désormais la bande-annonce officielle complète dans tous les contextes.
+
 ## v1.22.25 — August 2026
 
 ### Workflow Docker

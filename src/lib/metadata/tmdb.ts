@@ -1073,6 +1073,7 @@ interface RawVideo {
   key: string;
   site: string;
   type: string;
+  name?: string;
   official?: boolean;
   iso_639_1?: string;
   iso_3166_1?: string;
@@ -1084,16 +1085,14 @@ interface RawVideo {
  * every "which video should play" decision across desktop web (carousel
  * hero + fiche) and the native Android TV client's ambient hero, which
  * consumes the same server-computed lists over the API rather than
- * re-implementing this logic. Classification is TMDb's own `type` field
- * only ("Teaser"/"Trailer") — never guessed from a video's title — and
- * "Clip"/"Featurette"/"Behind the Scenes"/"Bloopers" etc. are ignored
- * entirely for both contexts.
+ * re-implementing this logic. TMDb's `type` field provides the primary
+ * classification; clearly named short promotional spots are additionally
+ * excluded so they cannot masquerade as a title's trailer.
  *
- * `context: "carousel"` (autoplay hero/row background, always muted) rates
- * Teasers ahead of Trailers — a Trailer never outranks a valid Teaser here,
- * even an official/newer/better one. `context: "details"` (the fiche's
- * explicit "watch trailer" action) is the mirror: Trailer first, Teaser only
- * once every Trailer candidate is exhausted. Within each type, the order is
+ * Every context rates full Trailers ahead of Teasers. In particular, TMDb can
+ * classify a short promotional "Spot" as a Teaser even though it is not a
+ * usable preview of the title; those videos are excluded when a real trailer
+ * exists. Within each type, the order is
  * always: official in the user's language → any in the user's language →
  * official in the original language → any in the original language → any
  * other Movviz-supported language → any other exploitable video of that
@@ -1142,10 +1141,10 @@ function rankVideosByType(
 // A studio can publish a whole BATCH of vertical, Shorts-style Teasers —
 // confirmed live on Mutiny: its 15 most recent "Teaser" entries were ALL
 // actually YouTube Shorts, back to back. A single combined pool sliced to
-// one size can't survive that: if the pool is teaser-first (carousel
-// context) and every one of those teasers is portrait, the real, reliably-
-// landscape Trailers never even make it into the pool to be considered,
-// because they'd been truncated away long before excludePortrait runs.
+// one size can't survive that: if a pool contains many Teasers and every one
+// of them is portrait, the real, reliably-landscape Trailers must still make
+// it into the pool to be considered, rather than being truncated away before
+// excludePortrait runs.
 // Capping EACH type's ranked list separately guarantees Trailers are always
 // in the candidate pool as a fallback, no matter how many vertical Teasers
 // precede them — in practice a studio's own official Trailer is never
@@ -1155,6 +1154,18 @@ function rankVideosByType(
 // FINAL_KEY_COUNT keys regardless (selectVideoCandidates below).
 const TEASER_POOL_SIZE = 15;
 const TRAILER_POOL_SIZE = 10;
+
+/**
+ * TMDb's broad "Teaser" type contains marketing spots as well as genuine
+ * teaser trailers. A spot can be official and localized, so type/language
+ * alone cannot keep it from outranking the actual trailer. Exclude only
+ * clearly named short-form/promotional material; an unambiguous fallback is
+ * retained below if a title truly has no other video at all.
+ */
+function isPromotionalSpot(video: RawVideo): boolean {
+  const name = video.name?.toLocaleLowerCase() ?? "";
+  return /\b(?:tv[\s-]*spot|spot|promo|featurette|behind[\s-]*the[\s-]*scenes|making[\s-]*of|interview|reaction|recap|shorts?)\b/i.test(name);
+}
 
 /** Pure selector — see rankVideosByType() above for the full priority rules. */
 export function selectMediaVideo(
@@ -1167,9 +1178,14 @@ export function selectMediaVideo(
   }
 ): string[] {
   const yt = (videos ?? []).filter((v) => v.site === "YouTube" && v.key);
-  const teasers = rankVideosByType(yt, "Teaser", opts).slice(0, TEASER_POOL_SIZE);
-  const trailers = rankVideosByType(yt, "Trailer", opts).slice(0, TRAILER_POOL_SIZE);
-  const ordered = opts.context === "carousel" ? [...teasers, ...trailers] : [...trailers, ...teasers];
+  // The fallback only applies to titles whose TMDb record has no usable
+  // trailer/teaser whatsoever. It prevents an overly strict title field from
+  // leaving a rare catalogue entry without any ambient video.
+  const usable = yt.filter((video) => !isPromotionalSpot(video));
+  const source = usable.length > 0 ? usable : yt;
+  const trailers = rankVideosByType(source, "Trailer", opts).slice(0, TRAILER_POOL_SIZE);
+  const teasers = rankVideosByType(source, "Teaser", opts).slice(0, TEASER_POOL_SIZE);
+  const ordered = [...trailers, ...teasers];
   return ordered.map((v) => v.key);
 }
 
