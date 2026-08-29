@@ -1898,6 +1898,9 @@ export const en: Dictionary = {
     discoverLayoutMovvizHint: "Trending, popular, top rated, coming soon.",
     discoverLayoutAllocine: "Allociné",
     discoverLayoutAllocineHint: "Same section order as allocine.fr's homepage: in theaters, coming soon, trending, top rated, new on VOD, box office, kids.",
+    pipedYoutubeTitle: "YouTube playback via Piped",
+    pipedYoutubeHint: "Off by default. When enabled, YouTube trailers play through a Piped instance instead of the direct YouTube player, to bypass embed restrictions. Reversible in one click.",
+    pipedYoutubeEnabled: "Use Piped for YouTube",
   },
 
   naming: {

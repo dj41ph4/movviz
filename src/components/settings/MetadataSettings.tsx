@@ -6,10 +6,12 @@ import { cn } from "@/lib/utils";
 import { Check, X, ExternalLink, Loader2, RotateCcw, BookOpen } from "lucide-react";
 import { Toggle } from "@/components/ui/Toggle";
 import { useEnhancedTrailerSources } from "@/lib/settings/useEnhancedTrailerSources";
+import { usePipedYoutubePlayback } from "@/lib/settings/usePipedYoutubePlayback";
 
 export function MetadataSettings() {
   const t = useT();
   const enhancedTrailerSources = useEnhancedTrailerSources();
+  const pipedYoutube = usePipedYoutubePlayback();
   const [tmdbConfigured, setTmdbConfigured] = useState(false);
   const [tmdbIsDefault, setTmdbIsDefault] = useState(true);
   const [tmdbApiKey, setTmdbApiKey] = useState("");
@@ -355,6 +357,14 @@ export function MetadataSettings() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-ink">{t("settings.experience.enhancedTrailerSourcesEnabled")}</span>
           <Toggle on={enhancedTrailerSources.enabled} onChange={() => enhancedTrailerSources.setEnabled(!enhancedTrailerSources.enabled)} />
+        </div>
+      </div>
+      <div className="mt-6 border-t border-white/5 pt-5">
+        <h3 className="text-sm font-bold text-ink">{t("metadata.pipedYoutubeTitle")}</h3>
+        <p className="mt-1 mb-3 text-xs text-ink-dim">{t("metadata.pipedYoutubeHint")}</p>
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-ink">{t("metadata.pipedYoutubeEnabled")}</span>
+          <Toggle on={pipedYoutube.enabled} onChange={() => pipedYoutube.setEnabled(!pipedYoutube.enabled)} />
         </div>
       </div>
     </div>

@@ -327,6 +327,26 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun savePreferredAudioLanguage(language: String): ApiResult<UserPrefsDto> =
         safeCall { api.savePreferences(UserPrefsDto(preferredAudioLanguage = language)) }.map { it.prefs }
 
+    /** Toggle Piped YouTube (GET /api/settings/piped-youtube) — `false` par
+     *  défaut si le serveur est ancien ou si l'appel échoue. Même source que
+     *  le web (usePipedYoutubePlayback → enabled). */
+    suspend fun pipedYoutubeEnabled(): Boolean {
+        return try {
+            when (val r = safeCall { api.pipedYoutubeSetting() }) {
+                is ApiResult.Success -> r.data.enabled
+                else -> false
+            }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /** URL manifeste DASH Piped — même route que le web (/api/trailers/piped
+     *  /{videoId}/manifest). Servie par le backend Movviz qui assemble déjà
+     *  un MPD isoff-on-demand avec BaseURL https uniquement. */
+    fun pipedTrailerManifestUrl(videoId: String): String =
+        "$baseUrl/api/trailers/piped/$videoId/manifest"
+
     /** Détruit la session côté serveur — best-effort, une erreur réseau ne
      *  doit jamais empêcher la déconnexion locale (le cookie jar est de
      *  toute façon vidé juste après par AppViewModel.logout, voir

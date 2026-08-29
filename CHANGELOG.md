@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.52 — August 2026
+
+### Piped — lecteur alternatif YouTube 1080p
+
+Toggle serveur global `pipedYoutubePlayback` dans `server-settings.json` (`/api/settings/piped-youtube` admin). Quand activé, chaque `trailerKey` tente `Piped DASH 1080p` puis fallback `YouTube` même `videoId`. Web via `DirectVideoPlayer` + TV via `ExoPlayer`, `CARD_VIDEO_DELAY` intact.
+
 ## v1.22.51 — August 2026
 
 ### Carte — délai vidéo à 500ms

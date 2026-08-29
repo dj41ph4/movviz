@@ -241,4 +241,11 @@ interface MovvizApiService {
 
     @POST("api/ai/session")
     suspend fun aiClearSession(@Body body: Map<String, Any>): Response<Map<String, Any?>>
+
+    // Piped — lecture YouTube via instance Piped (manifest DASH natif ExoPlayer).
+    // Même route que le web (TrailerHeader → /api/trailers/piped/{id}/manifest),
+    // le toggle serveur est la seule switch : si OFF, la TV reste sur
+    // YouTubeWebViewPool sans jamais tenter Piped.
+    @GET("api/settings/piped-youtube")
+    suspend fun pipedYoutubeSetting(): Response<PipedYoutubeSettingDto>
 }

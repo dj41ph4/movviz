@@ -213,6 +213,22 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _userPrefs = MutableStateFlow<UserPrefsDto?>(null)
     val userPrefs: StateFlow<UserPrefsDto?> = _userPrefs.asStateFlow()
 
+    // Toggle Piped YouTube (GET /api/settings/piped-youtube) — même source
+    // que le web. Chargé une fois par entrée sur l'accueil, pas de polling :
+    // le serveur met en cache et le changement est rare.
+    private val _pipedEnabled = MutableStateFlow(false)
+    val pipedEnabled: StateFlow<Boolean> = _pipedEnabled.asStateFlow()
+
+    fun loadPipedSetting() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            _pipedEnabled.value = repo.pipedYoutubeEnabled()
+        }
+    }
+
+    fun pipedTrailerManifestUrl(videoId: String): String? =
+        repository?.pipedTrailerManifestUrl(videoId)
+
     fun consumeSessionExpired() {
         _sessionExpired.value = false
     }

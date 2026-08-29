@@ -174,6 +174,7 @@ fun HomeScreen(
     val seriesRows by viewModel.seriesRows.collectAsState()
     val dashboardHero by viewModel.dashboardHero.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
+    val pipedEnabled by viewModel.pipedEnabled.collectAsState()
 
     LaunchedEffect(Unit) {
         viewModel.loadLibrary()
@@ -183,6 +184,8 @@ fun HomeScreen(
         viewModel.loadDiscovery()
         delay(200)
         viewModel.loadDashboardHero()
+        delay(200)
+        viewModel.loadPipedSetting()
     }
 
     // La file de téléchargement change en continu (vitesse/progression) tant
@@ -384,6 +387,8 @@ TvTitleCard(
                         onSelectIndex = { heroIndex = it },
                         ctaFocusRequester = heroCtaFocus,
                         onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                        pipedEnabled = pipedEnabled,
+                        pipedManifestUrl = { videoId -> viewModel.pipedTrailerManifestUrl(videoId) },
                     )
                 }
             }
@@ -584,6 +589,8 @@ internal fun HeroCarousel(
     onSelectIndex: (Int) -> Unit,
     ctaFocusRequester: FocusRequester,
     onOpen: (TvTitleCard) -> Unit,
+    pipedEnabled: Boolean = false,
+    pipedManifestUrl: ((String) -> String?)? = null,
 ) {
     val current = items[currentIndex.coerceIn(0, items.size - 1)]
     var showTitleFallback by remember(current.id, logoPath) { mutableStateOf(false) }
@@ -708,6 +715,8 @@ internal fun HeroCarousel(
             trailerKeys = current.trailerKeys,
             title = current.title,
             modifier = Modifier.fillMaxSize(),
+            pipedEnabled = pipedEnabled,
+            pipedManifestUrl = pipedManifestUrl,
         )
 
         // Netflix-style gradient scrim — strong bottom, subtle left.
@@ -980,9 +989,22 @@ private const val AMBIENT_TRAILER_DELAY_MS = 2_200L
  * Comportement Netflix : le trailer ne se lance qu'après un délai de
  * ~2.2s pour laisser l'utilisateur admirer le backdrop Ken Burns ;
  * une fois lancé, le fade-in est doux (400ms) au lieu du snap binaire
- * d'avant. */
+ * d'avant.
+ *
+ * Phase E Piped : quand le toggle serveur `piped-youtube` est ON, le hero
+ * utilise PipedAmbientPlayer (ExoPlayer natif DASH) en priorité — muet,
+ * auto-play, boucle — et ne retombe sur YouTubeWebViewPool qu'en cas
+ * d'erreur manifeste (404 piped_disabled, 502, parsing…). YouTubeWebViewPool
+ * reste strictement intact et réutilisé pour le fallback ; aucune WebView
+ * n'est créée pour Piped. */
 @Composable
-private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: Modifier = Modifier) {
+private fun AmbientTrailer(
+    trailerKeys: List<String>,
+    title: String,
+    modifier: Modifier = Modifier,
+    pipedEnabled: Boolean = false,
+    pipedManifestUrl: ((String) -> String?)? = null,
+) {
     val key = trailerKeys.firstOrNull { it.matches(Regex("[A-Za-z0-9_-]{6,}")) } ?: return
     val appContext = LocalContext.current.applicationContext
     val activityManager = remember(appContext) { appContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager }
@@ -992,9 +1014,22 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
         activityManager.getMemoryInfo(memInfo)
         canUseWebView = memInfo.availMem >= 400L * 1024 * 1024 && memInfo.totalMem >= 2L * 1024 * 1024 * 1024
     }
-    if (!canUseWebView) return
-    var ready by remember(key) { mutableStateOf(false) }
-    var playing by remember(key) { mutableStateOf(false) }
+
+    // État partagé Piped / YouTube — même délai Netflix et même fade.
+    var ready by remember(key, pipedEnabled) { mutableStateOf(false) }
+    var playing by remember(key, pipedEnabled) { mutableStateOf(false) }
+    // Échec Piped → fallback YouTube pour cette clé (reset au changement de
+    // clé ou de toggle). Sans ce flag, une erreur Piped resterait bloquée
+    // sur un écran noir au lieu de retenter YouTube.
+    var pipedFailed by remember(key, pipedEnabled) { mutableStateOf(false) }
+    val manifestForKey = if (pipedEnabled && pipedManifestUrl != null) pipedManifestUrl.invoke(key) else null
+    val usePiped = pipedEnabled && manifestForKey != null && !pipedFailed
+
+    // Si Piped est OFF et que la WebView est impossible (mémoire), rien à
+    // afficher — le backdrop reste seul. Si Piped est ON, on peut encore
+    // afficher ExoPlayer même sans WebView (pas de Gate pour DASH natif).
+    if (!usePiped && !canUseWebView) return
+
     val mainHandler = remember { Handler(Looper.getMainLooper()) }
     val bridge = remember(key) {
         AmbientTrailerBridge(
@@ -1006,11 +1041,12 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     // Délai avant le lancement du trailer — Netflix laisse ~2-3s le temps
     // au backdrop Ken Burns de s'installer avant de lancer la bande-annonce.
     // `ready` passe à true après le délai, ce qui déclenche le chargement
-    // de la WebView. Si la clé change pendant le délai, l'ancien LaunchedEffect
-    // est annulé proprement.
-    LaunchedEffect(key) {
+    // de la WebView OU du DASH. Si la clé change pendant le délai, l'ancien
+    // LaunchedEffect est annulé proprement.
+    LaunchedEffect(key, pipedEnabled) {
         playing = false
         ready = false
+        pipedFailed = false
         delay(AMBIENT_TRAILER_DELAY_MS)
         ready = true
     }
@@ -1033,12 +1069,25 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     // rotation payait la création du moteur + le rechargement de l'iframe
     // API YouTube (jank au moment du changement).
     if (ready) {
-        AndroidView(
-            factory = { TrailerWebViewPool.obtain(appContext) },
-            update = { view -> TrailerWebViewPool.prepare(view, key, title, bridge) },
-            onRelease = { view -> TrailerWebViewPool.release(view) },
-            modifier = modifier.graphicsLayer { alpha = trailerAlpha },
-        )
+        if (usePiped) {
+            // ExoPlayer natif DASH — même fade que YouTube, pas de WebView.
+            // onError → fallback immédiat vers YouTubeWebViewPool pour la
+            // même clé (même délai déjà écoulé, pas de re-delay).
+            PipedAmbientPlayer(
+                manifestUrl = manifestForKey!!,
+                modifier = modifier.graphicsLayer { alpha = trailerAlpha },
+                onPlaying = { mainHandler.post { playing = true } },
+                onError = { mainHandler.post { pipedFailed = true; playing = false } },
+            )
+        } else {
+            if (!canUseWebView) return
+            AndroidView(
+                factory = { TrailerWebViewPool.obtain(appContext) },
+                update = { view -> TrailerWebViewPool.prepare(view, key, title, bridge) },
+                onRelease = { view -> TrailerWebViewPool.release(view) },
+                modifier = modifier.graphicsLayer { alpha = trailerAlpha },
+            )
+        }
     }
     DisposableEffect(Unit) { onDispose { TrailerWebViewPool.clearAll() } }
 }
