@@ -222,7 +222,12 @@ export function DashboardPosterCard({
   const previewGenres = genres?.length ? genres : (previewDetail?.genres ?? []);
   const hasMeta = !!previewYear || !!previewRuntime || !!technical;
   const showRank = !!rank && rank >= 1 && rank <= 10;
-  const ambientVideoKeys = previewDetail?.ambientVideoKeys ?? [];
+  // Older / sparse TMDb details often expose only `trailerKey`, while the
+  // newer ambient list is absent. A hover preview must still play that real
+  // trailer instead of silently falling back to the static artwork.
+  const ambientVideoKeys = previewDetail?.ambientVideoKeys?.length
+    ? previewDetail.ambientVideoKeys
+    : previewDetail?.trailerKey ? [previewDetail.trailerKey] : [];
   const enhancedTrailerSources = useTrailerSources(
     type,
     hovered ? tmdbId : null,

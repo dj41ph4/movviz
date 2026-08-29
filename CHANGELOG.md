@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.47 — August 2026
+
+### Aperçus vidéo des cartes
+
+Quand TMDb ne fournit pas de liste de vidéos d'ambiance, les cartes utilisent maintenant automatiquement sa bande-annonce principale au survol.
+
 ## v1.22.46 — August 2026
 
 ### Carte hover — black screen largeViewport corrigé
