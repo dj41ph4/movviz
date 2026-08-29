@@ -53,6 +53,7 @@ export interface UserPrefs {
   titlePageVideoEnabled?: boolean;
   /** Per-user crop offset for YouTube previews inside dashboard cards. */
   cardTrailerZoomOffset?: number;
+  cardTrailerZoomV2?: boolean;
   /** Season-0 "specials" episodes in the completion/watched-tracking logic —
    *  absent/false (default) EXCLUDES them: a series with every real season
    *  watched counts as fully watched even if a special was never released/
@@ -94,6 +95,7 @@ function sanitize(prefs: unknown): UserPrefs {
   }
   if (typeof p.titlePageVideoEnabled === "boolean") clean.titlePageVideoEnabled = p.titlePageVideoEnabled;
   if (typeof p.cardTrailerZoomOffset === "number" && Number.isInteger(p.cardTrailerZoomOffset) && p.cardTrailerZoomOffset >= -100 && p.cardTrailerZoomOffset <= 100) clean.cardTrailerZoomOffset = p.cardTrailerZoomOffset;
+  if (typeof p.cardTrailerZoomV2 === "boolean") clean.cardTrailerZoomV2 = p.cardTrailerZoomV2;
   if (typeof p.specialEpisodesEnabled === "boolean") clean.specialEpisodesEnabled = p.specialEpisodesEnabled;
   return clean;
 }

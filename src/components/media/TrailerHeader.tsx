@@ -299,7 +299,9 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   const viewportRef = useRef<HTMLDivElement>(null);
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
-  const cardTrailerZoom = Math.max(10, 110 + cardTrailerZoomOffset);
+  // v1.22.35's former +100 (210%) is the new zero point, leaving real
+  // headroom for the user to increase the crop further.
+  const cardTrailerZoom = Math.max(10, 210 + cardTrailerZoomOffset);
   const [viewportWidth, setViewportWidth] = useState(0);
   const largeViewportScale = viewportWidth > 0
     ? (viewportWidth / 1920) * (cardTrailerZoom / 100) * (extraZoom ? 1.05 : 1)
@@ -481,6 +483,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
 
   return (
     <div ref={viewportRef} className="absolute inset-0">
+    {(!largeViewport || viewportWidth > 0) && (
     <div
       // pointer-events-none: this is a decorative ambient background, never a
       // player the user interacts with directly (our own buttons drive
@@ -518,6 +521,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
       )}
       style={largeViewportStyle}
     />
+    )}
     </div>
   );
 }

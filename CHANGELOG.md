@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.36 — August 2026
+
+### Aperçus vidéo
+
+L'ancien +100 devient le nouveau point 0 afin de garder une marge de zoom, et le lecteur attend désormais la mesure de sa carte avant de démarrer pour ne jamais être initialisé avec une échelle nulle.
+
 ## v1.22.35 — August 2026
 
 ### Aperçus vidéo
