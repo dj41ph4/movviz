@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.37 — August 2026
+
+### Aperçus vidéo
+
+Les dimensions inline 640×360 injectées par YouTube ne peuvent plus écraser le viewport 1920×1080 des cartes.
+
 ## v1.22.36 — August 2026
 
 ### Aperçus vidéo

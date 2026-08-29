@@ -379,6 +379,11 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
                 // falls back to YouTube's small 640px internal viewport.
                 iframe.style.cssText = hostRef.current.style.cssText;
                 if (largeViewport) {
+                  // The API also adds inline 640×360 dimensions. Inline
+                  // styles win over Tailwind's w-[1920px]/h-[1080px], so set
+                  // the genuine large viewport here as well.
+                  iframe.style.width = "1920px";
+                  iframe.style.height = "1080px";
                   iframe.style.transform = `translate(-50%, -50%) scale(${largeViewportScaleRef.current})`;
                 }
               }
