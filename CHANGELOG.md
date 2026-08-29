@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.34 — August 2026
+
+### Aperçus vidéo
+
+Le réglage de zoom est désormais appliqué directement à l'iframe YouTube des cartes déjà ouvertes, au lieu de ne modifier que la vignette de test.
+
 ## v1.22.33 — August 2026
 
 ### Aperçus vidéo

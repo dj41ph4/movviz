@@ -295,6 +295,7 @@ const YOUTUBE_CHROME_SETTLE_MS = 1500;
 function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, largeViewport, cardTrailerZoomOffset = 0 }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; largeViewport?: boolean; cardTrailerZoomOffset?: number }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
+  const cardTrailerZoom = Math.max(10, 110 + cardTrailerZoomOffset);
 
   useEffect(() => {
     let cancelled = false;
@@ -339,7 +340,10 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
             // those classes already.
             try {
               const iframe = e.target.getIframe?.();
-              if (iframe && hostRef.current) iframe.className = hostRef.current.className;
+              if (iframe && hostRef.current) {
+                iframe.className = hostRef.current.className;
+                if (largeViewport) iframe.style.setProperty("--card-trailer-zoom", String(cardTrailerZoom));
+              }
             } catch { /* best-effort */ }
             if (muted) e.target.mute();
             else e.target.unMute();
@@ -430,6 +434,14 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
     if (muted) player.mute();
     else player.unMute();
   }, [muted]);
+
+  // YouTube replaces the React-owned host with its own iframe. CSS custom
+  // properties therefore do not inherit from TrailerHeader into that nested
+  // document; update the iframe itself whenever the settings slider moves.
+  useEffect(() => {
+    if (!largeViewport) return;
+    try { playerRef.current?.getIframe?.()?.style.setProperty("--card-trailer-zoom", String(cardTrailerZoom)); } catch { /* player not ready yet */ }
+  }, [largeViewport, cardTrailerZoom]);
 
   return (
     <div
