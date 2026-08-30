@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.56 — August 2026
+
+### Correction de version — preview YouTube des cartes
+
+Republie le correctif de preview YouTube des petites cartes au-dessus de la `v1.22.55` déjà existante. Aucun changement fonctionnel par rapport au patch carte validé précédemment : iframe YouTube conservée, trafic direct YouTube → utilisateur, crop `scale 1.18`, centre à 46 %, masque supérieur proportionnel de 28 %, hero et vidéos de fiche inchangés.
+
 ## v1.22.54 — August 2026
 
 ### Cartes — iframe YouTube compact sans titre
