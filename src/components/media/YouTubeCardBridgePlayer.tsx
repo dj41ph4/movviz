@@ -9,6 +9,14 @@ const PLAYBACK_TIMEOUT_MS = 5000;
 const LISTEN_RETRY_MS = 200;
 const REVEAL_SETTLE_MS = 700;
 const ADVANCE_SEC = 0.03;
+// Card-only experiment: keep YouTube's *layout viewport* genuinely large so
+// the embed chooses its desktop player layout while CSS scales that viewport
+// down into the small Movviz popover. A transform does not change the iframe
+// document's innerWidth/innerHeight, so YouTube still sees 1920x1080.
+const VIRTUAL_PLAYER_WIDTH = 1920;
+const VIRTUAL_PLAYER_HEIGHT = 1080;
+const CARD_CROP_ZOOM = 1.36;
+const VIRTUAL_LAYOUT_TIMEOUT_MS = 1500;
 
 type BridgePayload = {
   event?: string;
@@ -34,9 +42,58 @@ export function YouTubeCardBridgePlayer({
   onError: () => void;
   fallback: ReactNode;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const commandRef = useRef<((func: string, args?: unknown[]) => boolean) | null>(null);
   const [useFallback, setUseFallback] = useState(false);
+  const [virtualScale, setVirtualScale] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (useFallback) return;
+    const container = containerRef.current;
+    if (!container) return;
+    if (typeof ResizeObserver === "undefined") {
+      console.debug(`[Movviz][YouTubeBridge] ${trailerKey}: fallback (ResizeObserver unavailable)`);
+      setUseFallback(true);
+      return;
+    }
+
+    let cancelled = false;
+    let hadValidLayout = false;
+    const updateVirtualScale = () => {
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      if (!(width > 0) || !(height > 0)) return;
+      const coverScale = Math.max(width / VIRTUAL_PLAYER_WIDTH, height / VIRTUAL_PLAYER_HEIGHT);
+      const nextScale = coverScale * CARD_CROP_ZOOM;
+      if (!Number.isFinite(nextScale) || nextScale <= 0) return;
+      if (!hadValidLayout) {
+        console.debug(
+          `[Movviz][YouTubeBridge] ${trailerKey}: virtual ${VIRTUAL_PLAYER_WIDTH}x${VIRTUAL_PLAYER_HEIGHT} -> ${Math.round(width)}x${Math.round(height)}; scale=${nextScale.toFixed(4)}`,
+        );
+      }
+      hadValidLayout = true;
+      setVirtualScale((previous) =>
+        previous != null && Math.abs(previous - nextScale) < 0.0005 ? previous : nextScale,
+      );
+    };
+
+    updateVirtualScale();
+    const observer = new ResizeObserver(updateVirtualScale);
+    observer.observe(container);
+    const layoutTimeout = setTimeout(() => {
+      if (!cancelled && !hadValidLayout) {
+        console.debug(`[Movviz][YouTubeBridge] ${trailerKey}: fallback (invalid virtual layout)`);
+        setUseFallback(true);
+      }
+    }, VIRTUAL_LAYOUT_TIMEOUT_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(layoutTimeout);
+      observer.disconnect();
+    };
+  }, [trailerKey, useFallback]);
 
   useEffect(() => {
     if (useFallback) return;
@@ -269,12 +326,26 @@ export function YouTubeCardBridgePlayer({
   if (useFallback) return <>{fallback}</>;
 
   return (
-    <iframe
-      ref={iframeRef}
-      title={title}
-      allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
-      referrerPolicy="strict-origin-when-cross-origin"
-      className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2 scale-[1.36]"
-    />
+    <div
+      ref={containerRef}
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+      style={{ contain: "paint" }}
+    >
+      <iframe
+        ref={iframeRef}
+        title={title}
+        width={VIRTUAL_PLAYER_WIDTH}
+        height={VIRTUAL_PLAYER_HEIGHT}
+        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerPolicy="strict-origin-when-cross-origin"
+        className="pointer-events-none absolute left-1/2 top-1/2 max-w-none border-0"
+        style={{
+          width: `${VIRTUAL_PLAYER_WIDTH}px`,
+          height: `${VIRTUAL_PLAYER_HEIGHT}px`,
+          transform: `translate(-50%, -50%) scale(${virtualScale ?? 1})`,
+          transformOrigin: "center center",
+        }}
+      />
+    </div>
   );
 }

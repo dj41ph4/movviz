@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.61 — August 2026
+
+### Cartes — iframe YouTube virtuelle 1080p
+
+Les petites previews YouTube utilisent désormais un iframe brut dont le viewport logique reste réellement à `1920×1080`, puis un wrapper Movviz calcule via `ResizeObserver` un `transform: scale(...)` pour le réduire à la taille de la carte. Le scale applique `cover × 1.36`, ce qui conserve exactement le zoom/cadrage de la v1.22.60 tout en laissant YouTube croire qu'il dispose d'un grand lecteur desktop. L'objectif est double : éviter le layout compact du player et maximiser les chances que l'ABR YouTube sélectionne une qualité élevée ; la qualité 1080p reste toutefois décidée par YouTube et n'est pas officiellement forçable. Le bridge `postMessage`, `apiInterface`, `hideVideoInfo` si exposé, la boucle avant `ENDED`, le poster rideau et le fallback `YT.Player` restent inchangés. Si le viewport de carte ne peut pas être mesuré proprement, Movviz retombe automatiquement sur le rendu stable v1.22.60. Hero, fiches, modal et Android ne changent pas.
+
 ## v1.22.60 — August 2026
 
 ### Cartes — recadrage iframe YouTube
