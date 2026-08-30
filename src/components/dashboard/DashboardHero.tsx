@@ -151,6 +151,7 @@ export function DashboardHero({ settings }: { settings: DashboardHeroSettings })
           enhancedSources={enhancedTrailerSources}
           title={active.detail.title}
           trigger="immediate"
+          youtubeProfile="hero"
           enabled={trailerEnabled}
           className="absolute inset-0 h-full w-full"
         />

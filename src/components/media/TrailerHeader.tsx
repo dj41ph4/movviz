@@ -11,7 +11,7 @@ import { registerAmbientVideo } from "@/lib/player/ambientVideoRegistry";
 import { useShouldUseCdn } from "@/lib/settings/useShouldUseCdn";
 import type { TmdbImageSize } from "@/lib/metadata/tmdbImageCache";
 import type { TrailerSource } from "@/lib/trailers/types";
-import { YouTubeCardBridgePlayer } from "@/components/media/YouTubeCardBridgePlayer";
+import { YouTubeVirtualPlayer, type YouTubeVirtualProfile } from "@/components/media/YouTubeVirtualPlayer";
 
 const CDN_BASE = "https://image.tmdb.org/t/p";
 
@@ -26,14 +26,9 @@ const CDN_BASE = "https://image.tmdb.org/t/p";
  * trailer with sound" action elsewhere on the page — this is strictly an
  * ambient preview.
  *
- * Uses the YouTube IFrame Player API (not a raw `<iframe src=...>`) so we can
- * call `setPlaybackQuality("hd1080")` programmatically — URL query params
- * like `vq=` are a legacy hint YouTube frequently ignores; the JS API call is
- * the only mechanism that actually has a real (still best-effort, YouTube
- * can still downgrade for a slow connection) chance of enforcing a minimum
- * quality. Looping is done manually via `onStateChange` (ENDED → seekTo(0) +
- * playVideo()) rather than the `loop=1&playlist=` URL trick, since a manual
- * loop lets us re-assert the quality floor on every replay too.
+ * Ambient YouTube previews use a raw 1920x1080 iframe controlled through
+ * the postMessage bridge. The legacy YT.Player implementation remains only
+ * as a guarded fallback (and for the interactive trailer modal).
  */
 
 const HOVER_DELAY_MS = 900; // "survol prolongé" — not an instant trigger on mouse-in
@@ -272,8 +267,10 @@ export interface TrailerHeaderProps {
    *  that scale, e.g. RoboCop 2014). Never applied to the hero carousel or
    *  the title page header, which don't have this complaint. */
   extraZoom?: boolean;
-  /** Compact hover-card treatment only; hero/title rendering stays unchanged. */
+  /** Compact hover-card treatment only; keeps the existing card mask/fallback. */
   cardPreview?: boolean;
+  /** Independent virtual-1080p framing preset for each ambient surface. */
+  youtubeProfile?: YouTubeVirtualProfile;
   className?: string;
 }
 
@@ -589,7 +586,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, cardPreview = false, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, cardPreview = false, youtubeProfile, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -600,6 +597,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   const croppedBackdrop = useCroppedBackdrop(backdropUrl);
   const [soundOn, setSoundOn] = useState(!initialMuted);
   const muted = !soundOn;
+  const resolvedYouTubeProfile: YouTubeVirtualProfile = cardPreview ? "card" : (youtubeProfile ?? "detail");
   // Enhanced sources are strictly Apple/Netflix/Disney/Prime/IMDb, already
   // identity-checked by their resolver. The retired remastered-search chain
   // is deliberately absent here: it must never select an ambient preview.
@@ -711,22 +709,27 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
             />
           ) : (
             <>
-              {cardPreview ? (
-                <YouTubeCardBridgePlayer
-                  key={candidateKey}
-                  trailerKey={candidate.key}
-                  title={title}
-                  muted={muted}
-                  loopBeforeEndSec={LOOP_BEFORE_END_SEC}
-                  onPlayingChange={setVideoPlaying}
-                  onError={onVideoError}
-                  fallback={
-                    <YouTubePlayer trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} cardPreview />
-                  }
-                />
-              ) : (
-                <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />
-              )}
+              <YouTubeVirtualPlayer
+                key={candidateKey}
+                trailerKey={candidate.key}
+                title={title}
+                muted={muted}
+                loopBeforeEndSec={LOOP_BEFORE_END_SEC}
+                onPlayingChange={setVideoPlaying}
+                onError={onVideoError}
+                profile={resolvedYouTubeProfile}
+                fallback={
+                  <YouTubePlayer
+                    trailerKey={candidate.key}
+                    title={title}
+                    muted={muted}
+                    onPlayingChange={setVideoPlaying}
+                    onError={onVideoError}
+                    extraZoom={extraZoom}
+                    cardPreview={cardPreview}
+                  />
+                }
+              />
             </>
           )}
           {(!hideTopGradient || cardPreview) && (

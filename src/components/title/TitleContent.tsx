@@ -1098,6 +1098,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
               enhancedSources={enhancedTrailerSources}
               title={detail.title}
               trigger="immediate"
+              youtubeProfile="detail"
               enabled={titlePageVideoEnabled}
               className="h-full w-full"
             />

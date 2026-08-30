@@ -578,6 +578,7 @@ export function DashboardPosterCard({
                 enabled={videoPreviewEnabled}
                 hideTopGradient
                 cardPreview
+                youtubeProfile="card"
                 className="h-full w-full"
               />
             ) : previewImage ? (

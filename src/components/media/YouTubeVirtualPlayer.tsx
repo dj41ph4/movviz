@@ -7,16 +7,31 @@ const LOAD_TIMEOUT_MS = 6000;
 const HANDSHAKE_TIMEOUT_MS = 3000;
 const PLAYBACK_TIMEOUT_MS = 5000;
 const LISTEN_RETRY_MS = 200;
-const REVEAL_SETTLE_MS = 700;
 const ADVANCE_SEC = 0.03;
-// Card-only experiment: keep YouTube's *layout viewport* genuinely large so
-// the embed chooses its desktop player layout while CSS scales that viewport
-// down into the small Movviz popover. A transform does not change the iframe
-// document's innerWidth/innerHeight, so YouTube still sees 1920x1080.
+// All ambient YouTube previews deliberately keep a genuine 1920x1080 iframe
+// layout viewport. CSS only scales the already-laid-out iframe into the
+// visible Movviz surface, so YouTube continues to see a desktop-sized player.
 const VIRTUAL_PLAYER_WIDTH = 1920;
 const VIRTUAL_PLAYER_HEIGHT = 1080;
-const CARD_CROP_ZOOM = 1.36;
 const VIRTUAL_LAYOUT_TIMEOUT_MS = 1500;
+
+export type YouTubeVirtualProfile = "card" | "hero" | "detail";
+
+type VirtualProfileConfig = {
+  zoom: number;
+  centerX: number;
+  centerY: number;
+  revealSettleMs: number;
+};
+
+// Keep each surface independently tunable even when two profiles currently
+// share the same values. Seb can visually fine-tune hero/detail afterwards
+// without coupling either one to the already-approved card framing.
+const VIRTUAL_PROFILES: Record<YouTubeVirtualProfile, VirtualProfileConfig> = {
+  card: { zoom: 1.36, centerX: 50, centerY: 50, revealSettleMs: 700 },
+  hero: { zoom: 1.10, centerX: 50, centerY: 50, revealSettleMs: 1500 },
+  detail: { zoom: 1.10, centerX: 50, centerY: 50, revealSettleMs: 1500 },
+};
 
 type BridgePayload = {
   event?: string;
@@ -25,7 +40,7 @@ type BridgePayload = {
   info?: unknown;
 };
 
-export function YouTubeCardBridgePlayer({
+export function YouTubeVirtualPlayer({
   trailerKey,
   title,
   muted,
@@ -33,6 +48,7 @@ export function YouTubeCardBridgePlayer({
   onPlayingChange,
   onError,
   fallback,
+  profile,
 }: {
   trailerKey: string;
   title: string;
@@ -41,12 +57,14 @@ export function YouTubeCardBridgePlayer({
   onPlayingChange: (playing: boolean) => void;
   onError: () => void;
   fallback: ReactNode;
+  profile: YouTubeVirtualProfile;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const commandRef = useRef<((func: string, args?: unknown[]) => boolean) | null>(null);
   const [useFallback, setUseFallback] = useState(false);
   const [virtualScale, setVirtualScale] = useState<number | null>(null);
+  const config = VIRTUAL_PROFILES[profile];
 
   useEffect(() => {
     if (useFallback) return;
@@ -65,11 +83,11 @@ export function YouTubeCardBridgePlayer({
       const height = container.clientHeight;
       if (!(width > 0) || !(height > 0)) return;
       const coverScale = Math.max(width / VIRTUAL_PLAYER_WIDTH, height / VIRTUAL_PLAYER_HEIGHT);
-      const nextScale = coverScale * CARD_CROP_ZOOM;
+      const nextScale = coverScale * config.zoom;
       if (!Number.isFinite(nextScale) || nextScale <= 0) return;
       if (!hadValidLayout) {
         console.debug(
-          `[Movviz][YouTubeBridge] ${trailerKey}: virtual ${VIRTUAL_PLAYER_WIDTH}x${VIRTUAL_PLAYER_HEIGHT} -> ${Math.round(width)}x${Math.round(height)}; scale=${nextScale.toFixed(4)}`,
+          `[Movviz][YouTubeBridge] ${trailerKey}: ${profile} virtual ${VIRTUAL_PLAYER_WIDTH}x${VIRTUAL_PLAYER_HEIGHT} -> ${Math.round(width)}x${Math.round(height)}; scale=${nextScale.toFixed(4)}`,
         );
       }
       hadValidLayout = true;
@@ -93,7 +111,7 @@ export function YouTubeCardBridgePlayer({
       clearTimeout(layoutTimeout);
       observer.disconnect();
     };
-  }, [trailerKey, useFallback]);
+  }, [trailerKey, useFallback, profile]);
 
   useEffect(() => {
     if (useFallback) return;
@@ -177,7 +195,7 @@ export function YouTubeCardBridgePlayer({
         if (playbackTimeout) clearTimeout(playbackTimeout);
         playbackTimeout = null;
         onPlayingChange(true);
-      }, REVEAL_SETTLE_MS);
+      }, config.revealSettleMs);
     };
 
     const installCapabilities = (apiInterface: unknown) => {
@@ -313,7 +331,7 @@ export function YouTubeCardBridgePlayer({
       try { iframe.removeAttribute("src"); } catch { /* already detached */ }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trailerKey, useFallback]);
+  }, [trailerKey, useFallback, profile]);
 
   useEffect(() => {
     if (useFallback) return;
@@ -338,10 +356,12 @@ export function YouTubeCardBridgePlayer({
         height={VIRTUAL_PLAYER_HEIGHT}
         allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
         referrerPolicy="strict-origin-when-cross-origin"
-        className="pointer-events-none absolute left-1/2 top-1/2 max-w-none border-0"
+        className="pointer-events-none absolute max-w-none border-0"
         style={{
           width: `${VIRTUAL_PLAYER_WIDTH}px`,
           height: `${VIRTUAL_PLAYER_HEIGHT}px`,
+          left: `${config.centerX}%`,
+          top: `${config.centerY}%`,
           transform: `translate(-50%, -50%) scale(${virtualScale ?? 1})`,
           transformOrigin: "center center",
         }}

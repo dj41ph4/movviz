@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.23.02 — August 2026
+
+### YouTube ambiant — moteur 1080p virtuel unifié
+
+Les trois surfaces ambiantes (carte hover, hero/carrousel et en-tête de fiche) utilisent désormais le même moteur YouTube brut avec un vrai viewport logique `1920×1080`, piloté par `postMessage` puis réduit en CSS via `ResizeObserver`. Chaque surface possède son propre preset de cadrage : `card` conserve le zoom validé `1.36`, tandis que `hero` et `detail` démarrent à `1.10` pour reproduire au plus près leur rendu précédent et rester réglables indépendamment après validation visuelle. Le bridge, `apiInterface`, le masquage du chrome lorsqu'il est exposé, la boucle avant `ENDED`, le rideau backdrop, le mute et les timeouts sont mutualisés. L'ancien `YT.Player` reste le fallback de sécurité et continue d'alimenter la modal interactive de bande-annonce. Les toggles existants, l'ordre des trailers, les chemins vidéo directs et Android restent inchangés.
+
 ## v1.23.00 — August 2026
 
 ### Nouvelle série de version
