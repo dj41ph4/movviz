@@ -1,0 +1,97 @@
+name: v1.23.04 direct main release
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v12304-main-release.yml'
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Align v1.23.04 version metadata
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json
+
+          expected_old = '1.23.03'
+          expected_new = '1.23.04'
+
+          pkg = Path('package.json')
+          pkg_data = json.loads(pkg.read_text())
+          assert pkg_data.get('version') == expected_old, f"package.json is {pkg_data.get('version')}, expected {expected_old}"
+          pkg_data['version'] = expected_new
+          pkg.write_text(json.dumps(pkg_data, ensure_ascii=False, indent=2) + '\n')
+
+          lock = Path('package-lock.json')
+          lock_data = json.loads(lock.read_text())
+          assert lock_data.get('version') == expected_old, 'package-lock root version mismatch'
+          assert lock_data.get('packages', {}).get('', {}).get('version') == expected_old, 'package-lock packages[""] version mismatch'
+          lock_data['version'] = expected_new
+          lock_data['packages']['']['version'] = expected_new
+          lock.write_text(json.dumps(lock_data, ensure_ascii=False, indent=2) + '\n')
+
+          for fn in ['android-tv/app/build.gradle.kts', 'android-mobile/app/build.gradle.kts']:
+              p = Path(fn)
+              s = p.read_text()
+              assert '12303' in s and '"1.23.03"' in s, f'{fn}: expected 1.23.03 fallback metadata missing'
+              s = s.replace('12303', '12304').replace('"1.23.03"', '"1.23.04"')
+              p.write_text(s)
+
+          p = Path('README.md')
+          s = p.read_text()
+          assert 'Movviz-1.23.03' in s, 'README current release link/badge is not on 1.23.03'
+          p.write_text(s.replace('Movviz-1.23.03', 'Movviz-1.23.04', 1))
+
+          p = Path('CHANGELOG.md')
+          s = p.read_text()
+          assert s.startswith('# Changelog\n'), 'unexpected CHANGELOG header'
+          entry = '''# Changelog\n\n## v1.23.04 — August 2026\n\n### Release — versions et artefacts alignés\n\nRelease de synchronisation : version applicative, lockfile et valeurs de repli Android TV/mobile alignés sur `1.23.04`. Le tag `v1.23.04` déclenche les builds GitHub de l’installeur Windows, de l’archive Linux et des clients Android TV/mobile ; l’image Docker reste générée depuis `main`. Aucun changement fonctionnel n’est introduit par cette release.\n\n'''
+          p.write_text(entry + s[len('# Changelog\n\n'):])
+          PY
+
+      - name: Verify aligned versions and release generators
+        shell: bash
+        run: |
+          node -e "const p=require('./package.json'),l=require('./package-lock.json'); if(p.version!=='1.23.04'||l.version!=='1.23.04'||l.packages[''].version!=='1.23.04') process.exit(1)"
+          grep -q 'versionCode = .*12304' android-tv/app/build.gradle.kts
+          grep -q 'versionName = .*"1.23.04"' android-tv/app/build.gradle.kts
+          grep -q 'versionCode = .*12304' android-mobile/app/build.gradle.kts
+          grep -q 'versionName = .*"1.23.04"' android-mobile/app/build.gradle.kts
+          grep -q 'Version from package.json' packaging/windows/installer/build.ps1
+          grep -q 'tags: \["v\*"\]' .github/workflows/build-installer.yml
+          grep -q 'tags: \["v\*"\]' .github/workflows/linux-release-build.yml
+          grep -q 'tags: \["v\*"\]' .github/workflows/android-tv-build.yml
+          grep -q 'tags: \["v\*"\]' .github/workflows/android-mobile-build.yml
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Portable tests
+        shell: bash
+        run: |
+          FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+      - name: Production build
+        run: npm run build
+      - name: Commit and tag v1.23.04 on main
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json android-tv/app/build.gradle.kts android-mobile/app/build.gradle.kts README.md CHANGELOG.md
+          git commit -m 'v1.23.04 — align release versions and artifacts'
+          git push origin HEAD:main
+          git tag -a v1.23.04 -m 'v1.23.04 — align release versions and artifacts'
+          git push origin v1.23.04
