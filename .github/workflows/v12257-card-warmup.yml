@@ -1,0 +1,122 @@
+name: v1.22.57 card warm-up
+
+on:
+  push:
+    branches:
+      - v12257-card-warmup-staging
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: v12257-card-warmup-staging
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Patch card warm-up and bump version
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/components/media/TrailerHeader.tsx')
+          s = p.read_text(encoding='utf-8')
+
+          old = '''const YOUTUBE_CHROME_SETTLE_MS = 1500;\n\nfunction YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, cardPreview = false }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; cardPreview?: boolean }) {\n'''
+          new = '''const YOUTUBE_CHROME_SETTLE_MS = 1500;\n// Compact-card only: reproduce the clean visual state observed after a\n// manual pause -> play without exposing the intermediate YouTube chrome.\n// The backdrop remains fully opaque while this warm-up runs.\nconst CARD_WARMUP_PAUSE_AFTER_MS = 120;\nconst CARD_WARMUP_PAUSED_MS = 80;\nconst CARD_WARMUP_POLL_MS = 50;\nconst CARD_WARMUP_ADVANCE_SEC = 0.04;\nconst CARD_WARMUP_REVEAL_MS = 180;\n\nfunction YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, cardPreview = false }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; cardPreview?: boolean }) {\n'''
+          if old not in s:
+              raise SystemExit('constants anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = '''    let revealTimer: ReturnType<typeof setTimeout> | null = null;\n    let revealed = false;\n    const stopReveal = () => {\n      if (revealTimer) clearTimeout(revealTimer);\n      revealTimer = null;\n    };\n'''
+          new = '''    let revealTimer: ReturnType<typeof setTimeout> | null = null;\n    let revealed = false;\n    let cardWarmupStarted = false;\n    let cardWarmupInProgress = false;\n    let cardWarmupPauseTimer: ReturnType<typeof setTimeout> | null = null;\n    let cardWarmupResumeTimer: ReturnType<typeof setTimeout> | null = null;\n    let cardWarmupRevealTimer: ReturnType<typeof setTimeout> | null = null;\n    let cardWarmupFallbackTimer: ReturnType<typeof setTimeout> | null = null;\n    let cardWarmupPollTimer: ReturnType<typeof setInterval> | null = null;\n    const stopReveal = () => {\n      if (revealTimer) clearTimeout(revealTimer);\n      revealTimer = null;\n    };\n    const stopCardWarmupTimers = () => {\n      if (cardWarmupPauseTimer) clearTimeout(cardWarmupPauseTimer);\n      if (cardWarmupResumeTimer) clearTimeout(cardWarmupResumeTimer);\n      if (cardWarmupRevealTimer) clearTimeout(cardWarmupRevealTimer);\n      if (cardWarmupFallbackTimer) clearTimeout(cardWarmupFallbackTimer);\n      if (cardWarmupPollTimer) clearInterval(cardWarmupPollTimer);\n      cardWarmupPauseTimer = null;\n      cardWarmupResumeTimer = null;\n      cardWarmupRevealTimer = null;\n      cardWarmupFallbackTimer = null;\n      cardWarmupPollTimer = null;\n    };\n    const revealCardWarmup = () => {\n      if (cancelled || revealed) return;\n      revealed = true;\n      cardWarmupInProgress = false;\n      stopCardWarmupTimers();\n      onPlayingChange(true);\n    };\n    const startCardWarmup = (player: any) => {\n      cardWarmupStarted = true;\n      cardWarmupInProgress = true;\n      stopReveal();\n      stopCardWarmupTimers();\n\n      // Hard fallback: never make cards slower or permanently covered if\n      // YouTube ignores one of the programmatic transitions.\n      cardWarmupFallbackTimer = setTimeout(revealCardWarmup, YOUTUBE_CHROME_SETTLE_MS);\n\n      cardWarmupPauseTimer = setTimeout(() => {\n        if (cancelled || !cardWarmupInProgress) return;\n        try { player.pauseVideo?.(); } catch { /* fallback timer still wins */ }\n\n        cardWarmupResumeTimer = setTimeout(() => {\n          if (cancelled || !cardWarmupInProgress) return;\n          let baseline = 0;\n          try {\n            baseline = Number(player.getCurrentTime?.() ?? 0);\n            player.playVideo?.();\n          } catch {\n            return;\n          }\n\n          // Don't trust PLAYING alone: YouTube can report it before its own\n          // compact title/channel chrome has actually left the frame. Wait\n          // until playback time advances after the resume, then give the\n          // internal autohide state a tiny settle window before crossfading.\n          cardWarmupPollTimer = setInterval(() => {\n            if (cancelled || !cardWarmupInProgress) return;\n            try {\n              const YTNS = (window as any).YT;\n              const state = player.getPlayerState?.();\n              const current = Number(player.getCurrentTime?.() ?? 0);\n              if (state === YTNS?.PlayerState?.PLAYING && current > baseline + CARD_WARMUP_ADVANCE_SEC) {\n                if (cardWarmupPollTimer) clearInterval(cardWarmupPollTimer);\n                cardWarmupPollTimer = null;\n                cardWarmupRevealTimer = setTimeout(revealCardWarmup, CARD_WARMUP_REVEAL_MS);\n              }\n            } catch { /* fallback timer still wins */ }\n          }, CARD_WARMUP_POLL_MS);\n        }, CARD_WARMUP_PAUSED_MS);\n      }, CARD_WARMUP_PAUSE_AFTER_MS);\n    };\n'''
+          if old not in s:
+              raise SystemExit('effect timer anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = '''            if (isPlaying) {\n              e.target.setPlaybackQuality(MIN_QUALITY);\n              try { e.target.unloadModule?.("captions"); } catch { /* best-effort */ }\n              // Do not uncover the iframe in the same frame as YouTube's\n              // state transition: its own giant central icon is still drawn\n              // there even with controls=0. If buffering interrupts before\n              // this timer elapses, the static image remains visible.\n              stopReveal();\n              revealTimer = setTimeout(() => {\n                revealTimer = null;\n                if (!cancelled) {\n                  revealed = true;\n                  onPlayingChange(true);\n                }\n              }, YOUTUBE_CHROME_SETTLE_MS);\n            // YouTube often emits BUFFERING just after its first PLAYING\n            // event. That is normal startup, not a pause: cancelling the\n            // reveal here left the backdrop permanently on top of a healthy\n            // video. Once revealed, transient buffering must also never\n            // hide an ambient preview again.\n            } else if (e.data !== YTNS.PlayerState.BUFFERING && !revealed) {\n              stopReveal();\n              onPlayingChange(false);\n            }\n'''
+          new = '''            if (isPlaying) {\n              e.target.setPlaybackQuality(MIN_QUALITY);\n              try { e.target.unloadModule?.("captions"); } catch { /* best-effort */ }\n\n              if (cardPreview && !cardWarmupStarted) {\n                // Small cards only: perform one hidden pause -> play pulse on\n                // the first real PLAYING state. This mimics the clean state\n                // observed after a manual resume without moving the mouse.\n                startCardWarmup(e.target);\n              } else if (cardPreview && cardWarmupInProgress) {\n                // Expected second PLAYING during the pulse. Keep the static\n                // backdrop on top until currentTime proves playback really\n                // advanced and the short post-resume settle window elapsed.\n              } else {\n                // Hero/title/modal keep the exact existing behaviour.\n                stopReveal();\n                revealTimer = setTimeout(() => {\n                  revealTimer = null;\n                  if (!cancelled) {\n                    revealed = true;\n                    onPlayingChange(true);\n                  }\n                }, YOUTUBE_CHROME_SETTLE_MS);\n              }\n            // During the card warm-up, PAUSED/BUFFERING are intentional and\n            // must not cancel the safety fallback timer.\n            } else if (cardPreview && cardWarmupInProgress) {\n              onPlayingChange(false);\n            // YouTube often emits BUFFERING just after its first PLAYING\n            // event. That is normal startup, not a pause: cancelling the\n            // reveal here left the backdrop permanently on top of a healthy\n            // video. Once revealed, transient buffering must also never\n            // hide an ambient preview again.\n            } else if (e.data !== YTNS.PlayerState.BUFFERING && !revealed) {\n              stopReveal();\n              onPlayingChange(false);\n            }\n'''
+          if old not in s:
+              raise SystemExit('state-change anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = '''    return () => {\n      if (loopTimer) clearInterval(loopTimer);\n      stopReveal();\n      cancelled = true;\n      destroyYouTubePlayer(playerRef.current, hostRef.current);\n'''
+          new = '''    return () => {\n      if (loopTimer) clearInterval(loopTimer);\n      stopReveal();\n      stopCardWarmupTimers();\n      cancelled = true;\n      destroyYouTubePlayer(playerRef.current, hostRef.current);\n'''
+          if old not in s:
+              raise SystemExit('cleanup anchor not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/components/dashboard/DashboardPosterCard.tsx')
+          s = p.read_text(encoding='utf-8')
+          old = 'const CARD_VIDEO_DELAY_MS = 1000;'
+          new = 'const CARD_VIDEO_DELAY_MS = 650;'
+          if old not in s:
+              raise SystemExit('card delay anchor not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
+
+          npm version 1.22.57 --no-git-tag-version
+
+          python3 - <<'PY'
+          from pathlib import Path
+
+          for path in [Path('android-tv/app/build.gradle.kts'), Path('android-mobile/app/build.gradle.kts')]:
+              s = path.read_text(encoding='utf-8')
+              s = s.replace('?: 12256', '?: 12257')
+              s = s.replace('?: "1.22.56"', '?: "1.22.57"')
+              path.write_text(s, encoding='utf-8')
+
+          p = Path('README.md')
+          s = p.read_text(encoding='utf-8').replace('Movviz-1.22.56-', 'Movviz-1.22.57-', 1)
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('CHANGELOG.md')
+          s = p.read_text(encoding='utf-8')
+          entry = '''# Changelog\n\n## v1.22.57 — August 2026\n\n### Cartes — warm-up invisible de l’iframe YouTube\n\nLes petites previews démarrent désormais plus tôt sous le backdrop (650 ms au lieu de 1000 ms), puis effectuent une seule séquence cachée `PLAYING → pause → play`. Movviz attend ensuite que `currentTime` avance réellement après la reprise et applique un court délai de 180 ms avant de révéler la vidéo. Cette séquence reproduit l’état visuel propre observé après une reprise manuelle sans mouvement de souris, tout en gardant un fallback dur à 1500 ms si YouTube ignore une transition. Le hero, les fiches, la modal, Android TV, la sélection des trailers, la qualité et les fallbacks restent inchangés.\n\n'''
+          if not s.startswith('# Changelog\n'):
+              raise SystemExit('unexpected changelog header')
+          s = entry + s[len('# Changelog\n\n'):]
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Portable tests
+        shell: bash
+        run: |
+          FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+
+      - name: Production build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Commit and tag v1.22.57
+        shell: bash
+        run: |
+          rm -f .github/workflows/v12257-card-warmup.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'v1.22.57 — hidden YouTube card warm-up'
+          git tag -a v1.22.57 -m 'v1.22.57 — hidden YouTube card warm-up'
+          git push origin HEAD:v12257-card-warmup-staging
+          git push origin v1.22.57
