@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.23.04 — August 2026
+
+### Release — versions et artefacts alignés
+
+Release de synchronisation : version applicative, lockfile et valeurs de repli Android TV/mobile alignés sur `1.23.04`. Le tag `v1.23.04` déclenche les builds GitHub de l’installeur Windows, de l’archive Linux et des clients Android TV/mobile ; l’image Docker reste générée depuis `main`. Aucun changement fonctionnel n’est introduit par cette release.
+
 ## v1.23.03 — August 2026
 
 ### Fiches — cadrage YouTube virtuel affiné
