@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.55 — August 2026
+
+### Piped — Invidious en fallback
+
+Quand Piped échoue, Invidious est tenté avant YouTube. Toggle OFF désactive bien Piped **et** Invidious.
+
 ## v1.22.53 — August 2026
 
 ### Fix build — Piped instances UTF-8

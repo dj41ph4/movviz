@@ -76,15 +76,17 @@ export function buildPipedDashManifest(streams: PipedStreamsResponse, maxHeight 
 
   const filteredVideos = rawVideos.filter((s) => {
     if (!isHttpsUrl(s.url)) return false;
-    if (!s.videoOnly) return false;
     if (s.height == null || s.width == null) return false;
     if (!Number.isFinite(s.height) || !Number.isFinite(s.width)) return false;
     if (s.height <= 0 || s.width <= 0) return false;
     if (s.height > maxHeight) return false;
     const mt = s.mimeType.toLowerCase();
     if (!mt.includes("video")) return false;
-    if (s.initStart < 0 || s.initEnd < s.initStart) return false;
-    if (s.indexStart < 0 || s.indexEnd < s.indexStart) return false;
+    // init/index required for DASH on-demand, but progressive Invidious fallback may not have them — allow if missing
+    if (s.initStart != null && s.initEnd != null && s.indexStart != null && s.indexEnd != null) {
+      if (s.initStart < 0 || s.initEnd < s.initStart) return false;
+      if (s.indexStart < 0 || s.indexEnd < s.indexStart) return false;
+    }
     return true;
   });
 
@@ -120,8 +122,10 @@ export function buildPipedDashManifest(streams: PipedStreamsResponse, maxHeight 
     if (s.videoOnly) return false;
     const mt = s.mimeType.toLowerCase();
     if (!mt.includes("audio")) return false;
-    if (s.initStart < 0 || s.initEnd < s.initStart) return false;
-    if (s.indexStart < 0 || s.indexEnd < s.indexStart) return false;
+    if (s.initStart != null && s.initEnd != null && s.indexStart != null && s.indexEnd != null) {
+      if (s.initStart < 0 || s.initEnd < s.initStart) return false;
+      if (s.indexStart < 0 || s.indexEnd < s.indexStart) return false;
+    }
     return true;
   });
 
@@ -159,13 +163,15 @@ export function buildPipedDashManifest(streams: PipedStreamsResponse, maxHeight 
     const h = s.height as number;
     const baseMt = mimeWithoutCodecs(s.mimeType) || "video/mp4";
     const urlEsc = escapeXml(s.url);
-    const initRange = `${s.initStart}-${s.initEnd}`;
-    const indexRange = `${s.indexStart}-${s.indexEnd}`;
     lines.push(
       `      <Representation id="v${i}" bandwidth="${bw}" width="${w}" height="${h}" codecs="${escapeXml(codecs)}" mimeType="${escapeXml(baseMt)}">`
     );
     lines.push(`        <BaseURL>${urlEsc}</BaseURL>`);
-    lines.push(`        <SegmentBase indexRange="${escapeXml(indexRange)}"><Initialization range="${escapeXml(initRange)}" /></SegmentBase>`);
+    if (s.initStart != null && s.initEnd != null && s.indexStart != null && s.indexEnd != null) {
+      const initRange = `${s.initStart}-${s.initEnd}`;
+      const indexRange = `${s.indexStart}-${s.indexEnd}`;
+      lines.push(`        <SegmentBase indexRange="${escapeXml(indexRange)}"><Initialization range="${escapeXml(initRange)}" /></SegmentBase>`);
+    }
     lines.push(`      </Representation>`);
   }
   lines.push(`    </AdaptationSet>`);
@@ -176,14 +182,16 @@ export function buildPipedDashManifest(streams: PipedStreamsResponse, maxHeight 
     const bw = estimateBandwidth(null, s.bitrate);
     const baseMt = mimeWithoutCodecs(s.mimeType) || "audio/mp4";
     const urlEsc = escapeXml(s.url);
-    const initRange = `${s.initStart}-${s.initEnd}`;
-    const indexRange = `${s.indexStart}-${s.indexEnd}`;
     lines.push(`    <AdaptationSet id="1" mimeType="audio/mp4" lang="en" segmentAlignment="true" startWithSAP="1">`);
     lines.push(
       `      <Representation id="a${i}" bandwidth="${bw}" audioSamplingRate="48000" codecs="${escapeXml(codecs)}" mimeType="${escapeXml(baseMt)}">`
     );
     lines.push(`        <BaseURL>${urlEsc}</BaseURL>`);
-    lines.push(`        <SegmentBase indexRange="${escapeXml(indexRange)}"><Initialization range="${escapeXml(initRange)}" /></SegmentBase>`);
+    if (s.initStart != null && s.initEnd != null && s.indexStart != null && s.indexEnd != null) {
+      const initRange = `${s.initStart}-${s.initEnd}`;
+      const indexRange = `${s.indexStart}-${s.indexEnd}`;
+      lines.push(`        <SegmentBase indexRange="${escapeXml(indexRange)}"><Initialization range="${escapeXml(initRange)}" /></SegmentBase>`);
+    }
     lines.push(`      </Representation>`);
     lines.push(`    </AdaptationSet>`);
   }

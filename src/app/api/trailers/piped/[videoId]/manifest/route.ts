@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPipedYoutubePlaybackEnabled } from "@/lib/settings/trailerSources";
 import { resolvePiped } from "@/lib/piped/client";
+import { resolveInvidious } from "@/lib/invidious/client";
 import { buildPipedDashManifest } from "@/lib/piped/dashManifest";
 
 export const dynamic = "force-dynamic";
@@ -21,13 +22,15 @@ export async function GET(
     return NextResponse.json({ error: "piped_disabled" }, { status: 404 });
   }
 
-  let streams;
+  let streams = null;
   try {
     streams = await resolvePiped(videoId);
-  } catch {
-    return NextResponse.json({ error: "piped_error" }, { status: 502 });
+  } catch {}
+  if (!streams) {
+    try {
+      streams = await resolveInvidious(videoId);
+    } catch {}
   }
-
   if (!streams) {
     return NextResponse.json({ error: "piped_unavailable" }, { status: 502 });
   }

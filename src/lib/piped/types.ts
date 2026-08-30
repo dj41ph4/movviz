@@ -6,10 +6,10 @@ export interface PipedStream {
   width: number | null;
   height: number | null;
   bitrate: number | null;
-  initStart: number;
-  initEnd: number;
-  indexStart: number;
-  indexEnd: number;
+  initStart: number | null;
+  initEnd: number | null;
+  indexStart: number | null;
+  indexEnd: number | null;
   videoOnly: boolean;
 }
 
