@@ -11,6 +11,7 @@ import { registerAmbientVideo } from "@/lib/player/ambientVideoRegistry";
 import { useShouldUseCdn } from "@/lib/settings/useShouldUseCdn";
 import type { TmdbImageSize } from "@/lib/metadata/tmdbImageCache";
 import type { TrailerSource } from "@/lib/trailers/types";
+import { YouTubeCardBridgePlayer } from "@/components/media/YouTubeCardBridgePlayer";
 
 const CDN_BASE = "https://image.tmdb.org/t/p";
 
@@ -709,7 +710,24 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
               onError={onVideoError}
             />
           ) : (
-            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} cardPreview={cardPreview} />
+            <>
+              {cardPreview ? (
+                <YouTubeCardBridgePlayer
+                  key={candidateKey}
+                  trailerKey={candidate.key}
+                  title={title}
+                  muted={muted}
+                  loopBeforeEndSec={LOOP_BEFORE_END_SEC}
+                  onPlayingChange={setVideoPlaying}
+                  onError={onVideoError}
+                  fallback={
+                    <YouTubePlayer trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} cardPreview />
+                  }
+                />
+              ) : (
+                <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />
+              )}
+            </>
           )}
           {(!hideTopGradient || cardPreview) && (
             /* Keep the existing hero/title mask unchanged. Small card previews

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.59 — August 2026
+
+### Cartes — iframe YouTube brut piloté par postMessage
+
+Essai en conditions réelles limité aux petites previews : le lecteur primaire des cartes est maintenant un iframe YouTube brut avec `enablejsapi=1` et `origin`, sans construction via `new YT.Player()`. Movviz lance le handshake `listening`, lit les capacités réellement annoncées dans `initialDelivery.info.apiInterface` / `infoDelivery`, et ne tente `hideVideoInfo` ou `hideControls` que lorsqu’elles sont explicitement exposées par ce player. Lecture, mute, états, `currentTime` et boucle pré-END passent par le bridge `postMessage`. Le poster reste opaque jusqu’à progression réelle de la vidéo puis 700 ms supplémentaires. En cas de chargement, handshake ou lecture défaillante, la carte détruit ce chemin et retombe automatiquement sur le `YT.Player` stable de v1.22.58. Hero, fiches, modal, Android TV et sélection/fallback des trailers restent inchangés.
+
 ## v1.22.58 — August 2026
 
 ### Cartes — poster rideau + vraie transition YouTube pause/reprise
