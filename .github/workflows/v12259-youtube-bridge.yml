@@ -1,0 +1,83 @@
+name: v1.22.59 raw YouTube bridge
+
+on:
+  push:
+    branches: [v12259-youtube-bridge-staging]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v12259-youtube-bridge-staging
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Wire bridge and bump version
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/components/media/TrailerHeader.tsx')
+          s = p.read_text(encoding='utf-8')
+          imp = 'import type { TrailerSource } from "@/lib/trailers/types";'
+          if imp not in s:
+              raise SystemExit('import anchor missing')
+          s = s.replace(imp, imp + '\nimport { YouTubeCardBridgePlayer } from "@/components/media/YouTubeCardBridgePlayer";', 1)
+
+          old = '<YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} cardPreview={cardPreview} />'
+          new = '''<>\n              {cardPreview ? (\n                <YouTubeCardBridgePlayer\n                  key={candidateKey}\n                  trailerKey={candidate.key}\n                  title={title}\n                  muted={muted}\n                  loopBeforeEndSec={LOOP_BEFORE_END_SEC}\n                  onPlayingChange={setVideoPlaying}\n                  onError={onVideoError}\n                  fallback={\n                    <YouTubePlayer trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} cardPreview />\n                  }\n                />\n              ) : (\n                <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />\n              )}\n            </>'''
+          if old not in s:
+              raise SystemExit('player render anchor missing')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          for path in [Path('android-tv/app/build.gradle.kts'), Path('android-mobile/app/build.gradle.kts')]:
+              text = path.read_text(encoding='utf-8')
+              text = text.replace('?: 12258', '?: 12259').replace('?: "1.22.58"', '?: "1.22.59"')
+              path.write_text(text, encoding='utf-8')
+
+          p = Path('README.md')
+          text = p.read_text(encoding='utf-8')
+          if 'Movviz-1.22.58-' not in text:
+              raise SystemExit('README anchor missing')
+          p.write_text(text.replace('Movviz-1.22.58-', 'Movviz-1.22.59-', 1), encoding='utf-8')
+
+          p = Path('CHANGELOG.md')
+          text = p.read_text(encoding='utf-8')
+          entry = '''# Changelog\n\n## v1.22.59 — August 2026\n\n### Cartes — iframe YouTube brut piloté par postMessage\n\nEssai en conditions réelles limité aux petites previews : le lecteur primaire des cartes est maintenant un iframe YouTube brut avec `enablejsapi=1` et `origin`, sans construction via `new YT.Player()`. Movviz lance le handshake `listening`, lit les capacités réellement annoncées dans `initialDelivery.info.apiInterface` / `infoDelivery`, et ne tente `hideVideoInfo` ou `hideControls` que lorsqu’elles sont explicitement exposées par ce player. Lecture, mute, états, `currentTime` et boucle pré-END passent par le bridge `postMessage`. Le poster reste opaque jusqu’à progression réelle de la vidéo puis 700 ms supplémentaires. En cas de chargement, handshake ou lecture défaillante, la carte détruit ce chemin et retombe automatiquement sur le `YT.Player` stable de v1.22.58. Hero, fiches, modal, Android TV et sélection/fallback des trailers restent inchangés.\n\n'''
+          if not text.startswith('# Changelog\n\n'):
+              raise SystemExit('CHANGELOG anchor missing')
+          p.write_text(entry + text[len('# Changelog\n\n'):], encoding='utf-8')
+          PY
+          npm version 1.22.59 --no-git-tag-version
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Portable tests
+        shell: bash
+        run: |
+          FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+      - name: Production build
+        run: npm run build
+      - name: Commit and tag
+        shell: bash
+        run: |
+          rm -f .github/workflows/v12259-youtube-bridge.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'v1.22.59 — raw YouTube postMessage card bridge'
+          git tag -a v1.22.59 -m 'v1.22.59 — raw YouTube postMessage card bridge'
+          git push origin HEAD:v12259-youtube-bridge-staging
+          git push origin v1.22.59
