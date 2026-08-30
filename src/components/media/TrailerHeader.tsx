@@ -271,6 +271,8 @@ export interface TrailerHeaderProps {
    *  that scale, e.g. RoboCop 2014). Never applied to the hero carousel or
    *  the title page header, which don't have this complaint. */
   extraZoom?: boolean;
+  /** Compact hover-card treatment only; hero/title rendering stays unchanged. */
+  cardPreview?: boolean;
   className?: string;
 }
 
@@ -287,7 +289,7 @@ const LOOP_POLL_MS = 250;
 // covers it reliably. Keep backdrop opaque during this window.
 const YOUTUBE_CHROME_SETTLE_MS = 1500;
 
-function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean }) {
+function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, cardPreview = false }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; cardPreview?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
 
@@ -462,14 +464,15 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
       // Not worth re-attempting without a real way to inspect what
       // YouTube's iframe renders internally at that size.
       className={cn(
-        "pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2",
-        extraZoom ? "scale-[1.15]" : "scale-110"
+        "pointer-events-none absolute left-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2",
+        cardPreview ? "top-[46%] scale-[1.18]" : "top-1/2",
+        !cardPreview && (extraZoom ? "scale-[1.15]" : "scale-110")
       )}
     />
   );
 }
 
-export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, className }: TrailerHeaderProps) {
+export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources, title, trigger, enabled = true, muted: initialMuted = true, hideSoundToggle = false, hideTopGradient = false, extraZoom = false, cardPreview = false, className }: TrailerHeaderProps) {
   const useCdn = useShouldUseCdn();
   const [backdropFellBack, setBackdropFellBack] = useState(false);
   useEffect(() => setBackdropFellBack(false), [backdropPath]);
@@ -590,12 +593,18 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
               onError={onVideoError}
             />
           ) : (
-            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />
+            <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} cardPreview={cardPreview} />
           )}
-          {!hideTopGradient && (
-            /* Masque la barre titre/channel YouTube dans les lecteurs qui le
-             * demandent ; les cartes gardent ainsi leur image sans voile noir. */
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-20 bg-gradient-to-b from-black/80 via-black/35 to-transparent" />
+          {(!hideTopGradient || cardPreview) && (
+            /* Keep the existing hero/title mask unchanged. Small card previews
+             * use a lighter proportional mask because YouTube switches to a
+             * compact title/channel layout at small iframe sizes. */
+            <div
+              className={cn(
+                "pointer-events-none absolute inset-x-0 top-0 z-10 bg-gradient-to-b to-transparent",
+                cardPreview ? "h-[28%] from-black/70 via-black/25" : "h-20 from-black/80 via-black/35"
+              )}
+            />
           )}
           <div
             className={cn(

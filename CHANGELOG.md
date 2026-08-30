@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.22.54 — August 2026
+
+### Cartes — iframe YouTube compact sans titre
+
+Essai ciblé sur les previews des cartes uniquement : le hero et les vidéos de fiche restent inchangés. Les petites cartes conservent l'IFrame API YouTube et le trafic direct YouTube → utilisateur, mais utilisent un crop légèrement renforcé (`scale 1.18`, centre remonté à 46 %) et un masque supérieur proportionnel de 28 % pour cacher le chrome titre/channel du layout compact. `YOUTUBE_CHROME_SETTLE_MS=1500`, `LOOP_BEFORE_END_SEC=0.75`, la sélection des trailers et les fallbacks YouTube restent inchangés. Aucun Piped/Invidious/yt-dlp n'est ajouté.
+
+Le revert 1.22.53 avait laissé des fichiers Piped/Invidious orphelins qui rendaient déjà `tsc --noEmit` invalide ; ces reliquats non référencés sont supprimés afin de terminer proprement le revert avant validation de cette version.
+
 ## v1.22.53 — August 2026
 
 ### Revert — 1.22.50 repoussée en 1.22.53
