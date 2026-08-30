@@ -133,8 +133,16 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Tests
-        run: npm test
+      - name: Portable tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILES="$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | sort | tr '\n' ' ')"
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+
+      - name: Hardware-specific capability tests (report only)
+        continue-on-error: true
+        run: node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test scripts/server-capabilities.test.ts
 
       - name: Build
         run: npm run build
