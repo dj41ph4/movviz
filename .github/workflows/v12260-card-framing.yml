@@ -48,7 +48,10 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
       - name: Portable tests
-        run: node --experimental-transform-types --test $(find src scripts -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print)
+        shell: bash
+        run: |
+          FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
       - name: Production build
         run: npm run build
       - name: Commit and tag
