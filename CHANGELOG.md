@@ -1,28 +1,10 @@
 # Changelog
 
-## v1.22.55 — August 2026
-
-### Piped — Invidious en fallback
-
-Quand Piped échoue, Invidious est tenté avant YouTube. Toggle OFF désactive bien Piped **et** Invidious.
-
 ## v1.22.53 — August 2026
 
-### Fix build — Piped instances UTF-8
+### Revert — 1.22.50 repoussée en 1.22.53
 
-Correction encodage `instances.ts` qui cassait `next build` sur le runner.
-
-## v1.22.52 — August 2026
-
-### Piped — lecteur alternatif YouTube 1080p
-
-Toggle serveur global `pipedYoutubePlayback` dans `server-settings.json` (`/api/settings/piped-youtube` admin). Quand activé, chaque `trailerKey` tente `Piped DASH 1080p` puis fallback `YouTube` même `videoId`. Web via `DirectVideoPlayer` + TV via `ExoPlayer`, `CARD_VIDEO_DELAY` intact.
-
-## v1.22.51 — August 2026
-
-### Carte — délai vidéo à 500ms
-
-`CARD_VIDEO_DELAY_MS` de `1000` → `500` (`DashboardPosterCard.tsx:32`).
+Pull de la `v1.22.50` (revert propre à `v1.22.27`) repoussée en `v1.22.53`.
 
 ## v1.22.50 — August 2026
 

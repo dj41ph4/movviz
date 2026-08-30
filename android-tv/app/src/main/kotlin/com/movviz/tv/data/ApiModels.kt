@@ -758,8 +758,3 @@ data class UserPrefsDto(
 data class PreferencesResponseDto(
     val prefs: UserPrefsDto = UserPrefsDto(),
 )
-
-@JsonClass(generateAdapter = true)
-data class PipedYoutubeSettingDto(
-    val enabled: Boolean = false,
-)

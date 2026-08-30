@@ -9,7 +9,6 @@ import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { registerAmbientVideo } from "@/lib/player/ambientVideoRegistry";
 import { useShouldUseCdn } from "@/lib/settings/useShouldUseCdn";
-import { usePipedYoutubePlayback } from "@/lib/settings/usePipedYoutubePlayback";
 import type { TmdbImageSize } from "@/lib/metadata/tmdbImageCache";
 import type { TrailerSource } from "@/lib/trailers/types";
 
@@ -236,20 +235,7 @@ function DirectVideoPlayer({ source, muted, className, onPlayingChange, onError 
   );
 }
 
-export type TrailerCandidate =
-  | { kind: "direct"; source: TrailerSource }
-  | { kind: "youtube"; key: string }
-  | { kind: "piped"; key: string };
-
-export function buildTrailerCandidates(trailerKeys: string[], pipedEnabled: boolean): TrailerCandidate[] {
-  if (!pipedEnabled) {
-    return trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key }));
-  }
-  return trailerKeys.flatMap((key): TrailerCandidate[] => [
-    { kind: "piped", key },
-    { kind: "youtube", key },
-  ]);
-}
+type TrailerCandidate = { kind: "direct"; source: TrailerSource } | { kind: "youtube"; key: string };
 
 export interface TrailerHeaderProps {
   backdropPath: string | null;
@@ -494,13 +480,14 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   const croppedBackdrop = useCroppedBackdrop(backdropUrl);
   const [soundOn, setSoundOn] = useState(!initialMuted);
   const muted = !soundOn;
-  const { enabled: pipedEnabled } = usePipedYoutubePlayback();
   // Enhanced sources are strictly Apple/Netflix/Disney/Prime/IMDb, already
   // identity-checked by their resolver. The retired remastered-search chain
   // is deliberately absent here: it must never select an ambient preview.
   const candidates = useMemo<TrailerCandidate[]>(
-    () => buildTrailerCandidates(trailerKeys, pipedEnabled),
-    [trailerKeys, pipedEnabled]
+    () => [
+      ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
+    ],
+    [trailerKeys]
   );
   // Which candidate we're currently trying — advanced by onError below.
   // Reset to 0 whenever the candidate list itself changes (new title), not
@@ -509,13 +496,7 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
   const [candidateIndex, setCandidateIndex] = useState(0);
   useEffect(() => { setCandidateIndex(0); }, [candidates]);
   const candidate = candidates[candidateIndex] ?? null;
-  const candidateKey = candidate
-    ? candidate.kind === "direct"
-      ? candidate.source.url
-      : candidate.kind === "piped"
-        ? `piped:${candidate.key}`
-        : `youtube:${candidate.key}`
-    : null;
+  const candidateKey = candidate ? (candidate.kind === "direct" ? candidate.source.url : candidate.key) : null;
   const canPlay = enabled && !!candidate;
   const [playing, setPlaying] = useState(trigger === "immediate" && canPlay);
   // The active player renders its own full "not playing" chrome (YouTube:
@@ -608,21 +589,6 @@ export function TrailerHeader({ backdropPath, size, trailerKeys, enhancedSources
               onPlayingChange={setVideoPlaying}
               onError={onVideoError}
             />
-          ) : candidate.kind === "piped" ? (
-            <DirectVideoPlayer
-              key={candidateKey}
-              source={{
-                url: `/api/trailers/piped/${candidate.key}/manifest`,
-                playbackType: "dash",
-                provider: "piped",
-                type: "trailer",
-                language: null,
-              } as unknown as TrailerSource}
-              muted={muted}
-              className="absolute inset-0 h-full w-full scale-[1.02] object-cover"
-              onPlayingChange={setVideoPlaying}
-              onError={onVideoError}
-            />
           ) : (
             <YouTubePlayer key={candidateKey} trailerKey={candidate.key} title={title} muted={muted} onPlayingChange={setVideoPlaying} onError={onVideoError} extraZoom={extraZoom} />
           )}
@@ -684,16 +650,15 @@ export function TrailerModalPlayer({ trailerKeys, enhancedSources, title }: { tr
   const t = useT();
   const hostRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
-  const { enabled: pipedEnabled } = usePipedYoutubePlayback();
   const candidates = useMemo<TrailerCandidate[]>(
-    () => buildTrailerCandidates(trailerKeys, pipedEnabled),
-    [trailerKeys, pipedEnabled]
+    () => [
+      ...trailerKeys.map((key): TrailerCandidate => ({ kind: "youtube", key })),
+    ],
+    [trailerKeys]
   );
   const [candidateIndex, setCandidateIndex] = useState(0);
-  useEffect(() => { setCandidateIndex(0); }, [candidates]);
   const candidate = candidates[candidateIndex] ?? null;
   const trailerKey = candidate?.kind === "youtube" ? candidate.key : null;
-  const pipedKey = candidate?.kind === "piped" ? candidate.key : null;
   const directSource = candidate?.kind === "direct" ? candidate.source : null;
 
   useEffect(() => {
@@ -735,25 +700,6 @@ export function TrailerModalPlayer({ trailerKeys, enhancedSources, title }: { tr
       <DirectVideoPlayer
         key={directSource.url}
         source={directSource}
-        muted={false}
-        className="aspect-video w-full"
-        onPlayingChange={() => {}}
-        onError={() => setCandidateIndex((i) => i + 1)}
-      />
-    );
-  }
-
-  if (pipedKey) {
-    return (
-      <DirectVideoPlayer
-        key={`piped:${pipedKey}`}
-        source={{
-          url: `/api/trailers/piped/${pipedKey}/manifest`,
-          playbackType: "dash",
-          provider: "piped",
-          type: "trailer",
-          language: null,
-        } as unknown as TrailerSource}
         muted={false}
         className="aspect-video w-full"
         onPlayingChange={() => {}}

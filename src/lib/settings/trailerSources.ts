@@ -6,14 +6,9 @@ const CONFIG_DIR =
   process.env.MOVVIZ_DATA_DIR ??
   path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "trailer-sources.json");
-const SERVER_FILE = path.join(CONFIG_DIR, "server-settings.json");
 
 interface TrailerSourcesConfig {
   enabled: boolean;
-}
-
-export interface ServerSettings {
-  pipedYoutubePlayback?: boolean;
 }
 
 const DEFAULT: TrailerSourcesConfig = { enabled: false };
@@ -32,17 +27,4 @@ export function isEnhancedTrailerSourcesEnabled(): boolean {
 
 export function setEnhancedTrailerSourcesEnabled(enabled: boolean): void {
   writeJsonCached(FILE, { enabled });
-}
-
-function loadServer(): ServerSettings {
-  return readJsonCached<ServerSettings>(SERVER_FILE, {});
-}
-
-export function getPipedYoutubePlaybackEnabled(): boolean {
-  return !!loadServer().pipedYoutubePlayback;
-}
-
-export function setPipedYoutubePlaybackEnabled(enabled: boolean): void {
-  const cfg = loadServer();
-  writeJsonCached(SERVER_FILE, { ...cfg, pipedYoutubePlayback: !!enabled });
 }

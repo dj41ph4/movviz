@@ -1898,9 +1898,6 @@ export const nl: Dictionary = {
     discoverLayoutMovvizHint: "Populair, in trek, best beoordeeld, binnenkort.",
     discoverLayoutAllocine: "Allociné",
     discoverLayoutAllocineHint: "Dezelfde volgorde van secties als de homepage van allocine.fr: nu in de bioscoop, binnenkort, populair, best beoordeeld, nieuw op VOD, box office, kinderen.",
-    pipedYoutubeTitle: "YouTube-weergave via Piped",
-    pipedYoutubeHint: "Standaard uitgeschakeld. Wanneer ingeschakeld, worden YouTube-trailers afgespeeld via een Piped-instantie in plaats van de directe YouTube-speler, om insluitbeperkingen te omzeilen. Met één klik omkeerbaar.",
-    pipedYoutubeEnabled: "Piped gebruiken voor YouTube",
   },
 
   naming: {

@@ -1896,9 +1896,6 @@ export const fr = {
     discoverLayoutMovvizHint: "Tendances, populaire, mieux notés, prochainement.",
     discoverLayoutAllocine: "Allociné",
     discoverLayoutAllocineHint: "Le même ordre que la page d'accueil allocine.fr : à l'affiche, prochainement, tendances, meilleurs films, nouveautés VOD, box office, kids.",
-    pipedYoutubeTitle: "Lecture YouTube via Piped",
-    pipedYoutubeHint: "Désactivé par défaut. Une fois activé, les bandes-annonces YouTube passent par une instance Piped au lieu du lecteur YouTube intégré, pour contourner les restrictions d'intégration. Réversible en un clic.",
-    pipedYoutubeEnabled: "Utiliser Piped pour YouTube",
   },
 
   naming: {
