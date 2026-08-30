@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.60 — August 2026
+
+### Cartes — recadrage iframe YouTube
+
+Les petites previews YouTube sont recentrées verticalement (`top: 50 %` au lieu de `46 %`) et reçoivent 15 % de zoom supplémentaire par rapport au cadrage précédent (`scale 1.18` → `scale 1.36`) afin de supprimer les bandes noires intégrées aux trailers. Le bridge `postMessage` et son fallback `YT.Player` utilisent exactement le même cadrage. Hero, fiches, modal, sélection des trailers et Android restent inchangés.
+
 ## v1.22.59 — August 2026
 
 ### Cartes — iframe YouTube brut piloté par postMessage

@@ -582,7 +582,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
       // YouTube's iframe renders internally at that size.
       className={cn(
         "pointer-events-none absolute left-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2",
-        cardPreview ? "top-[46%] scale-[1.18]" : "top-1/2",
+        cardPreview ? "top-1/2 scale-[1.36]" : "top-1/2",
         !cardPreview && (extraZoom ? "scale-[1.15]" : "scale-110")
       )}
     />

@@ -274,7 +274,7 @@ export function YouTubeCardBridgePlayer({
       title={title}
       allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share"
       referrerPolicy="strict-origin-when-cross-origin"
-      className="pointer-events-none absolute left-1/2 top-[46%] h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2 scale-[1.18]"
+      className="pointer-events-none absolute left-1/2 top-1/2 h-[56.25cqw] w-[100cqw] min-h-full min-w-[177.78cqh] -translate-x-1/2 -translate-y-1/2 scale-[1.36]"
     />
   );
 }
