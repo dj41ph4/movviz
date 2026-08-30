@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.57 — August 2026
+
+### Cartes — warm-up invisible de l’iframe YouTube
+
+Les petites previews démarrent désormais plus tôt sous le backdrop (650 ms au lieu de 1000 ms), puis effectuent une seule séquence cachée `PLAYING → pause → play`. Movviz attend ensuite que `currentTime` avance réellement après la reprise et applique un court délai de 180 ms avant de révéler la vidéo. Cette séquence reproduit l’état visuel propre observé après une reprise manuelle sans mouvement de souris, tout en gardant un fallback dur à 1500 ms si YouTube ignore une transition. Le hero, les fiches, la modal, Android TV, la sélection des trailers, la qualité et les fallbacks restent inchangés.
+
 ## v1.22.56 — August 2026
 
 ### Correction de version — preview YouTube des cartes

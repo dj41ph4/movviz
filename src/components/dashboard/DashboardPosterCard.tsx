@@ -29,7 +29,7 @@ import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
  *  mouseenter event, which never fires for a node that mounts while the
  *  cursor is already over it — exactly the case here, since this box only
  *  appears once the popover itself is already showing. */
-const CARD_VIDEO_DELAY_MS = 1000;
+const CARD_VIDEO_DELAY_MS = 650;
 
 const fetcher = (url: string) => fetch(url).then((response) => (response.ok ? response.json() : null));
 

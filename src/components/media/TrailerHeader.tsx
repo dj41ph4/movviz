@@ -288,6 +288,14 @@ const LOOP_POLL_MS = 250;
 // 1200ms still showed pause on hero THE HATE U GIVE on slower 60fps, 1500ms
 // covers it reliably. Keep backdrop opaque during this window.
 const YOUTUBE_CHROME_SETTLE_MS = 1500;
+// Compact-card only: reproduce the clean visual state observed after a
+// manual pause -> play without exposing the intermediate YouTube chrome.
+// The backdrop remains fully opaque while this warm-up runs.
+const CARD_WARMUP_PAUSE_AFTER_MS = 120;
+const CARD_WARMUP_PAUSED_MS = 80;
+const CARD_WARMUP_POLL_MS = 50;
+const CARD_WARMUP_ADVANCE_SEC = 0.04;
+const CARD_WARMUP_REVEAL_MS = 180;
 
 function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, extraZoom, cardPreview = false }: { trailerKey: string; title: string; muted: boolean; onPlayingChange: (playing: boolean) => void; onError: () => void; extraZoom?: boolean; cardPreview?: boolean }) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -298,9 +306,79 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
     let loopTimer: ReturnType<typeof setInterval> | null = null;
     let revealTimer: ReturnType<typeof setTimeout> | null = null;
     let revealed = false;
+    let cardWarmupStarted = false;
+    let cardWarmupInProgress = false;
+    let cardWarmupPauseTimer: ReturnType<typeof setTimeout> | null = null;
+    let cardWarmupResumeTimer: ReturnType<typeof setTimeout> | null = null;
+    let cardWarmupRevealTimer: ReturnType<typeof setTimeout> | null = null;
+    let cardWarmupFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    let cardWarmupPollTimer: ReturnType<typeof setInterval> | null = null;
     const stopReveal = () => {
       if (revealTimer) clearTimeout(revealTimer);
       revealTimer = null;
+    };
+    const stopCardWarmupTimers = () => {
+      if (cardWarmupPauseTimer) clearTimeout(cardWarmupPauseTimer);
+      if (cardWarmupResumeTimer) clearTimeout(cardWarmupResumeTimer);
+      if (cardWarmupRevealTimer) clearTimeout(cardWarmupRevealTimer);
+      if (cardWarmupFallbackTimer) clearTimeout(cardWarmupFallbackTimer);
+      if (cardWarmupPollTimer) clearInterval(cardWarmupPollTimer);
+      cardWarmupPauseTimer = null;
+      cardWarmupResumeTimer = null;
+      cardWarmupRevealTimer = null;
+      cardWarmupFallbackTimer = null;
+      cardWarmupPollTimer = null;
+    };
+    const revealCardWarmup = () => {
+      if (cancelled || revealed) return;
+      revealed = true;
+      cardWarmupInProgress = false;
+      stopCardWarmupTimers();
+      onPlayingChange(true);
+    };
+    const startCardWarmup = (player: any) => {
+      cardWarmupStarted = true;
+      cardWarmupInProgress = true;
+      stopReveal();
+      stopCardWarmupTimers();
+
+      // Hard fallback: never make cards slower or permanently covered if
+      // YouTube ignores one of the programmatic transitions.
+      cardWarmupFallbackTimer = setTimeout(revealCardWarmup, YOUTUBE_CHROME_SETTLE_MS);
+
+      cardWarmupPauseTimer = setTimeout(() => {
+        if (cancelled || !cardWarmupInProgress) return;
+        try { player.pauseVideo?.(); } catch { /* fallback timer still wins */ }
+
+        cardWarmupResumeTimer = setTimeout(() => {
+          if (cancelled || !cardWarmupInProgress) return;
+          let baseline = 0;
+          try {
+            baseline = Number(player.getCurrentTime?.() ?? 0);
+            player.playVideo?.();
+          } catch {
+            return;
+          }
+
+          // Don't trust PLAYING alone: YouTube can report it before its own
+          // compact title/channel chrome has actually left the frame. Wait
+          // until playback time advances after the resume, then give the
+          // internal autohide state a tiny settle window before crossfading.
+          cardWarmupPollTimer = setInterval(() => {
+            if (cancelled || !cardWarmupInProgress) return;
+            try {
+              const YTNS = (window as any).YT;
+              const state = player.getPlayerState?.();
+              const current = Number(player.getCurrentTime?.() ?? 0);
+              if (state === YTNS?.PlayerState?.PLAYING && current > baseline + CARD_WARMUP_ADVANCE_SEC) {
+                if (cardWarmupPollTimer) clearInterval(cardWarmupPollTimer);
+                cardWarmupPollTimer = null;
+                cardWarmupRevealTimer = setTimeout(revealCardWarmup, CARD_WARMUP_REVEAL_MS);
+              }
+            } catch { /* fallback timer still wins */ }
+          }, CARD_WARMUP_POLL_MS);
+        }, CARD_WARMUP_PAUSED_MS);
+      }, CARD_WARMUP_PAUSE_AFTER_MS);
     };
 
     loadYouTubeApi().then(() => {
@@ -371,18 +449,31 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
             if (isPlaying) {
               e.target.setPlaybackQuality(MIN_QUALITY);
               try { e.target.unloadModule?.("captions"); } catch { /* best-effort */ }
-              // Do not uncover the iframe in the same frame as YouTube's
-              // state transition: its own giant central icon is still drawn
-              // there even with controls=0. If buffering interrupts before
-              // this timer elapses, the static image remains visible.
-              stopReveal();
-              revealTimer = setTimeout(() => {
-                revealTimer = null;
-                if (!cancelled) {
-                  revealed = true;
-                  onPlayingChange(true);
-                }
-              }, YOUTUBE_CHROME_SETTLE_MS);
+
+              if (cardPreview && !cardWarmupStarted) {
+                // Small cards only: perform one hidden pause -> play pulse on
+                // the first real PLAYING state. This mimics the clean state
+                // observed after a manual resume without moving the mouse.
+                startCardWarmup(e.target);
+              } else if (cardPreview && cardWarmupInProgress) {
+                // Expected second PLAYING during the pulse. Keep the static
+                // backdrop on top until currentTime proves playback really
+                // advanced and the short post-resume settle window elapsed.
+              } else {
+                // Hero/title/modal keep the exact existing behaviour.
+                stopReveal();
+                revealTimer = setTimeout(() => {
+                  revealTimer = null;
+                  if (!cancelled) {
+                    revealed = true;
+                    onPlayingChange(true);
+                  }
+                }, YOUTUBE_CHROME_SETTLE_MS);
+              }
+            // During the card warm-up, PAUSED/BUFFERING are intentional and
+            // must not cancel the safety fallback timer.
+            } else if (cardPreview && cardWarmupInProgress) {
+              onPlayingChange(false);
             // YouTube often emits BUFFERING just after its first PLAYING
             // event. That is normal startup, not a pause: cancelling the
             // reveal here left the backdrop permanently on top of a healthy
@@ -411,6 +502,7 @@ function YouTubePlayer({ trailerKey, title, muted, onPlayingChange, onError, ext
     return () => {
       if (loopTimer) clearInterval(loopTimer);
       stopReveal();
+      stopCardWarmupTimers();
       cancelled = true;
       destroyYouTubePlayer(playerRef.current, hostRef.current);
       playerRef.current = null;
