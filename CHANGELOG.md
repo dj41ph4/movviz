@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.23.00 — August 2026
+
+### Nouvelle série de version
+
+Passage à la série 1.23.x. Aucun changement fonctionnel dans cette version.
+
 ## v1.22.61 — August 2026
 
 ### Cartes — iframe YouTube virtuelle 1080p
