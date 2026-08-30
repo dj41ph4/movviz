@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.23.03 — August 2026
+
+### Fiches — cadrage YouTube virtuel affiné
+
+Le profil `detail`, partagé par la fiche complète et la fiche volante/TitlePanel, conserve le moteur YouTube virtuel 1920×1080 de v1.23.02 mais passe d’un zoom `1.10` à `1.15`. Le changement reste centré et volontairement conservateur afin de rendre le bénéfice visuel plus perceptible dans les fiches sans toucher au carrousel `hero` déjà validé ni aux cartes `card`. Le bridge `postMessage`, les fallbacks, les toggles, la sélection des trailers et la modal de bande-annonce interactive restent inchangés.
+
 ## v1.23.02 — August 2026
 
 ### YouTube ambiant — moteur 1080p virtuel unifié

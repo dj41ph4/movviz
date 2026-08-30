@@ -30,7 +30,7 @@ type VirtualProfileConfig = {
 const VIRTUAL_PROFILES: Record<YouTubeVirtualProfile, VirtualProfileConfig> = {
   card: { zoom: 1.36, centerX: 50, centerY: 50, revealSettleMs: 700 },
   hero: { zoom: 1.10, centerX: 50, centerY: 50, revealSettleMs: 1500 },
-  detail: { zoom: 1.10, centerX: 50, centerY: 50, revealSettleMs: 1500 },
+  detail: { zoom: 1.15, centerX: 50, centerY: 50, revealSettleMs: 1500 },
 };
 
 type BridgePayload = {
