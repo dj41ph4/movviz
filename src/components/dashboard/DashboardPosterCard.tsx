@@ -22,14 +22,14 @@ import { useTmdbImageUrl } from "@/lib/settings/useTmdbImageUrl";
 import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
 
 /** How long the mouse must stay over the expanded popover before the static
- *  backdrop is swapped for the ambient trailer video — matches the "after a
- *  second, not instantly" pacing already used by TrailerHeader's own (unused
- *  today) hover trigger. Driven from here instead of TrailerHeader's
+ *  backdrop is swapped for the ambient trailer video. The iframe now mounts
+ *  immediately once the intentional hover preview opens; the artwork remains
+ *  fully opaque while TrailerHeader performs its hidden YouTube warm-up. Driven from here instead of TrailerHeader's
  *  trigger="hover" mode: that mode starts its own clock on a real DOM
  *  mouseenter event, which never fires for a node that mounts while the
  *  cursor is already over it — exactly the case here, since this box only
  *  appears once the popover itself is already showing. */
-const CARD_VIDEO_DELAY_MS = 650;
+const CARD_VIDEO_DELAY_MS = 0;
 
 const fetcher = (url: string) => fetch(url).then((response) => (response.ok ? response.json() : null));
 

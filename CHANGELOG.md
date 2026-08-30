@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.22.58 — August 2026
+
+### Cartes — poster rideau + vraie transition YouTube pause/reprise
+
+Les petites previews ne perdent plus 650 ms avant de monter l’iframe : dès que la preview intentionnelle s’ouvre, YouTube démarre immédiatement derrière le poster, qui reste 100 % opaque. Au premier `PLAYING`, Movviz demande `pauseVideo()`, attend désormais l’événement `PAUSED` réellement confirmé, laisse cet état se stabiliser 450 ms, relance avec `playVideo()`, attend un second `PLAYING`, vérifie que `currentTime` avance réellement, puis conserve encore le poster 300 ms avant le fade vers la vidéo. Un timeout global de 2,5 s abandonne ce warm-up et retombe sur le settle historique de 1,5 s si YouTube ne suit pas la séquence. Hero, fiches, modal, Android TV, sélection et fallback des trailers restent inchangés.
+
 ## v1.22.57 — August 2026
 
 ### Cartes — warm-up invisible de l’iframe YouTube
