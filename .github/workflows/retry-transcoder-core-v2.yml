@@ -1,5 +1,6 @@
 name: Retry transcoder core v2
 
+# validation trigger 2026-08-31b
 on:
   push:
     branches: [main]
