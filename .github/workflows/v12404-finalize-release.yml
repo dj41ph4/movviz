@@ -28,6 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/v12404-finalize.mjs
+          rm -f scripts/v12404-android.mjs
           sed -i 's/DIRECT_PLAY et PLEX_FALLBACK\/UNSUPPORTED/DIRECT_PLAY et UNSUPPORTED/' src/components/player/VideoPlayer.tsx
 
       - name: Verify scaffolding cleanup
@@ -35,6 +36,7 @@ jobs:
         run: |
           set -euo pipefail
           test ! -e scripts/v12404-finalize.mjs
+          test ! -e scripts/v12404-android.mjs
           test ! -e .github/workflows/v12404-finalize-release.yml
           test ! -e .github/workflows/apply-playback-v3.yml
           test ! -e scripts/refactor-playback-v3.mjs
@@ -126,4 +128,4 @@ jobs:
           gh api -X POST "repos/$REPO/actions/workflows/android-mobile-build.yml/dispatches" -f ref=v1.24.04
           gh api -X POST "repos/$REPO/actions/workflows/docker-publish.yml/dispatches" -f ref=main
 
-# trigger: diagnostic v1.24.04 verification split
+# trigger: remove obsolete Android migration helper
