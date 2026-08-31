@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.24.02 — August 2026
+
+### Assistant de configuration — création de compte restaurée
+
+Sur une toute première installation, l'assistant de configuration ne proposait plus de créer le compte administrateur ni de lier un compte Plex : l'étape Assistant IA restait bloquée sur son chargement, le moteur de téléchargement affichait « aucun client configuré » et l'étape Plex restait vide. Terminer l'assistant renvoyait alors en boucle vers cette même page, car aucun compte n'avait jamais été créé. La création du compte administrateur est désormais la toute première étape de l'assistant, avant tout le reste.
+
+### Import Netflix et synchronisation Plex — dates de visionnage
+
+L'import d'un historique Netflix enregistrait chaque titre comme « vu à l'instant » au lieu de conserver sa vraie date de visionnage. Cette date réelle est maintenant préservée. La synchronisation Plex en temps réel met également à jour le contexte de l'IA immédiatement au lieu d'attendre jusqu'à plusieurs minutes.
+
+### Écran de démarrage et fenêtre « Nouveautés »
+
+La fenêtre présentant les nouveautés d'une mise à jour pouvait s'afficher par-dessus l'écran de démarrage animé au lieu d'attendre sa disparition. Elle n'apparaît désormais qu'une fois l'écran de démarrage terminé.
+
 ## v1.24.01 — August 2026
 
 ### Movviz AI — continuité conversationnelle et préférences explicites
