@@ -8,6 +8,7 @@ import { decidePlayback } from "@/lib/playback/engine/decidePlayback";
 import { createSession } from "@/lib/playback/engine/sessionManager";
 import { benchmarkRealtimeFactor } from "@/lib/playback/engine/serverBenchmark";
 import type { ClientPlaybackProfile } from "@/lib/playback/engine/clientProfile";
+import { findTrackForLocale } from "@/lib/library/detectLanguage";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,11 @@ export async function POST(req: NextRequest) {
   }
 
   const server = await detectServerCapabilities();
-  const audioTrack = Number.isInteger(b.audioTrack) ? (b.audioTrack as number) : undefined;
+  let audioTrack = Number.isInteger(b.audioTrack) ? (b.audioTrack as number) : undefined;
+  const requestedAudioLanguage = typeof b.audioLanguage === "string" ? b.audioLanguage.trim().toLowerCase() : "";
+  if (audioTrack === undefined && requestedAudioLanguage) {
+    audioTrack = findTrackForLocale(media.audioTracks, requestedAudioLanguage)?.index;
+  }
   const subtitleTrackRaw = b.subtitleTrack;
   const subtitleTrack = subtitleTrackRaw === null ? null : Number.isInteger(subtitleTrackRaw) ? (subtitleTrackRaw as number) : undefined;
   const quality = typeof b.quality === "string" ? (b.quality as "original" | "auto" | "4k" | "1440p" | "1080p" | "720p") : undefined;

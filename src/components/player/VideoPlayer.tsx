@@ -473,7 +473,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
    */
   const reloadLocalEngineTracks = async (nextAudioId: string | null, nextSubtitleId: string | null) => {
     const engine = ffmpegEngineRef.current;
-    if (!engine || !movvizId) {
+    if (!engine || !playbackId) {
       maybeStartHls(undefined, true);
       return;
     }
@@ -502,7 +502,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const prepRes = await fetch("/api/playback/prepare", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mediaId: movvizId, clientProfile, audioTrack, subtitleTrack }),
+        body: JSON.stringify({ mediaId: movvizId ?? playbackId, ratingKey: hasRealPlexLink ? ratingKey : "", clientProfile, audioTrack, subtitleTrack, audioLanguage: localeRef.current }),
       });
       if (!prepRes.ok) throw new Error("prepare_failed");
       const prep = (await prepRes.json()) as { sessionId: string; tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] } };
@@ -1226,6 +1226,15 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         }
       } catch { /* ignore */ }
 
+      const unifiedConfig = betaRef.current;
+      if (unifiedConfig.enabled && (unifiedConfig.playbackEngine === "auto" || unifiedConfig.playbackEngine === "stable" || unifiedConfig.playbackEngine === "beta")) {
+        if (await tryStartLocalEngine(seekTo)) return;
+        setBuffering(false);
+        setOptimizing(false);
+        setError(tRef.current("player.betaError"));
+        return;
+      }
+
       let strategy: "direct" | "transcode";
       let effectiveAudioCodec: string | null | undefined;
       try {
@@ -1563,7 +1572,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       // are left completely alone, respecting an explicit troubleshooting
       // choice.
       const engineSelected = b.playbackEngine === "beta" || b.playbackEngine === "auto" || b.playbackEngine === "stable";
-      if (!b.enabled || !engineSelected || !localPlayback || !movvizId) return false;
+      if (!b.enabled || !engineSelected || !playbackId) return false;
       try {
         const clientProfile = await detectDesktopClientProfile(getOrCreateDeviceId(), "1.0");
         const prepRes = await fetch("/api/playback/prepare", {
@@ -1575,7 +1584,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           // fichier) — brancher la sélection manuelle de piste sur ce moteur
           // est un raffinement séparé, pas un pré-requis pour la capacité
           // de base (remux/transcode/burn-in local).
-          body: JSON.stringify({ mediaId: movvizId, clientProfile }),
+          body: JSON.stringify({ mediaId: movvizId ?? playbackId, ratingKey: hasRealPlexLink ? ratingKey : "", clientProfile, audioLanguage: localeRef.current }),
         });
         if (!prepRes.ok) return false;
         const prep = (await prepRes.json()) as {
@@ -1585,10 +1594,10 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           media: { durationMs?: number };
           tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] };
         };
-        // DIRECT_PLAY et PLEX_FALLBACK/UNSUPPORTED ne concernent pas cette
+        // DIRECT_PLAY et UNSUPPORTED ne concernent pas cette
         // leg : le premier est déjà couvert par startDirect, les seconds
         // n'ont rien qu'un remux/transcode local puisse résoudre.
-        if (prep.plan.mode !== "REMUX" && prep.plan.mode !== "DIRECT_STREAM" && prep.plan.mode !== "TRANSCODE") return false;
+        if (prep.plan.mode !== "DIRECT_PLAY" && prep.plan.mode !== "REMUX" && prep.plan.mode !== "DIRECT_STREAM" && prep.plan.mode !== "TRANSCODE") return false;
         // videoEncoderImpl carries the exact ffmpeg -c:v value (e.g.
         // "hevc_nvenc" vs "libx265") — matches localExecutor.ts's own
         // HARDWARE_SUFFIXES convention for telling the two apart.
@@ -1634,15 +1643,28 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         const onLocalEngineFailure = () => {
           destroyFfmpeg();
           ffmpegSkippedRef.current = true;
-          if (hasRealPlexLink) {
-            setBuffering(true);
-            fallbackGuardRef.current = false;
-            maybeStartHls(undefined, true);
-          } else {
-            const isCodecFailure = lastMediaErrorCodeRef.current !== null && CODEC_MEDIA_ERROR_CODES.has(lastMediaErrorCodeRef.current);
-            setError(tRef.current(isCodecFailure ? "player.betaErrorCodec" : "player.betaError"));
-          }
+          const isCodecFailure = lastMediaErrorCodeRef.current !== null && CODEC_MEDIA_ERROR_CODES.has(lastMediaErrorCodeRef.current);
+          setError(tRef.current(isCodecFailure ? "player.betaErrorCodec" : "player.betaError"));
         };
+
+        localEngineAudioTracksRef.current = prep.tracks?.audio ?? [];
+        localEngineSubtitleTracksRef.current = prep.tracks?.subtitle ?? [];
+
+        if (prep.plan.mode === "DIRECT_PLAY") {
+          destroyFfmpeg();
+          isLocalEngineV2Ref.current = false;
+          setDirectMode(true);
+          setBuffering(true);
+          if (seekTo && seekTo > 0) {
+            video.addEventListener("loadedmetadata", () => {
+              if (video.duration && seekTo < video.duration) video.currentTime = seekTo;
+            }, { once: true });
+          }
+          video.src = prep.stream.url;
+          video.load();
+          try { await video.play(); } catch { /* autoplay policy/user action will retry */ }
+          return true;
+        }
 
         const engine = new FfmpegRemuxEngine(
           {
@@ -1661,8 +1683,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         ffmpegEngineRef.current = engine;
         ffmpegActiveRef.current = true;
         isLocalEngineV2Ref.current = true;
-        localEngineAudioTracksRef.current = prep.tracks?.audio ?? [];
-        localEngineSubtitleTracksRef.current = prep.tracks?.subtitle ?? [];
         setFfmpegActive(true);
         setDirectMode(false);
         setBuffering(true);

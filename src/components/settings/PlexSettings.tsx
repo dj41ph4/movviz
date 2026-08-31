@@ -3,10 +3,7 @@
 import { useEffect, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { Check, X, Loader2, LinkIcon, RefreshCw, User, Play, MonitorPlay } from "lucide-react";
-import { useBetaPlayer } from "@/lib/settings/useBetaPlayer";
-import { usePreferredAudioLanguage } from "@/lib/settings/usePreferredAudioLanguage";
-import { PREFERRED_AUDIO_LANGUAGES, type PreferredAudioLanguage } from "@/lib/userPrefs/languages";
+import { Check, X, Loader2, LinkIcon, RefreshCw, User, Play } from "lucide-react";
 
 interface PlexConfig {
   hostname: string;
@@ -20,8 +17,6 @@ interface PlexConfig {
 
 export function PlexSettings() {
   const t = useT();
-  const { adminEnabled: betaPlayer, streamCacheTtl, playbackEngine, setAdminEnabled: setBetaPlayer, setStreamCacheTtl, setPlaybackEngine } = useBetaPlayer();
-  const { value: preferredAudioLanguage, set: setPreferredAudioLanguage } = usePreferredAudioLanguage();
   const [cfg, setCfg] = useState<PlexConfig | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -290,76 +285,7 @@ export function PlexSettings() {
 
       {cfg.connected && <ProfilePicker />}
 
-      <div className="mt-5 border-t border-white/8 pt-5">
-        <div className="mb-4 flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-purple-500/12 text-purple-400">
-            <MonitorPlay className="h-4 w-4" />
-          </span>
-          <div>
-            <h4 className="text-sm font-bold text-ink">{t("player.playbackSectionTitle")}</h4>
-            <p className="text-xs text-ink-dim">{t("player.playbackSectionHint")}</p>
-          </div>
-        </div>
 
-        <div className="flex items-center justify-between gap-3 pb-4">
-          <div>
-            <p className="text-sm font-semibold text-ink">{t("player.preferredAudioLanguage")}</p>
-            <p className="text-xs text-ink-dim">{t("player.preferredAudioLanguageHint")}</p>
-          </div>
-          <select
-            value={preferredAudioLanguage}
-            onChange={(e) => setPreferredAudioLanguage(e.target.value as PreferredAudioLanguage)}
-            className="h-9 shrink-0 rounded-xl glass px-3 text-xs font-semibold text-ink outline-none focus:border-brand/40"
-          >
-            {PREFERRED_AUDIO_LANGUAGES.map((l) => (
-              <option key={l} value={l}>{t(`player.audioLang.${l}`)}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center justify-between gap-3 border-t border-white/8 pt-4">
-          <div>
-            <p className="text-sm font-semibold text-ink">{t("player.betaToggle")}</p>
-            <p className="text-xs text-ink-dim">{t("player.betaToggleHint")}</p>
-          </div>
-          <Toggle on={betaPlayer} onChange={() => setBetaPlayer(!betaPlayer)} disabled={!cfg.connected} />
-        </div>
-        {betaPlayer && (
-          <div className="mt-3 flex flex-col gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="text-xs text-ink-dim">{t("player.segmentCache")} :</label>
-              <input
-                type="number"
-                min={0}
-                max={86400}
-                value={streamCacheTtl}
-                onChange={(e) => setStreamCacheTtl(parseInt(e.target.value) || 0)}
-                className="h-8 w-20 rounded-lg border border-white/8 bg-black/30 px-2 text-xs text-ink outline-none focus:border-brand/40"
-              />
-              <span className="text-xs text-ink-dim">{t("player.segmentCacheHint")}</span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="text-xs text-ink-dim">{t("player.betaEngine")} :</label>
-              <select
-                value={playbackEngine}
-                onChange={(e) => setPlaybackEngine(e.target.value as "auto" | "stable" | "native" | "mse" | "ffmpeg" | "hls" | "beta")}
-                className="h-8 rounded-lg border border-white/8 bg-black/30 px-2 text-xs text-ink outline-none focus:border-brand/40"
-              >
-                <option value="auto">{t("player.betaEngineAuto")}</option>
-                <option value="stable">{t("player.betaEngineStable")}</option>
-                <option value="native">{t("player.betaEngineNative")}</option>
-                <option value="mse">{t("player.betaEngineMse")}</option>
-                <option value="ffmpeg">{t("player.betaEngineFfmpeg")}</option>
-                <option value="hls">{t("player.betaEngineHls")}</option>
-                <option value="beta">{t("player.betaEngineBeta")}</option>
-              </select>
-            </div>
-            <p className="text-[11px] text-ink-dim">{t("player.betaEngineHint")}</p>
-            {playbackEngine === "stable" && <p className="text-[11px] text-ink-dim">{t("player.betaEngineStableHint")}</p>}
-            {playbackEngine === "beta" && <p className="text-[11px] text-amber">{t("player.betaEngineBetaHint")}</p>}
-          </div>
-        )}
-      </div>
     </div>
   );
 }

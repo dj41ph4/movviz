@@ -35,7 +35,6 @@ test("playback session persists the exact Plex raw source selected before planni
     assert.equal(s.source.headers["X-Plex-Token"], "secret");
   }
   assert.equal(s.selectedAudio, 2);
-  assert.equal(s.plexFallbackUsed, false);
   endSession(s.sessionId);
 });
 

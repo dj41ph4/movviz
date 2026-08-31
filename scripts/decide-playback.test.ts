@@ -139,7 +139,6 @@ test("§61: Plex is never chosen while ffmpeg is available, even when a transcod
     server: FFMPEG_OK,
   });
   assert.equal(plan.mode, "TRANSCODE");
-  assert.notEqual(plan.mode, "PLEX_FALLBACK");
 });
 
 // ── TODO_POST_MOTEUR_LECTURE.md item 4 — server-power-aware encoder pick ──
@@ -213,7 +212,7 @@ test("ffmpeg unavailable never delegates to Plex Transcoder", () => {
   });
   assert.equal(plan.mode, "UNSUPPORTED");
   assert.ok(plan.reasons.includes("FFMPEG_UNAVAILABLE"));
-  assert.ok(!plan.reasons.includes("PLEX_FALLBACK_REQUESTED"));
+  assert.ok(plan.reasons.includes("MOVVIZ_TRANSCODER_UNAVAILABLE"));
 });
 
 // ── plan §74 success criteria — the four worked examples ──
@@ -649,4 +648,43 @@ test("HDR→SDR is allowed at a measured 3x or better and becomes a video transc
   assert.equal(plan.videoAction, "TRANSCODE");
   assert.equal(plan.toneMap, true);
   assert.equal(plan.audioAction, "COPY");
+});
+
+
+test("selected French AAC track ignores unselected English DTS and never transcodes video/audio", () => {
+  const plan = decidePlayback({
+    media: media({
+      container: "matroska,webm",
+      video: { index: 0, codec: "hevc", width: 1920, height: 1080 },
+      audioTracks: [
+        { index: 1, codec: "dts", language: "eng", channels: 6, default: true, forced: false },
+        { index: 2, codec: "aac", language: "fra", channels: 2, default: false, forced: false },
+      ],
+    }),
+    client: client({ containers: ["mp4"], videoCapabilities: [{ codec: "hevc" }], audioCapabilities: [{ codec: "aac", decode: true, maxChannels: 2 }] }),
+    server: FFMPEG_OK,
+    selectedAudio: 2,
+  });
+  assert.equal(plan.mode, "REMUX");
+  assert.equal(plan.videoAction, "COPY");
+  assert.equal(plan.audioAction, "COPY");
+  assert.ok(plan.reasons.includes("AUDIO_TRACK_SELECTION_REQUIRED"));
+});
+
+test("selected English DTS transcodes audio only while video remains bit-exact copy", () => {
+  const plan = decidePlayback({
+    media: media({
+      video: { index: 0, codec: "hevc", width: 1920, height: 1080 },
+      audioTracks: [
+        { index: 1, codec: "aac", language: "fra", channels: 2, default: true, forced: false },
+        { index: 2, codec: "dts", language: "eng", channels: 6, default: false, forced: false },
+      ],
+    }),
+    client: client({ videoCapabilities: [{ codec: "hevc" }], audioCapabilities: [{ codec: "aac", decode: true, maxChannels: 2 }] }),
+    server: FFMPEG_OK,
+    selectedAudio: 2,
+  });
+  assert.equal(plan.mode, "DIRECT_STREAM");
+  assert.equal(plan.videoAction, "COPY");
+  assert.equal(plan.audioAction, "TRANSCODE");
 });

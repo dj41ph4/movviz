@@ -33,7 +33,7 @@ export function useBetaPlayer() {
   const streamCacheTtl = data?.streamCacheTtl ?? 300;
   const playbackEngine: EngineConfig = data?.playbackEngine ?? "auto";
   const debug = data?.debug ?? false;
-  const userEnabled = prefsData?.prefs?.betaPlayerEnabled ?? false;
+  const userEnabled = prefsData?.prefs?.betaPlayerEnabled ?? true;
   const enabled = adminEnabled && userEnabled;
 
   const patch = async (body: Record<string, unknown>) => {

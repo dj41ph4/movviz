@@ -340,6 +340,13 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
 
   const audioTrack = selectAudioTrack(media, input.selectedAudio);
   const subtitleTrack = selectSubtitleTrack(media, input.selectedSubtitle);
+  const defaultAudioTrack = media.audioTracks.find((t) => t.default) ?? media.audioTracks[0] ?? null;
+  // Direct raw-file playback cannot select a non-default audio stream. A user
+  // choosing (or preferring) another compatible stream therefore requires a
+  // cheap remux, never an audio/video transcode. This is also what prevents
+  // an unselected English DTS track from forcing work while French AAC is
+  // the track actually being listened to.
+  const needsAudioTrackSelection = input.selectedAudio !== undefined && !!audioTrack && !!defaultAudioTrack && audioTrack.index !== defaultAudioTrack.index;
 
   const toneMapAllowed = (input.performance?.toneMapRealtimeFactor ?? 0) >= 3;
   const videoCheck = checkVideoCompatibility(media.video, client, toneMapAllowed);
@@ -349,6 +356,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
 
   reasons.push(...videoCheck.reasons, ...audioCheck.reasons);
   if (!containerOk) reasons.push("CONTAINER_UNSUPPORTED");
+  if (needsAudioTrackSelection) reasons.push("AUDIO_TRACK_SELECTION_REQUIRED");
   if (subtitleAction === "BURN") reasons.push("SUBTITLE_BURN_REQUIRED");
 
   // Rule §1.4: burn-in is itself a video transcode — folded in here, not
@@ -358,7 +366,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   const needsAudioTranscode = !audioCheck.compatible;
   // Rule §1.3: a container-only mismatch is a remux, never promoted to a
   // codec transcode — only reached when video didn't already need one.
-  const needsRemuxOnly = !containerOk && !needsVideoTranscode;
+  const needsRemuxOnly = (!containerOk || needsAudioTrackSelection) && !needsVideoTranscode;
   const audioTranscodeTarget = needsAudioTranscode ? pickTranscodeAudioCodec(client, audioTrack?.channels) : null;
 
   if (needsVideoTranscode) {
@@ -372,13 +380,21 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
         targetAudioCodec: audioTranscodeTarget?.codec,
         targetAudioChannels: audioTranscodeTarget?.channels,
         subtitleAction,
-        reasons: [...reasons, "FFMPEG_UNAVAILABLE"],
+        reasons: [...reasons, "FFMPEG_UNAVAILABLE", "MOVVIZ_TRANSCODER_UNAVAILABLE"],
       };
     }
     const targetVideoCodec = pickTranscodeVideoCodec(client, server);
     const encoder = pickVideoEncoderImpl(targetVideoCodec, server, videoCheck.toneMapNeeded === true);
+    const softwareFactor = input.performance?.software1080pRealtimeFactor ?? null;
+    if (!encoder.isHardware && videoCheck.toneMapNeeded !== true && softwareFactor !== null && softwareFactor < 1.5) {
+      encoder.preset = "ultrafast";
+    }
     const targetCap = client.videoCapabilities.find((c) => normalizeCodecName(c.codec) === targetVideoCodec);
     const clientMaxWidth = targetCap?.maxWidth ?? client.maxWidth;
+    let targetVideoWidth = pickTargetVideoWidth(media.video.width, clientMaxWidth, encoder.isHardware, videoCheck.toneMapNeeded === true);
+    if (!encoder.isHardware && softwareFactor !== null && softwareFactor < 1.5 && media.video.width && media.video.width > 1280) {
+      targetVideoWidth = Math.min(targetVideoWidth ?? media.video.width, 1280);
+    }
     return {
       mode: "TRANSCODE",
       containerAction: "REMUX",
@@ -387,7 +403,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
       targetVideoCodec,
       videoEncoderImpl: encoder.impl,
       encoderPreset: encoder.preset,
-      targetVideoWidth: pickTargetVideoWidth(media.video.width, clientMaxWidth, encoder.isHardware, videoCheck.toneMapNeeded === true),
+      targetVideoWidth,
       toneMap: videoCheck.toneMapNeeded || undefined,
       audioAction: needsAudioTranscode ? "TRANSCODE" : "COPY",
       targetAudioCodec: audioTranscodeTarget?.codec,
@@ -425,6 +441,17 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   }
 
   if (needsRemuxOnly) {
+    if (!server.ffmpegAvailable) {
+      return {
+        mode: "UNSUPPORTED",
+        containerAction: "REMUX",
+        targetContainer: "mp4",
+        videoAction: "COPY",
+        audioAction: "COPY",
+        subtitleAction,
+        reasons: [...reasons, "FFMPEG_UNAVAILABLE", "MOVVIZ_TRANSCODER_UNAVAILABLE"],
+      };
+    }
     return {
       mode: "REMUX",
       containerAction: "REMUX",

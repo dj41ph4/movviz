@@ -16,12 +16,12 @@ import { EngineLogsPanel } from "@/components/settings/EngineLogsPanel";
 import { ResolverLogsPanel } from "@/components/settings/ResolverLogsPanel";
 import { PerfPanel } from "@/components/settings/PerfPanel";
 import { InterfaceDataModePanel } from "@/components/settings/InterfaceDataModePanel";
-import { BenchmarkPanel } from "@/components/settings/BenchmarkPanel";
 import { BackupSettings } from "@/components/settings/BackupSettings";
 import { AutomationSettings } from "@/components/settings/AutomationSettings";
 import { CachePanel } from "@/components/settings/CachePanel";
 import { StatsPanel } from "@/components/settings/StatsPanel";
 import { PlexSettings } from "@/components/settings/PlexSettings";
+import { PlayerSettings } from "@/components/settings/PlayerSettings";
 import { MetadataSettings } from "@/components/settings/MetadataSettings";
 import { AnimeSettings } from "@/components/settings/AnimeSettings";
 import { BlocklistPanel } from "@/components/settings/BlocklistPanel";
@@ -344,6 +344,8 @@ function SettingsPageInner() {
 
           {tab === "anime" && user?.role === "admin" && <AnimeSettings />}
 
+          {tab === "player" && <PlayerSettings />}
+
           {tab === "plex" && user?.role === "admin" && <PlexSettings />}
 
           {tab === "naming" && user?.role === "admin" && <NamingSettings />}
@@ -386,7 +388,6 @@ function SettingsPageInner() {
           {tab === "performance" && user?.role === "admin" && (
             <div className="space-y-6">
               <InterfaceDataModePanel />
-              <BenchmarkPanel />
               <PerfPanel />
               <StatsPanel />
             </div>

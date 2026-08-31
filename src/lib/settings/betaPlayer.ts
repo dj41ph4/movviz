@@ -25,14 +25,16 @@ interface BetaPlayerConfig {
   debug: boolean;
   /** Posé une fois la migration ponctuelle Stable/Auto/Beta effectuée — voir load(). */
   engineTierMigrated?: boolean;
+  unifiedPlayerMigrated?: boolean;
 }
 
 const DEFAULT: BetaPlayerConfig = {
-  enabled: false,
+  enabled: true,
   streamCacheTtl: 300,
   playbackEngine: "auto",
   debug: false,
   engineTierMigrated: true,
+  unifiedPlayerMigrated: true,
 };
 
 /**
@@ -52,6 +54,11 @@ function load(): BetaPlayerConfig {
   if (!raw.engineTierMigrated) {
     cfg.playbackEngine = "auto";
     cfg.engineTierMigrated = true;
+  }
+  if (!raw.unifiedPlayerMigrated) {
+    cfg.enabled = true;
+    cfg.playbackEngine = "auto";
+    cfg.unifiedPlayerMigrated = true;
     save(cfg);
   }
   return cfg;
@@ -84,13 +91,16 @@ function isKnownEngine(v: unknown): v is EngineConfig {
 }
 
 export function getPlaybackEngine(): EngineConfig {
-  const v = load().playbackEngine;
-  return isKnownEngine(v) ? v : "auto";
+  const cfg = load();
+  if (cfg.playbackEngine !== "auto") {
+    save({ ...cfg, playbackEngine: "auto" });
+  }
+  return "auto";
 }
 
-export function setPlaybackEngine(engine: EngineConfig): void {
+export function setPlaybackEngine(_engine: EngineConfig): void {
   const cfg = load();
-  save({ ...cfg, playbackEngine: isKnownEngine(engine) ? engine : "auto" });
+  save({ ...cfg, playbackEngine: "auto" });
 }
 
 export function isPlaybackDebugEnabled(): boolean {

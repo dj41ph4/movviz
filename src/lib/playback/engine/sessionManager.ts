@@ -58,7 +58,6 @@ export interface PlaybackSession {
   transcoderPid: number | null;
   /** How many times this exact session recalculated its plan after a failed attempt (§43). */
   fallbackCount: number;
-  plexFallbackUsed: boolean;
 }
 
 export interface CreateSessionInput {
@@ -133,7 +132,6 @@ export function createSession(input: CreateSessionInput): PlaybackSession {
     position: 0,
     transcoderPid: null,
     fallbackCount: 0,
-    plexFallbackUsed: false,
   };
   state.sessions.set(session.sessionId, session);
   ensureCleanupTimer();

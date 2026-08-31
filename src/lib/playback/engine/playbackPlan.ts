@@ -10,7 +10,6 @@ export type PlaybackMode =
   | "REMUX"
   | "DIRECT_STREAM"
   | "TRANSCODE"
-  | "PLEX_FALLBACK"
   | "UNSUPPORTED";
 
 export type ContainerAction = "COPY" | "REMUX";
@@ -45,7 +44,8 @@ export type PlaybackReasonCode =
   | "MOVVIZ_STREAM_FAILURE"
   | "MOVVIZ_TRANSCODE_FAILURE"
   | "ALL_MOVVIZ_STRATEGIES_FAILED"
-  | "PLEX_FALLBACK_REQUESTED";
+  | "MOVVIZ_TRANSCODER_UNAVAILABLE"
+  | "AUDIO_TRACK_SELECTION_REQUIRED";
 
 export interface PlaybackPlan {
   mode: PlaybackMode;

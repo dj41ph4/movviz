@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.24.04 — August 2026
+
+### Lecteur Movviz unifié
+
+Le lecteur automatique passe par un seul planner Movviz pour les fichiers locaux et les sources Plex brutes : lecture directe quand le client sait réellement décoder, remux lorsque seule la piste/le conteneur doit changer, transcodage audio sans toucher à la vidéo quand seule l’audio est incompatible, et transcodage vidéo uniquement lorsque nécessaire. La piste audio réellement sélectionnée est décidée avant le codec : une piste DTS non sélectionnée ne peut plus déclencher un transcodage alors que la piste écoutée est AAC. HDR→SDR reste interdit sous 3× au benchmark. Les transcodages vidéo logiciels s’adaptent au benchmark et sont limités à 1,5× de lecture anticipée pour garder du buffer sans faire travailler inutilement le serveur.
+
+### Windows, Linux et ARM64
+
+FFmpeg/ffprobe utilisent désormais un runtime média commun. L’installeur Windows embarque ses propres binaires et le service pointe explicitement dessus ; les images Docker amd64/arm64 vérifient FFmpeg et ffprobe pendant leur build. Le benchmark utilise la même résolution de runtime que le lecteur.
+
+### Réglages → Lecteur
+
+Les options de lecture quittent Réglages → Plex. Un onglet Lecteur dédié regroupe activation par profil, langue audio, moteur automatique, réserve/cache, diagnostic et benchmark. Les anciens choix manuels MSE/FFmpeg/HLS/Bêta sont migrés vers Auto ; Plex conserve uniquement connexion, synchronisation et profils.
+
 ## v1.24.03 — August 2026
 
 ### Assistant de configuration — blocage juste après la création du compte

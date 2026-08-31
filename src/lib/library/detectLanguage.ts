@@ -26,7 +26,7 @@ const LOCALE_LANGUAGE_PREFIXES: Record<string, string[]> = {
  * Movviz's UI language" use site (audio codec badge, player default audio/
  * subtitle selection) — one prefix table, never reimplemented per caller.
  */
-export function findTrackForLocale<T extends { language: string | null | undefined }>(
+export function findTrackForLocale<T extends { language?: string | null }>(
   tracks: T[] | null | undefined,
   locale: string
 ): T | null {

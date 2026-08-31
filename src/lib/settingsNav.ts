@@ -25,6 +25,7 @@ import {
   Library,
   Download,
   ServerCog,
+  MonitorPlay,
   type LucideIcon,
 } from "lucide-react";
 
@@ -60,6 +61,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
   // Personnel
   { id: "dashboard", labelKey: "settings.tabDashboard", hintKey: "settings.tabDashboardHint", icon: LayoutGrid, group: "personal", journey: "experience" },
   { id: "experience", labelKey: "settings.tabExperience", hintKey: "settings.tabExperienceHint", icon: Wand2, group: "personal", journey: "experience", keywords: ["lecteur", "sous-titres", "lenteur lecture", "transcodage"] },
+  { id: "player", labelKey: "settings.tabPlayer", hintKey: "settings.tabPlayerHint", icon: MonitorPlay, group: "personal", journey: "playback", keywords: ["lecteur", "lecture", "transcodage", "audio", "codec", "ffmpeg", "benchmark", "buffer", "hdr", "sous-titres"] },
   { id: "gpu", labelKey: "settings.tabGpu", hintKey: "settings.tabGpuHint", icon: Zap, group: "personal", journey: "experience", expertOnly: true, keywords: ["lenteur", "animations", "performance"] },
   { id: "netflix", labelKey: "settings.tabNetflix", hintKey: "settings.tabNetflixHint", icon: Clapperboard, group: "personal", journey: "library" },
   // Téléchargement
@@ -69,7 +71,7 @@ export const SETTINGS_TABS: SettingsTab[] = [
   // Bibliothèque
   { id: "metadata", labelKey: "settings.tabMetadata", hintKey: "settings.tabMetadataHint", icon: BookOpen, group: "library", journey: "library", adminOnly: true },
   { id: "anime", labelKey: "settings.tabAnime", hintKey: "settings.tabAnimeHint", icon: Sparkles, group: "library", journey: "library", adminOnly: true, expertOnly: true },
-  { id: "plex", labelKey: "settings.tabPlex", hintKey: "settings.tabPlexHint", icon: Play, group: "library", journey: "library", adminOnly: true, keywords: ["connexion", "serveur", "bibliothèque Plex", "lecture", "transcodage", "audio"] },
+  { id: "plex", labelKey: "settings.tabPlex", hintKey: "settings.tabPlexHint", icon: Play, group: "library", journey: "library", adminOnly: true, keywords: ["connexion", "serveur", "bibliothèque Plex", "synchronisation", "profils Plex"] },
   { id: "naming", labelKey: "settings.tabNaming", hintKey: "settings.tabNamingHint", icon: Tag, group: "library", journey: "library", adminOnly: true, expertOnly: true, keywords: ["renommage", "format de fichier"] },
   { id: "imports", labelKey: "settings.tabImports", hintKey: "settings.tabImportsHint", icon: ExternalLink, group: "library", journey: "library", adminOnly: true },
   { id: "blocklist", labelKey: "settings.tabBlocklist", hintKey: "settings.tabBlocklistHint", icon: Ban, group: "library", journey: "library", adminOnly: true, expertOnly: true },
@@ -101,7 +103,7 @@ export interface SettingsJourneyDefinition {
 /** Five user goals replace the 25-entry wall in Essential mode. */
 export const SETTINGS_JOURNEYS: SettingsJourneyDefinition[] = [
   { id: "experience", labelKey: "settings.journeyExperience", hintKey: "settings.journeyExperienceHint", icon: Wand2, accent: "from-fuchsia-500/24 via-purple-500/10 to-transparent", tabIds: ["dashboard", "experience", "gpu"] },
-  { id: "playback", labelKey: "settings.journeyPlayback", hintKey: "settings.journeyPlaybackHint", icon: Play, accent: "from-cyan-500/24 via-sky-500/10 to-transparent", tabIds: ["plex", "experience", "performance"] },
+  { id: "playback", labelKey: "settings.journeyPlayback", hintKey: "settings.journeyPlaybackHint", icon: Play, accent: "from-cyan-500/24 via-sky-500/10 to-transparent", tabIds: ["player", "performance", "gpu"] },
   { id: "library", labelKey: "settings.journeyLibrary", hintKey: "settings.journeyLibraryHint", icon: Library, accent: "from-amber-500/24 via-orange-500/10 to-transparent", tabIds: ["plex", "metadata", "netflix", "imports", "naming", "anime", "blocklist", "indexation", "maintenance"] },
   { id: "downloads", labelKey: "settings.journeyDownloads", hintKey: "settings.journeyDownloadsHint", icon: Download, accent: "from-emerald-500/24 via-cyan-500/10 to-transparent", tabIds: ["clients", "indexers", "qualite"] },
   { id: "system", labelKey: "settings.journeySystem", hintKey: "settings.journeySystemHint", icon: ServerCog, accent: "from-violet-500/24 via-indigo-500/10 to-transparent", tabIds: ["notifications", "diagnostics", "automation", "ai", "about", "performance", "logs", "cache", "danger"] },

@@ -307,7 +307,7 @@ export function startTranscoderSession(
   // Shared ceiling with the Plex remux engine, not this module's own —
   // see sharedTranscodeLimit.ts's own comment for why.
   if (totalActiveTranscodeSessions() >= MAX_CONCURRENT_TRANSCODES) {
-    console.error(`[transcoder] refus démarrage ${key} — MAX_CONCURRENT_TRANSCODES=${MAX_CONCURRENT_TRANSCODES} atteint (partagé avec le moteur Plex)`);
+    console.error(`[transcoder] refus démarrage ${key} — MAX_CONCURRENT_TRANSCODES=${MAX_CONCURRENT_TRANSCODES} atteint (partagé entre les sessions média Movviz)`);
     return null;
   }
 
@@ -346,6 +346,12 @@ export function startTranscoderSession(
   // succeeds correctly.
   if (extractingSubtitle && opts.subtitleCharenc) args.push("-sub_charenc", opts.subtitleCharenc);
   if (seekSec > 0 && !outputSeek) args.push("-ss", String(seekSec));
+  // Video transcodes run slightly ahead of realtime, then naturally back-
+  // pressure against the HTTP/browser buffer. This keeps ~50% recovery
+  // margin without pegging a NAS CPU encoding the whole title as fast as
+  // possible. Remux/audio-only paths stay unrestricted because they cost
+  // almost nothing and should fill the client buffer immediately.
+  if (needsVideoTranscode) args.push("-readrate", "1.5");
   appendInputHeaders(args, input.headers);
   args.push("-i", input.uri);
   if (seekSec > 0 && outputSeek) args.push("-ss", String(seekSec));
