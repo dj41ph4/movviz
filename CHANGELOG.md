@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.10 — August 2026
+
+### Synchronisation Plex — le compte administrateur et les profils Home ne remontaient plus « vu »
+
+Depuis le passage à l'historique de session Plex pour suivre ce qui a été vu par compte, le compte administrateur et les profils gérés par Plex Home (contrairement aux comptes externes invités) ne synchronisaient plus jamais leur historique : Plex filtre cet historique par un identifiant propre au serveur (interne, distinct de l'identifiant cloud plex.tv stocké jusqu'ici), que ces deux types de comptes n'ont jamais eu. La synchronisation résout maintenant le bon identifiant local par nom d'utilisateur Plex avant d'interroger l'historique.
+
 ## v1.24.09 — August 2026
 
 ### Maintenance

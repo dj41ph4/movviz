@@ -1,5 +1,5 @@
 import { loadPlexConfig } from "./store";
-import { getAccountHistory, batchTmdbIds } from "./client";
+import { getAccountHistory, batchTmdbIds, getLocalAccounts, getPlexAccount, getPlexHomeUsers } from "./client";
 import { saveWatchStatus, getWatchStatus, type RecentWatch } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
@@ -48,8 +48,36 @@ export async function syncUserWatchStatus(user: User) {
   // confirmed via getPlexHomeUsers/PlexSettings.tsx assigning `homeUsers[].id`
   // straight into `plexManagedUserId`), so either one works here.
   const rawAccountId = user.plexId ?? user.plexManagedUserId;
-  const accountId = rawAccountId ? Number(rawAccountId) : null;
-  if (accountId == null || Number.isNaN(accountId)) return;
+  const cloudAccountId = rawAccountId ? Number(rawAccountId) : null;
+  if (cloudAccountId == null || Number.isNaN(cloudAccountId)) return;
+
+  // Bug fix (confirmed live via the diagnostic log — the owner and every
+  // Home-managed profile got "aucun historique Plex retourné" on literally
+  // every single sync cycle, while externally-shared friend accounts always
+  // worked): getAccountHistory's accountID filter is keyed to the PMS's own
+  // LOCAL accounts table (small sequential integers, owner conventionally
+  // id 1), not to the plex.tv CLOUD id stored in plexId/plexManagedUserId.
+  // Friends authenticate against the server with their own real plex.tv
+  // token, so Plex happens to register them locally under that same id —
+  // the owner and Home-managed profiles (PMS-local-only, no token of their
+  // own) never do. Resolve the real local id by matching Plex username for
+  // those two cases only; friends keep their already-correct cloud id.
+  const isOwner = !!user.plexToken && user.plexToken === cfg.adminToken;
+  const isHomeManaged = !!user.plexManagedUserId;
+  let accountId = cloudAccountId;
+  if (isOwner || isHomeManaged) {
+    const plexUsername = isOwner
+      ? (await getPlexAccount(cfg.clientId, cfg.adminToken))?.username ?? null
+      : (await getPlexHomeUsers(cfg.adminToken)).find((h) => h.id === user.plexManagedUserId)?.title ?? null;
+    const match = plexUsername
+      ? (await getLocalAccounts(cfg, cfg.adminToken)).find((a) => a.name.toLowerCase() === plexUsername.toLowerCase())
+      : undefined;
+    // No match found: fall back to the (known-wrong) cloud id rather than
+    // skip the sync outright — same "no history, keep previous data"
+    // outcome as before for a case this fix doesn't cover yet, instead of
+    // a new silent failure mode.
+    if (match) accountId = match.id;
+  }
 
   try {
     const historyResult = await getAccountHistory(cfg, cfg.adminToken, accountId);

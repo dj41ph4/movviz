@@ -1050,6 +1050,40 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
   return { entries: out, rejectedForeignEntries, rejectedUnattributedEntries };
 }
 
+export interface PlexLocalAccount {
+  id: number;
+  name: string;
+}
+
+/**
+ * The PMS's own local accounts table (`/accounts`) — small sequential
+ * integers assigned by the server itself (the owner is conventionally id 1),
+ * completely separate from plex.tv cloud ids. `/status/sessions/history/all`'s
+ * `accountID` filter (see getAccountHistory above) is keyed to THIS id
+ * space, not to the plex.tv id stored in a Movviz user's plexId/
+ * plexManagedUserId. Only externally-shared friend accounts happen to have
+ * a matching local id (they authenticate against the server with their own
+ * real plex.tv token); the owner and Home-managed profiles don't, and need
+ * this lookup to find their real local id by username.
+ */
+export async function getLocalAccounts(cfg: PlexServerConfig, adminToken: string): Promise<PlexLocalAccount[]> {
+  try {
+    const res = await fetchWithRetry(`${serverBase(cfg)}/accounts`, {
+      headers: serverHeaders(cfg, adminToken),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const list: { id?: number; name?: string }[] = data?.MediaContainer?.Account ?? [];
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((a) => ({ id: Number(a.id), name: a.name ?? "" }))
+      .filter((a): a is PlexLocalAccount => Number.isSafeInteger(a.id) && a.id > 0);
+  } catch {
+    return [];
+  }
+}
+
 // ─── Plex native collections ──────────────────────────────────────────────────
 
 interface RawCollectionItem {
