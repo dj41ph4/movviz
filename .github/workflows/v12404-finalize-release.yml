@@ -30,7 +30,7 @@ jobs:
           node scripts/v12404-finalize.mjs
           sed -i 's/DIRECT_PLAY et PLEX_FALLBACK\/UNSUPPORTED/DIRECT_PLAY et UNSUPPORTED/' src/components/player/VideoPlayer.tsx
 
-      - name: Verify final tree before validation
+      - name: Verify scaffolding cleanup
         shell: bash
         run: |
           set -euo pipefail
@@ -39,23 +39,49 @@ jobs:
           test ! -e .github/workflows/apply-playback-v3.yml
           test ! -e scripts/refactor-playback-v3.mjs
           test ! -e scripts/refactor-playback-v3-fixed.mjs
-          if find scripts -maxdepth 1 \( -name '*.tmp' -o -name '*playback-v3*' \) -print -quit | grep -q .; then
-            echo 'Temporary playback-v3 scaffolding remains:' >&2
-            find scripts -maxdepth 1 \( -name '*.tmp' -o -name '*playback-v3*' \) -print >&2
-            exit 1
-          fi
-          if grep -R --exclude-dir=node_modules --exclude='CHANGELOG*.md' -n 'PLEX_FALLBACK' src scripts; then
-            echo 'PLEX_FALLBACK remains in live/test code' >&2
-            exit 1
-          fi
+          ! find scripts -maxdepth 1 \( -name '*.tmp' -o -name '*playback-v3*' \) -print -quit | grep -q .
+
+      - name: Verify Plex transcoder residue cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -R --exclude-dir=node_modules --exclude='CHANGELOG*.md' -n 'PLEX_FALLBACK' src scripts
+
+      - name: Verify version metadata
+        shell: bash
+        run: |
+          set -euo pipefail
           node -e "const p=require('./package.json'),l=require('./package-lock.json'); if(p.version!=='1.24.04'||l.version!=='1.24.04'||l.packages[''].version!=='1.24.04') process.exit(1)"
+
+      - name: Verify Android metadata
+        shell: bash
+        run: |
+          set -euo pipefail
           grep -q 'versionCode = .*12404' android-tv/app/build.gradle.kts
           grep -q 'versionName = .*"1.24.04"' android-tv/app/build.gradle.kts
           grep -q 'versionCode = .*12404' android-mobile/app/build.gradle.kts
           grep -q 'versionName = .*"1.24.04"' android-mobile/app/build.gradle.kts
+
+      - name: Verify release docs
+        shell: bash
+        run: |
+          set -euo pipefail
           grep -q '## v1.24.04' CHANGELOG.md
           grep -q 'Movviz-1.24.04' README.md
+
+      - name: Verify Windows media runtime
+        shell: bash
+        run: |
+          set -euo pipefail
           grep -q 'MOVVIZ_FFMPEG_PATH' packaging/windows/installer/movviz-service.xml
+          grep -q 'MOVVIZ_FFPROBE_PATH' packaging/windows/installer/movviz-service.xml
+          grep -q 'ffmpeg.exe' packaging/windows/installer/build.ps1
+          grep -q 'ffprobe.exe' packaging/windows/installer/build.ps1
+
+      - name: Verify Docker ARM media runtime
+        shell: bash
+        run: |
+          set -euo pipefail
           grep -q 'ffprobe -version' packaging/docker/Dockerfile
 
       - name: Install dependencies
@@ -100,4 +126,4 @@ jobs:
           gh api -X POST "repos/$REPO/actions/workflows/android-mobile-build.yml/dispatches" -f ref=v1.24.04
           gh api -X POST "repos/$REPO/actions/workflows/docker-publish.yml/dispatches" -f ref=main
 
-# trigger: retry v1.24.04 after removing final legacy comment
+# trigger: diagnostic v1.24.04 verification split
