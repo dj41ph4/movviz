@@ -24,6 +24,8 @@ export interface CodecCapabilities {
   mseEac3: boolean;
   mseMp3: boolean;
   webcodecsAvailable: boolean;
+  /** MediaCapabilities.decodingInfo() is available for native/file probing. */
+  mediaCapabilitiesAvailable: boolean;
   /**
    * HEVC codec strings encode profile in their 2nd dotted field —
    * "hev1.1.6..." is profile_idc 1 (Main, 8-bit); "hev1.2.4..." is
@@ -66,6 +68,7 @@ export async function detectCodecs(): Promise<CodecCapabilities> {
     mseEac3: false,
     mseMp3: false,
     webcodecsAvailable: false,
+    mediaCapabilitiesAvailable: false,
     hevcMain10: false,
     av1Main10: false,
     hevc4k: false,
@@ -94,6 +97,43 @@ export async function detectCodecs(): Promise<CodecCapabilities> {
   const videoEl = typeof document !== "undefined"
     ? document.createElement("video")
     : null;
+
+  // Native/file audio capability: MediaCapabilities is the primary source
+  // because it queries the browser + OS + device playback stack. WebCodecs
+  // and canPlayType are only fallbacks when MediaCapabilities is unavailable:
+  // a raw AudioDecoder being configurable does not prove that <video src>
+  // can render the same codec/container.
+  const mediaAudioResolved = new Set<keyof CodecCapabilities>();
+  const mediaCaps = typeof navigator !== "undefined" ? navigator.mediaCapabilities : undefined;
+  if (mediaCaps?.decodingInfo) {
+    result.mediaCapabilitiesAvailable = true;
+    const checks: Array<[keyof CodecCapabilities, string, number]> = [
+      ["aac", 'audio/mp4; codecs="mp4a.40.2"', 2],
+      ["ac3", 'audio/mp4; codecs="ac-3"', 6],
+      ["eac3", 'audio/mp4; codecs="ec-3"', 6],
+      ["opus", 'audio/webm; codecs="opus"', 2],
+      ["flac", "audio/flac", 2],
+      ["mp3", "audio/mpeg", 2],
+    ];
+    for (const [key, contentType, channels] of checks) {
+      try {
+        const info = await mediaCaps.decodingInfo({
+          type: "file",
+          audio: {
+            contentType,
+            channels: String(channels),
+            bitrate: key === "ac3" || key === "eac3" ? 640_000 : 320_000,
+            samplerate: 48_000,
+          },
+        });
+        result[key] = info.supported === true;
+        mediaAudioResolved.add(key);
+      } catch {
+        result[key] = false;
+        mediaAudioResolved.add(key);
+      }
+    }
+  }
 
   if (hasWebCodecs) {
     const videoChecks: Array<[keyof CodecCapabilities, string]> = [
@@ -137,12 +177,14 @@ export async function detectCodecs(): Promise<CodecCapabilities> {
     const audioChecks: Array<[keyof CodecCapabilities, string]> = [
       ["aac", "mp4a.40.2"],
       ["ac3", "ac-3"],
+      ["eac3", "ec-3"],
       ["opus", "opus"],
       ["flac", "flac"],
       ["mp3", "mp3"],
     ];
 
     for (const [key, codec] of audioChecks) {
+      if (mediaAudioResolved.has(key)) continue;
       try {
         const supported = await (window as any).AudioDecoder.isConfigSupported({
           codec,
@@ -168,27 +210,23 @@ export async function detectCodecs(): Promise<CodecCapabilities> {
     if (!result.h264) {
       result.h264 = videoEl.canPlayType('video/mp4; codecs="avc1.640028"') !== "";
     }
-    if (!result.aac) {
+    if (!mediaAudioResolved.has("aac") && !result.aac) {
       result.aac = videoEl.canPlayType('audio/mp4; codecs="mp4a.40.2"') !== "";
     }
-    if (!result.opus) {
+    if (!mediaAudioResolved.has("opus") && !result.opus) {
       result.opus = videoEl.canPlayType('audio/webm; codecs="opus"') !== "";
     }
-    if (!result.ac3) {
+    if (!mediaAudioResolved.has("ac3") && !result.ac3) {
       result.ac3 = videoEl.canPlayType('audio/mp4; codecs="ac-3"') !== "";
     }
-    if (!result.eac3) {
+    if (!mediaAudioResolved.has("eac3") && !result.eac3) {
       result.eac3 = videoEl.canPlayType('audio/mp4; codecs="ec-3"') !== "";
     }
-    if (!result.flac) {
+    if (!mediaAudioResolved.has("flac") && !result.flac) {
       result.flac = videoEl.canPlayType('audio/flac') !== "" || videoEl.canPlayType('audio/mp4; codecs="flac"') !== "";
     }
-    if (!result.mp3) {
+    if (!mediaAudioResolved.has("mp3") && !result.mp3) {
       result.mp3 = videoEl.canPlayType('audio/mpeg') !== "";
-    }
-    if (!result.mseAc3) {
-      // Last resort: plain element playback of AC-3 (rare but exists)
-      result.mseAc3 = result.ac3;
     }
   }
 
@@ -246,20 +284,21 @@ export function isVideoCodecSupported(codec: string, caps: CodecCapabilities): b
 export function shouldForceAudioTranscode(codec: string, caps: CodecCapabilities): boolean {
   const c = codec.toLowerCase();
   if (!isAudioMseTransmuxable(c)) return true;
-  if (c === "eac3" || c === "ec-3") return !(caps.eac3 || caps.mseEac3);
-  if (c.includes("ac3") || c === "ac-3" || c.includes("dolby")) return !(caps.ac3 || caps.mseAc3);
+  // MSE is its own capability domain. Native/file support never authorizes
+  // an MSE copy, and MSE support never authorizes direct <video src>.
+  if (c.includes("ac3") || c === "ac-3" || c.includes("dolby")) return !caps.mseAc3;
+  if (c === "mp3" || c === "mp4a.40.34" || c === "mp2") return !(caps.mseMp3 || caps.mp3);
   return false;
 }
 
 export function isAudioCodecSupported(codec: string, caps: CodecCapabilities): boolean {
   const c = codec.toLowerCase();
-  // Order matters: "eac3" contains "ac3" — check E-AC3 first
-  if (c === "eac3" || c === "ec-3") return caps.eac3 || caps.mseEac3;
-  if (c.includes("ac3") || c === "ac-3" || c.includes("dolby")) return caps.ac3 || caps.mseAc3;
+  // DIRECT/progressive capability only: never OR with mse* flags.
+  if (c === "eac3" || c === "ec-3") return caps.eac3;
+  if (c.includes("ac3") || c === "ac-3" || c.includes("dolby")) return caps.ac3;
   if (c.includes("opus")) return caps.opus;
   if (c === "flac") return caps.flac;
-  if (c.includes("mp3") || c === "mp4a.40.34" || c === "mp2") return caps.mp3 || caps.mseMp3;
+  if (c.includes("mp3") || c === "mp4a.40.34" || c === "mp2") return caps.mp3;
   if (c.includes("aac") || c.includes("mp4a")) return caps.aac;
-  // dts/dtsma/dtshd/dtsx, truehd/mlpa, pcm/lpcm, wma, vorbis → not decodable by any browser
   return false;
 }

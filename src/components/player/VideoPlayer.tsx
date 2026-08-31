@@ -15,7 +15,6 @@ import {
   SkipBack, SkipForward, PictureInPicture2, Monitor,
 } from "lucide-react";
 import { detectCodecs, isVideoCodecSupported, isAudioCodecSupported, isAudioMseTransmuxable, shouldForceAudioTranscode, type CodecCapabilities } from "@/lib/player/webcodecs";
-import { watchForSilentAudio } from "@/lib/player/silentAudioDetector";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { orchestrate } from "@/lib/playback/orchestrator";
 import { detectCapabilities } from "@/lib/playback/capabilities";
@@ -192,14 +191,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const prebufferClearRef = useRef<(() => void) | null>(null);
   const fallbackGuardRef = useRef(false);
   const startHlsRef = useRef<((extraParams?: string, isCopyNetworkRetry?: boolean) => void) | null>(null);
-  const stopSilentWatchRef = useRef<(() => void) | null>(null);
-  // True only while startDirect()'s own watchForSilentAudio verdict is still
-  // pending — gates the generic onPlaying/onCanPlay handlers below so the
-  // "optimizing" cover isn't lifted by the throwaway direct-play attempt's
-  // OWN playing event, before we actually know whether it'll be kept or
-  // escalated away. Cleared by onConfirmedAudible (kept) or by abandoning
-  // direct play (escalateSilentToFfmpeg / recoverFromDirect).
-  const awaitingAudioConfirmationRef = useRef(false);
   // True only while ffmpegEngineRef holds the NEW engine-v2 (local, session-
   // based) instance rather than the legacy ffmpeg-remux one — both share the
   // same ref/ffmpegActive flag, but they speak completely different track-
@@ -262,7 +253,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const [fullscreen, setFullscreen] = useState(false);
   const [buffering, setBuffering] = useState(false);
   // Explicit user request (2026-08-24): the direct→silent-detection→escalate
-  // dance (startDirect's 800ms watchForSilentAudio) is real and needed (the
+  // dance (startDirect's 800ms codec capability preflight) is real and needed (the
   // "old baseline method" this whole engine has to match), but it used to
   // play out IN FRONT of the user — a real frame (with wrong/missing audio)
   // visibly renders during the small transparent buffering spinner, then
@@ -818,10 +809,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       if (hlsCopyEscalatedRef.current) return;
       hlsCopyEscalatedRef.current = true;
       transcodeAudioRef.current = true;
-      awaitingAudioConfirmationRef.current = false;
       setOptimizing(true);
-      stopSilentWatchRef.current?.();
-      stopSilentWatchRef.current = null;
       if (mseEngineRef.current) {
         try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
         mseEngineRef.current = null;
@@ -890,8 +878,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       // peut pas décoder joue en silence et doit escalader en vrai transcode.
       const attemptingDashAudioCopy = mode === "auto" && ta === "0" && !hlsCopyEscalatedRef.current;
       if (attemptingDashAudioCopy && !isCopyNetworkRetry) {
-        stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(elv, () => escalateSilentToTranscode(false));
       }
 
       const player = djs.MediaPlayer().create();
@@ -1013,10 +999,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       // silently no-op anyway. Letting the original watch keep ticking means
       // the retry still gets genuinely live-verified, just on whatever time
       // remains of the original 6s window rather than a fresh one.
-      if (attemptingHlsAudioCopy && !isCopyNetworkRetry) {
-        stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToTranscode(false));
-      }
 
       if (Hls.isSupported()) {
         let networkRetries = 0;
@@ -1143,7 +1125,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const recoverFromDirect = async () => {
         if (directRecoveryStarted || fallbackGuardRef.current || hlsRef.current || mseEngineRef.current || ffmpegEngineRef.current) return;
         directRecoveryStarted = true;
-        awaitingAudioConfirmationRef.current = false;
         setOptimizing(true);
         {
           const b = betaRef.current;
@@ -1181,16 +1162,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       // Every direct movie/episode is therefore live-verified. A genuinely
       // silent title is rare; a browser silently failing an AC-3/DTS/TrueHD
       // track is not, and must always trigger the audio-only fallback.
-      stopSilentWatchRef.current?.();
-      awaitingAudioConfirmationRef.current = true;
-      stopSilentWatchRef.current = watchForSilentAudio(el, () => escalateSilentToFfmpeg(), {
-        windowMs: 800,
-        requireStarted: true,
-        onConfirmedAudible: () => {
-          awaitingAudioConfirmationRef.current = false;
-          setOptimizing(false);
-        },
-      });
     };
     startDirectRef.current = startDirect;
 
@@ -1318,7 +1289,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
 
         // Direct play is now the unconditional first attempt — the manual
         // "lightning bolt" button and this automatic path are the same
-        // function (startDirect), sharing the same error/silent-audio
+        // function (startDirect), sharing the same error
         // recovery net. No more static canPlayType/MediaSource probing to
         // pre-decide "direct" vs "webcodecs" vs "transcode": confirmed live
         // that those probes lie for common cases (AC-3/E-AC-3 canPlayType on
@@ -1332,11 +1303,13 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         //  - video codec truly undecodable: skip a doomed direct attempt.
         // Everything else — silent/broken default audio, a codec probe that
         // would have said "should be fine" but isn't — is caught live by
-        // startDirect's error listener + watchForSilentAudio, exactly as it
+        // startDirect's error listener + codec capability preflight, exactly as it
         // already was for the subset of files that used to reach "direct".
         // Moteur ffmpeg : interdiction absolue de lecture directe — tout
         // passe par le remux ffmpeg (Réglages → Plex).
-        strategy = betaRef.current.playbackEngine === "ffmpeg" || audioSwitched || (info.videoCodec && !isVideoCodecSupported(info.videoCodec, caps))
+        const nativeAudioUnsupported = !!effectiveAudioCodec && !isAudioCodecSupported(effectiveAudioCodec, caps);
+        if (nativeAudioUnsupported) transcodeAudioRef.current = true;
+        strategy = betaRef.current.playbackEngine === "ffmpeg" || audioSwitched || nativeAudioUnsupported || (info.videoCodec && !isVideoCodecSupported(info.videoCodec, caps))
           ? "transcode"
           : "direct";
       } catch {
@@ -1442,8 +1415,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         // ta=1 transcode (destroying this engine first). No-op if the
         // element's AudioContext source node is already taken by an earlier
         // direct-leg watch (that verdict already covered this case).
-        stopSilentWatchRef.current?.();
-        stopSilentWatchRef.current = watchForSilentAudio(video, () => escalateSilentToTranscode("mse"));
         return true;
       } catch {
         return false;
@@ -1744,12 +1715,12 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     const onWaiting = () => setBuffering(true);
     // Universal "a real frame is now flowing" signal — fires regardless of
     // which engine feeds this same <video> element (direct src, MSE,
-    // ffmpeg-remuxed HLS/progressive). Gated on awaitingAudioConfirmationRef
+    // ffmpeg-remuxed HLS/progressive). Gated on codecCapabilityPreflight
     // so it can't prematurely lift the "optimizing" cover for a throwaway
     // direct-play attempt whose own audio verdict (silent → escalate) is
     // still pending — see startDirect()/escalateSilentToFfmpeg() above.
     const clearOptimizingIfSettled = () => {
-      if (!awaitingAudioConfirmationRef.current) setOptimizing(false);
+      setOptimizing(false);
     };
     const onPlaying = () => { setBuffering(false); clearOptimizingIfSettled(); };
     const onCanPlay = () => { setBuffering(false); clearOptimizingIfSettled(); };
@@ -1811,8 +1782,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         ffmpegEngineRef.current = null;
         void engine.destroy().catch(() => void 0);
       }
-      stopSilentWatchRef.current?.();
-      stopSilentWatchRef.current = null;
       clearFfmpegSubtitle();
 
       if (progressTimerRef.current) {
@@ -2357,8 +2326,6 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   };
 
   const tearDownActiveLegs = () => {
-    stopSilentWatchRef.current?.();
-    stopSilentWatchRef.current = null;
     if (mseEngineRef.current) {
       try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
       mseEngineRef.current = null;
