@@ -7,6 +7,7 @@ import { AI_MEMORY_FILE } from "./memory";
 import { relativeFr } from "./actions";
 import { buildUnifiedUserContextSnapshot, formatUnifiedUserContext } from "@/lib/userContext/query";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
+import { formatUserWatchHistory } from "@/lib/userContext/history";
 
 export interface UsageProfile {
   /** Whole-instance library size (shared across every user — not a "watched" count). Distinct on purpose: a user asking "j'ai 2284 films" means the library total, not how many they've watched. */
@@ -41,6 +42,9 @@ export interface UsageProfile {
    *  This is factual state (resume positions, exact recent titles, series
    *  progression), not an LLM-generated taste insight. */
   verifiedContext: string;
+  /** Chronological completion/watch history. Unlike the old recent list,
+   *  future ledger entries preserve rewatches as distinct dated events. */
+  verifiedWatchHistory: string;
 }
 
 /** Quantified usage profile derived from REAL Movviz data — the assistant's
@@ -75,6 +79,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
   const watchesLast7Days = recent.filter((r) => now - r.at <= 7 * DAY_MS).length;
   const watchesLast30Days = recent.filter((r) => now - r.at <= 30 * DAY_MS).length;
   const verifiedContext = formatUnifiedUserContext(buildUnifiedUserContextSnapshot(userId));
+  const verifiedWatchHistory = formatUserWatchHistory(userId, 30);
 
   return {
     libraryMovies: loadMovies().length,
@@ -93,6 +98,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
     watchesLast7Days,
     watchesLast30Days,
     verifiedContext,
+    verifiedWatchHistory,
   };
 }
 
@@ -115,6 +121,9 @@ export function formatUsageProfile(p: UsageProfile): string {
   }
   if (p.verifiedContext) {
     parts.push(`DONNÉES UTILISATEUR VÉRIFIÉES PAR MOVVIZ (faits exacts, ne jamais les inventer ni les contredire) : ${p.verifiedContext}`);
+  }
+  if (p.verifiedWatchHistory) {
+    parts.push(`HISTORIQUE CHRONOLOGIQUE VÉRIFIÉ (ordre récent → ancien ; les genres entre crochets viennent de la bibliothèque, les dates après @ sont réelles) : ${p.verifiedWatchHistory}`);
   }
   return parts.join(" · ");
 }
