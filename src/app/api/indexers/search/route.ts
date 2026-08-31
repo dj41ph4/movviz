@@ -167,6 +167,26 @@ export async function GET(req: NextRequest) {
         releaseSlot();
       }
       const newlyLimited = countNewlyRateLimited(indexers);
+      // Bug fix (live report: C411 silently absent from manual search results
+      // for a query that DOES exist on C411 — confirmed working seconds later
+      // via the auto-grab path, which hits the same indexer). Manual search
+      // previously only ever logged one AGGREGATE line across every queried
+      // indexer, so a single indexer returning nothing was invisible whenever
+      // at least one OTHER indexer found something — exactly this case
+      // (Tr4ker had a hit, so manual_search.fallback_match fired and no
+      // per-indexer breakdown was ever recorded). Logged unconditionally, one
+      // line per indexer, so the next occurrence of "indexer X missing from
+      // results" shows raw count vs. score-filtered count immediately instead
+      // of requiring a fresh investigation each time.
+      indexers.forEach((ix, i) => {
+        const raw = directResults[i] ?? [];
+        const scored = raw.filter((r) => r.score >= 10);
+        recordSearchLog(
+          "debug",
+          "manual_search.indexer_result",
+          `"${searchQuery}" — ${ix.name}: ${raw.length} brut(s), ${scored.length} après filtrage score`
+        );
+      });
       const direct = directResults.flat().filter((r) => r.score >= 10);
       const seen = new Set<string>();
       filtered = direct

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.18 — August 2026
+
+### Recherche manuelle — diagnostic par indexeur
+
+Un indexeur absent des résultats d'une recherche manuelle restait invisible dès qu'un autre indexeur, lui, trouvait quelque chose — un seul log agrégé masquait le détail. Le journal (Réglages → Journaux) affiche maintenant, à chaque recherche directe, le nombre de résultats bruts puis filtrés pour chaque indexeur individuellement.
+
 ## v1.24.17 — August 2026
 
 ### Synchronisation Plex — diagnostic complet sur la disparition des épisodes vus
