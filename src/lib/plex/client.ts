@@ -983,6 +983,12 @@ export interface PlexAccountHistoryResult {
    *  server hitting this can be read straight from Réglages → Journaux,
    *  without needing a live debugger. */
   sampleMalformedEpisode: Record<string, unknown> | null;
+  /** Every raw item.type === "episode" seen in the response, before ANY
+   *  filtering (accountID match, well-formed check). Unconditional and
+   *  always logged — see the comment at its declaration in
+   *  getAccountHistory() for why the other counters above can't answer
+   *  "did Plex send episode events for this account at all". */
+  totalEpisodeTypeSeen: number;
 }
 
 /**
@@ -1009,6 +1015,17 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
   let rejectedUnattributedEntries = 0;
   let rejectedMalformedEpisodeEntries = 0;
   let sampleMalformedEpisode: Record<string, unknown> | null = null;
+  // Bug fix: rejectedMalformedEpisodeEntries and the two rejection counters
+  // above only count an episode-typed item AFTER it already passed the
+  // accountID checks — so if this PMS's history simply never sends episode-
+  // typed items with a valid/matching accountID at all (the actual cause is
+  // still unconfirmed), every one of those counters stays at 0 and this
+  // whole diagnostic pass is invisible again. This one is unconditional —
+  // literally every `item.type === "episode"` seen in the raw response,
+  // before any other check — so the sync log can finally tell "Plex sent
+  // zero episode-typed events for this account" apart from "Plex sent some
+  // but they all got filtered out downstream".
+  let totalEpisodeTypeSeen = 0;
   const pageSize = 200;
   let start = 0;
   for (;;) {
@@ -1034,6 +1051,7 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
       break;
     }
     for (const item of page) {
+      if (item.type === "episode") totalEpisodeTypeSeen++;
       // PMS documents accountID in each history entry.  Never rely only on
       // the query parameter: a buggy/proxied response that ignores it must
       // not become this Movviz user's private watched history.
@@ -1067,7 +1085,7 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
     start += page.length;
     if (page.length === 0 || start >= total) break;
   }
-  return { entries: out, rejectedForeignEntries, rejectedUnattributedEntries, rejectedMalformedEpisodeEntries, sampleMalformedEpisode };
+  return { entries: out, rejectedForeignEntries, rejectedUnattributedEntries, rejectedMalformedEpisodeEntries, sampleMalformedEpisode, totalEpisodeTypeSeen };
 }
 
 export interface PlexLocalAccount {

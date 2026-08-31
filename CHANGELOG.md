@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.17 — August 2026
+
+### Synchronisation Plex — diagnostic complet sur la disparition des épisodes vus
+
+Le journal (Réglages → Journaux) affiche maintenant, à chaque synchro, le nombre brut d'événements « épisode » réellement reçus de Plex avant tout filtrage — auparavant, si Plex n'en renvoyait aucun dès le départ, rien ne le distinguait d'un filtrage silencieux en aval. La prochaine synchro dira enfin précisément où le problème se situe.
+
 ## v1.24.16 — August 2026
 
 ### Android TV — navigation et lecteur unifiés

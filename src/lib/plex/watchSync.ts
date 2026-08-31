@@ -177,10 +177,14 @@ export async function syncUserWatchStatus(user: User) {
       historyResult.rejectedUnattributedEntries ? `${historyResult.rejectedUnattributedEntries} sans accountID rejeté(s)` : null,
       historyResult.rejectedMalformedEpisodeEntries ? `${historyResult.rejectedMalformedEpisodeEntries} épisode(s) mal formé(s) rejeté(s)` : null,
     ].filter((p): p is string => p != null);
+    // Unconditional (not just "if rejected > 0" like the parts above): the
+    // only way to tell "Plex sent zero episode events for this account" from
+    // "Plex sent some, they all got filtered downstream" — see
+    // totalEpisodeTypeSeen's own comment in client.ts.
     recordSearchLog(
       "info",
       "plex.watchSync",
-      `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s), ${recent.length} entrée(s) récente(s) datée(s) (${history.length} événement(s) vérifié(s)${rejectionParts.length ? `, ${rejectionParts.join(", ")}` : ""})`
+      `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s), ${recent.length} entrée(s) récente(s) datée(s) (${history.length} événement(s) vérifié(s), ${historyResult.totalEpisodeTypeSeen} événement(s) épisode brut(s) reçu(s) de Plex${rejectionParts.length ? `, ${rejectionParts.join(", ")}` : ""})`
     );
     if (historyResult.sampleMalformedEpisode) {
       recordSearchLog(
