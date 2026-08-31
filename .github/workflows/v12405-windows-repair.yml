@@ -1,0 +1,61 @@
+name: Repair Windows v1.24.05 installer
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/v12405-windows-repair.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify v1.24.05 source
+        shell: pwsh
+        run: |
+          if ((node -p "require('./package.json').version") -ne "1.24.05") { throw "Expected package version 1.24.05" }
+          if (-not (Select-String -Path packaging/windows/installer/build.ps1 -SimpleMatch 'Join-Path $stage ".tools"')) { throw "Windows staging fix missing" }
+      - name: Verify SQLite runtime
+        run: node -e "const s=require('node:sqlite'); if(typeof s.DatabaseSync!=='function') process.exit(1)"
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: |
+          if (-not (Get-Command "ISCC.exe" -ErrorAction SilentlyContinue)) { choco install innosetup --no-progress --allow-downgrade }
+          echo "ISCC_DIR=C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install engine dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: engine
+      - name: Install resolver dependencies
+        run: npm ci --no-audit --no-fund
+        working-directory: resolver
+      - name: Build resolver TypeScript
+        run: npm run build
+        working-directory: resolver
+      - name: Build Windows installer
+        shell: powershell
+        run: packaging\windows\installer\build.ps1
+      - name: Verify bundled media runtime
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "packaging/windows/installer/stage/runtime/ffmpeg/ffmpeg.exe")) { throw "ffmpeg.exe missing" }
+          if (-not (Test-Path "packaging/windows/installer/stage/runtime/ffmpeg/ffprobe.exe")) { throw "ffprobe.exe missing" }
+          if (-not (Test-Path "dist/Movviz-Setup-1.24.05.exe")) { throw "installer missing" }
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Movviz-Setup-1.24.05
+          path: dist\Movviz-Setup-1.24.05.exe
+      - name: Attach installer to v1.24.05 release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload v1.24.05 "dist/Movviz-Setup-1.24.05.exe" --repo "${{ github.repository }}" --clobber
