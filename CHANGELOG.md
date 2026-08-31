@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.09 — August 2026
+
+### Maintenance
+
+Version bump sans changement fonctionnel.
+
 ## v1.24.08 — August 2026
 
 ### Branding unifié — Windows, Android, Web/PWA et Docker
