@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.07 — August 2026
+
+### Maintenance
+
+Version bump sans changement fonctionnel — nettoyage de l'historique des releases/tags GitHub antérieurs à la 1.24.06.
+
 ## v1.24.06 — August 2026
 
 ### Réglages → Lecteur — désactivation totale du HDR/Dolby Vision → SDR

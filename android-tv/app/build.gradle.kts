@@ -28,8 +28,8 @@ android {
         // et proposait/installait une "mise à jour" à chaque lancement, même
         // juste après l'avoir déjà installée — boucle infinie constatée.
         // Repli ci-dessous : build local (Android Studio) sans CI.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 12406
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.06"
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 12407
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.07"
         // Canal unique depuis le retrait de la variante retail : l'APK livré
         // s'auto-met à jour via GitHub au lancement (voir UpdateManager).
         buildConfigField("boolean", "AUTO_UPDATE", "true")
