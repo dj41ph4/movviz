@@ -1,5 +1,6 @@
 name: Apply codec capability v2
 
+# rerun after helper syntax fix
 on:
   push:
     branches: [main]
