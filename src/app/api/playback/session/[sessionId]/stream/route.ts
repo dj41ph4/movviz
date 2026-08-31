@@ -10,6 +10,7 @@ import {
   startTranscoderSession,
   stopAllForMedia,
   stopTranscoderSession,
+  touchTranscoderSession,
 } from "@/lib/playback/engine/transcoderExecutor";
 import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "@/lib/playback/engine/sharedTranscodeLimit";
 
@@ -94,16 +95,30 @@ export async function GET(req: NextRequest, context: Ctx) {
   touchSession(sessionId, seekToSec * 1000);
   if (proc.pid) setTranscoderPid(sessionId, proc.pid);
 
+  // `transcoderExecutor` has a 5-minute inactivity TTL, but this HTTP GET is
+  // a single long-lived response: without a heartbeat, lastAccess stayed at
+  // the spawn time forever and the purge timer killed a perfectly healthy
+  // movie after ~5-6 minutes. Keep the TRANSCODER registry alive while the
+  // client connection itself is alive; abort/ffmpeg exit stop the heartbeat,
+  // so genuinely orphaned sessions still fall back to the normal TTL cleanup.
+  touchTranscoderSession(key);
+  const activityTimer = setInterval(() => touchTranscoderSession(key), 60_000);
+  if (typeof activityTimer.unref === "function") activityTimer.unref();
+
   let stopped = false;
   const onAbort = () => {
     if (stopped) return;
     stopped = true;
+    clearInterval(activityTimer);
     console.log(`[transcoder] abort client — stop ${key}`);
     markStreamAborted(key);
     stopTranscoderSession(key);
   };
   req.signal.addEventListener("abort", onAbort);
-  proc.once("exit", () => req.signal.removeEventListener("abort", onAbort));
+  proc.once("exit", () => {
+    clearInterval(activityTimer);
+    req.signal.removeEventListener("abort", onAbort);
+  });
 
   return new Response(stream, {
     headers: { "content-type": "video/mp4", "cache-control": "no-store", "accept-ranges": "bytes" },
