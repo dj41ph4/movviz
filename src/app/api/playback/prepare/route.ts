@@ -9,6 +9,7 @@ import { createSession } from "@/lib/playback/engine/sessionManager";
 import { benchmarkRealtimeFactor } from "@/lib/playback/engine/serverBenchmark";
 import type { ClientPlaybackProfile } from "@/lib/playback/engine/clientProfile";
 import { findTrackForLocale } from "@/lib/library/detectLanguage";
+import { isHdrDvToSdrEnabled } from "@/lib/settings/betaPlayer";
 
 export const dynamic = "force-dynamic";
 
@@ -98,10 +99,17 @@ export async function POST(req: NextRequest) {
   const subtitleTrack = subtitleTrackRaw === null ? null : Number.isInteger(subtitleTrackRaw) ? (subtitleTrackRaw as number) : undefined;
   const quality = typeof b.quality === "string" ? (b.quality as "original" | "auto" | "4k" | "1440p" | "1080p" | "720p") : undefined;
 
+  // Instance-wide product rule from Settings > Player. OFF is a hard veto:
+  // HDR10/HDR10+/HLG/Dolby Vision are never tonemapped to SDR, regardless of
+  // benchmark headroom. ON still does NOT force tonemapping: decidePlayback()
+  // keeps the existing >= 3× real-time benchmark requirement.
+  const hdrDvToSdrEnabled = isHdrDvToSdrEnabled();
+  const measuredToneMapFactor = benchmarkRealtimeFactor("software_720p_tonemap");
+
   const plan = decidePlayback({
     media, client: clientProfile, server, selectedAudio: audioTrack, selectedSubtitle: subtitleTrack, quality,
     performance: {
-      toneMapRealtimeFactor: benchmarkRealtimeFactor("software_720p_tonemap"),
+      toneMapRealtimeFactor: hdrDvToSdrEnabled ? measuredToneMapFactor : 0,
       software1080pRealtimeFactor: benchmarkRealtimeFactor("software_1080p"),
     },
   });
@@ -133,10 +141,6 @@ export async function POST(req: NextRequest) {
     plan,
     tracks: { audio: media.audioTracks, subtitle: media.subtitleTracks },
     source: { type: source.type },
-    // §33 — markers/resume come from the existing progress/marker stores in
-    // the CURRENT system (progressStore.ts, decisionLog-adjacent marker
-    // sync); wiring those in is migration work (Phase 9+), not part of this
-    // contract phase, so they're left empty rather than half-duplicated here.
     markers: {},
     resume: {},
     stream: {
