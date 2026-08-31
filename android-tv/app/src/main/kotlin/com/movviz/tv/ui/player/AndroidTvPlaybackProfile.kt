@@ -96,15 +96,20 @@ private fun supportedHdrTypes(context: Context): List<String> {
         @Suppress("DEPRECATION")
         (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay
     }.getOrNull() ?: return emptyList()
+
     return runCatching {
-        display.hdrCapabilities.supportedHdrTypes.mapNotNull { type ->
-            when (type) {
-                Display.HdrCapabilities.HDR_TYPE_HDR10 -> "hdr10"
-                Display.HdrCapabilities.HDR_TYPE_HLG -> "hlg"
-                Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION -> "dolby-vision"
-                else -> null
+        val supported: IntArray = display.hdrCapabilities.supportedHdrTypes
+        supported
+            .map { type: Int ->
+                when (type) {
+                    Display.HdrCapabilities.HDR_TYPE_HDR10 -> "hdr10"
+                    Display.HdrCapabilities.HDR_TYPE_HLG -> "hlg"
+                    Display.HdrCapabilities.HDR_TYPE_DOLBY_VISION -> "dolby-vision"
+                    else -> null
+                }
             }
-        }.distinct()
+            .filterNotNull()
+            .distinct()
     }.getOrDefault(emptyList())
 }
 
