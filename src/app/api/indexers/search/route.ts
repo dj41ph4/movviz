@@ -133,7 +133,26 @@ export async function GET(req: NextRequest) {
   filtered = filtered.map((r) => rescoreRelease(r, matchQuery)).filter((r) => r.score >= 10);
   filtered.sort((a, b) => b.score - a.score);
 
-  if (searchQuery && filtered.length === 0) {
+  // Bug fix (confirmed live: a season/episode-targeted search — e.g. "S02"
+  // — showed a single WRONG-season cached release from one indexer and
+  // never queried the others live at all, even though a live search found
+  // 13 correct results from an indexer that never got a chance to run).
+  // seasonEpisodeRelevance (torznab.ts) caps a wrong-season/episode release's
+  // score rather than rejecting it outright (so it can still rank below a
+  // real match) — but distance-3+ mismatches cap at exactly 10, the same
+  // value as the ">= 10" cutoff below, so a stale cached release with strong
+  // quality bonuses can survive that cap and make `filtered` non-empty on
+  // its own. Since the live fallback only fires when the cache produced
+  // NOTHING (`filtered.length === 0`), one such fluke was enough to skip it
+  // entirely — the cache "lied" about having a real answer. A result whose
+  // own score breakdown carries a wrong-season/episode penalty no longer
+  // counts as a confident cache hit; the live fallback below still runs
+  // (and its own results, if any, simply supersede this one in `filtered`).
+  const hasConfidentCacheMatch = filtered.some(
+    (r) => !(r.scoreBreakdown ?? []).some((b) => b.label.startsWith("Mauvaise saison") || b.label.startsWith("Mauvais épisode"))
+  );
+
+  if (searchQuery && (filtered.length === 0 || !hasConfidentCacheMatch)) {
     // A manual search is one deliberate, user-initiated request — not the
     // recurring background traffic (auto-grab, RSS scan) that the 10-minute
     // reactive cooldown (markRateLimited) exists to protect an indexer from.

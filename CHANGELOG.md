@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.21 — August 2026
+
+### Recherche manuelle — une recherche par saison/épisode pouvait ignorer un indexeur entier
+
+Une release en cache, de la mauvaise saison ou du mauvais épisode, pouvait — grâce à des bonus de qualité (résolution, seeders...) — franchir de justesse le seuil minimal malgré le plafond appliqué aux mauvaises correspondances. Sa seule présence suffisait alors à faire croire que la recherche avait déjà une réponse, ce qui annulait complètement l'interrogation en direct des indexeurs — masquant des dizaines de résultats corrects disponibles ailleurs. Un résultat en cache pénalisé pour mauvaise saison/épisode ne bloque plus la recherche en direct.
+
 ## v1.24.20 — August 2026
 
 ### Indexeurs — bouton pour actualiser les catégories
