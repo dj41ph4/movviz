@@ -4,9 +4,9 @@ import { Readable } from "node:stream";
 import { stat, readFile } from "node:fs/promises";
 import { requireUser } from "@/lib/auth/guard";
 import { getSession } from "@/lib/playback/engine/sessionManager";
-import { resolveLocalFilePath } from "@/lib/playback/sourceResolver";
-import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
-import { findLiveSubtitleVtt } from "@/lib/playback/engine/localExecutor";
+import { getOrProbeMediaDescriptor, getOrProbeRemoteMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
+import { resolveFfmpegBinary } from "@/lib/playback/engine/mediaRuntime";
+import { findLiveSubtitleVtt } from "@/lib/playback/engine/transcoderExecutor";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,11 +14,11 @@ export const runtime = "nodejs";
 type Ctx = { params: Promise<{ sessionId: string }> };
 
 /**
- * Local-file counterpart of /api/playback-ffmpeg/[ratingKey]/subtitle —
+ * Unified-source counterpart of /api/playback-ffmpeg/[ratingKey]/subtitle —
  * same fast-path-tail-the-live-sidecar-else-dedicated-extraction shape, see
  * that file's own extensive comments for the full rationale. `subtitleIndex`
  * here is always the ABSOLUTE ffprobe stream index (MediaDescriptor's own
- * vocabulary), never the type-relative one — matches localExecutor.ts's
+ * vocabulary), never the type-relative one — matches transcoderExecutor.ts's
  * -map convention throughout.
  */
 export async function GET(req: NextRequest, context: Ctx) {
@@ -29,17 +29,10 @@ export async function GET(req: NextRequest, context: Ctx) {
   const session = getSession(sessionId);
   if (!session || session.userId !== user.id) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const resolution = resolveLocalFilePath(session.mediaId);
-  if (!resolution.ok) {
-    return NextResponse.json(
-      { error: resolution.code === "not_found" ? "media_not_found" : "media_unavailable" },
-      { status: 404 }
-    );
-  }
-  const filePath = resolution.path;
-
-  const media = await getOrProbeMediaDescriptor(session.mediaId, filePath);
-  if (!media) return NextResponse.json({ error: "file_missing" }, { status: 404 });
+  const media = session.source.type === "local"
+    ? await getOrProbeMediaDescriptor(session.mediaId, session.source.localPath)
+    : await getOrProbeRemoteMediaDescriptor(session.mediaId, session.source.uri, session.source.headers);
+  if (!media) return NextResponse.json({ error: "source_unavailable" }, { status: 404 });
 
   const sp = req.nextUrl.searchParams;
   const requestedIndex = Number(sp.get("subtitleIndex"));
@@ -53,15 +46,20 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   const liveVtt = findLiveSubtitleVtt(session.mediaId, user.id, subtitleIndex);
   if (liveVtt) {
-    console.log(`[local-engine] ${sessionId} sous-titre index=${subtitleIndex} FAST PATH fichier=${liveVtt}`);
+    console.log(`[transcoder] ${sessionId} sous-titre index=${subtitleIndex} FAST PATH fichier=${liveVtt}`);
     return streamLiveVttFile(req, session.mediaId, user.id, subtitleIndex, liveVtt);
   }
-  console.log(`[local-engine] ${sessionId} sous-titre index=${subtitleIndex} pas de session live — extraction dédiée`);
+  console.log(`[transcoder] ${sessionId} sous-titre index=${subtitleIndex} pas de session live — extraction dédiée`);
 
-  const args = ["-v", "error", "-i", filePath, "-map", `0:${subtitleIndex}`, "-f", "webvtt", "pipe:1"];
-  const proc = spawn(process.env.MOVVIZ_FFMPEG_PATH?.trim() || "ffmpeg", args, { stdio: ["ignore", "pipe", "pipe"] });
+  const args = ["-v", "error"];
+  if (session.source.type === "plex_raw") {
+    const rawHeaders = Object.entries(session.source.headers).map(([k, v]) => `${k}: ${v}\r\n`).join("");
+    if (rawHeaders) args.push("-headers", rawHeaders);
+  }
+  args.push("-i", session.source.uri, "-map", `0:${subtitleIndex}`, "-f", "webvtt", "pipe:1");
+  const proc = spawn(resolveFfmpegBinary(), args, { stdio: ["ignore", "pipe", "pipe"] });
 
-  proc.stderr?.on("data", (d: Buffer) => console.error(`[local-engine] ${sessionId} sous-titre stderr: ${String(d).trim()}`));
+  proc.stderr?.on("data", (d: Buffer) => console.error(`[transcoder] ${sessionId} sous-titre stderr: ${String(d).trim()}`));
 
   const stream = Readable.toWeb(proc.stdout) as ReadableStream<Uint8Array>;
   proc.on("exit", (code) => {

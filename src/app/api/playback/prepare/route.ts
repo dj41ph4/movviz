@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { resolveLocalFilePath } from "@/lib/playback/sourceResolver";
-import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
+import { getOrProbeMediaDescriptor, getOrProbeRemoteMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
+import { resolvePlexPartUrl } from "@/lib/playback/plexSource";
 import { detectServerCapabilities } from "@/lib/playback/engine/serverCapabilities.detect";
 import { decidePlayback } from "@/lib/playback/engine/decidePlayback";
 import { createSession } from "@/lib/playback/engine/sessionManager";
@@ -14,9 +15,9 @@ export const dynamic = "force-dynamic";
  * The client/server contract for the decidePlayback()-driven engine — the
  * one and only place a MediaDescriptor and a PlaybackPlan get produced for a
  * real playback request. Called live from VideoPlayer.tsx's
- * tryStartLocalEngine() for both movies and (now) episodes, whenever the
+ * tryStartUnifiedEngine() for both movies and (now) episodes, whenever the
  * playback engine setting is "auto"/"stable"/"beta" and the title is a real
- * local file (see resolveLocalFilePath in sourceResolver.ts). A file with no
+ * local file or original Plex raw part. A file with no
  * MediaDescriptor cached yet gets probed right here on-demand
  * (getOrProbeMediaDescriptor already does this transparently — "never probe
  * at every playback" only means "don't re-probe an unchanged file", not
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest) {
   }
   const b = body as Record<string, unknown>;
   const mediaId = typeof b.mediaId === "string" ? b.mediaId.trim() : "";
+  const ratingKey = typeof b.ratingKey === "string" ? b.ratingKey.trim() : "";
   const clientProfile = b.clientProfile as ClientPlaybackProfile | undefined;
   if (!mediaId || !clientProfile || typeof clientProfile !== "object") {
     return NextResponse.json({ error: "invalid_request" }, { status: 400 });
@@ -49,20 +51,41 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "invalid_client_profile" }, { status: 400 });
   }
 
-  // Movie mediaId or `${seriesId}:s{season}e{episode}` episode mediaId —
-  // resolveLocalFilePath tells the two apart (see sourceResolver.ts) so this
-  // route needs no branching of its own.
+  // Source resolution happens ONCE, before planning. Local bytes are always
+  // preferred. If the file is not locally resolvable and a real Plex
+  // ratingKey exists, Plex contributes only its original /library/parts URL.
+  // No /transcode endpoint is used anywhere in this engine.
   const resolution = resolveLocalFilePath(mediaId);
-  if (!resolution.ok) {
+  let media;
+  let source;
+  let directUrl: string;
+  if (resolution.ok) {
+    media = await getOrProbeMediaDescriptor(mediaId, resolution.path);
+    if (!media) return NextResponse.json({ error: "file_missing" }, { status: 404 });
+    source = { type: "local" as const, uri: resolution.path, localPath: resolution.path, sourceKey: "local" };
+    const episodeMatch = /^(.+):s(\d+)e(\d+)$/.exec(mediaId);
+    directUrl = episodeMatch
+      ? `/api/stream/local/episode/${encodeURIComponent(episodeMatch[1])}/${episodeMatch[2]}/${episodeMatch[3]}`
+      : `/api/stream/local/${encodeURIComponent(mediaId)}`;
+  } else if (ratingKey) {
+    const part = await resolvePlexPartUrl(ratingKey, user.id);
+    if (!part) return NextResponse.json({ error: "plex_raw_source_unavailable" }, { status: 404 });
+    media = await getOrProbeRemoteMediaDescriptor(mediaId, part.sourceUrl, part.headers);
+    if (!media) return NextResponse.json({ error: "plex_raw_probe_failed" }, { status: 502 });
+    source = {
+      type: "plex_raw" as const,
+      uri: part.sourceUrl,
+      headers: part.headers,
+      ratingKey,
+      sourceKey: `plex:${ratingKey}`,
+    };
+    directUrl = `/api/stream/${encodeURIComponent(ratingKey)}`;
+  } else {
     return NextResponse.json(
       { error: resolution.code === "not_found" ? "media_not_found" : "media_unavailable" },
       { status: 404 }
     );
   }
-  const filePath = resolution.path;
-
-  const media = await getOrProbeMediaDescriptor(mediaId, filePath);
-  if (!media) return NextResponse.json({ error: "file_missing" }, { status: 404 });
 
   const server = await detectServerCapabilities();
   const audioTrack = Number.isInteger(b.audioTrack) ? (b.audioTrack as number) : undefined;
@@ -83,6 +106,7 @@ export async function POST(req: NextRequest) {
     deviceId: clientProfile.deviceId,
     clientType: clientProfile.clientType,
     mediaId,
+    source,
     mode: plan.mode,
     selectedAudio: audioTrack ?? null,
     selectedSubtitle: subtitleTrack ?? null,
@@ -92,25 +116,18 @@ export async function POST(req: NextRequest) {
     plan,
   });
 
-  // DIRECT_PLAY needs no ffmpeg process at all — point straight at the
-  // existing, already-working byte-range route (Range support, 206 partial
-  // content) instead of routing through a session-backed stream endpoint
-  // that would spawn a process for zero reason. Every other mode (REMUX/
-  // DIRECT_STREAM/TRANSCODE) needs the real ffmpeg session, executed by
-  // localExecutor.ts (Phases 9-13) via the session-stream route below.
-  const episodeMatch = /^(.+):s(\d+)e(\d+)$/.exec(mediaId);
-  const streamUrl =
-    plan.mode === "DIRECT_PLAY"
-      ? episodeMatch
-        ? `/api/stream/local/episode/${encodeURIComponent(episodeMatch[1])}/${episodeMatch[2]}/${episodeMatch[3]}`
-        : `/api/stream/local/${encodeURIComponent(mediaId)}`
-      : `/api/playback/session/${session.sessionId}/stream`;
+  // DIRECT_PLAY uses the raw-byte route for the already-selected source.
+  // REMUX / DIRECT_STREAM / TRANSCODE all use the same Movviz executor.
+  const streamUrl = plan.mode === "DIRECT_PLAY"
+    ? directUrl
+    : `/api/playback/session/${session.sessionId}/stream`;
 
   return NextResponse.json({
     sessionId: session.sessionId,
     media,
     plan,
     tracks: { audio: media.audioTracks, subtitle: media.subtitleTracks },
+    source: { type: source.type },
     // §33 — markers/resume come from the existing progress/marker stores in
     // the CURRENT system (progressStore.ts, decisionLog-adjacent marker
     // sync); wiring those in is migration work (Phase 9+), not part of this

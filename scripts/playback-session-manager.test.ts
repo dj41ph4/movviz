@@ -43,9 +43,9 @@ test("createSession populates every §35 field and is retrievable via getSession
   assert.equal(getSession(session.sessionId)?.sessionId, session.sessionId);
 });
 
-test("a session created directly in PLEX_FALLBACK mode starts with plexFallbackUsed already true", () => {
+test("legacy PLEX_FALLBACK mode never activates Plex Transcoder state", () => {
   const session = createSession({ ...baseInput("m2"), mode: "PLEX_FALLBACK" });
-  assert.equal(session.plexFallbackUsed, true);
+  assert.equal(session.plexFallbackUsed, false);
 });
 
 test("a session created in a normal mode starts with plexFallbackUsed false", () => {
@@ -74,15 +74,16 @@ test("touchSession on an unknown sessionId returns null, never throws", () => {
   assert.equal(touchSession("does-not-exist", 1000), null);
 });
 
-test("recordFallbackAttempt increments fallbackCount and updates mode, sets plexFallbackUsed only when the new mode is PLEX_FALLBACK", () => {
+test("recordFallbackAttempt updates mode/count without ever activating Plex Transcoder state", () => {
   const session = createSession(baseInput("m6"));
   const step1 = recordFallbackAttempt(session.sessionId, "REMUX");
   assert.equal(step1!.fallbackCount, 1);
   assert.equal(step1!.mode, "REMUX");
   assert.equal(step1!.plexFallbackUsed, false);
-  const step2 = recordFallbackAttempt(session.sessionId, "PLEX_FALLBACK");
+  const step2 = recordFallbackAttempt(session.sessionId, "UNSUPPORTED");
   assert.equal(step2!.fallbackCount, 2);
-  assert.equal(step2!.plexFallbackUsed, true);
+  assert.equal(step2!.mode, "UNSUPPORTED");
+  assert.equal(step2!.plexFallbackUsed, false);
 });
 
 test("setTranscoderPid stores the pid on the session", () => {

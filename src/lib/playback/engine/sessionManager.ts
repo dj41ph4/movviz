@@ -19,12 +19,17 @@
 import type { ClientType } from "./clientProfile";
 import type { PlaybackMode, PlaybackPlan, SubtitleAction, TrackAction } from "./playbackPlan";
 
+export type PlaybackSessionSource =
+  | { type: "local"; uri: string; localPath: string; sourceKey: string }
+  | { type: "plex_raw"; uri: string; headers: Record<string, string>; ratingKey: string; sourceKey: string };
+
 export interface PlaybackSession {
   sessionId: string;
   userId: string;
   deviceId: string;
   clientType: ClientType;
   mediaId: string;
+  source: PlaybackSessionSource;
 
   mode: PlaybackMode;
   selectedAudio: number | null;
@@ -61,6 +66,7 @@ export interface CreateSessionInput {
   deviceId: string;
   clientType: ClientType;
   mediaId: string;
+  source?: PlaybackSessionSource;
   mode: PlaybackMode;
   selectedAudio?: number | null;
   selectedSubtitle?: number | null;
@@ -114,6 +120,7 @@ export function createSession(input: CreateSessionInput): PlaybackSession {
     deviceId: input.deviceId,
     clientType: input.clientType,
     mediaId: input.mediaId,
+    source: input.source ?? { type: "local", uri: input.mediaId, localPath: input.mediaId, sourceKey: "local" },
     mode: input.mode,
     selectedAudio: input.selectedAudio ?? null,
     selectedSubtitle: input.selectedSubtitle ?? null,
@@ -126,7 +133,7 @@ export function createSession(input: CreateSessionInput): PlaybackSession {
     position: 0,
     transcoderPid: null,
     fallbackCount: 0,
-    plexFallbackUsed: input.mode === "PLEX_FALLBACK",
+    plexFallbackUsed: false,
   };
   state.sessions.set(session.sessionId, session);
   ensureCleanupTimer();
@@ -154,7 +161,6 @@ export function recordFallbackAttempt(sessionId: string, nextMode: PlaybackMode)
   session.fallbackCount++;
   session.mode = nextMode;
   session.lastActivity = Date.now();
-  if (nextMode === "PLEX_FALLBACK") session.plexFallbackUsed = true;
   return session;
 }
 

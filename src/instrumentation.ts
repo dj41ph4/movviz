@@ -94,8 +94,8 @@ export async function register() {
       g2.__movvizShutdownHooksInstalled = true;
       const shutdown = async (signal: string) => {
         try {
-          const { stopAllLocalSessions } = await import("@/lib/playback/engine/localExecutor");
-          stopAllLocalSessions();
+          const { stopAllTranscoderSessions } = await import("@/lib/playback/engine/transcoderExecutor");
+          stopAllTranscoderSessions();
         } catch { /* module not loaded yet — nothing to stop */ }
         try {
           const { stopAllRemuxSessions } = await import("@/lib/playback/ffmpeg/remuxSession");

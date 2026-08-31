@@ -1,22 +1,11 @@
 /**
- * Phases 9-13 of the playback engine rewrite (see PLAN_REFONTE_MOTEUR_LECTURE_MOVVIZ.md
- * §24-28, §31): the Playback Executor for LOCAL (non-Plex) files. It reads a
- * `PlaybackPlan` (decidePlayback(), Phase 4) and carries it out — it never
- * decides strategy itself (§31: "Elle applique le PlaybackPlan. Elle ne
- * décide jamais de la stratégie").
+ * Unified Movviz playback executor.
  *
- * This is genuinely new capability, not a rewrite of anything: today, local
- * (non-Plex) playback only has direct byte-range serving
- * (/api/stream/local/[movvizId]/route.ts) — a file whose audio codec the
- * browser can't decode, or that needs a container remux, has NO fallback at
- * all for local-only content. The existing FFmpeg remux engine
- * (remuxSession.ts) only ever fetches from Plex's own HTTP server
- * (resolvePlexPartUrl()) — it cannot be pointed at a local path without
- * changing its contract, so this is a parallel, additive module rather than
- * an edit to that proven file. Session bookkeeping (registry, TTL purge,
- * abort handling, VTT sidecar) deliberately MIRRORS remuxSession.ts's
- * battle-tested patterns (see its own comments for the prod incidents that
- * shaped them) rather than reinventing them.
+ * It executes a PlaybackPlan against either a media sourcesystem path or the
+ * original Plex part URL. Plex is only a raw byte source here: no Plex
+ * Transcoder/MDE endpoint is ever invoked by this module. The selected audio
+ * and subtitle indexes are already fixed by /api/playback/prepare before
+ * this executor starts.
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { resolveFfmpegBinary } from "./mediaRuntime";
@@ -40,14 +29,42 @@ export const SESSION_TTL_MS = 5 * 60_000;
  *  target a proportionally fair share instead of the same total. */
 export const AUDIO_BITRATE_PER_CHANNEL_K = 96;
 
-export class DuplicateLocalSessionError extends Error {
-  constructor(public readonly key: string) {
-    super(`[local-engine] session already active: ${key}`);
-    this.name = "DuplicateLocalSessionError";
+export interface TranscoderInput {
+  /** Local path or original Plex part URL. */
+  uri: string;
+  /** Input HTTP headers, used for Plex raw-file authentication. */
+  headers?: Record<string, string>;
+  /** Present only for a real media source; required by libass burn-in. */
+  localPath?: string;
+  /** Stable, non-secret identity used only in the in-memory session key. */
+  sourceKey: string;
+}
+
+/** PGS/image/text burn-in through the current libass file filter requires a
+ * local path. Remote Plex raw sources still support DIRECT/EXTRACT/CONVERT;
+ * a burn request is rejected explicitly rather than secretly escalating to
+ * Plex Transcoder. */
+export class RemoteSubtitleBurnUnsupportedError extends Error {
+  constructor() {
+    super("remote_subtitle_burn_unsupported");
+    this.name = "RemoteSubtitleBurnUnsupportedError";
   }
 }
 
-export interface StartLocalSessionOptions {
+function appendInputHeaders(args: string[], headers?: Record<string, string>): void {
+  if (!headers || Object.keys(headers).length === 0) return;
+  const raw = Object.entries(headers).map(([k, v]) => `${k}: ${v}\r\n`).join("");
+  args.push("-headers", raw);
+}
+
+export class DuplicateTranscoderSessionError extends Error {
+  constructor(public readonly key: string) {
+    super(`[transcoder] session already active: ${key}`);
+    this.name = "DuplicateTranscoderSessionError";
+  }
+}
+
+export interface StartTranscoderSessionOptions {
   audioIndex?: number;
   subtitleIndex?: number | null;
   seekToSec?: number;
@@ -62,7 +79,7 @@ export interface StartLocalSessionOptions {
   subtitleCharenc?: string | null;
 }
 
-interface LocalSession {
+interface TranscoderSession {
   key: string;
   proc: ChildProcess;
   stream: ReadableStream<Uint8Array>;
@@ -76,7 +93,7 @@ interface LocalSession {
 }
 
 function vttPathFor(key: string): string {
-  return path.join(os.tmpdir(), `movviz-local-sub-${Buffer.from(key).toString("base64url")}.vtt`);
+  return path.join(os.tmpdir(), `movviz-transcoder-sub-${Buffer.from(key).toString("base64url")}.vtt`);
 }
 
 function removeVttFile(p: string | null | undefined): void {
@@ -84,34 +101,34 @@ function removeVttFile(p: string | null | undefined): void {
   try {
     const dir = path.dirname(p);
     if (dir !== os.tmpdir()) return;
-    if (!/^movviz-local-sub-[A-Za-z0-9_-]+\.vtt$/.test(path.basename(p))) return;
+    if (!/^movviz-transcoder-sub-[A-Za-z0-9_-]+\.vtt$/.test(path.basename(p))) return;
     if (existsSync(p)) unlinkSync(p);
   } catch { /* déjà supprimé ou verrouillé — non bloquant */ }
 }
 
-type SessionRegistry = Map<string, LocalSession>;
+type SessionRegistry = Map<string, TranscoderSession>;
 
 function registry(): SessionRegistry {
   const g = globalThis as unknown as {
-    __movvizLocalEngineSessions?: SessionRegistry;
-    __movvizLocalEnginePurgeTimer?: NodeJS.Timeout;
+    __movvizTranscoderSessions?: SessionRegistry;
+    __movvizTranscoderPurgeTimer?: NodeJS.Timeout;
   };
-  if (!g.__movvizLocalEngineSessions) g.__movvizLocalEngineSessions = new Map();
-  if (!g.__movvizLocalEnginePurgeTimer) {
+  if (!g.__movvizTranscoderSessions) g.__movvizTranscoderSessions = new Map();
+  if (!g.__movvizTranscoderPurgeTimer) {
     const iv = setInterval(() => purgeStaleSessions(), 60_000);
     if (typeof iv.unref === "function") iv.unref();
-    g.__movvizLocalEnginePurgeTimer = iv;
+    g.__movvizTranscoderPurgeTimer = iv;
   }
-  return g.__movvizLocalEngineSessions;
+  return g.__movvizTranscoderSessions;
 }
 
 /** Same rationale as remuxSession.ts's identically-named function — a client
  *  abort must never let the later `exit` handler destroy() an
  *  already-closed Web ReadableStream controller (real prod crash there). */
 function abortedStreams(): WeakSet<ReadableStream<Uint8Array>> {
-  const g = globalThis as unknown as { __movvizLocalEngineAbortedStreams?: WeakSet<ReadableStream<Uint8Array>> };
-  if (!g.__movvizLocalEngineAbortedStreams) g.__movvizLocalEngineAbortedStreams = new WeakSet();
-  return g.__movvizLocalEngineAbortedStreams;
+  const g = globalThis as unknown as { __movvizTranscoderAbortedStreams?: WeakSet<ReadableStream<Uint8Array>> };
+  if (!g.__movvizTranscoderAbortedStreams) g.__movvizTranscoderAbortedStreams = new WeakSet();
+  return g.__movvizTranscoderAbortedStreams;
 }
 
 export function markStreamAborted(key: string): void {
@@ -146,14 +163,14 @@ export function markStreamAborted(key: string): void {
  * rarely uses the 0x80-0x9F range where they differ), matching the
  * TODO's own scoping to exactly this pair of legacy encodings.
  */
-export async function detectSubtitleCharenc(filePath: string, subtitleIndex: number): Promise<string | null> {
+export async function detectSubtitleCharenc(input: TranscoderInput, subtitleIndex: number): Promise<string | null> {
   const raw = await new Promise<Buffer | null>((resolve) => {
     let p: ChildProcess;
     try {
-      p = spawn(resolveFfmpegBinary(), [
-        "-v", "error", "-i", filePath,
-        "-map", `0:${subtitleIndex}`, "-c:s", "copy", "-f", "srt", "-",
-      ], { stdio: ["ignore", "pipe", "ignore"] });
+      const args = ["-v", "error"];
+      appendInputHeaders(args, input.headers);
+      args.push("-i", input.uri, "-map", `0:${subtitleIndex}`, "-c:s", "copy", "-f", "srt", "-");
+      p = spawn(resolveFfmpegBinary(), args, { stdio: ["ignore", "pipe", "ignore"] });
     } catch {
       resolve(null);
       return;
@@ -173,8 +190,8 @@ export async function detectSubtitleCharenc(filePath: string, subtitleIndex: num
   }
 }
 
-function sessionKey(mediaId: string, userId: string, audioIndex: number, subtitleIndex: number | null, seekSec: number): string {
-  return `${mediaId}:${userId}:${audioIndex}:${subtitleIndex ?? "none"}:${seekSec}`;
+function sessionKey(mediaId: string, userId: string, sourceKey: string, audioIndex: number, subtitleIndex: number | null, seekSec: number): string {
+  return `${mediaId}:${userId}:${sourceKey}:${audioIndex}:${subtitleIndex ?? "none"}:${seekSec}`;
 }
 
 export function activeSessionCount(): number {
@@ -183,7 +200,7 @@ export function activeSessionCount(): number {
 
 export function findLiveSubtitleVtt(mediaId: string, userId: string, subtitleIndex: number): string | null {
   const prefix = `${mediaId}:${userId}:`;
-  let best: LocalSession | null = null;
+  let best: TranscoderSession | null = null;
   for (const s of registry().values()) {
     if (!s.key.startsWith(prefix)) continue;
     if (s.proc.exitCode !== null || s.proc.killed) continue;
@@ -245,29 +262,29 @@ function rateControlArgs(impl: string): string[] {
 // GOP flags are generic AVOptions, not encoder-specific.
 const GOP_ARGS = ["-g", "48", "-keyint_min", "48", "-sc_threshold", "0"];
 
-export interface StartLocalSessionResult {
+export interface StartTranscoderSessionResult {
   proc: ChildProcess;
   stream: ReadableStream<Uint8Array>;
   key: string;
 }
 
 /**
- * Starts (or refuses to duplicate) a local ffmpeg session executing exactly
+ * Starts (or refuses to duplicate) a Movviz ffmpeg session executing exactly
  * what `plan` says — never re-deciding compatibility itself. `plan.mode`
  * must be REMUX, DIRECT_STREAM, or TRANSCODE; DIRECT_PLAY belongs on the
  * existing /api/stream/local/[movvizId] byte-range route instead (calling
  * this for DIRECT_PLAY would spawn ffmpeg for zero reason).
  */
-export function startLocalSession(
+export function startTranscoderSession(
   mediaId: string,
   userId: string,
-  filePath: string,
+  input: TranscoderInput,
   media: MediaDescriptor,
   plan: PlaybackPlan,
-  opts: StartLocalSessionOptions
-): StartLocalSessionResult | null {
+  opts: StartTranscoderSessionOptions
+): StartTranscoderSessionResult | null {
   if (plan.mode === "DIRECT_PLAY") {
-    throw new Error("startLocalSession must not be called for DIRECT_PLAY — use the byte-range route instead");
+    throw new Error("startTranscoderSession must not be called for DIRECT_PLAY — use the byte-range route instead");
   }
 
   const audioIndex = opts.audioIndex ?? media.audioTracks.find((t) => t.default)?.index ?? media.audioTracks[0]?.index ?? 0;
@@ -278,19 +295,19 @@ export function startLocalSession(
   // comment for why a flat total regardless of channel count is wrong.
   const outputAudioChannels = plan.targetAudioChannels ?? media.audioTracks.find((t) => t.index === audioIndex)?.channels ?? 2;
   const bitrateK = opts.audioBitrateK ?? outputAudioChannels * AUDIO_BITRATE_PER_CHANNEL_K;
-  const key = sessionKey(mediaId, userId, audioIndex, subtitleIndex, seekSec);
+  const key = sessionKey(mediaId, userId, input.sourceKey, audioIndex, subtitleIndex, seekSec);
 
   const reg = registry();
   const existing = reg.get(key);
   if (existing && existing.proc.exitCode === null && !existing.proc.killed) {
-    throw new DuplicateLocalSessionError(key);
+    throw new DuplicateTranscoderSessionError(key);
   }
   if (existing) reg.delete(key);
 
   // Shared ceiling with the Plex remux engine, not this module's own —
   // see sharedTranscodeLimit.ts's own comment for why.
   if (totalActiveTranscodeSessions() >= MAX_CONCURRENT_TRANSCODES) {
-    console.error(`[local-engine] refus démarrage ${key} — MAX_CONCURRENT_TRANSCODES=${MAX_CONCURRENT_TRANSCODES} atteint (partagé avec le moteur Plex)`);
+    console.error(`[transcoder] refus démarrage ${key} — MAX_CONCURRENT_TRANSCODES=${MAX_CONCURRENT_TRANSCODES} atteint (partagé avec le moteur Plex)`);
     return null;
   }
 
@@ -329,7 +346,8 @@ export function startLocalSession(
   // succeeds correctly.
   if (extractingSubtitle && opts.subtitleCharenc) args.push("-sub_charenc", opts.subtitleCharenc);
   if (seekSec > 0 && !outputSeek) args.push("-ss", String(seekSec));
-  args.push("-i", filePath);
+  appendInputHeaders(args, input.headers);
+  args.push("-i", input.uri);
   if (seekSec > 0 && outputSeek) args.push("-ss", String(seekSec));
 
   // -map uses the ABSOLUTE ffprobe stream index (0:<N>), never the
@@ -364,14 +382,15 @@ export function startLocalSession(
     videoFilters.push("zscale=t=linear:npl=100", "format=gbrpf32le", "zscale=p=bt709", "tonemap=tonemap=hable:desat=0", "zscale=t=bt709:m=bt709:r=tv", "format=yuv420p");
   }
   if (burning && subtitleIndex !== null) {
+    if (!input.localPath) throw new RemoteSubtitleBurnUnsupportedError();
     const si = subtitleRelativeIndex(media, subtitleIndex);
     // charenc= is THIS filter's own parameter (`ffmpeg -h filter=subtitles`)
     // — confirmed live it's the only thing that actually works here; the
     // global -sub_charenc input flag has no effect since this filter opens
     // its own independent copy of the file (see -i's own comment above).
     const charencSuffix = opts.subtitleCharenc ? `:charenc=${opts.subtitleCharenc}` : "";
-    if (si >= 0) videoFilters.push(`subtitles='${escapeForSubtitlesFilter(filePath)}':si=${si}${charencSuffix}`);
-    else console.error(`[local-engine] ${key} piste sous-titres ${subtitleIndex} introuvable parmi subtitleTracks — burn-in ignoré`);
+    if (si >= 0) videoFilters.push(`subtitles='${escapeForSubtitlesFilter(input.localPath!)}':si=${si}${charencSuffix}`);
+    else console.error(`[transcoder] ${key} piste sous-titres ${subtitleIndex} introuvable parmi subtitleTracks — burn-in ignoré`);
   }
 
   if (needsVideoTranscode) {
@@ -431,21 +450,21 @@ export function startLocalSession(
   }
 
   const bin = resolveFfmpegBinary();
-  console.log(`[local-engine] start ${key} — mode=${plan.mode} video=${plan.videoAction}${needsVideoTranscode ? `(${plan.videoEncoderImpl ?? "?"})` : ""} audio=${plan.audioAction} subtitle=${plan.subtitleAction} seek=${seekSec}s`);
+  console.log(`[transcoder] start ${key} — mode=${plan.mode} video=${plan.videoAction}${needsVideoTranscode ? `(${plan.videoEncoderImpl ?? "?"})` : ""} audio=${plan.audioAction} subtitle=${plan.subtitleAction} seek=${seekSec}s`);
 
   const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
 
-  proc.stderr?.on("data", (d) => console.error(`[local-engine] ${key} stderr: ${String(d).trim()}`));
-  proc.on("error", (err) => console.error(`[local-engine] ${key} spawn error: ${err.message}`));
+  proc.stderr?.on("data", (d) => console.error(`[transcoder] ${key} stderr: ${String(d).trim()}`));
+  proc.on("error", (err) => console.error(`[transcoder] ${key} spawn error: ${err.message}`));
   proc.on("exit", (code, signal) => {
-    if (code !== 0 && code !== null) console.error(`[local-engine] ${key} exit anormal code=${code} signal=${signal}`);
-    else console.log(`[local-engine] ${key} exit code=${code} signal=${signal}`);
+    if (code !== 0 && code !== null) console.error(`[transcoder] ${key} exit anormal code=${code} signal=${signal}`);
+    else console.log(`[transcoder] ${key} exit code=${code} signal=${signal}`);
     removeVttFile(vttPath);
     reg.delete(key);
   });
 
   if (!proc.stdout) {
-    console.error(`[local-engine] ${key} pas de stdout — abandon`);
+    console.error(`[transcoder] ${key} pas de stdout — abandon`);
     try { proc.kill(); } catch { /* déjà mort */ }
     return null;
   }
@@ -469,18 +488,18 @@ export function startLocalSession(
   return { proc, stream, key };
 }
 
-export function stopLocalSession(key: string): void {
+export function stopTranscoderSession(key: string): void {
   const reg = registry();
   const session = reg.get(key);
   if (!session) return;
   reg.delete(key);
   const { proc } = session;
   if (proc.exitCode !== null || proc.killed) return;
-  console.log(`[local-engine] stop ${key} — SIGTERM`);
+  console.log(`[transcoder] stop ${key} — SIGTERM`);
   try { proc.kill("SIGTERM"); } catch { /* déjà mort */ }
   setTimeout(() => {
     if (proc.exitCode === null && !proc.killed) {
-      console.log(`[local-engine] ${key} toujours vivant après 3s — SIGKILL`);
+      console.log(`[transcoder] ${key} toujours vivant après 3s — SIGKILL`);
       try { proc.kill("SIGKILL"); } catch { /* déjà mort */ }
     }
   }, 3000);
@@ -489,11 +508,11 @@ export function stopLocalSession(key: string): void {
 export function stopAllForMedia(mediaId: string, userId: string): void {
   const prefix = `${mediaId}:${userId}:`;
   for (const key of Array.from(registry().keys())) {
-    if (key.startsWith(prefix)) stopLocalSession(key);
+    if (key.startsWith(prefix)) stopTranscoderSession(key);
   }
 }
 
-export function touchLocalSession(key: string): void {
+export function touchTranscoderSession(key: string): void {
   const session = registry().get(key);
   if (session) session.lastAccess = Date.now();
 }
@@ -502,8 +521,8 @@ export function purgeStaleSessions(): void {
   const now = Date.now();
   for (const [key, session] of registry()) {
     if (now - session.lastAccess > SESSION_TTL_MS) {
-      console.log(`[local-engine] purge session inactive ${key}`);
-      stopLocalSession(key);
+      console.log(`[transcoder] purge session inactive ${key}`);
+      stopTranscoderSession(key);
     }
   }
 }
@@ -516,9 +535,9 @@ export function purgeStaleSessions(): void {
  * still holding the source file open and burning CPU on a NAS that has very
  * little to spare (see the DS923+ investigation, 2026-08-24). Wired into
  * instrumentation.ts's process signal handlers so a graceful shutdown always
- * kills every child it spawned, mirroring stopLocalSession()'s own
+ * kills every child it spawned, mirroring stopTranscoderSession()'s own
  * SIGTERM-then-SIGKILL escalation for each one.
  */
-export function stopAllLocalSessions(): void {
-  for (const key of Array.from(registry().keys())) stopLocalSession(key);
+export function stopAllTranscoderSessions(): void {
+  for (const key of Array.from(registry().keys())) stopTranscoderSession(key);
 }

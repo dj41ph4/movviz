@@ -489,7 +489,7 @@ export function purgeStaleSessions(): void {
   }
 }
 
-/** See localExecutor.ts's stopAllLocalSessions() — same real gap (no
+/** See localExecutor.ts's stopAllTranscoderSessions() — same real gap (no
  *  process-exit cleanup for either engine), same fix, wired into
  *  instrumentation.ts's process signal handlers. */
 export function stopAllRemuxSessions(): void {

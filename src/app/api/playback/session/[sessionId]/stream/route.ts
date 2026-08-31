@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { getSession, setTranscoderPid, touchSession } from "@/lib/playback/engine/sessionManager";
-import { resolveLocalFilePath } from "@/lib/playback/sourceResolver";
-import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
+import { getOrProbeMediaDescriptor, getOrProbeRemoteMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache";
 import {
-  DuplicateLocalSessionError,
+  DuplicateTranscoderSessionError,
+  RemoteSubtitleBurnUnsupportedError,
   detectSubtitleCharenc,
   markStreamAborted,
-  startLocalSession,
+  startTranscoderSession,
   stopAllForMedia,
-  stopLocalSession,
-} from "@/lib/playback/engine/localExecutor";
+  stopTranscoderSession,
+} from "@/lib/playback/engine/transcoderExecutor";
 import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "@/lib/playback/engine/sharedTranscodeLimit";
 
 export const dynamic = "force-dynamic";
@@ -37,17 +37,13 @@ export async function GET(req: NextRequest, context: Ctx) {
   if (!session || session.userId !== user.id) return NextResponse.json({ error: "not_found" }, { status: 404 });
   if (session.mode === "DIRECT_PLAY") return NextResponse.json({ error: "wrong_route_for_direct_play" }, { status: 400 });
 
-  const resolution = resolveLocalFilePath(session.mediaId);
-  if (!resolution.ok) {
-    return NextResponse.json(
-      { error: resolution.code === "not_found" ? "media_not_found" : "media_unavailable" },
-      { status: 404 }
-    );
-  }
-  const filePath = resolution.path;
-
-  const media = await getOrProbeMediaDescriptor(session.mediaId, filePath);
-  if (!media) return NextResponse.json({ error: "file_missing" }, { status: 404 });
+  const input = session.source.type === "local"
+    ? { uri: session.source.uri, localPath: session.source.localPath, sourceKey: session.source.sourceKey }
+    : { uri: session.source.uri, headers: session.source.headers, sourceKey: session.source.sourceKey };
+  const media = session.source.type === "local"
+    ? await getOrProbeMediaDescriptor(session.mediaId, session.source.localPath)
+    : await getOrProbeRemoteMediaDescriptor(session.mediaId, session.source.uri, session.source.headers);
+  if (!media) return NextResponse.json({ error: "source_unavailable" }, { status: 404 });
 
   const sp = req.nextUrl.searchParams;
   const seekToRaw = Number(sp.get("seekTo"));
@@ -55,7 +51,7 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   // Shared ceiling with the Plex remux engine — see sharedTranscodeLimit.ts.
   if (totalActiveTranscodeSessions() >= MAX_CONCURRENT_TRANSCODES) {
-    console.error(`[local-engine] 429 capacité atteinte pour ${sessionId}`);
+    console.error(`[transcoder] 429 capacité atteinte pour ${sessionId}`);
     return NextResponse.json({ error: "too_many_sessions" }, { status: 429 });
   }
 
@@ -70,23 +66,26 @@ export async function GET(req: NextRequest, context: Ctx) {
     session.selectedSubtitle !== null &&
     (session.plan.subtitleAction === "BURN" || session.plan.subtitleAction === "EXTRACT" || session.plan.subtitleAction === "CONVERT")
   ) {
-    subtitleCharenc = await detectSubtitleCharenc(filePath, session.selectedSubtitle);
+    subtitleCharenc = await detectSubtitleCharenc(input, session.selectedSubtitle);
   }
 
-  let result: ReturnType<typeof startLocalSession>;
+  let result: ReturnType<typeof startTranscoderSession>;
   try {
-    result = startLocalSession(session.mediaId, user.id, filePath, media, session.plan, {
+    result = startTranscoderSession(session.mediaId, user.id, input, media, session.plan, {
       audioIndex: session.selectedAudio ?? undefined,
       subtitleIndex: session.selectedSubtitle,
       seekToSec,
       subtitleCharenc,
     });
   } catch (e) {
-    if (e instanceof DuplicateLocalSessionError) {
-      console.error(`[local-engine] 409 session déjà active: ${e.key}`);
+    if (e instanceof RemoteSubtitleBurnUnsupportedError) {
+      return NextResponse.json({ error: "remote_subtitle_burn_unsupported" }, { status: 422 });
+    }
+    if (e instanceof DuplicateTranscoderSessionError) {
+      console.error(`[transcoder] 409 session déjà active: ${e.key}`);
       return NextResponse.json({ error: "session_already_active" }, { status: 409 });
     }
-    console.error(`[local-engine] erreur démarrage ${sessionId}`, e);
+    console.error(`[transcoder] erreur démarrage ${sessionId}`, e);
     return NextResponse.json({ error: "start_failed" }, { status: 502 });
   }
   if (!result) return NextResponse.json({ error: "too_many_sessions" }, { status: 429 });
@@ -99,9 +98,9 @@ export async function GET(req: NextRequest, context: Ctx) {
   const onAbort = () => {
     if (stopped) return;
     stopped = true;
-    console.log(`[local-engine] abort client — stop ${key}`);
+    console.log(`[transcoder] abort client — stop ${key}`);
     markStreamAborted(key);
-    stopLocalSession(key);
+    stopTranscoderSession(key);
   };
   req.signal.addEventListener("abort", onAbort);
   proc.once("exit", () => req.signal.removeEventListener("abort", onAbort));

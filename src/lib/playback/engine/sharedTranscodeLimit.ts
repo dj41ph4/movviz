@@ -14,7 +14,7 @@
  * this project's own established pattern for cross-route shared state
  * (CLAUDE.md: "Next.js bundles modules per-route — cross-route shared state
  * must live on globalThis") and avoids a circular import between
- * src/lib/playback/engine/localExecutor.ts and
+ * src/lib/playback/engine/transcoderExecutor.ts and
  * src/lib/playback/ffmpeg/remuxSession.ts.
  */
 export const MAX_CONCURRENT_TRANSCODES = 3;
