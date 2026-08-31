@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.12 — August 2026
+
+### Sessions actives — le lecteur Movviz natif s'affiche maintenant, en plus de Plex
+
+Le widget « Sessions actives » (visible admin uniquement) n'affichait que les flux relayés par Plex. Il liste maintenant aussi ce qui est lu directement via le lecteur Movviz, tous utilisateurs confondus, avec les mêmes informations que pour Plex : titre, affiche, utilisateur, appareil, lecture directe/copie/transcodage, et progression.
+
 ## v1.24.11 — August 2026
 
 ### Recherche manuelle — un titre présent sur C411 pouvait rester invisible dans Movviz

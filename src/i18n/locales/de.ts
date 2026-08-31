@@ -2194,6 +2194,16 @@ export const de: Dictionary = {
     transcoding: "Transcodierung",
   },
 
+  movvizActivity: {
+    sourcePlex: "Über Plex",
+    sourceMovviz: "Über den Movviz-Player",
+    deviceWeb: "Webbrowser",
+    deviceAndroidMobile: "Android",
+    deviceAndroidTv: "Android TV",
+    deviceCast: "Cast",
+    deviceUnknown: "Movviz-Player",
+  },
+
   language: { label: "Sprache" },
 
 diskScan: {

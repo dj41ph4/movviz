@@ -5,8 +5,24 @@ import { createPortal } from "react-dom";
 import { Activity, Play, Pause, Monitor, Wifi, Globe, Film, Tv, Radio } from "lucide-react";
 import { usePlexActivity } from "@/lib/plex/usePlexActivity";
 import type { PlexSession } from "@/lib/plex/usePlexActivity";
+import { useMovvizActivity } from "@/lib/playback/useMovvizActivity";
+import type { MovvizSession } from "@/lib/playback/useMovvizActivity";
 import { cn } from "@/lib/utils";
 import { useT } from "@/i18n/provider";
+
+// A row from either live session store, tagged with its source so the popover
+// can show one combined list (both hooks already independently admin-gate
+// via useCurrentUser() — see usePlexActivity.ts / useMovvizActivity.ts — so a
+// non-admin naturally gets an empty array from both, nothing new to guard).
+type AnySession = (PlexSession & { origin: "plex" }) | MovvizSession;
+
+const MOVVIZ_DEVICE_KEYS: Record<string, string> = {
+  "desktop-web": "movvizActivity.deviceWeb",
+  "android-mobile": "movvizActivity.deviceAndroidMobile",
+  "android-tv": "movvizActivity.deviceAndroidTv",
+  cast: "movvizActivity.deviceCast",
+  unknown: "movvizActivity.deviceUnknown",
+};
 
 function formatBitrate(kbps: number): string {
   if (kbps <= 0) return "—";
@@ -22,9 +38,12 @@ function formatDuration(ms: number): string {
   return h > 0 ? `${h}h${m.toString().padStart(2, "0")}` : `${m} min`;
 }
 
-function SessionRow({ s, t }: { s: PlexSession; t: (k: string, params?: Record<string, string | number>) => string }) {
-  const typeLabel = s.type === "movie" ? "Film" : s.type === "episode" ? "Episode" : s.type;
+function SessionRow({ s, t }: { s: AnySession; t: (k: string, params?: Record<string, string | number>) => string }) {
   const isPlaying = s.state === "playing";
+  // Movviz origin's `device` is a raw clientType code (route.ts has no
+  // request locale to translate against), Plex origin's is already the real
+  // player name reported by Plex — nothing to translate there.
+  const deviceLabel = s.origin === "movviz" ? t(MOVVIZ_DEVICE_KEYS[s.device] ?? "movvizActivity.deviceUnknown") : s.device;
   const isBuffering = s.state === "buffering";
   const stateLabel = isBuffering ? t("plexActivity.buffering") : isPlaying ? t("plexActivity.live") : t("plexActivity.paused");
   const stateColor = isBuffering ? "text-amber" : isPlaying ? "text-ok" : "text-ink-dim";
@@ -48,7 +67,10 @@ function SessionRow({ s, t }: { s: PlexSession; t: (k: string, params?: Record<s
         >
           {s.thumb ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={`/api/stream/plex-proxy${s.thumb}`} alt="" className="h-full w-full object-cover" />
+            // Plex thumbs are relative Plex API paths needing the proxy's
+            // auth; Movviz thumbs (from route.ts) are already same-origin
+            // /tmdb/... URLs, so only Plex origin goes through the proxy.
+            <img src={s.origin === "plex" ? `/api/stream/plex-proxy${s.thumb}` : s.thumb} alt="" className="h-full w-full object-cover" />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-ink-dim">
               {s.type === "movie" ? <Film className="h-5 w-5" /> : <Tv className="h-5 w-5" />}
@@ -63,6 +85,15 @@ function SessionRow({ s, t }: { s: PlexSession; t: (k: string, params?: Record<s
         >
           {isPlaying ? <Play className="h-2.5 w-2.5 fill-current" /> : <Pause className="h-2.5 w-2.5 fill-current" />}
         </span>
+        {/* Source badge — distinguishes a Plex-relayed stream from native
+           Movviz playback now that both appear in the same list. */}
+        <span
+          title={s.origin === "plex" ? "Plex" : t("movvizActivity.sourceMovviz")}
+          className={cn(
+            "absolute -top-1 -left-1 h-3 w-3 rounded-full ring-2 ring-void",
+            s.origin === "plex" ? "bg-amber" : "bg-brand"
+          )}
+        />
       </div>
 
       {/* Details */}
@@ -79,16 +110,20 @@ function SessionRow({ s, t }: { s: PlexSession; t: (k: string, params?: Record<s
           <Monitor className="h-3 w-3 shrink-0" />
           <span className="truncate">{s.user}</span>
           <span className="text-white/20">·</span>
-          <span className="truncate">{s.device}</span>
-          <span
-            className={cn(
-              "ml-0.5 flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold",
-              s.location === "lan" ? "border-cyan/30 bg-cyan/10 text-cyan" : "border-magenta/30 bg-magenta/10 text-magenta"
-            )}
-          >
-            {s.location === "lan" ? <Wifi className="h-2.5 w-2.5" /> : <Globe className="h-2.5 w-2.5" />}
-            {s.location === "lan" ? t("plexActivity.local") : t("plexActivity.remote")}
-          </span>
+          <span className="truncate">{deviceLabel}</span>
+          {/* Movviz sessions have no lan/wan signal (see route.ts) — the pill
+             is Plex-only rather than guessing a location. */}
+          {s.location && (
+            <span
+              className={cn(
+                "ml-0.5 flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold",
+                s.location === "lan" ? "border-cyan/30 bg-cyan/10 text-cyan" : "border-magenta/30 bg-magenta/10 text-magenta"
+              )}
+            >
+              {s.location === "lan" ? <Wifi className="h-2.5 w-2.5" /> : <Globe className="h-2.5 w-2.5" />}
+              {s.location === "lan" ? t("plexActivity.local") : t("plexActivity.remote")}
+            </span>
+          )}
         </div>
 
         {s.duration > 0 && (
@@ -132,7 +167,15 @@ function SessionRow({ s, t }: { s: PlexSession; t: (k: string, params?: Record<s
 
 export function ActivityMonitor() {
   const t = useT();
-  const sessions = usePlexActivity();
+  const plexSessions = usePlexActivity();
+  const movvizSessions = useMovvizActivity();
+  // Both hooks independently admin-gate their fetch (null key when
+  // user?.role !== "admin"), so a non-admin gets [] from both here with no
+  // extra guard needed — concatenating is the whole merge.
+  const sessions: AnySession[] = [
+    ...plexSessions.map((s): AnySession => ({ ...s, origin: "plex" })),
+    ...movvizSessions,
+  ];
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number; right: number; width: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);

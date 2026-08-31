@@ -2193,6 +2193,16 @@ export const fr = {
     noActivity: "Aucune activité",
   },
 
+  movvizActivity: {
+    sourcePlex: "Via Plex",
+    sourceMovviz: "Via le lecteur Movviz",
+    deviceWeb: "Navigateur web",
+    deviceAndroidMobile: "Android",
+    deviceAndroidTv: "Android TV",
+    deviceCast: "Diffusion (Cast)",
+    deviceUnknown: "Lecteur Movviz",
+  },
+
   language: { label: "Langue" },
 
   diskScan: {

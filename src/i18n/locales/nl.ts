@@ -2195,6 +2195,16 @@ export const nl: Dictionary = {
     transcoding: "Transcoderen",
   },
 
+  movvizActivity: {
+    sourcePlex: "Via Plex",
+    sourceMovviz: "Via de Movviz-speler",
+    deviceWeb: "Webbrowser",
+    deviceAndroidMobile: "Android",
+    deviceAndroidTv: "Android TV",
+    deviceCast: "Cast",
+    deviceUnknown: "Movviz-speler",
+  },
+
   language: { label: "Taal" },
 
   diskScan: {

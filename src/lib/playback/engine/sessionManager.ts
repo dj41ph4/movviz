@@ -4,8 +4,9 @@
  * engine — entirely separate from the CURRENT production session store
  * (src/lib/playback/progressStore.ts, /api/playback/sessions/*), which stays
  * untouched until a later migration phase actually switches the live player
- * over. Nothing calls into this yet outside its own tests and the new
- * /api/playback/prepare route (Phase 8).
+ * over. CONFIRMED LIVE: /api/playback/prepare (Phase 8) calls createSession()
+ * on every real playback start from src/components/player/VideoPlayer.tsx —
+ * this module is in active use, not just its own tests.
  *
  * In-memory only, on globalThis (same reasoning as src/lib/jobs/queue.ts —
  * Next.js bundles modules per route, so cross-route shared state has to live
@@ -219,7 +220,11 @@ function ensureCleanupTimer(): void {
   state.cleanupTimer = timer;
 }
 
-/** Test/diagnostic only — every session currently tracked. */
+/** Every session currently tracked. Originally test/diagnostic only, now also
+ *  read by the admin "Sessions actives" widget's native-Movviz panel (see
+ *  src/app/api/movviz/activity/route.ts) to enrich progressStore's heartbeat
+ *  sessions with device/mode info this store alone has (see that module's
+ *  own top comment — confirmed live via /api/playback/prepare). */
 export function listSessions(): PlaybackSession[] {
   return [...state.sessions.values()];
 }

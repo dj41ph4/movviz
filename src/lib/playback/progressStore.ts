@@ -47,6 +47,11 @@ export interface PlaybackSession {
   seekPending: boolean;
   durationMs: number;
   mediaType: "movie" | "episode";
+  /** Play/pause state from the most recent heartbeat — set by applyHeartbeat().
+   *  Added for the admin "Sessions actives" widget (native-Movviz playback
+   *  panel): before this field existed there was no way to tell a genuinely
+   *  playing session from a paused-but-not-yet-expired one without it. */
+  lastIsPlaying: boolean;
 }
 
 interface PlaybackProgressStore { version: 1; byUser: Record<string, Record<string, PlaybackProgress>> }
@@ -121,13 +126,27 @@ export function clearPlaybackProgress(userId: string, ratingKey: string, mediaId
 export function openPlaybackSession(userId: string, input: { ratingKey: string; mediaId?: string; mediaType: "movie" | "episode"; durationMs: number; tmdbId?: number; seasonNumber?: number; episodeNumber?: number; title?: string }): { session: PlaybackSession; progress: PlaybackProgress } {
   const progress = ensure(userId, input.ratingKey, input);
   const now = Date.now();
-  const session: PlaybackSession = { id: id(), userId, ratingKey: input.ratingKey, mediaId: input.mediaId, startedAt: now, lastHeartbeatAt: now, lastPositionMs: progress.watched ? 0 : (progress.resumeOffsetMs ?? 0), lastSequence: -1, actualPlayedMs: 0, seekPending: false, durationMs: input.durationMs, mediaType: input.mediaType };
+  const session: PlaybackSession = { id: id(), userId, ratingKey: input.ratingKey, mediaId: input.mediaId, startedAt: now, lastHeartbeatAt: now, lastPositionMs: progress.watched ? 0 : (progress.resumeOffsetMs ?? 0), lastSequence: -1, actualPlayedMs: 0, seekPending: false, durationMs: input.durationMs, mediaType: input.mediaType, lastIsPlaying: true };
   (g.__movvizPlaybackSessions ??= new Map()).set(session.id, session);
   recordPlaybackStarted(session.id, progress, now);
   return { session, progress };
 }
 
 export function getPlaybackSession(sessionId: string): PlaybackSession | null { return g.__movvizPlaybackSessions?.get(sessionId) ?? null; }
+
+/**
+ * Every heartbeat session that has pinged within `freshWindowMs` — i.e.
+ * genuinely "active" right now, not just a record that hasn't hit its
+ * eventual cleanup yet (there is no TTL sweep on this Map today, so a
+ * crashed tab's session would otherwise linger forever). Built for the admin
+ * "Sessions actives" widget's native-Movviz panel (see
+ * src/app/api/movviz/activity/route.ts) — the only consumer that needs to
+ * list sessions across ALL users rather than one user's own progress.
+ */
+export function listActiveHeartbeatSessions(freshWindowMs = 60_000): PlaybackSession[] {
+  const now = Date.now();
+  return [...(g.__movvizPlaybackSessions?.values() ?? [])].filter((s) => now - s.lastHeartbeatAt <= freshWindowMs);
+}
 
 /**
  * The player learns the authoritative Plex duration while opening its stream.
@@ -159,7 +178,7 @@ export function applyHeartbeat(sessionId: string, input: { sequence: number; pos
   const now = input.nowMs ?? Date.now(); const elapsed = Math.max(0, now - session.lastHeartbeatAt);
   const plausible = isPlausiblePlaybackAdvance(session.lastPositionMs, input.positionMs, elapsed, input.playbackRate ?? 1);
   if (input.isPlaying && !session.seekPending && plausible) session.actualPlayedMs += Math.min(elapsed, 30_000);
-  session.seekPending = false; session.lastSequence = input.sequence; session.lastHeartbeatAt = now; session.lastPositionMs = Math.max(0, input.positionMs);
+  session.seekPending = false; session.lastSequence = input.sequence; session.lastHeartbeatAt = now; session.lastPositionMs = Math.max(0, input.positionMs); session.lastIsPlaying = input.isPlaying;
   const p = get(session.userId, session.ratingKey, session.mediaId)!; p.actualPlayedMs += input.isPlaying && plausible ? Math.min(elapsed, 30_000) : 0; p.lastPositionMs = session.lastPositionMs; p.lastPlayedAt = now; p.updatedAt = now; p.revision++;
   if (!p.watched && p.actualPlayedMs >= MIN_REAL_PLAYBACK_MS) { p.eligibleForResume = true; if (p.lastPositionMs < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) p.resumeOffsetMs = p.lastPositionMs; }
   if (!p.watched && canComplete(p.actualPlayedMs, p.lastPositionMs, p.completionBoundaryMs)) markPlaybackWatched(p, p.boundarySource);
