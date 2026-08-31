@@ -1,12 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Bannière Leanback : même fond void, carré violet-magenta et clap blanc
-     que la marque desktop. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="320dp" android:height="180dp"
-    android:viewportWidth="320" android:viewportHeight="180">
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
     <path android:fillColor="#FF090911" android:pathData="M0,0H320V180H0Z" />
-    <path android:fillColor="#FF7C5CFF" android:pathData="M124,41 Q124,29 136,29 H184 Q196,29 196,41 V139 Q196,151 184,151 H136 Q124,151 124,139 Z" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M140,80 L180,80 L180,111 Q180,117 174,117 H146 Q140,117 140,111 Z" />
-    <path android:fillColor="#FFFFFFFF" android:pathData="M179,68 L141,80 L139,74 Q138,70 142,69 L174,59 Q178,58 179,62 Z" />
-    <path android:strokeColor="#FF7C5CFF" android:strokeWidth="6" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M160,63 L167,74 M148,67 L155,78" />
+    <path android:pathData="M130,36H190Q212,36 212,58V120Q212,142 190,142H130Q108,142 108,120V58Q108,36 130,36Z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="108" android:startY="36"
+                android:endX="212" android:endY="142"
+                android:startColor="#FFF33FBC" android:centerColor="#FFCF3FE0"
+                android:endColor="#FF8E37F7" />
+        </aapt:attr>
+    </path>
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M134,83.5H186Q193.5,83.5 193.5,91V118Q193.5,125.5 186,125.5H134Q126.5,125.5 126.5,118V91Q126.5,83.5 134,83.5Z M134.5,93.5H185.5V117H134.5Z" />
+    <path android:fillColor="#FFFFFFFF" android:fillType="evenOdd"
+        android:pathData="M132,70 L183,56 Q189,54.5 190.5,60.5 L194,73.5 Q195.5,79.5 189.5,81 L138.5,95 Q132.5,96.5 131,90.5 L127.5,77.5 Q126,71.5 132,70 Z M136,74 L146.5,71.2 L149,80.3 L138.5,83.1 Z M153,69.5 L164,66.5 L166.5,75.7 L155.5,78.7 Z M170.5,64.8 L181.5,61.8 L184,71 L173,74 Z" />
 </vector>
