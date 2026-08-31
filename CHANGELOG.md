@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.22 — August 2026
+
+### Recherche interactive — un seul résultat en cache pouvait aussi couper court la recherche en direct
+
+Le correctif précédent ne couvrait que le cas d'une saison/épisode ciblé. La recherche texte libre ("Recherche interactive") pouvait subir le même souci sans qu'aucune pénalité de saison ne soit en cause : le cache RSS ne garde qu'un instantané récent (~100-150 releases tous indexeurs confondus), donc un seul résultat y figurant pour un titre suffisait à empêcher l'interrogation complète des indexeurs, alors que certains en avaient bien plus à proposer. Il faut désormais plus d'un résultat en cache pour considérer la recherche comme déjà satisfaite.
+
 ## v1.24.21 — August 2026
 
 ### Recherche manuelle — une recherche par saison/épisode pouvait ignorer un indexeur entier

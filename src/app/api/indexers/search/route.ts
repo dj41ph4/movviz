@@ -148,9 +148,17 @@ export async function GET(req: NextRequest) {
   // own score breakdown carries a wrong-season/episode penalty no longer
   // counts as a confident cache hit; the live fallback below still runs
   // (and its own results, if any, simply supersede this one in `filtered`).
-  const hasConfidentCacheMatch = filtered.some(
-    (r) => !(r.scoreBreakdown ?? []).some((b) => b.label.startsWith("Mauvaise saison") || b.label.startsWith("Mauvais épisode"))
-  );
+  // Same fluke, no season/episode involved: confirmed live again on the
+  // free-text "Recherche interactive" (no "S0X" in the query at all, so
+  // seasonEpisodeRelevance never penalizes anything) — the RSS cache only
+  // ever holds a recent slice (~100-150 releases across every indexer), so
+  // it can easily have exactly ONE release for a title while an indexer's
+  // full catalog (C411 here: 13-25 matches) has many more. A single cache
+  // hit is too weak a signal that "the cache already has the full answer" —
+  // require more than one before skipping the live multi-indexer search.
+  const hasConfidentCacheMatch =
+    filtered.length > 1 &&
+    filtered.some((r) => !(r.scoreBreakdown ?? []).some((b) => b.label.startsWith("Mauvaise saison") || b.label.startsWith("Mauvais épisode")));
 
   if (searchQuery && (filtered.length === 0 || !hasConfidentCacheMatch)) {
     // A manual search is one deliberate, user-initiated request — not the
