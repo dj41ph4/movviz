@@ -90,10 +90,15 @@ function fromLegacy(userId: string): UserWatchHistoryItem[] {
 
 function nearDuplicate(a: UserWatchHistoryItem, b: UserWatchHistoryItem): boolean {
   if (a.tmdbId !== b.tmdbId || a.mediaType !== b.mediaType) return false;
+  // Never collapse two ledger entries: they are independently identified,
+  // append-only events and can legitimately represent rewatches, even close
+  // together. De-duplication exists ONLY to hide the legacy `recent` mirror
+  // of an event that is already present in the new ledger.
+  if (a.source === b.source) return false;
   if (Math.abs(a.watchedAt - b.watchedAt) > 120_000) return false;
   // A legacy series-level recent marker has no episode coordinates. It is
   // considered the same viewing event as an exact episode completion close
-  // in time; two exact, different episodes are never collapsed together.
+  // in time. When both sides are exact, only the same episode can match.
   if (a.mediaType === "series") {
     const bothExact = a.seasonNumber != null && a.episodeNumber != null && b.seasonNumber != null && b.episodeNumber != null;
     if (bothExact) return a.seasonNumber === b.seasonNumber && a.episodeNumber === b.episodeNumber;
@@ -106,8 +111,8 @@ function nearDuplicate(a: UserWatchHistoryItem, b: UserWatchHistoryItem): boolea
  *
  * Future Movviz playback comes from the append-only ledger (so rewatches are
  * preserved). The bounded legacy `recent` list is merged only as a migration
- * fallback. Events for the same title within two minutes are de-duplicated to
- * avoid counting a playback completion and its mirrored legacy marker twice.
+ * fallback. Only legacy↔ledger mirrors close in time are de-duplicated; two
+ * real ledger events are never collapsed together.
  */
 export function getUserWatchHistory(query: UserWatchHistoryQuery): UserWatchHistoryItem[] {
   const requested = Math.max(1, Math.min(200, Math.round(query.limit ?? 30)));
