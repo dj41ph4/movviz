@@ -55,9 +55,25 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npm version 1.24.05 --no-git-tag-version
           python - <<'PY'
+          import json
           from pathlib import Path
+
+          package = Path("package.json")
+          data = json.loads(package.read_text(encoding="utf-8"))
+          if data.get("version") != "1.24.04":
+              raise SystemExit(f"unexpected package.json version: {data.get('version')}")
+          data["version"] = "1.24.05"
+          package.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+          lock = Path("package-lock.json")
+          lock_data = json.loads(lock.read_text(encoding="utf-8"))
+          if lock_data.get("version") != "1.24.04" or lock_data.get("packages", {}).get("", {}).get("version") != "1.24.04":
+              raise SystemExit("unexpected package-lock.json version markers")
+          lock_data["version"] = "1.24.05"
+          lock_data["packages"][""]["version"] = "1.24.05"
+          lock.write_text(json.dumps(lock_data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
           for name in ["android-tv/app/build.gradle.kts", "android-mobile/app/build.gradle.kts"]:
               p = Path(name)
               s = p.read_text(encoding="utf-8")
@@ -68,6 +84,7 @@ jobs:
           PY
           test "$(node -p "require('./package.json').version")" = "1.24.05"
           test "$(node -p "require('./package-lock.json').version")" = "1.24.05"
+          test "$(node -p "require('./package-lock.json').packages[''].version")" = "1.24.05"
           grep -q '?: 12405' android-tv/app/build.gradle.kts
           grep -q '?: "1.24.05"' android-tv/app/build.gradle.kts
           grep -q '?: 12405' android-mobile/app/build.gradle.kts
