@@ -30,19 +30,29 @@ function deviceCode(clientType: EnginePlaybackSession["clientType"] | null): str
 
 /** DIRECT_PLAY/REMUX/DIRECT_STREAM/TRANSCODE/UNSUPPORTED -> the same 3-way
  *  decision label the Plex panel already uses (see transcodePill in
- *  ActivityMonitor.tsx). REMUX and DIRECT_STREAM are both "the container is
- *  repackaged but no track is re-encoded" — Plex calls that "copy" ("Flux
- *  direct" in the UI), so both map there. UNSUPPORTED has no real playback
- *  happening but still holds a session record briefly during fallback
- *  cascades (§43) — closest is "transcode" (something is being worked on,
- *  not a clean pass-through) rather than inventing a 4th UI state. */
+ *  ActivityMonitor.tsx).
+ *
+ *  Bug fix (confirmed live: a session doing an audio-only transcode showed
+ *  "Flux direct" in this panel while the player's own overlay correctly said
+ *  "Audio transcodé"): REMUX is genuinely "container repackaged, no track
+ *  re-encoded" (videoAction/audioAction both COPY, see decidePlayback.ts
+ *  ~line 481) — that's Plex's real "copy"/"Flux direct" case. DIRECT_STREAM
+ *  is NOT the same thing despite the name: decidePlayback.ts's DIRECT_STREAM
+ *  branch (~line 454) is reached exactly when `needsAudioTranscode` is true
+ *  and always sets `audioAction: "TRANSCODE"` — the audio track genuinely
+ *  gets re-encoded, video is copied. That's real transcoding work, not a
+ *  clean pass-through, so it now maps to "transcode" like TRANSCODE itself.
+ *  UNSUPPORTED has no real playback happening but still holds a session
+ *  record briefly during fallback cascades (§43) — closest is "transcode"
+ *  (something is being worked on, not a clean pass-through) rather than
+ *  inventing a 4th UI state. */
 function toTranscodeDecision(mode: EnginePlaybackSession["mode"] | null): "transcode" | "copy" | "directplay" {
   switch (mode) {
     case "DIRECT_PLAY":
       return "directplay";
     case "REMUX":
-    case "DIRECT_STREAM":
       return "copy";
+    case "DIRECT_STREAM":
     case "TRANSCODE":
     case "UNSUPPORTED":
       return "transcode";
@@ -90,13 +100,16 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Only TRANSCODE sessions carry a real output codec on the plan —
-      // direct play/remux/direct-stream don't record the source codec
-      // anywhere on PlaybackSession/PlaybackPlan, so those pills are omitted
-      // rather than faked (see task brief: "ship the honest subset").
-      const transcodingPlan = engine && engine.mode === "TRANSCODE" ? engine.plan : null;
-      const videoCodec = transcodingPlan ? transcodingPlan.targetVideoCodec ?? transcodingPlan.videoEncoderImpl ?? null : null;
-      const audioCodec = transcodingPlan?.targetAudioCodec ?? null;
+      // Only an actually re-encoded track carries a real output codec on the
+      // plan — direct play/remux don't record the source codec anywhere on
+      // PlaybackSession/PlaybackPlan, so that pill is omitted rather than
+      // faked (see task brief: "ship the honest subset"). videoAction and
+      // audioAction are independent (see toTranscodeDecision's comment above
+      // — DIRECT_STREAM re-encodes audio only, TRANSCODE re-encodes both),
+      // so each pill is gated on its OWN action, not on the overall mode.
+      const plan = engine?.plan ?? null;
+      const videoCodec = plan?.videoAction === "TRANSCODE" ? plan.targetVideoCodec ?? plan.videoEncoderImpl ?? null : null;
+      const audioCodec = plan?.audioAction === "TRANSCODE" ? plan.targetAudioCodec ?? null : null;
 
       return {
         origin: "movviz",

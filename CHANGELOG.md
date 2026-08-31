@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.24.14 — August 2026
+
+### Sessions actives — un audio transcodé s'affichait comme « Flux direct »
+
+Une session Movviz qui ne transcodait que l'audio (vidéo copiée telle quelle) s'affichait comme « Flux direct » dans le panneau admin, alors que le lecteur affichait bien « Audio transcodé ». Corrigé — ce cas s'affiche maintenant comme un transcodage, et le codec audio cible s'affiche même quand la vidéo, elle, n'est pas transcodée.
+
+### Lecteur — bouton « Passer le générique » qui chevauchait la barre de lecture
+
+En rétrécissant la fenêtre, les boutons de la barre de contrôle passaient sur deux lignes et grandissaient la barre au-delà de la marge prévue pour les boutons « Passer l'intro »/« Passer le générique »/épisode suivant, qui se retrouvaient alors par-dessus. Corrigé.
+
 ## v1.24.13 — August 2026
 
 ### Téléchargement — un épisode disponible pouvait rester marqué « manquant »

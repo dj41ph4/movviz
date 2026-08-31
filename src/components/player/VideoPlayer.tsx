@@ -2777,10 +2777,15 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
                 </div>
               )}
 
+              {/* bottom-52 below sm, bottom-36 from sm up: the controls
+                 button row below (flex-wrap, ~line 2892) wraps to a second
+                 line on a narrowed window, growing the controls block taller
+                 than this fixed offset assumed — confirmed live, the button
+                 was overlapping the controls bar at narrow widths. */}
               {activeMarker && !showResume && (
                 <button
                   onClick={handleSkipMarker}
-                  className="pointer-events-auto absolute bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
+                  className="pointer-events-auto absolute bottom-52 sm:bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
                 >
                   {activeMarker.type === "intro" ? "Passer l’intro" : "Passer le générique"}
                 </button>
@@ -2789,7 +2794,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
               {onNextEpisode && mediaType === "episode" && duration > 0 && currentTime >= Math.max(0, duration - 30) && !showResume && (
                 <button
                   onClick={onNextEpisode}
-                  className="pointer-events-auto absolute bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
+                  className="pointer-events-auto absolute bottom-52 sm:bottom-36 right-7 z-50 flex items-center gap-2 rounded-full border border-white/20 bg-[#14131b]/90 px-5 py-3 text-sm font-bold text-white shadow-[0_18px_50px_rgba(0,0,0,0.5)] backdrop-blur-2xl transition hover:scale-[1.03] hover:border-brand-glow/70 hover:bg-[#1b1924] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-glow/70"
                 >
                   <SkipForward className="h-4 w-4" />
                   {t("player.betaNextEpisode")}
