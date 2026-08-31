@@ -1,0 +1,97 @@
+name: v1.24.04 finalize playback release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v12404-finalize-release.yml'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply v1.24.04 playback finalization
+        run: node scripts/v12404-finalize.mjs
+
+      - name: Verify final tree before validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e scripts/v12404-finalize.mjs
+          test ! -e .github/workflows/v12404-finalize-release.yml
+          test ! -e .github/workflows/apply-playback-v3.yml
+          test ! -e scripts/refactor-playback-v3.mjs
+          test ! -e scripts/refactor-playback-v3-fixed.mjs
+          if find scripts -maxdepth 1 \( -name '*.tmp' -o -name '*playback-v3*' \) -print -quit | grep -q .; then
+            echo 'Temporary playback-v3 scaffolding remains:' >&2
+            find scripts -maxdepth 1 \( -name '*.tmp' -o -name '*playback-v3*' \) -print >&2
+            exit 1
+          fi
+          if grep -R --exclude-dir=node_modules --exclude='CHANGELOG*.md' -n 'PLEX_FALLBACK' src scripts; then
+            echo 'PLEX_FALLBACK remains in live/test code' >&2
+            exit 1
+          fi
+          node -e "const p=require('./package.json'),l=require('./package-lock.json'); if(p.version!=='1.24.04'||l.version!=='1.24.04'||l.packages[''].version!=='1.24.04') process.exit(1)"
+          grep -q 'versionCode = .*12404' android-tv/app/build.gradle.kts
+          grep -q 'versionName = .*"1.24.04"' android-tv/app/build.gradle.kts
+          grep -q 'versionCode = .*12404' android-mobile/app/build.gradle.kts
+          grep -q 'versionName = .*"1.24.04"' android-mobile/app/build.gradle.kts
+          grep -q '## v1.24.04' CHANGELOG.md
+          grep -q 'Movviz-1.24.04' README.md
+          grep -q 'MOVVIZ_FFMPEG_PATH' packaging/windows/installer/movviz-service.xml
+          grep -q 'ffprobe -version' packaging/docker/Dockerfile
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Portable tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit and tag v1.24.04
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git status --short
+          git commit -m 'v1.24.04 — lecteur Movviz unifié'
+          git push origin HEAD:main
+          git tag -a v1.24.04 -m 'v1.24.04 — lecteur Movviz unifié'
+          git push origin v1.24.04
+
+      - name: Dispatch all release builders
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -X POST "repos/$REPO/actions/workflows/build-installer.yml/dispatches" -f ref=v1.24.04
+          gh api -X POST "repos/$REPO/actions/workflows/linux-release-build.yml/dispatches" -f ref=v1.24.04
+          gh api -X POST "repos/$REPO/actions/workflows/android-tv-build.yml/dispatches" -f ref=v1.24.04
+          gh api -X POST "repos/$REPO/actions/workflows/android-mobile-build.yml/dispatches" -f ref=v1.24.04
+          gh api -X POST "repos/$REPO/actions/workflows/docker-publish.yml/dispatches" -f ref=main
