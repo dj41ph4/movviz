@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.08 — August 2026
+
+### Branding unifié — Windows, Android, Web/PWA et Docker
+
+Le nouveau logo Movviz rose/mauve avec clap blanc devient l'identité commune de l'application. L'installeur et les raccourcis Windows utilisent désormais un ICO multi-résolution, Android Mobile et Android TV partagent les mêmes launcher/adaptive icons, le banner TV est aligné, et le Web/PWA ainsi que les assets Docker utilisent le même visuel canonique.
+
 ## v1.24.07 — August 2026
 
 ### Maintenance
