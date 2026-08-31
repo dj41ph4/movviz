@@ -4,4 +4,6 @@ export * from "./ingest";
 export * from "./watchBridge";
 export * from "./bootstrap";
 export * from "./history";
+export * from "./knowledge";
+export * from "./taste";
 export * from "./query";
