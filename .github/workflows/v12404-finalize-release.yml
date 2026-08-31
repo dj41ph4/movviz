@@ -24,7 +24,11 @@ jobs:
           cache: npm
 
       - name: Apply v1.24.04 playback finalization
-        run: node scripts/v12404-finalize.mjs
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/v12404-finalize.mjs
+          sed -i 's/DIRECT_PLAY et PLEX_FALLBACK\/UNSUPPORTED/DIRECT_PLAY et UNSUPPORTED/' src/components/player/VideoPlayer.tsx
 
       - name: Verify final tree before validation
         shell: bash
@@ -96,4 +100,4 @@ jobs:
           gh api -X POST "repos/$REPO/actions/workflows/android-mobile-build.yml/dispatches" -f ref=v1.24.04
           gh api -X POST "repos/$REPO/actions/workflows/docker-publish.yml/dispatches" -f ref=main
 
-# trigger: finalize v1.24.04 after Android cleanup
+# trigger: retry v1.24.04 after removing final legacy comment
