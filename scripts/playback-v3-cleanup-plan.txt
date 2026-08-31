@@ -1,0 +1,1 @@
+Temporary marker: playback-v3 cleanup will remove legacy MSE/Plex-transcoder fallback wiring only after the unified planner/runtime migration passes typecheck, portable tests and production build. This marker is deleted with the migration helpers after completion.
