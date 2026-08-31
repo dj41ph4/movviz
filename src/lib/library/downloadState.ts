@@ -11,6 +11,7 @@ import type { LibrarySeries, LibraryEpisode, LibraryFile, LibraryStatus } from "
 import { notifySeerrStatus } from "@/lib/seerr/mediaMap";
 import { parseRelease } from "@/lib/naming/parser";
 import { applyImportedFiles, type ImportedFile } from "@/lib/library/applyImportedFiles";
+import { withKeyLock } from "@/lib/library/locks";
 
 /**
  * Keeps library "downloading" badges honest. A movie/episode flips to
@@ -134,8 +135,12 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
         if (t?.movedTo) {
           await applyImportedFiles({ kind: "movie", movieId: movie.id }, [importedFileFromMovedPath(t.movedTo, t.length ?? 0)], infoHash);
         } else {
+          // Same lock gap as the episode fallback below — updateMovie() is
+          // the same unlocked read-modify-write against the movies list.
           const newStatus = movie.file ? "available" : "missing";
-          updateMovie(movie.id, { status: newStatus, activeInfoHash: null });
+          await withKeyLock(`movie:${movie.id}`, async () => {
+            updateMovie(movie.id, { status: newStatus, activeInfoHash: null });
+          });
           if (newStatus === "available") {
             void notifySeerrStatus("movie", movie.tmdbId, "available").catch(() => {});
           }
@@ -158,8 +163,17 @@ export async function reconcileDownloadingItems(): Promise<{ released: number }>
                 infoHash
               );
             } else {
-              const current = loadSeries().find((s) => s.id === series.id);
-              if (current) patchEpisode(current, season.seasonNumber, ep.episodeNumber, { status: ep.file ? "available" : "missing", activeInfoHash: null });
+              // Bug fix: this fallback wrote via updateSeries() with no lock,
+              // unlike every other read-modify-write against a series (see
+              // locks.ts's own comment — several episodes racing here is
+              // exactly the "most 'available' flips silently lost" bug it
+              // exists to prevent). The read now happens INSIDE the lock too,
+              // not before it, so it can't observe a stale snapshot from
+              // before a concurrent writer's turn.
+              await withKeyLock(`series:${series.id}`, async () => {
+                const current = loadSeries().find((s) => s.id === series.id);
+                if (current) patchEpisode(current, season.seasonNumber, ep.episodeNumber, { status: ep.file ? "available" : "missing", activeInfoHash: null });
+              });
             }
             released++;
           }

@@ -163,11 +163,32 @@ export async function syncUserWatchStatus(user: User) {
     // real-time Plex sync right away instead of waiting up to 5 minutes for
     // the next lazy refreshLegacyUserContext() call from buildUsageProfile().
     refreshLegacyUserContext(user.id, true);
+    // Bug fix ("0 épisode(s) vu(s)" confirmed live for every synced account
+    // while movies worked fine): rejectedUnattributedEntries and
+    // rejectedMalformedEpisodeEntries were both computed by getAccountHistory
+    // but never surfaced here — a systematic drop of every episode-typed
+    // history entry looked identical to "this user genuinely watched zero
+    // episodes". Both counters, plus one raw sample of a dropped episode
+    // entry, are now visible so the actual cause (this Plex server's history
+    // endpoint not populating accountID/parentIndex/index the way expected)
+    // can be read straight from the log instead of guessed at.
+    const rejectionParts = [
+      historyResult.rejectedForeignEntries ? `${historyResult.rejectedForeignEntries} autre(s) compte(s) rejeté(s)` : null,
+      historyResult.rejectedUnattributedEntries ? `${historyResult.rejectedUnattributedEntries} sans accountID rejeté(s)` : null,
+      historyResult.rejectedMalformedEpisodeEntries ? `${historyResult.rejectedMalformedEpisodeEntries} épisode(s) mal formé(s) rejeté(s)` : null,
+    ].filter((p): p is string => p != null);
     recordSearchLog(
       "info",
       "plex.watchSync",
-      `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s), ${recent.length} entrée(s) récente(s) datée(s) (${history.length} événement(s) vérifié(s)${historyResult.rejectedForeignEntries ? `, ${historyResult.rejectedForeignEntries} autre(s) compte(s) rejeté(s)` : ""})`
+      `${user.username} (plexId:${accountId}): synchronisé — ${movies.length} film(s) vu(s), ${episodes.length} épisode(s) vu(s), ${recent.length} entrée(s) récente(s) datée(s) (${history.length} événement(s) vérifié(s)${rejectionParts.length ? `, ${rejectionParts.join(", ")}` : ""})`
     );
+    if (historyResult.sampleMalformedEpisode) {
+      recordSearchLog(
+        "warn",
+        "plex.watchSync",
+        `${user.username}: exemple d'épisode rejeté (champs bruts Plex) — ${JSON.stringify(historyResult.sampleMalformedEpisode)}`
+      );
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : "erreur inconnue";
     recordSearchLog(

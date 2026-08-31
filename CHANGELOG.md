@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.24.13 — August 2026
+
+### Téléchargement — un épisode disponible pouvait rester marqué « manquant »
+
+Plusieurs épisodes d'une même série qui terminaient leur téléchargement au même moment pouvaient se marcher dessus : l'écriture de disponibilité de l'un écrasait celle de l'autre, laissant l'épisode affiché « manquant » malgré un fichier bien présent sur le disque. Le correctif déjà en place pour ce type de conflit sur les films et sur l'import direct des séries manquait sur ce chemin de secours (utilisé quand un torrent disparaît du moteur avant que l'import ne se déclenche) ; il est maintenant protégé de la même façon.
+
+### Synchronisation Plex — visibilité sur la disparition des épisodes vus
+
+Le journal (Réglages → Journaux) indique désormais précisément combien d'épisodes issus de l'historique Plex ont été rejetés et pourquoi, au lieu d'un compte silencieusement ramené à zéro. Un exemple des champs bruts renvoyés par Plex pour un épisode rejeté est également journalisé, pour confirmer la cause exacte sur ce serveur.
+
 ## v1.24.12 — August 2026
 
 ### Sessions actives — le lecteur Movviz natif s'affiche maintenant, en plus de Plex

@@ -968,6 +968,21 @@ export interface PlexAccountHistoryResult {
   rejectedForeignEntries: number;
   /** Older/invalid responses without accountID are never trusted. */
   rejectedUnattributedEntries: number;
+  /**
+   * Bug fix (0 episode(s) vu(s) confirmed live for every synced account —
+   * movies worked, episodes silently didn't): an episode-typed entry missing
+   * grandparentRatingKey/parentIndex/index was previously just skipped with
+   * no counter at all, unlike the two rejection paths above — invisible even
+   * in the diagnostic log. Counted now so a systematic drop (this server's
+   * history endpoint never populating parentIndex/index for episodes, for
+   * instance) is visible instead of looking identical to "watched nothing".
+   */
+  rejectedMalformedEpisodeEntries: number;
+  /** Raw fields of the first entry that hit rejectedMalformedEpisodeEntries —
+   *  logged once by watchSync.ts so the actual Plex response shape for a
+   *  server hitting this can be read straight from Réglages → Journaux,
+   *  without needing a live debugger. */
+  sampleMalformedEpisode: Record<string, unknown> | null;
 }
 
 /**
@@ -992,6 +1007,8 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
   const out: PlexHistoryEntry[] = [];
   let rejectedForeignEntries = 0;
   let rejectedUnattributedEntries = 0;
+  let rejectedMalformedEpisodeEntries = 0;
+  let sampleMalformedEpisode: Record<string, unknown> | null = null;
   const pageSize = 200;
   let start = 0;
   for (;;) {
@@ -1042,12 +1059,15 @@ export async function getAccountHistory(cfg: PlexServerConfig, adminToken: strin
           viewedAt: item.viewedAt,
           accountId: eventAccountId,
         });
+      } else if (item.type === "episode") {
+        rejectedMalformedEpisodeEntries++;
+        if (!sampleMalformedEpisode) sampleMalformedEpisode = { ...item };
       }
     }
     start += page.length;
     if (page.length === 0 || start >= total) break;
   }
-  return { entries: out, rejectedForeignEntries, rejectedUnattributedEntries };
+  return { entries: out, rejectedForeignEntries, rejectedUnattributedEntries, rejectedMalformedEpisodeEntries, sampleMalformedEpisode };
 }
 
 export interface PlexLocalAccount {
