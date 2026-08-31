@@ -19,6 +19,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Make migration consume literal Kotlin body
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/v12406-tv-home.mjs')
+          s = p.read_text()
+          start = s.index('  const fn = String.raw`')
+          end_marker = '`;\n  s = before + fn + after;'
+          end = s.index(end_marker, start)
+          s = s[:start] + '  const fn = read("scripts/v12406-home-body.txt");\n  s = before + fn + after;' + s[end + len(end_marker):]
+          p.write_text(s)
+          PY
       - name: Apply migration
         run: node scripts/v12406-tv-home.mjs
       - uses: actions/setup-java@v4
@@ -29,7 +41,7 @@ jobs:
         working-directory: android-tv
         run: ./gradlew :app:assembleDebug --stacktrace
       - name: Remove one-shot migration scaffolding
-        run: git rm scripts/v12406-tv-home.mjs .github/workflows/v12406-tv-home.yml
+        run: git rm scripts/v12406-tv-home.mjs scripts/v12406-home-body.txt .github/workflows/v12406-tv-home.yml
       - name: Commit synchronized home
         run: |
           git config user.name "github-actions[bot]"
