@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
-import { RefreshCw, Copy, Check, Loader2, Trash2, Bug } from "lucide-react";
+import { RefreshCw, Copy, Check, Loader2, Trash2, Bug, Search, X } from "lucide-react";
 
 interface SearchLogLine {
   t: number;
@@ -46,6 +46,11 @@ export function SearchLogsPanel() {
   const [copied, setCopied] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
   const [levelFilter, setLevelFilter] = useState<SearchLogLine["level"] | "all">("all");
+  // Bug fix (requested live: 4000-line buffer, dozens of unrelated tags like
+  // rss_refresh/grab_release/series_pack drowning out the one tag someone
+  // actually needs, e.g. plex.watchSync) — free-text filter over step+message,
+  // combined with the existing level filter rather than replacing it.
+  const [textFilter, setTextFilter] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -106,10 +111,17 @@ export function SearchLogsPanel() {
     setAutoScroll(scrollHeight - scrollTop - clientHeight < 80);
   };
 
+  const matchesFilters = (l: SearchLogLine) => {
+    if (levelFilter !== "all" && l.level !== levelFilter) return false;
+    if (!textFilter.trim()) return true;
+    const needle = textFilter.trim().toLowerCase();
+    return l.step.toLowerCase().includes(needle) || l.message.toLowerCase().includes(needle);
+  };
+
   const copy = async () => {
     if (!logs?.length) return;
     const text = logs
-      .filter((l) => levelFilter === "all" || l.level === levelFilter)
+      .filter(matchesFilters)
       .map((l) => `[${new Date(l.t).toISOString()}] ${l.level.toUpperCase()} ${l.step} ${l.message}${l.ms != null ? ` (${l.ms}ms)` : ""}`)
       .join("\n");
     await navigator.clipboard.writeText(text);
@@ -117,9 +129,7 @@ export function SearchLogsPanel() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const displayed = logs
-    ? levelFilter === "all" ? logs : logs.filter((l) => l.level === levelFilter)
-    : [];
+  const displayed = logs ? logs.filter(matchesFilters) : [];
 
   return (
     <div className="rounded-2xl glass p-5">
@@ -161,7 +171,7 @@ export function SearchLogsPanel() {
         </div>
       </div>
 
-      <div className="mt-3 flex gap-1.5">
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
             {(["all", "info", "warn", "error", "debug"] as const).map((lvl) => (
           <button
             key={lvl}
@@ -176,7 +186,25 @@ export function SearchLogsPanel() {
             {lvl === "all" ? t("health.logsFilterAll") : lvl.toUpperCase()}
           </button>
         ))}
-            <span className="ml-auto text-[11px] text-ink-dim">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-dim/60" />
+              <input
+                type="text"
+                value={textFilter}
+                onChange={(e) => setTextFilter(e.target.value)}
+                placeholder={t("health.logsSearchPlaceholder")}
+                className="h-7 w-full rounded-lg glass-strong pl-8 pr-7 text-[11px] text-ink-soft placeholder:text-ink-dim/50 focus:outline-none focus:ring-1 focus:ring-brand-glow/50"
+              />
+              {textFilter && (
+                <button
+                  onClick={() => setTextFilter("")}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 text-ink-dim/60 hover:text-ink-soft"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <span className="text-[11px] text-ink-dim">
               {displayed.length} {t("health.logsLines")}
             </span>
       </div>

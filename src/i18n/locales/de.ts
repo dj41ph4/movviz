@@ -955,6 +955,7 @@ export const de: Dictionary = {
     searchLogsHint: "Diagnoseprotokoll jeder von Movviz gesendeten Indexer-Anfrage — nützlich, um zu verstehen, warum bestimmte Suchen nichts zurückgeben.",
     logsFilterAll: "Alle",
     logsLines: "Zeilen",
+    logsSearchPlaceholder: "Nach Tag oder Text filtern (z. B. plex.watchSync)…",
   },
 
   benchmark: {

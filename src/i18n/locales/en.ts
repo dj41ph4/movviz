@@ -955,6 +955,7 @@ export const en: Dictionary = {
     searchLogsHint: "Diagnostic log of every indexer request sent by Movviz — useful for troubleshooting why certain searches return nothing.",
     logsFilterAll: "All",
     logsLines: "lines",
+    logsSearchPlaceholder: "Filter by tag or text (e.g. plex.watchSync)…",
   },
 
   benchmark: {

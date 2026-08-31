@@ -953,6 +953,7 @@ export const fr = {
     searchLogsHint: "Journal de diagnostic de chaque requête envoyée aux indexeurs par Movviz — utile pour comprendre pourquoi certaines recherches ne retournent rien.",
     logsFilterAll: "Tout",
     logsLines: "lignes",
+    logsSearchPlaceholder: "Filtrer par tag ou texte (ex: plex.watchSync)…",
   },
 
   benchmark: {

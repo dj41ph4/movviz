@@ -955,6 +955,7 @@ export const nl: Dictionary = {
     searchLogsHint: "Diagnostisch logboek van elk indexerverzoek dat door Movviz is verzonden — handig om te begrijpen waarom bepaalde zoekopdrachten niets opleveren.",
     logsFilterAll: "Alle",
     logsLines: "regels",
+    logsSearchPlaceholder: "Filteren op tag of tekst (bijv. plex.watchSync)…",
   },
 
   benchmark: {

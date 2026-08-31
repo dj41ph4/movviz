@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.15 — August 2026
+
+### Journaux — filtrage par tag ou texte
+
+Réglages → Journaux propose maintenant un champ de recherche libre, en plus du filtre par niveau existant, pour isoler un tag précis (ex. `plex.watchSync`) au milieu du bruit des milliers de lignes RSS/recherche.
+
 ## v1.24.14 — August 2026
 
 ### Sessions actives — un audio transcodé s'affichait comme « Flux direct »
