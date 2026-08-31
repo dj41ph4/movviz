@@ -688,3 +688,81 @@ test("selected English DTS transcodes audio only while video remains bit-exact c
   assert.equal(plan.videoAction, "COPY");
   assert.equal(plan.audioAction, "TRANSCODE");
 });
+
+
+// ── v1.24.05 — explicit quality is a unified planner constraint ──
+test("quality 1080p forces a 4K-compatible source to TRANSCODE, never remux-copy HEVC/H264", () => {
+  const plan = decidePlayback({
+    media: media({
+      container: "mov,mp4,m4a",
+      video: { index: 0, codec: "h264", width: 3840, height: 2160, fps: 24 },
+      audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true, forced: false }],
+    }),
+    client: client({
+      containers: ["mp4"],
+      videoCapabilities: [{ codec: "h264", maxWidth: 3840 }],
+      audioCapabilities: [{ codec: "aac", decode: true }],
+    }),
+    server: FFMPEG_OK,
+    quality: "1080p",
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.equal(plan.videoAction, "TRANSCODE");
+  assert.equal(plan.targetVideoWidth, 1920);
+  assert.equal(plan.audioAction, "COPY");
+  assert.ok(plan.reasons.includes("FORCED_QUALITY"));
+});
+
+test("quality never upscales: asking 4K for a 1080p compatible source stays DIRECT_PLAY", () => {
+  const plan = decidePlayback({
+    media: media({
+      container: "mov,mp4,m4a",
+      video: { index: 0, codec: "h264", width: 1920, height: 1080, fps: 24 },
+      audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true, forced: false }],
+    }),
+    client: client({ containers: ["mp4"], videoCapabilities: [{ codec: "h264", maxWidth: 3840 }], audioCapabilities: [{ codec: "aac", decode: true }] }),
+    server: FFMPEG_OK,
+    quality: "4k",
+  });
+  assert.equal(plan.mode, "DIRECT_PLAY");
+  assert.equal(plan.targetVideoWidth, undefined);
+  assert.ok(!plan.reasons.includes("FORCED_QUALITY"));
+});
+
+test("unsupported HEVC at original quality transcodes to a browser-supported codec instead of returning copied HEVC", () => {
+  const plan = decidePlayback({
+    media: media({
+      container: "mov,mp4,m4a",
+      video: { index: 0, codec: "hevc", width: 3840, height: 2160, fps: 24 },
+      audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true, forced: false }],
+    }),
+    client: client({ containers: ["mp4"], videoCapabilities: [{ codec: "h264", maxWidth: 3840 }], audioCapabilities: [{ codec: "aac", decode: true }] }),
+    server: FFMPEG_OK,
+    quality: "original",
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.equal(plan.videoAction, "TRANSCODE");
+  assert.equal(plan.targetVideoCodec, "h264");
+});
+
+test("selected French AAC stays COPY when English DTS exists but is unselected, even during requested video downscale", () => {
+  const plan = decidePlayback({
+    media: media({
+      container: "mov,mp4,m4a",
+      video: { index: 0, codec: "h264", width: 3840, height: 2160, fps: 24 },
+      audioTracks: [
+        { index: 1, codec: "aac", language: "fra", channels: 2, default: true, forced: false },
+        { index: 2, codec: "dts", language: "eng", channels: 6, default: false, forced: false },
+      ],
+    }),
+    client: client({ containers: ["mp4"], videoCapabilities: [{ codec: "h264", maxWidth: 3840 }], audioCapabilities: [{ codec: "aac", decode: true }] }),
+    server: FFMPEG_OK,
+    selectedAudio: 1,
+    quality: "1080p",
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.equal(plan.videoAction, "TRANSCODE");
+  assert.equal(plan.targetVideoWidth, 1920);
+  assert.equal(plan.audioAction, "COPY");
+  assert.ok(!plan.reasons.includes("AUDIO_CODEC_UNSUPPORTED"));
+});

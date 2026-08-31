@@ -169,6 +169,18 @@ function selectSubtitleTrack(media: MediaDescriptor, selectedIndex: number | nul
   return media.subtitleTracks.find((t) => t.index === selectedIndex) ?? null;
 }
 
+const QUALITY_MAX_WIDTH: Partial<Record<NonNullable<DecidePlaybackInput["quality"]>, number>> = {
+  "4k": 3840,
+  "1440p": 2560,
+  "1080p": 1920,
+  "720p": 1280,
+};
+
+function requestedQualityMaxWidth(quality: DecidePlaybackInput["quality"]): number | undefined {
+  if (!quality || quality === "auto" || quality === "original") return undefined;
+  return QUALITY_MAX_WIDTH[quality];
+}
+
 // One software fallback encoder per codec family, all confirmed present on
 // a real ffmpeg build during Phase 6 testing — libsvtav1 specifically over
 // libaom-av1 because it's the realtime-capable one (libaom-av1 is far too
@@ -353,8 +365,16 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   const audioCheck = audioTrack ? checkAudioCompatibility(audioTrack, client) : { compatible: true, reasons: [] as PlaybackReasonCode[] };
   const containerOk = isContainerCompatible(media.container, client);
   const subtitleAction = decideSubtitleAction(subtitleTrack, client);
+  const forcedQualityMaxWidth = requestedQualityMaxWidth(input.quality);
+  // A user-selected lower quality is an explicit request to encode the VIDEO
+  // to that ceiling. It is independent from codec compatibility: a perfectly
+  // decodable 4K H.264 source still becomes a 1080p transcode when the user
+  // asks for 1080p. Conversely, selecting 4K for a 1080p source never
+  // upscales and therefore does not force a transcode.
+  const forcedQualityDownscale = !!forcedQualityMaxWidth && !!media.video.width && media.video.width > forcedQualityMaxWidth;
 
   reasons.push(...videoCheck.reasons, ...audioCheck.reasons);
+  if (forcedQualityDownscale) reasons.push("FORCED_QUALITY");
   if (!containerOk) reasons.push("CONTAINER_UNSUPPORTED");
   if (needsAudioTrackSelection) reasons.push("AUDIO_TRACK_SELECTION_REQUIRED");
   if (subtitleAction === "BURN") reasons.push("SUBTITLE_BURN_REQUIRED");
@@ -362,7 +382,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   // Rule §1.4: burn-in is itself a video transcode — folded in here, not
   // treated as a separate later step, so it goes through the exact same
   // ffmpeg-availability gate as any other forced video transcode below.
-  const needsVideoTranscode = !videoCheck.compatible || subtitleAction === "BURN" || videoCheck.toneMapNeeded === true;
+  const needsVideoTranscode = !videoCheck.compatible || subtitleAction === "BURN" || videoCheck.toneMapNeeded === true || forcedQualityDownscale;
   const needsAudioTranscode = !audioCheck.compatible;
   // Rule §1.3: a container-only mismatch is a remux, never promoted to a
   // codec transcode — only reached when video didn't already need one.
@@ -394,6 +414,11 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
     let targetVideoWidth = pickTargetVideoWidth(media.video.width, clientMaxWidth, encoder.isHardware, videoCheck.toneMapNeeded === true);
     if (!encoder.isHardware && softwareFactor !== null && softwareFactor < 1.5 && media.video.width && media.video.width > 1280) {
       targetVideoWidth = Math.min(targetVideoWidth ?? media.video.width, 1280);
+    }
+    // Explicit quality is another DOWNscale ceiling, never an upscale. It
+    // composes with safety/client caps by taking the smallest width.
+    if (forcedQualityDownscale && forcedQualityMaxWidth && media.video.width) {
+      targetVideoWidth = Math.min(targetVideoWidth ?? media.video.width, forcedQualityMaxWidth);
     }
     return {
       mode: "TRANSCODE",

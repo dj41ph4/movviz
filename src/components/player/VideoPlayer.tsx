@@ -145,6 +145,22 @@ function formatTime(seconds: number): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
+type PlannerQuality = "original" | "auto" | "4k" | "1440p" | "1080p" | "720p";
+interface UnifiedPlaybackOverrides {
+  audioTrack?: number;
+  subtitleTrack?: number | null;
+  quality?: PlannerQuality;
+}
+function toPlannerQuality(quality: FfmpegQuality): PlannerQuality {
+  switch (quality) {
+    case "4k": return "4k";
+    case "2k": return "1440p";
+    case "fhd": return "1080p";
+    case "hd": return "720p";
+    default: return "original";
+  }
+}
+
 export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onClose, useTranscode, prebufferSeconds, embedded, mediaType = "movie", seasonNumber, episodeNumber, tmdbId, startFromBeginning = false, resumeFromSeconds, onNextEpisode }: VideoPlayerProps) {
   const { t, locale } = useI18n();
   const tRef = useRef(t);
@@ -247,6 +263,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
   const ffmpegEngineRef = useRef<FfmpegRemuxEngine | null>(null);
   const ffmpegSkippedRef = useRef(false);
   const tryStartFfmpegRemuxRef = useRef<((info: StreamInfo, seekTo?: number) => Promise<boolean>) | null>(null);
+  const tryStartUnifiedEngineRef = useRef<((seekTo?: number, overrides?: UnifiedPlaybackOverrides) => Promise<boolean>) | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [usingFallback, setUsingFallback] = useState(false);
@@ -502,7 +519,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
       const prepRes = await fetch("/api/playback/prepare", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mediaId: movvizId ?? playbackId, ratingKey: hasRealPlexLink ? ratingKey : "", clientProfile, audioTrack, subtitleTrack, audioLanguage: localeRef.current }),
+        body: JSON.stringify({ mediaId: movvizId ?? playbackId, ratingKey: hasRealPlexLink ? ratingKey : "", clientProfile, audioTrack, subtitleTrack, audioLanguage: localeRef.current, quality: toPlannerQuality(qualityRef.current) }),
       });
       if (!prepRes.ok) throw new Error("prepare_failed");
       const prep = (await prepRes.json()) as { sessionId: string; tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] } };
@@ -1556,7 +1573,7 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     // éprouvé) — seul le préfixe d'URL change, vers la nouvelle route de
     // session du moteur (/api/playback/session/{id}/stream) au lieu de
     // /api/playback-ffmpeg/{ratingKey}.
-    const tryStartLocalEngine = async (seekTo?: number): Promise<boolean> => {
+    const tryStartLocalEngine = async (seekTo?: number, overrides: UnifiedPlaybackOverrides = {}): Promise<boolean> => {
       const video = videoRef.current;
       if (!video) return false;
       const b = betaRef.current;
@@ -1584,7 +1601,15 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           // fichier) — brancher la sélection manuelle de piste sur ce moteur
           // est un raffinement séparé, pas un pré-requis pour la capacité
           // de base (remux/transcode/burn-in local).
-          body: JSON.stringify({ mediaId: movvizId ?? playbackId, ratingKey: hasRealPlexLink ? ratingKey : "", clientProfile, audioLanguage: localeRef.current }),
+          body: JSON.stringify({
+            mediaId: movvizId ?? playbackId,
+            ratingKey: hasRealPlexLink ? ratingKey : "",
+            clientProfile,
+            audioLanguage: localeRef.current,
+            audioTrack: overrides.audioTrack,
+            subtitleTrack: overrides.subtitleTrack,
+            quality: overrides.quality ?? toPlannerQuality(qualityRef.current),
+          }),
         });
         if (!prepRes.ok) return false;
         const prep = (await prepRes.json()) as {
@@ -1703,6 +1728,8 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
         return false;
       }
     };
+
+    tryStartUnifiedEngineRef.current = tryStartLocalEngine;
 
     let sessionReady = false;
     void fetch("/api/playback/sessions", {
@@ -2409,19 +2436,82 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
     qualityMaxWidthRef.current = mw;
     qualityRef.current = preset.quality;
     setMenuOpen(null);
+
+    // Normal playback (auto/stable/beta): quality is a FIRST-CLASS v2
+    // PlaybackPlan constraint. Never send a quality change through the old
+    // remux leg or Plex HLS — that path can copy the original HEVC bitstream
+    // and then fail in the browser, which is exactly the v1.24.04 regression.
+    const b = betaRef.current;
+    const unifiedSelected = b.enabled && (b.playbackEngine === "auto" || b.playbackEngine === "stable" || b.playbackEngine === "beta") && !!playbackId;
+    if (unifiedSelected && tryStartUnifiedEngineRef.current) {
+      const currentEngine = ffmpegEngineRef.current;
+      const relative = videoRef.current?.currentTime ?? 0;
+      const position = ffmpegActiveRef.current && currentEngine ? currentEngine.seekBase + relative : relative;
+      const toIndex = (id: string | null, streams: StreamTrack[], tracks: { index: number }[]): number | undefined => {
+        if (id === null) return undefined;
+        const ordinal = streams.findIndex((stream) => stream.id === id);
+        return ordinal >= 0 ? tracks[ordinal]?.index : undefined;
+      };
+      const audioTrack = toIndex(currentAudio, audioStreams, localEngineAudioTracksRef.current);
+      const subtitleTrack = currentSubtitle === null ? null : toIndex(currentSubtitle, subtitleStreams, localEngineSubtitleTracksRef.current);
+
+      setError(null);
+      lastMediaErrorCodeRef.current = null;
+      setOptimizing(true);
+      setBuffering(true);
+      fallbackGuardRef.current = false;
+      setUsingFallback(false);
+      setDirectMode(false);
+
+      if (mseEngineRef.current) {
+        try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
+        mseEngineRef.current = null;
+        setMseActive(false);
+        setMseStats(null);
+      }
+      if (hlsRef.current) {
+        try { hlsRef.current.destroy(); } catch { /* ignore */ }
+        hlsRef.current = null;
+      }
+      if (dashRef.current) {
+        try { dashRef.current.reset(); } catch { /* ignore */ }
+        dashRef.current = null;
+      }
+      if (currentEngine) {
+        ffmpegEngineRef.current = null;
+        void currentEngine.destroy().catch(() => void 0);
+      }
+      ffmpegActiveRef.current = false;
+      isLocalEngineV2Ref.current = false;
+      setFfmpegActive(false);
+      setLocalEnginePlanInfo(null);
+      setFfmpegStats(null);
+
+      void (async () => {
+        const ok = await tryStartUnifiedEngineRef.current?.(position > 0 ? position : undefined, {
+          audioTrack,
+          subtitleTrack,
+          quality: toPlannerQuality(preset.quality),
+        });
+        if (!ok) {
+          setOptimizing(false);
+          setBuffering(false);
+          setError(tRef.current("player.betaError"));
+        }
+      })();
+      return;
+    }
+
+    // Explicit troubleshooting engines retain their legacy behavior. They
+    // are never selected by the normal Auto/Stable flow above.
     if (ffmpegEngineRef.current) {
-      // Leg ffmpeg : reload local avec le nouveau profil, position conservée.
       void reloadFfmpeg(currentAudio, preset.quality);
       return;
     }
     if (hlsRef.current) {
-      // Leg HLS (option manuelle) : le transcode Plex reçoit maxWidth.
       reloadHls(currentAudio, currentSubtitle);
       return;
     }
-    // Legs copy (direct/MSE) : un downscale exige un encode — on bascule sur
-    // le transcode ffmpeg LOCAL (plus jamais HLS par défaut), position
-    // conservée via un seek après chargement. "original" repart en leg copy.
     if (mseEngineRef.current || directMode) {
       if (mseEngineRef.current) {
         try { mseEngineRef.current.destroy(); } catch { /* ignore */ }
