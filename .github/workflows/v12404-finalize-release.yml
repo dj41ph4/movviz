@@ -95,3 +95,5 @@ jobs:
           gh api -X POST "repos/$REPO/actions/workflows/android-tv-build.yml/dispatches" -f ref=v1.24.04
           gh api -X POST "repos/$REPO/actions/workflows/android-mobile-build.yml/dispatches" -f ref=v1.24.04
           gh api -X POST "repos/$REPO/actions/workflows/docker-publish.yml/dispatches" -f ref=main
+
+# trigger: finalize v1.24.04 after Android cleanup
