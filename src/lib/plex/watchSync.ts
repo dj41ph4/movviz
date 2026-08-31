@@ -2,6 +2,7 @@ import { loadPlexConfig } from "./store";
 import { getAccountHistory, batchTmdbIds } from "./client";
 import { saveWatchStatus, getWatchStatus, type RecentWatch } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
 import type { User } from "@/lib/auth/types";
 
 /**
@@ -128,6 +129,12 @@ export async function syncUserWatchStatus(user: User) {
     const recent = [...merged.values()].sort((a, b) => b.at - a.at).slice(0, 30);
 
     saveWatchStatus({ userId: user.id, movies, episodes, recent, updatedAt: Date.now() });
+    // saveWatchStatus() only writes the legacy JSON store; it never touches
+    // the unified Context Engine (unlike setWatchedMovies/setWatchedEpisodes).
+    // Force an immediate mirror so the AI's SQL-backed context reflects a
+    // real-time Plex sync right away instead of waiting up to 5 minutes for
+    // the next lazy refreshLegacyUserContext() call from buildUsageProfile().
+    refreshLegacyUserContext(user.id, true);
     recordSearchLog(
       "info",
       "plex.watchSync",

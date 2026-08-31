@@ -104,9 +104,13 @@ export function AppShell({ children, version }: { children: React.ReactNode; ver
   const setupRequired = useSetupRequired();
   const isPending = !!currentUser && currentUser.status === "pending";
 
-  // Plus aucun compte valide (dossier config supprimé, reset d'usine) →
-  // l'app n'a pas à s'afficher « cassée » : rediriger vers le wizard quand
-  // aucun utilisateur n'existe encore, sinon vers la page de login.
+  // Plus aucun compte valide (dossier config supprimé, reset d'usine, ou
+  // toute première installation) → l'app n'a pas à s'afficher « cassée » :
+  // rediriger vers le wizard quand aucun utilisateur n'existe encore, sinon
+  // vers la page de login. /setup crée lui-même le compte admin comme
+  // toute première étape (voir AccountStep) — ce n'était pas le cas avant
+  // et un visiteur non authentifié y remplissait tout le wizard sans jamais
+  // avoir de compte, puis revenait en boucle sur /setup indéfiniment.
   useEffect(() => {
     if (isAuthPage) return;
     if (currentUser === undefined || setupRequired === undefined) return; // encore en chargement

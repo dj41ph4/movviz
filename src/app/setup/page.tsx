@@ -13,20 +13,23 @@ import { PlexSettings } from "@/components/settings/PlexSettings";
 import { AiSettingsPanel } from "@/components/settings/AiSettingsPanel";
 import { AnimatedLogo } from "@/components/fx/AnimatedLogo";
 import { useTheme } from "@/lib/theme/useTheme";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { resetSwrCache } from "@/lib/swrCacheReset";
 import type { ThemeMode } from "@/lib/theme/theme";
 import type { WizardTrackedField } from "@/lib/setup/wizardProvenance";
 import {
   Clapperboard, Languages, KeyRound, Tv, Magnet, HardDrive, Play, PartyPopper, ShieldCheck,
   Check, Loader2, ArrowRight, ExternalLink, ChevronRight, Sun, Moon, MonitorSmartphone,
-  Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2, Bot,
+  Smartphone, Monitor, Server, Cpu, Sparkles, Tablet, Gamepad2, Bot, UserPlus,
 } from "lucide-react";
 import { DASHBOARD_MODES, DEFAULT_DASHBOARD_LAYOUT, type DashboardLayout } from "@/lib/dashboard/types";
 import { DEVICE_TYPES, type DeviceType } from "@/lib/setup/deviceTypes";
 
-const STEPS = ["language", "appearance", "hardware", "personalization", "tmdb", "tvdb", "ai", "indexers", "downloads", "plex", "done"] as const;
+const STEPS = ["account", "language", "appearance", "hardware", "personalization", "tmdb", "tvdb", "ai", "indexers", "downloads", "plex", "done"] as const;
 type Step = (typeof STEPS)[number];
 
 const STEP_ICON: Record<Step, React.ElementType> = {
+  account: UserPlus,
   language: Languages,
   appearance: Sun,
   hardware: Cpu,
@@ -88,7 +91,16 @@ function SetupWizardPageInner() {
   // with ?mode=smart — see HardwareStep for what that changes.
   const smartMode = searchParams.get("mode") === "smart";
   const [stepIndex, setStepIndex] = useState(0);
-  const step = STEPS[stepIndex];
+
+  // The "account" step only makes sense for a truly fresh install (or after
+  // a factory reset): a signed-in user re-running the wizard from Settings
+  // already has an account and must never be asked to create another one.
+  // `currentUser` is `undefined` while /api/auth/me is still loading —
+  // steps stays the full list during that instant (never rendered, see the
+  // loading guard below) so the step array doesn't change shape mid-render.
+  const currentUser = useCurrentUser();
+  const steps = currentUser ? STEPS.filter((s) => s !== "account") : STEPS;
+  const step = steps[stepIndex];
 
   // Starts false on both server and first client render (no hydration
   // mismatch), then flips true post-mount if this browser hasn't seen it yet.
@@ -101,8 +113,19 @@ function SetupWizardPageInner() {
     setShowIntro(false);
   };
 
-  const next = () => setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
+  const next = () => setStepIndex((i) => Math.min(i + 1, steps.length - 1));
   const back = () => setStepIndex((i) => Math.max(i - 1, 0));
+
+  // Still resolving whether this browser already has a session — render
+  // nothing rather than flashing the account-creation step for a returning
+  // signed-in user (or the reverse) for one frame.
+  if (currentUser === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-ink-dim" />
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto min-h-screen max-w-[900px] px-4 py-10">
@@ -117,7 +140,7 @@ function SetupWizardPageInner() {
       </div>
 
       <div className="mb-8 flex items-center justify-center gap-2">
-        {STEPS.map((s, i) => {
+        {steps.map((s, i) => {
           const Icon = STEP_ICON[s];
           return (
             <div key={s} className="flex items-center gap-2">
@@ -131,7 +154,7 @@ function SetupWizardPageInner() {
               >
                 {i < stepIndex ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
               </div>
-              {i < STEPS.length - 1 && <ChevronRight className="h-4 w-4 text-ink-dim/40" />}
+              {i < steps.length - 1 && <ChevronRight className="h-4 w-4 text-ink-dim/40" />}
             </div>
           );
         })}
@@ -145,6 +168,7 @@ function SetupWizardPageInner() {
           exit={{ opacity: 0, x: -16 }}
           transition={{ duration: 0.2 }}
         >
+          {step === "account" && <AccountStep onCreated={next} />}
           {step === "language" && <LanguageStep />}
           {step === "appearance" && <AppearanceStep />}
           {step === "hardware" && <HardwareStep smartMode={smartMode} />}
@@ -194,7 +218,7 @@ function SetupWizardPageInner() {
         </motion.div>
       </AnimatePresence>
 
-      {step !== "done" && (
+      {step !== "done" && step !== "account" && (
         <div className="mt-6 flex items-center justify-between">
           <button
             onClick={back}
@@ -224,6 +248,93 @@ function StepShell({ title, hint, children }: { title: string; hint: string; chi
       <p className="mb-5 text-sm text-ink-dim">{hint}</p>
       {children}
     </div>
+  );
+}
+
+/**
+ * Mandatory first step on a fresh install (or after a factory reset): no
+ * account exists yet, so nothing past this point can work — every other
+ * settings panel in the wizard (AI, download clients, Plex) calls an
+ * admin-only API and silently renders empty/stuck without a session. Reuses
+ * /api/auth/register (same endpoint as /login's own registration form) —
+ * the very first account created always becomes admin. Skipped entirely for
+ * a signed-in user re-running the wizard (see `steps` filter above).
+ */
+function AccountStep({ onCreated }: { onCreated: () => void }) {
+  const t = useT();
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async () => {
+    if (!username.trim() || !password) return;
+    setError(null);
+    setBusy(true);
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(
+          data.error === "username_taken" ? t("auth.usernameTaken")
+          : data.error === "username_too_short" ? t("auth.usernameTooShort")
+          : data.error === "password_too_short" ? t("auth.passwordTooShort")
+          : t("auth.invalidCredentials")
+        );
+        return;
+      }
+      // Same stale-SWR-cache fix as the login page: useCurrentUser/
+      // useSetupRequired share the "/api/auth/me" key, cached from before
+      // this account existed — clear it so the rest of the wizard (and
+      // AppShell, once we leave /setup) sees the freshly created session
+      // immediately instead of up to dedupingInterval later.
+      await resetSwrCache();
+      onCreated();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <StepShell title={t("setup.accountTitle")} hint={t("setup.accountHint")}>
+      <div className="space-y-3 rounded-2xl glass p-5">
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("auth.username")}</label>
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+            autoComplete="username"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-ink-soft">{t("auth.password")}</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            className="h-11 w-full rounded-xl border border-white/8 bg-black/30 px-3 text-sm text-ink outline-none focus:border-brand/40"
+            autoComplete="new-password"
+          />
+        </div>
+        {error && <p className="text-xs font-semibold text-down">{error}</p>}
+        <button
+          onClick={submit}
+          disabled={busy || !username.trim() || !password}
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-xl brand-gradient text-sm font-bold text-white disabled:opacity-40"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
+          {t("auth.createAccount")}
+        </button>
+      </div>
+    </StepShell>
   );
 }
 

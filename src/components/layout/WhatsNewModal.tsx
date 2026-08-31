@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Sparkles, X } from "lucide-react";
 import { useT } from "@/i18n/provider";
 import { useVersion } from "@/lib/version/VersionContext";
+import { useSplashActive } from "@/lib/dashboard/splashCoordinator";
 
 interface ChangelogSection {
   heading: string;
@@ -42,6 +43,12 @@ export function WhatsNewModal() {
   const version = useVersion();
   const [entries, setEntries] = useState<ChangelogEntry[]>([]);
   const [visible, setVisible] = useState(false);
+  // Bug fix: this modal used to appear on top of the dashboard's cold-start
+  // splash (DashboardSplash) instead of waiting for it to finish — the two
+  // are unrelated siblings (see splashCoordinator.ts). `splashActive` only
+  // gates *when* an already-fetched "what's new" is displayed; it never
+  // affects whether it's fetched or marked seen.
+  const splashActive = useSplashActive();
 
   useEffect(() => {
     if (!version || version === "0.0.0") return;
@@ -73,7 +80,7 @@ export function WhatsNewModal() {
 
   return (
     <AnimatePresence>
-      {visible && entries.length > 0 && (
+      {visible && entries.length > 0 && !splashActive && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

@@ -11,6 +11,7 @@ import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { DashboardRows } from "@/components/dashboard/DashboardRows";
 import { DashboardSplash } from "@/components/dashboard/DashboardSplash";
+import { setSplashActive } from "@/lib/dashboard/splashCoordinator";
 import { CardErrorBoundary } from "@/components/ui/CardErrorBoundary";
 import { useTitlePanel } from "@/components/title/useTitlePanel";
 import { useT } from "@/i18n/provider";
@@ -174,6 +175,14 @@ export default function DashboardPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [showSplash, setShowSplash] = useState(false);
   const [splashProgress, setSplashProgress] = useState(14);
+  // Bug fix: WhatsNewModal (mounted in AppShell, no shared parent state with
+  // this page) used to appear on top of this splash instead of waiting for
+  // it — see splashCoordinator.ts for why a plain prop/context can't cross
+  // that boundary here.
+  useEffect(() => {
+    setSplashActive(showSplash);
+    return () => setSplashActive(false);
+  }, [showSplash]);
   const [rowsReady, setRowsReady] = useState(false);
   const [imagesReady, setImagesReady] = useState(false);
   const handleRowsReady = useCallback(() => setRowsReady(true), []);

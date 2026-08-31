@@ -332,6 +332,8 @@ export const it: Dictionary = {
     back: "Indietro",
     skip: "Salta",
     next: "Avanti",
+    accountTitle: "Account amministratore",
+    accountHint: "Crea l'account che gestirà Movviz — obbligatorio, è ciò che ti collega all'app. Gli account creati in seguito (registrazione o Plex) dovranno essere approvati da te.",
     languageTitle: "Lingua",
     languageHint: "Scegli la lingua dell'interfaccia — modificabile in qualsiasi momento dal selettore in alto sullo schermo.",
     appearanceTitle: "Aspetto",

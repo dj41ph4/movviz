@@ -70,17 +70,23 @@ export function AiSettingsPanel({ showDebugLog = true }: { showDebugLog?: boolea
   useEffect(() => {
     (async () => {
       try {
+        // Bug fix: a non-2xx response (403 without an admin session — the
+        // wizard reaching this step before an account exists, a stale
+        // cookie, ...) used to `return` here WITHOUT ever calling
+        // setLoaded(true), leaving this panel stuck on its spinner forever
+        // with no way to recover short of a full reload.
         const r = await fetch("/api/ai/config", { cache: "no-store" });
-        if (!r.ok) return;
-        const d = await r.json();
-        const providers = {} as Record<AiProviderId, ProviderDraft>;
-        for (const id of PROVIDERS) {
-          providers[id] = {
-            model: d.providers?.[id]?.model ?? "",
-            keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
-          };
+        if (r.ok) {
+          const d = await r.json();
+          const providers = {} as Record<AiProviderId, ProviderDraft>;
+          for (const id of PROVIDERS) {
+            providers[id] = {
+              model: d.providers?.[id]?.model ?? "",
+              keys: (d.providers?.[id]?.keys ?? []).map((k: { id: string }) => ({ id: k.id, isNew: false, value: "" })),
+            };
+          }
+          setDraft({ enabled: !!d.enabled, primary: d.primary ?? "mistral", fallback: d.fallback ?? true, webSearchEnabled: !!d.webSearchEnabled, providers });
         }
-        setDraft({ enabled: !!d.enabled, primary: d.primary ?? "mistral", fallback: d.fallback ?? true, webSearchEnabled: !!d.webSearchEnabled, providers });
       } catch { /* leave unloaded */ }
       setLoaded(true);
     })();

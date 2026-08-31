@@ -330,6 +330,8 @@ export const fr = {
     back: "Précédent",
     skip: "Passer",
     next: "Suivant",
+    accountTitle: "Compte administrateur",
+    accountHint: "Crée le compte qui gérera Movviz — obligatoire, c'est ce qui te connecte à l'application. Les comptes créés ensuite (inscription ou Plex) devront être approuvés par toi.",
     languageTitle: "Langue",
     languageHint: "Choisis la langue de l'interface — modifiable à tout moment depuis le sélecteur en haut de l'écran.",
     appearanceTitle: "Apparence",

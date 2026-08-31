@@ -332,6 +332,8 @@ export const nl: Dictionary = {
     back: "Terug",
     skip: "Overslaan",
     next: "Volgende",
+    accountTitle: "Beheerdersaccount",
+    accountHint: "Maak het account aan dat Movviz zal beheren — verplicht, hiermee log je in op de app. Later aangemaakte accounts (registratie of Plex) moeten door jou worden goedgekeurd.",
     languageTitle: "Taal",
     languageHint: "Kies de taal van de interface — op elk moment te wijzigen via de kiezer bovenaan het scherm.",
     appearanceTitle: "Uiterlijk",

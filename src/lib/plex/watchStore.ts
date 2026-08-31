@@ -54,11 +54,13 @@ export function recordWatched(userId: string, entry: RecentWatch) {
 
 /** Manual watched toggle — movies. Watched adds the tmdbId (and a dated
  *  "recent" entry), unwatched removes it. Read-modify-write so the Plex
- *  sync and manual marking coexist safely. */
-export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boolean, title = "") {
+ *  sync and manual marking coexist safely.
+ *  `watchedAt` lets a caller that already knows the real historical watch
+ *  date (e.g. a Netflix export) record it instead of defaulting to "now". */
+export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boolean, title = "", watchedAt?: number | null) {
   const list = read();
   const status = findOrCreate(list, userId);
-  const at = Date.now();
+  const at = watchedAt ?? Date.now();
   if (watched) {
     for (const tmdbId of tmdbIds) {
       if (!status.movies.includes(tmdbId)) status.movies.push(tmdbId);
@@ -78,25 +80,31 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
 }
 
 /** Manual watched toggle — episodes (tmdbId = series). Watched adds each
- *  episode (and one dated "recent" entry per series), unwatched removes. */
+ *  episode (and one dated "recent" entry per series), unwatched removes.
+ *  An entry can carry its own `watchedAt` (e.g. a Netflix export knows the
+ *  real historical date per episode); entries without one default to now.
+ *  When several entries for the same series carry different real dates,
+ *  they are processed oldest-first so the series' single "recent" entry
+ *  ends up holding the most recent real watch date, not import order. */
 export function setWatchedEpisodes(
   userId: string,
-  entries: { tmdbId: number; season: number; episode: number }[],
+  entries: { tmdbId: number; season: number; episode: number; watchedAt?: number | null }[],
   watched: boolean,
   title = ""
 ) {
   const list = read();
   const status = findOrCreate(list, userId);
   const key = (e: { tmdbId: number; season: number; episode: number }) => `${e.tmdbId}.${e.season}.${e.episode}`;
-  const at = Date.now();
+  const now = Date.now();
   if (watched) {
+    const ordered = [...entries].sort((a, b) => (a.watchedAt ?? now) - (b.watchedAt ?? now));
     const existing = new Set(status.episodes.map(key));
-    for (const e of entries) {
+    for (const e of ordered) {
       if (!existing.has(key(e))) {
-        status.episodes.push(e);
+        status.episodes.push({ tmdbId: e.tmdbId, season: e.season, episode: e.episode });
         existing.add(key(e));
       }
-      upsertRecent(status, { tmdbId: e.tmdbId, type: "series", title, at });
+      upsertRecent(status, { tmdbId: e.tmdbId, type: "series", title, at: e.watchedAt ?? now });
     }
   } else {
     const remove = new Set(entries.map(key));
@@ -107,10 +115,10 @@ export function setWatchedEpisodes(
       }
     }
   }
-  status.updatedAt = Date.now();
+  status.updatedAt = now;
   if (write(list)) {
     for (const e of entries) {
-      syncWatchedEpisodeState({ userId, tmdbId: e.tmdbId, season: e.season, episode: e.episode, title, watched, at });
+      syncWatchedEpisodeState({ userId, tmdbId: e.tmdbId, season: e.season, episode: e.episode, title, watched, at: e.watchedAt ?? now });
     }
   }
 }
