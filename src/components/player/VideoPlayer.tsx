@@ -2559,7 +2559,13 @@ export function VideoPlayer({ ratingKey, movvizId, seriesId, plexUrl, title, onC
           // unrounded, unconstrained box regardless of embedded/panel mode.
           fullscreen ? "fixed inset-0 h-[100dvh] w-[100dvw] rounded-none max-w-none bg-black" : embedded ? "h-full w-full rounded-none bg-transparent" : "bg-surface",
           !controlsVisible && playing && !buffering && !menuOpen ? "cursor-none" : undefined,
-          !fullscreen && !embedded ? "rounded-2xl h-[80vh] w-[90vw] max-w-5xl" : undefined
+          // h-[80vh] centered (flex items-center on the outer wrapper) split
+          // 10vh of empty space above AND below the panel — the controls bar
+          // (anchored to THIS box's bottom-0, not the viewport's) sat well
+          // above the real screen edge in windowed/non-fullscreen mode.
+          // Bumped to 92vh so the panel — and with it the controls bar —
+          // sits lower, close to the true bottom, matching fullscreen feel.
+          !fullscreen && !embedded ? "rounded-2xl h-[92vh] w-[90vw] max-w-5xl" : undefined
         )}
       >
         <div

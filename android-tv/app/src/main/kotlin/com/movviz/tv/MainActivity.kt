@@ -286,9 +286,10 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     contentFocusRequester = contentFocusRequester,
                     fallbackFocusRequester = fallbackFocusRequester,
                     navRailFocusRequester = navRailFocusRequester,
-                    // 224dp laisse une zone tactile/visuelle confortable aux
-                    // libellés et au focus TV, tout en gardant le hero large.
-                    modifier = Modifier.fillMaxHeight().width(224.dp),
+                    // Plus de largeur fixe ici : NavRail gère elle-même son
+                    // animation collapsed/déployée (voir NAV_RAIL_*_WIDTH
+                    // dans NavRail.kt) — un width() posé ici l'écraserait.
+                    modifier = Modifier.fillMaxHeight(),
                 )
             }
             Box(modifier = Modifier.weight(1f).fillMaxHeight()) {

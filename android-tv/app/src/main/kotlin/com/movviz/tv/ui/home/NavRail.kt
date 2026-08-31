@@ -44,8 +44,17 @@ import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizIconDotCircle
 import com.movviz.tv.ui.theme.MovvizIconPlus
 import com.movviz.tv.ui.theme.MovvizIconSwap
+import com.movviz.tv.ui.theme.MovvizIconHome
+import com.movviz.tv.ui.theme.MovvizIconFilm
+import com.movviz.tv.ui.theme.MovvizIconTvScreen
+import com.movviz.tv.ui.theme.MovvizIconStar
 import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.theme.tvPointerClick
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import com.movviz.tv.data.TvProfile
 import coil.compose.AsyncImage
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -53,11 +62,30 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.IntOffset
 
+// Réduite le plus possible en repos (icônes seules) et déployée uniquement
+// quand le D-pad s'en approche — demandé en direct : la barre pleine
+// largeur (224dp) était jugée « trop large » en permanence. 76dp loge une
+// icône ~22dp + son halo de focus sans le serrer ; 188dp (au lieu de 224dp)
+// reste demandé « un peu moins large » même déployée.
+private val NAV_RAIL_COLLAPSED_WIDTH = 76.dp
+private val NAV_RAIL_EXPANDED_WIDTH = 188.dp
+
 enum class HomeTab(val label: String) {
     HOME("Accueil"),
+    DISCOVER("Découverte"),
     MOVIES("Films"),
     SERIES("Séries"),
     SETTINGS("Paramètres"),
+}
+
+/** Icône par onglet — la NavRail collapsed n'affiche QUE l'icône (pas de
+ *  libellé), chaque onglet doit donc rester identifiable seul. */
+private fun HomeTab.icon(): ImageVector = when (this) {
+    HomeTab.HOME -> MovvizIconHome
+    HomeTab.DISCOVER -> MovvizIconStar
+    HomeTab.MOVIES -> MovvizIconFilm
+    HomeTab.SERIES -> MovvizIconTvScreen
+    HomeTab.SETTINGS -> MovvizIconHome // jamais rendu comme TopNavItem (voir plus bas) — engrenage dédié.
 }
 
 /** Icône engrenage vectorielle — Paramètres devient une icône entre la
@@ -156,11 +184,22 @@ fun NavRail(
         if (focusManager.moveFocus(FocusDirection.Right)) return@onPreviewKeyEvent true
         fallbackFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
     }
+    // hasFocus (pas isFocused) : vrai dès qu'un DESCENDANT quelconque de la
+    // colonne a le focus D-pad (onglet, loupe, engrenage, avatar…), pas
+    // seulement la colonne elle-même — c'est ce qui fait « se déployer au
+    // D-pad vers la gauche » plutôt qu'au survol souris (inexistant sur TV).
+    var railFocused by remember { mutableStateOf(false) }
+    val railWidth by animateDpAsState(
+        targetValue = if (railFocused) NAV_RAIL_EXPANDED_WIDTH else NAV_RAIL_COLLAPSED_WIDTH,
+        animationSpec = tween(220),
+        label = "navRailWidth",
+    )
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .fillMaxWidth()
+            .width(railWidth)
             .fillMaxHeight()
+            .onFocusChanged { railFocused = it.hasFocus }
             .then(navDownKeyHandler)
             .background(
                 // Scrim renforcé côté haut : sur un backdrop clair (ciel,
@@ -182,14 +221,20 @@ fun NavRail(
                     strokeWidth = 1.dp.toPx(),
                 )
             }
-            .padding(horizontal = 18.dp, vertical = 22.dp),
+            .padding(horizontal = 12.dp, vertical = 22.dp),
     ) {
         // Même logo animé que l'accueil/login : halo, ondes et particules
         // font partie de l'identité Movviz, ce n'est pas une icône carrée.
         // Preset `sm` du Sidebar desktop : outer 40, mark 40, wordmark animé.
+        // Le wordmark texte disparaît en collapsed (pas la place), le logo
+        // seul reste l'ancre visuelle identifiable dans les deux états.
         AnimatedLogo(size = 32.dp)
-        Spacer(modifier = Modifier.height(8.dp))
-        MovvizWordmark(fontSize = 16.sp)
+        AnimatedVisibility(visible = railFocused, enter = fadeIn(tween(180)), exit = fadeOut(tween(120))) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Spacer(modifier = Modifier.height(8.dp))
+                MovvizWordmark(fontSize = 16.sp)
+            }
+        }
 
         Spacer(modifier = Modifier.height(34.dp))
 
@@ -200,6 +245,7 @@ fun NavRail(
                 TopNavItem(
                     tab = tab,
                     active = tab == selected,
+                    expanded = railFocused,
                     onClick = { onSelect(tab) },
                     focusRequester = if (tab == selected) navRailFocusRequester else null,
                 )
@@ -521,7 +567,7 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
 }
 
 @Composable
-private fun TopNavItem(tab: HomeTab, active: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
+private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick: () -> Unit, focusRequester: FocusRequester? = null) {
     var focused by remember { mutableStateOf(false) }
     val shape = androidx.compose.foundation.shape.RoundedCornerShape(15.dp)
 
@@ -551,16 +597,36 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, onClick: () -> Unit, focus
             ),
         ),
     ) {
-        Text(
-            text = tab.label,
-            style = TextStyle(
-                fontSize = 13.sp,
-                fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
-                color = if (active) Color.White else MovvizInkDim,
-            ),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = if (expanded) 14.dp else 10.dp, vertical = 9.dp),
+        ) {
+            Icon(
+                imageVector = tab.icon(),
+                contentDescription = if (expanded) null else tab.label,
+                tint = if (active) Color.White else MovvizInkDim,
+                modifier = Modifier.size(18.dp),
+            )
+            // Collapsed : icône seule, centrée — pas de place pour le
+            // libellé (demandé en direct : « le plus fin possible avec
+            // juste les icônes »). AnimatedVisibility (pas un simple if)
+            // pour que le texte s'estompe/glisse au lieu de sauter d'un
+            // état à l'autre pendant l'animation de largeur de la colonne.
+            AnimatedVisibility(visible = expanded, enter = fadeIn(tween(180)), exit = fadeOut(tween(100))) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = tab.label,
+                        style = TextStyle(
+                            fontSize = 13.sp,
+                            fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold,
+                            color = if (active) Color.White else MovvizInkDim,
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
     }
 }

@@ -322,3 +322,61 @@ val MovvizIconReplay: ImageVector by lazy {
         }
     }
 }
+
+/** ⌂ Accueil — toit en chevron + murs/sol en U, mêmes traits ronds que le
+ *  reste du jeu. Utilisée par la NavRail (onglet Accueil), collapsed et
+ *  déployée. */
+val MovvizIconHome: ImageVector by lazy {
+    movvizIcon("MovvizIconHome") {
+        stroke(width = 2.2f) {
+            moveTo(3.5f, 11.2f)
+            lineTo(12f, 4f)
+            lineTo(20.5f, 11.2f)
+            moveTo(6.2f, 9.6f)
+            lineTo(6.2f, 19.5f)
+            lineTo(17.8f, 19.5f)
+            lineTo(17.8f, 9.6f)
+        }
+    }
+}
+
+/** 🎬 Films — clap de cinéma : corps rectangulaire + barre du haut inclinée
+ *  avec deux rayures diagonales. Utilisée par la NavRail (onglet Films). */
+val MovvizIconFilm: ImageVector by lazy {
+    movvizIcon("MovvizIconFilm") {
+        stroke(width = 2f) {
+            moveTo(4.5f, 9.5f)
+            lineTo(4.5f, 19f)
+            lineTo(19.5f, 19f)
+            lineTo(19.5f, 9.5f)
+            lineTo(4.5f, 9.5f)
+            moveTo(4.5f, 9.5f)
+            lineTo(5.3f, 5.2f)
+            lineTo(20.3f, 5.2f)
+            lineTo(19.5f, 9.5f)
+            moveTo(9.3f, 5.2f)
+            lineTo(8.7f, 9.5f)
+            moveTo(14.3f, 5.2f)
+            lineTo(13.7f, 9.5f)
+        }
+    }
+}
+
+/** 📺 Séries — écran + pied, silhouette de téléviseur. Utilisée par la
+ *  NavRail (onglet Séries), distincte du clap Films pour rester lisible en
+ *  mode collapsed (icône seule, sans libellé). */
+val MovvizIconTvScreen: ImageVector by lazy {
+    movvizIcon("MovvizIconTvScreen") {
+        stroke(width = 2.1f) {
+            moveTo(4f, 5.8f)
+            lineTo(4f, 15.8f)
+            lineTo(20f, 15.8f)
+            lineTo(20f, 5.8f)
+            lineTo(4f, 5.8f)
+            moveTo(12f, 15.8f)
+            lineTo(12f, 18.6f)
+            moveTo(8.5f, 18.6f)
+            lineTo(15.5f, 18.6f)
+        }
+    }
+}

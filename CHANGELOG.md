@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.24 — August 2026
+
+### Android TV — navigation repensée, Découverte séparée du catalogue, lecteur redescendu
+
+La barre de navigation latérale (224dp fixe, toujours dépliée) se réduit désormais aux icônes seules au repos et ne se déploie — en restant plus étroite qu'avant — que lorsque le D-pad s'en approche, pour ne plus grignoter en permanence l'espace des listes de films/séries. Chaque onglet a maintenant sa propre icône (Accueil, Découverte, Films, Séries n'affichaient que du texte). L'ancien écran Films/Séries (hero + rangées éditoriales façon Netflix) devient l'onglet Découverte, avec un sélecteur Films/Séries pour ne pas mélanger les deux univers dans les mêmes rangées ; les onglets Films et Séries deviennent la bibliothèque complète en grille, triable par nom/note/année et filtrable par genre. Dans le lecteur vidéo (mode fenêtré, hors plein écran), la barre de contrôle était ancrée au bas d'un panneau limité à 80% de la hauteur d'écran, laissant un vide sous les contrôles — le panneau est agrandi à 92% pour la redescendre près du bord réel.
+
 ## v1.24.23 — August 2026
 
 ### Recherche manuelle — le cache ne remplace plus jamais la recherche live
