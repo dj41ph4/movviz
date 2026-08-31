@@ -10,6 +10,7 @@ import {
   startRemux,
   stopAllForRatingKey,
   stopRemux,
+  touchSession as touchRemuxSession,
   type FfmpegQuality,
 } from "@/lib/playback/ffmpeg/remuxSession";
 import { MAX_CONCURRENT_TRANSCODES, totalActiveTranscodeSessions } from "@/lib/playback/engine/sharedTranscodeLimit";
@@ -94,10 +95,20 @@ export async function GET(req: NextRequest, context: Ctx) {
 
   const { proc, stream, key } = result;
 
+  // Same 5-minute TTL issue as the unified executor: this route returns one
+  // long-lived HTTP response, so the registry otherwise sees no subsequent
+  // access after startRemux() and kills a healthy stream around minute 5-6.
+  // Keep the remux registry alive while this client connection is alive;
+  // abort/ffmpeg exit stop the heartbeat and leave stale-session cleanup intact.
+  touchRemuxSession(key);
+  const activityTimer = setInterval(() => touchRemuxSession(key), 60_000);
+  if (typeof activityTimer.unref === "function") activityTimer.unref();
+
   let stopped = false;
   const onAbort = () => {
     if (stopped) return;
     stopped = true;
+    clearInterval(activityTimer);
     console.log(`[remux] abort client — stop ${key}`);
     markStreamAborted(key);
     stopRemux(key);
@@ -105,6 +116,7 @@ export async function GET(req: NextRequest, context: Ctx) {
   req.signal.addEventListener("abort", onAbort);
 
   proc.once("exit", () => {
+    clearInterval(activityTimer);
     req.signal.removeEventListener("abort", onAbort);
   });
 
