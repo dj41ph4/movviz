@@ -1,0 +1,87 @@
+import { NextRequest, NextResponse } from "next/server";
+import fs from "node:fs";
+import path from "node:path";
+import { getMovie, updateMovie, removeMovie } from "@/lib/library/store";
+import { requireUser, requireAdmin } from "@/lib/auth/guard";
+import { logActivity } from "@/lib/activity/store";
+import { emitNotification } from "@/lib/notifications/store";
+import { loadPlexConfig } from "@/lib/plex/store";
+import { buildPlexWebUrl } from "@/lib/plex/client";
+import { trashMovieFile } from "@/lib/library/trashDelete";
+import { addTrashEntry } from "@/lib/library/trashStore";
+
+export const dynamic = "force-dynamic";
+type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(req: NextRequest, { params }: Ctx) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const movie = getMovie((await params).id);
+  if (!movie) return NextResponse.json({ error: "not found" }, { status: 404 });
+  const cfg = loadPlexConfig();
+  const plexUrl = movie.plexRatingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, movie.plexRatingKey) : null;
+  return NextResponse.json({ ...movie, plexUrl });
+}
+
+export async function PATCH(req: NextRequest, { params }: Ctx) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const patch = await req.json();
+  const allowed = ["monitored", "qualityProfileId", "aliases", "customBackdropPath", "customLogoPath"] as const;
+  const clean: Record<string, unknown> = {};
+  for (const k of allowed) if (k in patch) clean[k] = patch[k];
+  // aliases feeds release matching, so it can't be trusted raw like a purely
+  // cosmetic field: keep only non-empty strings, drop the key entirely if the
+  // client sent something that isn't an array at all.
+  if ("aliases" in clean) {
+    if (!Array.isArray(clean.aliases)) delete clean.aliases;
+    else clean.aliases = (clean.aliases as unknown[]).filter((a): a is string => typeof a === "string" && a.trim() !== "").map((a) => a.trim());
+  }
+  // TMDb image file_path only ("/abc123.jpg") — never a full URL, never
+  // arbitrary text (this ends up interpolated into an /tmdb/{size}{path}
+  // image URL client-side).
+  for (const k of ["customBackdropPath", "customLogoPath"] as const) {
+    if (k in clean && clean[k] !== null && !(typeof clean[k] === "string" && /^\/[\w.-]+\.(jpg|jpeg|png|svg)$/i.test(clean[k] as string))) {
+      delete clean[k];
+    }
+  }
+  const updated = updateMovie((await params).id, clean);
+  return updated ? NextResponse.json(updated) : NextResponse.json({ error: "not found" }, { status: 404 });
+}
+
+export async function DELETE(req: NextRequest, { params }: Ctx) {
+  const user = requireAdmin(req);
+  if (!user) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  const id = (await params).id;
+  const movie = getMovie(id);
+  const deleteFiles = req.nextUrl.searchParams.get("deleteFiles") === "true";
+
+  if (deleteFiles && movie?.file?.path) {
+    // Trash (when configured) always wins over a permanent delete — moving
+    // the file must succeed before the library record is removed, so a
+    // failed move (permissions, disk full, …) surfaces as an error instead
+    // of silently leaving the file behind while the app thinks it's gone.
+    let trashedTo: string | null;
+    try {
+      trashedTo = await trashMovieFile(movie.file.path);
+    } catch (err) {
+      return NextResponse.json({ error: "trash_failed", detail: (err as Error).message }, { status: 500 });
+    }
+    if (trashedTo) {
+      addTrashEntry({ id: movie.id, kind: "movie", title: movie.title, trashPath: trashedTo, deletedAt: Date.now() });
+    } else {
+      try { fs.unlinkSync(movie.file.path); } catch { /* already gone */ }
+      const dir = path.resolve(path.dirname(movie.file.path));
+      const depth = dir.split(path.sep).filter(Boolean).length;
+      if (depth >= 2) {
+        try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* ignore */ }
+      }
+    }
+  }
+  removeMovie(id);
+  if (movie) {
+    logActivity("removed", user.username, movie.title, null);
+    if (deleteFiles) emitNotification("library_item_deleted", `${movie.title} supprimé de la bibliothèque`, "/library", { title: movie.title });
+  }
+  return NextResponse.json({ removed: true, filesDeleted: deleteFiles });
+}

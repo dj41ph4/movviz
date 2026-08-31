@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Thème de démarrage (avant que Compose ne prenne l'écran) — fond noir
+         plein écran, pas de barre de statut/nav sur TV. Le vrai theming
+         (couleurs de marque, typographie) vit dans ui/theme/Theme.kt côté
+         Compose ; ce thème XML n'est là que pour éviter un flash blanc au
+         lancement. -->
+    <style name="Theme.MovvizTv" parent="android:Theme.DeviceDefault">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <style name="Theme.MovvizTv.Player" parent="Theme.MovvizTv" />
+</resources>

@@ -1,0 +1,82 @@
+# syntax=docker/dockerfile:1
+
+# ---- Dependencies ----------------------------------------------------------
+# Pinning node:22-alpine3.20 — Alpine 3.21+ génère des instructions CPU que QEMU
+# n'émule pas (SIGILL pendant next build). Revenir à 22-alpine (ou 22-alpine3.21)
+# quand https://gitlab.com/qemu-project/qemu/-/issues sera résolu.
+FROM node:22-alpine3.20 AS deps
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+# ---- Build -----------------------------------------------------------------
+FROM node:22-alpine3.20 AS builder
+WORKDIR /app
+RUN apk add --no-cache cmake build-base python3
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+# Install the download engine's own runtime dependencies.
+RUN cd engine && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund)
+
+# ---- Runtime ---------------------------------------------------------------
+FROM node:22-alpine3.20 AS runner
+WORKDIR /app
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    MOVVIZ_WEB_PORT=9810 \
+    MOVVIZ_ENGINE_PORT=9820 \
+    PORT=9810 \
+    HOSTNAME=0.0.0.0 \
+    MOVVIZ_CONFIG_DIR=/config \
+    MOVVIZ_DATA_DIR=/data \
+    MOVVIZ_CONTAINER=1
+
+# Non-root runtime user — default uid/gid, remapped at container start to
+# whatever PUID/PGID the NAS admin sets (see docker-entrypoint.sh) so writes
+# to bind-mounted NAS folders actually match their real owner.
+RUN addgroup -g 1001 movviz && adduser -u 1001 -G movviz -S movviz
+# su-exec drops from root (needed at start to chown/switch user) to movviz
+# right before running the app — same pattern as most NAS-friendly images.
+# fontconfig + ttf-dejavu: the subtitle burn-in filter (libass, ffmpeg) needs
+# real font files and a way to discover them — Alpine ships neither by
+# default. Without this, every burned-in subtitle (PGS/VobSub — image-based
+# tracks always go through burn-in, see decidePlayback.ts's subtitle
+# pipeline) either renders invisible text or fails the whole ffmpeg process
+# outright, found auditing the production image, not hypothetically.
+RUN apk add --no-cache su-exec aria2 rtorrent ffmpeg fontconfig ttf-dejavu
+RUN ffmpeg -version >/dev/null && ffprobe -version >/dev/null
+
+# Standalone server + assets only (small image).
+COPY --from=builder --chown=movviz:movviz /app/.next/standalone ./
+COPY --from=builder --chown=movviz:movviz /app/.next/static ./.next/static
+COPY --from=builder --chown=movviz:movviz /app/public ./public
+# Download engine, bundled next to server.js so the web app spawns it on boot.
+COPY --from=builder --chown=movviz:movviz /app/engine ./engine
+# Read at runtime via process.cwd() (src/lib/changelog.ts) for the in-app
+# "what's new" popup — `.next/standalone` only contains what Next's build
+# tracer can statically detect, which a process.cwd()-joined path never is,
+# so these were never actually present in the runtime image without an
+# explicit copy (confirmed live: /api/system/changelog returned empty on the
+# deployed container despite the files existing in the repo).
+COPY --from=builder --chown=movviz:movviz /app/CHANGELOG*.md ./
+
+RUN mkdir -p /config /data && chown movviz:movviz /config /data
+# /config = app config & state · /data = media root (torrents + library)
+VOLUME ["/config", "/data"]
+
+COPY packaging/docker/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# Stays root here on purpose — the entrypoint fixes ownership then drops to
+# movviz (remapped to PUID/PGID) via su-exec before actually running node.
+ENTRYPOINT ["docker-entrypoint.sh"]
+
+# 9810 = web UI. 51413-51414 = BitTorrent peer ports (movies/series instances) —
+# forward these on your router/NAS firewall too, or downloads stay stuck on
+# outbound-only connections and end up much slower.
+EXPOSE 9810 51413-51414/tcp 51413-51414/udp
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+  CMD wget -qO- http://127.0.0.1:9810/api/healthz || exit 1
+
+CMD ["node", "server.js"]

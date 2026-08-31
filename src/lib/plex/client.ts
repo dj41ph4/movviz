@@ -1,0 +1,1233 @@
+import type { PlexAccount, PlexCollectionSummary, PlexFriend, PlexHomeUser, PlexWatchlistItem, PlexServerConfig, PlexSection, PlexLibraryItem, PlexEpisodeItem, PlexMediaInfo, PlexVideoStream, PlexAudioStream, PlexSubtitleStream, PlexChapter, PlexMediaVersion, PlexMarker } from "./types";
+import { loadPlexConfig } from "./store";
+import { safePlexUrl } from "./safeUrl";
+import { findByExternalId } from "@/lib/metadata/tmdb";
+
+/**
+ * Plex.tv API v2 client — real endpoints, no external SDK. Every request needs
+ * a stable client identifier (one per Movviz install) so Plex can tell OAuth
+ * sessions apart; see plex/store.ts for where that's minted and persisted.
+ */
+
+const PRODUCT = "Movviz";
+
+function headers(clientId: string, extra?: Record<string, string>) {
+  return {
+    accept: "application/json",
+    "x-plex-product": PRODUCT,
+    "x-plex-client-identifier": clientId,
+    ...extra,
+  };
+}
+
+/**
+ * plain fetch() never times out on its own — a media server that stalls on
+ * one request (overloaded, network hiccup) would otherwise hang a sync run
+ * forever. Every media-server call below goes through this instead.
+ */
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs = 15000): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Home-server Plex instances routinely drop a reused keep-alive connection
+ * under sustained load (large TV libraries especially) — a plain
+ * `SocketError: other side closed`, not a real failure. Retry transient
+ * network errors a couple of times before giving up on a page.
+ */
+async function fetchWithRetry(url: string, init: RequestInit, timeoutMs = 15000, retries = 2): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fetchWithTimeout(url, init, timeoutMs);
+    } catch (e) {
+      if (attempt >= retries) throw e;
+      await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
+}
+
+export async function createPin(clientId: string): Promise<{ id: number; code: string } | null> {
+  try {
+    const res = await fetch("https://plex.tv/api/v2/pins?strong=true", {
+      method: "POST",
+      headers: headers(clientId),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { id: data.id, code: data.code };
+  } catch {
+    return null;
+  }
+}
+
+/** Short 4-character link PIN reserved for big-screen clients. */
+export async function createTvPin(clientId: string): Promise<{ id: number; code: string } | null> {
+  try {
+    const res = await fetch("https://plex.tv/api/v2/pins", {
+      method: "POST",
+      headers: headers(clientId),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return { id: data.id, code: data.code };
+  } catch {
+    return null;
+  }
+}
+
+export function buildAuthUrl(clientId: string, code: string): string {
+  const params = new URLSearchParams({
+    clientID: clientId,
+    code,
+    "context[device][product]": PRODUCT,
+  });
+  return `https://app.plex.tv/auth#?${params.toString()}`;
+}
+
+/** Poll after sending the user to buildAuthUrl(); returns the account token once they've authorized. */
+export async function checkPin(clientId: string, pinId: number): Promise<string | null> {
+  try {
+    const res = await fetch(`https://plex.tv/api/v2/pins/${pinId}`, {
+      headers: headers(clientId),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.authToken || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getPlexAccount(clientId: string, token: string): Promise<PlexAccount | null> {
+  try {
+    const res = await fetch("https://plex.tv/api/v2/user", {
+      headers: headers(clientId, { "x-plex-token": token }),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return {
+      id: String(d.id),
+      uuid: d.uuid,
+      username: d.username || d.title || d.email,
+      email: d.email,
+      thumb: d.thumb || null,
+      authToken: token,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Every account that has been granted access to the admin's Plex server(s). */
+export async function getPlexFriends(clientId: string, adminToken: string): Promise<PlexFriend[]> {
+  try {
+    const res = await fetch("https://plex.tv/api/v2/friends", {
+      headers: headers(clientId, { "x-plex-token": adminToken }),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const list = await res.json();
+    if (!Array.isArray(list)) return [];
+    return list.map((f: { id: number; username?: string; title?: string; email?: string; thumb?: string }) => ({
+      id: String(f.id),
+      username: f.username || f.title || f.email || `plex-${f.id}`,
+      email: f.email ?? "",
+      thumb: f.thumb ?? null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Managed users (profiles) within a Plex Home — each has its own watch state but shares the admin token. */
+export async function getPlexHomeUsers(adminToken: string): Promise<PlexHomeUser[]> {
+  try {
+    const res = await fetch("https://plex.tv/api/v2/home/users", {
+      headers: { accept: "application/json", "x-plex-token": adminToken },
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const list = data?.users ?? [];
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter((u: { guest: boolean }) => u.guest)
+      .map((u: { id: number; title: string; thumb?: string }) => ({
+        id: String(u.id),
+        title: u.title,
+        thumb: u.thumb ?? null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Plex Home's `/switch` endpoint returns an account token for the selected
+ * managed profile.  It is NOT yet a token accepted by a media server: callers
+ * must exchange it through `getPlexServerAccessToken` below.  Keeping those
+ * two steps explicit prevents the old, unsafe `X-Plex-Profile` impersonation
+ * header from leaking the owner's state into another Movviz profile.
+ */
+export async function switchPlexHomeUser(clientId: string, ownerToken: string, managedUserId: string): Promise<string | null> {
+  try {
+    const res = await fetch(`https://plex.tv/api/home/users/${encodeURIComponent(managedUserId)}/switch`, {
+      method: "POST",
+      headers: headers(clientId, { "x-plex-token": ownerToken }),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const body = await res.text();
+    try {
+      const data = JSON.parse(body) as { authToken?: string; authenticationToken?: string };
+      return data.authToken ?? data.authenticationToken ?? null;
+    } catch {
+      return body.match(/(?:authToken|authenticationToken)=["']([^"']+)/i)?.[1] ?? null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve the PMS-specific access token for one Plex account token. */
+export async function getPlexServerAccessToken(clientId: string, accountToken: string, machineIdentifier: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://plex.tv/api/v2/resources?includeHttps=1&includeRelay=1", {
+      headers: headers(clientId, { "x-plex-token": accountToken }),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = await res.json() as unknown;
+    const root = data as { MediaContainer?: { Device?: unknown[] }; devices?: unknown[] } | unknown[];
+    const devices = Array.isArray(root)
+      ? root
+      : root?.MediaContainer?.Device ?? root?.devices ?? [];
+    const match = devices.find((raw) => {
+      const device = raw as { clientIdentifier?: unknown; machineIdentifier?: unknown };
+      return String(device.clientIdentifier ?? device.machineIdentifier ?? "") === machineIdentifier;
+    }) as { accessToken?: unknown; token?: unknown } | undefined;
+    const token = match?.accessToken ?? match?.token;
+    return typeof token === "string" && token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function testPlexServer(cfg: PlexServerConfig): Promise<boolean> {
+  if (!cfg.hostname) return false;
+  try {
+    const res = await fetch(`${serverBase(cfg)}/identity`, {
+      headers: cfg.adminToken ? { "x-plex-token": cfg.adminToken } : {},
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** A user's real Plex watchlist (plex.tv Discover, separate from the media server itself). */
+export async function getPlexWatchlist(userToken: string): Promise<PlexWatchlistItem[]> {
+  const cfg = loadPlexConfig();
+  try {
+    const url = new URL("https://discover.provider.plex.tv/library/sections/watchlist/all");
+    url.searchParams.set("includeExternalMedia", "1");
+    url.searchParams.set("includeCollections", "1");
+    const res = await fetchWithTimeout(url.toString(), {
+      headers: headers(cfg.clientId, {
+        "x-plex-token": userToken,
+        "x-plex-sync-version": "2",
+        "x-plex-features": "external-media",
+      }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      console.error(`[PlexWatchlist] HTTP ${res.status} — sync skipped`);
+      return [];
+    }
+    const data = await res.json();
+    const items: RawWatchlistItem[] = data?.MediaContainer?.Metadata ?? [];
+    return items
+      .map((item) => {
+        const guids: string[] = (item.Guid ?? []).map((g) => g.id);
+        const tmdbGuid = guids.find((g) => g.startsWith("tmdb://"));
+        const tmdbId = tmdbGuid ? Number(tmdbGuid.replace("tmdb://", "")) : null;
+        return {
+          title: item.title,
+          type: item.type === "show" ? ("series" as const) : ("movie" as const),
+          tmdbId,
+        };
+      })
+      .filter((item) => item.tmdbId != null);
+  } catch (e) {
+    console.error(`[PlexWatchlist] fetch failed:`, e);
+    return [];
+  }
+}
+
+interface RawWatchlistItem {
+  title: string;
+  type: string;
+  Guid?: { id: string }[];
+}
+
+// ---------------------------------------------------------------------------
+// Media-server library scanning — the pieces that let Movviz match/import a
+// real Plex library against its own records, and read per-account watch state.
+// ---------------------------------------------------------------------------
+
+function serverBase(cfg: PlexServerConfig): string {
+  // safePlexUrl blocks loopback/link-local (SSRF rule in AGENTS.md) —
+  // identical to the stream/activity call sites; a config pointing at
+  // localhost gets rejected here instead of being fetched.
+  const origin = safePlexUrl(cfg.hostname);
+  if (origin) {
+    if (new URL(origin).port) return origin;
+    return `${origin}:${cfg.port}`;
+  }
+  return `${cfg.useSsl ? "https" : "http"}://${cfg.hostname}:${cfg.port}`;
+}
+
+function serverHeaders(cfg: PlexServerConfig, token: string, managedUserId?: string) {
+  return headers(cfg.clientId, {
+    "x-plex-token": token,
+    ...(managedUserId ? { "X-Plex-Profile": managedUserId } : {}),
+  });
+}
+
+function extractTmdbId(guids: { id: string }[] | undefined): number | null {
+  const g = (guids ?? []).find((x) => x.id.startsWith("tmdb://"));
+  return g ? Number(g.id.replace("tmdb://", "")) : null;
+}
+
+/**
+ * Old-style single `guid` field (legacy Plex agents). Items matched by the
+ * pre-2021 agents never get the new `Guid[]` array — their only external
+ * identifier lives here, e.g. `com.plexapp.agents.thetvdb://80741?lang=fr`.
+ */
+function externalIdsFromLegacyGuid(legacyGuid: string | undefined): { imdb: string | null; tvdb: string | null; tmdb: number | null } {
+  const none = { imdb: null, tvdb: null, tmdb: null };
+  if (!legacyGuid) return none;
+  const m = legacyGuid.match(/^com\.plexapp\.agents\.(thetvdb|imdb|tmdb):\/\/([^?#]+)/);
+  if (!m) return none;
+  const [, agent, rawId] = m;
+  if (agent === "thetvdb") return { imdb: null, tvdb: rawId, tmdb: null };
+  if (agent === "tmdb") return { imdb: null, tvdb: null, tmdb: Number(rawId) || null };
+  return { imdb: rawId, tvdb: null, tmdb: null };
+}
+
+/**
+ * Plex GUID → TMDb id, with fallbacks for servers whose agent doesn't use
+ * TMDb. `tmdb://` resolves instantly (either in the `Guid[]` array or in the
+ * legacy `guid` string); otherwise the `imdb://`/`tvdb://` external ids are
+ * looked up through TMDb's `/find` endpoint (cached). When several candidates
+ * come back (TMDb duplicate entries for one title), the one that already
+ * exists in the Movviz library wins — that's the record the user owns.
+ * Returns null when nothing usable resolves; callers then skip the item.
+ */
+async function resolveTmdbId(
+  guids: { id: string }[] | undefined,
+  legacyGuid: string | undefined,
+  kind: "movie" | "series"
+): Promise<number | null> {
+  const direct = extractTmdbId(guids);
+  if (direct != null) return direct;
+
+  const legacy = externalIdsFromLegacyGuid(legacyGuid);
+  if (legacy.tmdb != null) return legacy.tmdb;
+
+  const list = guids ?? [];
+  const guidImdb = list.find((g) => g.id.startsWith("imdb://"))?.id.slice("imdb://".length);
+  const guidTvdb = list.find((g) => g.id.startsWith("tvdb://"))?.id.slice("tvdb://".length);
+  const imdb = guidImdb ?? legacy.imdb;
+  const tvdb = guidTvdb ?? legacy.tvdb;
+  if (!imdb && !tvdb) return null;
+
+  const [foundImdb, foundTvdb] = await Promise.all([
+    imdb ? findByExternalId("imdb_id", imdb) : Promise.resolve(null),
+    tvdb ? findByExternalId("tvdb_id", tvdb) : Promise.resolve(null),
+  ]);
+
+  const wanted = kind === "series" ? "series" : "movies";
+  const candidates = [
+    ...(foundTvdb?.[wanted] ?? []),
+    ...(foundImdb?.[wanted] ?? []),
+    ...(kind === "series" ? (foundImdb?.movies ?? []) : (foundTvdb?.series ?? [])),
+  ];
+  const unique = [...new Set(candidates)];
+  if (unique.length === 0) return null;
+
+  const { getMovieByTmdbId, getSeriesByTmdbId } = await import("@/lib/library/store");
+  const owned = unique.find((id) => (kind === "series" ? getSeriesByTmdbId(id) : getMovieByTmdbId(id)));
+  return owned ?? unique[0];
+}
+
+/** Debug hook used by /api/plex/diagnostic — same resolution as the sync. */
+export async function resolveTmdbIdForDebug(
+  guids: { id: string }[] | undefined,
+  legacyGuid: string | undefined,
+  kind: "movie" | "series"
+): Promise<number | null> {
+  return resolveTmdbId(guids, legacyGuid, kind);
+}
+
+/**
+ * The detail endpoint is the only one guaranteed to return the `Guid[]`
+ * array (list endpoints only include it with `includeExternalMedia`). Used by
+ * the diagnostic to show what the sync really resolves from.
+ */
+export async function getRawItemDetail(
+  cfg: PlexServerConfig,
+  ratingKey: string,
+  token: string,
+  managedUserId?: string
+): Promise<RawLibraryItem | null> {
+  try {
+    const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${ratingKey}`, {
+      headers: serverHeaders(cfg, token, managedUserId),
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.MediaContainer?.Metadata?.[0] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+interface RawStream {
+  streamType: number;
+  codec?: string;
+  bitDepth?: number;
+  chromaSubsampling?: string;
+  frameRate?: number;
+  width?: number;
+  height?: number;
+  channels?: number;
+  audioChannelLayout?: string;
+  bitrate?: number;
+  language?: string;
+  languageCode?: string;
+  title?: string;
+  selected?: boolean;
+  forced?: boolean;
+}
+interface RawMediaPart {
+  file?: string;
+  size?: number;
+  Stream?: RawStream[];
+}
+interface RawMedia {
+  videoResolution?: string;
+  bitrate?: number;
+  container?: string;
+  videoFrameRate?: string;
+  width?: number;
+  height?: number;
+  Part?: RawMediaPart[];
+}
+interface RawChapter {
+  title?: string;
+  startTimeOffset: number;
+}
+interface RawLibraryItem {
+  ratingKey: string;
+  title: string;
+  year?: number;
+  type?: string;
+  viewCount?: number;
+  addedAt?: number;
+  updatedAt?: number;
+  guid?: string;
+  Guid?: { id: string }[];
+  Media?: RawMedia[];
+  Chapter?: RawChapter[];
+  parentIndex?: number; // season number, on episodes
+  index?: number; // episode number, on episodes
+}
+
+// Maps from Plex API codec names to the labels we display.
+const VIDEO_CODEC_LABEL: Record<string, string> = {
+  hevc: "HEVC",
+  h265: "H.265",
+  h264: "H.264",
+  av1: "AV1",
+  vc1: "VC-1",
+  mpeg2video: "MPEG-2",
+  mpeg4: "DivX",
+  wmv3: "WMV",
+};
+const AUDIO_CODEC_LABEL: Record<string, string> = {
+  dca: "DTS",
+  truehd: "TrueHD",
+  eac3: "EAC3",
+  ac3: "AC3",
+  aac: "AAC",
+  flac: "FLAC",
+  opus: "OPUS",
+  mp3: "MP3",
+  pcm: "PCM",
+  dts: "DTS",
+};
+
+function parseStreamInfo(media: RawMedia[] | undefined, index = 0): { videoCodec: string | null; audioCodec: string | null; hdr: string | null } {
+  if (!media?.[index]?.Part?.[0]?.Stream) return { videoCodec: null, audioCodec: null, hdr: null };
+  const streams = media[index].Part![0].Stream!;
+  let videoCodec: string | null = null;
+  let audioCodec: string | null = null;
+  let hdr: string | null = null;
+  let bitDepth = 0;
+
+  for (const s of streams) {
+    if (s.streamType === 1) {
+      const raw = s.codec?.toLowerCase() ?? "";
+      videoCodec = raw ? (VIDEO_CODEC_LABEL[raw] ?? raw.toUpperCase()) : null;
+      bitDepth = s.bitDepth ?? 0;
+    } else if (s.streamType === 2) {
+      const raw = s.codec?.toLowerCase() ?? "";
+      let label = raw ? (AUDIO_CODEC_LABEL[raw] ?? raw.toUpperCase()) : null;
+      // DTS: differentiate DTS-HD/DTS-X from plain DTS based on channel layout
+      if (raw === "dca" && s.audioChannelLayout) {
+        const layout = s.audioChannelLayout.toLowerCase();
+        if (layout.includes("7.1") || layout.includes("6.1")) label = "DTS-HD";
+        if (layout.includes("x") || layout.includes("xllx")) label = "DTS-X";
+      }
+      audioCodec = label;
+    }
+  }
+
+  // HDR detection: bitDepth 10 on the video stream strongly suggests HDR
+  if (bitDepth >= 10 && videoCodec) {
+    hdr = "HDR10";
+    // Dolby Vision can sometimes be detected from the codec string
+    const videoStream = streams.find((s) => s.streamType === 1);
+    if (videoStream?.codec?.toLowerCase().includes("dvhe") || videoStream?.codec?.toLowerCase().includes("dvh1")) {
+      hdr = "Dolby Vision";
+    }
+  }
+
+  return { videoCodec, audioCodec, hdr };
+}
+
+function parseChapters(raw: RawChapter[] | undefined): PlexChapter[] {
+  if (!raw) return [];
+  return raw.map((c) => ({
+    title: c.title || null,
+    startTimeOffset: c.startTimeOffset,
+  }));
+}
+
+export function parseMediaDetail(item: RawLibraryItem): PlexMediaInfo {
+  const media = item.Media?.[0] ?? null;
+  const streams = media?.Part?.[0]?.Stream ?? [];
+  const videoStreams: PlexVideoStream[] = [];
+  const audioStreams: PlexAudioStream[] = [];
+  const subtitleStreams: PlexSubtitleStream[] = [];
+
+  for (const s of streams) {
+    if (s.streamType === 1) {
+      const raw = s.codec?.toLowerCase() ?? "";
+      videoStreams.push({
+        codec: raw ? (VIDEO_CODEC_LABEL[raw] ?? raw.toUpperCase()) : "",
+        bitDepth: s.bitDepth ?? null,
+        chromaSubsampling: s.chromaSubsampling ?? null,
+        frameRate: s.frameRate?.toString() ?? null,
+        width: s.width ?? null,
+        height: s.height ?? null,
+        language: s.language ?? s.languageCode ?? null,
+      });
+    } else if (s.streamType === 2) {
+      const raw = s.codec?.toLowerCase() ?? "";
+      let label = raw ? (AUDIO_CODEC_LABEL[raw] ?? raw.toUpperCase()) : "";
+      if (raw === "dca" && s.audioChannelLayout) {
+        const layout = s.audioChannelLayout.toLowerCase();
+        if (layout.includes("7.1") || layout.includes("6.1")) label = "DTS-HD";
+        if (layout.includes("x") || layout.includes("xllx")) label = "DTS-X";
+      }
+      audioStreams.push({
+        codec: label,
+        channels: s.channels ?? null,
+        layout: s.audioChannelLayout ?? null,
+        bitrate: s.bitrate ?? null,
+        language: s.language ?? s.languageCode ?? null,
+        title: s.title ?? null,
+        selected: s.selected ?? false,
+      });
+    } else if (s.streamType === 3) {
+      subtitleStreams.push({
+        codec: s.codec ?? "",
+        language: s.language ?? s.languageCode ?? null,
+        title: s.title ?? null,
+        forced: s.forced ?? false,
+        selected: s.selected ?? false,
+      });
+    }
+  }
+
+  return {
+    container: media?.container ?? null,
+    bitrate: media?.bitrate ?? null,
+    videoStreams,
+    audioStreams,
+    subtitleStreams,
+    chapters: parseChapters(item.Chapter),
+  };
+}
+
+const RESOLUTION_MAP: Record<string, string> = { "4k": "2160p", "1080": "1080p", "720": "720p", "480": "480p" };
+
+function parseFileAt(item: RawLibraryItem, index: number): PlexLibraryItem["file"] {
+  const media = item.Media?.[index];
+  const part = media?.Part?.[0];
+  if (!part?.file) return null;
+  return {
+    path: part.file,
+    size: part.size ?? 0,
+    resolution: media?.videoResolution ? (RESOLUTION_MAP[media.videoResolution] ?? null) : null,
+  };
+}
+
+function parseFile(item: RawLibraryItem): PlexLibraryItem["file"] {
+  return parseFileAt(item, 0);
+}
+
+/**
+ * Plex exposes every version of a movie under the SAME item's `Media[]`
+ * array (e.g. a 2160p HDR10 entry and a 1080p VF entry side by side) — the
+ * rest of this file only ever reads `Media[0]`, which is exactly the
+ * "Plex sync silently drops every version but one" gap LOT6.4 fixes.
+ * Returns one entry per `Media[]` index that actually has a resolvable
+ * file, in Plex's own order (index 0 stays whatever Plex considers primary).
+ */
+export function parseAllMediaVersions(item: RawLibraryItem): PlexMediaVersion[] {
+  const count = item.Media?.length ?? 0;
+  const versions: PlexMediaVersion[] = [];
+  for (let i = 0; i < count; i++) {
+    const file = parseFileAt(item, i);
+    if (!file) continue;
+    versions.push({ file, ...parseStreamInfo(item.Media, i) });
+  }
+  return versions;
+}
+
+function mapItem(item: RawLibraryItem, info: BatchItemInfo | null): PlexLibraryItem {
+  return {
+    ratingKey: item.ratingKey,
+    tmdbId: info?.tmdbId ?? null,
+    title: item.title,
+    year: item.year ?? null,
+    viewCount: item.viewCount ?? 0,
+    addedAt: item.addedAt ?? 0,
+    updatedAt: item.updatedAt ?? item.addedAt ?? 0,
+    file: parseFile(item),
+    videoCodec: info?.videoCodec ?? null,
+    audioCodec: info?.audioCodec ?? null,
+    hdr: info?.hdr ?? null,
+    mediaDetail: info?.mediaDetail ?? null,
+    mediaVersions: info?.mediaVersions?.length ? info.mediaVersions : undefined,
+  };
+}
+
+/** The Plex web app deep link that opens this item straight from a browser tab. */
+export function buildPlexWebUrl(machineIdentifier: string, ratingKey: string): string {
+  const key = encodeURIComponent(`/library/metadata/${ratingKey}`);
+  return `https://app.plex.tv/desktop/#!/server/${machineIdentifier}/details?key=${key}`;
+}
+
+/** The server's own identity — needed to build "Watch on Plex" deep links (app.plex.tv/.../server/{id}/...). */
+export async function getServerIdentity(cfg: PlexServerConfig): Promise<string | null> {
+  try {
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/identity`, { headers: { accept: "application/json" }, cache: "no-store" });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data?.MediaContainer?.machineIdentifier ?? null;
+  } catch {
+    return null;
+  }
+}
+
+interface BatchItemInfo {
+  tmdbId: number | null;
+  videoCodec: string | null;
+  audioCodec: string | null;
+  hdr: string | null;
+  mediaDetail: PlexMediaInfo;
+  /** Only set when Plex reports more than one Media entry for this item — see parseAllMediaVersions. */
+  mediaVersions: PlexMediaVersion[];
+}
+
+/**
+ * The bulk list endpoints (`/all`, `/allLeaves`) never include the `Guid`
+ * array of external ids (tmdb/imdb/tvdb) on servers using Plex's newer
+ * agents — only per-item (or batched) metadata lookups do. Batch ratingKeys
+ * into `/library/metadata/{k1,k2,...}` calls to resolve them without one
+ * request per title. Also parses codec/HDR from the stream info that only
+ * the detail endpoint returns.
+ */
+export async function batchTmdbIds(cfg: PlexServerConfig, token: string, ratingKeys: string[], managedUserId?: string): Promise<Map<string, BatchItemInfo>> {
+  const result = new Map<string, BatchItemInfo>();
+  const chunkSize = 50;
+  for (let i = 0; i < ratingKeys.length; i += chunkSize) {
+    const chunk = ratingKeys.slice(i, i + chunkSize);
+    try {
+      const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${chunk.join(",")}`, {
+        headers: serverHeaders(cfg, token, managedUserId),
+        cache: "no-store",
+      });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const raw: RawLibraryItem[] = data?.MediaContainer?.Metadata ?? [];
+      for (const item of raw) {
+        const info = parseStreamInfo(item.Media);
+        const mediaVersions = parseAllMediaVersions(item);
+        result.set(item.ratingKey, {
+          tmdbId: await resolveTmdbId(item.Guid, item.guid, item.type === "show" ? "series" : "movie"),
+          ...info,
+          mediaDetail: parseMediaDetail(item),
+          mediaVersions: mediaVersions.length > 1 ? mediaVersions : [],
+        });
+      }
+    } catch {
+      continue;
+    }
+  }
+  return result;
+}
+
+/** Ask the server to rescan a section now, instead of waiting for its own periodic scan interval. Best-effort. */
+export async function refreshSection(cfg: PlexServerConfig, token: string, sectionKey: string): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/library/sections/${sectionKey}/refresh`, {
+      method: "GET",
+      headers: serverHeaders(cfg, token),
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Deletes a single library item (movie, show, or episode) from Plex —
+ * used only when a user permanently empties a Movviz trash entry that came
+ * from a confirmed on-disk deletion, so Plex's own library sync doesn't
+ * resurrect it on the next scan (it re-adds anything it still reports, see
+ * syncMovieSection). Best-effort: never throws, caller shouldn't block the
+ * local trash deletion on this succeeding.
+ */
+export async function deletePlexItem(cfg: PlexServerConfig, token: string, ratingKey: string): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/library/metadata/${ratingKey}`, {
+      method: "DELETE",
+      headers: serverHeaders(cfg, token),
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Marks a single library item watched/unwatched — Plex's real scrobble API
+ * (`/:/scrobble` and `/:/unscrobble`, both GET requests despite the verb-
+ * like names). Whichever account authenticates the request (this call's
+ * `token`, or the admin token + `managedUserId` for a Home-managed profile)
+ * is the one whose watched state changes — this is how every real Plex
+ * client (web/mobile/TV) reports per-account playback, DIFFERENT from the
+ * read-side `viewCount` quirk documented in watchSync.ts (which always
+ * reflects the server owner regardless of token). Expected to scope
+ * correctly per-account on Plex's side, but this codebase has never called
+ * it before this feature — verify against a real secondary Plex account
+ * before trusting it fully (see plex/watchWrite.ts's logging). Best-effort:
+ * returns false on any failure, never throws.
+ */
+export async function setPlexWatched(cfg: PlexServerConfig, token: string, ratingKey: string, watched: boolean, managedUserId?: string): Promise<boolean> {
+  try {
+    const params = new URLSearchParams({ key: ratingKey, identifier: "com.plexapp.plugins.library" });
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/:/${watched ? "scrobble" : "unscrobble"}?${params}`, {
+      method: "GET",
+      headers: serverHeaders(cfg, token, managedUserId),
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Plex's own "Remove from Continue Watching" action (the same one its web/
+ *  mobile apps expose on a long-press/context menu) — resets the item's
+ *  progress without marking it watched, so it drops off On Deck but a real
+ *  next play starts from the beginning rather than resuming. */
+export async function removePlexFromContinueWatching(cfg: PlexServerConfig, token: string, ratingKey: string, managedUserId?: string): Promise<boolean> {
+  try {
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/actions/removeFromContinueWatching?${new URLSearchParams({ ratingKey })}`, {
+      method: "GET",
+      headers: serverHeaders(cfg, token, managedUserId),
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Movie and show sections configured on the server — the entry point for a library scan. */
+export interface PlexOnDeckItem {
+  ratingKey: string;
+  type: "movie" | "episode";
+  /** The show's own ratingKey, present only on an episode item — this is
+   *  what actually maps back to Movviz's library (a series is looked up by
+   *  its episode's plexRatingKey, not the show's, since that's what
+   *  identifies which single episode is "next up"). */
+  grandparentRatingKey?: string;
+  viewOffset: number;
+  duration: number;
+}
+
+/**
+ * Server-wide "Continue Watching" list — reflects whatever Plex itself
+ * considers in-progress, updated both by real Plex clients AND by Movviz's
+ * own player (see /api/stream/[ratingKey]/progress, which reports back to
+ * this same server-side state via `/:/progress`). Deliberately returns only
+ * the bare fields needed to cross-reference against Movviz's own library
+ * (by plexRatingKey) — richer metadata (poster, title, tmdbId) always comes
+ * from Movviz's own store once matched, never duplicated here.
+ */
+export async function getPlexOnDeck(cfg: PlexServerConfig, token: string, managedUserId?: string): Promise<PlexOnDeckItem[]> {
+  try {
+    const res = await fetchWithRetry(`${serverBase(cfg)}/library/onDeck`, { headers: serverHeaders(cfg, token, managedUserId), cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw: { ratingKey: string; type?: string; grandparentRatingKey?: string; viewOffset?: number; duration?: number }[] = data?.MediaContainer?.Metadata ?? [];
+    return raw
+      .filter((item): item is typeof item & { type: "movie" | "episode" } => item.type === "movie" || item.type === "episode")
+      .map((item) => ({
+        ratingKey: item.ratingKey,
+        type: item.type,
+        grandparentRatingKey: item.grandparentRatingKey,
+        viewOffset: item.viewOffset ?? 0,
+        duration: item.duration ?? 0,
+      }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getLibrarySections(cfg: PlexServerConfig, token: string, managedUserId?: string): Promise<PlexSection[]> {
+  try {
+    // The one Plex server call left on a plain fetch() with no timeout —
+    // confirmed live as the actual cause of "Synchronisation des vues Plex"
+    // hanging indefinitely (5+ minutes and still running) and starving the
+    // whole job queue: one user with a stalled/unreachable connection here
+    // blocks forever, since nothing ever aborts the request.
+    const res = await fetchWithRetry(`${serverBase(cfg)}/library/sections`, { headers: serverHeaders(cfg, token, managedUserId), cache: "no-store" });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const dirs: { key: string; type: string; title: string }[] = data?.MediaContainer?.Directory ?? [];
+    return dirs
+      .filter((d) => d.type === "movie" || d.type === "show")
+      .map((d) => ({ key: d.key, type: d.type as "movie" | "show", title: d.title }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Paginated fetch of every raw item directly in a section (movies, or shows
+ * themselves — not episodes). When `sinceUnixSeconds` is given, sorts newest
+ * (by updatedAt — new episodes/file changes bump it, not just new adds) first
+ * and stops as soon as a page's items fall behind the watermark instead of
+ * paginating the whole library — the classic "recently added" watermark trick.
+ */
+export async function getSectionRawItems(
+  cfg: PlexServerConfig,
+  sectionKey: string,
+  token: string,
+  opts?: { sinceUnixSeconds?: number },
+  managedUserId?: string
+): Promise<RawLibraryItem[]> {
+  const raw: RawLibraryItem[] = [];
+  const pageSize = 200;
+  let start = 0;
+  const incremental = opts?.sinceUnixSeconds != null;
+  // A stalled/failed page stops pagination but keeps whatever was already
+  // collected — much better than one slow page silently discarding an
+  // otherwise-successful scan of a large library.
+  for (;;) {
+    let page: RawLibraryItem[];
+    let total: number;
+    try {
+      const url = new URL(`${serverBase(cfg)}/library/sections/${sectionKey}/all`);
+      if (incremental) url.searchParams.set("sort", "updatedAt:desc");
+      url.searchParams.set("includeExternalMedia", "1");
+      const res = await fetchWithRetry(url.toString(), {
+        headers: {
+          ...serverHeaders(cfg, token, managedUserId),
+          "X-Plex-Container-Start": String(start),
+          "X-Plex-Container-Size": String(pageSize),
+        },
+        cache: "no-store",
+      });
+      if (!res.ok) break;
+      const data = await res.json();
+      page = data?.MediaContainer?.Metadata ?? [];
+      total = data?.MediaContainer?.totalSize ?? page.length;
+    } catch {
+      break;
+    }
+    if (incremental) {
+      const fresh = page.filter((i) => (i.updatedAt ?? i.addedAt ?? 0) >= opts!.sinceUnixSeconds!);
+      raw.push(...fresh);
+      // Sorted newest-first: once a page yields nothing fresh, everything after is older too.
+      if (fresh.length < page.length) break;
+    } else {
+      raw.push(...page);
+    }
+    start += page.length;
+    if (page.length === 0 || start >= total) break;
+  }
+  return raw;
+}
+
+export async function getSectionItems(
+  cfg: PlexServerConfig,
+  sectionKey: string,
+  token: string,
+  opts?: { sinceUnixSeconds?: number },
+  managedUserId?: string
+): Promise<PlexLibraryItem[]> {
+  const raw = await getSectionRawItems(cfg, sectionKey, token, opts, managedUserId);
+  const infos = await batchTmdbIds(cfg, token, raw.map((i) => i.ratingKey), managedUserId);
+  return raw.map((item) => mapItem(item, infos.get(item.ratingKey) ?? null));
+}
+
+/** Every episode of a show, flattened with season/episode numbers — one call, no per-season walk needed. */
+export async function getShowEpisodes(cfg: PlexServerConfig, showRatingKey: string, token: string, managedUserId?: string): Promise<PlexEpisodeItem[]> {
+  try {
+    const res = await fetchWithRetry(`${serverBase(cfg)}/library/metadata/${showRatingKey}/allLeaves`, {
+      headers: serverHeaders(cfg, token, managedUserId),
+      cache: "no-store",
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw: RawLibraryItem[] = data?.MediaContainer?.Metadata ?? [];
+    return raw
+      .filter((e) => e.parentIndex != null && e.index != null)
+      .map((e) => {
+        const streams = parseStreamInfo(e.Media);
+        return {
+          ...mapItem(e, { tmdbId: null, ...streams, mediaDetail: parseMediaDetail(e), mediaVersions: [] }),
+          seasonNumber: e.parentIndex!,
+          episodeNumber: e.index!,
+        };
+      });
+  } catch {
+    return [];
+  }
+}
+
+export interface PlexHistoryEntry {
+  ratingKey: string;
+  type: "movie" | "episode";
+  grandparentRatingKey?: string; // show, for episodes
+  season?: number;
+  episode?: number;
+  title?: string; // movie title
+  grandparentTitle?: string; // show title, for episodes
+  viewedAt?: number; // epoch ms — "quoi + quand"
+  /** Account Plex that created this event, returned by PMS itself. */
+  accountId?: number;
+}
+
+interface RawHistoryItem {
+  ratingKey: string;
+  type?: string;
+  grandparentRatingKey?: string;
+  grandparentTitle?: string;
+  parentIndex?: number;
+  index?: number;
+  title?: string;
+  viewedAt?: number;
+  accountID?: number | string;
+}
+
+export interface PlexAccountHistoryResult {
+  entries: PlexHistoryEntry[];
+  /** Events explicitly owned by a different Plex account and rejected. */
+  rejectedForeignEntries: number;
+  /** Older/invalid responses without accountID are never trusted. */
+  rejectedUnattributedEntries: number;
+}
+
+/**
+ * Every playback-history entry for one Plex account (movies + episodes),
+ * paginated, newest first.
+ *
+ * Confirmed against Plex's own documented behavior: `viewCount` on the
+ * regular library-listing endpoints (`/library/sections/.../all`,
+ * `/library/metadata/{id}/allLeaves`) always reflects the SERVER OWNER's
+ * own view state — no matter which valid account's token authenticates the
+ * request. That's not a Movviz bug or a token mix-up (verified live:
+ * several friend accounts each carry a genuinely distinct plexId/token, yet
+ * all came back with the owner's exact counts). The session-history
+ * endpoint is the one that actually tracks per-account viewing and can be
+ * filtered by `accountID` — but it only works with the admin/owner token
+ * (the only credential allowed to see server-wide history at all), never
+ * the target account's own token. This replaces the previous per-token
+ * section-scan approach entirely, for both friend and Home-managed
+ * accounts alike — one mechanism instead of two.
+ */
+export async function getAccountHistory(cfg: PlexServerConfig, adminToken: string, accountId: number): Promise<PlexAccountHistoryResult> {
+  const out: PlexHistoryEntry[] = [];
+  let rejectedForeignEntries = 0;
+  let rejectedUnattributedEntries = 0;
+  const pageSize = 200;
+  let start = 0;
+  for (;;) {
+    let page: RawHistoryItem[];
+    let total: number;
+    try {
+      const url = new URL(`${serverBase(cfg)}/status/sessions/history/all`);
+      url.searchParams.set("accountID", String(accountId));
+      url.searchParams.set("sort", "viewedAt:desc");
+      const res = await fetchWithRetry(url.toString(), {
+        headers: {
+          ...serverHeaders(cfg, adminToken),
+          "X-Plex-Container-Start": String(start),
+          "X-Plex-Container-Size": String(pageSize),
+        },
+        cache: "no-store",
+      });
+      if (!res.ok) break;
+      const data = await res.json();
+      page = data?.MediaContainer?.Metadata ?? [];
+      total = data?.MediaContainer?.totalSize ?? data?.MediaContainer?.size ?? page.length;
+    } catch {
+      break;
+    }
+    for (const item of page) {
+      // PMS documents accountID in each history entry.  Never rely only on
+      // the query parameter: a buggy/proxied response that ignores it must
+      // not become this Movviz user's private watched history.
+      const eventAccountId = Number(item.accountID);
+      if (!Number.isSafeInteger(eventAccountId) || eventAccountId <= 0) {
+        rejectedUnattributedEntries++;
+        continue;
+      }
+      if (eventAccountId !== accountId) {
+        rejectedForeignEntries++;
+        continue;
+      }
+      if (item.type === "movie") {
+        out.push({ ratingKey: item.ratingKey, type: "movie", title: item.title, viewedAt: item.viewedAt, accountId: eventAccountId });
+      } else if (item.type === "episode" && item.grandparentRatingKey && item.parentIndex != null && item.index != null) {
+        out.push({
+          ratingKey: item.ratingKey,
+          type: "episode",
+          grandparentRatingKey: item.grandparentRatingKey,
+          grandparentTitle: item.grandparentTitle,
+          season: item.parentIndex,
+          episode: item.index,
+          viewedAt: item.viewedAt,
+          accountId: eventAccountId,
+        });
+      }
+    }
+    start += page.length;
+    if (page.length === 0 || start >= total) break;
+  }
+  return { entries: out, rejectedForeignEntries, rejectedUnattributedEntries };
+}
+
+// ─── Plex native collections ──────────────────────────────────────────────────
+
+interface RawCollectionItem {
+  ratingKey: string;
+  title: string;
+  childCount?: number;
+  thumb?: string;
+}
+
+/** All native Plex collections across every movie section on the server. */
+export async function getPlexCollections(cfg: PlexServerConfig): Promise<PlexCollectionSummary[]> {
+  const token = cfg.adminToken;
+  if (!token) return [];
+
+  try {
+    const sections = await getLibrarySections(cfg, token);
+    const movieSections = sections.filter((s) => s.type === "movie");
+
+    const results: PlexCollectionSummary[] = [];
+    for (const section of movieSections) {
+      try {
+        const res = await fetchWithRetry(
+          `${serverBase(cfg)}/library/sections/${section.key}/collection`,
+          { headers: serverHeaders(cfg, token), cache: "no-store" },
+        );
+        if (!res.ok) continue;
+        const data = await res.json();
+        const items: RawCollectionItem[] = data?.MediaContainer?.Metadata ?? [];
+        for (const item of items) {
+          results.push({
+            ratingKey: item.ratingKey,
+            title: item.title,
+            thumb: item.thumb ?? null,
+            childCount: item.childCount ?? 0,
+            sectionKey: section.key,
+          });
+        }
+      } catch {
+        continue;
+      }
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
+/** Every item in a Plex native collection, with TMDb ids resolved via batch lookup. */
+export async function getPlexCollectionChildren(
+  cfg: PlexServerConfig,
+  collectionRatingKey: string,
+  token: string,
+): Promise<PlexLibraryItem[]> {
+  try {
+    const res = await fetchWithRetry(
+      `${serverBase(cfg)}/library/collections/${collectionRatingKey}/children`,
+      { headers: serverHeaders(cfg, token), cache: "no-store" },
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    const raw: RawLibraryItem[] = data?.MediaContainer?.Metadata ?? [];
+    const infos = await batchTmdbIds(cfg, token, raw.map((i) => i.ratingKey));
+    return raw.map((item) => mapItem(item, infos.get(item.ratingKey) ?? null));
+  } catch {
+    return [];
+  }
+}
+
+export interface PlexCollectionDetail {
+  title: string;
+  posterPath: string | null;
+  children: PlexLibraryItem[];
+}
+
+/** Plex-native collection detail — title, poster and every item with TMDb ids resolved. */
+export async function getPlexCollectionDetail(
+  cfg: PlexServerConfig,
+  collectionRatingKey: string,
+  token: string,
+): Promise<PlexCollectionDetail | null> {
+  try {
+    const res = await fetchWithRetry(
+      `${serverBase(cfg)}/library/collections/${collectionRatingKey}/children`,
+      { headers: serverHeaders(cfg, token), cache: "no-store" },
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const title = data?.MediaContainer?.title2 ?? data?.MediaContainer?.title ?? "";
+    const posterPath = data?.MediaContainer?.thumb ?? null;
+    const raw: RawLibraryItem[] = data?.MediaContainer?.Metadata ?? [];
+    const infos = await batchTmdbIds(cfg, token, raw.map((i) => i.ratingKey));
+    const children = raw.map((item) => mapItem(item, infos.get(item.ratingKey) ?? null));
+    return { title, posterPath, children };
+  } catch {
+    return null;
+  }
+}
+
+// ── Markers intro/credits (batch includeMarkers=1) ──────────────────────────
+
+export type PlexMarkerFetchResult =
+  | { ok: true; ratingKey: string; markers: PlexMarker[] }
+  | { ok: false; ratingKey: string; error: string };
+
+interface RawPlexMarker {
+  id?: string | number;
+  type?: string;
+  startTimeOffset?: number;
+  endTimeOffset?: number;
+  final?: boolean;
+  version?: number;
+}
+
+/** Récupération BATCH des markers Plex — `includeMarkers=1` sur l'endpoint
+ *  metadata groupé, même mécanique que batchTmdbIds (chunks de 50, jamais
+ *  une requête par média). Toujours appelé avec `cfg.adminToken` : les
+ *  markers sont des métadonnées du MÉDIA sur le serveur, pas des données de
+ *  profil — jamais le token du compte Movviz courant, jamais un profil
+ *  Plex Home. La distinction ok:false est CRITIQUE pour l'appelant :
+ *  erreur ≠ zéro marker (voir markerSync.ts — une panne Plex ne supprime
+ *  jamais les données locales). */
+export async function batchMarkers(
+  cfg: PlexServerConfig,
+  adminToken: string,
+  ratingKeys: string[],
+): Promise<Map<string, PlexMarkerFetchResult>> {
+  const result = new Map<string, PlexMarkerFetchResult>();
+  const chunkSize = 50;
+  for (let i = 0; i < ratingKeys.length; i += chunkSize) {
+    const chunk = ratingKeys.slice(i, i + chunkSize);
+    let batchFailed = false;
+    let batchError = "unknown";
+    try {
+      const res = await fetchWithRetry(
+        `${serverBase(cfg)}/library/metadata/${chunk.join(",")}?includeMarkers=1`,
+        { headers: serverHeaders(cfg, adminToken), cache: "no-store" },
+      );
+      if (!res.ok) {
+        batchFailed = true;
+        batchError = `HTTP ${res.status}`;
+      } else {
+        const data = await res.json();
+        const rawItems: Array<{ ratingKey?: string; Marker?: RawPlexMarker[] }> =
+          data?.MediaContainer?.Metadata ?? [];
+        const byKey = new Map(rawItems.filter((x) => x.ratingKey).map((x) => [String(x.ratingKey), x]));
+        for (const key of chunk) {
+          const item = byKey.get(key);
+          if (!item) {
+            // Média absent de la réponse groupée : Plex ne le reconnaît pas
+            // (supprimé/ratingKey invalide) — erreur, PAS "zéro marker".
+            result.set(key, { ok: false, ratingKey: key, error: "not_in_response" });
+            continue;
+          }
+          const rawMarkers = Array.isArray(item.Marker) ? item.Marker : [];
+          const markers: PlexMarker[] = [];
+          for (const m of rawMarkers) {
+            if (typeof m.startTimeOffset !== "number" || typeof m.endTimeOffset !== "number") continue;
+            markers.push({
+              id: m.id != null ? String(m.id) : null,
+              type: String(m.type ?? ""),
+              startTimeOffset: m.startTimeOffset,
+              endTimeOffset: m.endTimeOffset,
+              final: Boolean(m.final),
+              version: typeof m.version === "number" ? m.version : null,
+            });
+          }
+          result.set(key, { ok: true, ratingKey: key, markers });
+        }
+      }
+    } catch (e) {
+      batchFailed = true;
+      batchError = e instanceof Error ? e.message : String(e);
+    }
+    if (batchFailed) {
+      for (const key of chunk) {
+        if (!result.has(key)) result.set(key, { ok: false, ratingKey: key, error: batchError });
+      }
+    }
+  }
+  return result;
+}

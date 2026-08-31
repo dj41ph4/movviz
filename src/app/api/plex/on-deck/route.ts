@@ -1,0 +1,143 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireUser } from "@/lib/auth/guard";
+import { loadPlexConfig } from "@/lib/plex/store";
+import { buildPlexWebUrl } from "@/lib/plex/client";
+import { getVerifiedOnDeck } from "@/lib/plex/watchWrite";
+import { getMovieByPlexRatingKey, findEpisodeByPlexRatingKey } from "@/lib/library/store";
+import { listPlaybackProgress } from "@/lib/playback/progressStore";
+import type { DashboardFileTechnical } from "@/lib/dashboard/interfaceTypes";
+
+export const dynamic = "force-dynamic";
+
+export interface OnDeckEntry {
+  type: "movie" | "episode";
+  tmdbId: number;
+  title: string;
+  posterPath: string | null;
+  year: number | null;
+  rating: number;
+  progressPercent: number;
+  /** Position exacte de reprise en ms (viewOffset Plex brut) — le client
+   *  Android TV s'en sert directement plutôt que de reconstituer un offset
+   *  approximatif à partir de progressPercent × durée (voir
+   *  MovvizRepository.resumeOffsetMs côté android-tv). progressPercent reste
+   *  exposé pour les usages existants (barres de progression web). */
+  offsetMs: number;
+  seasonNumber?: number;
+  episodeNumber?: number;
+  episodeTitle?: string;
+  /** Exact playback identity, so the dashboard's play button starts the
+   * player instead of routing back through the title panel. */
+  plexRatingKey: string | null;
+  plexUrl: string | null;
+  movvizId?: string;
+  seriesId?: string;
+  /** Données déjà réduites pour les badges du lecteur sur les cartes. */
+  technical?: DashboardFileTechnical;
+}
+
+function technicalFromFile(file: { resolution: string | null; videoCodec: string | null; audioCodec: string | null; hdr: string | null } | null): DashboardFileTechnical | undefined {
+  if (!file) return undefined;
+  return {
+    resolution: file.resolution,
+    videoCodec: file.videoCodec,
+    audioCodec: file.audioCodec,
+    hdr: file.hdr,
+  };
+}
+
+/**
+ * "Continue Watching" data source, per-user (Plex attributes on-deck state
+ * to whichever account's token asks for it — same principle as every other
+ * per-user Plex read in this codebase). Only ever returns items Movviz
+ * itself actually tracks (a plexRatingKey match against the library store)
+ * — a Plex library item Movviz doesn't manage has no tmdbId/poster to show
+ * and is silently skipped rather than surfaced half-empty.
+ */
+export async function GET(req: NextRequest) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const cfg = loadPlexConfig();
+  if (!cfg.hostname) return NextResponse.json({ items: [] }, { headers: { "Cache-Control": "private, no-store" } });
+  const plexUrlFor = (ratingKey: string | null) =>
+    ratingKey && cfg.machineIdentifier ? buildPlexWebUrl(cfg.machineIdentifier, ratingKey) : null;
+
+  // Uses a PMS-scoped profile token, then rejects any item with the exact
+  // owner position.  The local `progressStore` below remains authoritative
+  // for a user's own Movviz playback even if Plex is unavailable.
+  const onDeck = await getVerifiedOnDeck(user, cfg);
+  const items: OnDeckEntry[] = [];
+  const localKeys = new Set<string>();
+  for (const p of listPlaybackProgress(user.id)) {
+    if (p.watched || !p.eligibleForResume || !p.resumeOffsetMs || !p.durationMs) continue;
+    const movie = getMovieByPlexRatingKey(p.ratingKey);
+    if (movie) {
+      localKeys.add(p.ratingKey);
+      const plexRatingKey = movie.plexRatingKey ?? p.ratingKey;
+      items.push({ type: "movie", tmdbId: movie.tmdbId, title: movie.title, posterPath: movie.posterPath, year: movie.year, rating: movie.rating, progressPercent: Math.min(100, Math.round((p.resumeOffsetMs / p.durationMs) * 100)), offsetMs: p.resumeOffsetMs, plexRatingKey, plexUrl: plexUrlFor(plexRatingKey), movvizId: movie.id, technical: technicalFromFile(movie.file) });
+      continue;
+    }
+    const found = findEpisodeByPlexRatingKey(p.ratingKey);
+    if (found) {
+      localKeys.add(p.ratingKey);
+      const plexRatingKey = found.episode.plexRatingKey ?? p.ratingKey;
+      items.push({ type: "episode", tmdbId: found.series.tmdbId, title: found.series.title, posterPath: found.series.posterPath, year: found.series.year, rating: found.series.rating, progressPercent: Math.min(100, Math.round((p.resumeOffsetMs / p.durationMs) * 100)), offsetMs: p.resumeOffsetMs, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber, episodeTitle: found.episode.title, plexRatingKey, plexUrl: plexUrlFor(plexRatingKey), movvizId: `${found.series.id}:s${found.season.seasonNumber}e${found.episode.episodeNumber}`, seriesId: found.series.id, technical: technicalFromFile(found.episode.file) });
+    }
+  }
+  for (const d of onDeck) {
+    // Bug fix (confirmed live): Plex's on-deck list mixes two different
+    // things — content actually paused mid-playback, AND the "next episode
+    // up" for any show with watch history, queued at 0% before anyone has
+    // even started it. Only the first one is "Continue Watching" — the
+    // second flooded this row with dozens of never-started episodes, each
+    // showing an empty progress bar, on a real account (Plex itself keeps
+    // these separate in its own UI, this list just doesn't).
+    if (!d.duration || d.viewOffset <= 0) continue;
+    if (localKeys.has(d.ratingKey)) continue;
+    const progressPercent = Math.min(100, Math.round((d.viewOffset / d.duration) * 100));
+    if (d.type === "movie") {
+      const movie = getMovieByPlexRatingKey(d.ratingKey);
+      if (!movie) continue;
+      const plexRatingKey = movie.plexRatingKey ?? d.ratingKey;
+      items.push({
+        type: "movie",
+        tmdbId: movie.tmdbId,
+        title: movie.title,
+        posterPath: movie.posterPath,
+        year: movie.year,
+        rating: movie.rating,
+        progressPercent,
+        offsetMs: d.viewOffset,
+        plexRatingKey,
+        plexUrl: plexUrlFor(plexRatingKey),
+        movvizId: movie.id,
+        technical: technicalFromFile(movie.file),
+      });
+    } else {
+      const found = findEpisodeByPlexRatingKey(d.ratingKey);
+      if (!found) continue;
+      const plexRatingKey = found.episode.plexRatingKey ?? d.ratingKey;
+      items.push({
+        type: "episode",
+        tmdbId: found.series.tmdbId,
+        title: found.series.title,
+        posterPath: found.series.posterPath,
+        year: found.series.year,
+        rating: found.series.rating,
+        progressPercent,
+        offsetMs: d.viewOffset,
+        seasonNumber: found.season.seasonNumber,
+        episodeNumber: found.episode.episodeNumber,
+        episodeTitle: found.episode.title,
+        plexRatingKey,
+        plexUrl: plexUrlFor(plexRatingKey),
+        movvizId: `${found.series.id}:s${found.season.seasonNumber}e${found.episode.episodeNumber}`,
+        seriesId: found.series.id,
+        technical: technicalFromFile(found.episode.file),
+      });
+    }
+  }
+
+  return NextResponse.json({ items }, { headers: { "Cache-Control": "private, no-store" } });
+}

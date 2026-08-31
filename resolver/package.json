@@ -1,0 +1,20 @@
+{
+  "name": "movviz-resolver",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Movviz Cloudflare challenge resolver — headless browser service for indexers behind anti-bot protection.",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "fastify": "^5.3.2",
+    "playwright": "^1.58.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3",
+    "@types/node": "^22.15.3"
+  }
+}

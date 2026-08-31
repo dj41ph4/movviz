@@ -1,0 +1,58 @@
+name: Apply AI continuity and preference patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ai-humanize-context-patch.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply focused AI/context changes
+        shell: bash
+        run: |
+          python3 scripts/apply-ai-humanize-patch.py
+          python3 -c 'from pathlib import Path; p=Path("src/lib/ai/dialogueDirector.ts"); s=p.read_text(encoding="utf-8"); old="const stale = previous?.updatedAt != null && Date.now() - previous.updatedAt > STATE_TTL_MS;"; new="const stale = previous?.updatedAt != null && previous.updatedAt > 0 && Date.now() - previous.updatedAt > STATE_TTL_MS;"; assert old in s; p.write_text(s.replace(old,new,1),encoding="utf-8")'
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Portable tests
+        shell: bash
+        run: |
+          FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit validated patch to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src scripts
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "feat(ai): unify explicit preferences and humanize dialogue"
+          git push origin HEAD:main

@@ -1,0 +1,790 @@
+package com.movviz.tv.data
+
+import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
+
+// Sous-ensemble des champs réels de LibraryMovie/LibrarySeries
+// (src/lib/library/types.ts) — uniquement ce dont l'UI TV a besoin pour
+// l'instant (accueil + fiche). Moshi ignore silencieusement les champs du
+// JSON serveur non déclarés ici, donc rien ne casse si le serveur en
+// renvoie davantage.
+
+// Bug corrigé (audit contrat Plex/TV) : plexRatingKey était déclaré à
+// l'intérieur de LibraryFileDto (imbriqué dans "file"), calqué sur le nom
+// mais pas sur la vraie forme JSON. Le vrai LibraryFile (src/lib/library/types.ts,
+// ligne ~32) n'a JAMAIS de champ plexRatingKey — c'est un champ séparé au
+// niveau racine de LibraryMovie (ligne ~119 : "Plex library item id — set by
+// the Plex library sync"). Résultat : LibraryMovieDto.file?.plexRatingKey
+// désérialisait toujours à null (String? nullable, donc pas de crash Moshi,
+// juste une valeur silencieusement fausse), ce qui cassait
+// AppViewModel.libraryPlexRatingKey() pour TOUS les films — plus aucun film
+// ne pouvait démarrer la lecture côté TV. Confirmé en lisant
+// src/app/api/library/movies/route.ts : "movies: all.map(m => ({...m,
+// plexUrl}))" — m est LibraryMovie tel quel, plexRatingKey est bien un
+// champ frère de "file", pas un enfant.
+@JsonClass(generateAdapter = true)
+data class LibraryMovieDto(
+    val id: String,
+    val tmdbId: Int,
+    val title: String,
+    val year: Int?,
+    val releaseDate: String? = null,
+    val vfReleaseDate: String? = null,
+    val runtime: Int? = null,
+    val addedAt: Long = 0L,
+    val customBackdropPath: String? = null,
+    val customLogoPath: String? = null,
+    // Absent de /api/interface/dashboard : le snapshot d'accueil n'a pas
+    // besoin du synopsis, la fiche le charge ensuite avec metadata/detail.
+    val overview: String = "",
+    val posterPath: String?,
+    val backdropPath: String?,
+    val rating: Double,
+    val genres: List<String> = emptyList(),
+    val status: String,
+    val file: LibraryFileDto?,
+    val plexRatingKey: String? = null,
+    val playbackSource: String? = null,
+    val plexLinkStatus: String? = null,
+)
+
+// status absent du DTO volontairement : contrairement aux films, l'API ne
+// renvoie jamais de champ "status" au niveau série (voir LibrarySeries dans
+// src/lib/library/types.ts — seul "tvStatus" existe, un statut TMDb/TVDB
+// global, différent). Le statut affiché côté desktop est calculé à partir
+// des épisodes (overallSeriesStatus() dans TitleContent.tsx), jamais envoyé
+// tel quel. Le décrire ici comme obligatoire faisait planter l'app avec un
+// JsonDataException dès qu'une vraie bibliothèque contenait une série sans
+// ce champ (confirmé en direct : "Required value 'status' missing at
+// $.series[1]").
+@JsonClass(generateAdapter = true)
+data class LibrarySeriesDto(
+    val id: String,
+    val tmdbId: Int,
+    val title: String,
+    val year: Int?,
+    // Absent de /api/interface/dashboard (voir commentaire équivalent film).
+    val overview: String = "",
+    val posterPath: String?,
+    val backdropPath: String?,
+    val rating: Double,
+    val genres: List<String> = emptyList(),
+    val addedAt: Long = 0L,
+    val hasAvailableEpisode: Boolean = false,
+    val customBackdropPath: String? = null,
+    val customLogoPath: String? = null,
+    // Les saisons sont déjà renvoyées par /api/library/series. Les conserver
+    // côté TV permet d'afficher une saison manquante avant même qu'un fichier
+    // Plex existe, afin de proposer sa recherche ciblée.
+    val seasons: List<SeriesSeasonDto> = emptyList(),
+)
+
+/**
+ * Contrat COMPACT de /api/interface/dashboard.
+ *
+ * Ce n'est volontairement pas LibraryMovieDto/LibrarySeriesDto : la route
+ * optimisée omet les saisons, le synopsis et plusieurs champs des routes
+ * /api/library/ historiques. Réutiliser les DTO complets faisait dépendre le démarrage
+ * TV de chaque détail de cette réponse réduite ; un null/une valeur manquante
+ * provenant d'une ancienne entrée de bibliothèque pouvait alors faire lever
+ * Moshi et fermer l'application sur tous les appareils, Google TV compris.
+ */
+@JsonClass(generateAdapter = true)
+data class InterfaceDashboardDto(
+    val movies: List<InterfaceMovieDto?>? = emptyList(),
+    val series: List<InterfaceSeriesDto?>? = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class InterfaceMovieDto(
+    val id: String? = null,
+    val tmdbId: Int? = null,
+    val title: String? = null,
+    val year: Int? = null,
+    val releaseDate: String? = null,
+    val vfReleaseDate: String? = null,
+    val runtime: Int? = null,
+    val addedAt: Long? = null,
+    val customBackdropPath: String? = null,
+    val customLogoPath: String? = null,
+    val posterPath: String? = null,
+    val backdropPath: String? = null,
+    val rating: Double? = null,
+    val genres: List<String?>? = emptyList(),
+    val status: String? = null,
+    val file: InterfaceFileDto? = null,
+    val plexRatingKey: String? = null,
+    val playbackSource: String? = null,
+    val plexLinkStatus: String? = null,
+) {
+    fun toLibraryMovieOrNull(): LibraryMovieDto? {
+        val safeId = id?.takeIf { it.isNotBlank() } ?: return null
+        val safeTmdbId = tmdbId?.takeIf { it > 0 } ?: return null
+        val safeTitle = title?.takeIf { it.isNotBlank() } ?: return null
+        return LibraryMovieDto(
+            id = safeId,
+            tmdbId = safeTmdbId,
+            title = safeTitle,
+            year = year,
+            releaseDate = releaseDate,
+            vfReleaseDate = vfReleaseDate,
+            runtime = runtime,
+            addedAt = addedAt ?: 0L,
+            customBackdropPath = customBackdropPath,
+            customLogoPath = customLogoPath,
+            posterPath = posterPath,
+            backdropPath = backdropPath,
+            rating = rating ?: 0.0,
+            genres = genres.orEmpty().filterNotNull(),
+            status = status ?: "missing",
+            file = file?.toLibraryFile(),
+            plexRatingKey = plexRatingKey,
+            playbackSource = playbackSource,
+            plexLinkStatus = plexLinkStatus,
+        )
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class InterfaceSeriesDto(
+    val id: String? = null,
+    val tmdbId: Int? = null,
+    val title: String? = null,
+    val year: Int? = null,
+    val addedAt: Long? = null,
+    val hasAvailableEpisode: Boolean? = null,
+    val customBackdropPath: String? = null,
+    val customLogoPath: String? = null,
+    val posterPath: String? = null,
+    val backdropPath: String? = null,
+    val rating: Double? = null,
+    val genres: List<String?>? = emptyList(),
+) {
+    fun toLibrarySeriesOrNull(): LibrarySeriesDto? {
+        val safeId = id?.takeIf { it.isNotBlank() } ?: return null
+        val safeTmdbId = tmdbId?.takeIf { it > 0 } ?: return null
+        val safeTitle = title?.takeIf { it.isNotBlank() } ?: return null
+        return LibrarySeriesDto(
+            id = safeId,
+            tmdbId = safeTmdbId,
+            title = safeTitle,
+            year = year,
+            addedAt = addedAt ?: 0L,
+            hasAvailableEpisode = hasAvailableEpisode ?: false,
+            customBackdropPath = customBackdropPath,
+            customLogoPath = customLogoPath,
+            posterPath = posterPath,
+            backdropPath = backdropPath,
+            rating = rating ?: 0.0,
+            genres = genres.orEmpty().filterNotNull(),
+        )
+    }
+}
+
+@JsonClass(generateAdapter = true)
+data class InterfaceFileDto(
+    val resolution: String? = null,
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val hdr: String? = null,
+) {
+    fun toLibraryFile() = LibraryFileDto(
+        plexRatingKey = null,
+        resolution = resolution,
+        videoCodec = videoCodec,
+        audioCodec = audioCodec,
+        hdr = hdr,
+    )
+}
+
+// Champs qualité confirmés en direct contre /api/library/movies (RoboCop :
+// resolution="2160p", videoCodec="HEVC", hdr="HDR10") — jamais mappés côté TV
+// jusqu'ici alors que le badge desktop (LibraryMovieCard.tsx/MediaBadges.tsx)
+// les affiche déjà. hdr est absent (null) sur un fichier SDR, pas une chaîne
+// vide — distinct de source (release scene: "web-dl"/"bluray"/... ou null).
+// Sert à la fois la pastille qualité des posters (accueil) et la zone
+// technique secondaire de la fiche titre.
+@JsonClass(generateAdapter = true)
+data class LibraryFileDto(
+    val plexRatingKey: String?,
+    val resolution: String? = null,
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val hdr: String? = null,
+    val source: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class LoginRequest(
+    val username: String,
+    val password: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class AddToLibraryRequest(
+    val tmdbId: Int,
+)
+
+@JsonClass(generateAdapter = true)
+data class LoginResponse(
+    val user: MovvizUserDto? = null,
+    val error: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MovvizUserDto(
+    val id: String,
+    val username: String,
+    val role: String,
+    // Older Plex-provisioned users may not have a status field in the
+    // persisted public response. The TV client does not gate navigation on
+    // this field, so tolerate its absence instead of crashing Moshi parsing.
+    @Json(name = "status") val accountStatus: String? = null,
+    val plexAvatar: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class LibraryMoviesResponse(
+    val movies: List<LibraryMovieDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class LibrarySeriesResponse(
+    val series: List<LibrarySeriesDto> = emptyList(),
+)
+
+// /api/auth/me répond 200 même sans session — {"user": null} est une
+// réponse "réussie" mais NON connectée. Un simple Response<Map<...>> avec un
+// corps non-null suffisait à faire passer hasValidSession() pour vrai à
+// tort (bug confirmé en live : accueil/réglages accessibles sans jamais
+// avoir saisi d'identifiants). Il faut regarder le champ user lui-même.
+@JsonClass(generateAdapter = true)
+data class MeResponseDto(
+    val user: MovvizUserDto? = null,
+)
+
+// Profils de foyer Android TV — encrés côté serveur (/api/tv-profiles).
+// Lecture ET écriture admin-only : un compte invité ne voit jamais la
+// liste du foyer et ne peut rien y ajouter.
+@JsonClass(generateAdapter = true)
+data class TvProfileDto(
+    val id: String,
+    val name: String,
+    val avatar: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class TvProfilesResponse(
+    val profiles: List<TvProfileDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class AddTvProfileRequest(
+    @Json(name = "userId") val userId: String,
+)
+
+/** Miroir de /api/users (admin-only) — la liste des comptes que l'admin
+ *  parcourt pour constituer son foyer TV, sans jamais leurs mots de passe. */
+@JsonClass(generateAdapter = true)
+data class UsersResponse(
+    val users: List<MovvizUserDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class SystemInfoDto(
+    val platform: String? = null,
+    val isContainer: Boolean? = null,
+)
+
+/** Sous-ensemble de MetaDetail (src/lib/metadata/types.ts) — la fiche titre
+ *  TV n'a pas besoin des champs desktop-only (watchProviders, studios...). */
+@JsonClass(generateAdapter = true)
+data class MetaDetailDto(
+    val type: String = "movie",
+    val tmdbId: Int,
+    val title: String,
+    // Titre TMDb non localisé — confirmé en direct (GET /api/metadata/detail
+    // ?type=movie&tmdbId=27205 renvoie "originalTitle":"Inception"). Affiché
+    // côté fiche titre TV uniquement quand il diffère du titre localisé
+    // (voir MetaDetail dans src/lib/metadata/types.ts).
+    val originalTitle: String? = null,
+    val year: Int?,
+    val overview: String,
+    val tagline: String = "",
+    val posterPath: String?,
+    val backdropPath: String?,
+    val rating: Double,
+    val genres: List<String> = emptyList(),
+    val runtime: Int?,
+    /** Contexte "fiche" (Trailer > Teaser) — non consommé côté TV pour
+     * l'instant (aucune action "regarder la bande-annonce" sur l'écran
+     * titre), gardé pour rester au même contrat que le web. */
+    val trailerKeys: List<String> = emptyList(),
+    /** Contexte "carrousel" (Teaser > Trailer, voir selectMediaVideo() dans
+     * tmdb.ts) — même liste ordonnée que le hero web. Le client TV joue
+     * l'ambiance muette si possible et conserve le backdrop en repli :
+     * aucune nouvelle source ni API serveur. */
+    val ambientVideoKeys: List<String> = emptyList(),
+    // Déjà renvoyé par /api/metadata/detail (voir tmdb.ts, "similar":
+    // data.recommendations.results) mais jusqu'ici ignoré côté TV — sert la
+    // rangée "Titres similaires" en bas de la fiche (même esprit Netflix/
+    // Apple TV que le web, voir TitleContent.tsx "title.similar").
+    val similar: List<SearchResultDto> = emptyList(),
+    // cast/crew déjà renvoyés par /api/metadata/detail (voir
+    // src/lib/metadata/types.ts MetaCastMember/MetaCrewMember) mais jamais
+    // consommés côté TV jusqu'ici — confirmé en direct contre la vraie
+    // réponse serveur (ex. tmdbId=27205 "Inception").
+    val cast: List<MetaCastMemberDto> = emptyList(),
+    val crew: List<MetaCrewMemberDto> = emptyList(),
+    // Appartenance à une saga TMDb (belongs_to_collection) — confirmé en
+    // direct (tmdbId=155 "The Dark Knight" renvoie
+    // {"id":263,"name":"The Dark Knight - Saga","posterPath":"..."}). Pas
+    // d'écran Collections côté TV : simple mention texte sur la fiche, pas
+    // de duplication d'un parcours qui n'existe pas encore ici.
+    val collection: MetaCollectionDto? = null,
+)
+
+/** PIN éphémère créé par /api/auth/plex/pin. authUrl pointe uniquement vers
+ * Plex : l'application TV ne reçoit ni identifiant ni jeton Plex. */
+@JsonClass(generateAdapter = true)
+data class PlexPinDto(
+    val id: Long,
+    val code: String = "",
+    val authUrl: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlexPollDto(
+    val done: Boolean = false,
+    val user: MovvizUserDto? = null,
+    val error: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlexPollRequest(val id: Long)
+
+/** Réponse de /api/dashboard/hero — source éditoriale commune au desktop et
+ * à la TV. Les champs de score restent côté serveur : la TV reçoit seulement
+ * la sélection déjà personnalisée pour l'utilisateur connecté. */
+@JsonClass(generateAdapter = true)
+data class DashboardHeroResponseDto(
+    val slides: List<DashboardHeroSlideDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class DashboardHeroSlideDto(
+    val detail: MetaDetailDto,
+    val libraryStatus: String? = null,
+)
+
+/** /api/metadata/images — mêmes logos TMDb que DashboardHero/TitleContent
+ * web. Le fichier est un path TMDb, jamais une URL fournie par un utilisateur. */
+@JsonClass(generateAdapter = true)
+data class MetadataImagesDto(
+    val logos: List<MetadataImageDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class MetadataImageDto(
+    val filePath: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class MetaCollectionDto(
+    val id: Int,
+    val name: String,
+    val posterPath: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MetaCastMemberDto(
+    val id: Int,
+    val name: String,
+    val character: String = "",
+    val profilePath: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MetaCrewMemberDto(
+    val id: Int,
+    val name: String,
+    val job: String = "",
+)
+
+// Miroir de MetaPerson (src/lib/metadata/tmdb.ts, getPerson()) — fiche
+// acteur/actrice ouverte depuis la Distribution d'une fiche titre, avec sa
+// filmographie complète (films + séries confondus, triée par popularité).
+@JsonClass(generateAdapter = true)
+data class PersonDto(
+    val id: Int,
+    val name: String,
+    val profilePath: String? = null,
+    val biography: String = "",
+    val credits: List<PersonCreditDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class PersonCreditDto(
+    val tmdbId: Int,
+    val type: String,
+    val title: String,
+    val year: Int? = null,
+    val releaseDate: String? = null,
+    val overview: String = "",
+    val posterPath: String? = null,
+    val backdropPath: String? = null,
+    val rating: Double = 0.0,
+)
+
+// Miroir de LibraryEpisode/LibrarySeason (src/lib/library/types.ts) — juste
+// ce qu'il faut pour afficher/lancer un épisode depuis la fiche série.
+@JsonClass(generateAdapter = true)
+data class SeriesEpisodeDto(
+    val seasonNumber: Int,
+    val episodeNumber: Int,
+    val title: String,
+    val status: String,
+    val plexRatingKey: String?,
+    val playbackSource: String? = null,
+    val plexLinkStatus: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class SeriesSeasonDto(
+    val seasonNumber: Int,
+    val name: String,
+    val episodes: List<SeriesEpisodeDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class SeriesDetailDto(
+    val id: String,
+    val seasons: List<SeriesSeasonDto> = emptyList(),
+)
+
+/** Détails éditoriaux d'une saison déjà exposés par /api/metadata/season.
+ *  La bibliothèque reste la source de vérité pour disponibilité/Plex ; TMDb
+ *  n'apporte ici que les visuels et le synopsis nécessaires à une vraie
+ *  fiche épisode de salon. */
+@JsonClass(generateAdapter = true)
+data class MetadataEpisodeDto(
+    val seasonNumber: Int,
+    val episodeNumber: Int,
+    val title: String,
+    val airDate: String? = null,
+    val overview: String = "",
+    val stillPath: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MetadataSeasonDto(
+    val seasonNumber: Int,
+    val name: String,
+    val episodeCount: Int = 0,
+    val episodes: List<MetadataEpisodeDto> = emptyList(),
+)
+
+// Miroir de MetaSearchResult (src/lib/metadata/types.ts).
+@JsonClass(generateAdapter = true)
+data class SearchResultDto(
+    val tmdbId: Int,
+    val type: String,
+    val title: String,
+    val year: Int?,
+    val posterPath: String?,
+    /** Visuel paysage éditorial. Les rangées TV doivent réutiliser le même
+     * fond 16:9 que le dashboard desktop, au lieu de recadrer un poster. */
+    val backdropPath: String? = null,
+    val rating: Double = 0.0,
+)
+
+@JsonClass(generateAdapter = true)
+data class SearchResponseDto(
+    val results: List<SearchResultDto> = emptyList(),
+    val page: Int = 1,
+    val totalPages: Int = 1,
+)
+
+/** Porté par une rangée dynamique "becauseYouWatched:{anchorTmdbId}" (voir
+ *  becauseYouWatched.ts côté serveur) — permet au client d'interpoler son
+ *  propre libellé ("Dans la lignée de {title}" / "Puisque {title} vous a
+ *  plu") sans que l'API n'ait à connaître la locale. `verb` vaut "watched"
+ *  ou "liked". */
+@JsonClass(generateAdapter = true)
+data class RowMetaDto(
+    val anchorTmdbId: Int,
+    val anchorTitle: String,
+    val verb: String,
+)
+
+/** Rangées éditoriales déjà assemblées par le backend pour le dashboard web.
+ * La TV les consomme telles quelles afin de garder les mêmes catégories sans
+ * dupliquer la logique de sélection côté client. `meta` n'est présent que
+ * pour la rangée dynamique "becauseYouWatched:*" ci-dessus. */
+@JsonClass(generateAdapter = true)
+data class MetadataRowDto(
+    val key: String,
+    val results: List<SearchResultDto> = emptyList(),
+    val meta: RowMetaDto? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class MetadataRowsResponseDto(
+    val rows: List<MetadataRowDto> = emptyList(),
+)
+
+/** Réponse de GET /api/metadata/row-page ("voir tout" d'une rangée) — même
+ *  forme que SearchResponseDto, plus `meta` pour la rangée dynamique
+ *  becauseYouWatched (résolu même sur un chargement direct de la page, voir
+ *  route.ts). */
+@JsonClass(generateAdapter = true)
+data class RowPageResponseDto(
+    val results: List<SearchResultDto> = emptyList(),
+    val page: Int = 1,
+    val totalPages: Int = 1,
+    val meta: RowMetaDto? = null,
+)
+
+/** Miroir de MetaGenre (src/lib/metadata/tmdb.ts) — liste de genres TMDb
+ *  réels pour un type donné. Les deux genres synthétiques (Anime, Romance
+ *  ado — genreTaxonomy.ts) n'ont pas d'id TMDb numérique : ils sont ajoutés
+ *  côté client, jamais renvoyés ici. */
+@JsonClass(generateAdapter = true)
+data class GenreDto(
+    val id: Int,
+    val name: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class GenresResponseDto(
+    val genres: List<GenreDto> = emptyList(),
+)
+
+// Miroir de la réponse de /api/stream/{ratingKey}/info (voir
+// src/app/api/stream/[ratingKey]/info/route.ts) — la TV n'a besoin ni de
+// ffmpegAvailable ni de videoCodec/container (pas de transcodage côté TV,
+// direct-play uniquement), seulement de la durée réelle et des pistes
+// audio/sous-titres EMBARQUÉES dans le fichier. Le direct-play sert le
+// fichier Plex tel quel (voir stream/[ratingKey]/route.ts, Media[0]/Part[0]
+// bruts, aucun paramètre de sélection de piste) donc la sélection
+// audio/sous-titres se fait côté client, dans les pistes que Media3 détecte
+// lui-même dans le conteneur — pas d'appel serveur supplémentaire.
+@JsonClass(generateAdapter = true)
+data class StreamAudioTrackDto(
+    val id: String,
+    val codec: String,
+    val language: String,
+    val channels: Int = 0,
+    val selected: Boolean = false,
+)
+
+@JsonClass(generateAdapter = true)
+data class StreamSubtitleTrackDto(
+    val id: String,
+    val codec: String,
+    val language: String,
+    val toTextConvertible: Boolean = false,
+    val selected: Boolean = false,
+)
+
+/** Marqueur temporel générique (intro / générique) — source Movviz locale.
+ *  Android TV ne connaît NI Plex NI la synchro : il reçoit des bornes
+ *  start/end en ms et fait un seek dessus. */
+@JsonClass(generateAdapter = true)
+data class PlaybackMarkerDto(
+    val id: String,
+    val type: String, // "intro" | "credits"
+    val startMs: Long,
+    val endMs: Long,
+    val final: Boolean = false,
+)
+
+data class StreamInfoDto(
+    val videoCodec: String? = null,
+    val audioCodec: String? = null,
+    val audioStreams: List<StreamAudioTrackDto> = emptyList(),
+    val subtitleStreams: List<StreamSubtitleTrackDto> = emptyList(),
+    val durationMs: Long? = null,
+    // Binaire ffmpeg présent côté serveur - voir /api/playback-ffmpeg/{ratingKey}
+    // (remux local : copie vidéo + audio AAC, sans jamais passer par le moteur
+    // de décision de Plex). C'est le repli utilisé par le desktop en premier,
+    // AVANT tout transcode Plex - Plex "MDE" refuse parfois silencieusement de
+    // copier la vidéo (tv=0 ignoré, prouvé en investigation) même quand c'est
+    // demandé correctement ; le remux local ne dépend pas de cette décision.
+    val ffmpegAvailable: Boolean = false,
+    // Markers intro/credits synchronisés par le backend (store Movviz).
+    // Défaut emptyList = compatible avec un backend plus ancien qui ne
+    // renvoie pas le champ — aucun crash Moshi possible.
+    val markers: List<PlaybackMarkerDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class LocalPlaybackInfoDto(
+    val seriesId: String? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val movvizId: String? = null,
+    val source: String? = null,
+    val playable: Boolean = false,
+    val plexRatingKey: String? = null,
+    val size: Long? = null,
+    val markers: List<PlaybackMarkerDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class ProgressRequest(
+    val offset: Long,
+    val state: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlaybackSessionRequest(
+    val ratingKey: String,
+    val mediaType: String = "movie",
+    val durationMs: Long,
+    val tmdbId: Int? = null,
+    val title: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlaybackHeartbeatRequest(
+    val sequence: Long,
+    val positionMs: Long,
+    val isPlaying: Boolean,
+    val playbackRate: Double = 1.0,
+)
+
+@JsonClass(generateAdapter = true)
+data class PlaybackSessionResponse(
+    val sessionId: String,
+    val resumeOffsetMs: Long? = null,
+    val watched: Boolean = false,
+    val eligibleForResume: Boolean = false,
+    val completionBoundaryMs: Long? = null,
+)
+
+// Miroir de OnDeckEntry (src/app/api/plex/on-deck/route.ts) — sert à la fois
+// à retrouver la position de reprise pour la lecture (offsetMs, le
+// viewOffset Plex brut exact en ms — progressPercent reste présent en repli
+// pour compatibilité mais n'est plus utilisé côté Android depuis que le
+// serveur expose offsetMs directement, voir MovvizRepository.resumeOffsetMs)
+// ET à peupler la rangée "Continuer à regarder" de l'accueil TV (title/
+// posterPath/rating, pas besoin de croiser avec movies()/series()).
+@JsonClass(generateAdapter = true)
+data class OnDeckEntryDto(
+    val type: String,
+    val tmdbId: Int,
+    val title: String? = null,
+    val posterPath: String? = null,
+    val rating: Double = 0.0,
+    val progressPercent: Int = 0,
+    val offsetMs: Long = 0L,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val episodeTitle: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class OnDeckResponseDto(
+    val items: List<OnDeckEntryDto> = emptyList(),
+)
+
+// Miroir (partiel) de ActivityMedia/ActivityDownload/QueueItem
+// (src/lib/activity/v2/types.ts), servis par GET /api/activity/v2?tab=queue
+// — le cœur de Movviz n'est pas que la lecture mais aussi le téléchargement
+// (voir la doc de mission), donc l'accueil TV a besoin de voir la file en
+// cours. Seuls les champs affichés dans la rangée "Téléchargements en
+// cours" sont déclarés ; tmdbId/posterPath/season/episode restent
+// nullables car un torrent ajouté à la main hors recherche Movviz n'a
+// aucune de ces infos (voir `linked: false` côté serveur).
+@JsonClass(generateAdapter = true)
+data class QueueMediaDto(
+    val title: String,
+    val type: String,
+    val posterPath: String? = null,
+    val tmdbId: Int? = null,
+    val season: Int? = null,
+    val episode: Int? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class QueueDownloadDto(
+    // progress est une fraction 0..1 (pas un pourcentage) — voir
+    // useSmoothProgress/DownloadQueue.tsx côté desktop qui multiplie par 100
+    // à l'affichage seulement.
+    val progress: Double = 0.0,
+    // Double, pas Long : le moteur BitTorrent renvoie un débit brut non
+    // arrondi (voir t.downloadSpeed dans src/app/api/activity/v2/route.ts,
+    // contrairement à `eta` qui lui passe par Math.round côté serveur) —
+    // un Long ici plantait le parsing JSON dès qu'un torrent avait un débit
+    // non entier (crash confirmé en direct juste après connexion : "Expected
+    // a long but was 7485.6").
+    val downloadSpeed: Double = 0.0,
+    val eta: Long = 0, // secondes
+    val state: String = "downloading",
+)
+
+@JsonClass(generateAdapter = true)
+data class QueueItemDto(
+    val id: String,
+    val media: QueueMediaDto,
+    val download: QueueDownloadDto,
+    val status: String,
+)
+
+@JsonClass(generateAdapter = true)
+data class QueueResponseDto(
+    val items: List<QueueItemDto> = emptyList(),
+)
+
+// Réponse de POST /api/library/movies/{id}/search et
+// POST /api/library/series/{id}/search (src/app/api/library/movies/[id]/search/route.ts,
+// src/app/api/library/series/[id]/search/route.ts) — déclenche manuellement
+// une recherche indexeurs + grab automatique pour un titre déjà en
+// bibliothèque (ex: statut "missing" ou pour forcer une nouvelle recherche).
+// Réponse immédiate ({"queued": true}), le vrai travail est mis en file
+// d'attente côté serveur — le statut du titre (déjà exposé via
+// LibraryMovieDto.status / SeriesEpisodeDto.status) passe à "searching" puis
+// "available" au fil du polling normal de la bibliothèque, pas besoin de
+// suivre ce job explicitement.
+@JsonClass(generateAdapter = true)
+data class SearchTriggerResponseDto(
+    val queued: Boolean = false,
+)
+
+// Miroir de GET /api/watch-status (src/app/api/watch-status/route.ts) —
+// statut "vu" manuel PAR UTILISATEUR (distinct du statut LibraryStatus qui
+// dit si le FICHIER existe, pas si quelqu'un l'a regardé). Confirmé en
+// direct : {"movies":[102899,...],"episodes":[{"tmdbId":..,"season":..,
+// "episode":..}]}. "episodes[].tmdbId" est le tmdbId de la SÉRIE, pas de
+// l'épisode (mêmes conventions que WatchStatus côté serveur,
+// src/lib/plex/watchStore.ts).
+@JsonClass(generateAdapter = true)
+data class WatchedEpisodeDto(
+    val tmdbId: Int,
+    val season: Int,
+    val episode: Int,
+)
+
+@JsonClass(generateAdapter = true)
+data class WatchStatusDto(
+    val movies: List<Int> = emptyList(),
+    val episodes: List<WatchedEpisodeDto> = emptyList(),
+)
+
+// Miroir (partiel) de UserPrefs (src/lib/userPrefs/store.ts) — la TV n'a
+// besoin que du champ qui affecte réellement la lecture, pas de gpuTier/
+// theme/libraryViewMode qui n'ont pas de sens sur ce client (TV = un seul
+// thème sombre, pas de vue liste). Le PATCH ne renvoie que ce champ, la
+// route serveur fusionne (voir saveUserPrefs, "merge only known fields") —
+// envoyer un objet partiel ne touche jamais reduceAnimations/theme/etc. des
+// autres clients (desktop/mobile) du même compte.
+@JsonClass(generateAdapter = true)
+data class UserPrefsDto(
+    val preferredAudioLanguage: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class PreferencesResponseDto(
+    val prefs: UserPrefsDto = UserPrefsDto(),
+)

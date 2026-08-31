@@ -1,0 +1,737 @@
+@import "tailwindcss";
+
+/* ============================================================
+   Movviz design system — cinematic, dark-first, neon-glass
+   ============================================================ */
+
+@theme {
+  /* Core surfaces */
+  --color-void: #05060b;
+  --color-abyss: #080a14;
+  --color-surface: #0d1020;
+  --color-surface-2: #12162a;
+  --color-line: #1e2440;
+
+  /* Text */
+  --color-ink: #eef1ff;
+  --color-ink-soft: #aeb4d6;
+  --color-ink-dim: #6b7099;
+
+  /* Brand — electric violet → magenta → cyan */
+  --color-brand: #7c5cff;
+  --color-brand-2: #c04bff;
+  --color-brand-glow: #a06bff;
+  --color-cyan: #34e2ff;
+  --color-magenta: #ff4bd0;
+  --color-lime: #9dff5b;
+  --color-amber: #ffb84b;
+
+  /* Status */
+  --color-ok: #43e6a0;
+  --color-warn: #ffb84b;
+  --color-down: #ff5b78;
+
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+
+  --font-sans: "Segoe UI Variable", "Segoe UI", -apple-system, BlinkMacSystemFont,
+    system-ui, "Helvetica Neue", Arial, sans-serif;
+
+  --animate-shimmer: shimmer 2.5s linear infinite;
+  --animate-heartbeat: heartbeat 1.2s ease-in-out infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-aurora: aurora 18s ease-in-out infinite;
+  --animate-pulse-glow: pulseGlow 3s ease-in-out infinite;
+}
+
+/* AuroraBackground's fixed cinematic backdrop — themed separately from the
+   @theme colors above since it needs a from/to pair (the wash) and per-blob
+   opacities tuned differently in light mode, not just a single swapped hue. */
+:root {
+  --aurora-wash-from: #0b1030;
+  --aurora-wash-to: #05060b;
+  --aurora-blob-1-opacity: 0.6;
+  --aurora-blob-2-opacity: 0.5;
+  --aurora-blob-3-opacity: 0.4;
+  --aurora-grid-line: rgba(255, 255, 255, 0.6);
+}
+:root[data-theme="light"] {
+  --aurora-wash-from: #e8eaf5;
+  --aurora-wash-to: #f4f5f8;
+  --aurora-blob-1-opacity: 0.08;
+  --aurora-blob-2-opacity: 0.05;
+  --aurora-blob-3-opacity: 0.04;
+  --aurora-grid-line: rgba(30, 35, 70, 0.06);
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+/*
+ * Page-level fade on route change (AppShell). Deliberately plain CSS, not
+ * framer-motion: the previous AnimatePresence/motion.div wrapper could get
+ * stuck applying its `exit: { opacity: 0 }` value to the INCOMING page after
+ * a burst of fast successive navigations, leaving fully-rendered content
+ * invisible (opacity: 0 in the DOM, nothing visible on screen) until a hard
+ * refresh remounted the tree from scratch. A `key`-driven remount + a
+ * one-shot forwards-less animation can't get stuck this way: with no
+ * animation-fill-mode set, the element simply reverts to its normal (opaque)
+ * style the instant the animation ends — there's no "exit state" to leak
+ * into the next page.
+ */
+@keyframes page-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-page-fade-in {
+  animation: page-fade-in 0.2s ease-out;
+}
+/* Card grid entrance — CSS pur (pas de FLIP repositionnement ni de fondu de
+ * sortie, comme Netflix : un tri/filtre fait juste réapparaître les cartes
+ * dans leur nouvel ordre sans animation de trajet). Le délai par carte est
+ * posé via --cascade-delay en style inline (voir LibraryMovieCard/
+ * LibrarySeriesCard). animation-fill-mode backwards évite un flash de la
+ * carte à opacité 1 avant que son délai ne démarre. */
+@keyframes cascade-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-cascade-in {
+  animation: cascade-in 0.3s ease-out backwards;
+  animation-delay: var(--cascade-delay, 0s);
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes aurora {
+  0%, 100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  33% { transform: translate(6%, -4%) rotate(8deg) scale(1.1); }
+  66% { transform: translate(-5%, 5%) rotate(-6deg) scale(0.95); }
+}
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+@keyframes logoSpin {
+  to { transform: rotate(360deg); }
+}
+@keyframes logoPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 45%, transparent),
+      0 0 18px -2px color-mix(in oklab, var(--color-brand) 70%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-magenta) 55%, transparent),
+      0 0 34px 6px color-mix(in oklab, var(--color-magenta) 80%, transparent);
+  }
+}
+@keyframes textFlow {
+  from { background-position: 100% 50%; }
+  to { background-position: 0% 50%; }
+}
+@keyframes logoRipple {
+  0% { transform: scale(0.75); opacity: 0.55; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+@keyframes badgePop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+
+@keyframes badgePulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-brand) 60%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in oklab, var(--color-brand) 0%, transparent); }
+}
+
+.animate-badge-pop {
+  animation: badgePop 0.35s ease-out;
+}
+
+.animate-badge-pulse {
+  animation: badgePulse 1.8s ease-in-out infinite;
+}
+
+@keyframes eeg {
+  0% { transform: scaleY(0.3); }
+  25% { transform: scaleY(1); }
+  50% { transform: scaleY(0.2); }
+  75% { transform: scaleY(0.8); }
+  100% { transform: scaleY(0.3); }
+}
+
+.eeg-bar {
+  animation: eeg 1.5s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes heartbeat {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.3); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.3); }
+  56% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+
+.animate-heartbeat {
+  animation: heartbeat 1.2s ease-in-out infinite;
+}
+
+.reduce-motion .eeg-bar,
+.reduce-motion .animate-spin,
+.reduce-motion .animate-pulse,
+.reduce-motion .animate-bounce,
+.reduce-motion .animate-ping,
+.reduce-motion .animate-pulse-glow,
+.reduce-motion .animate-badge-pulse,
+.reduce-motion .animate-badge-pop,
+.reduce-motion .animate-shimmer,
+.reduce-motion .animate-shimmer-progress,
+.reduce-motion .animate-heartbeat,
+.reduce-motion .animate-page-fade-in,
+.reduce-motion .logo-ripple,
+.reduce-motion .logo-halo,
+.reduce-motion .logo-glow-pulse {
+  animation: none !important;
+}
+
+.reduce-motion .logo-halo-static {
+  animation: none !important;
+  filter: blur(12px);
+  opacity: 0.7;
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0s !important;
+  animation-iteration-count: 1 !important;
+  animation-delay: 0s !important;
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+@keyframes shimmer-progress {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.animate-shimmer-progress {
+  background-size: 200% 100%;
+  animation: shimmer-progress 1.8s ease-in-out infinite;
+}
+
+/* ── Player premium micro-animations (GPU only: transform + opacity) ──
+   La règle globale `.reduce-motion *` (duration 0) les neutralise toutes. */
+@keyframes player-pop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+  100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+.animate-player-pop { animation: player-pop 0.15s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+@keyframes toast-pop {
+  0% { opacity: 0; transform: translate(-50%, 8px) scale(0.92); }
+  15% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -6px) scale(0.98); }
+}
+.animate-toast-pop { animation: toast-pop 0.9s ease-out forwards; }
+
+@keyframes menu-pop {
+  from { opacity: 0; transform: scale(0.95) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-menu-pop { animation: menu-pop 0.12s cubic-bezier(0.22, 1, 0.36, 1); transform-origin: bottom right; }
+
+@keyframes overlay-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-overlay-pop { animation: overlay-pop 0.2s cubic-bezier(0.22, 1, 0.36, 1); }
+
+@keyframes kenburns {
+  from { transform: scale(1.08) translate(0, 0); }
+  to { transform: scale(1.16) translate(-1.5%, 1%); }
+}
+.animate-kenburns { animation: kenburns 60s ease-in-out infinite alternate; }
+
+/*
+ * Light theme — premium experience, not a simple dark-mode inversion.
+ *
+ * Architecture: every component uses Tailwind utility classes (bg-void,
+ * text-ink-soft, glass, etc.) that read var(--color-*) at runtime. By
+ * overriding only the custom-property values here, the ENTIRE UI re-themes
+ * without any component change.  The hairline/fill/recess mappings convert
+ * white-on-dark opacity classes (border-white/5, bg-white/5) into warm-tinted
+ * equivalents automatically — so third-party or quick-prototype code that
+ * hardcodes white-on-dark opacities still reads correctly on a light page
+ * without dedicated light/dark branches in every component.
+ *
+ * Design principles for this light mode:
+ *   - Warm paper-like surfaces (not sterile grey/white)
+ *   - Clear elevation hierarchy (page → sidebar → card → hover)
+ *   - Refined typographic contrast for hour-long reading
+ *   - Accent colors that feel premium and confident on white
+ *   - Subtle depth via soft shadows and barely-there aurora hints
+ *   - The same "cinematic, premium" feeling as dark mode — just lighter
+ */
+:root[data-theme="light"] {
+  /* ── Surfaces: warm paper palette with clear depth hierarchy ── */
+  --color-void: #f2f3f7;
+  --color-abyss: #e9ebf2;
+  --color-surface: #ffffff;
+  --color-surface-2: #f6f7fb;
+  --color-line: #d5d9e6;
+
+  /* ── Text: warm-toned near-black for hours of comfortable reading ── */
+  --color-ink: #141726;
+  --color-ink-soft: #404459;
+  --color-ink-dim: #80859e;
+
+  /* ── Brand: deep royal violet — authoritative, premium, confident ── */
+  --color-brand: #5b21b6;
+  --color-brand-2: #7c3aed;
+  --color-brand-glow: #6d28d9;
+  --color-cyan: #0d8eaf;
+  --color-magenta: #be185d;
+  --color-lime: #4d7c0f;
+  --color-amber: #d97706;
+
+  /* ── Status: clear, accessible, not muddy ── */
+  --color-ok: #059669;
+  --color-warn: #d97706;
+  --color-down: #dc2626;
+}
+
+/* ── Glass surfaces: warm borders, soft premium shadows ── */
+:root[data-theme="light"] .glass {
+  border-color: color-mix(in oklab, #1e1b4b 10%, transparent);
+  box-shadow: 0 1px 2px rgba(30, 27, 75, 0.04), 0 4px 12px rgba(30, 27, 75, 0.03);
+  backdrop-filter: blur(20px) saturate(120%);
+}
+:root[data-theme="light"] .glass-strong {
+  border-color: color-mix(in oklab, #1e1b4b 12%, transparent);
+  box-shadow: 0 1px 3px rgba(30, 27, 75, 0.04), 0 8px 24px rgba(30, 27, 75, 0.05);
+  backdrop-filter: blur(28px) saturate(130%);
+}
+
+/* ── Selection: warm violet tint, readable ── */
+:root[data-theme="light"] ::selection {
+  background: color-mix(in oklab, var(--color-brand) 25%, transparent);
+  color: var(--color-brand);
+}
+
+/* ── Shimmer placeholder: soft warm shimmer for loading states ── */
+:root[data-theme="light"] .shimmer {
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, #1e1b4b 6%, transparent) 40%,
+    color-mix(in oklab, #1e1b4b 8%, transparent) 55%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+}
+
+/* ── Cinema-grain vignette: much more subtle in light mode ── */
+:root[data-theme="light"] .cinema-grain::after {
+  background-image: radial-gradient(circle at 50% -20%, transparent 60%, rgba(20, 23, 38, 0.12) 100%);
+}
+
+/* ── Brand glow: refined shadow for elevated brand elements ── */
+:root[data-theme="light"] .glow-brand {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 25%, transparent),
+    0 4px 24px -4px color-mix(in oklab, var(--color-brand) 30%, transparent);
+}
+
+/* ── Focus ring: high-contrast violet ring ── */
+:root[data-theme="light"] .ring-focus:focus-visible {
+  box-shadow: 0 0 0 2px var(--color-void), 0 0 0 4px var(--color-brand);
+}
+
+/* ── Scrollbar: matching warm tone ── */
+:root[data-theme="light"] ::-webkit-scrollbar-thumb {
+  border-color: var(--color-void);
+}
+
+/* ── Logo animation elements ── */
+:root[data-theme="light"] .logo-glow-pulse {
+  animation: lightPulse 3s ease-in-out infinite;
+}
+
+@keyframes lightPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 30%, transparent),
+      0 0 14px -2px color-mix(in oklab, var(--color-brand) 40%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-magenta) 35%, transparent),
+      0 0 24px 2px color-mix(in oklab, var(--color-magenta) 45%, transparent);
+  }
+}
+
+/*
+ * Hairline / fill overrides — convert white-on-dark opacity classes to
+ * warm-tinted light-mode equivalents so components using raw border-white/N
+ * or bg-white/N (common in quick prototypes and third-party widgets) render
+ * correctly on a light page.  Uses a warm dark base (#1e1b4b, deep indigo)
+ * instead of neutral #000 to avoid sterile grey tones.
+ */
+:root[data-theme="light"] {
+  --hairline-a: color-mix(in oklab, #1e1b4b 8%, transparent);
+  --hairline-b: color-mix(in oklab, #1e1b4b 11%, transparent);
+  --hairline-c: color-mix(in oklab, #1e1b4b 15%, transparent);
+  --hairline-d: color-mix(in oklab, #1e1b4b 18%, transparent);
+  --hairline-e: color-mix(in oklab, #1e1b4b 22%, transparent);
+  --hairline-f: color-mix(in oklab, #1e1b4b 28%, transparent);
+  --hairline-g: color-mix(in oklab, #1e1b4b 4%, transparent);
+  --recess-a: color-mix(in oklab, #1e1b4b 4%, transparent);
+  --recess-b: color-mix(in oklab, #1e1b4b 7%, transparent);
+  --fill-a: color-mix(in oklab, #1e1b4b 5%, transparent);
+  --fill-b: color-mix(in oklab, #1e1b4b 8%, transparent);
+  --fill-c: color-mix(in oklab, #1e1b4b 12%, transparent);
+  --fill-d: color-mix(in oklab, #1e1b4b 16%, transparent);
+  --fill-e: color-mix(in oklab, #1e1b4b 22%, transparent);
+  --overlay-light: color-mix(in oklab, #1e1b4b 38%, transparent);
+  --overlay-medium: color-mix(in oklab, #1e1b4b 48%, transparent);
+}
+:root[data-theme="light"] .border-white\/5 { border-color: var(--hairline-a); }
+:root[data-theme="light"] .border-white\/8 { border-color: var(--hairline-b); }
+:root[data-theme="light"] .border-white\/10 { border-color: var(--hairline-c); }
+:root[data-theme="light"] .border-white\/12 { border-color: var(--hairline-d); }
+:root[data-theme="light"] .border-white\/15 { border-color: var(--hairline-e); }
+:root[data-theme="light"] .border-white\/20 { border-color: var(--hairline-f); }
+:root[data-theme="light"] .border-white\/25 { border-color: var(--hairline-f); }
+:root[data-theme="light"] .border-white\/30 { border-color: var(--hairline-f); }
+:root[data-theme="light"] .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: var(--hairline-a); }
+:root[data-theme="light"] .bg-black\/20 { background-color: var(--recess-a); }
+:root[data-theme="light"] .bg-black\/30 { background-color: var(--recess-b); }
+:root[data-theme="light"] .bg-black\/40 { background-color: var(--overlay-light); }
+:root[data-theme="light"] .bg-black\/50 { background-color: var(--overlay-medium); }
+:root[data-theme="light"] .bg-black\/55 { background-color: var(--overlay-medium); }
+:root[data-theme="light"] .bg-black\/60 { background-color: var(--overlay-medium); }
+:root[data-theme="light"] .bg-black\/70 { background-color: color-mix(in oklab, #1e1b4b 55%, transparent); }
+:root[data-theme="light"] .bg-white\/4 { background-color: var(--hairline-g); }
+:root[data-theme="light"] .bg-white\/5 { background-color: var(--fill-a); }
+:root[data-theme="light"] .bg-white\/6 { background-color: var(--fill-b); }
+:root[data-theme="light"] .bg-white\/8 { background-color: var(--fill-b); }
+:root[data-theme="light"] .bg-white\/10 { background-color: var(--fill-c); }
+:root[data-theme="light"] .bg-white\/15 { background-color: var(--fill-d); }
+:root[data-theme="light"] .bg-white\/20 { background-color: var(--fill-e); }
+:root[data-theme="light"] .hover\:bg-white\/5:hover { background-color: var(--fill-a); }
+:root[data-theme="light"] .hover\:bg-white\/10:hover { background-color: var(--fill-c); }
+:root[data-theme="light"] .hover\:bg-white\/15:hover { background-color: var(--fill-d); }
+:root[data-theme="light"] .active\:bg-white\/10:active { background-color: var(--fill-c); }
+
+/* Overlay badges sit on poster images, not page background — restore white translucency in light mode */
+:root[data-theme="light"] .badge-overlay {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+:root[data-theme="light"] .badge-overlay-light {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+:root[data-theme="light"] .badge-overlay-lighter {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
+}
+
+* {
+  border-color: var(--color-line);
+}
+
+/*
+ * Smooth theme transitions — fluid crossfade instead of a hard cut when
+ * data-theme swaps. Skip on reduced motion.
+ */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  transition-behavior: allow-discrete;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    transition: none !important;
+  }
+  .animate-page-fade-in {
+    animation: none !important;
+  }
+}
+
+html, body {
+  background: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--color-brand), var(--color-brand-2));
+  border-radius: 99px;
+  border: 2px solid var(--color-void);
+}
+/* On a narrow viewport the 10px gradient thumb (sized for a mouse cursor to
+   grab) reads as a bold solid bar taking a visible bite out of the screen
+   edge — thinner and more translucent here, unchanged above 639px. */
+@media (max-width: 639px) {
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-thumb {
+    border: none;
+    opacity: 0.5;
+  }
+}
+
+::selection {
+  background: color-mix(in oklab, var(--color-brand) 40%, transparent);
+  color: #fff;
+}
+
+/* ---------- Reusable utilities ---------- */
+
+.glass {
+  background: color-mix(in oklab, var(--color-surface) 62%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid color-mix(in oklab, #fff 8%, transparent);
+}
+
+.glass-strong {
+  background: color-mix(in oklab, var(--color-surface-2) 80%, transparent);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid color-mix(in oklab, #fff 10%, transparent);
+}
+
+.text-gradient {
+  background: linear-gradient(110deg, var(--color-ink) 10%, var(--color-brand-glow) 45%, var(--color-cyan) 90%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand-gradient {
+  background: linear-gradient(120deg, var(--color-brand), var(--color-brand-2), var(--color-magenta));
+}
+
+.glow-brand {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 40%, transparent),
+    0 8px 40px -8px color-mix(in oklab, var(--color-brand) 60%, transparent);
+}
+
+.ring-focus:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-void), 0 0 0 4px var(--color-brand);
+}
+
+/* Grain + vignette overlay for cinematic depth */
+.cinema-grain::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: radial-gradient(circle at 50% -20%, transparent 55%, rgba(0,0,0,0.55) 100%);
+  mix-blend-mode: multiply;
+}
+
+.shimmer {
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, #fff 12%, transparent) 40%,
+    color-mix(in oklab, #fff 12%, transparent) 55%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Animated brand logo mark — spinning aurora halo + breathing glow behind the icon. */
+.logo-halo {
+  background: conic-gradient(
+    from 0deg,
+    var(--color-brand),
+    var(--color-magenta),
+    var(--color-cyan),
+    var(--color-brand-2),
+    var(--color-brand)
+  );
+  filter: blur(16px);
+  animation: logoSpin 5s linear infinite;
+}
+
+.logo-glow-pulse {
+  animation: logoPulse 3s ease-in-out infinite;
+}
+
+/*
+ * Animated brand logo wordmark — a slow flowing rainbow shimmer through the
+ * letters, left to right. The stop sequence repeats twice (0-50% mirrors
+ * 50-100%, both starting/ending on ink) and background-size is exactly
+ * double the element width, so animating exactly one period (background-
+ * position 100% -> 0%) lands back on a pixel-identical frame — the loop has
+ * no visible seam.
+ */
+/* 4K badge — a slow-looping gradient shimmer instead of a flat dark fill, so
+   the top resolution tier reads as a little more premium than the others
+   without turning into a distracting flashing effect. Travels left to right.
+   Seamless-loop + no-stutter technique: the shimmer lives on an absolutely
+   positioned ::before twice the badge's width, painted with the color
+   sequence written out TWICE back to back (0-50% = one full period, 50-100%
+   = the exact same period again). It's animated with `transform: translateX`
+   (GPU-composited, sub-pixel accurate) instead of `background-position`
+   (which repaints on the main thread and can visibly hitch right at the
+   loop restart). translateX is expressed as a percentage of the ::before's
+   OWN box, so -50% is always exactly one badge-width regardless of the
+   badge's rendered size — the wrap point lands on a pixel-identical frame,
+   no seam. */
+.badge-4k-shimmer {
+  position: relative;
+  overflow: hidden;
+  background-color: #1a1a1a;
+}
+.badge-4k-shimmer::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 200%;
+  background-image: linear-gradient(
+    110deg,
+    #1a1a1a 0%,
+    color-mix(in oklab, var(--color-brand) 60%, #1a1a1a) 10%,
+    color-mix(in oklab, var(--color-cyan) 60%, #1a1a1a) 20%,
+    #1a1a1a 27.5%,
+    color-mix(in oklab, var(--color-magenta) 60%, #1a1a1a) 37.5%,
+    #1a1a1a 50%,
+    #1a1a1a 50%,
+    color-mix(in oklab, var(--color-brand) 60%, #1a1a1a) 60%,
+    color-mix(in oklab, var(--color-cyan) 60%, #1a1a1a) 70%,
+    #1a1a1a 77.5%,
+    color-mix(in oklab, var(--color-magenta) 60%, #1a1a1a) 87.5%,
+    #1a1a1a 100%
+  );
+  animation: badge4kShimmer 6s linear infinite;
+  will-change: transform;
+}
+@keyframes badge4kShimmer {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0%); }
+}
+
+.text-logo-flow {
+  background: linear-gradient(
+    110deg,
+    var(--color-ink) 0%,
+    var(--color-brand-glow) 12.5%,
+    var(--color-magenta) 25%,
+    var(--color-cyan) 37.5%,
+    var(--color-ink) 50%,
+    var(--color-brand-glow) 62.5%,
+    var(--color-magenta) 75%,
+    var(--color-cyan) 87.5%,
+    var(--color-ink) 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: textFlow 5s linear infinite;
+}
+
+/* One-time expanding rings behind the login logo, staggered for depth. */
+.logo-ripple {
+  animation: logoRipple 2.8s ease-out infinite;
+}
+
+/* ============================================================
+   GPU-tier optimizations — .gpu-low / .gpu-medium on <html>
+   ============================================================ */
+
+/* Aurora: reduce blur progressively per tier */
+.gpu-ultralow .aurora-blob,
+.gpu-ultralow .aurora-grid {
+  display: none;
+}
+.gpu-medium .aurora-blob {
+  filter: blur(80px);
+}
+.gpu-low .aurora-blob {
+  filter: blur(40px);
+}
+
+/* Glass: reduce/remove expensive backdrop-filter per tier */
+.gpu-ultralow .glass,
+.gpu-ultralow .glass-strong {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--color-surface);
+}
+.gpu-medium .glass,
+.gpu-medium .glass-strong {
+  backdrop-filter: blur(8px) saturate(1.3);
+  -webkit-backdrop-filter: blur(8px) saturate(1.3);
+}
+.gpu-low .glass,
+.gpu-low .glass-strong {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--color-surface);
+}
+
+/* badgePulse/logoPulse: static glow on low-tier (no box-shadow paint) */
+.gpu-low .animate-badge-pulse {
+  animation: none !important;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 40%, transparent);
+}
+.gpu-low .logo-glow-pulse {
+  animation: none !important;
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--color-brand) 45%, transparent),
+    0 0 18px -2px color-mix(in oklab, var(--color-magenta) 50%, transparent);
+}
+
+/* Shimmer: GPU-composited version using transform translateX instead of
+   background-position (paint → composite). Uses ::before pseudo-element
+   with width:200% and animates translateX. Same pattern as badge4kShimmer. */
+.shimmer-gpu {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-gpu::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  width: 200%;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    color-mix(in oklab, #fff 8%, transparent) 40%,
+    color-mix(in oklab, #fff 8%, transparent) 55%,
+    transparent 75%
+  );
+  animation: shimmerGpu 2.5s ease-in-out infinite;
+  will-change: transform;
+}
+@keyframes shimmerGpu {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0%); }
+}

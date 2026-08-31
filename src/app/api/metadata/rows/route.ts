@@ -1,0 +1,227 @@
+import { NextRequest, NextResponse } from "next/server";
+import { trending, browseCategory, discoverByFilters, tmdbConfigured, getBoxOffice, getNewSeries, getKidsRow, getAnimeRow, getTeenRow } from "@/lib/metadata/tmdb";
+import { GENRE_ROWS } from "@/lib/metadata/genreTaxonomy";
+import { filterSuggestable } from "@/lib/metadata/suggestable";
+import { getAllocineNewVod } from "@/lib/metadata/allocineVod";
+import { getAllocineTrendingSeries } from "@/lib/metadata/allocineSeries";
+import { loadDiscoverLayout } from "@/lib/metadata/discoverStore";
+import { requireUser } from "@/lib/auth/guard";
+import { countriesForContinents } from "@/lib/metadata/continents";
+import { getRecommendations } from "@/lib/recommender/engine";
+import { buildBecauseYouWatchedRow } from "@/lib/recommender/becauseYouWatched";
+import { loadMovies } from "@/lib/library/store";
+import { loadRequests } from "@/lib/requests/store";
+import { getFeedback } from "@/lib/ai/tasteProfile";
+import type { MetaSearchResult } from "@/lib/metadata/types";
+import type { User } from "@/lib/auth/types";
+
+/**
+ * Confirmed live: a 👎 on a Discover card (DashboardPosterCard's dislike
+ * button) DOES persist — /api/ai/feedback records it — but this route never
+ * consulted that record, so the exact same title reappeared on the next
+ * page load. dislikedExactKeys in recommendationScore.ts already does this
+ * for the AI's own recommendation engine; Discover's editorial TMDb rows
+ * needed the same hard exclude, since they're a completely separate data
+ * source that engine never touches.
+ */
+function dislikedKeysFor(userId: string | undefined): Set<string> {
+  if (!userId) return new Set();
+  return new Set(getFeedback(userId).filter((f) => !f.liked).map((f) => `${f.type}:${f.tmdbId}`));
+}
+
+function excludeDisliked(results: MetaSearchResult[], type: "movie" | "series", disliked: Set<string>): MetaSearchResult[] {
+  if (disliked.size === 0) return results;
+  return results.filter((r) => !disliked.has(`${type}:${r.tmdbId}`));
+}
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Build an "upcoming" row that prioritizes the current user's own requested
+ * movies (from the requests store, which IS per-user) whose library status is
+ * "upcoming", and fills the rest with TMDb's editorial upcoming list — so
+ * each user sees their own future releases first, then discovers other
+ * unreleased movies.
+ */
+async function buildUpcomingRow(user: User | null, originCountries?: string[]): Promise<MetaSearchResult[]> {
+  const [tmdbUpcoming, userMovies, requests] = await Promise.all([
+    browseCategory("movie", "upcoming", 1, originCountries),
+    loadMovies(),
+    user ? loadRequests() : Promise.resolve([]),
+  ]);
+
+  const userTmdbSet = user
+    ? new Set(requests.filter((r) => r.type === "movie" && r.userId === user.id).map((r) => r.tmdbId))
+    : new Set<number>();
+
+  const userUpcoming = userMovies
+    .filter((m) => m.status === "upcoming" && (!user || user.role === "admin" || userTmdbSet.has(m.tmdbId)))
+    .map((m) => ({
+      tmdbId: m.tmdbId,
+      type: "movie" as const,
+      title: m.title,
+      year: m.year,
+      releaseDate: m.releaseDate,
+      overview: m.overview,
+      posterPath: m.posterPath,
+      backdropPath: m.backdropPath,
+      rating: m.rating,
+    }));
+
+  const extra = tmdbUpcoming.results.filter((r) => !userUpcoming.some((u) => u.tmdbId === r.tmdbId));
+
+  return [...userUpcoming, ...extra];
+}
+
+/**
+ * The extra editorial rows (salué par la critique, anime, romance ado,
+ * format court, rangées par genre) — appended identically to BOTH layouts
+ * below. They don't belong to either layout's own identity (which is about
+ * section ORDER/grouping, not which extra buckets exist), so a title added
+ * to the taxonomy shows up for every user regardless of which layout they
+ * picked in Settings.
+ */
+async function buildEditorialExtras(
+  type: "movie" | "series",
+  originCountries?: string[]
+): Promise<{ key: string; results: MetaSearchResult[] }[]> {
+  const [acclaimed, animeRow, teenRow, shortFormat, ...genreResults] = await Promise.all([
+    discoverByFilters(type, { sort: "vote_average.desc", originCountries }, 1),
+    getAnimeRow(type, 20, originCountries),
+    getTeenRow(type, 20, originCountries),
+    type === "movie" ? discoverByFilters("movie", { maxRuntime: 40, sort: "popularity.desc", originCountries }, 1) : Promise.resolve({ results: [], page: 1, totalPages: 1 }),
+    ...GENRE_ROWS.map((g) => {
+      const genreId = type === "movie" ? g.movie : g.series;
+      return genreId === null
+        ? Promise.resolve({ results: [], page: 1, totalPages: 1 })
+        : discoverByFilters(type, { genre: String(genreId), sort: "popularity.desc", originCountries }, 1);
+    }),
+  ]);
+
+  return [
+    { key: "acclaimed", results: acclaimed.results },
+    { key: "anime", results: animeRow.results },
+    { key: "teen", results: teenRow.results },
+    ...(type === "movie" ? [{ key: "shortFormat", results: shortFormat.results }] : []),
+    ...GENRE_ROWS.map((g, i) => ({ key: g.key, results: genreResults[i].results })),
+  ].map((row) => ({ ...row, results: filterSuggestable(row.results) }));
+}
+
+/**
+ * Curated homepage rows for Discover — several TMDb editorial buckets fetched
+ * in parallel, so the discover home isn't a single flat list.
+ *
+ * Two row layouts, same TMDb-backed data either way:
+ * - "movviz" (default): "recommendedTop" (suggestions ∪ best rated),
+ *   "trendingPopular" (trending ∪ popular), upcoming/on-air.
+ * - "allocine": mirrors the actual section ORDER on allocine.fr/film —
+ *   "recommendedTop" first, then "nowPlayingBoxOffice" ("Films à l'affiche" +
+ *   "Box office"), "upcomingVod" ("Prochainement" + "Nouveautés VOD"),
+ *   "Tendances" ranked list, then "Kids". For series: "recommendedTop",
+ *   "newSeriesRenewed" ("Nouvelles séries" + "Séries renouvelées"),
+ *   "Tendances" ranked list.
+ *
+ * Both layouts then get the same buildEditorialExtras() rows appended after
+ * their own picks (see its doc comment).
+ *
+ * Sources are merged with dedupe (first source wins, by tmdbId) so the same
+ * title never appears twice on the page.
+ */
+export async function GET(req: NextRequest) {
+  if (!tmdbConfigured()) {
+    return NextResponse.json({ configured: false, rows: [] });
+  }
+  const type = req.nextUrl.searchParams.get("type") === "series" ? "series" : "movie";
+  const layout = loadDiscoverLayout();
+  const user = requireUser(req);
+  const originCountries = countriesForContinents(user?.discoverContinents ?? []);
+  const disliked = dislikedKeysFor(user?.id);
+
+  const recommended = getRecommendations(user?.id ?? "", type);
+  // Anchored on a single title (the user's own most-watched/most-liked),
+  // never blended like `recommended` above — see becauseYouWatched.ts.
+  // Computed once, spliced right after "recommendedTop" on every layout,
+  // since it doesn't belong to any one layout's identity (buildEditorialExtras
+  // below is the wrong place for it: that one is always appended at the end).
+  const because = buildBecauseYouWatchedRow(user?.id ?? "", type);
+
+  if (layout === "allocine") {
+    if (type === "movie") {
+      const [rec, newVod, nowPlaying, boxOffice, trend, topRated, upcomingResults, kids, extras, becauseRow] = await Promise.all([
+        recommended,
+        getAllocineNewVod(),
+        browseCategory("movie", "now_playing", 1, originCountries),
+        getBoxOffice(1, originCountries),
+        trending("movie", 1, originCountries),
+        browseCategory("movie", "top_rated", 1, originCountries),
+        buildUpcomingRow(user, originCountries),
+        getKidsRow("movie", 1, originCountries),
+        buildEditorialExtras("movie", originCountries),
+        because,
+      ]);
+      const rows = [
+        { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
+        ...(becauseRow ? [becauseRow] : []),
+        { key: "nowPlayingBoxOffice", results: filterSuggestable(dedupe([...nowPlaying.results, ...boxOffice.results])) },
+        // upcomingVod is exempt on purpose — its entire point is showing what's not out yet.
+        { key: "upcomingVod", results: dedupe([...upcomingResults, ...newVod.results]) },
+        { key: "trending", results: filterSuggestable(trend.results).slice(0, 10), ranked: true },
+        { key: "kids", results: filterSuggestable(kids.results) },
+        ...extras,
+      ].map((r) => ({ ...r, results: excludeDisliked(r.results, "movie", disliked) })).filter((r) => r.results.length > 0);
+      return NextResponse.json({ configured: true, layout, rows });
+    }
+
+    const [rec, newSeries, renewed, trend, topRated, extras, becauseRow] = await Promise.all([
+      recommended,
+      getNewSeries(1, originCountries),
+      browseCategory("series", "on_the_air", 1, originCountries),
+      getAllocineTrendingSeries(),
+      browseCategory("series", "top_rated", 1, originCountries),
+      buildEditorialExtras("series", originCountries),
+      because,
+    ]);
+    const rows = [
+      { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
+      ...(becauseRow ? [becauseRow] : []),
+      { key: "newSeriesRenewed", results: filterSuggestable(dedupe([...newSeries.results, ...renewed.results])) },
+      { key: "trending", results: filterSuggestable(trend.results).slice(0, 10), ranked: true },
+      ...extras,
+    ].map((r) => ({ ...r, results: excludeDisliked(r.results, "series", disliked) })).filter((r) => r.results.length > 0);
+    return NextResponse.json({ configured: true, layout, rows });
+  }
+
+  const [rec, trend, popular, topRated, upcomingResults, extras, becauseRow] = await Promise.all([
+    recommended,
+    trending(type, 1, originCountries),
+    browseCategory(type, "popular", 1, originCountries),
+    browseCategory(type, "top_rated", 1, originCountries),
+    type === "movie" ? buildUpcomingRow(user, originCountries) : browseCategory("series", "on_the_air", 1, originCountries).then((r) => r.results),
+    buildEditorialExtras(type, originCountries),
+    because,
+  ]);
+
+  const rows = [
+    { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
+    ...(becauseRow ? [becauseRow] : []),
+    { key: "trendingPopular", results: filterSuggestable(dedupe([...trend.results, ...popular.results])).slice(0, 10) },
+    // "upcoming" (movies) is exempt on purpose; "onAir" (series) isn't a
+    // future-dated category (already airing) so it passes the filter fine —
+    // still routed through the same shared key/exempt-list logic below.
+    { key: type === "movie" ? "upcoming" : "onAir", results: type === "movie" ? upcomingResults : filterSuggestable(upcomingResults) },
+    ...extras,
+  ].map((r) => ({ ...r, results: excludeDisliked(r.results, type, disliked) })).filter((r) => r.results.length > 0);
+
+  return NextResponse.json({ configured: true, layout, rows });
+}
+
+function dedupe(list: MetaSearchResult[]): MetaSearchResult[] {
+  const seen = new Set<number>();
+  const out: MetaSearchResult[] = [];
+  for (const item of list) {
+    if (seen.has(item.tmdbId)) continue;
+    seen.add(item.tmdbId);
+    out.push(item);
+  }
+  return out;
+}

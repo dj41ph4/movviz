@@ -1,0 +1,260 @@
+"use client";
+
+import { Suspense, useState } from "react";
+import useSWR from "swr";
+import { motion, AnimatePresence } from "framer-motion";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { useT, useI18n } from "@/i18n/provider";
+import { relativeTime, cn } from "@/lib/utils";
+import type { MediaRequest } from "@/lib/requests/types";
+import { TmdbImage } from "@/components/media/TmdbImage";
+import type { LibraryStatus } from "@/lib/library/types";
+import { Check, X, Clock, CheckCircle2, Star, Film, HardDriveDownload, Search, Loader2, RotateCw, AlertTriangle, Calendar } from "lucide-react";
+
+type RequestWithMedia = MediaRequest & { mediaStatus?: LibraryStatus | null };
+
+const STATUS_TONE: Record<MediaRequest["status"], string> = {
+  pending: "text-amber bg-amber/12 border-amber/25",
+  approved: "text-ok bg-ok/12 border-ok/25",
+  declined: "text-down bg-down/12 border-down/25",
+};
+const MEDIA_TONE: Record<LibraryStatus, string> = {
+  available: "text-ok bg-ok/12 border-ok/25",
+  downloading: "text-cyan bg-cyan/12 border-cyan/25",
+  searching: "text-brand-glow bg-brand/12 border-brand/25",
+  missing: "text-amber bg-amber/12 border-amber/25",
+  upcoming: "text-ink-dim bg-white/6 border-white/10",
+};
+const MEDIA_ICON: Record<LibraryStatus, React.ElementType> = {
+  available: CheckCircle2,
+  downloading: HardDriveDownload,
+  searching: Search,
+  missing: Clock,
+  upcoming: Calendar,
+};
+
+/** Approved requests badge with the media's real state; others keep the request state. */
+function RequestBadge({ r, t }: { r: RequestWithMedia; t: (k: string) => string }) {
+  if (r.status === "approved" && r.mediaStatus) {
+    const Icon = MEDIA_ICON[r.mediaStatus];
+    return (
+      <span className={cn("flex shrink-0 items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-semibold", MEDIA_TONE[r.mediaStatus])}>
+        <Icon className="h-3 w-3" /> {t(`status.${r.mediaStatus}`)}
+      </span>
+    );
+  }
+  return (
+    <span className={cn("shrink-0 rounded-full border px-2.5 py-1 text-[11px] font-semibold", STATUS_TONE[r.status])}>
+      {t(`status.${r.status}`)}
+    </span>
+  );
+}
+
+export default function RequestsPage() {
+  return (
+    <Suspense fallback={null}>
+      <RequestsPageInner />
+    </Suspense>
+  );
+}
+
+function RequestsPageInner() {
+  const t = useT();
+  const { locale } = useI18n();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const initialTab = (searchParams.get("tab") as "pending" | "all") ?? "pending";
+  const [tab, setTab] = useState<"pending" | "all">(initialTab);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const pushTab = (tb: "pending" | "all") => {
+    setTab(tb);
+    const p = new URLSearchParams(searchParams.toString());
+    if (tb === "pending") p.delete("tab");
+    else p.set("tab", tb);
+    router.push(pathname + (p.toString() ? "?" + p.toString() : ""), { scroll: false });
+  };
+
+  const { data, mutate, isLoading, error } = useSWR<{ requests: RequestWithMedia[]; isAdmin: boolean }>(
+    "/api/requests"
+  );
+  const requests = data?.requests ?? [];
+  const isAdmin = !!data?.isAdmin;
+
+  if (error) {
+    return (
+      <div className="mx-auto max-w-[1100px]">
+        <PageHeader title={t("requests.title")} />
+        <div className="flex flex-col items-center gap-3 rounded-2xl glass py-16 text-center">
+          <AlertTriangle className="h-8 w-8 text-down" />
+          <p className="font-semibold text-ink">{t("error.title")}</p>
+          <p className="max-w-md text-sm text-ink-dim">{t("error.description")}</p>
+          <button
+            onClick={() => mutate()}
+            className="mt-2 flex items-center gap-2 rounded-xl brand-gradient px-5 py-2.5 text-sm font-bold text-white"
+          >
+            <RotateCw className="h-4 w-4" /> {t("common.retry")}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-[1100px]">
+        <PageHeader title={t("requests.title")} />
+        <div className="space-y-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="flex gap-4 rounded-2xl glass p-4">
+              <div className="h-28 w-20 shrink-0 animate-pulse rounded-xl bg-white/6" />
+              <div className="flex min-w-0 flex-1 flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="h-6 w-2/3 animate-pulse rounded bg-white/8" />
+                  <div className="h-4 w-1/3 animate-pulse rounded bg-white/6" />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="h-3.5 w-full animate-pulse rounded bg-white/6" />
+                  <div className="h-3.5 w-3/4 animate-pulse rounded bg-white/6" />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="h-3 w-24 animate-pulse rounded bg-white/6" />
+                  <div className="h-8 w-20 animate-pulse rounded-xl bg-white/8" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const decide = async (id: string, action: "approve" | "decline") => {
+    setBusy(id);
+    // Flip the badge immediately instead of leaving it on "pending" until
+    // the round-trip and next poll land — the admin is often triaging a
+    // batch of these back to back and shouldn't wait between clicks.
+    mutate(
+      (current) =>
+        current
+          ? { ...current, requests: current.requests.map((r) => (r.id === id ? { ...r, status: action === "approve" ? "approved" : "declined" } : r)) }
+          : current,
+      { revalidate: false }
+    );
+    try {
+      await fetch(`/api/requests/${id}/${action}`, { method: "POST" });
+      await mutate();
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const visible = requests.filter((r) => tab === "all" || r.status === "pending");
+  const pendingCount = requests.filter((r) => r.status === "pending").length;
+
+  return (
+    <div className="mx-auto max-w-[1100px]">
+      <PageHeader
+        eyebrow={isAdmin ? `${pendingCount} ${t("requests.eyebrow")}` : undefined}
+        title={isAdmin ? t("requests.title") : t("requests.myRequests")}
+        description={isAdmin ? t("requests.description") : t("requests.myRequestsDescription")}
+      >
+        {isAdmin && (
+          <div className="flex gap-1.5">
+            {(["pending", "all"] as const).map((tb) => (
+              <button
+                key={tb}
+                onClick={() => pushTab(tb)}
+                className={cn(
+                  "rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
+                  tab === tb ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"
+                )}
+              >
+                {tb === "pending" ? t("status.pending") : t("common.all")}
+              </button>
+            ))}
+          </div>
+        )}
+      </PageHeader>
+
+      <div className="space-y-4">
+        <AnimatePresence mode="sync">
+          {visible.map((r) => {
+            return (
+              <motion.div
+                key={r.id}
+                layout
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                className="flex gap-4 rounded-2xl glass p-4"
+              >
+                <div className="h-28 w-20 shrink-0 overflow-hidden rounded-xl bg-surface">
+                  {r.posterPath ? (
+                    <TmdbImage path={r.posterPath} size="w200" alt={r.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center"><Film className="h-6 w-6 text-ink-soft/50" /></div>
+                  )}
+                </div>
+
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-lg font-bold text-ink">{r.title}</h3>
+                      <div className="mt-1 flex items-center gap-3 text-sm text-ink-dim">
+                        <span className="flex items-center gap-1 font-semibold text-amber">
+                          <Star className="h-3.5 w-3.5 fill-amber" /> {r.rating.toFixed(1)}
+                        </span>
+                        <span>{r.year ?? "—"}</span>
+                      </div>
+                    </div>
+                    <RequestBadge r={r} t={t} />
+                  </div>
+
+                  <p className="mt-2 line-clamp-2 text-sm text-ink-soft">{r.overview}</p>
+
+                  <div className="mt-auto flex items-center justify-between pt-3">
+                    <span className="text-xs text-ink-dim">
+                      {isAdmin ? `${t("requests.requestedBy")} ${r.username} · ` : ""}
+                      {relativeTime(new Date(r.createdAt).toISOString(), locale)}
+                    </span>
+
+                    {isAdmin && r.status === "pending" ? (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <button
+                          onClick={() => decide(r.id, "decline")}
+                          disabled={busy === r.id}
+                          className="flex h-9 items-center gap-1.5 rounded-xl glass px-4 text-sm font-semibold text-down transition-colors hover:bg-down/10 disabled:opacity-50"
+                        >
+                          <X className="h-4 w-4" /> {t("common.decline")}
+                        </button>
+                        <button
+                          onClick={() => decide(r.id, "approve")}
+                          disabled={busy === r.id}
+                          className="flex h-9 items-center gap-1.5 rounded-xl brand-gradient px-4 text-sm font-bold text-white transition-transform hover:scale-105 disabled:opacity-50"
+                        >
+                          <Check className="h-4 w-4" /> {t("common.approve")}
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="flex items-center gap-1.5 text-sm font-semibold text-ink-soft">
+                        {r.status === "approved" ? <CheckCircle2 className="h-4 w-4 text-ok" /> : <Clock className="h-4 w-4" />}
+                        {r.status === "approved" && r.mediaStatus ? t(`status.${r.mediaStatus}`) : t(`status.${r.status}`)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })}
+        </AnimatePresence>
+
+        {visible.length === 0 && (
+          <div className="rounded-2xl glass py-20 text-center text-ink-dim">{t("requests.empty")}</div>
+        )}
+      </div>
+    </div>
+  );
+}

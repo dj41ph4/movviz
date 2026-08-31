@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Bannière Leanback : même fond void, carré violet-magenta et clap blanc
+     que la marque desktop. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
+    <path android:fillColor="#FF090911" android:pathData="M0,0H320V180H0Z" />
+    <path android:fillColor="#FF7C5CFF" android:pathData="M124,41 Q124,29 136,29 H184 Q196,29 196,41 V139 Q196,151 184,151 H136 Q124,151 124,139 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M140,80 L180,80 L180,111 Q180,117 174,117 H146 Q140,117 140,111 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M179,68 L141,80 L139,74 Q138,70 142,69 L174,59 Q178,58 179,62 Z" />
+    <path android:strokeColor="#FF7C5CFF" android:strokeWidth="6" android:strokeLineCap="round" android:fillColor="#00000000" android:pathData="M160,63 L167,74 M148,67 L155,78" />
+</vector>

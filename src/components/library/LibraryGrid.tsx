@@ -1,0 +1,645 @@
+"use client";
+
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import useSWR from "swr";
+import Link from "next/link";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { LibraryMovieCard } from "@/components/library/LibraryMovieCard";
+import { LibrarySeriesCard } from "@/components/library/LibrarySeriesCard";
+import { SearchAndReplacePanel } from "@/components/library/SearchAndReplacePanel";
+import { useT, useI18n } from "@/i18n/provider";
+import { useTitleArtworkBatch, type TitleArtworkRef } from "@/components/media/useTitleArtworkBatch";
+import { cn } from "@/lib/utils";
+import type { LibraryMovie, LibrarySeries, LibraryStatus } from "@/lib/library/types";
+import type { EngineTorrent } from "@/lib/types";
+import { useCurrentUser } from "@/lib/auth/useCurrentUser";
+import { Film, ScanSearch, Loader2, SearchCheck, RefreshCw, X } from "lucide-react";
+import { ANIME_GENRE_ID, TEEN_GENRE_ID, matchesAnimeByNames, matchesTeenByNames } from "@/lib/metadata/genreTaxonomy";
+
+export const RENDER_BATCH_INITIAL = 200;
+export const RENDER_BATCH_STEP = 200;
+
+interface RescanIssue {
+  kind: "missing" | "untracked" | "duplicate";
+  path: string;
+}
+
+interface Job {
+  id: string;
+  status: "queued" | "running" | "completed" | "failed";
+  current: number;
+  total: number;
+  sourceId?: string;
+}
+
+const FILTERS: { id: "all" | LibraryStatus; key: string }[] = [
+  { id: "all", key: "common.all" },
+  { id: "available", key: "status.available" },
+  { id: "missing", key: "status.missing" },
+];
+const TYPES: { id: "all" | "movie" | "series"; key: string; href: string }[] = [
+  { id: "all", key: "common.all", href: "/library" },
+  { id: "movie", key: "common.movies", href: "/movies" },
+  { id: "series", key: "common.series", href: "/series" },
+];
+const SORTS: { id: "title" | "recent" | "rating"; key: string }[] = [
+  { id: "title", key: "library.sortTitle" },
+  { id: "recent", key: "library.sortRecent" },
+  { id: "rating", key: "library.sortRating" },
+];
+
+type CombinedItem = { kind: "movie"; movie: LibraryMovie } | { kind: "series"; series: LibrarySeries };
+function titleOf(c: CombinedItem): string {
+  return c.kind === "movie" ? c.movie.title : c.series.title;
+}
+// Plex-style A-Z jump index. Deliberately the exact same "raw first
+// character" the grid's own sort comparator already uses (titleOf(a)
+// .localeCompare(titleOf(b)), no article-stripping) — an index that grouped
+// "The Matrix"/"Le Fabuleux Destin..." under "M"/"F" instead of "T"/"L"
+// would jump confidently to a letter whose actual titles, in the REAL grid
+// order, are elsewhere: the index has to match the sort it's indexing, not
+// how a human would alphabetize the same list by hand.
+function alphabetKeyOf(title: string): string {
+  const first = title.trim().charAt(0).toUpperCase();
+  return /[A-Z]/.test(first) ? first : "#";
+}
+const ALPHABET_KEYS = ["#", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
+
+/**
+ * The library grid, shared by three fixed pages: /library (Tout, mixes both
+ * types and keeps the type chips as links to the dedicated pages), /movies
+ * (movies only) and /series (series only). On the fixed pages the type is
+ * baked in — no type chips, no `type` URL param.
+ */
+export function LibraryGrid({ fixedType }: { fixedType: "all" | "movie" | "series" }) {
+  return (
+    <Suspense fallback={null}>
+      <LibraryGridInner fixedType={fixedType} />
+    </Suspense>
+  );
+}
+
+function LibraryGridInner({ fixedType }: { fixedType: "all" | "movie" | "series" }) {
+  const t = useT();
+  const { locale } = useI18n();
+  const user = useCurrentUser();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>(
+    () => (FILTERS.find((f) => f.id === searchParams.get("filter"))?.id ?? "all") as (typeof FILTERS)[number]["id"]
+  );
+  const [sort, setSort] = useState<(typeof SORTS)[number]["id"]>(
+    () => (SORTS.find((s) => s.id === searchParams.get("sort"))?.id ?? "title") as (typeof SORTS)[number]["id"]
+  );
+  const [genreFilter, setGenreFilter] = useState(() => searchParams.get("genre") ?? "");
+  const [rescanning, setRescanning] = useState(false);
+  const [issues, setIssues] = useState<RescanIssue[] | null>(null);
+  const [searchAndReplaceOpen, setSearchAndReplaceOpen] = useState(false);
+  const [starting, setStarting] = useState(false);
+
+  // The "Tout" page keeps accepting legacy ?type=movie|series links (old
+  // sidebar/bookmarks) — redirect them to the dedicated fixed pages.
+  const typeParam = searchParams.get("type");
+  useEffect(() => {
+    if (fixedType !== "all") return;
+    if (typeParam === "movie") router.replace("/movies");
+    else if (typeParam === "series") router.replace("/series");
+  }, [typeParam, fixedType, router]);
+
+  const type = fixedType;
+
+  // Sync library filters to URL for back-button support.
+  useEffect(() => {
+    const p = new URLSearchParams(searchParams.toString());
+    if (filter !== "all") p.set("filter", filter); else p.delete("filter");
+    if (sort !== "title") p.set("sort", sort); else p.delete("sort");
+    if (genreFilter) p.set("genre", genreFilter); else p.delete("genre");
+    const qs = p.toString();
+    if (qs !== searchParams.toString()) {
+      router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
+    }
+  }, [filter, sort, genreFilter, searchParams, router, pathname]);
+
+  // Poll the job queue for any admin visit to this page (not just while
+  // *this* component instance triggered a run) so a "search all missing"
+  // job started before a navigation away and back is still shown as
+  // in-progress on return, instead of the button forgetting it and
+  // looking idle. Only admins can see/trigger the button, so only admins
+  // need to poll this.
+  const { data: jobsData } = useSWR<{ jobs: Job[] }>(user?.role === "admin" ? "/api/jobs" : null, { refreshInterval: 2000 });
+  const searchMissingJob = jobsData?.jobs.find(
+    (j) => j.sourceId === "search-all-missing" && (j.status === "queued" || j.status === "running")
+  );
+  const searchingMissing = starting || !!searchMissingJob;
+  const wasSearchingRef = useRef(false);
+  useEffect(() => {
+    if (wasSearchingRef.current && !searchMissingJob) {
+      setStarting(false);
+      refresh();
+    } else if (searchMissingJob) {
+      setStarting(false);
+    }
+    wasSearchingRef.current = !!searchMissingJob;
+  }, [searchMissingJob]);
+
+  const searchMissing = async () => {
+    setStarting(true);
+    try {
+      await fetch(`/api/library/search-missing?scope=${type}`, { method: "POST" });
+      setTimeout(() => setStarting(false), 8000);
+    } catch {
+      setStarting(false);
+    }
+  };
+  const searchMissingLabel = type === "movie"
+    ? t("library.searchMissingMovies")
+    : type === "series"
+      ? t("library.searchMissingEpisodes")
+      : t("library.searchMissing");
+
+  // SWR serves whatever was last cached for these URLs instantly on
+  // remount (even if it was another page, e.g. Découverte, that populated
+  // it) instead of the grid going blank on every visit, then revalidates
+  // in the background on the same 3s cadence the old polling used.
+  const { data: moviesData, mutate: mutateMovies } = useSWR<{ movies: LibraryMovie[] }>(
+    "/api/library/movies"
+  );
+  const { data: seriesData, mutate: mutateSeries } = useSWR<{ series: LibrarySeries[] }>(
+    "/api/library/series"
+  );
+  const { data: torrentsData } = useSWR<{ torrents: EngineTorrent[] }>(
+    "/api/engine/torrents"
+  );
+  const movies = moviesData?.movies ?? [];
+  const series = seriesData?.series ?? [];
+  const torrents = torrentsData?.torrents ?? [];
+  const loading = !moviesData || !seriesData;
+  const refresh = () => { mutateMovies(); mutateSeries(); };
+
+  // Union of real genres actually present in this library, sorted — plus
+  // the two synthetic genres (genreTaxonomy.ts) ALWAYS offered, even with
+  // zero matching titles yet, so the taxonomy reads the same on Films/
+  // Séries as it does on Découverte (same ids, same two extra entries).
+  const allGenres = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of movies) for (const g of m.genres) set.add(g);
+    for (const s of series) for (const g of s.genres) set.add(g);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [movies, series]);
+
+  const rescan = async () => {
+    setRescanning(true);
+    setIssues(null);
+    try {
+      const res = await fetch("/api/library/rescan", { cache: "no-store" });
+      if (res.ok) setIssues((await res.json()).issues ?? []);
+      refresh();
+    } finally {
+      setRescanning(false);
+    }
+  };
+
+  // Shared SWR key with the series detail page — fetched once per session.
+  const { data: watchData } = useSWR<{ movies: number[] }>("/api/watch-status");
+  const watchedMovies = useMemo(() => new Set<number>(watchData?.movies ?? []), [watchData]);
+
+  const movieMatchesGenre = (m: LibraryMovie) => {
+    if (!genreFilter) return true;
+    if (genreFilter === ANIME_GENRE_ID) return matchesAnimeByNames(m.genres, m.isAnime);
+    if (genreFilter === TEEN_GENRE_ID) return matchesTeenByNames("movie", m.genres);
+    return m.genres.includes(genreFilter);
+  };
+  const movieItems = useMemo(
+    () => (type === "series" ? [] : movies.filter((m) => (filter === "all" || m.status === filter) && movieMatchesGenre(m))),
+    [movies, filter, type, genreFilter]
+  );
+  const seriesStatus = (s: LibrarySeries): LibraryStatus => {
+    const monitored = s.seasons.flatMap((se) => se.episodes).filter((e) => e.monitored);
+    if (monitored.length > 0 && monitored.every((e) => e.status === "upcoming")) return "upcoming";
+    if (monitored.some((e) => e.status === "downloading")) return "downloading";
+    if (monitored.some((e) => e.status === "searching")) return "searching";
+    // "Complete" when everything left is only scheduled (TBA/future dates).
+    if (monitored.length > 0 && monitored.every((e) => e.status === "available" || e.status === "upcoming")) return "available";
+    return "missing";
+  };
+  const seriesMatchesGenre = (s: LibrarySeries) => {
+    if (!genreFilter) return true;
+    if (genreFilter === ANIME_GENRE_ID) return matchesAnimeByNames(s.genres, s.isAnime);
+    if (genreFilter === TEEN_GENRE_ID) return matchesTeenByNames("series", s.genres);
+    return s.genres.includes(genreFilter);
+  };
+  const seriesItems = useMemo(
+    () => (type === "movie" ? [] : series.filter((s) => (filter === "all" || seriesStatus(s) === filter) && seriesMatchesGenre(s))),
+    [series, filter, type, genreFilter]
+  );
+
+  // When "Tout" mixes movies and series, they must be sorted TOGETHER — every
+  // sort mode, not just alphabetical — instead of each type being sorted on
+  // its own and simply concatenated (which always put every movie before
+  // every series, alphabetical order or not; sorting separately then
+  // stitching the two lists together can never interleave them).
+  const combinedItems = useMemo(() => {
+    const combined: CombinedItem[] = [
+      ...movieItems.map((movie): CombinedItem => ({ kind: "movie", movie })),
+      ...seriesItems.map((series): CombinedItem => ({ kind: "series", series })),
+    ];
+    const addedAtOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.addedAt : c.series.addedAt);
+    const ratingOf = (c: CombinedItem) => (c.kind === "movie" ? c.movie.rating : c.series.rating);
+    return sort === "recent"
+      ? combined.sort((a, b) => addedAtOf(b) - addedAtOf(a))
+      : sort === "rating"
+        ? combined.sort((a, b) => ratingOf(b) - ratingOf(a))
+        : combined.sort((a, b) => titleOf(a).localeCompare(titleOf(b)));
+  }, [movieItems, seriesItems, sort]);
+
+  const total = combinedItems.length;
+
+  // Progressive rendering: paint the first batch immediately so the page is
+  // interactive at once, then mount the rest in idle time. Rendering the whole
+  // library in one pass means thousands of DOM nodes before first paint — the
+  // page felt frozen on large libraries.
+  const [visibleCount, setVisibleCount] = useState(RENDER_BATCH_INITIAL);
+  useEffect(() => {
+    setVisibleCount(RENDER_BATCH_INITIAL);
+  }, [filter, type, sort]);
+  useEffect(() => {
+    if (visibleCount >= total) return;
+    const grow = () => setVisibleCount((c) => Math.min(totalRef.current, c + RENDER_BATCH_STEP));
+    if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(grow);
+      return () => window.cancelIdleCallback(id);
+    }
+    const id = window.setTimeout(grow, 50);
+    return () => window.clearTimeout(id);
+  }, [visibleCount, total]);
+  // requestIdleCallback only fires during genuinely idle periods — continuous
+  // scrolling keeps generating scroll/input events, so on a large library the
+  // browser can go a long time without ever considering itself idle, and
+  // growth visibly stalls partway through the alphabet.
+  const totalRef = useRef(total);
+  totalRef.current = total;
+
+  // A single sentinel right after the last rendered card only ever grows the
+  // list from wherever it already stopped — perfectly fine for a normal
+  // scroll down, but confirmed live: jumping straight to a distant point
+  // (dragging the scrollbar, End key) lands the viewport deep inside the
+  // skeleton region while the sentinel — still sitting right where rendering
+  // left off — never enters it, so nothing loads until a SECOND scroll
+  // nudges it. Checkpoint markers spaced every RENDER_BATCH_STEP items across
+  // the ENTIRE remaining list (not just the next one) fix this: wherever the
+  // viewport lands, the nearest checkpoint is always close by and loads
+  // exactly that neighborhood immediately, not a slow catch-up from the top.
+  const checkpointElsRef = useRef(new Map<number, HTMLDivElement>());
+  const checkpointIndices = useMemo(() => {
+    const indices: number[] = [];
+    for (let i = visibleCount; i < total; i += RENDER_BATCH_STEP) indices.push(i);
+    return indices;
+  }, [visibleCount, total]);
+  // No separate cleanup effect needed: the callback ref below already
+  // adds/removes its own entry (React calls it with `null` on unmount before
+  // this effect's dependency-driven re-run), so the map is always correct by
+  // the time this effect reads it.
+  const checkpointIndexSet = useMemo(() => new Set(checkpointIndices), [checkpointIndices]);
+
+  // Confirmed live: jumping straight from a low visibleCount to a distant
+  // target (checkpoint far ahead, or a late letter in the A-Z index) mounted
+  // every real card in between SYNCHRONOUSLY — each is a real DOM node with
+  // an image, hover state, motion — froze the tab for several seconds.
+  // Ramping the same target across several animation frames (RENDER_BATCH_STEP
+  // per frame, same batch size as every other growth path) reaches it in well
+  // under 200ms while still letting the browser paint/breathe between each
+  // chunk instead of blocking on one huge commit.
+  const rampingRef = useRef(false);
+  const rampVisibleCountTo = (target: number) => {
+    if (rampingRef.current) return;
+    rampingRef.current = true;
+    const step = () => {
+      setVisibleCount((c) => {
+        const next = Math.min(target, totalRef.current, c + RENDER_BATCH_STEP);
+        if (next < target && next < totalRef.current) requestAnimationFrame(step);
+        else rampingRef.current = false;
+        return Math.max(c, next);
+      });
+    };
+    requestAnimationFrame(step);
+  };
+
+  useEffect(() => {
+    if (checkpointIndices.length === 0) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const reached = entries.filter((e) => e.isIntersecting).map((e) => Number((e.target as HTMLElement).dataset.checkpointIndex));
+        if (!reached.length) return;
+        const target = Math.min(...reached) + RENDER_BATCH_STEP;
+        rampVisibleCountTo(Math.min(totalRef.current, target));
+      },
+      { rootMargin: "1000px" }
+    );
+    for (const el of checkpointElsRef.current.values()) io.observe(el);
+    return () => io.disconnect();
+  }, [checkpointIndices]);
+
+  // A-Z jump index (Plex-style) — only meaningful in alphabetical sort;
+  // "recent"/"rating" order doesn't group titles by letter at all.
+  const gridRef = useRef<HTMLDivElement>(null);
+  const pendingScrollIndexRef = useRef<number | null>(null);
+  const availableLetters = useMemo(() => {
+    if (sort !== "title") return new Set<string>();
+    return new Set(combinedItems.map((c) => alphabetKeyOf(titleOf(c))));
+  }, [combinedItems, sort]);
+  const jumpToLetter = (letter: string) => {
+    const index = combinedItems.findIndex((c) => alphabetKeyOf(titleOf(c)) === letter);
+    if (index < 0) return;
+    pendingScrollIndexRef.current = index;
+    rampVisibleCountTo(Math.min(totalRef.current, index + RENDER_BATCH_STEP));
+  };
+  // Fires once the target index has actually been promoted from skeleton to
+  // a real rendered card (visibleCount just grew past it) — scrolling any
+  // earlier would land on an empty skeleton slot instead of the real title.
+  useEffect(() => {
+    const target = pendingScrollIndexRef.current;
+    if (target === null || target >= visibleCount) return;
+    pendingScrollIndexRef.current = null;
+    const node = gridRef.current?.children[target] as HTMLElement | undefined;
+    node?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [visibleCount]);
+
+  const visibleItems = combinedItems.slice(0, visibleCount);
+
+  // One batch call for every card currently rendered — never per-card (see
+  // useTitleArtworkBatch's own docs) — same 16:9 backdrop + logo resolution
+  // Découverte/Tableau de bord use, so library cards share their exact look.
+  const artworkRefs = useMemo<TitleArtworkRef[]>(
+    () => visibleItems.map((entry) => entry.kind === "movie"
+      ? { type: "movie" as const, tmdbId: entry.movie.tmdbId }
+      : { type: "series" as const, tmdbId: entry.series.tmdbId }),
+    [visibleItems]
+  );
+  const artworkByKey = useTitleArtworkBatch(artworkRefs, locale);
+
+  const progressFor = (movie: LibraryMovie) =>
+    movie.activeInfoHash ? torrents.find((t) => t.infoHash === movie.activeInfoHash) : null;
+
+  return (
+    <div>
+      <div className="mb-4 space-y-2.5 rounded-2xl glass p-3.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-ink">
+            <Film className="h-4 w-4 text-brand-glow" />
+            <span className="text-sm font-semibold">{total} {t("common.titles")}</span>
+          </div>
+          {user?.role === "admin" && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                onClick={searchMissing}
+                disabled={searchingMissing}
+                title={
+                  searchMissingJob?.status === "queued"
+                    ? t("library.searchMissingWaiting")
+                    : searchingMissing && searchMissingJob && searchMissingJob.total > 1
+                      ? `${searchMissingLabel} — ${searchMissingJob.current} / ${searchMissingJob.total}`
+                      : searchMissingLabel
+                }
+                className="relative flex h-9 w-9 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+              >
+                {searchingMissing ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchCheck className="h-4 w-4" />}
+                {searchingMissing && searchMissingJob && searchMissingJob.total > 1 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full brand-gradient px-1 text-[9px] font-bold text-white">
+                    {searchMissingJob.current}/{searchMissingJob.total}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={rescan}
+                disabled={rescanning}
+                title={t("library.rescan")}
+                className="flex h-9 w-9 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+              >
+                {rescanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanSearch className="h-4 w-4" />}
+              </button>
+              <button
+                onClick={() => setSearchAndReplaceOpen(true)}
+                title={t("library.searchAndReplace")}
+                className="flex h-9 w-9 items-center justify-center rounded-lg glass-strong text-ink-soft transition-colors hover:text-ink"
+              >
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {issues && (
+          <div className="rounded-xl bg-black/20 p-3.5">
+            {issues.length === 0 ? (
+              <p className="text-sm text-ok">{t("library.rescanClean")}</p>
+            ) : (
+              <div className="space-y-1.5">
+                {issues.map((issue, i) => (
+                  <div key={i} className="flex items-center gap-2 text-xs text-ink-soft">
+                    <span className={cn("shrink-0 rounded-full px-2 py-0.5 font-semibold", issue.kind === "missing" ? "bg-down/12 text-down" : issue.kind === "duplicate" ? "bg-cyan/12 text-cyan" : "bg-amber/12 text-amber")}>
+                      {issue.kind === "missing" ? t("library.fileMissing") : issue.kind === "duplicate" ? t("library.duplicateMerged") : t("library.untrackedFile")}
+                    </span>
+                    <span className="truncate font-mono">{issue.path}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="h-px bg-white/5" />
+
+        <div className="flex flex-wrap items-center justify-between gap-1.5">
+          {fixedType === "all" ? (
+            <div className="flex flex-wrap gap-1.5">
+              {TYPES.map((tp) => {
+                const active = tp.id === "all" ? pathname === "/library" : pathname.startsWith(tp.href);
+                return (
+                  <Link
+                    key={tp.id}
+                    href={tp.href}
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                      active ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
+                    )}
+                  >
+                    {t(tp.key)}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            // No type toggle needed here (the page itself is fixed to movies
+            // or series) — the status filters take this slot instead of
+            // leaving it an empty placeholder div, so /movies and /series
+            // don't waste a whole row on nothing next to the sort pills.
+            <div className="flex flex-wrap gap-1.5">
+              {FILTERS.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={() => setFilter(f.id)}
+                  className={cn(
+                    "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                    filter === f.id ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
+                  )}
+                >
+                  {t(f.key)}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-1 rounded-xl glass-strong p-1">
+            {SORTS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSort(s.id)}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  sort === s.id ? "brand-gradient text-white" : "text-ink-soft hover:text-ink"
+                )}
+              >
+                {t(s.key)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {fixedType === "all" && (
+          <div className="flex flex-wrap gap-1.5">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id)}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                  filter === f.id ? "brand-gradient text-white shadow-lg" : "glass-strong text-ink-soft hover:text-ink"
+                )}
+              >
+                {t(f.key)}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-1.5 border-t border-white/5 pt-3">
+          {[
+            { id: ANIME_GENRE_ID, label: t("discover.genreAnime") },
+            { id: TEEN_GENRE_ID, label: t("discover.genreTeen") },
+            ...allGenres.map((g) => ({ id: g, label: g })),
+          ].map((g) => (
+            <button
+              key={g.id}
+              onClick={() => setGenreFilter(genreFilter === g.id ? "" : g.id)}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors",
+                genreFilter === g.id
+                  ? "bg-brand/20 text-brand-glow shadow-lg"
+                  : "glass-strong text-ink-soft hover:text-ink"
+              )}
+            >
+              {g.label}
+              {genreFilter === g.id && <X className="ml-1 inline h-3 w-3" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {sort === "title" && total > RENDER_BATCH_INITIAL && (
+        <div
+          className="fixed right-1.5 top-1/2 z-30 hidden -translate-y-1/2 flex-col items-center gap-0.5 rounded-full glass px-1 py-2 sm:flex"
+          aria-label={t("library.jumpToLetter")}
+        >
+          {ALPHABET_KEYS.map((letter) => {
+            const has = availableLetters.has(letter);
+            return (
+              <button
+                key={letter}
+                type="button"
+                disabled={!has}
+                onClick={() => jumpToLetter(letter)}
+                title={letter}
+                className={cn(
+                  "flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold leading-none transition-colors",
+                  has ? "text-ink-dim hover:bg-brand/20 hover:text-brand-glow" : "text-ink-dim/25"
+                )}
+              >
+                {letter}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+        <div ref={gridRef} className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+          {visibleItems.map((entry, i) => {
+            const art = entry.kind === "movie" ? artworkByKey[`movie:${entry.movie.tmdbId}`] : artworkByKey[`series:${entry.series.tmdbId}`];
+            return entry.kind === "movie" ? (
+              <LibraryMovieCard
+                key={entry.movie.id}
+                index={i}
+                movie={entry.movie}
+                torrent={progressFor(entry.movie)}
+                watched={watchedMovies.has(entry.movie.tmdbId)}
+                onChange={refresh}
+                backdropPath={art?.backdropPath}
+                logoPath={art?.logoPath}
+                titleEmbedded={art?.titleEmbedded}
+              />
+            ) : (
+              <LibrarySeriesCard
+                key={entry.series.id}
+                index={i}
+                series={entry.series}
+                onChange={refresh}
+                backdropPath={art?.backdropPath}
+                logoPath={art?.logoPath}
+                titleEmbedded={art?.titleEmbedded}
+              />
+            );
+          })}
+          {/* Space-reserving skeletons for everything not rendered yet —
+              without these the grid was only ever as tall as what's already
+              painted, so dragging the scrollbar (or any fast scroll) straight
+              to the bottom hit a hard "wall" and the page kept growing/
+              jumping under the cursor as more batches mounted. Filling every
+              remaining slot up front keeps the real scroll height accurate
+              from the very first paint — same discipline for /movies,
+              /series and /library. Every RENDER_BATCH_STEP-th one doubles as
+              a checkpoint marker (see checkpointIndices above) so a distant
+              jump loads exactly the neighborhood landed on. */}
+          {visibleCount < total && checkpointIndexSet && Array.from({ length: total - visibleCount }).map((_, i) => {
+            const absoluteIndex = visibleCount + i;
+            const isCheckpoint = checkpointIndexSet.has(absoluteIndex);
+            return (
+              <div
+                key={`skeleton-${i}`}
+                data-checkpoint-index={isCheckpoint ? absoluteIndex : undefined}
+                ref={isCheckpoint ? (el) => {
+                  if (el) checkpointElsRef.current.set(absoluteIndex, el);
+                  else checkpointElsRef.current.delete(absoluteIndex);
+                } : undefined}
+              >
+                <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
+              </div>
+            );
+          })}
+        </div>
+
+      {loading && total === 0 && (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
+          {[...Array(12)].map((_, i) => (
+            <div key={i}>
+              <div className="aspect-video animate-pulse rounded-2xl bg-white/6" />
+            </div>
+          ))}
+        </div>
+      )}
+      {!loading && total === 0 && (
+        <p className="col-span-full py-16 text-center text-ink-dim">{t("library.empty")}</p>
+      )}
+
+      <SearchAndReplacePanel open={searchAndReplaceOpen} onClose={() => setSearchAndReplaceOpen(false)} />
+    </div>
+  );
+}
