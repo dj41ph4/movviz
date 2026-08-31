@@ -1,0 +1,127 @@
+name: v1.24.01 full release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v12401-main-release.yml'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Align v1.24.01 version metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          old = '1.24.00'
+          new = '1.24.01'
+          old_code = '12400'
+          new_code = '12401'
+
+          pkg = Path('package.json')
+          data = json.loads(pkg.read_text(encoding='utf-8'))
+          assert data.get('version') == old, f"package.json version={data.get('version')}, expected {old}"
+          data['version'] = new
+          pkg.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          lock = Path('package-lock.json')
+          data = json.loads(lock.read_text(encoding='utf-8'))
+          assert data.get('version') == old, f"package-lock version={data.get('version')}, expected {old}"
+          assert data.get('packages', {}).get('', {}).get('version') == old, 'package-lock packages[""] mismatch'
+          data['version'] = new
+          data['packages']['']['version'] = new
+          lock.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          for fn in ['android-tv/app/build.gradle.kts', 'android-mobile/app/build.gradle.kts']:
+              p = Path(fn)
+              s = p.read_text(encoding='utf-8')
+              assert old_code in s and f'"{old}"' in s, f'{fn}: v1.24.00 fallback metadata missing'
+              s2 = re.sub(r'(versionCode\s*=.*\?:\s*)12400\b', r'\g<1>12401', s, count=1)
+              s2 = re.sub(r'(versionName\s*=.*\?:\s*)"1\.24\.00"', r'\g<1>"1.24.01"', s2, count=1)
+              assert s2 != s, f'{fn}: version replacement failed'
+              p.write_text(s2, encoding='utf-8')
+
+          p = Path('README.md')
+          s = p.read_text(encoding='utf-8')
+          assert 'Movviz-1.24.00' in s, 'README release badge is not on 1.24.00'
+          p.write_text(s.replace('Movviz-1.24.00', 'Movviz-1.24.01', 1), encoding='utf-8')
+
+          p = Path('CHANGELOG.md')
+          s = p.read_text(encoding='utf-8')
+          assert s.startswith('# Changelog\n'), 'unexpected CHANGELOG header'
+          entry = '''# Changelog\n\n## v1.24.01 — August 2026\n\n### Movviz AI — continuité conversationnelle et préférences explicites\n\nMovviz AI conserve désormais beaucoup mieux le fil des derniers tours : les références implicites comme « ça », « lui », « celui-là » ou « ce changement » sont résolues en priorité depuis la conversation récente au lieu de repartir de zéro. Les corrections explicites de l'utilisateur remplacent immédiatement les anciennes suppositions contradictoires et restent prioritaires dans le contexte.\n\nLes préférences explicites sur un titre sont désormais persistées dans le User Context Engine avec une confiance maximale et alimentent directement le scoring de recommandations. Une correction comme « tu te trompes, j'adore Watchmen » devient donc un signal structuré, durable et prioritaire au lieu d'une simple phrase oubliable.\n\nLe Dialogue Director a également été assoupli : suppression de l'escalade automatique, des introductions de défi stéréotypées et de l'obligation de gagner ou d'avoir le dernier mot. Les réponses de joute peuvent être plus courtes, plus naturelles et varier entre humour, sarcasme, ironie, autodérision ou réponse sèche, avec un garde-fou anti-répétition renforcé.\n\n'''
+          p.write_text(entry + s[len('# Changelog\n\n'):], encoding='utf-8')
+          PY
+
+      - name: Verify release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          node -e "const p=require('./package.json'),l=require('./package-lock.json'); if(p.version!=='1.24.01'||l.version!=='1.24.01'||l.packages[''].version!=='1.24.01') process.exit(1)"
+          node -e "const s=require('node:sqlite'); if(typeof s.DatabaseSync!=='function') process.exit(1)"
+          grep -q 'versionCode = .*12401' android-tv/app/build.gradle.kts
+          grep -q 'versionName = .*"1.24.01"' android-tv/app/build.gradle.kts
+          grep -q 'versionCode = .*12401' android-mobile/app/build.gradle.kts
+          grep -q 'versionName = .*"1.24.01"' android-mobile/app/build.gradle.kts
+          grep -q 'Movviz-1.24.01' README.md
+          grep -q '## v1.24.01' CHANGELOG.md
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Portable tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit and tag v1.24.01
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package.json package-lock.json android-tv/app/build.gradle.kts android-mobile/app/build.gradle.kts README.md CHANGELOG.md
+          git commit -m 'v1.24.01 — AI continuity and explicit preferences'
+          git push origin HEAD:main
+          git tag -a v1.24.01 -m 'v1.24.01 — AI continuity and explicit preferences'
+          git push origin v1.24.01
+
+      - name: Dispatch all release builders
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -X POST "repos/$REPO/actions/workflows/build-installer.yml/dispatches" -f ref=v1.24.01
+          gh api -X POST "repos/$REPO/actions/workflows/linux-release-build.yml/dispatches" -f ref=v1.24.01
+          gh api -X POST "repos/$REPO/actions/workflows/android-tv-build.yml/dispatches" -f ref=v1.24.01
+          gh api -X POST "repos/$REPO/actions/workflows/android-mobile-build.yml/dispatches" -f ref=v1.24.01
+          gh api -X POST "repos/$REPO/actions/workflows/docker-publish.yml/dispatches" -f ref=main
