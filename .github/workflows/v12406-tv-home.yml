@@ -37,9 +37,15 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
       - name: Validate Android TV compile
         working-directory: android-tv
-        run: ./gradlew :app:assembleDebug --stacktrace
+        run: gradle assembleDebug --no-daemon --stacktrace
       - name: Remove one-shot migration scaffolding
         run: git rm scripts/v12406-tv-home.mjs scripts/v12406-home-body.txt .github/workflows/v12406-tv-home.yml
       - name: Commit synchronized home
