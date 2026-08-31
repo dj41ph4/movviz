@@ -8,6 +8,7 @@ import { relativeFr } from "./actions";
 import { buildUnifiedUserContextSnapshot, formatUnifiedUserContext } from "@/lib/userContext/query";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
 import { formatUserWatchHistory } from "@/lib/userContext/history";
+import { formatTasteEvidenceContext } from "@/lib/userContext/taste";
 
 export interface UsageProfile {
   /** Whole-instance library size (shared across every user — not a "watched" count). Distinct on purpose: a user asking "j'ai 2284 films" means the library total, not how many they've watched. */
@@ -45,6 +46,8 @@ export interface UsageProfile {
   /** Chronological completion/watch history. Unlike the old recent list,
    *  future ledger entries preserve rewatches as distinct dated events. */
   verifiedWatchHistory: string;
+  /** Evidence-backed preferences/habits kept separate from exact facts. */
+  tasteEvidenceContext: string;
 }
 
 /** Quantified usage profile derived from REAL Movviz data — the assistant's
@@ -80,6 +83,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
   const watchesLast30Days = recent.filter((r) => now - r.at <= 30 * DAY_MS).length;
   const verifiedContext = formatUnifiedUserContext(buildUnifiedUserContextSnapshot(userId));
   const verifiedWatchHistory = formatUserWatchHistory(userId, 30);
+  const tasteEvidenceContext = formatTasteEvidenceContext(userId, 5);
 
   return {
     libraryMovies: loadMovies().length,
@@ -99,6 +103,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
     watchesLast30Days,
     verifiedContext,
     verifiedWatchHistory,
+    tasteEvidenceContext,
   };
 }
 
@@ -124,6 +129,9 @@ export function formatUsageProfile(p: UsageProfile): string {
   }
   if (p.verifiedWatchHistory) {
     parts.push(`HISTORIQUE CHRONOLOGIQUE VÉRIFIÉ (ordre récent → ancien ; les genres entre crochets viennent de la bibliothèque, les dates après @ sont réelles) : ${p.verifiedWatchHistory}`);
+  }
+  if (p.tasteEvidenceContext) {
+    parts.push(`TENDANCES DE GOÛT ÉTAYÉES (personnalisation possible, mais ce ne sont PAS toutes des certitudes : respecte la confiance et la source, une préférence explicite prime toujours) : ${p.tasteEvidenceContext}`);
   }
   return parts.join(" · ");
 }
