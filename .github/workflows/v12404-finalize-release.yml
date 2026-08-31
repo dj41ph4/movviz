@@ -30,6 +30,31 @@ jobs:
           node scripts/v12404-finalize.mjs
           rm -f scripts/v12404-android.mjs
           sed -i 's/DIRECT_PLAY et PLEX_FALLBACK\/UNSUPPORTED/DIRECT_PLAY et UNSUPPORTED/' src/components/player/VideoPlayer.tsx
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # AudioTrack.language is intentionally optional. Preserve the concrete
+          # generic type (and therefore .index) while allowing tracks without a
+          # language tag.
+          p = Path('src/lib/library/detectLanguage.ts')
+          s = p.read_text()
+          old = 'export function findTrackForLocale<T extends { language: string | null | undefined }>(' 
+          new = 'export function findTrackForLocale<T extends { language?: string | null }>(' 
+          if old not in s:
+              raise SystemExit('findTrackForLocale generic anchor missing')
+          p.write_text(s.replace(old, new, 1))
+
+          # The pre-v3 response type already has stream.url. The one-shot
+          # finalizer used to add it a second time after tracks; keep one source
+          # of truth in the type.
+          p = Path('src/components/player/VideoPlayer.tsx')
+          s = p.read_text()
+          duplicate = '          tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] };\n          stream: { url: string };\n        };'
+          replacement = '          tracks?: { audio?: { index: number }[]; subtitle?: { index: number }[] };\n        };'
+          if duplicate not in s:
+              raise SystemExit('duplicate stream type anchor missing')
+          p.write_text(s.replace(duplicate, replacement, 1))
+          PY
 
       - name: Verify scaffolding cleanup
         shell: bash
@@ -128,4 +153,4 @@ jobs:
           gh api -X POST "repos/$REPO/actions/workflows/android-mobile-build.yml/dispatches" -f ref=v1.24.04
           gh api -X POST "repos/$REPO/actions/workflows/docker-publish.yml/dispatches" -f ref=main
 
-# trigger: remove obsolete Android migration helper
+# trigger: fix final TypeScript contracts
