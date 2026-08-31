@@ -50,7 +50,9 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
@@ -669,9 +671,11 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             TAG,
             "Pré-décision v=${info?.videoCodec ?: "?"} (décodeur=${videoDecodable}) a=${selectedAudio?.codec ?: info?.audioCodec ?: "?"} (décodeur=${audioDecodable}) → niveau $startLevel"
         )
-        if (startLevel == 2) {
-            fallbackLevel = 2
-        } else if (startLevel == 1) {
+        // Le niveau choisi avant même la première image est déjà l'état réel
+        // de lecture. Le conserver ici aligne le badge et les retries réseau
+        // sur le flux effectivement chargé (audio seul = 1, HLS vidéo = 2).
+        fallbackLevel = startLevel
+        if (startLevel == 1) {
             fallbackNotice = "Compatibilité optimisée…"
         }
         val resume = if (startFromBeginning && currentIndex == startIndex) 0L else playbackSession?.resumeOffsetMs ?: repository.resumeOffsetMs(
@@ -933,6 +937,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
 
     val playPauseFocus = remember { FocusRequester() }
+    // Le curseur est un véritable arrêt dans le graphe D-pad : il ne dépend
+    // pas du choix spatial implicite de Compose, qui varie selon les TV.
+    val progressFocus = remember { FocusRequester() }
     val hiddenCatcherFocus = remember { FocusRequester() }
     LaunchedEffect(showControls) {
         val target = if (showControls) playPauseFocus else hiddenCatcherFocus
@@ -1192,7 +1199,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 player = exoPlayer,
                 hasNext = hasNext,
                 hasPrev = hasPrev,
+                fallbackLevel = fallbackLevel,
                 playPauseFocus = playPauseFocus,
+                progressFocus = progressFocus,
                 onInteraction = { poke() },
                 onPlayPause = { playPauseAction() },
                 onSeekBack = { seekBackAction() },
@@ -1382,7 +1391,13 @@ private fun BufferingSpinner(size: Dp, modifier: Modifier = Modifier) {
  *  frame (règle de perf du lecteur : zéro recomposition racine pendant la
  *  lecture, voir PlayerScreen). */
 @Composable
-private fun PlayerProgressBar(player: ExoPlayer, modifier: Modifier = Modifier) {
+private fun PlayerProgressBar(
+    player: ExoPlayer,
+    modifier: Modifier = Modifier,
+    focusRequester: FocusRequester? = null,
+    onMoveToControls: (() -> Unit)? = null,
+    onInteraction: (() -> Unit)? = null,
+) {
     var positionMs by remember { mutableStateOf(0L) }
     var durationMs by remember { mutableStateOf(0L) }
     var bufferedPercent by remember { mutableStateOf(0) }
@@ -1403,10 +1418,40 @@ private fun PlayerProgressBar(player: ExoPlayer, modifier: Modifier = Modifier) 
     // lieu de 1.5px≈6px CSS à l'échelle desktop, mais lu ici à plusieurs
     // mètres) pour rester lisible depuis le canapé — seule adaptation
     // délibérée à la distance TV, la palette/les formes ne changent pas.
-    Column(modifier = modifier) {
+    var focused by remember { mutableStateOf(false) }
+    Column(
+        modifier = modifier
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            // Une SeekBar Compose standard ne fournit pas un graphe D-pad
+            // fiable avec un PlayerView natif derrière elle. Ces touches sont
+            // donc gérées ici, au point qui possède réellement la position.
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.DirectionLeft -> {
+                        player.seekTo((player.currentPosition - SEEK_STEP_MS).coerceAtLeast(0))
+                        onInteraction?.invoke()
+                        true
+                    }
+                    Key.DirectionRight -> {
+                        val max = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+                        player.seekTo((player.currentPosition + SEEK_STEP_MS).coerceAtMost(max))
+                        onInteraction?.invoke()
+                        true
+                    }
+                    Key.DirectionDown -> {
+                        onMoveToControls?.invoke()
+                        true
+                    }
+                    else -> false
+                }
+            },
+    ) {
         Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
             // Piste de fond — bg-white/14 desktop.
-            Box(modifier = Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.14f), RoundedCornerShape(3.dp)))
+            Box(modifier = Modifier.fillMaxSize().background(if (focused) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.14f), RoundedCornerShape(3.dp)))
             // Zone déjà tamponnée — bg-white/20 desktop, posée sur toute la
             // largeur tamponnée (le remplissage de lecture, dessiné après,
             // recouvre la portion déjà lue : le résultat visuel est identique
@@ -1458,7 +1503,7 @@ private fun PlayerProgressBar(player: ExoPlayer, modifier: Modifier = Modifier) 
                     center = handleCenter,
                 )
                 drawCircle(color = Color(0xFF13131B), radius = core * 1.3f, center = handleCenter)
-                drawCircle(color = Color.White, radius = core * 1.0f, center = handleCenter)
+                drawCircle(color = if (focused) MovvizBrand2 else Color.White, radius = if (focused) core * 1.25f else core * 1.0f, center = handleCenter)
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -1489,7 +1534,9 @@ private fun ControlsOverlay(
     player: ExoPlayer,
     hasNext: Boolean,
     hasPrev: Boolean,
+    fallbackLevel: Int,
     playPauseFocus: FocusRequester,
+    progressFocus: FocusRequester,
     onInteraction: () -> Unit,
     onPlayPause: () -> Unit,
     onSeekBack: () -> Unit,
@@ -1538,39 +1585,8 @@ private fun ControlsOverlay(
             }
         }
 
-        // Zone centrale : les gestes de lecture sont réunis dans une capsule
-        // flottante. Le fond les rend lisibles sur une scène claire, sans
-        // jamais former un écran de réglages qui écrase le film.
-        Row(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .clip(RoundedCornerShape(40.dp))
-                .background(Color.Black.copy(alpha = 0.52f))
-                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(40.dp))
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            if (hasPrev) {
-                ControlButton(icon = MovvizIconSkipPrev, contentDescription = "Épisode précédent", onClick = onPrevEpisode)
-            }
-            ControlButton(icon = MovvizIconRewind, contentDescription = "Reculer de 10 secondes", onClick = onSeekBack)
-            ControlButton(
-                icon = if (isPlaying) MovvizIconPause else MovvizIconPlay,
-                contentDescription = if (isPlaying) "Pause" else "Lecture",
-                onClick = onPlayPause,
-                primary = true,
-                focusRequester = playPauseFocus,
-            )
-            ControlButton(icon = MovvizIconForward, contentDescription = "Avancer de 10 secondes", onClick = onSeekForward)
-            if (hasNext) {
-                ControlButton(icon = MovvizIconSkipNext, contentDescription = "Épisode suivant", onClick = onNextEpisode)
-            }
-        }
-
-        // Dock bas : progression très lisible, puis actions de piste dans le
-        // même volume. Il laisse une zone dédiée aux actions contextuelles
-        // (intro/générique, épisode suivant) juste au-dessus.
+        // Toutes les interactions sont volontairement dans le dock : aucune
+        // capsule centrale concurrente ne peut voler le focus au D-pad.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1592,22 +1608,34 @@ private fun ControlsOverlay(
                 .border(1.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(22.dp))
                 .padding(horizontal = 28.dp, vertical = 20.dp),
         ) {
-            PlayerProgressBar(player = player)
+            PlayerProgressBar(
+                player = player,
+                focusRequester = progressFocus,
+                onMoveToControls = { playPauseFocus.requestFocus() },
+                onInteraction = onInteraction,
+            )
             Spacer(modifier = Modifier.height(16.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text(
-                    text = "Lecture Movviz",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MovvizInkDim,
+                if (hasPrev) ControlButton(icon = MovvizIconSkipPrev, contentDescription = "Épisode précédent", onClick = onPrevEpisode, onMoveToProgress = { progressFocus.requestFocus() })
+                ControlButton(icon = MovvizIconRewind, contentDescription = "Reculer de 10 secondes", onClick = onSeekBack, onMoveToProgress = { progressFocus.requestFocus() })
+                ControlButton(
+                    icon = if (isPlaying) MovvizIconPause else MovvizIconPlay,
+                    contentDescription = if (isPlaying) "Pause" else "Lecture",
+                    onClick = onPlayPause,
+                    primary = true,
+                    focusRequester = playPauseFocus,
+                    onMoveToProgress = { progressFocus.requestFocus() },
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true)
-                    ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true)
-                }
+                ControlButton(icon = MovvizIconForward, contentDescription = "Avancer de 10 secondes", onClick = onSeekForward, onMoveToProgress = { progressFocus.requestFocus() })
+                if (hasNext) ControlButton(icon = MovvizIconSkipNext, contentDescription = "Épisode suivant", onClick = onNextEpisode, onMoveToProgress = { progressFocus.requestFocus() })
+                Spacer(modifier = Modifier.weight(1f))
+                PlaybackModeBadge(fallbackLevel)
+                ControlButton(icon = MovvizIconMusicNote, contentDescription = "Piste audio", onClick = onOpenAudio, small = true, onMoveToProgress = { progressFocus.requestFocus() })
+                ControlButton(label = "CC", contentDescription = "Sous-titres", onClick = onOpenSubtitles, small = true, onMoveToProgress = { progressFocus.requestFocus() })
             }
         }
     }
@@ -1626,6 +1654,7 @@ private fun ControlButton(
     primary: Boolean = false,
     small: Boolean = false,
     focusRequester: FocusRequester? = null,
+    onMoveToProgress: (() -> Unit)? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val size = if (small) 44.dp else if (primary) 68.dp else 56.dp
@@ -1640,6 +1669,12 @@ private fun ControlButton(
             // visible qu'une grande carte pour rester lisible au focus.
             .tvFocusLift(focused, shape = CircleShape, maxScale = 1.12f)
             .onFocusChanged { focused = it.isFocused }
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                    onMoveToProgress?.invoke()
+                    onMoveToProgress != null
+                } else false
+            }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = CircleShape),
         colors = ClickableSurfaceDefaults.colors(
@@ -1673,6 +1708,31 @@ private fun ControlButton(
                 )
             }
         }
+    }
+}
+
+/** État réellement choisi par load()/les fallbacks codecs, pas une
+ * estimation UI : niveau 1 conserve la vidéo mais convertit l'audio ; le
+ * niveau 2 utilise le transcodage vidéo HLS (avec audio si nécessaire). */
+@Composable
+private fun PlaybackModeBadge(fallbackLevel: Int) {
+    val (label, color) = when (fallbackLevel) {
+        0 -> "Lecture directe" to Color(0xFF49D17D)
+        1 -> "Transcodage audio" to Color(0xFFFFB84D)
+        else -> "Transcodage vidéo" to Color(0xFFFF7A6D)
+    }
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(color.copy(alpha = 0.18f))
+            .border(1.dp, color.copy(alpha = 0.65f), RoundedCornerShape(50))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+            color = color,
+        )
     }
 }
 

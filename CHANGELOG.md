@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.16 — August 2026
+
+### Android TV — navigation et lecteur unifiés
+
+La navigation Android TV adopte une NavRail réellement réservée : aucun écran ni backdrop ne passe désormais sous elle, et le Hero occupe toute la largeur utile de la zone de contenu. L'accueil s'appuie sur les listes TV natives : le D-pad remonte de rangée en rangée avec le défilement associé, puis rejoint la NavRail uniquement au sommet.
+
+Le lecteur rassemble toutes les commandes dans son dock inférieur. La progression est atteignable au D-pad et se règle avec gauche/droite ; le dock affiche l'état réel de lecture : lecture directe, transcodage audio ou transcodage vidéo. Les fallbacks de compatibilité conservent également le bon état lors des retries réseau.
+
 ## v1.24.15 — August 2026
 
 ### Journaux — filtrage par tag ou texte

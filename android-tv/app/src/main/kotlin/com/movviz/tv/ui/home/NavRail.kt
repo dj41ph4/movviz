@@ -92,10 +92,9 @@ private fun GearIcon(color: Color, modifier: Modifier = Modifier) {
 }
 
 /**
- * Barre de navigation horizontale en haut — même composition que le lanceur
- * Netflix : wordmark compact à gauche, libellés texte à plat, et un seul
- * voile très léger qui laisse le hero vivre derrière. L'onglet actif est un
- * aplat neutre discret ; le focus D-pad garde seul une bordure nette.
+ * Navigation latérale réservée. Elle vit dans sa propre colonne du layout
+ * racine (MainActivity), jamais superposée au contenu : le hero et les pages
+ * commencent donc toujours strictement à sa droite.
  */
 @Composable
 fun NavRail(
@@ -125,12 +124,12 @@ fun NavRail(
     navRailFocusRequester: FocusRequester? = null,
     modifier: Modifier = Modifier,
 ) {
-    // flèche bas depuis N'IMPORTE quel item de cette barre (onglet, bouton
-    // recherche, avatar profil) → 3 niveaux, du plus précis au plus robuste :
+    // flèche droite depuis N'IMPORTE quel item de cette colonne (onglet,
+    // bouton recherche, avatar profil) → 3 niveaux, du plus précis au plus robuste :
     //   1. contentFocusRequester : le premier élément RÉEL de l'écran courant
     //      (hero CTA, première carte, premier réglage…).
-    //   2. moveFocus(Down) : repli GÉOMÉTRIQUE — l'élément focusable le plus
-    //      proche sous la barre. Fonctionne même quand la cible n°1 n'est pas
+    //   2. moveFocus(Right) : repli GÉOMÉTRIQUE — l'élément focusable le plus
+    //      proche dans la zone de contenu. Fonctionne même quand la cible n°1 n'est pas
     //      encore composée (écran en chargement, changement d'onglet) —
     //      c'était LE trou : avant, on sautait direct sur l'ancre invisible,
     //      l'utilisateur ne voyait RIEN bouger (« DOWN ne redescend plus »,
@@ -139,12 +138,12 @@ fun NavRail(
     //      désormais dessinée quand elle prend le focus pour ne jamais
     //      ressembler à un écran gelé.
     // onPreviewKeyEvent (pas onKeyEvent ni focusProperties déclaratif) : la
-    // touche BAS doit être interceptée AVANT que les Surface/TopNavItem
+    // touche DROITE doit être interceptée AVANT que les Surface/TopNavItem
     // enfants ne la consomment, et chaque tentative doit pouvoir intercepter
     // un échec individuellement (une cible non attachée lève une exception).
     val focusManager = LocalFocusManager.current
     val navDownKeyHandler = Modifier.onPreviewKeyEvent { event ->
-        if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown) return@onPreviewKeyEvent false
+        if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionRight) return@onPreviewKeyEvent false
         // requestFocus() retourne VOID en compose-ui 1.7.6 (vérifié au
         // javap) — l'ancien commentaire « returns Boolean » était FAUX et
         // l'ancien pattern .getOrDefault(false) produisait Result<Unit>,
@@ -154,16 +153,14 @@ fun NavRail(
         // requester n'est attaché à aucun noeud composé.
         val moved = contentFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
         if (moved) return@onPreviewKeyEvent true
-        if (focusManager.moveFocus(FocusDirection.Down)) return@onPreviewKeyEvent true
+        if (focusManager.moveFocus(FocusDirection.Right)) return@onPreviewKeyEvent true
         fallbackFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
     }
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .fillMaxWidth()
-            // Barre haute volontairement fine : la navigation reste
-            // atteignable sans prendre la place des cartes et du hero.
-            .height(56.dp)
+            .fillMaxHeight()
             .then(navDownKeyHandler)
             .background(
                 // Scrim renforcé côté haut : sur un backdrop clair (ciel,
@@ -185,18 +182,18 @@ fun NavRail(
                     strokeWidth = 1.dp.toPx(),
                 )
             }
-            .padding(horizontal = 26.dp),
+            .padding(horizontal = 18.dp, vertical = 22.dp),
     ) {
         // Même logo animé que l'accueil/login : halo, ondes et particules
         // font partie de l'identité Movviz, ce n'est pas une icône carrée.
         // Preset `sm` du Sidebar desktop : outer 40, mark 40, wordmark animé.
         AnimatedLogo(size = 32.dp)
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         MovvizWordmark(fontSize = 16.sp)
 
-        Spacer(modifier = Modifier.width(38.dp))
+        Spacer(modifier = Modifier.height(34.dp))
 
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
             // SETTINGS retiré des onglets texte : devient l'icône engrenage
             // entre la loupe et l'avatar (voir plus bas).
             HomeTab.entries.filter { it != HomeTab.SETTINGS }.forEach { tab ->
@@ -209,7 +206,7 @@ fun NavRail(
             }
         }
 
-Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.weight(1f))
         SearchButton(
             open = searchOpen,
             query = searchQuery,
@@ -218,7 +215,7 @@ Spacer(modifier = Modifier.weight(1f))
             downFocus = contentFocusRequester,
             fallbackFocus = fallbackFocusRequester,
         )
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         // Paramètres en ICÔNE engrenage entre la loupe et l'avatar profil
         // (demandé en direct) — même langage visuel que la loupe : trait
         // blanc, fond discret au focus, bordure nette au D-pad.
@@ -257,7 +254,7 @@ Spacer(modifier = Modifier.weight(1f))
                 GearIcon(color = Color.White.copy(alpha = if (gearFocused || selected == HomeTab.SETTINGS) 1f else 0.75f))
             }
         }
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         // À la place du texte "MOVVIZ TV" : l'avatar du profil actif, toujours
         // visible — même composition que Netflix. Le menu donne accès au
         // changement d'utilisateur (→ écran "Qui est-ce ?") et, pour l'admin,
@@ -491,11 +488,10 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                     onValueChange = onQueryChange,
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 14.sp, color = Color.White),
-                    // Même piège que WizardScreen.TvTextField : BasicTextField
-                    // avale la flèche bas (mouvement de curseur) et le focus
-                    // resterait piégé dans le champ, sans jamais atteindre la
-                    // grille de résultats — on intercepte la touche pour
-                    // sauter sur le premier résultat. L'action IME
+                    // BasicTextField garde les directions pour son curseur.
+                    // Dans une rail latérale, DROITE est la sortie explicite
+                    // vers les résultats ; BAS poursuit le parcours vertical
+                    // vers les actions sous le champ. L'action IME
                     // "Recherche" fait pareil et referme le clavier.
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = {
@@ -504,10 +500,13 @@ private fun SearchButton(open: Boolean, query: String, onToggle: () -> Unit, onQ
                         keyboardController?.hide()
                     }),
                     modifier = Modifier
-                        .width(160.dp)
+                        // La recherche reste intégralement contenue dans la
+                        // colonne réservée : aucune surface ne déborde dans
+                        // la zone de contenu / hero.
+                        .width(128.dp)
                         .focusRequester(inputRequester)
                         .onPreviewKeyEvent { event ->
-                            if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
+                            if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionRight) {
                                 val moved = downFocus?.let { runCatching { it.requestFocus() }.isSuccess } == true
                                 if (moved) true
                                 else fallbackFocus?.let { runCatching { it.requestFocus() }.isSuccess } == true

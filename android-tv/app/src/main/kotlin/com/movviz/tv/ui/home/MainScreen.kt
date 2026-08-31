@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -21,11 +20,9 @@ import com.movviz.tv.ui.settings.SettingsScreen
 
 /**
  * Contenu de l'onglet courant (Accueil/Films/Séries/Recherche/Paramètres) —
- * la NavRail elle-même vit désormais un niveau au-dessus (MainActivity), en
- * overlay persistant au-dessus de CE contenu ET de la fiche titre, pour
- * qu'elle reste visible partout au lieu de disparaître dès qu'on ouvre une
- * fiche (demandé explicitement après le premier jet "à la Netflix" qui la
- * masquait sur la fiche titre).
+ * la NavRail elle-même vit désormais un niveau au-dessus (MainActivity),
+ * dans une colonne réservée à gauche. Ce contenu est son frère de droite :
+ * il n'est jamais recouvert par la navigation, y compris sur la fiche titre.
  */
 @Composable
 fun MainScreen(
@@ -61,27 +58,16 @@ fun MainScreen(
 ) {
     val focusManager = LocalFocusManager.current
     Box(
-        modifier = Modifier.fillMaxSize().focusGroup()
-            .onKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
-                    // SYMÉTRIE D-PAD OBLIGATOIRE (bug constaté en direct :
-                    // « UP remonte dans le menu et ne redescend plus »).
-                    // Ancien code : consommait TOUS les UP → impossible de
-                    // monter d'une rangée de posters à l'autre, chaque HAUT
-                    // sautait directement dans la barre de nav.
-                    //
-                    // 1) Laisser d'abord le focus monter À L'INTÉRIEUR du
-                    //    contenu (rangée N-1, saison au-dessus…) —
-                    //    moveFocus parcourt toute la hiérarchie composée.
-                    val movedInside = focusManager.moveFocus(FocusDirection.Up)
-                    if (movedInside) true
-                    // 2) Rien au-dessus dans le contenu (première rangée /
-                    //    hero) → onglet actif de la NavRail.
-                    else navRailFocusRequester?.let {
-                        runCatching { it.requestFocus() }.isSuccess
-                    } == true
-                } else false
-            },
+        // L'accueil possède sa propre arborescence TV : son TvLazyColumn doit
+        // recevoir UP directement pour remonter de rangée en rangée. Les
+        // écrans historiques conservent leur repli global vers la NavRail,
+        // afin que cette correction ne change pas leurs parcours existants.
+        modifier = Modifier.fillMaxSize().onKeyEvent { event ->
+            if (tab == HomeTab.HOME && !searchOpen) return@onKeyEvent false
+            if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionUp) return@onKeyEvent false
+            if (focusManager.moveFocus(FocusDirection.Up)) true
+            else navRailFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
+        },
         // Jamais de padding top ici, sur AUCUN écran : un padding poussait
         // Recherche/Paramètres sous une bande opaque (MaterialTheme.
         // colorScheme.background plein sous la nav transparente) qui
@@ -99,7 +85,7 @@ fun MainScreen(
                 showSearchField = false,
                 resultFocusRequester = contentFocusRequester,
             )
-            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester)
             tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow, onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow, onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)

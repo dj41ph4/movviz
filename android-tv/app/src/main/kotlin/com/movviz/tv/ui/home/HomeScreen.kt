@@ -45,11 +45,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed as foundationItemsIndexed
+import androidx.tv.foundation.lazy.list.TvLazyColumn
+import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.itemsIndexed as tvItemsIndexed
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -154,6 +159,10 @@ fun HomeScreen(
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
     onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit = { _, _, _ -> },
     entryFocusRequester: FocusRequester? = null,
+    // Destination UP uniquement depuis l'ancre réellement située au sommet.
+    // Ne jamais l'employer depuis une carte : TvLazyColumn doit d'abord
+    // résoudre la rangée précédente et faire défiler le contenu.
+    navRailFocusRequester: FocusRequester? = null,
 ) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -336,12 +345,27 @@ fun HomeScreen(
     val topAnchor = remember { FocusRequester() }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        LazyColumn(
+        TvLazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 64.dp, bottom = 72.dp),
+            // Le rail possède désormais sa propre colonne hors de cet écran.
+            // Le hero peut donc occuper toute la largeur de la zone contenu,
+            // sans marge à gauche ni recouvrement sous la navigation. Les
+            // rangées gardent leurs propres marges internes (LazyRow/heading).
+            contentPadding = PaddingValues(bottom = 72.dp),
         ) {
             item(contentType = "topAnchor") {
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).focusRequester(topAnchor).focusable())
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(1.dp).focusRequester(topAnchor).focusable()
+                        .onPreviewKeyEvent { event ->
+                            if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
+                                navRailFocusRequester?.let {
+                                    runCatching { it.requestFocus() }.isSuccess
+                                } == true
+                            } else {
+                                false
+                            }
+                        },
+                )
             }
             if (heroItems.isNotEmpty()) {
                 item(contentType = "hero") {
@@ -1045,12 +1069,12 @@ internal fun TitleRow(
     val focusedCardState = remember { mutableStateOf<TvTitleCard?>(null) }
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         RowHeading(heading)
-        LazyRow(
+        TvLazyRow(
             modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            foundationItemsIndexed(items, key = { _, item -> item.id }, contentType = { _, _ -> "card" }) { index, card ->
+            tvItemsIndexed(items, key = { _, item -> item.id }, contentType = { _, _ -> "card" }) { index, card ->
                 PosterCard(
                     card = card,
                     onClick = { onClick(card) },
@@ -1375,12 +1399,12 @@ private fun DownloadQueueRow(items: List<QueueItemDto>, onOpenTitle: (type: Stri
             color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(start = 64.dp, bottom = 16.dp),
         )
-        LazyRow(
+        TvLazyRow(
             modifier = Modifier.focusRestorer(),
             contentPadding = PaddingValues(horizontal = 64.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            foundationItemsIndexed(items, key = { _, item -> item.id }) { _, item ->
+            tvItemsIndexed(items, key = { _, item -> item.id }) { _, item ->
                 DownloadCard(
                     item = item,
                     onClick = {

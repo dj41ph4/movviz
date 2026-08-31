@@ -9,8 +9,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -242,10 +245,53 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         return
     }
 
-    // L'overlay d'auto-update se pose PAR-DESSUS la navigation : il bloque
-    // l'interaction pendant le téléchargement/installation, et disparaît en
-    // cas de souci.
+    // La NavRail occupe une vraie colonne du layout. Le NavHost est rendu
+    // dans son frère de droite : aucun écran (et surtout aucun backdrop du
+    // hero) ne peut donc passer derrière la navigation.
     Box(modifier = Modifier.fillMaxSize()) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (routeShowsNavRail(currentRoute)) {
+                NavRail(
+                    selected = tab,
+                    onSelect = { newTab ->
+                        if (currentRoute?.startsWith("home") != true) {
+                            navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                        }
+                        tab = newTab
+                        searchOpen = false
+                    },
+                    searchOpen = searchOpen,
+                    searchQuery = searchQuery,
+                    onSearchToggle = {
+                        if (currentRoute?.startsWith("home") != true) {
+                            navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                        }
+                        searchOpen = !searchOpen
+                        if (searchOpen) tab = HomeTab.HOME else searchQuery = ""
+                    },
+                    onSearchQueryChange = { searchQuery = it },
+                    profiles = viewModel.profiles.collectAsState().value,
+                    activeProfile = viewModel.activeProfile.collectAsState().value,
+                    onProfileSelected = { profile ->
+                        scope.launch {
+                            if (viewModel.selectProfile(profile) is com.movviz.tv.data.ApiResult.Success) {
+                                navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                            }
+                        }
+                    },
+                    onAddProfile = { navController.navigate(ROUTE_LOGIN_ADD) },
+                    onSwitchProfile = {
+                        navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
+                    },
+                    contentFocusRequester = contentFocusRequester,
+                    fallbackFocusRequester = fallbackFocusRequester,
+                    navRailFocusRequester = navRailFocusRequester,
+                    // 224dp laisse une zone tactile/visuelle confortable aux
+                    // libellés et au focus TV, tout en gardant le hero large.
+                    modifier = Modifier.fillMaxHeight().width(224.dp),
+                )
+            }
+            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
         // Ancre de repli TOUJOURS composée, sur TOUTES les routes (accueil,
         // fiche titre, fiche acteur) — la NavRail y retombe quand sa cible
         // principale n'est pas encore composée. Anciennement dans
@@ -522,56 +568,7 @@ composable(ROUTE_PROFILES) {
             }
         }
         }
-        if (routeShowsNavRail(currentRoute)) {
-            NavRail(
-                selected = tab,
-                onSelect = { newTab ->
-                    // Depuis une fiche titre/acteur, la nav doit d'abord
-                    // revenir à l'accueil avant de changer d'onglet — sinon
-                    // "Films"/"Séries" resterait affiché par-dessus une fiche
-                    // toujours sur la pile.
-                    if (currentRoute?.startsWith("home") != true) {
-                        navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
-                    }
-                    tab = newTab
-                    searchOpen = false
-                },
-                searchOpen = searchOpen,
-                searchQuery = searchQuery,
-                onSearchToggle = {
-                    if (currentRoute?.startsWith("home") != true) {
-                        navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
-                    }
-                    searchOpen = !searchOpen
-                    if (searchOpen) tab = HomeTab.HOME else searchQuery = ""
-                },
-                onSearchQueryChange = { searchQuery = it },
-                profiles = viewModel.profiles.collectAsState().value,
-                activeProfile = viewModel.activeProfile.collectAsState().value,
-                onProfileSelected = { profile ->
-                    scope.launch {
-                        if (viewModel.selectProfile(profile) is com.movviz.tv.data.ApiResult.Success) {
-                            navController.navigate(ROUTE_HOME) {
-                                popUpTo(ROUTE_HOME) { inclusive = true }
-                            }
-                        }
-                    }
-                },
-                onAddProfile = { navController.navigate(ROUTE_LOGIN_ADD) },
-                onSwitchProfile = {
-                    // "Mon profil" / "Changer d'utilisateur" : l'écran profil
-                    // — profil actif en tête, membres du foyer, et tuile « + »
-                    // qui mène au login pour ajouter un utilisateur. Jamais le
-                    // login directement.
-                    navController.navigate(ROUTE_PROFILES) {
-                        popUpTo(ROUTE_HOME)
-                    }
-                },
-                contentFocusRequester = contentFocusRequester,
-                fallbackFocusRequester = fallbackFocusRequester,
-                navRailFocusRequester = navRailFocusRequester,
-                modifier = Modifier.zIndex(1f),
-            )
+            }
         }
         AutoUpdateOverlay(viewModel)
     }
