@@ -13,7 +13,18 @@ export function PlayerSettings() {
   const t = useT();
   const user = useCurrentUser();
   const isAdmin = user?.role === "admin";
-  const { adminEnabled, userEnabled, streamCacheTtl, debug, setAdminEnabled, setUserEnabled, setStreamCacheTtl, setDebug } = useBetaPlayer();
+  const {
+    adminEnabled,
+    userEnabled,
+    streamCacheTtl,
+    hdrDvToSdrEnabled,
+    debug,
+    setAdminEnabled,
+    setUserEnabled,
+    setStreamCacheTtl,
+    setHdrDvToSdrEnabled,
+    setDebug,
+  } = useBetaPlayer();
   const { value: preferredAudioLanguage, set: setPreferredAudioLanguage } = usePreferredAudioLanguage();
 
   return (
@@ -62,6 +73,15 @@ export function PlayerSettings() {
           <div className="flex items-center justify-between gap-3">
             <div><p className="text-sm font-semibold text-ink">{t("player.serverEnabled")}</p><p className="text-xs text-ink-dim">{t("player.serverEnabledHint")}</p></div>
             <Toggle on={adminEnabled} onChange={() => setAdminEnabled(!adminEnabled)} />
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/8 pt-4">
+            <div>
+              <p className="text-sm font-semibold text-ink">Conversion HDR / Dolby Vision → SDR</p>
+              <p className="max-w-2xl text-xs leading-relaxed text-ink-dim">
+                Couvre HDR10, HDR10+, HLG et Dolby Vision. Activé : le tonemapping reste autorisé uniquement si le benchmark réel atteint au moins 3×. Désactivé : aucune conversion vers SDR n'est permise, même avec un benchmark supérieur à 3×.
+              </p>
+            </div>
+            <Toggle on={hdrDvToSdrEnabled} onChange={() => setHdrDvToSdrEnabled(!hdrDvToSdrEnabled)} />
           </div>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-white/8 pt-4">
             <div><p className="text-sm font-semibold text-ink">{t("player.bufferTtl")}</p><p className="text-xs text-ink-dim">{t("player.bufferTtlHint")}</p></div>
