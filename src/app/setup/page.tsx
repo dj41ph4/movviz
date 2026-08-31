@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { mutate } from "swr";
 import { useT, useI18n } from "@/i18n/provider";
 import { LOCALES, LOCALE_META } from "@/i18n/config";
 import { FlagIcon } from "@/components/ui/FlagIcon";
@@ -95,11 +96,21 @@ function SetupWizardPageInner() {
   // The "account" step only makes sense for a truly fresh install (or after
   // a factory reset): a signed-in user re-running the wizard from Settings
   // already has an account and must never be asked to create another one.
-  // `currentUser` is `undefined` while /api/auth/me is still loading —
-  // steps stays the full list during that instant (never rendered, see the
-  // loading guard below) so the step array doesn't change shape mid-render.
   const currentUser = useCurrentUser();
-  const steps = currentUser ? STEPS.filter((s) => s !== "account") : STEPS;
+  // Bug fix (confirmed live): deriving `steps` straight from `currentUser`
+  // on every render shifts every index by one the moment the account is
+  // created mid-wizard — currentUser flips null → real user right here, on
+  // this same mounted page, which would silently swap the "account" step
+  // out of the array while `stepIndex` still pointed at the position that
+  // was valid a moment ago (landing one step early, skipping "language").
+  // Decide once, the first time currentUser resolves out of its `undefined`
+  // (loading) state, and never re-derive it afterward for this mount.
+  const [needsAccountStep, setNeedsAccountStep] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (currentUser === undefined || needsAccountStep !== null) return;
+    setNeedsAccountStep(currentUser === null);
+  }, [currentUser, needsAccountStep]);
+  const steps = needsAccountStep === false ? STEPS.filter((s) => s !== "account") : STEPS;
   const step = steps[stepIndex];
 
   // Starts false on both server and first client render (no hydration
@@ -119,7 +130,7 @@ function SetupWizardPageInner() {
   // Still resolving whether this browser already has a session — render
   // nothing rather than flashing the account-creation step for a returning
   // signed-in user (or the reverse) for one frame.
-  if (currentUser === undefined) {
+  if (needsAccountStep === null) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-ink-dim" />
@@ -287,12 +298,20 @@ function AccountStep({ onCreated }: { onCreated: () => void }) {
         );
         return;
       }
-      // Same stale-SWR-cache fix as the login page: useCurrentUser/
-      // useSetupRequired share the "/api/auth/me" key, cached from before
-      // this account existed — clear it so the rest of the wizard (and
-      // AppShell, once we leave /setup) sees the freshly created session
-      // immediately instead of up to dedupingInterval later.
+      // Bug fix (confirmed live): the login page's resetSwrCache() is
+      // revalidate:false by design — it clears every cache entry to
+      // undefined and relies on the NEXT page's fresh hook mount to refetch
+      // (a real navigation always follows it there). This wizard never
+      // navigates away — SetupWizardPageInner's own useCurrentUser() stays
+      // mounted across the step change — so clearing "/api/auth/me" left it
+      // stuck on `undefined` forever with nothing left to trigger a refetch,
+      // which made the loading-guard above spin indefinitely right after
+      // account creation. Clear every other per-user cache (same reasoning
+      // as the login page: a stale watch status/preferences/etc. must never
+      // leak into the session that's about to exist), then explicitly
+      // revalidate the one key this very page depends on right now.
       await resetSwrCache();
+      await mutate("/api/auth/me");
       onCreated();
     } finally {
       setBusy(false);
