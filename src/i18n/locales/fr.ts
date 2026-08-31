@@ -1458,6 +1458,8 @@ export const fr = {
     categories: "Catégories",
     otherCategories: "Autres catégories",
     categoriesFallbackHint: "Liste générique — teste l'indexeur pour voir ses vraies catégories.",
+    categoriesRefresh: "Actualiser catégories",
+    categoriesRefreshHint: "Recharge la liste réelle des catégories depuis l'indexeur.",
     loadCategories: "Afficher les catégories",
     categoriesNeedKey: "Merci d'entrer ta clé API pour voir les catégories.",
     categoriesNeedCredentials: "Merci d'entrer tes identifiants pour voir les catégories.",

@@ -1459,6 +1459,8 @@ export const it: Dictionary = {
     categories: "Categorie",
     otherCategories: "Altre categorie",
     categoriesFallbackHint: "Elenco generico — testa l'indexer per vedere le sue vere categorie.",
+    categoriesRefresh: "Aggiorna categorie",
+    categoriesRefreshHint: "Ricarica l'elenco reale delle categorie dell'indexer.",
     loadCategories: "Mostra categorie",
     categoriesNeedKey: "Inserisci la tua chiave API per vedere le categorie.",
     categoriesNeedCredentials: "Inserisci le tue credenziali per vedere le categorie.",

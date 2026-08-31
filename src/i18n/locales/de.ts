@@ -1477,6 +1477,8 @@ export const de: Dictionary = {
     categories: "Kategorien",
     otherCategories: "Weitere Kategorien",
     categoriesFallbackHint: "Generische Liste — teste den Indexer, um seine echten Kategorien zu sehen.",
+    categoriesRefresh: "Kategorien aktualisieren",
+    categoriesRefreshHint: "Lädt die echte Kategorienliste des Indexers neu.",
     loadCategories: "Kategorien anzeigen",
     categoriesNeedKey: "Bitte gib deinen API-Schlüssel ein, um die Kategorien zu sehen.",
     categoriesNeedCredentials: "Bitte gib deine Zugangsdaten ein, um die Kategorien zu sehen.",

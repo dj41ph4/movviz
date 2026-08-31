@@ -1460,6 +1460,8 @@ export const nl: Dictionary = {
     categories: "Categorieën",
     otherCategories: "Overige categorieën",
     categoriesFallbackHint: "Generieke lijst — test de indexer om de echte categorieën te zien.",
+    categoriesRefresh: "Categorieën vernieuwen",
+    categoriesRefreshHint: "Laadt de echte categorielijst van de indexer opnieuw.",
     loadCategories: "Categorieën tonen",
     categoriesNeedKey: "Vul je API-sleutel in om de categorieën te zien.",
     categoriesNeedCredentials: "Vul je inloggegevens in om de categorieën te zien.",

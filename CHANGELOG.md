@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.20 — August 2026
+
+### Indexeurs — bouton pour actualiser les catégories
+
+Réglages → Indexeurs propose maintenant un bouton dédié pour recharger la liste réelle des catégories d'un indexeur directement depuis le panneau de sélection, sans passer par le bouton « Tester » général.
+
 ## v1.24.19 — August 2026
 
 ### Recherche — une catégorie personnalisée d'indexeur (ex. « Émission ») pouvait être ignorée

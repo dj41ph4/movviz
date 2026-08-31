@@ -10,7 +10,7 @@ import type { CategoryNode } from "@/lib/indexers/categories";
 import { CategoryPicker } from "./CategoryPicker";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import {
-  Magnet, Server, Plus, Circle, Trash2, Wifi, Loader2, X, Check, ArrowLeft, KeyRound, UserRound, Tags, SlidersHorizontal, Pencil,
+  Magnet, Server, Plus, Circle, Trash2, Wifi, Loader2, X, Check, ArrowLeft, KeyRound, UserRound, Tags, SlidersHorizontal, Pencil, RefreshCw,
 } from "lucide-react";
 
 interface Row {
@@ -262,6 +262,17 @@ export function IndexerManager() {
                     className="overflow-hidden"
                   >
                     <div className="mt-4 border-t border-white/8 pt-4">
+                      <div className="mb-3 flex items-center justify-between gap-2">
+                        <p className="text-[11px] text-ink-dim">{t("indexerMgr.categoriesRefreshHint")}</p>
+                        <button
+                          onClick={() => test(r.id)}
+                          disabled={testing === r.id}
+                          className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg glass-strong px-2.5 text-[11px] font-semibold text-ink-soft transition-colors hover:text-ink disabled:opacity-50"
+                        >
+                          {testing === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                          {t("indexerMgr.categoriesRefresh")}
+                        </button>
+                      </div>
                       <CategoryPicker value={r.categories} onChange={(cats) => saveCategories(r.id, cats)} indexerCategories={r.caps?.categories ?? undefined} />
                     </div>
                   </motion.div>

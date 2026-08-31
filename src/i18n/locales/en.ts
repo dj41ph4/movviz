@@ -1460,6 +1460,8 @@ export const en: Dictionary = {
     categories: "Categories",
     otherCategories: "Other categories",
     categoriesFallbackHint: "Generic list — test the indexer to see its real categories.",
+    categoriesRefresh: "Refresh categories",
+    categoriesRefreshHint: "Reload the indexer's real category list.",
     loadCategories: "Show categories",
     categoriesNeedKey: "Enter your API key to see the categories.",
     categoriesNeedCredentials: "Enter your credentials to see the categories.",
