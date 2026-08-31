@@ -1,0 +1,28 @@
+name: Dispatch v1.24.00 release builds
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/v12400-dispatch-release.yml'
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch tagged release builders
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -X POST "repos/$REPO/actions/workflows/build-installer.yml/dispatches" -f ref=v1.24.00
+          gh api -X POST "repos/$REPO/actions/workflows/linux-release-build.yml/dispatches" -f ref=v1.24.00
+          gh api -X POST "repos/$REPO/actions/workflows/android-tv-build.yml/dispatches" -f ref=v1.24.00
+          gh api -X POST "repos/$REPO/actions/workflows/android-mobile-build.yml/dispatches" -f ref=v1.24.00
+          gh api -X POST "repos/$REPO/actions/workflows/docker-publish.yml/dispatches" -f ref=main
