@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.24.01 — August 2026
+
+### Movviz AI — continuité conversationnelle et préférences explicites
+
+Movviz AI conserve désormais beaucoup mieux le fil des derniers tours : les références implicites comme « ça », « lui », « celui-là » ou « ce changement » sont résolues en priorité depuis la conversation récente au lieu de repartir de zéro. Les corrections explicites de l'utilisateur remplacent immédiatement les anciennes suppositions contradictoires et restent prioritaires dans le contexte.
+
+Les préférences explicites sur un titre sont désormais persistées dans le User Context Engine avec une confiance maximale et alimentent directement le scoring de recommandations. Une correction comme « tu te trompes, j'adore Watchmen » devient donc un signal structuré, durable et prioritaire au lieu d'une simple phrase oubliable.
+
+Le Dialogue Director a également été assoupli : suppression de l'escalade automatique, des introductions de défi stéréotypées et de l'obligation de gagner ou d'avoir le dernier mot. Les réponses de joute peuvent être plus courtes, plus naturelles et varier entre humour, sarcasme, ironie, autodérision ou réponse sèche, avec un garde-fou anti-répétition renforcé.
+
 ## v1.24.00 — August 2026
 
 ### Movviz AI — User Context Engine unifié
