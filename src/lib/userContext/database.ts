@@ -19,6 +19,10 @@ const g = globalThis as typeof globalThis & {
   __movvizUserContextDbError?: string | null;
 };
 
+function isContextEngineDisabled(): boolean {
+  return /^(?:1|true|yes|on)$/i.test((process.env.MOVVIZ_CONTEXT_ENGINE_DISABLED ?? "").trim());
+}
+
 function setError(error: unknown): void {
   g.__movvizUserContextDbError = error instanceof Error ? error.message : String(error);
 }
@@ -129,6 +133,16 @@ function ensureSchema(db: DatabaseSync): void {
 export function getUserContextDb(): DatabaseSync | null {
   if (g.__movvizUserContextDbInitialized) return g.__movvizUserContextDb ?? null;
   g.__movvizUserContextDbInitialized = true;
+
+  // Emergency rollback switch: disabling the new Context Engine must restore
+  // the legacy Movviz behavior without touching/deleting the SQLite file.
+  // Every caller already treats a null DB as best-effort unavailable and
+  // falls back to the existing watch/progress/profile stores.
+  if (isContextEngineDisabled()) {
+    g.__movvizUserContextDb = null;
+    g.__movvizUserContextDbError = null;
+    return null;
+  }
 
   const Database = loadDatabaseSync();
   if (!Database) {
