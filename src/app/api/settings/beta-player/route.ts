@@ -5,6 +5,8 @@ import {
   setBetaPlayerEnabled,
   getStreamCacheTtl,
   setStreamCacheTtl,
+  isHdrDvToSdrEnabled,
+  setHdrDvToSdrEnabled,
   getPlaybackEngine,
   setPlaybackEngine,
   isPlaybackDebugEnabled,
@@ -18,6 +20,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     enabled: isBetaPlayerEnabled(),
     streamCacheTtl: getStreamCacheTtl(),
+    hdrDvToSdrEnabled: isHdrDvToSdrEnabled(),
     playbackEngine: getPlaybackEngine(),
     debug: isPlaybackDebugEnabled(),
   });
@@ -29,11 +32,13 @@ export async function PUT(req: NextRequest) {
   if (!body) return NextResponse.json({ error: "invalid_body" }, { status: 400 });
   if (typeof body.enabled === "boolean") setBetaPlayerEnabled(body.enabled);
   if (typeof body.streamCacheTtl === "number") setStreamCacheTtl(body.streamCacheTtl);
+  if (typeof body.hdrDvToSdrEnabled === "boolean") setHdrDvToSdrEnabled(body.hdrDvToSdrEnabled);
   if (typeof body.playbackEngine === "string") setPlaybackEngine(body.playbackEngine);
   if (typeof body.debug === "boolean") setPlaybackDebugEnabled(body.debug);
   return NextResponse.json({
     enabled: isBetaPlayerEnabled(),
     streamCacheTtl: getStreamCacheTtl(),
+    hdrDvToSdrEnabled: isHdrDvToSdrEnabled(),
     playbackEngine: getPlaybackEngine(),
     debug: isPlaybackDebugEnabled(),
   });
