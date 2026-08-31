@@ -1,0 +1,45 @@
+name: Apply playback v3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-playback-v3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply migration
+        run: node scripts/refactor-playback-v3-fixed.mjs
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Portable tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+      - name: Production build
+        run: npm run build
+      - name: Commit playback v3 foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/lib/playback/engine src/app/api/playback/prepare/route.ts packaging/windows/installer scripts/decide-playback.test.ts
+          git commit -m 'refactor(playback): unify planner and media runtime'
+          git push origin HEAD:main
