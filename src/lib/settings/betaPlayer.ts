@@ -13,6 +13,12 @@ interface BetaPlayerConfig {
   /** Durée de cache en secondes pour les segments vidéo (0 = pas de cache). Défaut: 300s (5 min). */
   streamCacheTtl: number;
   /**
+   * Autorise uniquement le tonemapping HDR/Dolby Vision vers SDR. Même activé,
+   * le planner garde son seuil de sécurité benchmark >= 3×. Désactivé = aucune
+   * conversion HDR10/HDR10+/HLG/Dolby Vision vers SDR, sur aucun client.
+   */
+  hdrDvToSdrEnabled: boolean;
+  /**
    * Moteur de lecture : "auto" (décision automatique — alias de "stable"
    * aujourd'hui, repointable plus tard), "stable" (fige le comportement
    * actuel d'"auto", ne change jamais même si "auto" est repointé), "native"
@@ -31,6 +37,7 @@ interface BetaPlayerConfig {
 const DEFAULT: BetaPlayerConfig = {
   enabled: true,
   streamCacheTtl: 300,
+  hdrDvToSdrEnabled: true,
   playbackEngine: "auto",
   debug: false,
   engineTierMigrated: true,
@@ -84,6 +91,15 @@ export function getStreamCacheTtl(): number {
 export function setStreamCacheTtl(ttl: number): void {
   const cfg = load();
   save({ ...cfg, streamCacheTtl: Math.max(0, ttl) });
+}
+
+export function isHdrDvToSdrEnabled(): boolean {
+  return load().hdrDvToSdrEnabled;
+}
+
+export function setHdrDvToSdrEnabled(enabled: boolean): void {
+  const cfg = load();
+  save({ ...cfg, hdrDvToSdrEnabled: !!enabled });
 }
 
 function isKnownEngine(v: unknown): v is EngineConfig {
