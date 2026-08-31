@@ -1,6 +1,6 @@
 name: Apply codec capability v2
 
-# rerun after helper syntax fix
+# rerun after helper guard fix
 on:
   push:
     branches: [main]
@@ -22,6 +22,20 @@ jobs:
         with:
           node-version: 22
           cache: npm
+
+      - name: Tighten helper guard
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('scripts/apply-codec-capability-v2.py')
+          s = p.read_text(encoding='utf-8')
+          old = "if 'silentAudioDetector' in s or \"watchForSilentAudio(\" in s:\n    raise SystemExit(\"silence detector still referenced by VideoPlayer\")"
+          new = "if 'from \\\"@/lib/player/silentAudioDetector\\\"' in s or \"watchForSilentAudio(\" in s:\n    raise SystemExit(\"silence detector runtime dependency still referenced by VideoPlayer\")"
+          if old not in s:
+              raise SystemExit('helper guard anchor missing')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY
 
       - name: Apply patch
         run: python scripts/apply-codec-capability-v2.py
