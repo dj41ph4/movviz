@@ -1,7 +1,9 @@
 import { loadAiConfig } from "./store";
 import { callAi } from "./providers";
 import { extractJsonObject } from "./intentParser";
-import { rememberFact } from "./tasteProfile";
+import { rememberFact, rememberExplicitPreferenceFact } from "./tasteProfile";
+import { resolveAiItem } from "./actions";
+import { upsertExplicitTitlePreference } from "@/lib/userContext/preferences";
 
 /**
  * Apprentissage conversationnel continu — demande explicite user ("il doit
@@ -33,6 +35,48 @@ import { rememberFact } from "./tasteProfile";
 const lastRun: Record<string, number> = {};
 const COOLDOWN_MS = 60_000;
 
+interface ExplicitTitlePreferenceStatement {
+  subject: string;
+  positive: boolean;
+  correction: boolean;
+}
+
+const CORRECTION_HINT_RE = /\b(?:tu te trompes?|c['’]?est faux|non[, ]+tu|pas du tout|au contraire)\b/i;
+const POSITIVE_TITLE_PREF_RE = /\b(?:j['’]?adore|j['’]?aime(?: vraiment| beaucoup| bien)?|je kiffe)\s+[«\"“]?([^\n.!?]{2,120})[»\"”]?/i;
+const NEGATIVE_TITLE_PREF_RE = /\b(?:je d[ée]teste|je n['’]?aime pas|j['’]?aime pas|je ne supporte pas|je supporte pas)\s+[«\"“]?([^\n.!?]{2,120})[»\"”]?/i;
+const GENERIC_PREFERENCE_SUBJECT_RE = /^(?:ça|ca|ce film|cette série|cette serie|celui[- ]là|celle[- ]là|les films|les séries|les series)$/i;
+
+export function parseExplicitTitlePreferenceStatement(message: string): ExplicitTitlePreferenceStatement | null {
+  const negative = message.match(NEGATIVE_TITLE_PREF_RE);
+  const positive = negative ? null : message.match(POSITIVE_TITLE_PREF_RE);
+  const match = negative ?? positive;
+  if (!match) return null;
+  const subject = match[1].trim().replace(/[,:;]+$/, "").trim();
+  if (!subject || GENERIC_PREFERENCE_SUBJECT_RE.test(subject)) return null;
+  return { subject, positive: !negative, correction: CORRECTION_HINT_RE.test(message) };
+}
+
+async function persistExplicitTitlePreference(userId: string, statement: ExplicitTitlePreferenceStatement): Promise<void> {
+  // Immediate durable fact: the next chat turn can see the correction even
+  // while TMDb resolution below is still running.
+  rememberExplicitPreferenceFact(userId, statement.subject, statement.positive);
+  try {
+    const resolved = await resolveAiItem({ title: statement.subject });
+    if (!resolved) return;
+    upsertExplicitTitlePreference({
+      userId,
+      tmdbId: resolved.tmdbId,
+      mediaType: resolved.type,
+      title: resolved.title,
+      affinity: statement.positive ? 1 : -1,
+      source: statement.correction ? "correction" : "explicit",
+    });
+    rememberExplicitPreferenceFact(userId, resolved.title, statement.positive);
+  } catch {
+    // The human-readable fact still survives when TMDb is unavailable.
+  }
+}
+
 const FACTS_SYSTEM_PROMPT = `Tu es le module de mémoire d'une application de films/séries. Tu lis le dernier message d'un utilisateur et tu en extrais TOUT ce qui est un apprentissage durable sur lui : goûts, préférences, ressentiments, habitudes, informations personnelles.
 
 EXTRACTION — exemples de faits à retenir :
@@ -58,6 +102,9 @@ FORMAT : réponds UNIQUEMENT avec un objet JSON {"facts":["...","..."]}, sans te
  * lève jamais d'exception.
  */
 export async function extractConversationFacts(userId: string, message: string): Promise<void> {
+  const explicitPreference = parseExplicitTitlePreferenceStatement(message);
+  if (explicitPreference) await persistExplicitTitlePreference(userId, explicitPreference);
+
   const now = Date.now();
   if (now - (lastRun[userId] ?? 0) < COOLDOWN_MS) return;
   lastRun[userId] = now;

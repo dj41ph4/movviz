@@ -11,7 +11,7 @@ const CONFIG_DIR =
 
 const CONTEXT_DIR = path.join(CONFIG_DIR, "context");
 export const USER_CONTEXT_DB_FILE = path.join(CONTEXT_DIR, "user-context.sqlite");
-export const USER_CONTEXT_SCHEMA_VERSION = 1;
+export const USER_CONTEXT_SCHEMA_VERSION = 2;
 
 const g = globalThis as typeof globalThis & {
   __movvizUserContextDb?: DatabaseSync | null;
@@ -112,6 +112,24 @@ function ensureSchema(db: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_user_media_state_user_tmdb
       ON user_media_state(user_id, tmdb_id, media_type);
+
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      user_id TEXT NOT NULL,
+      dimension TEXT NOT NULL,
+      pref_key TEXT NOT NULL,
+      label TEXT NOT NULL,
+      affinity REAL NOT NULL,
+      confidence REAL NOT NULL,
+      source TEXT NOT NULL,
+      tmdb_id INTEGER,
+      media_type TEXT,
+      evidence_count INTEGER NOT NULL DEFAULT 1,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY(user_id, dimension, pref_key)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_preferences_user_updated
+      ON user_preferences(user_id, updated_at DESC);
 
     CREATE TABLE IF NOT EXISTS context_sync_state (
       source TEXT NOT NULL,

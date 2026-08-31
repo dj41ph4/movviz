@@ -103,6 +103,30 @@ export function getFacts(userId: string): AiFactEntry[] {
   return profileForUser(read(), userId).facts;
 }
 
+
+/** Latest explicit statement about one named preference wins over an older
+ * explicit statement about the same subject. This is deliberately narrower
+ * than generic rememberFact(): corrections must replace, not accumulate as
+ * contradictory facts. */
+export function rememberExplicitPreferenceFact(userId: string, subject: string, positive: boolean): void {
+  const cleanSubject = subject.trim().replace(/\s+/g, " ").slice(0, 160);
+  if (!cleanSubject) return;
+  const store = read();
+  const profile = profileForUser(store, userId);
+  const signature = cleanSubject.toLocaleLowerCase("fr");
+  const prefixRe = /^Préférence explicite — (.+?) : /i;
+  const filtered = profile.facts.filter((entry) => {
+    const match = entry.fact.match(prefixRe);
+    return !match || match[1].trim().toLocaleLowerCase("fr") !== signature;
+  });
+  filtered.push({
+    fact: `Préférence explicite — ${cleanSubject} : ${positive ? "aime fortement ce titre" : "n'aime pas ce titre"}.`,
+    at: Date.now(),
+  });
+  store[userId] = { ...profile, facts: filtered.slice(-MAX_FACT_ENTRIES) };
+  write(store);
+}
+
 /** Réinitialise le contexte IA à zéro (bouton « Réinitialiser le contexte »
  *  du panneau profil — demande explicite : "revenir à 0"). Vide le contexte
  *  consolidé (insights) ET les faits retenus en conversation : tout ce que

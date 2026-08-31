@@ -186,6 +186,7 @@ export async function POST(req: NextRequest) {
   let system = buildSystemPrompt(userContext, memoryContext, usageContext, feedbackContext, factsContext, isFirstInteraction, needsName, contextInsightsContext, correctionEscalationContext, config.webSearchEnabled);
   system += buildRatingsContext(user.id);
   system += `\n\nDIRECTEUR DE DIALOGUE — décision déterministe pour CE tour (elle prime sur les règles générales de joute si elles se contredisent) : ${dialoguePlan.directive}`;
+  system += `\n\nCONTINUITÉ COURTE — les messages de cette session qui te sont fournis sont une mémoire active, pas un simple historique décoratif. Relis en priorité les 10 derniers messages avant de répondre. Si le message actuel contient une référence implicite (ça, ce changement, lui, celui-là, ce que je viens de dire), résous-la depuis ces tours récents. La dernière correction explicite de l'utilisateur remplace immédiatement une ancienne affirmation contradictoire de l'assistant. Ne demande jamais de répéter une information clairement présente quelques messages plus haut.`;
   let groundedAnswer: string | null = null;
   const recentConversationReplies = recentAssistantReplies(session.messages, 10);
   if (recentConversationReplies.length) {
@@ -656,12 +657,14 @@ export async function POST(req: NextRequest) {
   // — folded into one check so a single retry/fallback path covers all of
   // them, same discipline as everywhere else in this file: don't trust
   // prompt wording alone for anything code can verify deterministically.
-  const CONCESSION_PHRASE_RE = /\bje te laisse (?:gagner|le dernier mot)\b|\btu as gagn[ée]\b|\btu gagnes\b|je ne suis pas là pour me faire insulter|je préfère garder mon énergie|on a mieux à faire que de s'insulter|comme des ados en crise/i;
+  const CONCESSION_PHRASE_RE = /je ne suis pas là pour me faire insulter|je préfère garder mon énergie|on a mieux à faire que de s'insulter|comme des ados en crise/i;
   const BARE_ROUND_WORD_RE = /\bround\b/i;
   const GHOSTFACE_DIDASCALIE_RE = /\*?\s*voix de ghostface\s*\*?/i;
   const WEAK_BANNED_RE = /je te bats à chaque (?:fois|coup)|tu veux vraiment que je te prouve que t'es pas le plus malin/i;
+  const STOCK_PERSONA_RE = /\b(?:tu veux (?:vraiment )?(?:jouer|qu['’]?on joue)|mais sache une chose|tr[èe]s bien[, ]+(?:champion|gamin|mon grand))\b/i;
+  const STOCK_OPENING_RE = /^\s*(?:ah[,! ]*)?tu veux (?:vraiment )?(?:jouer|qu['’]?on joue).*?(?:mais sache une chose|[.!?])\s*/i;
   const isRepeat = (text: string) => recentReplies.some((prev) => sharesReplyTemplate(text, prev));
-  const violatesRules = (text: string) => isRepeat(text) || (isTalkFightTurn && (CONCESSION_PHRASE_RE.test(text) || BARE_ROUND_WORD_RE.test(text) || GHOSTFACE_DIDASCALIE_RE.test(text) || WEAK_BANNED_RE.test(text)));
+  const violatesRules = (text: string) => isRepeat(text) || STOCK_PERSONA_RE.test(text) || (isTalkFightTurn && (CONCESSION_PHRASE_RE.test(text) || BARE_ROUND_WORD_RE.test(text) || GHOSTFACE_DIDASCALIE_RE.test(text) || WEAK_BANNED_RE.test(text)));
   if (intent.action === null && intent.rawText !== BROKEN_ACTION_FALLBACK && violatesRules(intent.rawText)) {
     for (let attempt = 0; attempt < 3 && violatesRules(intent.rawText); attempt++) {
       try {
@@ -669,7 +672,7 @@ export async function POST(req: NextRequest) {
         const retryStyle = isTalkFightTurn
           ? "Garde ta répartie et ta personnalité, mais utilise un angle entièrement neuf. Une phrase courte suffit ; ne termine pas systématiquement par une question ou un retour au cinéma."
           : "Conserve le sens, les faits et ta personnalité, mais reconstruis entièrement la réponse. Ne change pas de sujet et n'ajoute pas une relance artificielle.";
-        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a un problème : ${matched ? `elle reprenait la structure d'une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}...")` : ""}${isTalkFightTurn && CONCESSION_PHRASE_RE.test(intent.rawText) ? " elle concédait la victoire à l'utilisateur (interdit : tu as TOUJOURS le dernier mot, jamais céder)" : ""}${isTalkFightTurn && BARE_ROUND_WORD_RE.test(intent.rawText) ? " elle prononçait le mot \"round\" à voix haute (interdit, reste toujours dans la scène)" : ""}${isTalkFightTurn && GHOSTFACE_DIDASCALIE_RE.test(intent.rawText) ? " elle ajoutait une didascalie *voix de ghostface* (interdit : dis juste la phrase nue \"Tu aimes les films d'horreur ?\" sans décor)" : ""}${isTalkFightTurn && WEAK_BANNED_RE.test(intent.rawText) ? " elle ressortait une ancienne formule faible" : ""}. ${retryStyle}`;
+        const retrySystem = `${system}\n\nCORRECTION IMMÉDIATE : ta réponse précédente à ce même message a un problème : ${matched ? `elle reprenait la structure d'une réplique déjà utilisée plus haut dans cette conversation ("${matched.slice(0, 120)}...")` : ""}${isTalkFightTurn && CONCESSION_PHRASE_RE.test(intent.rawText) ? " elle retombait dans une formule défensive ou artificielle" : ""}${STOCK_PERSONA_RE.test(intent.rawText) ? " elle commençait par une formule de défi stéréotypée : change complètement d'entrée, va directement au contenu" : ""}${isTalkFightTurn && BARE_ROUND_WORD_RE.test(intent.rawText) ? " elle prononçait le mot \"round\" à voix haute (interdit, reste toujours dans la scène)" : ""}${isTalkFightTurn && GHOSTFACE_DIDASCALIE_RE.test(intent.rawText) ? " elle ajoutait une didascalie *voix de ghostface* (interdit : dis juste la phrase nue \"Tu aimes les films d'horreur ?\" sans décor)" : ""}${isTalkFightTurn && WEAK_BANNED_RE.test(intent.rawText) ? " elle ressortait une ancienne formule faible" : ""}. ${retryStyle}`;
         const retryRes = await callAi(config, retrySystem, session.messages);
         const retryIntent = parseIntent(retryRes.text);
         if (retryIntent.action === null && retryIntent.rawText !== BROKEN_ACTION_FALLBACK) intent = retryIntent;
@@ -677,6 +680,12 @@ export async function POST(req: NextRequest) {
         break;
       }
     }
+    // Absolute guarantee for the recurring canned challenge opener.
+    if (STOCK_PERSONA_RE.test(intent.rawText)) {
+      const withoutStockOpening = intent.rawText.replace(STOCK_OPENING_RE, "").trim();
+      if (withoutStockOpening) intent = { action: null, items: [], rawText: withoutStockOpening };
+    }
+
     // Confirmed live: falling back to the ORIGINAL (still-violating) reply
     // here just re-surfaces the exact bug being fixed — this model has a
     // strong, reproducible pull toward this specific template and even
@@ -685,8 +694,8 @@ export async function POST(req: NextRequest) {
     if (isTalkFightTurn && violatesRules(intent.rawText)) {
       const userNoticedRepeat = /\br[ée]p[èe]t|toujours (?:la|les) m[êe]me|disque ray[ée]/i.test(message);
       const fallback = userNoticedRepeat
-        ? "Touché, celle-là était recyclée. Je change de disque — n'en déduis pas que tu as pris l'avantage."
-        : "Ta tentative vient d'arriver sans sa chute. Renvoie la version complète.";
+        ? "Bien vu, celle-là était recyclée. Je change complètement d'angle."
+        : "Je repars de ce que tu viens réellement de dire, sans formule toute faite.";
       intent = { action: null, items: [], rawText: fallback };
     }
   }
@@ -998,7 +1007,7 @@ export async function POST(req: NextRequest) {
       ? `C'est noté ⭐ ${list}.`
       : `C'est noté ⭐ ${list} — ${appliedRatings.length} titres mis à jour.`;
   }
-  const FALLBACK_TEXT = "Désolé, j'ai un vrai blocage pour te répondre correctement là tout de suite — donne-moi un instant, ça devrait aller au prochain message.";
+  const FALLBACK_TEXT = "J’ai raté ma réponse sur ce tour. Le contexte de la conversation est toujours là, je repars de ce qu’on vient de se dire.";
   const assistant: AiChatMessage = { role: "assistant", content: finalCleaned || FALLBACK_TEXT };
 
   let itemCount: number | undefined;

@@ -6,6 +6,7 @@ import { moodSimilarity } from "@/lib/ai/titleAnalysis";
 import type { TasteVector } from "@/lib/ai/contrastiveProfile";
 import type { ResolvedAiItem } from "@/lib/ai/actions";
 import type { AiMoodCategories } from "@/lib/ai/types";
+import { getExplicitTitlePreferences } from "@/lib/userContext/preferences";
 
 /**
  * Recommendation Score (AI.MD §2.D/§2.E) — separates candidate GENERATION
@@ -156,6 +157,9 @@ export function scoreCandidates(
   // already proposed isn't reliable — this makes "never re-propose a
   // rejected title" an actual guarantee instead of a prompt hope.
   const dislikedExactKeys = new Set(feedback.filter((f) => !f.liked).map((f) => `${f.type}:${f.tmdbId}`));
+  const explicitPreferences = new Map(
+    getExplicitTitlePreferences(userId, 500).map((pref) => [pref.key, pref] as const)
+  );
 
   const scored: ScoredCandidate[] = [];
   for (const c of candidates) {
@@ -165,6 +169,8 @@ export function scoreCandidates(
       : isSeriesFullyWatched(c.tmdbId, watchedEpisodesBySeries.get(c.tmdbId) ?? new Set());
     if (alreadySeen) continue; // AlreadySeen — hard exclude, per spec (series: fully watched only, see isSeriesFullyWatched)
     if (dislikedExactKeys.has(key)) continue; // AlreadyRejected — hard exclude, never re-propose the same rejected title
+    const explicitPreference = explicitPreferences.get(key);
+    if (explicitPreference && explicitPreference.affinity <= -0.75) continue; // explicit correction wins
 
     const reason = reasons.get(key);
     const reasonTokens = reason ? tokenize(reason) : null;
@@ -172,6 +178,7 @@ export function scoreCandidates(
     let score = 0;
     score += Math.max(0, c.rating) * 2; // Quality — up to ~20
     if (!c.inLibrary) score += 8; // Novelty — favors real discoveries over what's already owned
+    if (explicitPreference) score += explicitPreference.affinity * 20 * explicitPreference.confidence;
 
     if (reasonTokens) {
       // Bug fix (audit finding #3, confirmed live): each individual match

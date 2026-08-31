@@ -1,6 +1,7 @@
 import { getFeedback, getAllRatings } from "@/lib/ai/tasteProfile";
 import { getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
 import type { AiMoodCategories } from "@/lib/ai/types";
+import { getExplicitTitlePreferences } from "@/lib/userContext/preferences";
 
 /**
  * Real contrastive learning over the 👍/👎 log (AI.MD §2.H) — the piece the
@@ -73,8 +74,25 @@ export function buildTasteVector(userId: string): TasteVector | null {
   // `feedback` by tmdbId+type below so the same title never double-counts
   // through both signals — the rating wins when both exist, since it's the
   // more informative one.
-  const ratedKeys = new Set<string>();
+  const explicitPreferences = getExplicitTitlePreferences(userId, 200);
+  const explicitKeys = new Set(explicitPreferences
+    .filter((pref) => pref.tmdbId != null && pref.mediaType)
+    .map((pref) => `${pref.mediaType}:${pref.tmdbId}`));
+  const ratedKeys = new Set<string>(explicitKeys);
+
+  // Direct statement/correction is stronger than an older rating or vote.
+  for (const pref of explicitPreferences) {
+    if (pref.tmdbId == null || !pref.mediaType || Math.abs(pref.affinity) < 0.5) continue;
+    const profile = getCachedMoodProfile(pref.mediaType, pref.tmdbId);
+    if (!profile) continue;
+    const target = pref.affinity > 0 ? likedProfiles : dislikedProfiles;
+    target.push(profile.categories, profile.categories);
+    const titles = pref.affinity > 0 ? likedTitles : dislikedTitles;
+    if (titles.length < MAX_EVIDENCE) titles.push(pref.label);
+  }
+
   for (const rating of getAllRatings(userId)) {
+    if (explicitKeys.has(`${rating.type}:${rating.tmdbId}`)) continue;
     if (rating.rating === 3) continue;
     const profile = getCachedMoodProfile(rating.type, rating.tmdbId);
     if (!profile) continue;

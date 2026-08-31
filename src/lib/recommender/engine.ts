@@ -79,7 +79,7 @@ export async function getRecommendations(
           (s.count / maxCount) * 0.25
           + (Math.min(s.item.rating ?? 0, 10) / 10) * 0.3
           + (Math.min(Math.max((s.item.year ?? 2000) - 2000, 0), 30) / 30) * 0.25
-          + Math.max(0, taste) * 0.2,
+          + Math.max(-1, Math.min(1, taste)) * 0.2,
       };
     })
     .sort((a, b) => b.composite - a.composite)

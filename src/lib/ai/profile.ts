@@ -9,6 +9,7 @@ import { buildUnifiedUserContextSnapshot, formatUnifiedUserContext } from "@/lib
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
 import { formatUserWatchHistory } from "@/lib/userContext/history";
 import { formatTasteEvidenceContext } from "@/lib/userContext/taste";
+import { formatExplicitPreferencesContext } from "@/lib/userContext/preferences";
 
 export interface UsageProfile {
   /** Whole-instance library size (shared across every user — not a "watched" count). Distinct on purpose: a user asking "j'ai 2284 films" means the library total, not how many they've watched. */
@@ -48,6 +49,8 @@ export interface UsageProfile {
   verifiedWatchHistory: string;
   /** Evidence-backed preferences/habits kept separate from exact facts. */
   tasteEvidenceContext: string;
+  /** Direct user statements/corrections. These outrank inferred insights. */
+  explicitPreferencesContext: string;
 }
 
 /** Quantified usage profile derived from REAL Movviz data — the assistant's
@@ -84,6 +87,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
   const verifiedContext = formatUnifiedUserContext(buildUnifiedUserContextSnapshot(userId));
   const verifiedWatchHistory = formatUserWatchHistory(userId, 30);
   const tasteEvidenceContext = formatTasteEvidenceContext(userId, 5);
+  const explicitPreferencesContext = formatExplicitPreferencesContext(userId, 12);
 
   return {
     libraryMovies: loadMovies().length,
@@ -104,6 +108,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
     verifiedContext,
     verifiedWatchHistory,
     tasteEvidenceContext,
+    explicitPreferencesContext,
   };
 }
 
@@ -132,6 +137,9 @@ export function formatUsageProfile(p: UsageProfile): string {
   }
   if (p.tasteEvidenceContext) {
     parts.push(`TENDANCES DE GOÛT ÉTAYÉES (personnalisation possible, mais ce ne sont PAS toutes des certitudes : respecte la confiance et la source, une préférence explicite prime toujours) : ${p.tasteEvidenceContext}`);
+  }
+  if (p.explicitPreferencesContext) {
+    parts.push(`PRÉFÉRENCES EXPLICITES ET CORRECTIONS (source utilisateur directe, PRIORITÉ ABSOLUE sur une ancienne supposition, un ancien insight ou une ancienne réponse de l'assistant) : ${p.explicitPreferencesContext}`);
   }
   return parts.join(" · ");
 }
