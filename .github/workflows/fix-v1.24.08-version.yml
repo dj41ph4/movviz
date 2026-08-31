@@ -1,0 +1,60 @@
+name: One-shot fix v1.24.08 version format
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/fix-v1.24.08-version.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Preserve exact 1.24.08 version string
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('package.json')
+          s = p.read_text(encoding='utf-8')
+          old = '"version": "1.24.8"'
+          new = '"version": "1.24.08"'
+          if old not in s:
+              raise SystemExit('package.json is not at normalized 1.24.8')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+
+          p = Path('package-lock.json')
+          s = p.read_text(encoding='utf-8')
+          count = s.count(old)
+          if count < 2:
+              raise SystemExit(f'expected at least 2 normalized version entries in package-lock.json, got {count}')
+          p.write_text(s.replace(old, new, 2), encoding='utf-8')
+          PY
+
+      - name: Commit correction and remove one-shot workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-v1.24.08-version.yml
+          git add package.json package-lock.json
+          git commit -m "fix(release): preserve v1.24.08 version string"
+
+      - name: Push correction and repoint v1.24.08
+        shell: bash
+        run: |
+          set -euo pipefail
+          git tag -fa v1.24.08 -m "Movviz v1.24.08 — unified branding"
+          git push origin HEAD:main
+          git push --force origin refs/tags/v1.24.08
