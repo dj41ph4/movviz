@@ -41,7 +41,7 @@ l'interface web. Ils sont indépendants du compte système Linux.
 ## Prérequis
 
 - Linux x64 avec `systemd` ;
-- Node.js 20 ou plus récent dans `/usr/bin/node` ;
+- Node.js 22 ou plus récent dans `/usr/bin/node` ;
 - accès administrateur via `sudo` ;
 - ports `9810` et `9820` libres.
 

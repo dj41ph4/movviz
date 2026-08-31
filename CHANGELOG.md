@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.24.00 — August 2026
+
+### Movviz AI — User Context Engine unifié
+
+Movviz AI dispose désormais d'un moteur de contexte utilisateur unifié et persistant. Un ledger SQLite par `user_id` conserve l'historique média sans mélanger les profils : lectures, films et épisodes terminés, rewatchs distincts, progression, reprises et chronologie réelle quand elle est connue. Les anciennes données de visionnage/progression sont bootstrapées de manière idempotente sans fabriquer de dates absentes.
+
+Le Query Engine peut exploiter cet état vérifié pour fournir à l'IA la progression exacte des séries, les contenus en cours et l'historique récent, avec enrichissement par métadonnées/genres. Ratings, feedback, demandes, facts, insights et mémoire IA restent compatibles via une couche d'adapters unifiée afin d'éviter toute migration destructive. Des traits de goûts fondés sur des preuves et un niveau de confiance peuvent également alimenter la personnalité sans transformer une inférence en fait.
+
+Le Context Engine est additif et résilient : les stores existants restent fonctionnels, les écritures SQLite n'empêchent jamais la lecture en cas de panne et `MOVVIZ_CONTEXT_ENGINE_DISABLED=true` permet un rollback immédiat. Les tests couvrent notamment l'isolation multi-utilisateur, l'idempotence et la conservation de plusieurs rewatchs.
+
+### Runtime — Node.js 22
+
+Le serveur Movviz passe à Node.js 22 minimum pour garantir la disponibilité de `node:sqlite`. L'installeur Windows embarque désormais Node 22 et les builds Linux utilisent/annoncent également Node 22 minimum.
+
 ## v1.23.04 — August 2026
 
 ### Release — versions et artefacts alignés

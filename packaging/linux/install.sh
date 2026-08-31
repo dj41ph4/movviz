@@ -174,9 +174,9 @@ if [[ "$ACTION" == "reinstall" ]]; then
 fi
 
 # --- Dépendances système ----------------------------------------------------
-command -v node >/dev/null 2>&1 || die "Node.js 20 ou plus récent est requis mais introuvable."
+command -v node >/dev/null 2>&1 || die "Node.js 22 ou plus récent est requis mais introuvable."
 NODE_MAJOR="$(node -p "Number(process.versions.node.split('.')[0])" 2>/dev/null || echo 0)"
-[[ "$NODE_MAJOR" =~ ^[0-9]+$ && "$NODE_MAJOR" -ge 20 ]] || die "Node.js 20 ou plus récent est requis (version détectée : $(node --version 2>/dev/null || echo inconnue))."
+[[ "$NODE_MAJOR" =~ ^[0-9]+$ && "$NODE_MAJOR" -ge 22 ]] || die "Node.js 22 ou plus récent est requis (version détectée : $(node --version 2>/dev/null || echo inconnue))."
 if [[ "$FROM_SOURCE" == true ]]; then
   command -v npm  >/dev/null 2>&1 || die "npm est requis mais introuvable."
 fi
