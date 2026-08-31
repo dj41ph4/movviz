@@ -6,6 +6,7 @@ import type { AiMemoryStore } from "./types";
 import { AI_MEMORY_FILE } from "./memory";
 import { relativeFr } from "./actions";
 import { buildUnifiedUserContextSnapshot, formatUnifiedUserContext } from "@/lib/userContext/query";
+import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
 
 export interface UsageProfile {
   /** Whole-instance library size (shared across every user — not a "watched" count). Distinct on purpose: a user asking "j'ai 2284 films" means the library total, not how many they've watched. */
@@ -47,6 +48,11 @@ export interface UsageProfile {
  *  user's own activity (watch status, requests, AI memory), never guesses.
  *  Strictly per-user: every source is filtered by userId. */
 export function buildUsageProfile(userId: string): UsageProfile {
+  // Best-effort, idempotent mirror of the legacy stores into the unified
+  // Context Engine. It never blocks this read path when SQLite is unavailable
+  // and it never invents historical dates for legacy watched flags.
+  refreshLegacyUserContext(userId);
+
   const status = getWatchStatus(userId);
 
   const episodeCount = new Map<number, number>();
