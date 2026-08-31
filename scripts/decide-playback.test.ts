@@ -205,15 +205,15 @@ test("a verified hardware encoder for av1 IS trusted and still preferred over h2
   assert.equal(plan.encoderPreset, undefined);
 });
 
-test("§61: Plex is only chosen once ffmpeg itself is unavailable", () => {
+test("ffmpeg unavailable never delegates to Plex Transcoder", () => {
   const plan = decidePlayback({
     media: media({ video: { index: 0, codec: "hevc", width: 3840, height: 2160 } }),
     client: client({ videoCapabilities: [{ codec: "h264" }] }),
     server: FFMPEG_DOWN,
   });
-  assert.equal(plan.mode, "PLEX_FALLBACK");
+  assert.equal(plan.mode, "UNSUPPORTED");
   assert.ok(plan.reasons.includes("FFMPEG_UNAVAILABLE"));
-  assert.ok(plan.reasons.includes("PLEX_FALLBACK_REQUESTED"));
+  assert.ok(!plan.reasons.includes("PLEX_FALLBACK_REQUESTED"));
 });
 
 // ── plan §74 success criteria — the four worked examples ──
@@ -286,13 +286,13 @@ test("§74 Cas 3: old client — HEVC and DTS both unsupported → TRANSCODE (HE
   assert.equal(plan.targetAudioCodec, "aac");
 });
 
-test("§74 Cas 4: total Movviz unavailability (no ffmpeg, video also needs transcoding) → PLEX_FALLBACK only then", () => {
+test("§74 Cas 4: total Movviz unavailability (no ffmpeg, video also needs transcoding) → UNSUPPORTED, never Plex Transcoder", () => {
   const plan = decidePlayback({
     media: media({ video: { index: 0, codec: "hevc", width: 1920, height: 1080 } }),
     client: client({ videoCapabilities: [{ codec: "h264" }] }),
     server: FFMPEG_DOWN,
   });
-  assert.equal(plan.mode, "PLEX_FALLBACK");
+  assert.equal(plan.mode, "UNSUPPORTED");
 });
 
 // ── audio track selection ──
@@ -606,4 +606,47 @@ test("every non-direct-play plan carries at least one reason", () => {
   });
   assert.notEqual(plan.mode, "DIRECT_PLAY");
   assert.ok(plan.reasons.length > 0);
+});
+
+
+test("selected French AAC track is the only audio truth even when English DTS is also present", () => {
+  const plan = decidePlayback({
+    media: media({
+      audioTracks: [
+        { index: 1, codec: "dts", language: "eng", channels: 6, default: true },
+        { index: 2, codec: "aac", language: "fra", channels: 2, default: false },
+      ],
+    }),
+    client: client({ audioCapabilities: [{ codec: "aac", decode: true, maxChannels: 2 }] }),
+    server: FFMPEG_OK,
+    selectedAudio: 2,
+  });
+  assert.equal(plan.audioAction, "COPY");
+  assert.equal(plan.videoAction, "COPY");
+  assert.equal(plan.mode, "REMUX"); // MKV→MP4 only; DTS on another track is irrelevant
+  assert.ok(!plan.reasons.includes("AUDIO_CODEC_UNSUPPORTED"));
+});
+
+test("HDR→SDR remains forbidden below the measured 3x threshold", () => {
+  const plan = decidePlayback({
+    media: media({ container: "mp4", video: { index: 0, codec: "hevc", width: 1920, height: 1080, hdr: { type: "hdr10" } }, audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true }] }),
+    client: client({ containers: ["mp4"], videoCapabilities: [{ codec: "hevc", hdr: ["sdr"] }], audioCapabilities: [{ codec: "aac", decode: true }] }),
+    server: FFMPEG_OK,
+    performance: { toneMapRealtimeFactor: 2.99 },
+  });
+  assert.equal(plan.videoAction, "COPY");
+  assert.equal(plan.toneMap, undefined);
+});
+
+test("HDR→SDR is allowed at a measured 3x or better and becomes a video transcode reason", () => {
+  const plan = decidePlayback({
+    media: media({ container: "mp4", video: { index: 0, codec: "hevc", width: 1920, height: 1080, hdr: { type: "hdr10" } }, audioTracks: [{ index: 1, codec: "aac", channels: 2, default: true }] }),
+    client: client({ containers: ["mp4"], videoCapabilities: [{ codec: "hevc", hdr: ["sdr"] }, { codec: "h264", hdr: ["sdr"] }], audioCapabilities: [{ codec: "aac", decode: true }] }),
+    server: FFMPEG_OK,
+    performance: { toneMapRealtimeFactor: 3.0 },
+  });
+  assert.equal(plan.mode, "TRANSCODE");
+  assert.equal(plan.videoAction, "TRANSCODE");
+  assert.equal(plan.toneMap, true);
+  assert.equal(plan.audioAction, "COPY");
 });

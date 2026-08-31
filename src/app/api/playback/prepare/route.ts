@@ -5,6 +5,7 @@ import { getOrProbeMediaDescriptor } from "@/lib/playback/engine/mediaProbeCache
 import { detectServerCapabilities } from "@/lib/playback/engine/serverCapabilities.detect";
 import { decidePlayback } from "@/lib/playback/engine/decidePlayback";
 import { createSession } from "@/lib/playback/engine/sessionManager";
+import { benchmarkRealtimeFactor } from "@/lib/playback/engine/serverBenchmark";
 import type { ClientPlaybackProfile } from "@/lib/playback/engine/clientProfile";
 
 export const dynamic = "force-dynamic";
@@ -69,7 +70,13 @@ export async function POST(req: NextRequest) {
   const subtitleTrack = subtitleTrackRaw === null ? null : Number.isInteger(subtitleTrackRaw) ? (subtitleTrackRaw as number) : undefined;
   const quality = typeof b.quality === "string" ? (b.quality as "original" | "auto" | "4k" | "1440p" | "1080p" | "720p") : undefined;
 
-  const plan = decidePlayback({ media, client: clientProfile, server, selectedAudio: audioTrack, selectedSubtitle: subtitleTrack, quality });
+  const plan = decidePlayback({
+    media, client: clientProfile, server, selectedAudio: audioTrack, selectedSubtitle: subtitleTrack, quality,
+    performance: {
+      toneMapRealtimeFactor: benchmarkRealtimeFactor("software_720p_tonemap"),
+      software1080pRealtimeFactor: benchmarkRealtimeFactor("software_1080p"),
+    },
+  });
 
   const session = createSession({
     userId: user.id,

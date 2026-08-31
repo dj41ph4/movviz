@@ -19,6 +19,8 @@
   <env name="HOSTNAME" value="0.0.0.0"/>
   <env name="MOVVIZ_WEB_PORT" value="9810"/>
   <env name="MOVVIZ_ENGINE_PORT" value="9820"/>
+  <env name="MOVVIZ_FFMPEG_PATH" value="%BASE%\..\runtime\ffmpeg\ffmpeg.exe"/>
+  <env name="MOVVIZ_FFPROBE_PATH" value="%BASE%\..\runtime\ffmpeg\ffprobe.exe"/>
   <!-- App config & state live outside Program Files. -->
   <env name="MOVVIZ_CONFIG_DIR" value="%ProgramData%\Movviz"/>
   <!-- Media root: torrents download here and the library is built here (same

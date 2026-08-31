@@ -11,6 +11,7 @@
  * `__movvizTranscodeSessions` (transcodeSessions.ts).
  */
 import { spawn, type ChildProcess } from "node:child_process";
+import { resolveFfmpegBinary } from "../engine/mediaRuntime";
 import { Readable } from "node:stream";
 import { existsSync, unlinkSync } from "node:fs";
 import os from "node:os";
@@ -199,16 +200,13 @@ export function markStreamAborted(key: string): void {
   if (session) abortedStreams().add(session.stream);
 }
 
-function ffmpegBin(): string {
-  return process.env.MOVVIZ_FFMPEG_PATH?.trim() || "ffmpeg";
-}
 
 let cachedFfmpeg: boolean | null = null;
 
 /** Disponibilité du binaire ffmpeg — mémoïsée pour la vie du process serveur. */
 export async function isFfmpegAvailable(): Promise<boolean> {
   if (cachedFfmpeg !== null) return cachedFfmpeg;
-  const bin = ffmpegBin();
+  const bin = resolveFfmpegBinary();
   cachedFfmpeg = await new Promise<boolean>((resolve) => {
     let settled = false;
     const settle = (v: boolean) => {
@@ -381,7 +379,7 @@ export function startRemux(
     console.log(`[remux] ${key} pas de piste sous-titres texte — pas de sortie WebVTT`);
   }
 
-  const bin = ffmpegBin();
+  const bin = resolveFfmpegBinary();
   console.log(
     `[remux] start ${key} — ${preset.maxWidth ? `x264 ${preset.maxWidth}px @ ${preset.maxrateK}k` : "video copy"} a=${audioCodec || "?"} (${copyAudioSafe ? "copy" : `aac ${bitrateK}k`}) seek=${seekSec}s`
   );

@@ -23,17 +23,15 @@
  */
 
 import { spawn, type ChildProcess } from "node:child_process";
+import { resolveFfmpegBinary } from "./mediaRuntime";
 import type { ServerPlaybackCapabilities } from "./serverCapabilities";
 
-function ffmpegBin(): string {
-  return process.env.MOVVIZ_FFMPEG_PATH?.trim() || "ffmpeg";
-}
 
 function runFfmpegList(flag: "-encoders" | "-decoders" | "-hwaccels"): Promise<string> {
   return new Promise((resolve) => {
     let p: ChildProcess;
     try {
-      p = spawn(ffmpegBin(), ["-hide_banner", flag], { stdio: ["ignore", "pipe", "ignore"] });
+      p = spawn(resolveFfmpegBinary(), ["-hide_banner", flag], { stdio: ["ignore", "pipe", "ignore"] });
     } catch {
       resolve("");
       return;
@@ -118,7 +116,7 @@ function verifyEncoder(name: string): Promise<boolean> {
   return new Promise((resolve) => {
     let p: ChildProcess;
     try {
-      p = spawn(ffmpegBin(), verifyEncoderArgs(name), { stdio: ["ignore", "ignore", "ignore"] });
+      p = spawn(resolveFfmpegBinary(), verifyEncoderArgs(name), { stdio: ["ignore", "ignore", "ignore"] });
     } catch {
       resolve(false);
       return;
@@ -194,6 +192,6 @@ export async function detectServerCapabilities(): Promise<ServerPlaybackCapabili
       videotoolbox: verifiedSuffixes.has("_videotoolbox"),
     },
   };
-  if (!ffmpegAvailable) console.error(`[server-capabilities] ffmpeg indisponible ou n'a rien retourné (bin="${ffmpegBin()}")`);
+  if (!ffmpegAvailable) console.error(`[server-capabilities] ffmpeg indisponible ou n'a rien retourné (bin="${resolveFfmpegBinary()}")`);
   return cached;
 }

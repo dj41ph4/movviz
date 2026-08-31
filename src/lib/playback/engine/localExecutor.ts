@@ -19,6 +19,7 @@
  * shaped them) rather than reinventing them.
  */
 import { spawn, type ChildProcess } from "node:child_process";
+import { resolveFfmpegBinary } from "./mediaRuntime";
 import { Readable } from "node:stream";
 import { existsSync, unlinkSync } from "node:fs";
 import os from "node:os";
@@ -118,9 +119,6 @@ export function markStreamAborted(key: string): void {
   if (session) abortedStreams().add(session.stream);
 }
 
-function ffmpegBin(): string {
-  return process.env.MOVVIZ_FFMPEG_PATH?.trim() || "ffmpeg";
-}
 
 /**
  * TODO_POST_MOTEUR_LECTURE.md §5's own deferred item, revisited with a
@@ -152,7 +150,7 @@ export async function detectSubtitleCharenc(filePath: string, subtitleIndex: num
   const raw = await new Promise<Buffer | null>((resolve) => {
     let p: ChildProcess;
     try {
-      p = spawn(ffmpegBin(), [
+      p = spawn(resolveFfmpegBinary(), [
         "-v", "error", "-i", filePath,
         "-map", `0:${subtitleIndex}`, "-c:s", "copy", "-f", "srt", "-",
       ], { stdio: ["ignore", "pipe", "ignore"] });
@@ -432,7 +430,7 @@ export function startLocalSession(
     args.push("-map", `0:${subtitleIndex}`, "-c:s", "webvtt", "-f", "webvtt", vttPath);
   }
 
-  const bin = ffmpegBin();
+  const bin = resolveFfmpegBinary();
   console.log(`[local-engine] start ${key} — mode=${plan.mode} video=${plan.videoAction}${needsVideoTranscode ? `(${plan.videoEncoderImpl ?? "?"})` : ""} audio=${plan.audioAction} subtitle=${plan.subtitleAction} seek=${seekSec}s`);
 
   const proc = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });

@@ -28,6 +28,8 @@ export interface DecidePlaybackInput {
   selectedSubtitle?: number | null;
   quality?: "original" | "auto" | "4k" | "1440p" | "1080p" | "720p";
   network?: { maxBitrateKbps?: number };
+  /** Real measured server headroom. HDR→SDR is allowed only at >= 3×. */
+  performance?: { toneMapRealtimeFactor?: number | null; software1080pRealtimeFactor?: number | null };
 }
 
 function normalizeCodecName(codec: string): string {
@@ -81,7 +83,7 @@ interface CompatibilityResult {
  * subtitle burn-in — no reason to skip a free color correction once
  * already paying for a transcode.
  */
-function checkVideoCompatibility(video: VideoStreamDescriptor, client: ClientPlaybackProfile): CompatibilityResult {
+function checkVideoCompatibility(video: VideoStreamDescriptor, client: ClientPlaybackProfile, toneMapAllowed: boolean): CompatibilityResult {
   const reasons: PlaybackReasonCode[] = [];
   const cap = client.videoCapabilities.find((c) => normalizeCodecName(c.codec) === normalizeCodecName(video.codec));
   if (!cap) return { compatible: false, reasons: ["VIDEO_CODEC_UNSUPPORTED"] };
@@ -99,26 +101,18 @@ function checkVideoCompatibility(video: VideoStreamDescriptor, client: ClientPla
     reasons.push("VIDEO_BIT_DEPTH_UNSUPPORTED");
     hasHardReason = true;
   }
-  // Absolute product rule (explicit instruction, 2026-08-24): HDR/DV content
-  // NEVER gets tonemapped to SDR, full stop — not even as a "free" add-on to
-  // a transcode already happening for a real hard reason (codec/profile/
-  // resolution). This is a step further than the rule above (which only kept
-  // an HDR mismatch from FORCING a transcode by itself) — toneMapNeeded is
-  // now permanently false; a non-DV-aware client renders the HDR10/DV base
-  // layer as-is (colors not display-corrected, never a black screen or
-  // crash), which is the accepted trade-off. This also removes the exact
-  // failure mode that motivated the rule above in the first place (a real
-  // production HDR→SDR tonemap transcode falling permanently behind
-  // real-time on weak hardware, see localExecutor.ts's own history of that
-  // incident) — there is now no code path that can ever select it.
-  const toneMapNeeded = false;
+  // HDR/DV mismatch is intentionally a SOFT incompatibility.  It only asks
+  // for HDR→SDR conversion when the real benchmark proves at least 3×
+  // realtime headroom; below that threshold the source dynamic range is
+  // preserved instead of sacrificing playback stability.
+  let toneMapNeeded = false;
   if (video.hdr) {
     const supportedHdr = cap.hdr ?? [];
     const directMatch = supportedHdr.includes(video.hdr.type);
     const dvFallback = video.hdr.type === "dolby-vision" && video.hdr.dolbyVisionBaseLayerCompatibility && supportedHdr.includes(video.hdr.dolbyVisionBaseLayerCompatibility);
     if (!directMatch && !dvFallback) {
-      // Recorded for transparency/diagnostics only — never acted on.
       reasons.push(video.hdr.type === "dolby-vision" ? "DOLBY_VISION_UNSUPPORTED" : "HDR_UNSUPPORTED");
+      toneMapNeeded = toneMapAllowed;
     }
   }
   const maxWidth = cap.maxWidth ?? client.maxWidth;
@@ -347,7 +341,8 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   const audioTrack = selectAudioTrack(media, input.selectedAudio);
   const subtitleTrack = selectSubtitleTrack(media, input.selectedSubtitle);
 
-  const videoCheck = checkVideoCompatibility(media.video, client);
+  const toneMapAllowed = (input.performance?.toneMapRealtimeFactor ?? 0) >= 3;
+  const videoCheck = checkVideoCompatibility(media.video, client, toneMapAllowed);
   const audioCheck = audioTrack ? checkAudioCompatibility(audioTrack, client) : { compatible: true, reasons: [] as PlaybackReasonCode[] };
   const containerOk = isContainerCompatible(media.container, client);
   const subtitleAction = decideSubtitleAction(subtitleTrack, client);
@@ -359,7 +354,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   // Rule §1.4: burn-in is itself a video transcode — folded in here, not
   // treated as a separate later step, so it goes through the exact same
   // ffmpeg-availability gate as any other forced video transcode below.
-  const needsVideoTranscode = !videoCheck.compatible || subtitleAction === "BURN";
+  const needsVideoTranscode = !videoCheck.compatible || subtitleAction === "BURN" || videoCheck.toneMapNeeded === true;
   const needsAudioTranscode = !audioCheck.compatible;
   // Rule §1.3: a container-only mismatch is a remux, never promoted to a
   // codec transcode — only reached when video didn't already need one.
@@ -369,7 +364,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   if (needsVideoTranscode) {
     if (!server.ffmpegAvailable) {
       return {
-        mode: "PLEX_FALLBACK",
+        mode: "UNSUPPORTED",
         containerAction: "REMUX",
         targetContainer: "mp4",
         videoAction: "TRANSCODE",
@@ -377,7 +372,7 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
         targetAudioCodec: audioTranscodeTarget?.codec,
         targetAudioChannels: audioTranscodeTarget?.channels,
         subtitleAction,
-        reasons: [...reasons, "FFMPEG_UNAVAILABLE", "PLEX_FALLBACK_REQUESTED"],
+        reasons: [...reasons, "FFMPEG_UNAVAILABLE"],
       };
     }
     const targetVideoCodec = pickTranscodeVideoCodec(client, server);
@@ -406,13 +401,13 @@ export function decidePlayback(input: DecidePlaybackInput): PlaybackPlan {
   if (needsAudioTranscode) {
     if (!server.ffmpegAvailable) {
       return {
-        mode: "PLEX_FALLBACK",
+        mode: "UNSUPPORTED",
         containerAction: needsRemuxOnly ? "REMUX" : "COPY",
         targetContainer: needsRemuxOnly ? "mp4" : undefined,
         videoAction: "COPY",
         audioAction: "TRANSCODE",
         subtitleAction,
-        reasons: [...reasons, "FFMPEG_UNAVAILABLE", "PLEX_FALLBACK_REQUESTED"],
+        reasons: [...reasons, "FFMPEG_UNAVAILABLE"],
       };
     }
     return {

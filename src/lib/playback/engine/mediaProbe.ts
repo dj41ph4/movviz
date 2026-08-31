@@ -8,12 +8,7 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import type { AudioTrack, HdrType, MediaDescriptor, SubtitleTrack, SubtitleTrackType } from "./mediaDescriptor";
-
-// Mirrors ffmpegBin()/isFfmpegAvailable() in ../ffmpeg/remuxSession.ts —
-// same env var naming convention, same spawn/timeout/memoization shape.
-function ffprobeBin(): string {
-  return process.env.MOVVIZ_FFPROBE_PATH?.trim() || "ffprobe";
-}
+import { resolveFfprobeBinary } from "./mediaRuntime";
 
 let cachedVersion: string | null | undefined; // undefined = not yet checked, null = checked and unavailable
 
@@ -23,7 +18,7 @@ let cachedVersion: string | null | undefined; // undefined = not yet checked, nu
  *  spawn is needed just to answer "is ffprobe there". */
 export async function getFfprobeVersion(): Promise<string | null> {
   if (cachedVersion !== undefined) return cachedVersion;
-  const bin = ffprobeBin();
+  const bin = resolveFfprobeBinary();
   cachedVersion = await new Promise<string | null>((resolve) => {
     let settled = false;
     const settle = (v: string | null) => {
@@ -118,14 +113,22 @@ interface FfprobeOutput {
 
 const PROBE_TIMEOUT_MS = 15_000;
 
-function runFfprobe(filePath: string): Promise<FfprobeOutput> {
+function runFfprobe(input: string, headers?: Record<string, string>): Promise<FfprobeOutput> {
   return new Promise((resolve, reject) => {
-    const bin = ffprobeBin();
+    const bin = resolveFfprobeBinary();
     let p: ChildProcess;
     try {
       // -show_streams / -show_format give every field mediaDescriptor.ts
-      // needs in one call — no per-stream follow-up probes.
-      p = spawn(bin, ["-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", filePath], {
+      // needs in one call — no per-stream follow-up probes.  Plex raw HTTP
+      // sources use the same probe with auth headers, so local and remote
+      // media produce the exact same MediaDescriptor contract.
+      const args: string[] = ["-v", "quiet"];
+      if (headers && Object.keys(headers).length > 0) {
+        const rawHeaders = Object.entries(headers).map(([k, v]) => `${k}: ${v}\r\n`).join("");
+        args.push("-headers", rawHeaders);
+      }
+      args.push("-print_format", "json", "-show_format", "-show_streams", input);
+      p = spawn(bin, args, {
         stdio: ["ignore", "pipe", "pipe"],
       });
     } catch (err) {
@@ -214,8 +217,12 @@ function detectHdr(stream: FfprobeStream): MediaDescriptor["video"]["hdr"] {
  * whether that's fatal or worth falling back for; this function never
  * swallows an error into a partial/guessed result.
  */
-export async function probeMediaFile(mediaId: string, filePath: string): Promise<MediaDescriptor> {
-  const raw = await runFfprobe(filePath);
+export async function probeMediaFile(
+  mediaId: string,
+  filePath: string,
+  options?: { headers?: Record<string, string>; sourceType?: "local" | "remote" }
+): Promise<MediaDescriptor> {
+  const raw = await runFfprobe(filePath, options?.headers);
   // Embedded cover art is itself a video-typed stream in some containers
   // (confirmed live — see FfprobeDisposition.attached_pic) — picking the
   // FIRST video stream unconditionally risked treating a tiny embedded
@@ -255,7 +262,7 @@ export async function probeMediaFile(mediaId: string, filePath: string): Promise
 
   return {
     mediaId,
-    source: { type: "local" },
+    source: { type: options?.sourceType ?? "local" },
     container: raw.format.format_name ?? "unknown",
     size: parseNumber(raw.format.size),
     durationMs: raw.format.duration ? Math.round(Number(raw.format.duration) * 1000) : undefined,
@@ -275,4 +282,16 @@ export async function probeMediaFile(mediaId: string, filePath: string): Promise
     audioTracks,
     subtitleTracks,
   };
+}
+
+
+/** Probe a remote/raw media input (currently Plex raw file HTTP) through the
+ * exact same mapper as a local file.  This is deliberately not a Plex
+ * transcode: ffprobe reads the original bytes from the raw part endpoint. */
+export async function probeRemoteMedia(
+  mediaId: string,
+  sourceUrl: string,
+  headers: Record<string, string>
+): Promise<MediaDescriptor> {
+  return probeMediaFile(mediaId, sourceUrl, { headers, sourceType: "remote" });
 }

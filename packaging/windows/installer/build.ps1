@@ -133,6 +133,29 @@ Copy-Item -Recurse -Force $resolverNM (Join-Path $stageResolver "node_modules")
 # Runtime = local node.exe
 Copy-Item -Force $nodeExe (Join-Path $stage "runtime\node.exe")
 
+# Media runtime — Windows must not depend on the interactive user PATH because
+# Movviz runs as a service.  Bundle a static LGPL FFmpeg build (ffmpeg+ffprobe)
+# in the installer; mediaRuntime.ts resolves this directory first.
+Step "Staging FFmpeg media runtime"
+$ffmpegRuntimeDir = Join-Path $stage "runtime\ffmpeg"
+New-Item -ItemType Directory -Force $ffmpegRuntimeDir | Out-Null
+$ffmpegZip = Join-Path $stage ".tools\ffmpeg.zip"
+$ffmpegUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n9.0-latest-win64-lgpl-9.0.zip"
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+Invoke-WebRequest -Uri $ffmpegUrl -OutFile $ffmpegZip -UseBasicParsing
+$ffmpegExtract = Join-Path $stage ".tools\ffmpeg-extract"
+if (Test-Path $ffmpegExtract) { Remove-Item $ffmpegExtract -Recurse -Force }
+Expand-Archive -Path $ffmpegZip -DestinationPath $ffmpegExtract -Force
+foreach ($name in @("ffmpeg.exe", "ffprobe.exe")) {
+  $found = Get-ChildItem -Path $ffmpegExtract -Recurse -Filter $name | Select-Object -First 1
+  if (-not $found) { throw "$name not found in downloaded FFmpeg archive" }
+  Copy-Item -Force $found.FullName (Join-Path $ffmpegRuntimeDir $name)
+}
+& (Join-Path $ffmpegRuntimeDir "ffmpeg.exe") -version | Select-Object -First 1
+& (Join-Path $ffmpegRuntimeDir "ffprobe.exe") -version | Select-Object -First 1
+Remove-Item -Force $ffmpegZip
+Remove-Item -Recurse -Force $ffmpegExtract
+
 # Service wrapper = WinSW (single exe driven by movviz-service.xml).
 $winsw = Join-Path $tools "WinSW-x64.exe"
 if (-not (Test-Path $winsw)) {

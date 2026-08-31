@@ -21,6 +21,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
+import { resolveFfmpegBinary } from "./mediaRuntime";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { detectServerCapabilities } from "./serverCapabilities.detect";
 
@@ -71,9 +72,6 @@ export interface ServerBenchmarkResult {
   profiles: BenchmarkProfileResult[];
 }
 
-function ffmpegBin(): string {
-  return process.env.MOVVIZ_FFMPEG_PATH?.trim() || "ffmpeg";
-}
 
 // 3s is enough to get a stable realtime-factor reading (GOP boundaries etc.
 // average out) without making a manual/monthly benchmark itself slow — even
@@ -85,7 +83,7 @@ function runFfmpeg(args: string[], timeoutMs: number): Promise<{ ok: boolean; wa
     const start = Date.now();
     let p: ChildProcess;
     try {
-      p = spawn(ffmpegBin(), args, { stdio: ["ignore", "ignore", "ignore"] });
+      p = spawn(resolveFfmpegBinary(), args, { stdio: ["ignore", "ignore", "ignore"] });
     } catch {
       resolve({ ok: false, wallMs: 0 });
       return;
@@ -232,4 +230,10 @@ export function readServerBenchmark(): ServerBenchmarkResult | null {
 export function shouldAutoRunBenchmark(): boolean {
   const last = readServerBenchmark();
   return !last || last.appVersion !== currentAppVersion();
+}
+
+
+export function benchmarkRealtimeFactor(profileId: string): number | null {
+  const profile = readServerBenchmark()?.profiles.find((p) => p.id === profileId);
+  return profile?.realtimeFactor ?? null;
 }

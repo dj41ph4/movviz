@@ -10,7 +10,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
-import { getFfprobeVersion, probeMediaFile } from "./mediaProbe";
+import { getFfprobeVersion, probeMediaFile, probeRemoteMedia } from "./mediaProbe";
 import type { MediaDescriptor } from "./mediaDescriptor";
 
 const CONFIG_DIR =
@@ -18,6 +18,8 @@ const CONFIG_DIR =
   process.env.MOVVIZ_DATA_DIR ??
   path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "media-probe-cache.json");
+const REMOTE_FILE = path.join(CONFIG_DIR, "media-probe-remote-cache.json");
+const REMOTE_TTL_MS = 6 * 60 * 60 * 1000;
 
 // Bump when probeMediaFile()'s mapping logic changes in a way that would
 // produce a different MediaDescriptor for the same file — forces every
@@ -109,4 +111,46 @@ export async function getOrProbeMediaDescriptor(mediaId: string, filePath: strin
  *  would otherwise slip past the automatic staleness check above. */
 export function invalidateMediaDescriptor(mediaId: string): void {
   saveAll(loadAll().filter((e) => e.mediaId !== mediaId));
+}
+
+
+interface RemoteCacheEntry {
+  mediaId: string;
+  sourceUrl: string;
+  probeVersion: number;
+  ffprobeVersion: string | null;
+  descriptor: MediaDescriptor;
+  updatedAt: number;
+}
+
+/** Plex raw-file descriptors cannot use filesystem size/mtime invalidation.
+ * Cache them for six hours and re-probe after a server/app restart window or
+ * when the resolved part URL changes.  No transcode API is involved. */
+export async function getOrProbeRemoteMediaDescriptor(
+  mediaId: string,
+  sourceUrl: string,
+  headers: Record<string, string>,
+  force = false
+): Promise<MediaDescriptor | null> {
+  const entries = readJson<RemoteCacheEntry[]>(REMOTE_FILE, []);
+  const ffprobeVersion = await getFfprobeVersion();
+  const existing = entries.find((e) => e.mediaId === mediaId);
+  if (
+    !force && existing &&
+    existing.probeVersion === PROBE_VERSION &&
+    existing.ffprobeVersion === ffprobeVersion &&
+    existing.sourceUrl === sourceUrl &&
+    Date.now() - existing.updatedAt < REMOTE_TTL_MS
+  ) return existing.descriptor;
+
+  try {
+    const descriptor = await probeRemoteMedia(mediaId, sourceUrl, headers);
+    const next: RemoteCacheEntry = { mediaId, sourceUrl, probeVersion: PROBE_VERSION, ffprobeVersion, descriptor, updatedAt: Date.now() };
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    writeJsonCached(REMOTE_FILE, [...entries.filter((e) => e.mediaId !== mediaId), next]);
+    return descriptor;
+  } catch (err) {
+    console.error(`[media-probe] remote probe failed for ${mediaId}:`, err);
+    return null;
+  }
 }
