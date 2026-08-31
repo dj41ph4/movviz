@@ -82,8 +82,8 @@ fun ProfileTile(
                 contentColor = Color.White,
             ),
             border = ClickableSurfaceDefaults.border(
-                border = if (active) Border(BorderStroke(1.dp, MovvizBrand2.copy(alpha = .55f)), shape) else Border.None,
-                focusedBorder = Border(BorderStroke(3.dp, Color.White), shape),
+                border = if (active) Border(BorderStroke(1.dp, MovvizBrand2.copy(alpha = .55f))) else Border.None,
+                focusedBorder = Border(BorderStroke(3.dp, Color.White)),
             ),
         ) {
             Box(Modifier.fillMaxSize()) {
@@ -153,8 +153,8 @@ fun ProfileAddRow(onClick: () -> Unit, focusRequester: FocusRequester? = null) {
                 contentColor = MovvizBrand2,
             ),
             border = ClickableSurfaceDefaults.border(
-                border = Border(BorderStroke(1.dp, Color.White.copy(alpha = .12f)), shape),
-                focusedBorder = Border(BorderStroke(3.dp, MovvizBrand2), shape),
+                border = Border(BorderStroke(1.dp, Color.White.copy(alpha = .12f))),
+                focusedBorder = Border(BorderStroke(3.dp, MovvizBrand2)),
             ),
         ) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
