@@ -72,7 +72,6 @@ import android.webkit.WebViewClient
 import android.os.Handler
 import android.os.Looper
 import com.movviz.tv.AppViewModel
-import com.movviz.tv.data.MetadataRowDto
 import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.ui.theme.MovvizAmber
 import com.movviz.tv.ui.theme.MovvizBrand
@@ -153,42 +152,31 @@ fun HomeScreen(
     viewModel: AppViewModel,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit = { _, _, _ -> },
-    // "Voir tout" d'une rangée éditoriale — ouvre la grille paginée
-    // (RowDetailScreen, GET /api/metadata/row-page), même route que le
-    // bouton "Tout voir" du Discover desktop.
     onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit = { _, _, _ -> },
-    // Cible D-pad « flèche bas depuis la NavRail » (voir MainScreen/NavRail)
-    // — attachée plus bas au même élément que le focus initial (CTA hero ou
-    // première carte, les deux sont mutuellement exclusifs), jamais appelée
-    // automatiquement ici : elle ne sert que de destination quand l'utilisateur
-    // appuie réellement sur bas depuis la nav.
     entryFocusRequester: FocusRequester? = null,
 ) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
     val continueWatching by viewModel.continueWatching.collectAsState()
     val queue by viewModel.queue.collectAsState()
-    val trendingMovies by viewModel.trendingMovies.collectAsState()
-    val trendingSeries by viewModel.trendingSeries.collectAsState()
     val movieRows by viewModel.movieRows.collectAsState()
     val seriesRows by viewModel.seriesRows.collectAsState()
+    val movieRecommendations by viewModel.movieLibraryRecommendations.collectAsState()
+    val seriesRecommendations by viewModel.seriesLibraryRecommendations.collectAsState()
     val dashboardHero by viewModel.dashboardHero.collectAsState()
+    val dashboardLayout by viewModel.dashboardLayout.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
 
     LaunchedEffect(Unit) {
+        viewModel.loadDashboardLayout()
         viewModel.loadLibrary()
-        delay(200)
+        delay(120)
         viewModel.loadContinueWatching()
-        delay(200)
+        delay(120)
         viewModel.loadDiscovery()
-        delay(200)
+        delay(120)
         viewModel.loadDashboardHero()
     }
-
-    // La file de téléchargement change en continu (vitesse/progression) tant
-    // que l'accueil est visible — seule rangée avec un polling actif, les
-    // autres (bibliothèque/découverte/reprise) sont chargées une fois et ne
-    // bougent pas seconde par seconde.
     LaunchedEffect(Unit) {
         while (true) {
             viewModel.loadQueue()
@@ -196,23 +184,19 @@ fun HomeScreen(
         }
     }
 
-    val recentMovies = remember(movies) {
-        movies.take(20).map {
-TvTitleCard(
-                    it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true,
-                    year = it.year, rating = it.rating, genres = it.genres, status = it.status,
-                    // overview sert au call-out Netflix sous la rangée (synopsis
-                    // 1 ligne) — déjà renvoyé par /api/library/movies.
-                    overview = it.overview,
-                    qualityLabel = resolutionLabel(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(),
-                )
-        }
-    }
-    val recentSeries = remember(series) {
-        series.take(20).map {
-            TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = false, year = it.year, rating = it.rating, genres = it.genres, overview = it.overview, status = null)
-        }
-    }
+    val minYear = dashboardLayout.hero.minYear
+    fun yearAllowed(year: Int?): Boolean = minYear == null || (year ?: 0) >= minYear
+    fun searchCard(item: com.movviz.tv.data.SearchResultDto, prefix: String) = TvTitleCard(
+        id = "$prefix-${item.type}-${item.tmdbId}",
+        title = item.title,
+        posterPath = item.posterPath,
+        backdropPath = item.backdropPath,
+        tmdbId = item.tmdbId,
+        isMovie = item.type == "movie",
+        year = item.year,
+        rating = item.rating,
+    )
+
     val continueCards = remember(continueWatching) {
         continueWatching.map {
             TvTitleCard(
@@ -222,158 +206,142 @@ TvTitleCard(
                 backdropPath = null,
                 tmdbId = it.tmdbId,
                 isMovie = it.type == "movie",
+                rating = it.rating,
                 progressPercent = it.progressPercent,
                 resumeSeasonNumber = it.seasonNumber,
                 resumeEpisodeNumber = it.episodeNumber,
             )
         }
     }
-    // Découverte — tendances TMDb pas encore dans la bibliothèque locale.
-    // Le filtrage se refait à chaque recomposition de movies/series pour
-    // qu'un ajout depuis la fiche titre fasse disparaître la carte de cette
-    // rangée sans nouvel appel réseau (mêmes listes déjà chargées).
-    val ownedMovieIds = remember(movies) { movies.map { it.tmdbId }.toSet() }
-    val ownedSeriesIds = remember(series) { series.map { it.tmdbId }.toSet() }
-    val discoverCards = remember(trendingMovies, trendingSeries, ownedMovieIds, ownedSeriesIds) {
-        val moviesRow = trendingMovies.filter { it.tmdbId !in ownedMovieIds }
-            .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = true) }
-        val seriesRow = trendingSeries.filter { it.tmdbId !in ownedSeriesIds }
-            .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = false) }
-        // Alterné plutôt que "tous les films puis toutes les séries" — une
-        // rangée Découverte doit ressembler à un mélange éditorial, pas à
-        // une simple concaténation de deux listes.
-        moviesRow.zipInterleave(seriesRow).take(20)
+
+    // Même source et même fusion que DashboardRows desktop.
+    val recommendationCards = remember(movieRecommendations, seriesRecommendations, minYear) {
+        movieRecommendations.filter { yearAllowed(it.year) }.map { searchCard(it, "rec") }
+            .zipInterleave(seriesRecommendations.filter { yearAllowed(it.year) }.map { searchCard(it, "rec") })
+            .distinctBy { "${it.isMovie}-${it.tmdbId}" }
+            .take(20)
+    }
+    val trendingCards = remember(movieRows, seriesRows, minYear) {
+        val movie = movieRows.firstOrNull { it.key == "trendingPopular" || it.key == "trending" }
+            ?.results.orEmpty().filter { yearAllowed(it.year) }.map { searchCard(it, "trend") }
+        val tv = seriesRows.firstOrNull { it.key == "trendingPopular" || it.key == "trending" }
+            ?.results.orEmpty().filter { yearAllowed(it.year) }.map { searchCard(it, "trend") }
+        movie.zipInterleave(tv).distinctBy { "${it.isMovie}-${it.tmdbId}" }.take(10)
     }
 
-    // Les mêmes rangées éditoriales que le dashboard desktop. Elles arrivent
-    // déjà ordonnées depuis /api/metadata/rows : la TV ne fabrique donc pas
-    // de faux contenus et reste cohérente avec les préférences du serveur.
-    // Films et séries sont traités SÉPARÉMENT (pas fusionnés dans un seul
-    // filterNot+mapNotNull comme avant) : chaque rangée doit garder son
-    // propre type "movie"/"series" pour que "Voir tout" sache quelle route
-    // /api/metadata/row-page interroger (le desktop garde cette distinction
-    // via son état mediaType, ici il n'existe pas de tel état global).
-    val editorialSections = remember(movieRows, seriesRows) {
-        buildEditorialSections(movieRows, "movie") + buildEditorialSections(seriesRows, "series")
-    }
-
-    // Même sélection personnalisée que le dashboard web : ambientVideoKeys
-    // (contexte carrousel, Teaser > Trailer — voir selectMediaVideo() dans
-    // tmdb.ts), synopsis et statut viennent de /api/dashboard/hero. Le tri
-    // local reste un repli instantané pendant le chargement ou hors-ligne.
-    val heroItems = remember(dashboardHero, recentMovies, recentSeries) {
-        val primary = dashboardHero.map { slide ->
-            val detail = slide.detail
-            TvTitleCard(
-                id = "hero-${detail.type}-${detail.tmdbId}",
-                title = detail.title,
-                posterPath = detail.posterPath,
-                backdropPath = detail.backdropPath,
-                tmdbId = detail.tmdbId,
-                isMovie = detail.type == "movie",
-                year = detail.year,
-                rating = detail.rating,
-                genres = detail.genres,
-                status = slide.libraryStatus,
-                overview = detail.overview,
-                runtime = detail.runtime,
-                trailerKeys = detail.ambientVideoKeys,
+    val availableNowCards = remember(movies, series, minYear) {
+        val movie = movies.filter { it.status == "available" && yearAllowed(it.year) }.map {
+            it.addedAt to TvTitleCard(
+                id = "available-movie-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
+                backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = true,
+                year = it.year, rating = it.rating, genres = it.genres, status = it.status,
+                qualityLabel = resolutionLabel(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(),
             )
-        }.filter { it.backdropPath != null }
-        if (primary.size >= HERO_COUNT) primary.take(HERO_COUNT)
-        else {
-            val needed = HERO_COUNT - primary.size
-            val fallback = (recentMovies + recentSeries)
-                .filter { it.backdropPath != null && it.tmdbId !in primary.map { p -> p.tmdbId } }
-                .sortedByDescending { it.rating }
-                .take(needed)
-            (primary + fallback).take(HERO_COUNT)
+        }
+        val shows = series.filter { it.hasAvailableEpisode && yearAllowed(it.year) }.map {
+            it.addedAt to TvTitleCard(
+                id = "available-series-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
+                backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = false,
+                year = it.year, rating = it.rating, genres = it.genres,
+            )
+        }
+        (movie + shows).sortedByDescending { it.first }.map { it.second }.take(20)
+    }
+    val shortSessionCards = remember(movies, minYear) {
+        movies.filter { it.status == "available" && it.runtime != null && it.runtime <= 40 && yearAllowed(it.year) }
+            .sortedByDescending { it.addedAt }
+            .take(20)
+            .map {
+                TvTitleCard(
+                    id = "short-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
+                    backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = true,
+                    year = it.year, rating = it.rating, genres = it.genres, runtime = it.runtime,
+                    qualityLabel = resolutionLabel(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(),
+                )
+            }
+    }
+    val comingSoonCards = remember(movies, minYear) {
+        movies.filter { it.status == "upcoming" && yearAllowed(it.year) }
+            .sortedBy { it.vfReleaseDate ?: it.releaseDate ?: "9999-99-99" }
+            .take(20)
+            .map {
+                TvTitleCard(
+                    id = "soon-${it.tmdbId}", title = it.title, posterPath = it.posterPath,
+                    backdropPath = it.customBackdropPath ?: it.backdropPath, tmdbId = it.tmdbId, isMovie = true,
+                    year = it.year, rating = it.rating, genres = it.genres, status = it.status,
+                )
+            }
+    }
+
+    val heroFallback = remember(availableNowCards, recommendationCards) {
+        (recommendationCards + availableNowCards)
+            .filter { it.backdropPath != null }
+            .distinctBy { "${it.isMovie}-${it.tmdbId}" }
+            .sortedByDescending { it.rating }
+    }
+    val heroItems = remember(dashboardHero, heroFallback, dashboardLayout.hero.enabled, minYear) {
+        if (!dashboardLayout.hero.enabled) emptyList() else {
+            val exact = dashboardHero.map { slide ->
+                val detail = slide.detail
+                TvTitleCard(
+                    id = "hero-${detail.type}-${detail.tmdbId}", title = detail.title,
+                    posterPath = detail.posterPath, backdropPath = detail.backdropPath, tmdbId = detail.tmdbId,
+                    isMovie = detail.type == "movie", year = detail.year, rating = detail.rating,
+                    genres = detail.genres, status = slide.libraryStatus, overview = detail.overview,
+                    runtime = detail.runtime, trailerKeys = detail.ambientVideoKeys,
+                )
+            }.filter { it.backdropPath != null && yearAllowed(it.year) }
+            (exact + heroFallback.filter { it.tmdbId !in exact.map { h -> h.tmdbId } }).take(HERO_COUNT)
         }
     }
 
     var heroIndex by remember { mutableStateOf(0) }
-    val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
-    // Précharge les logos de TOUTES les vedettes dès que la liste change
-    // (plutôt que de charger uniquement le hero actif au fil des rotations).
-    // Sans ça, les 4 autres heroes restaient sans logo pendant le premier
-    // cycle complet (40 s) et le timer 3 s du fallback texte se déclenchait
-    // systématiquement — d'où le chargement à 1 chance sur 3.
     LaunchedEffect(heroItems) {
+        if (heroIndex !in heroItems.indices) heroIndex = 0
         val movieIds = heroItems.filter { it.isMovie }.map { it.tmdbId }
         val seriesIds = heroItems.filter { !it.isMovie }.map { it.tmdbId }
         if (movieIds.isNotEmpty()) viewModel.loadHeroLogos("movie", movieIds)
         if (seriesIds.isNotEmpty()) viewModel.loadHeroLogos("series", seriesIds)
     }
-    LaunchedEffect(heroItems) {
+    LaunchedEffect(heroItems, dashboardLayout.hero.slideshowSpeedSec) {
         if (heroItems.size < 2) return@LaunchedEffect
+        val interval = dashboardLayout.hero.slideshowSpeedSec.coerceIn(5, 60) * 1_000L
         while (true) {
-            delay(HERO_ROTATE_MS)
+            delay(interval)
             if (heroItems.size < 2) return@LaunchedEffect
             heroIndex = (heroIndex + 1) % heroItems.size
         }
     }
+    val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
 
-    // Le héros reste au repos visuel au démarrage. Demander immédiatement le
-    // focus au CTA fait déclencher le scroll-into-view de TvLazyColumn et
-    // pousse le logo sous la barre transparente avant toute action utilisateur.
-    // Le CTA reste focusable : il est atteint naturellement avec DPAD_DOWN
-    // depuis la navigation, sans déplacer l'accueil tout seul.
-    // Une seule cible pour le CTA hero ET la première carte : les deux
-    // branches ci-dessous sont mutuellement exclusives (jamais de hero ET de
-    // firstRealRowKey en même temps), donc réutiliser le même FocusRequester
-    // le fait toujours pointer vers le seul élément réellement composé — et
-    // c'est cette même cible que la NavRail vise pour la flèche bas.
-    val heroCtaFocus = entryFocusRequester ?: remember { FocusRequester() }
-    val firstCardFocus = heroCtaFocus
-    // Palier invisible au-dessus du hero — voir le premier item de la
-    // LazyColumn plus bas (UP depuis le CTA : scroll retour en haut avant
-    // la NavRail).
-    val heroTopAnchor = remember { FocusRequester() }
-    var hasRequestedInitialFocus by remember { mutableStateOf(false) }
-    LaunchedEffect(heroItems, continueCards, recentMovies, recentSeries) {
-        if (hasRequestedInitialFocus) return@LaunchedEffect
-        if (heroItems.isNotEmpty()) {
-            hasRequestedInitialFocus = true
-        } else if (continueCards.isNotEmpty() || recentMovies.isNotEmpty() || recentSeries.isNotEmpty()) {
-            hasRequestedInitialFocus = true
-            repeat(8) { attempt ->
-                val granted = runCatching { firstCardFocus.requestFocus() }.isSuccess
-                if (granted) return@LaunchedEffect
-                if (attempt < 7) withFrameNanos {}
+    val visibleSections = remember(
+        dashboardLayout.sections, continueCards, recommendationCards, shortSessionCards,
+        trendingCards, availableNowCards, comingSoonCards,
+    ) {
+        dashboardLayout.sections.filter { it.visible }.mapNotNull { section ->
+            val hasContent = when (section.id) {
+                "continueWatching" -> continueCards.isNotEmpty()
+                "becauseYouLike" -> recommendationCards.isNotEmpty()
+                "shortSessions" -> shortSessionCards.isNotEmpty()
+                "discover" -> trendingCards.isNotEmpty()
+                "availableNow" -> availableNowCards.isNotEmpty()
+                "comingSoon" -> comingSoonCards.isNotEmpty()
+                else -> false
             }
+            section.id.takeIf { hasContent }
         }
     }
-    // La toute première rangée réellement affichée (Continuer > Films >
-    // Séries, dans l'ordre où elles sont composées ci-dessous) est la seule
-    // à recevoir le focus initial quand il n'y a pas de hero — sinon deux
-    // rangées se disputeraient le même FocusRequester au premier rendu.
-    val firstRealRowKey = when {
-        continueCards.isNotEmpty() -> "continue"
-        recentMovies.isNotEmpty() -> "movies"
-        recentSeries.isNotEmpty() -> "series"
-        else -> null
-    }
+    val firstVisibleSection = visibleSections.firstOrNull()
+    val contentFocus = entryFocusRequester ?: remember { FocusRequester() }
+    val topAnchor = remember { FocusRequester() }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 80.dp, bottom = 80.dp),
+            contentPadding = PaddingValues(start = 64.dp, bottom = 72.dp),
         ) {
-            // Palier D-pad invisible TOUT EN HAUT du contenu (demandé en
-            // direct) : UP depuis le CTA du hero y atterrit d'abord — le
-            // bringIntoView ramène alors le scroll à l'offset 0, carrousel
-            // entier redevient visible sous la barre de nav — et un second
-            // UP seulement rejoint la NavRail. Sans ce palier, la dernière
-            // étape avant la nav restait "Lire" et le carrousel demeurait
-            // à moitié caché derrière elle.
             item(contentType = "topAnchor") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .focusRequester(heroTopAnchor)
-                        .focusable(),
-                )
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).focusRequester(topAnchor).focusable())
             }
             if (heroItems.isNotEmpty()) {
                 item(contentType = "hero") {
@@ -382,168 +350,83 @@ TvTitleCard(
                         currentIndex = heroIndex,
                         logoPath = activeHero?.let { heroLogos["${if (it.isMovie) "movie" else "series"}-${it.tmdbId}"] },
                         onSelectIndex = { heroIndex = it },
-                        ctaFocusRequester = heroCtaFocus,
+                        ctaFocusRequester = contentFocus,
+                        trailerAutoplay = dashboardLayout.hero.trailerAutoplay,
                         onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                     )
                 }
             }
 
-            if (queue.isNotEmpty()) {
-                item(contentType = "row") { DownloadQueueRow(items = queue, onOpenTitle = onOpenTitle) }
-            }
-
-            if (continueCards.isNotEmpty()) {
-                item(contentType = "row") {
-                    TitleRow(
-                        heading = "Continuer à regarder",
-                        items = continueCards,
-                        onClick = { card ->
-                            val season = card.resumeSeasonNumber
-                            val episode = card.resumeEpisodeNumber
-                            if (!card.isMovie && season != null && episode != null) {
-                                onOpenEpisode(card.tmdbId, season, episode)
-                            } else {
-                                onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId)
-                            }
-                        },
-                        firstItemFocusRequester = if (heroItems.isEmpty() && firstRealRowKey == "continue") firstCardFocus else null,
-                    )
+            visibleSections.forEach { sectionId ->
+                when (sectionId) {
+                    "continueWatching" -> item(contentType = "row") {
+                        TitleRow(
+                            heading = "Continuer à regarder", items = continueCards,
+                            onClick = { card ->
+                                val season = card.resumeSeasonNumber
+                                val episode = card.resumeEpisodeNumber
+                                if (!card.isMovie && season != null && episode != null) onOpenEpisode(card.tmdbId, season, episode)
+                                else onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId)
+                            },
+                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                        )
+                    }
+                    "becauseYouLike" -> item(contentType = "row") {
+                        TitleRow(
+                            heading = "Sélection pour vous", items = recommendationCards,
+                            onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                        )
+                    }
+                    "shortSessions" -> item(contentType = "row") {
+                        TitleRow(
+                            heading = "Moins de 40 minutes", items = shortSessionCards,
+                            onClick = { onOpenTitle("movie", it.tmdbId) },
+                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                        )
+                    }
+                    "discover" -> item(contentType = "row") {
+                        TitleRow(
+                            heading = "Tendances Movviz", items = trendingCards,
+                            onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                        )
+                    }
+                    "availableNow" -> item(contentType = "row") {
+                        TitleRow(
+                            heading = "Ajoutés récemment", items = availableNowCards,
+                            onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                        )
+                    }
+                    "comingSoon" -> item(contentType = "row") {
+                        TitleRow(
+                            heading = "Prochainement", items = comingSoonCards,
+                            onClick = { onOpenTitle("movie", it.tmdbId) },
+                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                        )
+                    }
+                }
+                if (sectionId == "becauseYouLike" && queue.isNotEmpty()) {
+                    item(contentType = "queue") { DownloadQueueRow(items = queue, onOpenTitle = onOpenTitle) }
                 }
             }
 
-            if (recentMovies.isNotEmpty()) {
-                item(contentType = "row") {
-                    TitleRow(
-                        heading = "Films",
-                        items = recentMovies,
-                        onClick = { card -> onOpenTitle("movie", card.tmdbId) },
-                        firstItemFocusRequester = if (heroItems.isEmpty() && firstRealRowKey == "movies") firstCardFocus else null,
-                    )
-                }
-            }
-
-            if (recentSeries.isNotEmpty()) {
-                item(contentType = "row") {
-                    TitleRow(
-                        heading = "Séries",
-                        items = recentSeries,
-                        onClick = { card -> onOpenTitle("series", card.tmdbId) },
-                        firstItemFocusRequester = if (heroItems.isEmpty() && firstRealRowKey == "series") firstCardFocus else null,
-                    )
-                }
-            }
-
-            if (discoverCards.isNotEmpty()) {
-                item(contentType = "row") {
-                    TitleRow(
-                        heading = "Découverte",
-                        items = discoverCards,
-                        onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
-                    )
-                }
-            }
-
-            editorialSections.forEach { section ->
-                item(contentType = "row") {
-                    val label = homeRowLabel(section.key, section.meta)
-                    TitleRow(
-                        heading = label,
-                        items = section.cards,
-                        onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
-                        onSeeAll = { onSeeAllRow(section.mediaType, section.key, label) },
-                    )
-                }
-            }
-
-            if (recentMovies.isEmpty() && recentSeries.isEmpty()) {
+            if (visibleSections.isEmpty() && heroItems.isEmpty()) {
                 item(contentType = "loading") {
-                    // Splash identique Web/Mobile : plein écran Void #05060B, logo centré, barre progress
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(420.dp).background(Color(0xFF05060B)).padding(top = 48.dp, bottom = 24.dp),
+                        modifier = Modifier.fillMaxWidth().height(420.dp).padding(top = 48.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(
-                                modifier = if (heroItems.isEmpty() && firstRealRowKey == null) {
-                                    Modifier.focusRequester(firstCardFocus).focusable()
-                                } else {
-                                    Modifier
-                                },
-                            ) {
-                                AnimatedLogo(size = 96.dp)
-                            }
-                            Text(
-                                text = "MOVVIZ",
-                                style = MaterialTheme.typography.labelLarge.copy(color = Color.White.copy(alpha = 0.45f), letterSpacing = 3.sp),
-                                modifier = Modifier.padding(top = 16.dp),
-                            )
-                            Box(
-                                modifier = Modifier.padding(top = 12.dp).width(200.dp).height(4.dp).clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f))
-                            ) {
-                                Box(modifier = Modifier.fillMaxHeight().fillMaxWidth(0.42f).clip(RoundedCornerShape(50)).background(Brush.horizontalGradient(listOf(Color(0xFF7C5CFF), Color(0xFFFF4BD0)))))
-                            }
-                            Text(
-                                text = "Préparation de ton cinéma…",
-                                style = MaterialTheme.typography.labelSmall.copy(color = Color.White.copy(alpha = 0.45f)),
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
+                            AnimatedLogo(size = 82.dp)
+                            Spacer(Modifier.height(16.dp))
+                            Text("Préparation de ton cinéma…", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .55f))
                         }
                     }
                 }
             }
         }
-    }
-}
-
-/** Une rangée éditoriale de l'accueil, avec son type de média propre (voir
- *  le commentaire sur editorialSections plus haut) — nécessaire pour que
- *  "Voir tout" sache quelle route interroger, et pour résoudre le libellé
- *  dynamique "becauseYouWatched:*" (meta). */
-private data class EditorialRowSection(
-    val key: String,
-    val mediaType: String,
-    val meta: com.movviz.tv.data.RowMetaDto?,
-    val cards: List<TvTitleCard>,
-)
-
-private fun buildEditorialSections(rows: List<MetadataRowDto>, mediaType: String): List<EditorialRowSection> =
-    // La TV Movviz ne propose pas d'espace Jeunesse : ne jamais faire
-    // réapparaître cette rangée au gré d'un changement d'algorithme côté
-    // serveur. Les profils ne sont pas segmentés par âge, donc afficher
-    // "kids" ici serait à la fois une régression produit et un faux
-    // raccourci de navigation.
-    rows.filterNot { it.key == "kids" }.mapNotNull { row ->
-        val cards = row.results.map {
-            TvTitleCard("editorial-${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath,
-                it.tmdbId, it.type == "movie", it.year, it.rating)
-        }
-        if (cards.isEmpty()) null else EditorialRowSection(row.key, mediaType, row.meta, cards)
-    }
-
-/** `meta` n'est renseigné que pour la clé dynamique "becauseYouWatched:{id}"
- *  (voir becauseYouWatched.ts côté serveur) — même deux formulations que
- *  discover.rowBecauseYouWatched/rowBecauseYouLiked en fr.ts, le reste des
- *  clés est un simple switch statique comme avant. */
-private fun homeRowLabel(key: String, meta: com.movviz.tv.data.RowMetaDto?): String {
-    if (key.startsWith("becauseYouWatched:") && meta != null) {
-        return if (meta.verb == "liked") "Puisque ${meta.anchorTitle} vous a plu" else "Dans la lignée de ${meta.anchorTitle}"
-    }
-    return when (key) {
-        "recommendedTop" -> "Sélection pour vous"
-        "trendingPopular", "trending" -> "Tendances Movviz"
-        "upcoming", "upcomingVod" -> "Prochainement"
-        "onAir" -> "En ce moment"
-        "newSeriesRenewed" -> "Nouvelles séries"
-        "nowPlayingBoxOffice" -> "En salles"
-        "acclaimed" -> "Salué par la critique"
-        "anime" -> "Univers anime"
-        "teen" -> "Romance ado"
-        "shortFormat" -> "Format court, grand impact"
-        "genreAction" -> "Action"
-        "genreComedy" -> "Comédie"
-        "genreHorror" -> "Frissons garantis"
-        "genreSciFi" -> "Science-fiction"
-        else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
     }
 }
 
@@ -583,6 +466,7 @@ internal fun HeroCarousel(
     logoPath: String?,
     onSelectIndex: (Int) -> Unit,
     ctaFocusRequester: FocusRequester,
+    trailerAutoplay: Boolean = true,
     onOpen: (TvTitleCard) -> Unit,
 ) {
     val current = items[currentIndex.coerceIn(0, items.size - 1)]
@@ -704,11 +588,13 @@ internal fun HeroCarousel(
             )
         }
 
-        AmbientTrailer(
-            trailerKeys = current.trailerKeys,
-            title = current.title,
-            modifier = Modifier.fillMaxSize(),
-        )
+        if (trailerAutoplay) {
+            AmbientTrailer(
+                trailerKeys = current.trailerKeys,
+                title = current.title,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
 
         // Netflix-style gradient scrim — strong bottom, subtle left.
         Box(

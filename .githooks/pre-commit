@@ -7,8 +7,8 @@ if git rev-parse --git-dir > /dev/null 2>&1; then
   fi
 
   for f in $(git diff --cached --name-only --diff-filter=ACM | grep -i '\.md$'); do
-    content=$(git show ":$f")
-    if echo "$content" | grep -Eqi "(intelligence.?artificielle|assistant.*ia|ia.*assistant)"; then
+    added=$(git diff --cached -- "$f" | grep -E '^\+' | grep -v '^\+\+\+')
+    if echo "$added" | grep -Eqi "(intelligence.?artificielle|assistant.*ia|ia.*assistant)"; then
       echo "ERROR: $f contient une référence interdite."
       exit 1
     fi

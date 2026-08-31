@@ -88,6 +88,9 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     private val _dashboardHero = MutableStateFlow<List<DashboardHeroSlideDto>>(emptyList())
     val dashboardHero: StateFlow<List<DashboardHeroSlideDto>> = _dashboardHero.asStateFlow()
 
+    private val _dashboardLayout = MutableStateFlow(com.movviz.tv.data.DashboardLayoutDto())
+    val dashboardLayout: StateFlow<com.movviz.tv.data.DashboardLayoutDto> = _dashboardLayout.asStateFlow()
+
     private val _heroLogos = MutableStateFlow<Map<String, String>>(emptyMap())
     val heroLogos: StateFlow<Map<String, String>> = _heroLogos.asStateFlow()
 
@@ -659,6 +662,17 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
 
     /** Même sélection éditoriale personnalisée que le dashboard web. En cas
      * d'indisponibilité, HomeScreen conserve son hero issu de la bibliothèque. */
+    fun loadDashboardLayout() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            when (val result = repo.dashboardLayout()) {
+                is ApiResult.Success -> _dashboardLayout.value = result.data
+                ApiResult.Unauthorized -> _sessionExpired.value = true
+                is ApiResult.Failure -> Unit
+            }
+        }
+    }
+
     fun loadDashboardHero() {
         val repo = repository ?: return
         viewModelScope.launch {

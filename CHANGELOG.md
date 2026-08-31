@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.24.06 — August 2026
+
+### Réglages → Lecteur — désactivation totale du HDR/Dolby Vision → SDR
+
+Le tonemapping HDR10, HDR10+, HLG et Dolby Vision vers SDR peut désormais être coupé entièrement depuis Réglages → Lecteur, même quand le benchmark du serveur dépasse le seuil de 3× habituellement requis. Activé, le comportement ne change pas : le tonemapping reste autorisé uniquement au-dessus de ce seuil.
+
+### Android TV — accueil synchronisé avec le desktop
+
+L'accueil du client Android TV consomme désormais le même layout que le dashboard desktop (`/api/dashboard/layout`) : ordre et visibilité des rangées, activation du hero, vitesse du slideshow et autoplay du trailer suivent la configuration serveur au lieu d'un agencement fixe propre à la TV. Les rangées « Sélection pour vous » et « Tendances Movviz » utilisent exactement les mêmes sources que le desktop (`/api/metadata/recommendations`, rangée trending), et « Ajoutés récemment »/« Prochainement » reprennent les dates réelles (`addedAt`, date de sortie VF) au lieu d'un tri approximatif.
+
 ## v1.24.04 — August 2026
 
 ### Lecteur Movviz unifié
