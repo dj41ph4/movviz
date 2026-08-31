@@ -56,6 +56,11 @@ if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
 New-Item -ItemType Directory -Force (Join-Path $stage "app") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $stage "runtime") | Out-Null
 New-Item -ItemType Directory -Force (Join-Path $stage "service") | Out-Null
+# Ephemeral download/extraction workspace used by aria2 and the bundled
+# FFmpeg runtime.  The previous Windows release script referenced files under
+# stage\.tools before this directory existed, so Invoke-WebRequest failed with
+# DirectoryNotFoundException before ffmpeg.exe/ffprobe.exe could be bundled.
+New-Item -ItemType Directory -Force (Join-Path $stage ".tools") | Out-Null
 
 # App = standalone + static + public
 Copy-Item -Recurse -Force (Join-Path $standalone "*") (Join-Path $stage "app")
