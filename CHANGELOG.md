@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.23 — August 2026
+
+### Recherche manuelle — le cache ne remplace plus jamais la recherche live
+
+Deux correctifs précédents (v1.24.21, v1.24.22) réduisaient les cas où le cache local suffisait à couper court à l'interrogation des indexeurs, mais chaque garde-fou avait son propre angle mort — le dernier en date bloquait même un résultat de cache pourtant exact. La recherche manuelle interroge maintenant systématiquement tous les indexeurs configurés à chaque fois, et fusionne ces résultats avec ceux du cache au lieu de choisir entre les deux : plus aucune configuration de cache ne peut empêcher un indexeur d'être interrogé pour une recherche que tu lances toi-même.
+
 ## v1.24.22 — August 2026
 
 ### Recherche interactive — un seul résultat en cache pouvait aussi couper court la recherche en direct

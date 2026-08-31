@@ -133,34 +133,28 @@ export async function GET(req: NextRequest) {
   filtered = filtered.map((r) => rescoreRelease(r, matchQuery)).filter((r) => r.score >= 10);
   filtered.sort((a, b) => b.score - a.score);
 
-  // Bug fix (confirmed live: a season/episode-targeted search — e.g. "S02"
-  // — showed a single WRONG-season cached release from one indexer and
-  // never queried the others live at all, even though a live search found
-  // 13 correct results from an indexer that never got a chance to run).
-  // seasonEpisodeRelevance (torznab.ts) caps a wrong-season/episode release's
-  // score rather than rejecting it outright (so it can still rank below a
-  // real match) — but distance-3+ mismatches cap at exactly 10, the same
-  // value as the ">= 10" cutoff below, so a stale cached release with strong
-  // quality bonuses can survive that cap and make `filtered` non-empty on
-  // its own. Since the live fallback only fires when the cache produced
-  // NOTHING (`filtered.length === 0`), one such fluke was enough to skip it
-  // entirely — the cache "lied" about having a real answer. A result whose
-  // own score breakdown carries a wrong-season/episode penalty no longer
-  // counts as a confident cache hit; the live fallback below still runs
-  // (and its own results, if any, simply supersede this one in `filtered`).
-  // Same fluke, no season/episode involved: confirmed live again on the
-  // free-text "Recherche interactive" (no "S0X" in the query at all, so
-  // seasonEpisodeRelevance never penalizes anything) — the RSS cache only
-  // ever holds a recent slice (~100-150 releases across every indexer), so
-  // it can easily have exactly ONE release for a title while an indexer's
-  // full catalog (C411 here: 13-25 matches) has many more. A single cache
-  // hit is too weak a signal that "the cache already has the full answer" —
-  // require more than one before skipping the live multi-indexer search.
-  const hasConfidentCacheMatch =
-    filtered.length > 1 &&
-    filtered.some((r) => !(r.scoreBreakdown ?? []).some((b) => b.label.startsWith("Mauvaise saison") || b.label.startsWith("Mauvais épisode")));
-
-  if (searchQuery && (filtered.length === 0 || !hasConfidentCacheMatch)) {
+  // Bug fix (confirmed live, three times over, each a narrower symptom of
+  // the same root cause): a manual search used to skip the live
+  // multi-indexer query entirely whenever the RSS cache alone produced ANY
+  // passing result — first seen as a single WRONG-season cached release
+  // (score capped at exactly 10 by seasonEpisodeRelevance for a distance-3+
+  // mismatch, same as the ">= 10" cutoff here, so it survived on pure
+  // quality bonuses) blocking 13 correct C411 results from ever being
+  // queried; then again with no season involved at all, just one genuine
+  // cache hit for a title C411 actually has far more of (13-25 matches);
+  // then again with a requirement of ">1 cache hit" that itself blocked a
+  // real, single, CORRECT cache match (S05E01) from ever being cross-checked
+  // against live indexers. Three patches, three different loopholes in the
+  // same "trust the cache alone" shortcut — the cache is a partial recent
+  // slice (~100-150 releases across every indexer) by design, so no
+  // property of what it happens to contain can reliably answer "did I
+  // already see everything a live search would find". Manual search is a
+  // deliberate, rate-limited, user-initiated action (not recurring
+  // background traffic — see acquireManualSearchSlot's own reasoning
+  // below), so it now always queries every configured indexer live and
+  // MERGES those results with the cache-scored ones, instead of ever
+  // treating the cache as a replacement for asking.
+  if (searchQuery) {
     // A manual search is one deliberate, user-initiated request — not the
     // recurring background traffic (auto-grab, RSS scan) that the 10-minute
     // reactive cooldown (markRateLimited) exists to protect an indexer from.
@@ -215,8 +209,12 @@ export async function GET(req: NextRequest) {
         );
       });
       const direct = directResults.flat().filter((r) => r.score >= 10);
+      // Merge with the cache-scored list computed above rather than
+      // replacing it outright — the cache can hold a genuinely correct,
+      // exact match (see this block's own top comment) that a live query
+      // should be cross-checked against, never silently dropped by it.
       const seen = new Set<string>();
-      filtered = direct
+      filtered = [...filtered, ...direct]
         .filter((r) => { if (seen.has(r.guid)) return false; seen.add(r.guid); return true; })
         .sort((a, b) => b.score - a.score);
       if (filtered.length === 0) {
@@ -226,7 +224,7 @@ export async function GET(req: NextRequest) {
           recordSearchLog("info", "manual_search.fallback_empty", `"${searchQuery}" — recherche directe: ${directResults.flat().length} brut(s), 0 résultat après filtrage`);
         }
       } else {
-        recordSearchLog("info", "manual_search.fallback_match", `"${searchQuery}" — ${filtered.length} résultat(s) via recherche directe`);
+        recordSearchLog("info", "manual_search.fallback_match", `"${searchQuery}" — ${filtered.length} résultat(s) (cache + recherche directe fusionnés)`);
       }
     } else {
       recordSearchLog("warn", "manual_search.no_indexers_available", `"${searchQuery}" — aucun indexeur torrent configuré`);
