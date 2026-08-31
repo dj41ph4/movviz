@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.19 — August 2026
+
+### Recherche — une catégorie personnalisée d'indexeur (ex. « Émission ») pouvait être ignorée
+
+Une catégorie propre à un indexeur (comme « Émission » sur C411, un identifiant hors de la numérotation standard Torznab), pourtant bien cochée dans ses réglages, ne remontait jamais en recherche « Séries » dès que cet indexeur avait aussi au moins une catégorie standard cochée. Le filtrage ne reconnaît plus que les catégories explicitement de l'autre type (film vs série) comme à exclure — une catégorie personnalisée inconnue de Movviz reste incluse.
+
 ## v1.24.18 — August 2026
 
 ### Recherche manuelle — diagnostic par indexeur

@@ -1,5 +1,6 @@
 import type { ConfiguredIndexer, IndexerRelease, IndexerCapabilities } from "./types";
 import type { CategoryNode } from "./categories";
+import { MOVIE_CATEGORY_IDS, TV_CATEGORY_IDS } from "./categories";
 import { loadCustomFormats } from "@/lib/customFormats/store";
 import { loadReleaseRules, matchesBlockedWord, normalizeCodec, type ReleaseRules } from "@/lib/library/releaseRules";
 import { loadResolverConfig } from "@/lib/resolver/store";
@@ -574,13 +575,35 @@ export function sanitizeQuery(q: string): string {
     .replace(/\s+/g, ".");            // spaces → dots for indexer search
 }
 
+// Every category id Movviz's own fixed taxonomy (categories.ts) actually
+// recognizes, movie or TV — used below to tell "this configured category is
+// the OTHER content type, exclude it" apart from "this is some custom id our
+// taxonomy has never heard of, don't touch it".
+const KNOWN_STANDARD_CATEGORY_IDS = new Set([...MOVIE_CATEGORY_IDS, ...TV_CATEGORY_IDS]);
+
 async function runSearch(
   ix: ConfiguredIndexer,
   params: Record<string, string>,
   scopeCategories?: number[],
   query?: string
 ): Promise<IndexerRelease[]> {
-  const scoped = scopeCategories ? ix.categories.filter((c) => scopeCategories.includes(c)) : ix.categories;
+  // Bug fix (confirmed live: C411's own "Émission" category, correctly
+  // checked by the user in Réglages → Indexeurs — real id read straight from
+  // C411's own Torznab caps, see CategoryPicker/parseCategories — never
+  // reached C411 in a "Séries" search). The old filter required a configured
+  // category to be IN the fixed standard TV_CATEGORY_IDS/MOVIE_CATEGORY_IDS
+  // list (5000/5010..5090) — private trackers commonly use custom ids outside
+  // that range (categories.ts's own top comment already warned about this),
+  // so a legitimately checked custom category was silently dropped whenever
+  // the indexer ALSO had at least one standard category checked (the "fall
+  // back to everything" branch below only triggers when the intersection is
+  // completely empty, which it usually isn't). Now a configured category
+  // survives if it's explicitly in scope OR unknown to Movviz's fixed
+  // taxonomy at all — only a category Movviz can positively identify as the
+  // OTHER content type actually gets excluded.
+  const scoped = scopeCategories
+    ? ix.categories.filter((c) => scopeCategories.includes(c) || !KNOWN_STANDARD_CATEGORY_IDS.has(c))
+    : ix.categories;
   const effective = scoped.length ? scoped : ix.categories;
   const withCat = effective.length ? { ...params, cat: effective.join(",") } : params;
   let r;
