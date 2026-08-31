@@ -6,6 +6,7 @@ import type { EngineConfig } from "@/lib/playback/types";
 interface BetaPlayerData {
   enabled: boolean;
   streamCacheTtl: number;
+  hdrDvToSdrEnabled: boolean;
   playbackEngine: EngineConfig;
   debug: boolean;
 }
@@ -31,13 +32,14 @@ export function useBetaPlayer() {
 
   const adminEnabled = data?.enabled ?? false;
   const streamCacheTtl = data?.streamCacheTtl ?? 300;
+  const hdrDvToSdrEnabled = data?.hdrDvToSdrEnabled ?? true;
   const playbackEngine: EngineConfig = data?.playbackEngine ?? "auto";
   const debug = data?.debug ?? false;
   const userEnabled = prefsData?.prefs?.betaPlayerEnabled ?? true;
   const enabled = adminEnabled && userEnabled;
 
   const patch = async (body: Record<string, unknown>) => {
-    mutate({ enabled: adminEnabled, streamCacheTtl, playbackEngine, debug, ...body }, { revalidate: false });
+    mutate({ enabled: adminEnabled, streamCacheTtl, hdrDvToSdrEnabled, playbackEngine, debug, ...body }, { revalidate: false });
     try {
       await fetch("/api/settings/beta-player", {
         method: "PUT",
@@ -51,6 +53,7 @@ export function useBetaPlayer() {
 
   const setAdminEnabled = (next: boolean) => patch({ enabled: next });
   const setStreamCacheTtl = (ttl: number) => patch({ streamCacheTtl: ttl });
+  const setHdrDvToSdrEnabled = (next: boolean) => patch({ hdrDvToSdrEnabled: next });
   const setPlaybackEngine = (engine: EngineConfig) => patch({ playbackEngine: engine });
   const setDebug = (next: boolean) => patch({ debug: next });
 
@@ -72,12 +75,14 @@ export function useBetaPlayer() {
     adminEnabled,
     userEnabled,
     streamCacheTtl,
+    hdrDvToSdrEnabled,
     playbackEngine,
     debug,
     loaded: data !== undefined && prefsData !== undefined,
     setAdminEnabled,
     setUserEnabled,
     setStreamCacheTtl,
+    setHdrDvToSdrEnabled,
     setPlaybackEngine,
     setDebug,
   };
