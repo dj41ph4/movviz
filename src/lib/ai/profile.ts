@@ -5,6 +5,7 @@ import { readJsonCached } from "@/lib/fsJsonCache";
 import type { AiMemoryStore } from "./types";
 import { AI_MEMORY_FILE } from "./memory";
 import { relativeFr } from "./actions";
+import { buildUnifiedUserContextSnapshot, formatUnifiedUserContext } from "@/lib/userContext/query";
 
 export interface UsageProfile {
   /** Whole-instance library size (shared across every user — not a "watched" count). Distinct on purpose: a user asking "j'ai 2284 films" means the library total, not how many they've watched. */
@@ -35,6 +36,10 @@ export interface UsageProfile {
    *  "hasn't opened Movviz in weeks" without guessing. */
   watchesLast7Days: number;
   watchesLast30Days: number;
+  /** Compact, live-verified context assembled by the unified Context Engine.
+   *  This is factual state (resume positions, exact recent titles, series
+   *  progression), not an LLM-generated taste insight. */
+  verifiedContext: string;
 }
 
 /** Quantified usage profile derived from REAL Movviz data — the assistant's
@@ -63,6 +68,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
   const DAY_MS = 24 * 60 * 60 * 1000;
   const watchesLast7Days = recent.filter((r) => now - r.at <= 7 * DAY_MS).length;
   const watchesLast30Days = recent.filter((r) => now - r.at <= 30 * DAY_MS).length;
+  const verifiedContext = formatUnifiedUserContext(buildUnifiedUserContextSnapshot(userId));
 
   return {
     libraryMovies: loadMovies().length,
@@ -80,6 +86,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
     lastWatchedAt,
     watchesLast7Days,
     watchesLast30Days,
+    verifiedContext,
   };
 }
 
@@ -99,6 +106,9 @@ export function formatUsageProfile(p: UsageProfile): string {
   if (p.lastWatchedAt !== null) {
     parts.push(`dernière vue : ${relativeFr(p.lastWatchedAt)}`);
     parts.push(`rythme récent : ${p.watchesLast7Days} vue(s) sur 7 jours, ${p.watchesLast30Days} sur 30 jours`);
+  }
+  if (p.verifiedContext) {
+    parts.push(`DONNÉES UTILISATEUR VÉRIFIÉES PAR MOVVIZ (faits exacts, ne jamais les inventer ni les contredire) : ${p.verifiedContext}`);
   }
   return parts.join(" · ");
 }

@@ -3,6 +3,7 @@ import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { completionBoundaryMs, canComplete, isPlausiblePlaybackAdvance, MIN_REAL_PLAYBACK_MS, type CompletionBoundarySource } from "./progressPolicy";
 import { getPlaybackMarkers } from "./markers/store";
 import { setWatchedMovies, setWatchedEpisodes } from "@/lib/plex/watchStore";
+import { recordPlaybackCompleted, recordPlaybackStarted, recordPlaybackStopped, syncPlaybackContext } from "@/lib/userContext/ingest";
 
 const CONFIG_DIR = process.env.MOVVIZ_CONFIG_DIR ?? process.env.MOVVIZ_DATA_DIR ?? path.join(process.cwd(), ".movviz-data");
 const FILE = path.join(CONFIG_DIR, "playback-progress.json");
@@ -96,6 +97,7 @@ function ensure(userId: string, ratingKey: string, input: { mediaId?: string; me
 
 export function getPlaybackProgress(userId: string, ratingKey: string, mediaId?: string): PlaybackProgress | null { return get(userId, ratingKey, mediaId); }
 export function listPlaybackProgress(userId: string): PlaybackProgress[] { return Object.values(store().byUser[userId] ?? {}).filter((p) => !p.watched && p.eligibleForResume && (p.resumeOffsetMs ?? 0) > 0); }
+export function listAllPlaybackProgress(userId: string): PlaybackProgress[] { return Object.values(store().byUser[userId] ?? {}); }
 
 /** "Retirer de la liste Reprendre" without marking watched — clears the
  *  resume position so listPlaybackProgress's own filter naturally excludes
@@ -112,6 +114,7 @@ export function clearPlaybackProgress(userId: string, ratingKey: string, mediaId
   p.updatedAt = Date.now();
   p.revision++;
   persist();
+  syncPlaybackContext(p, { force: true });
   return p;
 }
 
@@ -120,6 +123,7 @@ export function openPlaybackSession(userId: string, input: { ratingKey: string; 
   const now = Date.now();
   const session: PlaybackSession = { id: id(), userId, ratingKey: input.ratingKey, mediaId: input.mediaId, startedAt: now, lastHeartbeatAt: now, lastPositionMs: progress.watched ? 0 : (progress.resumeOffsetMs ?? 0), lastSequence: -1, actualPlayedMs: 0, seekPending: false, durationMs: input.durationMs, mediaType: input.mediaType };
   (g.__movvizPlaybackSessions ??= new Map()).set(session.id, session);
+  recordPlaybackStarted(session.id, progress, now);
   return { session, progress };
 }
 
@@ -145,6 +149,7 @@ export function updatePlaybackDuration(sessionId: string, durationMs: number): P
   progress.updatedAt = Date.now();
   progress.revision++;
   persist();
+  syncPlaybackContext(progress, { force: true });
   return progress;
 }
 
@@ -158,13 +163,15 @@ export function applyHeartbeat(sessionId: string, input: { sequence: number; pos
   const p = get(session.userId, session.ratingKey, session.mediaId)!; p.actualPlayedMs += input.isPlaying && plausible ? Math.min(elapsed, 30_000) : 0; p.lastPositionMs = session.lastPositionMs; p.lastPlayedAt = now; p.updatedAt = now; p.revision++;
   if (!p.watched && p.actualPlayedMs >= MIN_REAL_PLAYBACK_MS) { p.eligibleForResume = true; if (p.lastPositionMs < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) p.resumeOffsetMs = p.lastPositionMs; }
   if (!p.watched && canComplete(p.actualPlayedMs, p.lastPositionMs, p.completionBoundaryMs)) markPlaybackWatched(p, p.boundarySource);
-  persist(); return p;
+  persist();
+  syncPlaybackContext(p);
+  return p;
 }
 
 export function applySeek(sessionId: string, positionMs: number): PlaybackProgress {
   const session = getPlaybackSession(sessionId); if (!session) throw new Error("session_not_found");
   session.seekPending = true; session.lastPositionMs = Math.max(0, positionMs); session.lastHeartbeatAt = Date.now();
-  const p = get(session.userId, session.ratingKey, session.mediaId)!; p.lastPositionMs = session.lastPositionMs; p.updatedAt = Date.now(); p.revision++; persist(); return p;
+  const p = get(session.userId, session.ratingKey, session.mediaId)!; p.lastPositionMs = session.lastPositionMs; p.updatedAt = Date.now(); p.revision++; persist(); syncPlaybackContext(p); return p;
 }
 
 export function applyMarkerSkip(sessionId: string, positionMs: number, markerType: string): PlaybackProgress {
@@ -180,7 +187,8 @@ export function markPlaybackWatched(p: PlaybackProgress, source: CompletionBound
   p.watched = true; p.watchedAt = Date.now(); p.resumeOffsetMs = null; p.eligibleForResume = false; p.boundarySource = source; p.updatedAt = Date.now(); p.revision++; p.plex.pendingAction = "scrobble";
   if (p.mediaType === "movie" && p.tmdbId != null) setWatchedMovies(p.userId, [p.tmdbId], true, p.title ?? "");
   if (p.mediaType === "episode" && p.tmdbId != null && p.seasonNumber != null && p.episodeNumber != null) setWatchedEpisodes(p.userId, [{ tmdbId: p.tmdbId, season: p.seasonNumber, episode: p.episodeNumber }], true, p.title ?? "");
+  recordPlaybackCompleted(p);
   return p;
 }
 export function completePlayback(sessionId: string): PlaybackProgress { const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found"); const p = get(s.userId, s.ratingKey, s.mediaId)!; markPlaybackWatched(p); persist(); return p; }
-export function stopPlayback(sessionId: string, positionMs?: number): PlaybackProgress { const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found"); const p = get(s.userId, s.ratingKey, s.mediaId)!; if (!p.watched && positionMs != null && p.eligibleForResume && positionMs < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) p.resumeOffsetMs = Math.max(0, positionMs); p.updatedAt = Date.now(); p.revision++; g.__movvizPlaybackSessions?.delete(sessionId); persist(); return p; }
+export function stopPlayback(sessionId: string, positionMs?: number): PlaybackProgress { const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found"); const p = get(s.userId, s.ratingKey, s.mediaId)!; if (!p.watched && positionMs != null && p.eligibleForResume && positionMs < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) p.resumeOffsetMs = Math.max(0, positionMs); p.updatedAt = Date.now(); p.revision++; recordPlaybackStopped(sessionId, p); g.__movvizPlaybackSessions?.delete(sessionId); persist(); return p; }
