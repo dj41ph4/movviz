@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.03 — August 2026
+
+### Assistant de configuration — blocage juste après la création du compte
+
+La création du compte administrateur, ajoutée en tout début d'assistant dans la version précédente, restait bloquée sur un écran de chargement infini juste après validation du formulaire, empêchant de terminer la configuration. Corrigé.
+
 ## v1.24.02 — August 2026
 
 ### Assistant de configuration — création de compte restaurée
