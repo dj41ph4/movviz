@@ -1,0 +1,40 @@
+name: Apply Android TV synchronized home redesign
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/v12406-tv-home.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply migration
+        run: node scripts/v12406-tv-home.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Validate Android TV compile
+        working-directory: android-tv
+        run: ./gradlew :app:assembleDebug --stacktrace
+      - name: Remove one-shot migration scaffolding
+        run: git rm scripts/v12406-tv-home.mjs .github/workflows/v12406-tv-home.yml
+      - name: Commit synchronized home
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add android-tv
+          git diff --cached --check
+          git commit -m "feat(tv): synchronize home experience with desktop"
+          git push origin HEAD:main
