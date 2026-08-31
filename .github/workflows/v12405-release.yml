@@ -1,0 +1,106 @@
+name: Release v1.24.05
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/v12405-release.yml"]
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify release base
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(node -p "require('./package.json').version")" = "1.24.04"
+          if git rev-parse -q --verify refs/tags/v1.24.05 >/dev/null; then
+            echo "v1.24.05 already exists"
+            exit 1
+          fi
+          git merge-base --is-ancestor 5f6c4a1d4332d4f19afa4ae7abc991535d985fff HEAD
+          git merge-base --is-ancestor 0a85ae6bddc68c6bf3d4ea974d6d546078c97c7d HEAD
+          git merge-base --is-ancestor f7eebf024e31e63f867d7d06e88435ee673e021a HEAD
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Portable tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILES=$(find scripts -maxdepth 1 -name '*.test.ts' ! -name 'server-capabilities.test.ts' -print | tr '\n' ' ')
+          node --experimental-transform-types --no-warnings --import ./scripts/movviz-test-loader.mjs --test $FILES
+
+      - name: Production build
+        run: npm run build
+
+      - name: Bump all release versions
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm version 1.24.05 --no-git-tag-version
+          python - <<'PY'
+          from pathlib import Path
+          for name in ["android-tv/app/build.gradle.kts", "android-mobile/app/build.gradle.kts"]:
+              p = Path(name)
+              s = p.read_text(encoding="utf-8")
+              s2 = s.replace("?: 12404", "?: 12405").replace('?: "1.24.04"', '?: "1.24.05"')
+              if s2 == s:
+                  raise SystemExit(f"version markers not found in {name}")
+              p.write_text(s2, encoding="utf-8")
+          PY
+          test "$(node -p "require('./package.json').version")" = "1.24.05"
+          test "$(node -p "require('./package-lock.json').version")" = "1.24.05"
+          grep -q '?: 12405' android-tv/app/build.gradle.kts
+          grep -q '?: "1.24.05"' android-tv/app/build.gradle.kts
+          grep -q '?: 12405' android-mobile/app/build.gradle.kts
+          grep -q '?: "1.24.05"' android-mobile/app/build.gradle.kts
+
+      - name: Commit, tag and push v1.24.05
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/v12405-release.yml
+          git add package.json package-lock.json android-tv/app/build.gradle.kts android-mobile/app/build.gradle.kts .github/workflows/v12405-release.yml
+          git commit -m "v1.24.05 — playback quality and stream lifetime hotfixes"
+          git tag -a v1.24.05 -m "v1.24.05 — playback quality and stream lifetime hotfixes"
+          git push origin HEAD:main
+          git push origin v1.24.05
+
+      - name: Dispatch release builders explicitly
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run build-installer.yml --ref v1.24.05
+          gh workflow run linux-release-build.yml --ref v1.24.05
+          gh workflow run android-tv-build.yml --ref v1.24.05
+          gh workflow run android-mobile-build.yml --ref v1.24.05
+          gh workflow run docker-publish.yml --ref main
+
+      - name: Remove old work branches
+        shell: bash
+        run: |
+          git push origin --delete v12301-release-alignment || true
+          git push origin --delete v12301-unified-youtube-staging || true
+          git push origin --delete v12405-release-temp || true
