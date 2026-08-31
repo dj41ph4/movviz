@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { jsonCacheReadFailed, readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
+import { syncWatchedEpisodeState, syncWatchedMovieState } from "@/lib/userContext/watchBridge";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -57,10 +58,11 @@ export function recordWatched(userId: string, entry: RecentWatch) {
 export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boolean, title = "") {
   const list = read();
   const status = findOrCreate(list, userId);
+  const at = Date.now();
   if (watched) {
     for (const tmdbId of tmdbIds) {
       if (!status.movies.includes(tmdbId)) status.movies.push(tmdbId);
-      upsertRecent(status, { tmdbId, type: "movie", title, at: Date.now() });
+      upsertRecent(status, { tmdbId, type: "movie", title, at });
     }
   } else {
     const remove = new Set(tmdbIds);
@@ -68,7 +70,11 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
     status.recent = (status.recent ?? []).filter((r) => !(r.type === "movie" && remove.has(r.tmdbId)));
   }
   status.updatedAt = Date.now();
-  write(list);
+  if (write(list)) {
+    for (const tmdbId of tmdbIds) {
+      syncWatchedMovieState({ userId, tmdbId, title, watched, at });
+    }
+  }
 }
 
 /** Manual watched toggle — episodes (tmdbId = series). Watched adds each
@@ -82,6 +88,7 @@ export function setWatchedEpisodes(
   const list = read();
   const status = findOrCreate(list, userId);
   const key = (e: { tmdbId: number; season: number; episode: number }) => `${e.tmdbId}.${e.season}.${e.episode}`;
+  const at = Date.now();
   if (watched) {
     const existing = new Set(status.episodes.map(key));
     for (const e of entries) {
@@ -89,7 +96,7 @@ export function setWatchedEpisodes(
         status.episodes.push(e);
         existing.add(key(e));
       }
-      upsertRecent(status, { tmdbId: e.tmdbId, type: "series", title, at: Date.now() });
+      upsertRecent(status, { tmdbId: e.tmdbId, type: "series", title, at });
     }
   } else {
     const remove = new Set(entries.map(key));
@@ -101,13 +108,17 @@ export function setWatchedEpisodes(
     }
   }
   status.updatedAt = Date.now();
-  write(list);
+  if (write(list)) {
+    for (const e of entries) {
+      syncWatchedEpisodeState({ userId, tmdbId: e.tmdbId, season: e.season, episode: e.episode, title, watched, at });
+    }
+  }
 }
 
 function read(): WatchStatus[] {
   return readJsonCached<WatchStatus[]>(FILE, []);
 }
-function write(list: WatchStatus[]) {
+function write(list: WatchStatus[]): boolean {
   // Garde anti-écrasement (même classe de bug que la perte des 20 TB) : si
   // la dernière lecture du fichier a échoué (JSON corrompu, NAS
   // temporairement inaccessible), readJsonCached retourne le fallback [] —
@@ -116,10 +127,11 @@ function write(list: WatchStatus[]) {
   // et la prochaine écriture passera une fois la lecture redevenue saine.
   if (jsonCacheReadFailed(FILE)) {
     console.error("[watchStore] refus d'écrire " + FILE + " : lecture précédente en échec, données existantes conservées");
-    return;
+    return false;
   }
   fs.mkdirSync(CONFIG_DIR, { recursive: true });
   writeJsonCached(FILE, list);
+  return true;
 }
 
 export function getWatchStatus(userId: string): WatchStatus | null {
