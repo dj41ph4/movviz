@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { searchFromCache } from "@/lib/indexers/rssCache";
 import { MOVIE_CATEGORY_IDS, TV_CATEGORY_IDS } from "@/lib/indexers/categories";
 import { loadIndexers } from "@/lib/indexers/store";
-import { withoutRateLimited, countNewlyRateLimited } from "@/lib/indexers/rateLimit";
+import { countNewlyRateLimited } from "@/lib/indexers/rateLimit";
 import { searchIndexer, searchMovie, sanitizeQuery, rescoreRelease } from "@/lib/indexers/torznab";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { IndexerRelease } from "@/lib/indexers/types";
@@ -134,9 +134,19 @@ export async function GET(req: NextRequest) {
   filtered.sort((a, b) => b.score - a.score);
 
   if (searchQuery && filtered.length === 0) {
-    const configuredIndexers = enabled.filter((i) => i.protocol === "torrent");
-    const indexers = withoutRateLimited(configuredIndexers);
-    const alreadyLimited = configuredIndexers.length - indexers.length;
+    // A manual search is one deliberate, user-initiated request — not the
+    // recurring background traffic (auto-grab, RSS scan) that the 10-minute
+    // reactive cooldown (markRateLimited) exists to protect an indexer from.
+    // Confirmed live: C411's cooldown routinely gets tripped by that
+    // background load alone, then silently excludes it from manual search
+    // for the next 10 minutes too — a title visible on C411's own site
+    // came back with nothing in Movviz. The proactive per-minute throttle
+    // in fetchXml (torznab.ts) still paces every request against the
+    // indexer's documented quota regardless, so skipping the cooldown here
+    // doesn't risk actually exceeding it — it only skips the extra
+    // precautionary blackout that a real user waiting on a result shouldn't
+    // pay for.
+    const indexers = enabled.filter((i) => i.protocol === "torrent");
     if (indexers.length > 0) {
       // When the movie/series is known (tmdbId from the detail page), use
       // searchMovie (t=movie&tmdbid=XXX with text fallback) — far more
@@ -166,13 +176,13 @@ export async function GET(req: NextRequest) {
         if (newlyLimited > 0) {
           recordSearchLog("warn", "manual_search.fallback_rate_limited", `"${searchQuery}" — 0 résultat : ${newlyLimited} indexeur(s) ont répondu 429 (rate-limité) pendant cette recherche, pas forcément "rien trouvé"`);
         } else {
-          recordSearchLog("info", "manual_search.fallback_empty", `"${searchQuery}" — recherche directe: ${directResults.flat().length} brut(s), 0 résultat après filtrage${alreadyLimited > 0 ? ` (${alreadyLimited} indexeur(s) déjà rate-limité(s), exclu(s))` : ""}`);
+          recordSearchLog("info", "manual_search.fallback_empty", `"${searchQuery}" — recherche directe: ${directResults.flat().length} brut(s), 0 résultat après filtrage`);
         }
       } else {
         recordSearchLog("info", "manual_search.fallback_match", `"${searchQuery}" — ${filtered.length} résultat(s) via recherche directe`);
       }
     } else {
-      recordSearchLog("warn", "manual_search.no_indexers_available", `"${searchQuery}" — aucun indexeur disponible : tous rate-limités (${alreadyLimited}/${configuredIndexers.length})`);
+      recordSearchLog("warn", "manual_search.no_indexers_available", `"${searchQuery}" — aucun indexeur torrent configuré`);
     }
   }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.11 — August 2026
+
+### Recherche manuelle — un titre présent sur C411 pouvait rester invisible dans Movviz
+
+Un indexeur mis en pause 10 minutes après une seule erreur 429 (protection contre le trafic récurrent en arrière-plan : auto-grab, scan RSS) était aussi exclu de la recherche manuelle pendant toute cette pause, sans aucune indication à l'écran. La recherche manuelle interroge maintenant tous les indexeurs configurés sans tenir compte de cette pause — la limite de requêtes par minute propre à chaque indexeur reste respectée dans tous les cas.
+
 ## v1.24.10 — August 2026
 
 ### Synchronisation Plex — le compte administrateur et les profils Home ne remontaient plus « vu »
