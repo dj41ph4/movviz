@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.25 — August 2026
+
+### Épisodes sans date — plus de "Manquant" après un épisode déjà annoncé "À venir"
+
+Un épisode sans date de diffusion connue passait "Manquant" (donc recherché comme s'il pouvait déjà exister), même quand un épisode numéroté avant lui dans la même saison était encore "À venir" avec une date future connue — chronologiquement impossible, une série ne peut pas avoir diffusé l'épisode 6 avant les épisodes 4/5. Tout épisode non daté qui suit, dans la même saison, un épisode encore à venir hérite maintenant du même statut "À venir" plutôt que d'afficher un faux "Manquant".
+
 ## v1.24.24 — August 2026
 
 ### Android TV — navigation repensée, Découverte séparée du catalogue, lecteur redescendu

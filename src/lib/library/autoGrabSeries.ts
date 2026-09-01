@@ -21,7 +21,7 @@ import { logActivity } from "@/lib/activity/store";
 import { logActivityV2, createMediaRef, createFailureRef, createReleaseRef } from "@/lib/activity/v2/store";
 import { getTvdbEpisodesFor, getTvdbSeasonNames, groupTvdbEpisodesBySeason, tvdbConfigured, specialsEnabled, type TvdbEpisode } from "@/lib/metadata/tvdb";
 import { isRecentlyFailedRelease } from "@/lib/library/failedReleases";
-import { episodeStatus } from "@/lib/library/releaseSchedule";
+import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { notifySeerrProcessingOnce } from "@/lib/seerr/mediaMap";
 import { searchTv, searchCompleteSeriesPack, COMPLETE_SERIES_TERMS } from "@/lib/indexers/torznab";
@@ -59,6 +59,7 @@ async function buildAnimeSeasonsFromTvdb(
 
   return tvdbSeasons.map((s) => {
     const monitoredByDefault = s.seasonNumber !== 0;
+    const statuses = seasonEpisodeStatuses(s.episodes);
     return {
       seasonNumber: s.seasonNumber,
       name: seasonNames.get(s.seasonNumber) ?? `Saison ${s.seasonNumber}`,
@@ -69,7 +70,7 @@ async function buildAnimeSeasonsFromTvdb(
         title: e.title && !hasCjkText(e.title) ? e.title : `Épisode ${e.episodeNumber}`,
         airDate: e.airDate,
         monitored: monitoredByDefault,
-        status: episodeStatus(e.airDate, e.title),
+        status: statuses.get(e.episodeNumber) ?? episodeStatus(e.airDate, e.title),
         file: null,
         activeInfoHash: null,
         plexRatingKey: null,
@@ -370,13 +371,14 @@ export async function backfillMissingSeason0FromTmdb(seriesId: string): Promise<
   if (!tmdbSeason0) return { ok: true, added: false };
 
   const detail = await fetchTmdbSeason(series.tmdbId, 0).catch(() => null);
+  const season0Statuses = seasonEpisodeStatuses(detail?.episodes ?? []);
   const episodes: LibraryEpisode[] = (detail?.episodes ?? []).map((e) => ({
     seasonNumber: e.seasonNumber,
     episodeNumber: e.episodeNumber,
     title: e.title,
     airDate: e.airDate,
     monitored: false,
-    status: episodeStatus(e.airDate, e.title),
+    status: season0Statuses.get(e.episodeNumber) ?? episodeStatus(e.airDate, e.title),
     file: null,
     activeInfoHash: null,
     plexRatingKey: null,
@@ -421,6 +423,7 @@ export async function addSeriesToLibrary(
     // added. Regular seasons are unaffected (still default monitored).
     const monitoredByDefault = s.seasonNumber !== 0;
     const detail = await fetchTmdbSeason(tmdbId, s.seasonNumber);
+    const seasonStatuses = seasonEpisodeStatuses(detail?.episodes ?? []);
     const episodes: LibraryEpisode[] = (detail?.episodes ?? []).map((e) => ({
       seasonNumber: e.seasonNumber,
       episodeNumber: e.episodeNumber,
@@ -429,8 +432,11 @@ export async function addSeriesToLibrary(
       monitored: monitoredByDefault,
       // Unaired episodes start "upcoming" — excluded from every search path
       // until releaseDayTask flips them to "missing" on/after air date.
-      // Same for TBA placeholders with no date at all (episodeStatus).
-      status: episodeStatus(e.airDate, e.title),
+      // Same for TBA placeholders with no date at all (episodeStatus), and
+      // for any later undated episode once an earlier one in the season is
+      // itself upcoming (seasonEpisodeStatuses) — a show can't have aired
+      // episode 6 before episodes 4/5 have.
+      status: seasonStatuses.get(e.episodeNumber) ?? episodeStatus(e.airDate, e.title),
       file: null,
       activeInfoHash: null,
       plexRatingKey: null,
@@ -1741,16 +1747,21 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * episode added before the "upcoming" status existed. The same shared
  * episodeStatus() rule also catches TBA placeholders with no date at all:
  * they flip to "upcoming" on the first pass and are never flipped back (an
- * undated TBA can never "air").
+ * undated TBA can never "air"). seasonEpisodeStatuses() additionally keeps
+ * any later undated episode "upcoming" as long as an earlier one in the same
+ * season still is — without it, this daily pass would flip an episode like
+ * #6 (no date) back to "missing" even though #4/#5 (dated, unaired) haven't
+ * released yet, which can't be true chronologically.
  */
 export function transitionUpcomingEpisodes() {
   const transitioned: string[] = [];
   for (const series of loadSeries()) {
     let changed = false;
     const seasons = series.seasons.map((season) => {
+      const seasonTargets = seasonEpisodeStatuses(season.episodes);
       const episodes = season.episodes.map((ep) => {
         if (ep.status !== "upcoming" && ep.status !== "missing") return ep;
-        const target = episodeStatus(ep.airDate, ep.title);
+        const target = seasonTargets.get(ep.episodeNumber) ?? episodeStatus(ep.airDate, ep.title);
         if (ep.status === "upcoming" && target === "missing") {
           changed = true;
           transitioned.push(`${series.id}.${season.seasonNumber}.${ep.episodeNumber}`);

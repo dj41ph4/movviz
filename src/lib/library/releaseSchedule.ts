@@ -62,6 +62,32 @@ export function episodeStatus(
   return episodeHasAired(airDate, now) ? "missing" : "upcoming";
 }
 
+/**
+ * Season-aware version of episodeStatus(): an undated episode normally
+ * defaults to "missing" (no date isn't evidence the content doesn't exist —
+ * see the file header), but that's wrong once an EARLIER episode in the same
+ * season is itself "upcoming" — a show can't have aired episode 6 before
+ * episode 4/5 have. Any undated episode numbered after the first upcoming
+ * one in the season inherits "upcoming" too, instead of showing as a
+ * searchable "missing" gap. Dated episodes are never overridden by this —
+ * only the "no date at all" case is ambiguous enough to infer from context.
+ */
+export function seasonEpisodeStatuses<T extends { episodeNumber: number; airDate: string | null; title?: string | null }>(
+  episodes: readonly T[],
+  now = Date.now()
+): Map<number, "upcoming" | "missing"> {
+  const sorted = [...episodes].sort((a, b) => a.episodeNumber - b.episodeNumber);
+  const result = new Map<number, "upcoming" | "missing">();
+  let sawUpcoming = false;
+  for (const ep of sorted) {
+    let status = episodeStatus(ep.airDate, ep.title, now);
+    if (status === "missing" && !ep.airDate && sawUpcoming) status = "upcoming";
+    if (status === "upcoming") sawUpcoming = true;
+    result.set(ep.episodeNumber, status);
+  }
+  return result;
+}
+
 /** Whole days between now and a future ISO date — null if the date is unknown/invalid/past. */
 export function daysUntil(date: string | null, now = Date.now()): number | null {
   if (!date) return null;

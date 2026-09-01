@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/auth/guard";
 import { getSeries, updateSeries } from "@/lib/library/store";
 import { getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import type { LibraryEpisode, LibrarySeason } from "@/lib/library/types";
-import { episodeStatus } from "@/lib/library/releaseSchedule";
+import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
@@ -53,6 +53,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   for (const s of meta.seasons) {
     const detail = await fetchTmdbSeason(series.tmdbId, s.seasonNumber);
     const monitoredByDefault = s.seasonNumber !== 0;
+    const seasonStatuses = seasonEpisodeStatuses(detail?.episodes ?? []);
     const episodes: LibraryEpisode[] = (detail?.episodes ?? []).map((e) => {
       const directOld = oldByKey.get(`${s.seasonNumber}-${e.episodeNumber}`);
       const mapping = mapByTarget.get(`${s.seasonNumber}-${e.episodeNumber}`);
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         title: old?.title || e.title,
         airDate: e.airDate,
         monitored: old?.monitored ?? monitoredByDefault,
-        status: old?.status ?? episodeStatus(e.airDate, e.title),
+        status: old?.status ?? seasonStatuses.get(e.episodeNumber) ?? episodeStatus(e.airDate, e.title),
         file: old?.file ?? null,
         activeInfoHash: old?.activeInfoHash ?? null,
         plexRatingKey: old?.plexRatingKey ?? null,

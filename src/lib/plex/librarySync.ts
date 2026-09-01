@@ -9,7 +9,7 @@ import {
 } from "@/lib/library/store";
 import { defaultQualityProfile } from "@/lib/library/qualityProfiles";
 import type { LibraryFile, LibraryFileVersion, LibraryMovie, LibrarySeason, LibraryEpisode } from "@/lib/library/types";
-import { episodeStatus } from "@/lib/library/releaseSchedule";
+import { episodeStatus, seasonEpisodeStatuses } from "@/lib/library/releaseSchedule";
 import { detectFileLanguage } from "@/lib/library/detectLanguage";
 import { getMovie as fetchTmdbMovie, getSeries as fetchTmdbSeries, getSeason as fetchTmdbSeason } from "@/lib/metadata/tmdb";
 import { commonSuffixDepth, splitAtSuffixDepth } from "@/lib/library/pathSuffix";
@@ -431,6 +431,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
         // specials (season 0) start unmonitored, regular seasons unaffected.
         const monitoredByDefault = s.seasonNumber !== 0;
         const detail = await fetchTmdbSeason(show.tmdbId, s.seasonNumber);
+        const seasonStatuses = seasonEpisodeStatuses(detail?.episodes ?? []);
         const eps: LibraryEpisode[] = (detail?.episodes ?? []).map((e) => {
           const plexEp = episodes.find((pe) => pe.seasonNumber === e.seasonNumber && pe.episodeNumber === e.episodeNumber);
           return {
@@ -439,7 +440,7 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
             title: e.title,
             airDate: e.airDate,
             monitored: monitoredByDefault,
-            status: plexEp ? "available" : episodeStatus(e.airDate, e.title),
+            status: plexEp ? "available" : (seasonStatuses.get(e.episodeNumber) ?? episodeStatus(e.airDate, e.title)),
             file: plexEp ? toLibraryFileReconciled(plexEp, null) : null,
             activeInfoHash: null,
             plexRatingKey: plexEp?.ratingKey ?? null,
@@ -502,9 +503,11 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
 
     if (changed || needsLanguageBackfill) {
       const probedEpisodes: { season: number; episode: number; path: string }[] = [];
-      const newSeasons = existing.seasons.map((season) => ({
-        ...season,
-        episodes: season.episodes.map((ep) => {
+      const newSeasons = existing.seasons.map((season) => {
+        const seasonStatuses = seasonEpisodeStatuses(season.episodes);
+        return {
+          ...season,
+          episodes: season.episodes.map((ep) => {
           const plexEp = episodes.find((pe) => pe.seasonNumber === season.seasonNumber && pe.episodeNumber === ep.episodeNumber);
           if (plexEp) {
             if (ep.status !== "available" || !ep.plexRatingKey || (ep.file && ep.file.language === undefined)) {
@@ -531,11 +534,12 @@ async function syncShowSection(cfg: PlexServerConfig, token: string, section: Pl
                 lastLocalValidationAt: Date.now(),
               };
             }
-            return { ...ep, status: episodeStatus(ep.airDate, ep.title), file: null, activeInfoHash: null, plexRatingKey: null };
+            return { ...ep, status: seasonStatuses.get(ep.episodeNumber) ?? episodeStatus(ep.airDate, ep.title), file: null, activeInfoHash: null, plexRatingKey: null };
           }
           return ep;
         }),
-      }));
+        };
+      });
       updateSeries(existing.id, { seasons: newSeasons, plexRatingKey: existing.plexRatingKey ?? show.ratingKey });
       matched++;
       for (const pe of probedEpisodes) probeEpisodeInBackground(existing.id, pe.season, pe.episode, pe.path);
