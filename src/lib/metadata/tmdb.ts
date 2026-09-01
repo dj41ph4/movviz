@@ -422,6 +422,32 @@ export async function getTvRecommendations(tmdbId: number, page = 1): Promise<Pa
   return mapPaged(data, "series");
 }
 
+/** TMDB "similar" for a single movie — `/movie/{id}/similar`, content-based
+ *  rather than the user-behavior-based /recommendations. Kept as a distinct
+ *  export (not merged into getMovieRecommendations) so callers that only
+ *  want the primary set can still get just that. */
+export async function getMovieSimilar(tmdbId: number, page = 1): Promise<PagedResults> {
+  const data = await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>(
+    `/movie/${tmdbId}/similar`,
+    { page: String(page) }
+  );
+  return mapPaged(data, "movie");
+}
+
+/** TMDB "similar" for a single series — `/tv/{id}/similar`. TMDb's TV
+ *  /recommendations dataset is noticeably sparser than movies' (confirmed
+ *  live: "Suggestions pour vous" for séries ran out of replacements after a
+ *  couple of 👎, while films never did) — /similar is content-based (genres/
+ *  keywords) rather than derived from other users' viewing overlap, so it
+ *  has real signal even for a title /recommendations barely covers. */
+export async function getTvSimilar(tmdbId: number, page = 1): Promise<PagedResults> {
+  const data = await tmdbGet<{ results: RawMultiResult[]; page: number; total_pages: number }>(
+    `/tv/${tmdbId}/similar`,
+    { page: String(page) }
+  );
+  return mapPaged(data, "series");
+}
+
 /** Current box-office leaders — real recent releases ranked by revenue, not TMDb's all-time chart. */
 export async function getBoxOffice(page = 1, originCountries?: string[]): Promise<PagedResults> {
   const since = new Date(Date.now() - 45 * 86400000).toISOString().slice(0, 10);

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.35 — September 2026
+
+### "Suggestions pour vous" — séries épuisées trop vite, et pouce vers le haut désormais dynamique aussi
+
+Le catalogue TMDb "recommandations" pour les séries est nettement plus pauvre que celui des films — après quelques 👎, la rangée séries n'avait souvent plus de remplaçant à proposer (la carte disparaissait sans que rien ne prenne sa place), alors que la rangée films ne s'épuisait jamais de la même façon. Une seconde source TMDb ("similaire", basée sur le contenu plutôt que sur les habitudes des autres utilisateurs) vient maintenant compléter la première pour les deux types. Un pouce vers le haut recalcule aussi la rangée maintenant, comme un pouce vers le bas — une note peut faire remonter d'autres titres.
+
 ## v1.24.34 — September 2026
 
 ### Année minimale des carrousels — deux causes distinctes de titres trop anciens

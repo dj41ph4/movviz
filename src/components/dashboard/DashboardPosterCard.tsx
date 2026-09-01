@@ -293,6 +293,12 @@ export function DashboardPosterCard({
       });
       if (!response.ok) throw new Error("rating_failed");
       setLiked(true);
+      // Same reasoning as dislike()'s own revalidation below: a 5★ rating
+      // feeds genre affinity (userContext/taste.ts) which now ranks
+      // "Suggestions pour vous" — the row's ORDER can genuinely change right
+      // after a like, not just after a dislike. Requested explicitly
+      // ("j'aimerai qu'il fasse pareil pour pouce en haut") to match.
+      mutate(`/api/metadata/recommendations?type=${type}`);
     } catch {
       toast("error", t("title.ratingError"));
     } finally {

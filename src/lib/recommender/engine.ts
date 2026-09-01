@@ -1,4 +1,4 @@
-import { getMovieRecommendations, getTvRecommendations, getGenres } from "@/lib/metadata/tmdb";
+import { getMovieRecommendations, getTvRecommendations, getMovieSimilar, getTvSimilar, getGenres } from "@/lib/metadata/tmdb";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { mapWithConcurrency } from "@/lib/concurrency";
@@ -60,8 +60,23 @@ export async function getRecommendations(
     try { return await fetchFn(id); } catch { return null; }
   });
 
+  // TMDb's TV /recommendations dataset (derived from OTHER users' viewing
+  // overlap) is noticeably sparser than movies' — confirmed live: this row
+  // ran out of replacements after a couple of 👎 for séries, while films
+  // never did, even though the same dislike-exclusion (above) applies
+  // equally to both. /similar is content-based (genres/keywords) rather
+  // than behavior-based, so it has real signal even for a title
+  // /recommendations barely covers, and is a legitimate SECOND vote toward
+  // the same candidate — merged into the identical counting loop below
+  // rather than kept separate, so a title both engines agree on still
+  // ranks higher than one only one of them suggested.
+  const similarFn = type === "movie" ? getMovieSimilar : getTvSimilar;
+  const similarResults = await mapWithConcurrency(seeds, 5, async (id) => {
+    try { return await similarFn(id); } catch { return null; }
+  });
+
   const score = new Map<number, { item: MetaSearchResult; count: number }>();
-  for (const r of results) {
+  for (const r of [...results, ...similarResults]) {
     if (!r) continue;
     for (const item of r.results) {
       if (excluded.has(item.tmdbId)) continue;
