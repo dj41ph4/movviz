@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.31 — September 2026
+
+### "Créer le contexte" (profil) ignorait les notes et l'affinité de genre calculée
+
+Le bouton "Créer/Régénérer le contexte" du profil synchronisait déjà la bibliothèque vers le journal SQL en arrière-plan, mais le texte réellement envoyé à l'IA pour synthétiser le contexte n'incluait ni les notes 1-5 étoiles, ni l'affinité de genre déjà calculée (vues, votes, notes, demandes) — seulement les titres vus, les demandes et les votes 👍/👎 bruts. Les deux manquent désormais à l'appel, aussi bien pour la reconstruction manuelle que pour la mise à jour automatique en arrière-plan (qui se déclenche maintenant aussi sur une nouvelle note, pas seulement une vue/demande/vote).
+
 ## v1.24.30 — September 2026
 
 ### Cliquer sur Profil ramenait vers une recherche avec le nom d'utilisateur

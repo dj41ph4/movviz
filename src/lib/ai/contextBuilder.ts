@@ -1,6 +1,6 @@
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadRequests } from "@/lib/requests/store";
-import { getFeedback, getFacts, getContextProfile, saveContextInsights } from "@/lib/ai/tasteProfile";
+import { getFeedback, getFacts, getContextProfile, saveContextInsights, getAllRatings } from "@/lib/ai/tasteProfile";
 import { buildUsageProfile } from "@/lib/ai/profile";
 import { callAi } from "@/lib/ai/providers";
 import { loadAiConfig } from "@/lib/ai/store";
@@ -60,6 +60,24 @@ function buildAnalysisInput(userId: string, existingInsights: string[]): string 
     if (disliked.length) parts.push(`Recommandations rejetées : ${disliked.join(", ")}`);
   }
   if (facts.length) parts.push(`Faits déjà connus (conversation) : ${facts.map((f) => f.fact).join(" ; ")}`);
+  // Ratings (1-5 étoiles) — signal plus riche que le simple 👍/👎 ("une note
+  // ne dit pas seulement SI un titre a plu, mais À QUEL POINT", même
+  // logique que buildRatingsContext/tasteProfile.ts), jusqu'ici absent de
+  // cette synthèse alors que le panneau profil l'affiche déjà (usage
+  // ratings) — confirmé en direct : ce bouton doit prendre en compte TOUT
+  // ce que le moteur de contexte sait, pas un sous-ensemble.
+  const ratings = getAllRatings(userId);
+  if (ratings.length) {
+    const loved = ratings.filter((r) => r.rating >= 4).map((r) => `${r.title} (${r.rating}/5)`);
+    const disliked = ratings.filter((r) => r.rating <= 2).map((r) => `${r.title} (${r.rating}/5)`);
+    if (loved.length) parts.push(`Notes hautes (1-5 étoiles) : ${loved.join(", ")}`);
+    if (disliked.length) parts.push(`Notes basses (1-5 étoiles) : ${disliked.join(", ")}`);
+  }
+  // Affinité de genre calculée (userContext/taste.ts) — inclut désormais les
+  // vues (fiches ouvertes) en plus des vues/notes/votes/demandes, le seul
+  // endroit qui agrège TOUT le signal en une phrase déjà pondérée plutôt que
+  // de faire deviner le pattern au modèle à partir des listes brutes ci-dessus.
+  if (usage.tasteEvidenceContext) parts.push(`Affinité de genre déjà calculée (vues, notes, votes, demandes) : ${usage.tasteEvidenceContext}`);
   if (existingInsights.length) parts.push(`Insights déjà établis (ne pas répéter à l'identique) : ${existingInsights.join(" ; ")}`);
   return parts.join("\n");
 }
@@ -147,7 +165,8 @@ export function isIncrementalContextDue(userId: string): boolean {
   const newWatched = (watch?.recent ?? []).filter((r) => r.at > context.builtAt).length;
   const newRequests = loadRequests().filter((r) => r.userId === userId && r.createdAt > context.builtAt).length;
   const newFeedback = getFeedback(userId).filter((f) => f.at > context.builtAt).length;
-  return newWatched + newRequests + newFeedback >= INCREMENTAL_MIN_NEW_ACTIVITY;
+  const newRatings = getAllRatings(userId).filter((r) => r.updatedAt > context.builtAt).length;
+  return newWatched + newRequests + newFeedback + newRatings >= INCREMENTAL_MIN_NEW_ACTIVITY;
 }
 
 /**
