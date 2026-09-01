@@ -4,7 +4,7 @@ import Link from "next/link";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 import { Star, Film, Tv, Play, Plus, ThumbsUp, ThumbsDown, ChevronDown, Loader2, Clock3, RotateCcw, Eye, X, Volume2 } from "lucide-react";
 import { CardMenu, MenuItem } from "@/components/ui/CardMenu";
 import { cn, openPlexLink } from "@/lib/utils";
@@ -185,6 +185,7 @@ export function DashboardPosterCard({
   onRemoveFromResume?: () => void | Promise<void>;
 }) {
   const { t, locale } = useI18n();
+  const { mutate } = useSWRConfig();
   const { enabled: betaPlayer } = useBetaPlayer();
   const { enabled: videoPreviewEnabled } = useTitlePageVideo();
   const { play } = usePlayer();
@@ -318,6 +319,13 @@ export function DashboardPosterCard({
       });
       if (!response.ok) throw new Error("feedback_failed");
       setDismissed(true);
+      // Recalcule la rangée "Suggestions pour vous" côté serveur (l'engine
+      // exclut désormais ce tmdbId, voir recommender/engine.ts) plutôt que
+      // de laisser un simple trou : un autre titre glisse dynamiquement à sa
+      // place, comme si le retrait avait toujours été prévu. Sans revalidation,
+      // le titre disparaissait juste de CETTE carte (state local `dismissed`)
+      // et ne revenait jamais remplacé tant que le cache SWR n'expirait pas.
+      mutate(`/api/metadata/recommendations?type=${type}`);
     } catch {
       toast("error", t("title.ratingError"));
     } finally {

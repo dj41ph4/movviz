@@ -5,6 +5,7 @@ import { mapWithConcurrency } from "@/lib/concurrency";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
+import { getFeedback } from "@/lib/ai/tasteProfile";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
 // Strictly per-account: this row is built ONLY from the target account's own
@@ -30,7 +31,18 @@ export async function getRecommendations(
 
   if (watched.length === 0) return [];
 
-  const excluded = new Set<number>([...watched, ...owned]);
+  // "Mauvaise recommandation" (👎 sur une carte de cette rangée) recorded a
+  // feedback entry but this engine never read it back — the same title kept
+  // resurfacing here indefinitely, even though the AI chat's own ranking
+  // (recommendationScore.ts) already hard-excludes it via this exact log.
+  // Only tmdbId+type is used here (never the reason/mood-similarity terms
+  // recommendationScore.ts also applies) — this row has no LLM-authored
+  // "reason" per candidate to compare against, just a flat exclude list.
+  const dislikedTmdbIds = new Set(
+    getFeedback(userId).filter((f) => !f.liked && f.type === type).map((f) => f.tmdbId)
+  );
+
+  const excluded = new Set<number>([...watched, ...owned, ...dislikedTmdbIds]);
   const seeds = watched.slice(0, 25);
 
   const fetchFn = type === "movie" ? getMovieRecommendations : getTvRecommendations;

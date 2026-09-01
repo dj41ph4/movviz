@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.27 — September 2026
+
+### "Mauvaise recommandation" n'excluait pas le titre des suggestions, et ne recalculait pas la rangée
+
+Le bouton 👎 sur une carte "Suggestions pour vous" enregistrait bien le retour, mais le moteur derrière cette rangée (recommender/engine.ts, distinct de celui utilisé par l'IA en conversation) ne consultait jamais ce journal — le même titre pouvait ressortir indéfiniment. Il exclut désormais tout titre précédemment noté 👎. La carte disparaît aussi immédiatement de la rangée, mais la liste n'était jusqu'ici jamais recalculée derrière : un simple trou à la place, jamais remplacé avant expiration du cache. Le retrait déclenche maintenant une revalidation de la rangée, qui glisse dynamiquement un autre titre à sa place.
+
 ## v1.24.26 — August 2026
 
 ### Android mobile — refonte façon TV, ajout en un tap, mise à jour automatique
