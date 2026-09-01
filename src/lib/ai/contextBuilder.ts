@@ -34,9 +34,9 @@ RÈGLES :
 - Ne te contente jamais de reformuler un fait déjà donné tel quel (ex. ne redis pas juste "a regardé Le Seigneur des Anneaux") — dégage un vrai PATTERN qui ressort de PLUSIEURS éléments.
 - Si des "insights déjà établis" sont fournis, ne les recopie pas à l'identique : soit tu les retrouves avec un trend "stable"/"en_baisse" ajusté, soit tu n'en parles pas et tu te concentres sur ce qui est vraiment nouveau.`;
 
-function buildAnalysisInput(userId: string, existingInsights: string[]): string {
+async function buildAnalysisInput(userId: string, existingInsights: string[]): Promise<string> {
   const watch = getWatchStatus(userId);
-  const usage = buildUsageProfile(userId);
+  const usage = await buildUsageProfile(userId);
   const requests = loadRequests().filter((r) => r.userId === userId);
   const feedback = getFeedback(userId);
   const facts = getFacts(userId);
@@ -113,7 +113,7 @@ async function synthesize(config: AiConfig, userId: string, source: "bootstrap" 
   if (!config.enabled) return null;
   try {
     const existing = source === "incremental" ? (getContextProfile(userId)?.insights.map((i) => i.text) ?? []) : [];
-    const input = buildAnalysisInput(userId, existing);
+    const input = await buildAnalysisInput(userId, existing);
     if (!input.trim()) return null; // nothing real to analyze yet
     const { text } = await callAi(config, CONTEXT_SYSTEM_PROMPT, [{ role: "user", content: input }]);
     const json = extractJsonObject(text);

@@ -35,7 +35,7 @@ async function maybeSendProactiveNudge(userId: string, username: string): Promis
   try {
     const userContext = buildUserContext(userId);
     const memoryContext = buildMemoryContext(userId);
-    const usageContext = formatUsageProfile(buildUsageProfile(userId));
+    const usageContext = formatUsageProfile(await buildUsageProfile(userId));
     const feedbackContext = buildFeedbackContext(userId);
     const factsContext = buildFactsContext(userId);
     const contextInsightsContext = buildContextInsightsSection(userId);

@@ -57,7 +57,7 @@ export interface UsageProfile {
  *  view of "who this user is" is numbers and facts computed from the
  *  user's own activity (watch status, requests, AI memory), never guesses.
  *  Strictly per-user: every source is filtered by userId. */
-export function buildUsageProfile(userId: string): UsageProfile {
+export async function buildUsageProfile(userId: string): Promise<UsageProfile> {
   // Best-effort, idempotent mirror of the legacy stores into the unified
   // Context Engine. It never blocks this read path when SQLite is unavailable
   // and it never invents historical dates for legacy watched flags.
@@ -86,7 +86,7 @@ export function buildUsageProfile(userId: string): UsageProfile {
   const watchesLast30Days = recent.filter((r) => now - r.at <= 30 * DAY_MS).length;
   const verifiedContext = formatUnifiedUserContext(buildUnifiedUserContextSnapshot(userId));
   const verifiedWatchHistory = formatUserWatchHistory(userId, 30);
-  const tasteEvidenceContext = formatTasteEvidenceContext(userId, 5);
+  const tasteEvidenceContext = await formatTasteEvidenceContext(userId, 5);
   const explicitPreferencesContext = formatExplicitPreferencesContext(userId, 12);
 
   return {

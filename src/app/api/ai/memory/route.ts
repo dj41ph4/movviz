@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     added: memory.added.slice(-5).reverse(),
     accepted: memory.accepted.slice(-5).reverse(),
-    usage: buildUsageProfile(user.id),
+    usage: await buildUsageProfile(user.id),
   });
 }
 

@@ -1,5 +1,7 @@
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { getWatchStatus } from "@/lib/plex/watchStore";
+import { getDetail } from "@/lib/metadata/tmdb";
+import { mapWithConcurrency } from "@/lib/concurrency";
 import { getUnifiedUserKnowledge } from "./knowledge";
 import { getRecentViewedTitles } from "./query";
 
@@ -9,7 +11,7 @@ export interface EvidenceTasteTrait {
   confidence: number;
   evidenceCount: number;
   strength: number;
-  source: "computed_genre" | "context_insight" | "explicit_fact";
+  source: "computed_genre" | "computed_person" | "context_insight" | "explicit_fact";
 }
 
 /** Best matching computed-genre trait's strength×confidence for a set of
@@ -171,6 +173,116 @@ export function getComputedGenreTraits(userId: string, limit = 5): EvidenceTaste
     .slice(0, Math.max(1, Math.min(10, limit)));
 }
 
+interface PersonEvidence {
+  id: number;
+  name: string;
+  role: "cast" | "director";
+  works: Set<string>;
+  positiveCount: number;
+  negativeCount: number;
+}
+
+// Only the lead cast counts — a background extra in a loved film shouldn't
+// register the same as its star. TMDb's own cast array is already sorted by
+// billing order.
+const PERSON_CAST_TOP_N = 6;
+// Bounded cost: fetching getDetail() per title is one TMDb call each (cached
+// after the first time — see tmdbGet's own cache layer), but this runs on
+// every taste computation, so the SOURCE list itself must stay small. Rated/
+// liked titles are naturally a small, curated subset of a user's full watch
+// history (this user: 91 watched movies, but far fewer explicitly rated) —
+// unlike getComputedGenreTraits, which is free (genres already live on the
+// local library item, no fetch needed at all).
+const PERSON_DETAIL_FETCH_LIMIT = 40;
+const PERSON_CACHE_TTL_MS = 60 * 60 * 1000;
+
+const personTraitCache = new Map<string, { traits: EvidenceTasteTrait[]; expiresAt: number }>();
+
+/** Called right after a new rating/feedback is recorded (tasteProfile.ts) —
+ *  without this, a stale cache computed BEFORE a "j'adore Jim Carrey"-style
+ *  rating could keep hiding that exact trait for up to PERSON_CACHE_TTL_MS,
+ *  confirmed live as the scenario actually being tested. */
+export function invalidatePersonTraitCache(userId: string): void {
+  personTraitCache.delete(userId);
+}
+
+/**
+ * Actor/director affinity — the counterpart to getComputedGenreTraits for
+ * "j'adore Jim Carrey" (confirmed live: rating two of his films 5/5 alone
+ * did nothing for his OTHER films — genre affinity only sees "Comédie",
+ * nothing ties the two ratings to the person himself). Sourced from rated
+ * (≥4, or ≤2 for the negative side) and 👍/👎'd titles only — the same
+ * "explicit, curated signal" restraint recommendationScore.ts's own
+ * dislikedExactKeys/tasteVector already apply, not the full watch history
+ * (which has no cast data locally and would mean dozens of TMDb fetches on
+ * every computation). Cached per user for PERSON_CACHE_TTL_MS since this is
+ * the one trait source here that actually costs network calls.
+ */
+export async function getComputedPersonTraits(userId: string, limit = 5): Promise<EvidenceTasteTrait[]> {
+  const cached = personTraitCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.traits.slice(0, limit);
+
+  const knowledge = getUnifiedUserKnowledge(userId);
+  const sentiment = new Map<string, { tmdbId: number; type: "movie" | "series"; positive: boolean }>();
+  for (const r of knowledge.ratings) {
+    if (r.rating === 3) continue;
+    sentiment.set(`${r.type}:${r.tmdbId}`, { tmdbId: r.tmdbId, type: r.type, positive: r.rating >= 4 });
+  }
+  for (const f of knowledge.feedback) {
+    const key = `${f.type}:${f.tmdbId}`;
+    if (!sentiment.has(key)) sentiment.set(key, { tmdbId: f.tmdbId, type: f.type, positive: f.liked });
+  }
+
+  const targets = [...sentiment.values()].slice(0, PERSON_DETAIL_FETCH_LIMIT);
+  const people = new Map<string, PersonEvidence>();
+
+  await mapWithConcurrency(targets, 4, async (target) => {
+    const detail = await getDetail(target.type, target.tmdbId).catch(() => null);
+    if (!detail) return;
+    const workKey = `${target.type}:${target.tmdbId}`;
+    const credit = (id: number, name: string, role: "cast" | "director") => {
+      const key = `${role === "director" ? "director" : "cast"}:${id}`;
+      let evidence = people.get(key);
+      if (!evidence) {
+        evidence = { id, name, role, works: new Set(), positiveCount: 0, negativeCount: 0 };
+        people.set(key, evidence);
+      }
+      evidence.works.add(workKey);
+      if (target.positive) evidence.positiveCount += 1; else evidence.negativeCount += 1;
+    };
+    for (const c of detail.cast.slice(0, PERSON_CAST_TOP_N)) credit(c.id, c.name, "cast");
+    for (const c of detail.crew) if (c.job === "Director") credit(c.id, c.name, "director");
+  });
+
+  const traits = [...people.values()]
+    .map((evidence): EvidenceTasteTrait | null => {
+      // A single shared title is too weak to call a "favorite actor" — needs
+      // to recur, or show up alongside at least one other positive signal.
+      if (evidence.works.size < 2 && evidence.positiveCount < 2) return null;
+      const net = evidence.positiveCount - evidence.negativeCount;
+      if (net <= 0) return null;
+      const strength = Math.max(0, Math.min(1, 0.35 + evidence.works.size * 0.18 + net * 0.05));
+      const confidence = Math.max(0.5, Math.min(0.95, 0.5 + Math.min(0.3, evidence.works.size * 0.08) + Math.min(0.1, net * 0.02)));
+      const label = evidence.role === "director"
+        ? `apprécie les films réalisés par ${evidence.name} (${evidence.works.size} vu${evidence.works.size > 1 ? "s" : ""}/noté${evidence.works.size > 1 ? "s" : ""})`
+        : `apprécie particulièrement ${evidence.name} comme acteur/actrice (${evidence.works.size} film${evidence.works.size > 1 ? "s" : ""}/série${evidence.works.size > 1 ? "s" : ""} bien noté${evidence.works.size > 1 ? "s" : ""})`;
+      return {
+        key: `person:${evidence.role}:${evidence.id}`,
+        label,
+        confidence,
+        evidenceCount: evidence.works.size,
+        strength,
+        source: "computed_person",
+      };
+    })
+    .filter((trait): trait is EvidenceTasteTrait => trait !== null)
+    .sort((a, b) => (b.strength * b.confidence) - (a.strength * a.confidence) || b.evidenceCount - a.evidenceCount)
+    .slice(0, 10);
+
+  personTraitCache.set(userId, { traits, expiresAt: Date.now() + PERSON_CACHE_TTL_MS });
+  return traits.slice(0, limit);
+}
+
 const EXPLICIT_PREFERENCE_RE = /\b(?:adore|aime|pr[ée]f[èe]re|fan|d[ée]teste|n['’ ]aime pas|pr[ée]f[ée]rence forte|mettrais?\s+[1-5]\s*\/\s*5|m[ée]rite\s+[1-5]\s*\/\s*5)\b/i;
 
 /**
@@ -178,7 +290,7 @@ const EXPLICIT_PREFERENCE_RE = /\b(?:adore|aime|pr[ée]f[èe]re|fan|d[ée]teste|
  * No joke text is generated here: this only supplies evidence-backed facts
  * or tendencies. Personality remains the Dialogue Engine's responsibility.
  */
-export function getBanterTraits(userId: string, limit = 5): EvidenceTasteTrait[] {
+export async function getBanterTraits(userId: string, limit = 5): Promise<EvidenceTasteTrait[]> {
   const knowledge = getUnifiedUserKnowledge(userId);
   const traits: EvidenceTasteTrait[] = [];
 
@@ -207,6 +319,7 @@ export function getBanterTraits(userId: string, limit = 5): EvidenceTasteTrait[]
   }
 
   traits.push(...getComputedGenreTraits(userId, 6));
+  traits.push(...(await getComputedPersonTraits(userId, 4)));
 
   const seen = new Set<string>();
   return traits
@@ -224,8 +337,8 @@ export function getBanterTraits(userId: string, limit = 5): EvidenceTasteTrait[]
     .slice(0, Math.max(1, Math.min(8, limit)));
 }
 
-export function formatTasteEvidenceContext(userId: string, limit = 5): string {
-  const traits = getBanterTraits(userId, limit);
+export async function formatTasteEvidenceContext(userId: string, limit = 5): Promise<string> {
+  const traits = await getBanterTraits(userId, limit);
   if (!traits.length) return "";
   return traits.map((trait) => `${trait.label} [confiance ${Math.round(trait.confidence * 100)}%, preuves ${trait.evidenceCount}, source ${trait.source}]`).join(" ; ");
 }

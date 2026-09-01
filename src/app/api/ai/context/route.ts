@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const feedback = getFeedback(user.id);
   const liked = feedback.filter((f) => f.liked).slice(-8).map((f) => ({ tmdbId: f.tmdbId, type: f.type, title: f.title, reason: f.reason ?? null }));
   const disliked = feedback.filter((f) => !f.liked).slice(-8).map((f) => ({ tmdbId: f.tmdbId, type: f.type, title: f.title, reason: f.reason ?? null }));
-  const usage = buildUsageProfile(user.id);
+  const usage = await buildUsageProfile(user.id);
   const context = getContextProfile(user.id);
   const ratings = getAllRatings(user.id)
     .sort((a, b) => b.updatedAt - a.updatedAt)

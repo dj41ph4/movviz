@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.36 — September 2026
+
+### Nouvelle affinité par acteur/réalisateur — "j'adore Jim Carrey" compte enfin pour lui-même
+
+L'affinité de genre calculée (vues, notes, votes, demandes) ne relie jamais un titre noté à SES INTERPRÈTES — noter deux films de Jim Carrey 5/5 renforçait seulement "Comédie" en général, rien ne rapprochait ses AUTRES films entre eux. Une nouvelle affinité par acteur/réalisateur, construite à partir des titres explicitement notés ou votés 👍/👎 (jamais tout l'historique de vues, pour rester rapide), vient compléter le genre : "apprécie particulièrement Jim Carrey comme acteur" devient un fait que l'IA connaît directement et peut réutiliser pour proposer ses autres films. Alimente pour l'instant la conversation avec l'IA (génération de recommandations et bouton "Créer le contexte"), pas encore le classement TMDb pur de "Suggestions pour vous".
+
 ## v1.24.35 — September 2026
 
 ### "Suggestions pour vous" — séries épuisées trop vite, et pouce vers le haut désormais dynamique aussi

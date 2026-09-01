@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { getAllRatings, getRating, setRating } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
+import { invalidatePersonTraitCache } from "@/lib/userContext/taste";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +48,7 @@ export async function PUT(req: NextRequest) {
   if (!Number.isInteger(rating) || rating < 1 || rating > 5) return NextResponse.json({ error: "invalid_rating" }, { status: 400 });
 
   const updated = setRating(user.id, { tmdbId, type, title, rating, source: "explicit", confidence: 1 });
+  invalidatePersonTraitCache(user.id);
   // Additive write-path, same fire-and-forget pattern used at every other
   // producer of real activity (watch/toggle, ai/watched, ai/feedback,
   // netflix import) — a rating is exactly the kind of signal the

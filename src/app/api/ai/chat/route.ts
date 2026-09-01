@@ -13,6 +13,7 @@ import { scoreCandidates, isSeriesFullyWatched, type MoodContext, type Franchise
 import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
 import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
 import { getMovie, getSeries, getDetail, getCollection, searchMulti, searchPerson, getPerson, getGenres } from "@/lib/metadata/tmdb";
+import { invalidatePersonTraitCache } from "@/lib/userContext/taste";
 import { resolveTitleAgainstTmdb } from "@/lib/metadata/resolveTitle";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
@@ -143,6 +144,7 @@ export async function POST(req: NextRequest) {
             rating: explicitTasteRating.stars, source: "explicit", confidence: 1,
             opinion: "note explicite donnée en conversation",
           });
+          invalidatePersonTraitCache(user.id);
           triggerIncrementalContextIfDue(user.id).catch(() => {});
         } else {
           // Still valuable for taste even when TMDb cannot resolve a typo or
@@ -171,7 +173,7 @@ export async function POST(req: NextRequest) {
 
   const userContext = buildUserContext(user.id);
   const memoryContext = buildMemoryContext(user.id);
-  const usageContext = formatUsageProfile(buildUsageProfile(user.id));
+  const usageContext = formatUsageProfile(await buildUsageProfile(user.id));
   const feedbackContext = buildFeedbackContext(user.id);
   const factsContext = buildFactsContext(user.id);
   const contextInsightsContext = buildContextInsightsSection(user.id);
@@ -830,6 +832,7 @@ export async function POST(req: NextRequest) {
           tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title,
           rating: r.stars, source: "inferred", confidence: 0.6, opinion: r.opinion,
         });
+        invalidatePersonTraitCache(user.id);
         appliedRatings.push({ title: resolved.title, stars: r.stars });
         // Same fire-and-forget pattern as every other real-activity
         // producer (watch/toggle, ai/watched, ai/feedback, netflix import,
@@ -959,6 +962,7 @@ export async function POST(req: NextRequest) {
                 tmdbId: resolved.tmdbId, type: resolved.type, title: resolved.title,
                 rating: r.stars, source: "inferred", confidence: 0.6, opinion: r.opinion,
               });
+              invalidatePersonTraitCache(user.id);
               if (!appliedRatings.some((a) => a.title === resolved.title)) {
                 appliedRatings.push({ title: resolved.title, stars: r.stars });
               }
