@@ -4,6 +4,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Auto-update (même mécanisme que la version TV) : demande
+         l'autorisation "installer des applications inconnues" puis installe
+         l'APK de la dernière release GitHub via PackageInstaller/ACTION_VIEW. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <application
         android:name=".MovvizMobileApplication"
         android:theme="@style/Theme.MovvizMobile"
@@ -36,6 +40,29 @@
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
+
+        <!-- Partage de l'APK téléchargé (cache/update) avec l'installeur
+             système — authority suivant l'applicationId, comme la TV. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!-- Auto-update : une fois l'installation (PackageInstaller) terminée,
+             le process est tué puis le système envoie MY_PACKAGE_REPLACED à la
+             NOUVELLE version — ce receiver relance alors MainActivity. -->
+        <receiver
+            android:name=".update.UpdateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>
 

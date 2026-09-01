@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.26 — August 2026
+
+### Android mobile — refonte façon TV, ajout en un tap, mise à jour automatique
+
+Le client smartphone reprend les mêmes principes que la refonte récente de la version TV. Le placeholder "Ma liste" (jamais implémenté) devient un vrai onglet Bibliothèque : la bibliothèque complète en grille, triable par nom/note/année et filtrable par genre, avec un sélecteur Films/Séries — Découverte reste l'écran pour trouver du contenu à ajouter. Le bouton "Ajouter" de la carte à la une de l'Accueil se contentait jusqu'ici de rouvrir la fiche du titre (il fallait un second tap là-bas pour ajouter réellement) ; il ajoute maintenant directement à la bibliothèque en un tap, comme le fait déjà chaque carte de Découverte. La recherche affiche désormais le même bouton dynamique sur chaque résultat, pour ajouter sans passer par la fiche. Enfin, le client mobile reçoit le même mécanisme de mise à jour automatique que la TV (vérification au lancement contre la dernière release GitHub, téléchargement vérifié par SHA-256, installation en arrière-plan avec repli sur l'installeur système), réglable et vérifiable manuellement depuis Profil.
+
 ## v1.24.25 — August 2026
 
 ### Épisodes sans date — plus de "Manquant" après un épisode déjà annoncé "À venir"

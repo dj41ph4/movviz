@@ -37,6 +37,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.movviz.mobile.MobileViewModel
+import com.movviz.mobile.ui.CardLibState
+import com.movviz.mobile.ui.StatusButton
+import com.movviz.mobile.ui.cardLibState
 import com.movviz.mobile.ui.theme.MovvizAmber
 import com.movviz.mobile.ui.theme.MovvizBrand
 import com.movviz.mobile.ui.theme.MovvizBrand2
@@ -55,25 +58,6 @@ import kotlinx.coroutines.launch
 private const val BACKDROP_SM = "https://image.tmdb.org/t/p/w300"
 private const val POSTER_SM = "https://image.tmdb.org/t/p/w154"
 private val CardShape = RoundedCornerShape(16.dp)
-
-/** Per-card library state — mirrors the exact statuses already handled by
- *  DetailScreen (MainActivity.kt) so a Discover card's button reads exactly
- *  like the rest of the app: movies carry a real server status, series only
- *  ever expose in-library or not (see LibrarySeriesDto's doc comment in
- *  ApiModels.kt — no per-series status field exists server-side). */
-private sealed interface CardLibState {
-    data object NotInLibrary : CardLibState
-    data class Movie(val status: String) : CardLibState
-    data object SeriesInLibrary : CardLibState
-}
-
-private fun cardLibState(result: DiscoverResultDto, movies: List<LibraryMovieDto>, series: List<LibrarySeriesDto>): CardLibState {
-    return if (result.type == "movie") {
-        movies.firstOrNull { it.tmdbId == result.tmdbId }?.let { CardLibState.Movie(it.status) } ?: CardLibState.NotInLibrary
-    } else {
-        if (series.any { it.tmdbId == result.tmdbId }) CardLibState.SeriesInLibrary else CardLibState.NotInLibrary
-    }
-}
 
 /** "Dans la lignée de {title}" / "Puisque {title} vous a plu" for a
  *  becauseYouWatched:{anchorTmdbId} row, exact wording from fr.ts
@@ -369,7 +353,7 @@ private fun PosterRowSection(
         LazyRow(contentPadding = PaddingValues(start = 20.dp, end = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(row.results, key = { "${it.type}:${it.tmdbId}" }) { r ->
                 DiscoverPosterCard(
-                    result = r, libState = cardLibState(r, moviesState, seriesState), vm = vm,
+                    result = r, libState = cardLibState(r.type, r.tmdbId, moviesState, seriesState), vm = vm,
                     modifier = Modifier.width(200.dp),
                     onClick = { onTitleClick(r.type, r.tmdbId) },
                 )
@@ -388,7 +372,7 @@ private fun RankedRowSection(
         Spacer(Modifier.height(10.dp))
         Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             row.results.take(10).forEachIndexed { i, r ->
-                RankedRowItem(rank = i + 1, result = r, libState = cardLibState(r, moviesState, seriesState), vm = vm, onClick = { onTitleClick(r.type, r.tmdbId) })
+                RankedRowItem(rank = i + 1, result = r, libState = cardLibState(r.type, r.tmdbId, moviesState, seriesState), vm = vm, onClick = { onTitleClick(r.type, r.tmdbId) })
             }
         }
     }
@@ -408,7 +392,7 @@ private fun RankedRowItem(rank: Int, result: DiscoverResultDto, libState: CardLi
             Text(result.title, color = MovvizInk, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (result.rating > 0) Text("★ ${"%.1f".format(result.rating)}", color = MovvizAmber, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
         }
-        StatusButton(libState = libState, size = 30.dp, result = result, vm = vm)
+        StatusButton(libState = libState, size = 30.dp, type = result.type, tmdbId = result.tmdbId, vm = vm)
     }
 }
 
@@ -444,7 +428,7 @@ private fun DiscoverBrowseGrid(
             ) {
                 items(results, key = { "${it.type}:${it.tmdbId}" }) { r ->
                     DiscoverPosterCard(
-                        result = r, libState = cardLibState(r, moviesState, seriesState), vm = vm,
+                        result = r, libState = cardLibState(r.type, r.tmdbId, moviesState, seriesState), vm = vm,
                         modifier = Modifier.fillMaxWidth(),
                         onClick = { onTitleClick(r.type, r.tmdbId) },
                     )
@@ -493,55 +477,10 @@ private fun DiscoverPosterCard(result: DiscoverResultDto, libState: CardLibState
                 result.title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 8.dp, end = 40.dp, bottom = 8.dp),
             )
-            Box(Modifier.align(Alignment.BottomEnd).padding(6.dp)) { StatusButton(libState, 32.dp, result, vm) }
+            Box(Modifier.align(Alignment.BottomEnd).padding(6.dp)) { StatusButton(libState, 32.dp, result.type, result.tmdbId, vm) }
         }
         Spacer(Modifier.height(4.dp))
         Text(result.year?.toString() ?: "—", color = MovvizInkDim, fontSize = 11.sp, modifier = Modifier.padding(start = 2.dp))
     }
 }
 
-/** The one "dynamic button" every Discover card carries — reflects real
- *  library state live (StateFlow-driven from MobileViewModel.movies/series,
- *  same source DetailScreen already uses) and updates itself the instant
- *  vm.addToLibrary()'s own optimistic/polling logic changes that state —
- *  never a static icon. */
-@Composable
-private fun StatusButton(libState: CardLibState, size: androidx.compose.ui.unit.Dp, result: DiscoverResultDto, vm: MobileViewModel) {
-    val scope = rememberCoroutineScope()
-    var addingLocal by remember(result.tmdbId, result.type) { mutableStateOf(false) }
-    val haptic = LocalHapticFeedback.current
-
-    // Triple's first slot is a Brush in every branch (SolidColor wraps a
-    // flat color as one) so a single background(bg) call below covers both
-    // the not-in-library brand-gradient and the flat per-status colors —
-    // mixing a Color? and a Brush in one expression doesn't type-check.
-    val (bg, icon, spin) = when (libState) {
-        CardLibState.NotInLibrary -> Triple(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), Icons.Rounded.Add, false)
-        is CardLibState.Movie -> when (libState.status) {
-            "available" -> Triple(SolidColor(MovvizCyan.copy(alpha = 0.9f)), Icons.Rounded.Check, false)
-            "downloading", "searching" -> Triple(SolidColor(MovvizBrandGlow.copy(alpha = 0.9f)), Icons.Rounded.Refresh, true)
-            "missing" -> Triple(SolidColor(MovvizDown.copy(alpha = 0.9f)), Icons.Rounded.Schedule, false)
-            "upcoming" -> Triple(SolidColor(MovvizAmber.copy(alpha = 0.9f)), Icons.Rounded.EventAvailable, false)
-            else -> Triple(SolidColor(MovvizInkDim.copy(alpha = 0.9f)), Icons.Rounded.Check, false)
-        }
-        CardLibState.SeriesInLibrary -> Triple(SolidColor(MovvizCyan.copy(alpha = 0.9f)), Icons.Rounded.Check, false)
-    }
-    val clickable = libState is CardLibState.NotInLibrary && !addingLocal
-
-    Box(
-        Modifier.size(size).clip(CircleShape)
-            .background(bg)
-            .clickable(enabled = clickable) {
-                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                addingLocal = true
-                scope.launch { vm.addToLibrary(result.type, result.tmdbId); addingLocal = false }
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        if (addingLocal || spin) {
-            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(size * 0.5f), strokeWidth = 2.dp)
-        } else {
-            Icon(icon, null, tint = Color.White, modifier = Modifier.size(size * 0.55f))
-        }
-    }
-}

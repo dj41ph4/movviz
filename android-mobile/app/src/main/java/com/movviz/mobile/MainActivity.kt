@@ -98,6 +98,18 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     private val _searchingSeason = MutableStateFlow<Int?>(null); val searchingSeason = _searchingSeason.asStateFlow()
     private val _profiles = MutableStateFlow<List<TvProfile>>(emptyList()); val profiles = _profiles.asStateFlow()
     private val _currentUser = MutableStateFlow<MovvizUserDto?>(null); val currentUser = _currentUser.asStateFlow()
+    // Auto-update — même relais StateFlow que la TV (AppViewModel.kt) :
+    // AutoUpdateOverlay observe autoUpdateEnabled/updateCheckTrigger, le
+    // toggle Réglages appelle setAutoUpdateEnabled, "Vérifier les mises à
+    // jour" appelle requestUpdateCheck. Persisté via ServerPrefs (module
+    // partagé com.movviz.tv.data) — même clé DataStore, stockage propre à
+    // chaque app installée (pas de conflit entre TV et mobile).
+    val autoUpdateEnabled: StateFlow<Boolean> = prefs.autoUpdateEnabled.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, true)
+    fun setAutoUpdateEnabled(enabled: Boolean) { viewModelScope.launch { prefs.setAutoUpdateEnabled(enabled) } }
+    private val _updateCheckTrigger = MutableStateFlow(0); val updateCheckTrigger = _updateCheckTrigger.asStateFlow()
+    private val _updateCheckStatus = MutableStateFlow<String?>(null); val updateCheckStatus = _updateCheckStatus.asStateFlow()
+    fun requestUpdateCheck() { _updateCheckTrigger.value += 1 }
+    fun setUpdateCheckStatus(message: String?) { _updateCheckStatus.value = message }
     suspend fun loadHeroLogo(type: String, tmdbId: Int) {
         val key = "$type-$tmdbId"
         if (_heroLogos.value.containsKey(key)) return
@@ -445,15 +457,20 @@ class MainActivity : ComponentActivity() { override fun onCreate(savedInstanceSt
     val state by vm.state.collectAsState()
     MaterialTheme(colorScheme = darkColorScheme(primary = Violet, surface = Void, background = Void)) {
         Surface(Modifier.fillMaxSize(), color = Void) {
-            AnimatedContent(targetState = state, transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(200)) }, label = "root") { s ->
-                when (s) {
-                    MobileState.Loading -> Box(Modifier.fillMaxSize().background(Void), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Violet, strokeWidth = 3.dp, modifier = Modifier.size(32.dp)) }
-                    MobileState.Server -> ServerOnboarding(vm)
-                    is MobileState.Picker -> ProfilePickerScreen(s.base, vm)
-                    is MobileState.Login -> LoginScreen(s.base, vm)
-                    is MobileState.PlexPin -> PlexPinScreen(s.base, s.pin, vm)
-                    is MobileState.Ready -> MobileShell(s.user, vm)
+            Box(Modifier.fillMaxSize()) {
+                AnimatedContent(targetState = state, transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(200)) }, label = "root") { s ->
+                    when (s) {
+                        MobileState.Loading -> Box(Modifier.fillMaxSize().background(Void), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Violet, strokeWidth = 3.dp, modifier = Modifier.size(32.dp)) }
+                        MobileState.Server -> ServerOnboarding(vm)
+                        is MobileState.Picker -> ProfilePickerScreen(s.base, vm)
+                        is MobileState.Login -> LoginScreen(s.base, vm)
+                        is MobileState.PlexPin -> PlexPinScreen(s.base, s.pin, vm)
+                        is MobileState.Ready -> MobileShell(s.user, vm)
+                    }
                 }
+                // Auto-update : vérifie 5s après lancement, quel que soit
+                // l'écran affiché — même comportement que la TV.
+                com.movviz.mobile.update.AutoUpdateOverlay(vm)
             }
         }
     }
@@ -652,7 +669,7 @@ private data class NavEntry(val icon: ImageVector, val label: String)
     var selected by remember { mutableStateOf(0) }
     var detailStack by remember { mutableStateOf(emptyList<Pair<String, Int>>()) }
     val hero by vm.hero.collectAsState(); val movies by vm.movies.collectAsState(); val series by vm.series.collectAsState()
-    val entries = remember(user) { listOf(NavEntry(Icons.Rounded.Home, "Accueil"), NavEntry(Icons.Rounded.Explore, "Découverte"), NavEntry(Icons.Rounded.Search, "Recherche"), NavEntry(Icons.Rounded.FavoriteBorder, "Ma liste"), NavEntry(Icons.Rounded.Person, user), NavEntry(Icons.Rounded.Star, "IA")) }
+    val entries = remember(user) { listOf(NavEntry(Icons.Rounded.Home, "Accueil"), NavEntry(Icons.Rounded.Explore, "Découverte"), NavEntry(Icons.Rounded.Search, "Recherche"), NavEntry(Icons.Rounded.VideoLibrary, "Bibliothèque"), NavEntry(Icons.Rounded.Person, user), NavEntry(Icons.Rounded.Star, "IA")) }
     val haptic = LocalHapticFeedback.current
     val onTitleClick: (String, Int) -> Unit = { type, tmdbId -> haptic.performHapticFeedback(HapticFeedbackType.LongPress); detailStack = detailStack + (type to tmdbId); vm.loadDetail(type, tmdbId) }
     Box(Modifier.fillMaxSize().background(Void)) {
@@ -664,8 +681,8 @@ private data class NavEntry(val icon: ImageVector, val label: String)
                 0 -> HomeScreen(padding, hero, movies, series, onTitleClick)
                 1 -> com.movviz.mobile.discover.DiscoverScreen(padding, vm, onTitleClick)
                 2 -> SearchScreen(padding, vm, onTitleClick)
-                3 -> Placeholder(padding, "Ma liste", "Tes titres favoris apparaîtront ici. Ajoute des films et séries depuis leur fiche.")
-                4 -> ProfileScreen(padding, user) { vm.disconnect() }
+                3 -> com.movviz.mobile.library.LibraryScreen(padding, vm, onTitleClick)
+                4 -> ProfileScreen(padding, user, vm) { vm.disconnect() }
                 else -> AiChatScreen(padding, vm, onTitleClick)
             }
         }
@@ -750,6 +767,8 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
 
 @Composable private fun HeroCard(slide: DashboardHeroSlideDto, logoPath: String?, onTitleClick: (String, Int) -> Unit) {
     // Wrapper contextuel : Lecture uniquement si déjà en bibliothèque et dispo, sinon Ajouter
+    val vm: MobileViewModel = viewModel()
+    val scope = rememberCoroutineScope()
     val isAvailable = slide.libraryStatus == "available"
     val isDownloading = slide.libraryStatus == "downloading" || slide.libraryStatus == "searching"
     val d = slide.detail
@@ -821,17 +840,30 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                         }
                     }
                 } else {
-                    var pressedAdd by remember { mutableStateOf(false) }
-                    val ctaScale by animateFloatAsState(if (pressedAdd) 0.92f else 1f, spring(dampingRatio = 0.6f, stiffness = 500f), label = "ctaAdd")
+                    // Un seul tap ajoute directement à la bibliothèque — avant ce
+                    // correctif, ce bouton affichait "Ajouter" mais se contentait
+                    // de naviguer vers la fiche (il fallait un second tap là-bas
+                    // pour ajouter réellement).
+                    var addingHero by remember { mutableStateOf(false) }
+                    val ctaScale by animateFloatAsState(if (addingHero) 0.92f else 1f, spring(dampingRatio = 0.6f, stiffness = 500f), label = "ctaAdd")
                     Box(
                         Modifier.heightIn(min = 44.dp).scale(ctaScale).clip(RoundedCornerShape(12.dp)).background(Violet)
-                            .clickable { hapticHero.performHapticFeedback(HapticFeedbackType.LongPress); pressedAdd = true; onTitleClick(d.type, d.tmdbId); kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch { kotlinx.coroutines.delay(140); pressedAdd = false } }
+                            .clickable(enabled = !addingHero) {
+                                hapticHero.performHapticFeedback(HapticFeedbackType.LongPress)
+                                addingHero = true
+                                scope.launch { vm.addToLibrary(d.type, d.tmdbId); addingHero = false }
+                            }
                             .padding(horizontal = 22.dp, vertical = 11.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                            Text("Ajouter", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            if (addingHero) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Text("Ajout…", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            } else {
+                                Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                Text("Ajouter", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 }
@@ -915,6 +947,11 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                 Box(Modifier.fillMaxWidth().padding(top = 40.dp), contentAlignment = Alignment.Center) { Text("Aucun résultat pour « $query »", color = TextMuted, fontSize = 13.sp) }
             }
             else -> {
+                // Réactif : le bouton d'ajout (à droite) reflète l'état réel de
+                // la bibliothèque en direct, un seul tap dessus ajoute sans
+                // passer par la fiche — même composant que Découverte.
+                val moviesState by vm.movies.collectAsState()
+                val seriesState by vm.series.collectAsState()
                 LazyColumn(contentPadding = PaddingValues(bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(results, key = { "${it.type}-${it.tmdbId}" }) { r ->
                         var pressed by remember { mutableStateOf(false) }
@@ -936,7 +973,11 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                                 Spacer(Modifier.height(2.dp))
                                 Text("${r.year?.toString() ?: "—"}  •  ${r.type.replaceFirstChar { it.uppercase() }}", color = TextMuted, fontSize = 12.sp)
                             }
-                            Icon(Icons.Rounded.KeyboardArrowRight, null, tint = TextFaint, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            com.movviz.mobile.ui.StatusButton(
+                                libState = com.movviz.mobile.ui.cardLibState(r.type, r.tmdbId, moviesState, seriesState),
+                                size = 34.dp, type = r.type, tmdbId = r.tmdbId, vm = vm,
+                            )
                         }
                     }
                 }
@@ -1306,7 +1347,7 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
     }
 }
 
-@Composable private fun ProfileScreen(padding: PaddingValues, user: String, onDisconnect: () -> Unit) {
+@Composable private fun ProfileScreen(padding: PaddingValues, user: String, vm: MobileViewModel, onDisconnect: () -> Unit) {
     Column(Modifier.fillMaxSize().background(Void).padding(padding).padding(horizontal = 20.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Profil", color = TextPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brush.verticalGradient(listOf(Surface, SurfaceStrong))).border(1.dp, Color.White.copy(0.06f), RoundedCornerShape(20.dp)).padding(18.dp)) {
@@ -1319,6 +1360,24 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                     Text("Profil actif", color = TextMuted, fontSize = 12.sp)
                 }
                 Icon(Icons.Rounded.KeyboardArrowRight, null, tint = TextFaint)
+            }
+        }
+        // À propos + mise à jour — même bloc que Réglages TV (SettingsScreen.kt).
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Surface).border(1.dp, Color.White.copy(0.06f), RoundedCornerShape(20.dp)).padding(18.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("À propos", color = TextSoft, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.3.sp)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Version", color = TextMuted, fontSize = 13.sp); Text(com.movviz.mobile.BuildConfig.VERSION_NAME, color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) { Text("Application", color = TextMuted, fontSize = 13.sp); Text("Movviz Mobile", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+                if (com.movviz.mobile.BuildConfig.AUTO_UPDATE) {
+                    val autoUpdate by vm.autoUpdateEnabled.collectAsState()
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (autoUpdate) Violet.copy(0.18f) else Color.White.copy(0.06f)).clickable { vm.setAutoUpdateEnabled(!autoUpdate) }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("Mise à jour automatique", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(if (autoUpdate) "Activée" else "Désactivée", color = if (autoUpdate) VioletSoft else TextFaint, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    TextButton({ vm.requestUpdateCheck() }, Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White.copy(0.06f))) { Text("Vérifier les mises à jour", color = TextSoft, fontWeight = FontWeight.SemiBold, fontSize = 13.sp) }
+                    val updateCheckStatus by vm.updateCheckStatus.collectAsState()
+                    updateCheckStatus?.let { Text(it, color = TextFaint, fontSize = 11.sp) }
+                }
             }
         }
         val hapticProfile = LocalHapticFeedback.current

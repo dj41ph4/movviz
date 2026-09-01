@@ -21,8 +21,11 @@ android {
         // Same fix as android-tv/app/build.gradle.kts — derived from the Git
         // tag by CI instead of a frozen value, so BuildConfig.VERSION_NAME
         // (shown in "About") tracks the actual published release.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 12425
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.25"
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 12426
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.26"
+        // Même flag que la TV (BuildConfig.AUTO_UPDATE) — expose VERSION_NAME
+        // à UpdateManager pour comparer contre la dernière release GitHub.
+        buildConfigField("boolean", "AUTO_UPDATE", "true")
     }
 
     signingConfigs {
@@ -49,7 +52,7 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
 }
 
 dependencies {
