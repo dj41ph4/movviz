@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.29 — September 2026
+
+### "Suggestions pour vous" consulte enfin l'affinité de genre calculée
+
+Le moteur derrière la rangée "Suggestions pour vous" (candidats TMDb) ne consultait toujours pas l'affinité de genre calculée à partir de l'activité réelle (vues, votes, notes, demandes) — seule la conversation avec l'IA en bénéficiait depuis la dernière mise à jour. Un titre dont l'affinité de genre dépasse 95 % (seuil volontairement très haut, seule une preuve solide et confirmée le franchit) passe désormais devant le classement TMDb plutôt que de simplement l'influencer légèrement.
+
 ## v1.24.28 — September 2026
 
 ### Moteur de contexte — la boucle vues/notes/votes/demandes ↔ suggestions se referme

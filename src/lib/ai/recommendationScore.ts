@@ -7,7 +7,7 @@ import type { TasteVector } from "@/lib/ai/contrastiveProfile";
 import type { ResolvedAiItem } from "@/lib/ai/actions";
 import type { AiMoodCategories } from "@/lib/ai/types";
 import { getExplicitTitlePreferences } from "@/lib/userContext/preferences";
-import { getComputedGenreTraits } from "@/lib/userContext/taste";
+import { getComputedGenreTraits, matchGenreAffinity } from "@/lib/userContext/taste";
 
 /**
  * Recommendation Score (AI.MD §2.D/§2.E) — separates candidate GENERATION
@@ -203,12 +203,7 @@ export function scoreCandidates(
     // everywhere else in this file.
     const genres = candidateGenres?.get(key) ?? [];
     if (genres.length && genreTraits.size) {
-      let bestMatch = 0;
-      for (const genre of genres) {
-        const trait = genreTraits.get(`genre:${genre.trim().toLocaleLowerCase("fr")}`);
-        if (trait) bestMatch = Math.max(bestMatch, trait.strength * trait.confidence);
-      }
-      score += bestMatch * 14;
+      score += matchGenreAffinity(genres, genreTraits) * 14;
     }
 
     if (reasonTokens) {

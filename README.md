@@ -2,7 +2,7 @@
 
 <br>
 
-<img src="https://img.shields.io/badge/Movviz-1.24.28-7c3aed?style=for-the-badge&labelColor=1a1a2e" alt="Movviz"/>
+<img src="https://img.shields.io/badge/Movviz-1.24.29-7c3aed?style=for-the-badge&labelColor=1a1a2e" alt="Movviz"/>
 <!-- Legacy release badge retained below only to avoid touching the embedded SVG payload. -->
 <!--
 <img src="https://img.shields.io/badge/Movviz-1.22.15-7c3aed?style=for-the-badge&labelColor=1a1a2e&logo=data:image/svg%2bxml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgdmlld0JveD0iMCAwIDUxMiA1MTIiPjxyZWN0IHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIiByeD0iMTEyIiBmaWxsPSIjN2MzYWVkIi8+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjI4IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxyZWN0IHg9IjEwOCIgeT0iMTUyIiB3aWR0aD0iMjk2IiBoZWlnaHQ9IjIwIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMTUiLz48cGF0aCBkPSJNMCAwaDEyOHYxMDhIMHoiIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEwOCwxMDgpIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuOSIvPjxjaXJjbGUgY3g9IjE2OCIgY3k9IjMwMCIgcj0iMjQiIGZpbGw9IiNmZmYiIGZpbC1vcGFjaXR5PSIwLjkiIHN0cm9rZT0ibm9uZSIvPjxjaXJjbGUgY3g9IjM0NCIgY3k9IjMwMCIgcj0iMjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC45IiBzdHJva2U9Im5vbmUiLz48L2c+PC9zdmc+" alt="Movviz"/>

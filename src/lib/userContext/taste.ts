@@ -12,6 +12,23 @@ export interface EvidenceTasteTrait {
   source: "computed_genre" | "context_insight" | "explicit_fact";
 }
 
+/** Best matching computed-genre trait's strength×confidence for a set of
+ *  genre NAMES (fr-FR, matching whatever getComputedGenreTraits() itself
+ *  keys on) — 0 when there's no trait for any of them. Shared middleware
+ *  between every consumer that ranks TMDb candidates against the SQL
+ *  context (recommendationScore.ts for AI chat, recommender/engine.ts for
+ *  "Suggestions pour vous") so the notion of "genre affinity" — and its
+ *  0..~0.96 ceiling (confidence alone caps at 0.96, see
+ *  getComputedGenreTraits) — stays defined in exactly one place. */
+export function matchGenreAffinity(genreNames: string[], traits: Map<string, EvidenceTasteTrait>): number {
+  let best = 0;
+  for (const genre of genreNames) {
+    const trait = traits.get(`genre:${genre.trim().toLocaleLowerCase("fr")}`);
+    if (trait) best = Math.max(best, trait.strength * trait.confidence);
+  }
+  return best;
+}
+
 interface GenreEvidence {
   genre: string;
   works: Set<string>;

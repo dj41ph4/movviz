@@ -1,4 +1,4 @@
-import { getMovieRecommendations, getTvRecommendations } from "@/lib/metadata/tmdb";
+import { getMovieRecommendations, getTvRecommendations, getGenres } from "@/lib/metadata/tmdb";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { mapWithConcurrency } from "@/lib/concurrency";
@@ -6,7 +6,17 @@ import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import { getFeedback } from "@/lib/ai/tasteProfile";
+import { getComputedGenreTraits, matchGenreAffinity } from "@/lib/userContext/taste";
 import type { MetaSearchResult } from "@/lib/metadata/types";
+
+/** Above this, the SQL context engine's genre affinity (userContext/taste.ts
+ *  — watches/ratings/feedback/requests/views, all folded into one strength×
+ *  confidence score) is treated as decisive: the candidate is pinned ahead
+ *  of TMDb's own "similar to what you watched" ranking rather than merely
+ *  nudged by it. Deliberately near the ceiling (confidence alone caps at
+ *  0.96 — see getComputedGenreTraits) so this only fires on a genuinely
+ *  strong, well-evidenced match, never a casual one. */
+const GENRE_AFFINITY_PROMOTE_THRESHOLD = 0.95;
 
 // Strictly per-account: this row is built ONLY from the target account's own
 // Plex watch history — never blended with what any other account has
@@ -76,6 +86,20 @@ export async function getRecommendations(
   // without a cached profile simply gets no taste term, never a penalty.
   const tasteVector = buildTasteVector(userId);
 
+  // Middleware between the TMDb candidate engine and the SQL context: every
+  // candidate here already carries real genre_ids (mapPaged() sets them
+  // unconditionally, recommendations included — confirmed by reading it,
+  // not assumed), so they can be matched against the SAME per-user genre
+  // affinity recommendationScore.ts (AI chat) now uses, via the shared
+  // matchGenreAffinity() middleware in userContext/taste.ts. Without this,
+  // everything wired into the context engine this session (views, votes,
+  // ratings, requests all feeding genre affinity) would still never reach
+  // the one row most people actually look at — "Suggestions pour vous".
+  const genreTraits = new Map(getComputedGenreTraits(userId, 10).map((t) => [t.key, t] as const));
+  const genreNameById = genreTraits.size
+    ? new Map((await getGenres(type)).map((g) => [g.id, g.name] as const))
+    : new Map<number, string>();
+
   const ranked = entries
     .map((s) => {
       let taste = 0;
@@ -85,8 +109,13 @@ export async function getRecommendations(
           taste = (moodSimilarity(tasteVector.liked, candidateMood) - moodSimilarity(tasteVector.disliked, candidateMood)) * tasteVector.confidence;
         }
       }
+      const genreNames = genreNameById.size
+        ? (s.item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n)
+        : [];
+      const affinity = genreNames.length ? matchGenreAffinity(genreNames, genreTraits) : 0;
       return {
         item: s.item,
+        affinity,
         composite:
           (s.count / maxCount) * 0.25
           + (Math.min(s.item.rating ?? 0, 10) / 10) * 0.3
@@ -94,7 +123,19 @@ export async function getRecommendations(
           + Math.max(-1, Math.min(1, taste)) * 0.2,
       };
     })
-    .sort((a, b) => b.composite - a.composite)
+    .sort((a, b) => {
+      // A ≥95% match is decisive — it wins outright over TMDb's own
+      // ranking, highest affinity first among qualifiers. Below that,
+      // affinity has already been folded nowhere else here (unlike
+      // recommendationScore.ts, this row has no per-item "reason" text to
+      // layer a softer bonus onto) — the existing composite score decides,
+      // unchanged from before this middleware existed.
+      const aQualifies = a.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
+      const bQualifies = b.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
+      if (aQualifies !== bQualifies) return aQualifies ? -1 : 1;
+      if (aQualifies) return b.affinity - a.affinity;
+      return b.composite - a.composite;
+    })
     .slice(0, 200)
     .map((s) => s.item);
 
