@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { jsonCacheReadFailed, readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import { syncWatchedEpisodeState, syncWatchedMovieState } from "@/lib/userContext/watchBridge";
+import { recordUserContextEvent } from "@/lib/userContext/ingest";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -75,6 +76,21 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
   if (write(list)) {
     for (const tmdbId of tmdbIds) {
       syncWatchedMovieState({ userId, tmdbId, title, watched, at });
+      // Immediate ledger row (not just the eventual lazy mirror in
+      // bootstrap.ts's refreshLegacyUserContext, which can lag up to its
+      // 5-minute refresh interval and only runs from AI-chat/Plex-sync
+      // paths) — Netflix import, the manual toggle, and Plex sync all funnel
+      // through this one function, so one emit point covers all three.
+      recordUserContextEvent({
+        userId,
+        eventType: watched ? "watched_marked" : "watched_unmarked",
+        source: "watch_store",
+        sourceEventId: `watch:${userId}:movie:${tmdbId}:${watched ? "on" : "off"}:${at}`,
+        tmdbId,
+        mediaType: "movie",
+        title: title || null,
+        occurredAt: at,
+      });
     }
   }
 }
@@ -118,7 +134,20 @@ export function setWatchedEpisodes(
   status.updatedAt = now;
   if (write(list)) {
     for (const e of entries) {
-      syncWatchedEpisodeState({ userId, tmdbId: e.tmdbId, season: e.season, episode: e.episode, title, watched, at: e.watchedAt ?? now });
+      const at = e.watchedAt ?? now;
+      syncWatchedEpisodeState({ userId, tmdbId: e.tmdbId, season: e.season, episode: e.episode, title, watched, at });
+      recordUserContextEvent({
+        userId,
+        eventType: watched ? "watched_marked" : "watched_unmarked",
+        source: "watch_store",
+        sourceEventId: `watch:${userId}:episode:${e.tmdbId}:${e.season}:${e.episode}:${watched ? "on" : "off"}:${at}`,
+        tmdbId: e.tmdbId,
+        mediaType: "episode",
+        seasonNumber: e.season,
+        episodeNumber: e.episode,
+        title: title || null,
+        occurredAt: at,
+      });
     }
   }
 }

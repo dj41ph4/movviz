@@ -1,6 +1,8 @@
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { listAllPlaybackProgress } from "@/lib/playback/progressStore";
 import { getWatchStatus } from "@/lib/plex/watchStore";
+import { getFeedback, getAllRatings } from "@/lib/ai/tasteProfile";
+import { loadRequests } from "@/lib/requests/store";
 import { withUserContextDb } from "./database";
 import { recordUserContextEvent, syncPlaybackContext } from "./ingest";
 
@@ -43,11 +45,23 @@ function syncLegacyWatchedState(userId: string): void {
   const movieRecentAt = new Map<number, number>();
   for (const recent of watch.recent ?? []) {
     if (recent.type === "movie") movieRecentAt.set(recent.tmdbId, recent.at);
+    // Movies: same (source, sourceEventId) shape watchStore.ts now emits
+    // LIVE on every setWatchedMovies() call — this backfill pass therefore
+    // INSERT OR IGNOREs into a no-op for anything already recorded live
+    // (any watch toggled since that wiring shipped), and only genuinely
+    // fills in pre-existing history from before it existed. Series stay on
+    // the legacy source/shape below: `recent` is one coarse per-series
+    // entry with no episode coordinates, so it can never collide with the
+    // precise per-episode events setWatchedEpisodes() emits live — both
+    // are real, non-duplicate signal at different granularities.
+    const isMovie = recent.type === "movie";
     recordUserContextEvent({
       userId,
       eventType: "watched_marked",
-      source: LEGACY_SOURCE,
-      sourceEventId: `recent:${userId}:${recent.type}:${recent.tmdbId}:${recent.at}`,
+      source: isMovie ? "watch_store" : LEGACY_SOURCE,
+      sourceEventId: isMovie
+        ? `watch:${userId}:movie:${recent.tmdbId}:on:${recent.at}`
+        : `recent:${userId}:${recent.type}:${recent.tmdbId}:${recent.at}`,
       tmdbId: recent.tmdbId,
       mediaType: recent.type,
       title: recent.title || null,
@@ -109,6 +123,62 @@ function syncLegacyWatchedState(userId: string): void {
 }
 
 /**
+ * Backfills 👍/👎 feedback, 1-5 star ratings, and requests into the ledger —
+ * same idea as syncLegacyWatchedState above, and same trick: every
+ * sourceEventId here is built with the EXACT (source, sourceEventId) shape
+ * the live dual-write in tasteProfile.ts/requests/store.ts now uses, so this
+ * pass is a genuine no-op (INSERT OR IGNORE) for anything already recorded
+ * live, and only fills in whatever predates that wiring.
+ */
+function syncLegacyFeedbackRatingsRequests(userId: string): void {
+  for (const entry of getFeedback(userId)) {
+    recordUserContextEvent({
+      userId,
+      eventType: entry.liked ? "recommendation_liked" : "recommendation_disliked",
+      source: "ai_feedback",
+      sourceEventId: `feedback:${userId}:${entry.type}:${entry.tmdbId}:${entry.liked ? "like" : "dislike"}:${entry.at}`,
+      tmdbId: entry.tmdbId,
+      mediaType: entry.type,
+      title: entry.title,
+      textValue: entry.reason ?? null,
+      occurredAt: entry.at,
+    });
+  }
+
+  for (const rating of getAllRatings(userId)) {
+    for (const h of rating.history) {
+      recordUserContextEvent({
+        userId,
+        eventType: "rating_set",
+        source: "ai_ratings",
+        sourceEventId: `rating:${userId}:${rating.type}:${rating.tmdbId}:${h.source}:${h.at}`,
+        tmdbId: rating.tmdbId,
+        mediaType: rating.type,
+        title: rating.title,
+        numericValue: h.rating,
+        textValue: h.source,
+        occurredAt: h.at,
+      });
+    }
+  }
+
+  for (const request of loadRequests()) {
+    if (request.userId !== userId) continue;
+    recordUserContextEvent({
+      userId,
+      eventType: "media_requested",
+      source: "requests_store",
+      sourceEventId: `request:${request.id}`,
+      tmdbId: request.tmdbId,
+      mediaType: request.type,
+      title: request.title,
+      mediaId: request.id,
+      occurredAt: request.createdAt,
+    });
+  }
+}
+
+/**
  * Lazily mirrors the legacy stores into the unified context database.
  *
  * It is deliberately best-effort and idempotent:
@@ -122,6 +192,7 @@ export function refreshLegacyUserContext(userId: string, force = false): void {
   if (!force && !shouldRefresh(userId)) return;
   try {
     syncLegacyWatchedState(userId);
+    syncLegacyFeedbackRatingsRequests(userId);
     for (const progress of listAllPlaybackProgress(userId)) {
       syncPlaybackContext(progress, { force: true });
     }

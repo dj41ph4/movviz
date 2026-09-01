@@ -1,7 +1,7 @@
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { listPlaybackProgress, type PlaybackProgress } from "@/lib/playback/progressStore";
 import { getWatchStatus } from "@/lib/plex/watchStore";
-import { getUserContextHealth } from "./database";
+import { getUserContextHealth, withUserContextDb } from "./database";
 import { syncPlaybackContext } from "./ingest";
 import type {
   CurrentWatchingContextItem,
@@ -147,6 +147,32 @@ export function getSeriesProgressContext(userId: string, tmdbId: number, seasonN
     next,
     seasonStats,
   };
+}
+
+interface ViewedRow {
+  tmdb_id: number;
+  media_type: string | null;
+  views: number;
+}
+
+/** Distinct titles a user has OPENED recently (title_viewed events) — weak,
+ *  "interested but not necessarily watched/added/rated" signal, deduped to
+ *  one row per title with its view count. Only movie/series count (episode
+ *  views aren't logged by this event type — see the detail route). */
+export function getRecentViewedTitles(userId: string, sinceMs: number, limit = 60): { tmdbId: number; mediaType: "movie" | "series"; views: number }[] {
+  return withUserContextDb((db) => {
+    const rows = db.prepare(`
+      SELECT tmdb_id, media_type, COUNT(*) as views
+      FROM context_events
+      WHERE user_id = ? AND event_type = 'title_viewed' AND occurred_at >= ? AND tmdb_id IS NOT NULL
+      GROUP BY tmdb_id, media_type
+      ORDER BY views DESC, MAX(occurred_at) DESC
+      LIMIT ?
+    `).all(userId, sinceMs, limit) as unknown as ViewedRow[];
+    return rows
+      .filter((row) => row.media_type === "movie" || row.media_type === "series")
+      .map((row) => ({ tmdbId: Number(row.tmdb_id), mediaType: row.media_type as "movie" | "series", views: Number(row.views) }));
+  }, []);
 }
 
 export function buildUnifiedUserContextSnapshot(userId: string): UnifiedUserContextSnapshot {

@@ -1,5 +1,6 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
+import { recordUserContextEvent } from "@/lib/userContext/ingest";
 import type { AiContextInsight, AiContextProfile, AiCorrectionEntry, AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile, TitleRating, RatingSource } from "./types";
 
 /**
@@ -51,6 +52,24 @@ export function recordFeedback(userId: string, entry: AiFeedbackEntry): void {
   deduped.push(entry);
   store[userId] = { ...profile, feedback: deduped.slice(-MAX_FEEDBACK_ENTRIES) };
   write(store);
+  // Dual-write into the unified context ledger (ai-user-profiles.json stays
+  // the authoritative store for THIS domain — dedup-by-title, the "×" undo
+  // button, etc. — but every mutation here should also be a fact the ledger
+  // can reason over alongside playback/search/view events for the same
+  // user). sourceEventId keyed on tmdbId+type+vote makes a changed-mind vote
+  // (like → dislike) land as its own row rather than silently overwriting —
+  // the ledger is append-only, unlike the deduped JSON list above.
+  recordUserContextEvent({
+    userId,
+    eventType: entry.liked ? "recommendation_liked" : "recommendation_disliked",
+    source: "ai_feedback",
+    sourceEventId: `feedback:${userId}:${entry.type}:${entry.tmdbId}:${entry.liked ? "like" : "dislike"}:${entry.at}`,
+    tmdbId: entry.tmdbId,
+    mediaType: entry.type,
+    title: entry.title,
+    textValue: entry.reason ?? null,
+    occurredAt: entry.at,
+  });
 }
 
 export function getFeedback(userId: string): AiFeedbackEntry[] {
@@ -296,6 +315,7 @@ export function setRating(
   const profile = profileForUser(store, userId);
   const ratings = profile.ratings ?? [];
   const idx = ratings.findIndex((r) => r.tmdbId === entry.tmdbId && r.type === entry.type);
+  const existingBefore: number | null = idx === -1 ? null : ratings[idx].rating;
   const historyEntry = { rating: clampedRating, source: entry.source, confidence: clampedConfidence, at: Date.now(), opinion: entry.opinion };
 
   let updated: TitleRating;
@@ -334,6 +354,24 @@ export function setRating(
   const nextRatings = idx === -1 ? [...ratings, updated] : ratings.map((r, i) => (i === idx ? updated : r));
   store[userId] = { ...profile, ratings: nextRatings };
   write(store);
+  // Same dual-write as recordFeedback above — only when the rating actually
+  // changed the DISPLAYED value (keepsExisting above means an inferred
+  // attempt was appended to history but didn't become current; that's not
+  // worth a ledger row, the explicit rating it lost to already has one).
+  if (updated.rating !== existingBefore) {
+    recordUserContextEvent({
+      userId,
+      eventType: idx === -1 ? "rating_set" : "rating_changed",
+      source: "ai_ratings",
+      sourceEventId: `rating:${userId}:${entry.type}:${entry.tmdbId}:${entry.source}:${historyEntry.at}`,
+      tmdbId: entry.tmdbId,
+      mediaType: entry.type,
+      title: entry.title,
+      numericValue: updated.rating,
+      textValue: entry.source,
+      occurredAt: historyEntry.at,
+    });
+  }
   return updated;
 }
 

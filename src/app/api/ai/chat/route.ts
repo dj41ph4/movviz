@@ -12,7 +12,7 @@ import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { scoreCandidates, isSeriesFullyWatched, type MoodContext, type FranchiseContext, type FatigueContext } from "@/lib/ai/recommendationScore";
 import { getOrAnalyzeMoodProfile, getCachedMoodProfile } from "@/lib/ai/titleAnalysis";
 import { buildTasteVector, averageProfiles } from "@/lib/ai/contrastiveProfile";
-import { getMovie, getSeries, getDetail, getCollection, searchMulti, searchPerson, getPerson } from "@/lib/metadata/tmdb";
+import { getMovie, getSeries, getDetail, getCollection, searchMulti, searchPerson, getPerson, getGenres } from "@/lib/metadata/tmdb";
 import { resolveTitleAgainstTmdb } from "@/lib/metadata/resolveTitle";
 import { buildUsageProfile, formatUsageProfile } from "@/lib/ai/profile";
 import { getWatchStatus, setWatchedMovies, recordWatched } from "@/lib/plex/watchStore";
@@ -1110,7 +1110,18 @@ export async function POST(req: NextRequest) {
       ? { profile: averageProfiles(recentProfiles), strength: Math.min(1, recentProfiles.length / 6) }
       : undefined;
 
-    const recommendations = scoreCandidates(user.id, allItems, reasons, 6, mood, tasteVector, franchise, fatigue)
+    // GenreAffinity term (recommendationScore.ts) needs NAMES, not the raw
+    // TMDb ids ResolvedAiItem.genreIds carries — one cached genre-list call
+    // per type actually present among the candidates (fr-FR, matching the
+    // library's own genre strings), never per-candidate.
+    const candidateTypes = new Set(allItems.map((item) => item.type));
+    const genreLists = await Promise.all([...candidateTypes].map((type) => getGenres(type)));
+    const genreNameById = new Map(genreLists.flat().map((g) => [g.id, g.name] as const));
+    const candidateGenres = new Map(
+      allItems.map((item) => [`${item.type}:${item.tmdbId}`, (item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n)] as const)
+    );
+
+    const recommendations = scoreCandidates(user.id, allItems, reasons, 6, mood, tasteVector, franchise, fatigue, candidateGenres)
       .map((r) => ({ ...r, reason: reasons.get(`${r.type}:${r.tmdbId}`) }));
     assistant.recommendations = recommendations;
     itemCount = recommendations.length;

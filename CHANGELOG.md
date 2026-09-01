@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.28 — September 2026
+
+### Moteur de contexte — la boucle vues/notes/votes/demandes ↔ suggestions se referme
+
+Le journal SQLite par utilisateur (introduit précédemment) ne recevait jusqu'ici que la lecture et les corrections explicites via l'IA — les votes 👍/👎, les notes 1-5 étoiles, les demandes et les ajouts via l'IA continuaient d'exister uniquement dans des fichiers JSON séparés, sans jamais rejoindre ce journal unifié, et rien ne lisait la moindre recherche ou ouverture de fiche puisqu'aucune des deux n'était captée nulle part. Toutes ces actions écrivent désormais aussi dans le journal unifié (en plus de leur stockage existant, sans rien casser), y compris deux signaux qui n'existaient nulle part avant : les recherches et les ouvertures de fiche. Le moteur de goût par genre (déjà utilisé pour les réponses de l'IA) intègre maintenant ces vues comme preuve supplémentaire, et pèse pour la première fois sur le classement réel des recommandations envoyées par l'IA — jusqu'ici il ne servait qu'à colorer le ton des réponses, jamais à choisir quoi recommander. Les demandes de téléchargement restent volontairement un signal faible et plafonné (souvent demandées pour d'autres, pas pour soi) ; l'historique déjà accumulé est repris rétroactivement dans le journal, rien n'est perdu. Toujours strictement par compte — jamais de mélange entre profils, propriétaire Plex compris.
+
 ## v1.24.27 — September 2026
 
 ### "Mauvaise recommandation" n'excluait pas le titre des suggestions, et ne recalculait pas la rangée

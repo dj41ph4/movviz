@@ -7,6 +7,7 @@ import type { TasteVector } from "@/lib/ai/contrastiveProfile";
 import type { ResolvedAiItem } from "@/lib/ai/actions";
 import type { AiMoodCategories } from "@/lib/ai/types";
 import { getExplicitTitlePreferences } from "@/lib/userContext/preferences";
+import { getComputedGenreTraits } from "@/lib/userContext/taste";
 
 /**
  * Recommendation Score (AI.MD §2.D/§2.E) — separates candidate GENERATION
@@ -129,7 +130,15 @@ export function scoreCandidates(
   mood?: MoodContext,
   tasteVector?: TasteVector | null,
   franchise?: FranchiseContext,
-  fatigue?: FatigueContext
+  fatigue?: FatigueContext,
+  // Genre NAMES (not TMDb ids — ResolvedAiItem.genreIds are raw ids, and
+  // matching them to getComputedGenreTraits' Movviz-library genre strings
+  // needs an id→name lookup this file has no business owning) keyed
+  // "type:tmdbId", resolved by the caller (chat/route.ts, via
+  // metadata/tmdb.ts's getGenres — same fr-FR names the library already
+  // uses). Optional/omittable: a caller that doesn't pass it just skips
+  // this one term, same as every other optional context param here.
+  candidateGenres?: Map<string, string[]>
 ): ScoredCandidate[] {
   const watch = getWatchStatus(userId);
   const watchedMovies = new Set(watch?.movies ?? []);
@@ -160,6 +169,12 @@ export function scoreCandidates(
   const explicitPreferences = new Map(
     getExplicitTitlePreferences(userId, 500).map((pref) => [pref.key, pref] as const)
   );
+  // Deterministic genre affinity (userContext/taste.ts — already computed
+  // from watches/ratings/feedback/requests/views for the "IA connaît mes
+  // goûts" panel and chat banter) — folded into the actual RANKING here for
+  // the first time; before this it only ever flavored dialogue text, never
+  // touched which titles got recommended.
+  const genreTraits = new Map(getComputedGenreTraits(userId, 10).map((t) => [t.key, t] as const));
 
   const scored: ScoredCandidate[] = [];
   for (const c of candidates) {
@@ -179,6 +194,22 @@ export function scoreCandidates(
     score += Math.max(0, c.rating) * 2; // Quality — up to ~20
     if (!c.inLibrary) score += 8; // Novelty — favors real discoveries over what's already owned
     if (explicitPreference) score += explicitPreference.affinity * 20 * explicitPreference.confidence;
+
+    // GenreAffinity — the strongest matching computed genre trait for this
+    // candidate, up to ~14 (weaker than Quality/MoodSimilarity, an explicit
+    // correction can still fully override it above). Never negative: a
+    // genre the user hasn't shown affinity for just contributes nothing,
+    // same "absence of evidence isn't evidence of dislike" rule as
+    // everywhere else in this file.
+    const genres = candidateGenres?.get(key) ?? [];
+    if (genres.length && genreTraits.size) {
+      let bestMatch = 0;
+      for (const genre of genres) {
+        const trait = genreTraits.get(`genre:${genre.trim().toLocaleLowerCase("fr")}`);
+        if (trait) bestMatch = Math.max(bestMatch, trait.strength * trait.confidence);
+      }
+      score += bestMatch * 14;
+    }
 
     if (reasonTokens) {
       // Bug fix (audit finding #3, confirmed live): each individual match

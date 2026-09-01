@@ -15,7 +15,13 @@ export type UserContextEventType =
   | "media_added_via_ai"
   | "fact_added"
   | "fact_corrected"
-  | "netflix_history_imported";
+  | "netflix_history_imported"
+  // Signal that never had ANY capture point before (browsing behavior) —
+  // "understands the user" needs to see what's searched/opened, not just
+  // what gets watched. numericValue on search_performed = result count;
+  // title_viewed always carries tmdbId/mediaType (the query itself doesn't).
+  | "search_performed"
+  | "title_viewed";
 
 export type UserContextMediaType = "movie" | "series" | "episode";
 

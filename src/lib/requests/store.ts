@@ -3,6 +3,7 @@ import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import path from "node:path";
 import type { MediaRequest } from "./types";
 import { eventBus } from "@/lib/events/EventBus";
+import { recordUserContextEvent } from "@/lib/userContext/ingest";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -32,6 +33,21 @@ export function addRequest(request: MediaRequest): MediaRequest {
   list.push(request);
   saveRequests(list);
   eventBus.emit({ type: "request_updated" });
+  // Every request path funnels through here (manual ask, auto-approve,
+  // Plex watchlist sync, AI addMedia — see ai/actions.ts, which also emits
+  // its own media_added_via_ai event right after this one) — one dual-write
+  // point covers all of them instead of instrumenting each caller.
+  recordUserContextEvent({
+    userId: request.userId,
+    eventType: "media_requested",
+    source: "requests_store",
+    sourceEventId: `request:${request.id}`,
+    tmdbId: request.tmdbId,
+    mediaType: request.type,
+    title: request.title,
+    mediaId: request.id,
+    occurredAt: request.createdAt,
+  });
   return request;
 }
 export function updateRequest(id: string, patch: Partial<MediaRequest>): MediaRequest | null {

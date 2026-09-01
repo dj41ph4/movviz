@@ -11,6 +11,7 @@ import { searchAndGrabMovie } from "@/lib/library/autoGrab";
 import { searchAndGrabSeries } from "@/lib/library/autoGrabSeries";
 import { rememberAiEntry } from "@/lib/ai/memory";
 import { getAllRatings } from "@/lib/ai/tasteProfile";
+import { recordUserContextEvent } from "@/lib/userContext/ingest";
 import { isSeriesFullyWatched } from "@/lib/ai/recommendationScore";
 import type { User } from "@/lib/auth/types";
 import type { AiActionOutcome, AiAddItem } from "./types";
@@ -279,6 +280,22 @@ export async function addMedia(user: User, items: AiAddItem[]): Promise<AiAction
       const added = result.added;
       const id = "id" in added ? added.id : (added as { id?: string }).id;
       rememberAiEntry(user.id, "added", { tmdbId: res.tmdbId, title: res.title, type: res.type, at: Date.now() });
+      // Distinct from the generic media_requested event addRequest() already
+      // emits (requests/store.ts) — this tags the add as AI-INITIATED
+      // specifically, so a later pass can weigh "I asked the assistant for
+      // this" differently from a title added by tapping the library "+"
+      // button (see recordFeedback's own dual-write for the same idea on
+      // 👍/👎 votes).
+      recordUserContextEvent({
+        userId: user.id,
+        eventType: "media_added_via_ai",
+        source: "ai_actions",
+        sourceEventId: `ai_add:${user.id}:${res.type}:${res.tmdbId}:${Date.now()}`,
+        tmdbId: res.tmdbId,
+        mediaType: res.type,
+        title: res.title,
+        occurredAt: Date.now(),
+      });
       if (id) {
         const jobFn = res.type === "movie" ? () => searchAndGrabMovie(id) : () => searchAndGrabSeries(id);
         enqueueJob("qualityUpgrade", `Recherche : ${res.title}`, 1, async (setProgress) => {

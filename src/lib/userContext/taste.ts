@@ -1,6 +1,7 @@
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { getUnifiedUserKnowledge } from "./knowledge";
+import { getRecentViewedTitles } from "./query";
 
 export interface EvidenceTasteTrait {
   key: string;
@@ -19,6 +20,10 @@ interface GenreEvidence {
   positiveFeedback: number;
   negativeFeedback: number;
   requests: number;
+  /** Distinct titles opened (title_viewed) but not necessarily
+   *  watched/rated/requested — the "interested but hasn't committed yet"
+   *  signal, see the weighting note in getComputedGenreTraits below. */
+  views: Set<string>;
 }
 
 function genresFor(tmdbId: number, type: "movie" | "series"): string[] {
@@ -41,6 +46,7 @@ function getOrCreate(map: Map<string, GenreEvidence>, genre: string): GenreEvide
       positiveFeedback: 0,
       negativeFeedback: 0,
       requests: 0,
+      views: new Set(),
     };
     map.set(key, evidence);
   }
@@ -92,17 +98,38 @@ export function getComputedGenreTraits(userId: string, limit = 5): EvidenceTaste
     for (const genre of genresFor(request.tmdbId, request.type)) getOrCreate(genres, genre).requests += 1;
   }
 
+  // Views (title_viewed) — "opened the fiche" is real interest, but weaker
+  // than actually watching/rating/reacting to something, and a lot noisier
+  // than a request too (browsing idly vs. a deliberate ask). 90-day window:
+  // recent browsing should count, an open from eight months ago shouldn't
+  // still be nudging today's suggestions.
+  const NINETY_DAYS_MS = 90 * 24 * 60 * 60 * 1000;
+  for (const viewed of getRecentViewedTitles(userId, Date.now() - NINETY_DAYS_MS, 200)) {
+    const workKey = `${viewed.mediaType}:${viewed.tmdbId}`;
+    for (const genre of genresFor(viewed.tmdbId, viewed.mediaType)) getOrCreate(genres, genre).views.add(workKey);
+  }
+
   const totalWorks = Math.max(1, watchedWorks.size);
   return [...genres.values()]
     .map((evidence): EvidenceTasteTrait | null => {
       const averageRating = evidence.ratingCount > 0 ? evidence.ratingTotal / evidence.ratingCount : null;
-      const evidenceCount = evidence.works.size + evidence.ratingCount + evidence.positiveFeedback + evidence.negativeFeedback + evidence.requests;
+      const evidenceCount = evidence.works.size + evidence.ratingCount + evidence.positiveFeedback + evidence.negativeFeedback + evidence.requests + evidence.views.size;
       if (evidenceCount < 4 || (evidence.works.size < 3 && evidence.ratingCount < 2 && evidence.positiveFeedback < 2)) return null;
 
       const exposure = evidence.works.size / totalWorks;
       const ratingLift = averageRating == null ? 0 : Math.max(-1, Math.min(1, (averageRating - 3) / 2));
       const feedbackLift = Math.max(-0.2, Math.min(0.2, (evidence.positiveFeedback - evidence.negativeFeedback) * 0.04));
-      const strength = Math.max(0, Math.min(1, exposure * 1.45 + Math.max(0, ratingLift) * 0.3 + feedbackLift));
+      // "Souvent on me demande de dl des films/séries qui ne sont pas pour
+      // moi" (confirmed live) — a request is weak, noisy evidence of MY
+      // taste specifically, capped hard at +0.1 regardless of how many
+      // requests land in this genre (unlike every other term, this one
+      // deliberately does NOT scale with count past the cap).
+      const requestLift = Math.min(0.1, evidence.requests * 0.025);
+      // Views matter more than requests (confirmed live) but still can't
+      // rival actually watching something — capped at +0.2, roughly a
+      // seventh of exposure's own ceiling (1.45 at full library share).
+      const viewLift = Math.min(0.2, evidence.views.size * 0.02);
+      const strength = Math.max(0, Math.min(1, exposure * 1.45 + Math.max(0, ratingLift) * 0.3 + feedbackLift + requestLift + viewLift));
       const confidence = Math.max(0.5, Math.min(0.96,
         0.42 + Math.min(0.32, evidenceCount * 0.035) + Math.min(0.14, evidence.ratingCount * 0.025) + Math.min(0.08, evidence.positiveFeedback * 0.02)
       ));
