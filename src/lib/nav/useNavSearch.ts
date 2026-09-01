@@ -25,6 +25,20 @@ export function useNavSearch() {
   // Séries) that clear `q` without a pathname change of their own.
   useEffect(() => {
     setValue(pathname === "/discover" ? (searchParams.get("q") ?? "") : "");
+    // Cancel any debounced router.push still pending from a keystroke typed
+    // just before this navigation (Topbar/Sidebar — and this hook with them
+    // — never unmount on a route change, since AppShell only swaps the
+    // `children` under the persistent chrome). Without this, clicking
+    // straight to another page (e.g. the profile menu item) right after
+    // typing in the search box lets that stale timer fire up to 300ms
+    // later and silently router.push("/discover?q=...") the user right
+    // back, overriding the navigation they just made (confirmed live:
+    // reported as "going to profile types my username in search and
+    // returns me to /discover?q=<username>").
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams]);
 

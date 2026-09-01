@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.30 — September 2026
+
+### Cliquer sur Profil ramenait vers une recherche avec le nom d'utilisateur
+
+Taper dans la recherche puis cliquer immédiatement sur "Profil" ouvrait bien la fiche profil, mais était suivi ~300ms plus tard d'un retour silencieux vers `/discover?q=<pseudo>` : la recherche (Topbar/Sidebar) ne se démonte jamais entre deux pages (le chrome de l'appli reste monté, seul le contenu change), donc la recherche différée programmée par la frappe précédente restait active et finissait par s'exécuter après coup, écrasant la navigation déjà faite. Toute recherche différée en attente est désormais annulée dès qu'une navigation aboutit.
+
 ## v1.24.29 — September 2026
 
 ### "Suggestions pour vous" consulte enfin l'affinité de genre calculée
