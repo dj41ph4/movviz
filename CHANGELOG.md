@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.37 — September 2026
+
+### L'affinité par acteur/réalisateur pilote enfin la vraie rangée "Suggestions pour vous"
+
+L'affinité par acteur/réalisateur ajoutée en v1.24.36 n'alimentait que la conversation avec l'IA, pas la rangée "Suggestions pour vous" elle-même — noter cinq étoiles à deux films de Jim Carrey, ou simplement en regarder plusieurs sans jamais noter, ne faisait rien apparaître d'autre de lui dans les suggestions. Elle pilote maintenant aussi cette rangée : la filmographie complète des 3 acteurs/réalisateurs favoris (calculés à partir des notes, des votes 👍/👎 ET du simple fait de revoir souvent le même acteur, sans note explicite) est récupérée via TMDb et injectée dans le pool de candidats, promue au même titre que l'affinité de genre ≥95 % — un match direct sur l'acteur passe même devant.
+
 ## v1.24.36 — September 2026
 
 ### Nouvelle affinité par acteur/réalisateur — "j'adore Jim Carrey" compte enfin pour lui-même

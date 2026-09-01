@@ -182,6 +182,29 @@ interface PersonEvidence {
   negativeCount: number;
 }
 
+interface PersonTarget {
+  tmdbId: number;
+  type: "movie" | "series";
+  /** null = plain watch, no explicit rating/feedback either way — still
+   *  real recurrence evidence ("regarder beaucoup de films avec le même
+   *  acteur", confirmed live as its own qualifying signal), just weaker
+   *  than an explicit vote. */
+  sentiment: boolean | null;
+}
+
+export interface FavoritePerson {
+  id: number;
+  name: string;
+  role: "cast" | "director";
+  strength: number;
+  confidence: number;
+  worksCount: number;
+  /** Whether this person qualified via an explicit rating/vote (label can
+   *  honestly say "bien noté") or purely by recurring across watched titles
+   *  with no vote either way (label says "revient souvent" instead). */
+  hasExplicitSignal: boolean;
+}
+
 // Only the lead cast counts — a background extra in a loved film shouldn't
 // register the same as its star. TMDb's own cast array is already sorted by
 // billing order.
@@ -193,22 +216,22 @@ const PERSON_CAST_TOP_N = 6;
 // history (this user: 91 watched movies, but far fewer explicitly rated) —
 // unlike getComputedGenreTraits, which is free (genres already live on the
 // local library item, no fetch needed at all).
-const PERSON_DETAIL_FETCH_LIMIT = 40;
+const PERSON_DETAIL_FETCH_LIMIT = 70;
 const PERSON_CACHE_TTL_MS = 60 * 60 * 1000;
 
-const personTraitCache = new Map<string, { traits: EvidenceTasteTrait[]; expiresAt: number }>();
+const favoritePeopleCache = new Map<string, { people: FavoritePerson[]; expiresAt: number }>();
 
 /** Called right after a new rating/feedback is recorded (tasteProfile.ts) —
  *  without this, a stale cache computed BEFORE a "j'adore Jim Carrey"-style
- *  rating could keep hiding that exact trait for up to PERSON_CACHE_TTL_MS,
+ *  rating could keep hiding that person for up to PERSON_CACHE_TTL_MS,
  *  confirmed live as the scenario actually being tested. */
 export function invalidatePersonTraitCache(userId: string): void {
-  personTraitCache.delete(userId);
+  favoritePeopleCache.delete(userId);
 }
 
 /**
- * Actor/director affinity — the counterpart to getComputedGenreTraits for
- * "j'adore Jim Carrey" (confirmed live: rating two of his films 5/5 alone
+ * Actor/director affinity core — the counterpart to getComputedGenreTraits
+ * for "j'adore Jim Carrey" (confirmed live: rating two of his films 5/5 alone
  * did nothing for his OTHER films — genre affinity only sees "Comédie",
  * nothing ties the two ratings to the person himself). Sourced from rated
  * (≥4, or ≤2 for the negative side) and 👍/👎'd titles only — the same
@@ -216,24 +239,42 @@ export function invalidatePersonTraitCache(userId: string): void {
  * dislikedExactKeys/tasteVector already apply, not the full watch history
  * (which has no cast data locally and would mean dozens of TMDb fetches on
  * every computation). Cached per user for PERSON_CACHE_TTL_MS since this is
- * the one trait source here that actually costs network calls.
+ * the one trait source here that actually costs network calls. Two thin
+ * views sit on top of this one computation: getComputedPersonTraits()
+ * (EvidenceTasteTrait, for chat/context display) and getFavoritePeople()
+ * (raw id/name, for recommender/engine.ts to actually fetch each person's
+ * filmography and inject it as candidates — a label alone can't do that).
  */
-export async function getComputedPersonTraits(userId: string, limit = 5): Promise<EvidenceTasteTrait[]> {
-  const cached = personTraitCache.get(userId);
-  if (cached && cached.expiresAt > Date.now()) return cached.traits.slice(0, limit);
+async function computeFavoritePeople(userId: string): Promise<FavoritePerson[]> {
+  const cached = favoritePeopleCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.people;
 
   const knowledge = getUnifiedUserKnowledge(userId);
-  const sentiment = new Map<string, { tmdbId: number; type: "movie" | "series"; positive: boolean }>();
+  const targetMap = new Map<string, PersonTarget>();
   for (const r of knowledge.ratings) {
     if (r.rating === 3) continue;
-    sentiment.set(`${r.type}:${r.tmdbId}`, { tmdbId: r.tmdbId, type: r.type, positive: r.rating >= 4 });
+    targetMap.set(`${r.type}:${r.tmdbId}`, { tmdbId: r.tmdbId, type: r.type, sentiment: r.rating >= 4 });
   }
   for (const f of knowledge.feedback) {
     const key = `${f.type}:${f.tmdbId}`;
-    if (!sentiment.has(key)) sentiment.set(key, { tmdbId: f.tmdbId, type: f.type, positive: f.liked });
+    if (!targetMap.has(key)) targetMap.set(key, { tmdbId: f.tmdbId, type: f.type, sentiment: f.liked });
+  }
+  // Plain watch recurrence — "le fait de regarder beaucoup de films avec le
+  // même acteur" (confirmed live), independent of ever rating/voting on
+  // anything. Only added where budget remains after the (usually much
+  // smaller) explicit-signal list above, since every one of these is a
+  // getDetail() fetch too.
+  const watch = getWatchStatus(userId);
+  for (const tmdbId of watch?.movies ?? []) {
+    const key = `movie:${tmdbId}`;
+    if (!targetMap.has(key)) targetMap.set(key, { tmdbId, type: "movie", sentiment: null });
+  }
+  for (const tmdbId of new Set((watch?.episodes ?? []).map((e) => e.tmdbId))) {
+    const key = `series:${tmdbId}`;
+    if (!targetMap.has(key)) targetMap.set(key, { tmdbId, type: "series", sentiment: null });
   }
 
-  const targets = [...sentiment.values()].slice(0, PERSON_DETAIL_FETCH_LIMIT);
+  const targets = [...targetMap.values()].slice(0, PERSON_DETAIL_FETCH_LIMIT);
   const people = new Map<string, PersonEvidence>();
 
   await mapWithConcurrency(targets, 4, async (target) => {
@@ -241,46 +282,73 @@ export async function getComputedPersonTraits(userId: string, limit = 5): Promis
     if (!detail) return;
     const workKey = `${target.type}:${target.tmdbId}`;
     const credit = (id: number, name: string, role: "cast" | "director") => {
-      const key = `${role === "director" ? "director" : "cast"}:${id}`;
+      const key = `${role}:${id}`;
       let evidence = people.get(key);
       if (!evidence) {
         evidence = { id, name, role, works: new Set(), positiveCount: 0, negativeCount: 0 };
         people.set(key, evidence);
       }
       evidence.works.add(workKey);
-      if (target.positive) evidence.positiveCount += 1; else evidence.negativeCount += 1;
+      if (target.sentiment === true) evidence.positiveCount += 1;
+      else if (target.sentiment === false) evidence.negativeCount += 1;
+      // sentiment === null (plain watch): counts toward works/recurrence
+      // only, no explicit vote either way.
     };
     for (const c of detail.cast.slice(0, PERSON_CAST_TOP_N)) credit(c.id, c.name, "cast");
     for (const c of detail.crew) if (c.job === "Director") credit(c.id, c.name, "director");
   });
 
-  const traits = [...people.values()]
-    .map((evidence): EvidenceTasteTrait | null => {
-      // A single shared title is too weak to call a "favorite actor" — needs
-      // to recur, or show up alongside at least one other positive signal.
-      if (evidence.works.size < 2 && evidence.positiveCount < 2) return null;
+  const favorites = [...people.values()]
+    .map((evidence): FavoritePerson | null => {
       const net = evidence.positiveCount - evidence.negativeCount;
-      if (net <= 0) return null;
-      const strength = Math.max(0, Math.min(1, 0.35 + evidence.works.size * 0.18 + net * 0.05));
-      const confidence = Math.max(0.5, Math.min(0.95, 0.5 + Math.min(0.3, evidence.works.size * 0.08) + Math.min(0.1, net * 0.02)));
-      const label = evidence.role === "director"
-        ? `apprécie les films réalisés par ${evidence.name} (${evidence.works.size} vu${evidence.works.size > 1 ? "s" : ""}/noté${evidence.works.size > 1 ? "s" : ""})`
-        : `apprécie particulièrement ${evidence.name} comme acteur/actrice (${evidence.works.size} film${evidence.works.size > 1 ? "s" : ""}/série${evidence.works.size > 1 ? "s" : ""} bien noté${evidence.works.size > 1 ? "s" : ""})`;
-      return {
-        key: `person:${evidence.role}:${evidence.id}`,
-        label,
-        confidence,
-        evidenceCount: evidence.works.size,
-        strength,
-        source: "computed_person",
-      };
+      // An explicit net-negative vote excludes the person outright, however
+      // often they otherwise recur — this is the one case where the label
+      // ("apprécie particulièrement X") would be actively wrong to show.
+      if (net < 0) return null;
+      // Qualifies either on pure recurrence (3+ appearances, no vote needed
+      // — mirrors getComputedGenreTraits' own works.size<3 bootstrap) OR on
+      // an explicit net-positive vote even with fewer appearances (a single
+      // 5★ carries more signal than a single incidental watch).
+      if (evidence.works.size < 3 && net < 1) return null;
+      const strength = Math.max(0, Math.min(1, 0.25 + evidence.works.size * 0.15 + net * 0.08));
+      const confidence = Math.max(0.5, Math.min(0.95, 0.45 + Math.min(0.3, evidence.works.size * 0.06) + Math.min(0.15, net * 0.03)));
+      return { id: evidence.id, name: evidence.name, role: evidence.role, strength, confidence, worksCount: evidence.works.size, hasExplicitSignal: net > 0 };
     })
-    .filter((trait): trait is EvidenceTasteTrait => trait !== null)
-    .sort((a, b) => (b.strength * b.confidence) - (a.strength * a.confidence) || b.evidenceCount - a.evidenceCount)
+    .filter((f): f is FavoritePerson => f !== null)
+    .sort((a, b) => (b.strength * b.confidence) - (a.strength * a.confidence) || b.worksCount - a.worksCount)
     .slice(0, 10);
 
-  personTraitCache.set(userId, { traits, expiresAt: Date.now() + PERSON_CACHE_TTL_MS });
-  return traits.slice(0, limit);
+  favoritePeopleCache.set(userId, { people: favorites, expiresAt: Date.now() + PERSON_CACHE_TTL_MS });
+  return favorites;
+}
+
+/** Raw favorite people (id/name/role/strength) — for a consumer that needs
+ *  to actually DO something with the person (recommender/engine.ts fetching
+ *  their filmography), not just display a sentence. */
+export async function getFavoritePeople(userId: string, limit = 3): Promise<FavoritePerson[]> {
+  return (await computeFavoritePeople(userId)).slice(0, limit);
+}
+
+export async function getComputedPersonTraits(userId: string, limit = 5): Promise<EvidenceTasteTrait[]> {
+  const favorites = await computeFavoritePeople(userId);
+  return favorites.slice(0, limit).map((f) => {
+    const plural = f.worksCount > 1 ? "s" : "";
+    const label = f.role === "director"
+      ? f.hasExplicitSignal
+        ? `apprécie les films réalisés par ${f.name} (${f.worksCount} vu${plural}/noté${plural})`
+        : `regarde régulièrement des films réalisés par ${f.name} (${f.worksCount} vu${plural})`
+      : f.hasExplicitSignal
+        ? `apprécie particulièrement ${f.name} comme acteur/actrice (${f.worksCount} film${plural}/série${plural} bien noté${plural})`
+        : `revient souvent vers des films/séries avec ${f.name} (${f.worksCount} vu${plural}, sans note explicite)`;
+    return {
+      key: `person:${f.role}:${f.id}`,
+      label,
+      confidence: f.confidence,
+      evidenceCount: f.worksCount,
+      strength: f.strength,
+      source: "computed_person" as const,
+    };
+  });
 }
 
 const EXPLICIT_PREFERENCE_RE = /\b(?:adore|aime|pr[ée]f[èe]re|fan|d[ée]teste|n['’ ]aime pas|pr[ée]f[ée]rence forte|mettrais?\s+[1-5]\s*\/\s*5|m[ée]rite\s+[1-5]\s*\/\s*5)\b/i;

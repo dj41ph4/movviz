@@ -1,4 +1,4 @@
-import { getMovieRecommendations, getTvRecommendations, getMovieSimilar, getTvSimilar, getGenres } from "@/lib/metadata/tmdb";
+import { getMovieRecommendations, getTvRecommendations, getMovieSimilar, getTvSimilar, getGenres, getPerson } from "@/lib/metadata/tmdb";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { mapWithConcurrency } from "@/lib/concurrency";
@@ -6,7 +6,7 @@ import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
 import { getCachedMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import { getFeedback } from "@/lib/ai/tasteProfile";
-import { getComputedGenreTraits, matchGenreAffinity } from "@/lib/userContext/taste";
+import { getComputedGenreTraits, matchGenreAffinity, getFavoritePeople } from "@/lib/userContext/taste";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
 /** Above this, the SQL context engine's genre affinity (userContext/taste.ts
@@ -89,6 +89,44 @@ export async function getRecommendations(
     }
   }
 
+  // "j'adore Jim Carrey" / plusieurs films avec le même acteur regardés =
+  // c'est ça les suggestions : le reste de la filmographie d'un acteur ou
+  // réalisateur favori (userContext/taste.ts — étoiles, pouces, ET simple
+  // récurrence de visionnage, pas seulement le chat IA) doit apparaître ICI,
+  // pas juste dans les réponses du chat. TMDb /recommendations et /similar
+  // ne suffisent pas : ils sont basés sur "les autres spectateurs de ce
+  // titre ont aussi aimé", pas sur "cet acteur précis". On va donc chercher
+  // sa filmographie complète via getPerson() et on l'injecte dans le même
+  // pool de candidats, avec une promotion aussi décisive que l'affinité de
+  // genre ci-dessous — sinon un acteur favori resterait noyé dans le composite.
+  const favoritePeople = await getFavoritePeople(userId, 3);
+  const personAffinity = new Map<number, number>();
+  if (favoritePeople.length) {
+    const people = await mapWithConcurrency(favoritePeople, 3, async (person) => {
+      try { return { person, detail: await getPerson(person.id) }; } catch { return null; }
+    });
+    for (const entry of people) {
+      if (!entry?.detail) continue;
+      const { person, detail } = entry;
+      const strength = person.strength * person.confidence;
+      for (const credit of detail.credits) {
+        if (credit.type !== type) continue;
+        if (person.role === "cast" && !credit.isCast) continue;
+        if (person.role === "director" && !credit.isDirector) continue;
+        if (excluded.has(credit.tmdbId)) continue;
+        const existing = score.get(credit.tmdbId);
+        if (existing) {
+          existing.count++;
+        } else {
+          score.set(credit.tmdbId, { item: credit, count: 1 });
+        }
+        const prior = personAffinity.get(credit.tmdbId) ?? 0;
+        if (strength > prior) personAffinity.set(credit.tmdbId, strength);
+      }
+    }
+  }
+  const PERSON_AFFINITY_PROMOTE_THRESHOLD = 0.3;
+
   const entries = [...score.values()];
   const maxCount = Math.max(1, ...entries.map((s) => s.count));
 
@@ -128,9 +166,11 @@ export async function getRecommendations(
         ? (s.item.genreIds ?? []).map((id) => genreNameById.get(id)).filter((n): n is string => !!n)
         : [];
       const affinity = genreNames.length ? matchGenreAffinity(genreNames, genreTraits) : 0;
+      const personScore = personAffinity.get(s.item.tmdbId) ?? 0;
       return {
         item: s.item,
         affinity,
+        personScore,
         composite:
           (s.count / maxCount) * 0.25
           + (Math.min(s.item.rating ?? 0, 10) / 10) * 0.3
@@ -139,12 +179,19 @@ export async function getRecommendations(
       };
     })
     .sort((a, b) => {
-      // A ≥95% match is decisive — it wins outright over TMDb's own
-      // ranking, highest affinity first among qualifiers. Below that,
+      // A favorite actor/director's own filmography is the most decisive
+      // signal available (it's a direct match, not a similarity heuristic),
+      // so it's promoted ahead of even the ≥95% genre-affinity match. A
+      // ≥95% genre match is decisive next — it wins outright over TMDb's
+      // own ranking, highest affinity first among qualifiers. Below that,
       // affinity has already been folded nowhere else here (unlike
       // recommendationScore.ts, this row has no per-item "reason" text to
       // layer a softer bonus onto) — the existing composite score decides,
       // unchanged from before this middleware existed.
+      const aPerson = a.personScore >= PERSON_AFFINITY_PROMOTE_THRESHOLD;
+      const bPerson = b.personScore >= PERSON_AFFINITY_PROMOTE_THRESHOLD;
+      if (aPerson !== bPerson) return aPerson ? -1 : 1;
+      if (aPerson) return b.personScore - a.personScore || b.composite - a.composite;
       const aQualifies = a.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
       const bQualifies = b.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
       if (aQualifies !== bQualifies) return aQualifies ? -1 : 1;
