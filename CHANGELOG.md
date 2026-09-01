@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.34 — September 2026
+
+### Année minimale des carrousels — deux causes distinctes de titres trop anciens
+
+Le hero de l'accueil sélectionnait un petit nombre de candidats (environ 6) puis filtrait par année ensuite — quand une bonne partie de ces candidats se trouvait sous l'année minimale, il complétait volontairement avec les titres exclus plutôt que d'afficher un hero incomplet, ce qui pouvait montrer plusieurs titres antérieurs à la limite fixée. Le pool de candidats est désormais bien plus large dès le départ quand une année minimale est définie, pour que le filtre ait de vrais candidats récents à retenir sans jamais avoir besoin de ce repli. La rangée "Suggestions pour vous" des pages Films/Séries, elle, ne consultait pas du tout ce réglage — corrigé aussi.
+
 ## v1.24.33 — September 2026
 
 ### L'IA affichait un JSON brut au lieu de noter — et ne notait en réalité rien du tout

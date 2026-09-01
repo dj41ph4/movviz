@@ -368,7 +368,18 @@ export async function buildHeroSlides(
   youtubeTrailerSearch = false,
   minYear: number | null = null
 ): Promise<HeroSlide[]> {
-  const refs = await gatherCandidateRefs(userId, targetCount, mix.includeOwned || mix.includeUnowned ? mix : { includeOwned: true, includeUnowned: true });
+  // With a minYear floor, gathering only `targetCount` candidates up front
+  // and filtering by year AFTER selection routinely left too few survivors —
+  // the fallback below then backfilled with the very pre-minYear titles the
+  // setting was supposed to exclude (reported live: "j'ai plein de choses
+  // vieilles alors que j'ai mis 2015"), on every load where the pools'
+  // natural ordering (recently added, upcoming, TMDb trending...) happened
+  // to surface older titles first. Casting a wider net up front — the
+  // pools themselves aren't capped at targetCount internally, only the
+  // final `picked` slice is — gives the year filter enough real candidates
+  // to still fill the hero without ever touching the fallback in practice.
+  const candidateCount = minYear ? targetCount * 4 : targetCount;
+  const refs = await gatherCandidateRefs(userId, candidateCount, mix.includeOwned || mix.includeUnowned ? mix : { includeOwned: true, includeUnowned: true });
   if (refs.length === 0) return [];
 
   const [movies, series] = [loadMovies(), loadSeries()];

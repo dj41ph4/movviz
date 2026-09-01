@@ -9,6 +9,7 @@ import { useTitleArtworkBatch, type TitleArtworkRef } from "@/components/media/u
 import type { DashboardInterfaceData, DashboardLibraryMovie, DashboardLibrarySeries } from "@/lib/dashboard/interfaceTypes";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 import type { OnDeckEntry } from "@/app/api/plex/on-deck/route";
+import type { DashboardLayout } from "@/lib/dashboard/types";
 import { formatEpisodeBadge } from "@/components/library/MediaBadges";
 
 type MediaType = "movie" | "series";
@@ -25,13 +26,27 @@ export function LibraryRecommendedRows({ type }: { type: MediaType }) {
   const { data: dashboard } = useSWR<DashboardInterfaceData>("/api/interface/dashboard");
   const { data: recommendations } = useSWR<{ results: MetaSearchResult[] }>(`/api/metadata/recommendations?type=${type}`);
   const { data: onDeck } = useSWR<{ items: OnDeckEntry[] }>("/api/plex/on-deck");
+  // "Année minimale des carrousels" (Réglages → Accueil) — reported live as
+  // not respected here: this row wasn't reading the setting at all, unlike
+  // every discovery carousel on the Home dashboard (DashboardRows.tsx's own
+  // afterMinYear). Same field, same semantics ("Minimum release year for the
+  // discovery carousels" — dashboard/types.ts), just never wired into this
+  // component.
+  const { data: layoutData } = useSWR<{ layout: DashboardLayout }>("/api/dashboard/layout");
+  const minYear = layoutData?.layout.hero.minYear;
+  const afterMinYear = useMemo(
+    () => (minYear ? (item: { year: number | null }) => (item.year ?? 0) >= minYear : () => true),
+    [minYear]
+  );
 
   const items = useMemo<LibraryItem[]>(() => {
     const source = type === "movie" ? dashboard?.movies ?? [] : dashboard?.series ?? [];
-    return source.filter((item) => type === "movie"
-      ? (item as DashboardLibraryMovie).status === "available"
-      : (item as DashboardLibrarySeries).hasAvailableEpisode);
-  }, [dashboard, type]);
+    return source
+      .filter((item) => type === "movie"
+        ? (item as DashboardLibraryMovie).status === "available"
+        : (item as DashboardLibrarySeries).hasAvailableEpisode)
+      .filter(afterMinYear);
+  }, [dashboard, type, afterMinYear]);
   const byTmdbId = useMemo(() => new Map(items.map((item) => [item.tmdbId, item])), [items]);
   const localRecommendations = useMemo(() => (recommendations?.results ?? [])
     .map((result) => byTmdbId.get(result.tmdbId))
