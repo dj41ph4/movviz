@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.32 — September 2026
+
+### Aller sur Profil ramenait toujours vers une recherche — la vraie cause cette fois
+
+Le correctif précédent (annuler une recherche différée en attente) réglait un vrai bug, mais pas celui-ci : le signalement persistait même sur un rechargement complet de l'URL /profile, ce qui écartait tout état React. La vraie cause : le gestionnaire de mots de passe du navigateur associe un champ "mot de passe actuel" à un champ "nom d'utilisateur" proche pour proposer l'auto-remplissage — le formulaire de changement de mot de passe du profil n'en a aucun à proximité, donc le navigateur choisissait le seul autre champ texte visible sur la page : la recherche globale (toujours affichée en haut), qu'il remplissait avec le nom d'utilisateur enregistré puis soumettait. Un champ nom d'utilisateur cible désormais correctement ce mécanisme, et la recherche est explicitement exclue de l'auto-remplissage.
+
 ## v1.24.31 — September 2026
 
 ### "Créer le contexte" (profil) ignorait les notes et l'affinité de genre calculée

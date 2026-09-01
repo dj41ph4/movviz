@@ -62,6 +62,18 @@ export function Topbar() {
           onChange={(e) => navSearch.onChange(e.target.value)}
           placeholder={t("discover.searchPlaceholder")}
           aria-label={t("common.searchEverything")}
+          // type="search" + autoComplete="off" — the ONLY visible text input
+          // on every logged-in page (persistent header, never unmounts) was
+          // getting silently autofilled with the browser's saved Movviz
+          // login username on page load/focus (confirmed live: happened
+          // even on a hard navigation straight to /profile, which rules out
+          // any client-side React state race — this is the browser's own
+          // autofill heuristic, not app code). Neither attribute is airtight
+          // on its own in every browser, but type="search" already opts a
+          // field out of the login-autofill heuristic in Chromium, and
+          // autoComplete="off" is the standard second layer.
+          type="search"
+          autoComplete="off"
           className="h-full min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-ink-dim"
         />
       </div>

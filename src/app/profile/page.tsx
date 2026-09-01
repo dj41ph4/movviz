@@ -204,6 +204,28 @@ export default function ProfilePage() {
       <div className="mb-6 rounded-2xl glass p-5">
         <h3 className="mb-4 text-sm font-bold text-ink-soft">{t("profile.changePassword")}</h3>
         <div className="grid gap-3 sm:grid-cols-2">
+          {/* Chrome's password-manager heuristic pairs a type="password" +
+             autoComplete="current-password" field with a "username" field —
+             normally the login form's own username input. This form has
+             none nearby, so the browser was silently latching onto the
+             nearest OTHER visible text input in the DOM instead: the global
+             Topbar search box, which sits above all page content in
+             AppShell. Confirmed live — going to /profile filled the search
+             box with the account's username and pushed a stray
+             /discover?q=<username> navigation, reproducible even on a hard
+             reload straight to the URL (ruling out any client-side React
+             state race). A hidden, correctly-labeled username field gives
+             the heuristic its real target instead. */}
+          <input
+            type="text"
+            name="username"
+            autoComplete="username"
+            value={user.username}
+            readOnly
+            hidden
+            aria-hidden="true"
+            tabIndex={-1}
+          />
           <input
             type="password"
             value={currentPassword}
