@@ -68,7 +68,7 @@ private sealed interface UpdateUiState {
  * updateCheckTrigger, mêmes StateFlow-relais que côté TV (AppViewModel).
  */
 @Composable
-fun AutoUpdateOverlay(vm: MobileViewModel) {
+internal fun AutoUpdateOverlay(vm: MobileViewModel) {
     val context = LocalContext.current
     val updateManager = remember { UpdateManager(context.applicationContext) }
     var state by remember { mutableStateOf<UpdateUiState>(UpdateUiState.Hidden) }

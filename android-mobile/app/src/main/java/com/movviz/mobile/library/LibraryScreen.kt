@@ -86,7 +86,7 @@ private data class LibraryCard(
  * celui-ci est l'inventaire de ce qui est déjà dans la bibliothèque.
  */
 @Composable
-fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleClick: (String, Int) -> Unit) {
+internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleClick: (String, Int) -> Unit) {
     val movies by vm.movies.collectAsState()
     val series by vm.series.collectAsState()
 

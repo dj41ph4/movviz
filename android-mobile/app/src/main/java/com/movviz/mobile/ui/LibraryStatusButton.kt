@@ -68,7 +68,7 @@ fun cardLibState(type: String, tmdbId: Int, movies: List<LibraryMovieDto>, serie
  *  statique. Un seul tap sur une carte NotInLibrary suffit à l'ajouter — pas
  *  besoin de passer par la fiche détail. */
 @Composable
-fun StatusButton(libState: CardLibState, size: Dp, type: String, tmdbId: Int, vm: MobileViewModel) {
+internal fun StatusButton(libState: CardLibState, size: Dp, type: String, tmdbId: Int, vm: MobileViewModel) {
     val scope = rememberCoroutineScope()
     var addingLocal by remember(tmdbId, type) { mutableStateOf(false) }
     val haptic = LocalHapticFeedback.current
