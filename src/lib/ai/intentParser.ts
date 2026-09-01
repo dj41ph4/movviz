@@ -305,6 +305,63 @@ export function extractRatings(text: string): {
   return { ratings, cleaned };
 }
 
+function validRatingActionItem(raw: unknown): { title: string; type: "movie" | "series"; stars: number; opinion?: string } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const title = typeof r.title === "string" ? r.title.trim().slice(0, RATING_TITLE_MAX_LEN) : "";
+  if (!title) return null;
+  const type = r.type === "series" ? "series" : "movie";
+  const starsRaw = r.note ?? r.stars ?? r.rating;
+  const stars = Math.round(Number(starsRaw));
+  if (!Number.isInteger(stars) || stars < 1 || stars > 5) return null;
+  const opinion = typeof r.reason === "string" && r.reason.trim() ? r.reason.trim().slice(0, RATING_OPINION_MAX_LEN) : undefined;
+  return { title, type, stars, opinion };
+}
+
+// Observed live: instead of the documented [[NOTE: titre|type|étoiles|opinion]]
+// inline marker, the model sometimes hallucinates a JSON action block shaped
+// like add_media instead — {"action":"add_note","items":[{"title":...,
+// "note":5,...}]} — most often on a large batch rating request, right after
+// genuine {"action":"add_media"...} turns earlier in the same conversation
+// (confirmed live: 15 Dragon Ball titles, requested right after several real
+// add_media adds). A few plausible action names are recognized, not just the
+// one observed, since a small model's exact wording here isn't reliable.
+const RATING_ACTION_HINT_RE = /"action"\s*:\s*"(?:add_note|rate|rating|set_rating|note)"/i;
+
+/**
+ * Rescue path for the failure above. Left unhandled, this dumped raw JSON to
+ * the user AND applied nothing — the exact "action lie" the system prompt
+ * explicitly forbids (claims success, nothing actually happened), just via a
+ * different malformed shape than extractRatings() already guards against.
+ * Same "deterministic detection over more prompt tuning" choice as the rest
+ * of this file: recognize the shape and apply it for real, rather than trust
+ * yet another prompt reminder to a small model under multi-turn pressure.
+ * Same return shape as extractRatings() so a caller can merge both sources
+ * into one apply loop.
+ */
+export function extractHallucinatedRatingAction(text: string): {
+  ratings: { title: string; type: "movie" | "series"; stars: number; opinion?: string }[];
+  cleaned: string;
+} {
+  if (!RATING_ACTION_HINT_RE.test(text)) return { ratings: [], cleaned: text };
+  const span = extractJsonObjectSpan(text);
+  if (!span || !span.value || typeof span.value !== "object") return { ratings: [], cleaned: text };
+  const obj = span.value as Record<string, unknown>;
+  if (!Array.isArray(obj.items)) return { ratings: [], cleaned: text };
+  const ratings: { title: string; type: "movie" | "series"; stars: number; opinion?: string }[] = [];
+  for (const raw of obj.items) {
+    if (ratings.length >= RATING_MAX_COUNT) break;
+    const item = validRatingActionItem(raw);
+    if (item) ratings.push(item);
+  }
+  if (!ratings.length) return { ratings: [], cleaned: text };
+  const start = text.indexOf("{");
+  const end = span.end;
+  let stripped = (start >= 0 && end > start ? text.slice(0, start) + text.slice(end) : text).trim();
+  stripped = stripped.replace(/```(?:json)?/gi, "").replace(/\n{3,}/g, "\n\n").trim();
+  return { ratings, cleaned: stripped };
+}
+
 // "je m'appelle Seb", "je me nomme Léa", "moi c'est Max"/"c'est Max", "mon
 // prénom est/c'est Alex", "appelle-moi Théo" — one alternation, name in the
 // capture group. Accented/hyphenated first names allowed (Léa, Jean-Paul),
@@ -509,7 +566,12 @@ export function containsLeakedInternalBlock(text: string): boolean {
 // current code, but confirmed by the user as something they've actually
 // seen — kept as a cheap final safety net rather than assuming it can't
 // happen again). Never shown to the user under any circumstance.
-const RAW_ACTION_JSON_RE = /\{[\s\S]*?"action"\s*:\s*"(?:add_media|recommend)"[\s\S]*\}/;
+// Same rating-action aliases as extractHallucinatedRatingAction above — this
+// is the pure "hide it" fallback for the edge case where that function's own
+// item validation rejected every item (e.g. no usable note/stars/rating
+// field on any of them), so nothing got applied and the JSON never got
+// stripped by that earlier, more useful path.
+const RAW_ACTION_JSON_RE = /\{[\s\S]*?"action"\s*:\s*"(?:add_media|recommend|add_note|rate|rating|set_rating|note)"[\s\S]*\}/;
 
 export function containsLeakedActionJson(text: string): boolean {
   return RAW_ACTION_JSON_RE.test(text);

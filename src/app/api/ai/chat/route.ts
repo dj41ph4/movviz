@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadAiConfig, pushAiMessage, loadAiSession, setActiveSubject, setDialogueState } from "@/lib/ai/store";
 import { callAi, callAiCandidates, searchWeb } from "@/lib/ai/providers";
-import { parseIntent, extractFacts, extractWatched, extractRatings, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
+import { parseIntent, extractFacts, extractWatched, extractRatings, extractHallucinatedRatingAction, extractSelfIntroName, extractNameFromDirectAnswer, detectLibraryFalseNegativeCorrection, extractMissingFromEntity, extractFilmographyRequest, extractMusicQuestion, extractLibraryPresenceQuestion, extractWatchStatusQuestion, extractCastCrewQuestion, extractSeriesStatusQuestion, extractBareTitleMention, isSeriesStatusAboutCurrentPage, isDegenerateReply, isMechanicalBulletReply, sanitizeMechanicalBulletReply, containsLeakedInternalBlock, sanitizeLeakedBlock, containsLeakedActionJson, sanitizeLeakedActionJson, isFalseNameDenial, isFalseInternetDenial, isUnresolvedCheckPromise, claimsRatingWithoutMarker, promisesListWithNothing, isRecommendationContinuation, extractExplicitTasteRating, BROKEN_ACTION_FALLBACK, countConsecutiveInsultRounds, sharesRepeatedPhrase, sharesReplyTemplate, recentAssistantReplies, hasAlreadyExitedInsultStreak } from "@/lib/ai/intentParser";
 import { extractConversationFacts } from "@/lib/ai/factExtractor";
 import { addMedia, recommendMedia, buildUserContext, buildSystemPrompt, mapWithConcurrency, getSimilarCandidates, resolveAiItem, isEpisodeListRequest, buildEpisodeListContext, buildTechnicalContext, buildMissingFromFranchiseContext, MAX_FRANCHISE_HITS, buildCompleteFilmographyAnswer, buildLibraryPresenceContext, buildWatchStatusContext, buildCastCrewContext, buildTitleStatusContext, buildTitleMentionContext, pickProactiveRatingCandidate, type FranchiseSearchHit, type WatchStatusResult, type TitleRef } from "@/lib/ai/actions";
 import { analyzeDialogueTurn, selectDialogueCandidate, updateDialogueState } from "@/lib/ai/dialogueDirector";
@@ -804,7 +804,16 @@ export async function POST(req: NextRequest) {
       }
     }
   }
-  const { ratings, cleaned } = extractRatings(afterWatched);
+  const { ratings: markerRatings, cleaned: afterMarkerRatings } = extractRatings(afterWatched);
+  // Rescue path for a different, observed failure shape on the SAME intent
+  // (rate via chat): instead of the documented [[NOTE:...]] marker, the
+  // model sometimes hallucinates a JSON {"action":"add_note",...} block —
+  // extractRatings() above only strips the marker syntax, so this ran
+  // unhandled and dumped raw JSON to the user while applying nothing at all
+  // (confirmed live: a 15-item Dragon Ball batch). Runs on whatever text
+  // extractRatings left behind, then both sources merge into one apply loop.
+  const { ratings: actionRatings, cleaned } = extractHallucinatedRatingAction(afterMarkerRatings);
+  const ratings = [...markerRatings, ...actionRatings];
   // Titres dont la note a RÉELLEMENT été enregistrée (résolus + écrits) —
   // sert à construire une confirmation honnête si le modèle n'a produit
   // aucune phrase autour de ses marqueurs (voir plus bas).

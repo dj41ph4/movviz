@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.33 — September 2026
+
+### L'IA affichait un JSON brut au lieu de noter — et ne notait en réalité rien du tout
+
+Sur une demande de notation en lot ("mets 5 étoiles à tous les Dragon Ball"), l'assistant répondait parfois avec un bloc JSON brut affiché tel quel dans la conversation, en plus de ne RIEN enregistrer réellement malgré un ton confiant ("c'est noté !"). Le modèle utilisait un format non reconnu au lieu du marqueur attendu en interne — désormais reconnu et appliqué pour de vrai, avec une confirmation propre à la place du JSON. Les titres mentionnés dans une conversation d'avant cette mise à jour n'ont pas été notés : il faudra redemander à l'IA pour ceux-là.
+
 ## v1.24.32 — September 2026
 
 ### Aller sur Profil ramenait toujours vers une recherche — la vraie cause cette fois
