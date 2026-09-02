@@ -1,0 +1,35 @@
+name: Mobile Netflix refresh
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/_mobile_netflix_refresh.yml'
+      - 'scripts/_apply_mobile_netflix_refresh.py'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply mobile refresh
+        run: python scripts/_apply_mobile_netflix_refresh.py
+      - name: Commit changes
+        run: |
+          git config user.name "dj41ph4"
+          git config user.email "dj41ph4@gmail.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing to commit"
+            exit 0
+          fi
+          git commit -m "feat(mobile): refonte Netflix, navigation et téléchargements serveur"
+          git push origin HEAD:main
