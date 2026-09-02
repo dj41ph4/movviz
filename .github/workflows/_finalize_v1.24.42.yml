@@ -1,0 +1,56 @@
+name: Finalize v1.24.42
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/_finalize_v1.24.42.yml'
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Cleanup temporary shipping workflows
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/_ship_tv_polish_v1.24.42.yml
+          rm -f .github/workflows/_ship_tv_polish_v1.24.42_retry.yml
+          rm -f .github/workflows/_finalize_v1.24.42.yml
+          git config user.name "dj41ph4"
+          git config user.email "dj41ph4@gmail.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): cleanup v1.24.42 temporary workflows"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
+
+      - name: Create and push v1.24.42 tag
+        run: |
+          set -euo pipefail
+          git fetch origin main --tags
+          git reset --hard origin/main
+          if git ls-remote --exit-code --tags origin refs/tags/v1.24.42 >/dev/null 2>&1; then
+            echo "v1.24.42 already exists"
+          else
+            git tag -a v1.24.42 -m "v1.24.42"
+            git push origin refs/tags/v1.24.42
+          fi
+
+      - name: Launch release pipelines explicitly
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          for wf in android-tv-build.yml android-mobile-build.yml linux-release-build.yml build-installer.yml docker-publish.yml; do
+            gh workflow run "$wf" --ref v1.24.42
+          done
