@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.38 — September 2026
+
+### Fini les documentaires et making-of dans les suggestions
+
+TMDb mélange régulièrement des documentaires et des making-of dans `/recommendations`, `/similar` et même la filmographie d'un acteur favori — le chat IA les excluait déjà, mais pas "Suggestions pour vous" ni "Parce que vous avez regardé", qui en proposaient encore malgré des 👎 répétés sur ce genre. L'affinité de genre n'exclut jamais un genre entier (elle ne fait qu'atténuer son score), donc ce n'était pas suffisant. Le genre Documentaire est maintenant une règle dure, appliquée dans le filtre partagé par toutes les rangées de suggestions : priorité au film et à la série, plus aucun documentaire ne s'y glisse. La recherche manuelle n'est pas concernée — un documentaire recherché explicitement reste trouvable.
+
 ## v1.24.37 — September 2026
 
 ### L'affinité par acteur/réalisateur pilote enfin la vraie rangée "Suggestions pour vous"
