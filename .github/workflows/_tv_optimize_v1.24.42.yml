@@ -1,0 +1,908 @@
+name: Apply Android TV v1.24.42 optimization
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/_tv_optimize_v1.24.42.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply TV optimization patch
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import re
+
+          ROOT = Path('.')
+
+          def read(path):
+              return (ROOT / path).read_text(encoding='utf-8-sig')
+
+          def write(path, text):
+              p = ROOT / path
+              p.parent.mkdir(parents=True, exist_ok=True)
+              p.write_text(text, encoding='utf-8')
+
+          def replace_once(path, old, new):
+              text = read(path)
+              if old not in text:
+                  raise RuntimeError(f'anchor not found in {path}: {old[:120]!r}')
+              write(path, text.replace(old, new, 1))
+
+          VERSION = '1.24.42'
+          VERSION_CODE = '12442'
+
+          # -----------------------------------------------------------------
+          # Unified version bump (server/web + Android TV + Android Mobile +
+          # README + lockfile + changelog). Tag-based release workflows will
+          # carry the same version to Linux/Windows/Docker artifacts.
+          # -----------------------------------------------------------------
+          package = json.loads(read('package.json'))
+          package['version'] = VERSION
+          write('package.json', json.dumps(package, ensure_ascii=False, indent=2) + '\n')
+
+          lock = json.loads(read('package-lock.json'))
+          lock['version'] = VERSION
+          if isinstance(lock.get('packages'), dict) and '' in lock['packages']:
+              lock['packages']['']['version'] = VERSION
+          write('package-lock.json', json.dumps(lock, ensure_ascii=False, indent=2) + '\n')
+
+          for gradle_path in ['android-tv/app/build.gradle.kts', 'android-mobile/app/build.gradle.kts']:
+              text = read(gradle_path)
+              text, n1 = re.subn(r'(versionCode\s*=\s*\(\(project\.findProperty\("movvizVersionCode"\).*?\?:\s*)\d+', rf'\g<1>{VERSION_CODE}', text, count=1)
+              text, n2 = re.subn(r'(versionName\s*=\s*\(project\.findProperty\("movvizVersionName"\).*?\?:\s*")[^"]+("\s*)', rf'\g<1>{VERSION}\2', text, count=1)
+              if n1 != 1 or n2 != 1:
+                  raise RuntimeError(f'could not bump Android fallback version in {gradle_path}')
+              write(gradle_path, text)
+
+          readme = read('README.md')
+          readme, n = re.subn(r'Movviz-\d+\.\d+\.\d+-7c3aed', f'Movviz-{VERSION}-7c3aed', readme, count=1)
+          if n != 1:
+              raise RuntimeError('README current version badge not found')
+          write('README.md', readme)
+
+          changelog = read('CHANGELOG.md')
+          if f'## v{VERSION} ' not in changelog:
+              entry = f'''## v{VERSION} — September 2026
+
+### Android TV — UX, lecture et mises à jour
+
+- Les sous-titres sont désormais désactivés par défaut et leur état actif/inactif est mémorisé par profil et par titre pour les reprises de lecture.
+- La fiche titre rafraîchit la progression au retour du lecteur : le CTA devient immédiatement **Reprendre à HH:MM:SS** au lieu de rester figé sur « Lire ».
+- Les filtres de catégories du catalogue TV comparent enfin les vrais noms de genres de la bibliothèque au lieu des identifiants TMDb, avec prise en charge d'Anime et Romance ado.
+- Les données de découverte, recommandations, hero et reprise sont purgées lors d'un changement de profil afin d'éviter tout mélange entre comptes.
+- Le focus TV gagne un micro-zoom GPU et un halo renforcé pour une interface plus vivante sans déplacer les rangées.
+- Une flèche de téléchargement animée apparaît dans la barre latérale lorsqu'une mise à jour est disponible. L'installation automatique est strictement limitée au démarrage ; pendant l'utilisation, une mise à jour est seulement signalée et ne démarre qu'après une action explicite.
+
+'''
+              changelog = changelog.replace('# Changelog\n\n', '# Changelog\n\n' + entry, 1)
+              write('CHANGELOG.md', changelog)
+
+          # -----------------------------------------------------------------
+          # TV: profile-scoped caches + update notification state.
+          # -----------------------------------------------------------------
+          path = 'android-tv/app/src/main/kotlin/com/movviz/tv/AppViewModel.kt'
+          text = read(path)
+          if 'import com.movviz.tv.data.UpdateInfo' not in text:
+              text = text.replace('import com.movviz.tv.data.UserPrefsDto\n', 'import com.movviz.tv.data.UserPrefsDto\nimport com.movviz.tv.data.UpdateInfo\n', 1)
+
+          anchor = '''    private val _updateCheckStatus = MutableStateFlow<String?>(null)
+    val updateCheckStatus: StateFlow<String?> = _updateCheckStatus.asStateFlow()
+
+    fun requestUpdateCheck() {
+'''
+          replacement = '''    private val _updateCheckStatus = MutableStateFlow<String?>(null)
+    val updateCheckStatus: StateFlow<String?> = _updateCheckStatus.asStateFlow()
+
+    // Runtime update state: after startup, checks are notification-only.
+    // Nothing is installed automatically while the user navigates or watches.
+    private val _availableUpdate = MutableStateFlow<UpdateInfo?>(null)
+    val availableUpdate: StateFlow<UpdateInfo?> = _availableUpdate.asStateFlow()
+    private val _updateInstallTrigger = MutableStateFlow(0)
+    val updateInstallTrigger: StateFlow<Int> = _updateInstallTrigger.asStateFlow()
+
+    fun setAvailableUpdate(info: UpdateInfo?) {
+        _availableUpdate.value = info
+    }
+
+    fun requestAvailableUpdateInstall() {
+        if (_availableUpdate.value != null) _updateInstallTrigger.value += 1
+    }
+
+    fun requestUpdateCheck() {
+'''
+          if anchor not in text:
+              raise RuntimeError('AppViewModel update-state anchor not found')
+          text = text.replace(anchor, replacement, 1)
+
+          select_anchor = '''    suspend fun selectProfile(profile: TvProfile): ApiResult<MovvizUserDto> {
+        val url = _serverUrl.value ?: profile.serverUrl
+'''
+          select_repl = '''    /** Vide tous les états dérivés de l'utilisateur AVANT de restaurer le
+     * cookie d'un autre profil. Sans cette invalidation, les deux comptes d'un
+     * même serveur partageaient pendant quelques secondes le hero, les
+     * recommandations et la reprise en cache côté TV. */
+    private fun clearProfileScopedState() {
+        _currentUser.value = null
+        _movies.value = emptyList()
+        _series.value = emptyList()
+        _dashboardHero.value = emptyList()
+        _heroLogos.value = emptyMap()
+        _detail.value = null
+        _person.value = null
+        _seriesSeasons.value = emptyList()
+        _seasonMetadata.value = emptyMap()
+        _searchResults.value = emptyList()
+        _queue.value = emptyList()
+        _trendingMovies.value = emptyList()
+        _trendingSeries.value = emptyList()
+        _movieRows.value = emptyList()
+        _seriesRows.value = emptyList()
+        _movieLibraryRecommendations.value = emptyList()
+        _seriesLibraryRecommendations.value = emptyList()
+        _continueWatching.value = emptyList()
+        _watchStatus.value = null
+        _userPrefs.value = null
+        seasonsTmdbId = null
+    }
+
+    suspend fun selectProfile(profile: TvProfile): ApiResult<MovvizUserDto> {
+        val url = _serverUrl.value ?: profile.serverUrl
+        clearProfileScopedState()
+'''
+          if select_anchor not in text:
+              raise RuntimeError('AppViewModel selectProfile anchor not found')
+          text = text.replace(select_anchor, select_repl, 1)
+          write(path, text)
+
+          # -----------------------------------------------------------------
+          # Startup update gate + sidebar notification + profile id to player.
+          # -----------------------------------------------------------------
+          path = 'android-tv/app/src/main/kotlin/com/movviz/tv/MainActivity.kt'
+          text = read(path)
+          old = '''        setContent {
+            MovvizTvTheme {
+                MovvizNavHost(appViewModel)
+            }
+        }
+'''
+          new = '''        setContent {
+            MovvizTvTheme {
+                var startupUpdateResolved by remember { mutableStateOf(false) }
+                if (!startupUpdateResolved) {
+                    AutoUpdateOverlay(
+                        viewModel = appViewModel,
+                        startupMode = true,
+                        onStartupResolved = { startupUpdateResolved = true },
+                    )
+                } else {
+                    MovvizNavHost(appViewModel)
+                    // Runtime mode only checks/notifies. Installation requires
+                    // an explicit click on the sidebar update indicator.
+                    AutoUpdateOverlay(viewModel = appViewModel, startupMode = false)
+                }
+            }
+        }
+'''
+          if old not in text:
+              raise RuntimeError('MainActivity setContent anchor not found')
+          text = text.replace(old, new, 1)
+
+          nav_anchor = '''                    navRailFocusRequester = navRailFocusRequester,
+                    // Plus de largeur fixe ici : NavRail gère elle-même son
+'''
+          nav_repl = '''                    navRailFocusRequester = navRailFocusRequester,
+                    updateAvailable = viewModel.availableUpdate.collectAsState().value != null,
+                    onUpdateClick = { viewModel.requestAvailableUpdateInstall() },
+                    // Plus de largeur fixe ici : NavRail gère elle-même son
+'''
+          if nav_anchor not in text:
+              raise RuntimeError('MainActivity NavRail anchor not found')
+          text = text.replace(nav_anchor, nav_repl, 1)
+
+          play_old = '''                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, posterPath = posterPath),
+'''
+          play_new = '''                        PlayerActivity.forQueue(
+                            context, url, type, tmdbId, title, queue, startIndex,
+                            posterPath = posterPath,
+                            profileId = viewModel.activeProfile.value?.id ?: viewModel.currentUser.value?.id,
+                        ),
+'''
+          if text.count(play_old) != 1:
+              raise RuntimeError(f'MainActivity regular play anchor count={text.count(play_old)}')
+          text = text.replace(play_old, play_new, 1)
+
+          start_old = '''                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, startFromBeginning = true, posterPath = posterPath),
+'''
+          start_new = '''                        PlayerActivity.forQueue(
+                            context, url, type, tmdbId, title, queue, startIndex,
+                            startFromBeginning = true,
+                            posterPath = posterPath,
+                            profileId = viewModel.activeProfile.value?.id ?: viewModel.currentUser.value?.id,
+                        ),
+'''
+          if text.count(start_old) != 1:
+              raise RuntimeError(f'MainActivity start-from-beginning anchor count={text.count(start_old)}')
+          text = text.replace(start_old, start_new, 1)
+          write(path, text)
+
+          # -----------------------------------------------------------------
+          # NavRail: animated update arrow, notification only.
+          # -----------------------------------------------------------------
+          path = 'android-tv/app/src/main/kotlin/com/movviz/tv/ui/home/NavRail.kt'
+          text = read(path)
+          if 'import androidx.compose.foundation.shape.RoundedCornerShape' not in text:
+              text = text.replace('import androidx.compose.foundation.text.KeyboardOptions\n', 'import androidx.compose.foundation.text.KeyboardOptions\nimport androidx.compose.foundation.shape.RoundedCornerShape\n', 1)
+          if 'import androidx.compose.ui.graphics.graphicsLayer' not in text:
+              text = text.replace('import androidx.compose.ui.graphics.Color\n', 'import androidx.compose.ui.graphics.Color\nimport androidx.compose.ui.graphics.graphicsLayer\n', 1)
+          for imp in [
+              'import androidx.compose.animation.core.RepeatMode',
+              'import androidx.compose.animation.core.animateFloat',
+              'import androidx.compose.animation.core.infiniteRepeatable',
+              'import androidx.compose.animation.core.rememberInfiniteTransition',
+          ]:
+              if imp not in text:
+                  text = text.replace('import androidx.compose.animation.core.animateDpAsState\n', 'import androidx.compose.animation.core.animateDpAsState\n' + imp + '\n', 1)
+          if 'import com.movviz.tv.ui.theme.MovvizDown' not in text:
+              text = text.replace('import com.movviz.tv.ui.theme.MovvizBrand2\n', 'import com.movviz.tv.ui.theme.MovvizBrand2\nimport com.movviz.tv.ui.theme.MovvizDown\n', 1)
+
+          sig_anchor = '''    navRailFocusRequester: FocusRequester? = null,
+    modifier: Modifier = Modifier,
+) {
+'''
+          sig_repl = '''    navRailFocusRequester: FocusRequester? = null,
+    updateAvailable: Boolean = false,
+    onUpdateClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+'''
+          if sig_anchor not in text:
+              raise RuntimeError('NavRail signature anchor not found')
+          text = text.replace(sig_anchor, sig_repl, 1)
+
+          insert_anchor = '''        Spacer(modifier = Modifier.weight(1f))
+        SearchButton(
+'''
+          insert_repl = '''        Spacer(modifier = Modifier.weight(1f))
+        AnimatedVisibility(
+            visible = updateAvailable,
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(140)),
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                UpdateAvailableButton(expanded = railFocused, onClick = onUpdateClick)
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+        }
+        SearchButton(
+'''
+          if insert_anchor not in text:
+              raise RuntimeError('NavRail update insertion anchor not found')
+          text = text.replace(insert_anchor, insert_repl, 1)
+
+          function_anchor = '''@Composable
+private fun ProfileMenuButton(
+'''
+          update_function = '''/** Mise à jour DISPONIBLE, jamais déclencheur automatique. Le petit rebond
+ * vertical + pulsation reste GPU-only et ne perturbe pas le graphe D-pad. */
+@Composable
+private fun UpdateAvailableButton(expanded: Boolean, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val transition = rememberInfiniteTransition(label = "updateAvailable")
+    val pulse by transition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(850), RepeatMode.Reverse),
+        label = "updatePulse",
+    )
+    val bounce by transition.animateFloat(
+        initialValue = -2f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
+        label = "updateBounce",
+    )
+    val shape = RoundedCornerShape(12.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .height(40.dp)
+            .width(if (expanded) 148.dp else 40.dp)
+            .graphicsLayer { translationY = bounce; alpha = pulse }
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = MovvizBrand.copy(alpha = 0.16f),
+            focusedContainerColor = MovvizBrand.copy(alpha = 0.28f),
+            contentColor = Color.White,
+            focusedContentColor = Color.White,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.82f)),
+                shape = shape,
+            ),
+        ),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxSize().padding(horizontal = if (expanded) 12.dp else 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+        ) {
+            Icon(imageVector = MovvizDown, contentDescription = "Mise à jour disponible", tint = Color.White, modifier = Modifier.size(22.dp))
+            if (expanded) {
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    text = "Mise à jour",
+                    fontSize = 12.sp,
+                    fontWeight = if (focused) FontWeight.Bold else FontWeight.SemiBold,
+                    color = Color.White,
+                    maxLines = 1,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileMenuButton(
+'''
+          if function_anchor not in text:
+              raise RuntimeError('NavRail ProfileMenuButton anchor not found')
+          text = text.replace(function_anchor, update_function, 1)
+          write(path, text)
+
+          # -----------------------------------------------------------------
+          # Update overlay: auto-install only at cold startup. Runtime = notify
+          # and explicit user-triggered install only.
+          # -----------------------------------------------------------------
+          path = 'android-tv/app/src/main/kotlin/com/movviz/tv/ui/update/UpdateOverlay.kt'
+          text = read(path)
+          if 'import com.movviz.tv.ui.theme.AnimatedLogo' not in text:
+              text = text.replace('import com.movviz.tv.ui.theme.MovvizBackground\n', 'import com.movviz.tv.ui.theme.MovvizBackground\nimport com.movviz.tv.ui.theme.AnimatedLogo\n', 1)
+
+          start = text.index('@Composable\nfun AutoUpdateOverlay(')
+          end_marker = '/** Affichage pur de l\'overlay — ne contient aucune logique d\'update. */'
+          end = text.index(end_marker)
+          new_fn = r'''@Composable
+fun AutoUpdateOverlay(
+    viewModel: AppViewModel? = null,
+    startupMode: Boolean = false,
+    onStartupResolved: () -> Unit = {},
+) {
+    val context = LocalContext.current
+    val updateManager = remember { UpdateManager(context.applicationContext) }
+    var state by remember { mutableStateOf<UpdateUiState>(UpdateUiState.Hidden) }
+    var target by remember { mutableStateOf("") }
+    var pending by remember { mutableStateOf<UpdateInfo?>(null) }
+    var startupResolved by remember { mutableStateOf(false) }
+    var downloadedFile by remember { mutableStateOf<File?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun finishStartup() {
+        if (!startupMode || startupResolved) return
+        startupResolved = true
+        onStartupResolved()
+    }
+
+    suspend fun startInstall(info: UpdateInfo) {
+        target = info.tag
+        if (!updateManager.canInstallUnknown()) {
+            pending = info
+            state = UpdateUiState.NeedPermission
+            return
+        }
+        try {
+            state = UpdateUiState.Downloading(0f)
+            val file = updateManager.download(info) { progress ->
+                state = UpdateUiState.Downloading(progress)
+            }
+            downloadedFile = file
+            state = UpdateUiState.Installing(null)
+            updateManager.installInBackground(file) { progress ->
+                state = UpdateUiState.Installing(progress)
+            }
+            // On a volontairement démarré l'installation. Si Android refuse
+            // silencieusement le commit, le bouton Installer reste le repli.
+            delay(30_000L)
+            state = UpdateUiState.FallbackInstall
+        } catch (e: Exception) {
+            android.util.Log.w("MovvizUpdate", "cycle de mise à jour interrompu", e)
+            state = if (downloadedFile != null) UpdateUiState.FallbackInstall else UpdateUiState.Hidden
+            if (startupMode && state == UpdateUiState.Hidden) finishStartup()
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                val info = pending
+                if (info != null && state == UpdateUiState.NeedPermission && updateManager.canInstallUnknown()) {
+                    pending = null
+                    scope.launch { startInstall(info) }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    val autoUpdate by (viewModel?.autoUpdateEnabled?.collectAsState()
+        ?: remember { mutableStateOf(BuildConfig.AUTO_UPDATE) })
+
+    if (startupMode) {
+        // STARTUP GATE: on vérifie AVANT que la navigation soit composée.
+        // C'est le seul chemin autorisé à lancer automatiquement une install.
+        LaunchedEffect(Unit) {
+            if (!autoUpdate) {
+                viewModel?.setAvailableUpdate(updateManager.checkForUpdate())
+                finishStartup()
+                return@LaunchedEffect
+            }
+            val info = updateManager.checkForUpdate()
+            if (info == null) {
+                viewModel?.setAvailableUpdate(null)
+                finishStartup()
+            } else {
+                viewModel?.setAvailableUpdate(info)
+                startInstall(info)
+            }
+        }
+
+        if (state == UpdateUiState.Hidden && !startupResolved) {
+            Box(
+                modifier = Modifier.fillMaxSize().background(MovvizBackground),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    AnimatedLogo(size = 56.dp)
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        text = "Vérification de Movviz…",
+                        style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.58f)),
+                    )
+                }
+            }
+        }
+    } else {
+        // Pendant l'utilisation, les checks sont UNIQUEMENT informatifs.
+        // Même si une nouvelle release apparaît au milieu d'un film, aucun
+        // téléchargement/PackageInstaller n'est démarré ici.
+        LaunchedEffect(Unit) {
+            while (true) {
+                val info = updateManager.checkForUpdate()
+                viewModel?.setAvailableUpdate(info)
+                delay(30L * 60L * 1000L)
+            }
+        }
+
+        val manualTrigger = viewModel?.updateCheckTrigger?.collectAsState()?.value
+        LaunchedEffect(manualTrigger) {
+            if (manualTrigger == null || manualTrigger == 0) return@LaunchedEffect
+            viewModel.setUpdateCheckStatus("Vérification…")
+            val info = updateManager.checkForUpdate()
+            viewModel.setAvailableUpdate(info)
+            viewModel.setUpdateCheckStatus(
+                if (info == null) "Movviz est à jour (${BuildConfig.VERSION_NAME})"
+                else "Mise à jour disponible : ${info.tag}"
+            )
+        }
+
+        // Seule l'action EXPLICITE sur la flèche de la sidebar arrive ici.
+        val installTrigger = viewModel?.updateInstallTrigger?.collectAsState()?.value
+        LaunchedEffect(installTrigger) {
+            if (installTrigger == null || installTrigger == 0) return@LaunchedEffect
+            val info = viewModel.availableUpdate.value ?: return@LaunchedEffect
+            startInstall(info)
+        }
+    }
+
+    if (state != UpdateUiState.Hidden) {
+        UpdateOverlay(
+            state = state,
+            targetVersion = target,
+            onAuthorize = { updateManager.openInstallPermissionSettings() },
+            onRetryInstall = { downloadedFile?.let { updateManager.installViaSystemInstaller(it) } },
+            onLater = {
+                state = UpdateUiState.Hidden
+                if (startupMode) finishStartup()
+            },
+        )
+    }
+}
+
+'''
+          text = text[:start] + new_fn + text[end:]
+          write(path, text)
+
+          # -----------------------------------------------------------------
+          # Persist subtitle on/off per server + profile + title. Default OFF.
+          # -----------------------------------------------------------------
+          playback_prefs = r'''package com.movviz.tv.data
+
+import android.content.Context
+
+/**
+ * Préférences de lecture propres au client TV. Les sous-titres sont OFF tant
+ * que l'utilisateur ne les a pas explicitement activés. Le choix est isolé
+ * par serveur + profil + titre et réappliqué aux reprises/épisodes suivants.
+ */
+class PlaybackPrefs(context: Context) {
+    private val prefs = context.applicationContext.getSharedPreferences("movviz_playback_prefs", Context.MODE_PRIVATE)
+
+    fun subtitlesEnabled(serverUrl: String, profileId: String?, mediaKey: String): Boolean =
+        prefs.getBoolean(subtitleKey(serverUrl, profileId, mediaKey), false)
+
+    fun setSubtitlesEnabled(serverUrl: String, profileId: String?, mediaKey: String, enabled: Boolean) {
+        prefs.edit().putBoolean(subtitleKey(serverUrl, profileId, mediaKey), enabled).apply()
+    }
+
+    private fun subtitleKey(serverUrl: String, profileId: String?, mediaKey: String): String =
+        "subtitles|${serverUrl.trim().trimEnd('/')}|${profileId ?: "default"}|$mediaKey"
+}
+'''
+          write('android-tv/app/src/main/kotlin/com/movviz/tv/data/PlaybackPrefs.kt', playback_prefs)
+
+          path = 'android-tv/app/src/main/kotlin/com/movviz/tv/ui/player/PlayerActivity.kt'
+          text = read(path)
+          if 'import com.movviz.tv.data.PlaybackPrefs' not in text:
+              text = text.replace('import com.movviz.tv.data.MovvizRepository\n', 'import com.movviz.tv.data.MovvizRepository\nimport com.movviz.tv.data.PlaybackPrefs\n', 1)
+          text = text.replace('private const val EXTRA_LOCAL_KEYS = "extra_local_keys"\n', 'private const val EXTRA_LOCAL_KEYS = "extra_local_keys"\nprivate const val EXTRA_PROFILE_ID = "extra_profile_id"\n', 1)
+
+          create_anchor = '''        val posterPath = intent.getStringExtra(EXTRA_POSTER_PATH)
+
+        val queue = keys.indices.map { i ->
+'''
+          create_repl = '''        val posterPath = intent.getStringExtra(EXTRA_POSTER_PATH)
+        val profileId = intent.getStringExtra(EXTRA_PROFILE_ID)
+
+        val queue = keys.indices.map { i ->
+'''
+          if create_anchor not in text:
+              raise RuntimeError('PlayerActivity onCreate profile anchor not found')
+          text = text.replace(create_anchor, create_repl, 1)
+
+          screen_anchor = '''                        posterPath = posterPath,
+                        onExit = { finish() },
+'''
+          screen_repl = '''                        posterPath = posterPath,
+                        profileId = profileId,
+                        onExit = { finish() },
+'''
+          if screen_anchor not in text:
+              raise RuntimeError('PlayerActivity PlayerScreen call anchor not found')
+          text = text.replace(screen_anchor, screen_repl, 1)
+
+          queue_sig = '''            startFromBeginning: Boolean = false,
+            posterPath: String? = null,
+        ): Intent = Intent(context, PlayerActivity::class.java).apply {
+'''
+          queue_repl = '''            startFromBeginning: Boolean = false,
+            posterPath: String? = null,
+            profileId: String? = null,
+        ): Intent = Intent(context, PlayerActivity::class.java).apply {
+'''
+          if queue_sig not in text:
+              raise RuntimeError('PlayerActivity forQueue signature anchor not found')
+          text = text.replace(queue_sig, queue_repl, 1)
+          text = text.replace('            putExtra(EXTRA_POSTER_PATH, posterPath)\n', '            putExtra(EXTRA_POSTER_PATH, posterPath)\n            putExtra(EXTRA_PROFILE_ID, profileId)\n', 1)
+
+          player_sig = '''    startFromBeginning: Boolean,
+    posterPath: String? = null,
+    onExit: () -> Unit,
+'''
+          player_repl = '''    startFromBeginning: Boolean,
+    posterPath: String? = null,
+    profileId: String? = null,
+    onExit: () -> Unit,
+'''
+          if player_sig not in text:
+              raise RuntimeError('PlayerScreen signature anchor not found')
+          text = text.replace(player_sig, player_repl, 1)
+
+          repo_anchor = '''    val repository = remember(baseUrl) { MovvizRepository(baseUrl) }
+
+    // Anti-veille :
+'''
+          repo_repl = '''    val repository = remember(baseUrl) { MovvizRepository(baseUrl) }
+    val playbackPrefs = remember { PlaybackPrefs(context.applicationContext) }
+    val subtitleMediaKey = remember(type, tmdbId) { "$type:$tmdbId" }
+    var subtitlesEnabled by remember(baseUrl, profileId, subtitleMediaKey) {
+        mutableStateOf(playbackPrefs.subtitlesEnabled(baseUrl, profileId, subtitleMediaKey))
+    }
+
+    // Anti-veille :
+'''
+          if repo_anchor not in text:
+              raise RuntimeError('PlayerScreen repository anchor not found')
+          text = text.replace(repo_anchor, repo_repl, 1)
+
+          prepare_anchor = '''        exoPlayer.setMediaItem(mediaItem)
+        exoPlayer.prepare()
+'''
+          prepare_repl = '''        // ExoPlayer peut sélectionner automatiquement une piste texte
+        // "default/forced". Movviz TV impose OFF par défaut puis restaure le
+        // dernier choix explicite du profil pour ce titre.
+        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, !subtitlesEnabled)
+            .apply { if (!subtitlesEnabled) clearOverridesOfType(C.TRACK_TYPE_TEXT) }
+            .build()
+        exoPlayer.setMediaItem(mediaItem)
+        exoPlayer.prepare()
+'''
+          if prepare_anchor not in text:
+              raise RuntimeError('PlayerActivity load/prepare anchor not found')
+          text = text.replace(prepare_anchor, prepare_repl, 1)
+
+          subtitle_select_old = '''                    if (groupIndex < 0) {
+                        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                            .build()
+                    } else {
+                        applyTrackOverride(exoPlayer, C.TRACK_TYPE_TEXT, exoPlayer.currentTracks.groups[groupIndex])
+                    }
+                    showSubtitleDialog = false
+'''
+          subtitle_select_new = '''                    if (groupIndex < 0) {
+                        subtitlesEnabled = false
+                        playbackPrefs.setSubtitlesEnabled(baseUrl, profileId, subtitleMediaKey, false)
+                        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+                            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                            .build()
+                    } else {
+                        subtitlesEnabled = true
+                        playbackPrefs.setSubtitlesEnabled(baseUrl, profileId, subtitleMediaKey, true)
+                        applyTrackOverride(exoPlayer, C.TRACK_TYPE_TEXT, exoPlayer.currentTracks.groups[groupIndex])
+                    }
+                    showSubtitleDialog = false
+'''
+          if subtitle_select_old not in text:
+              raise RuntimeError('PlayerActivity subtitle select anchor not found')
+          text = text.replace(subtitle_select_old, subtitle_select_new, 1)
+          write(path, text)
+
+          # -----------------------------------------------------------------
+          # Resume CTA refreshes as soon as PlayerActivity closes + HH:MM:SS.
+          # -----------------------------------------------------------------
+          path = 'android-tv/app/src/main/kotlin/com/movviz/tv/ui/title/TitleDetailScreen.kt'
+          text = read(path)
+          if 'import androidx.compose.runtime.DisposableEffect' not in text:
+              text = text.replace('import androidx.compose.runtime.Composable\n', 'import androidx.compose.runtime.Composable\nimport androidx.compose.runtime.DisposableEffect\n', 1)
+          lifecycle_imports = '''import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+'''
+          if 'import androidx.lifecycle.LifecycleEventObserver' not in text:
+              text = text.replace('import androidx.tv.material3.Text\n', 'import androidx.tv.material3.Text\n' + lifecycle_imports, 1)
+
+          resume_insert_anchor = '''    val episodeResume = remember(continueWatching, type, tmdbId) {
+        if (type != "series") null
+        else continueWatching.firstOrNull { it.type == "series" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
+    }
+
+    // Statut "vu" manuel par utilisateur
+'''
+          resume_insert_repl = '''    val episodeResume = remember(continueWatching, type, tmdbId) {
+        if (type != "series") null
+        else continueWatching.firstOrNull { it.type == "series" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
+    }
+
+    // PlayerActivity est une Activity séparée : la fiche reste composée sous
+    // le lecteur, donc ses LaunchedEffect initiaux ne redémarrent pas quand on
+    // ferme un film. ON_RESUME force le rafraîchissement ciblé : le CTA passe
+    // immédiatement de « Lire » à « Reprendre à HH:MM:SS ».
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, type, tmdbId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadContinueWatching()
+                viewModel.loadWatchStatus()
+                if (viewModel.isInLibrary(type, tmdbId)) {
+                    viewModel.refreshTitleLibraryEntry(type, tmdbId)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    // Statut "vu" manuel par utilisateur
+'''
+          if resume_insert_anchor not in text:
+              raise RuntimeError('TitleDetailScreen resume observer anchor not found')
+          text = text.replace(resume_insert_anchor, resume_insert_repl, 1)
+
+          fmt_re = re.compile(r'''private fun formatResumeTime\(offsetMs: Long\): String \{\n    val totalSeconds = \(offsetMs / 1000\)\.coerceAtLeast\(0\)\n    val h = totalSeconds / 3600\n    val m = \(totalSeconds % 3600\) / 60\n    val s = totalSeconds % 60\n    return if \(h > 0\) "%d:%02d:%02d"\.format\(h, m, s\) else "%d:%02d"\.format\(m, s\)\n\}''')
+          fmt_new = '''private fun formatResumeTime(offsetMs: Long): String {
+    val totalSeconds = (offsetMs / 1000).coerceAtLeast(0)
+    val h = totalSeconds / 3600
+    val m = (totalSeconds % 3600) / 60
+    val s = totalSeconds % 60
+    return "%02d:%02d:%02d".format(h, m, s)
+}'''
+          text, n = fmt_re.subn(fmt_new, text, count=1)
+          if n != 1:
+              raise RuntimeError('TitleDetailScreen formatResumeTime anchor not found')
+          write(path, text)
+
+          # -----------------------------------------------------------------
+          # Catalog genres: library stores names, not TMDb id strings.
+          # -----------------------------------------------------------------
+          path = 'android-tv/app/src/main/kotlin/com/movviz/tv/ui/home/CatalogScreen.kt'
+          text = read(path)
+          filter_old = '''    val filtered = remember(cards, selectedGenre) {
+        if (selectedGenre == null) cards else cards.filter { selectedGenre in it.genres }
+    }
+'''
+          filter_new = '''    val filtered = remember(cards, selectedGenre, type) {
+        when (val selected = selectedGenre) {
+            null -> cards
+            "anime" -> cards.filter { card ->
+                card.genres.any { normalizeGenre(it) == "animation" } &&
+                    // La bibliothèque ne conserve pas la langue d'origine :
+                    // Animation est le même repli historique que le backend
+                    // library-side jusqu'à enrichissement isAnime.
+                    card.genres.isNotEmpty()
+            }
+            "teen" -> cards.filter { card -> matchesTeenLibraryGenre(type, card.genres) }
+            else -> cards.filter { card -> card.genres.any { normalizeGenre(it) == normalizeGenre(selected) } }
+        }
+    }
+'''
+          if filter_old not in text:
+              raise RuntimeError('CatalogScreen filter anchor not found')
+          text = text.replace(filter_old, filter_new, 1)
+
+          genre_item_old = '''        items(genres, key = { "tmdb-${it.id}" }) { g ->
+            CatalogGenreChip(label = g.name, active = selected == g.id.toString(), onClick = { onSelect(g.id.toString()) })
+        }
+'''
+          genre_item_new = '''        items(genres, key = { "tmdb-${it.id}" }) { g ->
+            // Les Library*Dto contiennent des NOMS de genres ("Action",
+            // "Science-fiction"...), pas les ids TMDb. L'ancien filtre
+            // comparait "28" à "Action" et renvoyait donc toujours 0 titre.
+            CatalogGenreChip(label = g.name, active = selected == g.name, onClick = { onSelect(g.name) })
+        }
+'''
+          if genre_item_old not in text:
+              raise RuntimeError('CatalogScreen genre item anchor not found')
+          text = text.replace(genre_item_old, genre_item_new, 1)
+
+          helper_anchor = '''private fun resolutionLabelForCatalog(resolution: String?): String? = when {
+'''
+          helpers = '''private fun normalizeGenre(value: String): String =
+    java.text.Normalizer.normalize(value.trim().lowercase(), java.text.Normalizer.Form.NFD)
+        .replace(Regex("\\p{Mn}+"), "")
+
+private fun matchesTeenLibraryGenre(type: HomeTab, genres: List<String>): Boolean {
+    val names = genres.map(::normalizeGenre).toSet()
+    fun has(vararg values: String) = values.any { normalizeGenre(it) in names }
+    return if (type == HomeTab.MOVIES) {
+        !has("Familial", "Family") && has("Romance") && has("Comédie", "Comedy", "Drame", "Drama")
+    } else {
+        !has("Familial", "Family", "Kids") &&
+            (has("Soap") || (has("Drame", "Drama") && has("Comédie", "Comedy")))
+    }
+}
+
+private fun resolutionLabelForCatalog(resolution: String?): String? = when {
+'''
+          if helper_anchor not in text:
+              raise RuntimeError('CatalogScreen helper anchor not found')
+          text = text.replace(helper_anchor, helpers, 1)
+          write(path, text)
+
+          # -----------------------------------------------------------------
+          # Focus dynamism: tiny GPU-only lift without layout reflow.
+          # -----------------------------------------------------------------
+          path = 'android-tv/app/src/main/kotlin/com/movviz/tv/ui/theme/Theme.kt'
+          text = read(path)
+          halo_anchor = '''    val elevation by animateDpAsState(
+        targetValue = if (focused) 20.dp else 0.dp,
+        animationSpec = tween(durationMillis = 180),
+        label = "tvCardFocusElevation",
+    )
+    val transition = rememberInfiniteTransition(label = "tvCardFocusPulse")
+'''
+          halo_repl = '''    val elevation by animateDpAsState(
+        targetValue = if (focused) 24.dp else 0.dp,
+        animationSpec = tween(durationMillis = 180),
+        label = "tvCardFocusElevation",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.035f else 1f,
+        animationSpec = tween(durationMillis = 170),
+        label = "tvCardFocusScale",
+    )
+    val transition = rememberInfiniteTransition(label = "tvCardFocusPulse")
+'''
+          if halo_anchor not in text:
+              raise RuntimeError('Theme tvCardFocusHalo anchor not found')
+          text = text.replace(halo_anchor, halo_repl, 1)
+          return_anchor = '''    return this
+        .shadow(
+            elevation = elevation,
+'''
+          return_repl = '''    return this
+        // graphicsLayer ne relayout jamais la grille : le micro-zoom donne
+        // du relief sans pousser les cartes voisines.
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .shadow(
+            elevation = elevation,
+'''
+          # Replace the occurrence after tvCardFocusHalo specifically.
+          halo_pos = text.index('fun Modifier.tvCardFocusHalo')
+          before, after = text[:halo_pos], text[halo_pos:]
+          if return_anchor not in after:
+              raise RuntimeError('Theme tvCardFocusHalo return anchor not found')
+          after = after.replace(return_anchor, return_repl, 1)
+          write(path, before + after)
+
+          # Clean old one-shot release workflow left from v1.24.40.
+          old_helper = ROOT / '.github/workflows/_tag_v1.24.40.yml'
+          if old_helper.exists():
+              old_helper.unlink()
+
+          print('v1.24.42 patch applied successfully')
+          PY
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Compile Android TV before publishing
+        working-directory: android-tv
+        run: gradle assembleDebug --no-daemon
+
+      - name: Commit validated optimization to main
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/_tv_optimize_v1.24.42.yml
+          rm -f .github/workflows/_tag_v1.24.40.yml
+          git config user.name "dj41ph4"
+          git config user.email "dj41ph4@gmail.com"
+          git add -A
+          git commit -m "v1.24.42 - optimize Android TV UX and playback"
+          git push origin HEAD:main
+
+      - name: Tag v1.24.42 and launch release pipelines
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if ! git ls-remote --exit-code --tags origin refs/tags/v1.24.42 >/dev/null 2>&1; then
+            git tag -a v1.24.42 -m "v1.24.42"
+            git push origin refs/tags/v1.24.42
+          fi
+          # GITHUB_TOKEN-created tag pushes do not recursively trigger the
+          # normal push/tag workflows, so dispatch them explicitly on the tag.
+          for wf in android-tv-build.yml android-mobile-build.yml linux-release-build.yml build-installer.yml docker-publish.yml; do
+            gh workflow run "$wf" --ref v1.24.42 || true
+          done
