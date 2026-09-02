@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.41 — September 2026
+
+### Publication Android réparée
+
+Les pipelines Android mobile et TV utilisent désormais la version actuelle de l'outil de préparation du SDK, qui installe directement Android 35 et les build-tools 35.0.0. La génération des APK de publication fonctionne à nouveau.
+
 ## v1.24.38 — September 2026
 
 ### Fini les documentaires et making-of dans les suggestions
