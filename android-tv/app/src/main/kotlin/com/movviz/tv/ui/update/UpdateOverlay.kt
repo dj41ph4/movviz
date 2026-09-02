@@ -1,6 +1,7 @@
 package com.movviz.tv.ui.update
 
 import android.os.Build
+import android.os.SystemClock
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -60,6 +61,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
+private const val STARTUP_AUTO_UPDATE_WINDOW_MS = 3_000L
+private const val BACKGROUND_UPDATE_CHECK_MS = 30L * 60L * 1_000L
+
 /** États de l'auto-update, du check GitHub jusqu'à l'installation. */
 sealed interface UpdateUiState {
     data object Hidden : UpdateUiState
@@ -92,6 +96,7 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
      *  système quand le commit PackageInstaller est ignoré. */
     var downloadedFile by remember { mutableStateOf<File?>(null) }
     val scope = rememberCoroutineScope()
+    val startupStartedAt = remember { SystemClock.elapsedRealtime() }
 
     suspend fun start(info: UpdateInfo) {
         target = info.tag
@@ -152,14 +157,40 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // Check GitHub au lancement — une seule fois par démarrage de l'appli.
+    // Check GitHub au lancement. L'installation AUTOMATIQUE n'est autorisée
+    // que dans une fenêtre très courte de démarrage et tant que MainActivity
+    // est réellement RESUMED. Si le réseau répond trop tard ou si un film a
+    // déjà ouvert PlayerActivity, on mémorise seulement la disponibilité :
+    // la flèche clignotante de la sidebar laisse alors l'utilisateur décider.
     val autoUpdate by (viewModel?.autoUpdateEnabled?.collectAsState() ?: remember { mutableStateOf(BuildConfig.AUTO_UPDATE) })
     LaunchedEffect(Unit) {
         if (!autoUpdate || dismissed) return@LaunchedEffect
-        delay(5_000)
-        val info = updateManager.checkForUpdate() ?: return@LaunchedEffect
+        delay(250)
+        val info = updateManager.checkForUpdate()
+        if (info == null) {
+            viewModel?.setAvailableUpdateTag(null)
+            return@LaunchedEffect
+        }
         pending = info
-        start(info)
+        viewModel?.setAvailableUpdateTag(info.tag)
+        val stillStartup = SystemClock.elapsedRealtime() - startupStartedAt <= STARTUP_AUTO_UPDATE_WINDOW_MS
+        val foreground = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        if (stillStartup && foreground) start(info)
+    }
+
+    // Une session TV peut rester ouverte des heures. On peut découvrir une
+    // nouvelle release sans jamais l'installer en douce : toutes les 30 min,
+    // simple check réseau → indicateur sidebar, rien de plus.
+    LaunchedEffect(autoUpdate) {
+        if (!autoUpdate) return@LaunchedEffect
+        delay(BACKGROUND_UPDATE_CHECK_MS)
+        while (true) {
+            if (state == UpdateUiState.Hidden) {
+                val info = updateManager.checkForUpdate()
+                viewModel?.setAvailableUpdateTag(info?.tag)
+            }
+            delay(BACKGROUND_UPDATE_CHECK_MS)
+        }
     }
 
     // Vérification manuelle (bouton Paramètres → À propos) — le check
@@ -178,11 +209,28 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
         viewModel.setUpdateCheckStatus("Vérification…")
         val info = updateManager.checkForUpdate()
         if (info == null) {
+            viewModel.setAvailableUpdateTag(null)
             viewModel.setUpdateCheckStatus("Movviz est à jour (${BuildConfig.VERSION_NAME})")
             return@LaunchedEffect
         }
-        viewModel.setUpdateCheckStatus(null)
+        viewModel.setAvailableUpdateTag(info.tag)
+        viewModel.setUpdateCheckStatus("Mise à jour ${info.tag.removePrefix("v")} disponible")
         pending = info
+        // Vérifier depuis Paramètres ne lance plus une installation en plein
+        // usage. L'installation part uniquement depuis la flèche de sidebar.
+    }
+
+    val installTrigger = viewModel?.updateInstallTrigger?.collectAsState()?.value
+    LaunchedEffect(installTrigger) {
+        if (installTrigger == null || installTrigger == 0) return@LaunchedEffect
+        val info = pending ?: updateManager.checkForUpdate()
+        if (info == null) {
+            viewModel.setAvailableUpdateTag(null)
+            viewModel.setUpdateCheckStatus("Movviz est à jour (${BuildConfig.VERSION_NAME})")
+            return@LaunchedEffect
+        }
+        pending = info
+        viewModel.setAvailableUpdateTag(info.tag)
         start(info)
     }
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.42 — September 2026
+
+### Android TV — reprise, sous-titres, genres et mise à jour maîtrisée
+
+Android TV gagne une reprise réellement dynamique au retour du lecteur (`Reprendre à HH:MM:SS`), des sous-titres désactivés par défaut avec mémorisation par profil et média, la correction du filtrage des catégories qui comparait à tort les IDs TMDb aux noms de genres, une purge complète des données personnalisées lors d'un changement de profil, un focus plus vivant et une flèche de mise à jour clignotante dans la sidebar. Les mises à jour automatiques ne peuvent plus démarrer en pleine navigation ou lecture : seule la courte fenêtre de démarrage autorise l'auto-installation ; ensuite l'utilisateur déclenche explicitement l'installation depuis l'indicateur.
+
 ## v1.24.41 — September 2026
 
 ### Publication Android réparée

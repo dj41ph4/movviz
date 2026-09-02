@@ -41,3 +41,36 @@ class ProfilePrefs(context: Context) {
     private fun key(serverUrl: String, userId: String): String =
         "${serverUrl.trim().trimEnd('/')}|$userId"
 }
+
+/** Préférence de sous-titres mémorisée localement par profil ET média.
+ * Absence de valeur = OFF : on ne laisse jamais ExoPlayer activer une piste
+ * texte de lui-même au premier lancement d'un film/épisode. */
+data class SubtitlePreference(
+    val enabled: Boolean,
+    val language: String? = null,
+)
+
+class PlaybackPrefs(
+    context: Context,
+    private val serverUrl: String,
+    private val profileId: String,
+) {
+    private val prefs = context.applicationContext.getSharedPreferences("movviz_playback_prefs", Context.MODE_PRIVATE)
+
+    fun subtitlePreference(mediaKey: String): SubtitlePreference {
+        val prefix = key(mediaKey)
+        val enabled = prefs.getBoolean("$prefix|enabled", false)
+        val language = prefs.getString("$prefix|language", null)
+        return SubtitlePreference(enabled = enabled, language = language)
+    }
+
+    fun saveSubtitlePreference(mediaKey: String, enabled: Boolean, language: String? = null) {
+        prefs.edit()
+            .putBoolean("${key(mediaKey)}|enabled", enabled)
+            .putString("${key(mediaKey)}|language", language)
+            .apply()
+    }
+
+    private fun key(mediaKey: String): String =
+        "${serverUrl.trim().trimEnd('/')}|$profileId|subtitle|$mediaKey"
+}

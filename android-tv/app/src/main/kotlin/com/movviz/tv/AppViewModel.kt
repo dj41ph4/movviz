@@ -1,4 +1,4 @@
-﻿package com.movviz.tv
+package com.movviz.tv
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -202,6 +202,18 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     val updateCheckTrigger: StateFlow<Int> = _updateCheckTrigger.asStateFlow()
     private val _updateCheckStatus = MutableStateFlow<String?>(null)
     val updateCheckStatus: StateFlow<String?> = _updateCheckStatus.asStateFlow()
+    private val _availableUpdateTag = MutableStateFlow<String?>(null)
+    val availableUpdateTag: StateFlow<String?> = _availableUpdateTag.asStateFlow()
+    private val _updateInstallTrigger = MutableStateFlow(0)
+    val updateInstallTrigger: StateFlow<Int> = _updateInstallTrigger.asStateFlow()
+
+    fun setAvailableUpdateTag(tag: String?) {
+        _availableUpdateTag.value = tag
+    }
+
+    fun requestUpdateInstall() {
+        _updateInstallTrigger.value += 1
+    }
 
     fun requestUpdateCheck() {
         _updateCheckTrigger.value += 1
@@ -534,8 +546,36 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
 
     /** Active un profil déjà authentifié sans redemander ses identifiants —
      *  uniquement si cet appareil détient déjà une session locale pour lui. */
+    private fun clearProfileScopedState() {
+        _currentUser.value = null
+        _activeProfile.value = null
+        _movies.value = emptyList()
+        _series.value = emptyList()
+        _dashboardHero.value = emptyList()
+        _heroLogos.value = emptyMap()
+        _continueWatching.value = emptyList()
+        _trendingMovies.value = emptyList()
+        _trendingSeries.value = emptyList()
+        _movieRows.value = emptyList()
+        _seriesRows.value = emptyList()
+        _movieLibraryRecommendations.value = emptyList()
+        _seriesLibraryRecommendations.value = emptyList()
+        _detail.value = null
+        _person.value = null
+        _seriesSeasons.value = emptyList()
+        _seasonMetadata.value = emptyMap()
+        _searchResults.value = emptyList()
+        _watchStatus.value = null
+        _userPrefs.value = null
+        seasonsTmdbId = null
+    }
+
     suspend fun selectProfile(profile: TvProfile): ApiResult<MovvizUserDto> {
         val url = _serverUrl.value ?: profile.serverUrl
+        // Même règle que le smartphone : aucun rail, hero ou recommandation
+        // du profil précédent ne doit survivre pendant la restauration du
+        // cookie du nouveau compte.
+        clearProfileScopedState()
         if (profile.cookieSnapshot.isNullOrBlank()) {
             return ApiResult.Failure("session_manquante")
         }

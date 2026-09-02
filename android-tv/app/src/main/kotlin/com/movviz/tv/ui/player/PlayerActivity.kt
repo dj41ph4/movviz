@@ -91,6 +91,7 @@ import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
 import com.movviz.tv.data.ApiResult
 import com.movviz.tv.data.MovvizRepository
+import com.movviz.tv.data.PlaybackPrefs
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizBrandGlow
@@ -128,6 +129,7 @@ private const val EXTRA_START_FROM_BEGINNING = "extra_start_from_beginning"
 private const val EXTRA_INDEX = "extra_index"
 private const val EXTRA_POSTER_PATH = "extra_poster_path"
 private const val EXTRA_LOCAL_KEYS = "extra_local_keys"
+private const val EXTRA_PROFILE_ID = "extra_profile_id"
 
 /**
  * Une seule Activity dédiée à la lecture, quel que soit le contenu (film ou
@@ -167,6 +169,7 @@ val mainTitle = intent.getStringExtra(EXTRA_TITLE) ?: ""
         val tmdbId = intent.getIntExtra(EXTRA_TMDB_ID, 0)
         val startFromBeginning = intent.getBooleanExtra(EXTRA_START_FROM_BEGINNING, false)
         val posterPath = intent.getStringExtra(EXTRA_POSTER_PATH)
+        val profileId = intent.getStringExtra(EXTRA_PROFILE_ID) ?: "anonymous"
 
         val queue = keys.indices.map { i ->
             QueueItem(
@@ -186,6 +189,7 @@ PlayerScreen(
                         mainTitle = mainTitle,
                         type = type,
                         tmdbId = tmdbId,
+                        profileId = profileId,
                         queue = queue,
                         startIndex = startIndex,
                         startFromBeginning = startFromBeginning,
@@ -218,6 +222,7 @@ fun forQueue(
             startIndex: Int,
             startFromBeginning: Boolean = false,
             posterPath: String? = null,
+            profileId: String? = null,
         ): Intent = Intent(context, PlayerActivity::class.java).apply {
             putExtra(EXTRA_BASE_URL, baseUrl)
             putExtra(EXTRA_TYPE, type)
@@ -230,6 +235,7 @@ fun forQueue(
             putExtra(EXTRA_INDEX, startIndex)
             putExtra(EXTRA_START_FROM_BEGINNING, startFromBeginning)
             putExtra(EXTRA_POSTER_PATH, posterPath)
+            profileId?.let { putExtra(EXTRA_PROFILE_ID, it) }
             putStringArrayListExtra(EXTRA_LOCAL_KEYS, ArrayList(queue.map { it.localKey ?: "" }))
         }
     }
@@ -385,6 +391,7 @@ private fun PlayerScreen(
     mainTitle: String,
     type: String,
     tmdbId: Int,
+    profileId: String,
     queue: List<QueueItem>,
     startIndex: Int,
     startFromBeginning: Boolean,
@@ -395,6 +402,7 @@ private fun PlayerScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     val repository = remember(baseUrl) { MovvizRepository(baseUrl) }
+    val playbackPrefs = remember(baseUrl, profileId) { PlaybackPrefs(context, baseUrl, profileId) }
 
     // Anti-veille : le flag window est posé pour TOUTE la vie de l'Activity
     // (pas seulement quand ExoPlayer est en lecture active). Le flag
@@ -431,6 +439,7 @@ private fun PlayerScreen(
     var showAudioDialog by remember { mutableStateOf(false) }
     var showSubtitleDialog by remember { mutableStateOf(false) }
     var tracksVersion by remember { mutableStateOf(0) } // force la recomposition des dialogues pistes
+    var subtitlePreferenceAppliedFor by remember { mutableStateOf<String?>(null) }
     // Indicateur flottant centré quand on seek — feedback visuel immédiat
     // comme Netflix : un "+10s" ou "−10s" en overlay semi-transparent qui
     // apparaît/disparaît en fondu, sans obscurcir l'image.
@@ -525,6 +534,15 @@ ExoPlayer.Builder(context)
             .build()
     }
 
+    fun subtitlePreferenceKey(item: QueueItem): String =
+        buildString {
+            append(type).append(':').append(tmdbId)
+            if (item.seasonNumber > 0 && item.episodeNumber > 0) {
+                append(':').append(item.seasonNumber).append(':').append(item.episodeNumber)
+            }
+            append(':').append(item.ratingKey)
+        }
+
     // Charge un item de la queue dans le player existant — appelé au premier
     // rendu, à chaque changement d'épisode (suivant/précédent) ET lors d'un
     // retry après erreur, sans jamais recréer l'ExoPlayer ni relancer
@@ -539,6 +557,15 @@ ExoPlayer.Builder(context)
     // ProgressiveMediaSource au lieu de DashMediaSource/HlsMediaSource.
     fun load(item: QueueItem, resumeMs: Long, level: Int = 0) {
         loading = true
+        // Toujours couper le texte AVANT de préparer un nouveau MediaItem :
+        // cela supprime le flash de sous-titre forcé/default qu'ExoPlayer peut
+        // sélectionner seul. Une préférence explicitement activée sera
+        // restaurée juste après la découverte des pistes.
+        subtitlePreferenceAppliedFor = null
+        exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+            .build()
         hasRenderedFrame = false
         errorMessage = null
         errorKind = null
@@ -770,6 +797,35 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         onDispose {
             exoPlayer.removeListener(listener)
             exoPlayer.release()
+        }
+    }
+
+    // Une piste texte n'est restaurée qu'après que Media3 a exposé les
+    // groupes du MediaItem courant. Sans préférence enregistrée, OFF reste
+    // la règle. Si le média avait été repris avec sous-titres ON, on tente la
+    // même langue puis la première piste disponible en repli.
+    LaunchedEffect(current.ratingKey, current.seasonNumber, current.episodeNumber, tracksVersion) {
+        val groups = exoPlayer.currentTracks.groups.withIndex()
+            .filter { it.value.type == C.TRACK_TYPE_TEXT }
+        if (groups.isEmpty()) return@LaunchedEffect
+        val prefKey = subtitlePreferenceKey(current)
+        if (subtitlePreferenceAppliedFor == prefKey) return@LaunchedEffect
+        val pref = playbackPrefs.subtitlePreference(prefKey)
+        subtitlePreferenceAppliedFor = prefKey
+        val builder = exoPlayer.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+        if (!pref.enabled) {
+            exoPlayer.trackSelectionParameters = builder
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                .build()
+        } else {
+            val chosen = groups.firstOrNull { (_, group) ->
+                group.getTrackFormat(0).language?.equals(pref.language, ignoreCase = true) == true
+            } ?: groups.first()
+            exoPlayer.trackSelectionParameters = builder
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .setOverrideForType(TrackSelectionOverride(chosen.value.mediaTrackGroup, 0))
+                .build()
         }
     }
 
@@ -1304,13 +1360,19 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 title = "Sous-titres",
                 tracks = subtitleTrackOptions(exoPlayer),
                 onSelect = { groupIndex, _ ->
+                    val prefKey = subtitlePreferenceKey(queue[currentIndex])
+                    subtitlePreferenceAppliedFor = prefKey
                     if (groupIndex < 0) {
+                        playbackPrefs.saveSubtitlePreference(prefKey, enabled = false)
                         exoPlayer.trackSelectionParameters = exoPlayer.trackSelectionParameters.buildUpon()
                             .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                             .clearOverridesOfType(C.TRACK_TYPE_TEXT)
                             .build()
                     } else {
-                        applyTrackOverride(exoPlayer, C.TRACK_TYPE_TEXT, exoPlayer.currentTracks.groups[groupIndex])
+                        val group = exoPlayer.currentTracks.groups[groupIndex]
+                        val language = group.getTrackFormat(0).language
+                        playbackPrefs.saveSubtitlePreference(prefKey, enabled = true, language = language)
+                        applyTrackOverride(exoPlayer, C.TRACK_TYPE_TEXT, group)
                     }
                     showSubtitleDialog = false
                 },

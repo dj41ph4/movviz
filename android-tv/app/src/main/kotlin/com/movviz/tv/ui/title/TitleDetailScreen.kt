@@ -7,6 +7,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
@@ -81,6 +82,9 @@ import com.movviz.tv.ui.theme.tvPointerClick
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.clip
 import kotlinx.coroutines.delay
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.launch
 
 // w1280, PAS "original" : un backdrop plein écran en "original" télécharge
@@ -187,6 +191,25 @@ fun TitleDetailScreen(
         // Statut "vu" manuel — utile aux deux types (badge "Vu" sur un film
         // terminé, coche par épisode pour une série), voir /api/watch-status.
         viewModel.loadWatchStatus()
+    }
+
+    // PlayerActivity vit au-dessus de cette fiche. Quand elle se ferme, la
+    // composition est conservée : le LaunchedEffect(type, tmdbId) ne repart
+    // donc pas. On recharge explicitement le on-deck à ON_RESUME pour que le
+    // CTA passe immédiatement de « Lire » à « Reprendre à HH:MM:SS ».
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, type, tmdbId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadContinueWatching()
+                viewModel.loadWatchStatus()
+                if (viewModel.isInLibrary(type, tmdbId)) {
+                    viewModel.refreshTitleLibraryEntry(type, tmdbId)
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Même état vivant que la fiche desktop : après l'ajout, la même fiche
@@ -1480,7 +1503,7 @@ private fun formatResumeTime(offsetMs: Long): String {
     val h = totalSeconds / 3600
     val m = (totalSeconds % 3600) / 60
     val s = totalSeconds % 60
-    return if (h > 0) "%d:%02d:%02d".format(h, m, s) else "%d:%02d".format(m, s)
+    return "%02d:%02d:%02d".format(h, m, s)
 }
 
 /** Traduit le message d'erreur brut du serveur en message lisible pour la TV.

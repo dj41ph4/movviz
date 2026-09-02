@@ -85,10 +85,11 @@ fun CatalogScreen(
     }
 
     var sort by remember(type) { mutableStateOf(CatalogSort.NAME) }
-    var selectedGenre by remember(type) { mutableStateOf<String?>(null) }
+    var selectedGenre by remember(type) { mutableStateOf<CatalogGenreSelection?>(null) }
 
     val filtered = remember(cards, selectedGenre) {
-        if (selectedGenre == null) cards else cards.filter { selectedGenre in it.genres }
+        val selection = selectedGenre
+        if (selection == null) cards else cards.filter { cardMatchesCatalogGenre(it, selection) }
     }
     val sorted = remember(filtered, sort) {
         when (sort) {
@@ -109,7 +110,7 @@ fun CatalogScreen(
         SortRow(sort = sort, onSelect = { sort = it })
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
         if (genres.isNotEmpty()) {
-            CatalogGenreRow(genres = genres, selected = selectedGenre, onSelect = { selectedGenre = if (selectedGenre == it) null else it })
+            CatalogGenreRow(genres = genres, selected = selectedGenre, onSelect = { selectedGenre = if (selectedGenre?.key == it.key) null else it })
             androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(20.dp))
         }
         when {
@@ -172,19 +173,45 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
     }
 }
 
+private data class CatalogGenreSelection(val key: String, val label: String)
 private val SYNTHETIC_GENRES = listOf("anime" to "Anime", "teen" to "Romance ado")
 
+private fun normalizedGenre(value: String): String =
+    java.text.Normalizer.normalize(value, java.text.Normalizer.Form.NFD)
+        .replace("\\p{M}+".toRegex(), "")
+        .trim()
+        .lowercase()
+
+private fun cardMatchesCatalogGenre(card: TvTitleCard, selection: CatalogGenreSelection): Boolean {
+    val names = card.genres.map(::normalizedGenre).toSet()
+    return when (selection.key) {
+        "anime" -> "animation" in names || "anime" in names
+        "teen" -> {
+            val family = "familial" in names || "family" in names || "kids" in names
+            if (family) false
+            else if (card.isMovie) {
+                "romance" in names && ("comedie" in names || "comedy" in names || "drame" in names || "drama" in names)
+            } else {
+                "soap" in names || (("drame" in names || "drama" in names) && ("comedie" in names || "comedy" in names))
+            }
+        }
+        else -> normalizedGenre(selection.label) in names
+    }
+}
+
 @Composable
-private fun CatalogGenreRow(genres: List<GenreDto>, selected: String?, onSelect: (String) -> Unit) {
+private fun CatalogGenreRow(genres: List<GenreDto>, selected: CatalogGenreSelection?, onSelect: (CatalogGenreSelection) -> Unit) {
     LazyRow(
         contentPadding = PaddingValues(end = 24.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         items(SYNTHETIC_GENRES, key = { "synth-${it.first}" }) { (id, label) ->
-            CatalogGenreChip(label = label, active = selected == id, onClick = { onSelect(id) })
+            val value = CatalogGenreSelection(id, label)
+            CatalogGenreChip(label = label, active = selected?.key == id, onClick = { onSelect(value) })
         }
         items(genres, key = { "tmdb-${it.id}" }) { g ->
-            CatalogGenreChip(label = g.name, active = selected == g.id.toString(), onClick = { onSelect(g.id.toString()) })
+            val value = CatalogGenreSelection(g.id.toString(), g.name)
+            CatalogGenreChip(label = g.name, active = selected?.key == value.key, onClick = { onSelect(value) })
         }
     }
 }

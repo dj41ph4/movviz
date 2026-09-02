@@ -2,6 +2,7 @@ package com.movviz.tv.ui.home
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -42,6 +43,7 @@ import com.movviz.tv.ui.theme.MovvizBrand2
 import com.movviz.tv.ui.theme.MovvizInkDim
 import com.movviz.tv.ui.theme.AnimatedLogo
 import com.movviz.tv.ui.theme.MovvizIconDotCircle
+import com.movviz.tv.ui.theme.MovvizIconDownload
 import com.movviz.tv.ui.theme.MovvizIconPlus
 import com.movviz.tv.ui.theme.MovvizIconSwap
 import com.movviz.tv.ui.theme.MovvizIconHome
@@ -51,7 +53,12 @@ import com.movviz.tv.ui.theme.MovvizIconStar
 import com.movviz.tv.ui.theme.MovvizWordmark
 import com.movviz.tv.ui.theme.tvPointerClick
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -137,6 +144,8 @@ fun NavRail(
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     onSwitchProfile: () -> Unit = {},
+    updateAvailableTag: String? = null,
+    onUpdateClick: () -> Unit = {},
     // Cible D-pad « premier élément réel du contenu affiché » — voir
     // MainScreen : n'est attachée que si l'écran a déjà un vrai premier
     // élément (pas pendant le chargement, pas sur une liste vide).
@@ -253,6 +262,14 @@ fun NavRail(
         }
 
         Spacer(modifier = Modifier.weight(1f))
+        if (updateAvailableTag != null) {
+            UpdateAvailableButton(
+                tag = updateAvailableTag,
+                expanded = railFocused,
+                onClick = onUpdateClick,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
         SearchButton(
             open = searchOpen,
             query = searchQuery,
@@ -312,6 +329,67 @@ fun NavRail(
             onAdd = onAddProfile,
             onSwitch = onSwitchProfile,
         )
+    }
+}
+
+@Composable
+private fun UpdateAvailableButton(tag: String, expanded: Boolean, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val pulse = rememberInfiniteTransition(label = "updatePulse")
+    val alpha by pulse.animateFloat(
+        initialValue = 0.48f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(720), RepeatMode.Reverse),
+        label = "updatePulseAlpha",
+    )
+    val shape = RoundedCornerShape(10.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(40.dp)
+            .graphicsLayer {
+                this.alpha = if (focused) 1f else alpha
+                scaleX = if (focused) 1.04f else 1f
+                scaleY = if (focused) 1.04f else 1f
+            }
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = MovvizBrand.copy(alpha = 0.18f),
+            focusedContainerColor = MovvizBrand.copy(alpha = 0.32f),
+            contentColor = Color.White,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(
+                border = androidx.compose.foundation.BorderStroke(2.dp, MovvizBrand2),
+                shape = shape,
+            ),
+        ),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxSize().padding(horizontal = 8.dp),
+        ) {
+            Icon(
+                imageVector = MovvizIconDownload,
+                contentDescription = "Mise à jour $tag disponible",
+                tint = Color.White,
+                modifier = Modifier.size(22.dp),
+            )
+            AnimatedVisibility(visible = expanded, enter = fadeIn(tween(140)), exit = fadeOut(tween(90))) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Mise à jour ${tag.removePrefix("v")}",
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                        maxLines = 1,
+                    )
+                }
+            }
+        }
     }
 }
 

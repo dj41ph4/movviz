@@ -283,6 +283,8 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     onSwitchProfile = {
                         navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
                     },
+                    updateAvailableTag = viewModel.availableUpdateTag.collectAsState().value,
+                    onUpdateClick = { viewModel.requestUpdateInstall() },
                     contentFocusRequester = contentFocusRequester,
                     fallbackFocusRequester = fallbackFocusRequester,
                     navRailFocusRequester = navRailFocusRequester,
@@ -496,13 +498,13 @@ composable(ROUTE_PROFILES) {
                 onPlay = { title, queue, startIndex, posterPath ->
                     val url = baseUrl ?: return@TitleDetailScreen
                     context.startActivity(
-                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, posterPath = posterPath),
+                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, posterPath = posterPath, profileId = viewModel.currentUser.value?.id),
                     )
                 },
                 onPlayFromStart = { title, queue, startIndex, posterPath ->
                     val url = baseUrl ?: return@TitleDetailScreen
                     context.startActivity(
-                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, startFromBeginning = true, posterPath = posterPath),
+                        PlayerActivity.forQueue(context, url, type, tmdbId, title, queue, startIndex, startFromBeginning = true, posterPath = posterPath, profileId = viewModel.currentUser.value?.id),
                     )
                 },
                 // Rangée "Titres similaires" — pousse une nouvelle fiche sur

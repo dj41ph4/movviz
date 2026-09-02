@@ -78,8 +78,8 @@ fun Modifier.tvFocusLift(
 }
 
 /** Focus des cartes de contenu TV : le poster reste strictement à sa taille
- * de grille — aucune rangée voisine ne bouge — et le focus se lit par un
- * contour blanc net et un halo lent blanc/Movviz. C'est le repère Netflix
+ * de grille — aucune mesure de layout ne change — et le focus se lit par un
+ * micro-zoom GPU (3,5%), un contour blanc net et un halo lent blanc/Movviz. C'est le repère Netflix
  * attendu au D-pad, sans l'effet "zoom" qui faisait sauter la grille.
  *
  * L'application ne possède pas de préférence reduce-motion distincte ; cette
@@ -100,6 +100,11 @@ fun Modifier.tvCardFocusHalo(
         animationSpec = tween(durationMillis = 180),
         label = "tvCardFocusElevation",
     )
+    val scale by animateFloatAsState(
+        targetValue = if (focused) 1.035f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
+        label = "tvCardFocusScale",
+    )
     val transition = rememberInfiniteTransition(label = "tvCardFocusPulse")
     val pulse by transition.animateFloat(
         initialValue = 0.35f,
@@ -113,6 +118,7 @@ fun Modifier.tvCardFocusHalo(
     val haloAlpha = focusAlpha * (0.10f + 0.12f * pulse)
     val outlineAlpha = focusAlpha * (0.76f + 0.18f * pulse)
     return this
+        .graphicsLayer { scaleX = scale; scaleY = scale }
         .shadow(
             elevation = elevation,
             shape = shape,
