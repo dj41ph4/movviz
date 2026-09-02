@@ -103,7 +103,7 @@ private fun rowLabel(key: String, meta: DiscoverRowMetaDto?): String {
 }
 
 @Composable
-internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitleClick: (String, Int) -> Unit) {
+internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitleClick: (String, Int) -> Unit, onDownloads: () -> Unit = {}) {
     val discoverVm: DiscoverViewModel = viewModel()
     val baseUrl = vm.getBaseUrlCached()
     LaunchedEffect(baseUrl) { if (baseUrl != null) discoverVm.configure(baseUrl) }
@@ -157,7 +157,12 @@ internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitle
         Column(Modifier.fillMaxSize()) {
             // ── Header : titre + onglets Films/Séries + bouton Genres ──
             Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 10.dp)) {
-                Text("Découverte", color = MovvizInk, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Découverte", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onDownloads) {
+                        Icon(Icons.Rounded.Download, "Téléchargements du serveur", tint = Color.White, modifier = Modifier.size(28.dp))
+                    }
+                }
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     MediaTypePill("Films", mediaType == "movie") { haptic.performHapticFeedback(HapticFeedbackType.LongPress); discoverVm.setMediaType("movie") }
@@ -186,8 +191,8 @@ internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitle
                     trailingIcon = { if (searchInput.isNotEmpty()) IconButton({ searchInput = "" }) { Icon(Icons.Rounded.Close, null, tint = MovvizInkDim, modifier = Modifier.size(16.dp)) } },
                     placeholder = { Text("Rechercher un film ou une série…", color = MovvizInkDim, fontSize = 13.sp) },
                     textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp, color = MovvizInk),
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MovvizBrand.copy(0.5f), unfocusedBorderColor = Color.White.copy(0.08f), focusedTextColor = MovvizInk, unfocusedTextColor = MovvizInk, cursorColor = MovvizBrand),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.White.copy(0.30f), unfocusedBorderColor = Color.White.copy(0.10f), focusedContainerColor = Color(0xFF181818), unfocusedContainerColor = Color(0xFF181818), focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Color.White),
                 )
                 if (activeFilterLabel != null) {
                     Spacer(Modifier.height(8.dp))
@@ -293,6 +298,11 @@ private fun DiscoverHomeRows(
                 }
             }
         } else {
+            rows.firstOrNull { it.results.isNotEmpty() }?.results?.firstOrNull()?.let { hero ->
+                item(key = "discover-hero") {
+                    DiscoveryHero(hero, moviesState, seriesState, vm, onTitleClick)
+                }
+            }
             if (libraryRecommendations.isNotEmpty()) {
                 item(key = "library-recommendations") {
                     PosterRowSection(
@@ -484,3 +494,53 @@ private fun DiscoverPosterCard(result: DiscoverResultDto, libState: CardLibState
     }
 }
 
+
+
+@Composable
+private fun DiscoveryHero(
+    hero: DiscoverResultDto,
+    moviesState: List<LibraryMovieDto>,
+    seriesState: List<LibrarySeriesDto>,
+    vm: MobileViewModel,
+    onTitleClick: (String, Int) -> Unit,
+) {
+    val image = hero.backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" }
+        ?: hero.posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
+    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+        Box(
+            Modifier.fillMaxWidth().height(430.dp).clip(RoundedCornerShape(18.dp))
+                .background(Color(0xFF181818)).clickable { onTitleClick(hero.type, hero.tmdbId) },
+        ) {
+            if (image != null) AsyncImage(image, hero.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.55f to Color.Transparent, 1f to Color.Black.copy(0.96f))))
+            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(18.dp)) {
+                Text(hero.title, color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    hero.year?.let { Text(it.toString(), color = Color.White.copy(0.78f), fontSize = 12.sp) }
+                    if (hero.rating > 0) Text("★ %.1f".format(hero.rating), color = Color.White.copy(0.78f), fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Button(
+                        onClick = { onTitleClick(hero.type, hero.tmdbId) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
+                    ) {
+                        Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Voir", fontWeight = FontWeight.Bold)
+                    }
+                    StatusButton(
+                        libState = cardLibState(hero.type, hero.tmdbId, moviesState, seriesState),
+                        size = 42.dp,
+                        type = hero.type,
+                        tmdbId = hero.tmdbId,
+                        vm = vm,
+                    )
+                }
+            }
+        }
+    }
+}

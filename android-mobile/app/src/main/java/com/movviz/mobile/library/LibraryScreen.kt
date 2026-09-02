@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Movie
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tv
@@ -85,7 +86,7 @@ private data class LibraryCard(
  * chargés depuis la bibliothèque Movviz de l'utilisateur.
  */
 @Composable
-internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleClick: (String, Int) -> Unit) {
+internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleClick: (String, Int) -> Unit, onDownloads: () -> Unit = {}) {
     val movies by vm.movies.collectAsState()
     val series by vm.series.collectAsState()
 
@@ -119,7 +120,10 @@ internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleC
 
     Column(Modifier.fillMaxSize().background(Color.Black)) {
         Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)) {
-            Text("Bibliothèque", color = MovvizInk, fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Bibliothèque", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, modifier = Modifier.weight(1f))
+                IconButton(onClick = onDownloads) { Icon(Icons.Rounded.Download, "Téléchargements du serveur", tint = Color.White, modifier = Modifier.size(27.dp)) }
+            }
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TypePill("Films", Icons.Rounded.Movie, isMovies) { isMovies = true; selectedGenre = null; query = "" }

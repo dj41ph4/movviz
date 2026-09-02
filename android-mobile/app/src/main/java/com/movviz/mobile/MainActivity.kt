@@ -669,73 +669,122 @@ private data class NavEntry(val icon: ImageVector, val label: String)
 @Composable private fun MobileShell(user: String, vm: MobileViewModel) {
     var selected by remember { mutableStateOf(0) }
     var detailStack by remember { mutableStateOf(emptyList<Pair<String, Int>>()) }
-    val hero by vm.hero.collectAsState(); val movies by vm.movies.collectAsState(); val series by vm.series.collectAsState()
-    val entries = remember(user) { listOf(NavEntry(Icons.Rounded.Home, "Accueil"), NavEntry(Icons.Rounded.Explore, "Découverte"), NavEntry(Icons.Rounded.Search, "Recherche"), NavEntry(Icons.Rounded.VideoLibrary, "Bibliothèque"), NavEntry(Icons.Rounded.Person, user), NavEntry(Icons.Rounded.Star, "IA")) }
+    var downloadsOpen by remember { mutableStateOf(false) }
+    val entries = remember(user) {
+        listOf(
+            NavEntry(Icons.Rounded.Explore, "Découverte"),
+            NavEntry(Icons.Rounded.VideoLibrary, "Bibliothèque"),
+            NavEntry(Icons.Rounded.Person, user),
+        )
+    }
     val haptic = LocalHapticFeedback.current
-    val onTitleClick: (String, Int) -> Unit = { type, tmdbId -> haptic.performHapticFeedback(HapticFeedbackType.LongPress); detailStack = detailStack + (type to tmdbId); vm.loadDetail(type, tmdbId) }
-    Box(Modifier.fillMaxSize().background(Void)) {
+    val onTitleClick: (String, Int) -> Unit = { type, tmdbId ->
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        detailStack = detailStack + (type to tmdbId)
+        vm.loadDetail(type, tmdbId)
+    }
+
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
         Scaffold(
-            containerColor = Void,
-            bottomBar = { if (detailStack.isEmpty()) FloatingCapsuleNav(entries, selected) { haptic.performHapticFeedback(HapticFeedbackType.LongPress); selected = it } },
+            containerColor = Color.Black,
+            bottomBar = {
+                if (detailStack.isEmpty() && !downloadsOpen) {
+                    FloatingCapsuleNav(entries, selected) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        selected = it
+                    }
+                }
+            },
         ) { padding ->
             when (selected) {
-                0 -> HomeScreen(padding, hero, movies, series, onTitleClick)
-                1 -> com.movviz.mobile.discover.DiscoverScreen(padding, vm, onTitleClick)
-                2 -> SearchScreen(padding, vm, onTitleClick)
-                3 -> com.movviz.mobile.library.LibraryScreen(padding, vm, onTitleClick)
-                4 -> ProfileScreen(padding, user, vm) { vm.disconnect() }
-                else -> AiChatScreen(padding, vm, onTitleClick)
+                0 -> com.movviz.mobile.discover.DiscoverScreen(
+                    padding = padding,
+                    vm = vm,
+                    onTitleClick = onTitleClick,
+                    onDownloads = { downloadsOpen = true },
+                )
+                1 -> com.movviz.mobile.library.LibraryScreen(
+                    padding = padding,
+                    vm = vm,
+                    onTitleClick = onTitleClick,
+                    onDownloads = { downloadsOpen = true },
+                )
+                else -> ProfileScreen(padding, user, vm) { vm.disconnect() }
             }
         }
+
         if (detailStack.isNotEmpty()) {
             val (type, tmdbId) = detailStack.last()
             DetailScreen(vm, type, tmdbId, onClose = {
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 detailStack = detailStack.dropLast(1)
                 if (detailStack.isEmpty()) vm.clearDetail() else {
-                    val (pt, pi) = detailStack.last(); vm.loadDetail(pt, pi)
+                    val (pt, pi) = detailStack.last()
+                    vm.loadDetail(pt, pi)
                 }
             }, onOpenTitle = onTitleClick)
+        }
+
+        if (downloadsOpen) {
+            com.movviz.mobile.downloads.DownloadsScreen(
+                vm = vm,
+                onClose = { downloadsOpen = false },
+                onTitleClick = { type, tmdbId ->
+                    downloadsOpen = false
+                    onTitleClick(type, tmdbId)
+                },
+            )
         }
     }
 }
 
 @Composable private fun FloatingCapsuleNav(entries: List<NavEntry>, selected: Int, onSelect: (Int) -> Unit) {
-    Box(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 18.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+    Box(
+        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center,
+    ) {
         Row(
-            // fillMaxWidth + weight(1f) per item ci-dessous : sans ça, la Row
-            // ne se contentait que de la largeur intrinsèque de ses 5 enfants
-            // (icônes + libellé de l'onglet sélectionné) — sur un écran assez
-            // étroit (ex. Galaxy Z Flip6, ~360-406dp de large), cette somme
-            // dépassait la largeur réelle et le dernier item (étoile "IA")
-            // débordait purement et simplement hors de l'écran, à moitié
-            // invisible. Le partage à parts égales garantit que ça tient
-            // toujours, quelle que soit la largeur de l'appareil.
             Modifier.fillMaxWidth()
-                .clip(CapsuleShape)
-                .background(Color(0xFF12121E).copy(0.92f))
-                .border(1.dp, Color.White.copy(0.07f), CapsuleShape)
-                .padding(horizontal = 6.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically,
+                .clip(RoundedCornerShape(30.dp))
+                .background(Color(0xF21B1B1B))
+                .border(1.dp, Color.White.copy(0.08f), RoundedCornerShape(30.dp))
+                .padding(horizontal = 6.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             entries.forEachIndexed { i, e ->
                 val isSel = i == selected
-                val scale by animateFloatAsState(if (isSel) 1f else 0.96f, spring(dampingRatio = 0.65f, stiffness = 420f), label = "navScale")
+                val scale by animateFloatAsState(
+                    if (isSel) 1f else 0.96f,
+                    spring(dampingRatio = 0.7f, stiffness = 450f),
+                    label = "navScale",
+                )
                 val hapticNav = LocalHapticFeedback.current
-                Box(
-                    Modifier.weight(1f)
-                        .clip(CapsuleShape)
-                        .background(if (isSel) Color.White else Color.Transparent)
-                        .heightIn(min = 44.dp)
-                        .clickable { hapticNav.performHapticFeedback(HapticFeedbackType.LongPress); onSelect(i) }
-                        .padding(horizontal = 8.dp, vertical = 9.dp)
-                        .scale(scale),
-                    contentAlignment = Alignment.Center,
+                Column(
+                    Modifier.weight(1f).scale(scale)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(if (isSel) Color.White.copy(0.10f) else Color.Transparent)
+                        .clickable {
+                            hapticNav.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onSelect(i)
+                        }
+                        .padding(vertical = 7.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(e.icon, null, tint = if (isSel) Void else TextMuted, modifier = Modifier.size(20.dp))
-                        if (isSel) Text(e.label, color = Void, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    }
+                    Icon(
+                        e.icon,
+                        contentDescription = e.label,
+                        tint = if (isSel) Color.White else Color(0xFF9A9A9A),
+                        modifier = Modifier.size(22.dp),
+                    )
+                    Text(
+                        e.label,
+                        color = if (isSel) Color.White else Color(0xFF9A9A9A),
+                        fontSize = 10.sp,
+                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
             }
         }
