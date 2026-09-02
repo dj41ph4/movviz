@@ -18,6 +18,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Align player patch anchor
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android-tv/app/src/main/kotlin/com/movviz/tv/ui/player/PlayerActivity.kt')
+          t = p.read_text(encoding='utf-8-sig')
+          old = '    // Anti-veille : le flag window est posé pour TOUTE la vie de l’Activity\n'
+          if old not in t:
+              old = "    // Anti-veille : le flag window est posé pour TOUTE la vie de l'Activity\n"
+          if old not in t:
+              raise SystemExit('Anti-veille anchor not found')
+          suffix = old.removeprefix('    // Anti-veille : ')
+          p.write_text(t.replace(old, '    // Anti-veille :\n    // ' + suffix, 1), encoding='utf-8')
+          PY
+
       - name: Apply TV optimization patch
         run: python3 scripts/_tv_optimize_v1.24.42.py
 
