@@ -106,7 +106,14 @@ private fun rowLabel(key: String, meta: DiscoverRowMetaDto?): String {
 internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitleClick: (String, Int) -> Unit, onDownloads: () -> Unit = {}) {
     val discoverVm: DiscoverViewModel = viewModel()
     val baseUrl = vm.getBaseUrlCached()
-    LaunchedEffect(baseUrl) { if (baseUrl != null) discoverVm.configure(baseUrl) }
+    val currentUser by vm.currentUser.collectAsState()
+    val heroSlides by vm.hero.collectAsState()
+    val heroLogos by vm.heroLogos.collectAsState()
+    LaunchedEffect(baseUrl, currentUser?.id) {
+        val profileId = currentUser?.id
+        if (baseUrl != null && profileId != null) discoverVm.configure(baseUrl, profileId)
+    }
+    LaunchedEffect(heroSlides) { if (heroSlides.isNotEmpty()) vm.preloadHeroLogos(heroSlides) }
 
     val moviesState by vm.movies.collectAsState()
     val seriesState by vm.series.collectAsState()
@@ -210,6 +217,7 @@ internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitle
 
             if (!isBrowsing) {
                 DiscoverHomeRows(
+                    heroSlides = heroSlides, heroLogos = heroLogos,
                     rows = rows, libraryRecommendations = localRecommendations, loading = rowsLoading, moviesState = moviesState, seriesState = seriesState,
                     vm = vm, onTitleClick = onTitleClick, onSeeAll = { key, meta -> discoverVm.seeAllRow(key, meta) },
                     bottomPadding = padding.calculateBottomPadding() + 24.dp,
@@ -279,6 +287,8 @@ private fun GenreRow(name: String, selected: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun DiscoverHomeRows(
+    heroSlides: List<com.movviz.tv.data.DashboardHeroSlideDto>,
+    heroLogos: Map<String, String>,
     rows: List<DiscoverRowDto>, libraryRecommendations: List<DiscoverResultDto>,
     loading: Boolean,
     moviesState: List<LibraryMovieDto>,
@@ -298,9 +308,9 @@ private fun DiscoverHomeRows(
                 }
             }
         } else {
-            rows.firstOrNull { it.results.isNotEmpty() }?.results?.firstOrNull()?.let { hero ->
-                item(key = "discover-hero") {
-                    DiscoveryHero(hero, moviesState, seriesState, vm, onTitleClick)
+            if (heroSlides.isNotEmpty()) {
+                item(key = "desktop-synced-hero") {
+                    DesktopSyncedHeroCarousel(heroSlides, heroLogos, moviesState, seriesState, vm, onTitleClick)
                 }
             }
             if (libraryRecommendations.isNotEmpty()) {
@@ -496,48 +506,82 @@ private fun DiscoverPosterCard(result: DiscoverResultDto, libState: CardLibState
 
 
 
+
 @Composable
-private fun DiscoveryHero(
-    hero: DiscoverResultDto,
+private fun DesktopSyncedHeroCarousel(
+    slides: List<com.movviz.tv.data.DashboardHeroSlideDto>,
+    heroLogos: Map<String, String>,
     moviesState: List<LibraryMovieDto>,
     seriesState: List<LibrarySeriesDto>,
     vm: MobileViewModel,
     onTitleClick: (String, Int) -> Unit,
 ) {
-    val image = hero.backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" }
-        ?: hero.posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Box(
-            Modifier.fillMaxWidth().height(430.dp).clip(RoundedCornerShape(18.dp))
-                .background(Color(0xFF181818)).clickable { onTitleClick(hero.type, hero.tmdbId) },
-        ) {
-            if (image != null) AsyncImage(image, hero.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.55f to Color.Transparent, 1f to Color.Black.copy(0.96f))))
-            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(18.dp)) {
-                Text(hero.title, color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(6.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    hero.year?.let { Text(it.toString(), color = Color.White.copy(0.78f), fontSize = 12.sp) }
-                    if (hero.rating > 0) Text("★ %.1f".format(hero.rating), color = Color.White.copy(0.78f), fontSize = 12.sp)
-                }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Button(
-                        onClick = { onTitleClick(hero.type, hero.tmdbId) },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 10.dp),
-                    ) {
-                        Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(20.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("Voir", fontWeight = FontWeight.Bold)
+    val pagerState = androidx.compose.foundation.pager.rememberPagerState(pageCount = { slides.size })
+    LaunchedEffect(slides.map { "${it.detail.type}:${it.detail.tmdbId}" }) {
+        if (slides.size > 1) while (true) {
+            kotlinx.coroutines.delay(7000)
+            pagerState.animateScrollToPage((pagerState.currentPage + 1) % slides.size)
+        }
+    }
+    Column(Modifier.fillMaxWidth().padding(bottom = 8.dp)) {
+        androidx.compose.foundation.pager.HorizontalPager(
+            state = pagerState,
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            pageSpacing = 10.dp,
+        ) { page ->
+            val slide = slides[page]
+            val d = slide.detail
+            val image = d.backdropPath?.let { "https://image.tmdb.org/t/p/w780$it" }
+                ?: d.posterPath?.let { "https://image.tmdb.org/t/p/w500$it" }
+            val logo = heroLogos["${d.type}-${d.tmdbId}"]
+            Box(
+                Modifier.fillMaxWidth().height(430.dp).clip(RoundedCornerShape(18.dp))
+                    .background(Color(0xFF181818)).clickable { onTitleClick(d.type, d.tmdbId) },
+            ) {
+                if (image != null) AsyncImage(image, d.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0f to Color.Transparent, 0.5f to Color.Transparent, 1f to Color.Black.copy(0.97f))))
+                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(18.dp)) {
+                    if (logo != null) {
+                        AsyncImage("https://image.tmdb.org/t/p/w500$logo", d.title, Modifier.fillMaxWidth(0.72f).heightIn(max = 82.dp), contentScale = ContentScale.Fit, alignment = Alignment.CenterStart)
+                    } else {
+                        Text(d.title, color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
-                    StatusButton(
-                        libState = cardLibState(hero.type, hero.tmdbId, moviesState, seriesState),
-                        size = 42.dp,
-                        type = hero.type,
-                        tmdbId = hero.tmdbId,
-                        vm = vm,
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        d.year?.let { Text(it.toString(), color = Color.White.copy(0.78f), fontSize = 12.sp) }
+                        if (d.rating > 0) Text("★ %.1f".format(d.rating), color = Color.White.copy(0.78f), fontSize = 12.sp)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = { onTitleClick(d.type, d.tmdbId) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color.Black),
+                            shape = RoundedCornerShape(8.dp),
+                        ) {
+                            Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(5.dp))
+                            Text("Voir", fontWeight = FontWeight.Bold)
+                        }
+                        StatusButton(
+                            libState = cardLibState(d.type, d.tmdbId, moviesState, seriesState),
+                            size = 42.dp,
+                            type = d.type,
+                            tmdbId = d.tmdbId,
+                            vm = vm,
+                        )
+                    }
+                }
+            }
+        }
+        if (slides.size > 1) {
+            Spacer(Modifier.height(8.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                slides.indices.forEach { i ->
+                    Box(
+                        Modifier.padding(horizontal = 3.dp).height(4.dp)
+                            .width(if (i == pagerState.currentPage) 18.dp else 7.dp)
+                            .clip(CircleShape)
+                            .background(if (i == pagerState.currentPage) Color.White else Color.White.copy(0.25f))
                     )
                 }
             }

@@ -226,6 +226,15 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     }
 
     fun selectProfile(profile: TvProfile) {
+        _currentUser.value = null
+        _hero.value = emptyList()
+        _movies.value = emptyList()
+        _series.value = emptyList()
+        _search.value = emptyList()
+        _queue.value = emptyList()
+        _heroLogos.value = emptyMap()
+        _aiMessages.value = emptyList()
+        _aiEnabled.value = null
         val base = profile.serverUrl
         cachedBaseUrl = base
         if (profile.cookieSnapshot.isNullOrBlank()) {

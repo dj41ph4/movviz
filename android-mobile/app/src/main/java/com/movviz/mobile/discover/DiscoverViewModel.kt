@@ -26,7 +26,7 @@ data class DiscoverGenreOption(val id: String, val name: String)
  *  duplicated here — see DiscoverScreen.kt's DiscoverPosterCard. */
 internal class DiscoverViewModel(application: Application) : AndroidViewModel(application) {
     private var repo: DiscoverRepository? = null
-    private var configuredBaseUrl: String? = null
+    private var configuredProfileKey: String? = null
 
     private val _mediaType = MutableStateFlow("movie")
     val mediaType: StateFlow<String> = _mediaType.asStateFlow()
@@ -74,10 +74,15 @@ internal class DiscoverViewModel(application: Application) : AndroidViewModel(ap
     private val _browseLoadingMore = MutableStateFlow(false)
     val browseLoadingMore: StateFlow<Boolean> = _browseLoadingMore.asStateFlow()
 
-    fun configure(baseUrl: String) {
-        if (configuredBaseUrl == baseUrl) return
-        configuredBaseUrl = baseUrl
+    fun configure(baseUrl: String, profileId: String) {
+        val key = "${baseUrl.trim().trimEnd('/')}|$profileId"
+        if (configuredProfileKey == key) return
+        configuredProfileKey = key
         repo = DiscoverRepository(baseUrl)
+        _rows.value = emptyList()
+        _libraryRecommendations.value = emptyList()
+        _genres.value = emptyList()
+        clearBrowse()
         loadHome()
     }
 
