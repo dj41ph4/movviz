@@ -22,10 +22,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Movie
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tv
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -48,18 +53,14 @@ import com.movviz.mobile.MobileViewModel
 import com.movviz.mobile.ui.theme.MovvizAmber
 import com.movviz.mobile.ui.theme.MovvizBrand
 import com.movviz.mobile.ui.theme.MovvizBrand2
-import com.movviz.mobile.ui.theme.MovvizCyan
 import com.movviz.mobile.ui.theme.MovvizDown
 import com.movviz.mobile.ui.theme.MovvizInk
 import com.movviz.mobile.ui.theme.MovvizInkDim
 import com.movviz.mobile.ui.theme.MovvizInkSoft
-import com.movviz.mobile.ui.theme.MovvizSurface
 import com.movviz.mobile.ui.theme.MovvizSurfaceStrong
-import com.movviz.tv.data.LibraryMovieDto
-import com.movviz.tv.data.LibrarySeriesDto
 
 private const val POSTER_SM = "https://image.tmdb.org/t/p/w342"
-private val CardShape = RoundedCornerShape(14.dp)
+private val CardShape = RoundedCornerShape(10.dp)
 
 private enum class LibrarySort(val label: String) {
     NAME("Nom"),
@@ -79,11 +80,9 @@ private data class LibraryCard(
 )
 
 /**
- * Bibliothèque : catalogue local complet, triable (nom/note/année) et
- * filtrable par genre — même principe que l'écran Films/Séries de la
- * version TV (CatalogScreen.kt), remplace le placeholder "Ma liste" jamais
- * implémenté. Découverte reste l'écran pour trouver du contenu à AJOUTER ;
- * celui-ci est l'inventaire de ce qui est déjà dans la bibliothèque.
+ * Bibliothèque = recherche strictement LOCALE. Aucun appel metadata/search
+ * n'est fait ici : le champ de recherche ne parcourt que movies/series déjà
+ * chargés depuis la bibliothèque Movviz de l'utilisateur.
  */
 @Composable
 internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleClick: (String, Int) -> Unit) {
@@ -93,6 +92,7 @@ internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleC
     var isMovies by remember { mutableStateOf(true) }
     var sort by remember { mutableStateOf(LibrarySort.NAME) }
     var selectedGenre by remember { mutableStateOf<String?>(null) }
+    var query by remember { mutableStateOf("") }
 
     val cards = remember(movies, series, isMovies) {
         if (isMovies) {
@@ -102,8 +102,12 @@ internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleC
         }
     }
     val genres = remember(cards) { cards.flatMap { it.genres }.distinct().sorted() }
-    val filtered = remember(cards, selectedGenre) {
-        if (selectedGenre == null) cards else cards.filter { selectedGenre in it.genres }
+    val filtered = remember(cards, selectedGenre, query) {
+        val normalizedQuery = query.trim().lowercase()
+        cards.filter { card ->
+            (selectedGenre == null || selectedGenre in card.genres) &&
+                (normalizedQuery.isBlank() || card.title.lowercase().contains(normalizedQuery))
+        }
     }
     val sorted = remember(filtered, sort) {
         when (sort) {
@@ -114,20 +118,48 @@ internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleC
     }
 
     Column(Modifier.fillMaxSize().background(Color.Black)) {
-        Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 10.dp)) {
-            Text("Bibliothèque", color = MovvizInk, fontSize = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp)
-            Spacer(Modifier.height(10.dp))
+        Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)) {
+            Text("Bibliothèque", color = MovvizInk, fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp)
+            Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TypePill("Films", Icons.Rounded.Movie, isMovies) { isMovies = true; selectedGenre = null }
-                TypePill("Séries", Icons.Rounded.Tv, !isMovies) { isMovies = false; selectedGenre = null }
+                TypePill("Films", Icons.Rounded.Movie, isMovies) { isMovies = true; selectedGenre = null; query = "" }
+                TypePill("Séries", Icons.Rounded.Tv, !isMovies) { isMovies = false; selectedGenre = null; query = "" }
             }
+            Spacer(Modifier.height(10.dp))
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MovvizInkDim, modifier = Modifier.size(19.dp)) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) {
+                            Icon(Icons.Rounded.Close, "Effacer", tint = MovvizInkDim, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                },
+                placeholder = { Text("Rechercher dans la bibliothèque…", color = MovvizInkDim, fontSize = 13.sp) },
+                textStyle = TextStyle(fontSize = 14.sp, color = MovvizInk),
+                shape = RoundedCornerShape(14.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.White.copy(alpha = 0.28f),
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.10f),
+                    focusedContainerColor = Color(0xFF181818),
+                    unfocusedContainerColor = Color(0xFF181818),
+                    focusedTextColor = MovvizInk,
+                    unfocusedTextColor = MovvizInk,
+                    cursorColor = MovvizInk,
+                ),
+            )
         }
+
         Row(Modifier.padding(horizontal = 20.dp).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LibrarySort.entries.forEach { option ->
                 SortChip(option.label, sort == option) { sort = option }
             }
         }
-        if (genres.isNotEmpty()) {
+        if (genres.isNotEmpty() && query.isBlank()) {
             LazyRow(
                 contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -137,14 +169,21 @@ internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleC
                 }
             }
         }
+
         when {
             sorted.isEmpty() -> Box(Modifier.fillMaxSize().padding(top = 40.dp), contentAlignment = Alignment.TopCenter) {
-                Text("Aucun titre pour le moment", color = MovvizInkDim, fontSize = 13.sp)
+                Text(
+                    if (query.isBlank()) "Aucun titre pour le moment" else "Aucun titre de ta bibliothèque ne correspond à « $query »",
+                    color = MovvizInkDim,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(horizontal = 24.dp),
+                )
             }
             else -> LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = padding.calculateBottomPadding() + 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = padding.calculateBottomPadding() + 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 items(sorted, key = { "${it.isMovie}-${it.tmdbId}" }) { c ->
                     LibraryPosterCard(c, onClick = { onTitleClick(if (c.isMovie) "movie" else "series", c.tmdbId) })
@@ -157,11 +196,12 @@ internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleC
 @Composable
 private fun TypePill(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, active: Boolean, onClick: () -> Unit) {
     Row(
-        Modifier.clip(RoundedCornerShape(12.dp))
-            .background(if (active) Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)) else Brush.linearGradient(listOf(MovvizSurfaceStrong, MovvizSurfaceStrong)))
+        Modifier.clip(RoundedCornerShape(50))
+            .background(if (active) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.06f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(horizontal = 15.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(icon, null, tint = if (active) Color.White else MovvizInkSoft, modifier = Modifier.size(15.dp))
         Text(label, color = if (active) Color.White else MovvizInkSoft, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -184,7 +224,7 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
 private fun GenreChip(label: String, active: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.clip(RoundedCornerShape(50))
-            .background(if (active) MovvizInk.copy(0.9f) else MovvizInk.copy(0.08f))
+            .background(if (active) Color.White.copy(0.92f) else Color.White.copy(0.08f))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 6.dp),
     ) {
@@ -204,14 +244,14 @@ private fun LibraryPosterCard(card: LibraryCard, onClick: () -> Unit) {
             card.status?.let { status ->
                 if (status != "available") {
                     val (label, color) = when (status) {
-                        "downloading", "searching" -> "..." to MovvizAmber
+                        "downloading", "searching" -> "En cours" to MovvizAmber
                         "missing" -> "Manquant" to MovvizDown
                         "upcoming" -> "À venir" to MovvizAmber
                         else -> status to MovvizInkDim
                     }
                     Box(
-                        Modifier.align(Alignment.TopEnd).padding(6.dp).clip(RoundedCornerShape(6.dp))
-                            .background(Color.Black.copy(0.65f)).padding(horizontal = 6.dp, vertical = 2.dp),
+                        Modifier.align(Alignment.TopEnd).padding(5.dp).clip(RoundedCornerShape(5.dp))
+                            .background(Color.Black.copy(0.78f)).padding(horizontal = 6.dp, vertical = 3.dp),
                     ) {
                         Text(label, color = color, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
