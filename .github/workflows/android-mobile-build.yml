@@ -26,10 +26,9 @@ jobs:
           java-version: "17"
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK platform & build-tools
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0"
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -102,4 +101,3 @@ jobs:
           body: |
             ---
             **Movviz-Android-Mobile-client.apk** — client Android smartphone natif Jetpack Compose, signé avec la même clé retail que le client TV.
-
