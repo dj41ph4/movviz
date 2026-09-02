@@ -1,0 +1,114 @@
+name: Finalize Android TV v1.24.42
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/_tv_finalize_v1.24.42.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore optimization patch from git history
+        run: |
+          set -euo pipefail
+          git show bd6062d87599e9033cc76566ef5b39a184b956c5:scripts/_tv_optimize_v1.24.42.py > /tmp/tvopt.py
+
+      - name: Align historical patch anchors
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('android-tv/app/src/main/kotlin/com/movviz/tv/ui/player/PlayerActivity.kt')
+          t = p.read_text(encoding='utf-8-sig')
+          old = '    // Anti-veille : le flag window est posé pour TOUTE la vie de l’Activity\n'
+          if old not in t:
+              old = "    // Anti-veille : le flag window est posé pour TOUTE la vie de l'Activity\n"
+          if old not in t:
+              raise SystemExit('Player anti-veille anchor not found')
+          suffix = old.removeprefix('    // Anti-veille : ')
+          p.write_text(t.replace(old, '    // Anti-veille :\n    // ' + suffix, 1), encoding='utf-8')
+
+          p = Path('android-tv/app/src/main/kotlin/com/movviz/tv/ui/title/TitleDetailScreen.kt')
+          t = p.read_text(encoding='utf-8-sig')
+          old = '    // Statut "vu" manuel par utilisateur — /api/watch-status, distinct de\n'
+          if old not in t:
+              raise SystemExit('Title watch-status anchor not found')
+          p.write_text(t.replace(old, '    // Statut "vu" manuel par utilisateur\n    // — /api/watch-status, distinct de\n', 1), encoding='utf-8')
+          PY
+
+      - name: Apply Android TV optimization
+        run: python3 /tmp/tvopt.py
+
+      - name: Fix Kotlin genre normalization literal
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android-tv/app/src/main/kotlin/com/movviz/tv/ui/home/CatalogScreen.kt')
+          t = p.read_text(encoding='utf-8')
+          bad = r'Regex("\p{Mn}+")'
+          good = r'Regex("""\p{Mn}+""")'
+          if bad not in t:
+              raise SystemExit('Expected generated genre regex not found')
+          p.write_text(t.replace(bad, good, 1), encoding='utf-8')
+          PY
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platforms;android-35 build-tools;35.0.0"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Compile Android TV
+        working-directory: android-tv
+        run: gradle assembleDebug --no-daemon
+
+      - name: Commit validated v1.24.42 to main
+        run: |
+          set -euo pipefail
+          rm -f .github/workflows/_tv_finalize_v1.24.42.yml
+          rm -f .github/workflows/_tv_optimize_v1.24.42.yml
+          rm -f .github/workflows/_tag_v1.24.40.yml
+          rm -f scripts/_tv_optimize_v1.24.42.py
+          git config user.name "dj41ph4"
+          git config user.email "dj41ph4@gmail.com"
+          git add -A
+          git commit -m "v1.24.42 - optimize Android TV UX and playback"
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Tag v1.24.42
+        run: |
+          set -euo pipefail
+          if ! git ls-remote --exit-code --tags origin refs/tags/v1.24.42 >/dev/null 2>&1; then
+            git tag -a v1.24.42 -m "v1.24.42"
+            git push origin refs/tags/v1.24.42
+          fi
+
+      - name: Launch release pipelines on tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          for wf in android-tv-build.yml android-mobile-build.yml linux-release-build.yml build-installer.yml docker-publish.yml; do
+            gh workflow run "$wf" --ref v1.24.42 || true
+          done
