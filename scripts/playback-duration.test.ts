@@ -40,6 +40,13 @@ test.after(async () => {
   // recursive cleanup constrained to that disposable test directory.
   const expectedPrefix = path.join(os.tmpdir(), "movviz-playback-duration-");
   if (tempDir.startsWith(expectedPrefix) && path.parse(tempDir).root !== tempDir) {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    try {
+      fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 8, retryDelay: 150 });
+    } catch (error) {
+      // Windows can briefly retain an async cache write handle. The directory
+      // is disposable and the failed cleanup must not turn a passing test
+      // into a false negative.
+      if ((error as NodeJS.ErrnoException).code !== "EPERM") throw error;
+    }
   }
 });

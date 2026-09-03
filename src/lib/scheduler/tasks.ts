@@ -11,7 +11,7 @@ import { purgeExpiredSessions, loadUsers } from "@/lib/auth/store";
 import { emitNotification } from "@/lib/notifications/store";
 import { syncPlexLibrary } from "@/lib/plex/librarySync";
 import { syncUserWatchStatus } from "@/lib/plex/watchSync";
-import { loadPlexConfig } from "@/lib/plex/store";
+import { loadPlexConfig, plexConfigured } from "@/lib/plex/store";
 import { refreshLibraryMetadata } from "@/lib/library/metadataRefresh";
 import { allAnimeVfLaunches } from "@/lib/metadata/animeVfCalendar";
 import { purgeExpiredTrash } from "@/lib/library/trashPurge";
@@ -155,6 +155,7 @@ export const TASKS: ScheduledTask[] = [
     name: "Synchronisation de la bibliothèque Plex",
     intervalMs: 5 * 60 * 1000, // every 5 minutes — incremental (only recent adds/changes), so this stays cheap
     run: async () => {
+      if (!plexConfigured()) return;
       if (!loadPlexConfig().syncLibrary) return;
       const result = await syncPlexLibrary();
       if (result && (result.moviesAdded || result.seriesAdded)) {
@@ -176,6 +177,7 @@ export const TASKS: ScheduledTask[] = [
     // surcharge pas Plex).
     intervalMs: 24 * 60 * 60 * 1000,
     run: async () => {
+      if (!plexConfigured()) return;
       if (!loadPlexConfig().markerSyncEnabled) return;
       await syncPlexMarkers({ mode: "incremental" });
     },
@@ -185,6 +187,7 @@ export const TASKS: ScheduledTask[] = [
     name: "Synchronisation des vues Plex",
     intervalMs: 2 * 60 * 60 * 1000, // every 2 hours
     run: async () => {
+      if (!plexConfigured()) return;
       // Bug fix (confirmed live — "chaque profil doit être indépendant"):
       // this used to require the user's OWN `plexToken`, which only exists
       // for someone who logged into Movviz via Plex OAuth directly. A Plex
@@ -211,6 +214,7 @@ export const TASKS: ScheduledTask[] = [
     // full (non-incremental) pass once a day catches those, for movies and
     // series/episodes alike.
     run: async () => {
+      if (!plexConfigured()) return;
       if (!loadPlexConfig().syncLibrary) return;
       const result = await syncPlexLibrary({ force: true });
       if (result && (result.moviesAdded || result.moviesMatched || result.seriesAdded || result.seriesMatched)) {

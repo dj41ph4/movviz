@@ -228,11 +228,18 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
   const readdable = libraryData?.readdable === true;
 
   const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{
-    items: { tmdbId: number; type: string }[];
+    items: { tmdbId: number; type: string; seasonNumber?: number | null; episodeNumber?: number | null }[];
   }>("/api/watchlist", fetcher);
 
   const onWatchlist = (watchlistData?.items ?? []).some(
     (x) => x.tmdbId === tmdbId && x.type === type,
+  );
+
+  const watchlistedEpisodes = useMemo(
+    () => new Set((watchlistData?.items ?? [])
+      .filter((item) => item.type === "episode" && item.tmdbId === tmdbId)
+      .map((item) => `${item.seasonNumber}.${item.episodeNumber}`)),
+    [watchlistData, tmdbId],
   );
 
   const { data: watchData, mutate: mutateWatch } = useSWR<{
@@ -530,6 +537,29 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
       setWatching(false);
     }
   }, [onWatchlist, tmdbId, type, detail, mutateWatchlist]);
+
+  const toggleEpisodeWatchlist = useCallback(async (seasonNumber: number, episodeNumber: number, title: string, stillPath?: string | null) => {
+    const present = watchlistedEpisodes.has(`${seasonNumber}.${episodeNumber}`);
+    mutateWatchlist((current) => current ? {
+      items: present
+        ? current.items.filter((item) => !(item.type === "episode" && item.tmdbId === tmdbId && item.seasonNumber === seasonNumber && item.episodeNumber === episodeNumber))
+        : [...current.items, { tmdbId, type: "episode", seasonNumber, episodeNumber }],
+    } : current, { revalidate: false });
+    try {
+      if (present) {
+        await fetch(`/api/watchlist/episode/${tmdbId}?season=${seasonNumber}&episode=${episodeNumber}`, { method: "DELETE" });
+      } else {
+        await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ tmdbId, type: "episode", seasonNumber, episodeNumber, title, parentTitle: detail?.title ?? "", stillPath, posterPath: detail?.posterPath, year: detail?.year, rating: detail?.rating }),
+        });
+      }
+      await mutateWatchlist();
+    } catch {
+      await mutateWatchlist();
+    }
+  }, [detail, mutateWatchlist, tmdbId, watchlistedEpisodes]);
 
   const triggerSearch = useCallback(async () => {
     if (!libraryMatch?.id) return;
@@ -1715,6 +1745,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 searchingSeason={effectiveSearchingSeason}
                 searchingEpisodeKey={effectiveSearchingEpisode}
                 watchedEpisodes={watchedEpisodes}
+                watchlistedEpisodes={watchlistedEpisodes}
+                onToggleWatchlistEpisode={type === "series" ? toggleEpisodeWatchlist : undefined}
               />
             </div>
           )}

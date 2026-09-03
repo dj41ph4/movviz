@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.46 — September 2026
+
+### Watchlist des épisodes et Plex facultatif
+
+Ajout des actions Watchlist par épisode dans le détail des séries et garde-fous supplémentaires : les tâches Plex serveur sont ignorées proprement quand Plex n’est pas configuré, sans perturber le profil média local.
+
 ## v1.24.45 — September 2026
 
 ### Transport de synchronisation utilisateur

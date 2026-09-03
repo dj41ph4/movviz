@@ -7,7 +7,7 @@ import useSWR from "swr";
 import { useI18n } from "@/i18n/provider";
 import { cn, formatDate } from "@/lib/utils";
 import { TmdbImage } from "@/components/media/TmdbImage";
-import { ChevronDown, Check, Clock, HardDriveDownload, Search, Loader2, ListFilter, Eye, Calendar, Info } from "lucide-react";
+import { ChevronDown, Check, Clock, HardDriveDownload, Search, Loader2, ListFilter, Eye, Calendar, Info, Heart } from "lucide-react";
 import type { LibraryStatus, LibraryFile } from "@/lib/library/types";
 import { MediaBadges } from "@/components/library/MediaBadges";
 
@@ -100,6 +100,8 @@ function SeasonRow({
   searchingEpisodeKey,
   watchedEpisodes,
   onWatchedChanged,
+  watchlistedEpisodes,
+  onToggleWatchlistEpisode,
 }: {
   season: SeasonInfo;
   libSeason: LibrarySeasonInfo | undefined;
@@ -122,6 +124,8 @@ function SeasonRow({
   searchingEpisodeKey?: string | null;
   watchedEpisodes?: Set<string>;
   onWatchedChanged?: () => void;
+  watchlistedEpisodes?: Set<string>;
+  onToggleWatchlistEpisode?: (seasonNumber: number, episodeNumber: number, title: string, stillPath?: string | null) => void;
 }) {
   const { t, locale } = useI18n();
   const [togglingWatched, setTogglingWatched] = useState<string | null>(null);
@@ -281,6 +285,7 @@ function SeasonRow({
                     const epNumber = ep.episodeNumber ?? idx + 1;
                     const epKey = `${season.seasonNumber}.${epNumber}`;
                     const watched = watchedEpisodes?.has(epKey) ?? false;
+                    const watchlisted = watchlistedEpisodes?.has(epKey) ?? false;
                     const tmdbEp = tmdbByEpisode.get(epNumber);
                     const rowContent = (
                       <>
@@ -311,6 +316,15 @@ function SeasonRow({
                             >
                               {togglingWatched === epKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className={cn("h-3.5 w-3.5", watched && "fill-ok/30")} />}
                             </button>
+                            {onToggleWatchlistEpisode && (
+                              <button
+                                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onToggleWatchlistEpisode(season.seasonNumber, epNumber, ep.title ?? tmdbEp?.title ?? `${t("title.episode")} ${epNumber}`, tmdbEp?.stillPath); }}
+                                title={watchlisted ? t("watchlist.added") : t("watchlist.add")}
+                                className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors", watchlisted ? "bg-brand/15 text-brand-glow" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
+                              >
+                                <Heart className={cn("h-3.5 w-3.5", watchlisted && "fill-current")} />
+                              </button>
+                            )}
                             {ep.airDate && (
                               <span className="flex shrink-0 items-center gap-1 text-[11px] text-ink-dim">
                                 <Calendar className="h-2.5 w-2.5" /> {formatDate(ep.airDate, locale)}
@@ -443,17 +457,29 @@ function SeasonRow({
                   {(() => {
                     const tmdbEpKey = `${season.seasonNumber}.${ep.episodeNumber}`;
                     const tmdbEpWatched = watchedEpisodes?.has(tmdbEpKey) ?? false;
+                    const tmdbEpWatchlisted = watchlistedEpisodes?.has(tmdbEpKey) ?? false;
                     return (
-                      <button
-                        onClick={() => toggleWatched([{ season: season.seasonNumber, episode: ep.episodeNumber }], !tmdbEpWatched, tmdbEpKey)}
-                        title={tmdbEpWatched ? t("watch.markUnwatched") : t("watch.markWatched")}
-                        className={cn(
-                          "flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-lg transition-colors",
-                          tmdbEpWatched ? "text-ok bg-ok/12" : "text-ink-soft hover:text-ink hover:bg-white/5"
+                      <>
+                        <button
+                          onClick={() => toggleWatched([{ season: season.seasonNumber, episode: ep.episodeNumber }], !tmdbEpWatched, tmdbEpKey)}
+                          title={tmdbEpWatched ? t("watch.markUnwatched") : t("watch.markWatched")}
+                          className={cn(
+                            "flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-lg transition-colors",
+                            tmdbEpWatched ? "text-ok bg-ok/12" : "text-ink-soft hover:text-ink hover:bg-white/5"
+                          )}
+                        >
+                          {togglingWatched === tmdbEpKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className={cn("h-3.5 w-3.5", tmdbEpWatched && "fill-ok/30")} />}
+                        </button>
+                        {onToggleWatchlistEpisode && (
+                          <button
+                            onClick={() => onToggleWatchlistEpisode(season.seasonNumber, ep.episodeNumber, ep.title, ep.stillPath)}
+                            title={tmdbEpWatchlisted ? t("watchlist.added") : t("watchlist.add")}
+                            className={cn("flex h-7 w-7 shrink-0 items-center justify-center self-center rounded-lg transition-colors", tmdbEpWatchlisted ? "bg-brand/15 text-brand-glow" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
+                          >
+                            <Heart className={cn("h-3.5 w-3.5", tmdbEpWatchlisted && "fill-current")} />
+                          </button>
                         )}
-                      >
-                        {togglingWatched === tmdbEpKey ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className={cn("h-3.5 w-3.5", tmdbEpWatched && "fill-ok/30")} />}
-                      </button>
+                      </>
                     );
                   })()}
                 </div>
@@ -483,6 +509,8 @@ export function SeasonAccordion({
   searchingSeason,
   searchingEpisodeKey,
   watchedEpisodes,
+  watchlistedEpisodes,
+  onToggleWatchlistEpisode,
 }: {
   seriesId?: string;
   tmdbId?: number;
@@ -503,6 +531,8 @@ export function SeasonAccordion({
   searchingSeason?: number | null;
   searchingEpisodeKey?: string | null;
   watchedEpisodes?: Set<string>;
+  watchlistedEpisodes?: Set<string>;
+  onToggleWatchlistEpisode?: (seasonNumber: number, episodeNumber: number, title: string, stillPath?: string | null) => void;
 }) {
   const { t, locale } = useI18n();
   const [expanded, setExpanded] = useState<number | null>(null);
@@ -565,6 +595,8 @@ export function SeasonAccordion({
             searchingEpisodeKey={searchingEpisodeKey}
             watchedEpisodes={watchedEpisodes}
             onWatchedChanged={onWatchedChanged}
+            watchlistedEpisodes={watchlistedEpisodes}
+            onToggleWatchlistEpisode={onToggleWatchlistEpisode}
           />
         );
       })}
