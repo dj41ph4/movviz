@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.43 — September 2026
+
+### Profil média unifié et synchronisation Plex
+
+Ajout du profil média partagé, de la résolution LWW par champ, de la Watchlist avec épisodes et tombstones, des APIs de profil et du raccordement Android TV. Plex reste facultatif et ne déclenche aucune acquisition automatique.
+
 ## v1.24.42 — September 2026
 
 ### Android TV — reprise, sous-titres, genres et mise à jour maîtrisée
