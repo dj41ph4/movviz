@@ -1,5 +1,5 @@
 import { loadPlexConfig, savePlexConfig } from "./store";
-import { setPlexWatched, deletePlexItem, getPlexOnDeck, getPlexServerAccessToken, getServerIdentity, switchPlexHomeUser, removePlexFromContinueWatching, type PlexOnDeckItem } from "./client";
+import { setPlexWatched, setPlexRating, deletePlexItem, getPlexOnDeck, getPlexServerAccessToken, getServerIdentity, switchPlexHomeUser, removePlexFromContinueWatching, type PlexOnDeckItem } from "./client";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import type { User } from "@/lib/auth/types";
@@ -102,6 +102,17 @@ export async function pushMovieWatchedToPlex(user: User, tmdbId: number, watched
     "plex.watchWrite",
     `${user.username} (plexId:${user.plexId ?? user.plexManagedUserId ?? "?"}, ${auth.source}) — « ${movie.title} » ${watched ? "marqué vu" : "marqué non vu"} sur Plex : ${ok ? "ok" : "échec"}`
   );
+}
+
+export async function pushRatingToPlex(user: User, tmdbId: number, type: "movie" | "series", stars: number | null, at?: number): Promise<void> {
+  const cfg = loadPlexConfig();
+  if (!cfg.hostname) return;
+  const auth = await resolvePlexServerAuth(user, cfg);
+  if (!auth) return;
+  const media = type === "movie" ? getMovieByTmdbId(tmdbId) : getSeriesByTmdbId(tmdbId);
+  if (!media?.plexRatingKey) return;
+  const ok = await setPlexRating(cfg, auth.token, media.plexRatingKey, stars == null ? 0 : stars * 2, at);
+  recordSearchLog(ok ? "info" : "warn", "plex.ratingSync", `${user.username} — « ${media.title} » rating ${stars == null ? "effacé" : `${stars}/5`} sur Plex : ${ok ? "ok" : "échec"}`);
 }
 
 /** "Retirer de la liste Reprendre" (Reprendre row's own dropdown, confirmed

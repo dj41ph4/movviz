@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { clearRating, getAllRatings, getRating, setRating } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { invalidatePersonTraitCache } from "@/lib/userContext/taste";
+import { pushRatingToPlex } from "@/lib/plex/watchWrite";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +58,7 @@ export async function PUT(req: NextRequest) {
   // consolidated context (profile panel) should pick up on its own,
   // without the user having to click "Régénérer le contexte" manually.
   triggerIncrementalContextIfDue(user.id).catch(() => {});
+  pushRatingToPlex(user, tmdbId, type, updated.rating, updated.updatedAt).catch(() => {});
   return NextResponse.json({ rating: updated });
 }
 
@@ -69,6 +71,7 @@ export async function DELETE(req: NextRequest) {
   const at = body.at == null ? Date.now() : Number(body.at);
   if (!Number.isFinite(at) || at <= 0) return NextResponse.json({ error: "invalid_at" }, { status: 400 });
   clearRating(user.id, tmdbId, body.type, at);
+  pushRatingToPlex(user, tmdbId, body.type, null, at).catch(() => {});
   invalidatePersonTraitCache(user.id);
   return NextResponse.json({ cleared: true });
 }

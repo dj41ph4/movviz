@@ -770,6 +770,20 @@ export async function setPlexWatched(cfg: PlexServerConfig, token: string, ratin
   }
 }
 
+/** Set or clear the Plex PMS user rating (0..10). This is deliberately
+ * best-effort: Movviz's local mutation has already succeeded before this is
+ * called, and Plex being unavailable must never block the user. */
+export async function setPlexRating(cfg: PlexServerConfig, token: string, ratingKey: string, rating: number, ratedAt?: number, managedUserId?: string): Promise<boolean> {
+  try {
+    const params = new URLSearchParams({ key: ratingKey, identifier: "com.plexapp.plugins.library", rating: String(Math.max(0, Math.min(10, rating))) });
+    if (ratedAt != null) params.set("ratedAt", String(Math.floor(ratedAt / 1000)));
+    const res = await fetchWithTimeout(`${serverBase(cfg)}/:/rate?${params}`, { method: "PUT", headers: serverHeaders(cfg, token, managedUserId), cache: "no-store" });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Plex's own "Remove from Continue Watching" action (the same one its web/
  *  mobile apps expose on a long-press/context menu) — resets the item's
  *  progress without marking it watched, so it drops off On Deck but a real
@@ -798,6 +812,8 @@ export interface PlexOnDeckItem {
   grandparentRatingKey?: string;
   viewOffset: number;
   duration: number;
+  lastViewedAt?: number;
+  updatedAt?: number;
 }
 
 /**
@@ -823,8 +839,8 @@ export async function getPlexOnDeck(cfg: PlexServerConfig, token: string, manage
         grandparentRatingKey: item.grandparentRatingKey,
         viewOffset: item.viewOffset ?? 0,
         duration: item.duration ?? 0,
-        lastViewedAt: item.lastViewedAt,
-        updatedAt: item.updatedAt,
+        lastViewedAt: item.lastViewedAt == null ? undefined : (item.lastViewedAt < 10_000_000_000 ? item.lastViewedAt * 1000 : item.lastViewedAt),
+        updatedAt: item.updatedAt == null ? undefined : (item.updatedAt < 10_000_000_000 ? item.updatedAt * 1000 : item.updatedAt),
       }));
   } catch {
     return [];

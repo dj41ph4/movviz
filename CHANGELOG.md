@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.44 — September 2026
+
+### Convergence Plex des notes et reprises
+
+Les notes locales sont synchronisées vers Plex en arrière-plan et la reprise distante respecte désormais le timestamp LWW au lieu de privilégier mécaniquement la valeur la plus grande.
+
 ## v1.24.43 — September 2026
 
 ### Profil média unifié et synchronisation Plex

@@ -1,5 +1,6 @@
 import { loadPlexConfig } from "@/lib/plex/store";
 import { resolveToken, getVerifiedOnDeck } from "@/lib/plex/watchWrite";
+import { getPlaybackProgress } from "@/lib/playback/progressStore";
 
 /**
  * Merge the local Movviz position with Plex's Continue Watching position.
@@ -19,7 +20,15 @@ export async function mergePlexResume(
     if (!cfg.hostname) return localOffsetMs;
     const item = (await getVerifiedOnDeck(user, cfg))
       .find((candidate) => candidate.ratingKey === ratingKey);
-    return item && item.viewOffset > 0 ? item.viewOffset : localOffsetMs;
+    if (!item || item.viewOffset <= 0) return localOffsetMs;
+    const local = getPlaybackProgress(user.id, ratingKey);
+    const remoteAt = item.lastViewedAt ?? item.updatedAt ?? null;
+    // Plex is only allowed to replace a local position when its real remote
+    // clock is newer. Numeric offset is intentionally irrelevant: restarting
+    // at 12% after a local 82% is a valid newer user action.
+    return remoteAt != null && local?.updatedAt != null && remoteAt > local.updatedAt
+      ? item.viewOffset
+      : localOffsetMs;
   } catch {
     return localOffsetMs;
   }
