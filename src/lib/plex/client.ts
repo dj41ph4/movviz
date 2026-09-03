@@ -770,6 +770,31 @@ export async function setPlexWatched(cfg: PlexServerConfig, token: string, ratin
   }
 }
 
+export async function addPlexWatchlistItem(userToken: string, discoverRatingKey: string): Promise<boolean> {
+  return mutatePlexWatchlist(userToken, discoverRatingKey, "addToWatchlist");
+}
+
+export async function removePlexWatchlistItem(userToken: string, discoverRatingKey: string): Promise<boolean> {
+  return mutatePlexWatchlist(userToken, discoverRatingKey, "removeFromWatchlist");
+}
+
+async function mutatePlexWatchlist(userToken: string, discoverRatingKey: string, action: "addToWatchlist" | "removeFromWatchlist"): Promise<boolean> {
+  if (!discoverRatingKey.trim()) return false;
+  const cfg = loadPlexConfig();
+  try {
+    const url = new URL(`https://discover.provider.plex.tv/actions/${action}`);
+    url.searchParams.set("ratingKey", discoverRatingKey);
+    const res = await fetchWithTimeout(url.toString(), {
+      method: "PUT",
+      headers: headers(cfg.clientId, { "x-plex-token": userToken, "x-plex-sync-version": "2" }),
+      cache: "no-store",
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** Set or clear the Plex PMS user rating (0..10). This is deliberately
  * best-effort: Movviz's local mutation has already succeeded before this is
  * called, and Plex being unavailable must never block the user. */

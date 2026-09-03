@@ -4,6 +4,7 @@ import path from "node:path";
 import type { WatchlistItem } from "./types";
 import { recordUserContextEvent, upsertUserMediaState } from "@/lib/userContext/ingest";
 import { mediaStateKey } from "@/lib/userContext/reconcile";
+import { updateUserMediaSyncState } from "@/lib/userContext/syncState";
 
 const CONFIG_DIR =
   process.env.MOVVIZ_CONFIG_DIR ??
@@ -21,6 +22,9 @@ function writeJson(file: string, data: unknown) {
 
 export function loadWatchlist(userId: string): WatchlistItem[] {
   return readJson<WatchlistItem[]>(FILE, []).filter((i) => i.userId === userId).map(normalizeItem).filter((i) => i.present);
+}
+export function getWatchlistItem(userId: string, type: string, tmdbId: number, seasonNumber?: number, episodeNumber?: number): WatchlistItem | null {
+  return readJson<WatchlistItem[]>(FILE, []).map(normalizeItem).find((item) => item.userId === userId && item.type === type && item.tmdbId === tmdbId && (type !== "episode" || (item.seasonNumber === seasonNumber && item.episodeNumber === episodeNumber))) ?? null;
 }
 function normalizeItem(item: WatchlistItem): WatchlistItem {
   const addedAt = Number.isFinite(item.addedAt) ? item.addedAt : Date.now();
@@ -56,6 +60,7 @@ export function addWatchlistItem(item: Omit<WatchlistItem, "present" | "updatedA
   writeJson(FILE, normalized);
   recordUserContextEvent({ userId: item.userId, eventType: "watchlist_added", source: next.source, sourceEventId: `watchlist:${watchlistKey(next)}:add:${mutationAt}`, tmdbId: next.tmdbId, mediaType: next.type === "episode" ? "episode" : next.type, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, title: next.title, occurredAt: mutationAt });
   upsertUserMediaState({ stateKey: mediaStateKey(item.userId, next.type, next.tmdbId, next.seasonNumber, next.episodeNumber), userId: item.userId, tmdbId: next.tmdbId, mediaType: next.type, seasonNumber: next.seasonNumber, episodeNumber: next.episodeNumber, title: next.title, eligibleForResume: false, watched: false, updatedAt: mutationAt, watchlistPresent: true, watchlistUpdatedAt: mutationAt, watchlistSource: next.source, watchlistAddedAt: mutationAt });
+  updateUserMediaSyncState({ userId: item.userId, stateKey: mediaStateKey(item.userId, next.type, next.tmdbId, next.seasonNumber, next.episodeNumber), field: "watchlist", target: "plex", capability: next.type === "episode" ? "UNSUPPORTED" : "PENDING", appliedAt: mutationAt, updatedAt: mutationAt });
   return next;
 }
 export function removeWatchlistItem(userId: string, type: string, tmdbId: number, seasonNumber?: number, episodeNumber?: number, mutationAt = Date.now()) {
@@ -69,5 +74,6 @@ export function removeWatchlistItem(userId: string, type: string, tmdbId: number
     writeJson(FILE, normalized);
     recordUserContextEvent({ userId, eventType: "watchlist_removed", source: "movviz", sourceEventId: `watchlist:${watchlistKey(current)}:remove:${mutationAt}`, tmdbId, mediaType: type as "movie" | "series" | "episode", seasonNumber, episodeNumber, title: current.title, occurredAt: mutationAt });
     upsertUserMediaState({ stateKey: mediaStateKey(userId, type as "movie" | "series" | "episode", tmdbId, seasonNumber, episodeNumber), userId, tmdbId, mediaType: type as "movie" | "series" | "episode", seasonNumber, episodeNumber, title: current.title, eligibleForResume: false, watched: false, updatedAt: mutationAt, watchlistPresent: false, watchlistUpdatedAt: mutationAt, watchlistSource: "movviz", watchlistRemovedAt: mutationAt }, { force: true });
+    updateUserMediaSyncState({ userId, stateKey: mediaStateKey(userId, type as "movie" | "series" | "episode", tmdbId, seasonNumber, episodeNumber), field: "watchlist", target: "plex", capability: type === "episode" ? "UNSUPPORTED" : "PENDING", appliedAt: mutationAt, updatedAt: mutationAt });
   }
 }

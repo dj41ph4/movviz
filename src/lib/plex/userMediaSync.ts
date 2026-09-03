@@ -2,6 +2,8 @@ import type { User } from "@/lib/auth/types";
 import { getPlexWatchlist } from "./client";
 import { addWatchlistItem } from "@/lib/watchlist/store";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
+import { mediaStateKey } from "@/lib/userContext/reconcile";
+import { updateUserMediaSyncState } from "@/lib/userContext/syncState";
 
 /** Pull only causally timestamped Plex watchlist additions. Absence is never
  * interpreted as removal: Plex does not expose a reliable deletion time. */
@@ -11,7 +13,7 @@ export async function syncPlexUserMedia(user: User): Promise<void> {
   let imported = 0;
   for (const item of items) {
     if (item.tmdbId == null || item.addedAt == null) continue;
-    addWatchlistItem({
+    const saved = addWatchlistItem({
       userId: user.id,
       type: item.type,
       tmdbId: item.tmdbId,
@@ -25,6 +27,17 @@ export async function syncPlexUserMedia(user: User): Promise<void> {
       plexGuid: item.plexGuid,
       plexDiscoverRatingKey: item.discoverRatingKey,
     });
+    if (saved.source === "plex_watchlist" && saved.updatedAt === item.addedAt) {
+      updateUserMediaSyncState({
+        userId: user.id,
+        stateKey: mediaStateKey(user.id, saved.type, saved.tmdbId, saved.seasonNumber, saved.episodeNumber),
+        field: "watchlist",
+        target: "plex",
+        capability: "SYNCED",
+        observedAt: item.addedAt,
+        remoteHash: `${item.type}:${item.tmdbId}:${item.addedAt}`,
+      });
+    }
     imported++;
   }
   recordSearchLog("info", "plex.userMediaSync", `${user.username}: ${imported} élément(s) Watchlist Plex importé(s), aucune absence distante interprétée comme suppression`);

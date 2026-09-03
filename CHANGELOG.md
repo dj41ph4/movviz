@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.45 — September 2026
+
+### Transport de synchronisation utilisateur
+
+Les mutations Watchlist et watched exposent désormais leur capacité et leur horloge de transport, avec résolution LWW et conservation de l’historique lors d’un passage à non vu.
+
 ## v1.24.44 — September 2026
 
 ### Convergence Plex des notes et reprises

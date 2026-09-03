@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadWatchlist, addWatchlistItem } from "@/lib/watchlist/store";
+import { addPlexWatchlistItem } from "@/lib/plex/client";
 
 export const dynamic = "force-dynamic";
 
@@ -37,5 +38,6 @@ export async function POST(req: NextRequest) {
     rating: Number(body.rating ?? 0),
     addedAt: Date.now(),
   });
+  if (item.plexDiscoverRatingKey && user.plexToken) addPlexWatchlistItem(user.plexToken, item.plexDiscoverRatingKey).catch(() => {});
   return NextResponse.json(item, { status: 201 });
 }
