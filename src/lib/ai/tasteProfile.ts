@@ -1,7 +1,7 @@
 import path from "node:path";
 import { readJsonCached, writeJsonCached } from "@/lib/fsJsonCache";
 import { recordUserContextEvent } from "@/lib/userContext/ingest";
-import type { AiContextInsight, AiContextProfile, AiCorrectionEntry, AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile, TitleRating, RatingSource } from "./types";
+import type { AiContextInsight, AiContextProfile, AiCorrectionEntry, AiFactEntry, AiFeedbackEntry, AiProfileStore, AiUserProfile, TitleRating, RatingSource, RatingOrigin } from "./types";
 
 /**
  * Foundation of the AI v2 taste engine (AI.MD §2.A/§2.G): a strictly
@@ -285,11 +285,11 @@ const MAX_RATING_ENTRIES = 500;
 
 export function getRating(userId: string, tmdbId: number, type: "movie" | "series"): TitleRating | null {
   const ratings = profileForUser(read(), userId).ratings ?? [];
-  return ratings.find((r) => r.tmdbId === tmdbId && r.type === type) ?? null;
+  return ratings.find((r) => r.tmdbId === tmdbId && r.type === type && r.active !== false) ?? null;
 }
 
 export function getAllRatings(userId: string): TitleRating[] {
-  return profileForUser(read(), userId).ratings ?? [];
+  return (profileForUser(read(), userId).ratings ?? []).filter((rating) => rating.active !== false);
 }
 
 /**
@@ -307,16 +307,21 @@ export function getAllRatings(userId: string): TitleRating[] {
  */
 export function setRating(
   userId: string,
-  entry: { tmdbId: number; type: "movie" | "series"; title: string; rating: number; source: RatingSource; confidence: number; opinion?: string }
+  entry: { tmdbId: number; type: "movie" | "series"; title: string; rating: number; source: RatingSource; confidence: number; opinion?: string; at?: number; origin?: RatingOrigin }
 ): TitleRating {
-  const clampedRating = Math.min(5, Math.max(1, Math.round(entry.rating)));
+  const clampedRating = Math.min(5, Math.max(1, Math.round(entry.rating * 2) / 2));
   const clampedConfidence = entry.source === "explicit" ? 1 : Math.min(1, Math.max(0, entry.confidence));
   const store = read();
   const profile = profileForUser(store, userId);
   const ratings = profile.ratings ?? [];
   const idx = ratings.findIndex((r) => r.tmdbId === entry.tmdbId && r.type === entry.type);
   const existingBefore: number | null = idx === -1 ? null : ratings[idx].rating;
-  const historyEntry = { rating: clampedRating, source: entry.source, confidence: clampedConfidence, at: Date.now(), opinion: entry.opinion };
+  const at = entry.at ?? Date.now();
+  const origin = entry.origin ?? (entry.source === "inferred" ? "ai" : "movviz");
+  // Explicit ratings are user mutations and therefore still obey LWW across
+  // Movviz/Plex. An older Plex import must not overwrite a newer local click.
+  if (idx >= 0 && entry.source === "explicit" && ratings[idx].updatedAt > at) return ratings[idx];
+  const historyEntry = { rating: clampedRating, source: entry.source, confidence: clampedConfidence, at, opinion: entry.opinion, origin };
 
   let updated: TitleRating;
   if (idx === -1) {
@@ -329,7 +334,10 @@ export function setRating(
       confidence: clampedConfidence,
       opinion: entry.opinion,
       history: [historyEntry],
-      updatedAt: Date.now(),
+      updatedAt: at,
+      active: true,
+      clearedAt: null,
+      origin,
     };
   } else {
     const existing = ratings[idx];
@@ -347,7 +355,10 @@ export function setRating(
           confidence: clampedConfidence,
           opinion: entry.opinion,
           history: [...existing.history, historyEntry].slice(-MAX_RATING_ENTRIES),
-          updatedAt: Date.now(),
+          updatedAt: at,
+          active: true,
+          clearedAt: null,
+          origin,
         };
   }
 
@@ -373,6 +384,18 @@ export function setRating(
     });
   }
   return updated;
+}
+
+export function clearRating(userId: string, tmdbId: number, type: "movie" | "series", at = Date.now(), origin: RatingOrigin = "movviz"): void {
+  const store = read();
+  const profile = profileForUser(store, userId);
+  const ratings = profile.ratings ?? [];
+  const idx = ratings.findIndex((r) => r.tmdbId === tmdbId && r.type === type);
+  if (idx < 0) return;
+  ratings[idx] = { ...ratings[idx], active: false, clearedAt: at, updatedAt: at, origin };
+  store[userId] = { ...profile, ratings };
+  write(store);
+  recordUserContextEvent({ userId, eventType: "rating_cleared", source: origin, sourceEventId: `rating-clear:${userId}:${type}:${tmdbId}:${at}`, tmdbId, mediaType: type, title: ratings[idx].title, occurredAt: at, textValue: origin });
 }
 
 /** Compact context for the system prompt — same restraint as

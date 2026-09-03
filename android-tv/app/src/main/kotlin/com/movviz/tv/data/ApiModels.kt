@@ -788,3 +788,27 @@ data class UserPrefsDto(
 data class PreferencesResponseDto(
     val prefs: UserPrefsDto = UserPrefsDto(),
 )
+
+@JsonClass(generateAdapter = true)
+data class ProfileMediaProgressDto(val ratio: Double = 0.0)
+
+@JsonClass(generateAdapter = true)
+data class ProfileMediaCardDto(
+    val tmdbId: Int,
+    val type: String,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val title: String,
+    val posterPath: String? = null,
+    val stillPath: String? = null,
+    val userRating: Double? = null,
+    val progress: ProfileMediaProgressDto? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class ProfileMediaResponseDto(
+    val continueWatching: List<ProfileMediaCardDto> = emptyList(),
+    val watchHistory: List<ProfileMediaCardDto> = emptyList(),
+    val ratings: List<ProfileMediaCardDto> = emptyList(),
+    val watchlist: List<ProfileMediaCardDto> = emptyList(),
+)

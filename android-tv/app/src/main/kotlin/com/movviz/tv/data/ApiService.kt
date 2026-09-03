@@ -216,6 +216,9 @@ interface MovvizApiService {
     @GET("api/watch-status")
     suspend fun watchStatus(): Response<WatchStatusDto>
 
+    @GET("api/profile/media")
+    suspend fun profileMedia(): Response<ProfileMediaResponseDto>
+
     // Préférences de compte persistées côté serveur (voir
     // src/app/api/settings/preferences/route.ts) — écran Paramètres, section
     // Lecture (langue audio par défaut). Même route que le desktop, PATCH

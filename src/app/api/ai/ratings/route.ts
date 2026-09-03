@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
-import { getAllRatings, getRating, setRating } from "@/lib/ai/tasteProfile";
+import { clearRating, getAllRatings, getRating, setRating } from "@/lib/ai/tasteProfile";
 import { triggerIncrementalContextIfDue } from "@/lib/ai/contextBuilder";
 import { invalidatePersonTraitCache } from "@/lib/userContext/taste";
 
@@ -36,7 +36,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
 
-  const b = (body ?? {}) as { tmdbId?: unknown; type?: unknown; title?: unknown; rating?: unknown };
+  const b = (body ?? {}) as { tmdbId?: unknown; type?: unknown; title?: unknown; rating?: unknown; at?: unknown };
   const tmdbId = Number(b.tmdbId);
   const type = b.type;
   const title = typeof b.title === "string" ? b.title.trim().slice(0, 200) : "";
@@ -45,9 +45,11 @@ export async function PUT(req: NextRequest) {
   if (!Number.isInteger(tmdbId) || tmdbId <= 0) return NextResponse.json({ error: "invalid_tmdbId" }, { status: 400 });
   if (type !== "movie" && type !== "series") return NextResponse.json({ error: "invalid_type" }, { status: 400 });
   if (!title) return NextResponse.json({ error: "invalid_title" }, { status: 400 });
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5) return NextResponse.json({ error: "invalid_rating" }, { status: 400 });
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5 || Math.round(rating * 2) !== rating * 2) return NextResponse.json({ error: "invalid_rating" }, { status: 400 });
 
-  const updated = setRating(user.id, { tmdbId, type, title, rating, source: "explicit", confidence: 1 });
+  const at = b.at == null ? undefined : Number(b.at);
+  if (at != null && (!Number.isFinite(at) || at <= 0)) return NextResponse.json({ error: "invalid_at" }, { status: 400 });
+  const updated = setRating(user.id, { tmdbId, type, title, rating, source: "explicit", confidence: 1, at });
   invalidatePersonTraitCache(user.id);
   // Additive write-path, same fire-and-forget pattern used at every other
   // producer of real activity (watch/toggle, ai/watched, ai/feedback,
@@ -56,4 +58,17 @@ export async function PUT(req: NextRequest) {
   // without the user having to click "Régénérer le contexte" manually.
   triggerIncrementalContextIfDue(user.id).catch(() => {});
   return NextResponse.json({ rating: updated });
+}
+
+export async function DELETE(req: NextRequest) {
+  const user = requireUser(req);
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const body = await req.json().catch(() => ({})) as { tmdbId?: unknown; type?: unknown; at?: unknown };
+  const tmdbId = Number(body.tmdbId);
+  if (!Number.isInteger(tmdbId) || tmdbId <= 0 || (body.type !== "movie" && body.type !== "series")) return NextResponse.json({ error: "invalid_media" }, { status: 400 });
+  const at = body.at == null ? Date.now() : Number(body.at);
+  if (!Number.isFinite(at) || at <= 0) return NextResponse.json({ error: "invalid_at" }, { status: 400 });
+  clearRating(user.id, tmdbId, body.type, at);
+  invalidatePersonTraitCache(user.id);
+  return NextResponse.json({ cleared: true });
 }

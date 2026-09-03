@@ -9,8 +9,6 @@ import { loadIndexers, updateIndexer } from "@/lib/indexers/store";
 import { testIndexer } from "@/lib/indexers/torznab";
 import { purgeExpiredSessions, loadUsers } from "@/lib/auth/store";
 import { emitNotification } from "@/lib/notifications/store";
-import { getPlexWatchlist } from "@/lib/plex/client";
-import { requestMedia } from "@/lib/requests/requestMedia";
 import { syncPlexLibrary } from "@/lib/plex/librarySync";
 import { syncUserWatchStatus } from "@/lib/plex/watchSync";
 import { loadPlexConfig } from "@/lib/plex/store";
@@ -19,6 +17,7 @@ import { allAnimeVfLaunches } from "@/lib/metadata/animeVfCalendar";
 import { purgeExpiredTrash } from "@/lib/library/trashPurge";
 import { isAutoSearchMissingEnabled } from "@/lib/settings/automation";
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { syncPlexUserMedia } from "@/lib/plex/userMediaSync";
 import { importSeerrRequests } from "@/lib/seerr/importRequests";
 import { seerrConfigured } from "@/lib/seerr/store";
 import { incrementalDiskScan } from "@/lib/library/diskScan";
@@ -142,17 +141,12 @@ export const TASKS: ScheduledTask[] = [
     name: "Synchronisation de la liste de suivi Plex",
     intervalMs: 60 * 1000, // every minute
     run: async () => {
+      // Watchlist is a user intent, never an acquisition trigger. The
+      // historical task id is retained for scheduler compatibility; the
+      // bidirectional user-media adapter owns synchronization here.
       if (!loadPlexConfig().watchlistSyncEnabled) return;
-      const users = loadUsers().filter((u) => u.autoRequestFromWatchlist && u.plexToken);
-      for (const user of users) {
-        const items = await getPlexWatchlist(user.plexToken!);
-        for (const item of items) {
-          if (item.tmdbId == null) continue;
-          const result = await requestMedia(user, item.type, item.tmdbId);
-          if ("error" in result) {
-            console.error(`[PlexWatchlist] ${item.type} ${item.tmdbId} for ${user.username}: ${result.error}`);
-          }
-        }
+      for (const user of loadUsers().filter((candidate) => candidate.plexToken)) {
+        await syncPlexUserMedia(user);
       }
     },
   },

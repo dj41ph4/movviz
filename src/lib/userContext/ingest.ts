@@ -70,8 +70,11 @@ export function upsertUserMediaState(input: Omit<ContextMediaState, "stateKey"> 
         state_key, user_id, tmdb_id, media_type, media_id, rating_key, title_snapshot,
         season_number, episode_number, position_ms, duration_ms, progress_ratio,
         eligible_for_resume, watched, started_at, last_played_at, watched_at,
-        updated_at, source_revision
-      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        updated_at, source_revision, progress_updated_at, progress_source,
+        watched_updated_at, watched_source, rating_value, rating_updated_at,
+        rating_source, watchlist_present, watchlist_updated_at, watchlist_source,
+        watchlist_added_at, watchlist_removed_at, plex_guid, plex_discover_rating_key
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(state_key) DO UPDATE SET
         user_id = excluded.user_id,
         tmdb_id = excluded.tmdb_id,
@@ -81,16 +84,30 @@ export function upsertUserMediaState(input: Omit<ContextMediaState, "stateKey"> 
         title_snapshot = COALESCE(excluded.title_snapshot, user_media_state.title_snapshot),
         season_number = COALESCE(excluded.season_number, user_media_state.season_number),
         episode_number = COALESCE(excluded.episode_number, user_media_state.episode_number),
-        position_ms = COALESCE(excluded.position_ms, user_media_state.position_ms),
-        duration_ms = COALESCE(excluded.duration_ms, user_media_state.duration_ms),
-        progress_ratio = COALESCE(excluded.progress_ratio, user_media_state.progress_ratio),
-        eligible_for_resume = excluded.eligible_for_resume,
-        watched = excluded.watched,
+        position_ms = CASE WHEN excluded.progress_updated_at IS NOT NULL AND (user_media_state.progress_updated_at IS NULL OR excluded.progress_updated_at > user_media_state.progress_updated_at OR (excluded.progress_updated_at = user_media_state.progress_updated_at AND COALESCE(excluded.progress_source, '') > COALESCE(user_media_state.progress_source, ''))) THEN excluded.position_ms ELSE user_media_state.position_ms END,
+        duration_ms = CASE WHEN excluded.progress_updated_at IS NOT NULL AND (user_media_state.progress_updated_at IS NULL OR excluded.progress_updated_at > user_media_state.progress_updated_at OR (excluded.progress_updated_at = user_media_state.progress_updated_at AND COALESCE(excluded.progress_source, '') > COALESCE(user_media_state.progress_source, ''))) THEN excluded.duration_ms ELSE user_media_state.duration_ms END,
+        progress_ratio = CASE WHEN excluded.progress_updated_at IS NOT NULL AND (user_media_state.progress_updated_at IS NULL OR excluded.progress_updated_at > user_media_state.progress_updated_at OR (excluded.progress_updated_at = user_media_state.progress_updated_at AND COALESCE(excluded.progress_source, '') > COALESCE(user_media_state.progress_source, ''))) THEN excluded.progress_ratio ELSE user_media_state.progress_ratio END,
+        eligible_for_resume = CASE WHEN excluded.progress_updated_at IS NOT NULL AND (user_media_state.progress_updated_at IS NULL OR excluded.progress_updated_at > user_media_state.progress_updated_at OR (excluded.progress_updated_at = user_media_state.progress_updated_at AND COALESCE(excluded.progress_source, '') > COALESCE(user_media_state.progress_source, ''))) THEN excluded.eligible_for_resume ELSE user_media_state.eligible_for_resume END,
+        watched = CASE WHEN excluded.watched_updated_at IS NOT NULL AND (user_media_state.watched_updated_at IS NULL OR excluded.watched_updated_at > user_media_state.watched_updated_at OR (excluded.watched_updated_at = user_media_state.watched_updated_at AND COALESCE(excluded.watched_source, '') > COALESCE(user_media_state.watched_source, ''))) THEN excluded.watched ELSE user_media_state.watched END,
         started_at = COALESCE(user_media_state.started_at, excluded.started_at),
-        last_played_at = COALESCE(excluded.last_played_at, user_media_state.last_played_at),
-        watched_at = excluded.watched_at,
-        updated_at = excluded.updated_at,
-        source_revision = COALESCE(excluded.source_revision, user_media_state.source_revision)
+        last_played_at = CASE WHEN excluded.progress_updated_at IS NOT NULL AND (user_media_state.progress_updated_at IS NULL OR excluded.progress_updated_at > user_media_state.progress_updated_at OR (excluded.progress_updated_at = user_media_state.progress_updated_at AND COALESCE(excluded.progress_source, '') > COALESCE(user_media_state.progress_source, ''))) THEN excluded.last_played_at ELSE user_media_state.last_played_at END,
+        watched_at = CASE WHEN excluded.watched_updated_at IS NOT NULL AND (user_media_state.watched_updated_at IS NULL OR excluded.watched_updated_at > user_media_state.watched_updated_at OR (excluded.watched_updated_at = user_media_state.watched_updated_at AND COALESCE(excluded.watched_source, '') > COALESCE(user_media_state.watched_source, ''))) THEN excluded.watched_at ELSE user_media_state.watched_at END,
+        updated_at = MAX(excluded.updated_at, COALESCE(user_media_state.updated_at, 0)),
+        source_revision = COALESCE(excluded.source_revision, user_media_state.source_revision),
+        progress_updated_at = CASE WHEN excluded.progress_updated_at IS NOT NULL AND (user_media_state.progress_updated_at IS NULL OR excluded.progress_updated_at > user_media_state.progress_updated_at) THEN excluded.progress_updated_at ELSE user_media_state.progress_updated_at END,
+        progress_source = CASE WHEN excluded.progress_updated_at IS NOT NULL AND (user_media_state.progress_updated_at IS NULL OR excluded.progress_updated_at > user_media_state.progress_updated_at) THEN excluded.progress_source ELSE user_media_state.progress_source END,
+        watched_updated_at = CASE WHEN excluded.watched_updated_at IS NOT NULL AND (user_media_state.watched_updated_at IS NULL OR excluded.watched_updated_at > user_media_state.watched_updated_at) THEN excluded.watched_updated_at ELSE user_media_state.watched_updated_at END,
+        watched_source = CASE WHEN excluded.watched_updated_at IS NOT NULL AND (user_media_state.watched_updated_at IS NULL OR excluded.watched_updated_at > user_media_state.watched_updated_at) THEN excluded.watched_updated_at ELSE user_media_state.watched_source END,
+        rating_value = CASE WHEN excluded.rating_updated_at IS NOT NULL AND (user_media_state.rating_updated_at IS NULL OR excluded.rating_updated_at > user_media_state.rating_updated_at) THEN excluded.rating_value ELSE user_media_state.rating_value END,
+        rating_updated_at = CASE WHEN excluded.rating_updated_at IS NOT NULL AND (user_media_state.rating_updated_at IS NULL OR excluded.rating_updated_at > user_media_state.rating_updated_at) THEN excluded.rating_updated_at ELSE user_media_state.rating_updated_at END,
+        rating_source = CASE WHEN excluded.rating_updated_at IS NOT NULL AND (user_media_state.rating_updated_at IS NULL OR excluded.rating_updated_at > user_media_state.rating_updated_at) THEN excluded.rating_source ELSE user_media_state.rating_source END,
+        watchlist_present = CASE WHEN excluded.watchlist_updated_at IS NOT NULL AND (user_media_state.watchlist_updated_at IS NULL OR excluded.watchlist_updated_at > user_media_state.watchlist_updated_at) THEN excluded.watchlist_present ELSE user_media_state.watchlist_present END,
+        watchlist_updated_at = CASE WHEN excluded.watchlist_updated_at IS NOT NULL AND (user_media_state.watchlist_updated_at IS NULL OR excluded.watchlist_updated_at > user_media_state.watchlist_updated_at) THEN excluded.watchlist_updated_at ELSE user_media_state.watchlist_updated_at END,
+        watchlist_source = CASE WHEN excluded.watchlist_updated_at IS NOT NULL AND (user_media_state.watchlist_updated_at IS NULL OR excluded.watchlist_updated_at > user_media_state.watchlist_updated_at) THEN excluded.watchlist_source ELSE user_media_state.watchlist_source END,
+        watchlist_added_at = CASE WHEN excluded.watchlist_updated_at IS NOT NULL AND (user_media_state.watchlist_updated_at IS NULL OR excluded.watchlist_updated_at > user_media_state.watchlist_updated_at) THEN excluded.watchlist_added_at ELSE user_media_state.watchlist_added_at END,
+        watchlist_removed_at = CASE WHEN excluded.watchlist_updated_at IS NOT NULL AND (user_media_state.watchlist_updated_at IS NULL OR excluded.watchlist_updated_at > user_media_state.watchlist_updated_at) THEN excluded.watchlist_removed_at ELSE user_media_state.watchlist_removed_at END,
+        plex_guid = COALESCE(excluded.plex_guid, user_media_state.plex_guid),
+        plex_discover_rating_key = COALESCE(excluded.plex_discover_rating_key, user_media_state.plex_discover_rating_key)
     `).run(
       key,
       input.userId,
@@ -111,6 +128,20 @@ export function upsertUserMediaState(input: Omit<ContextMediaState, "stateKey"> 
       input.watchedAt ?? null,
       input.updatedAt,
       input.sourceRevision ?? null,
+      input.progressUpdatedAt ?? null,
+      input.progressSource ?? null,
+      input.watchedUpdatedAt ?? null,
+      input.watchedSource ?? null,
+      input.ratingValue ?? null,
+      input.ratingUpdatedAt ?? null,
+      input.ratingSource ?? null,
+      input.watchlistPresent == null ? null : (input.watchlistPresent ? 1 : 0),
+      input.watchlistUpdatedAt ?? null,
+      input.watchlistSource ?? null,
+      input.watchlistAddedAt ?? null,
+      input.watchlistRemovedAt ?? null,
+      input.plexGuid ?? null,
+      input.plexDiscoverRatingKey ?? null,
     );
     return true;
   }, false);
@@ -163,6 +194,10 @@ export function syncPlaybackContext(snapshot: PlaybackContextSnapshot, options?:
     watchedAt: snapshot.watchedAt,
     updatedAt: snapshot.updatedAt,
     sourceRevision: snapshot.revision,
+    progressUpdatedAt: snapshot.updatedAt,
+    progressSource: "movviz_playback",
+    watchedUpdatedAt: snapshot.watchedAt,
+    watchedSource: snapshot.watchedAt == null ? null : "movviz_playback",
   }, options);
 }
 

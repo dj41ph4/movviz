@@ -25,6 +25,7 @@ import com.movviz.tv.data.TvProfile
 import com.movviz.tv.data.SeriesSeasonDto
 import com.movviz.tv.data.UserPrefsDto
 import com.movviz.tv.data.WatchStatusDto
+import com.movviz.tv.data.ProfileMediaResponseDto
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -227,6 +228,18 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     // écran Paramètres, section Lecture. null = pas encore chargées.
     private val _userPrefs = MutableStateFlow<UserPrefsDto?>(null)
     val userPrefs: StateFlow<UserPrefsDto?> = _userPrefs.asStateFlow()
+
+    private val _profileMedia = MutableStateFlow<ProfileMediaResponseDto?>(null)
+    val profileMedia: StateFlow<ProfileMediaResponseDto?> = _profileMedia.asStateFlow()
+
+    fun loadProfileMedia() {
+        viewModelScope.launch {
+            when (val result = repository?.profileMedia()) {
+                is ApiResult.Success -> _profileMedia.value = result.data
+                else -> Unit // Profile remains usable when Plex or an old server is unavailable.
+            }
+        }
+    }
 
     fun consumeSessionExpired() {
         _sessionExpired.value = false

@@ -106,6 +106,9 @@ export interface PlexWatchlistItem {
   title: string;
   type: "movie" | "series";
   tmdbId: number | null;
+  addedAt?: number | null;
+  plexGuid?: string | null;
+  discoverRatingKey?: string | null;
 }
 
 // ── Rich media detail from Plex (streams, chapters, container, bitrate) ──────

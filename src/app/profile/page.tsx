@@ -28,6 +28,53 @@ interface TokenRecord {
   lastUsedAt: number | null;
 }
 
+interface ProfileMediaCard {
+  tmdbId: number;
+  type: "movie" | "series" | "episode";
+  seasonNumber?: number | null;
+  episodeNumber?: number | null;
+  title: string;
+  posterPath?: string | null;
+  stillPath?: string | null;
+  userRating?: number | null;
+  watchedAt?: number | null;
+  addedAt?: number | null;
+  progress?: { ratio: number } | null;
+}
+
+interface ProfileMediaResponse {
+  continueWatching: ProfileMediaCard[];
+  watchHistory: ProfileMediaCard[];
+  ratings: ProfileMediaCard[];
+  watchlist: ProfileMediaCard[];
+}
+
+function MediaRail({ title, items }: { title: string; items: ProfileMediaCard[] }) {
+  if (!items.length) return null;
+  return (
+    <section className="mb-6 rounded-2xl glass p-5">
+      <h3 className="mb-4 text-sm font-bold text-ink-soft">{title}</h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-6">
+        {items.map((item, index) => {
+          const type = item.type === "episode" ? "series" : item.type;
+          const query = item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null
+            ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : "";
+          return (
+            <Link key={`${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}:${index}`} href={`/title/${type}/${item.tmdbId}${query}`} className="group min-w-0">
+              <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-surface">
+                {(item.posterPath || item.stillPath) ? <TmdbImage path={(item.posterPath || item.stillPath)!} size="w500" alt={item.title} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" /> : <div className="h-full w-full" />}
+                {item.progress && <div className="absolute inset-x-2 bottom-2 h-1 rounded-full bg-black/60"><div className="h-full rounded-full bg-brand-glow" style={{ width: `${Math.round(item.progress.ratio * 100)}%` }} /></div>}
+                {item.userRating != null && <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-1 text-[10px] font-bold text-amber">★ {item.userRating}/5</span>}
+              </div>
+              <p className="mt-2 truncate text-xs font-semibold text-ink">{item.title}</p>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 const THEME_OPTIONS: { id: ThemeMode; icon: typeof Sun; labelKey: string }[] = [
   { id: "light", icon: Sun, labelKey: "profile.themeLight" },
   { id: "dark", icon: Moon, labelKey: "profile.themeDark" },
@@ -62,22 +109,24 @@ export default function ProfilePage() {
 
   const [watchlistBusy, setWatchlistBusy] = useState<string | null>(null);
   const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{ items: WatchlistItem[] }>("/api/watchlist");
+  const { data: profileMedia } = useSWR<ProfileMediaResponse>("/api/profile/media");
   const watchlistItems = watchlistData?.items ?? [];
   const removeFromWatchlist = async (item: WatchlistItem) => {
-    await fetch(`/api/watchlist/${item.type}/${item.tmdbId}`, { method: "DELETE" });
+    const suffix = item.type === "episode" ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : "";
+    await fetch(`/api/watchlist/${item.type}/${item.tmdbId}${suffix}`, { method: "DELETE" });
     mutateWatchlist();
   };
   const addWatchlistToLibrary = async (item: WatchlistItem) => {
+    if (item.type === "episode") return;
     const key = `${item.type}:${item.tmdbId}`;
     setWatchlistBusy(key);
     try {
-      const endpoint = item.type === "movie" ? "/api/library/movies" : "/api/library/series";
+    const endpoint = item.type === "movie" ? "/api/library/movies" : "/api/library/series";
       await fetch(endpoint, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ tmdbId: item.tmdbId }),
       });
-      await removeFromWatchlist(item);
     } finally {
       setWatchlistBusy(null);
     }
@@ -193,6 +242,14 @@ export default function ProfilePage() {
 
       <AiContextPanel />
 
+      {profileMedia && (
+        <>
+          <MediaRail title={t("home.continueWatching")} items={profileMedia.continueWatching} />
+          <MediaRail title={t("activity.history")} items={profileMedia.watchHistory} />
+          <MediaRail title={t("profile.aiContext.ratings")} items={profileMedia.ratings} />
+        </>
+      )}
+
       {betaPlayerLoaded && betaPlayerAvailable && (
         <div className="mb-6 rounded-2xl glass p-5">
           <h3 className="mb-1 text-sm font-bold text-ink-soft">{t("player.betaUserToggle")}</h3>
@@ -268,10 +325,12 @@ export default function ProfilePage() {
         <h3 className="mb-4 text-sm font-bold text-ink-soft">{t("watchlist.title")}</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
           {watchlistItems.map((item) => {
-            const key = `${item.type}:${item.tmdbId}`;
+            const key = `${item.type}:${item.tmdbId}:${item.seasonNumber ?? ""}:${item.episodeNumber ?? ""}`;
+            const titleQuery = item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null
+              ? `?season=${item.seasonNumber}&episode=${item.episodeNumber}` : "";
             return (
               <article key={key} className="group w-full">
-                <Link href={`/title/${item.type}/${item.tmdbId}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
+                <Link href={`/title/${item.type === "episode" ? "series" : item.type}/${item.tmdbId}${titleQuery}`} className="relative block aspect-[2/3] overflow-hidden rounded-2xl border border-white/5 bg-surface">
                   {item.posterPath ? (
                     <TmdbImage path={item.posterPath} size="w500" alt={item.title} loading="lazy" className="h-full w-full object-cover" />
                   ) : (

@@ -11,7 +11,7 @@ const CONFIG_DIR =
 
 const CONTEXT_DIR = path.join(CONFIG_DIR, "context");
 export const USER_CONTEXT_DB_FILE = path.join(CONTEXT_DIR, "user-context.sqlite");
-export const USER_CONTEXT_SCHEMA_VERSION = 2;
+export const USER_CONTEXT_SCHEMA_VERSION = 3;
 
 const g = globalThis as typeof globalThis & {
   __movvizUserContextDb?: DatabaseSync | null;
@@ -104,7 +104,21 @@ function ensureSchema(db: DatabaseSync): void {
       last_played_at INTEGER,
       watched_at INTEGER,
       updated_at INTEGER NOT NULL,
-      source_revision INTEGER
+      source_revision INTEGER,
+      progress_updated_at INTEGER,
+      progress_source TEXT,
+      watched_updated_at INTEGER,
+      watched_source TEXT,
+      rating_value REAL,
+      rating_updated_at INTEGER,
+      rating_source TEXT,
+      watchlist_present INTEGER,
+      watchlist_updated_at INTEGER,
+      watchlist_source TEXT,
+      watchlist_added_at INTEGER,
+      watchlist_removed_at INTEGER,
+      plex_guid TEXT,
+      plex_discover_rating_key TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_user_media_state_user_updated
@@ -140,7 +154,40 @@ function ensureSchema(db: DatabaseSync): void {
       last_error TEXT,
       PRIMARY KEY(source, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS user_media_sync_state (
+      user_id TEXT NOT NULL,
+      state_key TEXT NOT NULL,
+      field TEXT NOT NULL,
+      target TEXT NOT NULL,
+      capability TEXT NOT NULL DEFAULT 'PENDING',
+      last_observed_at INTEGER,
+      last_applied_at INTEGER,
+      last_ack_at INTEGER,
+      last_remote_hash TEXT,
+      last_error TEXT,
+      updated_at INTEGER NOT NULL,
+      PRIMARY KEY(user_id, state_key, field, target)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_user_media_sync_pending
+      ON user_media_sync_state(target, capability, updated_at);
   `);
+
+  // v2 databases already have the table, so CREATE TABLE cannot add the
+  // field-level clocks required by v3. Keep this migration idempotent.
+  const columns = new Set((db.prepare("PRAGMA table_info(user_media_state)").all() as Array<{ name: string }>).map((row) => row.name));
+  const additions: Array<[string, string]> = [
+    ["progress_updated_at", "INTEGER"], ["progress_source", "TEXT"],
+    ["watched_updated_at", "INTEGER"], ["watched_source", "TEXT"],
+    ["rating_value", "REAL"], ["rating_updated_at", "INTEGER"], ["rating_source", "TEXT"],
+    ["watchlist_present", "INTEGER"], ["watchlist_updated_at", "INTEGER"],
+    ["watchlist_source", "TEXT"], ["watchlist_added_at", "INTEGER"], ["watchlist_removed_at", "INTEGER"],
+    ["plex_guid", "TEXT"], ["plex_discover_rating_key", "TEXT"],
+  ];
+  for (const [name, type] of additions) {
+    if (!columns.has(name)) db.exec(`ALTER TABLE user_media_state ADD COLUMN ${name} ${type}`);
+  }
 
   const existing = db.prepare("SELECT version FROM context_schema WHERE version = ?").get(USER_CONTEXT_SCHEMA_VERSION);
   if (!existing) {

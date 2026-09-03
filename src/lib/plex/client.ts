@@ -264,6 +264,9 @@ export async function getPlexWatchlist(userToken: string): Promise<PlexWatchlist
           title: item.title,
           type: item.type === "show" ? ("series" as const) : ("movie" as const),
           tmdbId,
+          addedAt: typeof item.addedAt === "number" ? (item.addedAt < 10_000_000_000 ? item.addedAt * 1000 : item.addedAt) : null,
+          plexGuid: guids[0] ?? null,
+          discoverRatingKey: typeof item.ratingKey === "string" ? item.ratingKey : null,
         };
       })
       .filter((item) => item.tmdbId != null);
@@ -276,6 +279,8 @@ export async function getPlexWatchlist(userToken: string): Promise<PlexWatchlist
 interface RawWatchlistItem {
   title: string;
   type: string;
+  addedAt?: number;
+  ratingKey?: string;
   Guid?: { id: string }[];
 }
 
@@ -809,7 +814,7 @@ export async function getPlexOnDeck(cfg: PlexServerConfig, token: string, manage
     const res = await fetchWithRetry(`${serverBase(cfg)}/library/onDeck`, { headers: serverHeaders(cfg, token, managedUserId), cache: "no-store" });
     if (!res.ok) return [];
     const data = await res.json();
-    const raw: { ratingKey: string; type?: string; grandparentRatingKey?: string; viewOffset?: number; duration?: number }[] = data?.MediaContainer?.Metadata ?? [];
+    const raw: { ratingKey: string; type?: string; grandparentRatingKey?: string; viewOffset?: number; duration?: number; lastViewedAt?: number; updatedAt?: number }[] = data?.MediaContainer?.Metadata ?? [];
     return raw
       .filter((item): item is typeof item & { type: "movie" | "episode" } => item.type === "movie" || item.type === "episode")
       .map((item) => ({
@@ -818,6 +823,8 @@ export async function getPlexOnDeck(cfg: PlexServerConfig, token: string, manage
         grandparentRatingKey: item.grandparentRatingKey,
         viewOffset: item.viewOffset ?? 0,
         duration: item.duration ?? 0,
+        lastViewedAt: item.lastViewedAt,
+        updatedAt: item.updatedAt,
       }));
   } catch {
     return [];

@@ -22,6 +22,8 @@ export interface UserWatchHistoryQuery {
   limit?: number;
 }
 
+export const HISTORY_CROSS_SOURCE_DEDUPE_MS = 120_000;
+
 interface HistoryRow {
   tmdb_id: number;
   media_type: string | null;
@@ -53,7 +55,8 @@ function fromLedger(userId: string, max: number): UserWatchHistoryItem[] {
       FROM context_events
       WHERE user_id = ?
         AND tmdb_id IS NOT NULL
-        AND event_type IN ('movie_completed', 'episode_completed', 'watched_marked')
+        AND (event_type IN ('movie_completed', 'episode_completed', 'watched_marked')
+          OR (event_type = 'playback_stopped' AND COALESCE(position_ms, 0) >= 60000))
       ORDER BY occurred_at DESC
       LIMIT ?
     `).all(userId, max) as unknown as HistoryRow[];
@@ -95,7 +98,7 @@ function nearDuplicate(a: UserWatchHistoryItem, b: UserWatchHistoryItem): boolea
   // together. De-duplication exists ONLY to hide the legacy `recent` mirror
   // of an event that is already present in the new ledger.
   if (a.source === b.source) return false;
-  if (Math.abs(a.watchedAt - b.watchedAt) > 120_000) return false;
+  if (Math.abs(a.watchedAt - b.watchedAt) > HISTORY_CROSS_SOURCE_DEDUPE_MS) return false;
   // A legacy series-level recent marker has no episode coordinates. It is
   // considered the same viewing event as an exact episode completion close
   // in time. When both sides are exact, only the same episode can match.

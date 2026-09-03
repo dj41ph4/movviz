@@ -8,6 +8,9 @@ export type UserContextEventType =
   | "watched_unmarked"
   | "rating_set"
   | "rating_changed"
+  | "rating_cleared"
+  | "watchlist_added"
+  | "watchlist_removed"
   | "recommendation_liked"
   | "recommendation_disliked"
   | "recommendation_accepted"
@@ -66,6 +69,20 @@ export interface ContextMediaState {
   watchedAt?: number | null;
   updatedAt: number;
   sourceRevision?: number | null;
+  progressUpdatedAt?: number | null;
+  progressSource?: string | null;
+  watchedUpdatedAt?: number | null;
+  watchedSource?: string | null;
+  ratingValue?: number | null;
+  ratingUpdatedAt?: number | null;
+  ratingSource?: string | null;
+  watchlistPresent?: boolean | null;
+  watchlistUpdatedAt?: number | null;
+  watchlistSource?: string | null;
+  watchlistAddedAt?: number | null;
+  watchlistRemovedAt?: number | null;
+  plexGuid?: string | null;
+  plexDiscoverRatingKey?: string | null;
 }
 
 export interface RecentWatchedContextItem {

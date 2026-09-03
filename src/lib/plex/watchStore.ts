@@ -70,7 +70,8 @@ export function setWatchedMovies(userId: string, tmdbIds: number[], watched: boo
   } else {
     const remove = new Set(tmdbIds);
     status.movies = status.movies.filter((m) => !remove.has(m));
-    status.recent = (status.recent ?? []).filter((r) => !(r.type === "movie" && remove.has(r.tmdbId)));
+    // Unwatched changes current state only; past viewing history remains in
+    // the append-only context ledger and must never be erased here.
   }
   status.updatedAt = Date.now();
   if (write(list)) {
@@ -125,11 +126,6 @@ export function setWatchedEpisodes(
   } else {
     const remove = new Set(entries.map(key));
     status.episodes = status.episodes.filter((e) => !remove.has(key(e)));
-    for (const tmdbId of new Set(entries.map((e) => e.tmdbId))) {
-      if (!status.episodes.some((e) => e.tmdbId === tmdbId)) {
-        status.recent = (status.recent ?? []).filter((r) => !(r.tmdbId === tmdbId && r.type === "series"));
-      }
-    }
   }
   status.updatedAt = now;
   if (write(list)) {

@@ -228,6 +228,7 @@ export interface AiCorrectionEntry {
  * above choosing a plain count over a fake fine-grained taxonomy.
  */
 export type RatingSource = "explicit" | "inferred";
+export type RatingOrigin = "movviz" | "plex" | "ai";
 
 export interface RatingHistoryEntry {
   rating: number; // 1-5
@@ -241,6 +242,7 @@ export interface RatingHistoryEntry {
    *  rating itself (spec: "distinguer opinion et note", the note is HOW
    *  MUCH, the opinion is WHY). Never required. */
   opinion?: string;
+  origin?: RatingOrigin;
 }
 
 export interface TitleRating {
@@ -260,6 +262,9 @@ export interface TitleRating {
   opinion?: string;
   history: RatingHistoryEntry[];
   updatedAt: number;
+  active?: boolean;
+  clearedAt?: number | null;
+  origin?: RatingOrigin;
 }
 
 export interface AiUserProfile {

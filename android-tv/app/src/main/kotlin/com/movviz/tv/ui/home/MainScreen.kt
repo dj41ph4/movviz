@@ -18,6 +18,7 @@ import com.movviz.tv.AppViewModel
 import com.movviz.tv.ui.discover.DiscoverScreen
 import com.movviz.tv.ui.search.SearchScreen
 import com.movviz.tv.ui.settings.SettingsScreen
+import com.movviz.tv.ui.profile.ProfileScreen
 
 /**
  * Contenu de l'onglet courant (Accueil/Films/Séries/Recherche/Paramètres) —
@@ -90,6 +91,7 @@ fun MainScreen(
             tab == HomeTab.DISCOVER -> DiscoverScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow, onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.PROFILE -> ProfileScreen(viewModel = viewModel, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)
         }
     }

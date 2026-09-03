@@ -5,6 +5,9 @@
 ### Android TV — reprise, sous-titres, genres et mise à jour maîtrisée
 
 Android TV gagne une reprise réellement dynamique au retour du lecteur (`Reprendre à HH:MM:SS`), des sous-titres désactivés par défaut avec mémorisation par profil et média, la correction du filtrage des catégories qui comparait à tort les IDs TMDb aux noms de genres, une purge complète des données personnalisées lors d'un changement de profil, un focus plus vivant et une flèche de mise à jour clignotante dans la sidebar. Les mises à jour automatiques ne peuvent plus démarrer en pleine navigation ou lecture : seule la courte fenêtre de démarrage autorise l'auto-installation ; ensuite l'utilisateur déclenche explicitement l'installation depuis l'indicateur.
+### Versions de publication alignées
+
+La version de référence est maintenant la même dans le paquet web, le lockfile, le badge README et les configurations Gradle mobile et TV : `1.24.42` (`versionCode` `12442`). Les builds CI conservent la dérivation depuis le tag de release.
 
 ## v1.24.41 — September 2026
 
