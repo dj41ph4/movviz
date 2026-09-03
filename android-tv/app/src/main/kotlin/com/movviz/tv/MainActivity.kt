@@ -391,18 +391,17 @@ composable(ROUTE_PROFILES) {
                 addMode = addMode,
                 onLoggedIn = {
                     if (addMode) {
-                        // Ajout au foyer : compte déjà présent → détecté, pas
-                        // de doublon ; sinon ajout au foyer. Retour sur
-                        // l'écran profil avec la notice correspondante.
+                        // L'ajout est local à cette installation : le compte
+                        // vient d'être authentifié et sa session est stockée
+                        // sous son propre userId, jamais dans un foyer serveur.
                         scope.launch {
                             val user = viewModel.currentUser.value
                             if (user != null) {
+                                viewModel.loadProfilesFromServer()
                                 val already = viewModel.profiles.value.any { it.id == user.id }
-                                val ok = already || viewModel.addProfileToFoyer(user.id) is com.movviz.tv.data.ApiResult.Success
                                 viewModel.setFoyerNotice(
                                     when {
-                                        already -> "Ce compte est déjà dans le foyer"
-                                        ok -> "« ${user.username} » a été ajouté au foyer"
+                                        already -> "« ${user.username} » est disponible sur cet appareil"
                                         else -> "Connecté avec « ${user.username} »"
                                     }
                                 )

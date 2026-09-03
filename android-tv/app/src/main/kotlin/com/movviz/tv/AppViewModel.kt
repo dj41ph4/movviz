@@ -482,6 +482,10 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val result = MovvizRepository(url).me()
         val user = (result as? ApiResult.Success)?.data
         _currentUser.value = user
+        if (user != null) {
+            profilePrefs.saveProfile(url, user.id, user.username, user.plexAvatar)
+            ApiClient.sessionSnapshot(url)?.let { profilePrefs.saveSession(url, user.id, it) }
+        }
         // Le profil actif doit toujours être visible (nom dans le menu de la
         // pastille, tuile en tête de l'écran profil) — même quand l'app
         // redémarre sur une session persistée sans passer par un login.
@@ -520,38 +524,16 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         return result
     }
 
-    /** Profils du foyer depuis le serveur (GET admin-only) — un compte invité
-     *  reçoit un 403 et n'obtient donc qu'une liste vide. Les sessions
-     *  locales (si cet appareil a déjà servi) sont fusionnées pour permettre
-     *  le changement de profil sans mot de passe. */
+    /** Liste des profils connus par cette installation. Le nom historique de
+     *  la méthode est conservé pour ne pas casser les appels existants, mais
+     *  aucun profil n'est désormais téléchargé depuis un autre appareil. */
     suspend fun loadProfilesFromServer(): List<TvProfile> {
         val url = _serverUrl.value ?: return emptyList()
-        val repo = MovvizRepository(url)
-        var result = repo.tvProfiles()
-        // Foyer vide + admin : le compte qui a fait la liaison initiale ne se
-        // voyait jamais lui-même dans "Qui est-ce ?" tant qu'il ne s'ajoutait
-        // pas manuellement à son propre foyer — contre-intuitif (signalé en
-        // direct : "j'ai pas d'utilisateur d'inscrit"). Comme Netflix/Plex où
-        // le compte propriétaire est toujours le premier profil, on l'y
-        // ajoute nous-mêmes une fois, silencieusement, via la même route que
-        // la tuile "+". Un compte invité n'a de toute façon pas accès à cette
-        // route (admin-only côté serveur), donc jamais déclenché pour lui.
         val me = _currentUser.value
-        if (result is ApiResult.Success && result.data.isEmpty() && me?.role == "admin") {
-            repo.addTvProfile(me.id)
-            result = repo.tvProfiles()
+        if (me != null && profilePrefs.listProfiles(url).none { it.id == me.id }) {
+            profilePrefs.saveProfile(url, me.id, me.username, me.plexAvatar)
         }
-        val profiles = if (result is ApiResult.Success) {
-            result.data.map { dto ->
-                TvProfile(
-                    id = dto.id,
-                    serverUrl = url,
-                    name = dto.name,
-                    avatar = dto.avatar,
-                    cookieSnapshot = profilePrefs.getSession(url, dto.id),
-                )
-            }
-        } else emptyList()
+        val profiles = profilePrefs.listProfiles(url)
         _profiles.value = profiles
         _activeProfile.value = profiles.firstOrNull { it.id == _currentUser.value?.id }
         return profiles
@@ -634,6 +616,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val url = _serverUrl.value ?: return
         val cookie = ApiClient.sessionSnapshot(url)
         if (!cookie.isNullOrBlank()) profilePrefs.saveSession(url, user.id, cookie)
+        profilePrefs.saveProfile(url, user.id, user.username, user.plexAvatar)
         _activeProfile.value = TvProfile(
             id = user.id,
             serverUrl = url,

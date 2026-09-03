@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.47 — September 2026
+
+### Profils indépendants sur TV et mobile
+
+Les profils Android sont désormais stockés uniquement sur l’appareil, par compte Movviz et par serveur. Une désinstallation ne récupère plus les profils d’un autre appareil ou foyer, et la session Plex d’un utilisateur ne peut plus remplacer celle d’un autre.
+
 ## v1.24.46 — September 2026
 
 ### Watchlist des épisodes et Plex facultatif
