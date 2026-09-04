@@ -1,12 +1,8 @@
 package com.movviz.tv.ui.theme
 
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.border
@@ -77,14 +73,10 @@ fun Modifier.tvFocusLift(
         .shadow(elevation = elevation, shape = shape, ambientColor = androidx.compose.ui.graphics.Color.Black, spotColor = androidx.compose.ui.graphics.Color.Black)
 }
 
-/** Focus des cartes de contenu TV : le poster reste strictement à sa taille
- * de grille — aucune mesure de layout ne change — et le focus se lit par un
- * micro-zoom GPU (3,5%), un contour blanc net et un halo lent blanc/Movviz. C'est le repère Netflix
- * attendu au D-pad, sans l'effet "zoom" qui faisait sauter la grille.
- *
- * L'application ne possède pas de préférence reduce-motion distincte ; cette
- * seule pulsation très lente est donc volontairement limitée au halo (aucun
- * déplacement ni redimensionnement de contenu). */
+/** Focus des cartes de contenu TV : leur taille ne change jamais. La
+ * référence conserve la grande carte éditoriale à gauche et déplace
+ * uniquement le cadre de focus entre les affiches ; un zoom, même GPU,
+ * créerait une impression de collision avec ses voisines. */
 @Composable
 fun Modifier.tvCardFocusHalo(
     focused: Boolean,
@@ -96,34 +88,18 @@ fun Modifier.tvCardFocusHalo(
         label = "tvCardFocusAlpha",
     )
     val elevation by animateDpAsState(
-        targetValue = if (focused) 20.dp else 0.dp,
+        targetValue = if (focused) 16.dp else 0.dp,
         animationSpec = tween(durationMillis = 180),
         label = "tvCardFocusElevation",
     )
-    val scale by animateFloatAsState(
-        targetValue = if (focused) 1.035f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMediumLow),
-        label = "tvCardFocusScale",
-    )
-    val transition = rememberInfiniteTransition(label = "tvCardFocusPulse")
-    val pulse by transition.animateFloat(
-        initialValue = 0.35f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_800),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "tvCardFocusPulseAlpha",
-    )
-    val haloAlpha = focusAlpha * (0.10f + 0.12f * pulse)
-    val outlineAlpha = focusAlpha * (0.76f + 0.18f * pulse)
+    val haloAlpha = focusAlpha * 0.14f
+    val outlineAlpha = focusAlpha * 0.9f
     return this
-        .graphicsLayer { scaleX = scale; scaleY = scale }
         .shadow(
             elevation = elevation,
             shape = shape,
             ambientColor = Color.White.copy(alpha = haloAlpha),
-            spotColor = MovvizBrand.copy(alpha = haloAlpha * 1.4f),
+            spotColor = Color.Black.copy(alpha = haloAlpha),
         )
         .border(2.dp, Color.White.copy(alpha = outlineAlpha), shape)
 }

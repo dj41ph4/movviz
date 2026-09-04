@@ -145,6 +145,7 @@ fun NavRail(
     activeProfile: TvProfile? = null,
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
+    onOpenProfile: () -> Unit = {},
     onSwitchProfile: () -> Unit = {},
     updateAvailableTag: String? = null,
     onUpdateClick: () -> Unit = {},
@@ -252,7 +253,9 @@ fun NavRail(
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(7.dp)) {
             // SETTINGS retiré des onglets texte : devient l'icône engrenage
             // entre la loupe et l'avatar (voir plus bas).
-            HomeTab.entries.filter { it != HomeTab.SETTINGS }.forEach { tab ->
+            // Le vrai profil est l'avatar en bas du rail. Il ne doit pas
+            // exister une seconde fois comme onglet de navigation.
+            HomeTab.entries.filter { it != HomeTab.SETTINGS && it != HomeTab.PROFILE }.forEach { tab ->
                 TopNavItem(
                     tab = tab,
                     active = tab == selected,
@@ -329,6 +332,7 @@ fun NavRail(
             active = activeProfile,
             onSelect = onProfileSelected,
             onAdd = onAddProfile,
+            onOpenProfile = onOpenProfile,
             onSwitch = onSwitchProfile,
         )
     }
@@ -401,6 +405,7 @@ private fun ProfileMenuButton(
     active: TvProfile?,
     onSelect: (TvProfile) -> Unit,
     onAdd: () -> Unit,
+    onOpenProfile: () -> Unit,
     onSwitch: () -> Unit,
 ) {
     var open by remember { mutableStateOf(false) }
@@ -487,7 +492,7 @@ private fun ProfileMenuButton(
                             leadingIcon = MovvizIconDotCircle,
                             label = "Mon profil",
                             focusRequester = firstItemFocus,
-                            onClick = { open = false; onSwitch() },
+                            onClick = { open = false; onOpenProfile() },
                         )
                         Spacer(Modifier.height(6.dp))
                         MenuItem(

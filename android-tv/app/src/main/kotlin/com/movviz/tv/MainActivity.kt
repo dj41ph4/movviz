@@ -280,6 +280,13 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                         }
                     },
                     onAddProfile = { navController.navigate(ROUTE_LOGIN_ADD) },
+                    onOpenProfile = {
+                        if (currentRoute?.startsWith("home") != true) {
+                            navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                        }
+                        tab = HomeTab.PROFILE
+                        searchOpen = false
+                    },
                     onSwitchProfile = {
                         navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
                     },

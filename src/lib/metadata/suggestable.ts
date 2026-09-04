@@ -10,6 +10,12 @@ import type { MetaSearchResult } from "@/lib/metadata/types";
 // excludes a whole genre, so this is a deliberate hard rule instead — priority
 // is fiction (film/série), a documentary should never be a "pick" here.
 const DOCUMENTARY_GENRE_ID = 99;
+// "TV" chez TMDb ne veut pas dire série fiction : les cérémonies, journaux,
+// talk-shows et téléréalités arrivent tous avec type=tv. Movviz ne les traite
+// jamais comme des séries à proposer, quelle que soit la plateforme qui a
+// fourni la rangée (TMDb, Plex, recommandations personnelles ou partenaire).
+const NON_FICTION_TV_GENRE_IDS = new Set([10763 /* News */, 10764 /* Reality */, 10767 /* Talk */]);
+const AWARD_OR_EVENT_TITLE = /\b(?:oscars?|academy\s+awards?|golden\s+globes?|emmys?|grammys?|c[ée]sar|bafta|palme\s+d['’]or|cannes|remise\s+des\s+prix|awards?\s+(?:show|ceremony))\b/i;
 
 /**
  * Filters a "suggestion" row (Dashboard recommendations, Discover editorial
@@ -30,6 +36,11 @@ export function filterSuggestable(results: MetaSearchResult[]): MetaSearchResult
   return results.filter((r) => {
     if (r.rating === 0) return false;
     if (r.genreIds?.includes(DOCUMENTARY_GENRE_ID)) return false;
+    if (r.genreIds?.some((id) => NON_FICTION_TV_GENRE_IDS.has(id))) return false;
+    // Certains catalogues externes ne transmettent pas les genreIds TMDb.
+    // Le titre est alors le seul signal fiable pour écarter une cérémonie,
+    // plutôt que de la laisser contourner la même règle de recommandation.
+    if (AWARD_OR_EVENT_TITLE.test(r.title)) return false;
     if (r.releaseDate) {
       const t = new Date(r.releaseDate).getTime();
       if (!Number.isNaN(t) && t > now) return false;

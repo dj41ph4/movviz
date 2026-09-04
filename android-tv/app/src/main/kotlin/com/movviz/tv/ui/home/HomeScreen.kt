@@ -2,6 +2,7 @@ package com.movviz.tv.ui.home
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -12,6 +13,8 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -27,7 +30,6 @@ import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -37,7 +39,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
@@ -102,6 +103,7 @@ import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
+private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
 // w1280, PAS "original" : un backdrop plein écran en "original" télécharge
 // jusqu'à 4000px de large (plusieurs Mo décodés en bitmap complet) pour un
 // écran TV 1080p qui n'en montre que 1920px — le gaspillage réseau/mémoire
@@ -150,6 +152,10 @@ internal data class TvTitleCard(
      *  lieu de retomber sur la saison 1 (voir onOpenEpisode). */
     val resumeSeasonNumber: Int? = null,
     val resumeEpisodeNumber: Int? = null,
+    /** Titre de l'épisode repris. Il complète Sxx:Eyy dans les rangées TV :
+     *  le poster reste celui de la série, donc le contexte doit rester
+     *  visible sans ouvrir sa fiche. */
+    val resumeEpisodeTitle: String? = null,
 )
 
 @Composable
@@ -207,6 +213,10 @@ fun HomeScreen(
     )
 
     val continueCards = remember(continueWatching) {
+        // Une même reprise peut être remontée deux fois pendant la fusion
+        // locale/Plex. Une ligne TV ne doit jamais l'afficher deux fois — et
+        // TvLazyRow exige des clés uniques. L'ordre de l'API est conservé,
+        // donc la première (la plus récente) reste la référence visuelle.
         continueWatching.map {
             TvTitleCard(
                 id = "cw-${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}",
@@ -219,8 +229,9 @@ fun HomeScreen(
                 progressPercent = it.progressPercent,
                 resumeSeasonNumber = it.seasonNumber,
                 resumeEpisodeNumber = it.episodeNumber,
+                resumeEpisodeTitle = it.episodeTitle,
             )
-        }
+        }.distinctBy { it.id }
     }
 
     // Même source et même fusion que DashboardRows desktop.
@@ -341,6 +352,10 @@ fun HomeScreen(
         }
     }
     val firstVisibleSection = visibleSections.firstOrNull()
+    // L'accueil de référence est un catalogue de rangées éditoriales, pas
+    // une bannière qui repousse tout le contenu hors écran. Le hero Movviz
+    // reste un repli utile lorsque le catalogue est momentanément vide.
+    val showHero = heroItems.isNotEmpty() && visibleSections.isEmpty()
     val contentFocus = entryFocusRequester ?: remember { FocusRequester() }
     val topAnchor = remember { FocusRequester() }
 
@@ -367,7 +382,7 @@ fun HomeScreen(
                         },
                 )
             }
-            if (heroItems.isNotEmpty()) {
+            if (showHero) {
                 item(contentType = "hero") {
                     HeroCarousel(
                         items = heroItems,
@@ -392,42 +407,54 @@ fun HomeScreen(
                                 if (!card.isMovie && season != null && episode != null) onOpenEpisode(card.tmdbId, season, episode)
                                 else onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId)
                             },
-                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "becauseYouLike" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Sélection pour vous", items = recommendationCards,
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "shortSessions" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Moins de 40 minutes", items = shortSessionCards,
                             onClick = { onOpenTitle("movie", it.tmdbId) },
-                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "discover" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Tendances Movviz", items = trendingCards,
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "availableNow" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Ajoutés récemment", items = availableNowCards,
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
-                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "comingSoon" -> item(contentType = "row") {
                         TitleRow(
                             heading = "Prochainement", items = comingSoonCards,
                             onClick = { onOpenTitle("movie", it.tmdbId) },
-                            firstItemFocusRequester = if (heroItems.isEmpty() && firstVisibleSection == sectionId) contentFocus else null,
+                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                 }
@@ -641,33 +668,6 @@ internal fun HeroCarousel(
                     endX = 800f,
                 ),
             ),
-        )
-
-        // Grain cinéma : un léger bruit photo par-dessus image et vidéo,
-        // signature visuelle des apps premium (Netflix/Apple TV en posent
-        // un très discret). Bitmap généré UNE FOIS par process et étalé en
-        // TileMode.Repeat via un shader Android natif — un seul draw call
-        // par frame, coût négligeable pour l'effet obtenu. (Le Paint natif
-        // est requis : les shaders Compose n'existent pas dans cette
-        // version de Compose TV — see nativeCanvas.)
-        val grainBitmap = remember { createFilmGrain() }
-        val grainPaint = remember {
-            android.graphics.Paint().apply {
-                isAntiAlias = false
-                shader = android.graphics.BitmapShader(
-                    grainBitmap,
-                    android.graphics.Shader.TileMode.REPEAT,
-                    android.graphics.Shader.TileMode.REPEAT,
-                )
-                alpha = 26
-            }
-        }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .drawBehind {
-                    drawContext.canvas.nativeCanvas.drawRect(0f, 0f, size.width, size.height, grainPaint)
-                },
         )
 
         Column(
@@ -1053,13 +1053,12 @@ internal fun TitleRow(
     items: List<TvTitleCard>,
     onClick: (TvTitleCard) -> Unit,
     firstItemFocusRequester: FocusRequester? = null,
-    // "Voir tout" — même route que le bouton du même nom sur le Discover
-    // desktop (GET /api/metadata/row-page). Rendu comme une tuile finale de
-    // la rangée plutôt qu'un bouton séparé dans l'en-tête : ça garde le
-    // parcours D-pad naturel (continuer à droite depuis la dernière carte)
-    // au lieu d'ajouter une seconde cible de focus dans RowHeading, qui
-    // compliquerait la remontée UP déjà réglée avec soin (MainScreen).
+    // Même route que le bouton Discover desktop. Elle est rendue comme une
+    // dernière affiche discrète : le parcours D-pad continue à droite sans
+    // ajouter de chrome dans l'en-tête.
     onSeeAll: (() -> Unit)? = null,
+    titleLogoPaths: Map<String, String> = emptyMap(),
+    onFocusedCard: (TvTitleCard) -> Unit = {},
 ) {
     // État de focus partagé par toutes les cartes de la rangée — il vit ici
     // (pas dans PosterCard) pour survivre à la destruction des items par la
@@ -1074,109 +1073,149 @@ internal fun TitleRow(
             contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            tvItemsIndexed(items, key = { _, item -> item.id }, contentType = { _, _ -> "card" }) { index, card ->
+            tvItemsIndexed(items, key = { _, item -> item.id }, contentType = { index, _ -> if (index == 0) "featured" else "poster" }) { index, card ->
                 PosterCard(
                     card = card,
                     onClick = { onClick(card) },
                     focusRequester = if (index == 0) firstItemFocusRequester else null,
-                    onFocusedChange = { focused -> focusedCardState.value = if (focused) card else null },
+                    onFocusedChange = { focused ->
+                        focusedCardState.value = if (focused) card else null
+                        if (focused) onFocusedCard(card)
+                    },
+                    // Chaque titre démarre en affiche portrait. Le focus le
+                    // déploie horizontalement en 16:9, à hauteur constante,
+                    // comme dans la référence Netflix.
+                    width = 154.dp,
+                    aspectRatio = 2f / 3f,
+                    preferPosterArt = true,
+                    expandToLandscapeOnFocus = true,
+                    expandedWidth = 410.dp,
+                    showCaption = false,
+                    showTechnicalBadges = false,
+                    titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
                 )
             }
             if (onSeeAll != null) {
                 item(contentType = "see-all") { SeeAllTile(onClick = onSeeAll) }
             }
         }
-        // Précharge des 2 posters suivants la carte focalisée (zéro pop-in)
-        // + call-out Netflix (synopsis/métadonnées) — voir chaque composable.
+        // Précharge l'affiche ET le backdrop de la carte active, puis des
+        // deux suivantes. La transition portrait → paysage ne doit jamais
+        // révéler un fond vide pendant que Coil télécharge le backdrop.
         val ctx = LocalContext.current
         val imageLoader = LocalImageLoader.current
         LaunchedEffect(focusedCardState.value) {
             val focused = focusedCardState.value ?: return@LaunchedEffect
             val idx = items.indexOf(focused)
             if (idx < 0) return@LaunchedEffect
-            for (offset in 1..2) {
-                val next = items.getOrNull(idx + offset) ?: continue
-                next.posterPath?.let { path ->
+            val cardsToPreload = buildList {
+                add(focused)
+                for (offset in 1..2) items.getOrNull(idx + offset)?.let(::add)
+            }
+            for (candidate in cardsToPreload) {
+                candidate.posterPath?.let { path ->
                     imageLoader.enqueue(
                         ImageRequest.Builder(ctx)
                             .data("$TMDB_IMAGE_BASE$path")
                             .size(Size(500, 750))
-                            .memoryCachePolicy(coil.request.CachePolicy.DISABLED)
+                            .build()
+                    )
+                }
+                candidate.backdropPath?.let { path ->
+                    imageLoader.enqueue(
+                        ImageRequest.Builder(ctx)
+                            .data("$TMDB_BACKDROP_BASE$path")
+                            .size(Size(1280, 720))
                             .build()
                     )
                 }
             }
         }
-        // Bandeau call-out Netflix : carte semi-transparente avec titre
-        // en gras, métadonnées, synopsis tronqué et lien CTA — compact,
-        // pas dominateur. L'ensemble vit dans un fond glass dark pour
-        // séparer visuellement le call-out des cartes postérieures.
-        // Netflix-style call-out tooltip — clean dark glass card
+        // Call-out compact : titre, métadonnées et synopsis. Il reste
+        // posé directement sur le fond de la page, sans nouvelle surface
+        // décorative, afin de préserver le rythme aéré de l'accueil.
         val focusedCard = focusedCardState.value
         AnimatedVisibility(
             visible = focusedCard != null,
             enter = fadeIn(tween(200)) + expandVertically(tween(200)),
             exit = fadeOut(tween(150)) + shrinkVertically(tween(150)),
         ) {
-            focusedCard?.let { card ->
-                Box(
-                    modifier = Modifier
-                        .padding(start = 52.dp, top = 6.dp, end = 52.dp)
-                        .fillMaxWidth()
-                        .background(
-                            Color.Black.copy(alpha = 0.7f),
-                            RoundedCornerShape(8.dp),
-                        )
-                        .border(1.dp, Color.White.copy(alpha = 0.06f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 20.dp, vertical = 14.dp),
-                ) {
-                    Column {
-                        Text(
-                            text = card.title,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        // Ligne de métadonnées : année · durée · genre · type
-                        val meta = listOfNotNull(
-                            card.year?.toString(),
-                            card.runtime?.let { "$it min" },
-                            card.genres.firstOrNull(),
-                            if (card.isMovie) "Film" else "Série",
-                        ).joinToString("  ·  ")
-                        if (meta.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(4.dp))
+            focusedCard?.let { initialCard ->
+                // Comme la carte mise en avant de la référence, le contexte
+                // suit le focus immédiatement. AnimatedContent évite le
+                // clignotement et donne une sensation de continuité quand on
+                // balaie rapidement une rangée au D-pad.
+                androidx.compose.animation.AnimatedContent(
+                    targetState = initialCard,
+                    // Le mouvement est réservé au contexte (pas aux cartes) :
+                    // fondu court + glissement horizontal de quelques dp,
+                    // sans changement de mesure de la rangée.
+                    transitionSpec = {
+                        (fadeIn(tween(170)) + slideInHorizontally(tween(170)) { it / 12 }) togetherWith
+                            (fadeOut(tween(110)) + slideOutHorizontally(tween(110)) { -it / 16 })
+                    },
+                    label = "row_focus_context",
+                ) { card ->
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 52.dp, top = 6.dp, end = 52.dp)
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 14.dp),
+                    ) {
+                        Column {
                             Text(
-                                text = meta,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MovvizInkSoft,
+                                text = card.title,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White,
+                                ),
                                 maxLines = 1,
-                            )
-                        }
-                        // Synopsis 2 lignes max avec ellipsis
-                        card.overview?.takeIf { it.isNotBlank() }?.let { overview ->
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = overview,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MovvizInkSoft,
-                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis,
                             )
+                            // Ligne de métadonnées : année · durée · genre · type
+                            val resumeContext = card.resumeSeasonNumber?.let { season ->
+                                val episode = card.resumeEpisodeNumber
+                                buildString {
+                                    append("Reprendre · S")
+                                    append(season.toString().padStart(2, '0'))
+                                    if (episode != null) {
+                                        append(":E")
+                                        append(episode.toString().padStart(2, '0'))
+                                    }
+                                    card.resumeEpisodeTitle?.takeIf { it.isNotBlank() }?.let {
+                                        append(" — ")
+                                        append(it)
+                                    }
+                                }
+                            }
+                            val meta = listOfNotNull(
+                                resumeContext,
+                                card.year?.toString(),
+                                card.runtime?.let { "$it min" },
+                                card.genres.firstOrNull(),
+                                if (card.isMovie) "Film" else "Série",
+                            ).joinToString("  ·  ")
+                            if (meta.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = meta,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MovvizInkSoft,
+                                    maxLines = 1,
+                                )
+                            }
+                            // Synopsis 2 lignes max avec ellipsis
+                            card.overview?.takeIf { it.isNotBlank() }?.let { overview ->
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = overview,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MovvizInkSoft,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
-                        // Lien CTA « Voir la fiche › » — pas un bouton
-                        // focusable (D-pad reste sur la carte), juste un
-                        // indicateur visuel que l'action est disponible.
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Voir la fiche ›",
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                color = Color.White.copy(alpha = 0.8f),
-                            ),
-                        )
                     }
                 }
             }
@@ -1197,20 +1236,18 @@ private fun RowHeading(text: String) {
         )
 }
 
-/** Tuile finale d'une rangée éditoriale — même gabarit que PosterCard (230dp,
- *  16:9, MovvizCardShape) pour que le D-pad continue sans à-coup après la
- *  dernière carte, mais un fond glass discret plutôt qu'une image : c'est
- *  une action, pas un titre. Ouvre RowDetailScreen (GET /api/metadata/
- *  row-page), même contenu que "Tout voir" sur le Discover desktop. */
+/** Dernière affiche de la rangée : indication « voir plus » légère, au format
+ * portrait des cartes secondaires. Elle ouvre RowDetailScreen, sans rompre
+ * la continuité horizontale par une grosse tuile d'action. */
 @Composable
 private fun SeeAllTile(onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    Column(modifier = Modifier.width(230.dp)) {
+    Column(modifier = Modifier.width(154.dp)) {
         Surface(
             onClick = onClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(16f / 9f)
+                .aspectRatio(2f / 3f)
                 .tvCardFocusHalo(focused, shape = MovvizCardShape)
                 .onFocusChanged { focused = it.isFocused }
                 .tvPointerClick(onClick),
@@ -1225,39 +1262,60 @@ private fun SeeAllTile(onClick: () -> Unit) {
         ) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "›", style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
-                    Text(text = "Tout voir", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
+                    Text(text = "+", style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Light, color = MovvizInk))
+                    Text(text = "Voir plus", style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft))
                 }
             }
         }
-        // Espace réservé sous la tuile, symétrique au titre+métadonnées des
-        // PosterCard voisines — évite un décalage vertical visible dans la
-        // rangée quand cette tuile est la dernière alignée avec les autres.
-        Spacer(modifier = Modifier.height(6.dp).fillMaxWidth())
     }
 }
 
-/** Carte poster — le focus Netflix garde la grille stable : aucun scale ni
- * déplacement des voisins, seulement un contour blanc et un halo doux
- * pulsant. `onFocusedChange` remonte l'état à la rangée pour la précharge et
- * le call-out, sans refaire composer les autres cartes. */
+/** Carte de contenu réutilisable. TitleRow peut la déployer de l'affiche au
+ * paysage au focus ; les autres écrans conservent ses dimensions et sa
+ * légende par défaut. */
 @Composable
 internal fun PosterCard(
     card: TvTitleCard,
     onClick: () -> Unit,
     focusRequester: FocusRequester? = null,
     onFocusedChange: ((Boolean) -> Unit)? = null,
+    width: androidx.compose.ui.unit.Dp = 230.dp,
+    aspectRatio: Float = 16f / 9f,
+    preferPosterArt: Boolean = false,
+    expandToLandscapeOnFocus: Boolean = false,
+    expandedWidth: androidx.compose.ui.unit.Dp = width,
+    showCaption: Boolean = true,
+    showTechnicalBadges: Boolean = true,
+    titleLogoPath: String? = null,
 ) {
     var focused by remember { mutableStateOf(false) }
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
 
-    // Les rangées d'accueil utilisent le format paysage, plus dense et plus
-    // confortable à balayer au D-pad qu'une succession de grands posters.
-    // Le fallback poster reste volontaire : certaines réponses anciennes ne
-    // fournissent pas encore backdropPath, mais ne doivent jamais créer une
-    // carte vide.
-    val visualUrl = card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" } ?: posterUrl
-    Column(modifier = Modifier.width(230.dp)) {
+    // Les affiches restent nettes au repos. Au focus éditorial, la largeur
+    // s'anime vers le 16:9 mais la hauteur ne change pas (154 / 2:3 = 231,
+    // 410 / 16:9 = 231) : les rangées ne sautent donc jamais verticalement.
+    // Le backdrop est préchargé par TitleRow et remplace l'affiche par un
+    // fondu court ; ContentScale.Crop recadre l'image, sans déformation.
+    val expands = expandToLandscapeOnFocus && focused
+    val displayWidth by animateDpAsState(
+        targetValue = if (expands) expandedWidth else width,
+        animationSpec = tween(190),
+        label = "editorial_card_width",
+    )
+    val displayAspectRatio by animateFloatAsState(
+        targetValue = if (expands) 16f / 9f else aspectRatio,
+        animationSpec = tween(190),
+        label = "editorial_card_aspect_ratio",
+    )
+    val backdropUrl = card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
+    // Les rangées éditoriales utilisent dès le repos le visuel paysage TMDb,
+    // recadré en portrait : aucune typographie imprimée dans l'image. Au
+    // focus, ce MÊME visuel s'ouvre en 16:9, puis le logo officiel est posé
+    // dessus. Si TMDb n'a pas de backdrop, l'affiche reste le repli sûr.
+    val portraitUrl = if (preferPosterArt) backdropUrl ?: posterUrl else backdropUrl ?: posterUrl
+    val landscapeUrl = backdropUrl ?: posterUrl
+    val visualUrl = if (expands) landscapeUrl else portraitUrl
+    Column(modifier = Modifier.width(displayWidth)) {
         // Surface (tv-material3) gère nativement le focus D-pad + le clic OK,
         // mais PAS le clic souris/tactile (confirmé : un tap synthétique sur
         // l'émulateur ne déclenchait rien) — tvPointerClick comble ce trou
@@ -1266,7 +1324,7 @@ internal fun PosterCard(
             onClick = onClick,
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(16f / 9f)
+                .aspectRatio(displayAspectRatio)
                 .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
                 .tvCardFocusHalo(focused, shape = MovvizCardShape)
                 .onFocusChanged {
@@ -1284,23 +1342,67 @@ internal fun PosterCard(
             ),
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
-                if (visualUrl != null) {
-                    val painter = rememberAsyncImagePainter(model = visualUrl)
+                if (portraitUrl != null) {
+                    // L'affiche demeure derrière le backdrop pendant son
+                    // chargement : aucune carte vide ou flash noir.
                     Image(
-                        painter = painter,
+                        painter = rememberAsyncImagePainter(model = portraitUrl),
                         contentDescription = card.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                } else {
-                    // Repli dashboard : tuile noire marquée Movviz, fixe et
-                    // sans animation pour rester calme au milieu des posters.
-                    Box(
-                        modifier = Modifier.fillMaxSize().background(Color.Black),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        StaticLogoWithGlow(size = 54.dp)
+                }
+                if (landscapeUrl != null && landscapeUrl != portraitUrl) {
+                    androidx.compose.animation.AnimatedContent(
+                        targetState = expands,
+                        transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(120)) },
+                        label = "editorial_backdrop_reveal",
+                        modifier = Modifier.fillMaxSize(),
+                    ) { showBackdrop ->
+                        if (showBackdrop) {
+                            Image(
+                                painter = rememberAsyncImagePainter(model = landscapeUrl),
+                                contentDescription = card.title,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
                     }
+                } else if (portraitUrl == null) {
+                    if (visualUrl != null) {
+                        Image(
+                            painter = rememberAsyncImagePainter(model = visualUrl),
+                            contentDescription = card.title,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        // Repli dashboard : tuile noire marquée Movviz, fixe
+                        // et sans animation pour rester calme au milieu des
+                        // posters incomplets.
+                        Box(
+                            modifier = Modifier.fillMaxSize().background(Color.Black),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            StaticLogoWithGlow(size = 54.dp)
+                        }
+                    }
+                }
+                // Le logo officiel remplace le titre sous la carte active.
+                // Aucun doublon texte : il vit dans l'image, comme le desktop,
+                // et disparaît avec le focus plutôt que de surcharger la rangée.
+                if (expands && titleLogoPath != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),
+                        contentDescription = card.title,
+                        contentScale = ContentScale.Fit,
+                        alignment = Alignment.BottomStart,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(16.dp)
+                            .heightIn(max = 54.dp)
+                            .widthIn(max = 210.dp),
+                    )
                 }
                 // Même paire de pastilles que la grille bibliothèque desktop
                 // (note ★ en haut-gauche, statut en bas-gauche) — voir
@@ -1312,13 +1414,16 @@ internal fun PosterCard(
                 // une vraie note "zéro étoile", juste une valeur absente,
                 // donc pas de pastille du tout dans ce cas plutôt que "★0.0"
                 // trompeur.
-                if (card.rating > 0) {
+                // Les posters restent silencieux hors focus. Les signaux de
+                // bibliothèque ne s'affichent que sur l'élément actif : le
+                // regard va d'abord à l'image, comme dans la référence.
+                if (showTechnicalBadges && focused && card.rating > 0) {
                     RatingBadge(
                         rating = card.rating,
                         modifier = Modifier.align(Alignment.TopStart).padding(5.dp),
                     )
                 }
-                card.status?.let { status ->
+                card.status?.takeIf { showTechnicalBadges && focused }?.let { status ->
                     StatusPill(
                         status = status,
                         modifier = Modifier.align(Alignment.BottomStart).padding(5.dp),
@@ -1327,7 +1432,7 @@ internal fun PosterCard(
                 // Qualité réelle du fichier (pas TMDb) — même donnée que les
                 // badges FHD/4K/HDR de la grille bibliothèque desktop
                 // (MediaBadges.tsx), jusqu'ici jamais mappée côté TV.
-                if (card.qualityLabel != null) {
+                if (showTechnicalBadges && focused && card.qualityLabel != null) {
                     Text(
                         text = if (card.hasHdr) "${card.qualityLabel} HDR" else card.qualityLabel,
                         style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
@@ -1336,6 +1441,30 @@ internal fun PosterCard(
                             .padding(5.dp)
                             .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+                // Dans les rangées éditoriales, un seul signal utile peut
+                // vivre sur l'image. Pour une reprise, c'est l'épisode — pas
+                // une accumulation de note, codec et statut.
+                if (!showTechnicalBadges && card.progressPercent != null) {
+                    val resumeLabel = card.resumeSeasonNumber?.let { season ->
+                        buildString {
+                            append("Reprendre · S")
+                            append(season.toString().padStart(2, '0'))
+                            card.resumeEpisodeNumber?.let { episode ->
+                                append(":E")
+                                append(episode.toString().padStart(2, '0'))
+                            }
+                        }
+                    } ?: "Reprendre"
+                    Text(
+                        text = resumeLabel,
+                        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 8.dp, bottom = 12.dp)
+                            .background(Color.Black.copy(alpha = 0.62f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 7.dp, vertical = 3.dp),
                     )
                 }
                 if (card.progressPercent != null) {
@@ -1356,27 +1485,47 @@ internal fun PosterCard(
                 }
             }
         }
-        Text(
-            text = card.title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 6.dp),
-        )
-        val metadata = listOfNotNull(card.year?.toString(), if (card.isMovie) "Film" else "Série").joinToString("  ·  ")
-        Text(
-            text = metadata,
-            style = MaterialTheme.typography.labelSmall,
-            color = MovvizInkDim,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 1.dp),
-        )
+        if (showCaption) {
+            Text(
+                text = card.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp),
+            )
+        // Une carte de reprise TV représente la série, mais l'action ouvre
+        // un épisode. Montrer Sxx:Eyy ici évite de faire croire que l'on va
+        // recommencer la série et reproduit la densité d'information des
+        // cartes de la référence, sans ajouter une nouvelle cible D-pad.
+            val resumeMetadata = card.resumeSeasonNumber?.let { season ->
+                buildString {
+                    append("Reprendre · S")
+                    append(season.toString().padStart(2, '0'))
+                    card.resumeEpisodeNumber?.let { episode ->
+                        append(":E")
+                        append(episode.toString().padStart(2, '0'))
+                    }
+                }
+            }
+            val metadata = listOfNotNull(
+                resumeMetadata,
+                card.year?.toString(),
+                if (card.isMovie) "Film" else "Série",
+            ).joinToString("  ·  ")
+            Text(
+                text = metadata,
+                style = MaterialTheme.typography.labelSmall,
+                color = MovvizInkDim,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 1.dp),
+            )
+        }
     }
 }
 
@@ -1550,25 +1699,6 @@ private fun formatSpeed(bytesPerSec: Double): String? {
         unitIndex++
     }
     return "%.1f %s".format(value, units[unitIndex])
-}
-
-/** Grain cinéma : bitmap de bruit 256x128 généré UNE FOIS par process, puis
- *  étalé en motif répété par l'overlay du hero (BitmapShader Repeat).
- *  Blanc/noir aléatoire à alpha très faible — texture photo discrète, pas
- *  un effet « neige d'écran ». */
-private fun createFilmGrain(): Bitmap {
-    val bmp = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888)
-    val rnd = java.util.Random()
-    val pixels = IntArray(256 * 128)
-    for (i in pixels.indices) {
-        val alpha = 12 + rnd.nextInt(16)
-        pixels[i] = if (rnd.nextBoolean())
-            AndroidColor.argb(alpha, 255, 255, 255)
-        else
-            AndroidColor.argb(alpha, 0, 0, 0)
-    }
-    bmp.setPixels(pixels, 0, 256, 0, 0, 256, 128)
-    return bmp
 }
 
 /** Cache des luminances moyennes par URL de backdrop — calculées une fois,
