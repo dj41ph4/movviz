@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth/guard";
 import { loadWatchlist } from "@/lib/watchlist/store";
 import { getAllRatings } from "@/lib/ai/tasteProfile";
-import { listPlaybackProgress } from "@/lib/playback/progressStore";
 import { getUserWatchHistory } from "@/lib/userContext/history";
 import { getMovieByTmdbId, getSeriesByTmdbId } from "@/lib/library/store";
+import { listOnDeckEntries } from "@/lib/plex/onDeckService";
 
 export const dynamic = "force-dynamic";
 
@@ -18,17 +18,16 @@ export async function GET(req: NextRequest) {
   const user = requireUser(req);
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const watchlist = loadWatchlist(user.id);
-  const progress = listPlaybackProgress(user.id).filter((item) => item.tmdbId != null && item.durationMs > 0 && !item.watched)
-    .sort((a, b) => (b.lastPlayedAt ?? b.updatedAt) - (a.lastPlayedAt ?? a.updatedAt));
+  const onDeck = await listOnDeckEntries(user);
   const history = getUserWatchHistory({ userId: user.id, limit: 200 });
   const ratings = getAllRatings(user.id).sort((a, b) => b.updatedAt - a.updatedAt);
 
-  const continueWatching = progress.map((item) => ({
-    tmdbId: item.tmdbId!, type: item.mediaType, seasonNumber: item.seasonNumber ?? null, episodeNumber: item.episodeNumber ?? null,
-    title: titleFor(item.tmdbId!, item.mediaType, item.title), subtitle: item.mediaType === "episode" ? item.title : null,
-    posterPath: null, stillPath: null, year: null, watched: item.watched,
-    progress: { positionMs: item.resumeOffsetMs ?? item.lastPositionMs ?? 0, durationMs: item.durationMs, ratio: Math.max(0, Math.min(1, (item.resumeOffsetMs ?? item.lastPositionMs ?? 0) / item.durationMs)) },
-    watchedAt: item.watchedAt ?? null,
+  const continueWatching = onDeck.map((item) => ({
+    tmdbId: item.tmdbId, type: item.type, seasonNumber: item.seasonNumber ?? null, episodeNumber: item.episodeNumber ?? null,
+    title: item.title, subtitle: item.type === "episode" ? item.episodeTitle ?? null : null,
+    posterPath: item.posterPath, stillPath: null, year: item.year, watched: false,
+    progress: item.progressPercent > 0 ? { ratio: item.progressPercent / 100 } : null,
+    watchedAt: null,
   }));
   const watchHistory = history.map((item) => ({ tmdbId: item.tmdbId, type: item.mediaType, seasonNumber: item.seasonNumber, episodeNumber: item.episodeNumber, title: item.title, subtitle: null, posterPath: null, stillPath: null, year: null, watchedAt: item.watchedAt }));
   const ratingItems = ratings.map((item) => ({ tmdbId: item.tmdbId, type: item.type, title: item.title, userRating: item.rating, watchedAt: null, addedAt: null }));

@@ -287,7 +287,7 @@ fun TitleDetailScreen(
     // réagit comme un film" au lieu de proposer l'épisode en cours).
     val episodeResume = remember(continueWatching, type, tmdbId) {
         if (type != "series") null
-        else continueWatching.firstOrNull { it.type == "series" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
+        else continueWatching.firstOrNull { it.type == "episode" && it.tmdbId == tmdbId && it.offsetMs > 5_000L }
     }
 
     // Statut "vu" manuel par utilisateur — /api/watch-status, distinct de

@@ -8,7 +8,7 @@ import { test } from "node:test";
 // real Movviz install so the test exercises the durable session update only.
 const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "movviz-playback-duration-"));
 process.env.MOVVIZ_CONFIG_DIR = tempDir;
-const { openPlaybackSession, getPlaybackSession, getPlaybackProgress, updatePlaybackDuration } =
+const { openPlaybackSession, getPlaybackSession, getPlaybackProgress, updatePlaybackDuration, applyHeartbeat, applySeek, stopPlayback } =
   await import("../src/lib/playback/progressStore.ts");
 
 test("FFmpeg metadata replaces the provisional playback duration before progress is saved", () => {
@@ -29,6 +29,28 @@ test("FFmpeg metadata replaces the provisional playback duration before progress
   // Feature-film fallback is five minutes before the end, not five minutes
   // before the previous provisional 16:40 duration.
   assert.equal(updated.completionBoundaryMs, 6_480_000);
+});
+
+test("stopping in end credits completes playback without waiting for another heartbeat", () => {
+  const { session } = openPlaybackSession("test-user", {
+    ratingKey: "plex-credits",
+    mediaId: "movviz-credits",
+    mediaType: "movie",
+    durationMs: 7_200_000,
+  });
+  // Accumulate the minimum real viewing time without a seek-sized jump.
+  applyHeartbeat(session.id, { sequence: 1, positionMs: 30_000, isPlaying: true, nowMs: session.startedAt + 30_000 });
+  const afterMinute = applyHeartbeat(session.id, { sequence: 2, positionMs: 60_000, isPlaying: true, nowMs: session.startedAt + 60_000 });
+  assert.equal(afterMinute.actualPlayedMs, 60_000);
+  assert.equal(afterMinute.completionBoundaryMs, 6_900_000);
+
+  // The UI sends this position as it unmounts. Previously stopPlayback
+  // ignored the boundary and left the old resume card behind.
+  applySeek(session.id, 6_900_000);
+  const stopped = stopPlayback(session.id, 6_900_000);
+  assert.equal(stopped.watched, true);
+  assert.equal(stopped.resumeOffsetMs, null);
+  assert.equal(getPlaybackProgress("test-user", "plex-credits", "movviz-credits")?.watched, true);
 });
 
 test.after(async () => {

@@ -210,4 +210,23 @@ export function markPlaybackWatched(p: PlaybackProgress, source: CompletionBound
   return p;
 }
 export function completePlayback(sessionId: string): PlaybackProgress { const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found"); const p = get(s.userId, s.ratingKey, s.mediaId)!; markPlaybackWatched(p); persist(); return p; }
-export function stopPlayback(sessionId: string, positionMs?: number): PlaybackProgress { const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found"); const p = get(s.userId, s.ratingKey, s.mediaId)!; if (!p.watched && positionMs != null && p.eligibleForResume && positionMs < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) p.resumeOffsetMs = Math.max(0, positionMs); p.updatedAt = Date.now(); p.revision++; recordPlaybackStopped(sessionId, p); g.__movvizPlaybackSessions?.delete(sessionId); persist(); return p; }
+export function stopPlayback(sessionId: string, positionMs?: number): PlaybackProgress {
+  const s = getPlaybackSession(sessionId); if (!s) throw new Error("session_not_found");
+  const p = get(s.userId, s.ratingKey, s.mediaId)!;
+  let completedHere = false;
+  const position = positionMs != null && Number.isFinite(positionMs) ? Math.max(0, positionMs) : null;
+  if (!p.watched && position != null) {
+    p.lastPositionMs = position;
+    // Closing the player does not necessarily leave time for the next
+    // 10-second heartbeat. Apply the same completion rule here, so stopping
+    // in end credits cannot leave a stale resume entry behind.
+    if (canComplete(p.actualPlayedMs, position, p.completionBoundaryMs)) {
+      markPlaybackWatched(p, p.boundarySource);
+      completedHere = true;
+    } else if (p.eligibleForResume && position < (p.completionBoundaryMs ?? Number.MAX_SAFE_INTEGER)) {
+      p.resumeOffsetMs = position;
+    }
+  }
+  if (!completedHere) { p.updatedAt = Date.now(); p.revision++; }
+  recordPlaybackStopped(sessionId, p); g.__movvizPlaybackSessions?.delete(sessionId); persist(); return p;
+}

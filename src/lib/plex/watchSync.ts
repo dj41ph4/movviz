@@ -3,6 +3,7 @@ import { getAccountHistory, batchTmdbIds, getLocalAccounts, getPlexAccount, getP
 import { saveWatchStatus, getWatchStatus, type RecentWatch } from "./watchStore";
 import { recordSearchLog } from "@/lib/diagnostic/searchLog";
 import { refreshLegacyUserContext } from "@/lib/userContext/bootstrap";
+import { recordUserContextEvent } from "@/lib/userContext/ingest";
 import type { User } from "@/lib/auth/types";
 
 /**
@@ -151,12 +152,38 @@ export async function syncUserWatchStatus(user: User) {
       })
       .filter((r): r is RecentWatch => r != null);
 
+    // The timeline is append-only and timestamped at its real Plex event
+    // time. This is what lets a Plex view from yesterday sit correctly
+    // between Movviz views from two days ago and today on every client.
+    for (const h of history) {
+      if (!h.viewedAt) continue;
+      if (h.type === "movie") {
+        const tmdbId = movieInfo.get(h.ratingKey)?.tmdbId;
+        if (tmdbId == null) continue;
+        recordUserContextEvent({ userId: user.id, eventType: "watched_marked", source: "plex_history", sourceEventId: `plex:${accountId}:${h.ratingKey}:${h.viewedAt}`, tmdbId, mediaType: "movie", title: h.title ?? null, ratingKey: h.ratingKey, occurredAt: h.viewedAt });
+      } else if (h.grandparentRatingKey) {
+        const tmdbId = showInfo.get(h.grandparentRatingKey)?.tmdbId;
+        if (tmdbId == null || h.season == null || h.episode == null) continue;
+        recordUserContextEvent({ userId: user.id, eventType: "watched_marked", source: "plex_history", sourceEventId: `plex:${accountId}:${h.ratingKey}:${h.viewedAt}`, tmdbId, mediaType: "episode", title: h.title ?? h.grandparentTitle ?? null, ratingKey: h.ratingKey, seasonNumber: h.season, episodeNumber: h.episode, occurredAt: h.viewedAt });
+      }
+    }
+
     const previous = getWatchStatus(user.id);
     const merged = new Map<string, RecentWatch>();
-    for (const r of [...(previous?.recent ?? []), ...plexRecent]) merged.set(`${r.tmdbId}.${r.type}`, r);
+    for (const r of [...(previous?.recent ?? []), ...plexRecent]) {
+      const key = `${r.tmdbId}.${r.type}`;
+      const prior = merged.get(key);
+      if (!prior || r.at > prior.at) merged.set(key, r);
+    }
     const recent = [...merged.values()].sort((a, b) => b.at - a.at).slice(0, 30);
 
-    saveWatchStatus({ userId: user.id, movies, episodes, recent, updatedAt: Date.now() });
+    // Plex is an optional peer, never a replacement for Movviz. Its history
+    // has no reliable "unwatched" tombstone, so importing it must only add
+    // known views and must never erase a newer local view.
+    const mergedMovies = [...new Set([...(previous?.movies ?? []), ...movies])];
+    const episodeKey = (e: { tmdbId: number; season: number; episode: number }) => `${e.tmdbId}.${e.season}.${e.episode}`;
+    const mergedEpisodes = [...new Map([...(previous?.episodes ?? []), ...episodes].map((e) => [episodeKey(e), e])).values()];
+    saveWatchStatus({ userId: user.id, movies: mergedMovies, episodes: mergedEpisodes, recent, updatedAt: Date.now() });
     // saveWatchStatus() only writes the legacy JSON store; it never touches
     // the unified Context Engine (unlike setWatchedMovies/setWatchedEpisodes).
     // Force an immediate mirror so the AI's SQL-backed context reflects a

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.48 — September 2026
+
+### Reprises Plex et Movviz unifiées
+
+La reprise est désormais calculée une seule fois, par utilisateur, pour le web, le profil et Android TV. Plex reste optionnel : ses positions et son historique complètent les données Movviz sans jamais les remplacer. Les vues Plex sont enregistrées avec leur date réelle dans la timeline commune, qui ordonne correctement les lectures Plex et Movviz. Pour les séries, seule la toute première suite non vue est proposée : après une saison 4 terminée, saison 5 épisode 1 apparaît ; la saison 6 attend la fin complète de la saison 5. Arrêter pendant le générique marque aussi immédiatement le média comme vu et le synchronise vers Plex quand il est relié.
+
 ## v1.24.47 — September 2026
 
 ### Profils indépendants sur TV et mobile
