@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.50 — September 2026
+
+### TV — logo officiel généralisé et grille de navigation corrigée
+
+Le principe affiche portrait sans logo au repos / logo officiel posé séparément au focus s'étend désormais à Découverte, aux titres similaires, à la filmographie d'un acteur, ainsi qu'au catalogue complet et aux grilles "voir tout" (où la carte reste fixe en portrait plutôt que de s'ouvrir en paysage, une grille verticale ne pouvant pas grandir sans décaler ses voisines). Le titre texte disparaît partout où ce logo est affiché ; il reste en repli discret sur les grilles quand aucun logo TMDb n'est disponible. Le chargement des logos est protégé contre les doublons réseau. La barre de navigation latérale déployée aligne enfin ses onglets sur un même bord au lieu de flotter à des largeurs différentes.
+
 ## v1.24.49 — September 2026
 
 ### TV — accès direct au profil et thème de l'accueil affiné
