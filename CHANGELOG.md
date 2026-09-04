@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.49 — September 2026
+
+### TV — accès direct au profil et thème de l'accueil affiné
+
+Sur Android TV, le profil est désormais accessible en un raccourci direct depuis le rail de navigation, sans repasser par l'écran de sélection des comptes. L'écran d'accueil et son thème visuel ont été retravaillés pour plus de cohérence. Par ailleurs, les cérémonies de récompenses (Oscars, Césars, Golden Globes...) et les contenus non fictionnels remontés comme "séries" par les catalogues (journaux, talk-shows, téléréalité) ne sont plus jamais proposés comme suggestions, quelle que soit leur source.
+
 ## v1.24.48 — September 2026
 
 ### Reprises Plex et Movviz unifiées
