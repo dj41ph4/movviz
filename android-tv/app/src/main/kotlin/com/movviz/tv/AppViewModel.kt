@@ -94,6 +94,11 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     private val _heroLogos = MutableStateFlow<Map<String, String>>(emptyMap())
     val heroLogos: StateFlow<Map<String, String>> = _heroLogos.asStateFlow()
+    // Requêtes logo en vol : sans ce set, un focus qui va-et-vient sur une
+    // même carte avant que la 1ère réponse revienne relançait un 2e appel
+    // réseau identique (le seul garde-fou était "déjà dans _heroLogos", qui
+    // ne protège pas pendant que la requête est en cours).
+    private val _heroLogosInFlight = mutableSetOf<String>()
 
     private val _detail = MutableStateFlow<MetaDetailDto?>(null)
     val detail: StateFlow<MetaDetailDto?> = _detail.asStateFlow()
@@ -755,30 +760,44 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
      * interruptions transitoires sans surcharger le serveur. */
     suspend fun loadHeroLogo(type: String, tmdbId: Int) {
         val key = "$type-$tmdbId"
-        if (_heroLogos.value.containsKey(key)) return
+        if (_heroLogos.value.containsKey(key) || key in _heroLogosInFlight) return
         val repo = repository ?: return
-        var result = repo.metadataImages(type, tmdbId)
-        if (result is ApiResult.Failure) {
-            android.util.Log.w("HeroLogo", "1st attempt failed for $key: ${(result as ApiResult.Failure).message}, retrying in 1s")
-            delay(1_000)
-            result = repo.metadataImages(type, tmdbId)
-        }
-        when (result) {
-            is ApiResult.Success -> {
-                val path = result.data.logos.firstOrNull()?.filePath
-                if (path != null) {
-                    _heroLogos.value = _heroLogos.value + (key to path)
-                } else {
-                    android.util.Log.d("HeroLogo", "No logo available for $key (empty logos list)")
+        _heroLogosInFlight += key
+        try {
+            var result = repo.metadataImages(type, tmdbId)
+            if (result is ApiResult.Failure) {
+                android.util.Log.w("HeroLogo", "1st attempt failed for $key: ${(result as ApiResult.Failure).message}, retrying in 1s")
+                delay(1_000)
+                result = repo.metadataImages(type, tmdbId)
+            }
+            when (result) {
+                is ApiResult.Success -> {
+                    val path = result.data.logos.firstOrNull()?.filePath
+                    if (path != null) {
+                        _heroLogos.value = _heroLogos.value + (key to path)
+                    } else {
+                        android.util.Log.d("HeroLogo", "No logo available for $key (empty logos list)")
+                    }
+                }
+                is ApiResult.Failure -> {
+                    android.util.Log.w("HeroLogo", "Failed to load hero logo for $key after retry: ${result.message}")
+                }
+                ApiResult.Unauthorized -> {
+                    android.util.Log.w("HeroLogo", "Unauthorized loading hero logo for $key")
                 }
             }
-            is ApiResult.Failure -> {
-                android.util.Log.w("HeroLogo", "Failed to load hero logo for $key after retry: ${result.message}")
-            }
-            ApiResult.Unauthorized -> {
-                android.util.Log.w("HeroLogo", "Unauthorized loading hero logo for $key")
-            }
+        } finally {
+            _heroLogosInFlight -= key
         }
+    }
+
+    /** Point d'entrée non-suspendu pour les callbacks de focus D-pad
+     *  (onFocusedCard des cartes) — lance [loadHeroLogo] dans viewModelScope
+     *  puisque ces callbacks Compose ne sont pas des coroutines. Le cache
+     *  (_heroLogos + garde anti-doublon _heroLogosInFlight) vit dans
+     *  loadHeroLogo et est donc partagé par tous les écrans qui appellent ceci. */
+    fun requestHeroLogo(type: String, tmdbId: Int) {
+        viewModelScope.launch { loadHeroLogo(type, tmdbId) }
     }
 
     /** Précharge les logos de TOUTES les vedettes du hero d'un coup — au

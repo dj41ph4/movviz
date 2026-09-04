@@ -71,6 +71,7 @@ fun CatalogScreen(
     val series by viewModel.series.collectAsState()
     val movieGenres by viewModel.movieGenres.collectAsState()
     val seriesGenres by viewModel.seriesGenres.collectAsState()
+    val heroLogos by viewModel.heroLogos.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadLibrary() }
     val wantedType = if (type == HomeTab.MOVIES) "movie" else "series"
     LaunchedEffect(wantedType) { viewModel.loadGenres(wantedType) }
@@ -131,6 +132,18 @@ fun CatalogScreen(
                         card = card,
                         onClick = { onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                         focusRequester = if (index == 0) entryFocusRequester else null,
+                        // Même principe que les rangées Netflix : affiche
+                        // portrait sans logo au repos, logo officiel posé
+                        // dessus au focus — mais la carte NE grandit PAS en
+                        // paysage ici (grille verticale, pas de rangée : un
+                        // agrandissement décalerait les cartes voisines).
+                        aspectRatio = 2f / 3f,
+                        preferPosterArt = true,
+                        showCaption = false,
+                        titleLogoPath = heroLogos["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
+                        onFocusedChange = { focused ->
+                            if (focused) viewModel.requestHeroLogo(if (card.isMovie) "movie" else "series", card.tmdbId)
+                        },
                     )
                 }
             }

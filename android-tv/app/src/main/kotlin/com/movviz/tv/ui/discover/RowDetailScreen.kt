@@ -77,6 +77,7 @@ fun RowDetailScreen(
     entryFocusRequester: FocusRequester? = null,
 ) {
     val baseUrl by viewModel.serverUrl.collectAsState()
+    val heroLogos by viewModel.heroLogos.collectAsState()
     val repository = remember(baseUrl) { baseUrl?.let { MovvizRepository(it) } }
     val scope = rememberCoroutineScope()
 
@@ -158,6 +159,15 @@ fun RowDetailScreen(
                         card = card,
                         onClick = { onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                         focusRequester = if (index == 0) entryFocusRequester else null,
+                        // Même principe portrait sans logo / logo posé au
+                        // focus que le catalogue — voir CatalogScreen.kt.
+                        aspectRatio = 2f / 3f,
+                        preferPosterArt = true,
+                        showCaption = false,
+                        titleLogoPath = heroLogos["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
+                        onFocusedChange = { focused ->
+                            if (focused) viewModel.requestHeroLogo(if (card.isMovie) "movie" else "series", card.tmdbId)
+                        },
                     )
                 }
                 // Carte sentinelle invisible : sa seule composition (donc son

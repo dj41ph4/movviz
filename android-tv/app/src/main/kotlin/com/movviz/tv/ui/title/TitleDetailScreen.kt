@@ -501,7 +501,7 @@ fun TitleDetailScreen(
         val similarCards = remember(d) {
             d.similar
                 .filter { !(it.tmdbId == tmdbId && it.type == type) }
-                .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, null, it.tmdbId, isMovie = it.type == "movie") }
+                .map { TvTitleCard(it.tmdbId.toString(), it.title, it.posterPath, it.backdropPath, it.tmdbId, isMovie = it.type == "movie") }
         }
 
         // Spec de scroll MINIMAL (comportement mobile) au lieu du pivot TV :
@@ -899,6 +899,8 @@ fun TitleDetailScreen(
                         heading = "Titres similaires",
                         items = similarCards,
                         onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
+                        titleLogoPaths = heroLogos,
+                        onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                     )
                 }
             }

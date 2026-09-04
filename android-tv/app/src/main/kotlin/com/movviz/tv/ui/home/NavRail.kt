@@ -659,6 +659,14 @@ private fun TopNavItem(tab: HomeTab, active: Boolean, expanded: Boolean, onClick
     Surface(
         onClick = onClick,
         modifier = Modifier
+            // Déployé, chaque item doit occuper toute la largeur du rail pour
+            // que les pastilles s'alignent sur un même bord gauche — en
+            // wrap-content, "Accueil"/"Découverte"/"Films" avaient chacun une
+            // largeur différente et le CenterHorizontally du parent les
+            // faisait flotter à des abscisses différentes (rendu décousu,
+            // constaté en direct). Replié, l'item reste wrap-content pour
+            // rester une icône centrée compacte.
+            .let { if (expanded) it.fillMaxWidth() else it }
             .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),

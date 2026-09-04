@@ -409,7 +409,7 @@ fun HomeScreen(
                             },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "becauseYouLike" -> item(contentType = "row") {
@@ -418,7 +418,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "shortSessions" -> item(contentType = "row") {
@@ -427,7 +427,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle("movie", it.tmdbId) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "discover" -> item(contentType = "row") {
@@ -436,7 +436,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "availableNow" -> item(contentType = "row") {
@@ -445,7 +445,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                     "comingSoon" -> item(contentType = "row") {
@@ -454,7 +454,7 @@ fun HomeScreen(
                             onClick = { onOpenTitle("movie", it.tmdbId) },
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
-                            onFocusedCard = { viewModel.loadHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                         )
                     }
                 }
@@ -1391,7 +1391,15 @@ internal fun PosterCard(
                 // Le logo officiel remplace le titre sous la carte active.
                 // Aucun doublon texte : il vit dans l'image, comme le desktop,
                 // et disparaît avec le focus plutôt que de surcharger la rangée.
-                if (expands && titleLogoPath != null) {
+                // Deux terrains l'utilisent : une rangée qui s'ouvre en
+                // paysage (expands) ET une grille qui reste en portrait fixe
+                // (catalogue, "voir tout") — là le logo se pose directement
+                // sur l'affiche au focus, sans jamais agrandir la carte (une
+                // grille verticale ne peut pas grandir sans décaler ses
+                // voisines). La taille du logo suit displayWidth dans les
+                // deux cas, donc s'adapte que la carte soit repliée ou non.
+                val showLogo = titleLogoPath != null && (expands || (focused && !expandToLandscapeOnFocus))
+                if (showLogo) {
                     Image(
                         painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),
                         contentDescription = card.title,
@@ -1399,9 +1407,28 @@ internal fun PosterCard(
                         alignment = Alignment.BottomStart,
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(16.dp)
-                            .heightIn(max = 54.dp)
-                            .widthIn(max = 210.dp),
+                            .padding(if (expands) 16.dp else 10.dp)
+                            .heightIn(max = if (expands) 54.dp else 40.dp)
+                            .widthIn(max = (displayWidth - 20.dp).coerceAtLeast(60.dp)),
+                    )
+                } else if (focused && !expandToLandscapeOnFocus) {
+                    // Grilles (catalogue, "voir tout") : contrairement à
+                    // TitleRow, qui affiche un bandeau de contexte sous la
+                    // rangée pour la carte active, une grille verticale n'a
+                    // pas cet espace. Sans repli, un titre sans logo TMDb (ou
+                    // dont le logo n'a pas encore fini de charger) restait
+                    // muet au focus — rien n'identifiait la carte avant OK.
+                    Text(
+                        text = card.title,
+                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(10.dp)
+                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 7.dp, vertical = 4.dp)
+                            .widthIn(max = (displayWidth - 20.dp).coerceAtLeast(60.dp)),
                     )
                 }
                 // Même paire de pastilles que la grille bibliothèque desktop

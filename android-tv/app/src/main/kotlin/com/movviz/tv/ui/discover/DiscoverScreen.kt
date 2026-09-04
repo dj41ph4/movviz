@@ -225,6 +225,8 @@ fun DiscoverScreen(
                     onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
                     firstItemFocusRequester = if (activeHero == null && row.key == firstRowKey) heroFocus else null,
                     onSeeAll = if (row.seeAll) { { onSeeAllRow(wantedType, row.key, label) } } else null,
+                    titleLogoPaths = heroLogos,
+                    onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                 )
             }
         }

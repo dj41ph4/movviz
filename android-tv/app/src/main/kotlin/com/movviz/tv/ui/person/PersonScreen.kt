@@ -49,6 +49,7 @@ fun PersonScreen(
     entryFocusRequester: FocusRequester? = null,
 ) {
     val person by viewModel.person.collectAsState()
+    val heroLogos by viewModel.heroLogos.collectAsState()
 
     LaunchedEffect(personId) {
         viewModel.loadPerson(personId)
@@ -148,6 +149,8 @@ fun PersonScreen(
                     items = filmography,
                     onClick = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                     firstItemFocusRequester = entryFocusRequester,
+                    titleLogoPaths = heroLogos,
+                    onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                 )
             }
         }
