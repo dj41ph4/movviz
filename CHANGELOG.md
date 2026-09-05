@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.55 — September 2026
+
+### Correctif publication Android mobile
+
+La compilation Kotlin de l’accueil Android mobile est corrigée ; la version release peut à nouveau être produite et publiée.
+
 ## v1.24.54 — September 2026
 
 ### Accueil Android mobile unifié

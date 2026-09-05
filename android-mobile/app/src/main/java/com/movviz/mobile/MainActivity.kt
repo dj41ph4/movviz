@@ -863,7 +863,8 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
                             trackColor = Color.White.copy(alpha = 0.20f),
                         )
                     }
-                    Text(item.title ?: "—", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp))
+                    Spacer(Modifier.height(7.dp))
+                    Text(item.title ?: "—", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     item.seasonNumber?.let { season ->
                         val episode = item.episodeNumber?.let { " · E$it" } ?: ""
                         Text("S$season$episode", color = TextSoft, fontSize = 11.sp, maxLines = 1)
