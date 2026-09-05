@@ -93,6 +93,13 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     // Même route unifiée que le web et Android TV : une reprise Plex ou
     // Movviz ne doit jamais avoir une version mobile différente.
     private val _continueWatching = MutableStateFlow<List<OnDeckEntryDto>>(emptyList()); val continueWatching = _continueWatching.asStateFlow()
+    // Les rangées éditoriales de l'accueil mobile consomment les mêmes routes
+    // par profil que l'accueil TV. Le serveur reste responsable des choix
+    // personnels ; mobile ne fait que les présenter dans son format.
+    private val _movieRows = MutableStateFlow<List<MetadataRowDto>>(emptyList()); val movieRows = _movieRows.asStateFlow()
+    private val _seriesRows = MutableStateFlow<List<MetadataRowDto>>(emptyList()); val seriesRows = _seriesRows.asStateFlow()
+    private val _movieRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList()); val movieRecommendations = _movieRecommendations.asStateFlow()
+    private val _seriesRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList()); val seriesRecommendations = _seriesRecommendations.asStateFlow()
     private val _heroLogos = MutableStateFlow<Map<String, String>>(emptyMap()); val heroLogos = _heroLogos.asStateFlow()
     private val _detail = MutableStateFlow<MetaDetailDto?>(null); val detail = _detail.asStateFlow()
     private val _detailLoading = MutableStateFlow(false); val detailLoading = _detailLoading.asStateFlow()
@@ -112,8 +119,15 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     fun setAutoUpdateEnabled(enabled: Boolean) { viewModelScope.launch { prefs.setAutoUpdateEnabled(enabled) } }
     private val _updateCheckTrigger = MutableStateFlow(0); val updateCheckTrigger = _updateCheckTrigger.asStateFlow()
     private val _updateCheckStatus = MutableStateFlow<String?>(null); val updateCheckStatus = _updateCheckStatus.asStateFlow()
+    // Même contrat que la TV : la vérification signale une version sans
+    // interrompre l'utilisateur. La navigation affiche alors l'action
+    // pulsante et seul son appui démarre le téléchargement.
+    private val _availableUpdateTag = MutableStateFlow<String?>(null); val availableUpdateTag = _availableUpdateTag.asStateFlow()
+    private val _updateInstallTrigger = MutableStateFlow(0); val updateInstallTrigger = _updateInstallTrigger.asStateFlow()
     fun requestUpdateCheck() { _updateCheckTrigger.value += 1 }
+    fun requestUpdateInstall() { _updateInstallTrigger.value += 1 }
     fun setUpdateCheckStatus(message: String?) { _updateCheckStatus.value = message }
+    fun setAvailableUpdateTag(tag: String?) { _availableUpdateTag.value = tag }
     suspend fun loadHeroLogo(type: String, tmdbId: Int) {
         val key = "$type-$tmdbId"
         if (_heroLogos.value.containsKey(key)) return
@@ -234,6 +248,10 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
         _search.value = emptyList()
         _queue.value = emptyList()
         _continueWatching.value = emptyList()
+        _movieRows.value = emptyList()
+        _seriesRows.value = emptyList()
+        _movieRecommendations.value = emptyList()
+        _seriesRecommendations.value = emptyList()
         _heroLogos.value = emptyMap()
         _aiMessages.value = emptyList()
         _aiEnabled.value = null
@@ -339,7 +357,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     // Version non-bloquante pour Compose (évite runBlocking sur le thread UI)
     fun getBaseUrlCached(): String? = cachedBaseUrl
 
-    fun disconnect() { viewModelScope.launch { val base = prefs.serverUrl.first()?.trim()?.trimEnd('/'); if (base != null) profilePrefs.clearServer(base); prefs.clearServerUrl(); ApiClient.clearSession(); repo = null; cachedBaseUrl = null; _state.value = MobileState.Server; _hero.value = emptyList(); _movies.value = emptyList(); _series.value = emptyList(); _continueWatching.value = emptyList(); _search.value = emptyList(); _detail.value = null; _profiles.value = emptyList(); _currentUser.value = null; clearAiMessages(); _aiEnabled.value = null } }
+    fun disconnect() { viewModelScope.launch { val base = prefs.serverUrl.first()?.trim()?.trimEnd('/'); if (base != null) profilePrefs.clearServer(base); prefs.clearServerUrl(); ApiClient.clearSession(); repo = null; cachedBaseUrl = null; _state.value = MobileState.Server; _hero.value = emptyList(); _movies.value = emptyList(); _series.value = emptyList(); _continueWatching.value = emptyList(); _movieRows.value = emptyList(); _seriesRows.value = emptyList(); _movieRecommendations.value = emptyList(); _seriesRecommendations.value = emptyList(); _search.value = emptyList(); _detail.value = null; _profiles.value = emptyList(); _currentUser.value = null; clearAiMessages(); _aiEnabled.value = null } }
     fun forgetServer() { disconnect() }
 
     fun search(query: String) { val r = repo ?: return; if (query.trim().length < 2) { _search.value = emptyList(); return }; viewModelScope.launch { (r.search(query.trim()) as? ApiResult.Success)?.let { _search.value = it.data } } }
@@ -381,6 +399,10 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
                     else -> Unit
                 }
             }
+            launch { (r.metadataRows("movie") as? ApiResult.Success)?.let { _movieRows.value = it.data } }
+            launch { (r.metadataRows("series") as? ApiResult.Success)?.let { _seriesRows.value = it.data } }
+            launch { (r.metadataRecommendations("movie") as? ApiResult.Success)?.let { _movieRecommendations.value = it.data } }
+            launch { (r.metadataRecommendations("series") as? ApiResult.Success)?.let { _seriesRecommendations.value = it.data } }
         }
     }
 
@@ -700,6 +722,7 @@ private data class NavEntry(val icon: ImageVector, val label: String)
         )
     }
     val haptic = LocalHapticFeedback.current
+    val availableUpdateTag by vm.availableUpdateTag.collectAsState()
     val onTitleClick: (String, Int) -> Unit = { type, tmdbId ->
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         detailStack = detailStack + (type to tmdbId)
@@ -711,10 +734,19 @@ private data class NavEntry(val icon: ImageVector, val label: String)
             containerColor = Color.Black,
             bottomBar = {
                 if (detailStack.isEmpty() && !downloadsOpen) {
-                    FloatingCapsuleNav(entries, selected) {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        selected = it
-                    }
+                    FloatingCapsuleNav(
+                        entries = entries,
+                        selected = selected,
+                        updateTag = availableUpdateTag,
+                        onSelect = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            selected = it
+                        },
+                        onUpdateClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            vm.requestUpdateInstall()
+                        },
+                    )
                 }
             },
         ) { padding ->
@@ -724,7 +756,11 @@ private data class NavEntry(val icon: ImageVector, val label: String)
                     val movies by vm.movies.collectAsState()
                     val series by vm.series.collectAsState()
                     val continueWatching by vm.continueWatching.collectAsState()
-                    HomeScreen(padding, hero, movies, series, continueWatching, onTitleClick)
+                    val movieRows by vm.movieRows.collectAsState()
+                    val seriesRows by vm.seriesRows.collectAsState()
+                    val movieRecommendations by vm.movieRecommendations.collectAsState()
+                    val seriesRecommendations by vm.seriesRecommendations.collectAsState()
+                    HomeScreen(padding, hero, movies, series, continueWatching, movieRows, seriesRows, movieRecommendations, seriesRecommendations, onTitleClick)
                 }
                 1 -> com.movviz.mobile.discover.DiscoverScreen(
                     padding = padding,
@@ -767,67 +803,129 @@ private data class NavEntry(val icon: ImageVector, val label: String)
     }
 }
 
-@Composable private fun FloatingCapsuleNav(entries: List<NavEntry>, selected: Int, onSelect: (Int) -> Unit) {
+@Composable private fun FloatingCapsuleNav(
+    entries: List<NavEntry>,
+    selected: Int,
+    updateTag: String?,
+    onSelect: (Int) -> Unit,
+    onUpdateClick: () -> Unit,
+) {
     Box(
         Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 20.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Row(
-            Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(30.dp))
-                .background(Color(0xF21B1B1B))
-                .border(1.dp, Color.White.copy(0.08f), RoundedCornerShape(30.dp))
-                .padding(horizontal = 6.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            entries.forEachIndexed { i, e ->
-                val isSel = i == selected
-                val scale by animateFloatAsState(
-                    if (isSel) 1f else 0.96f,
-                    spring(dampingRatio = 0.7f, stiffness = 450f),
-                    label = "navScale",
-                )
-                val hapticNav = LocalHapticFeedback.current
-                Column(
-                    Modifier.weight(1f).scale(scale)
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(if (isSel) Color.White.copy(0.10f) else Color.Transparent)
-                        .clickable {
-                            hapticNav.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onSelect(i)
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (updateTag != null) UpdateAvailablePill(updateTag, onUpdateClick)
+            Row(
+                Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(30.dp))
+                    .background(Color(0xF21B1B1B))
+                    .border(1.dp, Color.White.copy(0.08f), RoundedCornerShape(30.dp))
+                    .padding(horizontal = 6.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                entries.forEachIndexed { i, e ->
+                    val isSel = i == selected
+                    val scale by animateFloatAsState(
+                        if (isSel) 1f else 0.96f,
+                        spring(dampingRatio = 0.7f, stiffness = 450f),
+                        label = "navScale",
+                    )
+                    val hapticNav = LocalHapticFeedback.current
+                    Box(Modifier.weight(1f), contentAlignment = Alignment.TopCenter) {
+                        Column(
+                            Modifier.scale(scale)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(if (isSel) Color.White.copy(0.10f) else Color.Transparent)
+                                .clickable {
+                                    hapticNav.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onSelect(i)
+                                }
+                                .padding(vertical = 7.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(3.dp),
+                        ) {
+                            Icon(e.icon, contentDescription = e.label, tint = if (isSel) Color.White else Color(0xFF9A9A9A), modifier = Modifier.size(22.dp))
+                            Text(e.label, color = if (isSel) Color.White else Color(0xFF9A9A9A), fontSize = 10.sp, fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
-                        .padding(vertical = 7.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                ) {
-                    Icon(
-                        e.icon,
-                        contentDescription = e.label,
-                        tint = if (isSel) Color.White else Color(0xFF9A9A9A),
-                        modifier = Modifier.size(22.dp),
-                    )
-                    Text(
-                        e.label,
-                        color = if (isSel) Color.White else Color(0xFF9A9A9A),
-                        fontSize = 10.sp,
-                        fontWeight = if (isSel) FontWeight.Bold else FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                        if (i == entries.lastIndex && updateTag != null) UpdateBadge()
+                    }
                 }
             }
         }
     }
 }
 
+/** Signal léger, comparable à la flèche mise à jour du rail TV : le point
+ * attire l'œil sans recouvrir le contenu et le libellé mène explicitement à
+ * l'installation. */
+@Composable private fun UpdateAvailablePill(tag: String, onClick: () -> Unit) {
+    val transition = rememberInfiniteTransition(label = "updatePill")
+    val glow by transition.animateFloat(0.55f, 1f, infiniteRepeatable(tween(900), RepeatMode.Reverse), label = "updateGlow")
+    Row(
+        Modifier.clip(RoundedCornerShape(18.dp))
+            .background(Violet.copy(alpha = 0.20f + (glow * 0.12f)))
+            .border(1.dp, VioletSoft.copy(alpha = 0.38f + (glow * 0.25f)), RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Icon(Icons.Rounded.SystemUpdateAlt, null, tint = VioletSoft, modifier = Modifier.size(17.dp))
+        Text("Mise à jour ${tag.removePrefix("v")}", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable private fun UpdateBadge() {
+    val transition = rememberInfiniteTransition(label = "updateBadge")
+    val alpha by transition.animateFloat(0.4f, 1f, infiniteRepeatable(tween(750), RepeatMode.Reverse), label = "updateBadgeAlpha")
+    Box(Modifier.padding(start = 22.dp).size(8.dp).clip(CircleShape).background(VioletSoft.copy(alpha = alpha)).border(1.dp, Color.Black.copy(0.35f), CircleShape))
+}
+
 private data class CardData(val tmdbId: Int, val title: String, val poster: String?, val backdrop: String?, val rating: Double, val type: String)
 
 // ── Accueil — hero 62% viewport + rails Netflix density — logo réel comme desktop ──
-@Composable private fun HomeScreen(padding: PaddingValues, hero: List<DashboardHeroSlideDto>, movies: List<LibraryMovieDto>, series: List<LibrarySeriesDto>, continueWatching: List<OnDeckEntryDto>, onTitleClick: (String, Int) -> Unit) {
+@Composable private fun HomeScreen(
+    padding: PaddingValues,
+    hero: List<DashboardHeroSlideDto>,
+    movies: List<LibraryMovieDto>,
+    series: List<LibrarySeriesDto>,
+    continueWatching: List<OnDeckEntryDto>,
+    movieRows: List<MetadataRowDto>,
+    seriesRows: List<MetadataRowDto>,
+    movieRecommendations: List<SearchResultDto>,
+    seriesRecommendations: List<SearchResultDto>,
+    onTitleClick: (String, Int) -> Unit,
+) {
     // On récupère le ViewModel ambient pour les logos (pas de param supplémentaire pour garder MobileShell simple)
     val vm: MobileViewModel = viewModel()
     val logos by vm.heroLogos.collectAsState()
     LaunchedEffect(hero) { if (hero.isNotEmpty()) vm.preloadHeroLogos(hero) }
+    fun searchCard(item: SearchResultDto) = CardData(item.tmdbId, item.title, item.posterPath, item.backdropPath, item.rating, item.type)
+    val suggestions = remember(movieRecommendations, seriesRecommendations) {
+        movieRecommendations.map(::searchCard).interleaveMobile(seriesRecommendations.map(::searchCard))
+            .distinctBy { "${it.type}-${it.tmdbId}" }.take(20)
+    }
+    val trends = remember(movieRows, seriesRows) {
+        val movie = movieRows.firstOrNull { it.key == "trendingPopular" || it.key == "trending" }?.results.orEmpty().map(::searchCard)
+        val shows = seriesRows.firstOrNull { it.key == "trendingPopular" || it.key == "trending" }?.results.orEmpty().map(::searchCard)
+        movie.interleaveMobile(shows).distinctBy { "${it.type}-${it.tmdbId}" }.take(20)
+    }
+    val recentlyAdded = remember(movies, series) {
+        val movie = movies.filter { it.status == "available" }.map { it.addedAt to CardData(it.tmdbId, it.title, it.posterPath, it.customBackdropPath ?: it.backdropPath, it.rating, "movie") }
+        val shows = series.filter { it.hasAvailableEpisode }.map { it.addedAt to CardData(it.tmdbId, it.title, it.posterPath, it.customBackdropPath ?: it.backdropPath, it.rating, "series") }
+        (movie + shows).sortedByDescending { it.first }.map { it.second }.take(20)
+    }
+    val shortSessions = remember(movies) {
+        movies.filter { it.status == "available" && (it.runtime ?: Int.MAX_VALUE) <= 40 }
+            .sortedByDescending { it.addedAt }
+            .map { CardData(it.tmdbId, it.title, it.posterPath, it.customBackdropPath ?: it.backdropPath, it.rating, "movie") }.take(20)
+    }
+    val comingSoon = remember(movies) {
+        movies.filter { it.status == "upcoming" }
+            .sortedBy { it.vfReleaseDate ?: it.releaseDate ?: "9999-99-99" }
+            .map { CardData(it.tmdbId, it.title, it.posterPath, it.customBackdropPath ?: it.backdropPath, it.rating, "movie") }.take(20)
+    }
     LazyColumn(Modifier.fillMaxSize().background(Void), contentPadding = PaddingValues(bottom = 96.dp)) {
         item { Spacer(Modifier.statusBarsPadding().height(56.dp)) }
         if (continueWatching.isNotEmpty()) item { ResumeRail(continueWatching, onTitleClick) }
@@ -839,9 +937,21 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
         } else {
             item { Box(Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(320.dp).clip(HeroShape).background(Surface), contentAlignment = Alignment.Center) { Text("Aucun titre à la une", color = TextMuted, fontSize = 14.sp) } }
         }
-        if (movies.isNotEmpty()) item { Rail("Films dans ta bibliothèque", movies.map { CardData(it.tmdbId, it.title, it.posterPath, it.backdropPath, it.rating, "movie") }, onTitleClick) }
-        if (series.isNotEmpty()) item { Rail("Séries dans ta bibliothèque", series.map { CardData(it.tmdbId, it.title, it.posterPath, it.backdropPath, it.rating, "series") }, onTitleClick) }
+        if (suggestions.isNotEmpty()) item { Rail("Sélection pour vous", suggestions, onTitleClick) }
+        if (shortSessions.isNotEmpty()) item { Rail("Moins de 40 minutes", shortSessions, onTitleClick) }
+        if (trends.isNotEmpty()) item { Rail("Tendances Movviz", trends, onTitleClick) }
+        if (recentlyAdded.isNotEmpty()) item { Rail("Ajoutés récemment", recentlyAdded, onTitleClick) }
+        if (comingSoon.isNotEmpty()) item { Rail("Prochainement", comingSoon, onTitleClick) }
         item { Text("Continue à explorer — ajoute des titres depuis la recherche.", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = TextFaint, fontSize = 12.sp, lineHeight = 16.sp) }
+    }
+}
+
+/** Même alternance films/séries que l'accueil TV : aucun type ne monopolise
+ * la rangée lorsqu'une des listes est plus courte. */
+private fun <T> List<T>.interleaveMobile(other: List<T>): List<T> = buildList {
+    for (index in 0 until maxOf(size, other.size)) {
+        getOrNull(index)?.let(::add)
+        other.getOrNull(index)?.let(::add)
     }
 }
 

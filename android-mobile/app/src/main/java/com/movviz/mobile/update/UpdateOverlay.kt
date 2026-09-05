@@ -49,6 +49,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.io.File
 
+private const val BACKGROUND_UPDATE_CHECK_MS = 30L * 60L * 1_000L
+
 /** États de l'auto-update, du check GitHub jusqu'à l'installation — mêmes
  *  quatre états que la version TV (UpdateOverlay.kt), affichage adapté au
  *  format tactile (feuille du bas plutôt qu'écran plein). */
@@ -74,7 +76,6 @@ internal fun AutoUpdateOverlay(vm: MobileViewModel) {
     var state by remember { mutableStateOf<UpdateUiState>(UpdateUiState.Hidden) }
     var target by remember { mutableStateOf("") }
     var pending by remember { mutableStateOf<UpdateInfo?>(null) }
-    var dismissed by remember { mutableStateOf(false) }
     var downloadedFile by remember { mutableStateOf<File?>(null) }
     val scope = rememberCoroutineScope()
 
@@ -114,12 +115,34 @@ internal fun AutoUpdateOverlay(vm: MobileViewModel) {
     }
 
     val autoUpdate by vm.autoUpdateEnabled.collectAsState()
-    LaunchedEffect(Unit) {
-        if (!autoUpdate || dismissed) return@LaunchedEffect
-        delay(5_000)
-        val info = updateManager.checkForUpdate() ?: return@LaunchedEffect
+    // Comme la TV, un check ne déclenche plus une installation surprise : il
+    // alimente seulement le signal de navigation. L'utilisateur garde la
+    // main, y compris s'il ouvre l'app pendant une séance de lecture.
+    LaunchedEffect(autoUpdate) {
+        if (!autoUpdate) {
+            vm.setAvailableUpdateTag(null)
+            return@LaunchedEffect
+        }
+        delay(250)
+        val info = updateManager.checkForUpdate()
         pending = info
-        start(info)
+        vm.setAvailableUpdateTag(info?.tag)
+    }
+
+    // Une application mobile peut rester ouverte longtemps. Même cadence que
+    // la TV : la disponibilité est rafraîchie toutes les 30 minutes, sans
+    // jamais lancer un téléchargement en arrière-plan.
+    LaunchedEffect(autoUpdate) {
+        if (!autoUpdate) return@LaunchedEffect
+        delay(BACKGROUND_UPDATE_CHECK_MS)
+        while (true) {
+            if (state == UpdateUiState.Hidden) {
+                val info = updateManager.checkForUpdate()
+                pending = info
+                vm.setAvailableUpdateTag(info?.tag)
+            }
+            delay(BACKGROUND_UPDATE_CHECK_MS)
+        }
     }
 
     val manualTrigger by vm.updateCheckTrigger.collectAsState()
@@ -129,15 +152,31 @@ internal fun AutoUpdateOverlay(vm: MobileViewModel) {
             vm.setUpdateCheckStatus("Mise à jour automatique désactivée sur cette build")
             return@LaunchedEffect
         }
-        dismissed = false
         vm.setUpdateCheckStatus("Vérification…")
         val info = updateManager.checkForUpdate()
         if (info == null) {
+            vm.setAvailableUpdateTag(null)
             vm.setUpdateCheckStatus("Movviz est à jour (${com.movviz.mobile.BuildConfig.VERSION_NAME})")
             return@LaunchedEffect
         }
-        vm.setUpdateCheckStatus(null)
+        vm.setAvailableUpdateTag(info.tag)
+        vm.setUpdateCheckStatus("Mise à jour ${info.tag.removePrefix("v")} disponible")
         pending = info
+    }
+
+    // L'action vient exclusivement du badge/pilule de navigation. On résout
+    // à nouveau la release si l'app a été tuée entre le check et le tap.
+    val installTrigger by vm.updateInstallTrigger.collectAsState()
+    LaunchedEffect(installTrigger) {
+        if (installTrigger == 0) return@LaunchedEffect
+        val info = pending ?: updateManager.checkForUpdate()
+        if (info == null) {
+            vm.setAvailableUpdateTag(null)
+            vm.setUpdateCheckStatus("Movviz est à jour (${com.movviz.mobile.BuildConfig.VERSION_NAME})")
+            return@LaunchedEffect
+        }
+        pending = info
+        vm.setAvailableUpdateTag(info.tag)
         start(info)
     }
 
@@ -147,7 +186,7 @@ internal fun AutoUpdateOverlay(vm: MobileViewModel) {
             targetVersion = target,
             onAuthorize = { updateManager.openInstallPermissionSettings() },
             onRetryInstall = { downloadedFile?.let { updateManager.installViaSystemInstaller(it) } },
-            onLater = { dismissed = true; state = UpdateUiState.Hidden },
+            onLater = { state = UpdateUiState.Hidden },
         )
     }
 }

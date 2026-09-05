@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.57 — September 2026
+
+### Accueil et mises à jour Android mobile
+
+L'accueil mobile reprend les rangées éditoriales de la TV (sélection personnelle, formats courts, tendances, ajouts récents et prochaines sorties), toujours par profil et avec les reprises en premier. Une release détectée est maintenant signalée sans interruption par une pilule pulsante et un badge dans la navigation ; l'installation commence seulement après confirmation.
+
 ## v1.24.56 — September 2026
 
 ### APK Android mobile publié
