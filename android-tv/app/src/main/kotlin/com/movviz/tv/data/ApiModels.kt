@@ -682,6 +682,7 @@ data class OnDeckEntryDto(
     val seasonNumber: Int? = null,
     val episodeNumber: Int? = null,
     val episodeTitle: String? = null,
+    val lastPlayedAt: Long = 0L,
 )
 
 @JsonClass(generateAdapter = true)

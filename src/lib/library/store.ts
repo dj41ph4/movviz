@@ -309,6 +309,24 @@ export function findEpisodeByPlexRatingKey(
   }
   return null;
 }
+
+/** Resolve an episode from Plex On Deck even when Plex has regenerated the
+ * episode ratingKey during a scan. The show key plus S/E coordinates remain
+ * stable and are present in Plex's response. */
+export function findEpisodeByPlexLocator(
+  ratingKey: string,
+  showRatingKey?: string,
+  seasonNumber?: number,
+  episodeNumber?: number,
+): { series: LibrarySeries; season: LibrarySeason; episode: LibraryEpisode } | null {
+  const direct = findEpisodeByPlexRatingKey(ratingKey);
+  if (direct) return direct;
+  if (!showRatingKey || seasonNumber == null || episodeNumber == null) return null;
+  const series = loadSeries().find((candidate) => candidate.plexRatingKey === showRatingKey);
+  const season = series?.seasons.find((candidate) => candidate.seasonNumber === seasonNumber);
+  const episode = season?.episodes.find((candidate) => candidate.episodeNumber === episodeNumber);
+  return series && season && episode ? { series, season, episode } : null;
+}
 export function addSeries(series: LibrarySeries): LibrarySeries {
   ensureSeriesMaps();
   const existing = _seriesByTmdbId!.get(series.tmdbId);

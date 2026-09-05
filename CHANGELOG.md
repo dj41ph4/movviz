@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.52 — September 2026
+
+### Reprises réellement unifiées et accueil TV stabilisé
+
+La route unique « Continuer à regarder » utilise maintenant une horloge commune Movviz/Plex et trie chaque reprise par sa vraie date de lecture. Plex peut fournir immédiatement le premier épisode de la saison suivante sans attendre une synchronisation historique locale ; seule la première suite proposée par Plex est retenue. Une réindexation Plex d’épisode est aussi résolue par série + saison + épisode. Sur Android TV, les affiches restent fixes en portrait au focus, sans recadrage paysage ni déplacement de rangée ; les reprises gardent leur barre de progression lisible et l’accueil reste dense à 1080p/4K.
+
 ## v1.24.51 — September 2026
 
 ### Android TV — reprises prioritaires et cartes calibrées salon

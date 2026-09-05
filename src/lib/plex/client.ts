@@ -835,6 +835,11 @@ export interface PlexOnDeckItem {
    *  its episode's plexRatingKey, not the show's, since that's what
    *  identifies which single episode is "next up"). */
   grandparentRatingKey?: string;
+  /** Season/episode coordinates are carried by Plex's On Deck response.
+   * They let Movviz recover an episode after a Plex library re-index has
+   * changed its individual ratingKey but not the show's identity. */
+  seasonNumber?: number;
+  episodeNumber?: number;
   viewOffset: number;
   duration: number;
   lastViewedAt?: number;
@@ -855,13 +860,15 @@ export async function getPlexOnDeck(cfg: PlexServerConfig, token: string, manage
     const res = await fetchWithRetry(`${serverBase(cfg)}/library/onDeck`, { headers: serverHeaders(cfg, token, managedUserId), cache: "no-store" });
     if (!res.ok) return [];
     const data = await res.json();
-    const raw: { ratingKey: string; type?: string; grandparentRatingKey?: string; viewOffset?: number; duration?: number; lastViewedAt?: number; updatedAt?: number }[] = data?.MediaContainer?.Metadata ?? [];
+    const raw: { ratingKey: string; type?: string; grandparentRatingKey?: string; parentIndex?: number; index?: number; viewOffset?: number; duration?: number; lastViewedAt?: number; updatedAt?: number }[] = data?.MediaContainer?.Metadata ?? [];
     return raw
       .filter((item): item is typeof item & { type: "movie" | "episode" } => item.type === "movie" || item.type === "episode")
       .map((item) => ({
         ratingKey: item.ratingKey,
         type: item.type,
         grandparentRatingKey: item.grandparentRatingKey,
+        seasonNumber: item.parentIndex,
+        episodeNumber: item.index,
         viewOffset: item.viewOffset ?? 0,
         duration: item.duration ?? 0,
         lastViewedAt: item.lastViewedAt == null ? undefined : (item.lastViewedAt < 10_000_000_000 ? item.lastViewedAt * 1000 : item.lastViewedAt),
