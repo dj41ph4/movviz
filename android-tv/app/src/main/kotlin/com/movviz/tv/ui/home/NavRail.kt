@@ -201,15 +201,13 @@ fun NavRail(
     // seulement la colonne elle-même — c'est ce qui fait « se déployer au
     // D-pad vers la gauche » plutôt qu'au survol souris (inexistant sur TV).
     var railFocused by remember { mutableStateOf(false) }
-    val railWidth by animateDpAsState(
-        targetValue = if (railFocused) NAV_RAIL_EXPANDED_WIDTH else NAV_RAIL_COLLAPSED_WIDTH,
-        animationSpec = tween(220),
-        label = "navRailWidth",
-    )
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
-            .width(railWidth)
+            // Le libellé peut se révéler au focus, mais la colonne réservée
+            // au rail reste fixe : aucune navigation D-pad ne doit pousser
+            // ni réduire la grille Films/Séries.
+            .width(NAV_RAIL_COLLAPSED_WIDTH)
             .fillMaxHeight()
             .onFocusChanged { railFocused = it.hasFocus }
             .then(navDownKeyHandler)

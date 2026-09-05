@@ -133,12 +133,12 @@ fun RowDetailScreen(
         if (repository != null) loadPage(1)
     }
 
-    Column(modifier = Modifier.fillMaxSize().padding(start = 48.dp, top = 96.dp, end = 48.dp, bottom = 30.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(start = 52.dp, top = 64.dp, end = 52.dp, bottom = 30.dp)) {
         Text(
             text = resolvedLabel,
-            style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
+            style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
         )
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(24.dp))
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
         when {
             loading && cards.isEmpty() -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 AnimatedLogo(size = 56.dp)
@@ -149,9 +149,9 @@ fun RowDetailScreen(
                 Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 15.sp))
             }
             else -> TvLazyVerticalGrid(
-                columns = TvGridCells.Adaptive(minSize = 230.dp),
-                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(14.dp),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(18.dp),
+                columns = TvGridCells.FixedSize(154.dp),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(16.dp),
+                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(20.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 itemsIndexed(cards, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
@@ -159,6 +159,7 @@ fun RowDetailScreen(
                         card = card,
                         onClick = { onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                         focusRequester = if (index == 0) entryFocusRequester else null,
+                        width = 154.dp,
                         // Même principe portrait sans logo / logo posé au
                         // focus que le catalogue — voir CatalogScreen.kt.
                         aspectRatio = 2f / 3f,

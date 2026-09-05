@@ -102,17 +102,20 @@ fun CatalogScreen(
 
     val topAnchor = remember { FocusRequester() }
 
-    Column(Modifier.fillMaxSize().padding(start = 48.dp, top = 96.dp, end = 48.dp, bottom = 30.dp)) {
+    // Catalogue 10-foot : un inventaire dense et calme, proche de Plex.
+    // Les contrôles restent compacts afin que les premières affiches soient
+    // immédiatement visibles en 1080p comme en 4K.
+    Column(Modifier.fillMaxSize().padding(start = 52.dp, top = 64.dp, end = 52.dp, bottom = 30.dp)) {
         Text(
             text = "${type.label} · ${sorted.size}",
-            style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
+            style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
         )
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(18.dp))
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
         SortRow(sort = sort, onSelect = { sort = it })
-        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(10.dp))
         if (genres.isNotEmpty()) {
             CatalogGenreRow(genres = genres, selected = selectedGenre, onSelect = { selectedGenre = if (selectedGenre?.key == it.key) null else it })
-            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(20.dp))
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
         }
         when {
             sorted.isEmpty() -> Box(
@@ -122,9 +125,9 @@ fun CatalogScreen(
                 Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 15.sp))
             }
             else -> TvLazyVerticalGrid(
-                columns = TvGridCells.Adaptive(minSize = 230.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                columns = TvGridCells.FixedSize(154.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 itemsIndexed(sorted, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
@@ -137,6 +140,7 @@ fun CatalogScreen(
                         // dessus au focus — mais la carte NE grandit PAS en
                         // paysage ici (grille verticale, pas de rangée : un
                         // agrandissement décalerait les cartes voisines).
+                        width = 154.dp,
                         aspectRatio = 2f / 3f,
                         preferPosterArt = true,
                         showCaption = false,

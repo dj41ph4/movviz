@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.53 — September 2026
+
+### Plex réellement additionnel et catalogues TV denses
+
+Les reprises présentes dans Plex ne dépendent plus d’un lien préalable à la bibliothèque Movviz : leurs identifiants TMDb et leurs visuels sont résolus directement, puis fusionnés avec la reprise Movviz par identité et par date réelle. Films, Séries et les écrans « Voir tout » Android TV passent à une grille fixe, dense et stable à 1080p/4K, avec des contrôles plus compacts et sans agrandissement au focus.
+
 ## v1.24.52 — September 2026
 
 ### Reprises réellement unifiées et accueil TV stabilisé
