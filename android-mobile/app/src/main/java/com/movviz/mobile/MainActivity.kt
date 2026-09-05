@@ -90,6 +90,9 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     private val _series = MutableStateFlow<List<LibrarySeriesDto>>(emptyList()); val series = _series.asStateFlow()
     private val _search = MutableStateFlow<List<SearchResultDto>>(emptyList()); val search = _search.asStateFlow()
     private val _queue = MutableStateFlow<List<QueueItemDto>>(emptyList()); val queue = _queue.asStateFlow()
+    // Même route unifiée que le web et Android TV : une reprise Plex ou
+    // Movviz ne doit jamais avoir une version mobile différente.
+    private val _continueWatching = MutableStateFlow<List<OnDeckEntryDto>>(emptyList()); val continueWatching = _continueWatching.asStateFlow()
     private val _heroLogos = MutableStateFlow<Map<String, String>>(emptyMap()); val heroLogos = _heroLogos.asStateFlow()
     private val _detail = MutableStateFlow<MetaDetailDto?>(null); val detail = _detail.asStateFlow()
     private val _detailLoading = MutableStateFlow(false); val detailLoading = _detailLoading.asStateFlow()
@@ -230,6 +233,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
         _series.value = emptyList()
         _search.value = emptyList()
         _queue.value = emptyList()
+        _continueWatching.value = emptyList()
         _heroLogos.value = emptyMap()
         _aiMessages.value = emptyList()
         _aiEnabled.value = null
@@ -335,7 +339,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     // Version non-bloquante pour Compose (évite runBlocking sur le thread UI)
     fun getBaseUrlCached(): String? = cachedBaseUrl
 
-    fun disconnect() { viewModelScope.launch { val base = prefs.serverUrl.first()?.trim()?.trimEnd('/'); if (base != null) profilePrefs.clearServer(base); prefs.clearServerUrl(); ApiClient.clearSession(); repo = null; cachedBaseUrl = null; _state.value = MobileState.Server; _hero.value = emptyList(); _movies.value = emptyList(); _series.value = emptyList(); _search.value = emptyList(); _detail.value = null; _profiles.value = emptyList(); _currentUser.value = null; clearAiMessages(); _aiEnabled.value = null } }
+    fun disconnect() { viewModelScope.launch { val base = prefs.serverUrl.first()?.trim()?.trimEnd('/'); if (base != null) profilePrefs.clearServer(base); prefs.clearServerUrl(); ApiClient.clearSession(); repo = null; cachedBaseUrl = null; _state.value = MobileState.Server; _hero.value = emptyList(); _movies.value = emptyList(); _series.value = emptyList(); _continueWatching.value = emptyList(); _search.value = emptyList(); _detail.value = null; _profiles.value = emptyList(); _currentUser.value = null; clearAiMessages(); _aiEnabled.value = null } }
     fun forgetServer() { disconnect() }
 
     fun search(query: String) { val r = repo ?: return; if (query.trim().length < 2) { _search.value = emptyList(); return }; viewModelScope.launch { (r.search(query.trim()) as? ApiResult.Success)?.let { _search.value = it.data } } }
@@ -369,6 +373,14 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
             }
             launch { loadAiSession() }
             launch { loadQueue() }
+            launch {
+                when (val onDeck = r.onDeckItems()) {
+                    is ApiResult.Success -> _continueWatching.value = onDeck.data
+                    // Une panne Plex ne doit pas vider une reprise affichée
+                    // précédemment ni casser l'accueil mobile.
+                    else -> Unit
+                }
+            }
         }
     }
 
@@ -681,6 +693,7 @@ private data class NavEntry(val icon: ImageVector, val label: String)
     var downloadsOpen by remember { mutableStateOf(false) }
     val entries = remember(user) {
         listOf(
+            NavEntry(Icons.Rounded.Home, "Accueil"),
             NavEntry(Icons.Rounded.Explore, "Découverte"),
             NavEntry(Icons.Rounded.VideoLibrary, "Bibliothèque"),
             NavEntry(Icons.Rounded.Person, user),
@@ -706,13 +719,20 @@ private data class NavEntry(val icon: ImageVector, val label: String)
             },
         ) { padding ->
             when (selected) {
-                0 -> com.movviz.mobile.discover.DiscoverScreen(
+                0 -> {
+                    val hero by vm.hero.collectAsState()
+                    val movies by vm.movies.collectAsState()
+                    val series by vm.series.collectAsState()
+                    val continueWatching by vm.continueWatching.collectAsState()
+                    HomeScreen(padding, hero, movies, series, continueWatching, onTitleClick)
+                }
+                1 -> com.movviz.mobile.discover.DiscoverScreen(
                     padding = padding,
                     vm = vm,
                     onTitleClick = onTitleClick,
                     onDownloads = { downloadsOpen = true },
                 )
-                1 -> com.movviz.mobile.library.LibraryScreen(
+                2 -> com.movviz.mobile.library.LibraryScreen(
                     padding = padding,
                     vm = vm,
                     onTitleClick = onTitleClick,
@@ -803,13 +823,14 @@ private data class NavEntry(val icon: ImageVector, val label: String)
 private data class CardData(val tmdbId: Int, val title: String, val poster: String?, val backdrop: String?, val rating: Double, val type: String)
 
 // ── Accueil — hero 62% viewport + rails Netflix density — logo réel comme desktop ──
-@Composable private fun HomeScreen(padding: PaddingValues, hero: List<DashboardHeroSlideDto>, movies: List<LibraryMovieDto>, series: List<LibrarySeriesDto>, onTitleClick: (String, Int) -> Unit) {
+@Composable private fun HomeScreen(padding: PaddingValues, hero: List<DashboardHeroSlideDto>, movies: List<LibraryMovieDto>, series: List<LibrarySeriesDto>, continueWatching: List<OnDeckEntryDto>, onTitleClick: (String, Int) -> Unit) {
     // On récupère le ViewModel ambient pour les logos (pas de param supplémentaire pour garder MobileShell simple)
     val vm: MobileViewModel = viewModel()
     val logos by vm.heroLogos.collectAsState()
     LaunchedEffect(hero) { if (hero.isNotEmpty()) vm.preloadHeroLogos(hero) }
     LazyColumn(Modifier.fillMaxSize().background(Void), contentPadding = PaddingValues(bottom = 96.dp)) {
         item { Spacer(Modifier.statusBarsPadding().height(56.dp)) }
+        if (continueWatching.isNotEmpty()) item { ResumeRail(continueWatching, onTitleClick) }
         if (hero.isNotEmpty()) {
             val slide = hero.first()
             val logoKey = "${slide.detail.type}-${slide.detail.tmdbId}"
@@ -821,6 +842,35 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
         if (movies.isNotEmpty()) item { Rail("Films dans ta bibliothèque", movies.map { CardData(it.tmdbId, it.title, it.posterPath, it.backdropPath, it.rating, "movie") }, onTitleClick) }
         if (series.isNotEmpty()) item { Rail("Séries dans ta bibliothèque", series.map { CardData(it.tmdbId, it.title, it.posterPath, it.backdropPath, it.rating, "series") }, onTitleClick) }
         item { Text("Continue à explorer — ajoute des titres depuis la recherche.", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = TextFaint, fontSize = 12.sp, lineHeight = 16.sp) }
+    }
+}
+
+/** Même source unique que la TV : les cartes gardent le format mobile, mais
+ * leur contenu, leur progression et leur ordre sont identiques. */
+@Composable private fun ResumeRail(items: List<OnDeckEntryDto>, onTitleClick: (String, Int) -> Unit) {
+    Column(Modifier.padding(bottom = 20.dp)) {
+        Text("Continuer à regarder", Modifier.padding(horizontal = 20.dp, bottom = 12.dp), color = TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(items, key = { "${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}" }) { item ->
+                Column(Modifier.width(124.dp).clickable { onTitleClick(if (item.type == "movie") "movie" else "series", item.tmdbId) }) {
+                    Box(Modifier.fillMaxWidth().height(186.dp).clip(MovvizCardShape).background(SurfaceCard)) {
+                        val image = item.posterPath?.let { POSTER + it }
+                        AsyncImage(image, item.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        LinearProgressIndicator(
+                            progress = { (item.progressPercent.coerceIn(0, 100) / 100f) },
+                            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(4.dp),
+                            color = VioletSoft,
+                            trackColor = Color.White.copy(alpha = 0.20f),
+                        )
+                    }
+                    Text(item.title ?: "—", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 7.dp))
+                    item.seasonNumber?.let { season ->
+                        val episode = item.episodeNumber?.let { " · E$it" } ?: ""
+                        Text("S$season$episode", color = TextSoft, fontSize = 11.sp, maxLines = 1)
+                    }
+                }
+            }
+        }
     }
 }
 

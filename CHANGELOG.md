@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.54 — September 2026
+
+### Accueil Android mobile unifié
+
+Android mobile reçoit un véritable onglet Accueil : les reprises « Continuer à regarder » arrivent en premier, puis le hero et les rails de bibliothèque. Cette rangée consomme exactement la route unifiée par utilisateur déjà utilisée par le web et Android TV ; progression, prochain épisode et ordre Plex/Movviz restent donc identiques sur les trois plateformes.
+
 ## v1.24.53 — September 2026
 
 ### Plex réellement additionnel et catalogues TV denses
