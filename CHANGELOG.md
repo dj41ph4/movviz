@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.56 — September 2026
+
+### APK Android mobile publié
+
+La marge du titre de la rangée de reprise utilise maintenant la surcharge Compose correcte ; la CI peut finaliser l’APK smartphone et l’attacher à la release.
+
 ## v1.24.55 — September 2026
 
 ### Correctif publication Android mobile

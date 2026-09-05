@@ -849,7 +849,7 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
  * leur contenu, leur progression et leur ordre sont identiques. */
 @Composable private fun ResumeRail(items: List<OnDeckEntryDto>, onTitleClick: (String, Int) -> Unit) {
     Column(Modifier.padding(bottom = 20.dp)) {
-        Text("Continuer à regarder", Modifier.padding(horizontal = 20.dp, bottom = 12.dp), color = TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        Text("Continuer à regarder", Modifier.padding(start = 20.dp, top = 0.dp, end = 20.dp, bottom = 12.dp), color = TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(items, key = { "${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}" }) { item ->
                 Column(Modifier.width(124.dp).clickable { onTitleClick(if (item.type == "movie") "movie" else "series", item.tmdbId) }) {
