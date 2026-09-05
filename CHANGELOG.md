@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.51 — September 2026
+
+### Android TV — reprises prioritaires et cartes calibrées salon
+
+La rangée « Continuer à regarder » est toujours placée en tête dès qu'une reprise existe, même si une ancienne disposition du dashboard l'avait masquée. Les cartes de l'accueil retrouvent des proportions adaptées à un écran TV : la sélection s'ouvre en paysage sans remplacer toute la rangée. Les reprises complètent désormais le visuel Plex avec le backdrop Movviz sans texte lorsqu'il est disponible.
+
 ## v1.24.50 — September 2026
 
 ### TV — logo officiel généralisé et grille de navigation corrigée

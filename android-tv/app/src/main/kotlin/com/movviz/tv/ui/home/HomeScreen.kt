@@ -212,24 +212,33 @@ fun HomeScreen(
         rating = item.rating,
     )
 
-    val continueCards = remember(continueWatching) {
+    val continueCards = remember(continueWatching, movies, series) {
         // Une même reprise peut être remontée deux fois pendant la fusion
         // locale/Plex. Une ligne TV ne doit jamais l'afficher deux fois — et
         // TvLazyRow exige des clés uniques. L'ordre de l'API est conservé,
         // donc la première (la plus récente) reste la référence visuelle.
-        continueWatching.map {
+        continueWatching.map { resume ->
+            // Plex/on-deck fournit le poster et la position, mais pas le
+            // backdrop. On complète avec l'entrée Movviz correspondante :
+            // une reprise obtient ainsi le même visuel sans logo imprimé que
+            // les autres rangées, quelle que soit sa plateforme d'origine.
+            val libraryBackdrop = if (resume.type == "movie") {
+                movies.firstOrNull { it.tmdbId == resume.tmdbId }?.let { it.customBackdropPath ?: it.backdropPath }
+            } else {
+                series.firstOrNull { it.tmdbId == resume.tmdbId }?.let { it.customBackdropPath ?: it.backdropPath }
+            }
             TvTitleCard(
-                id = "cw-${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}",
-                title = it.title ?: "—",
-                posterPath = it.posterPath,
-                backdropPath = null,
-                tmdbId = it.tmdbId,
-                isMovie = it.type == "movie",
-                rating = it.rating,
-                progressPercent = it.progressPercent,
-                resumeSeasonNumber = it.seasonNumber,
-                resumeEpisodeNumber = it.episodeNumber,
-                resumeEpisodeTitle = it.episodeTitle,
+                id = "cw-${resume.type}-${resume.tmdbId}-${resume.seasonNumber}-${resume.episodeNumber}",
+                title = resume.title ?: "—",
+                posterPath = resume.posterPath,
+                backdropPath = libraryBackdrop,
+                tmdbId = resume.tmdbId,
+                isMovie = resume.type == "movie",
+                rating = resume.rating,
+                progressPercent = resume.progressPercent,
+                resumeSeasonNumber = resume.seasonNumber,
+                resumeEpisodeNumber = resume.episodeNumber,
+                resumeEpisodeTitle = resume.episodeTitle,
             )
         }.distinctBy { it.id }
     }
@@ -338,7 +347,7 @@ fun HomeScreen(
         dashboardLayout.sections, continueCards, recommendationCards, shortSessionCards,
         trendingCards, availableNowCards, comingSoonCards,
     ) {
-        dashboardLayout.sections.filter { it.visible }.mapNotNull { section ->
+        val configured = dashboardLayout.sections.filter { it.visible }.mapNotNull { section ->
             val hasContent = when (section.id) {
                 "continueWatching" -> continueCards.isNotEmpty()
                 "becauseYouLike" -> recommendationCards.isNotEmpty()
@@ -349,6 +358,14 @@ fun HomeScreen(
                 else -> false
             }
             section.id.takeIf { hasContent }
+        }
+        // La reprise est une promesse fonctionnelle, pas une option de mise
+        // en page : si le compte a un média à reprendre, cette rangée reste
+        // systématiquement la première, même si une ancienne disposition de
+        // dashboard l'avait masquée ou déplacée.
+        buildList {
+            if (continueCards.isNotEmpty()) add("continueWatching")
+            addAll(configured.filter { it != "continueWatching" })
         }
     }
     val firstVisibleSection = visibleSections.firstOrNull()
@@ -1085,11 +1102,13 @@ internal fun TitleRow(
                     // Chaque titre démarre en affiche portrait. Le focus le
                     // déploie horizontalement en 16:9, à hauteur constante,
                     // comme dans la référence Netflix.
-                    width = 154.dp,
+                    // Taille calibrée pour 1080p : la rangée reste un
+                    // catalogue et ne se transforme jamais en hero.
+                    width = 96.dp,
                     aspectRatio = 2f / 3f,
                     preferPosterArt = true,
                     expandToLandscapeOnFocus = true,
-                    expandedWidth = 410.dp,
+                    expandedWidth = 250.dp,
                     showCaption = false,
                     showTechnicalBadges = false,
                     titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
@@ -1388,17 +1407,10 @@ internal fun PosterCard(
                         }
                     }
                 }
-                // Le logo officiel remplace le titre sous la carte active.
-                // Aucun doublon texte : il vit dans l'image, comme le desktop,
-                // et disparaît avec le focus plutôt que de surcharger la rangée.
-                // Deux terrains l'utilisent : une rangée qui s'ouvre en
-                // paysage (expands) ET une grille qui reste en portrait fixe
-                // (catalogue, "voir tout") — là le logo se pose directement
-                // sur l'affiche au focus, sans jamais agrandir la carte (une
-                // grille verticale ne peut pas grandir sans décaler ses
-                // voisines). La taille du logo suit displayWidth dans les
-                // deux cas, donc s'adapte que la carte soit repliée ou non.
-                val showLogo = titleLogoPath != null && (expands || (focused && !expandToLandscapeOnFocus))
+                // Le logo officiel remplace le titre sous les cartes. Il
+                // reste volontairement compact : sur une TV une carte de
+                // rangée ne doit jamais devenir une bannière.
+                val showLogo = titleLogoPath != null && (expandToLandscapeOnFocus || (focused && !expandToLandscapeOnFocus))
                 if (showLogo) {
                     Image(
                         painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),
@@ -1407,11 +1419,11 @@ internal fun PosterCard(
                         alignment = Alignment.BottomStart,
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(if (expands) 16.dp else 10.dp)
-                            .heightIn(max = if (expands) 54.dp else 40.dp)
-                            .widthIn(max = (displayWidth - 20.dp).coerceAtLeast(60.dp)),
+                            .padding(if (expands) 12.dp else 7.dp)
+                            .heightIn(max = if (expands) 34.dp else 21.dp)
+                            .widthIn(max = if (expands) 135.dp else 76.dp),
                     )
-                } else if (focused && !expandToLandscapeOnFocus) {
+                } else if (expandToLandscapeOnFocus || (focused && !expandToLandscapeOnFocus)) {
                     // Grilles (catalogue, "voir tout") : contrairement à
                     // TitleRow, qui affiche un bandeau de contexte sous la
                     // rangée pour la carte active, une grille verticale n'a
@@ -1420,15 +1432,15 @@ internal fun PosterCard(
                     // muet au focus — rien n'identifiait la carte avant OK.
                     Text(
                         text = card.title,
-                        style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White),
-                        maxLines = 2,
+                        style = TextStyle(fontSize = if (expands) 14.sp else 9.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                        maxLines = if (expands) 2 else 3,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(10.dp)
-                            .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 7.dp, vertical = 4.dp)
-                            .widthIn(max = (displayWidth - 20.dp).coerceAtLeast(60.dp)),
+                            .padding(if (expands) 12.dp else 7.dp)
+                            .background(Color.Black.copy(alpha = 0.52f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 5.dp, vertical = 3.dp)
+                            .widthIn(max = if (expands) 135.dp else 76.dp),
                     )
                 }
                 // Même paire de pastilles que la grille bibliothèque desktop
