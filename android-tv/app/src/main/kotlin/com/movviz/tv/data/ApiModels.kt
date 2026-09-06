@@ -93,6 +93,53 @@ data class LibrarySeriesDto(
 data class InterfaceDashboardDto(
     val movies: List<InterfaceMovieDto?>? = emptyList(),
     val series: List<InterfaceSeriesDto?>? = emptyList(),
+    /** Concrete new files, not just parent shows.  Mobile uses this to show
+     * the useful “what episode just arrived?” shelf. */
+    val recentEpisodes: List<InterfaceRecentEpisodeDto?>? = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class InterfaceRecentEpisodeDto(
+    val tmdbId: Int? = null,
+    val title: String? = null,
+    val episodeTitle: String? = null,
+    val seasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val posterPath: String? = null,
+    val backdropPath: String? = null,
+    val customBackdropPath: String? = null,
+    val rating: Double? = null,
+    val addedAt: Long? = null,
+) {
+    fun toRecentEpisodeOrNull(): RecentEpisodeDto? {
+        val safeTmdbId = tmdbId?.takeIf { it > 0 } ?: return null
+        val safeTitle = title?.takeIf { it.isNotBlank() } ?: return null
+        val safeSeason = seasonNumber?.takeIf { it >= 0 } ?: return null
+        val safeEpisode = episodeNumber?.takeIf { it > 0 } ?: return null
+        return RecentEpisodeDto(
+            tmdbId = safeTmdbId,
+            seriesTitle = safeTitle,
+            episodeTitle = episodeTitle?.takeIf { it.isNotBlank() } ?: "Épisode $safeEpisode",
+            seasonNumber = safeSeason,
+            episodeNumber = safeEpisode,
+            posterPath = posterPath,
+            backdropPath = customBackdropPath ?: backdropPath,
+            rating = rating ?: 0.0,
+            addedAt = addedAt ?: 0L,
+        )
+    }
+}
+
+data class RecentEpisodeDto(
+    val tmdbId: Int,
+    val seriesTitle: String,
+    val episodeTitle: String,
+    val seasonNumber: Int,
+    val episodeNumber: Int,
+    val posterPath: String?,
+    val backdropPath: String?,
+    val rating: Double,
+    val addedAt: Long,
 )
 
 @JsonClass(generateAdapter = true)

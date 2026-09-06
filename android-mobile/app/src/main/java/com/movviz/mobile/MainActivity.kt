@@ -89,6 +89,10 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     private val _hero = MutableStateFlow<List<DashboardHeroSlideDto>>(emptyList()); val hero = _hero.asStateFlow()
     private val _movies = MutableStateFlow<List<LibraryMovieDto>>(emptyList()); val movies = _movies.asStateFlow()
     private val _series = MutableStateFlow<List<LibrarySeriesDto>>(emptyList()); val series = _series.asStateFlow()
+    // Chaque entrée décrit le fichier arrivé (SxxExx), et non simplement la
+    // série : une nouvelle saison reste donc visible même pour une série déjà
+    // ancienne dans la bibliothèque.
+    private val _recentEpisodes = MutableStateFlow<List<RecentEpisodeDto>>(emptyList()); val recentEpisodes = _recentEpisodes.asStateFlow()
     private val _search = MutableStateFlow<List<SearchResultDto>>(emptyList()); val search = _search.asStateFlow()
     private val _queue = MutableStateFlow<List<QueueItemDto>>(emptyList()); val queue = _queue.asStateFlow()
     // Même route unifiée que le web et Android TV : une reprise Plex ou
@@ -400,6 +404,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
                         // planter tout l'écran d'accueil mobile.
                         _movies.value = snapshot.data.movies.orEmpty().mapNotNull { it?.toLibraryMovieOrNull() }
                         _series.value = snapshot.data.series.orEmpty().mapNotNull { it?.toLibrarySeriesOrNull() }
+                        _recentEpisodes.value = snapshot.data.recentEpisodes.orEmpty().mapNotNull { it?.toRecentEpisodeOrNull() }
                     }
                     else -> {
                         (r.movies() as? ApiResult.Success)?.let { _movies.value = it.data }
@@ -808,12 +813,13 @@ private data class NavEntry(val icon: ImageVector, val label: String)
                     val hero by vm.hero.collectAsState()
                     val movies by vm.movies.collectAsState()
                     val series by vm.series.collectAsState()
+                    val recentEpisodes by vm.recentEpisodes.collectAsState()
                     val continueWatching by vm.continueWatching.collectAsState()
                     val movieRows by vm.movieRows.collectAsState()
                     val seriesRows by vm.seriesRows.collectAsState()
                     val movieRecommendations by vm.movieRecommendations.collectAsState()
                     val seriesRecommendations by vm.seriesRecommendations.collectAsState()
-                    HomeScreen(padding, hero, movies, series, continueWatching, movieRows, seriesRows, movieRecommendations, seriesRecommendations, onTitleClick)
+                    HomeScreen(padding, hero, movies, series, recentEpisodes, continueWatching, movieRows, seriesRows, movieRecommendations, seriesRecommendations, onTitleClick)
                 }
                 1 -> com.movviz.mobile.discover.DiscoverScreen(
                     padding = padding,
@@ -943,6 +949,7 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
     hero: List<DashboardHeroSlideDto>,
     movies: List<LibraryMovieDto>,
     series: List<LibrarySeriesDto>,
+    recentEpisodes: List<RecentEpisodeDto>,
     continueWatching: List<OnDeckEntryDto>,
     movieRows: List<MetadataRowDto>,
     seriesRows: List<MetadataRowDto>,
@@ -987,6 +994,7 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
     LazyColumn(Modifier.fillMaxSize().background(Void), contentPadding = PaddingValues(bottom = 96.dp)) {
         item { MovvizHomeHeader() }
         if (continueWatching.isNotEmpty()) item { ResumeRail(continueWatching, onTitleClick) }
+        if (recentEpisodes.isNotEmpty()) item { RecentEpisodesRail(recentEpisodes, onTitleClick) }
         if (hero.isNotEmpty()) {
             val slide = hero.first()
             val logoKey = "${slide.detail.type}-${slide.detail.tmdbId}"
@@ -1004,6 +1012,34 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
         if (trends.isNotEmpty()) item { Rail("Tendances Movviz", trends, onTitleClick) }
         if (comingSoon.isNotEmpty()) item { Rail("Prochainement", comingSoon, onTitleClick) }
         item { Text("Continue à explorer — ajoute des titres depuis la recherche.", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = TextFaint, fontSize = 12.sp, lineHeight = 16.sp) }
+    }
+}
+
+/** Files that really arrived last, sorted by the server on file.addedAt.
+ * They are library metadata (shared media presence), not watched history:
+ * profile-specific views remain exclusively in the watch-status endpoint. */
+@Composable private fun RecentEpisodesRail(items: List<RecentEpisodeDto>, onTitleClick: (String, Int) -> Unit) {
+    Column(Modifier.padding(bottom = 20.dp)) {
+        Text("Épisodes récemment ajoutés", Modifier.padding(start = 20.dp, top = 0.dp, end = 20.dp, bottom = 12.dp), color = TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(items.take(20), key = { "${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}-${it.addedAt}" }) { item ->
+                Column(Modifier.width(124.dp).clickable { onTitleClick("series", item.tmdbId) }) {
+                    Box(Modifier.fillMaxWidth().height(186.dp).clip(MovvizCardShape).background(SurfaceCard)) {
+                        AsyncImage(item.posterPath?.let { POSTER + it }, item.seriesTitle, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+                        Text(
+                            "S${item.seasonNumber} · E${item.episodeNumber}",
+                            Modifier.align(Alignment.BottomStart).padding(6.dp).clip(CapsuleShape).background(Color.Black.copy(alpha = .72f)).padding(horizontal = 7.dp, vertical = 3.dp),
+                            color = TextPrimary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Spacer(Modifier.height(7.dp))
+                    Text(item.seriesTitle, color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(item.episodeTitle, color = TextSoft, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
     }
 }
 

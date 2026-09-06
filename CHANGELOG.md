@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.62 — September 2026
+
+### Épisodes récemment ajoutés sur l’accueil mobile
+
+L’accueil smartphone affiche maintenant une rangée dédiée aux épisodes réellement arrivés en dernier dans la bibliothèque, qu’ils viennent d’un import Plex ou de Movviz. Chaque carte conserve la série, le titre de l’épisode et son repère `Sxx · Exx`, et ouvre directement la fiche de la série. Cette rangée est distincte des reprises et des vues : elle décrit les fichiers disponibles, sans exposer l’historique d’un autre profil.
+
 ## v1.24.61 — September 2026
 
 ### Vues Plex strictement isolées par profil
