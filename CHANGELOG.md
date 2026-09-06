@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.60 — September 2026
+
+### Accueil mobile personnel et signature Movviz
+
+L’accueil mobile distingue maintenant clairement ce qui existe déjà dans la bibliothèque du profil et les titres à découvrir : la première rangée mélange films et séries réellement disponibles, puis les recommandations personnelles excluent les œuvres déjà possédées, vues ou refusées. Un mot-symbole Movviz compact ancre aussi la page, dans l’esprit de la signature Plex, sans réduire l’espace consacré aux contenus.
+
 ## v1.24.59 — September 2026
 
 ### Reprises mobile et lecture de séries réparées

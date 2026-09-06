@@ -49,6 +49,7 @@ import com.movviz.tv.data.*
 import com.movviz.mobile.playback.PlaybackService
 import com.movviz.mobile.ui.theme.AnimatedLogo
 import com.movviz.mobile.ui.theme.MovvizWordmark
+import com.movviz.mobile.ui.theme.StaticLogo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -963,9 +964,14 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
         val shows = seriesRows.firstOrNull { it.key == "trendingPopular" || it.key == "trending" }?.results.orEmpty().map(::searchCard)
         movie.interleaveMobile(shows).distinctBy { "${it.type}-${it.tmdbId}" }.take(20)
     }
-    val recentlyAdded = remember(movies, series) {
-        val movie = movies.filter { it.status == "available" }.map { it.addedAt to CardData(it.tmdbId, it.title, it.posterPath, it.customBackdropPath ?: it.backdropPath, it.rating, "movie") }
-        val shows = series.filter { it.hasAvailableEpisode }.map { it.addedAt to CardData(it.tmdbId, it.title, it.posterPath, it.customBackdropPath ?: it.backdropPath, it.rating, "series") }
+    // Une surface Plex efficace alterne ce que l'on possède déjà et ce qui
+    // mérite d'être découvert. Cette rangée est la bibliothèque réelle du
+    // profil (Plex/Movviz), pas une suggestion qui ressemble à une possession.
+    val libraryMix = remember(movies, series) {
+        val movie = movies.filter { it.status == "available" }
+            .map { it.addedAt to CardData(it.tmdbId, it.title, it.posterPath, it.customBackdropPath ?: it.backdropPath, it.rating, "movie") }
+        val shows = series.filter { it.hasAvailableEpisode }
+            .map { it.addedAt to CardData(it.tmdbId, it.title, it.posterPath, it.customBackdropPath ?: it.backdropPath, it.rating, "series") }
         (movie + shows).sortedByDescending { it.first }.map { it.second }.take(20)
     }
     val shortSessions = remember(movies) {
@@ -979,7 +985,7 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
             .map { CardData(it.tmdbId, it.title, it.posterPath, it.customBackdropPath ?: it.backdropPath, it.rating, "movie") }.take(20)
     }
     LazyColumn(Modifier.fillMaxSize().background(Void), contentPadding = PaddingValues(bottom = 96.dp)) {
-        item { Spacer(Modifier.statusBarsPadding().height(56.dp)) }
+        item { MovvizHomeHeader() }
         if (continueWatching.isNotEmpty()) item { ResumeRail(continueWatching, onTitleClick) }
         if (hero.isNotEmpty()) {
             val slide = hero.first()
@@ -989,12 +995,31 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
         } else {
             item { Box(Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(320.dp).clip(HeroShape).background(Surface), contentAlignment = Alignment.Center) { Text("Aucun titre à la une", color = TextMuted, fontSize = 14.sp) } }
         }
-        if (suggestions.isNotEmpty()) item { Rail("Sélection pour vous", suggestions, onTitleClick) }
+        if (libraryMix.isNotEmpty()) item { Rail("Dans votre bibliothèque", libraryMix, onTitleClick) }
+        // getRecommendations exclut déjà les titres possédés, vus et refusés
+        // du profil. La promesse visuelle est donc honnête : ce rail contient
+        // uniquement de nouvelles idées dérivées des goûts réels.
+        if (suggestions.isNotEmpty()) item { Rail("À découvrir pour vous", suggestions, onTitleClick) }
         if (shortSessions.isNotEmpty()) item { Rail("Moins de 40 minutes", shortSessions, onTitleClick) }
         if (trends.isNotEmpty()) item { Rail("Tendances Movviz", trends, onTitleClick) }
-        if (recentlyAdded.isNotEmpty()) item { Rail("Ajoutés récemment", recentlyAdded, onTitleClick) }
         if (comingSoon.isNotEmpty()) item { Rail("Prochainement", comingSoon, onTitleClick) }
         item { Text("Continue à explorer — ajoute des titres depuis la recherche.", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = TextFaint, fontSize = 12.sp, lineHeight = 16.sp) }
+    }
+}
+
+/** Marque compacte, à la manière d'un mot-symbole Plex : elle ancre l'accueil
+ * sans gaspiller l'espace vertical réservé aux contenus. */
+@Composable private fun MovvizHomeHeader() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(9.dp),
+    ) {
+        StaticLogo(28.dp)
+        MovvizWordmark(fontSize = 24.sp)
     }
 }
 
