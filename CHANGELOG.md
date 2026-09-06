@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.61 — September 2026
+
+### Vues Plex strictement isolées par profil
+
+La synchronisation des vues Plex résout désormais systématiquement le profil Plex lié par API vers son compte local du serveur Plex avant de lire l’historique. En cas de doute, l’import est refusé : aucune vue d’un autre profil ne peut être ajoutée ou effacée. L’ouverture de Movviz déclenche aussi une synchronisation fraîche, limitée par profil, au lieu d’attendre le cycle de fond. Les marquages effectués dans Movviz continuent à être envoyés vers ce même profil Plex uniquement.
+
 ## v1.24.60 — September 2026
 
 ### Accueil mobile personnel et signature Movviz

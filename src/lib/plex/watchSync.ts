@@ -52,33 +52,33 @@ export async function syncUserWatchStatus(user: User) {
   const cloudAccountId = rawAccountId ? Number(rawAccountId) : null;
   if (cloudAccountId == null || Number.isNaN(cloudAccountId)) return;
 
-  // Bug fix (confirmed live via the diagnostic log — the owner and every
-  // Home-managed profile got "aucun historique Plex retourné" on literally
-  // every single sync cycle, while externally-shared friend accounts always
-  // worked): getAccountHistory's accountID filter is keyed to the PMS's own
-  // LOCAL accounts table (small sequential integers, owner conventionally
-  // id 1), not to the plex.tv CLOUD id stored in plexId/plexManagedUserId.
-  // Friends authenticate against the server with their own real plex.tv
-  // token, so Plex happens to register them locally under that same id —
-  // the owner and Home-managed profiles (PMS-local-only, no token of their
-  // own) never do. Resolve the real local id by matching Plex username for
-  // those two cases only; friends keep their already-correct cloud id.
+  // accountID is in the PMS-local id space, not the plex.tv id space.  It is
+  // tempting to use the cloud id for external friends, but that only happens
+  // to work on some servers.  Resolve every profile through the local account
+  // table, otherwise a coincidental id can import somebody else's history.
+  // Privacy wins over a best-effort sync: without an exact identity match we
+  // leave this Movviz profile untouched.
   const isOwner = !!user.plexToken && user.plexToken === cfg.adminToken;
   const isHomeManaged = !!user.plexManagedUserId;
-  let accountId = cloudAccountId;
-  if (isOwner || isHomeManaged) {
-    const plexUsername = isOwner
-      ? (await getPlexAccount(cfg.clientId, cfg.adminToken))?.username ?? null
-      : (await getPlexHomeUsers(cfg.adminToken)).find((h) => h.id === user.plexManagedUserId)?.title ?? null;
-    const match = plexUsername
-      ? (await getLocalAccounts(cfg, cfg.adminToken)).find((a) => a.name.toLowerCase() === plexUsername.toLowerCase())
-      : undefined;
-    // No match found: fall back to the (known-wrong) cloud id rather than
-    // skip the sync outright — same "no history, keep previous data"
-    // outcome as before for a case this fix doesn't cover yet, instead of
-    // a new silent failure mode.
-    if (match) accountId = match.id;
+  const plexUsername = isOwner
+    ? (await getPlexAccount(cfg.clientId, cfg.adminToken))?.username ?? null
+    : isHomeManaged
+      ? (await getPlexHomeUsers(cfg.adminToken)).find((h) => h.id === user.plexManagedUserId)?.title ?? null
+      : user.plexToken
+        ? (await getPlexAccount(cfg.clientId, user.plexToken))?.username ?? null
+        : null;
+  const match = plexUsername
+    ? (await getLocalAccounts(cfg, cfg.adminToken)).find((a) => a.name.trim().toLocaleLowerCase() === plexUsername.trim().toLocaleLowerCase())
+    : undefined;
+  if (!match) {
+    recordSearchLog(
+      "warn",
+      "plex.watchSync",
+      `${user.username} (plexId:${cloudAccountId}): profil Plex non résolu de façon certaine — aucune vue Plex importée, données Movviz conservées.`
+    );
+    return;
   }
+  const accountId = match.id;
 
   try {
     const historyResult = await getAccountHistory(cfg, cfg.adminToken, accountId);
@@ -87,16 +87,15 @@ export async function syncUserWatchStatus(user: User) {
     if (history.length === 0) {
       const previous = getWatchStatus(user.id);
       const rejected = historyResult.rejectedForeignEntries + historyResult.rejectedUnattributedEntries;
-      // A response containing only another account's events is positive
-      // evidence of a Plex-side scope failure.  Clear the previously imported
-      // state rather than leave the owner's watched history visible forever.
-      // Local playback/reprise lives in progressStore and is not touched.
-      if (rejected > 0 && previous) {
-        saveWatchStatus({ userId: user.id, movies: [], episodes: [], recent: [], updatedAt: Date.now() });
+      // A response containing another account's events is positive evidence
+      // of a Plex-side scope failure.  Do NOT clear the aggregate status:
+      // it also contains views made locally in Movviz and has no source bit
+      // on legacy rows.  Ignoring this import is the only safe operation.
+      if (rejected > 0) {
         recordSearchLog(
           "warn",
           "plex.watchSync",
-          `${user.username} (plexId:${accountId}): ${rejected} événement(s) Plex d'un autre compte rejeté(s) — état Plex importé vidé, progression Movviz conservée.`
+          `${user.username} (plexId:${accountId}): ${rejected} événement(s) Plex non attribuables/rejeté(s) — import ignoré, données de ce profil Movviz conservées.`
         );
         return;
       }
@@ -228,4 +227,28 @@ export async function syncUserWatchStatus(user: User) {
       `${user.username} (plexId:${accountId}): échec de synchronisation — ${msg} — données précédentes conservées`
     );
   }
+}
+
+type WatchSyncGate = Map<string, { at: number; promise: Promise<void> }>;
+
+function syncGate(): WatchSyncGate {
+  const root = globalThis as typeof globalThis & { __movvizWatchSyncGate?: WatchSyncGate };
+  return (root.__movvizWatchSyncGate ??= new Map());
+}
+
+/**
+ * Freshness gate for interactive clients.  The scheduler remains the
+ * background safety net, but opening Movviz now pulls the current Plex
+ * profile immediately.  The gate is keyed by Movviz user id — never by a
+ * shared Plex server — so two profiles can neither wait on nor receive each
+ * other's state.
+ */
+export async function syncUserWatchStatusIfDue(user: User, minIntervalMs = 30_000): Promise<void> {
+  const gate = syncGate();
+  const current = gate.get(user.id);
+  const now = Date.now();
+  if (current && now - current.at < minIntervalMs) return current.promise;
+  const promise = syncUserWatchStatus(user).catch(() => undefined);
+  gate.set(user.id, { at: now, promise });
+  await promise;
 }
