@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -51,6 +53,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.movviz.mobile.MobileViewModel
+import com.movviz.tv.data.OnDeckEntryDto
+import com.movviz.tv.data.RecentEpisodeDto
 import com.movviz.mobile.ui.theme.MovvizAmber
 import com.movviz.mobile.ui.theme.MovvizBrand
 import com.movviz.mobile.ui.theme.MovvizBrand2
@@ -67,6 +71,12 @@ private enum class LibrarySort(val label: String) {
     NAME("Nom"),
     RATING("Note"),
     YEAR("Année"),
+}
+
+private enum class LibraryMode(val label: String) {
+    RECOMMENDED("Recommandé"),
+    BROWSE("Parcourir"),
+    COLLECTIONS("Collections"),
 }
 
 private data class LibraryCard(
@@ -89,8 +99,11 @@ private data class LibraryCard(
 internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleClick: (String, Int) -> Unit, onDownloads: () -> Unit = {}) {
     val movies by vm.movies.collectAsState()
     val series by vm.series.collectAsState()
+    val continueWatching by vm.continueWatching.collectAsState()
+    val recentEpisodes by vm.recentEpisodes.collectAsState()
 
     var isMovies by remember { mutableStateOf(true) }
+    var mode by remember { mutableStateOf(LibraryMode.RECOMMENDED) }
     var sort by remember { mutableStateOf(LibrarySort.NAME) }
     var selectedGenre by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }
@@ -121,7 +134,7 @@ internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleC
     Column(Modifier.fillMaxSize().background(Color.Black)) {
         Column(Modifier.statusBarsPadding().padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Bibliothèque", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, modifier = Modifier.weight(1f))
+                Text(if (isMovies) "Films" else "Séries TV", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp, modifier = Modifier.weight(1f))
                 IconButton(onClick = onDownloads) { Icon(Icons.Rounded.Download, "Téléchargements du serveur", tint = Color.White, modifier = Modifier.size(27.dp)) }
             }
             Spacer(Modifier.height(12.dp))
@@ -130,71 +143,79 @@ internal fun LibraryScreen(padding: PaddingValues, vm: MobileViewModel, onTitleC
                 TypePill("Séries", Icons.Rounded.Tv, !isMovies) { isMovies = false; selectedGenre = null; query = "" }
             }
             Spacer(Modifier.height(10.dp))
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MovvizInkDim, modifier = Modifier.size(19.dp)) },
-                trailingIcon = {
-                    if (query.isNotEmpty()) {
-                        IconButton(onClick = { query = "" }) {
-                            Icon(Icons.Rounded.Close, "Effacer", tint = MovvizInkDim, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                },
-                placeholder = { Text("Rechercher dans la bibliothèque…", color = MovvizInkDim, fontSize = 13.sp) },
-                textStyle = TextStyle(fontSize = 14.sp, color = MovvizInk),
-                shape = RoundedCornerShape(14.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.White.copy(alpha = 0.28f),
-                    unfocusedBorderColor = Color.White.copy(alpha = 0.10f),
-                    focusedContainerColor = Color(0xFF181818),
-                    unfocusedContainerColor = Color(0xFF181818),
-                    focusedTextColor = MovvizInk,
-                    unfocusedTextColor = MovvizInk,
-                    cursorColor = MovvizInk,
-                ),
-            )
-        }
-
-        Row(Modifier.padding(horizontal = 20.dp).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LibrarySort.entries.forEach { option ->
-                SortChip(option.label, sort == option) { sort = option }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                LibraryMode.entries.forEach { option -> LibraryModeTab(option, mode == option) { mode = option } }
             }
-        }
-        if (genres.isNotEmpty() && query.isBlank()) {
-            LazyRow(
-                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(genres) { g ->
-                    GenreChip(g, selectedGenre == g) { selectedGenre = if (selectedGenre == g) null else g }
-                }
-            }
-        }
-
-        when {
-            sorted.isEmpty() -> Box(Modifier.fillMaxSize().padding(top = 40.dp), contentAlignment = Alignment.TopCenter) {
-                Text(
-                    if (query.isBlank()) "Aucun titre pour le moment" else "Aucun titre de ta bibliothèque ne correspond à « $query »",
-                    color = MovvizInkDim,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(horizontal = 24.dp),
+            if (mode == LibraryMode.BROWSE) {
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(), singleLine = true,
+                    leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MovvizInkDim, modifier = Modifier.size(19.dp)) },
+                    trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, "Effacer", tint = MovvizInkDim, modifier = Modifier.size(18.dp)) } },
+                    placeholder = { Text("Rechercher dans la bibliothèque…", color = MovvizInkDim, fontSize = 13.sp) }, textStyle = TextStyle(fontSize = 14.sp, color = MovvizInk), shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color.White.copy(alpha = 0.28f), unfocusedBorderColor = Color.White.copy(alpha = 0.10f), focusedContainerColor = Color(0xFF181818), unfocusedContainerColor = Color(0xFF181818), focusedTextColor = MovvizInk, unfocusedTextColor = MovvizInk, cursorColor = MovvizInk),
                 )
             }
-            else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = padding.calculateBottomPadding() + 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp),
-            ) {
-                items(sorted, key = { "${it.isMovie}-${it.tmdbId}" }) { c ->
-                    LibraryPosterCard(c, onClick = { onTitleClick(if (c.isMovie) "movie" else "series", c.tmdbId) })
+        }
+
+        when (mode) {
+            LibraryMode.RECOMMENDED -> LibraryRecommended(
+                isMovies = isMovies, cards = cards, continueWatching = continueWatching, recentEpisodes = recentEpisodes,
+                bottomPadding = padding.calculateBottomPadding() + 24.dp, onTitleClick = onTitleClick,
+            )
+            LibraryMode.COLLECTIONS -> LibraryCollections(cards, bottomPadding = padding.calculateBottomPadding() + 24.dp, onTitleClick = onTitleClick)
+            LibraryMode.BROWSE -> {
+                Row(Modifier.padding(horizontal = 20.dp).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LibrarySort.entries.forEach { option -> SortChip(option.label, sort == option) { sort = option } }
+                }
+                if (genres.isNotEmpty() && query.isBlank()) LazyRow(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(genres) { g -> GenreChip(g, selectedGenre == g) { selectedGenre = if (selectedGenre == g) null else g } }
+                }
+                if (sorted.isEmpty()) Box(Modifier.fillMaxSize().padding(top = 40.dp), contentAlignment = Alignment.TopCenter) {
+                    Text(if (query.isBlank()) "Aucun titre pour le moment" else "Aucun titre de ta bibliothèque ne correspond à « $query »", color = MovvizInkDim, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 24.dp))
+                } else LazyVerticalGrid(columns = GridCells.Fixed(3), contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = padding.calculateBottomPadding() + 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    items(sorted, key = { "${it.isMovie}-${it.tmdbId}" }) { c -> LibraryPosterCard(c, onClick = { onTitleClick(if (c.isMovie) "movie" else "series", c.tmdbId) }) }
                 }
             }
         }
     }
+}
+
+@Composable private fun LibraryModeTab(mode: LibraryMode, active: Boolean, onClick: () -> Unit) {
+    Text(mode.label, Modifier.clip(RoundedCornerShape(24.dp)).background(if (active) Color.White.copy(.14f) else Color.Transparent).clickable(onClick = onClick).padding(horizontal = 13.dp, vertical = 8.dp), color = if (active) Color.White else MovvizInkSoft, fontSize = 15.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold)
+}
+
+@Composable private fun LibraryRecommended(isMovies: Boolean, cards: List<LibraryCard>, continueWatching: List<OnDeckEntryDto>, recentEpisodes: List<RecentEpisodeDto>, bottomPadding: androidx.compose.ui.unit.Dp, onTitleClick: (String, Int) -> Unit) {
+    val resume = continueWatching.filter { if (isMovies) it.type == "movie" else it.type == "episode" }
+    val recent = cards.sortedByDescending { it.year ?: 0 }.take(20)
+    val bestRated = cards.sortedByDescending { it.rating }.take(20)
+    val episodes = recentEpisodes.take(20)
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomPadding)) {
+        if (resume.isNotEmpty()) item { LibraryResumeRow(resume, onTitleClick) }
+        if (!isMovies && episodes.isNotEmpty()) item { LibraryEpisodeRow(episodes, onTitleClick) }
+        if (recent.isNotEmpty()) item { LibraryCardRow(if (isMovies) "Ajoutés récemment dans Films" else "Ajoutés récemment dans Séries TV", recent, onTitleClick) }
+        if (bestRated.isNotEmpty()) item { LibraryCardRow(if (isMovies) "Les mieux notés" else "Séries les mieux notées", bestRated, onTitleClick) }
+    }
+}
+
+@Composable private fun LibraryCollections(cards: List<LibraryCard>, bottomPadding: androidx.compose.ui.unit.Dp, onTitleClick: (String, Int) -> Unit) {
+    val groups = cards.flatMap { it.genres }.distinct().sorted().take(8)
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = bottomPadding)) {
+        if (groups.isEmpty()) item { Text("Aucune collection détectée", Modifier.padding(20.dp), color = MovvizInkDim) }
+        groups.forEach { genre -> item { LibraryCardRow(genre, cards.filter { genre in it.genres }.sortedByDescending { it.rating }.take(20), onTitleClick) } }
+    }
+}
+
+@Composable private fun LibraryCardRow(title: String, cards: List<LibraryCard>, onTitleClick: (String, Int) -> Unit) {
+    Column(Modifier.padding(top = 18.dp)) { Text(title, Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = MovvizInk, fontSize = 20.sp, fontWeight = FontWeight.Bold); LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(cards, key = { it.tmdbId }) { card -> Box(Modifier.width(116.dp)) { LibraryPosterCard(card) { onTitleClick(if (card.isMovie) "movie" else "series", card.tmdbId) } } } } }
+}
+
+@Composable private fun LibraryResumeRow(items: List<OnDeckEntryDto>, onTitleClick: (String, Int) -> Unit) {
+    Column(Modifier.padding(top = 18.dp)) { Text("Reprendre", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = MovvizInk, fontSize = 20.sp, fontWeight = FontWeight.Bold); LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(items, key = { "${it.type}-${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}" }) { item -> Column(Modifier.width(116.dp).clickable { onTitleClick(if (item.type == "movie") "movie" else "series", item.tmdbId) }) { Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(CardShape).background(MovvizSurfaceStrong)) { AsyncImage(item.posterPath?.let { POSTER_SM + it }, item.title, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) }; Spacer(Modifier.height(5.dp)); Text(item.title ?: "—", color = MovvizInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis); item.seasonNumber?.let { Text("S$it · E${item.episodeNumber ?: "?"}", color = MovvizInkDim, fontSize = 11.sp) } } } } }
+}
+
+@Composable private fun LibraryEpisodeRow(items: List<RecentEpisodeDto>, onTitleClick: (String, Int) -> Unit) {
+    Column(Modifier.padding(top = 18.dp)) { Text("Épisodes récemment ajoutés", Modifier.padding(horizontal = 20.dp, vertical = 8.dp), color = MovvizInk, fontSize = 20.sp, fontWeight = FontWeight.Bold); LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { items(items, key = { "${it.tmdbId}-${it.seasonNumber}-${it.episodeNumber}-${it.addedAt}" }) { item -> Column(Modifier.width(116.dp).clickable { onTitleClick("series", item.tmdbId) }) { Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).clip(CardShape).background(MovvizSurfaceStrong)) { AsyncImage(item.posterPath?.let { POSTER_SM + it }, item.seriesTitle, Modifier.fillMaxSize(), contentScale = ContentScale.Crop); Text("S${item.seasonNumber} · E${item.episodeNumber}", Modifier.align(Alignment.BottomStart).padding(5.dp).clip(RoundedCornerShape(6.dp)).background(Color.Black.copy(.75f)).padding(horizontal = 5.dp, vertical = 2.dp), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.height(5.dp)); Text(item.seriesTitle, color = MovvizInk, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis); Text(item.episodeTitle, color = MovvizInkDim, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) } } } }
 }
 
 @Composable

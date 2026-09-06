@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.64 — September 2026
+
+### Bibliothèque mobile Films et Séries façon Plex
+
+Chaque onglet Films ou Séries TV dispose maintenant de trois vues distinctes : **Recommandé**, avec les reprises puis des rangées d’affiches ; **Parcourir**, une grille locale dense avec recherche, tri et genres ; et **Collections**, des rangées par univers de la bibliothèque. Les épisodes récemment ajoutés apparaissent dans Recommandé des Séries avec leur affiche, leur série et `Sxx · Exx`.
+
 ## v1.24.63 — September 2026
 
 ### Accueil mobile recentré sur les reprises
