@@ -368,6 +368,19 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
 
     fun loadQueue() { val r = repo ?: return; viewModelScope.launch { when (val q = r.queue()) { is ApiResult.Success -> _queue.value = q.data.filter { it.status != "completed" && it.status != "seeding" }; else -> Unit } } }
 
+    /** Recharge la reprise au moment où une surface qui l'affiche devient
+     * visible. Cela évite de garder une réponse vide obtenue pendant le
+     * démarrage du profil, ou une liste devenue obsolète après Plex. */
+    fun loadContinueWatching() {
+        val r = repo ?: return
+        viewModelScope.launch {
+            when (val onDeck = r.onDeckItems()) {
+                is ApiResult.Success -> _continueWatching.value = onDeck.data.sortedByDescending { it.lastPlayedAt }
+                else -> Unit // conserve la dernière liste valide à l'écran
+            }
+        }
+    }
+
     private fun refresh(r: MovvizRepository) {
         viewModelScope.launch {
             launch {
@@ -397,7 +410,11 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
             launch { loadQueue() }
             launch {
                 when (val onDeck = r.onDeckItems()) {
-                    is ApiResult.Success -> _continueWatching.value = onDeck.data
+                    // L'API unifiée porte la vraie date/heure de lecture de
+                    // chaque source (Movviz ou Plex). Le client ne sépare pas
+                    // les types à cet endroit : Accueil doit conserver le mix
+                    // films + séries dans cet ordre unique.
+                    is ApiResult.Success -> _continueWatching.value = onDeck.data.sortedByDescending { it.lastPlayedAt }
                     // Une panne Plex ne doit pas vider une reprise affichée
                     // précédemment ni casser l'accueil mobile.
                     else -> Unit
@@ -757,6 +774,12 @@ private data class NavEntry(val icon: ImageVector, val label: String)
         detailStack = detailStack + (type to tmdbId)
         vm.loadDetail(type, tmdbId)
     }
+    // Accueil et Découverte consomment tous deux la reprise unifiée. La
+    // recharge à chaque entrée de ces onglets couvre les retours depuis la
+    // fiche/le lecteur et le démarrage asynchrone de la session Plex.
+    LaunchedEffect(selected) {
+        if (selected == 0 || selected == 1) vm.loadContinueWatching()
+    }
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         Scaffold(
@@ -986,7 +1009,10 @@ private fun <T> List<T>.interleaveMobile(other: List<T>): List<T> = buildList {
 
 /** Même source unique que la TV : les cartes gardent le format mobile, mais
  * leur contenu, leur progression et leur ordre sont identiques. */
-@Composable private fun ResumeRail(items: List<OnDeckEntryDto>, onTitleClick: (String, Int) -> Unit) {
+/** Rangée de reprise unique, réutilisée par Accueil (mix films+séries) et
+ *  Découverte (filtrée par son onglet). L'ordre est fourni par le serveur et
+ *  revalidé au chargement sur [OnDeckEntryDto.lastPlayedAt]. */
+@Composable internal fun ResumeRail(items: List<OnDeckEntryDto>, onTitleClick: (String, Int) -> Unit) {
     Column(Modifier.padding(bottom = 20.dp)) {
         Text("Continuer à regarder", Modifier.padding(start = 20.dp, top = 0.dp, end = 20.dp, bottom = 12.dp), color = TextPrimary, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {

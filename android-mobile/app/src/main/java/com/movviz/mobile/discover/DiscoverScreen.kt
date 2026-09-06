@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.movviz.mobile.MobileViewModel
+import com.movviz.mobile.ResumeRail
 import com.movviz.mobile.ui.CardLibState
 import com.movviz.mobile.ui.StatusButton
 import com.movviz.mobile.ui.cardLibState
@@ -53,6 +54,7 @@ import com.movviz.mobile.ui.theme.MovvizSurface
 import com.movviz.mobile.ui.theme.MovvizSurfaceStrong
 import com.movviz.tv.data.LibraryMovieDto
 import com.movviz.tv.data.LibrarySeriesDto
+import com.movviz.tv.data.OnDeckEntryDto
 import kotlinx.coroutines.launch
 
 private const val BACKDROP_SM = "https://image.tmdb.org/t/p/w300"
@@ -117,6 +119,7 @@ internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitle
 
     val moviesState by vm.movies.collectAsState()
     val seriesState by vm.series.collectAsState()
+    val continueWatching by vm.continueWatching.collectAsState()
 
     val mediaType by discoverVm.mediaType.collectAsState()
     val rows by discoverVm.rows.collectAsState()
@@ -134,6 +137,15 @@ internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitle
     val browseLoadingMore by discoverVm.browseLoadingMore.collectAsState()
 
     val isBrowsing = selectedGenreId != null || activeRowKey != null || searchQueryVm.isNotBlank()
+    // Découverte garde une reprise par onglet : Films ne contient que les
+    // films, Séries seulement les séries. Le tri reste l'horloge commune de
+    // la route unifiée (date et heure exactes de dernière lecture).
+    val typedContinueWatching = remember(continueWatching, mediaType) {
+        continueWatching.asSequence()
+            .filter { it.type == mediaType }
+            .sortedByDescending(OnDeckEntryDto::lastPlayedAt)
+            .toList()
+    }
     // « Suggestions pour vous » est la surface bibliothèque de Movviz : le
     // moteur peut connaître bien plus de titres, mais cette rangée conserve
     // uniquement ceux disponibles pour CE profil, pas un faux bouton Ajouter.
@@ -219,6 +231,7 @@ internal fun DiscoverScreen(padding: PaddingValues, vm: MobileViewModel, onTitle
                 DiscoverHomeRows(
                     heroSlides = heroSlides, heroLogos = heroLogos,
                     rows = rows, libraryRecommendations = localRecommendations, loading = rowsLoading, moviesState = moviesState, seriesState = seriesState,
+                    continueWatching = typedContinueWatching,
                     vm = vm, onTitleClick = onTitleClick, onSeeAll = { key, meta -> discoverVm.seeAllRow(key, meta) },
                     bottomPadding = padding.calculateBottomPadding() + 24.dp,
                 )
@@ -293,6 +306,7 @@ private fun DiscoverHomeRows(
     loading: Boolean,
     moviesState: List<LibraryMovieDto>,
     seriesState: List<LibrarySeriesDto>,
+    continueWatching: List<OnDeckEntryDto>,
     vm: MobileViewModel,
     onTitleClick: (String, Int) -> Unit,
     onSeeAll: (String, DiscoverRowMetaDto?) -> Unit,
@@ -308,6 +322,11 @@ private fun DiscoverHomeRows(
                 }
             }
         } else {
+            if (continueWatching.isNotEmpty()) {
+                item(key = "continue-watching") {
+                    ResumeRail(continueWatching, onTitleClick)
+                }
+            }
             if (heroSlides.isNotEmpty()) {
                 item(key = "desktop-synced-hero") {
                     DesktopSyncedHeroCarousel(heroSlides, heroLogos, moviesState, seriesState, vm, onTitleClick)

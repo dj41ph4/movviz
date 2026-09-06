@@ -21,7 +21,13 @@ fun episodePlaybackTarget(
     seasonNumber: Int,
     episodeNumber: Int,
 ): EpisodePlaybackTarget? {
-    val localSeriesId = seriesId?.takeIf { playbackSource == "movviz" }
+    // Les anciennes entrées Movviz n'avaient pas toujours playbackSource.
+    // Sans ratingKey Plex, elles ne peuvent pas être Plex : les traiter comme
+    // locales rétablit la lecture sans risquer d'envoyer un épisode Plex vers
+    // la route locale. Une vraie clé Plex garde toujours priorité.
+    val localSeriesId = seriesId?.takeIf {
+        playbackSource == "movviz" || (playbackSource == null && plexRatingKey == null)
+    }
     return when {
         localSeriesId != null -> EpisodePlaybackTarget(
             ratingKey = plexRatingKey ?: "$localSeriesId:s${seasonNumber}e${episodeNumber}",

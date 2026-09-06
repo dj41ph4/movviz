@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.59 — September 2026
+
+### Reprises mobile et lecture de séries réparées
+
+Accueil recharge désormais la liste de reprise unifiée à chaque retour dans l’onglet et conserve le mélange films/séries, trié par date et heure de dernière lecture. Découverte réemploie cette même source dans ses onglets séparés Films et Séries. La lecture mobile récupère aussi les anciennes entrées d’épisodes locaux sans champ de source, sans détourner un épisode Plex vers la source locale.
+
 ## v1.24.58 — September 2026
 
 ### Vues synchronisées, épisode par épisode
