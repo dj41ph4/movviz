@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.63 — September 2026
+
+### Accueil mobile recentré sur les reprises
+
+La grande carte « À la une » est retirée de l’accueil smartphone. Les reprises restent la première rangée après l’en-tête, suivies des épisodes récemment ajoutés, puis de la bibliothèque et des découvertes. Ajouter une rangée ne peut plus déplacer ni remplacer « Reprendre ».
+
 ## v1.24.62 — September 2026
 
 ### Épisodes récemment ajoutés sur l’accueil mobile

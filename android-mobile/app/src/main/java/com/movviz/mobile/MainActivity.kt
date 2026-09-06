@@ -810,7 +810,6 @@ private data class NavEntry(val icon: ImageVector, val label: String)
         ) { padding ->
             when (selected) {
                 0 -> {
-                    val hero by vm.hero.collectAsState()
                     val movies by vm.movies.collectAsState()
                     val series by vm.series.collectAsState()
                     val recentEpisodes by vm.recentEpisodes.collectAsState()
@@ -819,7 +818,7 @@ private data class NavEntry(val icon: ImageVector, val label: String)
                     val seriesRows by vm.seriesRows.collectAsState()
                     val movieRecommendations by vm.movieRecommendations.collectAsState()
                     val seriesRecommendations by vm.seriesRecommendations.collectAsState()
-                    HomeScreen(padding, hero, movies, series, recentEpisodes, continueWatching, movieRows, seriesRows, movieRecommendations, seriesRecommendations, onTitleClick)
+                    HomeScreen(padding, movies, series, recentEpisodes, continueWatching, movieRows, seriesRows, movieRecommendations, seriesRecommendations, onTitleClick)
                 }
                 1 -> com.movviz.mobile.discover.DiscoverScreen(
                     padding = padding,
@@ -943,10 +942,9 @@ private data class NavEntry(val icon: ImageVector, val label: String)
 
 private data class CardData(val tmdbId: Int, val title: String, val poster: String?, val backdrop: String?, val rating: Double, val type: String)
 
-// ── Accueil — hero 62% viewport + rails Netflix density — logo réel comme desktop ──
+// ── Accueil — rangées denses, la reprise passe toujours avant le reste ──
 @Composable private fun HomeScreen(
     padding: PaddingValues,
-    hero: List<DashboardHeroSlideDto>,
     movies: List<LibraryMovieDto>,
     series: List<LibrarySeriesDto>,
     recentEpisodes: List<RecentEpisodeDto>,
@@ -957,10 +955,6 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
     seriesRecommendations: List<SearchResultDto>,
     onTitleClick: (String, Int) -> Unit,
 ) {
-    // On récupère le ViewModel ambient pour les logos (pas de param supplémentaire pour garder MobileShell simple)
-    val vm: MobileViewModel = viewModel()
-    val logos by vm.heroLogos.collectAsState()
-    LaunchedEffect(hero) { if (hero.isNotEmpty()) vm.preloadHeroLogos(hero) }
     fun searchCard(item: SearchResultDto) = CardData(item.tmdbId, item.title, item.posterPath, item.backdropPath, item.rating, item.type)
     val suggestions = remember(movieRecommendations, seriesRecommendations) {
         movieRecommendations.map(::searchCard).interleaveMobile(seriesRecommendations.map(::searchCard))
@@ -993,16 +987,11 @@ private data class CardData(val tmdbId: Int, val title: String, val poster: Stri
     }
     LazyColumn(Modifier.fillMaxSize().background(Void), contentPadding = PaddingValues(bottom = 96.dp)) {
         item { MovvizHomeHeader() }
+        // La reprise est volontairement la première surface de contenu. Une
+        // rangée ajoutée ensuite (comme les épisodes récents) ne peut jamais
+        // la remplacer ni passer devant elle.
         if (continueWatching.isNotEmpty()) item { ResumeRail(continueWatching, onTitleClick) }
         if (recentEpisodes.isNotEmpty()) item { RecentEpisodesRail(recentEpisodes, onTitleClick) }
-        if (hero.isNotEmpty()) {
-            val slide = hero.first()
-            val logoKey = "${slide.detail.type}-${slide.detail.tmdbId}"
-            val logoPath = logos[logoKey]
-            item { HeroCard(slide, logoPath, onTitleClick) }
-        } else {
-            item { Box(Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(320.dp).clip(HeroShape).background(Surface), contentAlignment = Alignment.Center) { Text("Aucun titre à la une", color = TextMuted, fontSize = 14.sp) } }
-        }
         if (libraryMix.isNotEmpty()) item { Rail("Dans votre bibliothèque", libraryMix, onTitleClick) }
         // getRecommendations exclut déjà les titres possédés, vus et refusés
         // du profil. La promesse visuelle est donc honnête : ce rail contient
