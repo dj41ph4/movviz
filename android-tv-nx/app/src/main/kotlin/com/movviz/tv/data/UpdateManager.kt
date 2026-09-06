@@ -60,7 +60,7 @@ class UpdateManager(private val context: Context) {
     private val releaseAdapter = moshi.adapter(ReleaseDto::class.java)
 
     /** Nom de l'asset publié par le workflow CI. */
-    private val expectedAssetName = "Movviz-Android-TV-client.apk"
+    private val expectedAssetName = "Movviz-NX-Android-TV-client.apk"
 
     /** Retourne la mise à jour à appliquer, ou null si à jour / indisponible. */
     suspend fun checkForUpdate(): UpdateInfo? = withContext(Dispatchers.IO) {

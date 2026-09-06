@@ -57,6 +57,7 @@ fun MainScreen(
     // barre reçoit le focus quand l'utilisateur appuie sur HAUT alors que
     // plus rien ne se trouve au-dessus dans le contenu.
     navRailFocusRequester: FocusRequester? = null,
+    onHomeScrollChanged: (Boolean) -> Unit = {},
 ) {
     val focusManager = LocalFocusManager.current
     Box(
@@ -87,7 +88,7 @@ fun MainScreen(
                 showSearchField = false,
                 resultFocusRequester = contentFocusRequester,
             )
-            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester)
+            tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged)
             tab == HomeTab.DISCOVER -> DiscoverScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow, onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)

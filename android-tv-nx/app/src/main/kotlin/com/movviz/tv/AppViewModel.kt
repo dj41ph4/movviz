@@ -25,6 +25,7 @@ import com.movviz.tv.data.TvProfile
 import com.movviz.tv.data.SeriesSeasonDto
 import com.movviz.tv.data.UserPrefsDto
 import com.movviz.tv.data.WatchStatusDto
+import com.movviz.tv.data.TvPreviewDto
 import com.movviz.tv.data.ProfileMediaResponseDto
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -252,6 +253,18 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     private val repository: MovvizRepository?
         get() = _serverUrl.value?.let { MovvizRepository(it) }
+
+    // Petit cache TV : une bascule D-pad ne doit pas re-résoudre ni les
+    // trailers directs ni les clés YouTube déjà vus dans cette session.
+    private val previewCache = LinkedHashMap<String, TvPreviewDto>()
+    suspend fun loadTvPreview(type: String, tmdbId: Int): TvPreviewDto? {
+        val key = "$type:$tmdbId"
+        previewCache[key]?.let { return it }
+        val value = (repository?.tvPreview(type, tmdbId) as? ApiResult.Success)?.data ?: return null
+        if (previewCache.size >= 12) previewCache.remove(previewCache.entries.first().key)
+        previewCache[key] = value
+        return value
+    }
 
     /** Fiche déjà en bibliothèque pour ce titre — même logique que
      *  TitleContent côté web (croiser tmdbId+type avec les listes déjà

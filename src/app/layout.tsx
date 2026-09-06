@@ -24,7 +24,7 @@ export const metadata: Metadata = {
   },
   description: DESCRIPTION,
   manifest: "/manifest.json",
-  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  icons: { icon: "/brand/movviz-logo.png", apple: "/brand/movviz-logo.png" },
   openGraph: {
     title: "Movviz — Centre de commande média intelligent",
     description: DESCRIPTION,

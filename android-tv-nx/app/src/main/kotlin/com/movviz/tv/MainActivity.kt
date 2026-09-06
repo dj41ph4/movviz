@@ -138,6 +138,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     var tab by remember { mutableStateOf(HomeTab.HOME) }
     var searchOpen by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
+    var headerHasScrolled by remember { mutableStateOf(false) }
     // Cible D-pad « premier élément réel du contenu affiché » — la NavRail
     // tente de viser ceci en premier pour que la flèche bas depuis N'IMPORTE
     // quel item de la barre y descende directement (au lieu de compter sur
@@ -250,12 +251,14 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             if (routeShowsNavRail(currentRoute)) {
                 NxTopNav(
                     selected = tab,
+                    hasScrolled = headerHasScrolled,
                     onSelect = { newTab ->
                         if (currentRoute?.startsWith("home") != true) {
                             navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
                         }
                         tab = newTab
                         searchOpen = false
+                        headerHasScrolled = false
                     },
                     searchOpen = searchOpen,
                     searchQuery = searchQuery,
@@ -283,6 +286,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                         }
                         tab = HomeTab.PROFILE
                         searchOpen = false
+                        headerHasScrolled = false
                     },
                     onSwitchProfile = {
                         navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
@@ -460,6 +464,7 @@ composable(ROUTE_PROFILES) {
                 contentFocusRequester = contentFocusRequester,
                 fallbackFocusRequester = fallbackFocusRequester,
                 navRailFocusRequester = navRailFocusRequester,
+                onHomeScrollChanged = { headerHasScrolled = it },
             )
         }
         composable(

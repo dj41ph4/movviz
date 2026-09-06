@@ -399,6 +399,10 @@ fun TitleDetailScreen(
     // classique fait défiler/composer les rangées de saisons normalement
     // (même mécanisme que la ligne Films → Séries de l'accueil).
     val initialFocusRequester = entryFocusRequester ?: remember { FocusRequester() }
+    // Toujours repartir au début réel de la fiche à son ouverture. Sans ce
+    // reset, le focus initial sur un CTA pouvait conserver un offset LazyRow
+    // précédent et masquer logo/titre sous la navigation.
+    val lazyListState = rememberTvLazyListState()
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
     val hasFocusableCta = when {
         type == "movie" && plexRatingKey != null -> true
@@ -409,6 +413,7 @@ fun TitleDetailScreen(
         if (hasRequestedInitialFocus) return@LaunchedEffect
         if (detail == null) return@LaunchedEffect
         hasRequestedInitialFocus = true
+        lazyListState.scrollToItem(0)
         // Le tout premier `item{}` composé peut prendre une frame — on
         // retente sur quelques frames plutôt que de laisser un crash D-pad
         // silencieux (constaté en direct) sortir l'utilisateur de l'app.
@@ -429,7 +434,6 @@ fun TitleDetailScreen(
     // plafonné et invisible de toute façon. L'image fait 640dp pour 560dp
     // visibles : les 80dp de marge absorbent la translation sans jamais
     // révéler de trou sous le dégradé.
-    val lazyListState = rememberTvLazyListState()
     val parallaxOffset by remember {
         derivedStateOf {
             val scroll = if (lazyListState.firstVisibleItemIndex == 0) {
@@ -527,22 +531,31 @@ fun TitleDetailScreen(
                 .fillMaxSize()
                 .padding(start = 56.dp, end = 56.dp, bottom = 40.dp),
             state = lazyListState,
-            contentPadding = PaddingValues(top = 56.dp),
+            // La barre supérieure flotte au-dessus du backdrop : une zone
+            // sûre explicite empêche logo, titre et première ligne de passer
+            // sous elle, en 1080p comme en 4K.
+            contentPadding = PaddingValues(top = 112.dp),
         ) {
             item {
-            if (!hasFocusableCta) {
-                // Ancrage de focus invisible — série déjà en bibliothèque,
-                // donc aucun CTA généré plus bas dans ce même `item{}` (voir
-                // hasFocusableCta) : sans cible focusable garantie composée
-                // dès le premier rendu, le focus D-pad n'a nulle part où
-                // atterrir en entrant sur la fiche.
-                Box(
-                    modifier = Modifier
-                        .size(1.dp)
-                        .focusRequester(initialFocusRequester)
-                        .focusable(),
-                )
+            // Ancre de sommet de fiche. Elle est volontairement large afin
+            // que la recherche spatiale du D-pad la trouve depuis n'importe
+            // quel CTA/section situé plus bas. Elle rend le premier UP à la
+            // fiche (logo/titre), et seul le UP suivant peut atteindre la
+            // barre principale. Sans elle, DetailUpToNavHandler envoyait
+            // directement l'utilisateur vers la nav car aucun voisin haut
+            // focusable n'existait dans la fiche.
+            var topAnchorFocused by remember { mutableStateOf(false) }
+            LaunchedEffect(topAnchorFocused) {
+                if (topAnchorFocused) lazyListState.animateScrollToItem(0)
             }
+            Box(
+                modifier = Modifier
+                    .width(720.dp)
+                    .height(4.dp)
+                    .let { if (!hasFocusableCta) it.focusRequester(initialFocusRequester) else it }
+                    .focusable()
+                    .onFocusChanged { topAnchorFocused = it.isFocused },
+            )
             if (titleLogoPath != null) {
                 Image(
                     painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),

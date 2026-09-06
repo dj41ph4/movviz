@@ -33,9 +33,6 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.focus.FocusRequester
@@ -52,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyColumn
 import androidx.tv.foundation.lazy.list.TvLazyRow
+import androidx.tv.foundation.lazy.list.rememberTvLazyListState
 import androidx.tv.foundation.lazy.list.itemsIndexed as tvItemsIndexed
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -173,6 +171,7 @@ fun HomeScreen(
     // Ne jamais l'employer depuis une carte : TvLazyColumn doit d'abord
     // résoudre la rangée précédente et faire défiler le contenu.
     navRailFocusRequester: FocusRequester? = null,
+    onScrollChanged: (Boolean) -> Unit = {},
 ) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -379,10 +378,18 @@ fun HomeScreen(
     val showHero = heroItems.isNotEmpty()
     val contentFocus = entryFocusRequester ?: remember { FocusRequester() }
     val topAnchor = remember { FocusRequester() }
+    val listState = rememberTvLazyListState()
+    val hasScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 12
+        }
+    }
+    LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
 
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         TvLazyColumn(
             modifier = Modifier.fillMaxSize(),
+            state = listState,
             // Le rail possède désormais sa propre colonne hors de cet écran.
             // Le hero peut donc occuper toute la largeur de la zone contenu,
             // sans marge à gauche ni recouvrement sous la navigation. Les
@@ -811,7 +818,12 @@ internal fun HeroCarousel(
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.White, contentColor = Color.Black),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = Color.White,
+                        focusedContainerColor = Color.White,
+                        contentColor = Color.Black,
+                        focusedContentColor = Color.Black,
+                    ),
                     border = ClickableSurfaceDefaults.border(
                         focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(6.dp)),
                     ),
@@ -844,7 +856,12 @@ internal fun HeroCarousel(
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
                     shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp)),
-                    colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.15f), contentColor = Color.White),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = Color.White.copy(alpha = 0.15f),
+                        focusedContainerColor = Color.White.copy(alpha = 0.26f),
+                        contentColor = Color.White,
+                        focusedContentColor = Color.White,
+                    ),
                     border = ClickableSurfaceDefaults.border(
                         focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)), shape = RoundedCornerShape(6.dp)),
                     ),
@@ -1124,13 +1141,6 @@ internal fun TitleRow(
                 item(contentType = "see-all") { SeeAllTile(onClick = onSeeAll) }
             }
         }
-        focusedCardState.value?.let { focused ->
-            NxFocusedPreview(
-                card = focused,
-                logoPath = titleLogoPaths["${if (focused.isMovie) "movie" else "series"}-${focused.tmdbId}"],
-                index = items.indexOf(focused).coerceAtLeast(0),
-            )
-        }
         // Précharge l'affiche ET le backdrop de la carte active, puis des
         // deux suivantes. La transition portrait → paysage ne doit jamais
         // révéler un fond vide pendant que Coil télécharge le backdrop.
@@ -1160,37 +1170,6 @@ internal fun TitleRow(
                             .size(Size(1280, 720))
                             .build()
                     )
-                }
-            }
-        }
-    }
-}
-
-/** Mini-fiche Netflix indépendante de la LazyRow : elle ne modifie jamais
- * la taille/position des posters voisins. */
-@Composable
-private fun NxFocusedPreview(card: TvTitleCard, logoPath: String?, index: Int) {
-    val safeX = (52 + index * 144).coerceAtMost(1180)
-    Popup(
-        alignment = Alignment.TopStart,
-        offset = IntOffset(safeX, 260),
-        properties = PopupProperties(focusable = false, dismissOnBackPress = false, dismissOnClickOutside = false),
-    ) {
-        Box(
-            modifier = Modifier.width(360.dp).zIndex(20f)
-                .background(Color(0xFF18191E), RoundedCornerShape(12.dp))
-                .clip(RoundedCornerShape(12.dp)),
-        ) {
-            Column {
-                val art = card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" } ?: card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
-                if (art != null) Image(
-                    painter = rememberAsyncImagePainter(art), contentDescription = card.title,
-                    contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(176.dp),
-                )
-                Column(Modifier.padding(14.dp)) {
-                    Text(card.title, style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(listOfNotNull(card.genres.firstOrNull(), card.year?.toString(), card.runtime?.let { "$it min" }).joinToString("  ·  "), style = TextStyle(fontSize = 12.sp, color = Color(0xFFB3B3B3)), modifier = Modifier.padding(top = 5.dp))
-                    if (card.overview.isNotBlank()) Text(card.overview, style = TextStyle(fontSize = 12.sp, color = Color(0xFFB3B3B3)), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         }

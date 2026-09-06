@@ -22,6 +22,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Card
+import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Text
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.ProfileMediaCardDto
@@ -51,7 +52,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.profileRail(title: St
             Text(title, color = Color.White, modifier = Modifier.padding(bottom = 10.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(cards) { card ->
-                    Card(onClick = {}, modifier = Modifier.fillMaxWidth(0.22f)) {
+                    // Jamais de fond blanc au focus : les libellés blancs
+                    // restent ainsi lisibles à distance dans tous les états.
+                    Card(
+                        onClick = {},
+                        modifier = Modifier.fillMaxWidth(0.22f),
+                        colors = CardDefaults.colors(
+                            containerColor = Color(0xFF19171E),
+                            focusedContainerColor = Color(0xFF302A3A),
+                            contentColor = Color.White,
+                            focusedContentColor = Color.White,
+                        ),
+                    ) {
                         Column(modifier = Modifier.padding(14.dp)) {
                             Text(card.title, color = Color.White, maxLines = 2)
                             card.progress?.let { Text("${(it.ratio * 100).toInt()} %", color = MovvizInkDim) }

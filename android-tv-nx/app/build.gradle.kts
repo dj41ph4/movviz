@@ -29,11 +29,9 @@ android {
         // Repli ci-dessous : build local (Android Studio) sans CI.
         versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 10000
         versionName = (project.findProperty("movvizVersionName") as String?) ?: "0.1.0-nx"
-        // Canal unique depuis le retrait de la variante retail : l'APK livré
-        // s'auto-met à jour via GitHub au lancement (voir UpdateManager).
-        // NX n'est pas encore une release remplaçante : aucune mise à jour
-        // automatique ne peut installer l'ancien APK TV à sa place.
-        buildConfigField("boolean", "AUTO_UPDATE", "false")
+        // Canal NX retail distinct : même clé de signature que TV classique,
+        // mais asset GitHub et applicationId propres, donc jamais d'écrasement.
+        buildConfigField("boolean", "AUTO_UPDATE", "true")
     }
 
     signingConfigs {

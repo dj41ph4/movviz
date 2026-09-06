@@ -125,9 +125,12 @@ fun CatalogScreen(
                 Text(text = "Aucun titre pour le moment", color = MovvizInkDim, style = TextStyle(fontSize = 15.sp))
             }
             else -> TvLazyVerticalGrid(
-                columns = TvGridCells.FixedSize(154.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp),
+                // 132dp donne 6 à 7 affiches lisibles en 1080p (et davantage
+                // en 4K) : assez dense pour une bibliothèque TV, sans devenir
+                // une mosaïque illisible à trois mètres.
+                columns = TvGridCells.FixedSize(132.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
                 modifier = Modifier.fillMaxSize(),
             ) {
                 itemsIndexed(sorted, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
@@ -140,10 +143,13 @@ fun CatalogScreen(
                         // dessus au focus — mais la carte NE grandit PAS en
                         // paysage ici (grille verticale, pas de rangée : un
                         // agrandissement décalerait les cartes voisines).
-                        width = 154.dp,
+                        width = 132.dp,
                         aspectRatio = 2f / 3f,
                         preferPosterArt = true,
-                        showCaption = false,
+                        // La bibliothèque n'est pas une rangée éditoriale :
+                        // titre + année restent visibles au repos pour ne pas
+                        // obliger l'utilisateur à focaliser chaque affiche.
+                        showCaption = true,
                         titleLogoPath = heroLogos["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
                         onFocusedChange = { focused ->
                             if (focused) viewModel.requestHeroLogo(if (card.isMovie) "movie" else "series", card.tmdbId)

@@ -61,6 +61,9 @@ jobs:
             keytool -genkeypair -v -keystore "$keystore" -storetype PKCS12 -alias "$key_alias" -keyalg RSA -keysize 4096 -validity 10000 -storepass "$store_password" -keypass "$key_password" -dname "CN=Movviz, OU=Android TV, O=Movviz, C=BE"
           fi
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$keystore" "$store_password" "$key_alias" "$key_password" > android-tv/keystore.properties
+          # NX est un canal TV séparé, mais doit être signé par la même clé
+          # retail pour pouvoir se mettre à jour par-dessus lui-même.
+          cp android-tv/keystore.properties android-tv-nx/keystore.properties
 
       # Sans ceci, versionName/versionCode restaient figés à leur valeur par
       # défaut dans build.gradle.kts quel que soit le tag publié — l'app
@@ -101,18 +104,38 @@ jobs:
         run: |
           cp android-tv/app/build/outputs/apk/release/app-release.apk android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk
 
+      - name: Build NX retail APK
+        working-directory: android-tv-nx
+        run: |
+          gradle assembleRelease --no-daemon \
+            ${{ steps.ver.outputs.name != '' && format('-PmovvizVersionName={0} -PmovvizVersionCode={1}', steps.ver.outputs.name, steps.ver.outputs.code) || '' }}
+
+      - name: Rename NX retail APK
+        run: |
+          cp android-tv-nx/app/build/outputs/apk/release/app-release.apk android-tv-nx/app/build/outputs/apk/release/Movviz-NX-Android-TV-client.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Movviz-Android-TV-client
           path: android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk
 
+      - name: Upload NX APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Movviz-NX-Android-TV-client
+          path: android-tv-nx/app/build/outputs/apk/release/Movviz-NX-Android-TV-client.apk
+
       - name: Attach APK to release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk
+          files: |
+            android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk
+            android-tv-nx/app/build/outputs/apk/release/Movviz-NX-Android-TV-client.apk
           append_body: true
           body: |
             ---
             **Movviz-Android-TV-client.apk** — client Android TV unique (Kotlin/Compose), signé pour installation retail et intégrant l'auto-update. Il vérifie les releases GitHub au lancement, télécharge et installe la prochaine version compatible par-dessus l'existante, sans perte de données.
+
+            **Movviz-NX-Android-TV-client.apk** — canal retail NX séparé, signé avec la même clé. Son auto-update ne télécharge que cet APK NX et ne remplace jamais Movviz TV.

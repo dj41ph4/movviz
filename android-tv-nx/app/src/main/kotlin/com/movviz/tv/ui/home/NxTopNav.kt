@@ -1,27 +1,39 @@
 package com.movviz.tv.ui.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.tv.data.TvProfile
+import com.movviz.tv.R
 
 /** Navigation NX: très peu de chrome, sans réserver une colonne au contenu. */
 @Composable
 fun NxTopNav(
     selected: HomeTab,
+    hasScrolled: Boolean = false,
     onSelect: (HomeTab) -> Unit,
     searchOpen: Boolean = false,
     searchQuery: String = "",
@@ -42,13 +54,28 @@ fun NxTopNav(
 ) {
     Row(
         modifier = modifier
-            .padding(top = 22.dp, start = 56.dp, end = 56.dp)
-            .background(Color(0xB3111217), RoundedCornerShape(28.dp))
-            .padding(horizontal = 20.dp, vertical = 10.dp)
-            .wrapContentWidth(),
+            .fillMaxWidth()
+            // Au repos la barre laisse respirer le hero. Dès que l'accueil
+            // défile, le voile isole les libellés du contenu en mouvement.
+            .background(if (hasScrolled) Color.Black.copy(alpha = 0.72f) else Color.Transparent)
+            .padding(top = 24.dp, start = 56.dp, end = 56.dp)
+            // La barre reste visuellement transparente. Seul l'onglet actif
+            // est une capsule : le héros garde donc toute sa respiration.
+            .onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
+                    contentFocusRequester?.let { requester ->
+                        runCatching { requester.requestFocus() }.isSuccess
+                    } ?: false
+                } else false
+            },
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("MOVVIZ", color = Color.White, fontSize = 17.sp, modifier = Modifier.padding(end = 16.dp, top = 8.dp))
+        Image(
+            painter = painterResource(R.drawable.movviz_mark),
+            contentDescription = "Movviz",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.height(38.dp).width(38.dp).padding(end = 2.dp),
+        )
         listOf(HomeTab.HOME, HomeTab.SERIES, HomeTab.MOVIES, HomeTab.PROFILE).forEach { tab ->
             val active = selected == tab
             Surface(
@@ -60,15 +87,38 @@ fun NxTopNav(
                 colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                     containerColor = if (active) Color(0xFF2A2B31) else Color.Transparent,
                     focusedContainerColor = Color(0xFF3A3B42),
+                    contentColor = Color.White,
+                    focusedContentColor = Color.White,
                 ),
             ) {
                 Text(tab.label, color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
             }
         }
-        Surface(onClick = onSearchToggle, modifier = Modifier.height(38.dp), shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp))) {
+        Spacer(Modifier.weight(1f))
+        Surface(
+            onClick = onSearchToggle,
+            modifier = Modifier.height(38.dp).width(42.dp),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                containerColor = Color.Black.copy(alpha = 0.42f),
+                focusedContainerColor = Color(0xFF3A3B42),
+                contentColor = Color.White,
+                focusedContentColor = Color.White,
+            ),
+        ) {
             Text("⌕", color = Color.White, fontSize = 23.sp, modifier = Modifier.padding(horizontal = 13.dp, vertical = 2.dp))
         }
-        Surface(onClick = onOpenProfile, modifier = Modifier.height(38.dp), shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp))) {
+        Surface(
+            onClick = onOpenProfile,
+            modifier = Modifier.height(38.dp),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                containerColor = Color.Black.copy(alpha = 0.42f),
+                focusedContainerColor = Color(0xFF3A3B42),
+                contentColor = Color.White,
+                focusedContentColor = Color.White,
+            ),
+        ) {
             Text(activeProfile?.name?.take(2)?.uppercase() ?: "MO", color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp))
         }
     }

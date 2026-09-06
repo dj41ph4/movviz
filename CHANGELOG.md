@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.65 — September 2026
+
+### Movviz NX — release Android TV et canal autonome
+
+Movviz NX reçoit son APK retail dédié, signé avec la même clé que Movviz TV mais publié sous un asset GitHub distinct. Son signal de mise à jour et son installation automatique ne peuvent donc jamais remplacer Movviz TV. L’en-tête NX suit désormais le comportement Netflix : il reste transparent au sommet du hero et se voile seulement lorsque les rangées passent sous la navigation, sans modifier les parcours D-pad. Les identités sont également séparées : icône circulaire pour l’application, marque « M » dans l’interface.
+
 ## v1.24.64 — September 2026
 
 ### Bibliothèque mobile Films et Séries façon Plex
