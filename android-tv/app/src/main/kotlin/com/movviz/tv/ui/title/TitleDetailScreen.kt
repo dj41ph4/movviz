@@ -344,6 +344,15 @@ fun TitleDetailScreen(
     // Saison 0 = bonus/spéciaux : elle ne doit pas prendre la place des
     // saisons de l'histoire principale dans le parcours TV.
     val visibleSeasons = remember(seasons) { seasons.filter { it.seasonNumber > 0 } }
+    val seriesWatchTargets = remember(visibleSeasons) {
+        visibleSeasons.flatMap { season ->
+            season.episodes.filter { it.status != "upcoming" }
+                .map { com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
+        }
+    }
+    val allSeriesWatched = seriesWatchTargets.isNotEmpty() && seriesWatchTargets.all {
+        watchedEpisodeKeys.contains("${it.season}.${it.episode}")
+    }
     LaunchedEffect(visibleSeasons) {
         // Ne choisir la saison par défaut qu'à l'OUVERTURE (null) : un
         // rafraîchissement du titre toutes les 8 s ne doit jamais écraser
@@ -728,6 +737,15 @@ fun TitleDetailScreen(
                             }
                             PrimaryPill(text = movieStatusLabel(movieStatus), brush = null, solidWhite = false, enabled = false) {}
                         }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        PrimaryPill(
+                            text = if (movieWatched) "Marquer non vu" else "Marquer vu",
+                            brush = null,
+                            solidWhite = false,
+                            icon = MovvizIconCheck,
+                        ) {
+                            viewModel.toggleMovieWatched(tmdbId, d.title, !movieWatched)
+                        }
                     }
                     // Fine barre de progression sous le CTA de reprise — même
                     // esprit que le hero de l'accueil (progressPercent sur
@@ -812,6 +830,18 @@ fun TitleDetailScreen(
                 }
             }
 
+            if (type == "series" && seriesWatchTargets.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                PrimaryPill(
+                    text = if (allSeriesWatched) "Série vue — marquer non vue" else "Marquer toute la série vue",
+                    brush = null,
+                    solidWhite = false,
+                    icon = MovvizIconCheck,
+                ) {
+                    viewModel.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched)
+                }
+            }
+
             addError?.let {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(text = it, style = TextStyle(fontSize = 12.sp, color = MovvizDown))
@@ -865,6 +895,9 @@ fun TitleDetailScreen(
                                 downloading = searchingSeason == season.seasonNumber,
                                 episodeDownloads = episodeDownloads,
                                 onDownloadSeason = { viewModel.downloadSeason(tmdbId, season.seasonNumber) },
+                                onToggleEpisodesWatched = { episodes, watched ->
+                                    viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched)
+                                },
                             ) { episode, _ ->
                                 // Une tuile épisode est une action de lecture,
                                 // pas un bouton "confirmer" déguisé : OK lance
@@ -1037,6 +1070,7 @@ private fun SeasonEpisodeList(
     // la donnée est déjà disponible côté TV).
     episodeDownloads: Map<String, QueueItemDto> = emptyMap(),
     onDownloadSeason: () -> Unit,
+    onToggleEpisodesWatched: (List<com.movviz.tv.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
     onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
 ) {
     val metadataByEpisode = remember(metadata) { metadata?.episodes?.associateBy { it.episodeNumber }.orEmpty() }
@@ -1057,6 +1091,21 @@ private fun SeasonEpisodeList(
                     onClick = onDownloadSeason,
                 )
             }
+            val seasonWatchTargets = season.episodes.filter { it.status != "upcoming" }
+                .map { com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
+            val seasonAllWatched = seasonWatchTargets.isNotEmpty() && seasonWatchTargets.all {
+                watchedEpisodeKeys.contains("${it.season}.${it.episode}")
+            }
+            if (seasonWatchTargets.isNotEmpty()) {
+                Spacer(modifier = Modifier.width(10.dp))
+                PrimaryPill(
+                    text = if (seasonAllWatched) "Saison non vue" else "Saison vue",
+                    brush = null,
+                    solidWhite = false,
+                    icon = MovvizIconCheck,
+                    onClick = { onToggleEpisodesWatched(seasonWatchTargets, !seasonAllWatched) },
+                )
+            }
         }
         Spacer(modifier = Modifier.height(10.dp))
         season.episodes.forEach { ep ->
@@ -1065,6 +1114,12 @@ private fun SeasonEpisodeList(
                     metadata = metadataByEpisode[ep.episodeNumber],
                     watched = watchedEpisodeKeys.contains("${season.seasonNumber}.${ep.episodeNumber}"),
                     queueItem = episodeDownloads["${season.seasonNumber}.${ep.episodeNumber}"],
+                    onToggleWatched = { watched ->
+                        onToggleEpisodesWatched(
+                            listOf(com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, ep.episodeNumber)),
+                            watched,
+                        )
+                    },
                     onClick = { onOpenEpisode(ep, metadataByEpisode[ep.episodeNumber]) },
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -1078,6 +1133,7 @@ private fun EpisodeCard(
     metadata: MetadataEpisodeDto?,
     watched: Boolean = false,
     queueItem: QueueItemDto? = null,
+    onToggleWatched: (Boolean) -> Unit,
     onClick: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
@@ -1180,6 +1236,29 @@ private fun EpisodeCard(
                             )
                         }
                     }
+                }
+            }
+            var watchedFocused by remember { mutableStateOf(false) }
+            Surface(
+                onClick = { onToggleWatched(!watched) },
+                modifier = Modifier
+                    .padding(start = 10.dp)
+                    .size(36.dp)
+                    .tvFocusLift(watchedFocused, androidx.compose.foundation.shape.CircleShape, maxScale = 1.12f)
+                    .onFocusChanged { watchedFocused = it.isFocused }
+                    .tvPointerClick { onToggleWatched(!watched) },
+                shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = if (watched) MovvizCyan.copy(alpha = 0.90f) else MovvizInk.copy(alpha = 0.12f),
+                    contentColor = if (watched) Color.White else MovvizInkSoft,
+                ),
+            ) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = MovvizIconCheck,
+                        contentDescription = if (watched) "Marquer non vu" else "Marquer vu",
+                        modifier = Modifier.size(16.dp),
+                    )
                 }
             }
         }

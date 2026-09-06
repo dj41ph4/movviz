@@ -875,6 +875,32 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         }
     }
 
+    /** Écriture de l'état vu depuis la TV. La route partagée met à jour
+     * Movviz, puis propage best-effort vers le Plex du profil connecté. */
+    fun toggleMovieWatched(tmdbId: Int, title: String, watched: Boolean) {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            if (repo.toggleWatch(tmdbId, "movie", watched, title) is ApiResult.Success) loadWatchStatus()
+        }
+    }
+
+    fun toggleEpisodeWatched(tmdbId: Int, title: String, season: Int, episode: Int, watched: Boolean) {
+        toggleEpisodesWatched(tmdbId, title, listOf(com.movviz.tv.data.WatchToggleEpisodeDto(season, episode)), watched)
+    }
+
+    fun toggleEpisodesWatched(
+        tmdbId: Int,
+        title: String,
+        episodes: List<com.movviz.tv.data.WatchToggleEpisodeDto>,
+        watched: Boolean,
+    ) {
+        if (episodes.isEmpty()) return
+        val repo = repository ?: return
+        viewModelScope.launch {
+            if (repo.toggleWatch(tmdbId, "series", watched, title, episodes) is ApiResult.Success) loadWatchStatus()
+        }
+    }
+
     /** Statut brut du film (voir LibraryStatus côté serveur : upcoming/
      *  missing/searching/downloading/available) — pour afficher un état réel
      *  sur la fiche titre plutôt que le texte générique "En attente de

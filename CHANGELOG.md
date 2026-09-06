@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.58 — September 2026
+
+### Vues synchronisées, épisode par épisode
+
+Les actions « vu / non vu » sont maintenant disponibles sur Android mobile et Android TV au niveau du film, de l’épisode, de la saison entière et de la série entière. Elles écrivent le suivi unique du profil Movviz et propagent la modification vers Plex lorsqu’un média Plex est lié. Les épisodes futurs sont volontairement exclus : lorsqu’une saison est finie, seul le premier épisode disponible de la saison suivante devient la reprise.
+
 ## v1.24.57 — September 2026
 
 ### Accueil et mises à jour Android mobile

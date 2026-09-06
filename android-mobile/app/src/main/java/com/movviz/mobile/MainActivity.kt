@@ -100,6 +100,9 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     private val _seriesRows = MutableStateFlow<List<MetadataRowDto>>(emptyList()); val seriesRows = _seriesRows.asStateFlow()
     private val _movieRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList()); val movieRecommendations = _movieRecommendations.asStateFlow()
     private val _seriesRecommendations = MutableStateFlow<List<SearchResultDto>>(emptyList()); val seriesRecommendations = _seriesRecommendations.asStateFlow()
+    // Même statut par profil que desktop/TV. Il ne décrit pas la présence du
+    // fichier, mais bien ce que cet utilisateur a vu sur Movviz ou Plex.
+    private val _watchStatus = MutableStateFlow<WatchStatusDto?>(null); val watchStatus = _watchStatus.asStateFlow()
     private val _heroLogos = MutableStateFlow<Map<String, String>>(emptyMap()); val heroLogos = _heroLogos.asStateFlow()
     private val _detail = MutableStateFlow<MetaDetailDto?>(null); val detail = _detail.asStateFlow()
     private val _detailLoading = MutableStateFlow(false); val detailLoading = _detailLoading.asStateFlow()
@@ -252,6 +255,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
         _seriesRows.value = emptyList()
         _movieRecommendations.value = emptyList()
         _seriesRecommendations.value = emptyList()
+        _watchStatus.value = null
         _heroLogos.value = emptyMap()
         _aiMessages.value = emptyList()
         _aiEnabled.value = null
@@ -357,7 +361,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
     // Version non-bloquante pour Compose (évite runBlocking sur le thread UI)
     fun getBaseUrlCached(): String? = cachedBaseUrl
 
-    fun disconnect() { viewModelScope.launch { val base = prefs.serverUrl.first()?.trim()?.trimEnd('/'); if (base != null) profilePrefs.clearServer(base); prefs.clearServerUrl(); ApiClient.clearSession(); repo = null; cachedBaseUrl = null; _state.value = MobileState.Server; _hero.value = emptyList(); _movies.value = emptyList(); _series.value = emptyList(); _continueWatching.value = emptyList(); _movieRows.value = emptyList(); _seriesRows.value = emptyList(); _movieRecommendations.value = emptyList(); _seriesRecommendations.value = emptyList(); _search.value = emptyList(); _detail.value = null; _profiles.value = emptyList(); _currentUser.value = null; clearAiMessages(); _aiEnabled.value = null } }
+    fun disconnect() { viewModelScope.launch { val base = prefs.serverUrl.first()?.trim()?.trimEnd('/'); if (base != null) profilePrefs.clearServer(base); prefs.clearServerUrl(); ApiClient.clearSession(); repo = null; cachedBaseUrl = null; _state.value = MobileState.Server; _hero.value = emptyList(); _movies.value = emptyList(); _series.value = emptyList(); _continueWatching.value = emptyList(); _movieRows.value = emptyList(); _seriesRows.value = emptyList(); _movieRecommendations.value = emptyList(); _seriesRecommendations.value = emptyList(); _watchStatus.value = null; _search.value = emptyList(); _detail.value = null; _profiles.value = emptyList(); _currentUser.value = null; clearAiMessages(); _aiEnabled.value = null } }
     fun forgetServer() { disconnect() }
 
     fun search(query: String) { val r = repo ?: return; if (query.trim().length < 2) { _search.value = emptyList(); return }; viewModelScope.launch { (r.search(query.trim()) as? ApiResult.Success)?.let { _search.value = it.data } } }
@@ -403,6 +407,30 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
             launch { (r.metadataRows("series") as? ApiResult.Success)?.let { _seriesRows.value = it.data } }
             launch { (r.metadataRecommendations("movie") as? ApiResult.Success)?.let { _movieRecommendations.value = it.data } }
             launch { (r.metadataRecommendations("series") as? ApiResult.Success)?.let { _seriesRecommendations.value = it.data } }
+            launch { (r.watchStatus() as? ApiResult.Success)?.let { _watchStatus.value = it.data } }
+        }
+    }
+
+    fun toggleMovieWatched(tmdbId: Int, title: String, watched: Boolean) {
+        val r = repo ?: return
+        viewModelScope.launch {
+            if (r.toggleWatch(tmdbId, "movie", watched, title) is ApiResult.Success) {
+                (r.watchStatus() as? ApiResult.Success)?.let { _watchStatus.value = it.data }
+            }
+        }
+    }
+
+    fun toggleEpisodeWatched(tmdbId: Int, title: String, season: Int, episode: Int, watched: Boolean) {
+        toggleEpisodesWatched(tmdbId, title, listOf(WatchToggleEpisodeDto(season, episode)), watched)
+    }
+
+    fun toggleEpisodesWatched(tmdbId: Int, title: String, episodes: List<WatchToggleEpisodeDto>, watched: Boolean) {
+        if (episodes.isEmpty()) return
+        val r = repo ?: return
+        viewModelScope.launch {
+            if (r.toggleWatch(tmdbId, "series", watched, title, episodes) is ApiResult.Success) {
+                (r.watchStatus() as? ApiResult.Success)?.let { _watchStatus.value = it.data }
+            }
         }
     }
 
@@ -411,6 +439,7 @@ internal class MobileViewModel(application: Application) : AndroidViewModel(appl
         val r = repo ?: return; _detail.value = null; _detailLoading.value = true; _seriesSeasons.value = emptyList(); seasonsTmdbId = null
         viewModelScope.launch {
             when (val d = r.detail(type, tmdbId)) { is ApiResult.Success -> _detail.value = d.data; else -> Unit }
+            launch { (r.watchStatus() as? ApiResult.Success)?.let { _watchStatus.value = it.data } }
             _detailLoading.value = false
             // Synchronise immédiatement l'entrée bibliothèque pour ce tmdbId (évite flash "Ajouter" alors que le film est déjà dans la lib, si movies pas encore chargés)
             launch { refreshTitleLibraryEntrySync(type, tmdbId) }
@@ -1216,6 +1245,21 @@ private fun <T> List<T>.interleaveMobile(other: List<T>): List<T> = buildList {
     val moviesState by vm.movies.collectAsState()
     val seriesState by vm.series.collectAsState()
     val queueState by vm.queue.collectAsState()
+    val watchStatus by vm.watchStatus.collectAsState()
+    val movieWatched = type == "movie" && watchStatus?.movies?.contains(tmdbId) == true
+    val watchedEpisodeKeys = remember(watchStatus, tmdbId, type) {
+        if (type != "series") emptySet()
+        else watchStatus?.episodes.orEmpty().filter { it.tmdbId == tmdbId }.map { "${it.season}.${it.episode}" }.toSet()
+    }
+    val seriesWatchTargets = remember(seasons) {
+        seasons.filter { it.seasonNumber > 0 }.flatMap { season ->
+            season.episodes.filter { it.status != "upcoming" }
+                .map { WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
+        }
+    }
+    val allSeriesWatched = seriesWatchTargets.isNotEmpty() && seriesWatchTargets.all {
+        watchedEpisodeKeys.contains("${it.season}.${it.episode}")
+    }
     // Réactif : se recompose quand movies/series/queue changent (ajout → Manquant → Recherche → Téléchargement → Disponible)
     val inLibrary = if (type == "movie") moviesState.any { it.tmdbId == tmdbId } else seriesState.any { it.tmdbId == tmdbId }
     val status = if (type == "movie") moviesState.firstOrNull { it.tmdbId == tmdbId }?.status else null
@@ -1293,6 +1337,32 @@ private fun <T> List<T>.interleaveMobile(other: List<T>): List<T> = buildList {
                         }
                     }
                     Column(Modifier.padding(horizontal = 20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (type == "movie") {
+                            OutlinedButton(
+                                onClick = { vm.toggleMovieWatched(tmdbId, d.title, !movieWatched) },
+                                modifier = Modifier.fillMaxWidth().height(44.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = if (movieWatched) Cyan else TextSoft),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, if (movieWatched) Cyan.copy(0.55f) else Color.White.copy(0.14f)),
+                            ) {
+                                Icon(Icons.Rounded.CheckCircle, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (movieWatched) "Vu — marquer non vu" else "Marquer comme vu", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+                        if (type == "series" && seriesWatchTargets.isNotEmpty()) {
+                            OutlinedButton(
+                                onClick = { vm.toggleEpisodesWatched(tmdbId, d.title, seriesWatchTargets, !allSeriesWatched) },
+                                modifier = Modifier.fillMaxWidth().height(44.dp),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = if (allSeriesWatched) Cyan else TextSoft),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, if (allSeriesWatched) Cyan.copy(0.55f) else Color.White.copy(0.14f)),
+                            ) {
+                                Icon(Icons.Rounded.CheckCircle, null, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(if (allSeriesWatched) "Série vue — marquer non vue" else "Marquer toute la série vue", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
                         if (!inLibrary) {
                             if (libraryEmpty) {
                                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(SurfaceStrong).padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1439,11 +1509,23 @@ private fun <T> List<T>.interleaveMobile(other: List<T>): List<T> = buildList {
                         item { Text("Saisons", Modifier.padding(horizontal = 20.dp, vertical = 12.dp), color = TextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
                         items(seasons, key = { it.seasonNumber }) { season ->
                             var expanded by remember(season.seasonNumber) { mutableStateOf(season.seasonNumber == 1) }
+                            val seasonWatchTargets = remember(season) {
+                                season.episodes.filter { it.status != "upcoming" }
+                                    .map { WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
+                            }
+                            val seasonAllWatched = seasonWatchTargets.isNotEmpty() && seasonWatchTargets.all {
+                                watchedEpisodeKeys.contains("${it.season}.${it.episode}")
+                            }
                             LaunchedEffect(season.seasonNumber) { if (expanded) vm.loadSeasonMetadata(tmdbId, season.seasonNumber) }
                             Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Surface).border(1.dp, Color.White.copy(0.05f), RoundedCornerShape(14.dp))) {
                                 Row(Modifier.fillMaxWidth().clickable { expanded = !expanded; if (expanded) vm.loadSeasonMetadata(tmdbId, season.seasonNumber) }.padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Text(season.name.ifBlank { "Saison ${season.seasonNumber}" }, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.weight(1f))
                                     Text("${season.episodes.size} épisodes", color = TextFaint, fontSize = 11.sp)
+                                    if (seasonWatchTargets.isNotEmpty()) {
+                                        IconButton(onClick = { vm.toggleEpisodesWatched(tmdbId, d.title, seasonWatchTargets, !seasonAllWatched) }, modifier = Modifier.size(36.dp)) {
+                                            Icon(Icons.Rounded.CheckCircle, if (seasonAllWatched) "Marquer la saison non vue" else "Marquer la saison vue", tint = if (seasonAllWatched) Cyan else TextMuted, modifier = Modifier.size(20.dp))
+                                        }
+                                    }
                                     Spacer(Modifier.width(8.dp)); Icon(if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown, null, tint = TextMuted, modifier = Modifier.size(20.dp))
                                 }
                                 if (expanded) {
@@ -1463,6 +1545,7 @@ private fun <T> List<T>.interleaveMobile(other: List<T>): List<T> = buildList {
                                             val epBaseUrl = vm.getBaseUrl()
                                             val epContext = LocalContext.current
                                             val hapticEp = LocalHapticFeedback.current
+                                            val episodeWatched = watchedEpisodeKeys.contains("${ep.seasonNumber}.${ep.episodeNumber}")
                                             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SurfaceStrong).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                                 Box(Modifier.size(width = 72.dp, height = 42.dp).clip(RoundedCornerShape(8.dp)).background(Void)) {
                                                     val still = metaEp?.stillPath?.let { BACKDROP + it }
@@ -1474,8 +1557,17 @@ private fun <T> List<T>.interleaveMobile(other: List<T>): List<T> = buildList {
                                                     if (!metaEp?.overview.isNullOrBlank()) Text(metaEp!!.overview, color = TextMuted, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                                                         Box(Modifier.background(epColor.copy(0.14f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) { Text(epStatus, color = epColor, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) }
+                                                        if (episodeWatched) Box(Modifier.background(Cyan.copy(0.16f), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) { Text("Vu", color = Cyan, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) }
                                                         metaEp?.airDate?.let { Text(it, color = TextFaint, fontSize = 10.sp) }
                                                     }
+                                                }
+                                                Box(
+                                                    Modifier.size(40.dp).clip(CircleShape)
+                                                        .background(if (episodeWatched) Cyan.copy(0.85f) else Color.White.copy(0.08f))
+                                                        .clickable { vm.toggleEpisodeWatched(tmdbId, d.title, ep.seasonNumber, ep.episodeNumber, !episodeWatched) },
+                                                    contentAlignment = Alignment.Center,
+                                                ) {
+                                                    Icon(Icons.Rounded.Check, if (episodeWatched) "Marquer non vu" else "Marquer vu", tint = if (episodeWatched) Void else TextSoft, modifier = Modifier.size(18.dp))
                                                 }
                                                 if (ep.status == "available" && episodeTarget != null && epBaseUrl != null) {
                                                     Spacer(Modifier.width(8.dp))

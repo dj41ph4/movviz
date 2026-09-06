@@ -300,6 +300,16 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun watchStatus(): ApiResult<WatchStatusDto> =
         safeCall { api.watchStatus() }
 
+    suspend fun toggleWatch(
+        tmdbId: Int,
+        type: String,
+        watched: Boolean,
+        title: String,
+        episodes: List<WatchToggleEpisodeDto> = emptyList(),
+    ): ApiResult<Unit> = safeCall {
+        api.toggleWatch(WatchToggleRequestDto(tmdbId, type, watched, title, episodes))
+    }.map { }
+
     suspend fun profileMedia(): ApiResult<ProfileMediaResponseDto> =
         safeCall { api.profileMedia() }
 

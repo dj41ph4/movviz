@@ -216,6 +216,9 @@ interface MovvizApiService {
     @GET("api/watch-status")
     suspend fun watchStatus(): Response<WatchStatusDto>
 
+    @POST("api/watch/toggle")
+    suspend fun toggleWatch(@Body body: WatchToggleRequestDto): Response<Map<String, Any?>>
+
     @GET("api/profile/media")
     suspend fun profileMedia(): Response<ProfileMediaResponseDto>
 

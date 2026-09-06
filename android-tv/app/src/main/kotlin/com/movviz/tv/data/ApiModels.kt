@@ -773,6 +773,20 @@ data class WatchStatusDto(
     val episodes: List<WatchedEpisodeDto> = emptyList(),
 )
 
+/** Écriture commune desktop/TV/mobile vers POST /api/watch/toggle. Une vue
+ * changée sur un client est poussée vers Plex quand l'élément y est lié. */
+@JsonClass(generateAdapter = true)
+data class WatchToggleEpisodeDto(val season: Int, val episode: Int)
+
+@JsonClass(generateAdapter = true)
+data class WatchToggleRequestDto(
+    val tmdbId: Int,
+    val type: String,
+    val watched: Boolean,
+    val title: String,
+    val episodes: List<WatchToggleEpisodeDto> = emptyList(),
+)
+
 // Miroir (partiel) de UserPrefs (src/lib/userPrefs/store.ts) — la TV n'a
 // besoin que du champ qui affecte réellement la lecture, pas de gpuTier/
 // theme/libraryViewMode qui n'ont pas de sens sur ce client (TV = un seul
