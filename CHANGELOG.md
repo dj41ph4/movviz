@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.68 — September 2026
+
+### Movviz NX — recherche et mises à jour accessibles
+
+La navigation NX affiche maintenant Paramètres, avec l’activation de la recherche automatique et la vérification forcée des mises à jour. Lorsqu’une release est détectée, une flèche de mise à jour apparaît dans la barre et déclenche l’installation sur confirmation. La recherche affiche et focalise à nouveau son champ de saisie dès l’ouverture.
+
 ## v1.24.67 — September 2026
 
 ### Movviz NX — choix foyer au démarrage

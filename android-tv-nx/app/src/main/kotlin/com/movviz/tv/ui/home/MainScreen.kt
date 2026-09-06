@@ -85,7 +85,7 @@ fun MainScreen(
                 onOpenTitle = onOpenTitle,
                 query = searchQuery,
                 onQueryChange = onSearchQueryChange,
-                showSearchField = false,
+                showSearchField = true,
                 resultFocusRequester = contentFocusRequester,
             )
             tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged)

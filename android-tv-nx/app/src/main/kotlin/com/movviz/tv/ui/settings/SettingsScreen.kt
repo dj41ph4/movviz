@@ -145,7 +145,7 @@ fun SettingsScreen(
         SettingsSection(title = "À propos") {
             InfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
             Spacer(modifier = Modifier.height(10.dp))
-            InfoRow(label = "Application", value = "Movviz TV")
+            InfoRow(label = "Application", value = "Movviz NX")
             if (BuildConfig.AUTO_UPDATE) {
                 Spacer(modifier = Modifier.height(14.dp))
                 AutoUpdateToggle(viewModel)

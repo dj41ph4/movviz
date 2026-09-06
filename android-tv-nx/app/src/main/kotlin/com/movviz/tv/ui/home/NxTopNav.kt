@@ -48,6 +48,7 @@ fun NxTopNav(
     onProfileSelected: (TvProfile) -> Unit = {},
     onAddProfile: () -> Unit = {},
     onOpenProfile: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     onSwitchProfile: () -> Unit = {},
     updateAvailableTag: String? = null,
     onUpdateClick: () -> Unit = {},
@@ -111,6 +112,32 @@ fun NxTopNav(
             ),
         ) {
             Text("⌕", color = Color.White, fontSize = 23.sp, modifier = Modifier.padding(horizontal = 13.dp, vertical = 2.dp))
+        }
+        Surface(
+            onClick = onOpenSettings,
+            modifier = Modifier.height(38.dp).width(42.dp),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                containerColor = Color.Black.copy(alpha = 0.42f),
+                focusedContainerColor = Color(0xFF3A3B42),
+                contentColor = Color.White,
+                focusedContentColor = Color.White,
+            ),
+        ) {
+            Text("⚙", color = Color.White, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+        }
+        if (updateAvailableTag != null) {
+            Surface(
+                onClick = onUpdateClick,
+                modifier = Modifier.height(38.dp).width(42.dp),
+                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
+                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
+                    containerColor = Color(0xFFE84AD9), focusedContainerColor = Color.White,
+                    contentColor = Color.Black, focusedContentColor = Color.Black,
+                ),
+            ) {
+                Text("↑", color = Color.Black, fontSize = 22.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 3.dp))
+            }
         }
         Surface(
             // Avatar = raccourci de changement de profil ; l'onglet Mon

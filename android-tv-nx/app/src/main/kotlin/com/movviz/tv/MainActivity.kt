@@ -292,6 +292,14 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                         searchOpen = false
                         headerHasScrolled = false
                     },
+                    onOpenSettings = {
+                        if (currentRoute?.startsWith("home") != true) {
+                            navController.navigate(ROUTE_HOME) { popUpTo(ROUTE_HOME) { inclusive = true } }
+                        }
+                        tab = HomeTab.SETTINGS
+                        searchOpen = false
+                        headerHasScrolled = false
+                    },
                     onSwitchProfile = {
                         navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
                     },

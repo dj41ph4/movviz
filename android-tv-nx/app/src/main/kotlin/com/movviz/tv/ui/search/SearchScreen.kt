@@ -94,7 +94,7 @@ fun SearchScreen(
             if (showSearchField) {
                 Text("Recherche", style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground))
                 Spacer(Modifier.width(24.dp))
-                SearchField(query, fieldFocused, { fieldFocused = it }, onQueryChange, { viewModel.search(query) }, Modifier.width(430.dp))
+                SearchField(query, fieldFocused, { fieldFocused = it }, onQueryChange, { viewModel.search(query) }, Modifier.width(430.dp), resultFocusRequester)
             }
         }
         Spacer(Modifier.height(18.dp))
@@ -114,7 +114,7 @@ fun SearchScreen(
         when {
             searching -> SearchFocusMessage(
                 text = "Recherche…",
-                focusRequester = resultFocusRequester,
+                focusRequester = if (showSearchField) null else resultFocusRequester,
             )
             // Les états vides restent une destination D-pad visible. Avant,
             // la NavRail tentait le premier poster inexistant, retombait sur
@@ -122,11 +122,11 @@ fun SearchScreen(
             // BAS ne quittait jamais le menu.
             query.isBlank() -> SearchFocusMessage(
                 text = "Recherchez un film ou une série",
-                focusRequester = resultFocusRequester,
+                focusRequester = if (showSearchField) null else resultFocusRequester,
             )
             results.isEmpty() -> SearchFocusMessage(
                 text = "Aucun résultat pour « $query »",
-                focusRequester = resultFocusRequester,
+                focusRequester = if (showSearchField) null else resultFocusRequester,
             )
             else -> TvLazyVerticalGrid(columns = TvGridCells.FixedSize(154.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalArrangement = Arrangement.spacedBy(22.dp), modifier = Modifier.fillMaxSize()) {
                 // contentType : indique à la grille que toutes les cellules
@@ -161,12 +161,12 @@ private fun SearchFocusMessage(text: String, focusRequester: FocusRequester?) {
 }
 
 @Composable
-private fun SearchField(value: String, focused: Boolean, onFocusChanged: (Boolean) -> Unit, onValueChange: (String) -> Unit, onSearch: () -> Unit, modifier: Modifier) {
+private fun SearchField(value: String, focused: Boolean, onFocusChanged: (Boolean) -> Unit, onValueChange: (String) -> Unit, onSearch: () -> Unit, modifier: Modifier, focusRequester: FocusRequester? = null) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     Box(modifier.height(52.dp).border(2.dp, if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = .25f), RoundedCornerShape(26.dp)).background(MovvizSurface, RoundedCornerShape(26.dp)).onFocusChanged { onFocusChanged(it.isFocused) }.padding(horizontal = 20.dp), contentAlignment = Alignment.CenterStart) {
         if (value.isEmpty()) Text("Rechercher un titre…", color = MovvizInkDim, fontSize = 17.sp)
-        BasicTextField(value, onValueChange, singleLine = true, textStyle = TextStyle(fontSize = 17.sp, color = MovvizInk), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { onSearch(); focusManager.clearFocus(); keyboardController?.hide() }), modifier = Modifier.fillMaxWidth())
+        BasicTextField(value, onValueChange, singleLine = true, textStyle = TextStyle(fontSize = 17.sp, color = MovvizInk), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { onSearch(); focusManager.clearFocus(); keyboardController?.hide() }), modifier = Modifier.fillMaxWidth().let { if (focusRequester != null) it.focusRequester(focusRequester) else it })
     }
 }
 

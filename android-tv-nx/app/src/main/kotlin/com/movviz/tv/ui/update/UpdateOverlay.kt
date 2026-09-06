@@ -177,9 +177,8 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
         }
         pending = info
         viewModel?.setAvailableUpdateTag(info.tag)
-        val stillStartup = SystemClock.elapsedRealtime() - startupStartedAt <= STARTUP_AUTO_UPDATE_WINDOW_MS
-        val foreground = lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
-        if (stillStartup && foreground) start(info)
+        // Détection automatique seulement : le bouton fléché de la barre
+        // signale la release et laisse l'utilisateur déclencher l'installation.
     }
 
     // Une session TV peut rester ouverte des heures. On peut découvrir une
@@ -205,10 +204,6 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
     val manualTrigger = viewModel?.updateCheckTrigger?.collectAsState()?.value
     LaunchedEffect(manualTrigger) {
         if (manualTrigger == null || manualTrigger == 0) return@LaunchedEffect
-        if (!autoUpdate) {
-            viewModel.setUpdateCheckStatus("Mise à jour automatique désactivée sur cette build")
-            return@LaunchedEffect
-        }
         dismissed = false
         viewModel.setUpdateCheckStatus("Vérification…")
         val info = updateManager.checkForUpdate()
