@@ -61,6 +61,14 @@ interface MovvizApiService {
         @Query("tmdbId") tmdbId: Int,
     ): Response<MetaDetailDto>
 
+    // Même pipeline que DashboardPosterCard desktop, mais groupé pour le
+    // focus TV : détails + candidats directs + repli YouTube.
+    @GET("api/tv/preview")
+    suspend fun tvPreview(
+        @Query("type") type: String,
+        @Query("tmdbId") tmdbId: Int,
+    ): Response<TvPreviewDto>
+
     // Fiche acteur/actrice — filmographie complète, ouverte depuis la
     // Distribution d'une fiche titre.
     @GET("api/metadata/person")

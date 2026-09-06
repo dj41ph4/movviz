@@ -77,6 +77,9 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun detail(type: String, tmdbId: Int): ApiResult<MetaDetailDto> =
         safeCall { api.metadataDetail(type, tmdbId) }
 
+    suspend fun tvPreview(type: String, tmdbId: Int): ApiResult<TvPreviewDto> =
+        safeCall { api.tvPreview(type, tmdbId) }
+
     suspend fun person(id: Int): ApiResult<PersonDto> =
         safeCall { api.person(id) }
 

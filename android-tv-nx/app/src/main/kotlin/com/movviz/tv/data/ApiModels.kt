@@ -732,6 +732,29 @@ data class OnDeckEntryDto(
     val lastPlayedAt: Long = 0L,
 )
 
+/** Contrat compact /api/tv/preview : même ordre de sources que le desktop,
+ * demandé uniquement après un focus stable sur une carte NX. */
+@JsonClass(generateAdapter = true)
+data class TvPreviewDto(
+    val tmdbId: Int,
+    val type: String,
+    val title: String,
+    val backdropPath: String? = null,
+    val year: Int? = null,
+    val runtime: Int? = null,
+    val genres: List<String> = emptyList(),
+    val overview: String = "",
+    val ambientVideoKeys: List<String> = emptyList(),
+    val directSources: List<TrailerSourceDto> = emptyList(),
+)
+
+@JsonClass(generateAdapter = true)
+data class TrailerSourceDto(
+    val provider: String = "",
+    val url: String,
+    val playbackType: String = "mp4",
+)
+
 @JsonClass(generateAdapter = true)
 data class OnDeckResponseDto(
     val items: List<OnDeckEntryDto> = emptyList(),

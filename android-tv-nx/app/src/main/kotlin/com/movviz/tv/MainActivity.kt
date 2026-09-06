@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -46,7 +44,7 @@ import androidx.navigation.navDeepLink
 import com.movviz.tv.ui.discover.RowDetailScreen
 import com.movviz.tv.ui.home.HomeTab
 import com.movviz.tv.ui.home.MainScreen
-import com.movviz.tv.ui.home.NavRail
+import com.movviz.tv.ui.home.NxTopNav
 import com.movviz.tv.ui.login.LoginScreen
 import com.movviz.tv.ui.person.PersonScreen
 import com.movviz.tv.ui.profile.ProfilePickerScreen
@@ -245,13 +243,12 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         return
     }
 
-    // La NavRail occupe une vraie colonne du layout. Le NavHost est rendu
-    // dans son frère de droite : aucun écran (et surtout aucun backdrop du
-    // hero) ne peut donc passer derrière la navigation.
+    // NX: la navigation est une surcouche haute. Le contenu garde la pleine
+    // largeur 16:9, comme Netflix, plutôt que de perdre une colonne à gauche.
     Box(modifier = Modifier.fillMaxSize()) {
-        Row(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxSize()) {
             if (routeShowsNavRail(currentRoute)) {
-                NavRail(
+                NxTopNav(
                     selected = tab,
                     onSelect = { newTab ->
                         if (currentRoute?.startsWith("home") != true) {
@@ -295,13 +292,10 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     contentFocusRequester = contentFocusRequester,
                     fallbackFocusRequester = fallbackFocusRequester,
                     navRailFocusRequester = navRailFocusRequester,
-                    // Plus de largeur fixe ici : NavRail gère elle-même son
-                    // animation collapsed/déployée (voir NAV_RAIL_*_WIDTH
-                    // dans NavRail.kt) — un width() posé ici l'écraserait.
-                    modifier = Modifier.fillMaxHeight(),
+                    modifier = Modifier.align(Alignment.TopCenter).zIndex(10f),
                 )
             }
-            Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            Box(modifier = Modifier.fillMaxSize()) {
         // Ancre de repli TOUJOURS composée, sur TOUTES les routes (accueil,
         // fiche titre, fiche acteur) — la NavRail y retombe quand sa cible
         // principale n'est pas encore composée. Anciennement dans

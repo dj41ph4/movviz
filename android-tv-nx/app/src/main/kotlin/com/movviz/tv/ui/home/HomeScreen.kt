@@ -33,6 +33,9 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.focus.FocusRequester
@@ -370,10 +373,10 @@ fun HomeScreen(
         }
     }
     val firstVisibleSection = visibleSections.firstOrNull()
-    // L'accueil de référence est un catalogue de rangées éditoriales, pas
-    // une bannière qui repousse tout le contenu hors écran. Le hero Movviz
-    // reste un repli utile lorsque le catalogue est momentanément vide.
-    val showHero = heroItems.isNotEmpty() && visibleSections.isEmpty()
+    // NX suit le langage Netflix : le hero n'est pas un écran d'attente,
+    // il installe l'univers visuel de l'accueil. Les rangées — notamment
+    // Reprendre — restent immédiatement sous lui et ne sont jamais masquées.
+    val showHero = heroItems.isNotEmpty()
     val contentFocus = entryFocusRequester ?: remember { FocusRequester() }
     val topAnchor = remember { FocusRequester() }
 
@@ -1109,8 +1112,9 @@ internal fun TitleRow(
                     width = 132.dp,
                     aspectRatio = 2f / 3f,
                     preferPosterArt = true,
-                    expandToLandscapeOnFocus = true,
-                    expandedWidth = 304.dp,
+                    // Le slot LazyRow ne bouge jamais. La mini-fiche est une
+                    // surcouche de rangée (ci-dessous), jamais un reflow.
+                    expandToLandscapeOnFocus = false,
                     showCaption = false,
                     showTechnicalBadges = false,
                     titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
@@ -1119,6 +1123,13 @@ internal fun TitleRow(
             if (onSeeAll != null) {
                 item(contentType = "see-all") { SeeAllTile(onClick = onSeeAll) }
             }
+        }
+        focusedCardState.value?.let { focused ->
+            NxFocusedPreview(
+                card = focused,
+                logoPath = titleLogoPaths["${if (focused.isMovie) "movie" else "series"}-${focused.tmdbId}"],
+                index = items.indexOf(focused).coerceAtLeast(0),
+            )
         }
         // Précharge l'affiche ET le backdrop de la carte active, puis des
         // deux suivantes. La transition portrait → paysage ne doit jamais
@@ -1149,6 +1160,37 @@ internal fun TitleRow(
                             .size(Size(1280, 720))
                             .build()
                     )
+                }
+            }
+        }
+    }
+}
+
+/** Mini-fiche Netflix indépendante de la LazyRow : elle ne modifie jamais
+ * la taille/position des posters voisins. */
+@Composable
+private fun NxFocusedPreview(card: TvTitleCard, logoPath: String?, index: Int) {
+    val safeX = (52 + index * 144).coerceAtMost(1180)
+    Popup(
+        alignment = Alignment.TopStart,
+        offset = IntOffset(safeX, 260),
+        properties = PopupProperties(focusable = false, dismissOnBackPress = false, dismissOnClickOutside = false),
+    ) {
+        Box(
+            modifier = Modifier.width(360.dp).zIndex(20f)
+                .background(Color(0xFF18191E), RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(12.dp)),
+        ) {
+            Column {
+                val art = card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" } ?: card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
+                if (art != null) Image(
+                    painter = rememberAsyncImagePainter(art), contentDescription = card.title,
+                    contentScale = ContentScale.Crop, modifier = Modifier.fillMaxWidth().height(176.dp),
+                )
+                Column(Modifier.padding(14.dp)) {
+                    Text(card.title, style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.Bold, color = Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(listOfNotNull(card.genres.firstOrNull(), card.year?.toString(), card.runtime?.let { "$it min" }).joinToString("  ·  "), style = TextStyle(fontSize = 12.sp, color = Color(0xFFB3B3B3)), modifier = Modifier.padding(top = 5.dp))
+                    if (card.overview.isNotBlank()) Text(card.overview, style = TextStyle(fontSize = 12.sp, color = Color(0xFFB3B3B3)), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         }
