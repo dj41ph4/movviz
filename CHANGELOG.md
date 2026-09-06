@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.67 — September 2026
+
+### Movviz NX — choix foyer au démarrage
+
+Le sélecteur de profils est maintenant systématiquement affiché au démarrage lorsqu’au moins un profil est disponible sur le serveur, indépendamment du rôle du dernier compte actif. La détection des mises à jour reste automatique ; après la première autorisation Android d’installer les applications inconnues, l’installation peut se poursuivre sans intervention.
+
 ## v1.24.66 — September 2026
 
 ### Movviz NX — profil Plex et épisodes récents

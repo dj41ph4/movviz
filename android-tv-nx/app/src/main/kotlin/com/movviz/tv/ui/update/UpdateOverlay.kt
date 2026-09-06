@@ -162,11 +162,11 @@ fun AutoUpdateOverlay(viewModel: AppViewModel? = null) {
     // est réellement RESUMED. Si le réseau répond trop tard ou si un film a
     // déjà ouvert PlayerActivity, on mémorise seulement la disponibilité :
     // la flèche clignotante de la sidebar laisse alors l'utilisateur décider.
-    val persistedAutoUpdate by (viewModel?.autoUpdateEnabled?.collectAsState()
+    // Même comportement que Movviz TV : la préférence active le check et
+    // l'installation automatique. L'isolation NX relève uniquement du nom
+    // d'asset attendu par UpdateManager, pas d'un second verrou local.
+    val autoUpdate by (viewModel?.autoUpdateEnabled?.collectAsState()
         ?: remember { mutableStateOf(BuildConfig.AUTO_UPDATE) })
-    // Une build NX reste isolée, même si une ancienne préférence locale avait
-    // activé la mise à jour. Elle ne doit jamais récupérer l'APK Movviz TV.
-    val autoUpdate = BuildConfig.AUTO_UPDATE && persistedAutoUpdate
     LaunchedEffect(Unit) {
         if (!autoUpdate || dismissed) return@LaunchedEffect
         delay(250)

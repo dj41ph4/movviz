@@ -197,9 +197,13 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             return@LaunchedEffect
         }
         val user = viewModel.refreshCurrentUser()
+        // L'écran TV est partagé : dès que le serveur connaît des profils,
+        // on les propose à CHAQUE lancement. Le rôle du dernier compte
+        // connecté ne doit jamais court-circuiter ce choix foyer.
+        val availableProfiles = if (user != null) viewModel.loadProfilesFromServer() else emptyList()
         startDestination = when {
             user == null -> ROUTE_LOGIN
-            user.role == "admin" && viewModel.loadProfilesFromServer().isNotEmpty() -> ROUTE_PROFILES
+            availableProfiles.isNotEmpty() -> ROUTE_PROFILES
             else -> ROUTE_HOME
         }
     }
