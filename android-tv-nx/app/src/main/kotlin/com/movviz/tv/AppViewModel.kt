@@ -27,6 +27,7 @@ import com.movviz.tv.data.UserPrefsDto
 import com.movviz.tv.data.WatchStatusDto
 import com.movviz.tv.data.TvPreviewDto
 import com.movviz.tv.data.ProfileMediaResponseDto
+import com.movviz.tv.data.RecentEpisodeDto
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -86,6 +87,8 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     private val _series = MutableStateFlow<List<LibrarySeriesDto>>(emptyList())
     val series: StateFlow<List<LibrarySeriesDto>> = _series.asStateFlow()
+    private val _recentEpisodes = MutableStateFlow<List<RecentEpisodeDto>>(emptyList())
+    val recentEpisodes: StateFlow<List<RecentEpisodeDto>> = _recentEpisodes.asStateFlow()
 
     private val _dashboardHero = MutableStateFlow<List<DashboardHeroSlideDto>>(emptyList())
     val dashboardHero: StateFlow<List<DashboardHeroSlideDto>> = _dashboardHero.asStateFlow()
@@ -688,6 +691,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 if (!compactPayloadUnusable) {
                     _movies.value = compactMovies
                     _series.value = compactSeries
+                    _recentEpisodes.value = snapshot.data.recentEpisodes.orEmpty().mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt }
                     return@coroutineScope
                 }
             }

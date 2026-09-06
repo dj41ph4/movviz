@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.66 — September 2026
+
+### Movviz NX — profil Plex et épisodes récents
+
+L’avatar Plex du profil actif est maintenant affiché dans la pastille haute et ouvre le sélecteur de profils. L’accueil NX ajoute une rangée d’épisodes réellement ajoutés, indépendante des reprises, strictement triée du plus récent à gauche vers le plus ancien. Le tableau de bord profil réserve aussi une zone sûre sous la navigation et utilise des cartes poster lisibles à distance.
+
 ## v1.24.65 — September 2026
 
 ### Movviz NX — release Android TV et canal autonome

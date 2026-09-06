@@ -175,6 +175,7 @@ fun HomeScreen(
 ) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
+    val recentEpisodes by viewModel.recentEpisodes.collectAsState()
     val continueWatching by viewModel.continueWatching.collectAsState()
     val queue by viewModel.queue.collectAsState()
     val movieRows by viewModel.movieRows.collectAsState()
@@ -244,6 +245,17 @@ fun HomeScreen(
                 resumeEpisodeTitle = resume.episodeTitle,
             )
         }.distinctBy { it.id }
+    }
+    val recentEpisodeCards = remember(recentEpisodes) {
+        recentEpisodes.sortedByDescending { it.addedAt }.map { episode ->
+            TvTitleCard(
+                id = "recent-episode-${episode.tmdbId}-${episode.seasonNumber}-${episode.episodeNumber}",
+                title = episode.seriesTitle, posterPath = episode.posterPath, backdropPath = episode.backdropPath,
+                tmdbId = episode.tmdbId, isMovie = false, rating = episode.rating,
+                resumeSeasonNumber = episode.seasonNumber, resumeEpisodeNumber = episode.episodeNumber,
+                resumeEpisodeTitle = episode.episodeTitle,
+            )
+        }.distinctBy { it.id }.take(20)
     }
 
     // Même source et même fusion que DashboardRows desktop.
@@ -347,7 +359,7 @@ fun HomeScreen(
     val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
 
     val visibleSections = remember(
-        dashboardLayout.sections, continueCards, recommendationCards, shortSessionCards,
+        dashboardLayout.sections, continueCards, recentEpisodeCards, recommendationCards, shortSessionCards,
         trendingCards, availableNowCards, comingSoonCards,
     ) {
         val configured = dashboardLayout.sections.filter { it.visible }.mapNotNull { section ->
@@ -368,6 +380,7 @@ fun HomeScreen(
         // dashboard l'avait masquée ou déplacée.
         buildList {
             if (continueCards.isNotEmpty()) add("continueWatching")
+            if (recentEpisodeCards.isNotEmpty()) add("recentEpisodes")
             addAll(configured.filter { it != "continueWatching" })
         }
     }
@@ -438,6 +451,15 @@ fun HomeScreen(
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                        )
+                    }
+                    "recentEpisodes" -> item(contentType = "row") {
+                        TitleRow(
+                            heading = "Épisodes récemment ajoutés", items = recentEpisodeCards,
+                            onClick = { onOpenTitle("series", it.tmdbId) },
+                            firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
+                            titleLogoPaths = heroLogos,
+                            onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
                         )
                     }
                     "becauseYouLike" -> item(contentType = "row") {

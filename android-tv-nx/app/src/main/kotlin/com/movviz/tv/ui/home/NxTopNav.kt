@@ -6,12 +6,15 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -28,6 +31,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.tv.data.TvProfile
 import com.movviz.tv.R
+import coil.compose.AsyncImage
 
 /** Navigation NX: très peu de chrome, sans réserver une colonne au contenu. */
 @Composable
@@ -109,9 +113,11 @@ fun NxTopNav(
             Text("⌕", color = Color.White, fontSize = 23.sp, modifier = Modifier.padding(horizontal = 13.dp, vertical = 2.dp))
         }
         Surface(
-            onClick = onOpenProfile,
-            modifier = Modifier.height(38.dp),
-            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
+            // Avatar = raccourci de changement de profil ; l'onglet Mon
+            // profil reste consacré au tableau de bord personnel.
+            onClick = onSwitchProfile,
+            modifier = Modifier.height(42.dp).width(42.dp),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                 containerColor = Color.Black.copy(alpha = 0.42f),
                 focusedContainerColor = Color(0xFF3A3B42),
@@ -119,7 +125,16 @@ fun NxTopNav(
                 focusedContentColor = Color.White,
             ),
         ) {
-            Text(activeProfile?.name?.take(2)?.uppercase() ?: "MO", color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp))
+            if (activeProfile?.avatar?.startsWith("http") == true) {
+                AsyncImage(
+                    model = activeProfile.avatar,
+                    contentDescription = "Changer de profil : ${activeProfile.name}",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                )
+            } else {
+                Text(activeProfile?.name?.take(2)?.uppercase() ?: "MO", color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
+            }
         }
     }
 }
