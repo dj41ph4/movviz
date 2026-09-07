@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.80 — September 2026
+
+### Correctif release retail Android
+
+Répare le contrôle d’empreinte de la clé retail dans les workflows Android. Les builds TV, NX et mobile refusent toujours toute clé différente, mais lisent désormais correctement l’empreinte renvoyée par `keytool`. La version `1.24.80` (`124080`) remplace la release v1.24.79 dont la CI avait été arrêtée avant publication d’APK.
+
 ## v1.24.79 — September 2026
 
 ### Movviz NX — démarrage local-first et release retail sûre

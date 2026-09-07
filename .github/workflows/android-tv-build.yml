@@ -60,7 +60,7 @@ jobs:
           key_password="$ANDROID_KEY_PASSWORD"
           printf '%s' "$ANDROID_KEYSTORE_B64" | base64 --decode > "$keystore"
           expected_cert="4e8d66761eb1cdc228c96478617910ebf5e1bba01adb000aedfa50f8e1af90ec"
-          actual_cert="$(keytool -list -v -keystore "$keystore" -storepass "$store_password" -alias "$key_alias" | awk '/SHA256:/{gsub(":", "", $3); print tolower($3); exit}')"
+          actual_cert="$(keytool -list -v -keystore "$keystore" -storepass "$store_password" -alias "$key_alias" | awk '/SHA256:/{gsub(":", "", $2); print tolower($2); exit}')"
           test "$actual_cert" = "$expected_cert" || { echo "::error::La clé CI ne correspond pas à la clé retail Movviz"; exit 1; }
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$keystore" "$store_password" "$key_alias" "$key_password" > android-tv/keystore.properties
           # NX est un canal TV séparé, mais doit être signé par la même clé
