@@ -167,6 +167,10 @@ internal data class TvTitleCard(
     val resumeEpisodeTitle: String? = null,
 )
 
+/** Rangée d'accueil multi-type. Accueil est le seul endroit où films et séries
+ * sont volontairement entrelacés ; Films/Séries gardent leurs hubs séparés. */
+private data class HomeEditorialRow(val key: String, val heading: String, val cards: List<TvTitleCard>)
+
 @Composable
 fun HomeScreen(
     viewModel: AppViewModel,
@@ -286,6 +290,25 @@ fun HomeScreen(
         val tv = seriesRows.firstOrNull { it.key == "trendingPopular" || it.key == "trending" }
             ?.results.orEmpty().filter { yearAllowed(it.year) }.map { searchCard(it, "trend") }
         movie.zipInterleave(tv).distinctBy { "${it.isMovie}-${it.tmdbId}" }.take(10)
+    }
+    // L'accueil ne s'arrête pas aux quelques blocs du dashboard : comme un
+    // vrai écran de streaming, il prolonge le héros et la reprise avec les
+    // étagères éditoriales de tous les services, dans un flux films + séries.
+    // Les hubs Films/Séries affichent les mêmes données sans les mélanger.
+    val editorialHomeRows = remember(movieRows, seriesRows, minYear) {
+        val keys = (movieRows.map { it.key } + seriesRows.map { it.key }).distinct()
+        keys.mapNotNull { key ->
+            // Les blocs déjà exprimés au début de l'accueil restent uniques.
+            if (key in setOf("trending", "trendingPopular", "kids")) return@mapNotNull null
+            val movie = movieRows.firstOrNull { it.key == key }?.results.orEmpty()
+                .filter { yearAllowed(it.year) }.map { searchCard(it, "home-$key") }
+            val tv = seriesRows.firstOrNull { it.key == key }?.results.orEmpty()
+                .filter { yearAllowed(it.year) }.map { searchCard(it, "home-$key") }
+            val cards = movie.zipInterleave(tv)
+                .distinctBy { "${it.isMovie}-${it.tmdbId}" }
+                .take(20)
+            cards.takeIf { it.isNotEmpty() }?.let { HomeEditorialRow(key, homeEditorialLabel(key, movieRows, seriesRows), it) }
+        }
     }
 
     val availableNowCards = remember(movies, series, minYear) {
@@ -539,6 +562,20 @@ fun HomeScreen(
                 }
                 if (sectionId == "becauseYouLike" && queue.isNotEmpty()) {
                     item(contentType = "queue") { DownloadQueueRow(items = queue, onOpenTitle = onOpenTitle) }
+                }
+            }
+
+            editorialHomeRows.forEach { row ->
+                item(key = "editorial-${row.key}", contentType = "editorial-row") {
+                    TitleRow(
+                        heading = row.heading,
+                        items = row.cards,
+                        onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                        titleLogoPaths = heroLogos,
+                        onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                        previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                        onPreviewStateChanged = onCardPreviewStateChanged,
+                    )
                 }
             }
 
@@ -1047,6 +1084,35 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
         )
     }
     DisposableEffect(Unit) { onDispose { TrailerWebViewPool.clearAll() } }
+}
+
+private fun homeEditorialLabel(
+    key: String,
+    movieRows: List<com.movviz.tv.data.MetadataRowDto>,
+    seriesRows: List<com.movviz.tv.data.MetadataRowDto>,
+): String {
+    val meta = movieRows.firstOrNull { it.key == key }?.meta
+        ?: seriesRows.firstOrNull { it.key == key }?.meta
+    if (key.startsWith("providerSuggested:") && meta?.providerName != null) return "Suggestion ${meta.providerName} pour vous"
+    if (key.startsWith("providerNew:") && meta?.providerName != null) return "Nouveautés ${meta.providerName} pour vous"
+    if (key.startsWith("becauseYouWatched:") && meta?.anchorTitle != null) {
+        return if (meta.verb == "liked") "Puisque ${meta.anchorTitle} vous a plu" else "Dans la lignée de ${meta.anchorTitle}"
+    }
+    return when (key) {
+        "recommendedTop" -> "Trouve ton prochain coup de cœur"
+        "nowPlayingBoxOffice" -> "En salles"
+        "upcomingVod", "upcoming" -> "Prochainement"
+        "acclaimed" -> "Salué par la critique"
+        "anime" -> "Anime et animation japonaise"
+        "teen" -> "Romance ado"
+        "shortFormat" -> "Format court, grand impact"
+        "genreAction" -> "Passez à l'action"
+        "genreComedy" -> "Besoin de rire ?"
+        "genreHorror" -> "Frissons garantis"
+        "genreSciFi" -> "Science-fiction et fantastique"
+        "newSeriesRenewed" -> "Nouvelles séries et renouvellements"
+        else -> key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
+    }
 }
 
 /**

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.76 — September 2026
+
+### Movviz NX — Films et Séries deviennent de vrais hubs
+
+Chaque univers Films et Séries a maintenant son propre hub avec une bascule Suggestions/Bibliothèque compacte, sans plus jamais mélanger les deux intentions ni les deux catalogues. L'accueil s'enrichit des mêmes rangées éditoriales que Films/Séries, y compris les nouveautés et suggestions par plateforme, dans un flux mélangeant films et séries comme un vrai écran de streaming. Corrige au passage un vrai défaut de focus qui pouvait sauter arbitrairement lors du passage vers la Bibliothèque.
+
 ## v1.24.75 — September 2026
 
 ### Découverte — plateformes lisibles et classement affiné

@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.grid.TvGridCells
 import androidx.tv.foundation.lazy.grid.TvLazyVerticalGrid
 import androidx.tv.foundation.lazy.grid.itemsIndexed
+import androidx.tv.foundation.lazy.grid.rememberTvLazyGridState
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
@@ -66,6 +68,9 @@ fun CatalogScreen(
     type: HomeTab,
     onOpenTitle: (String, Int) -> Unit,
     entryFocusRequester: FocusRequester? = null,
+    mode: MediaHubMode = MediaHubMode.LIBRARY,
+    onModeChange: (MediaHubMode) -> Unit = {},
+    onScrollChanged: (Boolean) -> Unit = {},
 ) {
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -101,11 +106,24 @@ fun CatalogScreen(
     }
 
     val topAnchor = remember { FocusRequester() }
+    val gridState = rememberTvLazyGridState()
+    val hasScrolled by remember {
+        derivedStateOf {
+            gridState.firstVisibleItemIndex > 0 || gridState.firstVisibleItemScrollOffset > 12
+        }
+    }
+    LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
 
     // Catalogue 10-foot : un inventaire dense et calme, proche de Plex.
     // Les contrôles restent compacts afin que les premières affiches soient
     // immédiatement visibles en 1080p comme en 4K.
-    Column(Modifier.fillMaxSize().padding(start = 52.dp, top = 64.dp, end = 52.dp, bottom = 30.dp)) {
+    Column(Modifier.fillMaxSize().padding(start = 56.dp, top = 78.dp, end = 52.dp, bottom = 30.dp)) {
+        MediaHubToggleRow(
+            mode = mode,
+            onModeChange = onModeChange,
+            firstFocusRequester = entryFocusRequester,
+        )
+        androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(22.dp))
         Text(
             text = "${type.label} · ${sorted.size}",
             style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
@@ -132,12 +150,18 @@ fun CatalogScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp),
                 modifier = Modifier.fillMaxSize(),
+                state = gridState,
             ) {
                 itemsIndexed(sorted, key = { _, c -> c.id }, contentType = { _, _ -> "card" }) { index, card ->
                     PosterCard(
                         card = card,
                         onClick = { onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
-                        focusRequester = if (index == 0) entryFocusRequester else null,
+                        // entryFocusRequester appartient exclusivement au
+                        // couple Suggestions/Bibliothèque. Le réutiliser sur
+                        // la première affiche rendait la cible ambiguë et
+                        // pouvait faire sauter le focus directement dans la
+                        // grille après une bascule de mode.
+                        focusRequester = null,
                         // Même principe que les rangées Netflix : affiche
                         // portrait sans logo au repos, logo officiel posé
                         // dessus au focus — mais la carte NE grandit PAS en

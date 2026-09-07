@@ -4,6 +4,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
@@ -81,9 +86,29 @@ fun MainScreen(
                 resultFocusRequester = contentFocusRequester,
             )
             tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged)
-            tab == HomeTab.DISCOVER -> DiscoverScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow, onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester)
-            tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
-            tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
+            // Films et Séries sont désormais chacun un véritable hub : les
+            // suggestions de leur type, ou l'inventaire de leur type. Il n'y
+            // a plus de découverte séparée qui mélangeait l'intention.
+            tab == HomeTab.MOVIES -> MediaHubScreen(
+                viewModel = viewModel, type = HomeTab.MOVIES,
+                onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
+                onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
+                onScrollChanged = onHomeScrollChanged,
+            )
+            tab == HomeTab.SERIES -> MediaHubScreen(
+                viewModel = viewModel, type = HomeTab.SERIES,
+                onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
+                onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
+                onScrollChanged = onHomeScrollChanged,
+            )
+            // État résiduel d'une ancienne navigation : on retombe sur le
+            // hub Films plutôt que de présenter un onglet invisible.
+            tab == HomeTab.DISCOVER -> MediaHubScreen(
+                viewModel = viewModel, type = HomeTab.MOVIES,
+                onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
+                onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
+                onScrollChanged = onHomeScrollChanged,
+            )
             tab == HomeTab.PROFILE -> ProfileScreen(
                 viewModel = viewModel,
                 entryFocusRequester = contentFocusRequester,
@@ -93,5 +118,49 @@ fun MainScreen(
             )
             tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)
         }
+    }
+}
+
+@Composable
+private fun MediaHubScreen(
+    viewModel: AppViewModel,
+    type: HomeTab,
+    onOpenTitle: (String, Int) -> Unit,
+    onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit,
+    onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit,
+    entryFocusRequester: FocusRequester,
+    onScrollChanged: (Boolean) -> Unit,
+) {
+    var mode by rememberSaveable(type) { mutableStateOf(MediaHubMode.SUGGESTIONS) }
+    // Une bascule remplace entièrement la branche Compose (Suggestions ↔
+    // Bibliothèque). Sans restitution explicite, Android cherche une cible
+    // spatiale dans la barre supérieure et peut envoyer le focus sur Accueil
+    // alors que Films/Séries est toujours actif. Le premier chip du nouveau
+    // hub est la cible stable, donc on le reprend après sa composition.
+    LaunchedEffect(type, mode) {
+        kotlinx.coroutines.delay(80)
+        runCatching { entryFocusRequester.requestFocus() }
+    }
+    when (mode) {
+        MediaHubMode.SUGGESTIONS -> DiscoverScreen(
+            viewModel = viewModel,
+            onOpenTitle = onOpenTitle,
+            onSeeAllRow = onSeeAllRow,
+            onOpenGenre = onOpenGenre,
+            entryFocusRequester = entryFocusRequester,
+            fixedType = type,
+            mode = mode,
+            onModeChange = { mode = it },
+            onScrollChanged = onScrollChanged,
+        )
+        MediaHubMode.LIBRARY -> CatalogScreen(
+            viewModel = viewModel,
+            type = type,
+            onOpenTitle = onOpenTitle,
+            entryFocusRequester = entryFocusRequester,
+            mode = mode,
+            onModeChange = { mode = it },
+            onScrollChanged = onScrollChanged,
+        )
     }
 }
