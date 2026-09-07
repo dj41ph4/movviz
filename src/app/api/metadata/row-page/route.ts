@@ -7,6 +7,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
 import { getBecauseYouWatchedPage } from "@/lib/recommender/becauseYouWatched";
+import { getProviderPersonalizedPage } from "@/lib/recommender/providerPersonalized";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
@@ -38,6 +39,17 @@ export async function GET(req: NextRequest) {
     const anchorTmdbId = Number(key.slice("becauseYouWatched:".length));
     if (!Number.isFinite(anchorTmdbId)) return NextResponse.json({ error: "invalid anchor" }, { status: 400 });
     const paged = await getBecauseYouWatchedPage(user?.id ?? "", type, anchorTmdbId, page);
+    if (!paged) return NextResponse.json({ error: "unknown row" }, { status: 400 });
+    return NextResponse.json({ results: filterSuggestable(paged.results), page: paged.page, totalPages: paged.totalPages, meta: paged.meta });
+  }
+
+  // Provider-personalized key (see providerPersonalized.ts) — same reason as
+  // becauseYouWatched: needs its own `meta` field for the client label, and
+  // its own ranked-pool cache rather than the generic switch below.
+  if (key.startsWith("providerPersonalized:")) {
+    const providerId = Number(key.slice("providerPersonalized:".length));
+    if (!Number.isFinite(providerId)) return NextResponse.json({ error: "invalid provider" }, { status: 400 });
+    const paged = await getProviderPersonalizedPage(user?.id ?? "", type, providerId, page, originCountries);
     if (!paged) return NextResponse.json({ error: "unknown row" }, { status: 400 });
     return NextResponse.json({ results: filterSuggestable(paged.results), page: paged.page, totalPages: paged.totalPages, meta: paged.meta });
   }

@@ -511,6 +511,7 @@ export const it: Dictionary = {
     rowGenreSciFi: "Fantascienza",
     rowBecauseYouWatched: "Nello spirito di {title}",
     rowBecauseYouLiked: "Dato che vi è piaciuto {title}",
+    rowProviderPersonalized: "Novità su {provider} per te",
     genreAnime: "Anime",
     genreTeen: "Romance per teenager",
     loadMore: "Carica altri",

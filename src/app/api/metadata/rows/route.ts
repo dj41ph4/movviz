@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
 import { buildBecauseYouWatchedRow } from "@/lib/recommender/becauseYouWatched";
+import { buildProviderPersonalizedRows } from "@/lib/recommender/providerPersonalized";
 import { loadMovies } from "@/lib/library/store";
 import { loadRequests } from "@/lib/requests/store";
 import { getFeedback } from "@/lib/ai/tasteProfile";
@@ -144,10 +145,15 @@ export async function GET(req: NextRequest) {
   // since it doesn't belong to any one layout's identity (buildEditorialExtras
   // below is the wrong place for it: that one is always appended at the end).
   const because = buildBecauseYouWatchedRow(user?.id ?? "", type);
+  // "Nouveautés {provider} pour vous" — same TV/movie-agnostic slot as
+  // `because` above: computed once, spliced right after it on every layout,
+  // since which providers exist doesn't depend on the editorial layout
+  // choice (see providerPersonalized.ts for how candidates are ranked).
+  const providerRows = buildProviderPersonalizedRows(user?.id ?? "", type, originCountries);
 
   if (layout === "allocine") {
     if (type === "movie") {
-      const [rec, newVod, nowPlaying, boxOffice, trend, topRated, upcomingResults, kids, extras, becauseRow] = await Promise.all([
+      const [rec, newVod, nowPlaying, boxOffice, trend, topRated, upcomingResults, kids, extras, becauseRow, providers] = await Promise.all([
         recommended,
         getAllocineNewVod(),
         browseCategory("movie", "now_playing", 1, originCountries),
@@ -158,10 +164,12 @@ export async function GET(req: NextRequest) {
         getKidsRow("movie", 1, originCountries),
         buildEditorialExtras("movie", originCountries),
         because,
+        providerRows,
       ]);
       const rows = [
         { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
         ...(becauseRow ? [becauseRow] : []),
+        ...providers,
         { key: "nowPlayingBoxOffice", results: filterSuggestable(dedupe([...nowPlaying.results, ...boxOffice.results])) },
         // upcomingVod is exempt on purpose — its entire point is showing what's not out yet.
         { key: "upcomingVod", results: dedupe([...upcomingResults, ...newVod.results]) },
@@ -172,7 +180,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ configured: true, layout, rows });
     }
 
-    const [rec, newSeries, renewed, trend, topRated, extras, becauseRow] = await Promise.all([
+    const [rec, newSeries, renewed, trend, topRated, extras, becauseRow, providers] = await Promise.all([
       recommended,
       getNewSeries(1, originCountries),
       browseCategory("series", "on_the_air", 1, originCountries),
@@ -180,10 +188,12 @@ export async function GET(req: NextRequest) {
       browseCategory("series", "top_rated", 1, originCountries),
       buildEditorialExtras("series", originCountries),
       because,
+      providerRows,
     ]);
     const rows = [
       { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
       ...(becauseRow ? [becauseRow] : []),
+      ...providers,
       { key: "newSeriesRenewed", results: filterSuggestable(dedupe([...newSeries.results, ...renewed.results])) },
       { key: "trending", results: filterSuggestable(trend.results).slice(0, 10), ranked: true },
       ...extras,
@@ -191,7 +201,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ configured: true, layout, rows });
   }
 
-  const [rec, trend, popular, topRated, upcomingResults, extras, becauseRow] = await Promise.all([
+  const [rec, trend, popular, topRated, upcomingResults, extras, becauseRow, providers] = await Promise.all([
     recommended,
     trending(type, 1, originCountries),
     browseCategory(type, "popular", 1, originCountries),
@@ -199,11 +209,13 @@ export async function GET(req: NextRequest) {
     type === "movie" ? buildUpcomingRow(user, originCountries) : browseCategory("series", "on_the_air", 1, originCountries).then((r) => r.results),
     buildEditorialExtras(type, originCountries),
     because,
+    providerRows,
   ]);
 
   const rows = [
     { key: "recommendedTop", results: filterSuggestable(dedupe([...rec, ...topRated.results])) },
     ...(becauseRow ? [becauseRow] : []),
+    ...providers,
     { key: "trendingPopular", results: filterSuggestable(dedupe([...trend.results, ...popular.results])).slice(0, 10) },
     // "upcoming" (movies) is exempt on purpose; "onAir" (series) isn't a
     // future-dated category (already airing) so it passes the filter fine —

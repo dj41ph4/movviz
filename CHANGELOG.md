@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.72 — September 2026
+
+### Découverte — nouveautés Netflix, Disney+ et Prime Video pour vous
+
+Découverte (Films et Séries) affiche désormais « Nouveautés Netflix pour vous », « Nouveautés Disney+ pour vous » et « Nouveautés Prime Video pour vous » : les catalogues de ces plateformes sont proposés triés selon vos propres goûts (affinité de genre, historique, notes) plutôt que par simple popularité générique — deux comptes voient le même catalogue Netflix, mais dans un ordre différent. Le « Voir tout » et la pagination conservent ce classement personnel. Les icônes de plateformes en bas de Découverte restent inchangées. Movviz NX reçoit le même enrichissement sur son propre écran Découverte, avec les rangées de logos Plateformes et Studios en bas d'écran.
+
 ## v1.24.71 — September 2026
 
 ### Movviz NX — saisons en plein écran

@@ -509,6 +509,7 @@ export const fr = {
     rowGenreSciFi: "Science-fiction",
     rowBecauseYouWatched: "Dans la lignée de {title}",
     rowBecauseYouLiked: "Puisque {title} vous a plu",
+    rowProviderPersonalized: "Nouveautés {provider} pour vous",
     genreAnime: "Anime",
     genreTeen: "Romance ado",
     loadMore: "Charger plus",

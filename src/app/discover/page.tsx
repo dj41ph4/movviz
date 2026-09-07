@@ -33,12 +33,15 @@ interface LogoTile {
   logoPath: string | null;
 }
 
-/** Carried by a "becauseYouWatched:{id}" row so its label can be interpolated
- *  client-side — the API stays locale-agnostic, see becauseYouWatched.ts. */
+/** Carried by a "becauseYouWatched:{id}" or "providerPersonalized:{id}" row
+ *  so its label can be interpolated client-side — the API stays
+ *  locale-agnostic, see becauseYouWatched.ts / providerPersonalized.ts. */
 interface RowMeta {
-  anchorTmdbId: number;
-  anchorTitle: string;
-  verb: "watched" | "liked";
+  anchorTmdbId?: number;
+  anchorTitle?: string;
+  verb?: "watched" | "liked";
+  providerId?: number;
+  providerName?: string;
 }
 
 export default function DiscoverPage() {
@@ -408,8 +411,11 @@ function DiscoverPageInner() {
   const rowLabel = (key: string, meta?: RowMeta) => {
     if (key.startsWith("becauseYouWatched:") && meta) {
       return meta.verb === "liked"
-        ? t("discover.rowBecauseYouLiked", { title: meta.anchorTitle })
-        : t("discover.rowBecauseYouWatched", { title: meta.anchorTitle });
+        ? t("discover.rowBecauseYouLiked", { title: meta.anchorTitle ?? "" })
+        : t("discover.rowBecauseYouWatched", { title: meta.anchorTitle ?? "" });
+    }
+    if (key.startsWith("providerPersonalized:") && meta?.providerName) {
+      return t("discover.rowProviderPersonalized", { provider: meta.providerName });
     }
     switch (key) {
       case "recommendedTop": return t("discover.rowRecommendedTop");
