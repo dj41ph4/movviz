@@ -448,8 +448,21 @@ fun HomeScreen(
             contentPadding = PaddingValues(bottom = 72.dp),
         ) {
             item(contentType = "topAnchor") {
+                // Tant qu'aucune donnée n'est arrivée (ni hero ni la moindre
+                // rangée), contentFocus (cible de NxTopNav pour BAS) n'est
+                // rattachée à AUCUN nœud composé : requestFocus() échoue
+                // silencieusement et BAS depuis Accueil semble figé sur la
+                // barre — signalé en direct, reproductible surtout sur
+                // connexion lente au serveur. Cette ancre est TOUJOURS
+                // composée dès la première frame (contrairement au hero/aux
+                // rangées) : elle reprend temporairement contentFocus le
+                // temps du chargement, puis la repasse au vrai premier
+                // élément dès qu'il existe (recomposition normale).
+                val anchorOwnsContentFocus = !showHero && firstVisibleSection == null
                 Box(
-                    modifier = Modifier.fillMaxWidth().height(1.dp).focusRequester(topAnchor).focusable()
+                    modifier = Modifier.fillMaxWidth().height(1.dp)
+                        .let { if (anchorOwnsContentFocus) it.focusRequester(contentFocus) else it }
+                        .focusRequester(topAnchor).focusable()
                         .onPreviewKeyEvent { event ->
                             if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionUp) {
                                 navRailFocusRequester?.let {
