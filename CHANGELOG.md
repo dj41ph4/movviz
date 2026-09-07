@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.70 — September 2026
+
+### Movviz NX — aperçus réellement disponibles
+
+Les aperçus vidéo sont de nouveau autorisés sur les Android TV et émulateurs disposant de moins de 2 Go de mémoire totale, tant que la mémoire libre reste sûre. Les fiches utilisent le même pipeline d’aperçu que les cartes, la loupe de navigation est redessinée, le badge « Reprendre » n’encombre plus les affiches et chaque carte de distribution reçoit un socle de texte opaque pour rester lisible sur les portraits clairs.
+
 ## v1.24.69 — September 2026
 
 ### Movviz NX — finition navigation et profil

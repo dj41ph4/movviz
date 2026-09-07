@@ -991,7 +991,12 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     LaunchedEffect(Unit) {
         val memInfo = android.app.ActivityManager.MemoryInfo()
         activityManager.getMemoryInfo(memInfo)
-        canUseWebView = memInfo.availMem >= 400L * 1024 * 1024 && memInfo.totalMem >= 2L * 1024 * 1024 * 1024
+        // Les boîtiers Android TV 1080p (et l'émulateur officiel) disposent
+        // souvent de 1 à 1,5 Go. Le précédent seuil « total >= 2 Go »
+        // désactivait donc silencieusement TOUT aperçu YouTube, même avec
+        // largement assez de mémoire libre. On ne bloque désormais que sous
+        // 160 Mo réellement disponibles, où WebView risquerait un OOM.
+        canUseWebView = memInfo.availMem >= 160L * 1024 * 1024
     }
     if (!canUseWebView) return
     var ready by remember(key) { mutableStateOf(false) }
@@ -1592,29 +1597,6 @@ internal fun PosterCard(
                             .padding(5.dp)
                             .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
-                }
-                // Dans les rangées éditoriales, un seul signal utile peut
-                // vivre sur l'image. Pour une reprise, c'est l'épisode — pas
-                // une accumulation de note, codec et statut.
-                if (!showTechnicalBadges && card.progressPercent != null && focused) {
-                    val resumeLabel = card.resumeSeasonNumber?.let { season ->
-                        buildString {
-                            append("Reprendre · S")
-                            append(season.toString().padStart(2, '0'))
-                            card.resumeEpisodeNumber?.let { episode ->
-                                append(":E")
-                                append(episode.toString().padStart(2, '0'))
-                            }
-                        }
-                    } ?: "Reprendre"
-                    Text(
-                        text = resumeLabel,
-                        style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
-                        modifier = Modifier.align(Alignment.TopStart)
-                            .padding(6.dp)
-                            .background(Color.Black.copy(alpha = 0.58f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 5.dp, vertical = 2.dp),
                     )
                 }
                 if (card.progressPercent != null) {

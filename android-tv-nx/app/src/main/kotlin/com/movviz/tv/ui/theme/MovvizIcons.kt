@@ -385,10 +385,16 @@ val MovvizIconTvScreen: ImageVector by lazy {
 val MovvizIconSearch: ImageVector by lazy {
     movvizIcon("MovvizIconSearch") {
         stroke(width = 2.15f) {
-            moveTo(10.6f, 5.1f)
-            arcToRelative(5.5f, 5.5f, 0f, true, true, 0.01f, 0f)
-            moveTo(14.7f, 14.7f)
-            lineTo(19.5f, 19.5f)
+            // Cercle explicite : arcToRelative avec une origine identique
+            // dessinait parfois un croissant cassé selon le rasterizer TV.
+            moveTo(10.5f, 4.5f)
+            curveTo(6.9f, 4.5f, 4.1f, 7.3f, 4.1f, 10.9f)
+            curveTo(4.1f, 14.5f, 6.9f, 17.3f, 10.5f, 17.3f)
+            curveTo(14.1f, 17.3f, 16.9f, 14.5f, 16.9f, 10.9f)
+            curveTo(16.9f, 7.3f, 14.1f, 4.5f, 10.5f, 4.5f)
+            close()
+            moveTo(15.2f, 15.6f)
+            lineTo(20.1f, 20.5f)
         }
     }
 }

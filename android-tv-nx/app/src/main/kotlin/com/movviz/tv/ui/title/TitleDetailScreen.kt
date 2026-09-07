@@ -1037,12 +1037,18 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                         focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary), shape = shape),
                     ),
                 ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(84.dp).padding(vertical = 6.dp)) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .width(84.dp)
+                        .clip(shape)
+                        .background(MovvizSurfaceStrong),
+                ) {
                     val photoUrl = member.profilePath?.let { "$TMDB_PROFILE_BASE$it" }
                     Box(
                         modifier = Modifier
-                            .size(84.dp)
-                            .clip(androidx.compose.foundation.shape.CircleShape)
+                            .fillMaxWidth()
+                            .height(92.dp)
                             .background(MovvizSurfaceStrong),
                     ) {
                         if (photoUrl != null) {
@@ -1054,22 +1060,32 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = member.name,
-                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                    )
-                    if (member.character.isNotBlank()) {
+                    // Les visages peuvent être très clairs : le texte ne
+                    // repose jamais sur la photo. Ce socle opaque reste
+                    // lisible même sur les portraits blancs de casting.
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xF0121218))
+                            .padding(horizontal = 5.dp, vertical = 6.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
                         Text(
-                            text = member.character,
-                            style = TextStyle(fontSize = 12.sp, color = MovvizInkDim),
+                            text = member.name,
+                            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                         )
+                        if (member.character.isNotBlank()) {
+                            Text(
+                                text = member.character,
+                                style = TextStyle(fontSize = 11.sp, color = Color.White.copy(alpha = 0.72f)),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            )
+                        }
                     }
                 }
                 }
