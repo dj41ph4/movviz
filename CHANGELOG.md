@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.78 — September 2026
+
+### Chaînes Google TV — Movviz TV et Movviz NX
+
+Les applications Android TV publient désormais leur chaîne Movviz et leur rangée système « Continuer à regarder » sur l’écran d’accueil Google TV. La dépendance officielle AndroidX TV Provider est partagée par Movviz TV et Movviz NX afin que les deux canaux restent cohérents.
+
 ## v1.24.77 — September 2026
 
 ### Movviz NX — Accueil ne bloque plus la télécommande

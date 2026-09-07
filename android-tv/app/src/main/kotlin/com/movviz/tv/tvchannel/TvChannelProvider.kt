@@ -2,124 +2,228 @@ package com.movviz.tv.tvchannel
 
 import android.content.ContentResolver
 import android.content.ContentUris
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
-import android.media.tv.TvContract
 import android.net.Uri
+import androidx.tvprovider.media.tv.PreviewChannel
+import androidx.tvprovider.media.tv.PreviewProgram
+import androidx.tvprovider.media.tv.TvContractCompat
+import androidx.tvprovider.media.tv.WatchNextProgram
 import com.movviz.tv.data.OnDeckEntryDto
 
 /**
- * Chaîne Android TV « Movviz » sur le dashboard du launcher.
+ * Deux rangées Android TV / Google TV, toutes deux backées par le TvProvider
+ * du système — aucune API réservée, n'importe quelle app peut y publier :
  *
- * Le launcher Android TV affiche une rangée de cartes par chaîne enregistrée
- * dans le TvProvider : c'est le mécanisme que Plex, Netflix etc. utilisent
- * pour proposer des films / "continuer à regarder" directement sur l'écran
- * d'accueil — aucune API réservée ni partenariat, n'importe quelle app peut
- * enregistrer des chaînes et pousser des programmes.
+ * - **Chaîne "Movviz"** : une rangée dédiée sur le dashboard, listant les
+ *   titres "à reprendre" du compte actif.
+ * - **Rangée système "Continuer"** (Watch Next) : la rangée partagée tout en
+ *   haut de l'accueil Google TV, celle que Plex/Netflix alimentent pour
+ *   proposer une reprise même quand leur app n'est pas ouverte — c'est
+ *   exactement ce mécanisme-là (demande explicite utilisateur, confirmé
+ *   possible et implémenté ici).
  *
- * Chaque sync remplace les programmes de la chaîne par les titres "à
- * reprendre" du compte actif (on-deck) : la rangée reflète la vraie activité
- * de l'utilisateur. Cliquer sur une carte ouvre l'app (TvProvider ne permet
- * qu'un intent par chaîne, pas par programme — le deep link
- * movviz://title/{type}/{tmdbId} reste néanmoins branché côté MainActivity
- * pour les autres points d'entrée).
+ * Contrairement à l'ancienne implémentation basée sur `android.media.tv.TvContract`
+ * brut, celle-ci utilise `androidx.tvprovider` (Builders typés) : chaque
+ * carte reçoit désormais son propre `setIntentUri()` vers
+ * `movviz://title/{type}/{tmdbId}` (le deep link NavHost déjà branché dans
+ * `MainActivity.kt`) — fini l'ouverture générique de l'app au clic, seule
+ * limite que l'API bas-niveau imposait.
  */
 object TvChannelProvider {
 
-    private const val CHANNEL_ID_TAG = "movviz_library"
+    private const val CHANNEL_INTERNAL_ID = "movviz_library"
     private const val CHANNEL_NAME = "Movviz"
     private const val CHANNEL_DESCRIPTION = "Reprendre la lecture de votre bibliothèque"
     private const val MAX_PROGRAMS = 15
     private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w342"
 
-    /** Remplace la rangée du dashboard par les titres à reprendre. Idempotent
-     *  et sûr : la chaîne est créée si absente, les programmes sont purgés
-     *  puis réinsérés (jamais de doublons ni de cartes périmées). À appeler
+    /** Préfixe des `internalProviderId` que CETTE app pose dans la rangée
+     *  Watch Next, partagée entre toutes les apps du boîtier — indispensable
+     *  pour ne jamais lister, mettre à jour ou supprimer l'entrée d'une
+     *  autre app en la confondant avec une des nôtres. */
+    private const val WATCH_NEXT_ID_PREFIX = "movviz:"
+
+    /** Remplace la chaîne "Movviz" et met à jour la rangée Watch Next à
+     *  partir des mêmes titres "à reprendre". Idempotent et sûr : à appeler
      *  à chaque chargement réussi du on-deck. */
     fun sync(context: Context, items: List<OnDeckEntryDto>) {
+        val trimmed = items.take(MAX_PROGRAMS)
         try {
-            val resolver = context.contentResolver
-            val channelId = findOrCreateChannel(context, resolver) ?: return
-            replacePrograms(resolver, channelId, items.take(MAX_PROGRAMS))
+            syncChannel(context, trimmed)
         } catch (_: Exception) {
             // Boîtier sans launcher compatible / provider restreint : la
             // chaîne n'apparaît pas, l'app continue de fonctionner normalement.
+        }
+        try {
+            syncWatchNext(context, trimmed)
+        } catch (_: Exception) {
+            // Même repli — la rangée système "Continuer" est un bonus, pas
+            // un prérequis au fonctionnement de l'app.
+        }
+    }
+
+    // -------------------------------------------------------------------
+    // Chaîne "Movviz"
+    // -------------------------------------------------------------------
+
+    private fun syncChannel(context: Context, items: List<OnDeckEntryDto>) {
+        val resolver = context.contentResolver
+        val channelId = findOrCreateChannel(context, resolver) ?: return
+        resolver.delete(
+            TvContractCompat.PreviewPrograms.CONTENT_URI,
+            "${TvContractCompat.PreviewPrograms.COLUMN_CHANNEL_ID}=?",
+            arrayOf(channelId.toString()),
+        )
+        for (item in items) {
+            val program = PreviewProgram.Builder()
+                .setChannelId(channelId)
+                .setType(programType(item))
+                .setTitle(episodeAwareTitle(item))
+                .setDescription(progressDescription(item))
+                .setIntentUri(titleDeepLink(item))
+                .setInternalProviderId(watchNextInternalId(item))
+                .apply { posterUri(item)?.let { setPosterArtUri(it) } }
+                .build()
+            resolver.insert(TvContractCompat.PreviewPrograms.CONTENT_URI, program.toContentValues())
         }
     }
 
     private fun findOrCreateChannel(context: Context, resolver: ContentResolver): Long? {
         resolver.query(
-            TvContract.Channels.CONTENT_URI,
-            arrayOf(TvContract.Channels._ID),
-            "${TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID}=?",
-            arrayOf(CHANNEL_ID_TAG),
+            TvContractCompat.Channels.CONTENT_URI,
+            arrayOf(TvContractCompat.Channels._ID),
+            "${TvContractCompat.Channels.COLUMN_INTERNAL_PROVIDER_ID}=?",
+            arrayOf(CHANNEL_INTERNAL_ID),
             null,
         )?.use { cursor ->
             if (cursor.moveToFirst()) return cursor.getLong(0)
         }
-        val values = ContentValues().apply {
-            put(TvContract.Channels.COLUMN_INTERNAL_PROVIDER_ID, CHANNEL_ID_TAG)
-            put(TvContract.Channels.COLUMN_TYPE, TvContract.Channels.TYPE_PREVIEW)
-            put(TvContract.Channels.COLUMN_DISPLAY_NAME, CHANNEL_NAME)
-            put(TvContract.Channels.COLUMN_DESCRIPTION, CHANNEL_DESCRIPTION)
-            put(TvContract.Channels.COLUMN_APP_LINK_INTENT_URI, appLinkIntent())
-        }
-        val uri = resolver.insert(TvContract.Channels.CONTENT_URI, values) ?: return null
+        val channel = PreviewChannel.Builder()
+            .setInternalProviderId(CHANNEL_INTERNAL_ID)
+            .setDisplayName(CHANNEL_NAME)
+            .setDescription(CHANNEL_DESCRIPTION)
+            .setAppLinkIntentUri(
+                Uri.parse(
+                    Intent(Intent.ACTION_MAIN)
+                        .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+                        .toUri(Intent.URI_INTENT_SCHEME),
+                ),
+            )
+            .build()
+        val uri = resolver.insert(TvContractCompat.Channels.CONTENT_URI, channel.toContentValues()) ?: return null
         val channelId = ContentUris.parseId(uri)
         // Rend la chaîne visible sur le dashboard — une seule fois, à la
         // création. Sur Google TV la chaîne apparaît dans l'écran "Chaînes" ;
         // sur Android TV classique, en rangée sur l'accueil.
         try {
-            TvContract.requestChannelBrowsable(context, channelId)
+            TvContractCompat.requestChannelBrowsable(context, channelId)
         } catch (_: Exception) {
             // Launcher sans support — la chaîne reste enregistrée en local.
         }
         return channelId
     }
 
-    private fun replacePrograms(resolver: ContentResolver, channelId: Long, items: List<OnDeckEntryDto>) {
-        resolver.delete(
-            TvContract.Programs.CONTENT_URI,
-            "${TvContract.Programs.COLUMN_CHANNEL_ID}=?",
-            arrayOf(channelId.toString()),
-        )
-        val now = System.currentTimeMillis()
-        val end = now + 3 * 60 * 60 * 1000L
+    // -------------------------------------------------------------------
+    // Rangée système "Continuer" (Watch Next)
+    // -------------------------------------------------------------------
+
+    private fun syncWatchNext(context: Context, items: List<OnDeckEntryDto>) {
+        val resolver = context.contentResolver
+        val ours = queryOwnWatchNextEntries(resolver)
+        val currentIds = items.map { watchNextInternalId(it) }.toSet()
+
+        // Retire les reprises qui ne sont plus d'actualité (terminées,
+        // retirées de la bibliothèque…) — jamais l'entrée d'une autre app,
+        // grâce au filtre par préfixe déjà appliqué dans queryOwnWatchNextEntries.
+        for ((internalId, program) in ours) {
+            if (internalId !in currentIds) {
+                resolver.delete(TvContractCompat.buildWatchNextProgramUri(program.id), null, null)
+            }
+        }
+
         for (item in items) {
-            val isEpisode = item.type == "series" && item.seasonNumber != null && item.episodeNumber != null
-            val title = buildString {
-                append(item.title ?: "—")
-                if (isEpisode) append(" — S").append(item.seasonNumber).append('E').append(item.episodeNumber)
+            val internalId = watchNextInternalId(item)
+            val existing = ours[internalId]
+            // Une carte explicitement retirée par l'utilisateur (browsable=0)
+            // ne doit jamais être ressuscitée automatiquement au prochain
+            // sync — on repart d'un programme neuf plutôt que de la rouvrir.
+            val dismissed = existing != null && !existing.isBrowsable
+            if (dismissed) {
+                resolver.delete(TvContractCompat.buildWatchNextProgramUri(existing!!.id), null, null)
             }
-            val values = ContentValues().apply {
-                put(TvContract.Programs.COLUMN_CHANNEL_ID, channelId)
-                put(TvContract.Programs.COLUMN_TITLE, title)
-                if (isEpisode) {
-                    put(TvContract.Programs.COLUMN_SEASON_DISPLAY_NUMBER, item.seasonNumber)
-                    put(TvContract.Programs.COLUMN_EPISODE_DISPLAY_NUMBER, item.episodeNumber)
-                    item.episodeTitle?.let { put(TvContract.Programs.COLUMN_EPISODE_TITLE, it) }
-                }
-                put(
-                    TvContract.Programs.COLUMN_SHORT_DESCRIPTION,
-                    if (item.progressPercent > 0) "${item.progressPercent}% regardé" else "Reprendre la lecture",
-                )
-                item.posterPath?.let { put(TvContract.Programs.COLUMN_POSTER_ART_URI, TMDB_IMAGE_BASE + it) }
-                put(TvContract.Programs.COLUMN_START_TIME_UTC_MILLIS, now)
-                put(TvContract.Programs.COLUMN_END_TIME_UTC_MILLIS, end)
-                // Pas de deep link par programme : TvProvider ne supporte
-                // l'intent d'app que par CHAÎNE (COLUMN_APP_LINK_INTENT_URI
-                // n'existe pas sur Programs) — cliquer sur une carte ouvre
-                // l'app via l'intent leanback de la chaîne.
+            val reusable = existing != null && !dismissed
+            val builder = if (reusable) {
+                WatchNextProgram.Builder(existing)
+            } else {
+                WatchNextProgram.Builder()
+                    .setInternalProviderId(internalId)
+                    .setType(programType(item))
+                    .setTitle(episodeAwareTitle(item))
+                    .setIntentUri(titleDeepLink(item))
             }
-            resolver.insert(TvContract.Programs.CONTENT_URI, values)
+            builder
+                .setWatchNextType(TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE)
+                .setLastEngagementTimeUtcMillis(if (item.lastPlayedAt > 0) item.lastPlayedAt else System.currentTimeMillis())
+            if (item.offsetMs > 0) builder.setLastPlaybackPositionMillis(item.offsetMs.toInt())
+            posterUri(item)?.let { builder.setPosterArtUri(it) }
+
+            val values = builder.build().toContentValues()
+            if (reusable) {
+                resolver.update(TvContractCompat.buildWatchNextProgramUri(existing!!.id), values, null, null)
+            } else {
+                resolver.insert(TvContractCompat.WatchNextPrograms.CONTENT_URI, values)
+            }
         }
     }
 
-    /** Intent de repli de la chaîne : ouvre simplement l'app (résolu par le
-     *  launcher via l'action + catégorie leanback, aucun composant explicite). */
-    private fun appLinkIntent(): String =
-        Intent(Intent.ACTION_MAIN)
-            .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
-            .toUri(Intent.URI_INTENT_SCHEME)
+    /** Uniquement les entrées posées par CETTE app (préfixe dédié) — la
+     *  rangée Watch Next est partagée par tout le boîtier. */
+    private fun queryOwnWatchNextEntries(resolver: ContentResolver): Map<String, WatchNextProgram> {
+        val map = mutableMapOf<String, WatchNextProgram>()
+        resolver.query(TvContractCompat.WatchNextPrograms.CONTENT_URI, null, null, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val program = WatchNextProgram.fromCursor(cursor)
+                val internalId = program.internalProviderId ?: continue
+                if (internalId.startsWith(WATCH_NEXT_ID_PREFIX)) map[internalId] = program
+            }
+        }
+        return map
+    }
+
+    // -------------------------------------------------------------------
+    // Commun
+    // -------------------------------------------------------------------
+
+    private fun isEpisode(item: OnDeckEntryDto): Boolean =
+        item.type == "series" && item.seasonNumber != null && item.episodeNumber != null
+
+    private fun programType(item: OnDeckEntryDto): Int =
+        if (isEpisode(item)) TvContractCompat.PreviewPrograms.TYPE_TV_EPISODE else TvContractCompat.PreviewPrograms.TYPE_MOVIE
+
+    private fun episodeAwareTitle(item: OnDeckEntryDto): String = buildString {
+        append(item.title ?: "—")
+        if (isEpisode(item)) append(" — S").append(item.seasonNumber).append('E').append(item.episodeNumber)
+    }
+
+    private fun progressDescription(item: OnDeckEntryDto): String =
+        if (item.progressPercent > 0) "${item.progressPercent}% regardé" else "Reprendre la lecture"
+
+    private fun posterUri(item: OnDeckEntryDto): Uri? = item.posterPath?.let { Uri.parse(TMDB_IMAGE_BASE + it) }
+
+    /** Identifiant stable par titre (ou par épisode précis pour une série) —
+     *  sert à la fois d'`internalProviderId` Watch Next (dédoublonnage/mise à
+     *  jour plutôt que doublon à chaque sync) et de clé de tri interne. */
+    private fun watchNextInternalId(item: OnDeckEntryDto): String =
+        if (isEpisode(item)) {
+            "$WATCH_NEXT_ID_PREFIX${item.type}:${item.tmdbId}:${item.seasonNumber}:${item.episodeNumber}"
+        } else {
+            "$WATCH_NEXT_ID_PREFIX${item.type}:${item.tmdbId}"
+        }
+
+    /** `movviz://title/{type}/{tmdbId}` — le deep link NavHost déjà branché
+     *  dans `MainActivity.kt` (navDeepLink uriPattern). Une carte de la
+     *  chaîne ou de Watch Next ouvre donc directement la fiche du titre, pas
+     *  seulement l'app. */
+    private fun titleDeepLink(item: OnDeckEntryDto): Uri = Uri.parse("movviz://title/${item.type}/${item.tmdbId}")
 }

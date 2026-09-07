@@ -27,8 +27,8 @@ android {
         // et proposait/installait une "mise à jour" à chaque lancement, même
         // juste après l'avoir déjà installée — boucle infinie constatée.
         // Repli ci-dessous : build local (Android Studio) sans CI.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124077
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.77"
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124078
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.78"
         // Canal NX retail distinct : même clé de signature que TV classique,
         // mais asset GitHub et applicationId propres, donc jamais d'écrasement.
         buildConfigField("boolean", "AUTO_UPDATE", "true")
@@ -123,4 +123,7 @@ dependencies {
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.zxing.core)
+    // Rangées Google TV — chaîne "Movviz" + rangée système "Continuer"
+    // (Watch Next), voir tvchannel/TvChannelProvider.kt.
+    implementation(libs.tv.provider)
 }
