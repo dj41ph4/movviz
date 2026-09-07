@@ -120,7 +120,13 @@ fun RowDetailScreen(
                 page = result.page
                 totalPages = result.totalPages
                 result.meta?.let { m ->
-                    resolvedLabel = if (m.verb == "liked") "Puisque ${m.anchorTitle} vous a plu" else "Dans la lignée de ${m.anchorTitle}"
+                    resolvedLabel = when {
+                        rowKey.startsWith("becauseYouWatched:") && m.anchorTitle != null ->
+                            if (m.verb == "liked") "Puisque ${m.anchorTitle} vous a plu" else "Dans la lignée de ${m.anchorTitle}"
+                        rowKey.startsWith("providerPersonalized:") && m.providerName != null ->
+                            "Nouveautés ${m.providerName} pour vous"
+                        else -> resolvedLabel
+                    }
                 }
             }
         } finally {

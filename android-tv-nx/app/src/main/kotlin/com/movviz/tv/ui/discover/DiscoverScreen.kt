@@ -76,10 +76,13 @@ fun DiscoverScreen(
     val movieGenres by viewModel.movieGenres.collectAsState()
     val seriesGenres by viewModel.seriesGenres.collectAsState()
     val editorialRows = if (selectedType == HomeTab.MOVIES) movieRows else seriesRows
+    val watchProviderTiles by viewModel.watchProviderTiles.collectAsState()
+    val companyTiles by viewModel.companyTiles.collectAsState()
     LaunchedEffect(Unit) {
         viewModel.loadLibrary()
         viewModel.loadDiscovery()
         viewModel.loadDashboardHero()
+        viewModel.loadDiscoverLogos()
     }
     val wantedType = if (selectedType == HomeTab.MOVIES) "movie" else "series"
     LaunchedEffect(wantedType) {
@@ -229,6 +232,19 @@ fun DiscoverScreen(
                     onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                 )
             }
+            // Rangées logo "Plateformes"/"Studios" en tout bas — même contenu
+            // et même ordre que LogoRow sur le Discover desktop, indépendant
+            // du toggle Films/Séries (voir loadDiscoverLogos()).
+            if (watchProviderTiles.isNotEmpty()) {
+                item(contentType = "logo-row") {
+                    DiscoverLogoRow(title = "Plateformes", tiles = watchProviderTiles)
+                }
+            }
+            if (companyTiles.isNotEmpty()) {
+                item(contentType = "logo-row") {
+                    DiscoverLogoRow(title = "Studios", tiles = companyTiles)
+                }
+            }
         }
     }
 }
@@ -245,6 +261,9 @@ private data class DiscoverRow(
 private fun discoverRowLabel(key: String, meta: RowMetaDto?): String {
     if (key.startsWith("becauseYouWatched:") && meta != null) {
         return if (meta.verb == "liked") "Puisque ${meta.anchorTitle} vous a plu" else "Dans la lignée de ${meta.anchorTitle}"
+    }
+    if (key.startsWith("providerPersonalized:") && meta?.providerName != null) {
+        return "Nouveautés ${meta.providerName} pour vous"
     }
     return when (key) {
         "for-you" -> "Suggestions pour vous"
@@ -334,6 +353,70 @@ private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: S
             }
             items(genres, key = { "tmdb-${it.id}" }) { g ->
                 DiscoverGenreChip(label = g.name, onClick = { onSelect(g.id.toString(), g.name) })
+            }
+        }
+    }
+}
+
+/** Même base que la constante homonyme de HomeScreen.kt/TitleDetailScreen.kt
+ *  (w500) — dupliquée ici plutôt qu'exportée car chaque écran TV la déclare
+ *  déjà en `private const val` localement (convention existante du module). */
+private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
+
+@Composable
+private fun DiscoverLogoRow(title: String, tiles: List<com.movviz.tv.data.LogoTileDto>) {
+    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            items(tiles, key = { "$title-${it.id}" }) { tile ->
+                DiscoverLogoTile(tile = tile)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = {},
+        modifier = Modifier
+            .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick({}),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .height(48.dp)
+                .padding(horizontal = 20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (tile.logoPath != null) {
+                androidx.compose.foundation.Image(
+                    painter = coil.compose.rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE${tile.logoPath}"),
+                    contentDescription = tile.name,
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    modifier = Modifier.height(28.dp),
+                )
+            } else {
+                Text(
+                    text = tile.name,
+                    style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (focused) MovvizInk else MovvizInkSoft),
+                )
             }
         }
     }

@@ -185,6 +185,28 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
         }
     }
 
+    // Tuiles logo "Plateformes"/"Studios" du bas de Découverte — même liste
+    // curated que la LogoRow desktop, indépendante du type Films/Séries
+    // sélectionné (les plateformes/studios ne varient pas selon film ou
+    // série sur desktop non plus).
+    private val _watchProviderTiles = MutableStateFlow<List<com.movviz.tv.data.LogoTileDto>>(emptyList())
+    val watchProviderTiles: StateFlow<List<com.movviz.tv.data.LogoTileDto>> = _watchProviderTiles.asStateFlow()
+
+    private val _companyTiles = MutableStateFlow<List<com.movviz.tv.data.LogoTileDto>>(emptyList())
+    val companyTiles: StateFlow<List<com.movviz.tv.data.LogoTileDto>> = _companyTiles.asStateFlow()
+
+    fun loadDiscoverLogos() {
+        val repo = repository ?: return
+        viewModelScope.launch {
+            coroutineScope {
+                val providers = async { repo.metadataLogos("watchProvider") }
+                val companies = async { repo.metadataLogos("company") }
+                when (val r = providers.await()) { is ApiResult.Success -> _watchProviderTiles.value = r.data; else -> Unit }
+                when (val r = companies.await()) { is ApiResult.Success -> _companyTiles.value = r.data; else -> Unit }
+            }
+        }
+    }
+
     // Rangée "Continuer à regarder" de l'accueil — ordre Netflix (Continuer
     // → Bibliothèque → Découverte). Réutilise le même /api/plex/on-deck que
     // resumeOffsetMs, mais garde la liste entière plutôt qu'une seule entrée.

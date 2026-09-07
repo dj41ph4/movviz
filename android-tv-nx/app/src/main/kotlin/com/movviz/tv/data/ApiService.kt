@@ -180,6 +180,12 @@ interface MovvizApiService {
     @GET("api/metadata/rows")
     suspend fun metadataRows(@Query("type") type: String): Response<MetadataRowsResponseDto>
 
+    // Tuiles logo "Plateformes"/"Studios" du bas du Discover desktop — même
+    // route et même liste curated (STREAMING_PLATFORMS / MOVIE_STUDIOS),
+    // "kind" vaut "watchProvider" ou "company".
+    @GET("api/metadata/logos")
+    suspend fun metadataLogos(@Query("kind") kind: String): Response<LogoTilesResponseDto>
+
     // Moteur de recommandation personnel Movviz. Les clients filtrent ensuite
     // ces identifiants contre leur bibliothèque pour construire l'onglet
     // « Suggestions pour vous » local, exactement comme LibraryRecommendedRows

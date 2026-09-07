@@ -141,6 +141,10 @@ class MovvizRepository(private val baseUrl: String) {
     suspend fun metadataRows(type: String): ApiResult<List<MetadataRowDto>> =
         safeCall { api.metadataRows(type) }.map { it.rows }
 
+    /** Tuiles logo "Plateformes"/"Studios" — voir LogoTileDto. */
+    suspend fun metadataLogos(kind: String): ApiResult<List<LogoTileDto>> =
+        safeCall { api.metadataLogos(kind) }.map { it.tiles }
+
     suspend fun metadataRecommendations(type: String): ApiResult<List<SearchResultDto>> =
         safeCall { api.metadataRecommendations(type) }.map { it.results }
 

@@ -556,12 +556,18 @@ data class SearchResponseDto(
  *  becauseYouWatched.ts côté serveur) — permet au client d'interpoler son
  *  propre libellé ("Dans la lignée de {title}" / "Puisque {title} vous a
  *  plu") sans que l'API n'ait à connaître la locale. `verb` vaut "watched"
- *  ou "liked". */
+ *  ou "liked". Aussi porté par une rangée "providerPersonalized:{providerId}"
+ *  (voir providerPersonalized.ts côté serveur), avec `providerId`/`providerName`
+ *  au lieu des trois champs "becauseYouWatched" ci-dessus — tous les champs
+ *  sont donc optionnels ici, sinon Moshi lève une exception sur toute réponse
+ *  /api/metadata/rows contenant une rangée de l'autre forme. */
 @JsonClass(generateAdapter = true)
 data class RowMetaDto(
-    val anchorTmdbId: Int,
-    val anchorTitle: String,
-    val verb: String,
+    val anchorTmdbId: Int? = null,
+    val anchorTitle: String? = null,
+    val verb: String? = null,
+    val providerId: Int? = null,
+    val providerName: String? = null,
 )
 
 /** Rangées éditoriales déjà assemblées par le backend pour le dashboard web.
@@ -578,6 +584,23 @@ data class MetadataRowDto(
 @JsonClass(generateAdapter = true)
 data class MetadataRowsResponseDto(
     val rows: List<MetadataRowDto> = emptyList(),
+)
+
+/** Une tuile logo de GET /api/metadata/logos (plateformes de streaming ou
+ *  studios) — même route et même liste "curated" (STREAMING_PLATFORMS /
+ *  MOVIE_STUDIOS) que la rangée "Plateformes"/"Studios" du bas de la page
+ *  Discover desktop. `logoPath` peut être absent si TMDb n'a pas de logo
+ *  pour l'entrée : l'écran doit alors retomber sur le nom en texte. */
+@JsonClass(generateAdapter = true)
+data class LogoTileDto(
+    val id: Int,
+    val name: String,
+    val logoPath: String? = null,
+)
+
+@JsonClass(generateAdapter = true)
+data class LogoTilesResponseDto(
+    val tiles: List<LogoTileDto> = emptyList(),
 )
 
 /** Réponse de GET /api/metadata/row-page ("voir tout" d'une rangée) — même
