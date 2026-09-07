@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.81 — September 2026
+
+### Movviz NX — accueil local-first finalisé
+
+L’accueil NX publie désormais un snapshot unique par vague P0/P1 : le contenu local s’affiche immédiatement, puis les données serveur remplacent l’ensemble de façon cohérente sans cascade de recompositions ni saut de focus. Le rendu du premier viewport est confirmé avant le lancement du travail secondaire ; la file de téléchargements, les recommandations et les métadonnées éloignées restent en arrière-plan.
+
+En l’absence de cache, l’écran de préparation affiche une progression liée aux étapes réellement franchies. En cas de serveur indisponible, le dernier accueil valable du même serveur, compte et profil reste utilisable avec une indication discrète hors ligne, sans répéter des requêtes de repli inutiles. Le préchargement se limite aux affiches proches et au seul backdrop focalisé ; Coil emploie explicitement son chargeur partagé.
+
 ## v1.24.80 — September 2026
 
 ### Correctif release retail Android

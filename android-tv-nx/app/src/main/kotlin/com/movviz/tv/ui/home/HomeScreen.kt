@@ -62,7 +62,7 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import coil.compose.LocalImageLoader
+import coil.imageLoader
 import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import coil.size.Size
@@ -185,19 +185,34 @@ fun HomeScreen(
     navRailFocusRequester: FocusRequester? = null,
     onScrollChanged: (Boolean) -> Unit = {},
 ) {
-    val movies by viewModel.movies.collectAsState()
-    val series by viewModel.series.collectAsState()
-    val recentEpisodes by viewModel.recentEpisodes.collectAsState()
-    val continueWatching by viewModel.continueWatching.collectAsState()
+    val streamedMovies by viewModel.movies.collectAsState()
+    val streamedSeries by viewModel.series.collectAsState()
+    val streamedRecentEpisodes by viewModel.recentEpisodes.collectAsState()
+    val streamedContinueWatching by viewModel.continueWatching.collectAsState()
     val queue by viewModel.queue.collectAsState()
-    val movieRows by viewModel.movieRows.collectAsState()
-    val seriesRows by viewModel.seriesRows.collectAsState()
-    val movieRecommendations by viewModel.movieLibraryRecommendations.collectAsState()
-    val seriesRecommendations by viewModel.seriesLibraryRecommendations.collectAsState()
-    val dashboardHero by viewModel.dashboardHero.collectAsState()
-    val dashboardLayout by viewModel.dashboardLayout.collectAsState()
+    val streamedMovieRows by viewModel.movieRows.collectAsState()
+    val streamedSeriesRows by viewModel.seriesRows.collectAsState()
+    val streamedMovieRecommendations by viewModel.movieLibraryRecommendations.collectAsState()
+    val streamedSeriesRecommendations by viewModel.seriesLibraryRecommendations.collectAsState()
+    val streamedDashboardHero by viewModel.dashboardHero.collectAsState()
+    val streamedDashboardLayout by viewModel.dashboardLayout.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
     val homeUiState by viewModel.homeUiState.collectAsState()
+    // Un snapshot P0/P1 est publié en une seule transition. Cela évite les
+    // recompositions et déplacements de focus produits par dix StateFlow
+    // successifs. Sans snapshot (compatibilité serveur ancien), les flows
+    // historiques continuent de fournir le Home.
+    val homeSnapshot = homeUiState.snapshot
+    val movies = homeSnapshot?.movies ?: streamedMovies
+    val series = homeSnapshot?.series ?: streamedSeries
+    val recentEpisodes = homeSnapshot?.recentEpisodes ?: streamedRecentEpisodes
+    val continueWatching = homeSnapshot?.continueWatching ?: streamedContinueWatching
+    val movieRows = homeSnapshot?.movieRows ?: streamedMovieRows
+    val seriesRows = homeSnapshot?.seriesRows ?: streamedSeriesRows
+    val movieRecommendations = homeSnapshot?.movieRecommendations ?: streamedMovieRecommendations
+    val seriesRecommendations = homeSnapshot?.seriesRecommendations ?: streamedSeriesRecommendations
+    val dashboardHero = homeSnapshot?.dashboardHero ?: streamedDashboardHero
+    val dashboardLayout = homeSnapshot?.dashboardLayout ?: streamedDashboardLayout
     // Une TV modeste ne doit jamais décoder le hero et une carte à la fois.
     // Cette clé est levée uniquement lorsqu'une carte a effectivement une
     // source prête : le hero s'éteint alors sans toucher au focus D-pad.
@@ -216,6 +231,7 @@ fun HomeScreen(
             withFrameNanos { }
             firstContentFrameReported = true
             Log.d("TV-PERF", "HOME_FIRST_FRAME ${viewModel.homeBootstrapElapsedMs()} ms")
+            viewModel.onHomeFirstFrameDrawn()
         }
     }
 
@@ -596,14 +612,53 @@ fun HomeScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            AnimatedLogo(size = 82.dp)
-                            Spacer(Modifier.height(16.dp))
-                            Text("Préparation de ton cinéma…", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .55f))
+                            MovvizBootScreen(
+                                progress = homeUiState.bootProgress,
+                                message = homeUiState.bootMessage,
+                            )
                         }
                     }
                 }
             }
         }
+        // Signal passif : le cache reste pleinement navigable, sans modal ni
+        // focus supplémentaire qui perturberait la télécommande.
+        if (homeUiState.offline && (showHero || visibleSections.isNotEmpty())) {
+            Box(
+                modifier = Modifier.align(Alignment.TopEnd).padding(top = 132.dp, end = 48.dp)
+                    .clip(RoundedCornerShape(18.dp)).background(Color.Black.copy(alpha = .72f)),
+            ) {
+                Text(
+                    "Hors ligne · contenu enregistré",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color.White.copy(alpha = .85f),
+                )
+            }
+        }
+    }
+}
+
+/** État de démarrage visible seulement sans Home local utilisable. La barre
+ * représente des étapes réelles du bootstrap, jamais un minuteur décoratif. */
+@Composable
+private fun MovvizBootScreen(progress: Int, message: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        AnimatedLogo(size = 82.dp)
+        Spacer(Modifier.height(20.dp))
+        Text("Préparation de ton cinéma", style = MaterialTheme.typography.titleMedium, color = Color.White)
+        Spacer(Modifier.height(18.dp))
+        Box(
+            modifier = Modifier.width(320.dp).height(8.dp)
+                .clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = .16f)),
+        ) {
+            Box(
+                modifier = Modifier.fillMaxHeight().fillMaxWidth((progress.coerceIn(0, 100) / 100f))
+                    .background(MovvizBrand),
+            )
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("$progress %  ·  $message", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .7f))
     }
 }
 
@@ -681,7 +736,7 @@ internal fun HeroCarousel(
     var scrimAlpha by remember(current.id) { mutableStateOf(0.55f) }
     val animatedScrimAlpha by animateFloatAsState(scrimAlpha, tween(600), label = "hero_scrim_alpha")
     val context = LocalContext.current
-    val imageLoader = LocalImageLoader.current
+    val imageLoader = context.imageLoader
     LaunchedEffect(current.id) {
         val url = "$TMDB_BACKDROP_BASE${current.backdropPath}"
         val cached = luminanceCache[url]
@@ -1402,11 +1457,12 @@ internal fun TitleRow(
                 item(contentType = "see-all") { SeeAllTile(onClick = onSeeAll) }
             }
         }
-        // Précharge l'affiche ET le backdrop de la carte active, puis des
-        // deux suivantes. La transition portrait → paysage ne doit jamais
-        // révéler un fond vide pendant que Coil télécharge le backdrop.
+        // Les affiches suivantes sont peu coûteuses ; les backdrops 1280×720
+        // ne le sont pas. Sur une Google TV modeste, précharger trois grands
+        // bitmaps à chaque mouvement D-pad provoquait de la contention avec
+        // le rendu. Seule la carte focalisée a besoin de son backdrop.
         val ctx = LocalContext.current
-        val imageLoader = LocalImageLoader.current
+        val imageLoader = ctx.imageLoader
         LaunchedEffect(focusedCardState.value) {
             val focused = focusedCardState.value ?: return@LaunchedEffect
             val idx = items.indexOf(focused)
@@ -1424,14 +1480,14 @@ internal fun TitleRow(
                             .build()
                     )
                 }
-                candidate.backdropPath?.let { path ->
-                    imageLoader.enqueue(
-                        ImageRequest.Builder(ctx)
-                            .data("$TMDB_BACKDROP_BASE$path")
-                            .size(Size(1280, 720))
-                            .build()
-                    )
-                }
+            }
+            focused.backdropPath?.let { path ->
+                imageLoader.enqueue(
+                    ImageRequest.Builder(ctx)
+                        .data("$TMDB_BACKDROP_BASE$path")
+                        .size(Size(1280, 720))
+                        .build()
+                )
             }
         }
     }

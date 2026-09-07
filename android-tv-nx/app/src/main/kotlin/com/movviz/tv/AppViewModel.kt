@@ -48,9 +48,15 @@ import android.os.SystemClock
 import android.util.Log
 
 data class HomeUiState(
+    /** Source atomique du Home pendant le bootstrap. Les StateFlow détaillés
+     * restent disponibles pour les autres écrans, mais Home ne doit pas se
+     * recomposer dix fois pendant la publication d'une même vague réseau. */
+    val snapshot: HomeSnapshot? = null,
     val hasUsableContent: Boolean = false,
     val refreshing: Boolean = false,
     val offline: Boolean = false,
+    val bootProgress: Int = 0,
+    val bootMessage: String = "Préparation de ton cinéma…",
 )
 
 private data class HomeP0Results(
@@ -58,6 +64,12 @@ private data class HomeP0Results(
     val onDeck: ApiResult<List<OnDeckEntryDto>>,
     val layout: ApiResult<com.movviz.tv.data.DashboardLayoutDto>,
     val hero: ApiResult<List<DashboardHeroSlideDto>>,
+)
+
+private data class PendingHomeP1(
+    val repository: MovvizRepository,
+    val snapshot: HomeSnapshot,
+    val startedAt: Long,
 )
 
 /**
@@ -71,6 +83,9 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val profilePrefs = ProfilePrefs(application)
     private val homeLocalStore = HomeLocalStore(application)
     private var homeBootstrapJob: Job? = null
+    private var homeP1Job: Job? = null
+    private var pendingHomeP1: PendingHomeP1? = null
+    private var homeFirstFrameDrawn = false
     private var queuePollingJob: Job? = null
     private var homeBootstrapStartedAt: Long = 0L
     private val _homeUiState = MutableStateFlow(HomeUiState())
@@ -631,6 +646,10 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         // repeupler l'accueil du suivant après une bascule rapide.
         homeBootstrapJob?.cancel()
         homeBootstrapJob = null
+        homeP1Job?.cancel()
+        homeP1Job = null
+        pendingHomeP1 = null
+        homeFirstFrameDrawn = false
         queuePollingJob?.cancel()
         queuePollingJob = null
         _currentUser.value = null
@@ -769,19 +788,26 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         val user = _currentUser.value ?: return
         val profile = _activeProfile.value ?: return
         homeBootstrapStartedAt = SystemClock.elapsedRealtime()
+        homeFirstFrameDrawn = false
         homeBootstrapJob = viewModelScope.launch {
             val started = homeBootstrapStartedAt
             Log.d("TV-PERF", "APP_START bootstrap")
+            _homeUiState.value = HomeUiState(refreshing = true, bootProgress = 15, bootMessage = "Lecture de l’état local…")
             val local = withContext(Dispatchers.IO) { homeLocalStore.read(url, user.id, profile.id) }
             if (local != null) {
                 publishHomeSnapshot(local)
                 _homeUiState.value = HomeUiState(
-                    hasUsableContent = local.movies.isNotEmpty() || local.series.isNotEmpty(),
+                    snapshot = local,
+                    hasUsableContent = hasHomeContent(local),
                     refreshing = true,
+                    bootProgress = 100,
+                    bootMessage = "Accueil prêt",
                 )
                 Log.d("TV-PERF", "LOCAL_STATE_READY ${SystemClock.elapsedRealtime() - started} ms")
+            } else {
+                _homeUiState.value = HomeUiState(refreshing = true, bootProgress = 25, bootMessage = "Chargement de la bibliothèque…")
             }
-            _homeUiState.value = _homeUiState.value.copy(refreshing = true, offline = false)
+            _homeUiState.value = _homeUiState.value.copy(refreshing = true, offline = false, bootProgress = if (local == null) 45 else 100, bootMessage = if (local == null) "Connexion au serveur…" else "Accueil prêt")
             val repo = repository ?: return@launch
             Log.d("TV-PERF", "SERVER_REFRESH_START ${SystemClock.elapsedRealtime() - started} ms")
             val p0 = coroutineScope {
@@ -801,6 +827,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             }
             val compact = (library as? ApiResult.Success)?.data
             if (compact != null) {
+                _homeUiState.value = _homeUiState.value.copy(bootProgress = 75, bootMessage = "Préparation du premier écran…")
                 val fresh = HomeSnapshot(
                     generatedAt = System.currentTimeMillis(), serverIdentity = url.trim().trimEnd('/'),
                     userId = user.id, profileId = profile.id,
@@ -814,24 +841,61 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                     movieRecommendations = local?.movieRecommendations.orEmpty(), seriesRecommendations = local?.seriesRecommendations.orEmpty(),
                 )
                 publishHomeSnapshot(fresh)
-                _homeUiState.value = HomeUiState(hasUsableContent = fresh.movies.isNotEmpty() || fresh.series.isNotEmpty(), refreshing = true)
+                _homeUiState.value = HomeUiState(snapshot = fresh, hasUsableContent = hasHomeContent(fresh), refreshing = true, bootProgress = 100, bootMessage = "Accueil prêt")
                 Log.d("TV-PERF", "HOME_FIRST_CONTENT ${SystemClock.elapsedRealtime() - started} ms")
                 // P0 suffit à rendre le prochain démarrage instantané. Ne pas
                 // attendre P1 : recommandations lentes ou indisponibles ne
                 // doivent jamais priver l'app d'un cache de bibliothèque.
                 persistHomeSnapshot(fresh)
-                refreshHomeP1(repo, fresh, started)
+                pendingHomeP1 = PendingHomeP1(repo, fresh, started)
+                // Si le cache avait déjà été dessiné, le premier frame est
+                // passé avant la fin de P0 : P1 peut démarrer tout de suite.
+                if (homeFirstFrameDrawn) onHomeFirstFrameDrawn()
+            } else if (local != null) {
+                // Serveur indisponible : il serait contre-productif de
+                // relancer les endpoints historiques. Le snapshot complet
+                // vient déjà d'être rendu et reste navigable hors ligne.
+                _homeUiState.value = HomeUiState(
+                    snapshot = local,
+                    hasUsableContent = hasHomeContent(local),
+                    offline = true,
+                    bootProgress = 100,
+                    bootMessage = "Accueil disponible hors ligne",
+                )
+                Log.d("TV-PERF", "OFFLINE_CACHE_READY ${SystemClock.elapsedRealtime() - started} ms")
             } else {
-                // Compatibilité serveur ancien : conserver la voie existante,
-                // sans jamais vider le cache local pendant le repli.
+                // Compatibilité serveur ancien : aucun cache à préserver,
+                // donc les endpoints historiques restent le repli.
                 refreshLibraryNow()
-                _homeUiState.value = _homeUiState.value.copy(hasUsableContent = _movies.value.isNotEmpty() || _series.value.isNotEmpty(), refreshing = false, offline = local != null)
+                _homeUiState.value = _homeUiState.value.copy(
+                    hasUsableContent = _movies.value.isNotEmpty() || _series.value.isNotEmpty(),
+                    refreshing = false,
+                    bootProgress = 100,
+                    bootMessage = "Accueil prêt",
+                )
             }
         }
     }
 
     fun homeBootstrapElapsedMs(): Long =
         (SystemClock.elapsedRealtime() - homeBootstrapStartedAt).coerceAtLeast(0L)
+
+    /** Appelé par Compose seulement après le frame qui montre P0. P1/P2 ne
+     * peuvent donc pas voler réseau ou CPU au premier viewport. */
+    fun onHomeFirstFrameDrawn() {
+        homeFirstFrameDrawn = true
+        val pending = pendingHomeP1 ?: return
+        pendingHomeP1 = null
+        homeP1Job?.cancel()
+        homeP1Job = viewModelScope.launch {
+            refreshHomeP1(pending.repository, pending.snapshot, pending.startedAt)
+        }
+    }
+
+    private fun hasHomeContent(snapshot: HomeSnapshot): Boolean =
+        snapshot.movies.isNotEmpty() || snapshot.series.isNotEmpty() ||
+            snapshot.continueWatching.isNotEmpty() || snapshot.dashboardHero.isNotEmpty() ||
+            snapshot.recentEpisodes.isNotEmpty()
 
     private suspend fun refreshHomeP1(repo: MovvizRepository, p0: HomeSnapshot, started: Long) = coroutineScope {
         val movieRows = async { repo.metadataRows("movie") }
@@ -847,7 +911,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         )
         publishHomeSnapshot(refreshed)
         persistHomeSnapshot(refreshed)
-        _homeUiState.value = HomeUiState(hasUsableContent = refreshed.movies.isNotEmpty() || refreshed.series.isNotEmpty())
+        _homeUiState.value = HomeUiState(snapshot = refreshed, hasUsableContent = hasHomeContent(refreshed), bootProgress = 100, bootMessage = "Accueil prêt")
         Log.d("TV-PERF", "SERVER_REFRESH_END ${SystemClock.elapsedRealtime() - started} ms")
         // P2, après première publication : sync système / queue ne peuvent
         // plus concurrencer le premier viewport.
@@ -858,6 +922,13 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     }
 
     private fun publishHomeSnapshot(snapshot: HomeSnapshot) {
+        // HomeScreen lit ce snapshot unique : la carte focalisée ne peut donc
+        // pas disparaître entre _movies, _series et les rangées P1. Les
+        // flows détaillés sont ensuite synchronisés pour le reste de l'app.
+        _homeUiState.value = _homeUiState.value.copy(
+            snapshot = snapshot,
+            hasUsableContent = hasHomeContent(snapshot),
+        )
         _movies.value = snapshot.movies
         _series.value = snapshot.series
         _recentEpisodes.value = snapshot.recentEpisodes
