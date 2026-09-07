@@ -15,7 +15,9 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.movviz.mobile"
+        // Canal indépendant de Movviz Mobile et de NX TV : installation,
+        // cache, session et mise à jour ne peuvent jamais se croiser.
+        applicationId = "com.movviz.nx.mobile"
         minSdk = 24
         targetSdk = 35
         // Même source de vérité que les deux canaux TV : la CI remplace ces

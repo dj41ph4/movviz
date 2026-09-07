@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- APK téléchargé par l'auto-update — caché dans le cache de l'appli,
+         jamais exposé aux autres apps (FileProvider n'autorise que le
+         destinataire explicite via FLAG_GRANT_READ_URI_PERMISSION). -->
+    <cache-path name="update" path="update/" />
+</paths>

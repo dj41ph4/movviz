@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.82 — September 2026
+
+### Movviz NX Mobile — nouveau canal indépendant
+
+Ajoute `Movviz NX Mobile` (`com.movviz.nx.mobile`) : une application Android tactile indépendante de Movviz Mobile et NX TV, signée par la même clé retail. Elle conserve les profils, les reprises, le lecteur, l’accueil et la mise à jour automatique de Movviz tout en gardant ses propres données et son propre asset de release (`Movviz-NX-Mobile-client.apk`).
+
+L’interface s’adapte aux téléphones, tablettes et appareils pliables : activité redimensionnable, sélecteur de profils à 2/3/4 colonnes selon la largeur, grille de bibliothèque adaptive et formulaires centrés sur grands écrans. L’icône NX est utilisée comme icône Android.
+
 ## v1.24.81 — September 2026
 
 ### Movviz NX — accueil local-first finalisé
