@@ -106,6 +106,10 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
 
     private val _detail = MutableStateFlow<MetaDetailDto?>(null)
     val detail: StateFlow<MetaDetailDto?> = _detail.asStateFlow()
+    // Une fiche ne doit jamais rester indéfiniment sur « Chargement » : les
+    // erreurs réseau/API sont un état visible et récupérable côté TV.
+    private val _detailError = MutableStateFlow<String?>(null)
+    val detailError: StateFlow<String?> = _detailError.asStateFlow()
 
     private val _person = MutableStateFlow<PersonDto?>(null)
     val person: StateFlow<PersonDto?> = _person.asStateFlow()
@@ -351,10 +355,12 @@ private val _activeProfile = MutableStateFlow<TvProfile?>(null)
     fun loadDetail(type: String, tmdbId: Int) {
         val repo = repository ?: return
         _detail.value = null
+        _detailError.value = null
         viewModelScope.launch {
             when (val d = repo.detail(type, tmdbId)) {
                 is ApiResult.Success -> _detail.value = d.data
-                else -> Unit
+                ApiResult.Unauthorized -> _sessionExpired.value = true
+                is ApiResult.Failure -> _detailError.value = d.message
             }
         }
     }
@@ -577,6 +583,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _movieLibraryRecommendations.value = emptyList()
         _seriesLibraryRecommendations.value = emptyList()
         _detail.value = null
+        _detailError.value = null
         _person.value = null
         _seriesSeasons.value = emptyList()
         _seasonMetadata.value = emptyMap()

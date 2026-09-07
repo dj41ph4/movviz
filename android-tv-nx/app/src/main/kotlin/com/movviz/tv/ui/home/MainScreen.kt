@@ -45,14 +45,6 @@ fun MainScreen(
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
     contentFocusRequester: FocusRequester,
-    // Ancre de repli TOUJOURS attachée (désormais au niveau de
-    // MovvizNavHost pour exister aussi sous fiche titre/acteur) — cible que
-    // la NavRail vise quand contentFocusRequester ne pointe encore vers rien
-    // de réel (écran en chargement, résultats vides). Distincte de
-    // contentFocusRequester : les deux ne peuvent pas être le même objet, un
-    // FocusRequester ne peut être attaché qu'à UN seul noeud composé à la
-    // fois.
-    fallbackFocusRequester: FocusRequester,
     // Cible HAUT depuis le contenu → NavRail : onglet sélectionné de la
     // barre reçoit le focus quand l'utilisateur appuie sur HAUT alors que
     // plus rien ne se trouve au-dessus dans le contenu.
@@ -92,7 +84,13 @@ fun MainScreen(
             tab == HomeTab.DISCOVER -> DiscoverScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow, onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.MOVIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.MOVIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
             tab == HomeTab.SERIES -> CatalogScreen(viewModel = viewModel, type = HomeTab.SERIES, onOpenTitle = onOpenTitle, entryFocusRequester = contentFocusRequester)
-            tab == HomeTab.PROFILE -> ProfileScreen(viewModel = viewModel, entryFocusRequester = contentFocusRequester)
+            tab == HomeTab.PROFILE -> ProfileScreen(
+                viewModel = viewModel,
+                entryFocusRequester = contentFocusRequester,
+                onOpenTitle = onOpenTitle,
+                onOpenEpisode = onOpenEpisode,
+                onScrollChanged = onHomeScrollChanged,
+            )
             tab == HomeTab.SETTINGS -> SettingsScreen(viewModel = viewModel, onLoggedOut = onLoggedOut, entryFocusRequester = contentFocusRequester)
         }
     }

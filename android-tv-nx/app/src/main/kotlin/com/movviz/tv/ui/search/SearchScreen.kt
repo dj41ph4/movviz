@@ -15,6 +15,11 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusable
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
@@ -72,8 +77,26 @@ fun SearchScreen(
     // deux int/string, c'est instantané et ne retient rien de lourd.
     var focusedTmdbId by remember { mutableStateOf<Int?>(null) }
     var focusedType by remember { mutableStateOf<String?>(null) }
+    // Distinct du requester d'entrée depuis la barre : un requester Compose
+    // ne s'attache qu'à un seul nœud. Celui-ci est exclusivement la première
+    // carte, pour que BAS depuis le champ sorte toujours du clavier vers les
+    // résultats réels.
+    val firstResultFocusRequester = remember { FocusRequester() }
     val results by viewModel.searchResults.collectAsState()
     val searching by viewModel.searching.collectAsState()
+
+    // Le clic sur l'icône de loupe change seulement l'état de navigation ;
+    // il ne déplace pas automatiquement le focus Compose. Sans cette reprise
+    // explicite, le focus restait sur « Accueil » et l'utilisateur tapait
+    // dans le vide. On attend l'attache du BasicTextField avant de demander
+    // le focus, avec les mêmes garanties que les autres écrans TV.
+    LaunchedEffect(showSearchField) {
+        if (!showSearchField || resultFocusRequester == null) return@LaunchedEffect
+        repeat(4) { attempt ->
+            if (runCatching { resultFocusRequester.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (attempt < 3) withFrameNanos { }
+        }
+    }
 
     LaunchedEffect(query) {
         if (query.isBlank()) {
@@ -94,7 +117,16 @@ fun SearchScreen(
             if (showSearchField) {
                 Text("Recherche", style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground))
                 Spacer(Modifier.width(24.dp))
-                SearchField(query, fieldFocused, { fieldFocused = it }, onQueryChange, { viewModel.search(query) }, Modifier.width(430.dp), resultFocusRequester)
+                SearchField(
+                    query,
+                    fieldFocused,
+                    { fieldFocused = it },
+                    onQueryChange,
+                    { viewModel.search(query) },
+                    Modifier.width(430.dp),
+                    resultFocusRequester,
+                    if (results.isNotEmpty()) firstResultFocusRequester else null,
+                )
             }
         }
         Spacer(Modifier.height(18.dp))
@@ -137,7 +169,13 @@ fun SearchScreen(
                         result,
                         result.tmdbId == focusedTmdbId && result.type == focusedType,
                         { focusedTmdbId = result.tmdbId; focusedType = result.type },
-                        focusRequester = if (index == 0) resultFocusRequester else null,
+                        // Le même FocusRequester ne peut être attaché qu'à
+                        // un seul nœud Compose. Quand le champ est affiché,
+                        // c'est lui qui reçoit BAS depuis la barre ; le
+                        // premier résultat est ensuite atteint naturellement
+                        // par BAS. L'ancienne double attache rendait la
+                        // recherche muette au D-pad sur certains appareils.
+                        focusRequester = if (index == 0) firstResultFocusRequester else null,
                     ) { onOpenTitle(result.type, result.tmdbId) }
                 }
             }
@@ -161,13 +199,39 @@ private fun SearchFocusMessage(text: String, focusRequester: FocusRequester?) {
 }
 
 @Composable
-private fun SearchField(value: String, focused: Boolean, onFocusChanged: (Boolean) -> Unit, onValueChange: (String) -> Unit, onSearch: () -> Unit, modifier: Modifier, focusRequester: FocusRequester? = null) {
+private fun SearchField(
+    value: String,
+    focused: Boolean,
+    onFocusChanged: (Boolean) -> Unit,
+    onValueChange: (String) -> Unit,
+    onSearch: () -> Unit,
+    modifier: Modifier,
+    focusRequester: FocusRequester? = null,
+    downFocusRequester: FocusRequester? = null,
+) {
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
     Box(modifier.height(52.dp).border(2.dp, if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = .25f), RoundedCornerShape(26.dp)).background(MovvizSurface, RoundedCornerShape(26.dp)).onFocusChanged { onFocusChanged(it.isFocused) }.padding(horizontal = 20.dp), contentAlignment = Alignment.CenterStart) {
         if (value.isEmpty()) Text("Rechercher un titre…", color = MovvizInkDim, fontSize = 17.sp)
-        BasicTextField(value, onValueChange, singleLine = true, textStyle = TextStyle(fontSize = 17.sp, color = MovvizInk), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { onSearch(); focusManager.clearFocus(); keyboardController?.hide() }), modifier = Modifier.fillMaxWidth().let { if (focusRequester != null) it.focusRequester(focusRequester) else it })
-    }
+        BasicTextField(
+            value,
+            onValueChange,
+            singleLine = true,
+            textStyle = TextStyle(fontSize = 17.sp, color = MovvizInk),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch(); focusManager.clearFocus(); keyboardController?.hide() }),
+            modifier = Modifier
+                .fillMaxWidth()
+                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                // BasicTextField retient les flèches pour le curseur : la
+                // prévisualisation assure donc le passage au premier poster.
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
+                        downFocusRequester?.let { runCatching { it.requestFocus() }.isSuccess } == true
+                    } else false
+                },
+        )
+}
 }
 
 @Composable

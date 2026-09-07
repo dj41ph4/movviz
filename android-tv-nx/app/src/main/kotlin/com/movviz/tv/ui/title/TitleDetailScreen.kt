@@ -58,6 +58,7 @@ import com.movviz.tv.data.MetadataEpisodeDto
 import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.ui.home.TitleRow
 import com.movviz.tv.ui.home.TvTitleCard
+import com.movviz.tv.ui.home.AmbientPreview
 import com.movviz.tv.ui.player.QueueItem
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
@@ -133,12 +134,12 @@ fun TitleDetailScreen(
     // de saison ne l'écrase jamais une fois initialisée).
     initialSeasonNumber: Int? = null,
     initialEpisodeNumber: Int? = null,
-    // Cible D-pad « flèche bas depuis la NavRail » (voir MainScreen/NavRail)
-    // — la fiche a déjà son propre mécanisme de repli interne sur un
-    // ancrage invisible si aucun CTA n'est composé, donc toujours sûre.
+    // Cible D-pad « flèche bas depuis la barre » : la fiche emploie sa zone
+    // visuelle logo/titre comme première cible, même sans CTA générique.
     entryFocusRequester: FocusRequester? = null,
 ) {
     val detail by viewModel.detail.collectAsState()
+    val detailError by viewModel.detailError.collectAsState()
     // Même artwork de titre que TitleContent sur desktop : le logo officiel
     // TMDb est préféré au texte brut, qui reste le repli si TMDb n'en a pas.
     val heroLogos by viewModel.heroLogos.collectAsState()
@@ -150,6 +151,9 @@ fun TitleDetailScreen(
     var addError by remember { mutableStateOf<String?>(null) }
     var selectedSeasonNumber by remember(type, tmdbId) { mutableStateOf<Int?>(null) }
     var selectedEpisode by remember(type, tmdbId) { mutableStateOf<EpisodeSelection?>(null) }
+    // Même cible à l'ouverture, en erreur et une fois les données chargées :
+    // le D-pad ne se perd jamais pendant une réponse réseau lente.
+    val initialFocusRequester = entryFocusRequester ?: remember { FocusRequester() }
 
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -392,23 +396,16 @@ fun TitleDetailScreen(
     // silencieusement : cette rangée vit dans la TvLazyColumn et n'est pas
     // forcément composée tant qu'elle n'est pas au moins proche du viewport
     // (synopsis long ⇒ saison 1 hors-champ au premier rendu). On utilise
-    // donc le CTA principal (Lire/Ajouter) quand il existe — il est toujours
-    // dans le tout premier `item{}`, donc toujours composé — sinon un ancrage
-    // invisible placé au même endroit (cas d'une série déjà en bibliothèque,
-    // sans CTA générique). Une fois le focus posé en haut, la descente D-pad
+    // donc le logo/titre du premier `item{}` : toujours composé, y compris
+    // pour une série déjà en bibliothèque sans CTA générique. Une fois le
+    // focus posé sur cette zone visible, la descente D-pad
     // classique fait défiler/composer les rangées de saisons normalement
     // (même mécanisme que la ligne Films → Séries de l'accueil).
-    val initialFocusRequester = entryFocusRequester ?: remember { FocusRequester() }
     // Toujours repartir au début réel de la fiche à son ouverture. Sans ce
     // reset, le focus initial sur un CTA pouvait conserver un offset LazyRow
     // précédent et masquer logo/titre sous la navigation.
     val lazyListState = rememberTvLazyListState()
     var hasRequestedInitialFocus by remember { mutableStateOf(false) }
-    val hasFocusableCta = when {
-        type == "movie" && plexRatingKey != null -> true
-        type == "movie" -> !inLibrary
-        else -> !inLibrary // série
-    }
     LaunchedEffect(detail) {
         if (hasRequestedInitialFocus) return@LaunchedEffect
         if (detail == null) return@LaunchedEffect
@@ -445,6 +442,18 @@ fun TitleDetailScreen(
         }
     }
 
+    // Même pipeline que le hero desktop et les cartes NX : on résout la
+    // meilleure source seulement après avoir reçu la fiche, puis le lecteur
+    // muet reste derrière le texte et les actions. Sans cet appel, les fiches
+    // ne pouvaient afficher qu'un backdrop statique, même lorsqu'un aperçu
+    // existait côté Movviz.
+    var ambientPreview by remember(type, tmdbId) { mutableStateOf<com.movviz.tv.data.TvPreviewDto?>(null) }
+    LaunchedEffect(detail?.tmdbId, type) {
+        if (detail == null) return@LaunchedEffect
+        delay(900)
+        ambientPreview = viewModel.loadTvPreview(type, tmdbId)
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         val backdropUrl = detail?.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
         if (backdropUrl != null) {
@@ -459,6 +468,23 @@ fun TitleDetailScreen(
             )
         } else {
             Box(modifier = Modifier.fillMaxWidth().height(560.dp).background(MaterialTheme.colorScheme.surface))
+        }
+
+        // L'aperçu est placé AU-DESSUS de l'image mais SOUS les dégradés : le
+        // titre, synopsis et CTA gardent le même contraste à distance. Le
+        // fallback TMDb est utile le temps que les sources directes arrivent.
+        val preview = ambientPreview
+        val previewKeys = preview?.ambientVideoKeys ?: detail?.ambientVideoKeys.orEmpty()
+        if (preview != null || previewKeys.isNotEmpty()) {
+            AmbientPreview(
+                directSources = preview?.directSources.orEmpty(),
+                trailerKeys = previewKeys,
+                title = preview?.title ?: detail?.title.orEmpty(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(640.dp)
+                    .graphicsLayer { translationY = parallaxOffset },
+            )
         }
 
         // Même double dégradé que le web (vertical pour la lisibilité du bas,
@@ -486,11 +512,46 @@ fun TitleDetailScreen(
         )
 
         if (detail == null) {
-            Text(
-                text = "Chargement…",
-                style = TextStyle(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
-                modifier = Modifier.padding(start = 56.dp, top = 320.dp),
-            )
+            if (detailError == null) {
+                Text(
+                    text = "Chargement…",
+                    style = TextStyle(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
+                    modifier = Modifier.padding(start = 56.dp, top = 320.dp),
+                )
+            } else {
+                Column(
+                    modifier = Modifier.padding(start = 112.dp, top = 310.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    Text(
+                        text = "Impossible de charger cette fiche",
+                        style = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+                    )
+                    Text(
+                        text = "Vérifiez la connexion puis réessayez.",
+                        style = TextStyle(fontSize = 15.sp, color = MovvizInkSoft),
+                    )
+                    Surface(
+                        onClick = { viewModel.loadDetail(type, tmdbId) },
+                        modifier = Modifier.focusRequester(initialFocusRequester).tvPointerClick { viewModel.loadDetail(type, tmdbId) },
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = MovvizBrand,
+                            focusedContainerColor = MovvizBrand2,
+                            contentColor = Color.White,
+                            focusedContentColor = Color.White,
+                        ),
+                    ) {
+                        Text("Réessayer", style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold), modifier = Modifier.padding(horizontal = 22.dp, vertical = 12.dp))
+                    }
+                }
+                LaunchedEffect(detailError) {
+                    repeat(10) { attempt ->
+                        if (runCatching { initialFocusRequester.requestFocus() }.isSuccess) return@LaunchedEffect
+                        if (attempt < 9) withFrameNanos { }
+                    }
+                }
+            }
             return@Box
         }
         val d = detail!!
@@ -537,13 +598,9 @@ fun TitleDetailScreen(
             contentPadding = PaddingValues(top = 112.dp),
         ) {
             item {
-            // Ancre de sommet de fiche. Elle est volontairement large afin
-            // que la recherche spatiale du D-pad la trouve depuis n'importe
-            // quel CTA/section situé plus bas. Elle rend le premier UP à la
-            // fiche (logo/titre), et seul le UP suivant peut atteindre la
-            // barre principale. Sans elle, DetailUpToNavHandler envoyait
-            // directement l'utilisateur vers la nav car aucun voisin haut
-            // focusable n'existait dans la fiche.
+            // Première cible D-pad = la zone VISUELLE du logo/titre, jamais
+            // une ligne technique invisible. Elle garde l'ouverture en haut
+            // de la fiche et donne un point d'ancrage réel au premier UP.
             var topAnchorFocused by remember { mutableStateOf(false) }
             LaunchedEffect(topAnchorFocused) {
                 if (topAnchorFocused) lazyListState.animateScrollToItem(0)
@@ -551,35 +608,37 @@ fun TitleDetailScreen(
             Box(
                 modifier = Modifier
                     .width(720.dp)
-                    .height(4.dp)
-                    .let { if (!hasFocusableCta) it.focusRequester(initialFocusRequester) else it }
+                    .heightIn(min = 116.dp)
+                    .focusRequester(initialFocusRequester)
                     .focusable()
-                    .onFocusChanged { topAnchorFocused = it.isFocused },
-            )
-            if (titleLogoPath != null) {
-                Image(
-                    painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),
-                    contentDescription = d.title,
-                    contentScale = ContentScale.Fit,
-                    alignment = Alignment.CenterStart,
-                    // Même hack -140dp que HomeScreen.kt (hero) retiré ici
-                    // aussi : décalait tout logo hors du panneau à gauche
-                    // ("Fast & Furious" tronqué en "AST"/"RIOUS" sur la fiche
-                    // titre), pas seulement à l'accueil.
-                    modifier = Modifier
-                        .heightIn(max = 116.dp)
-                        .width(620.dp),
-                )
-            } else if (showTitleFallback) {
-                Text(
-                    text = d.title,
-                    style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Black, color = MovvizInk),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.widthIn(max = 720.dp),
-                )
-            } else {
-                Spacer(modifier = Modifier.height(116.dp).widthIn(max = 620.dp))
+                    .onFocusChanged { topAnchorFocused = it.isFocused }
+                    // Le focus est volontairement discret, mais réel : le
+                    // logo/titre devient son propre repère au lieu d'une
+                    // ancre technique minuscule et invisible.
+                    .background(
+                        if (topAnchorFocused) Color.White.copy(alpha = 0.07f) else Color.Transparent,
+                        RoundedCornerShape(12.dp),
+                    ),
+            ) {
+                if (titleLogoPath != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),
+                        contentDescription = d.title,
+                        contentScale = ContentScale.Fit,
+                        alignment = Alignment.CenterStart,
+                        modifier = Modifier
+                            .heightIn(max = 116.dp)
+                            .width(620.dp),
+                    )
+                } else if (showTitleFallback) {
+                    Text(
+                        text = d.title,
+                        style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 720.dp),
+                    )
+                }
             }
 
             // Les états appartiennent au titre qu'on vient de lire : juste
@@ -706,7 +765,7 @@ fun TitleDetailScreen(
                         val plexKey = plexRatingKey
                         if (plexKey != null) {
                             val ctaText = if (movieResume != null) "Reprendre à ${formatResumeTime(movieResume.offsetMs)}" else "Lire"
-                            PrimaryPill(text = ctaText, brush = null, solidWhite = true, icon = MovvizIconPlay, focusRequester = initialFocusRequester) {
+                            PrimaryPill(text = ctaText, brush = null, solidWhite = true, icon = MovvizIconPlay) {
                                 onPlay(d.title, listOf(QueueItem(plexKey, null, -1, -1, localMovieId)), 0, d.posterPath)
                             }
                             if (movieResume != null) {
@@ -722,7 +781,6 @@ fun TitleDetailScreen(
                                 solidWhite = false,
                                 enabled = !addingToLibrary,
                                 icon = if (addingToLibrary) null else MovvizIconPlus,
-                                focusRequester = initialFocusRequester,
                             ) {
                                 scope.launch {
                                     when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
@@ -742,7 +800,6 @@ fun TitleDetailScreen(
                                 speedBytesPerSec = activeDownload.download.downloadSpeed,
                                 etaSeconds = activeDownload.download.eta,
                                 searching = activeDownload.status == "searching",
-                                focusRequester = initialFocusRequester,
                             )
                         } else {
                             val movieStatus = remember(type, tmdbId, movies) {
@@ -802,7 +859,6 @@ fun TitleDetailScreen(
                         brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
                         solidWhite = false,
                         enabled = !addingToLibrary,
-                        focusRequester = initialFocusRequester,
                     ) {
                         scope.launch {
                             when (val result = viewModel.addCurrentToLibrary(type, tmdbId)) {
@@ -832,7 +888,6 @@ fun TitleDetailScreen(
                             brush = null,
                             solidWhite = true,
                             icon = MovvizIconPlay,
-                            focusRequester = initialFocusRequester,
                         ) {
                             val index = playableEpisodes.indexOfFirst {
                                 it.seasonNumber == episodeResume.seasonNumber && it.episodeNumber == episodeResume.episodeNumber
@@ -1164,8 +1219,13 @@ private fun EpisodeCard(
             .let { if (available) it.tvPointerClick(onClick) else it },
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = MovvizInk.copy(alpha = if (available) 0.08f else 0.04f),
+            // Les vignettes d'épisodes ne doivent jamais laisser le
+            // backdrop clair traverser sous un titre blanc : surface opaque
+            // au repos, puis simplement un cran plus clair au focus.
+            containerColor = MovvizSurfaceStrong.copy(alpha = if (available) 0.96f else 0.88f),
+            focusedContainerColor = Color(0xFF29272F),
             contentColor = MovvizInk,
+            focusedContentColor = MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(
@@ -1189,7 +1249,7 @@ private fun EpisodeCard(
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = episode.title,
-                        style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkDim),
+                        style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkSoft),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -1214,7 +1274,7 @@ private fun EpisodeCard(
                 }
                 metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
                     Spacer(modifier = Modifier.height(5.dp))
-                    Text(text = overview, style = TextStyle(fontSize = 12.sp, color = if (available) MovvizInkSoft else MovvizInkDim, lineHeight = 17.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Text(text = overview, style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft, lineHeight = 18.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
                 // Progression EN DIRECT de CET épisode précis (pas juste une
                 // pastille "Téléchargement" figée) quand un torrent de la file

@@ -1,6 +1,7 @@
 package com.movviz.tv.ui.home
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
@@ -13,8 +14,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -28,9 +36,13 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Surface
+import androidx.tv.material3.Border
+import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import com.movviz.tv.data.TvProfile
 import com.movviz.tv.R
+import com.movviz.tv.ui.theme.MovvizIconSearch
+import com.movviz.tv.ui.theme.MovvizIconSettings
 import coil.compose.AsyncImage
 
 /** Navigation NX: très peu de chrome, sans réserver une colonne au contenu. */
@@ -91,9 +103,17 @@ fun NxTopNav(
                 shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
                 colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                     containerColor = if (active) Color(0xFF2A2B31) else Color.Transparent,
-                    focusedContainerColor = Color(0xFF3A3B42),
+                    // Page active = capsule sombre persistante. Focus sur
+                    // un autre onglet = simple contour clair : deux pages
+                    // ne peuvent plus sembler actives simultanément.
+                    focusedContainerColor = if (active) Color(0xFF3A3B42) else Color.Transparent,
                     contentColor = Color.White,
                     focusedContentColor = Color.White,
+                ),
+                border = androidx.tv.material3.ClickableSurfaceDefaults.border(
+                    focusedBorder = Border(
+                        BorderStroke(2.dp, Color.White.copy(alpha = 0.88f)),
+                    ),
                 ),
             ) {
                 Text(tab.label, color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
@@ -111,7 +131,7 @@ fun NxTopNav(
                 focusedContentColor = Color.White,
             ),
         ) {
-            Text("⌕", color = Color.White, fontSize = 23.sp, modifier = Modifier.padding(horizontal = 13.dp, vertical = 2.dp))
+            Icon(MovvizIconSearch, contentDescription = "Recherche", tint = Color.White, modifier = Modifier.padding(9.dp))
         }
         Surface(
             onClick = onOpenSettings,
@@ -124,12 +144,23 @@ fun NxTopNav(
                 focusedContentColor = Color.White,
             ),
         ) {
-            Text("⚙", color = Color.White, fontSize = 18.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp))
+            Icon(MovvizIconSettings, contentDescription = "Paramètres", tint = Color.White, modifier = Modifier.padding(9.dp))
         }
         if (updateAvailableTag != null) {
+            // Signal discret mais impossible à rater depuis l'accueil, sur
+            // le même principe que Movviz TV : il n'existe qu'après une
+            // détection réelle, ne recouvre jamais la lecture, et n'ouvre
+            // aucune boîte invasive tout seul.
+            val updatePulseTransition = rememberInfiniteTransition(label = "nx_update_available")
+            val updatePulse by updatePulseTransition.animateFloat(
+                initialValue = 0.52f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(tween(760), RepeatMode.Reverse),
+                label = "nx_update_pulse",
+            )
             Surface(
                 onClick = onUpdateClick,
-                modifier = Modifier.height(38.dp).width(42.dp),
+                modifier = Modifier.height(38.dp).width(42.dp).graphicsLayer { alpha = updatePulse },
                 shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
                 colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                     containerColor = Color(0xFFE84AD9), focusedContainerColor = Color.White,

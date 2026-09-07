@@ -2,7 +2,6 @@ package com.movviz.tv.ui.home
 
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -81,6 +80,8 @@ import android.os.Handler
 import android.os.Looper
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.QueueItemDto
+import com.movviz.tv.data.TrailerSourceDto
+import com.movviz.tv.data.TvPreviewDto
 import com.movviz.tv.ui.theme.MovvizAmber
 import com.movviz.tv.ui.theme.MovvizBrand
 import com.movviz.tv.ui.theme.MovvizBrand2
@@ -103,6 +104,10 @@ import com.movviz.tv.ui.theme.tvFocusLift
 import com.movviz.tv.ui.theme.tvCardFocusHalo
 import com.movviz.tv.ui.theme.tvPointerClick
 import kotlinx.coroutines.delay
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 
 private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
@@ -149,6 +154,8 @@ internal data class TvTitleCard(
     val overview: String = "",
     val runtime: Int? = null,
     val trailerKeys: List<String> = emptyList(),
+    /** Source directe prioritaire (MP4/HLS/DASH), avec YouTube en repli. */
+    val directTrailerSources: List<TrailerSourceDto> = emptyList(),
     /** Non-null uniquement pour une carte "Continuer à regarder" d'une
      *  série — épisode précis en cours, pour ouvrir directement dessus au
      *  lieu de retomber sur la saison 1 (voir onOpenEpisode). */
@@ -185,6 +192,14 @@ fun HomeScreen(
     val dashboardHero by viewModel.dashboardHero.collectAsState()
     val dashboardLayout by viewModel.dashboardLayout.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
+    // Une TV modeste ne doit jamais décoder le hero et une carte à la fois.
+    // Cette clé est levée uniquement lorsqu'une carte a effectivement une
+    // source prête : le hero s'éteint alors sans toucher au focus D-pad.
+    var activeCardPreviewKey by remember { mutableStateOf<String?>(null) }
+    val onCardPreviewStateChanged: (String, Boolean) -> Unit = { key, active ->
+        if (active) activeCardPreviewKey = key
+        else if (activeCardPreviewKey == key) activeCardPreviewKey = null
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadDashboardLayout()
@@ -431,7 +446,7 @@ fun HomeScreen(
                         logoPath = activeHero?.let { heroLogos["${if (it.isMovie) "movie" else "series"}-${it.tmdbId}"] },
                         onSelectIndex = { heroIndex = it },
                         ctaFocusRequester = contentFocus,
-                        trailerAutoplay = dashboardLayout.hero.trailerAutoplay,
+                        trailerAutoplay = dashboardLayout.hero.trailerAutoplay && activeCardPreviewKey == null,
                         onOpen = { card -> onOpenTitle(if (card.isMovie) "movie" else "series", card.tmdbId) },
                     )
                 }
@@ -451,6 +466,8 @@ fun HomeScreen(
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
                         )
                     }
                     "recentEpisodes" -> item(contentType = "row") {
@@ -460,6 +477,8 @@ fun HomeScreen(
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo("series", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview("series", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
                         )
                     }
                     "becauseYouLike" -> item(contentType = "row") {
@@ -469,6 +488,8 @@ fun HomeScreen(
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
                         )
                     }
                     "shortSessions" -> item(contentType = "row") {
@@ -478,6 +499,8 @@ fun HomeScreen(
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
                         )
                     }
                     "discover" -> item(contentType = "row") {
@@ -487,6 +510,8 @@ fun HomeScreen(
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
                         )
                     }
                     "availableNow" -> item(contentType = "row") {
@@ -496,6 +521,8 @@ fun HomeScreen(
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
                         )
                     }
                     "comingSoon" -> item(contentType = "row") {
@@ -505,6 +532,8 @@ fun HomeScreen(
                             firstItemFocusRequester = if (!showHero && firstVisibleSection == sectionId) contentFocus else null,
                             titleLogoPaths = heroLogos,
                             onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                            previewLoader = { viewModel.loadTvPreview("movie", it.tmdbId) },
+                            onPreviewStateChanged = onCardPreviewStateChanged,
                         )
                     }
                 }
@@ -1015,6 +1044,85 @@ private fun AmbientTrailer(trailerKeys: List<String>, title: String, modifier: M
     DisposableEffect(Unit) { onDispose { TrailerWebViewPool.clearAll() } }
 }
 
+/**
+ * Même ordre de préférence que TrailerHeader desktop : une source directe
+ * offre un démarrage plus net et ne dépend pas du chrome WebView ; YouTube
+ * reste le repli silencieux si le flux ne peut pas être lu. Le composable ne
+ * vit que sur la carte actuellement focalisée, donc il ne peut ni détourner
+ * le focus D-pad ni accumuler des lecteurs en arrière-plan.
+ */
+@Composable
+fun AmbientPreview(
+    directSources: List<TrailerSourceDto>,
+    trailerKeys: List<String>,
+    title: String,
+    modifier: Modifier = Modifier,
+) {
+    var directFailed by remember(directSources) { mutableStateOf(false) }
+    val direct = directSources.firstOrNull { it.url.startsWith("https://") || it.url.startsWith("http://") }
+    if (direct != null && !directFailed) {
+        DirectAmbientTrailer(source = direct, modifier = modifier, onError = { directFailed = true })
+    } else {
+        AmbientTrailer(trailerKeys = trailerKeys, title = title, modifier = modifier)
+    }
+}
+
+@Composable
+private fun DirectAmbientTrailer(
+    source: TrailerSourceDto,
+    modifier: Modifier = Modifier,
+    onError: () -> Unit,
+) {
+    val context = LocalContext.current.applicationContext
+    val mainHandler = remember { Handler(Looper.getMainLooper()) }
+    val player = remember(source.url) {
+        ExoPlayer.Builder(context).build().apply {
+            volume = 0f
+            repeatMode = Player.REPEAT_MODE_ONE
+        }
+    }
+    var firstFrame by remember(source.url) { mutableStateOf(false) }
+    val previewAlpha by animateFloatAsState(
+        targetValue = if (firstFrame) 1f else 0f,
+        animationSpec = tween(if (firstFrame) 400 else 180),
+        label = "direct_preview_alpha",
+    )
+    DisposableEffect(player) {
+        val listener = object : Player.Listener {
+            override fun onRenderedFirstFrame() {
+                mainHandler.post { firstFrame = true }
+            }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                mainHandler.post(onError)
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+            player.release()
+        }
+    }
+    LaunchedEffect(player, source.url) {
+        delay(AMBIENT_TRAILER_DELAY_MS)
+        player.setMediaItem(MediaItem.fromUri(source.url))
+        player.prepare()
+        player.playWhenReady = true
+    }
+    AndroidView(
+        factory = { ctx ->
+            PlayerView(ctx).apply {
+                useController = false
+                setPlayer(player)
+                isFocusable = false
+                isFocusableInTouchMode = false
+                setShutterBackgroundColor(AndroidColor.TRANSPARENT)
+            }
+        },
+        update = { it.player = player },
+        modifier = modifier.graphicsLayer { alpha = previewAlpha },
+    )
+}
+
 private class AmbientTrailerBridge(
     private val onPlaying: () -> Unit,
     private val onError: () -> Unit = {},
@@ -1121,6 +1229,15 @@ internal fun TitleRow(
     onSeeAll: (() -> Unit)? = null,
     titleLogoPaths: Map<String, String> = emptyMap(),
     onFocusedCard: (TvTitleCard) -> Unit = {},
+    /** Même contrat que DashboardPosterCard desktop : on ne résout une
+     * prévisualisation qu'après avoir réellement posé le focus sur la carte.
+     * Cela évite les appels réseau pour chaque affiche visible et garantit
+     * qu'une navigation rapide au D-pad reste instantanée. */
+    previewLoader: suspend (TvTitleCard) -> TvPreviewDto? = { null },
+    /** Informe l'écran parent qu'une source est réellement prête sur la
+     * carte active. Il peut alors couper le hero : un seul décodeur vidéo
+     * actif à la fois sur Android TV. */
+    onPreviewStateChanged: (cardId: String, active: Boolean) -> Unit = { _, _ -> },
 ) {
     // État de focus partagé par toutes les cartes de la rangée — il vit ici
     // (pas dans PosterCard) pour survivre à la destruction des items par la
@@ -1128,6 +1245,29 @@ internal fun TitleRow(
     // images + call-out Netflix) : la rangée elle-même et ses cartes ne
     // recomposent JAMAIS pendant un scroll latéral, seul le bandeau bouge.
     val focusedCardState = remember { mutableStateOf<TvTitleCard?>(null) }
+    val previewsByCardId = remember { mutableStateMapOf<String, TvPreviewDto>() }
+
+    // Une carte ne doit pas faire démarrer un trailer lors d'un passage D-pad
+    // rapide. On attend que le focus soit resté stable puis on récupère les
+    // mêmes candidats que le dashboard desktop (sources directes + YouTube).
+    // La carte conserve son image si l'API ou YouTube ne répond pas.
+    LaunchedEffect(focusedCardState.value?.id) {
+        val card = focusedCardState.value ?: return@LaunchedEffect
+        previewsByCardId[card.id]?.let { cached ->
+            onPreviewStateChanged(card.id, cached.directSources.isNotEmpty() || cached.ambientVideoKeys.isNotEmpty())
+            return@LaunchedEffect
+        }
+        delay(AMBIENT_TRAILER_DELAY_MS)
+        if (focusedCardState.value?.id != card.id) return@LaunchedEffect
+        val preview = previewLoader(card)
+        if (focusedCardState.value?.id != card.id) return@LaunchedEffect
+        if (preview != null) {
+            previewsByCardId[card.id] = preview
+            onPreviewStateChanged(card.id, preview.directSources.isNotEmpty() || preview.ambientVideoKeys.isNotEmpty())
+        } else {
+            onPreviewStateChanged(card.id, false)
+        }
+    }
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         RowHeading(heading)
         TvLazyRow(
@@ -1136,13 +1276,26 @@ internal fun TitleRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             tvItemsIndexed(items, key = { _, item -> item.id }, contentType = { index, _ -> if (index == 0) "featured" else "poster" }) { index, card ->
+                val preview = previewsByCardId[card.id]
+                val renderedCard = if (preview == null) card else card.copy(
+                    // On garde les chemins de la rangée tant qu'ils sont
+                    // disponibles : l'aperçu ne doit jamais créer un flash
+                    // noir à cause d'une métadonnée partielle.
+                    backdropPath = preview.backdropPath ?: card.backdropPath,
+                    trailerKeys = preview.ambientVideoKeys,
+                    directTrailerSources = preview.directSources,
+                    overview = preview.overview.ifBlank { card.overview },
+                    runtime = preview.runtime ?: card.runtime,
+                    genres = if (preview.genres.isNotEmpty()) preview.genres else card.genres,
+                )
                 PosterCard(
-                    card = card,
+                    card = renderedCard,
                     onClick = { onClick(card) },
                     focusRequester = if (index == 0) firstItemFocusRequester else null,
                     onFocusedChange = { focused ->
                         focusedCardState.value = if (focused) card else null
                         if (focused) onFocusedCard(card)
+                        else onPreviewStateChanged(card.id, false)
                     },
                     // NX reprend le mouvement de la nouvelle interface TV
                     // Netflix : une affiche reste compacte au repos puis la
@@ -1153,7 +1306,12 @@ internal fun TitleRow(
                     preferPosterArt = true,
                     // Le slot LazyRow ne bouge jamais. La mini-fiche est une
                     // surcouche de rangée (ci-dessous), jamais un reflow.
-                    expandToLandscapeOnFocus = false,
+                    expandToLandscapeOnFocus = true,
+                    // La carte active conserve exactement la hauteur de
+                    // l'affiche (132 × 3/2 = 198dp) : seul son ratio change.
+                    // En 16:9, cela donne 352×198dp, un vrai passage au
+                    // paysage plutôt qu'une carte qui rétrécit au focus.
+                    expandedWidth = 352.dp,
                     showCaption = false,
                     showTechnicalBadges = false,
                     titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
@@ -1266,18 +1424,15 @@ internal fun PosterCard(
     val posterUrl = card.posterPath?.let { "$TMDB_IMAGE_BASE$it" }
     val backdropUrl = card.backdropPath?.let { "$TMDB_BACKDROP_BASE$it" }
     val expanded = focused && expandToLandscapeOnFocus
-    val renderedWidth by animateDpAsState(
-        targetValue = if (expanded) expandedWidth else width,
-        animationSpec = tween(durationMillis = 220),
-        label = "nxCardWidth",
-    )
-    val renderedAspect by animateFloatAsState(
-        targetValue = if (expanded) 16f / 9f else aspectRatio,
-        animationSpec = tween(durationMillis = 220),
-        label = "nxCardAspect",
-    )
+    // L'affiche portrait est une image éditoriale fixe, pas un backdrop à
+    // zoomer. L'ancienne interpolation largeur+ratio étirait son contenu
+    // durant ~220 ms, ce qui donnait un effet "cheap" très visible. La
+    // bascule de surface est désormais nette ; l'animation reste réservée
+    // au fondu vidéo du paysage, jamais à l'affiche elle-même.
+    val renderedWidth = if (expanded) expandedWidth else width
+    val renderedAspect = if (expanded) 16f / 9f else aspectRatio
     // Une affiche reste une affiche : jamais de backdrop paysage recadré
-    // dans un cadre 2:3. Le backdrop est réservé aux écrans de détail.
+    // dans un cadre 2:3. Le backdrop est réservé au seul état paysage.
     val portraitUrl = posterUrl ?: backdropUrl
     Column(modifier = Modifier.width(renderedWidth).zIndex(if (expanded) 2f else 0f)) {
         // Surface (tv-material3) gère nativement le focus D-pad + le clic OK,
@@ -1320,8 +1475,9 @@ internal fun PosterCard(
                 // Une seule carte peut être expanded à la fois dans une
                 // rangée. Le pool d'AmbientTrailer n'autorise qu'un lecteur,
                 // donc le changement de focus coupe aussitôt l'aperçu ancien.
-                if (expanded && card.trailerKeys.isNotEmpty()) {
-                    AmbientTrailer(
+                if (expanded && (card.directTrailerSources.isNotEmpty() || card.trailerKeys.isNotEmpty())) {
+                    AmbientPreview(
+                        directSources = card.directTrailerSources,
                         trailerKeys = card.trailerKeys,
                         title = card.title,
                         modifier = Modifier.fillMaxSize(),
@@ -1340,10 +1496,29 @@ internal fun PosterCard(
                         }
                     }
                 }
-                // Le logo officiel remplace le titre sous les cartes. Il
-                // reste volontairement compact : sur une TV une carte de
-                // rangée ne doit jamais devenir une bannière.
-                val showLogo = titleLogoPath != null && (expandToLandscapeOnFocus || (focused && !expandToLandscapeOnFocus))
+                // Contraste garanti pour le logo/titre de la carte active.
+                // Les assets TMDb sont souvent blancs et un simple
+                // drop-shadow devient invisible sur neige/ciel/visage clair.
+                // Ce scrim n'existe qu'en paysage focalisé : l'affiche
+                // portrait reste intacte et sans surcouche.
+                if (expanded) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(86.dp)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f)),
+                                ),
+                            ),
+                    )
+                }
+                // Les affiches portrait restent strictement propres : ni
+                // logo TMDb ni titre flottant. Le logo est réservé à la
+                // carte active qui vient de basculer en paysage, où il sert
+                // réellement de repère comme dans le preview desktop.
+                val showLogo = titleLogoPath != null && expanded
                 if (showLogo) {
                     Image(
                         painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),
@@ -1352,11 +1527,11 @@ internal fun PosterCard(
                         alignment = Alignment.BottomStart,
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(7.dp)
-                            .heightIn(max = 21.dp)
-                            .widthIn(max = 76.dp),
+                            .padding(16.dp)
+                            .heightIn(max = 54.dp)
+                            .widthIn(max = 220.dp),
                     )
-                } else if (expandToLandscapeOnFocus || (focused && !expandToLandscapeOnFocus)) {
+                } else if (focused) {
                     // Grilles (catalogue, "voir tout") : contrairement à
                     // TitleRow, qui affiche un bandeau de contexte sous la
                     // rangée pour la carte active, une grille verticale n'a
@@ -1365,15 +1540,19 @@ internal fun PosterCard(
                     // muet au focus — rien n'identifiait la carte avant OK.
                     Text(
                         text = card.title,
-                        style = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White),
-                        maxLines = 3,
+                        style = TextStyle(
+                            fontSize = if (expanded) 18.sp else 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                        ),
+                        maxLines = if (expanded) 2 else 3,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(7.dp)
+                            .padding(12.dp)
                             .background(Color.Black.copy(alpha = 0.52f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 5.dp, vertical = 3.dp)
-                            .widthIn(max = 76.dp),
+                            .padding(horizontal = if (expanded) 10.dp else 5.dp, vertical = if (expanded) 6.dp else 3.dp)
+                            .widthIn(max = if (expanded) 220.dp else 92.dp),
                     )
                 }
                 // Même paire de pastilles que la grille bibliothèque desktop

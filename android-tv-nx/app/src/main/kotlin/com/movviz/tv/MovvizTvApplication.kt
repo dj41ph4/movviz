@@ -4,6 +4,7 @@ import android.app.Application
 import android.graphics.Bitmap
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.disk.DiskCache
 import coil.memory.MemoryCache
 import com.movviz.tv.data.ApiClient
 import androidx.media3.database.StandaloneDatabaseProvider
@@ -33,6 +34,17 @@ class MovvizTvApplication : Application(), ImageLoaderFactory {
         .memoryCache {
             MemoryCache.Builder(this)
                 .maxSizePercent(0.10)
+                .build()
+        }
+        // Les affiches, backdrops et logos TMDb utilisent tous leur URL
+        // canonique comme clé Coil. Un logo de série (ex. Futurama) est donc
+        // téléchargé une fois, puis partagé par la fiche, chaque épisode et
+        // toutes les rangées, y compris après un redémarrage de l'app. Le
+        // cache reste borné et Android peut toujours le purger si nécessaire.
+        .diskCache {
+            DiskCache.Builder()
+                .directory(File(cacheDir, "movviz-image-cache"))
+                .maxSizeBytes(160L * 1024L * 1024L)
                 .build()
         }
         .crossfade(false)

@@ -2,6 +2,7 @@ package com.movviz.tv.ui.settings
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -59,14 +60,16 @@ private val AUDIO_LANGUAGE_LABELS = listOf(
 fun SettingsScreen(
     viewModel: AppViewModel,
     onLoggedOut: () -> Unit,
-    // Cible D-pad « flèche bas depuis la NavRail » — attachée au premier
-    // chip de langue, seul élément focusable garanti composé dès l'entrée
-    // sur l'écran (la section Compte n'a que du texte, non focusable).
+    // Cible D-pad « flèche bas depuis la NavRail » — attachée au titre
+    // visible de la page. Ce repère est volontairement réel : depuis une
+    // action basse, UP remonte d'abord ici et le scroll revient au sommet ;
+    // seulement un second UP passe à la barre de navigation.
     entryFocusRequester: FocusRequester? = null,
 ) {
     val serverUrl by viewModel.serverUrl.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val userPrefs by viewModel.userPrefs.collectAsState()
+    var headerFocused by remember { mutableStateOf(false) }
 
     // Chargés à l'entrée sur l'écran plutôt qu'au niveau de MainScreen — ni
     // l'identité du compte ni les préférences de lecture ne sont utiles
@@ -90,6 +93,12 @@ fun SettingsScreen(
         Text(
             text = "Paramètres",
             style = TextStyle(fontSize = 28.sp, fontWeight = FontWeight.Black, color = MaterialTheme.colorScheme.onBackground),
+            modifier = Modifier
+                .let { if (entryFocusRequester != null) it.focusRequester(entryFocusRequester) else it }
+                .background(if (headerFocused) Color.White.copy(alpha = 0.08f) else Color.Transparent, RoundedCornerShape(8.dp))
+                .onFocusChanged { headerFocused = it.isFocused }
+                .focusable()
+                .padding(horizontal = 8.dp, vertical = 4.dp),
         )
         Spacer(modifier = Modifier.height(28.dp))
 
@@ -129,12 +138,12 @@ fun SettingsScreen(
                     .horizontalScroll(rememberScrollState())
                     .padding(bottom = 2.dp),
             ) {
-                AUDIO_LANGUAGE_LABELS.forEachIndexed { index, (code, label) ->
+                AUDIO_LANGUAGE_LABELS.forEach { (code, label) ->
                     LanguageChip(
                         label = label,
                         selected = (userPrefs?.preferredAudioLanguage ?: "auto") == code,
                         onClick = { viewModel.setPreferredAudioLanguage(code) },
-                        focusRequester = if (index == 0) entryFocusRequester else null,
+                        focusRequester = null,
                     )
                 }
             }

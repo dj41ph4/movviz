@@ -380,3 +380,33 @@ val MovvizIconTvScreen: ImageVector by lazy {
         }
     }
 }
+
+/** Loupe de navigation — dessinée au même poids que les contrôles TV. */
+val MovvizIconSearch: ImageVector by lazy {
+    movvizIcon("MovvizIconSearch") {
+        stroke(width = 2.15f) {
+            moveTo(10.6f, 5.1f)
+            arcToRelative(5.5f, 5.5f, 0f, true, true, 0.01f, 0f)
+            moveTo(14.7f, 14.7f)
+            lineTo(19.5f, 19.5f)
+        }
+    }
+}
+
+/** Réglages — anneau et huit dents lisibles de loin, sans glyphes système. */
+val MovvizIconSettings: ImageVector by lazy {
+    movvizIcon("MovvizIconSettings") {
+        stroke(width = 2.05f) {
+            moveTo(12f, 3.5f); lineTo(12f, 6f)
+            moveTo(12f, 18f); lineTo(12f, 20.5f)
+            moveTo(3.5f, 12f); lineTo(6f, 12f)
+            moveTo(18f, 12f); lineTo(20.5f, 12f)
+            moveTo(6f, 6f); lineTo(7.8f, 7.8f)
+            moveTo(16.2f, 16.2f); lineTo(18f, 18f)
+            moveTo(18f, 6f); lineTo(16.2f, 7.8f)
+            moveTo(7.8f, 16.2f); lineTo(6f, 18f)
+            moveTo(12f, 7.8f)
+            arcToRelative(4.2f, 4.2f, 0f, true, true, 0.01f, 0f)
+        }
+    }
+}

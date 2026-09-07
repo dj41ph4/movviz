@@ -3,6 +3,7 @@ package com.movviz.tv
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
@@ -147,15 +148,27 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     // zIndex ne joue que sur le dessin). N'est attachée que si l'écran a
     // déjà un vrai premier élément (pas pendant le chargement, pas sur une
     // liste vide) : viser une cible non attachée plante Compose si ce n'est
-    // pas protégé — d'où fallbackFocusRequester, une ancre TOUJOURS
-    // attachée que la NavRail utilise en repli (jamais un simple
-    // focusProperties déclaratif, qui ne laisse aucune chance d'intercepter
-    // l'échec — voir le onKeyEvent + runCatching de NavRail).
+    // pas protégé. La barre reste donc branchée uniquement sur une première
+    // cible réelle : aucune ancre minuscule ne peut recevoir le focus.
     val contentFocusRequester = remember { FocusRequester() }
-    val fallbackFocusRequester = remember { FocusRequester() }
     // Cible HAUT depuis le contenu : onglet sélectionné de la NavRail.
     val navRailFocusRequester = remember { FocusRequester() }
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+
+    // Une fiche/grille doit toujours revenir dans Movviz avant de laisser
+    // Android quitter l'app. Un deep-link peut ouvrir une fiche SANS accueil
+    // dans sa pile : popBackStack() échoue alors et l'ancien comportement
+    // revenait directement au launcher.
+    val isStandaloneContentRoute = currentRoute?.startsWith("detail") == true ||
+        currentRoute?.startsWith("person") == true ||
+        currentRoute?.startsWith("row") == true
+    BackHandler(enabled = navController.previousBackStackEntry != null || isStandaloneContentRoute) {
+        if (!navController.popBackStack()) {
+            navController.navigate(ROUTE_HOME) {
+                popUpTo(0) { inclusive = true }
+            }
+        }
+    }
 
     // Restauration du focus au retour d'un écran détail : quand on revient
     // à l'accueil depuis une fiche, le focus doit revenir sur la NavRail
@@ -306,59 +319,11 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     updateAvailableTag = viewModel.availableUpdateTag.collectAsState().value,
                     onUpdateClick = { viewModel.requestUpdateInstall() },
                     contentFocusRequester = contentFocusRequester,
-                    fallbackFocusRequester = fallbackFocusRequester,
                     navRailFocusRequester = navRailFocusRequester,
                     modifier = Modifier.align(Alignment.TopCenter).zIndex(10f),
                 )
             }
             Box(modifier = Modifier.fillMaxSize()) {
-        // Ancre de repli TOUJOURS composée, sur TOUTES les routes (accueil,
-        // fiche titre, fiche acteur) — la NavRail y retombe quand sa cible
-        // principale n'est pas encore composée. Anciennement dans
-        // MainScreen : elle disparaissait sur fiche titre/acteur, laissant
-        // la flèche bas morte pendant le chargement d'une fiche. Désormais
-        // DESSINÉE quand elle prend le focus (petit point blanc) — une ancre
-        // invisible donnait l'impression d'un écran gelé (« DOWN ne fait
-        // rien », constaté en direct). HAUT depuis l'ancre remonte sur la
-        // barre de nav ; BAS laisse la recherche géométrique trouver le
-        // contenu en dessous.
-        var fallbackFocused by remember { mutableStateOf(false) }
-        val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
-        Box(
-            modifier = Modifier
-                .padding(start = 3.dp, top = 3.dp)
-                .size(6.dp)
-                .focusRequester(fallbackFocusRequester)
-                .focusable()
-                .onFocusChanged { fallbackFocused = it.isFocused }
-                .onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    when (event.key) {
-                        // L'ancre ne doit jamais être un cul-de-sac : elle
-                        // sert uniquement pendant l'instant où l'écran réel
-                        // n'est pas encore composé. Dès que l'utilisateur
-                        // appuie de nouveau sur BAS, on retente explicitement
-                        // la première cible visible du contenu. La version
-                        // précédente annulait DOWN avec FocusRequester.Cancel,
-                        // ce qui donnait exactement l'impression que le D-pad
-                        // restait bloqué dans la NavRail après un UP.
-                        Key.DirectionDown -> {
-                            val movedToContent = runCatching {
-                                contentFocusRequester.requestFocus()
-                            }.isSuccess
-                            if (movedToContent) true else focusManager.moveFocus(FocusDirection.Down)
-                        }
-                        Key.DirectionUp -> runCatching {
-                            navRailFocusRequester.requestFocus()
-                        }.isSuccess
-                        else -> false
-                    }
-                }
-                .background(
-                    if (fallbackFocused) Color.White.copy(alpha = 0.85f) else Color.Transparent,
-                    shape = androidx.compose.foundation.shape.CircleShape,
-                ),
-        )
         NavHost(navController = navController, startDestination = resolvedStart) {
 composable(ROUTE_WIZARD) {
             WizardScreen(
@@ -474,7 +439,6 @@ composable(ROUTE_PROFILES) {
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
                 contentFocusRequester = contentFocusRequester,
-                fallbackFocusRequester = fallbackFocusRequester,
                 navRailFocusRequester = navRailFocusRequester,
                 onHomeScrollChanged = { headerHasScrolled = it },
             )

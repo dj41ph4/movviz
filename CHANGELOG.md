@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.69 — September 2026
+
+### Movviz NX — finition navigation et profil
+
+La navigation Android TV NX gagne des icônes cohérentes, des états de focus plus lisibles et une recherche directement saisissable au D-pad. Les fiches reviennent sur un point focal visible, les titres d’épisodes restent lisibles, et le tableau de bord profil récupère les affiches manquantes depuis la médiathèque ou les métadonnées afin d’éviter les cartes vides.
+
 ## v1.24.68 — September 2026
 
 ### Movviz NX — recherche et mises à jour accessibles
