@@ -78,6 +78,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import com.movviz.tv.AppViewModel
 import com.movviz.tv.data.QueueItemDto
 import com.movviz.tv.data.TrailerSourceDto
@@ -196,6 +197,7 @@ fun HomeScreen(
     val dashboardHero by viewModel.dashboardHero.collectAsState()
     val dashboardLayout by viewModel.dashboardLayout.collectAsState()
     val heroLogos by viewModel.heroLogos.collectAsState()
+    val homeUiState by viewModel.homeUiState.collectAsState()
     // Une TV modeste ne doit jamais décoder le hero et une carte à la fois.
     // Cette clé est levée uniquement lorsqu'une carte a effectivement une
     // source prête : le hero s'éteint alors sans toucher au focus D-pad.
@@ -205,20 +207,15 @@ fun HomeScreen(
         else if (activeCardPreviewKey == key) activeCardPreviewKey = null
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadDashboardLayout()
-        viewModel.loadLibrary()
-        delay(120)
-        viewModel.loadContinueWatching()
-        delay(120)
-        viewModel.loadDiscovery()
-        delay(120)
-        viewModel.loadDashboardHero()
-    }
-    LaunchedEffect(Unit) {
-        while (true) {
-            viewModel.loadQueue()
-            delay(QUEUE_POLL_INTERVAL_MS)
+    // Le composable ne pilote plus le réseau : bootstrapHome publie d'abord
+    // le snapshot local puis orchestre P0/P1/P2 dans le ViewModel.
+    LaunchedEffect(Unit) { viewModel.bootstrapHome() }
+    var firstContentFrameReported by remember { mutableStateOf(false) }
+    LaunchedEffect(homeUiState.hasUsableContent) {
+        if (homeUiState.hasUsableContent && !firstContentFrameReported) {
+            withFrameNanos { }
+            firstContentFrameReported = true
+            Log.d("TV-PERF", "HOME_FIRST_FRAME ${viewModel.homeBootstrapElapsedMs()} ms")
         }
     }
 

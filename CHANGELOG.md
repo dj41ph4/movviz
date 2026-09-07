@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.24.79 — September 2026
+
+### Movviz NX — démarrage local-first et release retail sûre
+
+L’accueil NX restaure maintenant instantanément le dernier état local, strictement isolé par serveur, compte et profil, puis réconcilie en arrière-plan la bibliothèque, les reprises et les recommandations. Le choix d’un profil déjà connu ne reste plus bloqué par la latence réseau ; la session est néanmoins revalidée en arrière-plan et une session invalide renvoie au login.
+
+La file de téléchargements démarre seulement après le premier viewport et est annulée à chaque changement de profil. Les logs `TV-PERF` permettent de mesurer les étapes de démarrage réelles.
+
+La CI Android exige désormais la clé retail Movviz et vérifie son empreinte : elle échoue au lieu de publier un APK signé avec une clé temporaire. Les trois APK partagent le même `versionCode` dérivé du tag (`124079`), ce qui répare le chemin de mise à jour automatique.
+
 ## v1.24.78 — September 2026
 
 ### Chaînes Google TV — Movviz TV et Movviz NX

@@ -3,7 +3,7 @@ name: Build Android TV APK
 on:
   push:
     branches: [main]
-    paths: ["android-tv/**", ".github/workflows/android-tv-build.yml"]
+    paths: ["android-tv/**", "android-tv-nx/**", ".github/workflows/android-tv-build.yml"]
     tags: ["v*"]
   pull_request:
     paths: ["android-tv/**"]
@@ -51,15 +51,17 @@ jobs:
           key_dir="$RUNNER_TEMP/movviz-signing"
           mkdir -p "$key_dir"
           keystore="$key_dir/movviz-tv-release.jks"
-          store_password="${ANDROID_KEYSTORE_PASSWORD:-movviz-ci-release-only}"
-          key_alias="${ANDROID_KEY_ALIAS:-movviz-release}"
-          key_password="${ANDROID_KEY_PASSWORD:-$store_password}"
-          if [ -n "${ANDROID_KEYSTORE_B64:-}" ]; then
-            printf '%s' "$ANDROID_KEYSTORE_B64" | base64 --decode > "$keystore"
-          else
-            echo "::warning::Release keystore secrets are not configured; generating an ephemeral CI key. Configure MOVVIZ_ANDROID_KEYSTORE_* for upgrade-compatible releases."
-            keytool -genkeypair -v -keystore "$keystore" -storetype PKCS12 -alias "$key_alias" -keyalg RSA -keysize 4096 -validity 10000 -storepass "$store_password" -keypass "$key_password" -dname "CN=Movviz, OU=Android TV, O=Movviz, C=BE"
-          fi
+          : "${ANDROID_KEYSTORE_B64:?MOVVIZ_ANDROID_KEYSTORE_B64 est requis pour une release}"
+          : "${ANDROID_KEYSTORE_PASSWORD:?MOVVIZ_ANDROID_KEYSTORE_PASSWORD est requis pour une release}"
+          : "${ANDROID_KEY_ALIAS:?MOVVIZ_ANDROID_KEY_ALIAS est requis pour une release}"
+          : "${ANDROID_KEY_PASSWORD:?MOVVIZ_ANDROID_KEY_PASSWORD est requis pour une release}"
+          store_password="$ANDROID_KEYSTORE_PASSWORD"
+          key_alias="$ANDROID_KEY_ALIAS"
+          key_password="$ANDROID_KEY_PASSWORD"
+          printf '%s' "$ANDROID_KEYSTORE_B64" | base64 --decode > "$keystore"
+          expected_cert="4e8d66761eb1cdc228c96478617910ebf5e1bba01adb000aedfa50f8e1af90ec"
+          actual_cert="$(keytool -list -v -keystore "$keystore" -storepass "$store_password" -alias "$key_alias" | awk '/SHA256:/{gsub(":", "", $3); print tolower($3); exit}')"
+          test "$actual_cert" = "$expected_cert" || { echo "::error::La clé CI ne correspond pas à la clé retail Movviz"; exit 1; }
           printf 'storeFile=%s\nstorePassword=%s\nkeyAlias=%s\nkeyPassword=%s\n' "$keystore" "$store_password" "$key_alias" "$key_password" > android-tv/keystore.properties
           # NX est un canal TV séparé, mais doit être signé par la même clé
           # retail pour pouvoir se mettre à jour par-dessus lui-même.
@@ -79,7 +81,7 @@ jobs:
             # 10# force la base 10 : un patch comme "08"/"09" (courant dans
             # l'historique des tags, ex. v1.19.08) serait sinon lu comme un
             # littéral octal invalide et ferait échouer le build.
-            code=$(( 10#$major * 10000 + 10#$minor * 100 + 10#$patch ))
+            code=$(( 10#$major * 100000 + 10#$minor * 1000 + 10#$patch ))
             echo "name=$tag" >> "$GITHUB_OUTPUT"
             echo "code=$code" >> "$GITHUB_OUTPUT"
           else

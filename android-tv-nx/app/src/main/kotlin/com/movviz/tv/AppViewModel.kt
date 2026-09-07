@@ -28,6 +28,8 @@ import com.movviz.tv.data.WatchStatusDto
 import com.movviz.tv.data.TvPreviewDto
 import com.movviz.tv.data.ProfileMediaResponseDto
 import com.movviz.tv.data.RecentEpisodeDto
+import com.movviz.tv.data.HomeLocalStore
+import com.movviz.tv.data.HomeSnapshot
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -38,6 +40,25 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
+import android.os.SystemClock
+import android.util.Log
+
+data class HomeUiState(
+    val hasUsableContent: Boolean = false,
+    val refreshing: Boolean = false,
+    val offline: Boolean = false,
+)
+
+private data class HomeP0Results(
+    val library: ApiResult<com.movviz.tv.data.InterfaceDashboardDto>,
+    val onDeck: ApiResult<List<OnDeckEntryDto>>,
+    val layout: ApiResult<com.movviz.tv.data.DashboardLayoutDto>,
+    val hero: ApiResult<List<DashboardHeroSlideDto>>,
+)
 
 /**
  * État applicatif partagé entre les écrans (URL serveur, utilisateur
@@ -48,6 +69,12 @@ import kotlinx.coroutines.launch
 class AppViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = ServerPrefs(application)
     private val profilePrefs = ProfilePrefs(application)
+    private val homeLocalStore = HomeLocalStore(application)
+    private var homeBootstrapJob: Job? = null
+    private var queuePollingJob: Job? = null
+    private var homeBootstrapStartedAt: Long = 0L
+    private val _homeUiState = MutableStateFlow(HomeUiState())
+    val homeUiState: StateFlow<HomeUiState> = _homeUiState.asStateFlow()
 
     private val _serverUrl = MutableStateFlow<String?>(null)
     val serverUrl: StateFlow<String?> = _serverUrl.asStateFlow()
@@ -552,6 +579,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
 
     suspend fun forgetServer() {
         val url = _serverUrl.value
+        clearProfileScopedState()
         prefs.clearServerUrl()
         com.movviz.tv.data.ApiClient.clearSession()
         _serverUrl.value = null
@@ -588,16 +616,32 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         return profiles
     }
 
+    /** Picker local-first : aucune requête n'est nécessaire pour montrer les
+     * profils déjà connus de cet appareil. La session est validée seulement
+     * après sélection, donc le cache ne contourne jamais l'authentification. */
+    fun loadCachedProfiles(): List<TvProfile> {
+        val url = _serverUrl.value ?: return emptyList()
+        return profilePrefs.listProfiles(url).also { _profiles.value = it }
+    }
+
     /** Active un profil déjà authentifié sans redemander ses identifiants —
      *  uniquement si cet appareil détient déjà une session locale pour lui. */
     private fun clearProfileScopedState() {
+        // Un résultat réseau du profil précédent ne doit jamais pouvoir
+        // repeupler l'accueil du suivant après une bascule rapide.
+        homeBootstrapJob?.cancel()
+        homeBootstrapJob = null
+        queuePollingJob?.cancel()
+        queuePollingJob = null
         _currentUser.value = null
         _activeProfile.value = null
         _movies.value = emptyList()
         _series.value = emptyList()
+        _recentEpisodes.value = emptyList()
         _dashboardHero.value = emptyList()
         _heroLogos.value = emptyMap()
         _continueWatching.value = emptyList()
+        _queue.value = emptyList()
         _trendingMovies.value = emptyList()
         _trendingSeries.value = emptyList()
         _movieRows.value = emptyList()
@@ -612,6 +656,8 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         _searchResults.value = emptyList()
         _watchStatus.value = null
         _userPrefs.value = null
+        _profileMedia.value = null
+        _homeUiState.value = HomeUiState()
         seasonsTmdbId = null
     }
 
@@ -625,26 +671,52 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
             return ApiResult.Failure("session_manquante")
         }
         ApiClient.restoreSession(url, profile.cookieSnapshot)
-        val result = MovvizRepository(url).me()
-        return when (result) {
-            is ApiResult.Success -> {
-                val user = result.data
-                if (user != null) {
-                    _currentUser.value = user
-                    val refreshed = profile.copy(
-                        cookieSnapshot = ApiClient.sessionSnapshot(url),
-                        avatar = user.plexAvatar ?: profile.avatar,
-                        name = user.username,
-                    )
-                    refreshed.cookieSnapshot?.let { profilePrefs.saveSession(url, user.id, it) }
-                    _activeProfile.value = refreshed
-                    if (user.role == "admin") loadProfilesFromServer()
-                    ApiResult.Success(user)
-                } else ApiResult.Failure("Session du profil expirée")
+        // Le profil et son cookie ont déjà été enregistrés sur CET appareil.
+        // Les rétablir suffit à ouvrir immédiatement son snapshot local ;
+        // attendre /me ici annulait tout le bénéfice du démarrage local-first
+        // sur un serveur lent. La vérification reste impérative, mais elle
+        // s'effectue en arrière-plan avant toute confiance durable.
+        val optimistic = MovvizUserDto(
+            id = profile.id,
+            username = profile.name,
+            role = "user",
+            plexAvatar = profile.avatar,
+        )
+        _currentUser.value = optimistic
+        _activeProfile.value = profile
+        viewModelScope.launch {
+            when (val result = MovvizRepository(url).me()) {
+                is ApiResult.Success -> {
+                    val user = result.data
+                    if (user == null || user.id != profile.id) {
+                        if (_activeProfile.value?.id == profile.id) {
+                            clearProfileScopedState()
+                            _sessionExpired.value = true
+                        }
+                    } else if (_activeProfile.value?.id == profile.id) {
+                        _currentUser.value = user
+                        val refreshed = profile.copy(
+                            cookieSnapshot = ApiClient.sessionSnapshot(url),
+                            avatar = user.plexAvatar ?: profile.avatar,
+                            name = user.username,
+                        )
+                        refreshed.cookieSnapshot?.let { profilePrefs.saveSession(url, user.id, it) }
+                        _activeProfile.value = refreshed
+                        if (user.role == "admin") loadProfilesFromServer()
+                    }
+                }
+                ApiResult.Unauthorized -> if (_activeProfile.value?.id == profile.id) {
+                    clearProfileScopedState()
+                    _sessionExpired.value = true
+                }
+                is ApiResult.Failure -> if (_activeProfile.value?.id == profile.id) {
+                    // Une panne n'efface jamais le cache du profil : il reste
+                    // consultable hors-ligne et sera réconcilié au retour.
+                    _homeUiState.value = _homeUiState.value.copy(offline = true)
+                }
             }
-            is ApiResult.Failure -> result
-            ApiResult.Unauthorized -> ApiResult.Unauthorized
         }
+        return ApiResult.Success(optimistic)
     }
 
     /** Migration transparente de la session unique des anciennes versions
@@ -686,11 +758,126 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         return result
     }
 
-    fun loadLibrary() {
-        viewModelScope.launch {
-            refreshLibraryNow()
+    /**
+     * Point d'entrée unique de l'accueil. Le dernier état local est publié
+     * avant le réseau, puis P0 et P1 remplacent l'état de manière cohérente.
+     * Les écrans ne lancent plus une procession de loaders indépendants.
+     */
+    fun bootstrapHome() {
+        if (homeBootstrapJob?.isActive == true) return
+        val url = _serverUrl.value ?: return
+        val user = _currentUser.value ?: return
+        val profile = _activeProfile.value ?: return
+        homeBootstrapStartedAt = SystemClock.elapsedRealtime()
+        homeBootstrapJob = viewModelScope.launch {
+            val started = homeBootstrapStartedAt
+            Log.d("TV-PERF", "APP_START bootstrap")
+            val local = withContext(Dispatchers.IO) { homeLocalStore.read(url, user.id, profile.id) }
+            if (local != null) {
+                publishHomeSnapshot(local)
+                _homeUiState.value = HomeUiState(
+                    hasUsableContent = local.movies.isNotEmpty() || local.series.isNotEmpty(),
+                    refreshing = true,
+                )
+                Log.d("TV-PERF", "LOCAL_STATE_READY ${SystemClock.elapsedRealtime() - started} ms")
+            }
+            _homeUiState.value = _homeUiState.value.copy(refreshing = true, offline = false)
+            val repo = repository ?: return@launch
+            Log.d("TV-PERF", "SERVER_REFRESH_START ${SystemClock.elapsedRealtime() - started} ms")
+            val p0 = coroutineScope {
+                val library = async { repo.interfaceDashboard() }
+                val onDeck = async { repo.onDeckItems() }
+                val layout = async { repo.dashboardLayout() }
+                val hero = async { repo.dashboardHero() }
+                HomeP0Results(library.await(), onDeck.await(), layout.await(), hero.await())
+            }
+            val library = p0.library
+            val onDeck = p0.onDeck
+            val layout = p0.layout
+            val hero = p0.hero
+            if (listOf(library, onDeck, layout, hero).any { it is ApiResult.Unauthorized }) {
+                _sessionExpired.value = true
+                return@launch
+            }
+            val compact = (library as? ApiResult.Success)?.data
+            if (compact != null) {
+                val fresh = HomeSnapshot(
+                    generatedAt = System.currentTimeMillis(), serverIdentity = url.trim().trimEnd('/'),
+                    userId = user.id, profileId = profile.id,
+                    movies = compact.movies.orEmpty().mapNotNull { it?.toLibraryMovieOrNull() },
+                    series = compact.series.orEmpty().mapNotNull { it?.toLibrarySeriesOrNull() },
+                    recentEpisodes = compact.recentEpisodes.orEmpty().mapNotNull { it?.toRecentEpisodeOrNull() }.sortedByDescending { it.addedAt },
+                    continueWatching = (onDeck as? ApiResult.Success)?.data ?: local?.continueWatching.orEmpty(),
+                    dashboardLayout = (layout as? ApiResult.Success)?.data ?: local?.dashboardLayout ?: com.movviz.tv.data.DashboardLayoutDto(),
+                    dashboardHero = (hero as? ApiResult.Success)?.data ?: local?.dashboardHero.orEmpty(),
+                    movieRows = local?.movieRows.orEmpty(), seriesRows = local?.seriesRows.orEmpty(),
+                    movieRecommendations = local?.movieRecommendations.orEmpty(), seriesRecommendations = local?.seriesRecommendations.orEmpty(),
+                )
+                publishHomeSnapshot(fresh)
+                _homeUiState.value = HomeUiState(hasUsableContent = fresh.movies.isNotEmpty() || fresh.series.isNotEmpty(), refreshing = true)
+                Log.d("TV-PERF", "HOME_FIRST_CONTENT ${SystemClock.elapsedRealtime() - started} ms")
+                // P0 suffit à rendre le prochain démarrage instantané. Ne pas
+                // attendre P1 : recommandations lentes ou indisponibles ne
+                // doivent jamais priver l'app d'un cache de bibliothèque.
+                persistHomeSnapshot(fresh)
+                refreshHomeP1(repo, fresh, started)
+            } else {
+                // Compatibilité serveur ancien : conserver la voie existante,
+                // sans jamais vider le cache local pendant le repli.
+                refreshLibraryNow()
+                _homeUiState.value = _homeUiState.value.copy(hasUsableContent = _movies.value.isNotEmpty() || _series.value.isNotEmpty(), refreshing = false, offline = local != null)
+            }
         }
     }
+
+    fun homeBootstrapElapsedMs(): Long =
+        (SystemClock.elapsedRealtime() - homeBootstrapStartedAt).coerceAtLeast(0L)
+
+    private suspend fun refreshHomeP1(repo: MovvizRepository, p0: HomeSnapshot, started: Long) = coroutineScope {
+        val movieRows = async { repo.metadataRows("movie") }
+        val seriesRows = async { repo.metadataRows("series") }
+        val movieRecommendations = async { repo.metadataRecommendations("movie") }
+        val seriesRecommendations = async { repo.metadataRecommendations("series") }
+        val refreshed = p0.copy(
+            generatedAt = System.currentTimeMillis(),
+            movieRows = (movieRows.await() as? ApiResult.Success)?.data ?: p0.movieRows,
+            seriesRows = (seriesRows.await() as? ApiResult.Success)?.data ?: p0.seriesRows,
+            movieRecommendations = (movieRecommendations.await() as? ApiResult.Success)?.data ?: p0.movieRecommendations,
+            seriesRecommendations = (seriesRecommendations.await() as? ApiResult.Success)?.data ?: p0.seriesRecommendations,
+        )
+        publishHomeSnapshot(refreshed)
+        persistHomeSnapshot(refreshed)
+        _homeUiState.value = HomeUiState(hasUsableContent = refreshed.movies.isNotEmpty() || refreshed.series.isNotEmpty())
+        Log.d("TV-PERF", "SERVER_REFRESH_END ${SystemClock.elapsedRealtime() - started} ms")
+        // P2, après première publication : sync système / queue ne peuvent
+        // plus concurrencer le premier viewport.
+        startQueuePolling()
+        if (refreshed.continueWatching.isNotEmpty()) {
+            withContext(Dispatchers.IO) { com.movviz.tv.tvchannel.TvChannelProvider.sync(getApplication(), refreshed.continueWatching) }
+        }
+    }
+
+    private fun publishHomeSnapshot(snapshot: HomeSnapshot) {
+        _movies.value = snapshot.movies
+        _series.value = snapshot.series
+        _recentEpisodes.value = snapshot.recentEpisodes
+        _continueWatching.value = snapshot.continueWatching
+        _dashboardLayout.value = snapshot.dashboardLayout
+        _dashboardHero.value = snapshot.dashboardHero
+        _movieRows.value = snapshot.movieRows
+        _seriesRows.value = snapshot.seriesRows
+        _movieLibraryRecommendations.value = snapshot.movieRecommendations
+        _seriesLibraryRecommendations.value = snapshot.seriesRecommendations
+    }
+
+    private suspend fun persistHomeSnapshot(snapshot: HomeSnapshot) {
+        withContext(Dispatchers.IO) {
+            runCatching { homeLocalStore.write(snapshot) }
+                .onFailure { Log.w("TV-PERF", "LOCAL_STATE_WRITE_FAILED", it) }
+        }
+    }
+
+    fun loadLibrary() = bootstrapHome()
 
     private suspend fun refreshLibraryNow() = coroutineScope {
         val repo = repository ?: return@coroutineScope
@@ -867,7 +1054,25 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
     fun loadQueue() {
         val repo = repository ?: return
         viewModelScope.launch {
-            when (val q = repo.queue()) {
+            refreshQueue(repo)
+        }
+    }
+
+    /** P2 : la file ne démarre qu'une fois le premier viewport publié. Elle
+     * est annulée lors d'une déconnexion ou d'un changement de profil. */
+    private fun startQueuePolling() {
+        if (queuePollingJob?.isActive == true) return
+        val repo = repository ?: return
+        queuePollingJob = viewModelScope.launch {
+            while (isActive) {
+                refreshQueue(repo)
+                delay(8_000L)
+            }
+        }
+    }
+
+    private suspend fun refreshQueue(repo: MovvizRepository) {
+        when (val q = repo.queue()) {
                 // Comme DownloadQueue.tsx côté desktop : "completed"/"seeding"
                 // ne sont plus des téléchargements EN COURS, ce sont des
                 // torrents finis qui traînent encore côté moteur en attendant
@@ -876,12 +1081,11 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
                 // dizaines d'entrées déjà terminées (confirmé en direct sur
                 // la vraie file de prod) au lieu des seuls téléchargements
                 // réellement actifs.
-                is ApiResult.Success -> _queue.value = q.data.filter {
+            is ApiResult.Success -> _queue.value = q.data.filter {
                     it.status != "completed" && it.status != "seeding"
                 }
-                ApiResult.Unauthorized -> _sessionExpired.value = true
-                is ApiResult.Failure -> Unit
-            }
+            ApiResult.Unauthorized -> _sessionExpired.value = true
+            is ApiResult.Failure -> Unit
         }
     }
 
@@ -1068,8 +1272,7 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
         viewModelScope.launch {
             repo?.logoutServer()
             com.movviz.tv.data.ApiClient.clearSession()
-            _currentUser.value = null
-            _userPrefs.value = null
+            clearProfileScopedState()
         }
     }
 }

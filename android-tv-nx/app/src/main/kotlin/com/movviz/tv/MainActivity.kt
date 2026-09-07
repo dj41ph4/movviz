@@ -209,6 +209,14 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             startDestination = ROUTE_WIZARD
             return@LaunchedEffect
         }
+        // Le picker ne dépend plus du réseau : les profils et sessions de
+        // cette TV sont déjà cloisonnés localement. La validation /me arrive
+        // seulement après le choix du profil, avant l'accès à l'accueil.
+        val cachedProfiles = viewModel.loadCachedProfiles()
+        if (cachedProfiles.isNotEmpty()) {
+            startDestination = ROUTE_PROFILES
+            return@LaunchedEffect
+        }
         val user = viewModel.refreshCurrentUser()
         // L'écran TV est partagé : dès que le serveur connaît des profils,
         // on les propose à CHAQUE lancement. Le rôle du dernier compte
