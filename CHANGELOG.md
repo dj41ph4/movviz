@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.77 — September 2026
+
+### Movviz NX — Accueil ne bloque plus la télécommande
+
+Depuis Accueil, appuyer sur bas depuis la barre de navigation pouvait rester sans effet tant que le tableau de bord n'avait pas fini de charger, obligeant à passer par Films ou Séries pour redescendre. La cible de focus existe désormais dès la première image affichée, avant même l'arrivée des données.
+
 ## v1.24.76 — September 2026
 
 ### Movviz NX — Films et Séries deviennent de vrais hubs
