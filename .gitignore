@@ -69,3 +69,9 @@ build-debug*.txt
 build-errors.txt
 build-output*.txt
 engine/src/.movviz-data/
+
+# agent QA/debug artifacts (screenshots, uiautomator dumps) — never shipped
+.tmp-*.png
+.tmp-*.xml
+.qa-dpad-evidence/
+.codex-remote-attachments/

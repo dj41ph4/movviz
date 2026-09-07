@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
@@ -150,6 +151,10 @@ fun TitleDetailScreen(
     val scope = rememberCoroutineScope()
     var addError by remember { mutableStateOf<String?>(null) }
     var selectedSeasonNumber by remember(type, tmdbId) { mutableStateOf<Int?>(null) }
+    // Une saison n'est pas un accordéon perdu au bas de la fiche. Elle ouvre
+    // son propre écran, comme dans Plex : la fiche série reste un sommaire et
+    // la liste d'épisodes garde tout l'espace et un parcours D-pad simple.
+    var openSeasonNumber by remember(type, tmdbId) { mutableStateOf<Int?>(initialSeasonNumber) }
     var selectedEpisode by remember(type, tmdbId) { mutableStateOf<EpisodeSelection?>(null) }
     // Même cible à l'ouverture, en erreur et une fois les données chargées :
     // le D-pad ne se perd jamais pendant une réponse réseau lente.
@@ -951,36 +956,11 @@ fun TitleDetailScreen(
                         SeasonSelector(
                             seasons = visibleSeasons,
                             selectedSeasonNumber = selectedSeasonNumber,
-                            onSelect = { selectedSeasonNumber = it },
+                            onSelect = {
+                                selectedSeasonNumber = it
+                                openSeasonNumber = it
+                            },
                         )
-                    }
-                    selectedSeason?.let { season ->
-                        item(key = "season-${season.seasonNumber}") {
-                            SeasonEpisodeList(
-                                season = season,
-                                metadata = seasonMetadata[viewModel.seasonMetadataKey(tmdbId, season.seasonNumber)],
-                                watchedEpisodeKeys = watchedEpisodeKeys,
-                                downloading = searchingSeason == season.seasonNumber,
-                                episodeDownloads = episodeDownloads,
-                                onDownloadSeason = { viewModel.downloadSeason(tmdbId, season.seasonNumber) },
-                                onToggleEpisodesWatched = { episodes, watched ->
-                                    viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched)
-                                },
-                            ) { episode, _ ->
-                                // Une tuile épisode est une action de lecture,
-                                // pas un bouton "confirmer" déguisé : OK lance
-                                // immédiatement l'épisode choisi. La fiche
-                                // détaillée reste réservée aux parcours qui
-                                // l'ouvrent explicitement (reprise/retour), et
-                                // le téléchargement de saison conserve son
-                                // action dédiée juste au-dessus de la liste.
-                                val index = playableEpisodes.indexOfFirst {
-                                    it.seasonNumber == season.seasonNumber &&
-                                        it.episodeNumber == episode.episodeNumber
-                                }
-                                if (index >= 0) onPlay(d.title, playableEpisodes, index, d.posterPath)
-                            }
-                    }
                     }
                 }
             }
@@ -1006,6 +986,29 @@ fun TitleDetailScreen(
                 }
             }
         }
+        }
+
+        // Écran de saison au-dessus de la fiche série : il ne laisse ni les
+        // épisodes ni la navigation générale se superposer à la hiérarchie.
+        // Retour referme exactement ce niveau, avant de quitter la fiche.
+        val openSeason = visibleSeasons.firstOrNull { it.seasonNumber == openSeasonNumber }
+        if (openSeason != null) {
+            SeasonPageOverlay(
+                seriesTitle = d.title,
+                season = openSeason,
+                metadata = seasonMetadata[viewModel.seasonMetadataKey(tmdbId, openSeason.seasonNumber)],
+                watchedEpisodeKeys = watchedEpisodeKeys,
+                downloading = searchingSeason == openSeason.seasonNumber,
+                episodeDownloads = episodeDownloads,
+                onBack = { openSeasonNumber = null },
+                onDownloadSeason = { viewModel.downloadSeason(tmdbId, openSeason.seasonNumber) },
+                onToggleEpisodesWatched = { episodes, watched ->
+                    viewModel.toggleEpisodesWatched(tmdbId, d.title, episodes, watched)
+                },
+                onOpenEpisode = { episode, metadataEpisode ->
+                    selectedEpisode = EpisodeSelection(openSeason, episode, metadataEpisode)
+                },
+            )
         }
     }
 }
@@ -1091,12 +1094,12 @@ private fun CastRow(cast: List<com.movviz.tv.data.MetaCastMemberDto>, onOpenPers
                 }
             }
         }
-    }
+
+}
 }
 
-/** Une saison — nom + rangée horizontale d'épisodes (numéro + icône lecture
- *  si le fichier est prêt), inspiré de la liste de saisons de Plex mais en
- *  rangée scrollable plutôt qu'un accordéon (plus naturel au D-pad). */
+/** Sommaire d'une série : les saisons sont des destinations, pas des onglets
+ * qui déploient une seconde page au milieu de la première. */
 @Composable
 private fun SeasonSelector(
     seasons: List<SeriesSeasonDto>,
@@ -1104,7 +1107,7 @@ private fun SeasonSelector(
     onSelect: (Int) -> Unit,
 ) {
     Column(modifier = Modifier.padding(bottom = 20.dp)) {
-        Text(text = "Épisodes", style = TextStyle(fontSize = 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
+        Text(text = "Saisons", style = TextStyle(fontSize = 25.sp, fontWeight = FontWeight.Bold, color = MovvizInk))
         Spacer(modifier = Modifier.height(12.dp))
         TvLazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             items(seasons, key = { it.seasonNumber }) { season ->
@@ -1113,10 +1116,15 @@ private fun SeasonSelector(
                 val shape = RoundedCornerShape(12.dp)
                 Surface(
                     onClick = { onSelect(season.seasonNumber) },
-                    modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick { onSelect(season.seasonNumber) },
+                    modifier = Modifier
+                        .width(208.dp)
+                        .height(116.dp)
+                        .tvCardFocusHalo(focused, shape)
+                        .onFocusChanged { focused = it.isFocused }
+                        .tvPointerClick { onSelect(season.seasonNumber) },
                     shape = ClickableSurfaceDefaults.shape(shape),
                     colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (selected) Color.White.copy(alpha = 0.16f) else MovvizInk.copy(alpha = if (focused) 0.12f else 0.06f),
+                        containerColor = if (selected) Color(0xFF29272F) else MovvizSurfaceStrong.copy(alpha = 0.94f),
                         contentColor = MovvizInk,
                     ),
                     border = ClickableSurfaceDefaults.border(
@@ -1126,20 +1134,85 @@ private fun SeasonSelector(
                         ),
                     ),
                 ) {
-                    Text(
-                        text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
-                        style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = MovvizInk),
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
-                    )
+                    Column(
+                        modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
+                            style = TextStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = "${season.episodes.size} épisodes",
+                            style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft),
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-/** Vue série inspirée de Netflix : une saison choisie puis des épisodes en
- * grandes lignes riches et faciles à viser au D-pad, pas une mosaïque de
- * mini-puces. */
+/** Page autonome de saison. Les épisodes restent à taille constante pour que
+ * la coche, le titre et la vignette ne quittent jamais le viewport au focus. */
+@Composable
+private fun SeasonPageOverlay(
+    seriesTitle: String,
+    season: SeriesSeasonDto,
+    metadata: com.movviz.tv.data.MetadataSeasonDto?,
+    watchedEpisodeKeys: Set<String>,
+    downloading: Boolean,
+    episodeDownloads: Map<String, QueueItemDto>,
+    onBack: () -> Unit,
+    onDownloadSeason: () -> Unit,
+    onToggleEpisodesWatched: (List<com.movviz.tv.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
+    onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
+) {
+    BackHandler(onBack = onBack)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF0B0B0F)),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(start = 56.dp, end = 56.dp, top = 86.dp, bottom = 36.dp),
+        ) {
+            Text(
+                text = seriesTitle,
+                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(modifier = Modifier.height(5.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = season.name.ifBlank { "Saison ${season.seasonNumber}" },
+                    style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                PrimaryPill(text = "Retour", brush = null, solidWhite = false, onClick = onBack)
+            }
+            Spacer(modifier = Modifier.height(22.dp))
+            SeasonEpisodeList(
+                season = season,
+                metadata = metadata,
+                watchedEpisodeKeys = watchedEpisodeKeys,
+                downloading = downloading,
+                episodeDownloads = episodeDownloads,
+                onDownloadSeason = onDownloadSeason,
+                onToggleEpisodesWatched = onToggleEpisodesWatched,
+                onOpenEpisode = onOpenEpisode,
+            )
+        }
+    }
+}
+
+/** Liste d'épisodes d'une saison : lignes denses et invariantes. Le focus
+ * éclaire une ligne, il ne change jamais sa géométrie. */
 @Composable
 private fun SeasonEpisodeList(
     season: SeriesSeasonDto,
@@ -1158,7 +1231,7 @@ private fun SeasonEpisodeList(
     onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
 ) {
     val metadataByEpisode = remember(metadata) { metadata?.episodes?.associateBy { it.episodeNumber }.orEmpty() }
-    Column(modifier = Modifier.padding(bottom = 24.dp)) {
+    Column(modifier = Modifier.widthIn(max = 1120.dp).padding(bottom = 24.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
             Text(text = season.name.ifBlank { "Saison ${season.seasonNumber}" }, style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
             Spacer(modifier = Modifier.weight(1f))
@@ -1191,7 +1264,7 @@ private fun SeasonEpisodeList(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(14.dp))
         season.episodes.forEach { ep ->
             EpisodeCard(
                     episode = ep,
@@ -1206,7 +1279,7 @@ private fun SeasonEpisodeList(
                     },
                     onClick = { onOpenEpisode(ep, metadataByEpisode[ep.episodeNumber]) },
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(7.dp))
         }
     }
 }
@@ -1224,7 +1297,6 @@ private fun EpisodeCard(
     val available = (episode.plexRatingKey != null || episode.playbackSource == "movviz") &&
         episode.status == "available"
     val shape = RoundedCornerShape(8.dp)
-    Box {
     Surface(
         onClick = onClick,
         enabled = available,
@@ -1238,8 +1310,8 @@ private fun EpisodeCard(
             // Les vignettes d'épisodes ne doivent jamais laisser le
             // backdrop clair traverser sous un titre blanc : surface opaque
             // au repos, puis simplement un cran plus clair au focus.
-            containerColor = MovvizSurfaceStrong.copy(alpha = if (available) 0.96f else 0.88f),
-            focusedContainerColor = Color(0xFF29272F),
+            containerColor = Color(0xFF16161A),
+            focusedContainerColor = Color(0xFF24232A),
             contentColor = MovvizInk,
             focusedContentColor = MovvizInk,
         ),
@@ -1250,22 +1322,32 @@ private fun EpisodeCard(
             ),
         ),
     ) {
-        Row(modifier = Modifier.heightIn(min = 112.dp).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(text = episode.episodeNumber.toString(), style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, color = MovvizInkDim), modifier = Modifier.width(34.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(108.dp)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = episode.episodeNumber.toString(),
+                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
+                modifier = Modifier.width(30.dp),
+            )
             metadata?.stillPath?.let { still ->
                 Image(
                     painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still"),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.width(164.dp).height(92.dp).clip(RoundedCornerShape(5.dp)),
+                    modifier = Modifier.width(150.dp).height(84.dp).clip(RoundedCornerShape(6.dp)),
                 )
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(16.dp))
             }
-            Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = episode.title,
-                        style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkSoft),
+                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkSoft),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -1289,8 +1371,8 @@ private fun EpisodeCard(
                     }
                 }
                 metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Text(text = overview, style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft, lineHeight = 18.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = overview, style = TextStyle(fontSize = 12.sp, color = MovvizInkSoft, lineHeight = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 // Progression EN DIRECT de CET épisode précis (pas juste une
                 // pastille "Téléchargement" figée) quand un torrent de la file
@@ -1331,14 +1413,16 @@ private fun EpisodeCard(
             Surface(
                 onClick = { onToggleWatched(!watched) },
                 modifier = Modifier
-                    .padding(start = 10.dp)
-                    .size(36.dp)
-                    .tvFocusLift(watchedFocused, androidx.compose.foundation.shape.CircleShape, maxScale = 1.12f)
+                    // Zone finale réservée : la coche reste visible même
+                    // lorsqu'un long titre ou synopsis remplit la ligne.
+                    .padding(start = 14.dp)
+                    .size(44.dp)
                     .onFocusChanged { watchedFocused = it.isFocused }
                     .tvPointerClick { onToggleWatched(!watched) },
                 shape = ClickableSurfaceDefaults.shape(androidx.compose.foundation.shape.CircleShape),
                 colors = ClickableSurfaceDefaults.colors(
-                    containerColor = if (watched) MovvizCyan.copy(alpha = 0.90f) else MovvizInk.copy(alpha = 0.12f),
+                    containerColor = if (watched) MovvizCyan.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.12f),
+                    focusedContainerColor = if (watched) MovvizCyan else Color.White.copy(alpha = 0.24f),
                     contentColor = if (watched) Color.White else MovvizInkSoft,
                 ),
             ) {
@@ -1346,32 +1430,11 @@ private fun EpisodeCard(
                     Icon(
                         imageVector = MovvizIconCheck,
                         contentDescription = if (watched) "Marquer non vu" else "Marquer vu",
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
         }
-    }
-    // Coche "vu" — statut manuel utilisateur (/api/watch-status), coin
-    // supérieur droit de la puce, même trio pastille que le reste de l'app
-    // mais réduit au strict nécessaire (une puce épisode fait déjà 160dp de
-    // large, pas de place pour un libellé complet).
-    if (watched) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(4.dp)
-                .background(MovvizCyan.copy(alpha = 0.9f), androidx.compose.foundation.shape.CircleShape)
-                .padding(3.dp),
-        ) {
-            Icon(
-                imageVector = MovvizIconCheck,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.size(9.dp),
-            )
-        }
-    }
     }
 }
 

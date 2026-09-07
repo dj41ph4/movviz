@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.71 — September 2026
+
+### Movviz NX — saisons en plein écran
+
+Choisir une saison sur une fiche série NX ouvre maintenant un écran dédié, plutôt que de déplier une liste d’épisodes au milieu de la fiche : la fiche série reste un sommaire clair, et la liste d’épisodes profite de tout l’espace avec un parcours D-pad simple, retour fermant exactement ce niveau avant de quitter la fiche. Les lignes d’épisode gardent désormais une géométrie fixe (vignette, titre, coche « vu ») pour que le focus n’y change jamais la mise en page.
+
 ## v1.24.70 — September 2026
 
 ### Movviz NX — aperçus réellement disponibles
