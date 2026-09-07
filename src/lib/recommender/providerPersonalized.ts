@@ -2,12 +2,14 @@ import { discoverByFilters, getGenres } from "@/lib/metadata/tmdb";
 import { getWatchStatus } from "@/lib/plex/watchStore";
 import { loadMovies, loadSeries } from "@/lib/library/store";
 import { buildTasteVector } from "@/lib/ai/contrastiveProfile";
-import { getCachedMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
+import { getCachedMoodProfile, getOrAnalyzeMoodProfile, moodSimilarity } from "@/lib/ai/titleAnalysis";
+import { loadAiConfig } from "@/lib/ai/store";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import { getFeedback } from "@/lib/ai/tasteProfile";
 import { getComputedGenreTraits, matchGenreAffinity } from "@/lib/userContext/taste";
 import { STREAMING_PLATFORMS } from "@/lib/metadata/curated";
 import { getCache } from "@/lib/cache/registry";
+import { mapWithConcurrency } from "@/lib/concurrency";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
 /**
@@ -46,6 +48,26 @@ export const PERSONALIZED_DISCOVER_PROVIDERS = PERSONALIZED_PROVIDER_IDS
 
 const GENRE_AFFINITY_PROMOTE_THRESHOLD = 0.95;
 const ROW_SIZE = 20;
+// A provider's TMDb catalog is mostly titles nobody has ever analyzed before
+// (obscure regional content, one-off specials — unlike getRecommendations()'s
+// pool, which is TMDb's own "similar to what you watched" and so overlaps
+// heavily with titles the mood cache already has from other features). Left
+// cache-only, `taste` silently stayed 0 for nearly every candidate, so
+// ranking collapsed to rating+affinity — not wrong, but far less precise
+// than it should be. Same bounded "deepen" pattern as becauseYouWatched.ts:
+// analyze the user's own taste-vector similarity for just the top few
+// candidates, raced against a hard budget so a cold cache never delays the
+// row; on timeout the cheap rank ships as-is and analysis keeps running in
+// the background for next time.
+const MOOD_CANDIDATE_LIMIT = 12;
+const MOOD_ANALYSIS_CONCURRENCY = 3;
+const MOOD_BUDGET_MS = 4000;
+const DEEPEN_WEIGHT = 0.3;
+// Une seule page TMDb (20 titres) ne représente pas le catalogue d'une
+// plateforme : c'était la cause directe des rails Suggestions/Nouveautés
+// presque identiques. On démarre sur un bassin large, puis « Voir tout »
+// continue de l'étendre sans plafond artificiel bas.
+const INITIAL_SUGGESTION_POOL_SIZE = ROW_SIZE * 8;
 // Safety valve on the "suggestion" pool growth — TMDb's own with_watch_providers
 // catalogs run out eventually; this just stops us from hammering it forever
 // on a pathological deep-scroll (200 pages/sort would be ~4000 raw titles).
@@ -57,6 +79,9 @@ const POOL_CACHE_TTL = 45 * 60 * 1000;
 
 interface PoolState {
   results: MetaSearchResult[];
+  /** Première page strictement chronologique : réservée au rail Nouveautés,
+   * afin qu'une suggestion ne réaffiche pas les mêmes titres récents. */
+  newestIds: number[];
   popularPage: number;
   datePage: number;
   popularExhausted: boolean;
@@ -64,7 +89,8 @@ interface PoolState {
 }
 
 function poolCache() {
-  return getCache("providerSuggestedPool", POOL_CACHE_TTL);
+  // v2 invalide les petits bassins construits par la première implémentation.
+  return getCache("providerSuggestedPool:v2", POOL_CACHE_TTL);
 }
 
 export function providerNameFor(providerId: number): string | null {
@@ -167,6 +193,7 @@ async function ensurePool(
   const cacheKey = `${type}:${providerId}:${(originCountries ?? []).join(",")}`;
   const state: PoolState = poolCache().get<PoolState>(cacheKey) ?? {
     results: [],
+    newestIds: [],
     popularPage: 0,
     datePage: 0,
     popularExhausted: false,
@@ -193,6 +220,7 @@ async function ensurePool(
       const res = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSort, originCountries }, nextPage);
       state.datePage = nextPage;
       if (res.results.length === 0 || nextPage >= res.totalPages) state.dateExhausted = true;
+      if (nextPage === 1) state.newestIds = res.results.map((item) => item.tmdbId);
       state.results = dedupe([...state.results, ...res.results]);
     }
   }
@@ -212,6 +240,19 @@ async function ensurePool(
  * sortie") — that's the whole point of it existing separately from
  * "Nouveautés".
  */
+function timeout(ms: number): Promise<"timeout"> {
+  return new Promise((resolve) => setTimeout(() => resolve("timeout"), ms));
+}
+
+function sortScored<T extends { affinity: number; composite: number }>(scored: T[]): T[] {
+  return scored.sort((a, b) => {
+    const aPromoted = a.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
+    const bPromoted = b.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
+    if (aPromoted !== bPromoted) return aPromoted ? -1 : 1;
+    return b.composite - a.composite;
+  });
+}
+
 async function rankForUser(
   userId: string,
   type: "movie" | "series",
@@ -244,13 +285,39 @@ async function rankForUser(
     return { item, affinity, composite };
   });
 
-  scored.sort((a, b) => {
-    const aPromoted = a.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
-    const bPromoted = b.affinity >= GENRE_AFFINITY_PROMOTE_THRESHOLD;
-    if (aPromoted !== bPromoted) return aPromoted ? -1 : 1;
-    return b.composite - a.composite;
-  });
-  return scored.map((s) => s.item);
+  sortScored(scored);
+
+  const config = loadAiConfig();
+  if (!config.enabled || !tasteVector) return scored.map((s) => s.item);
+
+  // Cheap pass above already used whatever mood profiles happened to be
+  // cached; this deepens just the current top slice — analyzing the whole
+  // pool would be slow and mostly wasted on candidates that will never
+  // reach the visible row anyway.
+  const top = scored.slice(0, MOOD_CANDIDATE_LIMIT);
+  const deepen = async (): Promise<Map<number, number> | null> => {
+    const bonuses = new Map<number, number>();
+    await mapWithConcurrency(top, MOOD_ANALYSIS_CONCURRENCY, async ({ item }) => {
+      const profile = await getOrAnalyzeMoodProfile(config, type, item.tmdbId, item.title, item.overview);
+      if (!profile) return;
+      const t = (moodSimilarity(tasteVector.liked, profile.categories) - moodSimilarity(tasteVector.disliked, profile.categories)) * tasteVector.confidence;
+      bonuses.set(item.tmdbId, Math.max(0, t));
+    });
+    return bonuses;
+  };
+
+  // Same hard-guarantee reasoning as becauseYouWatched.ts: deepen() keeps
+  // running after a timeout loss (landing in the permanent mood cache for
+  // next time), so this catch guards against an unhandled rejection on the
+  // losing side of the race rather than betting deepen() never throws.
+  const deepenPromise = deepen().catch(() => null);
+  const outcome = await Promise.race([deepenPromise, timeout(MOOD_BUDGET_MS)]);
+  if (outcome === "timeout" || outcome === null) return scored.map((s) => s.item);
+
+  const reranked = sortScored(
+    top.map((s) => ({ ...s, composite: s.composite + (outcome.get(s.item.tmdbId) ?? 0) * DEEPEN_WEIGHT }))
+  );
+  return [...reranked, ...scored.slice(MOOD_CANDIDATE_LIMIT)].map((s) => s.item);
 }
 
 export async function buildProviderSuggestedRow(
@@ -262,13 +329,16 @@ export async function buildProviderSuggestedRow(
   const providerName = providerNameFor(providerId);
   if (!providerName) return null;
 
-  // A bit more than one row's worth so ranking has real choice even on the
-  // very first load.
-  const pool = await ensurePool(type, providerId, originCountries, ROW_SIZE * 2);
+  // Un vrai échantillon de catalogue plutôt que les deux premières pages :
+  // le classement a assez de matière pour refléter les goûts, y compris sur
+  // des titres plus anciens. Les nouveautés de la première page date sont
+  // volontairement réservées à leur propre rail.
+  const pool = await ensurePool(type, providerId, originCountries, INITIAL_SUGGESTION_POOL_SIZE);
   if (pool.results.length === 0) return null;
 
   const excluded = excludedTmdbIds(type, userId);
-  const ranked = await rankForUser(userId, type, pool.results, excluded);
+  const newestIds = new Set(pool.newestIds);
+  const ranked = await rankForUser(userId, type, pool.results.filter((item) => !newestIds.has(item.tmdbId)), excluded);
   if (ranked.length === 0) return null;
 
   return { key: `providerSuggested:${providerId}`, results: ranked.slice(0, ROW_SIZE), meta: { providerId, providerName } };
@@ -310,7 +380,8 @@ export async function getProviderSuggestedPage(
 
   const pool = await ensurePool(type, providerId, originCountries, page * ROW_SIZE);
   const excluded = excludedTmdbIds(type, userId);
-  const ranked = await rankForUser(userId, type, pool.results, excluded);
+  const newestIds = new Set(pool.newestIds);
+  const ranked = await rankForUser(userId, type, pool.results.filter((item) => !newestIds.has(item.tmdbId)), excluded);
 
   const exhausted = pool.popularExhausted && pool.dateExhausted;
   const totalPages = exhausted ? Math.max(1, Math.ceil(ranked.length / ROW_SIZE)) : page + 1;

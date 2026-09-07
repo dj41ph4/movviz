@@ -1,5 +1,6 @@
 package com.movviz.tv.ui.discover
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,13 +11,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +45,8 @@ import com.movviz.tv.data.GenreDto
 import com.movviz.tv.data.RowMetaDto
 import com.movviz.tv.ui.home.HeroCarousel
 import com.movviz.tv.ui.home.HomeTab
+import com.movviz.tv.ui.home.MediaHubMode
+import com.movviz.tv.ui.home.MediaHubToggleRow
 import com.movviz.tv.ui.home.TitleRow
 import com.movviz.tv.ui.home.TvTitleCard
 import com.movviz.tv.ui.theme.MovvizInk
@@ -62,8 +68,18 @@ fun DiscoverScreen(
     onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit = { _, _, _ -> },
     onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit = { _, _, _ -> },
     entryFocusRequester: FocusRequester? = null,
+    // Null conserve l'ancien sélecteur Films/Séries pour les éventuels
+    // appelants internes ; les hubs NX passent leur type et ne mélangent
+    // donc jamais les deux catalogues dans leurs suggestions.
+    fixedType: HomeTab? = null,
+    mode: MediaHubMode = MediaHubMode.SUGGESTIONS,
+    onModeChange: (MediaHubMode) -> Unit = {},
+    // Même contrat que l'accueil : le parent rend la surcouche NX opaque dès
+    // que le contenu défile derrière elle, puis transparente au sommet.
+    onScrollChanged: (Boolean) -> Unit = {},
 ) {
-    var selectedType by remember { mutableStateOf(HomeTab.MOVIES) }
+    var selectedType by remember(fixedType) { mutableStateOf(fixedType ?: HomeTab.MOVIES) }
+    LaunchedEffect(fixedType) { fixedType?.let { selectedType = it } }
 
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
@@ -160,9 +176,20 @@ fun DiscoverScreen(
     }
     var heroIndex by remember { mutableStateOf(0) }
     val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
-    val heroFocus = entryFocusRequester ?: remember { FocusRequester() }
+    // Quand l'écran est intégré au hub Films/Séries, DOWN depuis la barre
+    // doit arriver sur Suggestions/Bibliothèque, pas sauter ce choix et
+    // l'abandonner derrière le héros.
+    val hubFocus = entryFocusRequester ?: remember { FocusRequester() }
+    val heroFocus = remember { FocusRequester() }
     val emptyStateFocus = heroFocus
     val heroTopAnchor = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+    val hasScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 12
+        }
+    }
+    LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
     LaunchedEffect(heroItems) {
         if (heroItems.isNotEmpty()) {
             viewModel.loadHeroLogos(wantedType, heroItems.map { it.tmdbId })
@@ -185,7 +212,7 @@ fun DiscoverScreen(
                 .focusRequester(emptyStateFocus)
                 .focusable(),
         )
-        else LazyColumn(Modifier.fillMaxSize()) {
+        else LazyColumn(Modifier.fillMaxSize(), state = listState) {
             item(contentType = "topAnchor") {
                 Box(
                     modifier = Modifier
@@ -195,11 +222,19 @@ fun DiscoverScreen(
                         .focusable(),
                 )
             }
-            // Toggle Films/Séries : sépare la découverte des deux univers,
-            // demandé en direct plutôt que de les mélanger dans les mêmes
-            // rangées (contrairement à l'écran Accueil qui, lui, mélange).
             item(contentType = "type-toggle") {
-                TypeToggleRow(selected = selectedType, onSelect = { selectedType = it })
+                if (fixedType != null) {
+                    MediaHubToggleRow(
+                        mode = mode,
+                        onModeChange = onModeChange,
+                        firstFocusRequester = hubFocus,
+                        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
+                    )
+                } else {
+                    // Ancien point d'entrée, maintenu proprement : le
+                    // sélecteur commence sous la barre flottante.
+                    TypeToggleRow(selected = selectedType, onSelect = { selectedType = it })
+                }
             }
             if (activeHero != null) item {
                 HeroCarousel(
@@ -234,15 +269,24 @@ fun DiscoverScreen(
             }
             // Rangées logo "Plateformes"/"Studios" en tout bas — même contenu
             // et même ordre que LogoRow sur le Discover desktop, indépendant
-            // du toggle Films/Séries (voir loadDiscoverLogos()).
+            // du toggle Films/Séries (voir loadDiscoverLogos()). Seule la
+            // tuile Plateforme est cliquable : elle ouvre le même "Voir tout"
+            // que la rangée "Suggestion {plateforme} pour vous" (providerSuggested),
+            // donc un classement selon le profil de l'utilisateur, pas
+            // l'ordre TMDb brut — les studios n'ont pas d'équivalent
+            // personnalisé côté serveur, leur tuile reste donc décorative.
             if (watchProviderTiles.isNotEmpty()) {
                 item(contentType = "logo-row") {
-                    DiscoverLogoRow(title = "Plateformes", tiles = watchProviderTiles)
+                    DiscoverLogoRow(
+                        title = "Plateformes",
+                        tiles = watchProviderTiles,
+                        onSelect = { tile -> onSeeAllRow(wantedType, "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
+                    )
                 }
             }
             if (companyTiles.isNotEmpty()) {
                 item(contentType = "logo-row") {
-                    DiscoverLogoRow(title = "Studios", tiles = companyTiles)
+                    DiscoverLogoRow(title = "Studios", tiles = companyTiles, onSelect = null)
                 }
             }
         }
@@ -301,7 +345,13 @@ private fun resolutionLabelForDiscover(resolution: String?): String? = when {
 private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.padding(start = 52.dp, top = 4.dp, bottom = 20.dp),
+        // NxTopNav est une surcouche (volontairement transparente lorsque la
+        // page est en haut). Le sélecteur doit donc commencer *sous* ses
+        // 62 dp : sinon les capsules Films/Séries se retrouvent derrière le
+        // logo et les liens de navigation, comme une seconde barre cassée.
+        // Le conserver dans le flux garantit aussi un ordre D-pad naturel :
+        // barre principale → choix Films/Séries → héro → genres → rangées.
+        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
     ) {
         ToggleChip(label = "Films", active = selected == HomeTab.MOVIES, onClick = { onSelect(HomeTab.MOVIES) })
         ToggleChip(label = "Séries", active = selected == HomeTab.SERIES, onClick = { onSelect(HomeTab.SERIES) })
@@ -367,7 +417,11 @@ private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: S
 private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
 
 @Composable
-private fun DiscoverLogoRow(title: String, tiles: List<com.movviz.tv.data.LogoTileDto>) {
+private fun DiscoverLogoRow(
+    title: String,
+    tiles: List<com.movviz.tv.data.LogoTileDto>,
+    onSelect: ((com.movviz.tv.data.LogoTileDto) -> Unit)?,
+) {
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = title,
@@ -380,22 +434,23 @@ private fun DiscoverLogoRow(title: String, tiles: List<com.movviz.tv.data.LogoTi
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(tiles, key = { "$title-${it.id}" }) { tile ->
-                DiscoverLogoTile(tile = tile)
+                DiscoverLogoTile(tile = tile, onClick = onSelect?.let { { it(tile) } })
             }
         }
     }
 }
 
 @Composable
-private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto) {
+private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto, onClick: (() -> Unit)?) {
     var focused by remember { mutableStateOf(false) }
     val shape = RoundedCornerShape(50)
+    val handleClick = onClick ?: {}
     Surface(
-        onClick = {},
+        onClick = handleClick,
         modifier = Modifier
             .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
             .onFocusChanged { focused = it.isFocused }
-            .tvPointerClick({}),
+            .tvPointerClick(handleClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
         colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White),
         border = ClickableSurfaceDefaults.border(
@@ -404,25 +459,68 @@ private fun DiscoverLogoTile(tile: com.movviz.tv.data.LogoTileDto) {
     ) {
         Box(
             modifier = Modifier
-                .height(48.dp)
-                .padding(horizontal = 20.dp),
+                // Une largeur fixe évite les ronds vides pendant le premier
+                // chargement Coil et donne une rangée de logos comparable à
+                // celle du desktop, pas une série de placeholders.
+                .width(136.dp)
+                .height(56.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center,
         ) {
             if (tile.logoPath != null) {
-                androidx.compose.foundation.Image(
-                    painter = coil.compose.rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE${tile.logoPath}"),
-                    contentDescription = tile.name,
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    modifier = Modifier.height(28.dp),
-                )
+                // Fond quasi-blanc derrière le logo — même traitement que la
+                // LogoRow desktop ("bg-white/95"). Sans lui, un logo sombre
+                // (Disney+, Canal+…) devenait invisible sur le fond noir de
+                // la puce : la plupart des logos TMDb sont des icônes carrées
+                // avec leur propre couleur de fond, pas des wordmarks
+                // transparents qui s'accommoderaient du noir.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .background(Color.White.copy(alpha = 0.95f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // SubcomposeAsyncImage plutôt que rememberAsyncImagePainter
+                    // + vérification manuelle de l'état : cette dernière
+                    // laissait les tuiles bloquées sur le nom en texte en
+                    // permanence (état jamais observé Success — connexion
+                    // OkHttp vue "leaked" dans les logs), un souci connu de
+                    // cette combinaison quand le composable est recomposé
+                    // pendant que l'image charge. SubcomposeAsyncImage gère
+                    // loading/success/error nativement, sans dépendre de
+                    // l'observation externe d'un State.
+                    coil.compose.SubcomposeAsyncImage(
+                        model = "$TMDB_LOGO_BASE${tile.logoPath}",
+                        contentDescription = tile.name,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize(),
+                        loading = { DiscoverLogoTileFallback(tile.name, dark = true) },
+                        error = { DiscoverLogoTileFallback(tile.name, dark = true) },
+                    )
+                }
             } else {
-                Text(
-                    text = tile.name,
-                    style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (focused) MovvizInk else MovvizInkSoft),
-                )
+                DiscoverLogoTileFallback(tile.name, dark = false, focused = focused)
             }
         }
     }
+}
+
+/** Repli texte immédiat — TMDb lent, indisponible, ou logo absent pour cette
+ *  entrée. `dark` = affiché sur le fond blanc du badge logo (texte sombre),
+ *  sinon sur le fond noir de la puce (texte clair, éclairci au focus). */
+@Composable
+private fun DiscoverLogoTileFallback(name: String, dark: Boolean, focused: Boolean = false) {
+    Text(
+        text = name,
+        style = TextStyle(
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (dark) Color(0xFF1A1A1A) else if (focused) MovvizInk else MovvizInkSoft,
+        ),
+        maxLines = 2,
+    )
 }
 
 @Composable

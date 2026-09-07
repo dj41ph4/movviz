@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.75 — September 2026
+
+### Découverte — plateformes lisibles et classement affiné
+
+Les logos de plateformes et studios de Découverte (Films/Séries) sont désormais toujours visibles, y compris Disney+ et Canal+ qui restaient illisibles sur fond sombre — chaque logo repose maintenant sur un badge clair, comme sur le site. Le classement des rangées "Suggestion {plateforme} pour vous" est affiné : les quelques titres en tête bénéficient désormais d'une analyse de tonalité dédiée plutôt que de dépendre uniquement d'une analyse déjà en cache, pour un tri plus fidèle aux goûts réels de chaque profil.
+
 ## v1.24.74 — September 2026
 
 ### Découverte — nouveautés et suggestions par plateforme, séparées
