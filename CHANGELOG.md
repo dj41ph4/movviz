@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.74 — September 2026
+
+### Découverte — nouveautés et suggestions par plateforme, séparées
+
+Chaque plateforme (Netflix, Disney+, Prime Video) de Découverte affiche maintenant deux rangées distinctes : « Nouveautés {plateforme} pour vous », strictement triée par date de sortie, et « Suggestion {plateforme} pour vous », triée uniquement selon vos goûts (genres, historique, notes) sans tenir compte de la date de sortie. Le « Voir tout » de ces deux rangées défile aussi loin que le catalogue réel de la plateforme le permet. Movviz NX reçoit le même découpage sur son propre écran Découverte.
+
 ## v1.24.73 — September 2026
 
 ### Movviz NX — saisons et épisodes navigables

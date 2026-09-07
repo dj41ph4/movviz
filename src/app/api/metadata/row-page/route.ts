@@ -7,7 +7,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { countriesForContinents } from "@/lib/metadata/continents";
 import { getRecommendations } from "@/lib/recommender/engine";
 import { getBecauseYouWatchedPage } from "@/lib/recommender/becauseYouWatched";
-import { getProviderPersonalizedPage } from "@/lib/recommender/providerPersonalized";
+import { getProviderNewPage, getProviderSuggestedPage } from "@/lib/recommender/providerPersonalized";
 import { filterSuggestable } from "@/lib/metadata/suggestable";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
@@ -43,13 +43,21 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ results: filterSuggestable(paged.results), page: paged.page, totalPages: paged.totalPages, meta: paged.meta });
   }
 
-  // Provider-personalized key (see providerPersonalized.ts) — same reason as
-  // becauseYouWatched: needs its own `meta` field for the client label, and
-  // its own ranked-pool cache rather than the generic switch below.
-  if (key.startsWith("providerPersonalized:")) {
-    const providerId = Number(key.slice("providerPersonalized:".length));
+  // Provider rows (see providerPersonalized.ts) — same reason as
+  // becauseYouWatched: need their own `meta` field for the client label, and
+  // their own pagination (real TMDb pages for "new", a growing ranked pool
+  // for "suggested") rather than the generic switch below.
+  if (key.startsWith("providerNew:")) {
+    const providerId = Number(key.slice("providerNew:".length));
     if (!Number.isFinite(providerId)) return NextResponse.json({ error: "invalid provider" }, { status: 400 });
-    const paged = await getProviderPersonalizedPage(user?.id ?? "", type, providerId, page, originCountries);
+    const paged = await getProviderNewPage(user?.id ?? "", type, providerId, page, originCountries);
+    if (!paged) return NextResponse.json({ error: "unknown row" }, { status: 400 });
+    return NextResponse.json({ results: filterSuggestable(paged.results), page: paged.page, totalPages: paged.totalPages, meta: paged.meta });
+  }
+  if (key.startsWith("providerSuggested:")) {
+    const providerId = Number(key.slice("providerSuggested:".length));
+    if (!Number.isFinite(providerId)) return NextResponse.json({ error: "invalid provider" }, { status: 400 });
+    const paged = await getProviderSuggestedPage(user?.id ?? "", type, providerId, page, originCountries);
     if (!paged) return NextResponse.json({ error: "unknown row" }, { status: 400 });
     return NextResponse.json({ results: filterSuggestable(paged.results), page: paged.page, totalPages: paged.totalPages, meta: paged.meta });
   }

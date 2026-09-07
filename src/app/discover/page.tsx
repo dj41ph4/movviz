@@ -414,8 +414,11 @@ function DiscoverPageInner() {
         ? t("discover.rowBecauseYouLiked", { title: meta.anchorTitle ?? "" })
         : t("discover.rowBecauseYouWatched", { title: meta.anchorTitle ?? "" });
     }
-    if (key.startsWith("providerPersonalized:") && meta?.providerName) {
-      return t("discover.rowProviderPersonalized", { provider: meta.providerName });
+    if (key.startsWith("providerNew:") && meta?.providerName) {
+      return t("discover.rowProviderNew", { provider: meta.providerName });
+    }
+    if (key.startsWith("providerSuggested:") && meta?.providerName) {
+      return t("discover.rowProviderSuggested", { provider: meta.providerName });
     }
     switch (key) {
       case "recommendedTop": return t("discover.rowRecommendedTop");

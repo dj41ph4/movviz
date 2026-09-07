@@ -11,13 +11,20 @@ import { getCache } from "@/lib/cache/registry";
 import type { MetaSearchResult } from "@/lib/metadata/types";
 
 /**
- * "Nouveautés {provider} pour vous" — provider candidates ranked by the same
- * user-taste machinery as getRecommendations()/becauseYouWatched.ts (genre
- * affinity, mood/taste vector, rating, recency), never a separate
- * per-provider engine. The provider only supplies the candidate pool; Movviz
- * decides the order. See docs/movviz-personalization plan for the design
- * this implements ("les plateformes fournissent les candidats, Movviz
- * connaît l'utilisateur, le moteur existant décide de l'ordre").
+ * Two distinct rows per provider — never a per-provider engine, the provider
+ * only supplies candidates, Movviz decides both what "new" means and what
+ * "for you" means:
+ *
+ * - "Nouveautés {provider} pour vous" (`providerNew:{id}`) — strictly sorted
+ *   by release/air date, most recent first. Nothing re-orders it: date IS
+ *   the ranking. Paginates straight through TMDb's own pages, so it goes as
+ *   deep as the real catalog does ("infinite slide").
+ * - "Suggestion {provider} pour vous" (`providerSuggested:{id}`) — sorted by
+ *   the same user-taste machinery as getRecommendations()/becauseYouWatched.ts
+ *   (genre affinity, mood/taste vector, rating), release date given NO
+ *   weight at all — an old title the user would love outranks a mediocre
+ *   new one. Its candidate pool grows on demand as "Voir tout" is scrolled
+ *   deeper (see ensurePool), rather than being capped at a fixed size.
  */
 
 export interface ProviderPersonalizedRow {
@@ -38,20 +45,26 @@ export const PERSONALIZED_DISCOVER_PROVIDERS = PERSONALIZED_PROVIDER_IDS
   .filter((p): p is { id: number; name: string } => !!p);
 
 const GENRE_AFFINITY_PROMOTE_THRESHOLD = 0.95;
-// Shared across every user — the provider catalog itself doesn't depend on
-// who's asking, so 5 profiles browsing the same night make ONE set of TMDb
-// calls, not five (plan §17, cache 1).
-const POOL_CACHE_TTL = 45 * 60 * 1000;
-// Per-user ranked order — cheap to recompute but no reason to on every SWR
-// refresh (plan §17, cache 2).
-const RANK_CACHE_TTL = 15 * 60 * 1000;
 const ROW_SIZE = 20;
+// Safety valve on the "suggestion" pool growth — TMDb's own with_watch_providers
+// catalogs run out eventually; this just stops us from hammering it forever
+// on a pathological deep-scroll (200 pages/sort would be ~4000 raw titles).
+const MAX_POOL_PAGES_PER_SORT = 25;
+// Shared across every user — the provider catalog itself doesn't depend on
+// who's asking, so 5 profiles browsing the same night grow ONE shared pool,
+// not five (plan §17, cache 1).
+const POOL_CACHE_TTL = 45 * 60 * 1000;
+
+interface PoolState {
+  results: MetaSearchResult[];
+  popularPage: number;
+  datePage: number;
+  popularExhausted: boolean;
+  dateExhausted: boolean;
+}
 
 function poolCache() {
-  return getCache("providerPersonalizedPool", POOL_CACHE_TTL);
-}
-function rankCache() {
-  return getCache("providerPersonalizedRanked", RANK_CACHE_TTL);
+  return getCache("providerSuggestedPool", POOL_CACHE_TTL);
 }
 
 export function providerNameFor(providerId: number): string | null {
@@ -69,6 +82,10 @@ function dedupe(list: MetaSearchResult[]): MetaSearchResult[] {
   return out;
 }
 
+function dateSortFor(type: "movie" | "series"): string {
+  return type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
+}
+
 // Same exclusion policy as becauseYouWatched.ts/engine.ts — owned, watched,
 // and 👎'd titles never enter a "for you" rail. A film genuinely already
 // watched is excluded; a series is only excluded per the existing
@@ -83,40 +100,105 @@ function excludedTmdbIds(type: "movie" | "series", userId: string): Set<number> 
   return new Set([...owned, ...watched, ...disliked]);
 }
 
-/**
- * Candidate pool for one provider — "recent/current on this provider", not
- * a precise catalog-entry date (TMDb can't say when Netflix actually added a
- * title, only what's currently available there — see plan §5, deliberately
- * not solved with a scraper). Popularity + recency sort, 2 pages max, so
- * this stays cheap even before the per-user rank cache kicks in (plan §18).
- */
-async function getProviderCandidatePool(
+// ---------------------------------------------------------------------------
+// "Nouveautés {provider} pour vous" — pure chronological, real TMDb pages.
+// ---------------------------------------------------------------------------
+
+export async function buildProviderNewRow(
+  userId: string,
   type: "movie" | "series",
   providerId: number,
   originCountries?: string[]
-): Promise<MetaSearchResult[]> {
-  const cacheKey = `${type}:${providerId}:${(originCountries ?? []).join(",")}`;
-  const cached = poolCache().get<MetaSearchResult[]>(cacheKey);
-  if (cached) return cached;
+): Promise<ProviderPersonalizedRow | null> {
+  const providerName = providerNameFor(providerId);
+  if (!providerName) return null;
 
-  // 2 pages of each sort (~80 raw candidates before dedup) was landing rows
-  // as small as 11/20 after exclusions (owned/watched/👎) + filterSuggestable
-  // trimmed the pool — TMDb's FR watch-provider catalogs aren't huge, and
-  // popularity/recency pages 1-2 overlap heavily with each other. 3+2 gives
-  // a meaningfully bigger raw pool for the same 2 TMDb round-trips worth of
-  // latency (still well under plan §18's "1-2 pages per provider" budget in
-  // spirit — this is per SORT, not per page fetched serially).
-  const dateSort = type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
-  const [popular1, popular2, popular3, recent1, recent2] = await Promise.all([
-    discoverByFilters(type, { watchProvider: String(providerId), sort: "popularity.desc", originCountries }, 1),
-    discoverByFilters(type, { watchProvider: String(providerId), sort: "popularity.desc", originCountries }, 2),
-    discoverByFilters(type, { watchProvider: String(providerId), sort: "popularity.desc", originCountries }, 3),
-    discoverByFilters(type, { watchProvider: String(providerId), sort: dateSort, originCountries }, 1),
-    discoverByFilters(type, { watchProvider: String(providerId), sort: dateSort, originCountries }, 2),
-  ]);
-  const merged = dedupe([...popular1.results, ...recent1.results, ...popular2.results, ...recent2.results, ...popular3.results]);
-  poolCache().set(cacheKey, merged);
-  return merged;
+  const excluded = excludedTmdbIds(type, userId);
+  const page1 = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSortFor(type), originCountries }, 1);
+  const results = filterSuggestable(page1.results.filter((c) => !excluded.has(c.tmdbId)));
+  if (results.length === 0) return null;
+
+  return { key: `providerNew:${providerId}`, results: results.slice(0, ROW_SIZE), meta: { providerId, providerName } };
+}
+
+/** "Voir tout" — one real TMDb page per requested page, in the same date
+ *  order. Genuinely infinite: totalPages comes straight from TMDb, not a
+ *  pre-fetched pool, so it goes exactly as deep as the provider's real
+ *  catalog for this type/region. A page can come back with fewer than 20
+ *  post-filter results — same accepted trade-off as the existing
+ *  "upcoming"/"newSeries" rows elsewhere in this file's siblings. */
+export async function getProviderNewPage(
+  userId: string,
+  type: "movie" | "series",
+  providerId: number,
+  page: number,
+  originCountries?: string[]
+): Promise<{ results: MetaSearchResult[]; page: number; totalPages: number; meta: { providerId: number; providerName: string } } | null> {
+  const providerName = providerNameFor(providerId);
+  if (!providerName) return null;
+
+  const excluded = excludedTmdbIds(type, userId);
+  const raw = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSortFor(type), originCountries }, page);
+  const results = filterSuggestable(raw.results.filter((c) => !excluded.has(c.tmdbId)));
+  return { results, page: raw.page, totalPages: raw.totalPages, meta: { providerId, providerName } };
+}
+
+// ---------------------------------------------------------------------------
+// "Suggestion {provider} pour vous" — taste-ranked, release date irrelevant.
+// ---------------------------------------------------------------------------
+
+/**
+ * Grows a shared candidate pool for one provider until it holds at least
+ * `minCount` raw titles (or both sorts are exhausted) — alternating
+ * popularity and date pages so the pool stays broad rather than exhausting
+ * one sort before touching the other. Monotonic: a later call with a bigger
+ * `minCount` only ever fetches the NEW pages it's missing, never re-fetches
+ * what a previous call already merged in. This is what makes "Voir tout"
+ * scroll deep without capping the pool at a fixed size up front (plan's
+ * "infinite slide" — as far as the real catalog goes, not an artificial
+ * page 5 wall).
+ */
+async function ensurePool(
+  type: "movie" | "series",
+  providerId: number,
+  originCountries: string[] | undefined,
+  minCount: number
+): Promise<PoolState> {
+  const cacheKey = `${type}:${providerId}:${(originCountries ?? []).join(",")}`;
+  const state: PoolState = poolCache().get<PoolState>(cacheKey) ?? {
+    results: [],
+    popularPage: 0,
+    datePage: 0,
+    popularExhausted: false,
+    dateExhausted: false,
+  };
+
+  const dateSort = dateSortFor(type);
+  while (
+    state.results.length < minCount
+    && (!state.popularExhausted || !state.dateExhausted)
+    && state.popularPage < MAX_POOL_PAGES_PER_SORT
+    && state.datePage < MAX_POOL_PAGES_PER_SORT
+  ) {
+    if (!state.popularExhausted) {
+      const nextPage = state.popularPage + 1;
+      const res = await discoverByFilters(type, { watchProvider: String(providerId), sort: "popularity.desc", originCountries }, nextPage);
+      state.popularPage = nextPage;
+      if (res.results.length === 0 || nextPage >= res.totalPages) state.popularExhausted = true;
+      state.results = dedupe([...state.results, ...res.results]);
+    }
+    if (state.results.length >= minCount) break;
+    if (!state.dateExhausted) {
+      const nextPage = state.datePage + 1;
+      const res = await discoverByFilters(type, { watchProvider: String(providerId), sort: dateSort, originCountries }, nextPage);
+      state.datePage = nextPage;
+      if (res.results.length === 0 || nextPage >= res.totalPages) state.dateExhausted = true;
+      state.results = dedupe([...state.results, ...res.results]);
+    }
+  }
+
+  poolCache().set(cacheKey, state);
+  return state;
 }
 
 /**
@@ -125,7 +207,10 @@ async function getProviderCandidatePool(
  * vector (never triggers a fresh LLM analysis, plan §10) plus the SQL
  * context engine's genre affinity, which promotes a candidate ahead of pure
  * popularity when the match is strong (plan §9 — "le ranking fournisseur
- * est secondaire").
+ * est secondaire"). Deliberately no recency term at all: the user asked for
+ * this row to ignore release date entirely ("peu importe le temps de
+ * sortie") — that's the whole point of it existing separately from
+ * "Nouveautés".
  */
 async function rankForUser(
   userId: string,
@@ -153,10 +238,9 @@ async function rankForUser(
       : [];
     const affinity = genreNames.length ? matchGenreAffinity(genreNames, genreTraits) : 0;
     const composite =
-      (Math.min(item.rating ?? 0, 10) / 10) * 0.35
-      + (Math.min(Math.max((item.year ?? 2000) - 2000, 0), 30) / 30) * 0.25
-      + Math.max(0, taste) * 0.25
-      + Math.min(affinity, 1) * 0.15;
+      (Math.min(item.rating ?? 0, 10) / 10) * 0.40
+      + Math.max(0, taste) * 0.35
+      + Math.min(affinity, 1) * 0.25;
     return { item, affinity, composite };
   });
 
@@ -169,30 +253,7 @@ async function rankForUser(
   return scored.map((s) => s.item);
 }
 
-async function getRankedForUser(
-  userId: string,
-  type: "movie" | "series",
-  providerId: number,
-  originCountries?: string[]
-): Promise<MetaSearchResult[]> {
-  const pool = await getProviderCandidatePool(type, providerId, originCountries);
-  if (pool.length === 0) return [];
-
-  // Le classement dépend du bassin TMDb déjà filtré par pays. Sans ce
-  // suffixe, le même profil pouvait réemployer pendant 15 min un classement
-  // belge après un changement de continents dans ses préférences.
-  const countryKey = (originCountries ?? []).join(",");
-  const cacheKey = `${userId || ""}:${type}:${providerId}:${countryKey}`;
-  const cached = rankCache().get<MetaSearchResult[]>(cacheKey);
-  if (cached) return cached;
-
-  const excluded = excludedTmdbIds(type, userId);
-  const ranked = await rankForUser(userId, type, pool, excluded);
-  rankCache().set(cacheKey, ranked);
-  return ranked;
-}
-
-export async function buildProviderPersonalizedRow(
+export async function buildProviderSuggestedRow(
   userId: string,
   type: "movie" | "series",
   providerId: number,
@@ -201,35 +262,43 @@ export async function buildProviderPersonalizedRow(
   const providerName = providerNameFor(providerId);
   if (!providerName) return null;
 
-  const ranked = await getRankedForUser(userId, type, providerId, originCountries);
+  // A bit more than one row's worth so ranking has real choice even on the
+  // very first load.
+  const pool = await ensurePool(type, providerId, originCountries, ROW_SIZE * 2);
+  if (pool.results.length === 0) return null;
+
+  const excluded = excludedTmdbIds(type, userId);
+  const ranked = await rankForUser(userId, type, pool.results, excluded);
   if (ranked.length === 0) return null;
 
-  return {
-    key: `providerPersonalized:${providerId}`,
-    results: ranked.slice(0, ROW_SIZE),
-    meta: { providerId, providerName },
-  };
+  return { key: `providerSuggested:${providerId}`, results: ranked.slice(0, ROW_SIZE), meta: { providerId, providerName } };
 }
 
-/** One row per V1 provider (plan §28) — home-page callers just spread this
- *  into their rows array, exactly like any other editorial extra. */
+/** One "new" + one "suggested" row per V1 provider (plan §28, extended per
+ *  user request into two rows instead of one) — home-page callers spread
+ *  this into their rows array, exactly like any other editorial extra. */
 export async function buildProviderPersonalizedRows(
   userId: string,
   type: "movie" | "series",
   originCountries?: string[]
 ): Promise<ProviderPersonalizedRow[]> {
   const rows = await Promise.all(
-    PERSONALIZED_DISCOVER_PROVIDERS.map((p) =>
-      buildProviderPersonalizedRow(userId, type, p.id, originCountries).catch(() => null)
-    )
+    PERSONALIZED_DISCOVER_PROVIDERS.flatMap((p) => [
+      buildProviderSuggestedRow(userId, type, p.id, originCountries).catch(() => null),
+      buildProviderNewRow(userId, type, p.id, originCountries).catch(() => null),
+    ])
   );
   return rows.filter((r): r is ProviderPersonalizedRow => r !== null);
 }
 
-/** "Voir tout" pagination counterpart — same ranked pool as the home row,
- *  sliced client-side rather than re-querying TMDb per page (plan §16: the
- *  ranking must never regress to raw TMDb order on page 2+). */
-export async function getProviderPersonalizedPage(
+/** "Voir tout" pagination for the "suggestion" row — grows the shared pool
+ *  (see ensurePool) to cover the requested page, then re-ranks it fresh
+ *  every time (cheap: no LLM call, cache-only mood lookups, plan §10) rather
+ *  than caching a stale ranked slice that could desync from a pool that's
+ *  still growing underneath it. `totalPages` claims "one more" until the
+ *  pool is actually exhausted, which is what lets the client's infinite
+ *  scroll keep requesting deeper pages. */
+export async function getProviderSuggestedPage(
   userId: string,
   type: "movie" | "series",
   providerId: number,
@@ -239,8 +308,12 @@ export async function getProviderPersonalizedPage(
   const providerName = providerNameFor(providerId);
   if (!providerName) return null;
 
-  const ranked = await getRankedForUser(userId, type, providerId, originCountries);
-  const totalPages = Math.max(1, Math.ceil(ranked.length / ROW_SIZE));
+  const pool = await ensurePool(type, providerId, originCountries, page * ROW_SIZE);
+  const excluded = excludedTmdbIds(type, userId);
+  const ranked = await rankForUser(userId, type, pool.results, excluded);
+
+  const exhausted = pool.popularExhausted && pool.dateExhausted;
+  const totalPages = exhausted ? Math.max(1, Math.ceil(ranked.length / ROW_SIZE)) : page + 1;
   const results = ranked.slice((page - 1) * ROW_SIZE, page * ROW_SIZE);
   return { results, page, totalPages, meta: { providerId, providerName } };
 }
