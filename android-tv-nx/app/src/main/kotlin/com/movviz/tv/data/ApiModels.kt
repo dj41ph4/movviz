@@ -556,8 +556,9 @@ data class SearchResponseDto(
  *  becauseYouWatched.ts côté serveur) — permet au client d'interpoler son
  *  propre libellé ("Dans la lignée de {title}" / "Puisque {title} vous a
  *  plu") sans que l'API n'ait à connaître la locale. `verb` vaut "watched"
- *  ou "liked". Aussi porté par une rangée "providerPersonalized:{providerId}"
- *  (voir providerPersonalized.ts côté serveur), avec `providerId`/`providerName`
+ *  ou "liked". Aussi porté par une rangée "providerNew:{providerId}" ou
+ *  "providerSuggested:{providerId}" (voir providerPersonalized.ts côté
+ *  serveur), avec `providerId`/`providerName`
  *  au lieu des trois champs "becauseYouWatched" ci-dessus — tous les champs
  *  sont donc optionnels ici, sinon Moshi lève une exception sur toute réponse
  *  /api/metadata/rows contenant une rangée de l'autre forme. */

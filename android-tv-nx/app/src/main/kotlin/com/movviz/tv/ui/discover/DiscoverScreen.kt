@@ -262,8 +262,11 @@ private fun discoverRowLabel(key: String, meta: RowMetaDto?): String {
     if (key.startsWith("becauseYouWatched:") && meta != null) {
         return if (meta.verb == "liked") "Puisque ${meta.anchorTitle} vous a plu" else "Dans la lignée de ${meta.anchorTitle}"
     }
-    if (key.startsWith("providerPersonalized:") && meta?.providerName != null) {
+    if (key.startsWith("providerNew:") && meta?.providerName != null) {
         return "Nouveautés ${meta.providerName} pour vous"
+    }
+    if (key.startsWith("providerSuggested:") && meta?.providerName != null) {
+        return "Suggestion ${meta.providerName} pour vous"
     }
     return when (key) {
         "for-you" -> "Suggestions pour vous"
