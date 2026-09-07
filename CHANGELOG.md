@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.73 — September 2026
+
+### Movviz NX — saisons et épisodes navigables
+
+La page dédiée à une saison utilise désormais une liste réellement défilable au D-pad : même une longue saison garde tous ses épisodes accessibles, sans que les lignes changent de taille au focus. La zone haute est placée sous la barre de navigation, chaque épisode conserve une vignette (avec repli visuel si TMDb n’en fournit pas) et la coche « vu » reste réservée à droite. Les sources Movviz et Plex suivent enfin la même règle pour afficher l’action de lecture d’un épisode. Les recommandations par plateforme conservent un cache séparé par profil, type et pays de découverte.
+
 ## v1.24.72 — September 2026
 
 ### Découverte — nouveautés Netflix, Disney+ et Prime Video pour vous

@@ -18,11 +18,11 @@ android {
         applicationId = "com.movviz.mobile"
         minSdk = 24
         targetSdk = 35
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124073
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.73"
         // Same fix as android-tv/app/build.gradle.kts — derived from the Git
         // tag by CI instead of a frozen value, so BuildConfig.VERSION_NAME
         // (shown in "About") tracks the actual published release.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124072
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.72"
         // Même flag que la TV (BuildConfig.AUTO_UPDATE) — expose VERSION_NAME
         // à UpdateManager pour comparer contre la dernière release GitHub.
         buildConfigField("boolean", "AUTO_UPDATE", "true")

@@ -1171,16 +1171,30 @@ private fun SeasonPageOverlay(
     onOpenEpisode: (SeriesEpisodeDto, MetadataEpisodeDto?) -> Unit,
 ) {
     BackHandler(onBack = onBack)
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF0B0B0F)),
+    val metadataByEpisode = remember(metadata) { metadata?.episodes?.associateBy { it.episodeNumber }.orEmpty() }
+    val firstEpisodeFocus = remember { FocusRequester() }
+    val backFocus = remember { FocusRequester() }
+    val firstAvailableIndex = remember(season) {
+        season.episodes.indexOfFirst {
+            (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available"
+        }
+    }
+    LaunchedEffect(season.seasonNumber, firstAvailableIndex) {
+        // L'écran de saison atterrit sur une cible réellement visible : le
+        // premier épisode lisible, ou Retour lorsqu'il n'y a rien à lire.
+        repeat(10) { attempt ->
+            val requester = if (firstAvailableIndex >= 0) firstEpisodeFocus else backFocus
+            if (runCatching { requester.requestFocus() }.isSuccess) return@LaunchedEffect
+            if (attempt < 9) withFrameNanos { }
+        }
+    }
+    TvLazyColumn(
+        modifier = Modifier.fillMaxSize().background(Color(0xFF0B0B0F)),
+        contentPadding = PaddingValues(start = 56.dp, end = 56.dp, top = 156.dp, bottom = 48.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 56.dp, end = 56.dp, top = 86.dp, bottom = 36.dp),
-        ) {
+        item(key = "season-header") {
+            Column(modifier = Modifier.widthIn(max = 1120.dp)) {
             Text(
                 text = seriesTitle,
                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = MovvizInkSoft),
@@ -1194,18 +1208,29 @@ private fun SeasonPageOverlay(
                     style = TextStyle(fontSize = 30.sp, fontWeight = FontWeight.Black, color = MovvizInk),
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                PrimaryPill(text = "Retour", brush = null, solidWhite = false, onClick = onBack)
+                PrimaryPill(text = "Retour", brush = null, solidWhite = false, focusRequester = backFocus, onClick = onBack)
             }
-            Spacer(modifier = Modifier.height(22.dp))
-            SeasonEpisodeList(
+            Spacer(modifier = Modifier.height(18.dp))
+            SeasonEpisodeHeader(
                 season = season,
-                metadata = metadata,
                 watchedEpisodeKeys = watchedEpisodeKeys,
                 downloading = downloading,
-                episodeDownloads = episodeDownloads,
                 onDownloadSeason = onDownloadSeason,
                 onToggleEpisodesWatched = onToggleEpisodesWatched,
-                onOpenEpisode = onOpenEpisode,
+            )
+        }
+        }
+        items(season.episodes, key = { "episode-${it.episodeNumber}" }) { episode ->
+            EpisodeCard(
+                episode = episode,
+                metadata = metadataByEpisode[episode.episodeNumber],
+                watched = watchedEpisodeKeys.contains("${season.seasonNumber}.${episode.episodeNumber}"),
+                queueItem = episodeDownloads["${season.seasonNumber}.${episode.episodeNumber}"],
+                focusRequester = if (episode.episodeNumber == season.episodes.getOrNull(firstAvailableIndex)?.episodeNumber) firstEpisodeFocus else null,
+                onToggleWatched = { watched ->
+                    onToggleEpisodesWatched(listOf(com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, episode.episodeNumber)), watched)
+                },
+                onClick = { onOpenEpisode(episode, metadataByEpisode[episode.episodeNumber]) },
             )
         }
     }
@@ -1232,38 +1257,7 @@ private fun SeasonEpisodeList(
 ) {
     val metadataByEpisode = remember(metadata) { metadata?.episodes?.associateBy { it.episodeNumber }.orEmpty() }
     Column(modifier = Modifier.widthIn(max = 1120.dp).padding(bottom = 24.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Text(text = season.name.ifBlank { "Saison ${season.seasonNumber}" }, style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
-            Spacer(modifier = Modifier.weight(1f))
-            val hasReadyEpisode = season.episodes.any {
-                (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available"
-            }
-            if (!hasReadyEpisode) {
-                PrimaryPill(
-                    text = if (downloading) "Recherche…" else "Télécharger la saison",
-                    brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)),
-                    solidWhite = false,
-                    enabled = !downloading,
-                    icon = if (downloading) null else MovvizIconDownload,
-                    onClick = onDownloadSeason,
-                )
-            }
-            val seasonWatchTargets = season.episodes.filter { it.status != "upcoming" }
-                .map { com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
-            val seasonAllWatched = seasonWatchTargets.isNotEmpty() && seasonWatchTargets.all {
-                watchedEpisodeKeys.contains("${it.season}.${it.episode}")
-            }
-            if (seasonWatchTargets.isNotEmpty()) {
-                Spacer(modifier = Modifier.width(10.dp))
-                PrimaryPill(
-                    text = if (seasonAllWatched) "Saison non vue" else "Saison vue",
-                    brush = null,
-                    solidWhite = false,
-                    icon = MovvizIconCheck,
-                    onClick = { onToggleEpisodesWatched(seasonWatchTargets, !seasonAllWatched) },
-                )
-            }
-        }
+        SeasonEpisodeHeader(season, watchedEpisodeKeys, downloading, onDownloadSeason, onToggleEpisodesWatched)
         Spacer(modifier = Modifier.height(14.dp))
         season.episodes.forEach { ep ->
             EpisodeCard(
@@ -1290,6 +1284,7 @@ private fun EpisodeCard(
     metadata: MetadataEpisodeDto?,
     watched: Boolean = false,
     queueItem: QueueItemDto? = null,
+    focusRequester: FocusRequester? = null,
     onToggleWatched: (Boolean) -> Unit,
     onClick: () -> Unit,
 ) {
@@ -1302,6 +1297,7 @@ private fun EpisodeCard(
         enabled = available,
         modifier = Modifier
             .fillMaxWidth()
+            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
             .tvCardFocusHalo(focused && available, shape = shape)
             .onFocusChanged { focused = it.isFocused }
             .let { if (available) it.tvPointerClick(onClick) else it },
@@ -1334,15 +1330,22 @@ private fun EpisodeCard(
                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
                 modifier = Modifier.width(30.dp),
             )
-            metadata?.stillPath?.let { still ->
+            val stillModifier = Modifier.width(150.dp).height(84.dp).clip(RoundedCornerShape(6.dp))
+            if (metadata?.stillPath != null) {
                 Image(
-                    painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE$still"),
+                    painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}"),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.width(150.dp).height(84.dp).clip(RoundedCornerShape(6.dp)),
+                    modifier = stillModifier,
                 )
-                Spacer(modifier = Modifier.width(16.dp))
+            } else {
+                // Gabarit invariant : TMDb n'a pas toujours une capture, mais
+                // le titre ne doit jamais se décaler d'une ligne à l'autre.
+                Box(modifier = stillModifier.background(Color(0xFF29272F)), contentAlignment = Alignment.Center) {
+                    Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+                }
             }
+            Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -1438,6 +1441,28 @@ private fun EpisodeCard(
     }
 }
 
+@Composable
+private fun SeasonEpisodeHeader(
+    season: SeriesSeasonDto,
+    watchedEpisodeKeys: Set<String>,
+    downloading: Boolean,
+    onDownloadSeason: () -> Unit,
+    onToggleEpisodesWatched: (List<com.movviz.tv.data.WatchToggleEpisodeDto>, Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+        Text(text = "${season.episodes.size} épisodes", style = TextStyle(fontSize = 17.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
+        Spacer(modifier = Modifier.weight(1f))
+        val hasReadyEpisode = season.episodes.any { (it.plexRatingKey != null || it.playbackSource == "movviz") && it.status == "available" }
+        if (!hasReadyEpisode) PrimaryPill(text = if (downloading) "Recherche…" else "Télécharger la saison", brush = Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), solidWhite = false, enabled = !downloading, icon = if (downloading) null else MovvizIconDownload, onClick = onDownloadSeason)
+        val targets = season.episodes.filter { it.status != "upcoming" }.map { com.movviz.tv.data.WatchToggleEpisodeDto(season.seasonNumber, it.episodeNumber) }
+        val allWatched = targets.isNotEmpty() && targets.all { watchedEpisodeKeys.contains("${it.season}.${it.episode}") }
+        if (targets.isNotEmpty()) {
+            Spacer(modifier = Modifier.width(10.dp))
+            PrimaryPill(text = if (allWatched) "Saison non vue" else "Saison vue", brush = null, solidWhite = false, icon = MovvizIconCheck, onClick = { onToggleEpisodesWatched(targets, !allWatched) })
+        }
+    }
+}
+
 /** Infos techniques du fichier réellement en bibliothèque (résolution,
  *  codecs, HDR, source) — zone secondaire discrète sous le CTA de lecture,
  *  jamais la hiérarchie principale de la fiche. Texte simple plutôt que les
@@ -1491,7 +1516,8 @@ private fun EpisodeDetailOverlay(
     onPlay: () -> Unit,
     onDownloadSeason: () -> Unit,
 ) {
-    val available = selection.episode.plexRatingKey != null && selection.episode.status == "available"
+    val available = (selection.episode.plexRatingKey != null || selection.episode.playbackSource == "movviz") &&
+        selection.episode.status == "available"
     // Focus D-pad initial dans le Dialog : la fiche d'épisode est une vraie
     // fenêtre séparée — sans demande explicite, rien ne garantit que le
     // focus y atterrisse sur un bouton (même constat que le Popup de

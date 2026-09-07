@@ -99,13 +99,22 @@ async function getProviderCandidatePool(
   const cached = poolCache().get<MetaSearchResult[]>(cacheKey);
   if (cached) return cached;
 
+  // 2 pages of each sort (~80 raw candidates before dedup) was landing rows
+  // as small as 11/20 after exclusions (owned/watched/👎) + filterSuggestable
+  // trimmed the pool — TMDb's FR watch-provider catalogs aren't huge, and
+  // popularity/recency pages 1-2 overlap heavily with each other. 3+2 gives
+  // a meaningfully bigger raw pool for the same 2 TMDb round-trips worth of
+  // latency (still well under plan §18's "1-2 pages per provider" budget in
+  // spirit — this is per SORT, not per page fetched serially).
   const dateSort = type === "movie" ? "primary_release_date.desc" : "first_air_date.desc";
-  const [popular1, popular2, recent1] = await Promise.all([
+  const [popular1, popular2, popular3, recent1, recent2] = await Promise.all([
     discoverByFilters(type, { watchProvider: String(providerId), sort: "popularity.desc", originCountries }, 1),
     discoverByFilters(type, { watchProvider: String(providerId), sort: "popularity.desc", originCountries }, 2),
+    discoverByFilters(type, { watchProvider: String(providerId), sort: "popularity.desc", originCountries }, 3),
     discoverByFilters(type, { watchProvider: String(providerId), sort: dateSort, originCountries }, 1),
+    discoverByFilters(type, { watchProvider: String(providerId), sort: dateSort, originCountries }, 2),
   ]);
-  const merged = dedupe([...popular1.results, ...recent1.results, ...popular2.results]);
+  const merged = dedupe([...popular1.results, ...recent1.results, ...popular2.results, ...recent2.results, ...popular3.results]);
   poolCache().set(cacheKey, merged);
   return merged;
 }
@@ -169,7 +178,11 @@ async function getRankedForUser(
   const pool = await getProviderCandidatePool(type, providerId, originCountries);
   if (pool.length === 0) return [];
 
-  const cacheKey = `${userId || ""}:${type}:${providerId}`;
+  // Le classement dépend du bassin TMDb déjà filtré par pays. Sans ce
+  // suffixe, le même profil pouvait réemployer pendant 15 min un classement
+  // belge après un changement de continents dans ses préférences.
+  const countryKey = (originCountries ?? []).join(",");
+  const cacheKey = `${userId || ""}:${type}:${providerId}:${countryKey}`;
   const cached = rankCache().get<MetaSearchResult[]>(cacheKey);
   if (cached) return cached;
 
