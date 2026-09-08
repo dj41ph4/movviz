@@ -1,0 +1,548 @@
+package com.movviz.nx.mobile.ui.discover
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Border
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.MaterialTheme
+import androidx.tv.material3.Surface
+import androidx.tv.material3.Text
+import com.movviz.nx.mobile.AppViewModel
+import com.movviz.nx.mobile.data.GenreDto
+import com.movviz.nx.mobile.data.RowMetaDto
+import com.movviz.nx.mobile.ui.home.HeroCarousel
+import com.movviz.nx.mobile.ui.home.HomeTab
+import com.movviz.nx.mobile.ui.home.MediaHubMode
+import com.movviz.nx.mobile.ui.home.MediaHubToggleRow
+import com.movviz.nx.mobile.ui.home.TitleRow
+import com.movviz.nx.mobile.ui.home.TvTitleCard
+import com.movviz.nx.mobile.ui.theme.MovvizInk
+import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
+import com.movviz.nx.mobile.ui.theme.tvFocusLift
+import com.movviz.nx.mobile.ui.theme.tvPointerClick
+
+/**
+ * Découverte TV : hero + rangées éditoriales + sélecteur de genres, le même
+ * contenu que l'ancien écran Films/Séries avant qu'il ne devienne le
+ * catalogue complet triable (voir CatalogScreen.kt) — Découverte en reprend
+ * l'intégralité, avec un bouton Films/Séries en haut pour séparer les deux
+ * univers plutôt que de les mélanger dans les mêmes rangées.
+ */
+@Composable
+fun DiscoverScreen(
+    viewModel: AppViewModel,
+    onOpenTitle: (type: String, tmdbId: Int) -> Unit,
+    onSeeAllRow: (mediaType: String, key: String, label: String) -> Unit = { _, _, _ -> },
+    onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit = { _, _, _ -> },
+    entryFocusRequester: FocusRequester? = null,
+    // Null conserve l'ancien sélecteur Films/Séries pour les éventuels
+    // appelants internes ; les hubs NX passent leur type et ne mélangent
+    // donc jamais les deux catalogues dans leurs suggestions.
+    fixedType: HomeTab? = null,
+    mode: MediaHubMode = MediaHubMode.SUGGESTIONS,
+    onModeChange: (MediaHubMode) -> Unit = {},
+    // Même contrat que l'accueil : le parent rend la surcouche NX opaque dès
+    // que le contenu défile derrière elle, puis transparente au sommet.
+    onScrollChanged: (Boolean) -> Unit = {},
+) {
+    var selectedType by remember(fixedType) { mutableStateOf(fixedType ?: HomeTab.MOVIES) }
+    LaunchedEffect(fixedType) { fixedType?.let { selectedType = it } }
+
+    val movies by viewModel.movies.collectAsState()
+    val series by viewModel.series.collectAsState()
+    val movieRows by viewModel.movieRows.collectAsState()
+    val seriesRows by viewModel.seriesRows.collectAsState()
+    val movieLibraryRecommendations by viewModel.movieLibraryRecommendations.collectAsState()
+    val seriesLibraryRecommendations by viewModel.seriesLibraryRecommendations.collectAsState()
+    val dashboardHero by viewModel.dashboardHero.collectAsState()
+    val heroLogos by viewModel.heroLogos.collectAsState()
+    val movieGenres by viewModel.movieGenres.collectAsState()
+    val seriesGenres by viewModel.seriesGenres.collectAsState()
+    val editorialRows = if (selectedType == HomeTab.MOVIES) movieRows else seriesRows
+    val watchProviderTiles by viewModel.watchProviderTiles.collectAsState()
+    val companyTiles by viewModel.companyTiles.collectAsState()
+    LaunchedEffect(Unit) {
+        viewModel.loadLibrary()
+        viewModel.loadDiscovery()
+        viewModel.loadDashboardHero()
+        viewModel.loadDiscoverLogos()
+    }
+    val wantedType = if (selectedType == HomeTab.MOVIES) "movie" else "series"
+    LaunchedEffect(wantedType) {
+        viewModel.loadGenres(wantedType)
+    }
+    val genres = if (selectedType == HomeTab.MOVIES) movieGenres else seriesGenres
+
+    val cards = remember(movies, series, selectedType) {
+        if (selectedType == HomeTab.MOVIES) {
+            movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForDiscover(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
+        } else {
+            series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
+        }
+    }
+    val recommendationIds = if (selectedType == HomeTab.MOVIES) movieLibraryRecommendations else seriesLibraryRecommendations
+    val availableCards = remember(cards, selectedType) {
+        if (selectedType == HomeTab.MOVIES) cards.filter { it.status == "available" } else cards
+    }
+    val localRecommendations = remember(availableCards, recommendationIds) {
+        val byTmdbId = availableCards.associateBy { it.tmdbId }
+        recommendationIds.mapNotNull { byTmdbId[it.tmdbId] }.distinctBy { it.tmdbId }.take(20)
+    }
+    val bestInLibrary = remember(availableCards) {
+        availableCards.sortedByDescending { it.rating }.take(20)
+    }
+    val favouriteGenres = remember(availableCards) {
+        availableCards.flatMap { it.genres }
+            .groupingBy { it }
+            .eachCount()
+            .filterValues { it >= 4 }
+            .toList()
+            .sortedByDescending { it.second }
+            .take(2)
+            .map { it.first }
+    }
+    val librarySuggestionRows = remember(localRecommendations, bestInLibrary, favouriteGenres, availableCards) {
+        buildList {
+            if (localRecommendations.isNotEmpty()) add(DiscoverRow("for-you", null, localRecommendations, seeAll = false))
+            if (bestInLibrary.isNotEmpty()) add(DiscoverRow("best-in-library", null, bestInLibrary, seeAll = false))
+            favouriteGenres.forEach { genre ->
+                val matching = availableCards.filter { genre in it.genres }.sortedByDescending { it.rating }.take(20)
+                if (matching.isNotEmpty()) add(DiscoverRow("library-genre-$genre", null, matching, seeAll = false))
+            }
+        }
+    }
+    val editorial = remember(editorialRows, wantedType) {
+        editorialRows.filterNot { it.key == "kids" }.mapNotNull { row ->
+            val rowCards = row.results.filter { it.type == wantedType }.map {
+                TvTitleCard("${row.key}-${it.type}-${it.tmdbId}", it.title, it.posterPath, it.backdropPath, it.tmdbId,
+                    isMovie = it.type == "movie", year = it.year, rating = it.rating)
+            }
+            if (rowCards.isEmpty()) null else DiscoverRow(row.key, row.meta, rowCards, seeAll = true)
+        }
+    }
+    val rows = remember(editorial, librarySuggestionRows, cards) {
+        buildList {
+            addAll(librarySuggestionRows)
+            addAll(editorial)
+            if (cards.isNotEmpty()) add(DiscoverRow("library", null, cards, seeAll = false))
+        }
+    }
+    val heroItems = remember(dashboardHero, cards) {
+        dashboardHero.filter { it.detail.type == wantedType }.map { slide ->
+            val d = slide.detail
+            TvTitleCard(
+                id = "discover-hero-${d.type}-${d.tmdbId}", title = d.title,
+                posterPath = d.posterPath, backdropPath = d.backdropPath,
+                tmdbId = d.tmdbId, isMovie = wantedType == "movie", year = d.year,
+                rating = d.rating, genres = d.genres, status = slide.libraryStatus,
+                overview = d.overview, runtime = d.runtime, trailerKeys = d.ambientVideoKeys,
+            )
+        }.filter { it.backdropPath != null }.take(5).ifEmpty {
+            cards.filter { it.isMovie == (wantedType == "movie") && it.backdropPath != null }.take(5)
+        }
+    }
+    var heroIndex by remember { mutableStateOf(0) }
+    val activeHero = heroItems.getOrNull(heroIndex.coerceIn(0, (heroItems.size - 1).coerceAtLeast(0)))
+    // Quand l'écran est intégré au hub Films/Séries, DOWN depuis la barre
+    // doit arriver sur Suggestions/Bibliothèque, pas sauter ce choix et
+    // l'abandonner derrière le héros.
+    val hubFocus = entryFocusRequester ?: remember { FocusRequester() }
+    val heroFocus = remember { FocusRequester() }
+    val emptyStateFocus = heroFocus
+    val heroTopAnchor = remember { FocusRequester() }
+    val listState = rememberLazyListState()
+    val hasScrolled by remember {
+        derivedStateOf {
+            listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 12
+        }
+    }
+    LaunchedEffect(hasScrolled) { onScrollChanged(hasScrolled) }
+    LaunchedEffect(heroItems) {
+        if (heroItems.isNotEmpty()) {
+            viewModel.loadHeroLogos(wantedType, heroItems.map { it.tmdbId })
+        }
+    }
+    LaunchedEffect(heroItems) {
+        heroIndex = 0
+        if (heroItems.size > 1) while (true) {
+            kotlinx.coroutines.delay(8_000L)
+            heroIndex = (heroIndex + 1) % heroItems.size
+        }
+    }
+
+    Column(Modifier.fillMaxSize()) {
+        if (rows.isEmpty()) Text(
+            "Aucun titre pour le moment",
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier
+                .padding(start = 64.dp, top = 96.dp)
+                .focusRequester(emptyStateFocus)
+                .focusable(),
+        )
+        else LazyColumn(Modifier.fillMaxSize(), state = listState) {
+            item(contentType = "topAnchor") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .focusRequester(heroTopAnchor)
+                        .focusable(),
+                )
+            }
+            item(contentType = "type-toggle") {
+                if (fixedType != null) {
+                    MediaHubToggleRow(
+                        mode = mode,
+                        onModeChange = onModeChange,
+                        firstFocusRequester = hubFocus,
+                        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
+                    )
+                } else {
+                    // Ancien point d'entrée, maintenu proprement : le
+                    // sélecteur commence sous la barre flottante.
+                    TypeToggleRow(selected = selectedType, onSelect = { selectedType = it })
+                }
+            }
+            if (activeHero != null) item {
+                HeroCarousel(
+                    items = heroItems,
+                    currentIndex = heroIndex,
+                    logoPath = heroLogos["$wantedType-${activeHero.tmdbId}"],
+                    onSelectIndex = { heroIndex = it },
+                    ctaFocusRequester = heroFocus,
+                    onOpen = { card -> onOpenTitle(wantedType, card.tmdbId) },
+                )
+            }
+            if (genres.isNotEmpty()) {
+                item(contentType = "genre-picker") {
+                    DiscoverGenrePickerRow(
+                        genres = genres,
+                        onSelect = { genreId, label -> onOpenGenre(wantedType, genreId, label) },
+                    )
+                }
+            }
+            val firstRowKey = rows.first().key
+            items(rows, key = { "${selectedType.name}-${it.key}" }, contentType = { "discover-row" }) { row ->
+                val label = if (row.key == "library") selectedType.label else discoverRowLabel(row.key, row.meta)
+                TitleRow(
+                    heading = label,
+                    items = row.cards,
+                    onClick = { onOpenTitle(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                    firstItemFocusRequester = if (activeHero == null && row.key == firstRowKey) heroFocus else null,
+                    onSeeAll = if (row.seeAll) { { onSeeAllRow(wantedType, row.key, label) } } else null,
+                    titleLogoPaths = heroLogos,
+                    onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
+                )
+            }
+            // Rangées logo "Plateformes"/"Studios" en tout bas — même contenu
+            // et même ordre que LogoRow sur le Discover desktop, indépendant
+            // du toggle Films/Séries (voir loadDiscoverLogos()). Seule la
+            // tuile Plateforme est cliquable : elle ouvre le même "Voir tout"
+            // que la rangée "Suggestion {plateforme} pour vous" (providerSuggested),
+            // donc un classement selon le profil de l'utilisateur, pas
+            // l'ordre TMDb brut — les studios n'ont pas d'équivalent
+            // personnalisé côté serveur, leur tuile reste donc décorative.
+            if (watchProviderTiles.isNotEmpty()) {
+                item(contentType = "logo-row") {
+                    DiscoverLogoRow(
+                        title = "Plateformes",
+                        tiles = watchProviderTiles,
+                        onSelect = { tile -> onSeeAllRow(wantedType, "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
+                    )
+                }
+            }
+            if (companyTiles.isNotEmpty()) {
+                item(contentType = "logo-row") {
+                    DiscoverLogoRow(title = "Studios", tiles = companyTiles, onSelect = null)
+                }
+            }
+        }
+    }
+}
+
+/** Une rangée Découverte — éditoriale (server-driven, "Voir tout" valide) ou
+ *  "library" (aperçu local complet, pas de pagination serveur). */
+private data class DiscoverRow(
+    val key: String,
+    val meta: RowMetaDto?,
+    val cards: List<TvTitleCard>,
+    val seeAll: Boolean,
+)
+
+private fun discoverRowLabel(key: String, meta: RowMetaDto?): String {
+    if (key.startsWith("becauseYouWatched:") && meta != null) {
+        return if (meta.verb == "liked") "Puisque ${meta.anchorTitle} vous a plu" else "Dans la lignée de ${meta.anchorTitle}"
+    }
+    if (key.startsWith("providerNew:") && meta?.providerName != null) {
+        return "Nouveautés ${meta.providerName} pour vous"
+    }
+    if (key.startsWith("providerSuggested:") && meta?.providerName != null) {
+        return "Suggestion ${meta.providerName} pour vous"
+    }
+    return when (key) {
+        "for-you" -> "Suggestions pour vous"
+        "best-in-library" -> "Les mieux notés de votre bibliothèque"
+        "recommendedTop" -> "Sélection pour vous"
+        "trendingPopular", "trending" -> "Tendances"
+        "upcoming", "upcomingVod" -> "Prochainement"
+        "onAir" -> "En ce moment"
+        "newSeriesRenewed" -> "Nouvelles séries et renouvellements"
+        "nowPlayingBoxOffice" -> "En salles"
+        "acclaimed" -> "Salué par la critique"
+        "anime" -> "Univers anime"
+        "teen" -> "Romance ado"
+        "shortFormat" -> "Format court, grand impact"
+        "genreAction" -> "Action"
+        "genreComedy" -> "Comédie"
+        "genreHorror" -> "Frissons garantis"
+        "genreSciFi" -> "Science-fiction"
+        else -> if (key.startsWith("library-genre-")) "Encore plus de ${key.removePrefix("library-genre-")}" else key.replace(Regex("([a-z])([A-Z])"), "$1 $2").replaceFirstChar { it.uppercase() }
+    }
+}
+
+private fun resolutionLabelForDiscover(resolution: String?): String? = when {
+    resolution == null -> null
+    resolution.startsWith("2160") -> "4K"
+    resolution.startsWith("1080") -> "1080p"
+    resolution.startsWith("720") -> "720p"
+    else -> resolution
+}
+
+@Composable
+private fun TypeToggleRow(selected: HomeTab, onSelect: (HomeTab) -> Unit) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        // NxTopNav est une surcouche (volontairement transparente lorsque la
+        // page est en haut). Le sélecteur doit donc commencer *sous* ses
+        // 62 dp : sinon les capsules Films/Séries se retrouvent derrière le
+        // logo et les liens de navigation, comme une seconde barre cassée.
+        // Le conserver dans le flux garantit aussi un ordre D-pad naturel :
+        // barre principale → choix Films/Séries → héro → genres → rangées.
+        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
+    ) {
+        ToggleChip(label = "Films", active = selected == HomeTab.MOVIES, onClick = { onSelect(HomeTab.MOVIES) })
+        ToggleChip(label = "Séries", active = selected == HomeTab.SERIES, onClick = { onSelect(HomeTab.SERIES) })
+    }
+}
+
+@Composable
+private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = if (active) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
+            focusedContainerColor = Color.White.copy(alpha = 0.26f),
+            contentColor = if (active) Color.White else MovvizInkSoft,
+            focusedContentColor = Color.White,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape = shape),
+        ),
+    ) {
+        Text(
+            text = label,
+            style = TextStyle(fontSize = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+        )
+    }
+}
+
+private val SYNTHETIC_GENRES = listOf("anime" to "Anime", "teen" to "Romance ado")
+
+@Composable
+private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: String, label: String) -> Unit) {
+    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+        Text(
+            text = "Genres",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(SYNTHETIC_GENRES, key = { "synth-${it.first}" }) { (id, label) ->
+                DiscoverGenreChip(label = label, onClick = { onSelect(id, label) })
+            }
+            items(genres, key = { "tmdb-${it.id}" }) { g ->
+                DiscoverGenreChip(label = g.name, onClick = { onSelect(g.id.toString(), g.name) })
+            }
+        }
+    }
+}
+
+/** Même base que la constante homonyme de HomeScreen.kt/TitleDetailScreen.kt
+ *  (w500) — dupliquée ici plutôt qu'exportée car chaque écran TV la déclare
+ *  déjà en `private const val` localement (convention existante du module). */
+private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
+
+@Composable
+private fun DiscoverLogoRow(
+    title: String,
+    tiles: List<com.movviz.nx.mobile.data.LogoTileDto>,
+    onSelect: ((com.movviz.nx.mobile.data.LogoTileDto) -> Unit)?,
+) {
+    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            items(tiles, key = { "$title-${it.id}" }) { tile ->
+                DiscoverLogoTile(tile = tile, onClick = onSelect?.let { { it(tile) } })
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscoverLogoTile(tile: com.movviz.nx.mobile.data.LogoTileDto, onClick: (() -> Unit)?) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    val handleClick = onClick ?: {}
+    Surface(
+        onClick = handleClick,
+        modifier = Modifier
+            .tvFocusLift(focused, shape = shape, maxScale = 1.06f)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(handleClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.White.copy(alpha = 0.06f), contentColor = Color.White),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                // Une largeur fixe évite les ronds vides pendant le premier
+                // chargement Coil et donne une rangée de logos comparable à
+                // celle du desktop, pas une série de placeholders.
+                .width(136.dp)
+                .height(56.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (tile.logoPath != null) {
+                // Fond quasi-blanc derrière le logo — même traitement que la
+                // LogoRow desktop ("bg-white/95"). Sans lui, un logo sombre
+                // (Disney+, Canal+…) devenait invisible sur le fond noir de
+                // la puce : la plupart des logos TMDb sont des icônes carrées
+                // avec leur propre couleur de fond, pas des wordmarks
+                // transparents qui s'accommoderaient du noir.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp)
+                        .background(Color.White.copy(alpha = 0.95f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    // SubcomposeAsyncImage plutôt que rememberAsyncImagePainter
+                    // + vérification manuelle de l'état : cette dernière
+                    // laissait les tuiles bloquées sur le nom en texte en
+                    // permanence (état jamais observé Success — connexion
+                    // OkHttp vue "leaked" dans les logs), un souci connu de
+                    // cette combinaison quand le composable est recomposé
+                    // pendant que l'image charge. SubcomposeAsyncImage gère
+                    // loading/success/error nativement, sans dépendre de
+                    // l'observation externe d'un State.
+                    coil.compose.SubcomposeAsyncImage(
+                        model = "$TMDB_LOGO_BASE${tile.logoPath}",
+                        contentDescription = tile.name,
+                        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                        modifier = Modifier.fillMaxSize(),
+                        loading = { DiscoverLogoTileFallback(tile.name, dark = true) },
+                        error = { DiscoverLogoTileFallback(tile.name, dark = true) },
+                    )
+                }
+            } else {
+                DiscoverLogoTileFallback(tile.name, dark = false, focused = focused)
+            }
+        }
+    }
+}
+
+/** Repli texte immédiat — TMDb lent, indisponible, ou logo absent pour cette
+ *  entrée. `dark` = affiché sur le fond blanc du badge logo (texte sombre),
+ *  sinon sur le fond noir de la puce (texte clair, éclairci au focus). */
+@Composable
+private fun DiscoverLogoTileFallback(name: String, dark: Boolean, focused: Boolean = false) {
+    Text(
+        text = name,
+        style = TextStyle(
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (dark) Color(0xFF1A1A1A) else if (focused) MovvizInk else MovvizInkSoft,
+        ),
+        maxLines = 2,
+    )
+}
+
+@Composable
+private fun DiscoverGenreChip(label: String, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .tvFocusLift(focused, shape = shape, maxScale = 1.04f)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(containerColor = MovvizInk.copy(alpha = 0.08f), contentColor = MovvizInk),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
+        ),
+    ) {
+        Text(
+            text = label,
+            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = if (focused) MovvizInk else MovvizInkSoft),
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+        )
+    }
+}

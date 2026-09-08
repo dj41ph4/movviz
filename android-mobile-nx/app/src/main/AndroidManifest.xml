@@ -1,49 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Même application NX que la TV, rendue compatible téléphone, tablette
+         et Fold : aucun écran tactile ni Leanback n'est requis. -->
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+
     <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <!-- Auto-update (même mécanisme que la version TV) : demande
-         l'autorisation "installer des applications inconnues" puis installe
-         l'APK de la dernière release GitHub via PackageInstaller/ACTION_VIEW. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Auto-update (variante AU uniquement) : demande l'autorisation
+         "installer des applications inconnues" puis installe l'APK de la
+         dernière release GitHub via ACTION_VIEW. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
-        android:name=".MovvizMobileApplication"
-        android:theme="@style/Theme.MovvizMobile"
-        android:label="Movviz NX"
+        android:name=".MovvizNxMobileApplication"
+        android:allowBackup="true"
+        android:banner="@drawable/ic_banner"
         android:icon="@drawable/movviz_nx_icon"
         android:roundIcon="@drawable/movviz_nx_icon"
-        android:allowBackup="false"
-        android:resizeableActivity="true"
-        android:supportsRtl="true">
+        android:label="@string/app_name"
+        android:theme="@style/Theme.MovvizTv"
+        android:usesCleartextTraffic="true"
+        android:largeHeap="true">
+        <!-- largeHeap : le hero (WebView de bandes-annonces + carrousel) et
+             les grandes affiches 4K consomment de la mémoire ; l'app TV est
+             la seule app visible à l'écran, le heap agrandi ne gêne rien. -->
+        <!-- usesCleartextTraffic : la plupart des instances Movviz tournent en
+             HTTP simple sur le réseau local (port 9810) — voir la même
+             tolérance déjà en place côté web/desktop. -->
+
         <activity
             android:name=".MainActivity"
+            android:exported="true"
             android:screenOrientation="fullSensor"
-            android:exported="true">
+            android:theme="@style/Theme.MovvizTv">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Deep link depuis le dashboard (chaîne TvProvider) : une carte
+                 de la rangée "Continuer à regarder" ouvre la fiche du titre
+                 via movviz://title/{type}/{tmdbId}. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="movviz" android:host="title" />
+            </intent-filter>
         </activity>
+
         <activity
-            android:name=".player.PlayerActivity"
+            android:name=".ui.player.PlayerActivity"
             android:exported="false"
             android:screenOrientation="sensorLandscape"
-            android:launchMode="singleTop"
-            android:supportsPictureInPicture="true"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
-        <service
-            android:name=".playback.PlaybackService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback">
-            <intent-filter>
-                <action android:name="androidx.media3.session.MediaSessionService" />
-            </intent-filter>
-        </service>
+            android:theme="@style/Theme.MovvizTv.Player" />
 
         <!-- Partage de l'APK téléchargé (cache/update) avec l'installeur
-             système — authority suivant l'applicationId, comme la TV. -->
+             système — l'authority suit l'applicationId, donc chaque variante
+             (retail/AU) a la sienne : ${applicationId}.fileprovider -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -54,16 +68,18 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
-        <!-- Auto-update : une fois l'installation (PackageInstaller) terminée,
-             le process est tué puis le système envoie MY_PACKAGE_REPLACED à la
-             NOUVELLE version — ce receiver relance alors MainActivity. -->
+        <!-- Auto-update : quand l'installation (PackageInstaller) a remplacé
+             le package, le process est tué puis le système envoie
+             MY_PACKAGE_REPLACED à la NOUVELLE version — ce receiver relance
+             alors MainActivity (reboot de l'app, façon Netflix). -->
         <receiver
-            android:name=".update.UpdateReceiver"
+            android:name=".UpdateReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
-    </application>
-</manifest>
 
+    </application>
+
+</manifest>

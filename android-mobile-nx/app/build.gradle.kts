@@ -1,7 +1,7 @@
 import java.util.Properties
 
-// Same retail signing material as Android TV, kept outside source control.
-// The mobile package is intentionally different, so it cannot replace TV.
+// NX Mobile est le port direct de NX TV.  Il reste signé avec la même clé
+// retail, mais possède son package et son asset de mise à jour propres.
 val releasePropsFile = rootProject.file("../android-tv/keystore.properties")
 
 plugins {
@@ -11,25 +11,28 @@ plugins {
 }
 
 android {
-    namespace = "com.movviz.mobile"
+    namespace = "com.movviz.nx.mobile"
     compileSdk = 35
 
     defaultConfig {
-        // Canal indépendant de Movviz Mobile et de NX TV : installation,
-        // cache, session et mise à jour ne peuvent jamais se croiser.
+        // Variante expérimentale indépendante : elle s'installe à côté de
+        // Movviz TV sans remplacer son APK, ses préférences ou ses données.
         applicationId = "com.movviz.nx.mobile"
-        minSdk = 24
+        minSdk = 24 // Android TV / Fire TV coverage — la grande majorité des boîtiers en circulation
         targetSdk = 35
-        // Même source de vérité que les deux canaux TV : la CI remplace ces
-        // valeurs par le tag, et le repli local reste installable par-dessus
-        // une release précédente.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124082
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.82"
-        // Same fix as android-tv/app/build.gradle.kts — derived from the Git
-        // tag by CI instead of a frozen value, so BuildConfig.VERSION_NAME
-        // (shown in "About") tracks the actual published release.
-        // Même flag que la TV (BuildConfig.AUTO_UPDATE) — expose VERSION_NAME
-        // à UpdateManager pour comparer contre la dernière release GitHub.
+        // Dérivés du tag Git par la CI (voir android-tv-build.yml, propriétés
+        // movvizVersionCode/movvizVersionName) pour rester synchronisés avec
+        // les releases GitHub que UpdateManager.checkForUpdate() compare.
+        // Avant ce correctif, ces deux valeurs étaient figées en dur : chaque
+        // build restait étiqueté avec une ancienne valeur quel que soit le tag réellement
+        // publié, donc checkForUpdate() se croyait perpétuellement en retard
+        // et proposait/installait une "mise à jour" à chaque lancement, même
+        // juste après l'avoir déjà installée — boucle infinie constatée.
+        // Repli ci-dessous : build local (Android Studio) sans CI.
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124083
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.83"
+        // Canal NX retail distinct : même clé de signature que TV classique,
+        // mais asset GitHub et applicationId propres, donc jamais d'écrasement.
         buildConfigField("boolean", "AUTO_UPDATE", "true")
     }
 
@@ -47,7 +50,12 @@ android {
 
     buildTypes {
         release {
+            // Compose TV/R8 still has an unresolved startup cast in this
+            // application. Keep the release signed and optimized by the
+            // Android toolchain, but do not shrink until the mapped crash
+            // is fixed.
             isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             if (releasePropsFile.exists()) signingConfig = signingConfigs.getByName("release")
         }
     }
@@ -56,40 +64,65 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions { jvmTarget = "17" }
-    buildFeatures { compose = true; buildConfig = true }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        compose = true
+        // Expose versionName à Compose (BuildConfig.VERSION_NAME) — écran
+        // Paramètres, section "À propos" : un seul point de vérité pour le
+        // numéro de version plutôt qu'une chaîne dupliquée à la main.
+        buildConfig = true
+    }
 }
 
 dependencies {
-    implementation(project(":android-shared"))
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.activity.compose)
+
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
-    implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
+    implementation(libs.compose.ui.tooling.preview)
     implementation(libs.compose.material.icons.core)
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation("androidx.compose.material3:material3:1.3.1")
+
+    // Compose for TV — composants focus-first (TvLazyRow, Carousel, gestion
+    // D-pad native) plutôt que le vieux Leanback (View-based, legacy).
+    implementation(libs.tv.foundation)
+    implementation(libs.tv.material)
+
     implementation(libs.navigation.compose)
-    implementation(libs.coil.compose)
-    implementation(libs.kotlinx.coroutines.android)
-    // Discover feature's own Retrofit/Moshi surface (com.movviz.mobile.discover.*)
-    // lives in :app, not :android-shared — android-shared's own retrofit/moshi/
-    // okhttp deps are `implementation`-scoped there and don't leak transitively,
-    // so :app needs the same libs directly to compile DiscoverApi.kt.
-    implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.moshi)
-    implementation(libs.moshi.kotlin)
-    implementation(libs.okhttp)
+
+    // Media3/ExoPlayer — décodage matériel, HDR, pistes audio/sous-titres :
+    // un <video> web n'offre aucune de ces garanties sur boîtier TV.
     implementation(libs.media3.exoplayer)
-    implementation(libs.media3.exoplayer.hls)
-    implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.session)
+    implementation(libs.media3.ui)
     implementation(libs.media3.common)
     implementation(libs.media3.datasource.okhttp)
-    implementation(libs.media3.ui)
     implementation(libs.media3.datasource)
+    implementation(libs.media3.database)
+    // HLS — nécessaire pour le repli transcodage serveur (/api/stream/{ratingKey}/transcode,
+    // manifeste .m3u8) quand le direct-play échoue (codec non décodable nativement).
+    implementation(libs.media3.exoplayer.hls)
+    // DASH — repli audio/vidéo servi par le transcodage FFmpeg/Plex.
+    implementation(libs.media3.exoplayer.dash)
+
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.moshi)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging.interceptor)
+    implementation(libs.moshi.kotlin)
+
+    implementation(libs.coil.compose)
+
+    // Persistance légère : URL du serveur + préférences utilisateur (le
+    // cookie de session, lui, vit dans le CookieJar OkHttp — voir ApiClient).
+    implementation(libs.datastore.preferences)
+
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.zxing.core)
 }

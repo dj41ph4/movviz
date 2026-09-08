@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.83 — September 2026
+
+### Movviz NX Mobile — port direct de NX TV
+
+Remplace le premier socle NX Mobile par le code de `android-tv-nx` : même démarrage local-first, cache isolé par serveur/compte/profil, profils Plex, accueil NX, hubs Films/Séries, fiches, pages saison/épisodes, lecteur, mise à jour et protections D-pad. Le port tactile conserve ces comportements au lieu de reprendre l’ancienne application mobile.
+
+Le package reste `com.movviz.nx.mobile`, l’asset de mise à jour reste `Movviz-NX-Mobile-client.apk` et la signature retail est inchangée. L’activité est redimensionnable sur téléphone, tablette et Fold ; la barre NX devient défilable au toucher sur écran compact tout en conservant tous ses accès. Le logo M est appliqué au lancement et à la navigation.
+
 ## v1.24.82 — September 2026
 
 ### Movviz NX Mobile — nouveau canal indépendant
