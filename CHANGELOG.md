@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.90 — September 2026
+
+### Identité visuelle
+
+- Nouveau mark Movviz (ruban croisé rose/violet) sur toute la plateforme, à partir des fichiers officiels : sidebar web, favicon/PWA, icônes adaptatives Android (mobile, NX Mobile, TV, NX TV), bannières Android TV, icône Windows et icône Docker.
+- Nouveaux splashscreens desktop et Android NX avec le lockup complet (mark + « Movviz »), chargés en priorité.
+
 ## v1.24.89 — September 2026
 
 ### NX Mobile et NX TV
