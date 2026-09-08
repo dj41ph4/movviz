@@ -62,6 +62,7 @@ private const val ROUTE_WIZARD = "wizard"
 private const val ROUTE_LOGIN = "login"
 private const val ROUTE_PROFILES = "profiles"
 private const val ROUTE_HOME = "home"
+private const val ROUTE_DOWNLOADS = "downloads"
 private const val ROUTE_DETAIL = "detail/{type}/{tmdbId}?season={season}&episode={episode}"
 private const val ROUTE_PERSON = "person/{id}"
 // "Voir tout" d'une rangée éditoriale ("row") ou grille filtrée par genre
@@ -324,6 +325,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
                     onSwitchProfile = {
                         navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) }
                     },
+                    onOpenDownloads = { navController.navigate(ROUTE_DOWNLOADS) },
                     updateAvailableTag = viewModel.availableUpdateTag.collectAsState().value,
                     onUpdateClick = { viewModel.requestUpdateInstall() },
                     contentFocusRequester = contentFocusRequester,
@@ -449,6 +451,13 @@ composable(ROUTE_PROFILES) {
                 contentFocusRequester = contentFocusRequester,
                 navRailFocusRequester = navRailFocusRequester,
                 onHomeScrollChanged = { headerHasScrolled = it },
+            )
+        }
+        composable(ROUTE_DOWNLOADS) {
+            com.movviz.nx.mobile.ui.downloads.DownloadsScreen(
+                viewModel = viewModel,
+                onBack = { navController.popBackStack() },
+                onOpenTitle = { type, tmdbId -> navController.navigate(detailRoute(type, tmdbId)) },
             )
         }
         composable(

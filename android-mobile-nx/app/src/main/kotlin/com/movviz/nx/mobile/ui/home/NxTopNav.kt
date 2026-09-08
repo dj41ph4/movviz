@@ -73,6 +73,7 @@ fun NxTopNav(
     onOpenProfile: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onSwitchProfile: () -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
     updateAvailableTag: String? = null,
     onUpdateClick: () -> Unit = {},
     contentFocusRequester: FocusRequester? = null,
@@ -122,6 +123,7 @@ fun NxTopNav(
             onOpenProfile = onOpenProfile,
             onOpenSettings = onOpenSettings,
             onSwitchProfile = onSwitchProfile,
+            onOpenDownloads = onOpenDownloads,
             updateAvailableTag = updateAvailableTag,
             onUpdateClick = onUpdateClick,
             modifier = modifier,
@@ -282,6 +284,7 @@ private fun CompactNxTopNav(
     onOpenProfile: () -> Unit,
     onOpenSettings: () -> Unit,
     onSwitchProfile: () -> Unit,
+    onOpenDownloads: () -> Unit,
     updateAvailableTag: String?,
     onUpdateClick: () -> Unit,
     modifier: Modifier,
@@ -316,6 +319,7 @@ private fun CompactNxTopNav(
         androidx.compose.foundation.layout.Column(Modifier.padding(top = 60.dp, end = 12.dp).width(210.dp).background(Color(0xFF1B1B20), RoundedCornerShape(14.dp)).padding(8.dp)) {
             @Composable fun item(label: String, action: () -> Unit) { Surface(onClick = { menuOpen = false; action() }, modifier = Modifier.fillMaxWidth().height(46.dp).tvPointerClick { menuOpen = false; action() }, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(9.dp)), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color(0xFF454650), contentColor = Color.White, focusedContentColor = Color.White)) { Text(label, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) } }
             item("Mon profil", onOpenProfile)
+            item("Téléchargements", onOpenDownloads)
             item("Changer de profil", onSwitchProfile)
             item("Paramètres", onOpenSettings)
             if (updateAvailableTag != null) item("Mettre à jour", onUpdateClick)

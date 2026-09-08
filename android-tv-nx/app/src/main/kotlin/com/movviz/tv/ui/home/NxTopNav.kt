@@ -65,6 +65,7 @@ fun NxTopNav(
     onOpenProfile: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onSwitchProfile: () -> Unit = {},
+    onOpenDownloads: () -> Unit = {},
     updateAvailableTag: String? = null,
     onUpdateClick: () -> Unit = {},
     contentFocusRequester: FocusRequester? = null,
@@ -181,6 +182,12 @@ fun NxTopNav(
         ) {
             Icon(MovvizIconSettings, contentDescription = "Paramètres", tint = Color.White, modifier = Modifier.padding(9.dp))
         }
+        Surface(
+            onClick = onOpenDownloads,
+            modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
+            colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Black.copy(alpha = 0.42f), focusedContainerColor = Color(0xFF3A3B42), contentColor = Color.White, focusedContentColor = Color.White),
+        ) { Text("↓", color = Color.White, fontSize = 22.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 3.dp)) }
         if (updateAvailableTag != null) {
             // Signal discret mais impossible à rater depuis l'accueil, sur
             // le même principe que Movviz TV : il n'existe qu'après une

@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.86 — September 2026
+
+### NX Mobile et NX TV
+
+- Ajoute la page Téléchargements dédiée, alimentée en direct par la file serveur.
+- Rend la barre de lecture réellement tactile : toucher la piste recherche immédiatement à la position choisie.
+- Les fiches conservent leur état vivant de téléchargement puis basculent vers Lecture dès que le média est disponible.
+
 ## v1.24.85 — September 2026
 
 ### Movviz NX Mobile

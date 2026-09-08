@@ -24,6 +24,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -55,6 +56,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -1511,7 +1513,19 @@ private fun PlayerProgressBar(
                 }
             },
     ) {
-        Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
+        // La piste est une cible tactile généreuse (44dp), même si son trait
+        // reste fin. Elle consomme son propre tap avant que l'overlay vidéo
+        // plein écran ne le voie, ce qui rend enfin le seek direct possible.
+        Box(modifier = Modifier.fillMaxWidth().height(44.dp).pointerInput(durationMs) {
+            detectTapGestures { offset ->
+                if (durationMs > 0L && size.width > 0) {
+                    val fraction = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
+                    player.seekTo((durationMs * fraction).toLong())
+                    onInteraction?.invoke()
+                }
+            }
+        }, contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.fillMaxWidth().height(6.dp)) {
             // Piste de fond — bg-white/14 desktop.
             Box(modifier = Modifier.fillMaxSize().background(if (focused) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.14f), RoundedCornerShape(3.dp)))
             // Zone déjà tamponnée — bg-white/20 desktop, posée sur toute la
@@ -1566,6 +1580,7 @@ private fun PlayerProgressBar(
                 )
                 drawCircle(color = Color(0xFF13131B), radius = core * 1.3f, center = handleCenter)
                 drawCircle(color = if (focused) MovvizBrand2 else Color.White, radius = if (focused) core * 1.25f else core * 1.0f, center = handleCenter)
+            }
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
