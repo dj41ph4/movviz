@@ -33,6 +33,10 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.runtime.Composable
@@ -90,6 +94,9 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconFilm
 import com.movviz.nx.mobile.ui.theme.MovvizIconTvScreen
 import com.movviz.nx.mobile.ui.theme.MovvizIconDotCircle
 import com.movviz.nx.mobile.ui.theme.MovvizIconStar
+import com.movviz.nx.mobile.ui.theme.MovvizIconDownload
+import com.movviz.nx.mobile.ui.theme.MovvizBrand
+import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.title.TitleDetailScreen
 import com.movviz.nx.mobile.ui.update.AutoUpdateOverlay
 import com.movviz.nx.mobile.ui.wizard.WizardScreen
@@ -661,6 +668,14 @@ private fun PortraitBottomNav(
     // Le dock est volontairement plus petit que le contenu et ne touche
     // jamais la zone des gestes. Une barre pleine largeur ou trop basse fait
     // immédiatement "web app" et masque les cartes de la dernière rangée.
+    // L'indicateur de mise à jour vit désormais DANS la même rangée que les
+    // onglets (icône seule + pastille), au lieu d'une capsule avec son texte
+    // "Mise à jour X.Y.Z" empilée au-dessus dans sa propre ligne : cette
+    // ligne ajoutait ~48dp de hauteur et repoussait toute la barre bien
+    // au-dessus de sa position basse normale (constaté sur la capture
+    // portrait). Le libellé de version reste accessible via
+    // contentDescription (lecteur d'écran / appui long), plus jamais rendu
+    // dans la mise en page.
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -668,34 +683,6 @@ private fun PortraitBottomNav(
             .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (updateTag != null) {
-            Surface(
-                onClick = onUpdateClick,
-                modifier = Modifier.height(38.dp).tvPointerClick(onUpdateClick),
-                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
-                colors = ClickableSurfaceDefaults.colors(
-                    containerColor = Color(0xFF3D276E),
-                    focusedContainerColor = Color(0xFF5A3AA0),
-                    contentColor = Color.White,
-                    focusedContentColor = Color.White,
-                ),
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("↓", fontSize = 21.sp, color = Color(0xFFD9B7FF))
-                    Text(
-                        "Mise à jour ${updateTag.removePrefix("v")}",
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        color = Color.White,
-                        modifier = Modifier.padding(start = 8.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-        }
         // Les cellules restent strictement égales. Ainsi l'icône ne se
         // déplace jamais quand le libellé actif apparaît : seul ce dernier
         // anime dans sa propre ligne, juste au-dessus du dock.
@@ -704,14 +691,14 @@ private fun PortraitBottomNav(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(
-                modifier = Modifier.height(26.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.height(22.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.Top,
             ) {
                 items.forEach { item ->
                     val active = selected == item.tab
                     Box(
-                        modifier = Modifier.width(48.dp).height(26.dp),
+                        modifier = Modifier.width(50.dp).height(22.dp),
                         contentAlignment = Alignment.TopCenter,
                     ) {
                         androidx.compose.animation.AnimatedVisibility(
@@ -722,8 +709,12 @@ private fun PortraitBottomNav(
                             Box(
                                 modifier = Modifier
                                     .wrapContentWidth(unbounded = true)
-                                    .height(24.dp)
-                                    .background(Color(0xFF45454D), RoundedCornerShape(12.dp))
+                                    .height(20.dp)
+                                    // Indicateur actif aligné sur le dégradé de
+                                    // marque (rose/violet) plutôt qu'un gris
+                                    // neutre — cohérence avec .brand-gradient
+                                    // côté web (MovvizBrand → MovvizBrand2).
+                                    .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(10.dp))
                                     .padding(horizontal = 10.dp),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -740,7 +731,7 @@ private fun PortraitBottomNav(
                     }
                 }
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier
                     .wrapContentWidth()
@@ -749,25 +740,39 @@ private fun PortraitBottomNav(
                     .border(1.dp, Color.White.copy(alpha = .12f), RoundedCornerShape(30.dp))
                     .padding(horizontal = 6.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 items.forEach { item ->
                     val active = selected == item.tab
                     Surface(
                         onClick = { onSelect(item.tab) },
                         modifier = Modifier
-                            .width(48.dp)
-                            .height(50.dp)
+                            .width(50.dp)
+                            .height(48.dp)
                             .tvPointerClick { onSelect(item.tab) },
-                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(25.dp)),
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(24.dp)),
                         colors = ClickableSurfaceDefaults.colors(
-                            containerColor = if (active) Color(0xFF45454D) else Color.Transparent,
-                            focusedContainerColor = Color(0xFF5D5D68),
+                            containerColor = Color.Transparent,
+                            focusedContainerColor = Color.White.copy(alpha = .10f),
                             contentColor = Color.White,
                             focusedContentColor = Color.White,
                         ),
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (active) {
+                                        Modifier.background(
+                                            Brush.linearGradient(listOf(MovvizBrand.copy(alpha = .85f), MovvizBrand2.copy(alpha = .85f))),
+                                            RoundedCornerShape(24.dp),
+                                        )
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Icon(
                                 item.icon,
                                 item.label,
@@ -777,7 +782,65 @@ private fun PortraitBottomNav(
                         }
                     }
                 }
+                if (updateTag != null) {
+                    // Fin séparateur discret : distingue visuellement
+                    // l'indicateur de mise à jour des onglets de navigation
+                    // sans ajouter de hauteur (voir commentaire au-dessus).
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 1.dp)
+                            .width(1.dp)
+                            .height(26.dp)
+                            .background(Color.White.copy(alpha = .12f)),
+                    )
+                    UpdateIndicator(tag = updateTag, onClick = onUpdateClick)
+                }
             }
+        }
+    }
+}
+
+/** Pastille de mise à jour disponible — icône seule, fond glass (dégradé de
+ *  marque à faible opacité) plutôt qu'un aplat violet plein jugé "trop
+ *  opaque" en direct. Le libellé "Mise à jour X.Y.Z" n'est plus dessiné :
+ *  il vit uniquement dans le contentDescription (lecteur d'écran / appui
+ *  long, comme un tooltip natif Android). */
+@Composable
+private fun UpdateIndicator(tag: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val pulse = rememberInfiniteTransition(label = "portraitUpdatePulse")
+    val dotAlpha by pulse.animateFloat(
+        initialValue = 0.45f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(760), RepeatMode.Reverse),
+        label = "portraitUpdateDotAlpha",
+    )
+    Surface(
+        onClick = onClick,
+        modifier = modifier
+            .size(48.dp)
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(CircleShape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = MovvizBrand.copy(alpha = 0.20f),
+            focusedContainerColor = MovvizBrand.copy(alpha = 0.34f),
+            contentColor = Color.White,
+            focusedContentColor = Color.White,
+        ),
+    ) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            Icon(
+                imageVector = MovvizIconDownload,
+                contentDescription = "Mise à jour ${tag.removePrefix("v")} disponible",
+                tint = Color.White,
+                modifier = Modifier.size(20.dp),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 6.dp, end = 6.dp)
+                    .size(7.dp)
+                    .background(MovvizBrand2.copy(alpha = dotAlpha), CircleShape),
+            )
         }
     }
 }
