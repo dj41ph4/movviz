@@ -21,8 +21,8 @@ android {
         // Même source de vérité que les deux canaux TV : la CI remplace ces
         // valeurs par le tag, et le repli local reste installable par-dessus
         // une release précédente.
-        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124090
-        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.90"
+        versionCode = ((project.findProperty("movvizVersionCode") as String?)?.toIntOrNull()) ?: 124091
+        versionName = (project.findProperty("movvizVersionName") as String?) ?: "1.24.91"
         // Same fix as android-tv/app/build.gradle.kts — derived from the Git
         // tag by CI instead of a frozen value, so BuildConfig.VERSION_NAME
         // (shown in "About") tracks the actual published release.

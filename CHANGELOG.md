@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.91 — September 2026
+
+### Corrections
+
+- Corrige "Sessions actives" : la lecture d'un épisode local n'ouvrait jamais de session de suivi (elle ne dépendait que de la durée Plex), donc n'apparaissait jamais dans le panneau — quel que soit l'appareil ou l'app (mobile, NX Mobile, TV, NX TV).
+- Le logo du splashscreen se chargeait trop tard (après hydratation JS) ; il est désormais préchargé dès le HTML initial.
+- Retouche le dock de navigation portrait de NX Mobile : l'indicateur de mise à jour ne pousse plus la barre vers le haut et n'est plus un aplat opaque.
+
 ## v1.24.90 — September 2026
 
 ### Identité visuelle
