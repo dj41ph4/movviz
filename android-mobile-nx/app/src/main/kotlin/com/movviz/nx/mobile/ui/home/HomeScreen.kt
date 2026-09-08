@@ -185,6 +185,9 @@ fun HomeScreen(
     navRailFocusRequester: FocusRequester? = null,
     onScrollChanged: (Boolean) -> Unit = {},
 ) {
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
     val streamedMovies by viewModel.movies.collectAsState()
     val streamedSeries by viewModel.series.collectAsState()
     val streamedRecentEpisodes by viewModel.recentEpisodes.collectAsState()
@@ -787,8 +790,18 @@ internal fun HeroCarousel(
     // rangée visible sous la vedette, comme les références Netflix fournies.
     // Cela rend la page immédiatement parcourable avec la télécommande au
     // lieu de donner l'impression d'une affiche géante à faire défiler.
-    val screenHeightDp = androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
-    val heroHeight = (screenHeightDp * 0.62f).coerceIn(390f, 600f)
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val compactPortrait = configuration.screenWidthDp < 600 && configuration.screenHeightDp > configuration.screenWidthDp
+    // Le hero paysage reste strictement inchangé. En portrait, la même
+    // vedette ne doit pas consommer tout le premier écran ni recadrer le
+    // visage du film derrière une colonne de texte : une hauteur bornée
+    // laisse immédiatement voir la première rangée et garde les CTA tactiles
+    // dans le viewport.
+    val heroHeight = if (compactPortrait) {
+        (configuration.screenHeightDp * 0.45f).coerceIn(300f, 420f)
+    } else {
+        (configuration.screenHeightDp * 0.62f).coerceIn(390f, 600f)
+    }
     Box(modifier = Modifier.fillMaxWidth().height(heroHeight.dp).clipToBounds()) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
@@ -856,8 +869,12 @@ internal fun HeroCarousel(
                 .align(Alignment.BottomStart)
                 // bottom = dépassement du hero sous le pli (40dp) + marge
                 // visuelle : le CTA reste ENTièrement au-dessus de l'écran.
-                .padding(start = 52.dp, end = 40.dp, bottom = 46.dp)
-                .widthIn(max = 620.dp),
+                .padding(
+                    start = if (compactPortrait) 20.dp else 52.dp,
+                    end = if (compactPortrait) 20.dp else 40.dp,
+                    bottom = if (compactPortrait) 24.dp else 46.dp,
+                )
+                .widthIn(max = if (compactPortrait) (configuration.screenWidthDp - 40).dp else 620.dp),
         ) {
             // Zone texte animée en fondu + glissement à chaque rotation.
             // Le CTA (plus bas) reste HORS de cette colonne : le focus D-pad
@@ -885,8 +902,8 @@ internal fun HeroCarousel(
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.CenterStart,
                     modifier = Modifier
-                        .width(440.dp)
-                        .height(82.dp),
+                        .width(if (compactPortrait) 260.dp else 440.dp)
+                        .height(if (compactPortrait) 58.dp else 82.dp),
                 )
             } else if (showTitleFallback) {
                 Text(
@@ -898,7 +915,7 @@ internal fun HeroCarousel(
             } else {
                 // Réserve la place du logo pendant son chargement : aucun
                 // titre texte ne clignote avant de laisser sa place au logo.
-                Spacer(modifier = Modifier.height(90.dp).widthIn(max = 460.dp))
+                Spacer(modifier = Modifier.height(if (compactPortrait) 64.dp else 90.dp).widthIn(max = if (compactPortrait) 260.dp else 460.dp))
             }
             // Badge statut bibliothèque (même pastille que la fiche titre)
             current.status?.let { st ->
@@ -953,7 +970,7 @@ internal fun HeroCarousel(
                 Text(
                     text = current.overview,
                     style = TextStyle(fontSize = 13.sp, color = MovvizInkSoft, lineHeight = 19.sp),
-                    maxLines = 2,
+                    maxLines = if (compactPortrait) 1 else 2,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.widthIn(max = 580.dp),
                 )
@@ -1376,6 +1393,10 @@ internal fun TitleRow(
     onPreviewStateChanged: (cardId: String, active: Boolean) -> Unit = { _, _ -> },
 ) {
     // État de focus partagé par toutes les cartes de la rangée — il vit ici
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
+    // État de focus partagé par toutes les cartes de la rangée — il vit ici
     // (pas dans PosterCard) pour survivre à la destruction des items par la
     // LazyRow, et n'est lu QUE par les deux enfants dédiés (précharge des
     // images + call-out Netflix) : la rangée elle-même et ses cartes ne
@@ -1408,8 +1429,11 @@ internal fun TitleRow(
         RowHeading(heading)
         TvLazyRow(
             modifier = Modifier.focusRestorer(),
-            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(
+                start = if (compactPortrait) 16.dp else 52.dp,
+                end = if (compactPortrait) 16.dp else 52.dp,
+            ),
+            horizontalArrangement = Arrangement.spacedBy(if (compactPortrait) 10.dp else 12.dp),
         ) {
             tvItemsIndexed(items, key = { _, item -> item.id }, contentType = { index, _ -> if (index == 0) "featured" else "poster" }) { index, card ->
                 val preview = previewsByCardId[card.id]
@@ -1437,7 +1461,10 @@ internal fun TitleRow(
                     // Netflix : une affiche reste compacte au repos puis la
                     // carte active devient le seul aperçu 16:9 de sa rangée.
                     // Les autres éléments conservent leur gabarit portrait.
-                    width = 132.dp,
+                    // Sur téléphone, une affiche un peu plus large garde les
+                    // visages et les titres lisibles. En paysage le gabarit
+                    // TV de 132dp est rigoureusement conservé.
+                    width = if (compactPortrait) 118.dp else 132.dp,
                     aspectRatio = 2f / 3f,
                     preferPosterArt = true,
                     // Le slot LazyRow ne bouge jamais. La mini-fiche est une
@@ -1448,7 +1475,11 @@ internal fun TitleRow(
                     // En 16:9, cela donne 352×198dp, un vrai passage au
                     // paysage plutôt qu'une carte qui rétrécit au focus.
                     expandedWidth = 352.dp,
-                    showCaption = false,
+                    // Sur téléphone aucune affiche n'est anonyme : le titre
+                    // reste hors image, donc lisible même sur un poster clair
+                    // ou très sombre. La présentation paysage sans légende
+                    // demeure identique.
+                    showCaption = compactPortrait,
                     showTechnicalBadges = false,
                     titleLogoPath = titleLogoPaths["${if (card.isMovie) "movie" else "series"}-${card.tmdbId}"],
                 )
@@ -1498,11 +1529,14 @@ internal fun TitleRow(
  *  parfait avec la première carte. */
 @Composable
 private fun RowHeading(text: String) {
+        val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+            it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+        }
         Text(
             text = text,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = if (compactPortrait) 16.dp else 52.dp, bottom = 12.dp),
         )
 }
 

@@ -22,6 +22,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -66,6 +67,7 @@ fun SettingsScreen(
     // seulement un second UP passe à la barre de navigation.
     entryFocusRequester: FocusRequester? = null,
 ) {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val serverUrl by viewModel.serverUrl.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val userPrefs by viewModel.userPrefs.collectAsState()
@@ -88,7 +90,7 @@ fun SettingsScreen(
             // top = 96dp : dégage la barre de nav flottante (68dp + marge)
             // sans qu'un padding posé plus haut, au niveau de MainScreen,
             // n'ajoute une bande de fond opaque au-dessus de tout le monde.
-            .padding(start = 48.dp, top = 96.dp, end = 48.dp, bottom = 40.dp),
+            .padding(start = if (compactPortrait) 16.dp else 48.dp, top = if (compactPortrait) 76.dp else 96.dp, end = if (compactPortrait) 16.dp else 48.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
     ) {
         Text(
             text = "Paramètres",
@@ -100,7 +102,7 @@ fun SettingsScreen(
                 .focusable()
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         )
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(if (compactPortrait) 20.dp else 28.dp))
 
         SettingsSection(title = "Compte") {
             InfoRow(label = "Utilisateur", value = currentUser?.username ?: "—")

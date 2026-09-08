@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.24.85 — September 2026
+
+### Movviz NX Mobile
+
+- Adapte l’interface smartphone portrait sans modifier le rendu TV/paysage : barre compacte avec menu d’actions, accueil plus dense, catalogue lisible, fiches et épisodes redimensionnés.
+- Corrige les textes et marges des profils, du sélecteur de profil, de la connexion Plex et des paramètres sur petit écran.
+- Aligne les quatre canaux Android et le paquet web sur le même numéro de release.
+
 ## v1.24.84 — September 2026
 
 ### NX Mobile — actions au premier plan tactiles

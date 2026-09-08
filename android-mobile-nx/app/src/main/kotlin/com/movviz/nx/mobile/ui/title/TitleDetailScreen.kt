@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -139,6 +140,7 @@ fun TitleDetailScreen(
     // visuelle logo/titre comme première cible, même sans CTA générique.
     entryFocusRequester: FocusRequester? = null,
 ) {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val detail by viewModel.detail.collectAsState()
     val detailError by viewModel.detailError.collectAsState()
     // Même artwork de titre que TitleContent sur desktop : le logo officiel
@@ -468,11 +470,11 @@ fun TitleDetailScreen(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(640.dp)
+                    .height(if (compactPortrait) 300.dp else 640.dp)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         } else {
-            Box(modifier = Modifier.fillMaxWidth().height(560.dp).background(MaterialTheme.colorScheme.surface))
+            Box(modifier = Modifier.fillMaxWidth().height(if (compactPortrait) 300.dp else 560.dp).background(MaterialTheme.colorScheme.surface))
         }
 
         // L'aperçu est placé AU-DESSUS de l'image mais SOUS les dégradés : le
@@ -487,7 +489,7 @@ fun TitleDetailScreen(
                 title = preview?.title ?: detail?.title.orEmpty(),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(640.dp)
+                    .height(if (compactPortrait) 300.dp else 640.dp)
                     .graphicsLayer { translationY = parallaxOffset },
             )
         }
@@ -498,7 +500,7 @@ fun TitleDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(560.dp)
+                .height(if (compactPortrait) 300.dp else 560.dp)
                 .background(
                     Brush.verticalGradient(
                         colors = listOf(Color.Transparent, MaterialTheme.colorScheme.background.copy(alpha = 0.75f), MaterialTheme.colorScheme.background),
@@ -508,7 +510,7 @@ fun TitleDetailScreen(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(560.dp)
+                .height(if (compactPortrait) 300.dp else 560.dp)
                 .background(
                     Brush.horizontalGradient(
                         colors = listOf(MaterialTheme.colorScheme.background.copy(alpha = 0.55f), Color.Transparent),
@@ -521,7 +523,7 @@ fun TitleDetailScreen(
                 Text(
                     text = "Chargement…",
                     style = TextStyle(fontSize = 16.sp, color = MaterialTheme.colorScheme.onBackground),
-                    modifier = Modifier.padding(start = 56.dp, top = 320.dp),
+                    modifier = Modifier.padding(start = if (compactPortrait) 16.dp else 56.dp, top = if (compactPortrait) 170.dp else 320.dp),
                 )
             } else {
                 Column(
@@ -595,12 +597,12 @@ fun TitleDetailScreen(
         TvLazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(start = 56.dp, end = 56.dp, bottom = 40.dp),
+                .padding(start = if (compactPortrait) 16.dp else 56.dp, end = if (compactPortrait) 16.dp else 56.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
             state = lazyListState,
             // La barre supérieure flotte au-dessus du backdrop : une zone
             // sûre explicite empêche logo, titre et première ligne de passer
             // sous elle, en 1080p comme en 4K.
-            contentPadding = PaddingValues(top = 112.dp),
+            contentPadding = PaddingValues(top = if (compactPortrait) 76.dp else 112.dp),
         ) {
             item {
             // Première cible D-pad = la zone VISUELLE du logo/titre, jamais
@@ -612,8 +614,8 @@ fun TitleDetailScreen(
             }
             Box(
                 modifier = Modifier
-                    .width(720.dp)
-                    .heightIn(min = 116.dp)
+                    .width(if (compactPortrait) 358.dp else 720.dp)
+                    .heightIn(min = if (compactPortrait) 76.dp else 116.dp)
                     .focusRequester(initialFocusRequester)
                     .focusable()
                     .onFocusChanged { topAnchorFocused = it.isFocused }
@@ -632,16 +634,16 @@ fun TitleDetailScreen(
                         contentScale = ContentScale.Fit,
                         alignment = Alignment.CenterStart,
                         modifier = Modifier
-                            .heightIn(max = 116.dp)
-                            .width(620.dp),
+                            .heightIn(max = if (compactPortrait) 76.dp else 116.dp)
+                            .width(if (compactPortrait) 250.dp else 620.dp),
                     )
                 } else if (showTitleFallback) {
                     Text(
                         text = d.title,
-                        style = TextStyle(fontSize = 44.sp, fontWeight = FontWeight.Black, color = MovvizInk),
+                        style = TextStyle(fontSize = if (compactPortrait) 30.sp else 44.sp, fontWeight = FontWeight.Black, color = MovvizInk),
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 720.dp),
+                        modifier = Modifier.widthIn(max = if (compactPortrait) 358.dp else 720.dp),
                     )
                 }
             }
@@ -1288,6 +1290,7 @@ private fun EpisodeCard(
     onToggleWatched: (Boolean) -> Unit,
     onClick: () -> Unit,
 ) {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     var focused by remember { mutableStateOf(false) }
     val available = (episode.plexRatingKey != null || episode.playbackSource == "movviz") &&
         episode.status == "available"
@@ -1321,16 +1324,16 @@ private fun EpisodeCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(108.dp)
-                .padding(horizontal = 14.dp, vertical = 10.dp),
+                .height(if (compactPortrait) 88.dp else 108.dp)
+                .padding(horizontal = if (compactPortrait) 10.dp else 14.dp, vertical = if (compactPortrait) 8.dp else 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = episode.episodeNumber.toString(),
                 style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),
-                modifier = Modifier.width(30.dp),
+                modifier = Modifier.width(if (compactPortrait) 22.dp else 30.dp),
             )
-            val stillModifier = Modifier.width(150.dp).height(84.dp).clip(RoundedCornerShape(6.dp))
+            val stillModifier = Modifier.width(if (compactPortrait) 100.dp else 150.dp).height(if (compactPortrait) 56.dp else 84.dp).clip(RoundedCornerShape(6.dp))
             if (metadata?.stillPath != null) {
                 Image(
                     painter = rememberAsyncImagePainter(model = "$TMDB_STILL_BASE${metadata.stillPath}"),
@@ -1345,12 +1348,12 @@ private fun EpisodeCard(
                     Text(text = "ÉP. ${episode.episodeNumber}", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkSoft))
                 }
             }
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(if (compactPortrait) 10.dp else 16.dp))
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.Center) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = episode.title,
-                        style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkSoft),
+                        style = TextStyle(fontSize = if (compactPortrait) 14.sp else 16.sp, fontWeight = FontWeight.Bold, color = if (available) MovvizInk else MovvizInkSoft),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
@@ -1375,7 +1378,7 @@ private fun EpisodeCard(
                 }
                 metadata?.overview?.takeIf { it.isNotBlank() }?.let { overview ->
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(text = overview, style = TextStyle(fontSize = 12.sp, color = MovvizInkSoft, lineHeight = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(text = overview, style = TextStyle(fontSize = if (compactPortrait) 11.sp else 12.sp, color = MovvizInkSoft, lineHeight = 16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 // Progression EN DIRECT de CET épisode précis (pas juste une
                 // pastille "Téléchargement" figée) quand un torrent de la file
@@ -1418,7 +1421,7 @@ private fun EpisodeCard(
                 modifier = Modifier
                     // Zone finale réservée : la coche reste visible même
                     // lorsqu'un long titre ou synopsis remplit la ligne.
-                    .padding(start = 14.dp)
+                    .padding(start = if (compactPortrait) 6.dp else 14.dp)
                     .size(44.dp)
                     .onFocusChanged { watchedFocused = it.isFocused }
                     .tvPointerClick { onToggleWatched(!watched) },

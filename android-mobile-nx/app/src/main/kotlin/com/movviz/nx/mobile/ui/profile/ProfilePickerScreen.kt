@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -28,6 +29,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.foundation.lazy.list.TvLazyRow
@@ -57,6 +60,7 @@ fun ProfilePickerScreen(
     onSelect: (TvProfile) -> Unit,
     onAdd: () -> Unit,
 ) {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val activeId = activeProfile?.id
     val visibleProfiles = remember(profiles, activeProfile) {
         if (activeProfile != null && profiles.none { it.id == activeId }) listOf(activeProfile) + profiles else profiles
@@ -111,7 +115,7 @@ fun ProfilePickerScreen(
         )
 
         Column(
-            modifier = Modifier.fillMaxSize().padding(top = 46.dp, bottom = 40.dp),
+            modifier = Modifier.fillMaxSize().padding(top = if (compactPortrait) 28.dp else 46.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Box(contentAlignment = Alignment.Center) {
@@ -120,15 +124,19 @@ fun ProfilePickerScreen(
             Spacer(Modifier.height(7.dp))
             MovvizWordmark(fontSize = 18.sp)
 
-            Spacer(Modifier.height(48.dp))
+            Spacer(Modifier.height(if (compactPortrait) 28.dp else 48.dp))
             Text(
                 text = "Qui regarde ?",
-                style = TextStyle(fontSize = 38.sp, fontWeight = FontWeight.Black, color = Color.White),
+                style = TextStyle(fontSize = if (compactPortrait) 30.sp else 38.sp, fontWeight = FontWeight.Black, color = Color.White, textAlign = TextAlign.Center),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             )
             Spacer(Modifier.height(9.dp))
             Text(
                 text = "Chaque profil garde ses reprises, ses goûts et ses suggestions.",
-                style = TextStyle(fontSize = 15.sp, color = Color.White.copy(alpha = .58f), textAlign = TextAlign.Center),
+                style = TextStyle(fontSize = if (compactPortrait) 14.sp else 15.sp, color = Color.White.copy(alpha = .58f), textAlign = TextAlign.Center),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
             )
 
             AnimatedVisibility(
@@ -145,12 +153,12 @@ fun ProfilePickerScreen(
                 )
             }
 
-            Spacer(Modifier.height(38.dp))
+            Spacer(Modifier.height(if (compactPortrait) 24.dp else 38.dp))
 
             TvLazyRow(
                 modifier = Modifier.widthIn(max = 1040.dp),
-                contentPadding = PaddingValues(horizontal = 28.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(26.dp),
+                contentPadding = PaddingValues(horizontal = if (compactPortrait) 16.dp else 28.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (compactPortrait) 14.dp else 26.dp),
                 verticalAlignment = Alignment.Top,
             ) {
                 items(visibleProfiles, key = { it.id }) { profile ->

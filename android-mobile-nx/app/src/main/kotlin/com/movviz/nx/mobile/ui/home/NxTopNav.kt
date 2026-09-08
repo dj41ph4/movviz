@@ -3,8 +3,6 @@ package com.movviz.nx.mobile.ui.home
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +15,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -39,6 +40,9 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Surface
@@ -79,8 +83,8 @@ fun NxTopNav(
     // Port direct de la barre NX TV : à 375 dp elle reste complète mais peut
     // se parcourir au doigt. Aucun onglet ni action ne doit se superposer ou
     // disparaître ; tablettes/Fold ouvert gardent l'alignement TV étendu.
-    val compactWidth = LocalConfiguration.current.screenWidthDp < 600
-    val compactScroll = rememberScrollState()
+    val compactWidth = LocalConfiguration.current.screenWidthDp < 600 &&
+        LocalConfiguration.current.screenHeightDp > LocalConfiguration.current.screenWidthDp
     // Netflix ne pose pas une bande noire fixe devant le hero : au sommet la
     // barre se fond dans une courte ombre verticale, puis elle devient une
     // surface noire pleine dès qu'une rangée passe derrière. Une transition
@@ -105,10 +109,28 @@ fun NxTopNav(
             } ?: false
         } else false
     }
+    // En portrait il ne faut jamais faire défiler la barre elle-même : des
+    // actions cachées donnent une interface cassée. Les trois destinations
+    // principales restent visibles et les actions secondaires sont rangées
+    // dans un menu accessible au doigt et au D-pad. Le chemin paysage ne
+    // passe jamais ici, il garde donc la barre TV pixel pour pixel.
+    if (compactWidth) {
+        CompactNxTopNav(
+            selected = selected,
+            onSelect = onSelect,
+            onSearchToggle = onSearchToggle,
+            onOpenProfile = onOpenProfile,
+            onOpenSettings = onOpenSettings,
+            onSwitchProfile = onSwitchProfile,
+            updateAvailableTag = updateAvailableTag,
+            onUpdateClick = onUpdateClick,
+            modifier = modifier,
+        )
+        return
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .let { base -> if (compactWidth) base.horizontalScroll(compactScroll) else base }
             // Au sommet le dégradé disparaît avant le hero : aucune zone
             // noire vide entre la navigation et l'image. En défilement les
             // trois stops convergent vers noir opaque pour une lecture stable
@@ -123,9 +145,9 @@ fun NxTopNav(
                 ),
             )
             .padding(
-                top = if (compactWidth) 12.dp else 16.dp,
-                start = if (compactWidth) 14.dp else 56.dp,
-                end = if (compactWidth) 14.dp else 56.dp,
+                top = 16.dp,
+                start = 56.dp,
+                end = 56.dp,
                 bottom = 8.dp,
             )
             // La barre reste compacte ; seul l'onglet actif est une capsule.
@@ -174,7 +196,7 @@ fun NxTopNav(
                 Text(tab.label, color = Color.White, fontSize = 15.sp, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
             }
         }
-        if (!compactWidth) Spacer(Modifier.weight(1f)) else Spacer(Modifier.width(4.dp))
+        Spacer(Modifier.weight(1f))
         Surface(
             onClick = onSearchToggle,
             modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).tvPointerClick(onSearchToggle),
@@ -248,6 +270,55 @@ fun NxTopNav(
             } else {
                 Text(activeProfile?.name?.take(2)?.uppercase() ?: "MO", color = Color.White, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp))
             }
+        }
+    }
+}
+
+@Composable
+private fun CompactNxTopNav(
+    selected: HomeTab,
+    onSelect: (HomeTab) -> Unit,
+    onSearchToggle: () -> Unit,
+    onOpenProfile: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onSwitchProfile: () -> Unit,
+    updateAvailableTag: String?,
+    onUpdateClick: () -> Unit,
+    modifier: Modifier,
+) {
+    var menuOpen by remember { mutableStateOf(false) }
+    Row(
+        modifier = modifier.fillMaxWidth().background(Color.Black.copy(alpha = 0.9f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(painter = painterResource(R.drawable.movviz_mark), contentDescription = "Movviz", modifier = Modifier.width(32.dp).height(32.dp), contentScale = ContentScale.Fit)
+        listOf(HomeTab.HOME, HomeTab.SERIES, HomeTab.MOVIES).forEach { tab ->
+            val active = selected == tab
+            Surface(onClick = { onSelect(tab) }, modifier = Modifier.height(40.dp).tvPointerClick { onSelect(tab) },
+                shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(20.dp)),
+                colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = if (active) Color(0xFF383941) else Color.Transparent, focusedContainerColor = Color(0xFF4A4B53), contentColor = Color.White, focusedContentColor = Color.White)) {
+                Text(tab.label, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 9.dp, vertical = 10.dp))
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        Surface(onClick = onSearchToggle, modifier = Modifier.width(44.dp).height(44.dp).tvPointerClick(onSearchToggle),
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color(0xFF3A3B42), contentColor = Color.White, focusedContentColor = Color.White)) {
+            Icon(MovvizIconSearch, "Recherche", Modifier.padding(11.dp), Color.White)
+        }
+        Surface(onClick = { menuOpen = true }, modifier = Modifier.width(44.dp).height(44.dp).tvPointerClick { menuOpen = true },
+            shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color(0xFF2A2B31), focusedContainerColor = Color(0xFF4A4B53), contentColor = Color.White, focusedContentColor = Color.White)) {
+            Text("•••", fontSize = 16.sp, modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp))
+        }
+    }
+    if (menuOpen) Popup(alignment = Alignment.TopEnd, properties = PopupProperties(focusable = true), onDismissRequest = { menuOpen = false }) {
+        androidx.compose.foundation.layout.Column(Modifier.padding(top = 60.dp, end = 12.dp).width(210.dp).background(Color(0xFF1B1B20), RoundedCornerShape(14.dp)).padding(8.dp)) {
+            @Composable fun item(label: String, action: () -> Unit) { Surface(onClick = { menuOpen = false; action() }, modifier = Modifier.fillMaxWidth().height(46.dp).tvPointerClick { menuOpen = false; action() }, shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(9.dp)), colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(containerColor = Color.Transparent, focusedContainerColor = Color(0xFF454650), contentColor = Color.White, focusedContentColor = Color.White)) { Text(label, modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) } }
+            item("Mon profil", onOpenProfile)
+            item("Changer de profil", onSwitchProfile)
+            item("Paramètres", onOpenSettings)
+            if (updateAvailableTag != null) item("Mettre à jour", onUpdateClick)
         }
     }
 }

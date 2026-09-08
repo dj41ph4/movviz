@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,6 +28,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -62,6 +66,7 @@ import kotlinx.coroutines.delay
  *  sert à AJOUTER un utilisateur au foyer : le titre l'indique. */
 @Composable
 fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer: () -> Unit = {}, addMode: Boolean = false) {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -102,10 +107,12 @@ fun LoginScreen(viewModel: AppViewModel, onLoggedIn: () -> Unit, onChangeServer:
     ) {
         Column(
             modifier = Modifier
-                .width(400.dp)
+                .then(if (compactPortrait) Modifier.fillMaxWidth().padding(horizontal = 20.dp) else Modifier.width(400.dp))
+                .widthIn(max = 400.dp)
+                .then(if (compactPortrait) Modifier.verticalScroll(rememberScrollState()).imePadding() else Modifier)
                 .background(Color(0xFF101225), RoundedCornerShape(26.dp))
                 .border(1.dp, Color(0xFF292D45), RoundedCornerShape(26.dp))
-                .padding(horizontal = 34.dp, vertical = 32.dp),
+                .padding(horizontal = if (compactPortrait) 22.dp else 34.dp, vertical = if (compactPortrait) 24.dp else 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             AnimatedLogo(size = 52.dp)
@@ -296,6 +303,7 @@ private fun extractPlexCode(authUrl: String): String? {
 
 @Composable
 private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Unit) {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .78f)), contentAlignment = Alignment.Center) {
         // Focus D-pad initial : l'overlay est un simple Box posé PAR-DESSUS
         // la carte de login (pas un Dialog ni un Popup) — sans demande
@@ -317,13 +325,21 @@ private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Uni
         }
         val linkUrl = "https://plex.tv/link/?pin=${Uri.encode(code)}"
         val qr = remember(linkUrl) { createQrBitmap(linkUrl, 360) }
-        Column(Modifier.width(700.dp).background(Color(0xFF101225), RoundedCornerShape(22.dp)).padding(30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier
+                .then(if (compactPortrait) Modifier.fillMaxWidth().padding(20.dp) else Modifier.width(700.dp))
+                .widthIn(max = 700.dp)
+                .verticalScroll(rememberScrollState())
+                .background(Color(0xFF101225), RoundedCornerShape(22.dp))
+                .padding(if (compactPortrait) 20.dp else 30.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Text("Connexion Plex", fontSize = 25.sp, fontWeight = FontWeight.Bold, color = Color.White)
             Spacer(Modifier.height(12.dp))
             Text("Scanne le QR code ou ouvre plex.tv/link", fontSize = 14.sp, color = MovvizInkSoft)
             Spacer(Modifier.height(18.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(34.dp)) {
-                qr?.let { Image(bitmap = it.asImageBitmap(), contentDescription = "QR code Plex", modifier = Modifier.size(180.dp)) }
+            val codeLayout: @Composable () -> Unit = {
+                qr?.let { Image(bitmap = it.asImageBitmap(), contentDescription = "QR code Plex", modifier = Modifier.size(if (compactPortrait) 144.dp else 180.dp)) }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Code TV", fontSize = 14.sp, color = MovvizInkDim)
                     Spacer(Modifier.height(6.dp))
@@ -331,6 +347,8 @@ private fun PlexCodeOverlay(code: String, onOpen: () -> Unit, onClose: () -> Uni
                     Text("plex.tv/link", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MovvizAmber)
                 }
             }
+            if (compactPortrait) Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) { codeLayout() }
+            else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(34.dp)) { codeLayout() }
             Spacer(Modifier.height(8.dp))
             Text("La TV attend automatiquement la validation…", fontSize = 13.sp, color = MovvizInkDim)
             Spacer(Modifier.height(22.dp))

@@ -25,6 +25,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -52,6 +53,7 @@ fun ProfileScreen(
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit,
     onScrollChanged: (Boolean) -> Unit = {},
 ) {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val data by viewModel.profileMedia.collectAsState()
     val activeProfile by viewModel.activeProfile.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadProfileMedia() }
@@ -69,12 +71,12 @@ fun ProfileScreen(
     LazyColumn(
         state = listState,
         modifier = Modifier.fillMaxSize().background(MovvizBackground)
-            .padding(start = 56.dp, end = 56.dp, bottom = 48.dp),
+            .padding(start = if (compactPortrait) 16.dp else 56.dp, end = if (compactPortrait) 16.dp else 56.dp, bottom = if (compactPortrait) 24.dp else 48.dp),
         // C'est du padding de contenu, pas une marge fixe : une fois la page
         // défilée, une rangée remonte naturellement sous la barre opaque au
         // lieu de laisser un grand trou noir permanent.
-        contentPadding = PaddingValues(top = 156.dp, bottom = 40.dp),
-        verticalArrangement = Arrangement.spacedBy(30.dp),
+        contentPadding = PaddingValues(top = if (compactPortrait) 76.dp else 156.dp, bottom = if (compactPortrait) 24.dp else 40.dp),
+        verticalArrangement = Arrangement.spacedBy(if (compactPortrait) 22.dp else 30.dp),
     ) {
         if (profileData == null) {
             item { ProfileLoadingDashboard() }

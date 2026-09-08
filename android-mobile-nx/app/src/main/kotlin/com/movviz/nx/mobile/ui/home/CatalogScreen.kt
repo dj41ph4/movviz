@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -72,6 +73,7 @@ fun CatalogScreen(
     onModeChange: (MediaHubMode) -> Unit = {},
     onScrollChanged: (Boolean) -> Unit = {},
 ) {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val movies by viewModel.movies.collectAsState()
     val series by viewModel.series.collectAsState()
     val movieGenres by viewModel.movieGenres.collectAsState()
@@ -117,7 +119,12 @@ fun CatalogScreen(
     // Catalogue 10-foot : un inventaire dense et calme, proche de Plex.
     // Les contrôles restent compacts afin que les premières affiches soient
     // immédiatement visibles en 1080p comme en 4K.
-    Column(Modifier.fillMaxSize().padding(start = 56.dp, top = 78.dp, end = 52.dp, bottom = 30.dp)) {
+    Column(Modifier.fillMaxSize().padding(
+        start = if (compactPortrait) 16.dp else 56.dp,
+        top = if (compactPortrait) 72.dp else 78.dp,
+        end = if (compactPortrait) 16.dp else 52.dp,
+        bottom = if (compactPortrait) 24.dp else 30.dp,
+    )) {
         MediaHubToggleRow(
             mode = mode,
             onModeChange = onModeChange,
@@ -126,7 +133,7 @@ fun CatalogScreen(
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(22.dp))
         Text(
             text = "${type.label} · ${sorted.size}",
-            style = TextStyle(fontSize = 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
+            style = TextStyle(fontSize = if (compactPortrait) 23.sp else 26.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onBackground),
         )
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
         SortRow(sort = sort, onSelect = { sort = it })
@@ -146,9 +153,9 @@ fun CatalogScreen(
                 // 132dp donne 6 à 7 affiches lisibles en 1080p (et davantage
                 // en 4K) : assez dense pour une bibliothèque TV, sans devenir
                 // une mosaïque illisible à trois mètres.
-                columns = TvGridCells.FixedSize(132.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
+                columns = TvGridCells.FixedSize(if (compactPortrait) 150.dp else 132.dp),
+                horizontalArrangement = Arrangement.spacedBy(if (compactPortrait) 10.dp else 12.dp),
+                verticalArrangement = Arrangement.spacedBy(if (compactPortrait) 14.dp else 18.dp),
                 modifier = Modifier.fillMaxSize(),
                 state = gridState,
             ) {
@@ -167,7 +174,7 @@ fun CatalogScreen(
                         // dessus au focus — mais la carte NE grandit PAS en
                         // paysage ici (grille verticale, pas de rangée : un
                         // agrandissement décalerait les cartes voisines).
-                        width = 132.dp,
+                        width = if (compactPortrait) 150.dp else 132.dp,
                         aspectRatio = 2f / 3f,
                         preferPosterArt = true,
                         // La bibliothèque n'est pas une rangée éditoriale :
