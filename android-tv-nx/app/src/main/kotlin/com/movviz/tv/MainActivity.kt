@@ -6,13 +6,25 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,6 +38,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -33,7 +46,10 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -265,7 +281,21 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             modifier = Modifier.fillMaxSize().background(com.movviz.tv.ui.theme.MovvizBackground),
             contentAlignment = Alignment.Center,
         ) {
-            com.movviz.tv.ui.theme.AnimatedLogo(size = 56.dp)
+            // Entrée pro et sobre : fondu + léger scale-in du lockup officiel
+            // (asset réel R.drawable.movviz_lockup, jamais redessiné) — pas
+            // d'étirement ni de déformation. Même langage que le splash
+            // desktop (DashboardSplash.tsx) et le mobile NX.
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(500)) + scaleIn(initialScale = 0.92f, animationSpec = tween(500)),
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.movviz_lockup),
+                    contentDescription = "Movviz",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.width(220.dp),
+                )
+            }
         }
         return
     }

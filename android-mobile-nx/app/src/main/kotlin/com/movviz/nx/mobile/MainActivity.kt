@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -24,11 +25,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,6 +57,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.style.TextOverflow
@@ -295,7 +303,21 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
             modifier = Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizBackground),
             contentAlignment = Alignment.Center,
         ) {
-            com.movviz.nx.mobile.ui.theme.AnimatedLogo(size = 56.dp)
+            // Entrée pro et sobre : fondu + léger scale-in du lockup officiel
+            // (asset réel R.drawable.movviz_lockup, jamais redessiné) — pas
+            // d'étirement ni de déformation. Même langage que le splash
+            // desktop (DashboardSplash.tsx).
+            AnimatedVisibility(
+                visible = true,
+                enter = fadeIn(tween(500)) + scaleIn(initialScale = 0.92f, animationSpec = tween(500)),
+            ) {
+                Image(
+                    painter = painterResource(R.drawable.movviz_lockup),
+                    contentDescription = "Movviz",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.width(180.dp),
+                )
+            }
         }
         return
     }

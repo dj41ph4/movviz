@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -28,14 +27,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.BlurredEdgeTreatment
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -108,17 +105,15 @@ fun AnimatedLogo(size: Dp = 56.dp) {
                 )
                 .blur(9.dp, edgeTreatment = BlurredEdgeTreatment.Unbounded),
         )
-        Box(
-            modifier = Modifier
-                .size(innerSize)
-                .scale(breathe)
-                .clip(RoundedCornerShape(if (size <= 40.dp) 16.dp else 18.dp))
-                // .brand-gradient : violet -> violet clair -> magenta, 120deg
-                .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2, MovvizFlowMagenta))),
-            contentAlignment = Alignment.Center,
-        ) {
-            ClapperboardGlyph(Modifier.size(iconSize))
-        }
+        // Logo officiel Movviz : asset réel (R.drawable.movviz_mark, même
+        // fichier que le mark desktop et Android mobile NX), plus jamais le
+        // clapperboard historique ni une tuile en dégradé recréée à la main.
+        Image(
+            painter = painterResource(R.drawable.movviz_mark),
+            contentDescription = "Movviz",
+            contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+            modifier = Modifier.size(size).scale(breathe),
+        )
     }
 }
 
@@ -129,19 +124,12 @@ fun AnimatedLogo(size: Dp = 56.dp) {
  */
 @Composable
 fun StaticLogo(size: Dp = 30.dp) {
-    Box(
-        modifier = Modifier
-            .size(size)
-            .clip(RoundedCornerShape(size * .4f))
-            .background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2, MovvizFlowMagenta))),
-        contentAlignment = Alignment.Center,
-    ) {
-        // La même géométrie Lucide que le logo desktop, sans version
-        // « simplifiée » : le rail, le login et le launcher parlent enfin
-        // d'une seule marque.
-        // Desktop sm : icône 20px dans un carré 40px.
-        ClapperboardGlyph(Modifier.size(size * 0.5f))
-    }
+    Image(
+        painter = painterResource(R.drawable.movviz_mark),
+        contentDescription = "Movviz",
+        contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+        modifier = Modifier.size(size),
+    )
 }
 
 /** Variante de tuile/dashboard : même halo multicolore que le logo animé,
@@ -153,20 +141,6 @@ fun StaticLogoWithGlow(size: Dp = 54.dp) {
         MulticolorBlurHalo(size = size + 24.dp, rotation = 0f)
         StaticLogo(size = size * (44f / 56f))
     }
-}
-
-/**
- * Même VectorDrawable que le `Clapperboard` Lucide du desktop : l'asset XML
- * reprend son SVG à l'identique, ce composable ne fait que l'afficher.
- */
-@Composable
-private fun ClapperboardGlyph(modifier: Modifier) {
-    Image(
-        painter = painterResource(R.drawable.ic_movviz_clapperboard),
-        contentDescription = null,
-        colorFilter = ColorFilter.tint(Color.White),
-        modifier = modifier,
-    )
 }
 
 /**

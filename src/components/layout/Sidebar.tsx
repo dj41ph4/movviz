@@ -107,14 +107,9 @@ export function Sidebar({ version }: { version: string }) {
   return (
     <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col gap-2 border-r border-white/5 bg-abyss/60 px-4 py-6 backdrop-blur-xl lg:flex">
       {/* Brand */}
-      <Link href="/" className="group mb-6 flex items-center gap-3 px-2">
+      <Link href="/" className="group mb-6 flex items-center gap-2.5 px-2">
         <AnimatedLogo size="sm" />
-        <div className="leading-tight">
-          <div className="text-logo-flow text-lg font-black tracking-tight">Movviz</div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-ink-dim">
-            {t("brand.tagline")}
-          </div>
-        </div>
+        <span className="text-lg font-black tracking-tight text-ink">Movviz</span>
       </Link>
 
       {/* Nav */}
@@ -260,20 +255,20 @@ function NavRow({ item, pathname, searchParams, liveCount, pulseBadge }: { item:
       href={item.href}
       className={cn(
         "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-base font-semibold transition-colors ring-focus",
-        active ? "text-brand-glow" : "text-ink-soft hover:text-ink"
+        active ? "text-white" : "text-ink-soft hover:text-ink"
       )}
     >
       {active && (
         <motion.span
           layoutId="nav-active"
-          className="absolute inset-0 -z-10 rounded-xl border border-brand/30 bg-brand/12"
+          className="absolute inset-0 -z-10 rounded-xl brand-gradient"
           transition={{ type: "spring", stiffness: 380, damping: 32 }}
         />
       )}
       <Icon
         className={cn(
           "h-[18px] w-[18px] transition-colors",
-          active ? "text-brand-glow" : "text-ink-dim group-hover:text-ink-soft"
+          active ? "text-white" : "text-ink-dim group-hover:text-ink-soft"
         )}
       />
       <span className="flex-1">{t(item.labelKey)}</span>
@@ -325,13 +320,13 @@ function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloa
       <div
         className={cn(
           "group relative flex items-center rounded-xl ring-focus",
-          onGestion ? "text-brand-glow" : "text-ink-soft hover:text-ink"
+          onGestion ? "text-white" : "text-ink-soft hover:text-ink"
         )}
       >
         {onGestion && (
           <motion.span
             layoutId="nav-active"
-            className="absolute inset-0 -z-10 rounded-xl border border-brand/30 bg-brand/12"
+            className="absolute inset-0 -z-10 rounded-xl brand-gradient"
             transition={{ type: "spring", stiffness: 380, damping: 32 }}
           />
         )}
@@ -342,7 +337,7 @@ function GestionNavItem({ pathname, pendingRequests, pendingUsers, activeDownloa
           <ClipboardList
             className={cn(
               "h-[18px] w-[18px] transition-colors",
-              onGestion ? "text-brand-glow" : "text-ink-dim group-hover:text-ink-soft"
+              onGestion ? "text-white" : "text-ink-dim group-hover:text-ink-soft"
             )}
           />
           <span className="flex-1 text-left">{t("nav.management")}</span>

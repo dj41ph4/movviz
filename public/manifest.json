@@ -7,6 +7,6 @@
   "background_color": "#05060b",
   "theme_color": "#05060b",
   "icons": [
-    { "src": "/brand/movviz-logo.png", "sizes": "1254x1254", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/brand/movviz-logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
