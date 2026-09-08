@@ -24,12 +24,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -638,8 +636,14 @@ private fun PortraitBottomNav(
         Item(HomeTab.MOVIES, "Films", MovvizIconFilm),
         Item(HomeTab.PROFILE, profileLabel, MovvizIconDotCircle),
     )
+    // Le dock est volontairement plus petit que le contenu et ne touche
+    // jamais la zone des gestes. Une barre pleine largeur ou trop basse fait
+    // immédiatement "web app" et masque les cartes de la dernière rangée.
     Column(
-        modifier = modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (updateTag != null) {
@@ -668,62 +672,85 @@ private fun PortraitBottomNav(
                     )
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
         }
-        Row(
-            modifier = Modifier
-                .wrapContentWidth()
-                .shadow(18.dp, RoundedCornerShape(34.dp), clip = false)
-                .background(Color(0xF2212125), RoundedCornerShape(34.dp))
-                .border(1.dp, Color.White.copy(alpha = .10f), RoundedCornerShape(34.dp))
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        // Les cellules restent strictement égales. Ainsi l'icône ne se
+        // déplace jamais quand le libellé actif apparaît : seul ce dernier
+        // anime dans sa propre ligne, juste au-dessus du dock.
+        Column(
+            modifier = Modifier.wrapContentWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            items.forEach { item ->
-                val active = selected == item.tab
-                val itemWidth by animateDpAsState(
-                    targetValue = if (active) 136.dp else 42.dp,
-                    animationSpec = tween(durationMillis = 220),
-                    label = "portraitNavWidth",
-                )
-                Surface(
-                    onClick = { onSelect(item.tab) },
-                    modifier = Modifier
-                        .width(itemWidth)
-                        .height(54.dp)
-                        .tvPointerClick { onSelect(item.tab) },
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(28.dp)),
-                    colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (active) Color(0xFF474750) else Color.Transparent,
-                        focusedContainerColor = Color(0xFF5C5C68),
-                        contentColor = Color.White,
-                        focusedContentColor = Color.White,
-                    ),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = if (active) 13.dp else 0.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically,
+            Row(
+                modifier = Modifier.height(26.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.Top,
+            ) {
+                items.forEach { item ->
+                    val active = selected == item.tab
+                    Box(
+                        modifier = Modifier.width(48.dp).height(26.dp),
+                        contentAlignment = Alignment.TopCenter,
                     ) {
-                        Icon(
-                            item.icon,
-                            item.label,
-                            modifier = Modifier.size(22.dp),
-                            tint = if (active) Color(0xFFF4F0FF) else Color(0xFFC8C8D0),
-                        )
-                        AnimatedVisibility(
+                        androidx.compose.animation.AnimatedVisibility(
                             visible = active,
-                            enter = fadeIn(tween(150)) + expandHorizontally(tween(220)),
-                            exit = fadeOut(tween(100)) + shrinkHorizontally(tween(160)),
+                            enter = fadeIn(tween(120)) + expandHorizontally(tween(180)),
+                            exit = fadeOut(tween(90)) + shrinkHorizontally(tween(140)),
                         ) {
-                            Text(
+                            Box(
+                                modifier = Modifier
+                                    .wrapContentWidth(unbounded = true)
+                                    .height(24.dp)
+                                    .background(Color(0xFF45454D), RoundedCornerShape(12.dp))
+                                    .padding(horizontal = 10.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    item.label,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = Color.White,
+                                    modifier = Modifier.padding(horizontal = 10.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Row(
+                modifier = Modifier
+                    .wrapContentWidth()
+                    .shadow(14.dp, RoundedCornerShape(30.dp), clip = false)
+                    .background(Color(0xF51D1D20), RoundedCornerShape(30.dp))
+                    .border(1.dp, Color.White.copy(alpha = .12f), RoundedCornerShape(30.dp))
+                    .padding(horizontal = 6.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                items.forEach { item ->
+                    val active = selected == item.tab
+                    Surface(
+                        onClick = { onSelect(item.tab) },
+                        modifier = Modifier
+                            .width(48.dp)
+                            .height(50.dp)
+                            .tvPointerClick { onSelect(item.tab) },
+                        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(25.dp)),
+                        colors = ClickableSurfaceDefaults.colors(
+                            containerColor = if (active) Color(0xFF45454D) else Color.Transparent,
+                            focusedContainerColor = Color(0xFF5D5D68),
+                            contentColor = Color.White,
+                            focusedContentColor = Color.White,
+                        ),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                item.icon,
                                 item.label,
-                                fontSize = 12.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                color = Color.White,
-                                modifier = Modifier.padding(start = 8.dp),
+                                modifier = Modifier.size(21.dp),
+                                tint = if (active) Color.White else Color(0xFFC3C3CB),
                             )
                         }
                     }
