@@ -49,6 +49,7 @@ import com.movviz.nx.mobile.data.TvProfile
 import com.movviz.nx.mobile.R
 import com.movviz.nx.mobile.ui.theme.MovvizIconSearch
 import com.movviz.nx.mobile.ui.theme.MovvizIconSettings
+import com.movviz.nx.mobile.ui.theme.tvPointerClick
 import coil.compose.AsyncImage
 
 /** Navigation NX: très peu de chrome, sans réserver une colonne au contenu. */
@@ -148,7 +149,12 @@ fun NxTopNav(
                 modifier = Modifier
                     .let { if (tab == selected && navRailFocusRequester != null) it.focusRequester(navRailFocusRequester) else it }
                     .onPreviewKeyEvent(moveDownToContent)
-                    .height(38.dp),
+                    .height(38.dp)
+                    // Compose TV Surface gère le D-pad, mais ne transforme
+                    // pas systématiquement un tap en clic. La barre mobile
+                    // est une couche au premier plan : chaque action doit
+                    // donc recevoir explicitement le pointeur.
+                    .tvPointerClick { onSelect(tab) },
                 shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
                 colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                     containerColor = if (active) Color(0xFF2A2B31) else Color.Transparent,
@@ -171,7 +177,7 @@ fun NxTopNav(
         if (!compactWidth) Spacer(Modifier.weight(1f)) else Spacer(Modifier.width(4.dp))
         Surface(
             onClick = onSearchToggle,
-            modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent),
+            modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).tvPointerClick(onSearchToggle),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                 containerColor = Color.Black.copy(alpha = 0.42f),
@@ -184,7 +190,7 @@ fun NxTopNav(
         }
         Surface(
             onClick = onOpenSettings,
-            modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent),
+            modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).tvPointerClick(onOpenSettings),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                 containerColor = Color.Black.copy(alpha = 0.42f),
@@ -209,7 +215,7 @@ fun NxTopNav(
             )
             Surface(
                 onClick = onUpdateClick,
-                modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).graphicsLayer { alpha = updatePulse },
+                modifier = Modifier.height(38.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).graphicsLayer { alpha = updatePulse }.tvPointerClick(onUpdateClick),
                 shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(RoundedCornerShape(19.dp)),
                 colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                     containerColor = Color(0xFFE84AD9), focusedContainerColor = Color.White,
@@ -223,7 +229,7 @@ fun NxTopNav(
             // Avatar = raccourci de changement de profil ; l'onglet Mon
             // profil reste consacré au tableau de bord personnel.
             onClick = onSwitchProfile,
-            modifier = Modifier.height(42.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent),
+            modifier = Modifier.height(42.dp).width(42.dp).onPreviewKeyEvent(moveDownToContent).tvPointerClick(onSwitchProfile),
             shape = androidx.tv.material3.ClickableSurfaceDefaults.shape(CircleShape),
             colors = androidx.tv.material3.ClickableSurfaceDefaults.colors(
                 containerColor = Color.Black.copy(alpha = 0.42f),

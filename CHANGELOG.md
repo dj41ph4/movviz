@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.84 — September 2026
+
+### NX Mobile — actions au premier plan tactiles
+
+Répare les actions superposées de NX Mobile : les onglets Accueil/Séries/Films/Profil, recherche, paramètres, changement de profil et signal de mise à jour captent désormais explicitement le toucher en plus du D-pad. Les contrôles de lecture conservent le même traitement tactile.
+
 ## v1.24.83 — September 2026
 
 ### Movviz NX Mobile — port direct de NX TV
