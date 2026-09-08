@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +21,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,6 +45,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -45,6 +55,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.zIndex
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
@@ -660,42 +671,57 @@ private fun PortraitBottomNav(
             Spacer(Modifier.height(8.dp))
         }
         Row(
-            modifier = Modifier.fillMaxWidth().background(Color(0xED202020), RoundedCornerShape(32.dp)).padding(horizontal = 6.dp, vertical = 5.dp),
+            modifier = Modifier
+                .wrapContentWidth()
+                .shadow(18.dp, RoundedCornerShape(34.dp), clip = false)
+                .background(Color(0xF2212125), RoundedCornerShape(34.dp))
+                .border(1.dp, Color.White.copy(alpha = .10f), RoundedCornerShape(34.dp))
+                .padding(horizontal = 8.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             items.forEach { item ->
                 val active = selected == item.tab
+                val itemWidth by animateDpAsState(
+                    targetValue = if (active) 136.dp else 42.dp,
+                    animationSpec = tween(durationMillis = 220),
+                    label = "portraitNavWidth",
+                )
                 Surface(
                     onClick = { onSelect(item.tab) },
                     modifier = Modifier
-                        .width(if (active) 118.dp else 44.dp)
-                        .height(58.dp)
+                        .width(itemWidth)
+                        .height(54.dp)
                         .tvPointerClick { onSelect(item.tab) },
-                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(30.dp)),
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(28.dp)),
                     colors = ClickableSurfaceDefaults.colors(
-                        containerColor = if (active) Color(0xFF393942) else Color.Transparent,
-                        focusedContainerColor = Color(0xFF50505C),
+                        containerColor = if (active) Color(0xFF474750) else Color.Transparent,
+                        focusedContainerColor = Color(0xFF5C5C68),
                         contentColor = Color.White,
                         focusedContentColor = Color.White,
                     ),
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = if (active) 14.dp else 0.dp),
+                        modifier = Modifier.padding(horizontal = if (active) 13.dp else 0.dp),
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             item.icon,
                             item.label,
-                            modifier = Modifier.size(24.dp),
-                            tint = if (active) Color.White else Color(0xFFC5C5CB),
+                            modifier = Modifier.size(22.dp),
+                            tint = if (active) Color(0xFFF4F0FF) else Color(0xFFC8C8D0),
                         )
-                        if (active) {
+                        AnimatedVisibility(
+                            visible = active,
+                            enter = fadeIn(tween(150)) + expandHorizontally(tween(220)),
+                            exit = fadeOut(tween(100)) + shrinkHorizontally(tween(160)),
+                        ) {
                             Text(
                                 item.label,
-                                fontSize = 13.sp,
+                                fontSize = 12.sp,
                                 maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 color = Color.White,
                                 modifier = Modifier.padding(start = 8.dp),
                             )

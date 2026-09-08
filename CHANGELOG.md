@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.88 — September 2026
+
+### NX Mobile et NX TV
+
+- Sépare explicitement les cartes de reprise des épisodes récemment ajoutés : seules les premières peuvent afficher « Reprendre », une progression et une vignette de reprise ; les épisodes récents affichent uniquement leur badge `Sxx · Exx`.
+- Recompose le dock portrait de NX Mobile : flottant, centré, compact, avec expansion et fondu fluides de l’onglet actif ; le contenu réserve désormais l’espace nécessaire sous la dernière rangée.
+
 ## v1.24.87 — September 2026
 
 ### NX Mobile et NX TV

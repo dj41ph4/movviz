@@ -148,6 +148,10 @@ internal data class TvTitleCard(
     /** Non-null uniquement pour une carte "Continuer à regarder" — affiche
      *  une fine barre de progression en bas du poster. */
     val progressPercent: Int? = null,
+    /** Vrai seulement pour le rail « Continuer à regarder ». Les données
+     * d'un épisode ajouté peuvent contenir une position héritée, mais ne
+     * doivent jamais devenir une fausse reprise. */
+    val isResumeCard: Boolean = false,
     /** "4K"/"1080p"/... — voir resolutionLabel(). Absent pour tout ce qui
      *  n'a pas de fichier réel en bibliothèque (séries, découverte). */
     val qualityLabel: String? = null,
@@ -169,6 +173,12 @@ internal data class TvTitleCard(
     /** Still TMDb de l'épisode repris — distinct du poster vertical de la
      * série, réservé à « Continuer à regarder ». */
     val resumeEpisodeStillPath: String? = null,
+    /** Contexte d'épisode éditorial. Contrairement aux champs `resume*`, il
+     * n'implique jamais une reprise ni une barre de progression. Il sert aux
+     * rangées « Épisodes récemment ajoutés ». */
+    val episodeSeasonNumber: Int? = null,
+    val episodeNumber: Int? = null,
+    val episodeTitle: String? = null,
 )
 
 /** Rangée d'accueil multi-type. Accueil est le seul endroit où films et séries
@@ -278,10 +288,14 @@ fun HomeScreen(
                 isMovie = resume.type == "movie",
                 rating = resume.rating,
                 progressPercent = resume.progressPercent,
+                isResumeCard = true,
                 resumeSeasonNumber = resume.seasonNumber,
                 resumeEpisodeNumber = resume.episodeNumber,
                 resumeEpisodeTitle = resume.episodeTitle,
                 resumeEpisodeStillPath = resume.episodeStillPath,
+                episodeSeasonNumber = resume.seasonNumber,
+                episodeNumber = resume.episodeNumber,
+                episodeTitle = resume.episodeTitle,
             )
         }.distinctBy { it.id }
     }
@@ -291,8 +305,8 @@ fun HomeScreen(
                 id = "recent-episode-${episode.tmdbId}-${episode.seasonNumber}-${episode.episodeNumber}",
                 title = episode.seriesTitle, posterPath = episode.posterPath, backdropPath = episode.backdropPath,
                 tmdbId = episode.tmdbId, isMovie = false, rating = episode.rating,
-                resumeSeasonNumber = episode.seasonNumber, resumeEpisodeNumber = episode.episodeNumber,
-                resumeEpisodeTitle = episode.episodeTitle,
+                episodeSeasonNumber = episode.seasonNumber, episodeNumber = episode.episodeNumber,
+                episodeTitle = episode.episodeTitle,
             )
         }.distinctBy { it.id }.take(20)
     }
@@ -476,7 +490,7 @@ fun HomeScreen(
             // Le hero peut donc occuper toute la largeur de la zone contenu,
             // sans marge à gauche ni recouvrement sous la navigation. Les
             // rangées gardent leurs propres marges internes (LazyRow/heading).
-            contentPadding = PaddingValues(bottom = if (compactPortrait) 132.dp else 72.dp),
+            contentPadding = PaddingValues(bottom = if (compactPortrait) 156.dp else 72.dp),
         ) {
             item(contentType = "topAnchor") {
                 // Tant qu'aucune donnée n'est arrivée (ni hero ni la moindre
@@ -1620,7 +1634,7 @@ internal fun PosterCard(
     // Une affiche reste une affiche : jamais de backdrop paysage recadré
     // dans un cadre 2:3. Le backdrop est réservé au seul état paysage.
     val resumeEpisodeStillUrl = card.resumeEpisodeStillPath?.let { "$TMDB_BACKDROP_BASE$it" }
-    val usesEpisodeResumeArtwork = card.progressPercent != null &&
+    val usesEpisodeResumeArtwork = card.isResumeCard && card.progressPercent != null &&
         card.resumeSeasonNumber != null && card.resumeEpisodeNumber != null && resumeEpisodeStillUrl != null
     val portraitUrl = if (usesEpisodeResumeArtwork) resumeEpisodeStillUrl else posterUrl ?: backdropUrl
     Column(modifier = Modifier.width(renderedWidth).zIndex(if (expanded) 2f else 0f)) {
@@ -1685,17 +1699,14 @@ internal fun PosterCard(
                         }
                     }
                 }
-                // La rangée « Continuer à regarder » représente la série
-                // par son affiche. Sans repère S/E, impossible de savoir
-                // quel épisode reprendra réellement la lecture. Le badge
-                // reste réservé aux reprises ayant une progression : les
-                // films et les rangées « récemment ajoutés » ne reçoivent
-                // donc jamais un faux contexte d'épisode.
-                val episodeResumeBadge = card.progressPercent != null &&
-                    card.resumeSeasonNumber != null && card.resumeEpisodeNumber != null
-                if (episodeResumeBadge) {
+                // Le badge S/E est un contexte éditorial d'épisode. Il peut
+                // donc apparaître dans « Épisodes récemment ajoutés » comme
+                // dans « Continuer à regarder », sans transformer la carte
+                // récente en fausse reprise.
+                val episodeBadge = card.episodeSeasonNumber != null && card.episodeNumber != null
+                if (episodeBadge) {
                     Text(
-                        text = "S${card.resumeSeasonNumber.toString().padStart(2, '0')} · E${card.resumeEpisodeNumber.toString().padStart(2, '0')}",
+                        text = "S${card.episodeSeasonNumber.toString().padStart(2, '0')} · E${card.episodeNumber.toString().padStart(2, '0')}",
                         style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White),
                         maxLines = 1,
                         modifier = Modifier
@@ -1803,7 +1814,7 @@ internal fun PosterCard(
                             .padding(horizontal = 6.dp, vertical = 2.dp),
                     )
                 }
-                if (card.progressPercent != null) {
+                if (card.isResumeCard && card.progressPercent != null) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
@@ -1859,7 +1870,10 @@ internal fun PosterCard(
         // un épisode. Montrer Sxx:Eyy ici évite de faire croire que l'on va
         // recommencer la série et reproduit la densité d'information des
         // cartes de la référence, sans ajouter une nouvelle cible D-pad.
-            val resumeMetadata = card.resumeSeasonNumber?.let { season ->
+            // « Reprendre » est une action, jamais un libellé générique
+            // d'épisode. Il exige une progression réelle provenant du rail
+            // Continuer à regarder.
+            val resumeMetadata = card.takeIf { it.isResumeCard }?.progressPercent?.let { card.resumeSeasonNumber }?.let { season ->
                 buildString {
                     append("Reprendre · S")
                     append(season.toString().padStart(2, '0'))
