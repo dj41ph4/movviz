@@ -144,6 +144,14 @@ function SessionRow({ s, t }: { s: AnySession; t: (k: string, params?: Record<st
         )}
 
         <div className="flex flex-wrap items-center gap-1 pt-0.5">
+          {/* Logo de la source (Plex ou Movviz natif) juste avant le badge
+             de décision — fichiers réels de marque, jamais redessinés. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={s.origin === "plex" ? "/brand/plex-logo.png" : "/brand/movviz-mark.png"}
+            alt={s.origin === "plex" ? "Plex" : "Movviz"}
+            className="h-3 w-auto shrink-0 opacity-90"
+          />
           <span className={cn("rounded-full border px-1.5 py-0.5 text-[10px] font-bold", transcodePill.cls)}>
             {transcodePill.text}
           </span>
