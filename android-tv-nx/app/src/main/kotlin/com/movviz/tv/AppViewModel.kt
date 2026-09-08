@@ -1033,26 +1033,27 @@ suspend fun login(username: String, password: String): ApiResult<MovvizUserDto> 
      * reflète recherche → téléchargement → disponibilité en direct, sans
      * polling de toutes les bibliothèques. */
     fun refreshTitleLibraryEntry(type: String, tmdbId: Int) {
-        val repo = repository ?: return
         viewModelScope.launch {
-            if (type == "movie") {
-                when (val result = repo.movieByTmdbId(tmdbId)) {
-                    is ApiResult.Success -> result.data?.let { updated ->
-                        _movies.value = _movies.value.replaceOrAppend(updated) { it.tmdbId }
-                    }
-                    ApiResult.Unauthorized -> _sessionExpired.value = true
-                    is ApiResult.Failure -> Unit
-                }
-            } else {
-                when (val result = repo.seriesByTmdbId(tmdbId)) {
-                    is ApiResult.Success -> result.data?.let { updated ->
-                        _series.value = _series.value.replaceOrAppend(updated) { it.tmdbId }
-                        loadSeriesSeasons(tmdbId)
-                    }
-                    ApiResult.Unauthorized -> _sessionExpired.value = true
-                    is ApiResult.Failure -> Unit
-                }
+            resolveTitleLibraryEntry(type, tmdbId)
+        }
+    }
+
+    /** Résolution prioritaire pour une fiche ouverte depuis Reprendre : le
+     * fichier/index local est consulté avant de rendre le CTA, sans attendre
+     * Plex qui n'est qu'un enrichisseur optionnel. */
+    suspend fun resolveTitleLibraryEntry(type: String, tmdbId: Int) {
+        val repo = repository ?: return
+        if (type == "movie") when (val result = repo.movieByTmdbId(tmdbId)) {
+            is ApiResult.Success -> result.data?.let { _movies.value = _movies.value.replaceOrAppend(it) { movie -> movie.tmdbId } }
+            ApiResult.Unauthorized -> _sessionExpired.value = true
+            is ApiResult.Failure -> Unit
+        } else when (val result = repo.seriesByTmdbId(tmdbId)) {
+            is ApiResult.Success -> result.data?.let { updated ->
+                _series.value = _series.value.replaceOrAppend(updated) { series -> series.tmdbId }
+                loadSeriesSeasons(tmdbId)
             }
+            ApiResult.Unauthorized -> _sessionExpired.value = true
+            is ApiResult.Failure -> Unit
         }
     }
 

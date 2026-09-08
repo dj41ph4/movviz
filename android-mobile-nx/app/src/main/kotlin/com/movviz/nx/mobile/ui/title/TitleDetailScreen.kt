@@ -158,6 +158,10 @@ fun TitleDetailScreen(
     // la liste d'épisodes garde tout l'espace et un parcours D-pad simple.
     var openSeasonNumber by remember(type, tmdbId) { mutableStateOf<Int?>(initialSeasonNumber) }
     var selectedEpisode by remember(type, tmdbId) { mutableStateOf<EpisodeSelection?>(null) }
+    // Avant ce verrou, une fiche ouverte depuis Reprendre pouvait afficher
+    // brièvement « Ajouter à la bibliothèque » alors que l'index local n'avait
+    // pas encore répondu. Ce n'est jamais une action valide à proposer.
+    var libraryResolved by remember(type, tmdbId) { mutableStateOf(false) }
     // Même cible à l'ouverture, en erreur et une fois les données chargées :
     // le D-pad ne se perd jamais pendant une réponse réseau lente.
     val initialFocusRequester = entryFocusRequester ?: remember { FocusRequester() }
@@ -192,6 +196,8 @@ fun TitleDetailScreen(
     }
 
     LaunchedEffect(type, tmdbId) {
+        viewModel.resolveTitleLibraryEntry(type, tmdbId)
+        libraryResolved = true
         viewModel.loadDetail(type, tmdbId)
         viewModel.loadHeroLogo(type, tmdbId)
         // On-deck chargé pour les DEUX types : le libellé « S1 · Ép 3 — titre »
@@ -781,6 +787,8 @@ fun TitleDetailScreen(
                                     onPlayFromStart(d.title, listOf(QueueItem(plexKey, null, -1, -1, localMovieId)), 0, d.posterPath)
                                 }
                             }
+                        } else if (!libraryResolved) {
+                            PrimaryPill(text = "Vérification du fichier…", brush = null, solidWhite = false, enabled = false, onClick = {})
                         } else if (!inLibrary) {
                             PrimaryPill(
                                 text = if (addingToLibrary) "Ajout…" else "Ajouter à la bibliothèque",
@@ -859,6 +867,8 @@ fun TitleDetailScreen(
                         }
                     }
                 }
+            } else if (!libraryResolved) {
+                PrimaryPill(text = "Vérification du fichier…", brush = null, solidWhite = false, enabled = false, onClick = {})
             } else if (!inLibrary) {
                 Row {
                     PrimaryPill(

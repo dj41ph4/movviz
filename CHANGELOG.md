@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.89 — September 2026
+
+### NX Mobile et NX TV
+
+- Une fiche ouverte depuis Reprendre résout désormais en priorité l’entrée de bibliothèque locale avant d’afficher ses actions. Un fichier déjà indexé ne propose donc plus jamais « Ajouter à la bibliothèque » pendant le chargement ; Plex reste optionnel.
+
 ## v1.24.88 — September 2026
 
 ### NX Mobile et NX TV
