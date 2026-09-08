@@ -4,7 +4,7 @@ import { getVerifiedOnDeck, resolvePlexServerAuth } from "./watchWrite";
 import { isEarlierEpisode } from "./onDeckPolicy";
 import { getMovieByPlexRatingKey, findEpisodeByPlexLocator } from "@/lib/library/store";
 import { listPlaybackProgress } from "@/lib/playback/progressStore";
-import { getMovie, getSeries } from "@/lib/metadata/tmdb";
+import { getMovie, getSeason, getSeries } from "@/lib/metadata/tmdb";
 import type { DashboardFileTechnical } from "@/lib/dashboard/interfaceTypes";
 import type { User } from "@/lib/auth/types";
 
@@ -13,9 +13,43 @@ export interface OnDeckEntry {
   tmdbId: number; title: string; posterPath: string | null; year: number | null; rating: number;
   progressPercent: number; offsetMs: number; seasonNumber?: number; episodeNumber?: number;
   episodeTitle?: string; plexRatingKey: string | null; plexUrl: string | null; movvizId?: string;
+  /** Vignette 16:9 de l'épisode. Elle reste distincte de l'affiche de la
+   * série : les clients NX l'emploient uniquement pour une reprise épisode. */
+  episodeStillPath?: string | null;
   seriesId?: string; technical?: DashboardFileTechnical;
   /** One clock for Movviz and Plex. Consumers sort this descending. */
   lastPlayedAt: number;
+}
+
+const EPISODE_STILL_TTL_MS = 6 * 60 * 60 * 1000;
+type EpisodeStillCache = Map<string, { value: string | null; expiresAt: number }>;
+
+/** TMDb ne change pas la vignette d'un épisode publié. Un cache partagé évite
+ * de refaire une requête saison à chaque polling de « Continuer à regarder ». */
+function episodeStillCache(): EpisodeStillCache {
+  const root = globalThis as typeof globalThis & { __movvizOnDeckEpisodeStills?: EpisodeStillCache };
+  return root.__movvizOnDeckEpisodeStills ??= new Map();
+}
+
+async function resolveEpisodeStillPath(tmdbId: number, seasonNumber: number, episodeNumber: number): Promise<string | null> {
+  const key = `${tmdbId}:s${seasonNumber}:e${episodeNumber}`;
+  const cache = episodeStillCache();
+  const cached = cache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const season = await getSeason(tmdbId, seasonNumber);
+  const value = season?.episodes.find((episode) => episode.episodeNumber === episodeNumber)?.stillPath ?? null;
+  cache.set(key, { value, expiresAt: Date.now() + EPISODE_STILL_TTL_MS });
+  return value;
+}
+
+async function attachEpisodeStills(items: OnDeckEntry[]): Promise<OnDeckEntry[]> {
+  const episodes = items.filter((item): item is OnDeckEntry & { type: "episode"; seasonNumber: number; episodeNumber: number } =>
+    item.type === "episode" && item.seasonNumber != null && item.episodeNumber != null,
+  );
+  await Promise.all(episodes.map(async (item) => {
+    item.episodeStillPath = await resolveEpisodeStillPath(item.tmdbId, item.seasonNumber, item.episodeNumber);
+  }));
+  return items;
 }
 
 function technical(file: { resolution: string | null; videoCodec: string | null; audioCodec: string | null; hdr: string | null } | null): DashboardFileTechnical | undefined {
@@ -41,7 +75,7 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const key = found.episode.plexRatingKey ?? p.ratingKey;
     items.push({ type: "episode", tmdbId: found.series.tmdbId, title: found.series.title, posterPath: found.series.posterPath, year: found.series.year, rating: found.series.rating, progressPercent: Math.min(100, Math.round(p.resumeOffsetMs / p.durationMs * 100)), offsetMs: p.resumeOffsetMs, seasonNumber: found.season.seasonNumber, episodeNumber: found.episode.episodeNumber, episodeTitle: found.episode.title, plexRatingKey: key, plexUrl: plexUrlFor(key), movvizId: `${found.series.id}:s${found.season.seasonNumber}e${found.episode.episodeNumber}`, seriesId: found.series.id, technical: technical(found.episode.file), lastPlayedAt: p.lastPlayedAt ?? p.updatedAt });
   }
-  if (!cfg.hostname) return items.sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
+  if (!cfg.hostname) return (await attachEpisodeStills(items)).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
 
   const onDeck = await getVerifiedOnDeck(user, cfg);
   // Plex is an optional peer, not a subset of the Movviz library. Resolve
@@ -103,5 +137,5 @@ export async function listOnDeckEntries(user: User): Promise<OnDeckEntry[]> {
     const current = newest.get(identity);
     if (!current || item.lastPlayedAt > current.lastPlayedAt) newest.set(identity, item);
   }
-  return [...newest.values()].sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
+  return (await attachEpisodeStills([...newest.values()])).sort((left, right) => right.lastPlayedAt - left.lastPlayedAt);
 }

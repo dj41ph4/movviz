@@ -236,6 +236,7 @@ private fun AutoUpdateToggle(viewModel: AppViewModel) {
  *  8-10%, jamais un aplat opaque. */
 @Composable
 private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     Column {
         Text(
             text = title.uppercase(),
@@ -244,10 +245,10 @@ private fun SettingsSection(title: String, content: @Composable ColumnScope.() -
         Spacer(modifier = Modifier.height(12.dp))
         Column(
             modifier = Modifier
-                .fillMaxWidth(0.78f)
+                .fillMaxWidth(if (compactPortrait) 1f else 0.78f)
                 .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(16.dp))
                 .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(16.dp))
-                .padding(horizontal = 22.dp, vertical = 20.dp),
+                .padding(horizontal = if (compactPortrait) 16.dp else 22.dp, vertical = if (compactPortrait) 16.dp else 20.dp),
             content = content,
         )
     }
@@ -255,7 +256,11 @@ private fun SettingsSection(title: String, content: @Composable ColumnScope.() -
 
 @Composable
 private fun InfoRow(label: String, value: String) {
-    Row {
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
+    if (compactPortrait) Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(text = label, style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim))
+        Text(text = value, style = TextStyle(fontSize = 15.sp, color = MovvizInk), maxLines = 2)
+    } else Row {
         Text(
             text = label,
             style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim),

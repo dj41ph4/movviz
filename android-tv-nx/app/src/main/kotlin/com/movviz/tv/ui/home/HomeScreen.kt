@@ -166,6 +166,9 @@ internal data class TvTitleCard(
      *  le poster reste celui de la série, donc le contexte doit rester
      *  visible sans ouvrir sa fiche. */
     val resumeEpisodeTitle: String? = null,
+    /** Still TMDb de l'épisode repris — distinct du poster vertical de la
+     * série, réservé à « Continuer à regarder ». */
+    val resumeEpisodeStillPath: String? = null,
 )
 
 /** Rangée d'accueil multi-type. Accueil est le seul endroit où films et séries
@@ -275,6 +278,7 @@ fun HomeScreen(
                 resumeSeasonNumber = resume.seasonNumber,
                 resumeEpisodeNumber = resume.episodeNumber,
                 resumeEpisodeTitle = resume.episodeTitle,
+                resumeEpisodeStillPath = resume.episodeStillPath,
             )
         }.distinctBy { it.id }
     }
@@ -288,6 +292,17 @@ fun HomeScreen(
                 resumeEpisodeTitle = episode.episodeTitle,
             )
         }.distinctBy { it.id }.take(20)
+    }
+    // Les vignettes de reprise sont déjà visibles au premier frame : charger
+    // leurs logos en parallèle (et non seulement au focus) évite le texte
+    // de repli sur chaque carte alors qu'un logo officiel existe. Le
+    // ViewModel déduplique les requêtes et conserve le cache partagé.
+    LaunchedEffect(continueCards) {
+        continueCards
+            .filter { !it.isMovie && it.resumeSeasonNumber != null && it.resumeEpisodeNumber != null }
+            .map { it.tmdbId }
+            .distinct()
+            .forEach { viewModel.requestHeroLogo("series", it) }
     }
 
     // Même source et même fusion que DashboardRows desktop.
@@ -1570,7 +1585,10 @@ internal fun PosterCard(
     val renderedAspect = if (expanded) 16f / 9f else aspectRatio
     // Une affiche reste une affiche : jamais de backdrop paysage recadré
     // dans un cadre 2:3. Le backdrop est réservé au seul état paysage.
-    val portraitUrl = posterUrl ?: backdropUrl
+    val resumeEpisodeStillUrl = card.resumeEpisodeStillPath?.let { "$TMDB_BACKDROP_BASE$it" }
+    val usesEpisodeResumeArtwork = card.progressPercent != null &&
+        card.resumeSeasonNumber != null && card.resumeEpisodeNumber != null && resumeEpisodeStillUrl != null
+    val portraitUrl = if (usesEpisodeResumeArtwork) resumeEpisodeStillUrl else posterUrl ?: backdropUrl
     Column(modifier = Modifier.width(renderedWidth).zIndex(if (expanded) 2f else 0f)) {
         // Surface (tv-material3) gère nativement le focus D-pad + le clic OK,
         // mais PAS le clic souris/tactile (confirmé : un tap synthétique sur
@@ -1633,12 +1651,32 @@ internal fun PosterCard(
                         }
                     }
                 }
+                // La rangée « Continuer à regarder » représente la série
+                // par son affiche. Sans repère S/E, impossible de savoir
+                // quel épisode reprendra réellement la lecture. Le badge
+                // reste réservé aux reprises ayant une progression : les
+                // films et les rangées « récemment ajoutés » ne reçoivent
+                // donc jamais un faux contexte d'épisode.
+                val episodeResumeBadge = card.progressPercent != null &&
+                    card.resumeSeasonNumber != null && card.resumeEpisodeNumber != null
+                if (episodeResumeBadge) {
+                    Text(
+                        text = "S${card.resumeSeasonNumber.toString().padStart(2, '0')} · E${card.resumeEpisodeNumber.toString().padStart(2, '0')}",
+                        style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                        maxLines = 1,
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(7.dp)
+                            .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(5.dp))
+                            .padding(horizontal = 7.dp, vertical = 4.dp),
+                    )
+                }
                 // Contraste garanti pour le logo/titre de la carte active.
                 // Les assets TMDb sont souvent blancs et un simple
                 // drop-shadow devient invisible sur neige/ciel/visage clair.
                 // Ce scrim n'existe qu'en paysage focalisé : l'affiche
                 // portrait reste intacte et sans surcouche.
-                if (expanded) {
+                if (expanded || usesEpisodeResumeArtwork) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
@@ -1655,7 +1693,7 @@ internal fun PosterCard(
                 // logo TMDb ni titre flottant. Le logo est réservé à la
                 // carte active qui vient de basculer en paysage, où il sert
                 // réellement de repère comme dans le preview desktop.
-                val showLogo = titleLogoPath != null && expanded
+                val showLogo = titleLogoPath != null && (expanded || usesEpisodeResumeArtwork)
                 if (showLogo) {
                     Image(
                         painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$titleLogoPath"),
@@ -1668,7 +1706,7 @@ internal fun PosterCard(
                             .heightIn(max = 54.dp)
                             .widthIn(max = 220.dp),
                     )
-                } else if (focused) {
+                } else if (focused || usesEpisodeResumeArtwork) {
                     // Grilles (catalogue, "voir tout") : contrairement à
                     // TitleRow, qui affiche un bandeau de contexte sous la
                     // rangée pour la carte active, une grille verticale n'a
@@ -1678,18 +1716,18 @@ internal fun PosterCard(
                     Text(
                         text = card.title,
                         style = TextStyle(
-                            fontSize = if (expanded) 18.sp else 9.sp,
+                            fontSize = if (expanded || usesEpisodeResumeArtwork) 18.sp else 9.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
                         ),
-                        maxLines = if (expanded) 2 else 3,
+                        maxLines = if (expanded || usesEpisodeResumeArtwork) 2 else 3,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier
                             .align(Alignment.BottomStart)
                             .padding(12.dp)
                             .background(Color.Black.copy(alpha = 0.52f), RoundedCornerShape(4.dp))
-                            .padding(horizontal = if (expanded) 10.dp else 5.dp, vertical = if (expanded) 6.dp else 3.dp)
-                            .widthIn(max = if (expanded) 220.dp else 92.dp),
+                            .padding(horizontal = if (expanded || usesEpisodeResumeArtwork) 10.dp else 5.dp, vertical = if (expanded || usesEpisodeResumeArtwork) 6.dp else 3.dp)
+                            .widthIn(max = if (expanded || usesEpisodeResumeArtwork) 220.dp else 92.dp),
                     )
                 }
                 // Même paire de pastilles que la grille bibliothèque desktop

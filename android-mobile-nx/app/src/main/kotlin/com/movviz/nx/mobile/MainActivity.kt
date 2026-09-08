@@ -9,10 +9,19 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -27,6 +36,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -34,7 +44,12 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Surface
+import androidx.tv.material3.Text
+import androidx.tv.material3.Icon
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -52,6 +67,12 @@ import com.movviz.nx.mobile.ui.profile.ProfilePickerScreen
 import com.movviz.nx.mobile.ui.player.PlayerActivity
 import com.movviz.nx.mobile.ui.player.QueueItem
 import com.movviz.nx.mobile.ui.theme.MovvizTvTheme
+import com.movviz.nx.mobile.ui.theme.tvPointerClick
+import com.movviz.nx.mobile.ui.theme.MovvizIconHome
+import com.movviz.nx.mobile.ui.theme.MovvizIconFilm
+import com.movviz.nx.mobile.ui.theme.MovvizIconTvScreen
+import com.movviz.nx.mobile.ui.theme.MovvizIconDotCircle
+import com.movviz.nx.mobile.ui.theme.MovvizIconStar
 import com.movviz.nx.mobile.ui.title.TitleDetailScreen
 import com.movviz.nx.mobile.ui.update.AutoUpdateOverlay
 import com.movviz.nx.mobile.ui.wizard.WizardScreen
@@ -270,11 +291,12 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
         return
     }
 
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     // NX: la navigation est une surcouche haute. Le contenu garde la pleine
     // largeur 16:9, comme Netflix, plutôt que de perdre une colonne à gauche.
     Box(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxSize()) {
-            if (routeShowsNavRail(currentRoute)) {
+            if (routeShowsNavRail(currentRoute) && !compactPortrait) {
                 NxTopNav(
                     selected = tab,
                     hasScrolled = headerHasScrolled,
@@ -571,7 +593,117 @@ composable(ROUTE_PROFILES) {
         }
             }
         }
+        // Le téléphone ne réutilise pas une barre TV réduite : sur portrait,
+        // l'accès principal est une capsule basse tactile. En paysage, cette
+        // branche n'existe pas et NxTopNav reste intacte.
+        if (compactPortrait && currentRoute?.startsWith("home") == true) {
+            PortraitBottomNav(
+                selected = tab,
+                onSelect = { newTab -> tab = newTab; searchOpen = false; headerHasScrolled = false },
+                profileLabel = viewModel.activeProfile.collectAsState().value?.name ?: "Mon profil",
+                updateTag = viewModel.availableUpdateTag.collectAsState().value,
+                onUpdateClick = { viewModel.requestUpdateInstall() },
+                modifier = Modifier.align(Alignment.BottomCenter).zIndex(10f),
+            )
+        }
         AutoUpdateOverlay(viewModel)
+    }
+}
+
+@Composable
+private fun PortraitBottomNav(
+    selected: HomeTab,
+    onSelect: (HomeTab) -> Unit,
+    profileLabel: String,
+    updateTag: String?,
+    onUpdateClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    data class Item(val tab: HomeTab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+    val items = listOf(
+        Item(HomeTab.HOME, "Accueil", MovvizIconHome),
+        Item(HomeTab.DISCOVER, "Découverte", MovvizIconStar),
+        Item(HomeTab.SERIES, "Séries", MovvizIconTvScreen),
+        Item(HomeTab.MOVIES, "Films", MovvizIconFilm),
+        Item(HomeTab.PROFILE, profileLabel, MovvizIconDotCircle),
+    )
+    Column(
+        modifier = modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (updateTag != null) {
+            Surface(
+                onClick = onUpdateClick,
+                modifier = Modifier.height(38.dp).tvPointerClick(onUpdateClick),
+                shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(22.dp)),
+                colors = ClickableSurfaceDefaults.colors(
+                    containerColor = Color(0xFF3D276E),
+                    focusedContainerColor = Color(0xFF5A3AA0),
+                    contentColor = Color.White,
+                    focusedContentColor = Color.White,
+                ),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("↓", fontSize = 21.sp, color = Color(0xFFD9B7FF))
+                    Text(
+                        "Mise à jour ${updateTag.removePrefix("v")}",
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        color = Color.White,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth().background(Color(0xED202020), RoundedCornerShape(32.dp)).padding(horizontal = 6.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items.forEach { item ->
+                val active = selected == item.tab
+                Surface(
+                    onClick = { onSelect(item.tab) },
+                    modifier = Modifier
+                        .width(if (active) 118.dp else 44.dp)
+                        .height(58.dp)
+                        .tvPointerClick { onSelect(item.tab) },
+                    shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(30.dp)),
+                    colors = ClickableSurfaceDefaults.colors(
+                        containerColor = if (active) Color(0xFF393942) else Color.Transparent,
+                        focusedContainerColor = Color(0xFF50505C),
+                        contentColor = Color.White,
+                        focusedContentColor = Color.White,
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = if (active) 14.dp else 0.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            item.icon,
+                            item.label,
+                            modifier = Modifier.size(24.dp),
+                            tint = if (active) Color.White else Color(0xFFC5C5CB),
+                        )
+                        if (active) {
+                            Text(
+                                item.label,
+                                fontSize = 13.sp,
+                                maxLines = 1,
+                                color = Color.White,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

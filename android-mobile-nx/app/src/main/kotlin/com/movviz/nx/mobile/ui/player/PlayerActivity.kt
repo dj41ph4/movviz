@@ -35,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -150,6 +151,10 @@ class PlayerActivity : ComponentActivity() {
     // niveau Activity. Le composable enregistre son gestionnaire ici une fois
     // monté (voir PlayerScreen → onRegisterMediaKeyHandler).
     private var mediaKeyHandler: ((Int) -> Boolean)? = null
+    // PlayerScreen owns ExoPlayer, but Activity owns Android lifecycle. This
+    // bridge prevents audio from surviving a Home/app-switch event without
+    // incorrectly completing the title.
+    private var lifecyclePauseHandler: (() -> Unit)? = null
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (isMediaKey(keyCode) && mediaKeyHandler?.invoke(keyCode) == true) return true
@@ -198,14 +203,21 @@ PlayerScreen(
                         posterPath = posterPath,
                         onExit = { finish() },
                         onRegisterMediaKeyHandler = { handler -> mediaKeyHandler = handler },
+                        onRegisterLifecyclePauseHandler = { handler -> lifecyclePauseHandler = handler },
                     )
                 }
             }
         }
     }
 
+    override fun onStop() {
+        lifecyclePauseHandler?.invoke()
+        super.onStop()
+    }
+
     override fun onDestroy() {
         mediaKeyHandler = null
+        lifecyclePauseHandler = null
         super.onDestroy()
     }
 
@@ -400,6 +412,7 @@ private fun PlayerScreen(
     posterPath: String? = null,
     onExit: () -> Unit,
     onRegisterMediaKeyHandler: (((Int) -> Boolean) -> Unit)? = null,
+    onRegisterLifecyclePauseHandler: (((() -> Unit) -> Unit))? = null,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
@@ -476,6 +489,11 @@ private fun PlayerScreen(
     var markers by remember(current.ratingKey) { mutableStateOf<List<com.movviz.nx.mobile.data.PlaybackMarkerDto>>(emptyList()) }
     var activeMarker by remember { mutableStateOf<com.movviz.nx.mobile.data.PlaybackMarkerDto?>(null) }
     var playbackSessionId by remember(current.ratingKey) { mutableStateOf<String?>(null) }
+    var heartbeatSequence by remember(current.ratingKey) { mutableStateOf(0L) }
+    // Explicitly completing an item (natural end, Next, or leaving during
+    // credits) must survive Activity disposal. The old session would
+    // otherwise be stopped a moment later and re-create a stale resume entry.
+    var completeCurrentOnDispose by remember { mutableStateOf(false) }
 
     val exoPlayer = remember {
         val upstream = OkHttpDataSource.Factory(com.movviz.nx.mobile.data.ApiClient.httpClient())
@@ -632,6 +650,70 @@ ExoPlayer.Builder(context)
         exoPlayer.playWhenReady = true
     }
 
+    /**
+     * Netflix-style completion boundary for an exit. Plex credit markers are
+     * authoritative when available; when a marker has not been indexed yet,
+     * the last 10% is deliberately conservative and prevents end credits
+     * from polluting "Reprendre".
+     */
+    fun isInEndingCredits(): Boolean {
+        val duration = exoPlayer.duration.takeIf { it > 0 } ?: return false
+        val position = exoPlayer.currentPosition.coerceAtLeast(0)
+        val creditStart = markers
+            .filter { it.type == "credits" && it.startMs >= 0 && it.startMs < duration }
+            .maxOfOrNull { it.startMs }
+        return position >= (creditStart ?: (duration * 0.90).toLong())
+    }
+
+    /**
+     * Atomically abandons the visible media before changing Compose state.
+     * Changing only currentIndex updates the overlay title immediately, while
+     * the previous ExoPlayer item can keep rendering until stream-info
+     * arrives. Clearing it first makes a Next action a real media transition.
+     */
+    fun advanceTo(nextIndex: Int, markOutgoingWatched: Boolean) {
+        if (nextIndex !in queue.indices || nextIndex == currentIndex) return
+        val outgoing = queue[currentIndex]
+        val outgoingSession = playbackSessionId
+        val outgoingPosition = exoPlayer.currentPosition.coerceAtLeast(0)
+        playbackSessionId = null
+        completeCurrentOnDispose = false
+        exoPlayer.stop()
+        exoPlayer.clearMediaItems()
+        scope.launch {
+            if (markOutgoingWatched) {
+                outgoingSession?.let { repository.playbackEnded(it) }
+            } else {
+                outgoingSession?.let { repository.playbackStop(it, outgoingPosition) }
+                repository.reportStop(outgoing.ratingKey)
+            }
+        }
+        currentIndex = nextIndex
+    }
+
+    fun exitPlayerAction(forceCompleted: Boolean = false) {
+        // Do not leave a card in Continue Watching when the user leaves in
+        // the credits. We retain ordinary mid-episode resumes unchanged.
+        completeCurrentOnDispose = forceCompleted || isInEndingCredits()
+        onExit()
+    }
+
+    fun pauseForBackground() {
+        if (!exoPlayer.isPlaying) return
+        exoPlayer.pause()
+        isPlaying = false
+        val id = playbackSessionId
+        val position = exoPlayer.currentPosition.coerceAtLeast(0)
+        val item = queue[currentIndex]
+        // A paused heartbeat persists an ordinary resume without ending the
+        // session. This is intentionally NOT playbackEnded, even in credits:
+        // only an actual exit in credits gets completion semantics.
+        scope.launch {
+            if (id != null) repository.playbackHeartbeat(id, ++heartbeatSequence, position, false)
+            repository.reportProgress(item.ratingKey, position, "paused")
+        }
+    }
+
     // Reprise de lecture — position exacte (viewOffset Plex brut) exposée
     // par /api/plex/on-deck via OnDeckEntryDto.offsetMs, voir
     // MovvizRepository.resumeOffsetMs pour le détail (durationMs ne sert
@@ -740,11 +822,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                     // lisant le code : `hasNext` figé à true incrémentait
                     // currentIndex au-delà de queue.size - 1).
                     if (currentIndex < queue.size - 1) {
-                        playbackSessionId?.let { id -> scope.launch { repository.playbackEnded(id) } }
-                        currentIndex += 1
+                        advanceTo(currentIndex + 1, markOutgoingWatched = true)
                     } else {
-                        playbackSessionId?.let { id -> scope.launch { repository.playbackEnded(id) } }
-                        onExit()
+                        exitPlayerAction(forceCompleted = true)
                     }
                 }
             }
@@ -842,8 +922,15 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
             runCatching {
                 kotlinx.coroutines.runBlocking {
                     val id = playbackSessionId
-                    if (id != null) repository.playbackStop(id, exoPlayer.currentPosition)
-                    repository.reportStop(queue[currentIndex].ratingKey)
+                    // Covers system-initiated Activity teardown too (not only
+                    // our Back/Retour callback): credits must not resurrect a
+                    // Continue Watching card.
+                    val shouldComplete = completeCurrentOnDispose || isInEndingCredits()
+                    if (id != null) {
+                        if (shouldComplete) repository.playbackEnded(id)
+                        else repository.playbackStop(id, exoPlayer.currentPosition)
+                    }
+                    if (!shouldComplete) repository.reportStop(queue[currentIndex].ratingKey)
                 }
             }
         }
@@ -855,11 +942,10 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     // la lecture, jamais la racine PlayerScreen ni les boutons de contrôle
     // (règle du lecteur : 60 fps constants, zéro recomposition à la frame).
     LaunchedEffect(current.ratingKey) {
-        var sequence = 0L
         while (true) {
             delay(PROGRESS_REPORT_INTERVAL_MS)
             val id = playbackSessionId
-            if (id != null) repository.playbackHeartbeat(id, ++sequence, exoPlayer.currentPosition, isPlaying)
+            if (id != null) repository.playbackHeartbeat(id, ++heartbeatSequence, exoPlayer.currentPosition, isPlaying)
             repository.reportProgress(current.ratingKey, exoPlayer.currentPosition, if (isPlaying) "playing" else "paused")
         }
     }
@@ -948,7 +1034,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
     fun prevEpisodeAction() {
         poke()
-        if (currentIndex > 0) currentIndex -= 1
+        if (currentIndex > 0) advanceTo(currentIndex - 1, markOutgoingWatched = isInEndingCredits())
     }
     fun skipMarkerAction() {
         val m = activeMarker ?: return
@@ -958,7 +1044,9 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
     }
     fun nextEpisodeAction() {
         poke()
-        if (currentIndex < queue.size - 1) currentIndex += 1
+        // An explicit Next is an intentional skip: never leave the outgoing
+        // episode in Reprendre, even if the viewer pressed it before credits.
+        if (currentIndex < queue.size - 1) advanceTo(currentIndex + 1, markOutgoingWatched = true)
     }
 
     // Les marqueurs ne sont pas de simples décorations : à l'entrée dans une
@@ -978,6 +1066,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         }
     }
 
+    val latestPauseForBackground by rememberUpdatedState(::pauseForBackground)
     LaunchedEffect(Unit) {
         onRegisterMediaKeyHandler?.invoke { keyCode ->
             when (keyCode) {
@@ -992,6 +1081,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                 else -> false
             }
         }
+        onRegisterLifecyclePauseHandler?.invoke { latestPauseForBackground() }
     }
 
     val playPauseFocus = remember { FocusRequester() }
@@ -1015,7 +1105,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
         when {
             showAudioDialog -> showAudioDialog = false
             showSubtitleDialog -> showSubtitleDialog = false
-            else -> onExit()
+            else -> exitPlayerAction()
         }
     }
 
@@ -1234,7 +1324,7 @@ LaunchedEffect(current.ratingKey, current.localKey, current.seasonNumber, curren
                             label = "Retour",
                             primary = false,
                             focusRequester = if (canRetry) null else exitFocus,
-                            onClick = { onExit() },
+                            onClick = { exitPlayerAction() },
                         )
                     }
                 }

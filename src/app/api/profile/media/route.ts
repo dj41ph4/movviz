@@ -75,7 +75,7 @@ export async function GET(req: NextRequest) {
   const continueWatching = onDeck.map((item) => ({
     tmdbId: item.tmdbId, type: item.type, seasonNumber: item.seasonNumber ?? null, episodeNumber: item.episodeNumber ?? null,
     title: item.title, subtitle: item.type === "episode" ? item.episodeTitle ?? null : null,
-    posterPath: item.posterPath, stillPath: null, year: item.year, watched: false,
+    posterPath: item.posterPath, stillPath: item.episodeStillPath ?? null, year: item.year, watched: false,
     progress: item.progressPercent > 0 ? { ratio: item.progressPercent / 100 } : null,
     watchedAt: null,
   }));

@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.24.87 — September 2026
+
+### NX Mobile et NX TV
+
+- Corrige la transition vers l’épisode suivant : le nouveau média est réellement chargé, l’épisode sauté est clôturé et ne reste pas dans Reprendre.
+- En quittant un lecteur ou en passant l’app en arrière-plan, l’audio s’arrête et la position est conservée. Les génériques et fins de lecture ne créent plus de reprise.
+- Les reprises d’épisodes affichent désormais l’image de l’épisode, le logo de la série et le badge `S03 · E10` ; les films conservent leur jaquette.
+- Revoit la navigation portrait de NX Mobile : capsule basse à icônes explicites, libellé uniquement sur l’onglet actif, Découverte disponible, nom du profil actif et raccourci discret de mise à jour.
+
 ## v1.24.86 — September 2026
 
 ### NX Mobile et NX TV

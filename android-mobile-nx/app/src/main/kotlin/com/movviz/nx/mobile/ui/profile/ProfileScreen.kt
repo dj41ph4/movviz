@@ -41,6 +41,7 @@ import com.movviz.nx.mobile.data.TvProfile
 import com.movviz.nx.mobile.ui.theme.MovvizBackground
 
 private const val TMDB_POSTER_BASE = "https://image.tmdb.org/t/p/w500"
+private const val TMDB_LOGO_BASE = "https://image.tmdb.org/t/p/w500"
 private val profileCardShape = RoundedCornerShape(10.dp)
 
 /** Dashboard personnel. La safe area haute évite que le premier focus passe
@@ -56,7 +57,13 @@ fun ProfileScreen(
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val data by viewModel.profileMedia.collectAsState()
     val activeProfile by viewModel.activeProfile.collectAsState()
+    val heroLogos by viewModel.heroLogos.collectAsState()
     LaunchedEffect(Unit) { viewModel.loadProfileMedia() }
+    LaunchedEffect(data?.continueWatching) {
+        data?.continueWatching
+            ?.filter { it.seasonNumber != null && it.episodeNumber != null }
+            ?.forEach { viewModel.requestHeroLogo("series", it.tmdbId) }
+    }
     val profileData = data
     val listState = rememberLazyListState()
     val hasScrolled by remember {
@@ -87,7 +94,7 @@ fun ProfileScreen(
             Text("Votre activité apparaîtra ici dès votre première lecture.", color = Color(0xFFA7A7A7), fontSize = 16.sp)
         }
         var entryAssigned = false
-        profileRail("Continuer à regarder", profileData.continueWatching, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
+        profileRail("Continuer à regarder", profileData.continueWatching, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode, isResumeRail = true, heroLogos = heroLogos)
         if (profileData.continueWatching.isNotEmpty()) entryAssigned = true
         profileRail("Historique de visionnage", profileData.watchHistory, if (!entryAssigned) entryFocusRequester else null, onOpenTitle, onOpenEpisode)
         if (profileData.watchHistory.isNotEmpty()) entryAssigned = true
@@ -141,6 +148,8 @@ private fun LazyListScope.profileRail(
     entryFocusRequester: FocusRequester?,
     onOpenTitle: (type: String, tmdbId: Int) -> Unit,
     onOpenEpisode: (tmdbId: Int, season: Int, episode: Int) -> Unit,
+    isResumeRail: Boolean = false,
+    heroLogos: Map<String, String> = emptyMap(),
 ) {
     if (cards.isEmpty()) return
     item {
@@ -151,6 +160,8 @@ private fun LazyListScope.profileRail(
                     ProfilePosterCard(
                         card = card,
                         modifier = if (index == 0 && entryFocusRequester != null) Modifier.focusRequester(entryFocusRequester) else Modifier,
+                        showEpisodeResumeBadge = isResumeRail,
+                        seriesLogoPath = if (isResumeRail) heroLogos["series-${card.tmdbId}"] else null,
                         onClick = {
                             val season = card.seasonNumber
                             val episode = card.episodeNumber
@@ -170,6 +181,8 @@ private fun LazyListScope.profileRail(
 @Composable private fun ProfilePosterCard(
     card: ProfileMediaCardDto,
     modifier: Modifier = Modifier,
+    showEpisodeResumeBadge: Boolean = false,
+    seriesLogoPath: String? = null,
     onClick: () -> Unit,
 ) {
     Card(
@@ -182,7 +195,8 @@ private fun LazyListScope.profileRail(
             // capture 16:9 recadrée en portrait est cheap, et le chemin peut
             // parfois manquer dans l'historique/les notes : ce cas reçoit un
             // visuel de secours assumé, jamais un rectangle gris vide.
-            val imagePath = card.posterPath ?: card.stillPath
+            val usesEpisodeResumeArtwork = showEpisodeResumeBadge && card.stillPath != null
+            val imagePath = if (usesEpisodeResumeArtwork) card.stillPath else card.posterPath ?: card.stillPath
             var imageFailed by remember(imagePath) { mutableStateOf(false) }
             if (imagePath != null && !imageFailed) {
                 Image(
@@ -197,9 +211,36 @@ private fun LazyListScope.profileRail(
             } else {
                 ProfileFallbackArtwork()
             }
+            if (showEpisodeResumeBadge && card.seasonNumber != null && card.episodeNumber != null) {
+                Text(
+                    text = "S${card.seasonNumber.toString().padStart(2, '0')} · E${card.episodeNumber.toString().padStart(2, '0')}",
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                        .background(Color.Black.copy(alpha = 0.82f), RoundedCornerShape(5.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
             Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Transparent, Color(0xE9000000)))))
+            // Le logo est posé après le scrim : son contraste ne dépend donc
+            // jamais de l'image de l'épisode sous-jacente.
+            if (usesEpisodeResumeArtwork && seriesLogoPath != null) {
+                Image(
+                    painter = rememberAsyncImagePainter(model = "$TMDB_LOGO_BASE$seriesLogoPath"),
+                    contentDescription = card.title,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.BottomStart,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = 12.dp, end = 12.dp, bottom = 54.dp).heightIn(max = 42.dp).widthIn(max = 148.dp),
+                )
+            }
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(12.dp)) {
-                Text(card.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (seriesLogoPath == null || !usesEpisodeResumeArtwork) {
+                    Text(card.title, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
                 val detail = card.progress?.let { "${(it.ratio * 100).toInt()} % repris" } ?: card.userRating?.let { "★ $it / 5" }
                 if (detail != null) Text(detail, color = Color(0xFFD1D1D1), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
                 card.progress?.let { progress ->
