@@ -2,8 +2,6 @@ name: Build Android smartphone APKs
 
 on:
   push:
-    branches: [main]
-    paths: ["android-mobile/**", "android-mobile-nx/**", "docs/android-mobile-audit.md", ".github/workflows/android-mobile-build.yml", "android-tv/app/src/main/kotlin/com/movviz/tv/data/**"]
     tags: ["v*"]
   pull_request:
     paths: ["android-mobile/**", "android-mobile-nx/**", "docs/android-mobile-audit.md", ".github/workflows/android-mobile-build.yml"]
@@ -11,6 +9,12 @@ on:
 
 permissions:
   contents: write
+
+# Chaque APK de version provient uniquement du tag de release : pas de second
+# run de branche ambigu quand main et le tag sont poussés ensemble.
+concurrency:
+  group: android-mobile-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -100,33 +104,36 @@ jobs:
       - name: Rename Movviz NX smartphone APK
         run: cp android-mobile-nx/app/build/outputs/apk/release/app-release.apk android-mobile-nx/app/build/outputs/apk/release/Movviz-NX-Mobile-client.apk
 
+      - name: Publish smartphone APKs to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              break
+            fi
+            gh release create "$TAG" --title "$TAG" --generate-notes >/dev/null 2>&1 || true
+            sleep 3
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" \
+            android-mobile/app/build/outputs/apk/release/Movviz-Android-Mobile-client.apk \
+            android-mobile-nx/app/build/outputs/apk/release/Movviz-NX-Mobile-client.apk \
+            --clobber
+
       - name: Upload smartphone APK artifact
-        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
         with:
           name: Movviz-Android-Mobile-client
           path: android-mobile/app/build/outputs/apk/release/Movviz-Android-Mobile-client.apk
 
       - name: Upload Movviz NX smartphone APK artifact
-        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
         with:
           name: Movviz-NX-Mobile-client
           path: android-mobile-nx/app/build/outputs/apk/release/Movviz-NX-Mobile-client.apk
-
-      - name: Attach smartphone APK to release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: android-mobile/app/build/outputs/apk/release/Movviz-Android-Mobile-client.apk
-          append_body: true
-          body: |
-            ---
-            **Movviz-Android-Mobile-client.apk** — client Android smartphone natif Jetpack Compose, signé avec la même clé retail que le client TV.
-
-      - name: Attach Movviz NX smartphone APK to release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: android-mobile-nx/app/build/outputs/apk/release/Movviz-NX-Mobile-client.apk
-          append_body: true
-          body: |
-            **Movviz-NX-Mobile-client.apk** — canal Movviz NX tactile, adapté téléphone, tablette et Fold, signé avec la même clé retail.

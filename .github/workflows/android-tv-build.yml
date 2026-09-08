@@ -2,8 +2,6 @@ name: Build Android TV APK
 
 on:
   push:
-    branches: [main]
-    paths: ["android-tv/**", "android-tv-nx/**", ".github/workflows/android-tv-build.yml"]
     tags: ["v*"]
   pull_request:
     paths: ["android-tv/**"]
@@ -11,6 +9,14 @@ on:
 
 permissions:
   contents: write
+
+# Une version Android est reconstruite une seule fois, à partir de son tag.
+# Un push avec main + tag déclenchait auparavant deux builds différents : le
+# build de branche ne pouvait pas joindre d'APK à la Release et masquait
+# facilement un échec du build de tag.
+concurrency:
+  group: android-tv-release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -116,28 +122,39 @@ jobs:
         run: |
           cp android-tv-nx/app/build/outputs/apk/release/app-release.apk android-tv-nx/app/build/outputs/apk/release/Movviz-NX-Android-TV-client.apk
 
+      # La Release est le canal réellement consommé par l'auto-update. Elle
+      # doit être alimentée avant l'archive Actions : un incident temporaire
+      # du stockage d'artefacts ne doit jamais empêcher la livraison TV.
+      - name: Publish TV APKs to the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            if gh release view "$TAG" >/dev/null 2>&1; then
+              break
+            fi
+            gh release create "$TAG" --title "$TAG" --generate-notes >/dev/null 2>&1 || true
+            sleep 3
+          done
+          gh release view "$TAG" >/dev/null
+          gh release upload "$TAG" \
+            android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk \
+            android-tv-nx/app/build/outputs/apk/release/Movviz-NX-Android-TV-client.apk \
+            --clobber
+
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
         with:
           name: Movviz-Android-TV-client
           path: android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk
 
       - name: Upload NX APK artifact
-        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        uses: actions/upload-artifact@v6
         with:
           name: Movviz-NX-Android-TV-client
           path: android-tv-nx/app/build/outputs/apk/release/Movviz-NX-Android-TV-client.apk
-
-      - name: Attach APK to release
-        if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            android-tv/app/build/outputs/apk/release/Movviz-Android-TV-client.apk
-            android-tv-nx/app/build/outputs/apk/release/Movviz-NX-Android-TV-client.apk
-          append_body: true
-          body: |
-            ---
-            **Movviz-Android-TV-client.apk** — client Android TV unique (Kotlin/Compose), signé pour installation retail et intégrant l'auto-update. Il vérifie les releases GitHub au lancement, télécharge et installe la prochaine version compatible par-dessus l'existante, sans perte de données.
-
-            **Movviz-NX-Android-TV-client.apk** — canal retail NX séparé, signé avec la même clé. Son auto-update ne télécharge que cet APK NX et ne remplace jamais Movviz TV.
