@@ -386,7 +386,7 @@ fun DiscoverScreen(
             if (watchProviderTiles.isNotEmpty()) {
                 item(contentType = "logo-row") {
                     DiscoverLogoRow(
-                        title = "Plateformes",
+                        title = "Plateformes de streaming",
                         tiles = watchProviderTiles,
                         onSelect = { tile -> onSeeAllRow(wantedType, "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous") },
                     )
@@ -421,7 +421,7 @@ private fun discoverRowLabel(key: String, meta: RowMetaDto?): String {
         return "Suggestion ${meta.providerName} pour vous"
     }
     return when (key) {
-        "for-you" -> "Suggestions pour vous"
+        "for-you" -> "Recommandé pour vous"
         "best-in-library" -> "Les mieux notés de votre bibliothèque"
         "recommendedTop" -> "Sélection pour vous"
         "trendingPopular", "trending" -> "Tendances"

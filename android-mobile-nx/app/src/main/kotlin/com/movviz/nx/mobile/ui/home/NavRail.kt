@@ -50,6 +50,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconHome
 import com.movviz.nx.mobile.ui.theme.MovvizIconFilm
 import com.movviz.nx.mobile.ui.theme.MovvizIconTvScreen
 import com.movviz.nx.mobile.ui.theme.MovvizIconStar
+import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizWordmark
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
 import androidx.compose.animation.core.animateDpAsState
@@ -82,6 +83,7 @@ enum class HomeTab(val label: String) {
     DISCOVER("Découverte"),
     MOVIES("Films"),
     SERIES("Séries"),
+    MY_LIST("Ma liste"),
     LIBRARY("Bibliothèque"),
     DOWNLOADS("Téléchargements"),
     PROFILE("Mon profil"),
@@ -96,6 +98,7 @@ private fun HomeTab.icon(): ImageVector = when (this) {
     HomeTab.MOVIES -> MovvizIconFilm
     HomeTab.SERIES -> MovvizIconTvScreen
     HomeTab.LIBRARY -> MovvizIconFilm
+    HomeTab.MY_LIST -> MovvizIconCheck
     HomeTab.DOWNLOADS -> MovvizIconDownload
     HomeTab.PROFILE -> MovvizIconDotCircle
     HomeTab.SETTINGS -> MovvizIconHome // jamais rendu comme TopNavItem (voir plus bas) — engrenage dédié.

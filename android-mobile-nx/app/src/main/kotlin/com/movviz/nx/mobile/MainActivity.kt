@@ -95,6 +95,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconFilm
 import com.movviz.nx.mobile.ui.theme.MovvizIconTvScreen
 import com.movviz.nx.mobile.ui.theme.MovvizIconDotCircle
 import com.movviz.nx.mobile.ui.theme.MovvizIconStar
+import com.movviz.nx.mobile.ui.theme.MovvizIconCheck
 import com.movviz.nx.mobile.ui.theme.MovvizIconDownload
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
@@ -343,7 +344,7 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     val showPortraitHeader = compactPortrait &&
         currentRoute?.startsWith("home") == true &&
         !searchOpen &&
-        tab in setOf(HomeTab.HOME, HomeTab.DISCOVER, HomeTab.MOVIES, HomeTab.SERIES)
+        tab in setOf(HomeTab.HOME, HomeTab.DISCOVER, HomeTab.MOVIES, HomeTab.SERIES, HomeTab.MY_LIST)
     val portraitActiveProfile by viewModel.activeProfile.collectAsState()
     // NX: la navigation est une surcouche haute. Le contenu garde la pleine
     // largeur 16:9, comme Netflix, plutôt que de perdre une colonne à gauche.
@@ -684,11 +685,12 @@ private fun PortraitBottomNav(
     modifier: Modifier = Modifier,
 ) {
     data class Item(val tab: HomeTab, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+    // Ordre maquette mobile : Découverte / Films / Séries / Ma liste / Profil.
     val items = listOf(
-        Item(HomeTab.HOME, "Accueil", MovvizIconHome),
         Item(HomeTab.DISCOVER, "Découverte", MovvizIconStar),
-        Item(HomeTab.SERIES, "Séries", MovvizIconTvScreen),
         Item(HomeTab.MOVIES, "Films", MovvizIconFilm),
+        Item(HomeTab.SERIES, "Séries", MovvizIconTvScreen),
+        Item(HomeTab.MY_LIST, "Ma liste", MovvizIconCheck),
         Item(HomeTab.PROFILE, profileLabel, MovvizIconDotCircle),
     )
     // Le dock est volontairement plus petit que le contenu et ne touche

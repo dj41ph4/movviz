@@ -640,14 +640,16 @@ fun HomeScreen(
 
             if (visibleSections.isEmpty() && heroItems.isEmpty()) {
                 item(contentType = "loading") {
+                    val bootProfile by viewModel.activeProfile.collectAsState()
                     Box(
-                        modifier = Modifier.fillMaxWidth().height(420.dp).padding(top = 48.dp),
+                        modifier = Modifier.fillMaxWidth().height(560.dp).padding(top = 24.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             MovvizBootScreen(
                                 progress = homeUiState.bootProgress,
                                 message = homeUiState.bootMessage,
+                                profileName = bootProfile?.name,
                             )
                         }
                     }
@@ -672,40 +674,54 @@ fun HomeScreen(
     }
 }
 
-/** État de démarrage visible seulement sans Home local utilisable. La barre
- * représente des étapes réelles du bootstrap, jamais un minuteur décoratif. */
+/** Étape 4/5 premier démarrage — "Préparation de votre espace".
+ * Maquette : logo + wordmark, titre, sous-titre synchro, barre dégradé
+ * avec % à droite, ligne "Profil X · Serveur connecté". Progrès réel du bootstrap. */
 @Composable
-private fun MovvizBootScreen(progress: Int, message: String) {
+private fun MovvizBootScreen(progress: Int, message: String, profileName: String? = null) {
     Column(
         modifier = Modifier
             .widthIn(min = 300.dp, max = 460.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(
-                Brush.verticalGradient(
-                    listOf(Color(0xFF111633), Color(0xFF090B1B), MovvizBrand.copy(alpha = .17f)),
-                ),
-            )
-            .border(1.dp, Color.White.copy(alpha = .14f), RoundedCornerShape(28.dp))
-            .padding(horizontal = 30.dp, vertical = 34.dp),
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(26.dp))
+            .background(Color(0xFF101330).copy(alpha = 0.94f))
+            .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(26.dp))
+            .padding(horizontal = 24.dp, vertical = 30.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        AnimatedLogo(size = 82.dp)
-        Spacer(Modifier.height(20.dp))
-        Text("ÉTAPE 4 / 5 · PRÉPARATION DE VOTRE ESPACE", style = MaterialTheme.typography.titleMedium, color = Color.White)
-        Spacer(Modifier.height(18.dp))
-        Box(
-            modifier = Modifier.width(320.dp).height(8.dp)
-                .clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = .16f)),
-        ) {
+        AnimatedLogo(size = 72.dp)
+        Spacer(Modifier.height(10.dp))
+        com.movviz.nx.mobile.ui.theme.MovvizWordmark(fontSize = 24.sp)
+        Spacer(Modifier.height(22.dp))
+        Text(
+            "Préparation de votre espace",
+            style = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = Color.White, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            message.ifBlank { "Synchronisation de votre bibliothèque..." },
+            style = TextStyle(fontSize = 13.sp, color = Color.White.copy(alpha = 0.60f), textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+        )
+        Spacer(Modifier.height(22.dp))
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier.fillMaxHeight().fillMaxWidth((progress.coerceIn(0, 100) / 100f))
-                .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(8.dp)),
-            )
+                modifier = Modifier.weight(1f).height(8.dp)
+                    .clip(RoundedCornerShape(8.dp)).background(Color.White.copy(alpha = 0.14f)),
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxHeight().fillMaxWidth((progress.coerceIn(0, 100) / 100f))
+                        .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(8.dp)),
+                )
+            }
+            Spacer(Modifier.width(10.dp))
+            Text("$progress %", style = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.85f)))
         }
-        Spacer(Modifier.height(12.dp))
-        Text("$progress %  ·  $message", style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = .7f))
-        Spacer(Modifier.height(7.dp))
-        Text("Vos données restent synchronisées avec Movviz", style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = .52f))
+        Spacer(Modifier.height(14.dp))
+        Text(
+            if (profileName != null) "Profil $profileName · Serveur connecté" else "Serveur connecté",
+            style = TextStyle(fontSize = 12.sp, color = Color.White.copy(alpha = 0.55f), textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+        )
     }
 }
 

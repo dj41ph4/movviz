@@ -126,6 +126,15 @@ fun MainScreen(
                 entryFocusRequester = contentFocusRequester,
                 onScrollChanged = onHomeScrollChanged,
             )
+            // "Ma liste" (bottom nav portrait maquette) : réutilise la grille
+            // d'inventaire plutôt qu'un nouvel écran — le rail watchlist
+            // dédié reste visible dans l'onglet Profil.
+            tab == HomeTab.MY_LIST -> LibraryHubScreen(
+                viewModel = viewModel,
+                onOpenTitle = onOpenTitle,
+                entryFocusRequester = contentFocusRequester,
+                onScrollChanged = onHomeScrollChanged,
+            )
             tab == HomeTab.PROFILE -> ProfileScreen(
                 viewModel = viewModel,
                 entryFocusRequester = contentFocusRequester,

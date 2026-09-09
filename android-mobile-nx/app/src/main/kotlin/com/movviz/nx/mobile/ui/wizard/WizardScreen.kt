@@ -8,6 +8,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -21,127 +22,179 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.tv.material3.Border
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.MaterialTheme
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.nx.mobile.AppViewModel
 import com.movviz.nx.mobile.data.ApiResult
-import com.movviz.nx.mobile.ui.theme.AnimatedLogo
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizDown
 import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
-import com.movviz.nx.mobile.ui.theme.MovvizWordmark
-import com.movviz.nx.mobile.ui.theme.tvFocusLift
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
 import kotlinx.coroutines.launch
 
 /**
- * Premier écran au lancement — demande l'URL/IP du serveur Movviz avant
- * tout le reste (identique au principe Plex/Jellyfin). Même composition que
- * la carte de login desktop (src/app/login/page.tsx) : logo animé + titre
- * centrés, carte semi-transparente, bouton en dégradé de marque — plutôt
- * qu'un formulaire nu plaqué à gauche sur fond noir uni.
+ * Étape 1/5 premier démarrage — "Où se trouve votre serveur ?".
+ * Maquette : carte sombre, champ URL avec icône lien, CTA Continuer ›,
+ * illustration serveurs stylisée en bas de carte.
  */
 @Composable
 fun WizardScreen(viewModel: AppViewModel, onConnected: () -> Unit) {
-    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     var url by remember { mutableStateOf("") }
     var testing by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    // BasicTextField avale les touches directionnelles et ne redonne jamais
-    // le focus au bouton en dessous via le D-pad — confirmé sur émulateur
-    // télécommande, pas une supposition. focusProperties{down=...} force
-    // explicitement la sortie du champ vers le bouton.
     val connectButtonFocus = remember { FocusRequester() }
     val urlFieldFocus = remember { FocusRequester() }
 
-    // Guide officiel navigation TV : rien ne garantit qu'un élément ait le
-    // focus au lancement d'un écran Compose — sans cette demande explicite,
-    // le premier appui D-pad de l'utilisateur tombe dans le vide. Le champ
-    // existe dès la première composition ici (pas de donnée async à
-    // attendre), donc LaunchedEffect(Unit) est correct.
     LaunchedEffect(Unit) { urlFieldFocus.requestFocus() }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            modifier = Modifier
-                .then(if (compactPortrait) Modifier.fillMaxWidth().padding(horizontal = 20.dp) else Modifier.width(520.dp))
-                .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(24.dp))
-                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
-                .padding(if (compactPortrait) 26.dp else 40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            AnimatedLogo(size = 56.dp)
-            Spacer(Modifier.height(12.dp))
-            MovvizWordmark()
-            Spacer(Modifier.height(2.dp))
-            Text(
-                text = "ÉTAPE 1 / 5 · VOTRE SERVEUR",
-                style = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MovvizInkDim, letterSpacing = 3.sp),
+    OnboardingBackground {
+        OnboardingCard {
+            OnboardingHeader()
+            Spacer(Modifier.height(16.dp))
+            OnboardingTitles(
+                title = "Où se trouve\nvotre serveur ?",
+                subtitle = "Renseignez l'URL de votre serveur\nMovviz ou Jellyfin.",
             )
             Spacer(Modifier.height(20.dp))
-            Text(
-                text = "Où se trouve votre serveur ?",
-                style = TextStyle(fontSize = 15.sp, color = MovvizInkDim),
-            )
-            Spacer(Modifier.height(28.dp))
 
-            TvTextField(
+            ServerUrlField(
                 value = url,
                 onValueChange = { url = it; error = null },
-                placeholder = "https://votre-serveur.fr",
                 nextFocus = connectButtonFocus,
                 focusRequester = urlFieldFocus,
             )
 
-            if (error != null) {
-                Spacer(Modifier.height(12.dp))
-                Text(
-                    text = error!!,
-                    style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = MovvizDown),
-                )
-            }
+            OnboardingError(error)
+            Spacer(Modifier.height(16.dp))
 
-            Spacer(Modifier.height(20.dp))
-
-            GradientButton(
+            OnboardingPrimaryButton(
                 text = if (testing) "Connexion..." else "Continuer",
                 enabled = !testing,
                 focusRequester = connectButtonFocus,
                 onClick = {
-                    if (testing) return@GradientButton
+                    if (testing) return@OnboardingPrimaryButton
                     testing = true
                     error = null
                     scope.launch {
                         when (val result = viewModel.testAndSaveServerUrl(url)) {
                             is ApiResult.Success -> onConnected()
                             is ApiResult.Failure -> error = "Connexion impossible : ${result.message}"
-                            ApiResult.Unauthorized -> onConnected() // ne devrait pas arriver ici, traité côté repo
+                            ApiResult.Unauthorized -> onConnected()
                         }
                         testing = false
                     }
                 },
             )
+            Spacer(Modifier.height(18.dp))
+            ServerIllustration()
         }
     }
 }
 
-/** Champ de texte minimal pensé D-pad : focus visible via une bordure au
- *  dégradé de marque (le clavier système Android TV s'ouvre automatiquement
- *  quand ce composable prend le focus et que l'utilisateur appuie sur OK). */
+/** Champ URL sombre avec glpyhe lien "🔗" (maquette) — tactile + D-pad. */
+@Composable
+fun ServerUrlField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    nextFocus: FocusRequester,
+    focusRequester: FocusRequester? = null,
+) {
+    var focused by remember { mutableStateOf(false) }
+    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(OnboardingFieldShape)
+            .background(Color.Black.copy(alpha = 0.45f), OnboardingFieldShape)
+            .border(
+                width = if (focused) 2.dp else 1.dp,
+                color = if (focused) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.12f),
+                shape = OnboardingFieldShape,
+            )
+            .onFocusChanged { focused = it.isFocused }
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "🔗", style = TextStyle(fontSize = 15.sp), modifier = Modifier.padding(end = 10.dp))
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (value.isEmpty()) {
+                Text(text = "https://votre-serveur.fr", style = TextStyle(fontSize = 14.sp, color = Color.White.copy(alpha = 0.38f)))
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onValueChange,
+                textStyle = TextStyle(fontSize = 14.sp, color = MovvizInk),
+                singleLine = true,
+                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
+                keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
+                    nextFocus.requestFocus()
+                    keyboardController?.hide()
+                }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
+                    .focusProperties { down = nextFocus }
+                    .onPreviewKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
+                            nextFocus.requestFocus()
+                            true
+                        } else false
+                    },
+            )
+        }
+    }
+}
+
+/** Illustration "serveurs" stylisée : 3 barres empilées avec LEDs, halo violet. */
+@Composable
+private fun ServerIllustration() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(112.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(
+                Brush.verticalGradient(
+                    listOf(Color.Transparent, MovvizBrand.copy(alpha = 0.22f)),
+                ),
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            repeat(3) { row ->
+                Box(
+                    modifier = Modifier
+                        .width(120.dp)
+                        .height(20.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF1B2142))
+                        .border(1.dp, MovvizBrand.copy(alpha = 0.45f), RoundedCornerShape(6.dp))
+                        .padding(horizontal = 10.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(6.dp).clip(androidx.compose.foundation.shape.CircleShape).background(if (row == 2) MovvizBrand2 else Color(0xFF5CE0D8)))
+                        Box(Modifier.size(6.dp).clip(androidx.compose.foundation.shape.CircleShape).background(MovvizBrand.copy(alpha = 0.8f)))
+                        Spacer(Modifier.width(4.dp))
+                        Box(Modifier.width(56.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color.White.copy(alpha = 0.16f)))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Champ de texte minimal pensé D-pad (réutilisé par Login). */
 @Composable
 fun TvTextField(
     value: String,
@@ -150,97 +203,11 @@ fun TvTextField(
     nextFocus: FocusRequester,
     focusRequester: FocusRequester? = null,
 ) {
-    var focused by remember { mutableStateOf(false) }
-    val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(
-                width = if (focused) 2.dp else 1.dp,
-                color = if (focused) MaterialTheme.colorScheme.primary else MovvizInk.copy(alpha = 0.12f),
-                shape = RoundedCornerShape(12.dp),
-            )
-            .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-            .onFocusChanged { focused = it.isFocused }
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        if (value.isEmpty()) {
-            Text(text = placeholder, style = TextStyle(fontSize = 16.sp, color = MovvizInkDim))
-        }
-        BasicTextField(
-            value = value,
-            onValueChange = onValueChange,
-            textStyle = TextStyle(fontSize = 16.sp, color = MovvizInk),
-            singleLine = true,
-            // Sans imeAction/onDone, le bouton coche du clavier virtuel
-            // n'a AUCUNE action assignée et ne referme donc jamais le
-            // clavier — confirmé en testant : cliquer dessus ne réagissait
-            // pas. Déplacer le focus (comme la flèche bas) fait sortir le
-            // champ de saisie, ce qui referme le clavier automatiquement.
-            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(imeAction = androidx.compose.ui.text.input.ImeAction.Done),
-            keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = {
-                nextFocus.requestFocus()
-                keyboardController?.hide()
-            }),
-            // focusProperties{down=...} seul ne suffit pas : BasicTextField
-            // avale la touche bas (déplacement de curseur) avant qu'elle
-            // n'atteigne le système de recherche de focus — confirmé en
-            // testant sur un vrai émulateur télécommande, le focus restait
-            // bloqué dans le champ indéfiniment. onPreviewKeyEvent intercepte
-            // la touche AVANT le champ de texte et déplace le focus lui-même.
-            modifier = Modifier
-                .fillMaxWidth()
-                .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-                .focusProperties { down = nextFocus }
-                .onPreviewKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown && event.key == Key.DirectionDown) {
-                        nextFocus.requestFocus()
-                        true
-                    } else {
-                        false
-                    }
-                },
-        )
-    }
+    ServerUrlField(value = value, onValueChange = onValueChange, nextFocus = nextFocus, focusRequester = focusRequester)
 }
 
-/** Bouton principal en dégradé de marque, pleine largeur — même traitement
- *  visuel que .brand-gradient côté web, adapté en Surface focusable TV. */
+/** Bouton principal en dégradé de marque — alias maquette. */
 @Composable
 fun GradientButton(text: String, enabled: Boolean = true, focusRequester: FocusRequester? = null, onClick: () -> Unit) {
-    var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(12.dp)
-    Surface(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = Modifier
-            .fillMaxWidth()
-            .let { if (focusRequester != null) it.focusRequester(focusRequester) else it }
-            // tvFocusLift (Theme.kt) avant le .background() : l'ombre portée
-            // du lift doit apparaître SOUS le dégradé, pas par-dessus — même
-            // pattern que le reste de l'appli, plus le simple scale() isolé
-            // d'avant qui ne donnait aucune impression de profondeur.
-            .tvFocusLift(focused, shape = shape)
-            .background(Brush.horizontalGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
-            .onFocusChanged { focused = it.isFocused }
-            .tvPointerClick(onClick),
-        shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent,
-            focusedContainerColor = Color.Transparent,
-            pressedContainerColor = Color.Transparent,
-            contentColor = Color.White,
-        ),
-        border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, Color.White),
-                shape = shape,
-            ),
-        ),
-    ) {
-        Box(modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
-            Text(text = text, style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold))
-        }
-    }
+    OnboardingPrimaryButton(text = text, enabled = enabled, focusRequester = focusRequester, onClick = onClick)
 }
