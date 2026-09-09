@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.92 — September 2026
+
+### NX Mobile
+
+- Refonte visuelle de l'app NX Mobile : palette alignée sur le reste de Movviz (violet/void/abyss), chips actifs en dégradé de marque sur les filtres et le sélecteur de contenu, dock de navigation plus sombre.
+- Nouvelle section « Selon votre humeur » sur Découverte : accès rapide aux genres par ambiance (aventure, détente, frissons, émotion, rire, inspiration). Navigation à 5 onglets et badge de mise à jour inchangés.
+
 ## v1.24.91 — September 2026
 
 ### Corrections
