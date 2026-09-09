@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.24.96 — September 2026
+
+### Corrections
+
+- NX Mobile portrait, écran Découverte : les puces « Selon votre humeur » étaient trop petites pour être tapées confortablement (repéré en test réel) — cible tactile agrandie à 44dp minimum.
+- Les rangées Genres/Plateformes/Studios/Selon votre humeur utilisaient une marge fixe de 52dp héritée de la TV au lieu des 16dp du reste du contenu portrait — même correctif que la rangée Distribution de la fiche titre (v1.24.95), elles suivent maintenant la même marge.
+
+## v1.24.95 — September 2026
+
+### Corrections
+
+- Corrige l'alignement de la rangée « Distribution » sur la fiche titre NX Mobile portrait : elle utilisait une marge fixe de 48dp au lieu des 16dp du reste de la fiche (titre, boutons, Titres similaires), ce qui la décalait visiblement vers la droite.
+
+## v1.24.94 — September 2026
+
+### Corrections
+
+- Corrige la compilation NX Mobile cassée par la refonte v1.24.93 (mauvais paramètres nommés sur `Border(...)` et un overload `Modifier.padding()` inexistant) — aucun APK n'avait pu être généré pour v1.24.93.
+
+## v1.24.93 — September 2026
+
+### NX Mobile
+
+- Vraie refonte structurelle du portrait téléphone (pas seulement des couleurs) : en-tête persistant avec barre de recherche toujours visible (l'ancien portrait n'affichait aucun en-tête), pilules segmentées Découverte/Films/Séries, filtres réels Genres/Humeur/Durée/Plateformes, carte héro à coins arrondis avec badge de note et double bouton Voir/Bande-annonce, chips « Selon votre humeur » en pastilles fines, écran Recherche reconstruit (barre persistante, pilules de type, Suggestions, Tendances du moment, résultats en liste).
+- Navigation basse à 5 onglets et badge de mise à jour inchangés.
+
+## v1.24.92 — September 2026
+
+### NX Mobile
+
+- Refonte visuelle de l'app NX Mobile : palette alignée sur le reste de Movviz (violet/void/abyss), chips actifs en dégradé de marque sur les filtres et le sélecteur de contenu, dock de navigation plus sombre.
+- Nouvelle section « Selon votre humeur » sur Découverte : accès rapide aux genres par ambiance (aventure, détente, frissons, émotion, rire, inspiration). Navigation à 5 onglets et badge de mise à jour inchangés.
+
+## v1.24.91 — September 2026
+
+### Corrections
+
+- Corrige "Sessions actives" : la lecture d'un épisode local n'ouvrait jamais de session de suivi (elle ne dépendait que de la durée Plex), donc n'apparaissait jamais dans le panneau — quel que soit l'appareil ou l'app (mobile, NX Mobile, TV, NX TV).
+- Le logo du splashscreen se chargeait trop tard (après hydratation JS) ; il est désormais préchargé dès le HTML initial.
+- Retouche le dock de navigation portrait de NX Mobile : l'indicateur de mise à jour ne pousse plus la barre vers le haut et n'est plus un aplat opaque.
+
+## v1.24.90 — September 2026
+
+### Identité visuelle
+
+- Nouveau mark Movviz (ruban croisé rose/violet) sur toute la plateforme, à partir des fichiers officiels : sidebar web, favicon/PWA, icônes adaptatives Android (mobile, NX Mobile, TV, NX TV), bannières Android TV, icône Windows et icône Docker.
+- Nouveaux splashscreens desktop et Android NX avec le lockup complet (mark + « Movviz »), chargés en priorité.
+
 ## v1.24.89 — September 2026
 
 ### NX Mobile et NX TV

@@ -1031,14 +1031,20 @@ fun TitleDetailScreen(
  *  rangée horizontale scrollable, plus naturel au D-pad qu'une grille. */
 @Composable
 private fun CastRow(cast: List<com.movviz.nx.mobile.data.MetaCastMemberDto>, onOpenPerson: (Int) -> Unit) {
+    // Même marge que le reste de la fiche (titre, boutons, Titres
+    // similaires) : 48.dp fixe désalignait cette rangée à gauche des autres
+    // sections en portrait, où tout le reste utilise 16.dp (voir le Column
+    // englobant plus haut dans ce fichier, ligne ~606).
+    val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
+    val edge = if (compactPortrait) 16.dp else 48.dp
     Column(modifier = Modifier.padding(bottom = 8.dp)) {
         Text(
             text = "Distribution",
             style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MovvizInk),
-            modifier = Modifier.padding(start = 48.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = edge, bottom = 12.dp),
         )
         TvLazyRow(
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 48.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = edge),
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             items(cast.take(15), key = { it.id }) { member ->

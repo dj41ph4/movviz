@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -33,6 +34,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -46,9 +48,19 @@ import com.movviz.nx.mobile.data.RowMetaDto
 import com.movviz.nx.mobile.ui.home.HeroCarousel
 import com.movviz.nx.mobile.ui.home.HomeTab
 import com.movviz.nx.mobile.ui.home.MediaHubMode
+import com.movviz.nx.mobile.ui.home.MediaHubSegmentedPills
+import com.movviz.nx.mobile.ui.home.FilterChipRow
+import com.movviz.nx.mobile.ui.home.FilterDropdownChip
 import com.movviz.nx.mobile.ui.home.MediaHubToggleRow
 import com.movviz.nx.mobile.ui.home.TitleRow
 import com.movviz.nx.mobile.ui.home.TvTitleCard
+import androidx.compose.ui.graphics.Brush
+import com.movviz.nx.mobile.ui.theme.MovvizAmber
+import com.movviz.nx.mobile.ui.theme.MovvizBrand
+import com.movviz.nx.mobile.ui.theme.MovvizBrand2
+import com.movviz.nx.mobile.ui.theme.MovvizCyan
+import com.movviz.nx.mobile.ui.theme.MovvizDown
+import com.movviz.nx.mobile.ui.theme.MovvizFlowMagenta
 import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.tvFocusLift
@@ -81,7 +93,14 @@ fun DiscoverScreen(
     // Même contrat que l'accueil : le parent rend la surcouche NX opaque dès
     // que le contenu défile derrière elle, puis transparente au sommet.
     onScrollChanged: (Boolean) -> Unit = {},
+    // Contrôle segmenté Découverte/Films/Séries (esquisse mobile 2026-09) —
+    // secondaire à la barre basse, portrait uniquement. Voir MainScreen.
+    activeHubTab: HomeTab = fixedType ?: HomeTab.MOVIES,
+    onSelectHubTab: (HomeTab) -> Unit = {},
 ) {
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
     var selectedType by remember(fixedType) { mutableStateOf(fixedType ?: HomeTab.MOVIES) }
     LaunchedEffect(fixedType) { fixedType?.let { selectedType = it } }
     // Le contexte « Découverte » du shell NX doit réellement mélanger les
@@ -238,6 +257,53 @@ fun DiscoverScreen(
                         .focusable(),
                 )
             }
+            if (fixedType != null && compactPortrait) {
+                item(contentType = "hub-pills") {
+                    MediaHubSegmentedPills(
+                        active = activeHubTab,
+                        onSelect = onSelectHubTab,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+                item(contentType = "filter-row") {
+                    val genreLabels = remember(genres) { genres.map { it.name } }
+                    val providerLabels = remember(watchProviderTiles) { watchProviderTiles.map { it.name } }
+                    val moodLabels = remember(genres) {
+                        MOOD_TILES.mapNotNull { mood -> genres.firstOrNull { g -> mood.names.any { it.equals(g.name, ignoreCase = true) } }?.let { mood.label } }
+                    }
+                    FilterChipRow(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp)) {
+                        if (genreLabels.isNotEmpty()) {
+                            FilterDropdownChip(
+                                label = "Genres",
+                                options = genreLabels,
+                                onSelectOption = { name -> genres.firstOrNull { it.name == name }?.let { onOpenGenre(wantedType, it.id.toString(), it.name) } },
+                            )
+                        }
+                        if (moodLabels.isNotEmpty()) {
+                            FilterDropdownChip(
+                                label = "Humeur",
+                                options = moodLabels,
+                                onSelectOption = { label ->
+                                    val mood = MOOD_TILES.firstOrNull { it.label == label }
+                                    val match = mood?.let { m -> genres.firstOrNull { g -> m.names.any { it.equals(g.name, ignoreCase = true) } } }
+                                    if (mood != null && match != null) onOpenGenre(wantedType, match.id.toString(), match.name)
+                                },
+                            )
+                        }
+                        if (providerLabels.isNotEmpty()) {
+                            FilterDropdownChip(
+                                label = "Plateformes",
+                                options = providerLabels,
+                                onSelectOption = { name ->
+                                    watchProviderTiles.firstOrNull { it.name == name }?.let { tile ->
+                                        onSeeAllRow(wantedType, "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous")
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
             item(contentType = "type-toggle") {
                 if (contextHeader != null) {
                     contextHeader()
@@ -246,7 +312,11 @@ fun DiscoverScreen(
                         mode = mode,
                         onModeChange = onModeChange,
                         firstFocusRequester = hubFocus,
-                        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
+                        modifier = Modifier.padding(
+                            start = if (compactPortrait) 16.dp else 56.dp,
+                            top = if (compactPortrait) 8.dp else 78.dp,
+                            bottom = 20.dp,
+                        ),
                     )
                 } else {
                     // Ancien point d'entrée, maintenu proprement : le
@@ -296,6 +366,14 @@ fun DiscoverScreen(
                     titleLogoPaths = heroLogos,
                     onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                 )
+            }
+            if (genres.isNotEmpty()) {
+                item(contentType = "mood-row") {
+                    DiscoverMoodRow(
+                        genres = genres,
+                        onSelect = { genreId, label -> onOpenGenre(wantedType, genreId, label) },
+                    )
+                }
             }
             // Rangées logo "Plateformes"/"Studios" en tout bas — même contenu
             // et même ordre que LogoRow sur le Discover desktop, indépendant
@@ -398,9 +476,11 @@ private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit) {
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
+        // Dégradé de marque plein sur l'onglet actif — même traitement que
+        // MediaHubToggleChip, cohérent avec les pilules de la charte mobile.
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (active) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
-            focusedContainerColor = Color.White.copy(alpha = 0.26f),
+            containerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.06f),
+            focusedContainerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.14f),
             contentColor = if (active) Color.White else MovvizInkSoft,
             focusedContentColor = Color.White,
         ),
@@ -408,11 +488,18 @@ private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit) {
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape = shape),
         ),
     ) {
-        Text(
-            text = label,
-            style = TextStyle(fontSize = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-        )
+        Box(
+            modifier = Modifier.then(
+                if (active) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+                else Modifier,
+            ),
+        ) {
+            Text(
+                text = label,
+                style = TextStyle(fontSize = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            )
+        }
     }
 }
 
@@ -420,15 +507,22 @@ private val SYNTHETIC_GENRES = listOf("anime" to "Anime", "teen" to "Romance ado
 
 @Composable
 private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: String, label: String) -> Unit) {
+    // Même marge que le reste du contenu portrait (16.dp) — 52.dp fixe est
+    // la marge TV, gardée pour le paysage/TV (voir le même correctif sur
+    // CastRow dans TitleDetailScreen.kt).
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
+    val edge = if (compactPortrait) 16.dp else 52.dp
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = "Genres",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = edge, bottom = 12.dp),
         )
         LazyRow(
-            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
+            contentPadding = PaddingValues(start = edge, end = edge),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(SYNTHETIC_GENRES, key = { "synth-${it.first}" }) { (id, label) ->
@@ -452,15 +546,19 @@ private fun DiscoverLogoRow(
     tiles: List<com.movviz.nx.mobile.data.LogoTileDto>,
     onSelect: ((com.movviz.nx.mobile.data.LogoTileDto) -> Unit)?,
 ) {
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
+    val edge = if (compactPortrait) 16.dp else 52.dp
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = edge, bottom = 12.dp),
         )
         LazyRow(
-            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
+            contentPadding = PaddingValues(start = edge, end = edge),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(tiles, key = { "$title-${it.id}" }) { tile ->
@@ -551,6 +649,98 @@ private fun DiscoverLogoTileFallback(name: String, dark: Boolean, focused: Boole
         ),
         maxLines = 2,
     )
+}
+
+/** "Selon votre humeur" — port direct de MOOD_TILES (src/app/discover/page.tsx) :
+ *  chaque humeur pointe vers un genre TMDb RÉEL, résolu par nom dans la liste
+ *  de genres déjà chargée pour le type de média actif (movie/series n'ont pas
+ *  toujours les mêmes genres — ex. pas de "Horreur" côté séries — d'où la
+ *  résolution par nom avec repli plutôt que des ids figés). Faute de vraie
+ *  photo par humeur (charte : jamais d'image inventée/volée), chaque tuile
+ *  affiche un dégradé construit à partir d'une couleur DÉJÀ définie dans
+ *  Color.kt — pas de nouvelle couleur one-off, pas de nouvelle donnée.
+ *  Une humeur sans genre résolu pour le type courant est simplement omise. */
+private data class MoodTile(val key: String, val label: String, val names: List<String>, val color: Color)
+
+private val MOOD_TILES = listOf(
+    MoodTile("adventure", "Aventure", listOf("Aventure"), MovvizBrand2),
+    MoodTile("relax", "Détente", listOf("Familial", "Comédie"), MovvizCyan),
+    MoodTile("thrill", "Frissons", listOf("Horreur", "Mystère"), MovvizDown),
+    MoodTile("emotion", "Émotion", listOf("Drame", "Romance"), MovvizFlowMagenta),
+    MoodTile("laugh", "Rire", listOf("Comédie"), MovvizAmber),
+    MoodTile("inspire", "Inspiration", listOf("Documentaire"), MovvizBrand),
+)
+
+@Composable
+private fun DiscoverMoodRow(genres: List<GenreDto>, onSelect: (genreId: String, label: String) -> Unit) {
+    val resolved = remember(genres) {
+        MOOD_TILES.mapNotNull { mood ->
+            val match = genres.firstOrNull { g -> mood.names.any { it.equals(g.name, ignoreCase = true) } }
+            match?.let { Triple(mood, it.id.toString(), it.name) }
+        }
+    }
+    if (resolved.isEmpty()) return
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
+    val edge = if (compactPortrait) 16.dp else 52.dp
+    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+        Text(
+            text = "Selon votre humeur",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = edge, bottom = 12.dp),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(start = edge, end = edge),
+            horizontalArrangement = Arrangement.spacedBy(if (compactPortrait) 10.dp else 12.dp),
+        ) {
+            items(resolved, key = { (mood, _, _) -> "mood-${mood.key}" }) { (mood, genreId, genreLabel) ->
+                DiscoverMoodTile(label = mood.label, color = mood.color, onClick = { onSelect(genreId, genreLabel) })
+            }
+        }
+    }
+}
+
+/** Pilule plate — fond translucide + fine bordure teintée, PAS un aplat
+ *  dégradé plein (esquisse mobile 2026-09 : "Selon votre humeur" est une
+ *  rangée de petites pilules discrètes, pas de blocs colorés géants). La
+ *  couleur de la tuile reste le seul signal (teinte de bordure/texte au
+ *  focus), toujours une des couleurs déjà déclarées dans Color.kt. */
+@Composable
+private fun DiscoverMoodTile(label: String, color: Color, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(50)
+    Surface(
+        onClick = onClick,
+        // 44.dp minimum — repéré trop petit au doigt en test réel (texte
+        // 14sp + 10dp de padding ne totalisait qu'environ 40dp, sous la
+        // cible tactile Android recommandée de 48dp).
+        modifier = Modifier
+            .heightIn(min = 44.dp)
+            .tvFocusLift(focused, shape = shape, maxScale = 1.05f)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = color.copy(alpha = 0.14f),
+            focusedContainerColor = color.copy(alpha = 0.26f),
+            contentColor = Color.White,
+            focusedContentColor = Color.White,
+        ),
+        border = ClickableSurfaceDefaults.border(
+            border = Border(border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.45f)), shape = shape),
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, color.copy(alpha = 0.9f)), shape = shape),
+        ),
+    ) {
+        Text(
+            text = label,
+            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+        )
+    }
 }
 
 @Composable

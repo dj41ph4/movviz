@@ -43,7 +43,11 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.nx.mobile.AppViewModel
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import com.movviz.nx.mobile.data.GenreDto
+import com.movviz.nx.mobile.ui.theme.MovvizBrand
+import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
@@ -54,6 +58,14 @@ private enum class CatalogSort(val label: String) {
     NAME("Nom"),
     RATING("Note"),
     YEAR("Année"),
+}
+
+/** Tranches de durée réelles (minutes) — filtre "Durée" de l'esquisse mobile,
+ *  Films uniquement (voir TvTitleCard.runtime, jamais renseigné côté série). */
+private enum class CatalogDuration(val label: String, val matches: (Int) -> Boolean) {
+    SHORT("Court (< 90 min)", { it < 90 }),
+    MEDIUM("Moyen (90-120 min)", { it in 90..120 }),
+    LONG("Long (> 120 min)", { it > 120 }),
 }
 
 /**
@@ -71,11 +83,11 @@ fun CatalogScreen(
     entryFocusRequester: FocusRequester? = null,
     mode: MediaHubMode = MediaHubMode.LIBRARY,
     onModeChange: (MediaHubMode) -> Unit = {},
-    /** Un conteneur bibliothèque peut injecter son sélecteur Films/Séries
-     * avant la grille. On évite ainsi une seconde page bibliothèque ou une
-     * fausse redirection vers Films. */
-    headerContent: (@Composable () -> Unit)? = null,
     onScrollChanged: (Boolean) -> Unit = {},
+    // Contrôle segmenté Découverte/Films/Séries (esquisse mobile 2026-09) —
+    // secondaire à la barre basse, portrait uniquement. Voir MainScreen.
+    activeHubTab: HomeTab = type,
+    onSelectHubTab: (HomeTab) -> Unit = {},
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val movies by viewModel.movies.collectAsState()
@@ -90,7 +102,7 @@ fun CatalogScreen(
 
     val cards = remember(movies, series, type) {
         if (type == HomeTab.MOVIES) {
-            movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
+            movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(), runtime = it.runtime) }
         } else {
             series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
         }
@@ -98,10 +110,17 @@ fun CatalogScreen(
 
     var sort by remember(type) { mutableStateOf(CatalogSort.NAME) }
     var selectedGenre by remember(type) { mutableStateOf<CatalogGenreSelection?>(null) }
+    // Filtre durée : uniquement réel pour les films — la fiche série n'a pas
+    // de durée par titre côté API (voir TvTitleCard.runtime, absent des
+    // cartes série ci-dessus). Reste donc null hors films (voir la ligne de
+    // filtres plus bas, qui n'affiche la pilule "Durée" que pour Films).
+    var selectedDuration by remember(type) { mutableStateOf<CatalogDuration?>(null) }
 
-    val filtered = remember(cards, selectedGenre) {
+    val filtered = remember(cards, selectedGenre, selectedDuration) {
         val selection = selectedGenre
-        if (selection == null) cards else cards.filter { cardMatchesCatalogGenre(it, selection) }
+        val byGenre = if (selection == null) cards else cards.filter { cardMatchesCatalogGenre(it, selection) }
+        val duration = selectedDuration
+        if (duration == null) byGenre else byGenre.filter { card -> card.runtime?.let { duration.matches(it) } == true }
     }
     val sorted = remember(filtered, sort) {
         when (sort) {
@@ -125,19 +144,47 @@ fun CatalogScreen(
     // immédiatement visibles en 1080p comme en 4K.
     Column(Modifier.fillMaxSize().padding(
         start = if (compactPortrait) 16.dp else 56.dp,
-        top = if (compactPortrait) 72.dp else 78.dp,
+        top = if (compactPortrait) 12.dp else 78.dp,
         end = if (compactPortrait) 16.dp else 52.dp,
         bottom = if (compactPortrait) 24.dp else 30.dp,
     )) {
-        if (headerContent != null) {
-            headerContent()
-        } else {
-            MediaHubToggleRow(
-                mode = mode,
-                onModeChange = onModeChange,
-                firstFocusRequester = entryFocusRequester,
-            )
+        if (compactPortrait) {
+            MediaHubSegmentedPills(active = activeHubTab, onSelect = onSelectHubTab)
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
+            val genreLabels = remember(genres) { genres.map { it.name } }
+            FilterChipRow(modifier = Modifier.padding(bottom = 4.dp)) {
+                if (genreLabels.isNotEmpty()) {
+                    FilterDropdownChip(
+                        label = "Genres",
+                        options = genreLabels,
+                        selectedLabel = selectedGenre?.label,
+                        onClear = { selectedGenre = null },
+                        onSelectOption = { name ->
+                            val synthetic = SYNTHETIC_GENRES.firstOrNull { it.second == name }
+                            selectedGenre = when {
+                                synthetic != null -> CatalogGenreSelection(synthetic.first, synthetic.second)
+                                else -> genres.firstOrNull { it.name == name }?.let { CatalogGenreSelection(it.id.toString(), it.name) }
+                            }
+                        },
+                    )
+                }
+                if (type == HomeTab.MOVIES) {
+                    FilterDropdownChip(
+                        label = "Durée",
+                        options = CatalogDuration.entries.map { it.label },
+                        selectedLabel = selectedDuration?.label,
+                        onClear = { selectedDuration = null },
+                        onSelectOption = { name -> selectedDuration = CatalogDuration.entries.firstOrNull { it.label == name } },
+                    )
+                }
+            }
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
         }
+        MediaHubToggleRow(
+            mode = mode,
+            onModeChange = onModeChange,
+            firstFocusRequester = entryFocusRequester,
+        )
         androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(22.dp))
         Text(
             text = "${type.label} · ${sorted.size}",
@@ -217,9 +264,11 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
+        // Pilule active en dégradé de marque, comme les autres bascules de
+        // la charte mobile (toggle Suggestions/Bibliothèque, Films/Séries).
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (active) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
-            focusedContainerColor = Color.White.copy(alpha = 0.26f),
+            containerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.06f),
+            focusedContainerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.14f),
             contentColor = if (active) Color.White else MovvizInkSoft,
             focusedContentColor = Color.White,
         ),
@@ -227,11 +276,18 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape = shape),
         ),
     ) {
-        Text(
-            text = label,
-            style = TextStyle(fontSize = 13.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
-        )
+        Box(
+            modifier = Modifier.then(
+                if (active) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+                else Modifier,
+            ),
+        ) {
+            Text(
+                text = label,
+                style = TextStyle(fontSize = 13.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+            )
+        }
     }
 }
 
@@ -289,19 +345,28 @@ private fun CatalogGenreChip(label: String, active: Boolean, onClick: () -> Unit
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
+        // Pilule de genre sélectionnée : dégradé de marque plutôt qu'un
+        // aplat blanc neutre — même langage que les autres bascules.
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (active) MovvizInk.copy(alpha = 0.9f) else MovvizInk.copy(alpha = 0.08f),
+            containerColor = if (active) Color.Transparent else MovvizInk.copy(alpha = 0.08f),
             contentColor = if (active) Color.White else MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
         ),
     ) {
-        Text(
-            text = label,
-            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (focused || active) Color.White else MovvizInkSoft),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
+        Box(
+            modifier = Modifier.then(
+                if (active) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+                else Modifier,
+            ),
+        ) {
+            Text(
+                text = label,
+                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (focused || active) Color.White else MovvizInkSoft),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
     }
 }
 

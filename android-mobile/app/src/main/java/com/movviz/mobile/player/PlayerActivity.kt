@@ -507,6 +507,20 @@ private fun PlayerScreen(
         var sequence = 0L
         while (true) {
             delay(PROGRESS_REPORT_INTERVAL_MS.toLong())
+            // Repli lecture locale : streamInfo (Plex) est sauté pour un
+            // épisode local, donc playbackSessionId reste null et aucune
+            // session n'apparaît jamais dans "Sessions actives" (bug confirmé
+            // : la lecture locale, chemin le plus fréquent, ne remonte
+            // jamais). Dès qu'ExoPlayer connaît la vraie durée, on ouvre la
+            // session a posteriori avec cette durée plutôt que de dépendre
+            // de Plex.
+            if (playbackSessionId == null) {
+                val dur = exoPlayer.duration
+                if (dur > 0) {
+                    val opened = repository.openPlaybackSession(current.ratingKey, dur, tmdbId, current.label ?: mainTitle, if (type == "series") "episode" else "movie")
+                    playbackSessionId = opened?.sessionId
+                }
+            }
             val id = playbackSessionId
             if (id != null) repository.playbackHeartbeat(id, ++sequence, exoPlayer.currentPosition, isPlaying)
             repository.reportProgress(current.ratingKey, exoPlayer.currentPosition, if (isPlaying) "playing" else "paused")

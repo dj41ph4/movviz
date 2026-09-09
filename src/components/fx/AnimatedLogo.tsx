@@ -9,8 +9,10 @@ const SIZES = {
 } as const;
 
 /**
- * Identité unique Movviz. Le fichier source est le nouveau logo officiel :
- * sidebar, login, lecteur et favicon affichent donc exactement le même signe.
+ * Identité unique Movviz : sidebar, login, lecteur et favicon affichent le
+ * même mark. C'est le fichier officiel (public/brand/movviz-mark.png),
+ * jamais un dessin recréé à la main — fetchPriority="high" car ce logo
+ * apparaît toujours au-dessus de la ligne de flottaison, dès le premier rendu.
  */
 export function AnimatedLogo({ size = "md" }: { size?: keyof typeof SIZES }) {
   const s = SIZES[size];
@@ -20,6 +22,8 @@ export function AnimatedLogo({ size = "md" }: { size?: keyof typeof SIZES }) {
       <img
         src="/brand/movviz-mark.png"
         alt="Movviz"
+        fetchPriority="high"
+        loading="eager"
         className={cn("h-full w-full object-contain", s.inner)}
       />
     </div>

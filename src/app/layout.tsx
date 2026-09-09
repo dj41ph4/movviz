@@ -65,6 +65,12 @@ export default async function RootLayout({
   }
   return (
     <html lang="fr" suppressHydrationWarning>
+      {/* React ne monte le <img> du splash/sidebar qu'après l'hydratation JS —
+          trop tard pour qu'il "apparaisse en premier". Ce preload démarre le
+          téléchargement dès le HTML initial, en parallèle du JS, pour que le
+          logo soit déjà en cache au moment où React le rend. */}
+      <link rel="preload" as="image" href="/brand/movviz-lockup.png" fetchPriority="high" />
+      <link rel="preload" as="image" href="/brand/movviz-mark.png" fetchPriority="high" />
       <body className="cinema-grain antialiased">
         {/* next/script's beforeInteractive strategy injects this before hydration
             (avoiding a flash of the wrong theme) via Next's own script-injection

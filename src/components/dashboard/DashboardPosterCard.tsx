@@ -111,6 +111,7 @@ export function DashboardPosterCard({
   progressPercent,
   resumeSeconds,
   subtitle,
+  overview,
   episodeBadge,
   inLibrary = false,
   layout = "row",
@@ -160,6 +161,9 @@ export function DashboardPosterCard({
    *  in place of the hover-only year/runtime/genres strip which doesn't
    *  make sense for a specific in-progress episode. */
   subtitle?: string;
+  /** Short synopsis, shown 2-line-clamped in the hover popover only (never
+   *  on the base tile — would make grid rows uneven at a glance). */
+  overview?: string;
   /** Reprendre / Épisodes récemment ajoutés only — a persistent bottom-right
    *  pill ("S03 · E02") so which episode it is reads at a glance, without
    *  needing the hover popover. Distinct from `subtitle` (a longer label
@@ -765,6 +769,7 @@ export function DashboardPosterCard({
                 ))}
               </div>
             )}
+            {overview && <p className="line-clamp-2 text-[12px] text-white/70">{overview}</p>}
           </Link>
           {popoverFooter}
         </div>

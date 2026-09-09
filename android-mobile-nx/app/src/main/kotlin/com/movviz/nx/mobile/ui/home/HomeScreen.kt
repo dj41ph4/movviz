@@ -94,6 +94,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizInkDim
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.MovvizIconPlay
 import com.movviz.nx.mobile.ui.theme.MovvizIconStar
+import com.movviz.nx.mobile.ui.theme.MovvizIconFilm
 import androidx.tv.material3.Icon
 import com.movviz.nx.mobile.ui.theme.MovvizOk
 import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
@@ -845,7 +846,18 @@ internal fun HeroCarousel(
     } else {
         (configuration.screenHeightDp * 0.62f).coerceIn(390f, 600f)
     }
-    Box(modifier = Modifier.fillMaxWidth().height(heroHeight.dp).clipToBounds()) {
+    // Portrait : carte à coins arrondis avec marge horizontale — pas un
+    // visuel plein-écran bord à bord (esquisse mobile 2026-09, les 5 écrans
+    // montrent tous une carte hero distincte, jamais un backdrop plein cadre).
+    // Le paysage/TV garde le hero plein-écran existant, inchangé.
+    val heroShape = if (compactPortrait) RoundedCornerShape(20.dp) else androidx.compose.ui.graphics.RectangleShape
+    Box(
+        modifier = Modifier.fillMaxWidth()
+            .then(if (compactPortrait) Modifier.padding(horizontal = 16.dp) else Modifier)
+            .height(heroHeight.dp)
+            .clip(heroShape)
+            .clipToBounds(),
+    ) {
         androidx.compose.animation.AnimatedContent(
             targetState = current,
             transitionSpec = { fadeIn(tween(700)) togetherWith fadeOut(tween(700)) },
@@ -873,6 +885,16 @@ internal fun HeroCarousel(
                 // re-layer, pas de recomposition), le zoom Ken Burns reste
                 // fluide sans repasser par toute la composition à 60fps.
                 modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom },
+            )
+        }
+
+        // Pastille "★ note" en haut à gauche du visuel — portrait uniquement
+        // (esquisse mobile 2026-09) ; le paysage/TV affiche déjà la note dans
+        // la ligne méta sous le titre, pas besoin d'une seconde pastille.
+        if (compactPortrait && current.rating > 0) {
+            com.movviz.nx.mobile.ui.theme.RatingBadge(
+                rating = current.rating,
+                modifier = Modifier.align(Alignment.TopStart).padding(14.dp),
             )
         }
 
@@ -1022,7 +1044,9 @@ internal fun HeroCarousel(
             Spacer(modifier = Modifier.height(16.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 var focused by remember(current.id) { mutableStateOf(false) }
-                // Netflix-style "Lire" button — white solid, bold.
+                // Portrait : pilule "Voir" en dégradé de marque plein (esquisse
+                // mobile 2026-09). Paysage/TV : bouton "Lire" blanc solide,
+                // inchangé — même action (onOpen), seul l'habillage change.
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
@@ -1030,45 +1054,59 @@ internal fun HeroCarousel(
                         .tvFocusLift(focused, shape = RoundedCornerShape(6.dp), maxScale = 1.04f, maxElevation = 16.dp)
                         .onFocusChanged { focused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp)),
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp)),
                     colors = ClickableSurfaceDefaults.colors(
-                        containerColor = Color.White,
-                        focusedContainerColor = Color.White,
-                        contentColor = Color.Black,
-                        focusedContentColor = Color.Black,
+                        containerColor = if (compactPortrait) Color.Transparent else Color.White,
+                        focusedContainerColor = if (compactPortrait) Color.Transparent else Color.White,
+                        contentColor = if (compactPortrait) Color.White else Color.Black,
+                        focusedContentColor = if (compactPortrait) Color.White else Color.Black,
                     ),
                     border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(6.dp)),
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White), shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp)),
                     ),
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                    Box(
+                        modifier = Modifier.then(
+                            if (compactPortrait) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), RoundedCornerShape(24.dp))
+                            else Modifier,
+                        ),
                     ) {
-                        // Icône vectorielle : le glyphe ▶ rendait en carré
-                        // (pas dans Inter).
-                        Icon(
-                            imageVector = MovvizIconPlay,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier.size(15.dp),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Lire", style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.Black))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+                        ) {
+                            // Icône vectorielle : le glyphe ▶ rendait en carré
+                            // (pas dans Inter).
+                            Icon(
+                                imageVector = MovvizIconPlay,
+                                contentDescription = null,
+                                tint = if (compactPortrait) Color.White else Color.Black,
+                                modifier = Modifier.size(15.dp),
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (compactPortrait) "Voir" else "Lire",
+                                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = if (compactPortrait) Color.White else Color.Black),
+                            )
+                        }
                     }
                 }
 
                 Spacer(modifier = Modifier.width(12.dp))
 
-                // "Plus d'infos" button — dark glass, secondary action.
+                // Portrait : pilule "Bande-annonce" en contour (esquisse mobile
+                // 2026-09). Paysage/TV : bouton "Plus d'infos", inchangé — même
+                // action (onOpen, ouvre la fiche) ; aucune lecture de trailer
+                // dédiée n'existe hors fiche détail, donc le libellé reste la
+                // seule différence visuelle, pas une nouvelle fonctionnalité.
                 var infoFocused by remember(current.id) { mutableStateOf(false) }
                 Surface(
                     onClick = { onOpen(current) },
                     modifier = Modifier
-                        .tvFocusLift(infoFocused, shape = RoundedCornerShape(6.dp), maxScale = 1.04f, maxElevation = 16.dp)
+                        .tvFocusLift(infoFocused, shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp), maxScale = 1.04f, maxElevation = 16.dp)
                         .onFocusChanged { infoFocused = it.isFocused }
                         .tvPointerClick { onOpen(current) },
-                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(6.dp)),
+                    shape = ClickableSurfaceDefaults.shape(shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp)),
                     colors = ClickableSurfaceDefaults.colors(
                         containerColor = Color.White.copy(alpha = 0.15f),
                         focusedContainerColor = Color.White.copy(alpha = 0.26f),
@@ -1076,25 +1114,38 @@ internal fun HeroCarousel(
                         focusedContentColor = Color.White,
                     ),
                     border = ClickableSurfaceDefaults.border(
-                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)), shape = RoundedCornerShape(6.dp)),
+                        border = if (compactPortrait) Border(border = androidx.compose.foundation.BorderStroke(1.5.dp, Color.White.copy(alpha = 0.5f)), shape = RoundedCornerShape(24.dp)) else Border.None,
+                        focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.6f)), shape = RoundedCornerShape(if (compactPortrait) 24.dp else 6.dp)),
                     ),
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
                     ) {
-                        // Le glyphe ℹ rendait en carré (pas dans Inter) —
-                        // simple pastille "i" dessinée en vectoriel local.
-                        Box(
-                            modifier = Modifier
-                                .size(16.dp)
-                                .border(1.5.dp, Color.White, RoundedCornerShape(50)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(text = "i", style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = Color.White))
+                        if (compactPortrait) {
+                            Icon(
+                                imageVector = MovvizIconFilm,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        } else {
+                            // Le glyphe ℹ rendait en carré (pas dans Inter) —
+                            // simple pastille "i" dessinée en vectoriel local.
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .border(1.5.dp, Color.White, RoundedCornerShape(50)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(text = "i", style = TextStyle(fontSize = 10.sp, fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic, color = Color.White))
+                            }
                         }
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(text = "Plus d'infos", style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White))
+                        Text(
+                            text = if (compactPortrait) "Bande-annonce" else "Plus d'infos",
+                            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+                        )
                     }
                 }
 

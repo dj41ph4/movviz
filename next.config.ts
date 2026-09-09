@@ -8,6 +8,9 @@ const nextConfig: NextConfig = {
   // own package.json, and without this Next's monorepo-root auto-detection
   // can pick an ambiguous root when computing what to sweep into standalone.
   outputFileTracingRoot: __dirname,
+  // Same ambiguous-root problem as above, but for Turbopack's dev-mode
+  // workspace-root inference (a separate mechanism from outputFileTracingRoot).
+  turbopack: { root: __dirname },
   // Any `fs.readdirSync`/`fs.readFile` call whose path isn't a static string
   // (e.g. CONFIG_DIR-based reads all over src/lib) makes Next's file tracer
   // fall back to including the ENTIRE containing directory as a dependency —

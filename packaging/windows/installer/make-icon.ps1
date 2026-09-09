@@ -1,63 +1,15 @@
 param([Parameter(Mandatory=$true)][string]$OutFile)
 
-# Canonical Movviz Windows icon — same pink/violet gradient + white clapperboard
-# as Android, PWA and Docker branding. A 512px master is rendered once, then
-# packed into a multi-resolution ICO for crisp 16/20/24/32/40/48/64/128/256px shell use.
+# Canonical Movviz Windows icon — loads the official 512px artwork (checked
+# into this folder as movviz-icon-source.png, the same file used for the web
+# favicon and Android launcher icons) and packs it into a multi-resolution
+# ICO for crisp 16/20/24/32/40/48/64/128/256px shell use. Never redraw the
+# mark procedurally here — always composite the real source file.
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Drawing
 
-function New-RoundedPath([float]$x, [float]$y, [float]$w, [float]$h, [float]$r) {
-    $p = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $d = 2 * $r
-    $p.AddArc($x, $y, $d, $d, 180, 90)
-    $p.AddArc($x + $w - $d, $y, $d, $d, 270, 90)
-    $p.AddArc($x + $w - $d, $y + $h - $d, $d, $d, 0, 90)
-    $p.AddArc($x, $y + $h - $d, $d, $d, 90, 90)
-    $p.CloseFigure()
-    return $p
-}
-
-$masterSize = 512
-$master = New-Object System.Drawing.Bitmap($masterSize, $masterSize, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-$g = [System.Drawing.Graphics]::FromImage($master)
-$g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-$g.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
-$g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-$g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
-$g.Clear([System.Drawing.Color]::Transparent)
-
-$rect = New-Object System.Drawing.Rectangle(0, 0, $masterSize, $masterSize)
-$c1 = [System.Drawing.ColorTranslator]::FromHtml("#F33FBC")
-$c2 = [System.Drawing.ColorTranslator]::FromHtml("#8E37F7")
-$gradient = New-Object System.Drawing.Drawing2D.LinearGradientBrush($rect, $c1, $c2, 45)
-$white = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::White)
-
-# Rounded app tile.
-$tile = New-RoundedPath 0 0 512 512 112
-$g.FillPath($gradient, $tile)
-
-# Lower clapper body with the center cut-out revealing the gradient.
-$body = New-RoundedPath 98 225 316 199 35
-$g.FillPath($white, $body)
-$window = New-RoundedPath 135 272 242 112 7
-$g.FillPath($gradient, $window)
-
-# Angled upper clapper.
-$state = $g.Save()
-$g.TranslateTransform(256, 180)
-$g.RotateTransform(-15)
-$g.TranslateTransform(-256, -180)
-$top = New-RoundedPath 103 126 307 104 25
-$g.FillPath($white, $top)
-foreach ($x in @(132, 221, 310)) {
-    $hole = New-RoundedPath $x 151 58 43 7
-    $g.FillPath($gradient, $hole)
-    $hole.Dispose()
-}
-$g.Restore($state)
-
-$tile.Dispose(); $body.Dispose(); $window.Dispose(); $top.Dispose()
-$white.Dispose(); $gradient.Dispose(); $g.Dispose()
+$sourcePath = Join-Path $PSScriptRoot "movviz-icon-source.png"
+$master = [System.Drawing.Bitmap]::FromFile((Resolve-Path $sourcePath))
 
 $sizes = @(16, 20, 24, 32, 40, 48, 64, 128, 256)
 $images = @()

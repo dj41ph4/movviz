@@ -45,13 +45,8 @@ fun LibraryHubScreen(
         type = mediaType,
         onOpenTitle = onOpenTitle,
         entryFocusRequester = entryFocusRequester,
-        headerContent = {
-            LibraryTypeTabs(
-                selected = mediaType,
-                onSelect = { mediaType = it },
-                firstFocusRequester = entryFocusRequester,
-            )
-        },
+        activeHubTab = mediaType,
+        onSelectHubTab = { mediaType = it },
         onScrollChanged = onScrollChanged,
     )
 }
