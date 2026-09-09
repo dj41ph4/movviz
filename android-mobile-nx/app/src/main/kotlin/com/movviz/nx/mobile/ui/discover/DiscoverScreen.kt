@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -476,15 +477,22 @@ private val SYNTHETIC_GENRES = listOf("anime" to "Anime", "teen" to "Romance ado
 
 @Composable
 private fun DiscoverGenrePickerRow(genres: List<GenreDto>, onSelect: (genreId: String, label: String) -> Unit) {
+    // Même marge que le reste du contenu portrait (16.dp) — 52.dp fixe est
+    // la marge TV, gardée pour le paysage/TV (voir le même correctif sur
+    // CastRow dans TitleDetailScreen.kt).
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
+    val edge = if (compactPortrait) 16.dp else 52.dp
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = "Genres",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = edge, bottom = 12.dp),
         )
         LazyRow(
-            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
+            contentPadding = PaddingValues(start = edge, end = edge),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             items(SYNTHETIC_GENRES, key = { "synth-${it.first}" }) { (id, label) ->
@@ -508,15 +516,19 @@ private fun DiscoverLogoRow(
     tiles: List<com.movviz.nx.mobile.data.LogoTileDto>,
     onSelect: ((com.movviz.nx.mobile.data.LogoTileDto) -> Unit)?,
 ) {
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
+    val edge = if (compactPortrait) 16.dp else 52.dp
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = edge, bottom = 12.dp),
         )
         LazyRow(
-            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
+            contentPadding = PaddingValues(start = edge, end = edge),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             items(tiles, key = { "$title-${it.id}" }) { tile ->
@@ -638,16 +650,20 @@ private fun DiscoverMoodRow(genres: List<GenreDto>, onSelect: (genreId: String, 
         }
     }
     if (resolved.isEmpty()) return
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
+    val edge = if (compactPortrait) 16.dp else 52.dp
     Column(modifier = Modifier.padding(bottom = 32.dp)) {
         Text(
             text = "Selon votre humeur",
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+            modifier = Modifier.padding(start = edge, bottom = 12.dp),
         )
         LazyRow(
-            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(start = edge, end = edge),
+            horizontalArrangement = Arrangement.spacedBy(if (compactPortrait) 10.dp else 12.dp),
         ) {
             items(resolved, key = { (mood, _, _) -> "mood-${mood.key}" }) { (mood, genreId, genreLabel) ->
                 DiscoverMoodTile(label = mood.label, color = mood.color, onClick = { onSelect(genreId, genreLabel) })
@@ -667,7 +683,11 @@ private fun DiscoverMoodTile(label: String, color: Color, onClick: () -> Unit) {
     val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
+        // 44.dp minimum — repéré trop petit au doigt en test réel (texte
+        // 14sp + 10dp de padding ne totalisait qu'environ 40dp, sous la
+        // cible tactile Android recommandée de 48dp).
         modifier = Modifier
+            .heightIn(min = 44.dp)
             .tvFocusLift(focused, shape = shape, maxScale = 1.05f)
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
@@ -685,10 +705,10 @@ private fun DiscoverMoodTile(label: String, color: Color, onClick: () -> Unit) {
     ) {
         Text(
             text = label,
-            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+            style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
         )
     }
 }

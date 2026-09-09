@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.96 — September 2026
+
+### Corrections
+
+- NX Mobile portrait, écran Découverte : les puces « Selon votre humeur » étaient trop petites pour être tapées confortablement (repéré en test réel) — cible tactile agrandie à 44dp minimum.
+- Les rangées Genres/Plateformes/Studios/Selon votre humeur utilisaient une marge fixe de 52dp héritée de la TV au lieu des 16dp du reste du contenu portrait — même correctif que la rangée Distribution de la fiche titre (v1.24.95), elles suivent maintenant la même marge.
+
 ## v1.24.95 — September 2026
 
 ### Corrections
