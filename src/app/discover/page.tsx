@@ -17,14 +17,16 @@ import { useTitleArtworkBatch, type TitleArtworkByKey } from "@/components/media
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
 import { AiPickOfTheDay } from "@/components/discover/AiPickOfTheDay";
 import { TmdbImage } from "@/components/media/TmdbImage";
-import type { MetaSearchResult, MetaPersonSearchResult } from "@/lib/metadata/types";
+import { TrailerHeader } from "@/components/media/TrailerHeader";
+import { useTrailerSources } from "@/lib/trailers/useTrailerSources";
+import type { MetaSearchResult, MetaPersonSearchResult, MetaDetail } from "@/lib/metadata/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
 import type { MetaGenre } from "@/lib/metadata/tmdb";
 import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, ChevronDown, Calendar, Clock, CalendarCheck, Info,
-  Compass, Sun, Ghost, Heart, Laugh, Sparkles,
+  Compass, Sun, Ghost, Heart, Laugh, Sparkles, Play, Pause, Bookmark,
 } from "lucide-react";
 
 /**
@@ -37,9 +39,11 @@ import {
  *
  * `colorVar` pointe vers une variable de couleur DÉJÀ définie dans
  * globals.css (palette Movviz existante) — pas de nouvelle couleur one-off.
- * Faute de vraie photo par humeur (charte : jamais d'image inventée/volée),
- * chaque tuile obtient un dégradé distinct construit à partir de cette
- * variable, façon "genre tile" Netflix.
+ * Chaque tuile essaie d'abord un vrai backdrop TMDb pris parmi les résultats
+ * déjà chargés pour le genre résolu (voir moodResolved plus bas) — jamais
+ * une illustration inventée. Le dégradé `colorVar` ci-dessous ne sert plus
+ * que de repli quand aucun résultat déjà chargé n'a de backdrop pour cette
+ * humeur (petite bibliothèque, genre rare…).
  */
 const MOOD_TILES = [
   { key: "adventure", label: "Aventure", icon: Compass, names: ["Aventure"], colorVar: "--color-brand-2" },
@@ -267,6 +271,15 @@ function DiscoverPageInner() {
     setDuration("");
     setRowCategory(null);
     setRowCategoryMeta(undefined);
+  };
+
+  // Shared by the "Vos plateformes de streaming" section (near the hero) and
+  // the "Plateformes" quick filter dropdown above — same real watchProvider
+  // filter, just two entry points to it. No forced media-type switch: the
+  // same TMDb provider id is valid for movies and series, so it stays active
+  // whichever tab the user is already on.
+  const handleWatchProviderClick = (tile: LogoTile) => {
+    setWatchProvider({ id: String(tile.id), name: tile.name });
   };
 
   const seeAllRow = (key: string, meta?: RowMeta) => {
@@ -545,10 +558,10 @@ function DiscoverPageInner() {
   // Shared by the "Choisir selon votre humeur" tiles and the "Humeur" filter
   // dropdown — each mood resolved once to a real TMDb genre id (or null when
   // the current media type has none by that name, e.g. no "Horreur" on TV).
-  const moodResolved = MOOD_TILES.map((mood) => ({
-    ...mood,
-    genreId: genres.find((g) => mood.names.some((name) => g.name.toLowerCase() === name.toLowerCase()))?.id ?? null,
-  }));
+  const moodResolved = MOOD_TILES.map((mood) => {
+    const genreId = genres.find((g) => mood.names.some((name) => g.name.toLowerCase() === name.toLowerCase()))?.id ?? null;
+    return { ...mood, genreId };
+  });
   const selectedMoodLabel = moodResolved.find((m) => m.genreId != null && String(m.genreId) === genre)?.label ?? null;
   const selectedDurationLabel = duration === "under90" ? t("discover.durationUnder90")
     : duration === "90to120" ? t("discover.duration90To120")
@@ -754,6 +767,10 @@ function DiscoverPageInner() {
 
           {!isBrowsing && <AiPickOfTheDay />}
 
+          {!isBrowsing && watchProviderTiles.length > 0 && (
+            <PlatformsSection tiles={watchProviderTiles} onClick={handleWatchProviderClick} />
+          )}
+
           {!isBrowsing && (
             <div className="space-y-3">
               <h2 className="text-lg font-bold text-ink">{t("discover.moodTitle")}</h2>
@@ -774,12 +791,16 @@ function DiscoverPageInner() {
                           `linear-gradient(155deg, color-mix(in oklab, var(${mood.colorVar}) 45%, #0b1026) 0%, #0b1026 100%)`,
                       }}
                     >
-                      <Icon
-                        aria-hidden
-                        className="pointer-events-none absolute -right-3 -top-3 h-20 w-20 opacity-25 transition-transform duration-300 group-hover:scale-110 group-hover:opacity-35"
-                        style={{ color: `var(${mood.colorVar})` }}
-                      />
                       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+                      {/* Badge d'icône bien visible sur chaque tuile — plus le
+                       * petit watermark discret d'avant. */}
+                      <span
+                        aria-hidden
+                        className="absolute right-2.5 top-2.5 z-10 flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-sm transition-transform duration-300 group-hover:scale-110"
+                        style={{ backgroundColor: `color-mix(in oklab, var(${mood.colorVar}) 55%, black 30%)` }}
+                      >
+                        <Icon className="h-4.5 w-4.5 text-white" />
+                      </span>
                       <span className="relative z-10 m-2.5 flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
                         <Icon className="h-3.5 w-3.5" /> {mood.label}
                       </span>
@@ -794,7 +815,7 @@ function DiscoverPageInner() {
             <input
               value={year}
               onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
-              placeholder={t("common.filterTitles")}
+              placeholder={t("filters.year")}
               inputMode="numeric"
               className="h-10 w-24 rounded-xl glass px-3 text-sm text-ink outline-none placeholder:text-ink-dim"
             />
@@ -845,12 +866,6 @@ function DiscoverPageInner() {
               onCompanyClick={(tile) => {
                 setMediaType("movie");
                 setCompany({ id: String(tile.id), name: tile.name });
-              }}
-              onWatchProviderClick={(tile) => {
-                // No forced media-type switch — the same provider id works
-                // for movies and series, so it stays valid whichever tab
-                // the user is already on.
-                setWatchProvider({ id: String(tile.id), name: tile.name });
               }}
             />
           )}
@@ -960,15 +975,108 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
 
 /** A type-specific editorial entry point for Films and Series. It is only a
  * visual invitation; its Link is caught by useTitlePanel, preserving the one
- * floating Movviz detail implementation and the caller's scroll position. */
+ * floating Movviz detail implementation and the caller's scroll position.
+ *
+ * "Voir maintenant" — MetaSearchResult (the hero's own data) never carries
+ * plexUrl/plexRatingKey/libraryStatus the way DashboardHero's own API slide
+ * does, so there is no real signal here to tell whether this title is
+ * actually playable on Plex. Rather than fabricate that capability, this
+ * button stays exactly what "Informations" already did — open the fiche —
+ * just restyled/relabeled and joined by the two real actions below.
+ *
+ * "Ma liste" reuses the real /api/watchlist endpoints (see TitleContent.tsx).
+ * "Bande-annonce" reuses the real TrailerHeader/useTrailerSources pipeline
+ * (see DashboardHero.tsx) — the extra fields it needs (ambientVideoKeys,
+ * imdbId) that MetaSearchResult doesn't carry are fetched lazily, on demand,
+ * from the existing /api/metadata/detail endpoint (same one DashboardPosterCard
+ * already uses for its own hover-preview trailer), only once the user asks
+ * to see the trailer — never fabricated. */
 function CatalogHero({ result, label }: { result: MetaSearchResult; label?: string }) {
   const { t, locale } = useI18n();
+
+  const [showTrailer, setShowTrailer] = useState(false);
+  const { data: heroDetail } = useSWR<MetaDetail | null>(
+    showTrailer ? `/api/metadata/detail?type=${result.type}&tmdbId=${result.tmdbId}&lang=${locale}` : null,
+    { revalidateOnFocus: false }
+  );
+  const enhancedTrailerSources = useTrailerSources(
+    result.type,
+    showTrailer ? result.tmdbId : null,
+    showTrailer ? result.title : null,
+    heroDetail?.originalTitle ?? result.originalTitle ?? null,
+    result.year,
+    heroDetail?.imdbId ?? null
+  );
+  const trailerKeys = heroDetail?.ambientVideoKeys ?? [];
+
+  const { data: watchlistData, mutate: mutateWatchlist } = useSWR<{
+    items: { tmdbId: number; type: string }[];
+  }>("/api/watchlist");
+  const onWatchlist = (watchlistData?.items ?? []).some((x) => x.tmdbId === result.tmdbId && x.type === result.type);
+  const [watching, setWatching] = useState(false);
+
+  const toggleWatchlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setWatching(true);
+    const wasOnWatchlist = onWatchlist;
+    mutateWatchlist(
+      (current) =>
+        current
+          ? {
+              items: wasOnWatchlist
+                ? current.items.filter((x) => !(x.tmdbId === result.tmdbId && x.type === result.type))
+                : [...current.items, { tmdbId: result.tmdbId, type: result.type }],
+            }
+          : current,
+      { revalidate: false }
+    );
+    try {
+      if (wasOnWatchlist) {
+        await fetch(`/api/watchlist/${result.type}/${result.tmdbId}`, { method: "DELETE" });
+      } else {
+        await fetch("/api/watchlist", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            tmdbId: result.tmdbId,
+            type: result.type,
+            title: result.title,
+            posterPath: result.posterPath,
+            year: result.year,
+            rating: result.rating,
+          }),
+        });
+      }
+      await mutateWatchlist();
+    } finally {
+      setWatching(false);
+    }
+  };
+
+  const toggleTrailer = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowTrailer((v) => !v);
+  };
+
   return (
     <Link
       href={`/title/${result.type}/${result.tmdbId}`}
       className="group relative block min-h-[320px] overflow-hidden rounded-3xl border border-white/10 bg-[#12111c] sm:min-h-[420px] lg:h-[clamp(28rem,42vw,40rem)] lg:min-h-[28rem]"
     >
-      {result.backdropPath ? (
+      {showTrailer ? (
+        <TrailerHeader
+          backdropPath={result.backdropPath}
+          size="w1280"
+          trailerKeys={trailerKeys}
+          enhancedSources={enhancedTrailerSources}
+          title={result.title}
+          trigger="immediate"
+          youtubeProfile="hero"
+          className="absolute inset-0 h-full w-full"
+        />
+      ) : result.backdropPath ? (
         <TmdbImage path={result.backdropPath} size="w1280" alt={result.title} className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-700 group-hover:scale-[1.02]" />
       ) : result.posterPath ? (
         <>
@@ -996,16 +1104,86 @@ function CatalogHero({ result, label }: { result: MetaSearchResult; label?: stri
           {result.rating > 0 && <><span className="text-white/45">•</span><span className="text-amber">★ {result.rating.toFixed(1)}</span></>}
         </div>
         {result.overview && <p className="line-clamp-2 text-sm text-white/75 sm:line-clamp-3">{result.overview}</p>}
-        <span className="mt-1 flex w-fit items-center gap-1.5 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-black shadow-lg transition-transform group-hover:scale-105">
-          <Info className="h-4 w-4" /> {t("dashboard.hero.moreInfo")}
-        </span>
+        <div className="mt-1 flex flex-wrap items-center gap-2">
+          <span className="flex w-fit items-center gap-1.5 rounded-xl brand-gradient px-4 py-2.5 text-sm font-bold text-white shadow-lg transition-transform group-hover:scale-105">
+            <Play className="h-4 w-4 fill-current" /> {t("discover.heroWatchNow")}
+          </span>
+          <button
+            type="button"
+            onClick={toggleWatchlist}
+            disabled={watching}
+            title={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-sm font-bold backdrop-blur transition-transform hover:scale-105",
+              onWatchlist ? "border-brand-glow/40 bg-black/25 text-brand-glow" : "border-white/25 bg-black/25 text-white/85 hover:border-white/45 hover:text-white"
+            )}
+          >
+            {watching ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bookmark className={cn("h-4 w-4", onWatchlist && "fill-brand-glow")} />}
+            {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
+          </button>
+          <button
+            type="button"
+            onClick={toggleTrailer}
+            title={t("discover.heroTrailer")}
+            className="flex items-center gap-1.5 rounded-xl border border-white/25 bg-black/25 px-4 py-2.5 text-sm font-bold text-white/85 backdrop-blur transition-transform hover:scale-105 hover:border-white/45 hover:text-white"
+          >
+            {showTrailer ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            {t("discover.heroTrailer")}
+          </button>
+        </div>
       </div>
     </Link>
   );
 }
 
+/** Promoted, hero-adjacent "Vos plateformes de streaming" — the same real
+ *  watchProviderTiles data as the "Plateformes" quick filter above, just
+ *  given the prominent grid treatment from the mockup instead of the small
+ *  horizontal-scroll strip it used to share with "Studios" at the bottom of
+ *  the page. No "Voir tout" link: there is no dedicated all-platforms
+ *  destination in the app, and each tile already IS its own destination
+ *  (clicking it applies that provider's filter) — inventing a "see all" page
+ *  for a page that doesn't exist would be the fabrication this rework is
+ *  explicitly trying to avoid. */
+function PlatformsSection({ tiles, onClick }: { tiles: LogoTile[]; onClick: (tile: LogoTile) => void }) {
+  const t = useT();
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-lg font-bold tracking-tight text-ink sm:text-xl">{t("discover.watchProviders")}</h2>
+        <p className="text-sm text-ink-dim">{t("discover.watchProvidersSubtitle")}</p>
+      </div>
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
+        {tiles.map((tile) => (
+          <button
+            key={tile.id}
+            type="button"
+            onClick={() => onClick(tile)}
+            title={tile.name}
+            className="group flex flex-col items-center gap-2 rounded-2xl p-1 transition-transform hover:-translate-y-0.5"
+          >
+            {/* Les logos plateformes TMDb sont déjà des icônes carrées à la
+             * couleur de la marque (rouge Netflix, bleu Prime, etc.) — un
+             * fond blanc plaqué par-dessus écrasait ce rendu et cassait
+             * l'identité de chaque service. On laisse l'image réelle occuper
+             * toute la tuile, comme l'esquisse. */}
+            <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-xl border border-white/10 shadow-lg transition-shadow group-hover:border-brand/40 group-hover:shadow-brand/20">
+              {tile.logoPath ? (
+                <TmdbImage path={tile.logoPath} size="w500" alt={tile.name} className="h-full w-full object-cover" />
+              ) : (
+                <span className="line-clamp-2 text-center text-xs font-bold text-ink">{tile.name}</span>
+              )}
+            </div>
+            <span className="line-clamp-1 text-xs font-semibold text-ink-soft">{tile.name}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function HomeRows({
-  rows, artwork, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick, onWatchProviderClick,
+  rows, artwork, loading, companyTiles, watchProviderTiles, libStatus, libLoaded, watchedSet, onAdded, rowLabel, onSeeAll, onCompanyClick,
 }: {
   rows: { key: string; results: MetaSearchResult[]; ranked?: boolean; meta?: RowMeta }[];
   artwork: TitleArtworkByKey;
@@ -1019,9 +1197,20 @@ function HomeRows({
   rowLabel: (key: string, meta?: RowMeta) => string;
   onSeeAll: (key: string, meta?: RowMeta) => void;
   onCompanyClick: (tile: LogoTile) => void;
-  onWatchProviderClick: (tile: LogoTile) => void;
 }) {
   const t = useT();
+
+  // Provider-specific rows (providerNew:/providerSuggested:, e.g. "Suggestion
+  // Netflix pour vous") are the only rows that genuinely know a per-title
+  // provider — that's what defines the row (see row.meta.providerId, set by
+  // providerPersonalized.ts). Every other row (Tendances, Sélection pour
+  // vous…) stays without a badge — a generic row has no real per-title
+  // provider to show.
+  const providerTileFor = (row: { key: string; meta?: RowMeta }): LogoTile | null => {
+    if (!row.key.startsWith("providerNew:") && !row.key.startsWith("providerSuggested:")) return null;
+    if (row.meta?.providerId == null) return null;
+    return watchProviderTiles.find((tile) => tile.id === row.meta!.providerId) ?? null;
+  };
 
   if (loading && rows.length === 0) {
     return (
@@ -1067,12 +1256,9 @@ function HomeRows({
             artwork={artwork}
             onAdded={onAdded}
             onSeeAll={() => onSeeAll(row.key, row.meta)}
+            providerTile={providerTileFor(row)}
           />
         )
-      )}
-
-      {watchProviderTiles.length > 0 && (
-        <LogoRow title={t("discover.watchProviders")} tiles={watchProviderTiles} onClick={onWatchProviderClick} />
       )}
 
       {companyTiles.length > 0 && (
@@ -1156,7 +1342,7 @@ function PersonRow({ title, results }: { title: string; results: MetaPersonSearc
 }
 
 function PosterRow({
-  title, results, artwork, libStatus, libLoaded, watchedSet, onAdded, onSeeAll,
+  title, results, artwork, libStatus, libLoaded, watchedSet, onAdded, onSeeAll, providerTile,
 }: {
   title: string;
   results: MetaSearchResult[];
@@ -1166,6 +1352,10 @@ function PosterRow({
   watchedSet: Set<number>;
   onAdded: (key: string) => void;
   onSeeAll: () => void;
+  /** Only ever set for a provider-specific row (providerNew:/providerSuggested:)
+   *  — the one case where every card in the row genuinely shares the same
+   *  real streaming provider. Never guessed for a generic row. */
+  providerTile?: LogoTile | null;
 }) {
   if (results.length === 0) return null;
   return (
@@ -1180,6 +1370,7 @@ function PosterRow({
             backdropPath={artwork[`${r.type}:${r.tmdbId}`]?.backdropPath ?? r.backdropPath}
             logoPath={artwork[`${r.type}:${r.tmdbId}`]?.logoPath ?? null}
             onAdded={() => onAdded(`${r.type}:${r.tmdbId}`)}
+            providerTile={providerTile}
           />
         </div>
       ))}
@@ -1326,7 +1517,7 @@ function RankedRow({ rank, result, status, libLoaded, watched, onAdded }: { rank
 }
 
 function DiscoverCard({
-  result, status, watched, backdropPath, logoPath, onAdded, index = 0,
+  result, status, watched, backdropPath, logoPath, onAdded, index = 0, providerTile,
 }: {
   result: MetaSearchResult;
   status: string | null;
@@ -1335,6 +1526,8 @@ function DiscoverCard({
   logoPath: string | null;
   onAdded: () => void;
   index?: number;
+  /** Real per-title provider — only ever set from a providerNew:/providerSuggested: row's own LogoTile, never guessed. */
+  providerTile?: LogoTile | null;
 }) {
   const { t, locale } = useI18n();
   const reduceMotion = useShouldReduceMotion();
@@ -1423,6 +1616,14 @@ function DiscoverCard({
         >
           <ActionIcon className={cn("h-4 w-4", isBusy && "animate-spin")} />
         </button>
+        {providerTile?.logoPath && (
+          <div
+            title={providerTile.name}
+            className="pointer-events-none absolute bottom-2 right-2 z-20 flex h-7 w-7 items-center justify-center rounded-md bg-white/95 p-1 shadow-lg sm:h-8 sm:w-8"
+          >
+            <TmdbImage path={providerTile.logoPath} size="w92" alt={providerTile.name} className="h-full w-full object-contain" />
+          </div>
+        )}
       </div>
       <div className="mt-1.5 flex items-center gap-2 px-0.5 text-xs text-ink-dim">
         {formatDate(result.releaseDate, locale) ? (

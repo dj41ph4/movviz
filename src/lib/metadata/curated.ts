@@ -39,8 +39,6 @@ export const STREAMING_PLATFORMS = [
   { id: 337, name: "Disney Plus" },
   { id: 283, name: "Crunchyroll" },
   { id: 381, name: "Canal+" },
-  { id: 234, name: "Arte" },
-  { id: 147, name: "M6+" },
   { id: 192, name: "YouTube" },
   { id: 11, name: "MUBI" },
 ];
