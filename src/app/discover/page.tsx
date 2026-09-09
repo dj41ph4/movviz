@@ -16,6 +16,7 @@ import { TitleMark } from "@/components/media/TitleMark";
 import { useTitleArtworkBatch, type TitleArtworkByKey } from "@/components/media/useTitleArtworkBatch";
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
+import { AiPickOfTheDay } from "@/components/discover/AiPickOfTheDay";
 import { DEFAULT_DASHBOARD_LAYOUT } from "@/lib/dashboard/types";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import type { MetaSearchResult, MetaPersonSearchResult } from "@/lib/metadata/types";
@@ -589,6 +590,8 @@ function DiscoverPageInner() {
         <>
           {!isBrowsing && catalogHero && <CatalogHero result={catalogHero} />}
           {genreHero && <CatalogHero result={genreHero} label={selectedGenreName ?? undefined} />}
+
+          {!isBrowsing && <AiPickOfTheDay />}
 
           {!isBrowsing && (
             <div className="space-y-3">

@@ -478,6 +478,7 @@ export const fr = {
     cardsNew: "Nouveautés",
     cardsTopMovies: "Top films",
     cardsTopSeries: "Top séries",
+    aiPickTitle: "Recommandation IA du jour",
     moodTitle: "Choisir selon votre humeur",
     rowRecommended: "Suggestions pour vous",
     rowRecommendedTop: "Sélection pour vous",
