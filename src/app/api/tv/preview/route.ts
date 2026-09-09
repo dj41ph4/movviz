@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/auth/guard";
 import { loadDashboardLayout } from "@/lib/dashboard/store";
 import { getDetail } from "@/lib/metadata/tmdb";
 import { resolveTrailerSources } from "@/lib/trailers/resolver";
+import { isEnhancedTrailerSourcesEnabled } from "@/lib/settings/trailerSources";
 
 export const dynamic = "force-dynamic";
 
@@ -26,13 +27,16 @@ export async function GET(req: NextRequest) {
   const detail = await getDetail(type, tmdbId, undefined, { youtubeTrailerSearch });
   if (!detail) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const directSources = await resolveTrailerSources(
-    type,
-    tmdbId,
-    detail.title,
-    detail.year ?? null,
-    detail.imdbId ?? null,
-  );
+  // Bug confirmé : cette route appelait resolveTrailerSources (recherche
+  // Apple/IMDb par titre — approximative, peut confondre un remake/homonyme)
+  // sans condition, alors que le desktop (useTrailerSources.ts) ne l'appelle
+  // que si ce réglage global est activé — désactivé par défaut. La TV
+  // utilisait donc systématiquement une source moins fiable que ce que le
+  // desktop utilise réellement, d'où des bandes-annonces parfois erronées
+  // sur TV mais jamais sur desktop. Même garde ici : même flux partout.
+  const directSources = isEnhancedTrailerSourcesEnabled()
+    ? await resolveTrailerSources(type, tmdbId, detail.title, detail.year ?? null, detail.imdbId ?? null)
+    : [];
 
   return NextResponse.json({
     tmdbId,
