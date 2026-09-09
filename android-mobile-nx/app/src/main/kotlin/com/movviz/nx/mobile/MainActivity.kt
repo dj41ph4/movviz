@@ -97,6 +97,7 @@ import com.movviz.nx.mobile.ui.theme.MovvizIconStar
 import com.movviz.nx.mobile.ui.theme.MovvizIconDownload
 import com.movviz.nx.mobile.ui.theme.MovvizBrand
 import com.movviz.nx.mobile.ui.theme.MovvizBrand2
+import com.movviz.nx.mobile.ui.theme.MovvizSurfaceStrong
 import com.movviz.nx.mobile.ui.title.TitleDetailScreen
 import com.movviz.nx.mobile.ui.update.AutoUpdateOverlay
 import com.movviz.nx.mobile.ui.wizard.WizardScreen
@@ -736,8 +737,12 @@ private fun PortraitBottomNav(
                 modifier = Modifier
                     .wrapContentWidth()
                     .shadow(14.dp, RoundedCornerShape(30.dp), clip = false)
-                    .background(Color(0xF51D1D20), RoundedCornerShape(30.dp))
-                    .border(1.dp, Color.White.copy(alpha = .12f), RoundedCornerShape(30.dp))
+                    // Dock teinté violet-nuit (MovvizSurfaceStrong), pas un
+                    // gris neutre : cohérent avec le fond général de l'app
+                    // et la charte mobile (esquisse fournie 2026-09), qui
+                    // montre une pilule sombre mais jamais neutre.
+                    .background(MovvizSurfaceStrong.copy(alpha = .96f), RoundedCornerShape(30.dp))
+                    .border(1.dp, MovvizBrand.copy(alpha = .22f), RoundedCornerShape(30.dp))
                     .padding(horizontal = 6.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(3.dp),

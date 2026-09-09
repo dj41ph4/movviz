@@ -43,7 +43,11 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import com.movviz.nx.mobile.AppViewModel
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Brush
 import com.movviz.nx.mobile.data.GenreDto
+import com.movviz.nx.mobile.ui.theme.MovvizBrand
+import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkDim
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
@@ -209,9 +213,11 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
         onClick = onClick,
         modifier = Modifier.onFocusChanged { focused = it.isFocused }.tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
+        // Pilule active en dégradé de marque, comme les autres bascules de
+        // la charte mobile (toggle Suggestions/Bibliothèque, Films/Séries).
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (active) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
-            focusedContainerColor = Color.White.copy(alpha = 0.26f),
+            containerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.06f),
+            focusedContainerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.14f),
             contentColor = if (active) Color.White else MovvizInkSoft,
             focusedContentColor = Color.White,
         ),
@@ -219,11 +225,18 @@ private fun SortChip(label: String, active: Boolean, onClick: () -> Unit) {
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape = shape),
         ),
     ) {
-        Text(
-            text = label,
-            style = TextStyle(fontSize = 13.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
-        )
+        Box(
+            modifier = Modifier.then(
+                if (active) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+                else Modifier,
+            ),
+        ) {
+            Text(
+                text = label,
+                style = TextStyle(fontSize = 13.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
+                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+            )
+        }
     }
 }
 
@@ -281,19 +294,28 @@ private fun CatalogGenreChip(label: String, active: Boolean, onClick: () -> Unit
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
+        // Pilule de genre sélectionnée : dégradé de marque plutôt qu'un
+        // aplat blanc neutre — même langage que les autres bascules.
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (active) MovvizInk.copy(alpha = 0.9f) else MovvizInk.copy(alpha = 0.08f),
+            containerColor = if (active) Color.Transparent else MovvizInk.copy(alpha = 0.08f),
             contentColor = if (active) Color.White else MovvizInk,
         ),
         border = ClickableSurfaceDefaults.border(
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
         ),
     ) {
-        Text(
-            text = label,
-            style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (focused || active) Color.White else MovvizInkSoft),
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
+        Box(
+            modifier = Modifier.then(
+                if (active) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+                else Modifier,
+            ),
+        ) {
+            Text(
+                text = label,
+                style = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = if (focused || active) Color.White else MovvizInkSoft),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            )
+        }
     }
 }
 

@@ -3,20 +3,27 @@ package com.movviz.nx.mobile.ui.theme
 import androidx.compose.ui.graphics.Color
 
 // ────────────────────────────────────────────────────────────────
-// Netflix-inspired palette — pure black background, minimal accent.
-// Movviz brand colors are reserved for CTAs and progress bars only;
-// the rest of the UI is black/white/gray, like Netflix.
+// Identité Movviz — fond bleu-nuit/violet profond (jamais neutre),
+// aligné sur la palette web (src/app/globals.css : --color-void/
+// --color-surface/--color-brand). La charte mobile (esquisse fournie
+// 2026-09) confirme ce fond teinté violet plutôt qu'un noir Netflix
+// neutre : les cartes et rangées restent sombres et calmes, mais la
+// teinte de fond porte la marque même quand aucun accent n'est visible.
 // ────────────────────────────────────────────────────────────────
 
-// Brand — accent, not background. Used sparingly on CTAs and progress.
-val MovvizBrand = Color(0xFF7C5CFF)
+// Brand — accent ET signature de fond (dégradés CTA, indicateurs actifs).
+// Valeur alignée sur --color-brand du thème sombre web (#7c3aed).
+val MovvizBrand = Color(0xFF7C3AED)
 val MovvizBrand2 = Color(0xFFC04BFF)
 val MovvizBrandGlow = Color(0xFFA06BFF)
 
-// Surfaces — Netflix uses TRUE BLACK. Cards sit on near-black.
-val MovvizBackground = Color(0xFF000000)
-val MovvizSurface = Color(0xFF0D0D0D)
-val MovvizSurfaceStrong = Color(0xFF141414)
+// Surfaces — bleu-nuit/violet profond, jamais un noir neutre. Mêmes valeurs
+// que --color-void/--color-abyss/--color-surface/--color-surface-2 côté web.
+val MovvizBackground = Color(0xFF0B1026)
+val MovvizAbyss = Color(0xFF0E1330)
+val MovvizSurface = Color(0xFF131836)
+val MovvizSurfaceStrong = Color(0xFF1A1F3D)
+val MovvizLine = Color(0xFF1E2440)
 
 // Text hierarchy — white for titles, progressively dimmer for secondary.
 val MovvizInk = Color(0xFFFFFFFF)

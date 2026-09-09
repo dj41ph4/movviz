@@ -33,6 +33,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -49,6 +50,13 @@ import com.movviz.nx.mobile.ui.home.MediaHubMode
 import com.movviz.nx.mobile.ui.home.MediaHubToggleRow
 import com.movviz.nx.mobile.ui.home.TitleRow
 import com.movviz.nx.mobile.ui.home.TvTitleCard
+import androidx.compose.ui.graphics.Brush
+import com.movviz.nx.mobile.ui.theme.MovvizAmber
+import com.movviz.nx.mobile.ui.theme.MovvizBrand
+import com.movviz.nx.mobile.ui.theme.MovvizBrand2
+import com.movviz.nx.mobile.ui.theme.MovvizCyan
+import com.movviz.nx.mobile.ui.theme.MovvizDown
+import com.movviz.nx.mobile.ui.theme.MovvizFlowMagenta
 import com.movviz.nx.mobile.ui.theme.MovvizInk
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.tvFocusLift
@@ -267,6 +275,14 @@ fun DiscoverScreen(
                     onFocusedCard = { viewModel.requestHeroLogo(if (it.isMovie) "movie" else "series", it.tmdbId) },
                 )
             }
+            if (genres.isNotEmpty()) {
+                item(contentType = "mood-row") {
+                    DiscoverMoodRow(
+                        genres = genres,
+                        onSelect = { genreId, label -> onOpenGenre(wantedType, genreId, label) },
+                    )
+                }
+            }
             // Rangées logo "Plateformes"/"Studios" en tout bas — même contenu
             // et même ordre que LogoRow sur le Discover desktop, indépendant
             // du toggle Films/Séries (voir loadDiscoverLogos()). Seule la
@@ -368,9 +384,11 @@ private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit) {
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
+        // Dégradé de marque plein sur l'onglet actif — même traitement que
+        // MediaHubToggleChip, cohérent avec les pilules de la charte mobile.
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (active) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
-            focusedContainerColor = Color.White.copy(alpha = 0.26f),
+            containerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.06f),
+            focusedContainerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.14f),
             contentColor = if (active) Color.White else MovvizInkSoft,
             focusedContentColor = Color.White,
         ),
@@ -378,11 +396,18 @@ private fun ToggleChip(label: String, active: Boolean, onClick: () -> Unit) {
             focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape = shape),
         ),
     ) {
-        Text(
-            text = label,
-            style = TextStyle(fontSize = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-        )
+        Box(
+            modifier = Modifier.then(
+                if (active) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+                else Modifier,
+            ),
+        ) {
+            Text(
+                text = label,
+                style = TextStyle(fontSize = 14.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.SemiBold),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+            )
+        }
     }
 }
 
@@ -521,6 +546,90 @@ private fun DiscoverLogoTileFallback(name: String, dark: Boolean, focused: Boole
         ),
         maxLines = 2,
     )
+}
+
+/** "Selon votre humeur" — port direct de MOOD_TILES (src/app/discover/page.tsx) :
+ *  chaque humeur pointe vers un genre TMDb RÉEL, résolu par nom dans la liste
+ *  de genres déjà chargée pour le type de média actif (movie/series n'ont pas
+ *  toujours les mêmes genres — ex. pas de "Horreur" côté séries — d'où la
+ *  résolution par nom avec repli plutôt que des ids figés). Faute de vraie
+ *  photo par humeur (charte : jamais d'image inventée/volée), chaque tuile
+ *  affiche un dégradé construit à partir d'une couleur DÉJÀ définie dans
+ *  Color.kt — pas de nouvelle couleur one-off, pas de nouvelle donnée.
+ *  Une humeur sans genre résolu pour le type courant est simplement omise. */
+private data class MoodTile(val key: String, val label: String, val names: List<String>, val color: Color)
+
+private val MOOD_TILES = listOf(
+    MoodTile("adventure", "Aventure", listOf("Aventure"), MovvizBrand2),
+    MoodTile("relax", "Détente", listOf("Familial", "Comédie"), MovvizCyan),
+    MoodTile("thrill", "Frissons", listOf("Horreur", "Mystère"), MovvizDown),
+    MoodTile("emotion", "Émotion", listOf("Drame", "Romance"), MovvizFlowMagenta),
+    MoodTile("laugh", "Rire", listOf("Comédie"), MovvizAmber),
+    MoodTile("inspire", "Inspiration", listOf("Documentaire"), MovvizBrand),
+)
+
+@Composable
+private fun DiscoverMoodRow(genres: List<GenreDto>, onSelect: (genreId: String, label: String) -> Unit) {
+    val resolved = remember(genres) {
+        MOOD_TILES.mapNotNull { mood ->
+            val match = genres.firstOrNull { g -> mood.names.any { it.equals(g.name, ignoreCase = true) } }
+            match?.let { Triple(mood, it.id.toString(), it.name) }
+        }
+    }
+    if (resolved.isEmpty()) return
+    Column(modifier = Modifier.padding(bottom = 32.dp)) {
+        Text(
+            text = "Selon votre humeur",
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(start = 52.dp, bottom = 12.dp),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(start = 52.dp, end = 52.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            items(resolved, key = { (mood, _, _) -> "mood-${mood.key}" }) { (mood, genreId, genreLabel) ->
+                DiscoverMoodTile(label = mood.label, color = mood.color, onClick = { onSelect(genreId, genreLabel) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscoverMoodTile(label: String, color: Color, onClick: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(16.dp)
+    Surface(
+        onClick = onClick,
+        modifier = Modifier
+            .tvFocusLift(focused, shape = shape, maxScale = 1.05f)
+            .onFocusChanged { focused = it.isFocused }
+            .tvPointerClick(onClick),
+        shape = ClickableSurfaceDefaults.shape(shape = shape),
+        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
+        border = ClickableSurfaceDefaults.border(
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
+        ),
+    ) {
+        Box(
+            modifier = Modifier
+                .width(132.dp)
+                .height(64.dp)
+                .background(
+                    Brush.linearGradient(listOf(color.copy(alpha = 0.85f), color.copy(alpha = 0.35f))),
+                    shape,
+                )
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Text(
+                text = label,
+                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+    }
 }
 
 @Composable

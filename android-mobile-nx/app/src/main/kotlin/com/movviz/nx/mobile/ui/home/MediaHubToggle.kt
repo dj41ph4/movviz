@@ -1,6 +1,8 @@
 package com.movviz.nx.mobile.ui.home
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,6 +23,8 @@ import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import com.movviz.nx.mobile.ui.theme.MovvizBrand
+import com.movviz.nx.mobile.ui.theme.MovvizBrand2
 import com.movviz.nx.mobile.ui.theme.MovvizInkSoft
 import com.movviz.nx.mobile.ui.theme.tvPointerClick
 
@@ -73,9 +78,12 @@ private fun MediaHubToggleChip(
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
+        // L'onglet actif porte le dégradé de marque plein (rose→violet),
+        // comme les pilules "Découverte/Films/Séries" de la charte mobile —
+        // pas un simple aplat blanc translucide.
         colors = ClickableSurfaceDefaults.colors(
-            containerColor = if (active) Color.White.copy(alpha = 0.20f) else Color.White.copy(alpha = 0.06f),
-            focusedContainerColor = Color.White.copy(alpha = 0.26f),
+            containerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.06f),
+            focusedContainerColor = if (active) Color.Transparent else Color.White.copy(alpha = 0.14f),
             contentColor = if (active) Color.White else MovvizInkSoft,
             focusedContentColor = Color.White,
         ),
@@ -86,11 +94,18 @@ private fun MediaHubToggleChip(
             ),
         ),
     ) {
-        Text(
-            text = label,
-            color = if (active || focused) Color.White else MovvizInkSoft,
-            fontSize = 15.sp,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
-        )
+        Box(
+            modifier = Modifier.then(
+                if (active) Modifier.background(Brush.linearGradient(listOf(MovvizBrand, MovvizBrand2)), shape)
+                else Modifier,
+            ),
+        ) {
+            Text(
+                text = label,
+                color = if (active || focused) Color.White else MovvizInkSoft,
+                fontSize = 15.sp,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 9.dp),
+            )
+        }
     }
 }
