@@ -478,6 +478,7 @@ export const fr = {
     cardsNew: "Nouveautés",
     cardsTopMovies: "Top films",
     cardsTopSeries: "Top séries",
+    moodTitle: "Choisir selon votre humeur",
     rowRecommended: "Suggestions pour vous",
     rowRecommendedTop: "Sélection pour vous",
     rowTrendingPopular: "Tendances & populaires",

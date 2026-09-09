@@ -25,7 +25,25 @@ import { ANIME_GENRE_ID, TEEN_GENRE_ID } from "@/lib/metadata/genreTaxonomy";
 import type { DashboardLayout } from "@/lib/dashboard/types";
 import {
   Search, Plus, Check, Loader2, Star, Film, Tv, KeyRound, X, ChevronRight, ChevronDown, Calendar, Clock, CalendarCheck, Info,
+  Compass, Sun, Ghost, Heart, Laugh, Sparkles,
 } from "lucide-react";
+
+/**
+ * "Choisir selon votre humeur" — pas une nouvelle donnée inventée : chaque
+ * humeur pointe vers un genre TMDb réel, résolu par nom dans la liste déjà
+ * chargée pour le type de média actif (movie/series ont des jeux de genres
+ * différents chez TMDb — ex. pas de "Horreur" côté séries — d'où la
+ * résolution par nom avec repli, plutôt que des ids figés qui casseraient
+ * silencieusement en changeant d'onglet).
+ */
+const MOOD_TILES = [
+  { key: "adventure", label: "Aventure", icon: Compass, names: ["Aventure"] },
+  { key: "relax", label: "Détente", icon: Sun, names: ["Familial", "Comédie"] },
+  { key: "thrill", label: "Frissons", icon: Ghost, names: ["Horreur", "Mystère"] },
+  { key: "emotion", label: "Émotion", icon: Heart, names: ["Drame", "Romance"] },
+  { key: "laugh", label: "Rire", icon: Laugh, names: ["Comédie"] },
+  { key: "inspire", label: "Inspiration", icon: Sparkles, names: ["Documentaire"] },
+] as const;
 
 const SORT_OPTIONS = ["popularity.desc", "vote_average.desc", "primary_release_date.desc"] as const;
 
@@ -571,6 +589,30 @@ function DiscoverPageInner() {
         <>
           {!isBrowsing && catalogHero && <CatalogHero result={catalogHero} />}
           {genreHero && <CatalogHero result={genreHero} label={selectedGenreName ?? undefined} />}
+
+          {!isBrowsing && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-bold text-ink">{t("discover.moodTitle")}</h2>
+              <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-6">
+                {MOOD_TILES.map((mood) => {
+                  const match = genres.find((g) => mood.names.some((name) => g.name.toLowerCase() === name.toLowerCase()));
+                  const Icon = mood.icon;
+                  return (
+                    <button
+                      key={mood.key}
+                      type="button"
+                      disabled={!match}
+                      onClick={() => match && setGenre(String(match.id))}
+                      className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/8 bg-white/[0.03] py-4 text-sm font-semibold text-ink-soft backdrop-blur transition-colors hover:border-brand/30 hover:bg-white/[0.06] hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+                    >
+                      <Icon className="h-5 w-5 text-brand-glow" />
+                      {mood.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-2">
             <input

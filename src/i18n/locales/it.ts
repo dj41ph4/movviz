@@ -480,6 +480,7 @@ export const it: Dictionary = {
     cardsNew: "Nuove uscite",
     cardsTopMovies: "Film migliori",
     cardsTopSeries: "Serie migliori",
+    moodTitle: "Scegli in base all'umore",
     rowRecommended: "Consigliati per te",
     rowRecommendedTop: "Selezione per te",
     rowTrendingPopular: "Tendenze & popolari",

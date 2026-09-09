@@ -480,6 +480,7 @@ export const nl: Dictionary = {
     cardsNew: "Nieuwe releases",
     cardsTopMovies: "Topfilms",
     cardsTopSeries: "Topseries",
+    moodTitle: "Kies op stemming",
     rowRecommended: "Aanbevolen voor jou",
     rowRecommendedTop: "Jouw selectie",
     rowTrendingPopular: "Trending & populair",
