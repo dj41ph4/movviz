@@ -36,17 +36,35 @@ import {
  * différents chez TMDb — ex. pas de "Horreur" côté séries — d'où la
  * résolution par nom avec repli, plutôt que des ids figés qui casseraient
  * silencieusement en changeant d'onglet).
+ *
+ * `colorVar` pointe vers une variable de couleur DÉJÀ définie dans
+ * globals.css (palette Movviz existante) — pas de nouvelle couleur one-off.
+ * Faute de vraie photo par humeur (charte : jamais d'image inventée/volée),
+ * chaque tuile obtient un dégradé distinct construit à partir de cette
+ * variable, façon "genre tile" Netflix.
  */
 const MOOD_TILES = [
-  { key: "adventure", label: "Aventure", icon: Compass, names: ["Aventure"] },
-  { key: "relax", label: "Détente", icon: Sun, names: ["Familial", "Comédie"] },
-  { key: "thrill", label: "Frissons", icon: Ghost, names: ["Horreur", "Mystère"] },
-  { key: "emotion", label: "Émotion", icon: Heart, names: ["Drame", "Romance"] },
-  { key: "laugh", label: "Rire", icon: Laugh, names: ["Comédie"] },
-  { key: "inspire", label: "Inspiration", icon: Sparkles, names: ["Documentaire"] },
+  { key: "adventure", label: "Aventure", icon: Compass, names: ["Aventure"], colorVar: "--color-brand-2" },
+  { key: "relax", label: "Détente", icon: Sun, names: ["Familial", "Comédie"], colorVar: "--color-cyan" },
+  { key: "thrill", label: "Frissons", icon: Ghost, names: ["Horreur", "Mystère"], colorVar: "--color-down" },
+  { key: "emotion", label: "Émotion", icon: Heart, names: ["Drame", "Romance"], colorVar: "--color-magenta" },
+  { key: "laugh", label: "Rire", icon: Laugh, names: ["Comédie"], colorVar: "--color-amber" },
+  { key: "inspire", label: "Inspiration", icon: Sparkles, names: ["Documentaire"], colorVar: "--color-brand" },
 ] as const;
 
 const SORT_OPTIONS = ["popularity.desc", "vote_average.desc", "primary_release_date.desc"] as const;
+
+/** "Durée" filter — real TMDb `with_runtime.gte/lte` params (discoverByFilters
+ *  in tmdb.ts), movies only: TMDb's TV discover endpoint has no runtime
+ *  filter at all, so this dropdown is hidden on the Séries tab rather than
+ *  shown disabled/non-functional. */
+const DURATION_OPTIONS = [
+  { key: "", minRuntime: undefined as number | undefined, maxRuntime: undefined as number | undefined },
+  { key: "under90", minRuntime: undefined, maxRuntime: 90 },
+  { key: "90to120", minRuntime: 90, maxRuntime: 120 },
+  { key: "over120", minRuntime: 121, maxRuntime: undefined },
+] as const;
+type DurationKey = (typeof DURATION_OPTIONS)[number]["key"];
 
 interface LogoTile {
   id: number;
@@ -105,21 +123,29 @@ function DiscoverPageInner() {
     const name = searchParams.get("watchProviderName");
     return id && name ? { id, name } : null;
   });
-  const [genreMenuOpen, setGenreMenuOpen] = useState(false);
-  const genreMenuRef = useRef<HTMLDivElement>(null);
+  const [duration, setDuration] = useState<DurationKey>(() => {
+    const d = searchParams.get("duration");
+    return DURATION_OPTIONS.some((o) => o.key === d) ? (d as DurationKey) : "";
+  });
+  // Filtres repensés (esquisse "Découverte") : Genres / Humeur / Durée /
+  // Plateformes partagent une seule pile de menus déroulants — un unique
+  // state + un unique listener de clic extérieur plutôt que 4 copies du
+  // même boilerplate.
+  const [openMenu, setOpenMenu] = useState<null | "genre" | "mood" | "duration" | "platform">(null);
+  const filterRowRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!genreMenuOpen) return;
+    if (!openMenu) return;
     const onClick = (e: MouseEvent) => {
-      if (genreMenuRef.current && !genreMenuRef.current.contains(e.target as Node)) setGenreMenuOpen(false);
+      if (filterRowRef.current && !filterRowRef.current.contains(e.target as Node)) setOpenMenu(null);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setGenreMenuOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpenMenu(null); };
     document.addEventListener("mousedown", onClick);
     window.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onClick);
       window.removeEventListener("keydown", onKey);
     };
-  }, [genreMenuOpen]);
+  }, [openMenu]);
 
   // Browse view — paginated grid, used for search and any active filter/tile selection.
   const [results, setResults] = useState<MetaSearchResult[]>([]);
@@ -138,7 +164,7 @@ function DiscoverPageInner() {
   // DiscoverCard's "add to library" shape at all).
   const [personResults, setPersonResults] = useState<MetaPersonSearchResult[]>([]);
 
-  const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!watchProvider || !!rowCategory;
+  const isBrowsing = !!q.trim() || !!genre || !!year || sort !== "popularity.desc" || !!company || !!watchProvider || !!rowCategory || !!duration;
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Panel titre coulissant (remplace la navigation vers /title/...) — partagé
@@ -155,13 +181,14 @@ function DiscoverPageInner() {
     if (sort !== "popularity.desc") p.set("sort", sort); else p.delete("sort");
     if (company) { p.set("company", company.id); p.set("companyName", company.name); } else { p.delete("company"); p.delete("companyName"); }
     if (watchProvider) { p.set("watchProvider", watchProvider.id); p.set("watchProviderName", watchProvider.name); } else { p.delete("watchProvider"); p.delete("watchProviderName"); }
+    if (duration) p.set("duration", duration); else p.delete("duration");
     if (rowCategory) p.set("row", rowCategory); else p.delete("row");
     const qs = p.toString();
     if (qs !== searchParams.toString()) {
       router.push(pathname + (qs ? "?" + qs : ""), { scroll: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, mediaType, genre, year, sort, company, watchProvider, rowCategory, router, pathname]);
+  }, [q, mediaType, genre, year, sort, company, watchProvider, duration, rowCategory, router, pathname]);
 
   // The search box now lives in the nav rail (Sidebar), not on this page —
   // typing there pushes a new `?q=` while this page is already mounted
@@ -239,6 +266,7 @@ function DiscoverPageInner() {
     setSort("popularity.desc");
     setCompany(null);
     setWatchProvider(null);
+    setDuration("");
     setRowCategory(null);
     setRowCategoryMeta(undefined);
   };
@@ -250,6 +278,7 @@ function DiscoverPageInner() {
     setSort("popularity.desc");
     setCompany(null);
     setWatchProvider(null);
+    setDuration("");
     setRowCategory(key);
     setRowCategoryMeta(meta);
   };
@@ -279,7 +308,11 @@ function DiscoverPageInner() {
     setCompany(null);
     setRowCategory(null);
     setRowCategoryMeta(undefined);
-    setGenreMenuOpen(false);
+    // Durée n'existe pas côté API TMDb pour les séries (voir DURATION_OPTIONS) —
+    // le dropdown disparaît sur cet onglet, donc son filtre ne doit pas
+    // rester actif "invisible" en arrière-plan.
+    if (mt === "series") setDuration("");
+    setOpenMenu(null);
     setMediaType(mt);
   };
 
@@ -320,7 +353,7 @@ function DiscoverPageInner() {
     }, q.trim() ? 350 : 0);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, watchProvider, rowCategory]);
+  }, [configured, isBrowsing, q, mediaType, genre, year, sort, company, watchProvider, duration, rowCategory]);
 
   // Same debounce as the browse grid above, kept as its own request since
   // people aren't paginated/filtered the same way movies and series are.
@@ -392,6 +425,11 @@ function DiscoverPageInner() {
         if (sort) params.set("sort", sort);
         if (company) params.set("company", company.id);
         if (watchProvider) params.set("watchProvider", watchProvider.id);
+        if (duration && mediaType === "movie") {
+          const opt = DURATION_OPTIONS.find((o) => o.key === duration);
+          if (opt?.minRuntime) params.set("minRuntime", String(opt.minRuntime));
+          if (opt?.maxRuntime) params.set("maxRuntime", String(opt.maxRuntime));
+        }
         url = `/api/metadata/discover?${params.toString()}`;
       }
       const res = await fetch(url, { cache: "no-store" });
@@ -506,6 +544,19 @@ function DiscoverPageInner() {
   // Wait for the new page before rendering so a previous genre never flashes.
   const genreHero = genre && !q.trim() && !loading ? results[0] ?? null : null;
 
+  // Shared by the "Choisir selon votre humeur" tiles and the "Humeur" filter
+  // dropdown — each mood resolved once to a real TMDb genre id (or null when
+  // the current media type has none by that name, e.g. no "Horreur" on TV).
+  const moodResolved = MOOD_TILES.map((mood) => ({
+    ...mood,
+    genreId: genres.find((g) => mood.names.some((name) => g.name.toLowerCase() === name.toLowerCase()))?.id ?? null,
+  }));
+  const selectedMoodLabel = moodResolved.find((m) => m.genreId != null && String(m.genreId) === genre)?.label ?? null;
+  const selectedDurationLabel = duration === "under90" ? t("discover.durationUnder90")
+    : duration === "90to120" ? t("discover.duration90To120")
+      : duration === "over120" ? t("discover.durationOver120")
+        : null;
+
   return (
     <div className="mx-auto max-w-[1500px] space-y-8">
       {/* Hero immersif façon esquisse "Découverte" — même composant que le
@@ -521,7 +572,7 @@ function DiscoverPageInner() {
         description={t("discover.description")}
       >
         {configured && (
-          <div className="flex flex-wrap items-center gap-1.5">
+          <div ref={filterRowRef} className="flex flex-wrap items-center gap-1.5">
             {(["movie", "series"] as const).map((mt) => (
               <button
                 key={mt}
@@ -534,10 +585,12 @@ function DiscoverPageInner() {
                 {mt === "movie" ? t("common.movies") : t("common.series")}
               </button>
             ))}
-            <div className="relative" ref={genreMenuRef}>
+
+            {/* Genres */}
+            <div className="relative">
               <button
                 type="button"
-                onClick={() => setGenreMenuOpen((open) => !open)}
+                onClick={() => setOpenMenu((m) => (m === "genre" ? null : "genre"))}
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
                   genre ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"
@@ -545,11 +598,11 @@ function DiscoverPageInner() {
               >
                 {selectedGenreName ?? t("discover.genres")} <ChevronDown className="h-3.5 w-3.5" />
               </button>
-              {genreMenuOpen && (
+              {openMenu === "genre" && (
                 <div className="absolute right-0 top-full z-30 mt-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl">
                   <button
                     type="button"
-                    onClick={() => { setGenre(""); setGenreMenuOpen(false); }}
+                    onClick={() => { setGenre(""); setOpenMenu(null); }}
                     className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", !genre ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
                   >
                     {t("common.all")}
@@ -558,7 +611,7 @@ function DiscoverPageInner() {
                     <button
                       type="button"
                       key={item.id}
-                      onClick={() => { setGenre(item.id); setGenreMenuOpen(false); }}
+                      onClick={() => { setGenre(item.id); setOpenMenu(null); }}
                       className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", genre === item.id ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
                     >
                       {item.name}
@@ -569,7 +622,7 @@ function DiscoverPageInner() {
                     <button
                       type="button"
                       key={item.id}
-                      onClick={() => { setGenre(String(item.id)); setGenreMenuOpen(false); }}
+                      onClick={() => { setGenre(String(item.id)); setOpenMenu(null); }}
                       className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", genre === String(item.id) ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
                     >
                       {item.name}
@@ -578,6 +631,123 @@ function DiscoverPageInner() {
                 </div>
               )}
             </div>
+
+            {/* Humeur — même résolution genre que les tuiles "Choisir selon
+                votre humeur" plus bas ; un raccourci vers le même filtre. */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOpenMenu((m) => (m === "mood" ? null : "mood"))}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
+                  selectedMoodLabel ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"
+                )}
+              >
+                {selectedMoodLabel ?? t("discover.moodFilter")} <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+              {openMenu === "mood" && (
+                <div className="absolute right-0 top-full z-30 mt-2 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl">
+                  <button
+                    type="button"
+                    onClick={() => { setGenre(""); setOpenMenu(null); }}
+                    className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", !selectedMoodLabel ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
+                  >
+                    {t("discover.allMoods")}
+                  </button>
+                  {moodResolved.map((mood) => {
+                    const MoodIcon = mood.icon;
+                    const active = mood.genreId != null && String(mood.genreId) === genre;
+                    return (
+                      <button
+                        type="button"
+                        key={mood.key}
+                        disabled={mood.genreId == null}
+                        onClick={() => { if (mood.genreId != null) setGenre(String(mood.genreId)); setOpenMenu(null); }}
+                        className={cn(
+                          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm disabled:cursor-not-allowed disabled:opacity-30",
+                          active ? "brand-gradient text-white" : "text-ink-soft hover:bg-white/5 hover:text-ink"
+                        )}
+                      >
+                        <MoodIcon className="h-3.5 w-3.5 shrink-0" /> {mood.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Durée — mediaType==="movie" only, TMDb n'a pas de filtre de
+                durée côté séries (voir DURATION_OPTIONS). */}
+            {mediaType === "movie" && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setOpenMenu((m) => (m === "duration" ? null : "duration"))}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
+                    duration ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"
+                  )}
+                >
+                  {selectedDurationLabel ?? t("discover.durationFilter")} <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                {openMenu === "duration" && (
+                  <div className="absolute right-0 top-full z-30 mt-2 w-52 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl">
+                    {DURATION_OPTIONS.map((opt) => (
+                      <button
+                        type="button"
+                        key={opt.key || "all"}
+                        onClick={() => { setDuration(opt.key); setOpenMenu(null); }}
+                        className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", duration === opt.key ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
+                      >
+                        {opt.key === "" ? t("discover.allDurations")
+                          : opt.key === "under90" ? t("discover.durationUnder90")
+                            : opt.key === "90to120" ? t("discover.duration90To120")
+                              : t("discover.durationOver120")}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Plateformes — même state que la rangée de logos "Plateformes"
+                plus bas (setWatchProvider), juste un accès plus rapide sans
+                scroller. */}
+            {watchProviderTiles.length > 0 && (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setOpenMenu((m) => (m === "platform" ? null : "platform"))}
+                  className={cn(
+                    "flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-semibold transition-colors",
+                    watchProvider ? "brand-gradient text-white" : "glass text-ink-soft hover:text-ink"
+                  )}
+                >
+                  {watchProvider?.name ?? t("discover.watchProviders")} <ChevronDown className="h-3.5 w-3.5" />
+                </button>
+                {openMenu === "platform" && (
+                  <div className="absolute right-0 top-full z-30 mt-2 max-h-80 w-56 overflow-y-auto rounded-xl border border-white/10 bg-[#171522]/98 p-1.5 shadow-2xl backdrop-blur-xl">
+                    <button
+                      type="button"
+                      onClick={() => { setWatchProvider(null); setOpenMenu(null); }}
+                      className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", !watchProvider ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
+                    >
+                      {t("discover.allPlatforms")}
+                    </button>
+                    {watchProviderTiles.map((tile) => (
+                      <button
+                        type="button"
+                        key={tile.id}
+                        onClick={() => { setWatchProvider({ id: String(tile.id), name: tile.name }); setOpenMenu(null); }}
+                        className={cn("w-full rounded-lg px-3 py-2 text-left text-sm", String(tile.id) === watchProvider?.id ? "bg-white/10 text-ink" : "text-ink-soft hover:bg-white/5 hover:text-ink")}
+                      >
+                        {tile.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </PageHeader>
@@ -596,20 +766,32 @@ function DiscoverPageInner() {
           {!isBrowsing && (
             <div className="space-y-3">
               <h2 className="text-lg font-bold text-ink">{t("discover.moodTitle")}</h2>
-              <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-6">
-                {MOOD_TILES.map((mood) => {
-                  const match = genres.find((g) => mood.names.some((name) => g.name.toLowerCase() === name.toLowerCase()));
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+                {moodResolved.map((mood) => {
                   const Icon = mood.icon;
+                  const disabled = mood.genreId == null;
                   return (
                     <button
                       key={mood.key}
                       type="button"
-                      disabled={!match}
-                      onClick={() => match && setGenre(String(match.id))}
-                      className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border border-white/8 bg-white/[0.03] py-4 text-sm font-semibold text-ink-soft backdrop-blur transition-colors hover:border-brand/30 hover:bg-white/[0.06] hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+                      disabled={disabled}
+                      onClick={() => mood.genreId != null && setGenre(String(mood.genreId))}
+                      className="group relative flex aspect-[4/3] items-end overflow-hidden rounded-2xl border border-white/10 text-left shadow-lg transition-transform duration-200 hover:-translate-y-0.5 hover:border-white/25 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:translate-y-0"
+                      style={{
+                        background:
+                          `radial-gradient(circle at 25% 15%, color-mix(in oklab, var(${mood.colorVar}) 65%, transparent), transparent 60%), ` +
+                          `linear-gradient(155deg, color-mix(in oklab, var(${mood.colorVar}) 45%, #0b1026) 0%, #0b1026 100%)`,
+                      }}
                     >
-                      <Icon className="h-5 w-5 text-brand-glow" />
-                      {mood.label}
+                      <Icon
+                        aria-hidden
+                        className="pointer-events-none absolute -right-3 -top-3 h-20 w-20 opacity-25 transition-transform duration-300 group-hover:scale-110 group-hover:opacity-35"
+                        style={{ color: `var(${mood.colorVar})` }}
+                      />
+                      <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/5 to-transparent" />
+                      <span className="relative z-10 m-2.5 flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 text-xs font-bold text-white backdrop-blur-sm">
+                        <Icon className="h-3.5 w-3.5" /> {mood.label}
+                      </span>
                     </button>
                   );
                 })}
@@ -636,6 +818,9 @@ function DiscoverPageInner() {
             </select>
             {company && (
               <FilterChip label={company.name} onClear={() => setCompany(null)} />
+            )}
+            {duration && (
+              <FilterChip label={selectedDurationLabel ?? ""} onClear={() => setDuration("")} />
             )}
             {watchProvider && (
               <FilterChip label={watchProvider.name} onClear={() => setWatchProvider(null)} />
@@ -1228,6 +1413,7 @@ function DiscoverCard({
           rating={result.rating}
           badge={cardBadge}
           year={result.year}
+          overview={result.overview}
           inLibrary={!!status}
         />
         <button

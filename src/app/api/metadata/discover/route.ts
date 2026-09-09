@@ -30,6 +30,8 @@ export async function GET(req: NextRequest) {
       sort: searchParams.get("sort") ?? undefined,
       company: searchParams.get("company") ?? undefined,
       watchProvider: searchParams.get("watchProvider") ?? undefined,
+      maxRuntime: searchParams.get("maxRuntime") ? Number(searchParams.get("maxRuntime")) || undefined : undefined,
+      minRuntime: searchParams.get("minRuntime") ? Number(searchParams.get("minRuntime")) || undefined : undefined,
     },
     page
   );

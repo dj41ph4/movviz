@@ -649,6 +649,8 @@ export interface DiscoverFilters {
   originCountries?: string[]; // with_origin_country — user's Discover continent preference
   /** with_runtime.lte — movies only, TMDb's TV discover endpoint has no runtime filter (episode length isn't a fixed per-show fact the way movie runtime is). */
   maxRuntime?: number;
+  /** with_runtime.gte — movies only, same caveat as maxRuntime. Used for the "plus de 2h" duration filter. */
+  minRuntime?: number;
 }
 
 const DATE_FIELD: Record<"movie" | "series", string> = { movie: "primary_release_date", series: "first_air_date" };
@@ -680,6 +682,7 @@ export async function discoverByFilters(
     params.with_origin_country = filters.originCountries.join("|");
   }
   if (filters.maxRuntime && type === "movie") params["with_runtime.lte"] = String(filters.maxRuntime);
+  if (filters.minRuntime && type === "movie") params["with_runtime.gte"] = String(filters.minRuntime);
   // Sorting by rating alone surfaces obscure titles with a single 10/10 vote;
   // TMDb's own "top rated" needs a minimum sample size to mean anything.
   if (sortBy === "vote_average.desc") params["vote_count.gte"] = "200";
