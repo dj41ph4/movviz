@@ -15,7 +15,7 @@ import { usePendingRequests } from "@/lib/requests/usePendingRequests";
 import { usePendingUsers } from "@/lib/auth/usePendingUsers";
 import { useActiveDownloads } from "@/lib/downloads/useActiveDownloads";
 import { useAutoUpdate } from "@/lib/settings/useAutoUpdate";
-import { ChevronDown, ClipboardList, Download, Loader2, X } from "lucide-react";
+import { ChevronDown, ClipboardList, Download, Loader2, ShieldCheck, X } from "lucide-react";
 
 interface UpdateInfo {
   currentVersion: string;
@@ -141,6 +141,28 @@ export function Sidebar({ version }: { version: string }) {
           <NavRow key={item.href} item={item} pathname={pathname} liveCount={0} pulseBadge={pulseBadge} />
         ))}
       </nav>
+
+      {/* Compte utilisateur — avatar + nom + rôle, comme dans la charte.
+          Pas de notion d'abonnement "Premium" ici : Movviz est gratuit et
+          auto-hébergé (voir README), le rôle (Admin/Utilisateur) est
+          l'équivalent honnête de ce badge. */}
+      {user && (
+        <Link
+          href="/profile"
+          className="group flex items-center gap-2.5 rounded-xl px-2 py-2 transition-colors hover:bg-white/5"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full brand-gradient text-xs font-black text-white">
+            {user.username.slice(0, 2).toUpperCase()}
+          </span>
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-sm font-semibold text-ink">{user.username}</div>
+            <div className="flex items-center gap-1 text-[11px] font-medium text-ink-dim">
+              <ShieldCheck className="h-3 w-3 text-brand-glow" />
+              {user.role === "admin" ? t("auth.admin") : t("auth.user")}
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* Version + Update button */}
       <div className="flex flex-col gap-2 pt-2 border-t border-white/5">

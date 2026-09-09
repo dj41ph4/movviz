@@ -6,10 +6,10 @@
 
 @theme {
   /* Core surfaces */
-  --color-void: #05060b;
-  --color-abyss: #080a14;
-  --color-surface: #0d1020;
-  --color-surface-2: #12162a;
+  --color-void: #0b1026;
+  --color-abyss: #0e1330;
+  --color-surface: #131836;
+  --color-surface-2: #1a1f3d;
   --color-line: #1e2440;
 
   /* Text */
@@ -18,7 +18,7 @@
   --color-ink-dim: #6b7099;
 
   /* Brand — electric violet → magenta → cyan */
-  --color-brand: #7c5cff;
+  --color-brand: #7c3aed;
   --color-brand-2: #c04bff;
   --color-brand-glow: #a06bff;
   --color-cyan: #34e2ff;
@@ -527,7 +527,11 @@ body {
 }
 
 .brand-gradient {
-  background: linear-gradient(120deg, var(--color-brand), var(--color-brand-2), var(--color-magenta));
+  /* Rose → violet (pas violet → rose) : c'est le sens que montre la charte
+     graphique (mark, boutons, sidebar) — inversé ici sans toucher aux
+     variables --color-brand/--color-magenta elles-mêmes, utilisées seules
+     ailleurs dans l'app. */
+  background: linear-gradient(120deg, var(--color-magenta), var(--color-brand-2), var(--color-brand));
 }
 
 .glow-brand {

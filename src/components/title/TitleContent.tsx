@@ -1423,9 +1423,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                           backdropUrl: backdrop,
                           posterUrl: poster,
                         })}
-                        className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+                        className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
                       >
-                        <Play className="h-4 w-4 fill-black" />
+                        <Play className="h-4 w-4 fill-white" />
                         {usePlayLabelResult.label}
                       </button>
                       )
@@ -1435,9 +1435,9 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                         target="_blank"
                         rel="noreferrer"
                         onClick={(e) => openPlexLink(e, libraryMatch.plexUrl!)}
-                        className="flex h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-bold text-black transition-transform hover:scale-105 active:scale-95"
+                        className="flex h-11 items-center gap-2 rounded-xl brand-gradient px-5 text-sm font-bold text-white transition-transform hover:scale-105 active:scale-95"
                       >
-                        <Play className="h-4 w-4 fill-black" />
+                        <Play className="h-4 w-4 fill-white" />
                         {t("library.watchOnPlex")}
                       </a>
                     ) : null
@@ -1512,8 +1512,8 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                 disabled={watching}
                 title={onWatchlist ? t("watchlist.added") : t("watchlist.add")}
                 className={cn(
-                  "flex h-11 w-11 items-center justify-center rounded-full bg-white/10 backdrop-blur transition-transform hover:scale-110 active:scale-90",
-                  onWatchlist ? "text-brand-glow" : "text-white/80 hover:text-white",
+                  "flex h-11 items-center gap-2 rounded-full border px-4 text-sm font-bold backdrop-blur transition-transform hover:scale-105 active:scale-95",
+                  onWatchlist ? "border-brand-glow/40 text-brand-glow" : "border-white/25 text-white/85 hover:border-white/45 hover:text-white",
                 )}
               >
                 {watching ? (
@@ -1526,6 +1526,7 @@ export function TitleContent({ tmdbId, type }: TitleContentProps) {
                     )}
                   />
                 )}
+                {onWatchlist ? t("watchlist.added") : t("watchlist.add")}
               </button>
               {detail.trailerKey && (
                 <button

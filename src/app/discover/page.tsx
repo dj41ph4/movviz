@@ -1165,7 +1165,6 @@ function DiscoverCard({
       <div className="relative">
         <DashboardPosterCard
           layout="fill"
-          reserveBottomRight
           tmdbId={result.tmdbId}
           type={result.type}
           title={result.title}
@@ -1182,7 +1181,14 @@ function DiscoverCard({
           onClick={(event) => { event.preventDefault(); event.stopPropagation(); void add(); }}
           disabled={adding || !!status}
           title={status ? t("discover.added") : t("discover.addToLibrary")}
-          className={cn("absolute bottom-3 right-3 z-20 flex h-9 w-9 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 disabled:cursor-default disabled:opacity-100", buttonTone)}
+          className={cn(
+            "absolute right-2 z-20 flex h-9 w-9 items-center justify-center rounded-full shadow-lg transition-transform hover:scale-105 disabled:cursor-default disabled:opacity-100",
+            // The status pill (cardBadge, e.g. "Dans 7 jours") already sits
+            // top-right inside DashboardPosterCard — stack this button below
+            // it instead of overlapping when both are present.
+            cardBadge ? "top-11" : "top-2",
+            buttonTone,
+          )}
         >
           <ActionIcon className={cn("h-4 w-4", isBusy && "animate-spin")} />
         </button>
