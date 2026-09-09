@@ -15,9 +15,7 @@ import { PosterRow as SharedPosterRow } from "@/components/media/PosterRow";
 import { TitleMark } from "@/components/media/TitleMark";
 import { useTitleArtworkBatch, type TitleArtworkByKey } from "@/components/media/useTitleArtworkBatch";
 import { DashboardPosterCard } from "@/components/dashboard/DashboardPosterCard";
-import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { AiPickOfTheDay } from "@/components/discover/AiPickOfTheDay";
-import { DEFAULT_DASHBOARD_LAYOUT } from "@/lib/dashboard/types";
 import { TmdbImage } from "@/components/media/TmdbImage";
 import type { MetaSearchResult, MetaPersonSearchResult } from "@/lib/metadata/types";
 import { daysUntil } from "@/lib/library/releaseSchedule";
@@ -559,13 +557,6 @@ function DiscoverPageInner() {
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-8">
-      {/* Hero immersif façon esquisse "Découverte" — même composant que le
-          tableau de bord (backdrop plein cadre, dégradé, bande-annonce),
-          seulement en vue de parcours par défaut : une recherche ou un
-          genre précis a déjà son propre hero contextuel plus bas. */}
-      {!q.trim() && !genre && (
-        <DashboardHero settings={(layoutData?.layout ?? DEFAULT_DASHBOARD_LAYOUT).hero} />
-      )}
       <PageHeader
         eyebrow={t("discover.eyebrow")}
         title={mediaType === "movie" ? t("common.movies") : t("common.series")}
