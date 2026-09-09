@@ -60,6 +60,14 @@ private enum class CatalogSort(val label: String) {
     YEAR("Année"),
 }
 
+/** Tranches de durée réelles (minutes) — filtre "Durée" de l'esquisse mobile,
+ *  Films uniquement (voir TvTitleCard.runtime, jamais renseigné côté série). */
+private enum class CatalogDuration(val label: String, val matches: (Int) -> Boolean) {
+    SHORT("Court (< 90 min)", { it < 90 }),
+    MEDIUM("Moyen (90-120 min)", { it in 90..120 }),
+    LONG("Long (> 120 min)", { it > 120 }),
+}
+
 /**
  * Catalogue Films/Séries TV : bibliothèque complète en grille, triable
  * (nom/note/année) et filtrable par genre — Découverte (DiscoverScreen)
@@ -76,6 +84,10 @@ fun CatalogScreen(
     mode: MediaHubMode = MediaHubMode.LIBRARY,
     onModeChange: (MediaHubMode) -> Unit = {},
     onScrollChanged: (Boolean) -> Unit = {},
+    // Contrôle segmenté Découverte/Films/Séries (esquisse mobile 2026-09) —
+    // secondaire à la barre basse, portrait uniquement. Voir MainScreen.
+    activeHubTab: HomeTab = type,
+    onSelectHubTab: (HomeTab) -> Unit = {},
 ) {
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
     val movies by viewModel.movies.collectAsState()
@@ -90,7 +102,7 @@ fun CatalogScreen(
 
     val cards = remember(movies, series, type) {
         if (type == HomeTab.MOVIES) {
-            movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank()) }
+            movies.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, true, it.year, it.rating, it.genres, it.status, qualityLabel = resolutionLabelForCatalog(it.file?.resolution), hasHdr = !it.file?.hdr.isNullOrBlank(), runtime = it.runtime) }
         } else {
             series.map { TvTitleCard(it.id, it.title, it.posterPath, it.backdropPath, it.tmdbId, false, it.year, it.rating, it.genres) }
         }
@@ -98,10 +110,17 @@ fun CatalogScreen(
 
     var sort by remember(type) { mutableStateOf(CatalogSort.NAME) }
     var selectedGenre by remember(type) { mutableStateOf<CatalogGenreSelection?>(null) }
+    // Filtre durée : uniquement réel pour les films — la fiche série n'a pas
+    // de durée par titre côté API (voir TvTitleCard.runtime, absent des
+    // cartes série ci-dessus). Reste donc null hors films (voir la ligne de
+    // filtres plus bas, qui n'affiche la pilule "Durée" que pour Films).
+    var selectedDuration by remember(type) { mutableStateOf<CatalogDuration?>(null) }
 
-    val filtered = remember(cards, selectedGenre) {
+    val filtered = remember(cards, selectedGenre, selectedDuration) {
         val selection = selectedGenre
-        if (selection == null) cards else cards.filter { cardMatchesCatalogGenre(it, selection) }
+        val byGenre = if (selection == null) cards else cards.filter { cardMatchesCatalogGenre(it, selection) }
+        val duration = selectedDuration
+        if (duration == null) byGenre else byGenre.filter { card -> card.runtime?.let { duration.matches(it) } == true }
     }
     val sorted = remember(filtered, sort) {
         when (sort) {
@@ -125,10 +144,42 @@ fun CatalogScreen(
     // immédiatement visibles en 1080p comme en 4K.
     Column(Modifier.fillMaxSize().padding(
         start = if (compactPortrait) 16.dp else 56.dp,
-        top = if (compactPortrait) 72.dp else 78.dp,
+        top = if (compactPortrait) 12.dp else 78.dp,
         end = if (compactPortrait) 16.dp else 52.dp,
         bottom = if (compactPortrait) 24.dp else 30.dp,
     )) {
+        if (compactPortrait) {
+            MediaHubSegmentedPills(active = activeHubTab, onSelect = onSelectHubTab)
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(12.dp))
+            val genreLabels = remember(genres) { genres.map { it.name } }
+            FilterChipRow(modifier = Modifier.padding(bottom = 4.dp)) {
+                if (genreLabels.isNotEmpty()) {
+                    FilterDropdownChip(
+                        label = "Genres",
+                        options = genreLabels,
+                        selectedLabel = selectedGenre?.label,
+                        onClear = { selectedGenre = null },
+                        onSelectOption = { name ->
+                            val synthetic = SYNTHETIC_GENRES.firstOrNull { it.second == name }
+                            selectedGenre = when {
+                                synthetic != null -> CatalogGenreSelection(synthetic.first, synthetic.second)
+                                else -> genres.firstOrNull { it.name == name }?.let { CatalogGenreSelection(it.id.toString(), it.name) }
+                            }
+                        },
+                    )
+                }
+                if (type == HomeTab.MOVIES) {
+                    FilterDropdownChip(
+                        label = "Durée",
+                        options = CatalogDuration.entries.map { it.label },
+                        selectedLabel = selectedDuration?.label,
+                        onClear = { selectedDuration = null },
+                        onSelectOption = { name -> selectedDuration = CatalogDuration.entries.firstOrNull { it.label == name } },
+                    )
+                }
+            }
+            androidx.compose.foundation.layout.Spacer(modifier = Modifier.height(14.dp))
+        }
         MediaHubToggleRow(
             mode = mode,
             onModeChange = onModeChange,

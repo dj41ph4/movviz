@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.24.93 — September 2026
+
+### NX Mobile
+
+- Vraie refonte structurelle du portrait téléphone (pas seulement des couleurs) : en-tête persistant avec barre de recherche toujours visible (l'ancien portrait n'affichait aucun en-tête), pilules segmentées Découverte/Films/Séries, filtres réels Genres/Humeur/Durée/Plateformes, carte héro à coins arrondis avec badge de note et double bouton Voir/Bande-annonce, chips « Selon votre humeur » en pastilles fines, écran Recherche reconstruit (barre persistante, pilules de type, Suggestions, Tendances du moment, résultats en liste).
+- Navigation basse à 5 onglets et badge de mise à jour inchangés.
+
 ## v1.24.92 — September 2026
 
 ### NX Mobile

@@ -82,6 +82,7 @@ import com.movviz.nx.mobile.ui.discover.RowDetailScreen
 import com.movviz.nx.mobile.ui.home.HomeTab
 import com.movviz.nx.mobile.ui.home.MainScreen
 import com.movviz.nx.mobile.ui.home.NxTopNav
+import com.movviz.nx.mobile.ui.home.PortraitTopHeader
 import com.movviz.nx.mobile.ui.login.LoginScreen
 import com.movviz.nx.mobile.ui.person.PersonScreen
 import com.movviz.nx.mobile.ui.profile.ProfilePickerScreen
@@ -331,10 +332,31 @@ private fun MovvizNavHost(viewModel: AppViewModel) {
     }
 
     val compactPortrait = LocalConfiguration.current.let { it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp }
+    // En-tête portrait persistant (mark + wordmark + avatar + barre de
+    // recherche toujours visible) — esquisse mobile fournie 2026-09. Il ne
+    // remplace jamais NxTopNav (barre TV, jamais affichée en portrait
+    // téléphone : voir la condition !compactPortrait ci-dessous), et reste
+    // cantonné aux 4 onglets couverts par la charte (Accueil/Découverte/
+    // Films/Séries) : Profil/Paramètres gardent leur propre en-tête, non
+    // repris ici faute d'esquisse les couvrant. Masqué pendant la recherche
+    // plein écran, qui porte sa propre barre persistante (voir SearchScreen).
+    val showPortraitHeader = compactPortrait &&
+        currentRoute?.startsWith("home") == true &&
+        !searchOpen &&
+        tab in setOf(HomeTab.HOME, HomeTab.DISCOVER, HomeTab.MOVIES, HomeTab.SERIES)
+    val portraitActiveProfile by viewModel.activeProfile.collectAsState()
     // NX: la navigation est une surcouche haute. Le contenu garde la pleine
     // largeur 16:9, comme Netflix, plutôt que de perdre une colonne à gauche.
     Box(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (showPortraitHeader) {
+                PortraitTopHeader(
+                    activeProfile = portraitActiveProfile,
+                    onSearchClick = { searchOpen = true; tab = HomeTab.HOME },
+                    onAvatarClick = { navController.navigate(ROUTE_PROFILES) { popUpTo(ROUTE_HOME) } },
+                )
+            }
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             if (routeShowsNavRail(currentRoute) && !compactPortrait) {
                 NxTopNav(
                     selected = tab,
@@ -506,9 +528,11 @@ composable(ROUTE_PROFILES) {
                     }
                 },
                 tab = tab,
+                onSelectTab = { newTab -> tab = newTab; searchOpen = false; headerHasScrolled = false },
                 searchOpen = searchOpen,
                 searchQuery = searchQuery,
                 onSearchQueryChange = { searchQuery = it },
+                onSearchCancel = { searchOpen = false; searchQuery = "" },
                 contentFocusRequester = contentFocusRequester,
                 navRailFocusRequester = navRailFocusRequester,
                 onHomeScrollChanged = { headerHasScrolled = it },
@@ -631,6 +655,7 @@ composable(ROUTE_PROFILES) {
         }
         }
             }
+        }
         }
         // Le téléphone ne réutilise pas une barre TV réduite : sur portrait,
         // l'accès principal est une capsule basse tactile. En paysage, cette

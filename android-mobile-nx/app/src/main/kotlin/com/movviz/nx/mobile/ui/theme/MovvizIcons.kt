@@ -399,6 +399,18 @@ val MovvizIconSearch: ImageVector by lazy {
     }
 }
 
+/** Chevron bas — trait rond fin, affordance de sélecteur/dropdown (pilules
+ *  de filtre mobile : Genres/Humeur/Durée/Plateformes). */
+val MovvizIconChevronDown: ImageVector by lazy {
+    movvizIcon("MovvizIconChevronDown") {
+        stroke(width = 2.2f) {
+            moveTo(5.5f, 9f)
+            lineTo(12f, 15.5f)
+            lineTo(18.5f, 9f)
+        }
+    }
+}
+
 /** Réglages — anneau et huit dents lisibles de loin, sans glyphes système. */
 val MovvizIconSettings: ImageVector by lazy {
     movvizIcon("MovvizIconSettings") {

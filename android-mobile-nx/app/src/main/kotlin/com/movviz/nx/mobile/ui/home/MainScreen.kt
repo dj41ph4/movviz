@@ -46,9 +46,17 @@ fun MainScreen(
     onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit = { _, _, _ -> },
     onLoggedOut: () -> Unit,
     tab: HomeTab,
+    // Bascule du contrôle secondaire "Découverte/Films/Séries" affiché dans
+    // Discover/CatalogScreen en portrait (esquisse mobile 2026-09) — distinct
+    // de la barre de navigation basse à 5 entrées, qui reste inchangée.
+    onSelectTab: (HomeTab) -> Unit = {},
     searchOpen: Boolean,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
+    // "Annuler" de la barre de recherche persistante portrait — ferme la
+    // recherche et revient au dernier onglet. Sans effet en paysage/TV (pas
+    // de lien "Annuler" dans ce layout, la barre reste un simple champ).
+    onSearchCancel: () -> Unit = {},
     contentFocusRequester: FocusRequester,
     // Cible HAUT depuis le contenu → NavRail : onglet sélectionné de la
     // barre reçoit le focus quand l'utilisateur appuie sur HAUT alors que
@@ -84,29 +92,33 @@ fun MainScreen(
                 onQueryChange = onSearchQueryChange,
                 showSearchField = true,
                 resultFocusRequester = contentFocusRequester,
+                onCancel = onSearchCancel,
             )
             tab == HomeTab.HOME -> HomeScreen(viewModel = viewModel, onOpenTitle = onOpenTitle, onOpenEpisode = onOpenEpisode, onSeeAllRow = onSeeAllRow, entryFocusRequester = contentFocusRequester, navRailFocusRequester = navRailFocusRequester, onScrollChanged = onHomeScrollChanged)
             // Films et Séries sont désormais chacun un véritable hub : les
             // suggestions de leur type, ou l'inventaire de leur type. Il n'y
             // a plus de découverte séparée qui mélangeait l'intention.
             tab == HomeTab.MOVIES -> MediaHubScreen(
-                viewModel = viewModel, type = HomeTab.MOVIES,
+                viewModel = viewModel, type = HomeTab.MOVIES, activeHubTab = tab,
                 onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
+                onSelectTab = onSelectTab,
                 onScrollChanged = onHomeScrollChanged,
             )
             tab == HomeTab.SERIES -> MediaHubScreen(
-                viewModel = viewModel, type = HomeTab.SERIES,
+                viewModel = viewModel, type = HomeTab.SERIES, activeHubTab = tab,
                 onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
+                onSelectTab = onSelectTab,
                 onScrollChanged = onHomeScrollChanged,
             )
             // État résiduel d'une ancienne navigation : on retombe sur le
             // hub Films plutôt que de présenter un onglet invisible.
             tab == HomeTab.DISCOVER -> MediaHubScreen(
-                viewModel = viewModel, type = HomeTab.MOVIES,
+                viewModel = viewModel, type = HomeTab.MOVIES, activeHubTab = tab,
                 onOpenTitle = onOpenTitle, onSeeAllRow = onSeeAllRow,
                 onOpenGenre = onOpenGenre, entryFocusRequester = contentFocusRequester,
+                onSelectTab = onSelectTab,
                 onScrollChanged = onHomeScrollChanged,
             )
             tab == HomeTab.PROFILE -> ProfileScreen(
@@ -130,6 +142,13 @@ private fun MediaHubScreen(
     onOpenGenre: (mediaType: String, genreId: String, label: String) -> Unit,
     entryFocusRequester: FocusRequester,
     onScrollChanged: (Boolean) -> Unit,
+    // Onglet réel de la barre basse (HOME/DISCOVER/MOVIES/SERIES/PROFILE) —
+    // distinct de `type`, qui vaut toujours MOVIES ou SERIES même quand la
+    // barre basse est sur Découverte (voir le commentaire "État résiduel"
+    // dans MainScreen). Sert uniquement à l'affichage actif du contrôle
+    // segmenté Découverte/Films/Séries.
+    activeHubTab: HomeTab = type,
+    onSelectTab: (HomeTab) -> Unit = {},
 ) {
     var mode by rememberSaveable(type) { mutableStateOf(MediaHubMode.SUGGESTIONS) }
     // Une bascule remplace entièrement la branche Compose (Suggestions ↔
@@ -152,6 +171,8 @@ private fun MediaHubScreen(
             mode = mode,
             onModeChange = { mode = it },
             onScrollChanged = onScrollChanged,
+            activeHubTab = activeHubTab,
+            onSelectHubTab = onSelectTab,
         )
         MediaHubMode.LIBRARY -> CatalogScreen(
             viewModel = viewModel,
@@ -161,6 +182,8 @@ private fun MediaHubScreen(
             mode = mode,
             onModeChange = { mode = it },
             onScrollChanged = onScrollChanged,
+            activeHubTab = activeHubTab,
+            onSelectHubTab = onSelectTab,
         )
     }
 }

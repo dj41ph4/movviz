@@ -47,6 +47,9 @@ import com.movviz.nx.mobile.data.RowMetaDto
 import com.movviz.nx.mobile.ui.home.HeroCarousel
 import com.movviz.nx.mobile.ui.home.HomeTab
 import com.movviz.nx.mobile.ui.home.MediaHubMode
+import com.movviz.nx.mobile.ui.home.MediaHubSegmentedPills
+import com.movviz.nx.mobile.ui.home.FilterChipRow
+import com.movviz.nx.mobile.ui.home.FilterDropdownChip
 import com.movviz.nx.mobile.ui.home.MediaHubToggleRow
 import com.movviz.nx.mobile.ui.home.TitleRow
 import com.movviz.nx.mobile.ui.home.TvTitleCard
@@ -85,7 +88,14 @@ fun DiscoverScreen(
     // Même contrat que l'accueil : le parent rend la surcouche NX opaque dès
     // que le contenu défile derrière elle, puis transparente au sommet.
     onScrollChanged: (Boolean) -> Unit = {},
+    // Contrôle segmenté Découverte/Films/Séries (esquisse mobile 2026-09) —
+    // secondaire à la barre basse, portrait uniquement. Voir MainScreen.
+    activeHubTab: HomeTab = fixedType ?: HomeTab.MOVIES,
+    onSelectHubTab: (HomeTab) -> Unit = {},
 ) {
+    val compactPortrait = androidx.compose.ui.platform.LocalConfiguration.current.let {
+        it.screenWidthDp < 600 && it.screenHeightDp > it.screenWidthDp
+    }
     var selectedType by remember(fixedType) { mutableStateOf(fixedType ?: HomeTab.MOVIES) }
     LaunchedEffect(fixedType) { fixedType?.let { selectedType = it } }
 
@@ -230,13 +240,64 @@ fun DiscoverScreen(
                         .focusable(),
                 )
             }
+            if (fixedType != null && compactPortrait) {
+                item(contentType = "hub-pills") {
+                    MediaHubSegmentedPills(
+                        active = activeHubTab,
+                        onSelect = onSelectHubTab,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                }
+                item(contentType = "filter-row") {
+                    val genreLabels = remember(genres) { genres.map { it.name } }
+                    val providerLabels = remember(watchProviderTiles) { watchProviderTiles.map { it.name } }
+                    val moodLabels = remember(genres) {
+                        MOOD_TILES.mapNotNull { mood -> genres.firstOrNull { g -> mood.names.any { it.equals(g.name, ignoreCase = true) } }?.let { mood.label } }
+                    }
+                    FilterChipRow(modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 4.dp)) {
+                        if (genreLabels.isNotEmpty()) {
+                            FilterDropdownChip(
+                                label = "Genres",
+                                options = genreLabels,
+                                onSelectOption = { name -> genres.firstOrNull { it.name == name }?.let { onOpenGenre(wantedType, it.id.toString(), it.name) } },
+                            )
+                        }
+                        if (moodLabels.isNotEmpty()) {
+                            FilterDropdownChip(
+                                label = "Humeur",
+                                options = moodLabels,
+                                onSelectOption = { label ->
+                                    val mood = MOOD_TILES.firstOrNull { it.label == label }
+                                    val match = mood?.let { m -> genres.firstOrNull { g -> m.names.any { it.equals(g.name, ignoreCase = true) } } }
+                                    if (mood != null && match != null) onOpenGenre(wantedType, match.id.toString(), match.name)
+                                },
+                            )
+                        }
+                        if (providerLabels.isNotEmpty()) {
+                            FilterDropdownChip(
+                                label = "Plateformes",
+                                options = providerLabels,
+                                onSelectOption = { name ->
+                                    watchProviderTiles.firstOrNull { it.name == name }?.let { tile ->
+                                        onSeeAllRow(wantedType, "providerSuggested:${tile.id}", "Suggestion ${tile.name} pour vous")
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
             item(contentType = "type-toggle") {
                 if (fixedType != null) {
                     MediaHubToggleRow(
                         mode = mode,
                         onModeChange = onModeChange,
                         firstFocusRequester = hubFocus,
-                        modifier = Modifier.padding(start = 56.dp, top = 78.dp, bottom = 20.dp),
+                        modifier = Modifier.padding(
+                            start = if (compactPortrait) 16.dp else 56.dp,
+                            top = if (compactPortrait) 8.dp else 78.dp,
+                            bottom = 20.dp,
+                        ),
                     )
                 } else {
                     // Ancien point d'entrée, maintenu proprement : le
@@ -595,10 +656,15 @@ private fun DiscoverMoodRow(genres: List<GenreDto>, onSelect: (genreId: String, 
     }
 }
 
+/** Pilule plate — fond translucide + fine bordure teintée, PAS un aplat
+ *  dégradé plein (esquisse mobile 2026-09 : "Selon votre humeur" est une
+ *  rangée de petites pilules discrètes, pas de blocs colorés géants). La
+ *  couleur de la tuile reste le seul signal (teinte de bordure/texte au
+ *  focus), toujours une des couleurs déjà déclarées dans Color.kt. */
 @Composable
 private fun DiscoverMoodTile(label: String, color: Color, onClick: () -> Unit) {
     var focused by remember { mutableStateOf(false) }
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(50)
     Surface(
         onClick = onClick,
         modifier = Modifier
@@ -606,29 +672,24 @@ private fun DiscoverMoodTile(label: String, color: Color, onClick: () -> Unit) {
             .onFocusChanged { focused = it.isFocused }
             .tvPointerClick(onClick),
         shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(containerColor = Color.Transparent),
+        colors = ClickableSurfaceDefaults.colors(
+            containerColor = color.copy(alpha = 0.14f),
+            focusedContainerColor = color.copy(alpha = 0.26f),
+            contentColor = Color.White,
+            focusedContentColor = Color.White,
+        ),
         border = ClickableSurfaceDefaults.border(
-            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.85f)), shape = shape),
+            border = Border(border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.45f)), shape = shape),
+            focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, color.copy(alpha = 0.9f)), shape = shape),
         ),
     ) {
-        Box(
-            modifier = Modifier
-                .width(132.dp)
-                .height(64.dp)
-                .background(
-                    Brush.linearGradient(listOf(color.copy(alpha = 0.85f), color.copy(alpha = 0.35f))),
-                    shape,
-                )
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Text(
-                text = label,
-                style = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
+        Text(
+            text = label,
+            style = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = Color.White),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
+        )
     }
 }
 
