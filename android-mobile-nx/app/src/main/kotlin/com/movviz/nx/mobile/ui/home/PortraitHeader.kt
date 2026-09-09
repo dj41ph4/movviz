@@ -67,7 +67,7 @@ fun PortraitTopHeader(
             .fillMaxWidth()
             .background(MovvizSurface.copy(alpha = 0.55f))
             .statusBarsPadding()
-            .padding(horizontal = 18.dp, top = 10.dp, bottom = 12.dp),
+            .padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(

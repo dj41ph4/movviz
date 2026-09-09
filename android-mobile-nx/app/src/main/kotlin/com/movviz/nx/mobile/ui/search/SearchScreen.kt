@@ -332,7 +332,7 @@ private fun PortraitSearchScreen(
     Column(Modifier.fillMaxSize().background(com.movviz.nx.mobile.ui.theme.MovvizBackground)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 18.dp, top = 10.dp, bottom = 10.dp),
+            modifier = Modifier.fillMaxWidth().statusBarsPadding().padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 10.dp),
         ) {
             Surface(
                 modifier = Modifier.weight(1f).height(46.dp),

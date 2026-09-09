@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.94 — September 2026
+
+### Corrections
+
+- Corrige la compilation NX Mobile cassée par la refonte v1.24.93 (mauvais paramètres nommés sur `Border(...)` et un overload `Modifier.padding()` inexistant) — aucun APK n'avait pu être généré pour v1.24.93.
+
 ## v1.24.93 — September 2026
 
 ### NX Mobile

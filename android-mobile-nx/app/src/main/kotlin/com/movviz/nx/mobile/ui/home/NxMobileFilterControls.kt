@@ -138,7 +138,7 @@ fun FilterDropdownChip(
                 focusedContentColor = Color.White,
             ),
             border = ClickableSurfaceDefaults.border(
-                focusedBorder = Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape),
+                focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = 0.75f)), shape = shape),
             ),
         ) {
             Row(
