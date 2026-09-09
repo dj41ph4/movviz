@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.24.97 — September 2026
+
+### Découverte (web)
+
+- Refonte du bloc Découverte desktop selon l'esquisse : héro avec 3 vraies actions (Voir maintenant / Ma liste / Bande-annonce), section « Vos plateformes de streaming » remontée juste sous le héro avec les vraies couleurs de marque, badge plateforme sur les cartes des rangées qui appartiennent déjà réellement à une plateforme.
+
+### NX Mobile
+
+- Alignement de la navigation mobile et de la connexion via Plex OAuth.
+- Icônes de lanceur réelles par densité (mdpi à xxxhdpi) sur les 4 apps Android, remplaçant les icônes adaptatives XML.
+
 ## v1.24.96 — September 2026
 
 ### Corrections
