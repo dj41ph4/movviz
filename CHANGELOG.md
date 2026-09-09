@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.95 — September 2026
+
+### Corrections
+
+- Corrige l'alignement de la rangée « Distribution » sur la fiche titre NX Mobile portrait : elle utilisait une marge fixe de 48dp au lieu des 16dp du reste de la fiche (titre, boutons, Titres similaires), ce qui la décalait visiblement vers la droite.
+
 ## v1.24.94 — September 2026
 
 ### Corrections
