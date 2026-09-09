@@ -76,7 +76,7 @@ private fun LibraryTypeTabs(
                     focusedContentColor = Color.White,
                 ),
                 border = ClickableSurfaceDefaults.border(
-                    focusedBorder = Border(androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = .8f)), shape),
+                    focusedBorder = Border(border = androidx.compose.foundation.BorderStroke(2.dp, Color.White.copy(alpha = .8f)), shape = shape),
                 ),
             ) {
                 Text(

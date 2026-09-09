@@ -323,7 +323,7 @@ private fun SearchResultCard(result: SearchResultDto, selected: Boolean, onFocus
 // plutôt que simulée (voir le rapport de fin de tâche).
 // ────────────────────────────────────────────────────────────────
 
-private enum class SearchTypeFilter(val label: String, val apiType: String?) {
+private enum class PortraitSearchTypeFilter(val label: String, val apiType: String?) {
     ALL("Tous", null),
     MOVIE("Films", "movie"),
     SERIES("Séries", "series"),
@@ -341,7 +341,7 @@ private fun PortraitSearchScreen(
     val searching by viewModel.searching.collectAsState()
     val trendingMovies by viewModel.trendingMovies.collectAsState()
     val trendingSeries by viewModel.trendingSeries.collectAsState()
-    var typeFilter by remember { mutableStateOf(SearchTypeFilter.ALL) }
+    var typeFilter by remember { mutableStateOf(PortraitSearchTypeFilter.ALL) }
 
     LaunchedEffect(Unit) { viewModel.loadDiscovery() }
     LaunchedEffect(query) {
@@ -357,9 +357,9 @@ private fun PortraitSearchScreen(
     val suggestions = remember(filteredResults) { filteredResults.take(6) }
     val trending = remember(trendingMovies, trendingSeries, typeFilter) {
         when (typeFilter) {
-            SearchTypeFilter.MOVIE -> trendingMovies
-            SearchTypeFilter.SERIES -> trendingSeries
-            SearchTypeFilter.ALL -> (trendingMovies.take(3) + trendingSeries.take(3))
+            PortraitSearchTypeFilter.MOVIE -> trendingMovies
+            PortraitSearchTypeFilter.SERIES -> trendingSeries
+            PortraitSearchTypeFilter.ALL -> (trendingMovies.take(3) + trendingSeries.take(3))
         }.take(5)
     }
 
@@ -420,7 +420,7 @@ private fun PortraitSearchScreen(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SearchTypeFilter.entries.forEach { option ->
+            PortraitSearchTypeFilter.entries.forEach { option ->
                 SearchTypePill(label = option.label, active = typeFilter == option, onClick = { typeFilter = option })
             }
         }

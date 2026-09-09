@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.24.98 — September 2026
+
+### Corrections
+
+- Corrige la compilation NX Mobile cassée par la fusion v1.24.97 : `Border(...)` avec arguments positionnels au lieu de nommés dans `DiscoverHubScreen.kt`/`LibraryHubScreen.kt`, et une double déclaration de `SearchTypeFilter` dans `SearchScreen.kt` (deux écrans distincts avaient chacun défini leur propre énumération du même nom) — renommée `PortraitSearchTypeFilter` pour l'écran de recherche portrait.
+
 ## v1.24.97 — September 2026
 
 ### Découverte (web)
